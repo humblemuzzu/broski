@@ -189,6 +189,32 @@ class BridgeService {
     });
   }
 
+  Future<List<dynamic>> getLspStatus({String? projectPath}) async {
+    final requestId = _generateRequestId();
+    _socket.send({
+      'type': 'get_lsp_status',
+      'requestId': requestId,
+      if (projectPath != null) 'projectPath': projectPath,
+    });
+    final response = await _waitFor('lsp_status', requestId: requestId);
+    return response['data'] as List<dynamic>? ?? [];
+  }
+
+  Future<Map<String, dynamic>> getSessionContext(
+    String sessionId, {
+    String? projectPath,
+  }) async {
+    final requestId = _generateRequestId();
+    _socket.send({
+      'type': 'get_session_context',
+      'sessionId': sessionId,
+      'requestId': requestId,
+      if (projectPath != null) 'projectPath': projectPath,
+    });
+    final response = await _waitFor('session_context', requestId: requestId);
+    return response['data'] as Map<String, dynamic>? ?? {};
+  }
+
   Future<Map<String, dynamic>> _waitFor(String type, {String? requestId}) {
     return _socket.messages
         .firstWhere((message) {

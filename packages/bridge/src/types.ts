@@ -15,6 +15,8 @@ export type ClientMessage =
   | { type: 'diff'; sessionId: string; projectPath?: string; messageId?: string }
   | { type: 'browse'; path: string; projectPath?: string }
   | { type: 'permission_response'; sessionId: string; permissionId: string; response: PermissionResponse; projectPath?: string }
+  | { type: 'get_lsp_status'; projectPath?: string }
+  | { type: 'get_session_context'; sessionId: string; projectPath?: string }
 
 export type ProjectSummary = {
   id: string
@@ -47,6 +49,32 @@ export type SessionSummary = {
   }
 }
 
+// LSP server status from OpenCode SDK
+export type LspServerStatus = {
+  id: string
+  name: string
+  language?: string
+  status: 'running' | 'stopped' | 'error'
+  root?: string
+}
+
+// Session context info (tokens, cost, etc.) computed from messages
+export type SessionContextInfo = {
+  tokens: {
+    input: number
+    output: number
+    total: number
+    contextWindow: number // Model's max context
+  }
+  cost: number
+  lsp: LspServerStatus[]
+  modifiedFiles: Array<{
+    file: string
+    additions: number
+    deletions: number
+  }>
+}
+
 export type ServerMessage =
   | { type: 'projects'; data: ProjectSummary[]; requestId?: string }
   | { type: 'sessions'; data: SessionSummary[]; projectPath?: string; requestId?: string }
@@ -60,3 +88,5 @@ export type ServerMessage =
   | { type: 'sdk_event'; data: unknown }
   | { type: 'status'; data: { opencodeRunning: boolean } }
   | { type: 'error'; message: string; code?: string; requestId?: string }
+  | { type: 'lsp_status'; data: LspServerStatus[]; requestId?: string }
+  | { type: 'session_context'; data: SessionContextInfo; sessionId: string; requestId?: string }

@@ -201,6 +201,19 @@ export function createBridgeServer(options: BridgeServerOptions): BridgeServer {
           )
           break
         }
+        case 'get_lsp_status': {
+          const lspStatus = await opencode.getLspStatus(message.projectPath)
+          reply({ type: 'lsp_status', data: lspStatus })
+          break
+        }
+        case 'get_session_context': {
+          const context = await opencode.getSessionContext(
+            message.sessionId,
+            message.projectPath,
+          )
+          reply({ type: 'session_context', data: context, sessionId: message.sessionId })
+          break
+        }
         default: {
           reply({ type: 'error', message: 'Unknown message type' })
         }

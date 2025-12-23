@@ -5,7 +5,7 @@ import {
   type Project,
   type Session,
 } from '@opencode-ai/sdk'
-import type { PermissionResponse, ProjectSummary, SessionSummary } from './types'
+import type { LspServerStatus, PermissionResponse, ProjectSummary, SessionContextInfo, SessionSummary } from './types'
 
 const DEFAULT_BASE_URL = 'http://localhost:4096'
 
@@ -205,6 +205,78 @@ export class OpenCodeConnector {
     })()
 
     return controller
+  }
+
+  async getLspStatus(directory?: string): Promise<LspServerStatus[]> {
+    try {
+      const response = await this.client.lsp.list({
+        responseStyle: 'data',
+        query: directory ? { directory } : undefined,
+      })
+      
+      // Map SDK LSP status to our type
+      const lspServers = response ?? []
+      return lspServers.map((server: any) => ({
+        id: server.id ?? server.name ?? 'unknown',
+        name: server.name ?? server.id ?? 'LSP Server',
+        language: server.language,
+        status: server.status === 'running' ? 'running' : server.status === 'error' ? 'error' : 'stopped',
+        root: server.root,
+      }))
+    } catch {
+      // LSP endpoint might not be available
+      return []
+    }
+  }
+
+  async getSessionContext(sessionId: string, directory?: string): Promise<SessionContextInfo> {
+    // Get session messages to compute token totals
+    const messages = await this.getSessionMessages(sessionId, directory)
+    
+    // Get session diff for modified files
+    const diffs = await this.getSessionDiff(sessionId, directory)
+    
+    // Get LSP status
+    const lsp = await this.getLspStatus(directory)
+    
+    // Compute token totals from assistant messages
+    let inputTokens = 0
+    let outputTokens = 0
+    let totalCost = 0
+    
+    for (const msg of (messages ?? [])) {
+      const info = msg?.info
+      if (info?.role === 'assistant') {
+        const tokens = info.tokens
+        if (tokens) {
+          inputTokens += tokens.input ?? 0
+          outputTokens += tokens.output ?? 0
+        }
+        totalCost += info.cost ?? 0
+      }
+    }
+    
+    // Map diffs to modified files
+    const modifiedFiles = (diffs ?? []).map((diff: any) => ({
+      file: diff.file ?? '',
+      additions: diff.additions ?? 0,
+      deletions: diff.deletions ?? 0,
+    }))
+    
+    // Default context window (Claude 3.5 Sonnet has 200k)
+    const contextWindow = 200000
+    
+    return {
+      tokens: {
+        input: inputTokens,
+        output: outputTokens,
+        total: inputTokens + outputTokens,
+        contextWindow,
+      },
+      cost: totalCost,
+      lsp,
+      modifiedFiles,
+    }
   }
 
   private mapProject(project: Project): ProjectSummary {

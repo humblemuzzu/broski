@@ -1,0 +1,187 @@
+// Session context information for sidebar display
+// Includes token usage, cost, LSP servers, and modified files
+
+class SessionContext {
+  const SessionContext({
+    required this.tokens,
+    required this.cost,
+    required this.lsp,
+    required this.modifiedFiles,
+  });
+
+  final TokenUsage tokens;
+  final double cost;
+  final List<LspServer> lsp;
+  final List<ModifiedFile> modifiedFiles;
+
+  factory SessionContext.fromJson(Map<String, dynamic> json) {
+    return SessionContext(
+      tokens: TokenUsage.fromJson(
+        json['tokens'] as Map<String, dynamic>? ?? const {},
+      ),
+      cost: (json['cost'] as num?)?.toDouble() ?? 0.0,
+      lsp: (json['lsp'] as List<dynamic>? ?? [])
+          .map((item) => LspServer.fromJson(item as Map<String, dynamic>))
+          .toList(),
+      modifiedFiles: (json['modifiedFiles'] as List<dynamic>? ?? [])
+          .map((item) => ModifiedFile.fromJson(item as Map<String, dynamic>))
+          .toList(),
+    );
+  }
+
+  /// Empty context for initial state
+  factory SessionContext.empty() {
+    return const SessionContext(
+      tokens: TokenUsage(input: 0, output: 0, total: 0, contextWindow: 200000),
+      cost: 0.0,
+      lsp: [],
+      modifiedFiles: [],
+    );
+  }
+
+  /// Percentage of context window used (0-100)
+  double get contextUsagePercent {
+    if (tokens.contextWindow == 0) return 0;
+    return (tokens.total / tokens.contextWindow * 100).clamp(0, 100);
+  }
+
+  /// Formatted cost string
+  String get formattedCost {
+    if (cost < 0.01) return '\$0.00';
+    return '\$${cost.toStringAsFixed(2)}';
+  }
+}
+
+class TokenUsage {
+  const TokenUsage({
+    required this.input,
+    required this.output,
+    required this.total,
+    required this.contextWindow,
+  });
+
+  final int input;
+  final int output;
+  final int total;
+  final int contextWindow;
+
+  factory TokenUsage.fromJson(Map<String, dynamic> json) {
+    return TokenUsage(
+      input: json['input'] as int? ?? 0,
+      output: json['output'] as int? ?? 0,
+      total: json['total'] as int? ?? 0,
+      contextWindow: json['contextWindow'] as int? ?? 200000,
+    );
+  }
+
+  /// Format token count with K suffix for large numbers
+  String formatCount(int count) {
+    if (count >= 1000) {
+      return '${(count / 1000).toStringAsFixed(1)}K';
+    }
+    return count.toString();
+  }
+}
+
+class LspServer {
+  const LspServer({
+    required this.id,
+    required this.name,
+    required this.status,
+    this.language,
+    this.root,
+  });
+
+  final String id;
+  final String name;
+  final LspStatus status;
+  final String? language;
+  final String? root;
+
+  factory LspServer.fromJson(Map<String, dynamic> json) {
+    return LspServer(
+      id: json['id'] as String? ?? '',
+      name: json['name'] as String? ?? 'LSP Server',
+      status: _parseStatus(json['status'] as String?),
+      language: json['language'] as String?,
+      root: json['root'] as String?,
+    );
+  }
+
+  static LspStatus _parseStatus(String? status) {
+    switch (status) {
+      case 'running':
+        return LspStatus.running;
+      case 'error':
+        return LspStatus.error;
+      default:
+        return LspStatus.stopped;
+    }
+  }
+
+  /// Display name - prefer language, fall back to name
+  String get displayName {
+    if (language != null && language!.isNotEmpty) {
+      return language!;
+    }
+    return name;
+  }
+
+  /// Short root path (just the last directory component)
+  String? get shortRoot {
+    if (root == null) return null;
+    final parts = root!.split('/');
+    if (parts.isEmpty) return root;
+    // Return last two parts for context
+    if (parts.length >= 2) {
+      return '../${parts[parts.length - 1]}';
+    }
+    return parts.last;
+  }
+}
+
+enum LspStatus { running, stopped, error }
+
+class ModifiedFile {
+  const ModifiedFile({
+    required this.file,
+    required this.additions,
+    required this.deletions,
+  });
+
+  final String file;
+  final int additions;
+  final int deletions;
+
+  factory ModifiedFile.fromJson(Map<String, dynamic> json) {
+    return ModifiedFile(
+      file: json['file'] as String? ?? '',
+      additions: json['additions'] as int? ?? 0,
+      deletions: json['deletions'] as int? ?? 0,
+    );
+  }
+
+  /// File name without path
+  String get fileName {
+    final parts = file.split('/');
+    return parts.isNotEmpty ? parts.last : file;
+  }
+
+  /// Short path (last 2-3 components)
+  String get shortPath {
+    final parts = file.split('/');
+    if (parts.length <= 2) return file;
+    // Take last 3 parts max
+    final start = parts.length > 3 ? parts.length - 3 : 0;
+    return parts.sublist(start).join('/');
+  }
+
+  /// Formatted additions (+X)
+  String get formattedAdditions => '+$additions';
+
+  /// Formatted deletions (-X)
+  String get formattedDeletions => '-$deletions';
+
+  /// Has any changes
+  bool get hasChanges => additions > 0 || deletions > 0;
+}
