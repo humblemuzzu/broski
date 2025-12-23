@@ -121,6 +121,8 @@ class _SessionsScreenState extends ConsumerState<SessionsScreen> {
                             child: _SessionCard(
                               session: session,
                               onTap: () => _openSession(session),
+                              onDelete: () => _deleteSession(session),
+                              onRename: () => _showRenameDialog(session),
                             ),
                           );
                         }, childCount: sessions.length),
@@ -152,6 +154,122 @@ class _SessionsScreenState extends ConsumerState<SessionsScreen> {
         builder: (_) => ChatScreen(project: project, session: session),
       ),
     );
+  }
+
+  // Feature 4: Delete session
+  Future<void> _deleteSession(SessionSummary session) async {
+    final confirm = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        backgroundColor: Theme.of(context).colorScheme.surface,
+        title: const Text('Delete Session?'),
+        content: Text(
+          'Are you sure you want to delete "${session.title}"? This action cannot be undone.',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context, false),
+            child: const Text('Cancel'),
+          ),
+          TextButton(
+            onPressed: () => Navigator.pop(context, true),
+            child: const Text(
+              'Delete',
+              style: TextStyle(color: Color(0xFFEF4444)),
+            ),
+          ),
+        ],
+      ),
+    );
+
+    if (confirm != true) return;
+
+    final bridge = ref.read(bridgeServiceProvider);
+    final success = await bridge.deleteSession(
+      session.id,
+      projectPath: session.directory,
+    );
+
+    if (!mounted) return;
+
+    if (success) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Session deleted'),
+          backgroundColor: Color(0xFF1F2128),
+        ),
+      );
+      _refresh();
+    } else {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Failed to delete session'),
+          backgroundColor: Color(0xFFEF4444),
+        ),
+      );
+    }
+  }
+
+  // Feature 5: Rename session
+  Future<void> _showRenameDialog(SessionSummary session) async {
+    final controller = TextEditingController(text: session.title);
+
+    final newTitle = await showDialog<String>(
+      context: context,
+      builder: (context) => AlertDialog(
+        backgroundColor: Theme.of(context).colorScheme.surface,
+        title: const Text('Rename Session'),
+        content: TextField(
+          controller: controller,
+          autofocus: true,
+          decoration: const InputDecoration(
+            hintText: 'Enter new title',
+            border: OutlineInputBorder(),
+          ),
+          onSubmitted: (value) => Navigator.pop(context, value.trim()),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('Cancel'),
+          ),
+          TextButton(
+            onPressed: () => Navigator.pop(context, controller.text.trim()),
+            child: const Text('Save'),
+          ),
+        ],
+      ),
+    );
+
+    if (newTitle == null || newTitle.isEmpty || newTitle == session.title)
+      return;
+
+    final bridge = ref.read(bridgeServiceProvider);
+    try {
+      await bridge.updateSession(
+        session.id,
+        title: newTitle,
+        projectPath: session.directory,
+      );
+
+      if (!mounted) return;
+
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Session renamed to "$newTitle"'),
+          backgroundColor: const Color(0xFF1F2128),
+        ),
+      );
+      _refresh();
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Failed to rename session'),
+          backgroundColor: Color(0xFFEF4444),
+        ),
+      );
+    }
   }
 }
 
@@ -228,12 +346,19 @@ class _ModernHeader extends StatelessWidget {
   }
 }
 
-// Session card
+// Session card with swipe-to-delete and long-press to rename
 class _SessionCard extends StatelessWidget {
-  const _SessionCard({required this.session, required this.onTap});
+  const _SessionCard({
+    required this.session,
+    required this.onTap,
+    required this.onDelete,
+    required this.onRename,
+  });
 
   final SessionSummary session;
   final VoidCallback onTap;
+  final VoidCallback onDelete;
+  final VoidCallback onRename;
 
   String _getProjectName() {
     return session.directory.split('/').where((item) => item.isNotEmpty).last;
@@ -293,90 +418,114 @@ class _SessionCard extends StatelessWidget {
     final theme = Theme.of(context);
     final iconColor = _getIconColor(context);
 
-    return GestureDetector(
-      onTap: onTap,
-      child: Container(
-        padding: const EdgeInsets.all(16),
+    // Feature 4: Swipe to delete with Dismissible
+    return Dismissible(
+      key: Key(session.id),
+      direction: DismissDirection.endToStart,
+      background: Container(
+        alignment: Alignment.centerRight,
+        padding: const EdgeInsets.only(right: 20),
         decoration: BoxDecoration(
-          color: theme.colorScheme.surface,
+          color: const Color(0xFFEF4444),
           borderRadius: BorderRadius.circular(16),
-          border: Border.all(
-            color: theme.colorScheme.onSurface.withValues(alpha: 0.1),
-          ),
         ),
-        child: Row(
-          children: [
-            // Icon with colored background
-            Container(
-              padding: const EdgeInsets.all(12),
-              decoration: BoxDecoration(
-                color: iconColor.withValues(alpha: 0.15),
-                borderRadius: BorderRadius.circular(12),
-              ),
-              child: Icon(_getSessionIcon(), color: iconColor, size: 22),
+        child: const Icon(
+          Icons.delete_outline_rounded,
+          color: Colors.white,
+          size: 24,
+        ),
+      ),
+      confirmDismiss: (_) async {
+        onDelete();
+        return false; // Let the parent handle actual deletion
+      },
+      child: GestureDetector(
+        onTap: onTap,
+        // Feature 5: Long press to rename
+        onLongPress: onRename,
+        child: Container(
+          padding: const EdgeInsets.all(16),
+          decoration: BoxDecoration(
+            color: theme.colorScheme.surface,
+            borderRadius: BorderRadius.circular(16),
+            border: Border.all(
+              color: theme.colorScheme.onSurface.withValues(alpha: 0.1),
             ),
-            const SizedBox(width: 14),
-            // Session info
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    session.title,
-                    style: TextStyle(
-                      color: theme.colorScheme.onSurface,
-                      fontSize: 15,
-                      fontWeight: FontWeight.w600,
+          ),
+          child: Row(
+            children: [
+              // Icon with colored background
+              Container(
+                padding: const EdgeInsets.all(12),
+                decoration: BoxDecoration(
+                  color: iconColor.withValues(alpha: 0.15),
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                child: Icon(_getSessionIcon(), color: iconColor, size: 22),
+              ),
+              const SizedBox(width: 14),
+              // Session info
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      session.title,
+                      style: TextStyle(
+                        color: theme.colorScheme.onSurface,
+                        fontSize: 15,
+                        fontWeight: FontWeight.w600,
+                      ),
+                      maxLines: 2,
+                      overflow: TextOverflow.ellipsis,
                     ),
-                    maxLines: 2,
-                    overflow: TextOverflow.ellipsis,
-                  ),
-                  const SizedBox(height: 6),
-                  Row(
-                    children: [
-                      Icon(
-                        Icons.folder_rounded,
-                        size: 14,
-                        color: theme.colorScheme.onSurface.withValues(
-                          alpha: 0.5,
-                        ),
-                      ),
-                      const SizedBox(width: 4),
-                      Expanded(
-                        child: Text(
-                          _getProjectName(),
-                          style: TextStyle(
-                            color: theme.colorScheme.onSurface.withValues(
-                              alpha: 0.6,
-                            ),
-                            fontSize: 13,
-                          ),
-                          overflow: TextOverflow.ellipsis,
-                        ),
-                      ),
-                      const SizedBox(width: 8),
-                      Text(
-                        _formatDate(session.time.updated),
-                        style: TextStyle(
+                    const SizedBox(height: 6),
+                    Row(
+                      children: [
+                        Icon(
+                          Icons.folder_rounded,
+                          size: 14,
                           color: theme.colorScheme.onSurface.withValues(
                             alpha: 0.5,
                           ),
-                          fontSize: 12,
                         ),
-                      ),
-                    ],
-                  ),
-                ],
+                        const SizedBox(width: 4),
+                        Expanded(
+                          child: Text(
+                            _getProjectName(),
+                            style: TextStyle(
+                              color: theme.colorScheme.onSurface.withValues(
+                                alpha: 0.6,
+                              ),
+                              fontSize: 13,
+                            ),
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                        ),
+                        const SizedBox(width: 8),
+                        Text(
+                          _formatDate(session.time.updated),
+                          style: TextStyle(
+                            color: theme.colorScheme.onSurface.withValues(
+                              alpha: 0.5,
+                            ),
+                            fontSize: 12,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ],
+                ),
               ),
-            ),
-            const SizedBox(width: 8),
-            // Chevron
-            Icon(
-              Icons.chevron_right_rounded,
-              color: theme.colorScheme.onSurface.withValues(alpha: 0.3),
-              size: 22,
-            ),
-          ],
+              const SizedBox(width: 8),
+              // Chevron
+              Icon(
+                Icons.chevron_right_rounded,
+                color: theme.colorScheme.onSurface.withValues(alpha: 0.3),
+                size: 22,
+              ),
+            ],
+          ),
         ),
       ),
     );

@@ -5,9 +5,12 @@ import 'package:google_fonts/google_fonts.dart';
 import '../models/message.dart';
 
 class MessageBubble extends StatelessWidget {
-  const MessageBubble({super.key, required this.message});
+  const MessageBubble({super.key, required this.message, this.onForkFromHere});
 
   final ChatMessage message;
+
+  /// Feature 6: Callback for forking from this message
+  final void Function(String messageId)? onForkFromHere;
 
   @override
   Widget build(BuildContext context) {
@@ -110,117 +113,172 @@ class MessageBubble extends StatelessWidget {
     }
 
     // AI messages - left aligned, subtle styling with markdown support
-    return Align(
-      alignment: Alignment.centerLeft,
-      child: Container(
-        margin: const EdgeInsets.only(right: 50, left: 0, top: 8, bottom: 8),
-        padding: const EdgeInsets.all(18),
-        decoration: BoxDecoration(
-          color: const Color(0xFF1F2128),
-          borderRadius: BorderRadius.circular(20),
-          border: Border.all(color: const Color(0xFF2A2D36), width: 1),
-        ),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            // AI badge - subtle, minimal
-            Row(
-              children: [
-                Container(
-                  width: 24,
-                  height: 24,
-                  decoration: BoxDecoration(
-                    color: const Color(0xFF2A2D36),
-                    borderRadius: BorderRadius.circular(8),
-                  ),
-                  child: const Icon(
-                    Icons.auto_awesome,
-                    size: 14,
-                    color: Color(0xFF6B7280),
-                  ),
-                ),
-                const SizedBox(width: 8),
-                const Spacer(),
-                if (message.isStreaming) _buildStreamingCursor(),
-              ],
-            ),
-            const SizedBox(height: 12),
-
-            // Message text with markdown
-            if (message.text.isEmpty)
-              Text(
-                'Thinking...',
-                style: GoogleFonts.inter(
-                  fontSize: 15,
-                  color: const Color(0xFF71717A),
-                  height: 1.6,
-                  fontStyle: FontStyle.italic,
-                ),
-              )
-            else
-              MarkdownBody(
-                data: message.text,
-                selectable: true,
-                styleSheet: MarkdownStyleSheet(
-                  p: GoogleFonts.inter(
-                    fontSize: 15,
-                    color: const Color(0xFFD4D4D8),
-                    height: 1.6,
-                  ),
-                  h1: GoogleFonts.inter(
-                    fontSize: 20,
-                    fontWeight: FontWeight.w600,
-                    color: const Color(0xFFE4E4E7),
-                    height: 1.4,
-                  ),
-                  h2: GoogleFonts.inter(
-                    fontSize: 18,
-                    fontWeight: FontWeight.w600,
-                    color: const Color(0xFFE4E4E7),
-                    height: 1.4,
-                  ),
-                  h3: GoogleFonts.inter(
-                    fontSize: 16,
-                    fontWeight: FontWeight.w600,
-                    color: const Color(0xFFE4E4E7),
-                    height: 1.4,
-                  ),
-                  strong: const TextStyle(
-                    fontWeight: FontWeight.w600,
-                    color: Color(0xFFE4E4E7),
-                  ),
-                  em: const TextStyle(
-                    fontStyle: FontStyle.italic,
-                    color: Color(0xFFD4D4D8),
-                  ),
-                  code: GoogleFonts.jetBrainsMono(
-                    fontSize: 14,
-                    backgroundColor: const Color(0xFF17181C),
-                    color: const Color(0xFF93C5FD),
-                  ),
-                  codeblockPadding: const EdgeInsets.all(12),
-                  codeblockDecoration: BoxDecoration(
-                    color: const Color(0xFF17181C),
-                    borderRadius: BorderRadius.circular(12),
-                    border: Border.all(color: const Color(0xFF2A2D36)),
-                  ),
-                  listBullet: GoogleFonts.inter(
-                    fontSize: 15,
-                    color: const Color(0xFF71717A),
-                  ),
-                  listIndent: 24,
-                  blockquotePadding: const EdgeInsets.only(left: 16),
-                  blockquoteDecoration: const BoxDecoration(
-                    border: Border(
-                      left: BorderSide(color: Color(0xFF3B82F6), width: 3),
+    // Feature 6: Long press to fork from this message
+    return GestureDetector(
+      onLongPress: onForkFromHere != null && message.id.isNotEmpty
+          ? () => _showForkMenu(context)
+          : null,
+      child: Align(
+        alignment: Alignment.centerLeft,
+        child: Container(
+          margin: const EdgeInsets.only(right: 50, left: 0, top: 8, bottom: 8),
+          padding: const EdgeInsets.all(18),
+          decoration: BoxDecoration(
+            color: const Color(0xFF1F2128),
+            borderRadius: BorderRadius.circular(20),
+            border: Border.all(color: const Color(0xFF2A2D36), width: 1),
+          ),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              // AI badge - subtle, minimal
+              Row(
+                children: [
+                  Container(
+                    width: 24,
+                    height: 24,
+                    decoration: BoxDecoration(
+                      color: const Color(0xFF2A2D36),
+                      borderRadius: BorderRadius.circular(8),
+                    ),
+                    child: const Icon(
+                      Icons.auto_awesome,
+                      size: 14,
+                      color: Color(0xFF6B7280),
                     ),
                   ),
-                  a: const TextStyle(
-                    color: Color(0xFF60A5FA),
-                    decoration: TextDecoration.underline,
+                  const SizedBox(width: 8),
+                  const Spacer(),
+                  if (message.isStreaming) _buildStreamingCursor(),
+                ],
+              ),
+              const SizedBox(height: 12),
+
+              // Message text with markdown
+              if (message.text.isEmpty)
+                Text(
+                  'Thinking...',
+                  style: GoogleFonts.inter(
+                    fontSize: 15,
+                    color: const Color(0xFF71717A),
+                    height: 1.6,
+                    fontStyle: FontStyle.italic,
+                  ),
+                )
+              else
+                MarkdownBody(
+                  data: message.text,
+                  selectable: true,
+                  styleSheet: MarkdownStyleSheet(
+                    p: GoogleFonts.inter(
+                      fontSize: 15,
+                      color: const Color(0xFFD4D4D8),
+                      height: 1.6,
+                    ),
+                    h1: GoogleFonts.inter(
+                      fontSize: 20,
+                      fontWeight: FontWeight.w600,
+                      color: const Color(0xFFE4E4E7),
+                      height: 1.4,
+                    ),
+                    h2: GoogleFonts.inter(
+                      fontSize: 18,
+                      fontWeight: FontWeight.w600,
+                      color: const Color(0xFFE4E4E7),
+                      height: 1.4,
+                    ),
+                    h3: GoogleFonts.inter(
+                      fontSize: 16,
+                      fontWeight: FontWeight.w600,
+                      color: const Color(0xFFE4E4E7),
+                      height: 1.4,
+                    ),
+                    strong: const TextStyle(
+                      fontWeight: FontWeight.w600,
+                      color: Color(0xFFE4E4E7),
+                    ),
+                    em: const TextStyle(
+                      fontStyle: FontStyle.italic,
+                      color: Color(0xFFD4D4D8),
+                    ),
+                    code: GoogleFonts.jetBrainsMono(
+                      fontSize: 14,
+                      backgroundColor: const Color(0xFF17181C),
+                      color: const Color(0xFF93C5FD),
+                    ),
+                    codeblockPadding: const EdgeInsets.all(12),
+                    codeblockDecoration: BoxDecoration(
+                      color: const Color(0xFF17181C),
+                      borderRadius: BorderRadius.circular(12),
+                      border: Border.all(color: const Color(0xFF2A2D36)),
+                    ),
+                    listBullet: GoogleFonts.inter(
+                      fontSize: 15,
+                      color: const Color(0xFF71717A),
+                    ),
+                    listIndent: 24,
+                    blockquotePadding: const EdgeInsets.only(left: 16),
+                    blockquoteDecoration: const BoxDecoration(
+                      border: Border(
+                        left: BorderSide(color: Color(0xFF3B82F6), width: 3),
+                      ),
+                    ),
+                    a: const TextStyle(
+                      color: Color(0xFF60A5FA),
+                      decoration: TextDecoration.underline,
+                    ),
                   ),
                 ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  // Feature 6: Show fork menu on long press
+  void _showForkMenu(BuildContext context) {
+    showModalBottomSheet(
+      context: context,
+      backgroundColor: Colors.transparent,
+      builder: (context) => Container(
+        padding: const EdgeInsets.all(20),
+        decoration: const BoxDecoration(
+          color: Color(0xFF1F2128),
+          borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+        ),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            ListTile(
+              leading: const Icon(
+                Icons.call_split_rounded,
+                color: Color(0xFF3B82F6),
               ),
+              title: const Text(
+                'Fork from here',
+                style: TextStyle(
+                  color: Color(0xFFE4E4E7),
+                  fontWeight: FontWeight.w500,
+                ),
+              ),
+              subtitle: const Text(
+                'Create a new session branch from this point',
+                style: TextStyle(color: Color(0xFF9CA3AF), fontSize: 12),
+              ),
+              onTap: () {
+                Navigator.pop(context);
+                onForkFromHere?.call(message.id);
+              },
+            ),
+            const SizedBox(height: 8),
+            TextButton(
+              onPressed: () => Navigator.pop(context),
+              child: const Text(
+                'Cancel',
+                style: TextStyle(color: Color(0xFF9CA3AF)),
+              ),
+            ),
           ],
         ),
       ),

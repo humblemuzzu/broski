@@ -5,6 +5,8 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../models/message.dart';
 import '../models/session.dart';
+import '../models/todo.dart';
+import '../models/vcs.dart';
 import '../services/bridge_service.dart';
 import 'service_providers.dart';
 
@@ -14,24 +16,42 @@ class ChatSessionState {
     this.projectPath,
     this.messages = const [],
     this.permissions = const [],
+    this.todos = const [],
+    this.vcsInfo,
+    this.isCompacting = false,
+    this.sessionStatus =
+        const SessionStatus.idle(), // Feature 13: Session status
   });
 
   final SessionSummary? session;
   final String? projectPath;
   final List<ChatMessage> messages;
   final List<PermissionRequest> permissions;
+  final List<Todo> todos;
+  final VcsInfo? vcsInfo; // Feature 10: Git branch info
+  final bool isCompacting; // Feature 9: Compaction in progress
+  final SessionStatus
+  sessionStatus; // Feature 13: Session status (idle/busy/retry)
 
   ChatSessionState copyWith({
     SessionSummary? session,
     String? projectPath,
     List<ChatMessage>? messages,
     List<PermissionRequest>? permissions,
+    List<Todo>? todos,
+    VcsInfo? vcsInfo,
+    bool? isCompacting,
+    SessionStatus? sessionStatus,
   }) {
     return ChatSessionState(
       session: session ?? this.session,
       projectPath: projectPath ?? this.projectPath,
       messages: messages ?? this.messages,
       permissions: permissions ?? this.permissions,
+      todos: todos ?? this.todos,
+      vcsInfo: vcsInfo ?? this.vcsInfo,
+      isCompacting: isCompacting ?? this.isCompacting,
+      sessionStatus: sessionStatus ?? this.sessionStatus,
     );
   }
 }
@@ -54,6 +74,7 @@ class ChatSessionNotifier extends StateNotifier<ChatSessionState> {
       projectPath: projectPath,
       messages: const [],
       permissions: const [],
+      todos: const [],
     );
   }
 
@@ -179,6 +200,25 @@ class ChatSessionNotifier extends StateNotifier<ChatSessionState> {
         break;
       case 'session.error':
         _handleSessionError(payload);
+        break;
+      // Feature 1: Todo/Plan Management
+      case 'todo.updated':
+        _handleTodoUpdated(payload);
+        break;
+      // Feature 9: Session Compacted
+      case 'session.compacted':
+        _handleSessionCompacted(payload);
+        break;
+      // Feature 10: VCS Branch Updated
+      case 'vcs.branch.updated':
+        _handleVcsBranchUpdated(payload);
+        break;
+      // Feature 13: Session Status
+      case 'session.status':
+        _handleSessionStatus(payload);
+        break;
+      case 'session.idle':
+        _handleSessionIdle(payload);
         break;
       default:
         developer.log('Unhandled event type: $type', name: 'ChatProvider');
@@ -408,6 +448,91 @@ class ChatSessionNotifier extends StateNotifier<ChatSessionState> {
       error: errorName,
     );
     _addMessage(message);
+  }
+
+  // Feature 1: Todo/Plan Management
+  void _handleTodoUpdated(Map<String, dynamic> payload) {
+    final properties =
+        payload['properties'] as Map<String, dynamic>? ?? const {};
+    final sessionId = properties['sessionID'] as String? ?? '';
+    if (state.session?.id != sessionId) return;
+
+    final todosJson = properties['todos'] as List<dynamic>? ?? [];
+    final todos = todosJson
+        .map((item) => Todo.fromJson(item as Map<String, dynamic>))
+        .toList();
+
+    developer.log('Todos updated: ${todos.length} items', name: 'ChatProvider');
+    state = state.copyWith(todos: todos);
+  }
+
+  /// Update todos from fetched data (called by chat screen)
+  void setTodos(List<Todo> todos) {
+    state = state.copyWith(todos: todos);
+  }
+
+  // Feature 9: Session Compacted
+  void _handleSessionCompacted(Map<String, dynamic> payload) {
+    final properties =
+        payload['properties'] as Map<String, dynamic>? ?? const {};
+    final sessionId = properties['sessionID'] as String? ?? '';
+    if (state.session?.id != sessionId) return;
+
+    developer.log('Session compacted: $sessionId', name: 'ChatProvider');
+    state = state.copyWith(isCompacting: false);
+  }
+
+  /// Set compacting state (called when starting summarize)
+  void setCompacting(bool isCompacting) {
+    state = state.copyWith(isCompacting: isCompacting);
+  }
+
+  // Feature 10: VCS Branch Updated
+  void _handleVcsBranchUpdated(Map<String, dynamic> payload) {
+    final properties =
+        payload['properties'] as Map<String, dynamic>? ?? const {};
+    final branch = properties['branch'] as String?;
+
+    developer.log('VCS branch updated: $branch', name: 'ChatProvider');
+    state = state.copyWith(vcsInfo: VcsInfo(branch: branch));
+  }
+
+  /// Update VCS info from fetched data
+  void setVcsInfo(VcsInfo vcsInfo) {
+    state = state.copyWith(vcsInfo: vcsInfo);
+  }
+
+  // Feature 13: Session Status
+  void _handleSessionStatus(Map<String, dynamic> payload) {
+    final properties =
+        payload['properties'] as Map<String, dynamic>? ?? const {};
+    final sessionId = properties['sessionID'] as String? ?? '';
+    if (state.session?.id != sessionId) return;
+
+    final statusData =
+        properties['status'] as Map<String, dynamic>? ?? const {};
+    final status = SessionStatus.fromJson(statusData);
+
+    developer.log(
+      'Session status updated: ${status.displayString}',
+      name: 'ChatProvider',
+    );
+    state = state.copyWith(sessionStatus: status);
+  }
+
+  void _handleSessionIdle(Map<String, dynamic> payload) {
+    final properties =
+        payload['properties'] as Map<String, dynamic>? ?? const {};
+    final sessionId = properties['sessionID'] as String? ?? '';
+    if (state.session?.id != sessionId) return;
+
+    developer.log('Session became idle', name: 'ChatProvider');
+    state = state.copyWith(sessionStatus: const SessionStatus.idle());
+  }
+
+  /// Update session status from fetched data
+  void setSessionStatus(SessionStatus status) {
+    state = state.copyWith(sessionStatus: status);
   }
 
   void _addMessage(ChatMessage message) {

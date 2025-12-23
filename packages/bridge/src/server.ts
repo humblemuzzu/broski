@@ -171,7 +171,7 @@ export function createBridgeServer(options: BridgeServerOptions): BridgeServer {
           break
         }
         case 'chat': {
-          await opencode.sendPrompt(message.sessionId, message.content, message.projectPath, message.model)
+          await opencode.sendPrompt(message.sessionId, message.content, message.projectPath, message.model, message.agent)
           break
         }
         case 'abort': {
@@ -212,6 +212,261 @@ export function createBridgeServer(options: BridgeServerOptions): BridgeServer {
             message.projectPath,
           )
           reply({ type: 'session_context', data: context, sessionId: message.sessionId })
+          break
+        }
+        // Feature 1: Todo/Plan Management
+        case 'get_todos': {
+          const todos = await opencode.getTodos(message.sessionId, message.projectPath)
+          reply({ type: 'todos', data: todos, sessionId: message.sessionId })
+          break
+        }
+        // Feature 2: Slash Commands
+        case 'list_commands': {
+          const commands = await opencode.listCommands(message.projectPath)
+          reply({ type: 'commands', data: commands })
+          break
+        }
+        case 'execute_command': {
+          const result = await opencode.executeCommand(
+            message.sessionId,
+            message.command,
+            message.arguments,
+            message.projectPath,
+            message.agent,
+            message.model,
+          )
+          reply({ type: 'command_executed', data: result, sessionId: message.sessionId })
+          break
+        }
+        // Feature 3: Agent Switching
+        case 'list_agents': {
+          const agents = await opencode.listAgents(message.projectPath)
+          reply({ type: 'agents', data: agents })
+          break
+        }
+        // Feature 4: Session Delete
+        case 'delete_session': {
+          const deleted = await opencode.deleteSession(message.sessionId, message.projectPath)
+          reply({ type: 'session_deleted', data: deleted, sessionId: message.sessionId })
+          break
+        }
+        // Feature 5: Session Update (Rename)
+        case 'update_session': {
+          const session = await opencode.updateSession(
+            message.sessionId,
+            message.title,
+            message.archived,
+            message.projectPath,
+          )
+          reply({ type: 'session_updated', data: session, sessionId: message.sessionId })
+          break
+        }
+        // Feature 6: Session Fork
+        case 'fork_session': {
+          const session = await opencode.forkSession(
+            message.sessionId,
+            message.messageId,
+            message.projectPath,
+          )
+          reply({ type: 'session_forked', data: session })
+          break
+        }
+        // Feature 7: Message Revert (Undo)
+        case 'revert_message': {
+          const session = await opencode.revertMessage(
+            message.sessionId,
+            message.messageId,
+            message.partId,
+            message.projectPath,
+          )
+          reply({ type: 'message_reverted', data: session, sessionId: message.sessionId })
+          break
+        }
+        case 'unrevert_session': {
+          const session = await opencode.unrevertSession(
+            message.sessionId,
+            message.projectPath,
+          )
+          reply({ type: 'session_unreverted', data: session, sessionId: message.sessionId })
+          break
+        }
+        // Feature 8: Session Share
+        case 'share_session': {
+          const session = await opencode.shareSession(
+            message.sessionId,
+            message.projectPath,
+          )
+          reply({ type: 'session_shared', data: session, sessionId: message.sessionId })
+          break
+        }
+        case 'unshare_session': {
+          const session = await opencode.unshareSession(
+            message.sessionId,
+            message.projectPath,
+          )
+          reply({ type: 'session_unshared', data: session, sessionId: message.sessionId })
+          break
+        }
+        // Feature 9: Session Summarize (Compact)
+        case 'summarize_session': {
+          const success = await opencode.summarizeSession(
+            message.sessionId,
+            message.providerID,
+            message.modelID,
+            message.projectPath,
+          )
+          reply({ type: 'session_summarized', data: success, sessionId: message.sessionId })
+          break
+        }
+        // Feature 10: Git/VCS Information
+        case 'get_vcs': {
+          const vcs = await opencode.getVcsInfo(message.projectPath)
+          reply({ type: 'vcs', data: vcs })
+          break
+        }
+        // Feature 11: File Content Read
+        case 'read_file': {
+          const content = await opencode.readFile(message.path, message.projectPath)
+          reply({ type: 'file_content', data: content, path: message.path })
+          break
+        }
+        // Feature 12: File Search
+        case 'find_files': {
+          const files = await opencode.findFiles(message.query, message.projectPath)
+          reply({ type: 'files_found', data: files })
+          break
+        }
+        case 'find_text': {
+          const results = await opencode.findText(message.pattern, message.include, message.projectPath)
+          reply({ type: 'text_found', data: results })
+          break
+        }
+        case 'find_symbols': {
+          const symbols = await opencode.findSymbols(message.query, message.projectPath)
+          reply({ type: 'symbols_found', data: symbols })
+          break
+        }
+        // Feature 13: Session Status
+        case 'get_session_status': {
+          const status = await opencode.getSessionStatus(message.projectPath)
+          reply({ type: 'session_status', data: status })
+          break
+        }
+        // Feature 14: PTY Terminal Sessions
+        case 'list_pty': {
+          const ptys = await opencode.listPty(message.projectPath)
+          reply({ type: 'pty_list', data: ptys })
+          break
+        }
+        case 'create_pty': {
+          const pty = await opencode.createPty(
+            message.command,
+            message.args,
+            message.cwd,
+            message.title,
+            message.projectPath,
+          )
+          if (pty) {
+            reply({ type: 'pty_created', data: pty })
+          } else {
+            reply({ type: 'error', message: 'Failed to create PTY session' })
+          }
+          break
+        }
+        case 'get_pty': {
+          const pty = await opencode.getPty(message.ptyId, message.projectPath)
+          if (pty) {
+            reply({ type: 'pty', data: pty })
+          } else {
+            reply({ type: 'error', message: 'PTY session not found' })
+          }
+          break
+        }
+        case 'update_pty': {
+          const pty = await opencode.updatePty(
+            message.ptyId,
+            message.title,
+            message.rows,
+            message.cols,
+            message.projectPath,
+          )
+          if (pty) {
+            reply({ type: 'pty_updated', data: pty })
+          } else {
+            reply({ type: 'error', message: 'Failed to update PTY session' })
+          }
+          break
+        }
+        case 'delete_pty': {
+          const deleted = await opencode.deletePty(message.ptyId, message.projectPath)
+          reply({ type: 'pty_deleted', data: deleted, ptyId: message.ptyId })
+          break
+        }
+        // Feature 15: MCP Server Management
+        case 'get_mcp_status': {
+          const status = await opencode.getMcpStatus(message.projectPath)
+          reply({ type: 'mcp_status', data: status })
+          break
+        }
+        case 'connect_mcp': {
+          const connected = await opencode.connectMcp(message.name, message.projectPath)
+          reply({ type: 'mcp_connected', data: connected, name: message.name })
+          break
+        }
+        case 'disconnect_mcp': {
+          const disconnected = await opencode.disconnectMcp(message.name, message.projectPath)
+          reply({ type: 'mcp_disconnected', data: disconnected, name: message.name })
+          break
+        }
+        // Feature 16: Full Provider Management
+        case 'list_all_providers': {
+          const providers = await opencode.listAllProviders(message.projectPath)
+          reply({ type: 'all_providers', data: providers })
+          break
+        }
+        case 'get_provider_auth': {
+          const auth = await opencode.getProviderAuth(message.projectPath)
+          reply({ type: 'provider_auth', data: auth })
+          break
+        }
+        case 'set_api_key': {
+          const success = await opencode.setApiKey(message.providerID, message.key, message.projectPath)
+          reply({ type: 'api_key_set', data: success, providerID: message.providerID })
+          break
+        }
+        // Feature 17: Tool List
+        case 'list_tool_ids': {
+          const toolIds = await opencode.listToolIds(message.projectPath)
+          reply({ type: 'tool_ids', data: toolIds })
+          break
+        }
+        case 'list_tools': {
+          const tools = await opencode.listTools(message.provider, message.model, message.projectPath)
+          reply({ type: 'tools', data: tools })
+          break
+        }
+        // Feature 18: File Status (Git)
+        case 'get_file_status': {
+          const fileStatus = await opencode.getFileStatus(message.projectPath)
+          reply({ type: 'file_status', data: fileStatus })
+          break
+        }
+        // Feature 19: Formatter Status
+        case 'get_formatter_status': {
+          const formatterStatus = await opencode.getFormatterStatus(message.projectPath)
+          reply({ type: 'formatter_status', data: formatterStatus })
+          break
+        }
+        // Feature 20: Session Init
+        case 'init_session': {
+          const initialized = await opencode.initSession(
+            message.sessionId,
+            message.providerID,
+            message.modelID,
+            message.messageID,
+            message.projectPath,
+          )
+          reply({ type: 'session_initialized', data: initialized, sessionId: message.sessionId })
           break
         }
         default: {

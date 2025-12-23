@@ -6,9 +6,20 @@ import 'package:google_fonts/google_fonts.dart';
 import '../models/message.dart';
 
 class DiffViewer extends StatefulWidget {
-  const DiffViewer({super.key, required this.diff});
+  const DiffViewer({
+    super.key,
+    required this.diff,
+    this.onRevert,
+    this.messageId,
+  });
 
   final DiffEntry diff;
+
+  /// Callback for Feature 7: Revert changes for this file
+  final void Function(String messageId)? onRevert;
+
+  /// Message ID this diff belongs to (needed for revert)
+  final String? messageId;
 
   @override
   State<DiffViewer> createState() => _DiffViewerState();
@@ -133,16 +144,36 @@ class _DiffViewerState extends State<DiffViewer> {
               const SizedBox(height: 14),
               _buildDiffContent(),
 
-              // Collapse hint
+              // Actions row
               const SizedBox(height: 12),
-              Center(
-                child: Text(
-                  'Tap to collapse',
-                  style: const TextStyle(
-                    color: Color(0xFF71717A),
-                    fontSize: 12,
+              Row(
+                children: [
+                  // Feature 7: Revert button
+                  if (widget.onRevert != null && widget.messageId != null)
+                    TextButton.icon(
+                      onPressed: () {
+                        widget.onRevert!(widget.messageId!);
+                      },
+                      icon: const Icon(
+                        Icons.undo_rounded,
+                        size: 14,
+                        color: Color(0xFFF59E0B),
+                      ),
+                      label: const Text(
+                        'Revert',
+                        style: TextStyle(
+                          fontSize: 13,
+                          color: Color(0xFFF59E0B),
+                        ),
+                      ),
+                    ),
+                  const Spacer(),
+                  // Collapse hint
+                  const Text(
+                    'Tap to collapse',
+                    style: TextStyle(color: Color(0xFF71717A), fontSize: 12),
                   ),
-                ),
+                ],
               ),
             ],
           ],

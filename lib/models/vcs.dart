@@ -1,0 +1,175 @@
+/// VCS (Version Control System) information from OpenCode
+/// Currently supports Git branch information
+class VcsInfo {
+  const VcsInfo({this.branch});
+
+  final String? branch;
+
+  /// Whether VCS info is available (in a git repo)
+  bool get isAvailable => branch != null && branch!.isNotEmpty;
+
+  factory VcsInfo.fromJson(Map<String, dynamic> json) {
+    return VcsInfo(branch: json['branch'] as String?);
+  }
+
+  Map<String, dynamic> toJson() {
+    return {if (branch != null) 'branch': branch};
+  }
+
+  VcsInfo copyWith({String? branch}) {
+    return VcsInfo(branch: branch ?? this.branch);
+  }
+
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      other is VcsInfo &&
+          runtimeType == other.runtimeType &&
+          branch == other.branch;
+
+  @override
+  int get hashCode => branch.hashCode;
+
+  @override
+  String toString() => 'VcsInfo(branch: $branch)';
+}
+
+// Feature 18: File Status (Git)
+/// Status of a file in version control
+enum FileStatusType {
+  modified,
+  added,
+  deleted,
+  renamed,
+  copied,
+  untracked,
+  ignored,
+}
+
+/// Represents the git status of a file
+class FileStatusInfo {
+  final String path;
+  final FileStatusType status;
+  final bool staged;
+
+  const FileStatusInfo({
+    required this.path,
+    required this.status,
+    required this.staged,
+  });
+
+  factory FileStatusInfo.fromJson(Map<String, dynamic> json) {
+    return FileStatusInfo(
+      path: json['path'] as String? ?? '',
+      status: _parseStatus(json['status'] as String? ?? 'modified'),
+      staged: json['staged'] as bool? ?? false,
+    );
+  }
+
+  static FileStatusType _parseStatus(String s) {
+    switch (s.toLowerCase()) {
+      case 'added':
+        return FileStatusType.added;
+      case 'deleted':
+        return FileStatusType.deleted;
+      case 'renamed':
+        return FileStatusType.renamed;
+      case 'copied':
+        return FileStatusType.copied;
+      case 'untracked':
+        return FileStatusType.untracked;
+      case 'ignored':
+        return FileStatusType.ignored;
+      default:
+        return FileStatusType.modified;
+    }
+  }
+
+  /// Get the filename from the path
+  String get filename => path.split('/').last;
+
+  /// Get display label for status
+  String get statusLabel {
+    switch (status) {
+      case FileStatusType.modified:
+        return 'M';
+      case FileStatusType.added:
+        return 'A';
+      case FileStatusType.deleted:
+        return 'D';
+      case FileStatusType.renamed:
+        return 'R';
+      case FileStatusType.copied:
+        return 'C';
+      case FileStatusType.untracked:
+        return '?';
+      case FileStatusType.ignored:
+        return '!';
+    }
+  }
+
+  /// Get description for status
+  String get statusDescription {
+    switch (status) {
+      case FileStatusType.modified:
+        return 'Modified';
+      case FileStatusType.added:
+        return 'Added';
+      case FileStatusType.deleted:
+        return 'Deleted';
+      case FileStatusType.renamed:
+        return 'Renamed';
+      case FileStatusType.copied:
+        return 'Copied';
+      case FileStatusType.untracked:
+        return 'Untracked';
+      case FileStatusType.ignored:
+        return 'Ignored';
+    }
+  }
+}
+
+// Feature 19: Formatter Status
+/// Status of a formatter
+enum FormatterStatus { active, inactive, error }
+
+/// Information about a code formatter
+class FormatterInfo {
+  final String id;
+  final String name;
+  final String? language;
+  final FormatterStatus status;
+  final String? error;
+
+  const FormatterInfo({
+    required this.id,
+    required this.name,
+    this.language,
+    required this.status,
+    this.error,
+  });
+
+  factory FormatterInfo.fromJson(Map<String, dynamic> json) {
+    return FormatterInfo(
+      id: json['id'] as String? ?? '',
+      name: json['name'] as String? ?? json['id'] as String? ?? '',
+      language: json['language'] as String?,
+      status: _parseStatus(json['status'] as String? ?? 'inactive'),
+      error: json['error'] as String?,
+    );
+  }
+
+  static FormatterStatus _parseStatus(String s) {
+    switch (s.toLowerCase()) {
+      case 'active':
+        return FormatterStatus.active;
+      case 'error':
+        return FormatterStatus.error;
+      default:
+        return FormatterStatus.inactive;
+    }
+  }
+
+  bool get isActive => status == FormatterStatus.active;
+  bool get hasError => status == FormatterStatus.error;
+}

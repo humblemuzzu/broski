@@ -5,7 +5,7 @@ import {
   type Project,
   type Session,
 } from '@opencode-ai/sdk'
-import type { LspServerStatus, PermissionResponse, ProjectSummary, SessionContextInfo, SessionSummary } from './types'
+import type { Agent, Command, FileContent, FileStatusInfo, FormatterInfo, LspServerStatus, McpServerStatus, PermissionResponse, ProviderAuthMethod, ProviderInfo, ProjectSummary, PtySession, SessionContextInfo, SessionStatusInfo, SessionSummary, SymbolResult, TextSearchResult, Todo, ToolInfo, VcsInfo } from './types'
 
 const DEFAULT_BASE_URL = 'http://localhost:4096'
 
@@ -86,6 +86,7 @@ export class OpenCodeConnector {
     content: string,
     directory?: string,
     model?: { providerID: string; modelID: string },
+    agent?: string,
   ) {
     return this.client.session.prompt({
       responseStyle: 'data',
@@ -93,6 +94,7 @@ export class OpenCodeConnector {
       query: directory ? { directory } : undefined,
       body: {
         ...(model ? { model } : {}),
+        ...(agent ? { agent } : {}),
         parts: [
           {
             type: 'text',
@@ -279,6 +281,638 @@ export class OpenCodeConnector {
     }
   }
 
+  // Feature 1: Todo/Plan Management
+  async getTodos(sessionId: string, directory?: string): Promise<Todo[]> {
+    try {
+      const todos = await this.client.session.todo({
+        responseStyle: 'data',
+        path: { id: sessionId },
+        query: directory ? { directory } : undefined,
+      })
+      return (todos ?? []).map((todo: any) => ({
+        id: todo.id ?? '',
+        content: todo.content ?? '',
+        status: todo.status ?? 'pending',
+        priority: todo.priority ?? 'medium',
+      }))
+    } catch {
+      // Session might not have todos
+      return []
+    }
+  }
+
+  // Feature 2: Slash Commands
+  async listCommands(directory?: string): Promise<Command[]> {
+    try {
+      const commands = await this.client.command.list({
+        responseStyle: 'data',
+        query: directory ? { directory } : undefined,
+      })
+      return (commands ?? []).map((cmd: any) => ({
+        name: cmd.name ?? '',
+        description: cmd.description,
+        builtin: cmd.builtin ?? false,
+      }))
+    } catch {
+      // Commands endpoint might not be available
+      return []
+    }
+  }
+
+  async executeCommand(
+    sessionId: string,
+    command: string,
+    args: string,
+    directory?: string,
+    agent?: string,
+    model?: string,
+  ): Promise<unknown> {
+    return this.client.session.command({
+      responseStyle: 'data',
+      path: { id: sessionId },
+      query: directory ? { directory } : undefined,
+      body: {
+        command,
+        arguments: args,
+        ...(agent ? { agent } : {}),
+        ...(model ? { model } : {}),
+      },
+    })
+  }
+
+  // Feature 3: Agent Switching
+  async listAgents(directory?: string): Promise<Agent[]> {
+    try {
+      const agents = await this.client.app.agents({
+        responseStyle: 'data',
+        query: directory ? { directory } : undefined,
+      })
+      return (agents ?? []).map((agent: any) => ({
+        name: agent.name ?? '',
+        description: agent.description,
+        color: agent.color,
+        mode: agent.mode ?? 'primary',
+      }))
+    } catch {
+      // Agents endpoint might not be available
+      return []
+    }
+  }
+
+  // Feature 4: Session Delete
+  async deleteSession(sessionId: string, directory?: string): Promise<boolean> {
+    try {
+      await this.client.session.delete({
+        responseStyle: 'data',
+        path: { id: sessionId },
+        query: directory ? { directory } : undefined,
+      })
+      return true
+    } catch {
+      return false
+    }
+  }
+
+  // Feature 5: Session Update (Rename)
+  async updateSession(
+    sessionId: string,
+    title?: string,
+    archived?: boolean,
+    directory?: string,
+  ): Promise<SessionSummary> {
+    const session = await this.client.session.update({
+      responseStyle: 'data',
+      path: { id: sessionId },
+      query: directory ? { directory } : undefined,
+      body: {
+        ...(title ? { title } : {}),
+        ...(archived !== undefined ? { time: { archived: archived ? Date.now() : undefined } } : {}),
+      },
+    })
+    return this.mapSession(session)
+  }
+
+  // Feature 6: Session Fork
+  async forkSession(sessionId: string, messageId?: string, directory?: string): Promise<SessionSummary> {
+    const session = await this.client.session.fork({
+      responseStyle: 'data',
+      path: { id: sessionId },
+      query: directory ? { directory } : undefined,
+      body: messageId ? { messageID: messageId } : undefined,
+    })
+    return this.mapSession(session)
+  }
+
+  // Feature 7: Message Revert (Undo)
+  async revertMessage(
+    sessionId: string,
+    messageId: string,
+    partId?: string,
+    directory?: string,
+  ): Promise<SessionSummary> {
+    const session = await this.client.session.revert({
+      responseStyle: 'data',
+      path: { id: sessionId },
+      query: directory ? { directory } : undefined,
+      body: {
+        messageID: messageId,
+        ...(partId ? { partID: partId } : {}),
+      },
+    })
+    return this.mapSession(session)
+  }
+
+  async unrevertSession(sessionId: string, directory?: string): Promise<SessionSummary> {
+    const session = await this.client.session.unrevert({
+      responseStyle: 'data',
+      path: { id: sessionId },
+      query: directory ? { directory } : undefined,
+    })
+    return this.mapSession(session)
+  }
+
+  // Feature 8: Session Share
+  async shareSession(sessionId: string, directory?: string): Promise<SessionSummary> {
+    const session = await this.client.session.share({
+      responseStyle: 'data',
+      path: { id: sessionId },
+      query: directory ? { directory } : undefined,
+    })
+    return this.mapSession(session)
+  }
+
+  async unshareSession(sessionId: string, directory?: string): Promise<SessionSummary> {
+    const session = await this.client.session.unshare({
+      responseStyle: 'data',
+      path: { id: sessionId },
+      query: directory ? { directory } : undefined,
+    })
+    return this.mapSession(session)
+  }
+
+  // Feature 9: Session Summarize (Compact)
+  async summarizeSession(
+    sessionId: string,
+    providerID: string,
+    modelID: string,
+    directory?: string,
+  ): Promise<boolean> {
+    try {
+      await this.client.session.summarize({
+        responseStyle: 'data',
+        path: { id: sessionId },
+        query: directory ? { directory } : undefined,
+        body: {
+          providerID,
+          modelID,
+        },
+      })
+      return true
+    } catch {
+      return false
+    }
+  }
+
+  // Feature 10: Git/VCS Information
+  async getVcsInfo(directory?: string): Promise<VcsInfo> {
+    try {
+      const vcs = await this.client.vcs.get({
+        responseStyle: 'data',
+        query: directory ? { directory } : undefined,
+      })
+      return {
+        branch: vcs?.branch,
+      }
+    } catch {
+      // VCS endpoint might not be available or not in a git repo
+      return {}
+    }
+  }
+
+  // Feature 11: File Content Read
+  async readFile(path: string, directory?: string): Promise<FileContent> {
+    try {
+      const result = await this.client.file.read({
+        responseStyle: 'data',
+        query: {
+          path,
+          ...(directory ? { directory } : {}),
+        },
+      })
+      return {
+        content: result?.content ?? '',
+        mime: result?.mime ?? 'text/plain',
+      }
+    } catch {
+      return { content: '', mime: 'text/plain' }
+    }
+  }
+
+  // Feature 12: File Search - Find files by name
+  async findFiles(query: string, directory?: string): Promise<string[]> {
+    try {
+      const result = await this.client.find.files({
+        responseStyle: 'data',
+        query: {
+          query,
+          ...(directory ? { directory } : {}),
+        },
+      })
+      return result ?? []
+    } catch {
+      return []
+    }
+  }
+
+  // Feature 12: File Search - Find text in files (ripgrep)
+  async findText(pattern: string, include?: string, directory?: string): Promise<TextSearchResult[]> {
+    try {
+      const result = await this.client.find.text({
+        responseStyle: 'data',
+        query: {
+          pattern,
+          ...(include ? { include } : {}),
+          ...(directory ? { directory } : {}),
+        },
+      })
+      return (result ?? []).map((item: any) => ({
+        path: item.path?.text ?? item.path ?? '',
+        lineNumber: item.line_number ?? item.lineNumber ?? 0,
+        lineText: item.lines?.text ?? '',
+        matches: (item.submatches ?? []).map((m: any) => ({
+          text: m.match?.text ?? '',
+          start: m.start ?? 0,
+          end: m.end ?? 0,
+        })),
+      }))
+    } catch {
+      return []
+    }
+  }
+
+  // Feature 12: File Search - Find symbols (LSP)
+  async findSymbols(query: string, directory?: string): Promise<SymbolResult[]> {
+    try {
+      const result = await this.client.find.symbols({
+        responseStyle: 'data',
+        query: {
+          query,
+          ...(directory ? { directory } : {}),
+        },
+      })
+      return (result ?? []).map((item: any) => ({
+        name: item.name ?? '',
+        kind: item.kind ?? 'unknown',
+        path: item.path ?? item.location?.uri ?? '',
+        line: item.line ?? item.location?.range?.start?.line ?? 0,
+        column: item.column ?? item.location?.range?.start?.character ?? 0,
+      }))
+    } catch {
+      return []
+    }
+  }
+
+  // Feature 13: Session Status
+  async getSessionStatus(directory?: string): Promise<Record<string, SessionStatusInfo>> {
+    try {
+      const result = await this.client.session.status({
+        responseStyle: 'data',
+        query: directory ? { directory } : undefined,
+      })
+      const mapped: Record<string, SessionStatusInfo> = {}
+      for (const [sessionId, status] of Object.entries(result ?? {})) {
+        const s = status as any
+        if (s.type === 'busy') {
+          mapped[sessionId] = { type: 'busy' }
+        } else if (s.type === 'retry') {
+          mapped[sessionId] = {
+            type: 'retry',
+            attempt: s.attempt ?? 0,
+            message: s.message ?? '',
+            next: s.next ?? 0,
+          }
+        } else {
+          mapped[sessionId] = { type: 'idle' }
+        }
+      }
+      return mapped
+    } catch {
+      return {}
+    }
+  }
+
+  // Feature 14: PTY Terminal Sessions - List
+  async listPty(directory?: string): Promise<PtySession[]> {
+    try {
+      const result = await this.client.pty.list({
+        responseStyle: 'data',
+        query: directory ? { directory } : undefined,
+      })
+      return (result ?? []).map((pty: any) => this.mapPtySession(pty))
+    } catch {
+      return []
+    }
+  }
+
+  // Feature 14: PTY Terminal Sessions - Create
+  async createPty(
+    command?: string,
+    args?: string[],
+    cwd?: string,
+    title?: string,
+    directory?: string,
+  ): Promise<PtySession | null> {
+    try {
+      const result = await this.client.pty.create({
+        responseStyle: 'data',
+        query: directory ? { directory } : undefined,
+        body: {
+          ...(command ? { command } : {}),
+          ...(args ? { args } : {}),
+          ...(cwd ? { cwd } : {}),
+          ...(title ? { title } : {}),
+        },
+      })
+      return result ? this.mapPtySession(result) : null
+    } catch {
+      return null
+    }
+  }
+
+  // Feature 14: PTY Terminal Sessions - Get
+  async getPty(ptyId: string, directory?: string): Promise<PtySession | null> {
+    try {
+      const result = await this.client.pty.get({
+        responseStyle: 'data',
+        path: { id: ptyId },
+        query: directory ? { directory } : undefined,
+      })
+      return result ? this.mapPtySession(result) : null
+    } catch {
+      return null
+    }
+  }
+
+  // Feature 14: PTY Terminal Sessions - Update
+  async updatePty(
+    ptyId: string,
+    title?: string,
+    rows?: number,
+    cols?: number,
+    directory?: string,
+  ): Promise<PtySession | null> {
+    try {
+      const result = await this.client.pty.update({
+        responseStyle: 'data',
+        path: { id: ptyId },
+        query: directory ? { directory } : undefined,
+        body: {
+          ...(title ? { title } : {}),
+          ...(rows && cols ? { size: { rows, cols } } : {}),
+        },
+      })
+      return result ? this.mapPtySession(result) : null
+    } catch {
+      return null
+    }
+  }
+
+  // Feature 14: PTY Terminal Sessions - Delete
+  async deletePty(ptyId: string, directory?: string): Promise<boolean> {
+    try {
+      await this.client.pty.remove({
+        responseStyle: 'data',
+        path: { id: ptyId },
+        query: directory ? { directory } : undefined,
+      })
+      return true
+    } catch {
+      return false
+    }
+  }
+
+  // Feature 15: MCP Server Management - Status
+  async getMcpStatus(directory?: string): Promise<Record<string, McpServerStatus>> {
+    try {
+      const result = await this.client.mcp.status({
+        responseStyle: 'data',
+        query: directory ? { directory } : undefined,
+      })
+      const mapped: Record<string, McpServerStatus> = {}
+      for (const [name, status] of Object.entries(result ?? {})) {
+        const s = status as any
+        mapped[name] = {
+          name,
+          status: s.status ?? 'disconnected',
+          error: s.error,
+          tools: s.tools ?? [],
+          resources: s.resources ?? [],
+        }
+      }
+      return mapped
+    } catch {
+      return {}
+    }
+  }
+
+  // Feature 15: MCP Server Management - Connect
+  async connectMcp(name: string, directory?: string): Promise<boolean> {
+    try {
+      await this.client.mcp.connect({
+        responseStyle: 'data',
+        path: { name },
+        query: directory ? { directory } : undefined,
+      })
+      return true
+    } catch {
+      return false
+    }
+  }
+
+  // Feature 15: MCP Server Management - Disconnect
+  async disconnectMcp(name: string, directory?: string): Promise<boolean> {
+    try {
+      await this.client.mcp.disconnect({
+        responseStyle: 'data',
+        path: { name },
+        query: directory ? { directory } : undefined,
+      })
+      return true
+    } catch {
+      return false
+    }
+  }
+
+  // Feature 16: Full Provider Management - List all providers
+  async listAllProviders(directory?: string): Promise<ProviderInfo> {
+    try {
+      const result = await this.client.provider.list({
+        responseStyle: 'data',
+        query: directory ? { directory } : undefined,
+      })
+      return {
+        all: (result?.all ?? []).map((p: any) => ({
+          id: p.id ?? '',
+          name: p.name ?? p.id ?? '',
+          models: p.models ?? {},
+        })),
+        default: result?.default ?? {},
+        connected: result?.connected ?? [],
+      }
+    } catch {
+      return { all: [], default: {}, connected: [] }
+    }
+  }
+
+  // Feature 16: Full Provider Management - Get auth methods
+  async getProviderAuth(directory?: string): Promise<Record<string, ProviderAuthMethod[]>> {
+    try {
+      const result = await this.client.provider.auth({
+        responseStyle: 'data',
+        query: directory ? { directory } : undefined,
+      })
+      const mapped: Record<string, ProviderAuthMethod[]> = {}
+      for (const [providerId, methods] of Object.entries(result ?? {})) {
+        mapped[providerId] = (methods as any[]).map((m: any) => ({
+          type: m.type ?? 'api',
+          name: m.name ?? '',
+          description: m.description,
+          url: m.url,
+        }))
+      }
+      return mapped
+    } catch {
+      return {}
+    }
+  }
+
+  // Feature 16: Full Provider Management - Set API key
+  async setApiKey(providerID: string, key: string, directory?: string): Promise<boolean> {
+    try {
+      await this.client.auth.set({
+        responseStyle: 'data',
+        path: { provider: providerID },
+        query: directory ? { directory } : undefined,
+        body: {
+          type: 'api',
+          key,
+        },
+      })
+      return true
+    } catch {
+      return false
+    }
+  }
+
+  // Feature 17: Tool List - Get tool IDs
+  async listToolIds(directory?: string): Promise<string[]> {
+    try {
+      const result = await this.client.experimental.toolIds({
+        responseStyle: 'data',
+        query: directory ? { directory } : undefined,
+      })
+      return result ?? []
+    } catch {
+      return []
+    }
+  }
+
+  // Feature 17: Tool List - Get tools with details
+  async listTools(provider: string, model: string, directory?: string): Promise<ToolInfo[]> {
+    try {
+      const result = await this.client.experimental.tools({
+        responseStyle: 'data',
+        query: {
+          provider,
+          model,
+          ...(directory ? { directory } : {}),
+        },
+      })
+      return (result ?? []).map((tool: any) => ({
+        id: tool.id ?? tool.name ?? '',
+        name: tool.name ?? tool.id ?? '',
+        description: tool.description,
+        enabled: tool.enabled ?? true,
+      }))
+    } catch {
+      return []
+    }
+  }
+
+  // Feature 18: File Status (Git)
+  async getFileStatus(directory?: string): Promise<FileStatusInfo[]> {
+    try {
+      const result = await this.client.file.status({
+        responseStyle: 'data',
+        query: directory ? { directory } : undefined,
+      })
+      return (result ?? []).map((f: any) => ({
+        path: f.path ?? '',
+        status: f.status ?? 'modified',
+        staged: f.staged ?? false,
+      }))
+    } catch {
+      return []
+    }
+  }
+
+  // Feature 19: Formatter Status
+  async getFormatterStatus(directory?: string): Promise<FormatterInfo[]> {
+    try {
+      const result = await this.client.formatter.status({
+        responseStyle: 'data',
+        query: directory ? { directory } : undefined,
+      })
+      return (result ?? []).map((f: any) => ({
+        id: f.id ?? '',
+        name: f.name ?? f.id ?? '',
+        language: f.language,
+        status: f.status ?? 'inactive',
+        error: f.error,
+      }))
+    } catch {
+      return []
+    }
+  }
+
+  // Feature 20: Session Init (Create AGENTS.md)
+  async initSession(
+    sessionId: string,
+    providerID: string,
+    modelID: string,
+    messageID: string,
+    directory?: string,
+  ): Promise<boolean> {
+    try {
+      await this.client.session.init({
+        responseStyle: 'data',
+        path: { id: sessionId },
+        query: directory ? { directory } : undefined,
+        body: {
+          providerID,
+          modelID,
+          messageID,
+        },
+      })
+      return true
+    } catch {
+      return false
+    }
+  }
+
+  private mapPtySession(pty: any): PtySession {
+    return {
+      id: pty.id ?? '',
+      title: pty.title ?? 'Terminal',
+      command: pty.command ?? '',
+      args: pty.args ?? [],
+      cwd: pty.cwd ?? '',
+      status: pty.status === 'running' ? 'running' : 'exited',
+      pid: pty.pid ?? 0,
+      exitCode: pty.exitCode,
+    }
+  }
+
   private mapProject(project: Project): ProjectSummary {
     const path = project.worktree
     const name = path.split('/').filter(Boolean).pop() ?? path
@@ -296,8 +930,10 @@ export class OpenCodeConnector {
       title: session.title,
       projectID: session.projectID,
       directory: session.directory,
+      parentID: (session as any).parentID,  // For forked sessions
       time: session.time,
       summary: session.summary,
+      share: (session as any).share,  // Share URL if shared
     }
   }
 }

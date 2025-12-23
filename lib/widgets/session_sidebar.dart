@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 
 import '../models/session_context.dart';
+import '../models/todo.dart';
+import '../models/vcs.dart';
 
 // Color constants matching chat screen design
 const _kBackground = Color(0xFF16161E);
@@ -11,20 +13,26 @@ const _kMuted = Color(0xFF71717A);
 const _kSuccess = Color(0xFF10B981);
 const _kError = Color(0xFFEF4444);
 const _kInfo = Color(0xFF60A5FA);
+const _kWarning = Color(0xFFF59E0B);
 
-/// Session sidebar showing context usage, LSP servers, and modified files
+/// Session sidebar showing plan/todos, context usage, LSP servers, and modified files
 /// Designed to match the OpenCode desktop sidebar shown in the screenshot
 class SessionSidebar extends StatelessWidget {
   const SessionSidebar({
     super.key,
     required this.sessionTitle,
     required this.sessionContext,
+    this.todos = const [],
     this.onClose,
+    this.vcsInfo,
   });
 
   final String sessionTitle;
   final SessionContext sessionContext;
+  final List<Todo> todos;
   final VoidCallback? onClose;
+  // Feature 10: VCS/Git info
+  final VcsInfo? vcsInfo;
 
   @override
   Widget build(BuildContext context) {
@@ -46,6 +54,8 @@ class SessionSidebar extends StatelessWidget {
                 children: [
                   const SizedBox(height: 8),
                   _buildContextSection(),
+                  const SizedBox(height: 20),
+                  _buildPlanSection(),
                   const SizedBox(height: 20),
                   _buildLspSection(),
                   const SizedBox(height: 20),
@@ -82,6 +92,29 @@ class SessionSidebar extends StatelessWidget {
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
                 ),
+                // Feature 10: VCS branch display
+                if (vcsInfo != null && vcsInfo!.isAvailable)
+                  Padding(
+                    padding: const EdgeInsets.only(top: 4),
+                    child: Row(
+                      children: [
+                        const Icon(
+                          Icons.call_split_rounded,
+                          size: 14,
+                          color: _kSuccess,
+                        ),
+                        const SizedBox(width: 6),
+                        Text(
+                          vcsInfo!.branch ?? '',
+                          style: const TextStyle(
+                            fontSize: 13,
+                            color: _kMuted,
+                            fontWeight: FontWeight.w500,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
               ],
             ),
           ),
@@ -156,6 +189,72 @@ class SessionSidebar extends StatelessWidget {
               icon: Icons.attach_money,
             ),
           ],
+        ),
+      ],
+    );
+  }
+
+  Widget _buildPlanSection() {
+    if (todos.isEmpty) {
+      return _SidebarSection(
+        title: 'Plan',
+        icon: Icons.checklist_rounded,
+        children: [
+          Container(
+            padding: const EdgeInsets.all(12),
+            decoration: BoxDecoration(
+              color: _kCard,
+              borderRadius: BorderRadius.circular(8),
+              border: Border.all(color: _kBorder, width: 1),
+            ),
+            child: const Row(
+              children: [
+                Icon(Icons.info_outline, color: _kMuted, size: 16),
+                SizedBox(width: 8),
+                Text(
+                  'No active plan',
+                  style: TextStyle(color: _kMuted, fontSize: 13),
+                ),
+              ],
+            ),
+          ),
+        ],
+      );
+    }
+
+    // Count by status
+    final completed = todos
+        .where((t) => t.status == TodoStatus.completed)
+        .length;
+    final total = todos.length;
+
+    return _SidebarSection(
+      title: 'Plan',
+      icon: Icons.checklist_rounded,
+      trailing: Text(
+        '$completed/$total done',
+        style: const TextStyle(
+          fontSize: 12,
+          color: _kMuted,
+          fontWeight: FontWeight.w500,
+        ),
+      ),
+      children: [
+        Container(
+          decoration: BoxDecoration(
+            color: _kCard,
+            borderRadius: BorderRadius.circular(10),
+            border: Border.all(color: _kBorder, width: 1),
+          ),
+          child: Column(
+            children: [
+              for (int i = 0; i < todos.length; i++) ...[
+                _TodoItem(todo: todos[i]),
+                if (i < todos.length - 1)
+                  const Divider(color: _kBorder, height: 1),
+              ],
+            ],
+          ),
         ),
       ],
     );
@@ -484,6 +583,101 @@ class _ModifiedFileItem extends StatelessWidget {
               fontSize: 12,
               color: _kError,
               fontWeight: FontWeight.w600,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+/// Todo item showing status icon and content
+class _TodoItem extends StatelessWidget {
+  const _TodoItem({required this.todo});
+
+  final Todo todo;
+
+  @override
+  Widget build(BuildContext context) {
+    // Get status icon and color
+    final (icon, color) = switch (todo.status) {
+      TodoStatus.pending => (Icons.radio_button_unchecked, _kMuted),
+      TodoStatus.inProgress => (Icons.play_circle_outline, _kInfo),
+      TodoStatus.completed => (Icons.check_circle, _kSuccess),
+      TodoStatus.cancelled => (Icons.cancel_outlined, _kError),
+    };
+
+    // Get priority indicator
+    final priorityColor = switch (todo.priority) {
+      TodoPriority.high => _kError,
+      TodoPriority.medium => _kWarning,
+      TodoPriority.low => _kMuted,
+    };
+
+    final isCompleted = todo.status == TodoStatus.completed;
+    final isCancelled = todo.status == TodoStatus.cancelled;
+    final isActive = todo.status == TodoStatus.inProgress;
+
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          // Status icon
+          Icon(icon, size: 18, color: color),
+          const SizedBox(width: 10),
+          // Content
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  todo.content,
+                  style: TextStyle(
+                    fontSize: 13,
+                    color: (isCompleted || isCancelled)
+                        ? _kMuted
+                        : _kOnBackground,
+                    fontWeight: isActive ? FontWeight.w600 : FontWeight.w400,
+                    decoration: isCancelled ? TextDecoration.lineThrough : null,
+                  ),
+                  maxLines: 3,
+                  overflow: TextOverflow.ellipsis,
+                ),
+                const SizedBox(height: 4),
+                Row(
+                  children: [
+                    // Priority indicator
+                    if (todo.priority == TodoPriority.high) ...[
+                      Container(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 6,
+                          vertical: 2,
+                        ),
+                        decoration: BoxDecoration(
+                          color: priorityColor.withValues(alpha: 0.15),
+                          borderRadius: BorderRadius.circular(4),
+                        ),
+                        child: Text(
+                          'HIGH',
+                          style: TextStyle(
+                            fontSize: 9,
+                            fontWeight: FontWeight.w600,
+                            color: priorityColor,
+                            letterSpacing: 0.5,
+                          ),
+                        ),
+                      ),
+                      const SizedBox(width: 6),
+                    ],
+                    // Status text
+                    Text(
+                      todo.status.displayName,
+                      style: const TextStyle(fontSize: 11, color: _kMuted),
+                    ),
+                  ],
+                ),
+              ],
             ),
           ),
         ],

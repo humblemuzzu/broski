@@ -7,9 +7,20 @@ import 'package:google_fonts/google_fonts.dart';
 import '../models/message.dart';
 
 class ToolCallCard extends StatefulWidget {
-  const ToolCallCard({super.key, required this.tool});
+  const ToolCallCard({
+    super.key,
+    required this.tool,
+    this.onUndo,
+    this.messageId,
+  });
 
   final ToolCall tool;
+
+  /// Callback for Feature 7: Undo/Revert changes made by this tool
+  final void Function(String messageId, String? partId)? onUndo;
+
+  /// Message ID this tool belongs to (needed for undo)
+  final String? messageId;
 
   @override
   State<ToolCallCard> createState() => _ToolCallCardState();
@@ -130,6 +141,23 @@ class _ToolCallCardState extends State<ToolCallCard> {
                       const Color(0xFF60A5FA),
                     ),
                   const Spacer(),
+                  // Feature 7: Undo button for edit/write tools
+                  if (_canUndo && widget.onUndo != null)
+                    TextButton.icon(
+                      onPressed: _handleUndo,
+                      icon: const Icon(
+                        Icons.undo_rounded,
+                        size: 14,
+                        color: Color(0xFFF59E0B),
+                      ),
+                      label: const Text(
+                        'Undo',
+                        style: TextStyle(
+                          fontSize: 13,
+                          color: Color(0xFFF59E0B),
+                        ),
+                      ),
+                    ),
                   TextButton.icon(
                     onPressed: _copyToClipboard,
                     icon: const Icon(
@@ -417,6 +445,21 @@ class _ToolCallCardState extends State<ToolCallCard> {
           duration: Duration(seconds: 2),
         ),
       );
+    }
+  }
+
+  // Feature 7: Check if this tool can be undone (edit/write tools that are completed)
+  bool get _canUndo {
+    final toolName = widget.tool.name.toLowerCase();
+    final isEditTool = toolName == 'edit' || toolName == 'write';
+    final isCompleted = widget.tool.status == 'completed';
+    return isEditTool && isCompleted && widget.messageId != null;
+  }
+
+  // Feature 7: Handle undo action
+  void _handleUndo() {
+    if (widget.onUndo != null && widget.messageId != null) {
+      widget.onUndo!(widget.messageId!, widget.tool.callId);
     }
   }
 }

@@ -5,7 +5,10 @@ import '../providers/connection_provider.dart';
 import '../providers/service_providers.dart';
 import '../providers/theme_provider.dart';
 import 'device_manager_screen.dart';
+import 'mcp_servers_screen.dart';
 import 'providers_screen.dart';
+import 'terminal_screen.dart';
+import 'tools_screen.dart';
 
 class SettingsScreen extends ConsumerWidget {
   const SettingsScreen({super.key});
@@ -134,6 +137,54 @@ class SettingsScreen extends ConsumerWidget {
                           context,
                           MaterialPageRoute(
                             builder: (_) => const ProvidersScreen(),
+                          ),
+                        ),
+                      ),
+                      _Divider(),
+                      _SettingsTile(
+                        title: 'Terminal Sessions',
+                        subtitle: 'PTY terminal sessions on your Mac',
+                        icon: Icons.terminal_rounded,
+                        trailing: const Icon(
+                          Icons.chevron_right_rounded,
+                          size: 20,
+                        ),
+                        onTap: () => Navigator.push(
+                          context,
+                          MaterialPageRoute(
+                            builder: (_) => const TerminalScreen(),
+                          ),
+                        ),
+                      ),
+                      _Divider(),
+                      _SettingsTile(
+                        title: 'MCP Servers',
+                        subtitle: 'Model Context Protocol servers',
+                        icon: Icons.dns_rounded,
+                        trailing: const Icon(
+                          Icons.chevron_right_rounded,
+                          size: 20,
+                        ),
+                        onTap: () => Navigator.push(
+                          context,
+                          MaterialPageRoute(
+                            builder: (_) => const McpServersScreen(),
+                          ),
+                        ),
+                      ),
+                      _Divider(),
+                      _SettingsTile(
+                        title: 'Tools',
+                        subtitle: 'AI tools (bash, edit, read, etc.)',
+                        icon: Icons.build_rounded,
+                        trailing: const Icon(
+                          Icons.chevron_right_rounded,
+                          size: 20,
+                        ),
+                        onTap: () => Navigator.push(
+                          context,
+                          MaterialPageRoute(
+                            builder: (_) => const ToolsScreen(),
                           ),
                         ),
                       ),
