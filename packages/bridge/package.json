@@ -1,0 +1,19 @@
+{
+  "name": "broski-bridge",
+  "version": "0.1.0",
+  "type": "module",
+  "bin": {
+    "broski-bridge": "./bin/broski-bridge.ts"
+  },
+  "scripts": {
+    "dev": "bun --watch src/index.ts",
+    "start": "bun src/index.ts"
+  },
+  "dependencies": {
+    "@opencode-ai/sdk": "^1.0.190",
+    "qrcode-terminal": "^0.12.0"
+  },
+  "devDependencies": {
+    "@types/bun": "latest"
+  }
+}

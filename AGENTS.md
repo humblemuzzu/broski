@@ -62,3 +62,5 @@ Maintain a single Continuity Ledger for this workspace in "CONTINUITY md'. The l
 - Next:
 - Open questions (UNCONFIRMED if needed) :
 - Working set (files/ids/commands) :
+
+### Don't use mgrep use your own file search and read or whatever tools but not mgrep

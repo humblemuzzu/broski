@@ -9,7 +9,7 @@ The MVP is defined in `docs/mvp/`. That folder is the current source of truth.
 ## MVP Architecture (Short)
 
 ```
-Phone (PWA) <-> broski-bridge (Node) <-> OpenCode (localhost)
+Phone (Flutter) <-> broski-bridge (Bun) <-> OpenCode (localhost)
 ```
 
 Tailscale is the optional remote path for when you are away from home.
@@ -27,11 +27,11 @@ Tailscale is the optional remote path for when you are away from home.
 On your Mac:
 
 ```bash
-npx broski-bridge
+bunx broski-bridge
 ```
 
 On your phone:
 
-1. Open the web app
-2. Scan the QR code
+1. Open the Broski app
+2. Scan the QR code from the bridge terminal
 3. Start coding
