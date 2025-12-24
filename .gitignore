@@ -112,3 +112,6 @@ logs.md
 .env.*
 !.env.example
 config.json
+critical-g-1.md
+critical-g-2.md
+*.xcscheme

@@ -5,6 +5,7 @@ import {
   type Project,
   type Session,
 } from '@opencode-ai/sdk'
+import { homedir } from 'os'
 import type { Agent, Command, FileContent, FileStatusInfo, FormatterInfo, LspServerStatus, McpServerStatus, PermissionResponse, ProviderAuthMethod, ProviderInfo, ProjectSummary, PtySession, SessionContextInfo, SessionStatusInfo, SessionSummary, SymbolResult, TextSearchResult, Todo, ToolInfo, VcsInfo } from './types'
 
 const DEFAULT_BASE_URL = 'http://localhost:4096'
@@ -21,6 +22,15 @@ export class OpenCodeConnector {
     this.baseUrl = options.baseUrl ?? DEFAULT_BASE_URL
     this.client = createOpencodeClient({
       baseUrl: this.baseUrl,
+      responseStyle: 'data',
+    })
+  }
+
+  // Update the base URL (useful for dynamic port discovery)
+  updateBaseUrl(newBaseUrl: string) {
+    this.baseUrl = newBaseUrl
+    this.client = createOpencodeClient({
+      baseUrl: newBaseUrl,
       responseStyle: 'data',
     })
   }
@@ -44,10 +54,13 @@ export class OpenCodeConnector {
   }
 
   async listSessions(directory?: string): Promise<SessionSummary[]> {
+    // If directory is explicitly passed, filter by it
+    // If not, try to get ALL sessions by passing "/" as directory
+    // (OpenCode defaults to cwd if no directory, which limits results)
     const sessions =
       (await this.client.session.list({
         responseStyle: 'data',
-        query: directory ? { directory } : undefined,
+        query: directory ? { directory } : { directory: '/' },
       })) ?? []
     return sessions.map((session) => this.mapSession(session))
   }
@@ -87,7 +100,14 @@ export class OpenCodeConnector {
     directory?: string,
     model?: { providerID: string; modelID: string },
     agent?: string,
+    disabledTools?: string[],
   ) {
+    // Note: disabledTools is stored for future use when the SDK supports tool filtering
+    // For now, we log it but can't send to the SDK as the API may not support it yet
+    if (disabledTools && disabledTools.length > 0) {
+      console.log(`[sendPrompt] Disabled tools: ${disabledTools.join(', ')}`)
+    }
+    
     return this.client.session.prompt({
       responseStyle: 'data',
       path: { id: sessionId },
@@ -125,10 +145,15 @@ export class OpenCodeConnector {
   }
 
   async listFiles(path: string, directory?: string) {
+    // Expand ~ to actual home directory
+    const resolvedPath = path === '~' || path.startsWith('~/') 
+      ? path.replace(/^~/, homedir())
+      : path
+    
     return this.client.file.list({
       responseStyle: 'data',
       query: {
-        path,
+        path: resolvedPath,
         ...(directory ? { directory } : {}),
       },
     })
@@ -149,30 +174,6 @@ export class OpenCodeConnector {
         model,
       },
     })
-  }
-
-  async startServer(): Promise<boolean> {
-    const running = await this.isRunning()
-    if (running) return true
-
-    try {
-      Bun.spawn(['opencode', 'serve'], {
-        stdout: 'inherit',
-        stderr: 'inherit',
-      })
-    } catch {
-      return false
-    }
-
-    return this.waitForRunning()
-  }
-
-  private async waitForRunning(retries = 6, delayMs = 900): Promise<boolean> {
-    for (var attempt = 0; attempt < retries; attempt += 1) {
-      await new Promise((resolve) => setTimeout(resolve, delayMs))
-      if (await this.isRunning()) return true
-    }
-    return false
   }
 
   async respondToPermission(
@@ -807,12 +808,13 @@ export class OpenCodeConnector {
   // Feature 17: Tool List - Get tool IDs
   async listToolIds(directory?: string): Promise<string[]> {
     try {
-      const result = await this.client.experimental.toolIds({
+      const result = await this.client.tool.ids({
         responseStyle: 'data',
         query: directory ? { directory } : undefined,
       })
       return result ?? []
-    } catch {
+    } catch (error) {
+      console.error('[listToolIds] Error:', error)
       return []
     }
   }
@@ -820,7 +822,7 @@ export class OpenCodeConnector {
   // Feature 17: Tool List - Get tools with details
   async listTools(provider: string, model: string, directory?: string): Promise<ToolInfo[]> {
     try {
-      const result = await this.client.experimental.tools({
+      const result = await this.client.tool.list({
         responseStyle: 'data',
         query: {
           provider,
@@ -870,7 +872,8 @@ export class OpenCodeConnector {
         status: f.status ?? 'inactive',
         error: f.error,
       }))
-    } catch {
+    } catch (error) {
+      console.error('[getFormatterStatus] Error:', error)
       return []
     }
   }

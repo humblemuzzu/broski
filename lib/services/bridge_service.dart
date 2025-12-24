@@ -131,6 +131,7 @@ class BridgeService {
   /// Send a chat message to a session
   ///
   /// [agent] - Optional agent to use ("build" for full access, "plan" for read-only)
+  /// [disabledTools] - Optional list of tool IDs to disable for this request
   void sendChat({
     required String sessionId,
     required String content,
@@ -138,6 +139,7 @@ class BridgeService {
     String? providerID,
     String? modelID,
     String? agent,
+    List<String>? disabledTools,
   }) {
     _socket.send({
       'type': 'chat',
@@ -147,6 +149,8 @@ class BridgeService {
       if (providerID != null && modelID != null)
         'model': {'providerID': providerID, 'modelID': modelID},
       if (agent != null) 'agent': agent,
+      if (disabledTools != null && disabledTools.isNotEmpty)
+        'disabledTools': disabledTools,
     });
   }
 

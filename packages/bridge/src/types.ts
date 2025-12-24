@@ -33,7 +33,7 @@ export type ClientMessage =
   | { type: 'create_session'; projectPath?: string; title?: string }
   | { type: 'get_session'; sessionId: string; projectPath?: string }
   | { type: 'get_session_messages'; sessionId: string; projectPath?: string; limit?: number }
-  | { type: 'chat'; sessionId: string; content: string; projectPath?: string; model?: { providerID: string; modelID: string }; agent?: string }
+  | { type: 'chat'; sessionId: string; content: string; projectPath?: string; model?: { providerID: string; modelID: string }; agent?: string; disabledTools?: string[] }
   | { type: 'abort'; sessionId: string; projectPath?: string }
   | { type: 'diff'; sessionId: string; projectPath?: string; messageId?: string }
   | { type: 'browse'; path: string; projectPath?: string }

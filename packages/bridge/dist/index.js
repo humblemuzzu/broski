@@ -1033,94 +1033,6 @@ var require_main = __commonJS((exports, module) => {
     }
   };
 });
-
-// src/qr.ts
-var import_qrcode_terminal = __toESM(require_main(), 1);
-function displayQRCode(info) {
-  const data = JSON.stringify({
-    l: info.localIP,
-    t: info.tailscaleIP,
-    p: info.port,
-    v: info.version
-  });
-  console.log(`
-`);
-  console.log("  Scan this QR code with the Broski app:");
-  console.log("");
-  import_qrcode_terminal.default.generate(data, { small: true }, (qr) => {
-    const indented = qr.split(`
-`).map((line) => `    ${line}`).join(`
-`);
-    console.log(indented);
-  });
-  console.log("");
-  console.log("  Or connect manually:");
-  if (info.localIP) {
-    console.log(`  - Local:     ws://${info.localIP}:${info.port}`);
-  }
-  if (info.tailscaleIP) {
-    console.log(`  - Tailscale: ws://${info.tailscaleIP}:${info.port}`);
-  }
-  console.log("");
-}
-function displayBanner() {
-  console.log(`
-  \u2554\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2557
-  \u2551                                                          \u2551
-  \u2551   \u2588\u2588\u2588\u2588\u2588\u2588\u2557 \u2588\u2588\u2588\u2588\u2588\u2588\u2557  \u2588\u2588\u2588\u2588\u2588\u2588\u2557 \u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2557\u2588\u2588\u2557  \u2588\u2588\u2557\u2588\u2588\u2557           \u2551
-  \u2551   \u2588\u2588\u2554\u2550\u2550\u2588\u2588\u2557\u2588\u2588\u2554\u2550\u2550\u2588\u2588\u2557\u2588\u2588\u2554\u2550\u2550\u2550\u2588\u2588\u2557\u2588\u2588\u2554\u2550\u2550\u2550\u2550\u255D\u2588\u2588\u2551 \u2588\u2588\u2554\u255D\u2588\u2588\u2551           \u2551
-  \u2551   \u2588\u2588\u2588\u2588\u2588\u2588\u2554\u255D\u2588\u2588\u2588\u2588\u2588\u2588\u2554\u255D\u2588\u2588\u2551   \u2588\u2588\u2551\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2557\u2588\u2588\u2588\u2588\u2588\u2554\u255D \u2588\u2588\u2551           \u2551
-  \u2551   \u2588\u2588\u2554\u2550\u2550\u2588\u2588\u2557\u2588\u2588\u2554\u2550\u2550\u2588\u2588\u2557\u2588\u2588\u2551   \u2588\u2588\u2551\u255A\u2550\u2550\u2550\u2550\u2588\u2588\u2551\u2588\u2588\u2554\u2550\u2588\u2588\u2557 \u2588\u2588\u2551           \u2551
-  \u2551   \u2588\u2588\u2588\u2588\u2588\u2588\u2554\u255D\u2588\u2588\u2551  \u2588\u2588\u2551\u255A\u2588\u2588\u2588\u2588\u2588\u2588\u2554\u255D\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2551\u2588\u2588\u2551  \u2588\u2588\u2557\u2588\u2588\u2551           \u2551
-  \u2551   \u255A\u2550\u2550\u2550\u2550\u2550\u255D \u255A\u2550\u255D  \u255A\u2550\u255D \u255A\u2550\u2550\u2550\u2550\u2550\u255D \u255A\u2550\u2550\u2550\u2550\u2550\u2550\u255D\u255A\u2550\u255D  \u255A\u2550\u255D\u255A\u2550\u255D           \u2551
-  \u2551                                                          \u2551
-  \u2551                Broski Bridge (Personal MVP)              \u2551
-  \u2551                                                          \u2551
-  \u255A\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u255D
-  `);
-}
-
-// src/network.ts
-import { networkInterfaces } from "os";
-var {$ } = globalThis.Bun;
-function getLocalIP() {
-  const interfaces = networkInterfaces();
-  for (const name of Object.keys(interfaces)) {
-    for (const iface of interfaces[name] || []) {
-      if (iface.internal || iface.family !== "IPv4")
-        continue;
-      if (name === "en0" || name === "eth0")
-        return iface.address;
-    }
-  }
-  for (const name of Object.keys(interfaces)) {
-    for (const iface of interfaces[name] || []) {
-      if (!iface.internal && iface.family === "IPv4") {
-        return iface.address;
-      }
-    }
-  }
-  return null;
-}
-async function getTailscaleIP() {
-  try {
-    const result = await $`tailscale ip -4 2>/dev/null`.quiet();
-    const ip = result.text().trim();
-    if (ip.startsWith("100."))
-      return ip;
-    return null;
-  } catch {
-    return null;
-  }
-}
-async function isTailscaleConnected() {
-  try {
-    const result = await $`tailscale status 2>/dev/null`.quiet();
-    return !result.text().includes("Tailscale is stopped");
-  } catch {
-    return false;
-  }
-}
 // node_modules/@opencode-ai/sdk/dist/gen/core/serverSentEvents.gen.js
 var createSseClient = ({ onSseError, onSseEvent, responseTransformer, responseValidator, sseDefaultRetryDelay, sseMaxRetryAttempts, sseMaxRetryDelay, sseSleepFn, url, ...options }) => {
   let lastEventId;
@@ -2480,7 +2392,162 @@ function createOpencodeClient(config) {
   const client2 = createClient(config);
   return new OpencodeClient({ client: client2 });
 }
+// node_modules/@opencode-ai/sdk/dist/server.js
+import { spawn } from "child_process";
+async function createOpencodeServer(options) {
+  options = Object.assign({
+    hostname: "127.0.0.1",
+    port: 4096,
+    timeout: 5000
+  }, options ?? {});
+  const proc = spawn(`opencode`, [`serve`, `--hostname=${options.hostname}`, `--port=${options.port}`], {
+    signal: options.signal,
+    env: {
+      ...process.env,
+      OPENCODE_CONFIG_CONTENT: JSON.stringify(options.config ?? {})
+    }
+  });
+  const url = await new Promise((resolve, reject) => {
+    const id = setTimeout(() => {
+      reject(new Error(`Timeout waiting for server to start after ${options.timeout}ms`));
+    }, options.timeout);
+    let output = "";
+    proc.stdout?.on("data", (chunk) => {
+      output += chunk.toString();
+      const lines = output.split(`
+`);
+      for (const line of lines) {
+        if (line.startsWith("opencode server listening")) {
+          const match = line.match(/on\s+(https?:\/\/[^\s]+)/);
+          if (!match) {
+            throw new Error(`Failed to parse server url from output: ${line}`);
+          }
+          clearTimeout(id);
+          resolve(match[1]);
+          return;
+        }
+      }
+    });
+    proc.stderr?.on("data", (chunk) => {
+      output += chunk.toString();
+    });
+    proc.on("exit", (code) => {
+      clearTimeout(id);
+      let msg = `Server exited with code ${code}`;
+      if (output.trim()) {
+        msg += `
+Server output: ${output}`;
+      }
+      reject(new Error(msg));
+    });
+    proc.on("error", (error) => {
+      clearTimeout(id);
+      reject(error);
+    });
+    if (options.signal) {
+      options.signal.addEventListener("abort", () => {
+        clearTimeout(id);
+        reject(new Error("Aborted"));
+      });
+    }
+  });
+  return {
+    url,
+    close() {
+      proc.kill();
+    }
+  };
+}
+// src/qr.ts
+var import_qrcode_terminal = __toESM(require_main(), 1);
+function displayQRCode(info) {
+  const data = JSON.stringify({
+    l: info.localIP,
+    t: info.tailscaleIP,
+    p: info.port,
+    v: info.version
+  });
+  console.log(`
+`);
+  console.log("  Scan this QR code with the Broski app:");
+  console.log("");
+  import_qrcode_terminal.default.generate(data, { small: true }, (qr) => {
+    const indented = qr.split(`
+`).map((line) => `    ${line}`).join(`
+`);
+    console.log(indented);
+  });
+  console.log("");
+  console.log("  Or connect manually:");
+  if (info.localIP) {
+    console.log(`  - Local:     ws://${info.localIP}:${info.port}`);
+  }
+  if (info.tailscaleIP) {
+    console.log(`  - Tailscale: ws://${info.tailscaleIP}:${info.port}`);
+  }
+  console.log("");
+}
+function displayBanner() {
+  console.log(`
+  \u2554\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2557
+  \u2551                                                          \u2551
+  \u2551   \u2588\u2588\u2588\u2588\u2588\u2588\u2557 \u2588\u2588\u2588\u2588\u2588\u2588\u2557  \u2588\u2588\u2588\u2588\u2588\u2588\u2557 \u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2557\u2588\u2588\u2557  \u2588\u2588\u2557\u2588\u2588\u2557           \u2551
+  \u2551   \u2588\u2588\u2554\u2550\u2550\u2588\u2588\u2557\u2588\u2588\u2554\u2550\u2550\u2588\u2588\u2557\u2588\u2588\u2554\u2550\u2550\u2550\u2588\u2588\u2557\u2588\u2588\u2554\u2550\u2550\u2550\u2550\u255D\u2588\u2588\u2551 \u2588\u2588\u2554\u255D\u2588\u2588\u2551           \u2551
+  \u2551   \u2588\u2588\u2588\u2588\u2588\u2588\u2554\u255D\u2588\u2588\u2588\u2588\u2588\u2588\u2554\u255D\u2588\u2588\u2551   \u2588\u2588\u2551\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2557\u2588\u2588\u2588\u2588\u2588\u2554\u255D \u2588\u2588\u2551           \u2551
+  \u2551   \u2588\u2588\u2554\u2550\u2550\u2588\u2588\u2557\u2588\u2588\u2554\u2550\u2550\u2588\u2588\u2557\u2588\u2588\u2551   \u2588\u2588\u2551\u255A\u2550\u2550\u2550\u2550\u2588\u2588\u2551\u2588\u2588\u2554\u2550\u2588\u2588\u2557 \u2588\u2588\u2551           \u2551
+  \u2551   \u2588\u2588\u2588\u2588\u2588\u2588\u2554\u255D\u2588\u2588\u2551  \u2588\u2588\u2551\u255A\u2588\u2588\u2588\u2588\u2588\u2588\u2554\u255D\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2551\u2588\u2588\u2551  \u2588\u2588\u2557\u2588\u2588\u2551           \u2551
+  \u2551   \u255A\u2550\u2550\u2550\u2550\u2550\u255D \u255A\u2550\u255D  \u255A\u2550\u255D \u255A\u2550\u2550\u2550\u2550\u2550\u255D \u255A\u2550\u2550\u2550\u2550\u2550\u2550\u255D\u255A\u2550\u255D  \u255A\u2550\u255D\u255A\u2550\u255D           \u2551
+  \u2551                                                          \u2551
+  \u2551                Broski Bridge (Personal MVP)              \u2551
+  \u2551                                                          \u2551
+  \u255A\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u255D
+  `);
+}
+
+// src/network.ts
+import { networkInterfaces } from "os";
+var {$ } = globalThis.Bun;
+function getLocalIP() {
+  const interfaces = networkInterfaces();
+  for (const name of Object.keys(interfaces)) {
+    for (const iface of interfaces[name] || []) {
+      if (iface.internal || iface.family !== "IPv4")
+        continue;
+      if (name === "en0" || name === "eth0")
+        return iface.address;
+    }
+  }
+  for (const name of Object.keys(interfaces)) {
+    for (const iface of interfaces[name] || []) {
+      if (!iface.internal && iface.family === "IPv4") {
+        return iface.address;
+      }
+    }
+  }
+  return null;
+}
+async function getTailscaleIP() {
+  try {
+    const result = await $`tailscale ip -4 2>/dev/null`.quiet();
+    const ip = result.text().trim();
+    if (ip.startsWith("100."))
+      return ip;
+    return null;
+  } catch {
+    return null;
+  }
+}
+async function isTailscaleConnected() {
+  try {
+    const result = await $`tailscale status 2>/dev/null`.quiet();
+    return !result.text().includes("Tailscale is stopped");
+  } catch {
+    return false;
+  }
+}
+
 // src/opencode.ts
+import { homedir } from "os";
 var DEFAULT_BASE_URL = "http://localhost:4096";
 
 class OpenCodeConnector {
@@ -2490,6 +2557,13 @@ class OpenCodeConnector {
     this.baseUrl = options.baseUrl ?? DEFAULT_BASE_URL;
     this.client = createOpencodeClient({
       baseUrl: this.baseUrl,
+      responseStyle: "data"
+    });
+  }
+  updateBaseUrl(newBaseUrl) {
+    this.baseUrl = newBaseUrl;
+    this.client = createOpencodeClient({
+      baseUrl: newBaseUrl,
       responseStyle: "data"
     });
   }
@@ -2511,7 +2585,7 @@ class OpenCodeConnector {
   async listSessions(directory) {
     const sessions = await this.client.session.list({
       responseStyle: "data",
-      query: directory ? { directory } : undefined
+      query: directory ? { directory } : { directory: "/" }
     }) ?? [];
     return sessions.map((session) => this.mapSession(session));
   }
@@ -2541,7 +2615,10 @@ class OpenCodeConnector {
       }
     });
   }
-  async sendPrompt(sessionId, content, directory, model, agent) {
+  async sendPrompt(sessionId, content, directory, model, agent, disabledTools) {
+    if (disabledTools && disabledTools.length > 0) {
+      console.log(`[sendPrompt] Disabled tools: ${disabledTools.join(", ")}`);
+    }
     return this.client.session.prompt({
       responseStyle: "data",
       path: { id: sessionId },
@@ -2576,10 +2653,11 @@ class OpenCodeConnector {
     });
   }
   async listFiles(path, directory) {
+    const resolvedPath = path === "~" || path.startsWith("~/") ? path.replace(/^~/, homedir()) : path;
     return this.client.file.list({
       responseStyle: "data",
       query: {
-        path,
+        path: resolvedPath,
         ...directory ? { directory } : {}
       }
     });
@@ -2597,28 +2675,6 @@ class OpenCodeConnector {
         model
       }
     });
-  }
-  async startServer() {
-    const running = await this.isRunning();
-    if (running)
-      return true;
-    try {
-      Bun.spawn(["opencode", "serve"], {
-        stdout: "inherit",
-        stderr: "inherit"
-      });
-    } catch {
-      return false;
-    }
-    return this.waitForRunning();
-  }
-  async waitForRunning(retries = 6, delayMs = 900) {
-    for (var attempt = 0;attempt < retries; attempt += 1) {
-      await new Promise((resolve) => setTimeout(resolve, delayMs));
-      if (await this.isRunning())
-        return true;
-    }
-    return false;
   }
   async respondToPermission(sessionId, permissionId, response, directory) {
     return this.client.postSessionIdPermissionsPermissionId({
@@ -3129,18 +3185,19 @@ class OpenCodeConnector {
   }
   async listToolIds(directory) {
     try {
-      const result = await this.client.experimental.toolIds({
+      const result = await this.client.tool.ids({
         responseStyle: "data",
         query: directory ? { directory } : undefined
       });
       return result ?? [];
-    } catch {
+    } catch (error) {
+      console.error("[listToolIds] Error:", error);
       return [];
     }
   }
   async listTools(provider, model, directory) {
     try {
-      const result = await this.client.experimental.tools({
+      const result = await this.client.tool.list({
         responseStyle: "data",
         query: {
           provider,
@@ -3186,7 +3243,8 @@ class OpenCodeConnector {
         status: f.status ?? "inactive",
         error: f.error
       }));
-    } catch {
+    } catch (error) {
+      console.error("[getFormatterStatus] Error:", error);
       return [];
     }
   }
@@ -3244,6 +3302,34 @@ class OpenCodeConnector {
 }
 
 // src/server.ts
+import { readdir } from "fs/promises";
+import { homedir as homedir2 } from "os";
+import { resolve } from "path";
+async function listFilesDirectly(filePath) {
+  const resolvedPath = filePath === "~" || filePath.startsWith("~/") ? filePath.replace(/^~/, homedir2()) : resolve(filePath);
+  try {
+    const entries = await readdir(resolvedPath, { withFileTypes: true });
+    const items = [];
+    for (const entry of entries) {
+      if (entry.name.startsWith("."))
+        continue;
+      items.push({
+        name: entry.name,
+        type: entry.isDirectory() ? "directory" : "file"
+      });
+    }
+    items.sort((a, b) => {
+      if (a.type !== b.type) {
+        return a.type === "directory" ? -1 : 1;
+      }
+      return a.name.localeCompare(b.name);
+    });
+    return items;
+  } catch (error) {
+    console.error(`[listFilesDirectly] Error listing ${resolvedPath}:`, error);
+    return [];
+  }
+}
 function createBridgeServer(options) {
   const sockets = new Set;
   const { opencode, version, logger } = options;
@@ -3278,8 +3364,8 @@ function createBridgeServer(options) {
         return jsonResponse({ error: "Missing path" }, 400);
       }
       try {
-        const data = await opencode.listFiles(path);
-        return jsonResponse({ path, items: data });
+        const items = await listFilesDirectly(path);
+        return jsonResponse({ path, items });
       } catch (error) {
         return jsonResponse({ error: toErrorMessage(error) }, 500);
       }
@@ -3353,17 +3439,6 @@ function createBridgeServer(options) {
           reply({ type: "config", data: config });
           break;
         }
-        case "start_opencode": {
-          const started = await opencode.startServer();
-          broadcast({ type: "status", data: { opencodeRunning: started } });
-          if (!started) {
-            reply({
-              type: "error",
-              message: "Failed to start OpenCode. Run `opencode serve` on your Mac."
-            });
-          }
-          break;
-        }
         case "create_session": {
           const session = await opencode.createSession(message.projectPath, message.title);
           reply({ type: "session_created", data: session });
@@ -3380,7 +3455,7 @@ function createBridgeServer(options) {
           break;
         }
         case "chat": {
-          await opencode.sendPrompt(message.sessionId, message.content, message.projectPath, message.model, message.agent);
+          await opencode.sendPrompt(message.sessionId, message.content, message.projectPath, message.model, message.agent, message.disabledTools);
           break;
         }
         case "abort": {
@@ -3393,7 +3468,7 @@ function createBridgeServer(options) {
           break;
         }
         case "browse": {
-          const items = await opencode.listFiles(message.path, message.projectPath);
+          const items = await listFilesDirectly(message.path);
           reply({ type: "browse_result", data: { path: message.path, items } });
           break;
         }
@@ -3623,18 +3698,153 @@ function toErrorMessage(error) {
 
 // src/index.ts
 var DEFAULT_PORT = 18274;
+var DEFAULT_OPENCODE_PORT = 4096;
+async function checkPort(port) {
+  try {
+    const response = await fetch(`http://localhost:${port}/project`, { signal: AbortSignal.timeout(500) });
+    return response.ok;
+  } catch {
+    return false;
+  }
+}
+async function discoverExistingOpencode() {
+  console.log("Scanning for existing OpenCode instances...");
+  const portsToScan = [
+    4096,
+    ...Array.from({ length: 30 }, (_, i) => 64864 + i)
+  ];
+  const instances = [];
+  const checks = portsToScan.map(async (port) => {
+    try {
+      const url = `http://localhost:${port}`;
+      const response = await fetch(`${url}/project`, { signal: AbortSignal.timeout(200) });
+      if (response.ok) {
+        const projects = await response.json();
+        let lastActivity = 0;
+        for (const project of projects) {
+          const updated = project.time?.updated ?? project.time?.created ?? 0;
+          if (updated > lastActivity) {
+            lastActivity = updated;
+          }
+        }
+        return { port, url, projects, lastActivity };
+      }
+    } catch {}
+    return null;
+  });
+  const results = await Promise.all(checks);
+  for (const result of results) {
+    if (result) {
+      instances.push(result);
+    }
+  }
+  if (instances.length === 0) {
+    console.log("  No existing OpenCode instances found");
+    return null;
+  }
+  instances.sort((a, b) => b.lastActivity - a.lastActivity);
+  console.log(`  Found ${instances.length} OpenCode instance(s):`);
+  for (const inst of instances) {
+    const ago = inst.lastActivity > 0 ? `${Math.round((Date.now() - inst.lastActivity) / 1000 / 60)}m ago` : "unknown";
+    console.log(`    - Port ${inst.port}: ${inst.projects.length} projects, last active ${ago}`);
+  }
+  const best = instances[0];
+  console.log(`  \u2713 Using existing OpenCode on port ${best.port}`);
+  return best.url;
+}
+async function ensureOpencodeServer() {
+  if (process.env.OPENCODE_BASE_URL) {
+    console.log(`Using OPENCODE_BASE_URL: ${process.env.OPENCODE_BASE_URL}`);
+    return {
+      url: process.env.OPENCODE_BASE_URL,
+      managed: false
+    };
+  }
+  const defaultPortRunning = await checkPort(DEFAULT_OPENCODE_PORT);
+  if (defaultPortRunning) {
+    const url = `http://localhost:${DEFAULT_OPENCODE_PORT}`;
+    console.log(`Found existing OpenCode on port ${DEFAULT_OPENCODE_PORT}`);
+    console.log("  (Bridge will connect to this instance, but will NOT stop it on shutdown)");
+    console.log("  (To manage OpenCode lifecycle with bridge, stop the existing instance)");
+    return {
+      url,
+      managed: false
+    };
+  }
+  const discoveredUrl = await discoverExistingOpencode();
+  if (discoveredUrl) {
+    console.log("  (Bridge will connect to this instance, but will NOT stop it on shutdown)");
+    console.log("  (To manage OpenCode lifecycle with bridge, stop the existing instance)");
+    return {
+      url: discoveredUrl,
+      managed: false
+    };
+  }
+  console.log("No existing OpenCode found. Spawning managed server...");
+  try {
+    const server2 = await createOpencodeServer({
+      port: DEFAULT_OPENCODE_PORT,
+      timeout: 1e4
+    });
+    console.log(`\u2713 Managed OpenCode server started on port ${DEFAULT_OPENCODE_PORT}`);
+    console.log("  (Bridge will manage this server lifecycle - will stop on shutdown)");
+    return {
+      url: server2.url,
+      close: async () => {
+        try {
+          await server2.close();
+          console.log("  Managed OpenCode server stopped");
+        } catch (error) {
+          console.error("  Error stopping managed OpenCode server:", error);
+        }
+      }
+    };
+  } catch (error) {
+    console.error("Failed to spawn managed OpenCode server:", error);
+    console.log("  Falling back to connecting to default port...");
+    console.log("  Please ensure OpenCode is installed and available");
+    return {
+      url: `http://localhost:${DEFAULT_OPENCODE_PORT}`,
+      managed: false
+    };
+  }
+}
+var opencodeServer = null;
+var bridgeServer = null;
+async function shutdown(signal) {
+  console.log(`
+${signal} received. Shutting down...`);
+  if (bridgeServer) {
+    console.log("Stopping bridge server...");
+    bridgeServer.stop(true);
+    bridgeServer = null;
+  }
+  if (opencodeServer && "close" in opencodeServer) {
+    console.log("Stopping managed OpenCode server...");
+    await opencodeServer.close();
+    opencodeServer = null;
+  } else if (opencodeServer) {
+    console.log("OpenCode server is external - leaving it running");
+  }
+  console.log("Shutdown complete. Goodbye!");
+  process.exit(0);
+}
 async function main() {
   const packageJson = await Bun.file(new URL("../package.json", import.meta.url)).json();
   const version = packageJson.version ?? "0.1.0";
   displayBanner();
   const port = Number(process.env.BROSKI_PORT ?? DEFAULT_PORT);
-  const opencodeUrl = process.env.OPENCODE_BASE_URL ?? "http://localhost:4096";
-  const opencode = new OpenCodeConnector({ baseUrl: opencodeUrl });
-  const opencodeRunning = await ensureOpenCodeRunning(opencode);
+  opencodeServer = await ensureOpencodeServer();
+  const opencode = new OpenCodeConnector({ baseUrl: opencodeServer.url });
+  console.log(`Using OpenCode at: ${opencodeServer.url}`);
+  const opencodeRunning = await opencode.isRunning();
   if (!opencodeRunning) {
-    console.log("\u26A0\uFE0F  OpenCode is not running. Start it with: opencode serve");
+    console.log("\u26A0\uFE0F  Warning: OpenCode is not responding. You may need to:");
+    console.log("  1. Install OpenCode: npm i -g @anthropic-ai/opencode");
+    console.log("  2. Start it manually: opencode serve");
+    console.log("  3. Or let the bridge manage it (ensure no existing instances running)");
   } else {
-    console.log("\u2713 OpenCode detected");
+    console.log("\u2713 OpenCode is responding");
   }
   const localIP = getLocalIP();
   const tailscaleIP = await getTailscaleIP();
@@ -3642,7 +3852,7 @@ async function main() {
   if (!tailscaleConnected) {
     console.log("\u2139\uFE0F  Tailscale not connected. Local network access only.");
   }
-  const server2 = createBridgeServer({
+  bridgeServer = createBridgeServer({
     port,
     opencode,
     version,
@@ -3650,7 +3860,7 @@ async function main() {
   });
   await opencode.startEventStream((event) => {
     console.log("[SDK Event]", JSON.stringify(event, null, 2));
-    server2.broadcast({ type: "sdk_event", data: event });
+    bridgeServer?.broadcast({ type: "sdk_event", data: event });
   });
   displayQRCode({
     localIP,
@@ -3658,16 +3868,10 @@ async function main() {
     port,
     version
   });
-  console.log(`Bridge listening on port ${port}`);
-}
-async function ensureOpenCodeRunning(opencode) {
-  const running = await opencode.isRunning();
-  if (running)
-    return true;
-  const shouldAutoStart = process.env.BROSKI_AUTOSTART_OPENCODE === "1";
-  if (!shouldAutoStart)
-    return false;
-  console.log("Starting OpenCode server...");
-  return opencode.startServer();
+  console.log(`
+\u2713 Bridge listening on port ${port}`);
+  console.log("  Press Ctrl+C to shutdown (will stop managed OpenCode server if spawned)");
+  process.on("SIGINT", () => void shutdown("SIGINT"));
+  process.on("SIGTERM", () => void shutdown("SIGTERM"));
 }
 main();

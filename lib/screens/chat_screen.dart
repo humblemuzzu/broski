@@ -17,6 +17,7 @@ import '../providers/chat_provider.dart';
 import '../providers/connection_provider.dart';
 import '../providers/selection_provider.dart';
 import '../providers/service_providers.dart';
+import '../providers/tool_settings_provider.dart';
 import '../services/haptics_service.dart';
 import '../widgets/diff_viewer.dart';
 import '../widgets/message_bubble.dart';
@@ -1073,6 +1074,11 @@ class _ChatScreenState extends ConsumerState<ChatScreen>
     } else {
       // Regular chat message
       chat.appendUserMessage(text);
+
+      // Get disabled tools from settings
+      final toolSettings = ref.read(toolSettingsProvider);
+      final disabledTools = toolSettings.disabledTools.toList();
+
       bridge.sendChat(
         sessionId: widget.session.id,
         content: text,
@@ -1080,6 +1086,7 @@ class _ChatScreenState extends ConsumerState<ChatScreen>
         providerID: selectedModel?.providerID,
         modelID: selectedModel?.modelID,
         agent: _selectedAgent,
+        disabledTools: disabledTools.isNotEmpty ? disabledTools : null,
       );
     }
 

@@ -5,6 +5,7 @@ import '../models/tool.dart';
 import '../models/vcs.dart';
 import '../providers/service_providers.dart';
 import '../providers/selection_provider.dart';
+import '../providers/tool_settings_provider.dart';
 
 // Color constants matching chat screen design
 const _kBackground = Color(0xFF16161E);
@@ -213,49 +214,7 @@ class _ToolsScreenState extends ConsumerState<ToolsScreen> {
         padding: const EdgeInsets.all(16),
         children: [
           // Summary
-          Container(
-            padding: const EdgeInsets.all(16),
-            margin: const EdgeInsets.only(bottom: 20),
-            decoration: BoxDecoration(
-              color: _kCard,
-              borderRadius: BorderRadius.circular(16),
-              border: Border.all(color: _kBorder),
-            ),
-            child: Row(
-              children: [
-                Container(
-                  width: 48,
-                  height: 48,
-                  decoration: BoxDecoration(
-                    color: _kAccent.withValues(alpha: 0.15),
-                    borderRadius: BorderRadius.circular(12),
-                  ),
-                  child: const Icon(Icons.build, color: _kAccent, size: 24),
-                ),
-                const SizedBox(width: 16),
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        '${_tools!.length} Tools Available',
-                        style: const TextStyle(
-                          color: _kOnBackground,
-                          fontSize: 16,
-                          fontWeight: FontWeight.w600,
-                        ),
-                      ),
-                      const SizedBox(height: 4),
-                      const Text(
-                        'AI capabilities for your sessions',
-                        style: TextStyle(color: _kMuted, fontSize: 13),
-                      ),
-                    ],
-                  ),
-                ),
-              ],
-            ),
-          ),
+          _ToolsSummary(totalTools: _tools!.length),
 
           // Tool categories
           ...categories.map((category) {
@@ -376,6 +335,105 @@ class _FormatterCard extends StatelessWidget {
   }
 }
 
+// Tools summary card with enable/disable count
+class _ToolsSummary extends ConsumerWidget {
+  const _ToolsSummary({required this.totalTools});
+
+  final int totalTools;
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final toolSettings = ref.watch(toolSettingsProvider);
+    final disabledCount = toolSettings.disabledTools.length;
+    final enabledCount = totalTools - disabledCount;
+
+    return Container(
+      padding: const EdgeInsets.all(16),
+      margin: const EdgeInsets.only(bottom: 20),
+      decoration: BoxDecoration(
+        color: _kCard,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: _kBorder),
+      ),
+      child: Row(
+        children: [
+          Container(
+            width: 48,
+            height: 48,
+            decoration: BoxDecoration(
+              color: _kAccent.withValues(alpha: 0.15),
+              borderRadius: BorderRadius.circular(12),
+            ),
+            child: const Icon(Icons.build, color: _kAccent, size: 24),
+          ),
+          const SizedBox(width: 16),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  '$totalTools Tools Available',
+                  style: const TextStyle(
+                    color: _kOnBackground,
+                    fontSize: 16,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+                const SizedBox(height: 4),
+                Row(
+                  children: [
+                    Container(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 8,
+                        vertical: 2,
+                      ),
+                      decoration: BoxDecoration(
+                        color: _kSuccess.withValues(alpha: 0.15),
+                        borderRadius: BorderRadius.circular(8),
+                      ),
+                      child: Text(
+                        '$enabledCount enabled',
+                        style: const TextStyle(color: _kSuccess, fontSize: 12),
+                      ),
+                    ),
+                    if (disabledCount > 0) ...[
+                      const SizedBox(width: 8),
+                      Container(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 8,
+                          vertical: 2,
+                        ),
+                        decoration: BoxDecoration(
+                          color: _kMuted.withValues(alpha: 0.15),
+                          borderRadius: BorderRadius.circular(8),
+                        ),
+                        child: Text(
+                          '$disabledCount disabled',
+                          style: const TextStyle(color: _kMuted, fontSize: 12),
+                        ),
+                      ),
+                    ],
+                  ],
+                ),
+              ],
+            ),
+          ),
+          if (disabledCount > 0)
+            TextButton(
+              onPressed: () {
+                ref.read(toolSettingsProvider.notifier).enableAllTools();
+              },
+              child: const Text(
+                'Enable All',
+                style: TextStyle(color: _kAccent, fontSize: 13),
+              ),
+            ),
+        ],
+      ),
+    );
+  }
+}
+
 class _SectionHeader extends StatelessWidget {
   const _SectionHeader({required this.title});
 
@@ -398,13 +456,17 @@ class _SectionHeader extends StatelessWidget {
   }
 }
 
-class _ToolCard extends StatelessWidget {
+class _ToolCard extends ConsumerWidget {
   const _ToolCard({required this.tool});
 
   final ToolInfo tool;
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
+    final toolSettings = ref.watch(toolSettingsProvider);
+    final isEnabled = toolSettings.isToolEnabled(tool.id);
+    final iconColor = isEnabled ? _kAccent : _kMuted;
+
     return Container(
       margin: const EdgeInsets.only(bottom: 8),
       decoration: BoxDecoration(
@@ -413,20 +475,23 @@ class _ToolCard extends StatelessWidget {
         border: Border.all(color: _kBorder),
       ),
       child: ListTile(
+        onTap: () {
+          ref.read(toolSettingsProvider.notifier).toggleTool(tool.id);
+        },
         contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
         leading: Container(
           width: 44,
           height: 44,
           decoration: BoxDecoration(
-            color: _kAccent.withValues(alpha: 0.15),
+            color: iconColor.withValues(alpha: 0.15),
             borderRadius: BorderRadius.circular(10),
           ),
-          child: Icon(_getToolIcon(tool.id), color: _kAccent, size: 22),
+          child: Icon(_getToolIcon(tool.id), color: iconColor, size: 22),
         ),
         title: Text(
           tool.displayName,
-          style: const TextStyle(
-            color: _kOnBackground,
+          style: TextStyle(
+            color: isEnabled ? _kOnBackground : _kMuted,
             fontSize: 15,
             fontWeight: FontWeight.w600,
           ),
@@ -438,20 +503,15 @@ class _ToolCard extends StatelessWidget {
             style: const TextStyle(color: _kMuted, fontSize: 13),
           ),
         ),
-        trailing: Container(
-          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-          decoration: BoxDecoration(
-            color: _kSuccess.withValues(alpha: 0.15),
-            borderRadius: BorderRadius.circular(12),
-          ),
-          child: const Text(
-            'Enabled',
-            style: TextStyle(
-              color: _kSuccess,
-              fontSize: 11,
-              fontWeight: FontWeight.w600,
-            ),
-          ),
+        trailing: Switch.adaptive(
+          value: isEnabled,
+          onChanged: (_) {
+            ref.read(toolSettingsProvider.notifier).toggleTool(tool.id);
+          },
+          activeThumbColor: _kSuccess,
+          activeTrackColor: _kSuccess.withValues(alpha: 0.3),
+          inactiveThumbColor: _kMuted,
+          inactiveTrackColor: _kMuted.withValues(alpha: 0.3),
         ),
       ),
     );

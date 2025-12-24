@@ -1,6 +1,46 @@
 import type { ServerWebSocket } from 'bun'
+import { readdir } from 'node:fs/promises'
+import { homedir } from 'node:os'
+import { resolve } from 'node:path'
 import type { OpenCodeConnector } from './opencode'
 import type { ClientMessage, ServerMessage } from './types'
+
+// Direct file listing (doesn't require OpenCode SDK)
+// Note: Bun supports Node.js APIs natively with better performance
+async function listFilesDirectly(filePath: string): Promise<Array<{ name: string; type: 'file' | 'directory' }>> {
+  // Expand ~ to actual home directory
+  const resolvedPath = filePath === '~' || filePath.startsWith('~/')
+    ? filePath.replace(/^~/, homedir())
+    : resolve(filePath)
+
+  try {
+    const entries = await readdir(resolvedPath, { withFileTypes: true })
+    const items: Array<{ name: string; type: 'file' | 'directory' }> = []
+
+    for (const entry of entries) {
+      // Skip hidden files/folders (starting with .)
+      if (entry.name.startsWith('.')) continue
+
+      items.push({
+        name: entry.name,
+        type: entry.isDirectory() ? 'directory' : 'file',
+      })
+    }
+
+    // Sort: directories first, then files, alphabetically
+    items.sort((a, b) => {
+      if (a.type !== b.type) {
+        return a.type === 'directory' ? -1 : 1
+      }
+      return a.name.localeCompare(b.name)
+    })
+
+    return items
+  } catch (error) {
+    console.error(`[listFilesDirectly] Error listing ${resolvedPath}:`, error)
+    return []
+  }
+}
 
 export type BridgeServerOptions = {
   port: number
@@ -57,8 +97,9 @@ export function createBridgeServer(options: BridgeServerOptions): BridgeServer {
       }
 
       try {
-        const data = await opencode.listFiles(path)
-        return jsonResponse({ path, items: data })
+        // Use direct file listing (doesn't require OpenCode SDK)
+        const items = await listFilesDirectly(path as string)
+        return jsonResponse({ path, items })
       } catch (error) {
         return jsonResponse({ error: toErrorMessage(error) }, 500)
       }
@@ -140,17 +181,6 @@ export function createBridgeServer(options: BridgeServerOptions): BridgeServer {
           reply({ type: 'config', data: config })
           break
         }
-        case 'start_opencode': {
-          const started = await opencode.startServer()
-          broadcast({ type: 'status', data: { opencodeRunning: started } })
-          if (!started) {
-            reply({
-              type: 'error',
-              message: 'Failed to start OpenCode. Run `opencode serve` on your Mac.',
-            })
-          }
-          break
-        }
         case 'create_session': {
           const session = await opencode.createSession(message.projectPath, message.title)
           reply({ type: 'session_created', data: session })
@@ -171,7 +201,14 @@ export function createBridgeServer(options: BridgeServerOptions): BridgeServer {
           break
         }
         case 'chat': {
-          await opencode.sendPrompt(message.sessionId, message.content, message.projectPath, message.model, message.agent)
+          await opencode.sendPrompt(
+            message.sessionId,
+            message.content,
+            message.projectPath,
+            message.model,
+            message.agent,
+            message.disabledTools,
+          )
           break
         }
         case 'abort': {
@@ -188,7 +225,8 @@ export function createBridgeServer(options: BridgeServerOptions): BridgeServer {
           break
         }
         case 'browse': {
-          const items = await opencode.listFiles(message.path, message.projectPath)
+          // Use direct file listing (doesn't require OpenCode SDK)
+          const items = await listFilesDirectly(message.path)
           reply({ type: 'browse_result', data: { path: message.path, items } })
           break
         }
