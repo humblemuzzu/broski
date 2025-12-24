@@ -76,6 +76,18 @@ class WebSocketService {
   void _handleMessage(String raw) {
     try {
       final data = jsonDecode(raw) as Map<String, dynamic>;
+
+      // Handle bridge heartbeat without bubbling it up to the UI.
+      if (data['type'] == 'ping') {
+        final payload = data['data'] as Map<String, dynamic>? ?? const {};
+        final id = payload['id'] as String? ?? '';
+        final sentAt = payload['sentAt'] as int? ?? 0;
+        if (id.isNotEmpty && sentAt > 0) {
+          send({'type': 'pong', 'id': id, 'sentAt': sentAt});
+        }
+        return;
+      }
+
       _messageController.add(data);
     } catch (_) {
       // Ignore malformed payloads.

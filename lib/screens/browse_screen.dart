@@ -33,6 +33,8 @@ class _BrowseScreenState extends ConsumerState<BrowseScreen>
     with SingleTickerProviderStateMixin {
   late String _path;
   late Future<List<dynamic>> _itemsFuture;
+  bool _userHasNavigated = false;
+  String? _lastSeenProjectPath;
 
   // Search state
   final TextEditingController _searchController = TextEditingController();
@@ -54,10 +56,64 @@ class _BrowseScreenState extends ConsumerState<BrowseScreen>
   @override
   void initState() {
     super.initState();
-    // Use project path if available, otherwise default to ~
-    final selection = ref.read(selectionProvider);
-    _path = widget.initialPath ?? selection.project?.path ?? '~';
+    _path = widget.initialPath ?? '~';
     _itemsFuture = _loadItems();
+    _loadInitialPath();
+    _loadFileStatus();
+
+    ref.listen(selectionProvider, (previous, next) {
+      final nextProjectPath = next.project?.path;
+      if (nextProjectPath == null || nextProjectPath.isEmpty) return;
+      if (_lastSeenProjectPath == nextProjectPath) return;
+      _lastSeenProjectPath = nextProjectPath;
+      if (_userHasNavigated) return;
+
+      // When a project is selected elsewhere (Projects → Chat), keep Browse in sync.
+      // This matches the "tap project, later Browse shows that project" expectation.
+      _setPath(nextProjectPath, persist: false, userInitiated: false);
+    });
+  }
+
+  Future<void> _loadInitialPath() async {
+    if (widget.initialPath != null) return;
+    // If a project is already selected, prefer showing it in Browse (unless user navigated).
+    final selection = ref.read(selectionProvider);
+    final selectedProjectPath = selection.project?.path;
+    if (selectedProjectPath != null &&
+        selectedProjectPath.isNotEmpty &&
+        !_userHasNavigated) {
+      _lastSeenProjectPath = selectedProjectPath;
+      _setPath(selectedProjectPath, persist: false, userInitiated: false);
+      return;
+    }
+
+    final storage = ref.read(storageServiceProvider);
+    final saved = await storage.loadLastBrowsePath();
+    if (!mounted) return;
+    if (saved == null || saved.isEmpty) return;
+    if (_userHasNavigated) return;
+    setState(() {
+      _path = saved;
+      _itemsFuture = _loadItems();
+    });
+    _loadFileStatus();
+  }
+
+  Future<void> _persistPath(String path) async {
+    final storage = ref.read(storageServiceProvider);
+    await storage.saveLastBrowsePath(path);
+  }
+
+  void _setPath(String path, {required bool persist, required bool userInitiated}) {
+    if (!mounted) return;
+    setState(() {
+      _path = path;
+      _itemsFuture = _loadItems();
+      _userHasNavigated = userInitiated;
+    });
+    if (persist) {
+      _persistPath(path);
+    }
     _loadFileStatus();
   }
 
@@ -66,9 +122,11 @@ class _BrowseScreenState extends ConsumerState<BrowseScreen>
     try {
       final bridge = ref.read(bridgeServiceProvider);
       final selection = ref.read(selectionProvider);
-      final fileStatus = await bridge.getFileStatus(
-        projectPath: selection.project?.path,
-      );
+      final projectPath = selection.project?.path;
+      if (projectPath == null) return;
+      if (!_path.startsWith(projectPath)) return;
+
+      final fileStatus = await bridge.getFileStatus(projectPath: projectPath);
       if (mounted) {
         setState(() {
           _fileStatusMap = {for (final fs in fileStatus) fs.path: fs};
@@ -87,8 +145,7 @@ class _BrowseScreenState extends ConsumerState<BrowseScreen>
 
   Future<List<dynamic>> _loadItems() {
     final bridge = ref.read(bridgeServiceProvider);
-    final selection = ref.read(selectionProvider);
-    return bridge.browse(_path, projectPath: selection.project?.path);
+    return bridge.browse(_path);
   }
 
   Future<void> _refresh() async {
@@ -108,9 +165,19 @@ class _BrowseScreenState extends ConsumerState<BrowseScreen>
     try {
       final bridge = ref.read(bridgeServiceProvider);
       final selection = ref.read(selectionProvider);
+      final projectPath = selection.project?.path;
+      final withinProject =
+          projectPath != null &&
+          projectPath.isNotEmpty &&
+          filePath.startsWith(projectPath);
+
+      // OpenCode file APIs expect project-relative paths for correct git diffs/status.
+      final requestPath = withinProject
+          ? filePath.substring(projectPath.length).replaceFirst('/', '')
+          : filePath;
       final content = await bridge.readFile(
-        filePath,
-        projectPath: selection.project?.path,
+        requestPath,
+        projectPath: withinProject ? projectPath : null,
       );
       if (mounted) {
         setState(() {
@@ -145,6 +212,23 @@ class _BrowseScreenState extends ConsumerState<BrowseScreen>
     final query = _searchController.text.trim();
     if (query.isEmpty) return;
 
+    final selection = ref.read(selectionProvider);
+    final projectPath = selection.project?.path;
+    if (projectPath == null) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text(
+              'Select a project to use OpenCode search. File browsing works without it.',
+            ),
+            backgroundColor: _kCard,
+            behavior: SnackBarBehavior.floating,
+          ),
+        );
+      }
+      return;
+    }
+
     setState(() {
       _isSearching = true;
       _fileResults = null;
@@ -154,13 +238,12 @@ class _BrowseScreenState extends ConsumerState<BrowseScreen>
 
     try {
       final bridge = ref.read(bridgeServiceProvider);
-      final selection = ref.read(selectionProvider);
 
       switch (_searchType) {
         case SearchType.files:
           final results = await bridge.findFiles(
             query,
-            projectPath: selection.project?.path,
+            projectPath: projectPath,
           );
           if (mounted) {
             setState(() {
@@ -172,7 +255,7 @@ class _BrowseScreenState extends ConsumerState<BrowseScreen>
         case SearchType.text:
           final results = await bridge.findText(
             query,
-            projectPath: selection.project?.path,
+            projectPath: projectPath,
           );
           if (mounted) {
             setState(() {
@@ -184,7 +267,7 @@ class _BrowseScreenState extends ConsumerState<BrowseScreen>
         case SearchType.symbols:
           final results = await bridge.findSymbols(
             query,
-            projectPath: selection.project?.path,
+            projectPath: projectPath,
           );
           if (mounted) {
             setState(() {
@@ -219,6 +302,8 @@ class _BrowseScreenState extends ConsumerState<BrowseScreen>
   @override
   Widget build(BuildContext context) {
     final connection = ref.watch(connectionProvider);
+    final selection = ref.watch(selectionProvider);
+    final selectedProjectPath = selection.project?.path;
 
     // Show file viewer if viewing a file
     if (_viewingFilePath != null) {
@@ -303,12 +388,27 @@ class _BrowseScreenState extends ConsumerState<BrowseScreen>
               icon: const Icon(Icons.search, color: _kOnBackground),
               onPressed: () => setState(() => _showSearch = true),
             ),
+          if (!_showSearch && selectedProjectPath != null)
+            IconButton(
+              tooltip: 'Current project',
+              icon: const Icon(Icons.folder_open_rounded, color: _kOnBackground),
+              onPressed: () {
+                _lastSeenProjectPath = selectedProjectPath;
+                _setPath(
+                  selectedProjectPath,
+                  persist: false,
+                  userInitiated: false,
+                );
+              },
+            ),
           // Connection indicator
           Padding(
             padding: const EdgeInsets.symmetric(horizontal: 8),
             child: ConnectionIndicator(
               status: connection.status,
               opencodeRunning: connection.opencodeRunning,
+              isReconnecting: connection.isReconnecting,
+              rttMs: connection.rttMs,
               compact: true,
             ),
           ),
@@ -587,18 +687,21 @@ class _BrowseScreenState extends ConsumerState<BrowseScreen>
               }
 
               final itemIndex = _path != '~' ? index - 1 : index;
-              final item = items[itemIndex] as Map<String, dynamic>;
-              final type = item['type'] as String? ?? 'file';
-              final name = item['name'] as String? ?? '';
-              final nextPath =
-                  item['absolute'] as String? ?? item['path'] as String? ?? '';
+          final item = items[itemIndex] as Map<String, dynamic>;
+          final type = item['type'] as String? ?? 'file';
+          final name = item['name'] as String? ?? '';
+          final resolvedNextPath =
+              item['absolute'] as String? ?? item['path'] as String? ?? '';
+          final nextPath = resolvedNextPath.isNotEmpty
+              ? resolvedNextPath
+              : _joinPath(_path, name);
 
-              // Feature 18: Get file status
-              final fileStatus = _fileStatusMap?[nextPath];
+          // Feature 18: Get file status
+          final fileStatus = _fileStatusFor(nextPath);
 
-              return _FileTile(
-                icon: type == 'directory'
-                    ? Icons.folder_rounded
+          return _FileTile(
+            icon: type == 'directory'
+                ? Icons.folder_rounded
                     : _getFileIcon(name),
                 iconColor: type == 'directory'
                     ? const Color(0xFFFCD34D)
@@ -661,19 +764,51 @@ class _BrowseScreenState extends ConsumerState<BrowseScreen>
 
   void _navigate(String nextPath) {
     if (nextPath.isEmpty) return;
-    setState(() {
-      _path = nextPath;
-      _itemsFuture = _loadItems();
-    });
+    _setPath(nextPath, persist: true, userInitiated: true);
   }
 
   void _goUp() {
+    if (_path == '~') return;
+    if (_path.startsWith('~/')) {
+      final parts = _path.split('/').where((p) => p.isNotEmpty).toList();
+      if (parts.length <= 1) {
+        _navigate('~');
+        return;
+      }
+      if (parts.length == 2) {
+        _navigate('~');
+        return;
+      }
+      _navigate('~/${parts.sublist(1, parts.length - 1).join('/')}');
+      return;
+    }
+
     final parts = _path.split('/').where((p) => p.isNotEmpty).toList();
     if (parts.length <= 1) {
       _navigate('~');
-    } else {
-      _navigate('/${parts.sublist(0, parts.length - 1).join('/')}');
+      return;
     }
+    _navigate('/${parts.sublist(0, parts.length - 1).join('/')}');
+  }
+
+  String _joinPath(String base, String name) {
+    if (base.isEmpty || base == '~') return '~/$name';
+    if (base == '/') return '/$name';
+    if (base.endsWith('/')) return '$base$name';
+    return '$base/$name';
+  }
+
+  FileStatusInfo? _fileStatusFor(String absolutePath) {
+    final selection = ref.read(selectionProvider);
+    final projectPath = selection.project?.path;
+    if (projectPath == null || projectPath.isEmpty) return null;
+    if (!_path.startsWith(projectPath)) return null;
+    if (!absolutePath.startsWith(projectPath)) return null;
+    final relative = absolutePath == projectPath
+        ? ''
+        : absolutePath.substring(projectPath.length).replaceFirst('/', '');
+    if (relative.isEmpty) return null;
+    return _fileStatusMap?[relative];
   }
 }
 

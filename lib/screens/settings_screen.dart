@@ -257,12 +257,22 @@ class SettingsScreen extends ConsumerWidget {
     );
   }
 
-  void _startOpenCode(BuildContext context, WidgetRef ref) {
-    ref.read(bridgeServiceProvider).startOpenCode();
-    ScaffoldMessenger.of(context).showSnackBar(
+  Future<void> _startOpenCode(BuildContext context, WidgetRef ref) async {
+    final messenger = ScaffoldMessenger.of(context);
+    final surfaceColor = Theme.of(context).colorScheme.surface;
+    messenger.showSnackBar(
       SnackBar(
-        content: const Text('Starting OpenCode on your Mac...'),
-        backgroundColor: Theme.of(context).colorScheme.surface,
+        content: const Text('Restarting OpenCode...'),
+        backgroundColor: surfaceColor,
+        behavior: SnackBarBehavior.floating,
+      ),
+    );
+
+    final ok = await ref.read(bridgeServiceProvider).restartOpenCode();
+    messenger.showSnackBar(
+      SnackBar(
+        content: Text(ok ? 'OpenCode restarted' : 'Failed to restart OpenCode'),
+        backgroundColor: surfaceColor,
         behavior: SnackBarBehavior.floating,
       ),
     );

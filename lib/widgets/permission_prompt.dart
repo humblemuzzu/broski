@@ -27,7 +27,10 @@ class PermissionPrompt extends StatelessWidget {
         mainAxisSize: MainAxisSize.min,
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text('Permission required', style: Theme.of(context).textTheme.titleMedium),
+          Text(
+            'Permission required',
+            style: Theme.of(context).textTheme.titleMedium,
+          ),
           const SizedBox(height: 8),
           Text(request.title, style: Theme.of(context).textTheme.bodyMedium),
           if (request.command != null) ...[
@@ -43,7 +46,9 @@ class PermissionPrompt extends StatelessWidget {
               Expanded(
                 child: OutlinedButton(
                   onPressed: onDeny,
-                  style: OutlinedButton.styleFrom(foregroundColor: BroskiColors.ember),
+                  style: OutlinedButton.styleFrom(
+                    foregroundColor: BroskiColors.ember,
+                  ),
                   child: const Text('Deny'),
                 ),
               ),

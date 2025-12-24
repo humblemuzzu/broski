@@ -163,6 +163,8 @@ class _McpServersScreenState extends ConsumerState<McpServersScreen> {
             child: ConnectionIndicator(
               status: connection.status,
               opencodeRunning: connection.opencodeRunning,
+              isReconnecting: connection.isReconnecting,
+              rttMs: connection.rttMs,
               compact: true,
             ),
           ),

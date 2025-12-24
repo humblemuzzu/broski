@@ -257,6 +257,8 @@ class _TerminalScreenState extends ConsumerState<TerminalScreen> {
             child: ConnectionIndicator(
               status: connection.status,
               opencodeRunning: connection.opencodeRunning,
+              isReconnecting: connection.isReconnecting,
+              rttMs: connection.rttMs,
               compact: true,
             ),
           ),

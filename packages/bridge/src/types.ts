@@ -24,12 +24,14 @@ export type Agent = {
 }
 
 export type ClientMessage =
+  | { type: 'set_view'; projectPath?: string; sessionId?: string }
+  | { type: 'restart_opencode' }
+  | { type: 'pong'; id: string; sentAt: number }
   | { type: 'list_projects' }
   | { type: 'list_sessions'; projectPath?: string }
   | { type: 'list_providers' }
   | { type: 'get_config' }
   | { type: 'set_model'; model: string }
-  | { type: 'start_opencode' }
   | { type: 'create_session'; projectPath?: string; title?: string }
   | { type: 'get_session'; sessionId: string; projectPath?: string }
   | { type: 'get_session_messages'; sessionId: string; projectPath?: string; limit?: number }
@@ -172,6 +174,10 @@ export type ServerMessage =
   | { type: 'diff'; data: unknown; sessionId: string; requestId?: string }
   | { type: 'browse_result'; data: { path: string; items: unknown[] }; requestId?: string }
   | { type: 'sdk_event'; data: unknown }
+  | { type: 'sdk_event_batch'; data: unknown[] }
+  | { type: 'ping'; data: { id: string; sentAt: number } }
+  | { type: 'connection_metrics'; data: { rttMs: number; lastPongAt: number } }
+  | { type: 'opencode_restarted'; data: boolean; requestId?: string }
   | { type: 'status'; data: { opencodeRunning: boolean } }
   | { type: 'error'; message: string; code?: string; requestId?: string }
   | { type: 'lsp_status'; data: LspServerStatus[]; requestId?: string }

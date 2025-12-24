@@ -5,6 +5,7 @@ import '../models/project.dart';
 import '../models/session.dart';
 import '../providers/chat_provider.dart';
 import '../providers/connection_provider.dart';
+import '../providers/sessions_provider.dart';
 import '../providers/service_providers.dart';
 import 'chat_screen.dart';
 
@@ -16,106 +17,127 @@ class SessionsScreen extends ConsumerStatefulWidget {
 }
 
 class _SessionsScreenState extends ConsumerState<SessionsScreen> {
-  late Future<List<SessionSummary>> _sessionsFuture;
-
-  @override
-  void initState() {
-    super.initState();
-    _sessionsFuture = _loadSessions();
-  }
-
-  Future<List<SessionSummary>> _loadSessions() {
-    final bridge = ref.read(bridgeServiceProvider);
-    return bridge.listSessions();
-  }
-
   Future<void> _refresh() async {
-    setState(() {
-      _sessionsFuture = _loadSessions();
-    });
-    await _sessionsFuture;
+    ref.read(sessionsRefreshTickProvider.notifier).state++;
+    ref.invalidate(sessionsListProvider);
+    ref.invalidate(projectsForSessionsProvider);
+    await ref.read(sessionsListProvider.future);
   }
 
   @override
   Widget build(BuildContext context) {
     final connection = ref.watch(connectionProvider);
     final theme = Theme.of(context);
+    final filterProjectPath = ref.watch(sessionsFilterProjectPathProvider);
+    final projectsAsync = ref.watch(projectsForSessionsProvider);
+    final sessionsAsync = ref.watch(sessionsListProvider);
 
     return Scaffold(
       backgroundColor: theme.scaffoldBackgroundColor,
       body: SafeArea(
-        child: FutureBuilder<List<SessionSummary>>(
-          future: _sessionsFuture,
-          builder: (context, snapshot) {
-            if (snapshot.connectionState == ConnectionState.waiting) {
-              return Center(
-                child: CircularProgressIndicator(
-                  color: theme.colorScheme.primary,
+        child: RefreshIndicator(
+          onRefresh: _refresh,
+          color: theme.colorScheme.primary,
+          backgroundColor: theme.colorScheme.surface,
+          child: CustomScrollView(
+            physics: const AlwaysScrollableScrollPhysics(),
+            slivers: [
+              SliverToBoxAdapter(
+                child: _ModernHeader(
+                  connection: connection,
+                  filterProjectPath: filterProjectPath,
+                  projects: projectsAsync,
+                  onFilterChanged: (path) {
+                    ref.read(sessionsFilterProjectPathProvider.notifier).state =
+                        path;
+                    ref.read(sessionsRefreshTickProvider.notifier).state++;
+                  },
+                  onRefresh: _refresh,
                 ),
-              );
-            }
-
-            if (snapshot.hasError) {
-              return Center(
-                child: Column(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: [
-                    Icon(
-                      Icons.error_outline_rounded,
-                      color: theme.colorScheme.error,
-                      size: 48,
-                    ),
-                    const SizedBox(height: 16),
-                    Text(
-                      'Failed to load sessions',
-                      style: TextStyle(
-                        color: theme.colorScheme.onSurface,
-                        fontSize: 16,
-                        fontWeight: FontWeight.w600,
+              ),
+              ...sessionsAsync.when(
+                loading: () => [
+                  const SliverFillRemaining(
+                    child: Center(child: CircularProgressIndicator()),
+                  ),
+                ],
+                error: (error, _) => [
+                  SliverFillRemaining(
+                    child: Center(
+                      child: Column(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          Icon(
+                            Icons.error_outline_rounded,
+                            color: theme.colorScheme.error,
+                            size: 48,
+                          ),
+                          const SizedBox(height: 16),
+                          Text(
+                            'Failed to load sessions',
+                            style: TextStyle(
+                              color: theme.colorScheme.onSurface,
+                              fontSize: 16,
+                              fontWeight: FontWeight.w600,
+                            ),
+                          ),
+                          const SizedBox(height: 8),
+                          Padding(
+                            padding: const EdgeInsets.symmetric(horizontal: 24),
+                            child: Text(
+                              '$error',
+                              style: TextStyle(
+                                color: theme.colorScheme.onSurface.withValues(
+                                  alpha: 0.6,
+                                ),
+                                fontSize: 14,
+                              ),
+                              textAlign: TextAlign.center,
+                            ),
+                          ),
+                        ],
                       ),
-                    ),
-                    const SizedBox(height: 8),
-                    Text(
-                      '${snapshot.error}',
-                      style: TextStyle(
-                        color: theme.colorScheme.onSurface.withValues(
-                          alpha: 0.6,
-                        ),
-                        fontSize: 14,
-                      ),
-                      textAlign: TextAlign.center,
-                    ),
-                  ],
-                ),
-              );
-            }
-
-            final sessions = snapshot.data ?? [];
-
-            return RefreshIndicator(
-              onRefresh: _refresh,
-              color: theme.colorScheme.primary,
-              backgroundColor: theme.colorScheme.surface,
-              child: CustomScrollView(
-                physics: const AlwaysScrollableScrollPhysics(),
-                slivers: [
-                  // Modern header
-                  SliverToBoxAdapter(
-                    child: _ModernHeader(
-                      connection: connection,
-                      onRefresh: _refresh,
                     ),
                   ),
+                ],
+                data: (sessions) {
+                  if (sessions.isEmpty) {
+                    return [SliverFillRemaining(child: _EmptyState())];
+                  }
 
-                  // Sessions list or empty state
-                  if (sessions.isEmpty)
-                    SliverFillRemaining(child: _EmptyState())
-                  else
+                  final projectsByPath = <String, ProjectSummary>{};
+                  for (final p in projectsAsync.valueOrNull ?? const <ProjectSummary>[]) {
+                    projectsByPath[p.path] = p;
+                  }
+
+                  final items = _buildListItems(
+                    sessions: sessions,
+                    projectsByPath: projectsByPath,
+                    grouped: filterProjectPath == null,
+                  );
+
+                  return [
                     SliverPadding(
                       padding: const EdgeInsets.fromLTRB(20, 0, 20, 100),
                       sliver: SliverList(
                         delegate: SliverChildBuilderDelegate((context, index) {
-                          final session = sessions[index];
+                          final item = items[index];
+                          if (item is _SessionListHeader) {
+                            return Padding(
+                              padding: const EdgeInsets.fromLTRB(4, 14, 4, 10),
+                              child: Text(
+                                item.title.toUpperCase(),
+                                style: const TextStyle(
+                                  color: Color(0xFF71717A),
+                                  fontSize: 12,
+                                  fontWeight: FontWeight.w700,
+                                  letterSpacing: 0.5,
+                                ),
+                              ),
+                            );
+                          }
+
+                          final session = (item as _SessionListItem).session;
                           return Padding(
                             padding: const EdgeInsets.only(bottom: 12),
                             child: _SessionCard(
@@ -125,13 +147,14 @@ class _SessionsScreenState extends ConsumerState<SessionsScreen> {
                               onRename: () => _showRenameDialog(session),
                             ),
                           );
-                        }, childCount: sessions.length),
+                        }, childCount: items.length),
                       ),
                     ),
-                ],
+                  ];
+                },
               ),
-            );
-          },
+            ],
+          ),
         ),
       ),
     );
@@ -148,12 +171,14 @@ class _SessionsScreenState extends ConsumerState<SessionsScreen> {
     );
 
     if (!mounted) return;
-    Navigator.push(
+    await Navigator.push(
       context,
       MaterialPageRoute(
         builder: (_) => ChatScreen(project: project, session: session),
       ),
     );
+    if (!mounted) return;
+    ref.read(sessionsRefreshTickProvider.notifier).state++;
   }
 
   // Feature 4: Delete session
@@ -241,8 +266,9 @@ class _SessionsScreenState extends ConsumerState<SessionsScreen> {
       ),
     );
 
-    if (newTitle == null || newTitle.isEmpty || newTitle == session.title)
+    if (newTitle == null || newTitle.isEmpty || newTitle == session.title) {
       return;
+    }
 
     final bridge = ref.read(bridgeServiceProvider);
     try {
@@ -273,16 +299,84 @@ class _SessionsScreenState extends ConsumerState<SessionsScreen> {
   }
 }
 
+sealed class _SessionRowItem {}
+
+final class _SessionListHeader extends _SessionRowItem {
+  _SessionListHeader(this.title);
+  final String title;
+}
+
+final class _SessionListItem extends _SessionRowItem {
+  _SessionListItem(this.session);
+  final SessionSummary session;
+}
+
+List<_SessionRowItem> _buildListItems({
+  required List<SessionSummary> sessions,
+  required Map<String, ProjectSummary> projectsByPath,
+  required bool grouped,
+}) {
+  String displayNameForDirectory(String directory) {
+    final project = projectsByPath[directory];
+    if (project != null && project.name.isNotEmpty) return project.name;
+    final parts = directory.split('/').where((p) => p.isNotEmpty).toList();
+    return parts.isEmpty ? 'Global' : parts.last;
+  }
+
+  if (!grouped) {
+    return sessions.map((s) => _SessionListItem(s)).toList();
+  }
+
+  final groups = <String, List<SessionSummary>>{};
+  for (final session in sessions) {
+    groups.putIfAbsent(session.directory, () => []).add(session);
+  }
+
+  final directories = groups.keys.toList()
+    ..sort((a, b) {
+      final aMax = groups[a]!
+          .map((s) => s.time.updated)
+          .fold<int>(0, (prev, v) => v > prev ? v : prev);
+      final bMax = groups[b]!
+          .map((s) => s.time.updated)
+          .fold<int>(0, (prev, v) => v > prev ? v : prev);
+      return bMax.compareTo(aMax);
+    });
+
+  final items = <_SessionRowItem>[];
+  for (final directory in directories) {
+    items.add(_SessionListHeader(displayNameForDirectory(directory)));
+    final group = groups[directory]!..sort((a, b) => b.time.updated - a.time.updated);
+    for (final session in group) {
+      items.add(_SessionListItem(session));
+    }
+  }
+  return items;
+}
+
 // Modern header
 class _ModernHeader extends StatelessWidget {
-  const _ModernHeader({required this.connection, required this.onRefresh});
+  const _ModernHeader({
+    required this.connection,
+    required this.filterProjectPath,
+    required this.projects,
+    required this.onFilterChanged,
+    required this.onRefresh,
+  });
 
   final BridgeConnectionState connection;
+  final String? filterProjectPath;
+  final AsyncValue<List<ProjectSummary>> projects;
+  final ValueChanged<String?> onFilterChanged;
   final VoidCallback onRefresh;
 
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
+    final filterLabel = _filterLabel(
+      selectedPath: filterProjectPath,
+      projects: projects,
+    );
 
     return Padding(
       padding: const EdgeInsets.fromLTRB(20, 16, 20, 20),
@@ -300,6 +394,14 @@ class _ModernHeader extends StatelessWidget {
                     fontWeight: FontWeight.w700,
                   ),
                 ),
+              ),
+              IconButton(
+                onPressed: onRefresh,
+                icon: Icon(
+                  Icons.refresh_rounded,
+                  color: theme.colorScheme.onSurface.withValues(alpha: 0.7),
+                ),
+                tooltip: 'Refresh',
               ),
               // Connection indicator
               Container(
@@ -340,10 +442,218 @@ class _ModernHeader extends StatelessWidget {
               fontWeight: FontWeight.w500,
             ),
           ),
+          const SizedBox(height: 14),
+          Align(
+            alignment: Alignment.centerLeft,
+            child: _FilterChipButton(
+              label: filterLabel,
+              onTap: () => _showProjectFilter(
+                context: context,
+                theme: theme,
+                selectedPath: filterProjectPath,
+                projects: projects,
+                onSelected: onFilterChanged,
+              ),
+            ),
+          ),
         ],
       ),
     );
   }
+}
+
+String _filterLabel({
+  required String? selectedPath,
+  required AsyncValue<List<ProjectSummary>> projects,
+}) {
+  if (selectedPath == null) return 'All projects';
+  final project = projects.valueOrNull?.firstWhere(
+    (p) => p.path == selectedPath,
+    orElse: () => ProjectSummary(
+      id: 'unknown',
+      name: '',
+      path: selectedPath,
+    ),
+  );
+  final name = project?.name ?? '';
+  if (name.isNotEmpty) return name;
+  final parts = selectedPath.split('/').where((p) => p.isNotEmpty).toList();
+  return parts.isEmpty ? 'Project' : parts.last;
+}
+
+class _FilterChipButton extends StatelessWidget {
+  const _FilterChipButton({required this.label, required this.onTap});
+
+  final String label;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    const kCard = Color(0xFF1F2128);
+    const kBorder = Color(0xFF2A2D36);
+    const kMuted = Color(0xFF71717A);
+    const kOnBackground = Color(0xFFE4E4E7);
+
+    return InkWell(
+      onTap: onTap,
+      borderRadius: BorderRadius.circular(999),
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+        decoration: BoxDecoration(
+          color: kCard,
+          borderRadius: BorderRadius.circular(999),
+          border: Border.all(color: kBorder),
+        ),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            const Icon(Icons.filter_list_rounded, size: 16, color: kMuted),
+            const SizedBox(width: 8),
+            Text(
+              label,
+              style: const TextStyle(
+                color: kOnBackground,
+                fontSize: 13,
+                fontWeight: FontWeight.w600,
+              ),
+            ),
+            const SizedBox(width: 6),
+            const Icon(Icons.expand_more_rounded, size: 18, color: kMuted),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+void _showProjectFilter({
+  required BuildContext context,
+  required ThemeData theme,
+  required String? selectedPath,
+  required AsyncValue<List<ProjectSummary>> projects,
+  required ValueChanged<String?> onSelected,
+}) {
+  showModalBottomSheet<void>(
+    context: context,
+    backgroundColor: theme.colorScheme.surface,
+    shape: const RoundedRectangleBorder(
+      borderRadius: BorderRadius.vertical(top: Radius.circular(18)),
+    ),
+    builder: (context) {
+      return SafeArea(
+        child: Padding(
+          padding: const EdgeInsets.fromLTRB(16, 12, 16, 16),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
+                children: [
+                  Expanded(
+                    child: Text(
+                      'Filter sessions',
+                      style: TextStyle(
+                        color: theme.colorScheme.onSurface,
+                        fontSize: 16,
+                        fontWeight: FontWeight.w700,
+                      ),
+                    ),
+                  ),
+                  IconButton(
+                    onPressed: () => Navigator.pop(context),
+                    icon: Icon(
+                      Icons.close_rounded,
+                      color: theme.colorScheme.onSurface.withValues(alpha: 0.7),
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 8),
+              ListTile(
+                contentPadding: EdgeInsets.zero,
+                title: Text(
+                  'All projects',
+                  style: TextStyle(
+                    color: theme.colorScheme.onSurface,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+                trailing: selectedPath == null
+                    ? const Icon(Icons.check_rounded, color: Color(0xFF10B981))
+                    : null,
+                onTap: () {
+                  onSelected(null);
+                  Navigator.pop(context);
+                },
+              ),
+              const Divider(height: 16),
+              projects.when(
+                loading: () => const Padding(
+                  padding: EdgeInsets.symmetric(vertical: 24),
+                  child: Center(child: CircularProgressIndicator()),
+                ),
+                error: (error, _) => Padding(
+                  padding: const EdgeInsets.symmetric(vertical: 16),
+                  child: Text(
+                    'Failed to load projects: $error',
+                    style: TextStyle(
+                      color: theme.colorScheme.onSurface.withValues(alpha: 0.7),
+                    ),
+                  ),
+                ),
+                data: (items) {
+                  final sorted = items.toList()
+                    ..sort((a, b) => a.name.toLowerCase().compareTo(b.name.toLowerCase()));
+                  return ConstrainedBox(
+                    constraints: const BoxConstraints(maxHeight: 420),
+                    child: ListView.builder(
+                      shrinkWrap: true,
+                      itemCount: sorted.length,
+                      itemBuilder: (context, index) {
+                        final project = sorted[index];
+                        final isSelected = selectedPath == project.path;
+                        return ListTile(
+                          contentPadding: EdgeInsets.zero,
+                          title: Text(
+                            project.name,
+                            style: TextStyle(
+                              color: theme.colorScheme.onSurface,
+                              fontWeight: FontWeight.w600,
+                            ),
+                          ),
+                          subtitle: Text(
+                            project.path,
+                            style: TextStyle(
+                              color: theme.colorScheme.onSurface.withValues(
+                                alpha: 0.6,
+                              ),
+                              fontSize: 12,
+                            ),
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                          trailing: isSelected
+                              ? const Icon(
+                                  Icons.check_rounded,
+                                  color: Color(0xFF10B981),
+                                )
+                              : null,
+                          onTap: () {
+                            onSelected(project.path);
+                            Navigator.pop(context);
+                          },
+                        );
+                      },
+                    ),
+                  );
+                },
+              ),
+            ],
+          ),
+        ),
+      );
+    },
+  );
 }
 
 // Session card with swipe-to-delete and long-press to rename

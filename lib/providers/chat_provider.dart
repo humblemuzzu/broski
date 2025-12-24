@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'dart:developer' as developer;
 
+import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../models/message.dart';
@@ -58,13 +59,18 @@ class ChatSessionState {
 
 class ChatSessionNotifier extends StateNotifier<ChatSessionState> {
   ChatSessionNotifier(this._bridge) : super(const ChatSessionState()) {
-    _subscription = _bridge.sdkEvents.listen(_handleSdkEvent);
+    _subscription = _bridge.sdkEvents.listen(_enqueueSdkEvent);
   }
 
   final BridgeService _bridge;
   final Map<String, ChatMessage> _messages = {};
   final List<String> _order = [];
   StreamSubscription<Map<String, dynamic>>? _subscription;
+
+  final List<Map<String, dynamic>> _pendingEvents = [];
+  Timer? _flushTimer;
+  bool _suppressEmit = false;
+  bool _pendingEmitMessages = false;
 
   void setSession(SessionSummary session, {String? projectPath}) {
     _messages.clear();
@@ -162,24 +168,40 @@ class ChatSessionNotifier extends StateNotifier<ChatSessionState> {
     );
   }
 
-  void _handleSdkEvent(Map<String, dynamic> event) {
-    developer.log('SDK Event received: $event', name: 'ChatProvider');
+  void _enqueueSdkEvent(Map<String, dynamic> event) {
+    _pendingEvents.add(event);
+    _flushTimer ??= Timer(const Duration(milliseconds: 16), _flushSdkEvents);
+  }
 
+  void _flushSdkEvents() {
+    _flushTimer = null;
+    if (_pendingEvents.isEmpty) return;
+
+    final batch = List<Map<String, dynamic>>.from(_pendingEvents);
+    _pendingEvents.clear();
+
+    _suppressEmit = true;
+    _pendingEmitMessages = false;
+    for (final event in batch) {
+      _handleSdkEvent(event);
+    }
+    _suppressEmit = false;
+    if (_pendingEmitMessages) {
+      _emitMessages();
+    }
+  }
+
+  void _handleSdkEvent(Map<String, dynamic> event) {
     // Filter by directory/project path first
     final eventDirectory = event['directory'] as String?;
     if (eventDirectory != null && state.projectPath != null) {
       if (eventDirectory != state.projectPath) {
-        developer.log(
-          'Ignoring event from different project: $eventDirectory (current: ${state.projectPath})',
-          name: 'ChatProvider',
-        );
         return;
       }
     }
 
     final payload = event['payload'] as Map<String, dynamic>? ?? const {};
     final type = payload['type'] as String?;
-    developer.log('Event type: $type', name: 'ChatProvider');
     if (type == null) return;
 
     switch (type) {
@@ -221,7 +243,9 @@ class ChatSessionNotifier extends StateNotifier<ChatSessionState> {
         _handleSessionIdle(payload);
         break;
       default:
-        developer.log('Unhandled event type: $type', name: 'ChatProvider');
+        if (kDebugMode) {
+          developer.log('Unhandled event type: $type', name: 'ChatProvider');
+        }
         break;
     }
   }
@@ -242,10 +266,6 @@ class ChatSessionNotifier extends StateNotifier<ChatSessionState> {
 
     // Skip user messages - we already added them locally in appendUserMessage()
     if (role == 'user') {
-      developer.log(
-        'Skipping user message from server (already added locally)',
-        name: 'ChatProvider',
-      );
       return;
     }
 
@@ -275,10 +295,6 @@ class ChatSessionNotifier extends StateNotifier<ChatSessionState> {
     // User messages have local-* IDs or we should skip server-echoed user messages
     final existingMessage = _messages[messageId];
     if (existingMessage != null && existingMessage.role == MessageRole.user) {
-      developer.log(
-        'Skipping part update for user message: $messageId',
-        name: 'ChatProvider',
-      );
       return;
     }
 
@@ -291,10 +307,6 @@ class ChatSessionNotifier extends StateNotifier<ChatSessionState> {
         (msg) => msg.role == MessageRole.user && msg.text == partText,
       );
       if (isUserEcho) {
-        developer.log(
-          'Skipping echoed user message text: $partText',
-          name: 'ChatProvider',
-        );
         return;
       }
     }
@@ -432,10 +444,12 @@ class ChatSessionNotifier extends StateNotifier<ChatSessionState> {
     final errorData = error['data'] as Map<String, dynamic>? ?? const {};
     final errorMessage = errorData['message'] as String? ?? 'Unknown error';
 
-    developer.log(
-      'Session error: $errorName - $errorMessage',
-      name: 'ChatProvider',
-    );
+    if (kDebugMode) {
+      developer.log(
+        'Session error: $errorName - $errorMessage',
+        name: 'ChatProvider',
+      );
+    }
 
     // Add error as a system message so user sees it
     final messageId = 'error-${DateTime.now().millisecondsSinceEpoch}';
@@ -526,8 +540,24 @@ class ChatSessionNotifier extends StateNotifier<ChatSessionState> {
     final sessionId = properties['sessionID'] as String? ?? '';
     if (state.session?.id != sessionId) return;
 
-    developer.log('Session became idle', name: 'ChatProvider');
     state = state.copyWith(sessionStatus: const SessionStatus.idle());
+
+    // Mark any streaming assistant messages as complete.
+    var changed = false;
+    for (final id in _order) {
+      final msg = _messages[id];
+      if (msg == null) continue;
+      if (!msg.isStreaming) continue;
+      _messages[id] = msg.copyWith(isStreaming: false);
+      changed = true;
+    }
+    if (changed) {
+      if (_suppressEmit) {
+        _pendingEmitMessages = true;
+      } else {
+        _emitMessages();
+      }
+    }
   }
 
   /// Update session status from fetched data
@@ -540,6 +570,10 @@ class ChatSessionNotifier extends StateNotifier<ChatSessionState> {
       _order.add(message.id);
     }
     _messages[message.id] = message;
+    if (_suppressEmit) {
+      _pendingEmitMessages = true;
+      return;
+    }
     _emitMessages();
   }
 
@@ -548,6 +582,10 @@ class ChatSessionNotifier extends StateNotifier<ChatSessionState> {
       _order.add(id);
     }
     _messages[id] = message;
+    if (_suppressEmit) {
+      _pendingEmitMessages = true;
+      return;
+    }
     _emitMessages();
   }
 
@@ -559,6 +597,7 @@ class ChatSessionNotifier extends StateNotifier<ChatSessionState> {
   @override
   void dispose() {
     _subscription?.cancel();
+    _flushTimer?.cancel();
     super.dispose();
   }
 }

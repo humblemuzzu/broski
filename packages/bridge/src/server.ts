@@ -7,7 +7,9 @@ import type { ClientMessage, ServerMessage } from './types'
 
 // Direct file listing (doesn't require OpenCode SDK)
 // Note: Bun supports Node.js APIs natively with better performance
-async function listFilesDirectly(filePath: string): Promise<Array<{ name: string; type: 'file' | 'directory' }>> {
+async function listFilesDirectly(
+  filePath: string,
+): Promise<Array<{ name: string; type: 'file' | 'directory'; path: string; absolute: string }>> {
   // Expand ~ to actual home directory
   const resolvedPath = filePath === '~' || filePath.startsWith('~/')
     ? filePath.replace(/^~/, homedir())
@@ -15,15 +17,18 @@ async function listFilesDirectly(filePath: string): Promise<Array<{ name: string
 
   try {
     const entries = await readdir(resolvedPath, { withFileTypes: true })
-    const items: Array<{ name: string; type: 'file' | 'directory' }> = []
+    const items: Array<{ name: string; type: 'file' | 'directory'; path: string; absolute: string }> = []
 
     for (const entry of entries) {
       // Skip hidden files/folders (starting with .)
       if (entry.name.startsWith('.')) continue
 
+      const absolute = resolve(resolvedPath, entry.name)
       items.push({
         name: entry.name,
         type: entry.isDirectory() ? 'directory' : 'file',
+        path: absolute,
+        absolute,
       })
     }
 
@@ -42,21 +47,71 @@ async function listFilesDirectly(filePath: string): Promise<Array<{ name: string
   }
 }
 
+async function readFileDirectly(filePath: string): Promise<{ content: string; mime: string }> {
+  const resolvedPath = filePath === '~' || filePath.startsWith('~/')
+    ? filePath.replace(/^~/, homedir())
+    : resolve(filePath)
+
+  try {
+    const file = Bun.file(resolvedPath)
+    const exists = await file.exists()
+    if (!exists) return { content: '', mime: 'text/plain' }
+
+    const mime = file.type || 'application/octet-stream'
+    // Only read text-like content; images/binary are handled as "no preview" in the UI.
+    const isText =
+      mime.startsWith('text/') ||
+      mime.includes('json') ||
+      mime.includes('xml') ||
+      mime.includes('javascript') ||
+      mime.includes('typescript') ||
+      mime.includes('markdown')
+
+    if (!isText) {
+      return { content: '', mime }
+    }
+
+    const text = await file.text()
+    // Prevent accidental huge payloads over WS.
+    const maxChars = 1_000_000
+    if (text.length > maxChars) {
+      return { content: `${text.slice(0, maxChars)}\n\n…(truncated)…`, mime }
+    }
+    return { content: text, mime }
+  } catch (error) {
+    console.error(`[readFileDirectly] Error reading ${resolvedPath}:`, error)
+    return { content: '', mime: 'text/plain' }
+  }
+}
+
 export type BridgeServerOptions = {
   port: number
   opencode: OpenCodeConnector
   version: string
+  restartOpenCode?: () => Promise<boolean>
   logger?: (message: string) => void
 }
 
 export type BridgeServer = {
   broadcast: (message: ServerMessage) => void
-  stop: () => void
+  enqueueSdkEvent: (event: unknown) => void
+  stop: (force?: boolean) => void
   connections: () => number
+  port: () => number
 }
 
 export function createBridgeServer(options: BridgeServerOptions): BridgeServer {
   const sockets = new Set<ServerWebSocket<unknown>>()
+  const contexts = new Map<
+    ServerWebSocket<unknown>,
+    {
+      projectPath?: string
+      sessionId?: string
+      lastPongAt: number
+      lastRttMs: number
+      pendingPing?: { id: string; sentAt: number }
+    }
+  >()
   const { opencode, version, logger } = options
 
   const log = (message: string) => {
@@ -73,6 +128,97 @@ export function createBridgeServer(options: BridgeServerOptions): BridgeServer {
       ws.send(payload)
     }
   }
+
+  const sdkQueue: unknown[] = []
+  let sdkFlushTimer: Timer | null = null
+
+  const extractSessionId = (event: any): string | null => {
+    const payload = event?.payload ?? null
+    const properties = payload?.properties ?? null
+    const info = properties?.info ?? null
+    const sessionId =
+      (typeof info?.sessionID === 'string' && info.sessionID) ||
+      (typeof properties?.sessionID === 'string' && properties.sessionID) ||
+      (typeof properties?.sessionId === 'string' && properties.sessionId)
+    return sessionId ? String(sessionId) : null
+  }
+
+  const filterEventsForSocket = (ws: ServerWebSocket<unknown>, events: unknown[]): unknown[] => {
+    const ctx = contexts.get(ws)
+    if (!ctx || (!ctx.projectPath && !ctx.sessionId)) {
+      return events
+    }
+
+    const filtered: unknown[] = []
+    for (const raw of events) {
+      const event = raw as any
+      const directory = (typeof event?.directory === 'string' ? event.directory : null) ?? 'global'
+
+      if (ctx.projectPath === 'global') {
+        if (directory !== 'global') continue
+      } else if (ctx.projectPath && directory !== 'global' && directory !== ctx.projectPath) {
+        continue
+      }
+
+      if (ctx.sessionId) {
+        const sid = extractSessionId(event)
+        if (sid && sid !== ctx.sessionId) {
+          continue
+        }
+      }
+
+      filtered.push(raw)
+    }
+    return filtered
+  }
+
+  const flushSdkEvents = () => {
+    sdkFlushTimer = null
+    if (sdkQueue.length === 0) return
+
+    const events = sdkQueue.splice(0, sdkQueue.length)
+    for (const ws of sockets) {
+      const filtered = filterEventsForSocket(ws, events)
+      if (filtered.length === 0) continue
+      send(ws, { type: 'sdk_event_batch', data: filtered })
+    }
+  }
+
+  const enqueueSdkEvent = (event: unknown) => {
+    sdkQueue.push(event)
+    if (sdkFlushTimer) return
+    sdkFlushTimer = setTimeout(flushSdkEvents, 16)
+  }
+
+  const HEARTBEAT_INTERVAL_MS = 20000
+  const HEARTBEAT_DEAD_AFTER_MS = 90000
+
+  const heartbeatTimer = setInterval(() => {
+    const now = Date.now()
+    for (const ws of sockets) {
+      const ctx = contexts.get(ws)
+      if (!ctx) continue
+
+      if (now - ctx.lastPongAt > HEARTBEAT_DEAD_AFTER_MS) {
+        try {
+          ws.close(4000, 'Heartbeat timeout')
+        } catch {
+          // ignore
+        }
+        continue
+      }
+
+      // Only keep one in-flight ping per client to make RTT meaningful.
+      if (ctx.pendingPing) continue
+
+      const ping = {
+        id: `ping_${now}_${Math.floor(Math.random() * 1_000_000)}`,
+        sentAt: now,
+      }
+      ctx.pendingPing = ping
+      send(ws, { type: 'ping', data: ping })
+    }
+  }, HEARTBEAT_INTERVAL_MS)
 
   const handleHttp = async (request: Request): Promise<Response> => {
     const url = new URL(request.url)
@@ -117,11 +263,13 @@ export function createBridgeServer(options: BridgeServerOptions): BridgeServer {
     websocket: {
       open(ws) {
         sockets.add(ws)
+        contexts.set(ws, { lastPongAt: Date.now(), lastRttMs: 0 })
         log(`Client connected (${sockets.size} total)`)
         void sendStatus(ws)
       },
       close(ws) {
         sockets.delete(ws)
+        contexts.delete(ws)
         log(`Client disconnected (${sockets.size} total)`)
       },
       message(ws, raw) {
@@ -129,6 +277,7 @@ export function createBridgeServer(options: BridgeServerOptions): BridgeServer {
       },
     },
   })
+  const actualPort = (server as any).port ?? options.port
 
   const sendStatus = async (ws: ServerWebSocket<unknown>) => {
     const running = await opencode.isRunning()
@@ -155,9 +304,35 @@ export function createBridgeServer(options: BridgeServerOptions): BridgeServer {
 
     try {
       switch (message.type) {
+        case 'set_view': {
+          const existing = contexts.get(ws) ?? { lastPongAt: Date.now(), lastRttMs: 0 }
+          contexts.set(ws, {
+            ...existing,
+            projectPath: message.projectPath || undefined,
+            sessionId: message.sessionId || undefined,
+          })
+          void sendStatus(ws)
+          break
+        }
+        case 'pong': {
+          const ctx = contexts.get(ws)
+          if (!ctx) break
+          ctx.lastPongAt = Date.now()
+          ctx.lastRttMs = Math.max(0, ctx.lastPongAt - message.sentAt)
+          if (ctx.pendingPing?.id === message.id) {
+            ctx.pendingPing = undefined
+          }
+          send(ws, { type: 'connection_metrics', data: { rttMs: ctx.lastRttMs, lastPongAt: ctx.lastPongAt } })
+          break
+        }
         case 'list_projects': {
           const projects = await opencode.listProjects()
           reply({ type: 'projects', data: projects })
+          break
+        }
+        case 'restart_opencode': {
+          const ok = await options.restartOpenCode?.()
+          reply({ type: 'opencode_restarted', data: ok === true })
           break
         }
         case 'list_sessions': {
@@ -364,7 +539,9 @@ export function createBridgeServer(options: BridgeServerOptions): BridgeServer {
         }
         // Feature 11: File Content Read
         case 'read_file': {
-          const content = await opencode.readFile(message.path, message.projectPath)
+          const content = message.projectPath
+            ? await opencode.readFile(message.path, message.projectPath)
+            : await readFileDirectly(message.path)
           reply({ type: 'file_content', data: content, path: message.path })
           break
         }
@@ -518,8 +695,13 @@ export function createBridgeServer(options: BridgeServerOptions): BridgeServer {
 
   return {
     broadcast,
-    stop: () => server.stop(true),
+    enqueueSdkEvent,
+    stop: (force = true) => {
+      clearInterval(heartbeatTimer)
+      server.stop(force)
+    },
     connections: () => sockets.size,
+    port: () => actualPort,
   }
 }
 

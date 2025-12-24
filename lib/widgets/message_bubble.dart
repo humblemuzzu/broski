@@ -166,69 +166,83 @@ class MessageBubble extends StatelessWidget {
                   ),
                 )
               else
-                MarkdownBody(
-                  data: message.text,
-                  selectable: true,
-                  styleSheet: MarkdownStyleSheet(
-                    p: GoogleFonts.inter(
-                      fontSize: 15,
-                      color: const Color(0xFFD4D4D8),
-                      height: 1.6,
-                    ),
-                    h1: GoogleFonts.inter(
-                      fontSize: 20,
-                      fontWeight: FontWeight.w600,
-                      color: const Color(0xFFE4E4E7),
-                      height: 1.4,
-                    ),
-                    h2: GoogleFonts.inter(
-                      fontSize: 18,
-                      fontWeight: FontWeight.w600,
-                      color: const Color(0xFFE4E4E7),
-                      height: 1.4,
-                    ),
-                    h3: GoogleFonts.inter(
-                      fontSize: 16,
-                      fontWeight: FontWeight.w600,
-                      color: const Color(0xFFE4E4E7),
-                      height: 1.4,
-                    ),
-                    strong: const TextStyle(
-                      fontWeight: FontWeight.w600,
-                      color: Color(0xFFE4E4E7),
-                    ),
-                    em: const TextStyle(
-                      fontStyle: FontStyle.italic,
-                      color: Color(0xFFD4D4D8),
-                    ),
-                    code: GoogleFonts.jetBrainsMono(
-                      fontSize: 14,
-                      backgroundColor: const Color(0xFF17181C),
-                      color: const Color(0xFF93C5FD),
-                    ),
-                    codeblockPadding: const EdgeInsets.all(12),
-                    codeblockDecoration: BoxDecoration(
-                      color: const Color(0xFF17181C),
-                      borderRadius: BorderRadius.circular(12),
-                      border: Border.all(color: const Color(0xFF2A2D36)),
-                    ),
-                    listBullet: GoogleFonts.inter(
-                      fontSize: 15,
-                      color: const Color(0xFF71717A),
-                    ),
-                    listIndent: 24,
-                    blockquotePadding: const EdgeInsets.only(left: 16),
-                    blockquoteDecoration: const BoxDecoration(
-                      border: Border(
-                        left: BorderSide(color: Color(0xFF3B82F6), width: 3),
+                // Huge perf win: avoid markdown layout while streaming.
+                // Render markdown only once the message is stable.
+                message.isStreaming
+                    ? SelectableText(
+                        message.text,
+                        style: GoogleFonts.inter(
+                          fontSize: 15,
+                          color: const Color(0xFFD4D4D8),
+                          height: 1.6,
+                        ),
+                      )
+                    : MarkdownBody(
+                        data: message.text,
+                        selectable: true,
+                        styleSheet: MarkdownStyleSheet(
+                          p: GoogleFonts.inter(
+                            fontSize: 15,
+                            color: const Color(0xFFD4D4D8),
+                            height: 1.6,
+                          ),
+                          h1: GoogleFonts.inter(
+                            fontSize: 20,
+                            fontWeight: FontWeight.w600,
+                            color: const Color(0xFFE4E4E7),
+                            height: 1.4,
+                          ),
+                          h2: GoogleFonts.inter(
+                            fontSize: 18,
+                            fontWeight: FontWeight.w600,
+                            color: const Color(0xFFE4E4E7),
+                            height: 1.4,
+                          ),
+                          h3: GoogleFonts.inter(
+                            fontSize: 16,
+                            fontWeight: FontWeight.w600,
+                            color: const Color(0xFFE4E4E7),
+                            height: 1.4,
+                          ),
+                          strong: const TextStyle(
+                            fontWeight: FontWeight.w600,
+                            color: Color(0xFFE4E4E7),
+                          ),
+                          em: const TextStyle(
+                            fontStyle: FontStyle.italic,
+                            color: Color(0xFFD4D4D8),
+                          ),
+                          code: GoogleFonts.jetBrainsMono(
+                            fontSize: 14,
+                            backgroundColor: const Color(0xFF17181C),
+                            color: const Color(0xFF93C5FD),
+                          ),
+                          codeblockPadding: const EdgeInsets.all(12),
+                          codeblockDecoration: BoxDecoration(
+                            color: const Color(0xFF17181C),
+                            borderRadius: BorderRadius.circular(12),
+                            border: Border.all(color: const Color(0xFF2A2D36)),
+                          ),
+                          listBullet: GoogleFonts.inter(
+                            fontSize: 15,
+                            color: const Color(0xFF71717A),
+                          ),
+                          listIndent: 24,
+                          blockquotePadding: const EdgeInsets.only(left: 16),
+                          blockquoteDecoration: const BoxDecoration(
+                            border: Border(
+                              left: BorderSide(
+                                color: Color(0xFF3B82F6),
+                                width: 3,
+                              ),
+                            ),
+                          ),
+                          a: const TextStyle(
+                            color: Color(0xFF60A5FA),
+                            decoration: TextDecoration.underline,
+                          ),
+                        ),
                       ),
-                    ),
-                    a: const TextStyle(
-                      color: Color(0xFF60A5FA),
-                      decoration: TextDecoration.underline,
-                    ),
-                  ),
-                ),
             ],
           ),
         ),

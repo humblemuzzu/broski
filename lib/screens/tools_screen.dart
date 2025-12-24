@@ -47,23 +47,54 @@ class _ToolsScreenState extends ConsumerState<ToolsScreen> {
       final bridge = ref.read(bridgeServiceProvider);
       final selection = ref.read(selectionProvider);
 
-      // Get tool IDs first
+      // Get tool IDs first (always available)
       final toolIds = await bridge.listToolIds(
         projectPath: selection.project?.path,
       );
 
-      // Try to get detailed tool info (requires provider/model)
-      // For now, we create basic tool info from IDs
-      final tools = toolIds
-          .map(
-            (id) => ToolInfo(
-              id: id,
-              name: id,
-              description: _getToolDescription(id),
-              enabled: true,
-            ),
-          )
-          .toList();
+      // Prefer model-specific tool schemas (better descriptions + inputs).
+      var selectedModel = selection.model;
+      if (selectedModel == null) {
+        final config = await bridge.getConfig();
+        final modelString = config['model'] as String?;
+        if (modelString != null && modelString.isNotEmpty) {
+          final parsed = SelectedModel.fromString(modelString);
+          ref.read(selectionProvider.notifier).selectModel(parsed);
+          selectedModel = parsed;
+        }
+      }
+
+      List<ToolInfo> tools;
+      if (selectedModel != null) {
+        final detailed = await bridge.listTools(
+          provider: selectedModel.providerID,
+          model: selectedModel.modelID,
+          projectPath: selection.project?.path,
+        );
+        tools = detailed.isNotEmpty
+            ? detailed
+            : toolIds
+                  .map(
+                    (id) => ToolInfo(
+                      id: id,
+                      name: id,
+                      description: _getToolDescription(id),
+                      enabled: true,
+                    ),
+                  )
+                  .toList();
+      } else {
+        tools = toolIds
+            .map(
+              (id) => ToolInfo(
+                id: id,
+                name: id,
+                description: _getToolDescription(id),
+                enabled: true,
+              ),
+            )
+            .toList();
+      }
 
       // Feature 19: Load formatter status
       final formatters = await bridge.getFormatterStatus(

@@ -1,19 +1,40 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import 'browse_screen.dart';
 import 'projects_screen.dart';
 import 'sessions_screen.dart';
 import 'settings_screen.dart';
+import '../providers/connection_provider.dart';
+import '../providers/sessions_provider.dart';
+import '../providers/service_providers.dart';
+import '../services/websocket_service.dart';
 
-class MainShell extends StatefulWidget {
+class MainShell extends ConsumerStatefulWidget {
   const MainShell({super.key});
 
   @override
-  State<MainShell> createState() => _MainShellState();
+  ConsumerState<MainShell> createState() => _MainShellState();
 }
 
-class _MainShellState extends State<MainShell> {
+class _MainShellState extends ConsumerState<MainShell> {
   int _index = 0;
+
+  @override
+  void initState() {
+    super.initState();
+    // Main tabs don't need per-session traffic; keep it global-only for bandwidth.
+    ref.read(bridgeServiceProvider).setView(projectPath: 'global');
+
+    // If the socket connects after initState (common on cold start), apply view routing then too.
+    ref.listen(connectionProvider, (previous, next) {
+      final wasConnected = previous?.status == ConnectionStatus.connected;
+      final isConnected = next.status == ConnectionStatus.connected;
+      if (!wasConnected && isConnected) {
+        ref.read(bridgeServiceProvider).setView(projectPath: 'global');
+      }
+    });
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -36,7 +57,13 @@ class _MainShellState extends State<MainShell> {
             bottom: 0,
             child: _ModernBottomNav(
               currentIndex: _index,
-              onTap: (value) => setState(() => _index = value),
+              onTap: (value) {
+                setState(() => _index = value);
+                ref.read(bridgeServiceProvider).setView(projectPath: 'global');
+                if (value == 2) {
+                  ref.read(sessionsRefreshTickProvider.notifier).state++;
+                }
+              },
             ),
           ),
         ],

@@ -1,21 +1,15 @@
-import { createOpencodeClient, createOpencodeServer, type OpencodeClient } from '@opencode-ai/sdk'
+import { createOpencode, type OpencodeClient } from '@opencode-ai/sdk'
 import { displayBanner, displayQRCode } from './qr'
 import { getLocalIP, getTailscaleIP, isTailscaleConnected } from './network'
 import { OpenCodeConnector } from './opencode'
 import { createBridgeServer } from './server'
-import { homedir } from 'os'
-import { join } from 'path'
+import { parseCli, printHelp, promptForChoice } from './cli'
 
-const DEFAULT_PORT = 18274
-const DEFAULT_OPENCODE_PORT = 4096
-
-// Managed OpenCode server (spawned by bridge)
 type ManagedOpenCodeServer = {
   url: string
   close: () => Promise<void>
 }
 
-// Manual OpenCode connection (user-managed)
 type ManualOpenCodeServer = {
   url: string
   managed: false
@@ -23,7 +17,6 @@ type ManualOpenCodeServer = {
 
 type OpenCodeServer = ManagedOpenCodeServer | ManualOpenCodeServer
 
-// OpenCode instance info for discovery
 type OpenCodeInstance = {
   port: number
   url: string
@@ -31,33 +24,36 @@ type OpenCodeInstance = {
   lastActivity: number
 }
 
-// Check if OpenCode is responding on a specific port
-async function checkPort(port: number): Promise<boolean> {
-  try {
-    const response = await fetch(`http://localhost:${port}/project`, { signal: AbortSignal.timeout(500) })
-    return response.ok
-  } catch {
-    return false
-  }
+async function sleep(ms: number): Promise<void> {
+  await new Promise((resolve) => setTimeout(resolve, ms))
 }
 
-// Try to discover existing OpenCode server URL
-async function discoverExistingOpencode(): Promise<string | null> {
-  console.log('Scanning for existing OpenCode instances...')
+async function waitForOpencodeReady(url: string, timeoutMs: number): Promise<boolean> {
+  const deadline = Date.now() + timeoutMs
+  while (Date.now() < deadline) {
+    try {
+      // /path is cheap and always available; it also validates instance wiring.
+      const res = await fetch(`${url}/path`, { signal: AbortSignal.timeout(750) })
+      if (res.ok) return true
+    } catch {
+      // keep retrying
+    }
+    await sleep(150)
+  }
+  return false
+}
 
-  // Scan common ports for OpenCode instances
-  const portsToScan = [
-    4096, // Default port
-    ...Array.from({ length: 30 }, (_, i) => 64864 + i), // Dynamic port range
-  ]
+async function discoverRunningOpencodeInstances(portsToScan: number[], verbose: boolean): Promise<OpenCodeInstance[]> {
+  if (verbose) {
+    console.log('Scanning for running OpenCode instances...')
+  }
 
   const instances: OpenCodeInstance[] = []
 
-  // Check all ports in parallel for speed
   const checks = portsToScan.map(async (port) => {
     try {
       const url = `http://localhost:${port}`
-      const response = await fetch(`${url}/project`, { signal: AbortSignal.timeout(200) })
+      const response = await fetch(`${url}/project`, { signal: AbortSignal.timeout(750) })
       if (response.ok) {
         const projects = (await response.json()) as OpenCodeInstance['projects']
 
@@ -85,104 +81,41 @@ async function discoverExistingOpencode(): Promise<string | null> {
     }
   }
 
-  if (instances.length === 0) {
-    console.log('  No existing OpenCode instances found')
-    return null
-  }
-
   // Sort by last activity (most recent first)
   instances.sort((a, b) => b.lastActivity - a.lastActivity)
-
-  // Log all found instances
-  console.log(`  Found ${instances.length} OpenCode instance(s):`)
-  for (const inst of instances) {
-    const ago = inst.lastActivity > 0
-      ? `${Math.round((Date.now() - inst.lastActivity) / 1000 / 60)}m ago`
-      : 'unknown'
-    console.log(`    - Port ${inst.port}: ${inst.projects.length} projects, last active ${ago}`)
-  }
-
-  // Pick the most recently active instance
-  const best = instances[0]
-  console.log(`  ✓ Using existing OpenCode on port ${best.port}`)
-  return best.url
+  return instances
 }
 
-// Ensure OpenCode server is running (spawn if needed)
-async function ensureOpencodeServer(): Promise<OpenCodeServer> {
-  // PRIORITY 1: OPENCODE_BASE_URL env var (manual mode - user controls lifecycle)
-  if (process.env.OPENCODE_BASE_URL) {
-    console.log(`Using OPENCODE_BASE_URL: ${process.env.OPENCODE_BASE_URL}`)
-    return {
-      url: process.env.OPENCODE_BASE_URL,
-      managed: false,
-    }
-  }
-
-  // PRIORITY 2: Check if OpenCode is already running on default port
-  const defaultPortRunning = await checkPort(DEFAULT_OPENCODE_PORT)
-  if (defaultPortRunning) {
-    const url = `http://localhost:${DEFAULT_OPENCODE_PORT}`
-    console.log(`Found existing OpenCode on port ${DEFAULT_OPENCODE_PORT}`)
-    console.log('  (Bridge will connect to this instance, but will NOT stop it on shutdown)')
-    console.log('  (To manage OpenCode lifecycle with bridge, stop the existing instance)')
-    return {
-      url,
-      managed: false,
-    }
-  }
-
-  // PRIORITY 3: Discover any other running instances
-  const discoveredUrl = await discoverExistingOpencode()
-  if (discoveredUrl) {
-    console.log('  (Bridge will connect to this instance, but will NOT stop it on shutdown)')
-    console.log('  (To manage OpenCode lifecycle with bridge, stop the existing instance)')
-    return {
-      url: discoveredUrl,
-      managed: false,
-    }
-  }
-
-  // PRIORITY 4: Spawn managed OpenCode server using SDK
-  console.log('No existing OpenCode found. Spawning managed server...')
-  try {
-    const server = await createOpencodeServer({
-      port: DEFAULT_OPENCODE_PORT,
-      timeout: 10000, // Wait up to 10s for server to start
-    })
-
-    console.log(`✓ Managed OpenCode server started on port ${DEFAULT_OPENCODE_PORT}`)
-    console.log('  (Bridge will manage this server lifecycle - will stop on shutdown)')
-
-    return {
-      url: server.url,
-      close: async () => {
-        try {
-          await server.close()
-          console.log('  Managed OpenCode server stopped')
-        } catch (error) {
-          console.error('  Error stopping managed OpenCode server:', error)
-        }
-      },
-    }
-  } catch (error) {
-    console.error('Failed to spawn managed OpenCode server:', error)
-    console.log('  Falling back to connecting to default port...')
-    console.log('  Please ensure OpenCode is installed and available')
-    return {
-      url: `http://localhost:${DEFAULT_OPENCODE_PORT}`,
-      managed: false,
-    }
-  }
+type OpencodeBootstrap = {
+  server: OpenCodeServer
+  client?: OpencodeClient
 }
 
 // Global server reference for shutdown
 let opencodeServer: OpenCodeServer | null = null
 let bridgeServer: ReturnType<typeof createBridgeServer> | null = null
+let eventStreamController: AbortController | null = null
+let healthTimer: Timer | null = null
+let opencodeConnector: OpenCodeConnector | null = null
+let restartInFlight = false
+let managedHostname = '127.0.0.1'
+let managedPort = 0
+let verboseMode = false
 
 // Graceful shutdown handler
 async function shutdown(signal: string) {
   console.log(`\n${signal} received. Shutting down...`)
+
+  if (healthTimer) {
+    clearInterval(healthTimer)
+    healthTimer = null
+  }
+
+  if (eventStreamController) {
+    console.log('Stopping OpenCode event stream...')
+    eventStreamController.abort()
+    eventStreamController = null
+  }
 
   // Stop bridge server first (disconnects clients)
   if (bridgeServer) {
@@ -204,32 +137,191 @@ async function shutdown(signal: string) {
   process.exit(0)
 }
 
+async function restartManagedOpenCode(): Promise<boolean> {
+  if (restartInFlight) return false
+  if (!opencodeServer || !('close' in opencodeServer)) return false
+  if (!opencodeConnector) return false
+
+  restartInFlight = true
+  try {
+    console.log('Restarting managed OpenCode...')
+
+    if (eventStreamController) {
+      eventStreamController.abort()
+      eventStreamController = null
+    }
+
+    try {
+      await opencodeServer.close()
+    } catch {
+      // ignore
+    }
+
+    const bootstrap = await bootstrapManagedOpenCode(managedHostname, managedPort, verboseMode)
+    opencodeServer = bootstrap.server
+
+    opencodeConnector.updateBaseUrl(opencodeServer.url)
+
+    eventStreamController = await opencodeConnector.startEventStream((event) => {
+      if (verboseMode) {
+        console.log('[SDK Event]', JSON.stringify(event))
+      }
+      bridgeServer?.enqueueSdkEvent(event)
+    })
+
+    bridgeServer?.broadcast({ type: 'status', data: { opencodeRunning: true } })
+    console.log('✓ OpenCode restarted')
+    return true
+  } catch (error) {
+    console.error('Failed to restart OpenCode:', error)
+    bridgeServer?.broadcast({ type: 'status', data: { opencodeRunning: false } })
+    return false
+  } finally {
+    restartInFlight = false
+  }
+}
+
+async function bootstrapManagedOpenCode(hostname: string, port: number, verbose: boolean): Promise<OpencodeBootstrap> {
+  console.log('Starting OpenCode (managed)...')
+  try {
+    const { client, server } = await createOpencode({
+      hostname,
+      port,
+      timeout: 10000,
+    })
+
+    const ready = await waitForOpencodeReady(server.url, 10000)
+    if (!ready) {
+      try {
+        server.close()
+      } catch {
+        // ignore
+      }
+      throw new Error(`OpenCode started but did not become ready at ${server.url}`)
+    }
+
+    if (verbose) {
+      console.log(`✓ OpenCode ready at ${server.url}`)
+    } else {
+      console.log('✓ OpenCode ready')
+    }
+
+    return {
+      client,
+      server: {
+        url: server.url,
+        close: async () => {
+          try {
+            server.close()
+            console.log('  Managed OpenCode server stopped')
+          } catch (error) {
+            console.error('  Error stopping managed OpenCode server:', error)
+          }
+        },
+      },
+    }
+  } catch (error) {
+    console.error('Failed to start managed OpenCode server:', error)
+    console.log('  Ensure OpenCode is installed and on PATH (e.g. `bun install -g opencode`)')
+    throw error
+  }
+}
+
+async function bootstrapManualOpenCode(url: string): Promise<OpencodeBootstrap> {
+  console.log(`Attaching to OpenCode (manual): ${url}`)
+  const ready = await waitForOpencodeReady(url, 5000)
+  if (!ready) {
+    console.log('⚠️  OpenCode is not responding at the provided URL.')
+  } else {
+    console.log('✓ OpenCode is responding')
+  }
+  return {
+    server: { url, managed: false },
+  }
+}
+
+function defaultAttachPorts(): number[] {
+  // We only scan in explicit --attach mode (power users).
+  // Default range covers the most common ports observed in practice.
+  const ports: number[] = [4096]
+  for (let i = 0; i < 256; i++) ports.push(64864 + i)
+  for (let i = 0; i < 256; i++) ports.push(49152 + i)
+  return ports
+}
+
+async function bootstrapAttachOpenCode(verbose: boolean): Promise<OpencodeBootstrap> {
+  const instances = await discoverRunningOpencodeInstances(defaultAttachPorts(), verbose)
+  if (instances.length === 0) {
+    console.log('No running OpenCode servers found.')
+    console.log('  Start one: `opencode serve`')
+    console.log('  Or attach explicitly: `broski-bridge --opencode-url http://127.0.0.1:4096`')
+    throw new Error('No running OpenCode servers found')
+  }
+
+  if (instances.length === 1) {
+    const inst = instances[0]
+    console.log(`✓ Found OpenCode at ${inst.url}`)
+    return { server: { url: inst.url, managed: false } }
+  }
+
+  const choices = instances.map((inst) => {
+    const ago = inst.lastActivity > 0 ? `${Math.round((Date.now() - inst.lastActivity) / 1000 / 60)}m ago` : 'unknown'
+    return `${inst.url} (${inst.projects.length} projects, last active ${ago})`
+  })
+
+  const selected = await promptForChoice('Multiple OpenCode servers detected:', choices)
+  if (selected == null) {
+    throw new Error('Attach cancelled')
+  }
+  const inst = instances[selected]
+  console.log(`✓ Using OpenCode at ${inst.url}`)
+  return { server: { url: inst.url, managed: false } }
+}
+
 async function main() {
+  const cli = parseCli(process.argv, process.env)
+  if (cli.help) {
+    printHelp()
+    return
+  }
+  // Setup graceful shutdown handlers as early as possible so we don't leave ports/processes around
+  // even if the user hits Ctrl+Z during startup.
+  process.on('SIGINT', () => void shutdown('SIGINT'))
+  process.on('SIGTERM', () => void shutdown('SIGTERM'))
+  // Treat Ctrl+Z (SIGTSTP) as a graceful shutdown to avoid leaving the port bound.
+  process.on('SIGTSTP', () => void shutdown('SIGTSTP'))
+  verboseMode = cli.verbose
+  managedHostname = cli.opencodeHostname
+  managedPort = cli.opencodePort
+
   const packageJson = await Bun.file(new URL('../package.json', import.meta.url)).json()
   const version = packageJson.version ?? '0.1.0'
 
   displayBanner()
 
-  const port = Number(process.env.BROSKI_PORT ?? DEFAULT_PORT)
+  const port = cli.bridgePort
 
-  // Ensure OpenCode server is running (spawn if needed)
-  opencodeServer = await ensureOpencodeServer()
-
-  // Create OpenCode connector with the server URL
-  const opencode = new OpenCodeConnector({ baseUrl: opencodeServer.url })
-
-  console.log(`Using OpenCode at: ${opencodeServer.url}`)
-
-  // Verify OpenCode is responding
-  const opencodeRunning = await opencode.isRunning()
-  if (!opencodeRunning) {
-    console.log('⚠️  Warning: OpenCode is not responding. You may need to:')
-    console.log('  1. Install OpenCode: npm i -g @anthropic-ai/opencode')
-    console.log('  2. Start it manually: opencode serve')
-    console.log('  3. Or let the bridge manage it (ensure no existing instances running)')
+  let bootstrap: OpencodeBootstrap
+  if (cli.opencodeMode === 'manual') {
+    if (!cli.opencodeUrl) {
+      console.log('Manual mode requires --opencode-url or OPENCODE_BASE_URL')
+      printHelp()
+      return
+    }
+    bootstrap = await bootstrapManualOpenCode(cli.opencodeUrl)
+  } else if (cli.opencodeMode === 'attach') {
+    bootstrap = await bootstrapAttachOpenCode(cli.verbose)
   } else {
-    console.log('✓ OpenCode is responding')
+    bootstrap = await bootstrapManagedOpenCode(cli.opencodeHostname, cli.opencodePort, cli.verbose)
   }
+
+  opencodeServer = bootstrap.server
+
+  const opencode = new OpenCodeConnector({
+    baseUrl: opencodeServer.url,
+    client: bootstrap.client,
+  })
+  opencodeConnector = opencode
 
   const localIP = getLocalIP()
   const tailscaleIP = await getTailscaleIP()
@@ -240,33 +332,97 @@ async function main() {
   }
 
   // Create bridge server
-  bridgeServer = createBridgeServer({
-    port,
-    opencode,
-    version,
-    logger: (message) => console.log(message),
-  })
+  try {
+    bridgeServer = createBridgeServer({
+      port,
+      opencode,
+      version,
+      restartOpenCode: restartManagedOpenCode,
+      logger: (message) => console.log(message),
+    })
+  } catch (error: any) {
+    if (error?.code === 'EADDRINUSE') {
+      console.error(`\n❌ Bridge port ${port} is already in use.`)
+      console.error('This usually means another broski-bridge process is still running.')
+      console.error('If you stopped it with Ctrl+Z, it was suspended (not terminated) and will keep the port open.')
+      console.error('Fix options:')
+      console.error('  - If it is a suspended job: return to that terminal, run `fg`, then press Ctrl+C.')
+      console.error(`  - Or find and stop the process holding the port:`)
+      console.error(`      lsof -nP -iTCP:${port} -sTCP:LISTEN`)
+      console.error(`      kill <PID>`)
+      console.error(`  - Dev fallback: run the bridge on a different port: --port 0 (random free port)\n`)
+
+      // Best-effort: print the owning PID to make this frictionless.
+      try {
+        const proc = Bun.spawnSync({
+          cmd: ['lsof', '-nP', `-iTCP:${port}`, '-sTCP:LISTEN'],
+          stdout: 'pipe',
+          stderr: 'pipe',
+        })
+        const out = (proc.stdout?.toString() ?? '').trim()
+        if (out) {
+          console.error('Port owner:')
+          console.error(out)
+          console.error('')
+        }
+      } catch {
+        // ignore - lsof may not be available
+      }
+    } else {
+      console.error('\n❌ Failed to start bridge server:', error)
+    }
+
+    // If we started OpenCode in managed mode, stop it to avoid orphan processes.
+    if (opencodeServer && 'close' in opencodeServer) {
+      try {
+        await opencodeServer.close()
+      } catch {
+        // ignore
+      }
+    }
+    process.exit(1)
+  }
+  const bridgePort = bridgeServer.port()
 
   // Subscribe to OpenCode events and forward to clients
-  await opencode.startEventStream((event) => {
-    console.log('[SDK Event]', JSON.stringify(event, null, 2))
-    bridgeServer?.broadcast({ type: 'sdk_event', data: event })
+  eventStreamController = await opencode.startEventStream((event) => {
+    if (cli.verbose) {
+      console.log('[SDK Event]', JSON.stringify(event))
+    }
+    bridgeServer?.enqueueSdkEvent(event)
   })
+
+  // Managed mode: keep OpenCode alive. If it dies, restart it (bridge URL stays the same).
+  if (opencodeServer && 'close' in opencodeServer) {
+    healthTimer = setInterval(() => {
+      void (async () => {
+        if (!opencodeConnector) return
+        if (restartInFlight) return
+        const ok = await opencodeConnector.isRunning()
+        if (!ok) {
+          bridgeServer?.broadcast({ type: 'status', data: { opencodeRunning: false } })
+          await restartManagedOpenCode()
+        }
+      })()
+    }, 5000)
+  }
 
   // Display QR code for phone connection
   displayQRCode({
     localIP,
     tailscaleIP,
-    port,
+    port: bridgePort,
     version,
   })
 
-  console.log(`\n✓ Bridge listening on port ${port}`)
-  console.log('  Press Ctrl+C to shutdown (will stop managed OpenCode server if spawned)')
+  console.log(`\n✓ Bridge listening on port ${bridgePort}`)
+  console.log('  Press Ctrl+C to shutdown')
+  if (opencodeServer && 'close' in opencodeServer) {
+    console.log('  (OpenCode is managed by the bridge and will stop on shutdown)')
+  } else {
+    console.log('  (OpenCode is external and will be left running)')
+  }
 
-  // Setup graceful shutdown handlers
-  process.on('SIGINT', () => void shutdown('SIGINT'))
-  process.on('SIGTERM', () => void shutdown('SIGTERM'))
 }
 
 void main()

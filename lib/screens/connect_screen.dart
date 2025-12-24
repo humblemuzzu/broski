@@ -22,10 +22,16 @@ class ConnectScreen extends ConsumerWidget {
               children: [
                 const CircularProgressIndicator(),
                 const SizedBox(height: 16),
-                Text('Connecting to your Mac...', style: Theme.of(context).textTheme.titleMedium),
+                Text(
+                  'Connecting to your Mac...',
+                  style: Theme.of(context).textTheme.titleMedium,
+                ),
                 if (state.error != null) ...[
                   const SizedBox(height: 12),
-                  Text(state.error!, style: Theme.of(context).textTheme.bodySmall),
+                  Text(
+                    state.error!,
+                    style: Theme.of(context).textTheme.bodySmall,
+                  ),
                 ],
               ],
             ),

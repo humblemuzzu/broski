@@ -19,6 +19,7 @@ import '../providers/selection_provider.dart';
 import '../providers/service_providers.dart';
 import '../providers/tool_settings_provider.dart';
 import '../services/haptics_service.dart';
+import '../services/websocket_service.dart';
 import '../widgets/diff_viewer.dart';
 import '../widgets/message_bubble.dart';
 import '../widgets/permission_prompt.dart';
@@ -66,9 +67,34 @@ class _ChatScreenState extends ConsumerState<ChatScreen>
   // Feature 10: VCS/Git info
   VcsInfo _vcsInfo = const VcsInfo();
 
+  bool _resyncingAfterReconnect = false;
+
   @override
   void initState() {
     super.initState();
+    final bridge = ref.read(bridgeServiceProvider);
+    bridge.setView(
+      projectPath: widget.project.path,
+      sessionId: widget.session.id,
+    );
+
+    ref.listen(connectionProvider, (previous, next) {
+      final wasConnected = previous?.status == ConnectionStatus.connected;
+      final isConnected = next.status == ConnectionStatus.connected;
+      if (!wasConnected && isConnected) {
+        // Re-assert view routing and re-sync session state after network flips.
+        if (_resyncingAfterReconnect) return;
+        _resyncingAfterReconnect = true;
+        bridge.setView(
+          projectPath: widget.project.path,
+          sessionId: widget.session.id,
+        );
+        _hydrateSession().whenComplete(() {
+          _resyncingAfterReconnect = false;
+        });
+      }
+    });
+
     _hydrateSession();
     _controller.addListener(_onTextChanged);
     _scrollController.addListener(_onScroll);
@@ -578,8 +604,11 @@ class _ChatScreenState extends ConsumerState<ChatScreen>
 
     _haptics.mediumImpact();
 
+    if (!mounted) return;
+    final messenger = ScaffoldMessenger.of(context);
+
     // Show a loading message
-    ScaffoldMessenger.of(context).showSnackBar(
+    messenger.showSnackBar(
       const SnackBar(
         content: Text('Initializing project...'),
         backgroundColor: Color(0xFF1F2128),
@@ -700,6 +729,7 @@ class _ChatScreenState extends ConsumerState<ChatScreen>
 
   @override
   void dispose() {
+    ref.read(bridgeServiceProvider).setView(projectPath: 'global');
     _controller.dispose();
     _scrollController.dispose();
     super.dispose();
@@ -800,6 +830,7 @@ class _ChatScreenState extends ConsumerState<ChatScreen>
               projectName: widget.project.name,
               isConnected: connection.isConnected,
               currentModel: ref.watch(selectionProvider).model,
+              rttMs: connection.rttMs,
               onBack: () => Navigator.of(context).pop(),
               onModelTap: () => _showModelSelector(context),
               onMenu: (value) => _handleMenuAction(value, chatState),
@@ -1157,6 +1188,7 @@ class _FloatingHeader extends StatelessWidget {
     required this.projectName,
     required this.isConnected,
     required this.currentModel,
+    this.rttMs,
     required this.onBack,
     required this.onModelTap,
     required this.onMenu,
@@ -1174,6 +1206,7 @@ class _FloatingHeader extends StatelessWidget {
   final String projectName;
   final bool isConnected;
   final SelectedModel? currentModel;
+  final int? rttMs;
   final VoidCallback onBack;
   final VoidCallback onModelTap;
   final void Function(String) onMenu;
@@ -1380,6 +1413,17 @@ class _FloatingHeader extends StatelessWidget {
                             fontWeight: FontWeight.w600,
                           ),
                         ),
+                        if (isConnected && rttMs != null) ...[
+                          const SizedBox(width: 6),
+                          Text(
+                            '${rttMs}ms',
+                            style: TextStyle(
+                              fontSize: 11,
+                              color: fade(kMuted, 0.9),
+                              fontWeight: FontWeight.w600,
+                            ),
+                          ),
+                        ],
                       ],
                     ),
                   ),

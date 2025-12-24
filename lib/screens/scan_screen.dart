@@ -36,7 +36,10 @@ class _ScanScreenState extends ConsumerState<ScanScreen> {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Text('Scan your Broski QR', style: Theme.of(context).textTheme.headlineSmall),
+                  Text(
+                    'Scan your Broski QR',
+                    style: Theme.of(context).textTheme.headlineSmall,
+                  ),
                   const SizedBox(height: 8),
                   Text(
                     'Run broski-bridge on your Mac, then scan the QR code to connect.',
@@ -113,7 +116,9 @@ class _ScanScreenState extends ConsumerState<ScanScreen> {
             children: [
               TextField(
                 controller: hostController,
-                decoration: const InputDecoration(labelText: 'Host (IP or hostname)'),
+                decoration: const InputDecoration(
+                  labelText: 'Host (IP or hostname)',
+                ),
               ),
               const SizedBox(height: 12),
               TextField(
@@ -124,7 +129,10 @@ class _ScanScreenState extends ConsumerState<ScanScreen> {
             ],
           ),
           actions: [
-            TextButton(onPressed: () => Navigator.pop(context), child: const Text('Cancel')),
+            TextButton(
+              onPressed: () => Navigator.pop(context),
+              child: const Text('Cancel'),
+            ),
             ElevatedButton(
               onPressed: () {
                 final host = hostController.text.trim();

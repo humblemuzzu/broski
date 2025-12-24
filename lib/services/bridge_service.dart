@@ -23,9 +23,23 @@ class BridgeService {
 
   Stream<Map<String, dynamic>> get messages => _socket.messages;
 
-  Stream<Map<String, dynamic>> get sdkEvents => _socket.messages
-      .where((message) => message['type'] == 'sdk_event')
-      .map((message) => message['data'] as Map<String, dynamic>);
+  Stream<Map<String, dynamic>> get sdkEvents =>
+      _socket.messages.expand((message) {
+        final type = message['type'];
+        if (type == 'sdk_event') {
+          final data = message['data'];
+          if (data is Map<String, dynamic>) return [data];
+          return const Iterable<Map<String, dynamic>>.empty();
+        }
+        if (type == 'sdk_event_batch') {
+          final data = message['data'];
+          if (data is List) {
+            return data.whereType<Map<String, dynamic>>();
+          }
+          return const Iterable<Map<String, dynamic>>.empty();
+        }
+        return const Iterable<Map<String, dynamic>>.empty();
+      });
 
   String _generateRequestId() {
     _requestCounter++;
@@ -77,8 +91,19 @@ class BridgeService {
     return response['data'] as Map<String, dynamic>? ?? const {};
   }
 
-  void startOpenCode() {
-    _socket.send({'type': 'start_opencode'});
+  Future<bool> restartOpenCode() async {
+    final requestId = _generateRequestId();
+    _socket.send({'type': 'restart_opencode', 'requestId': requestId});
+    final response = await _waitFor('opencode_restarted', requestId: requestId);
+    return response['data'] as bool? ?? false;
+  }
+
+  void setView({String? projectPath, String? sessionId}) {
+    _socket.send({
+      'type': 'set_view',
+      if (projectPath != null) 'projectPath': projectPath,
+      if (sessionId != null) 'sessionId': sessionId,
+    });
   }
 
   Future<SessionSummary> createSession({

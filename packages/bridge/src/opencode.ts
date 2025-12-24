@@ -12,18 +12,22 @@ const DEFAULT_BASE_URL = 'http://localhost:4096'
 
 export type OpenCodeConnectorOptions = {
   baseUrl?: string
+  client?: OpencodeClient
 }
 
 export class OpenCodeConnector {
   private client: OpencodeClient
   private baseUrl: string
+  private toolIdsCache = new Map<string, { ids: string[]; fetchedAt: number }>()
 
   constructor(options: OpenCodeConnectorOptions = {}) {
     this.baseUrl = options.baseUrl ?? DEFAULT_BASE_URL
-    this.client = createOpencodeClient({
-      baseUrl: this.baseUrl,
-      responseStyle: 'data',
-    })
+    this.client =
+      options.client ??
+      createOpencodeClient({
+        baseUrl: this.baseUrl,
+        responseStyle: 'data',
+      })
   }
 
   // Update the base URL (useful for dynamic port discovery)
@@ -41,8 +45,10 @@ export class OpenCodeConnector {
 
   async isRunning(): Promise<boolean> {
     try {
-      await this.client.project.list({ responseStyle: 'data' })
-      return true
+      const response = await fetch(`${this.baseUrl}/path`, {
+        signal: AbortSignal.timeout(750),
+      })
+      return response.ok
     } catch {
       return false
     }
@@ -54,15 +60,60 @@ export class OpenCodeConnector {
   }
 
   async listSessions(directory?: string): Promise<SessionSummary[]> {
-    // If directory is explicitly passed, filter by it
-    // If not, try to get ALL sessions by passing "/" as directory
-    // (OpenCode defaults to cwd if no directory, which limits results)
-    const sessions =
-      (await this.client.session.list({
-        responseStyle: 'data',
-        query: directory ? { directory } : { directory: '/' },
-      })) ?? []
-    return sessions.map((session) => this.mapSession(session))
+    // IMPORTANT: OpenCode is directory-scoped ("instances"). If we omit directory,
+    // the server will default to process.cwd() and sessions will appear to be "missing".
+    //
+    // For the mobile Sessions screen we want "all sessions across all projects"
+    // (docs/mvp/Architecture/APP_SCREENS.md). Achieve this by:
+    // - listing known projects, then
+    // - listing sessions per project worktree, then
+    // - merging + sorting.
+
+    // Filter by a specific project/directory.
+    if (directory != null && directory.length > 0) {
+      const sessions =
+        (await this.client.session.list({
+          responseStyle: 'data',
+          query: { directory },
+        })) ?? []
+      return sessions.map((session) => this.mapSession(session))
+    }
+
+    // Aggregate across all projects.
+    const projects = await this.listProjects().catch(() => [])
+    const queue = projects.filter((p) => p.path.length > 0).slice()
+    const sessionsById = new Map<string, SessionSummary>()
+
+    const concurrency = 4
+    await Promise.all(
+      Array.from({ length: Math.max(1, concurrency) }, async () => {
+        for (;;) {
+          const project = queue.shift()
+          if (!project) break
+          try {
+            const sessions =
+              (await this.client.session.list({
+                responseStyle: 'data',
+                query: { directory: project.path },
+              })) ?? []
+            for (const session of sessions) {
+              const mapped = this.mapSession(session)
+              // Hide archived sessions in the default UI list.
+              if ((mapped.time as any)?.archived) continue
+              sessionsById.set(mapped.id, mapped)
+            }
+          } catch {
+            // Ignore failures for individual projects; still return what we have.
+          }
+        }
+      }),
+    )
+
+    return Array.from(sessionsById.values()).sort((a, b) => {
+      const aUpdated = a.time?.updated ?? 0
+      const bUpdated = b.time?.updated ?? 0
+      return bUpdated - aUpdated
+    })
   }
 
   async createSession(directory?: string, title?: string): Promise<SessionSummary> {
@@ -102,10 +153,24 @@ export class OpenCodeConnector {
     agent?: string,
     disabledTools?: string[],
   ) {
-    // Note: disabledTools is stored for future use when the SDK supports tool filtering
-    // For now, we log it but can't send to the SDK as the API may not support it yet
+    let tools: Record<string, boolean> | undefined
     if (disabledTools && disabledTools.length > 0) {
-      console.log(`[sendPrompt] Disabled tools: ${disabledTools.join(', ')}`)
+      const key = directory ?? 'global'
+      const cached = this.toolIdsCache.get(key)
+      const now = Date.now()
+      const ttlMs = 30_000
+
+      let ids: string[]
+      if (cached && now - cached.fetchedAt < ttlMs) {
+        ids = cached.ids
+      } else {
+        ids = await this.listToolIds(directory)
+        this.toolIdsCache.set(key, { ids, fetchedAt: now })
+      }
+
+      tools = {}
+      for (const id of ids) tools[id] = true
+      for (const id of disabledTools) tools[id] = false
     }
     
     return this.client.session.prompt({
@@ -115,6 +180,7 @@ export class OpenCodeConnector {
       body: {
         ...(model ? { model } : {}),
         ...(agent ? { agent } : {}),
+        ...(tools ? { tools } : {}),
         parts: [
           {
             type: 'text',

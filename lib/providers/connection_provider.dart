@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:math';
 
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
@@ -13,12 +14,16 @@ class BridgeConnectionState {
     this.status = ConnectionStatus.disconnected,
     this.error,
     this.opencodeRunning = true,
+    this.isReconnecting = false,
+    this.rttMs,
   });
 
   final ConnectionInfo? connection;
   final ConnectionStatus status;
   final String? error;
   final bool opencodeRunning;
+  final bool isReconnecting;
+  final int? rttMs;
 
   bool get isConnected => status == ConnectionStatus.connected;
   bool get isConnecting => status == ConnectionStatus.connecting;
@@ -28,12 +33,16 @@ class BridgeConnectionState {
     ConnectionStatus? status,
     String? error,
     bool? opencodeRunning,
+    bool? isReconnecting,
+    int? rttMs,
   }) {
     return BridgeConnectionState(
       connection: connection ?? this.connection,
       status: status ?? this.status,
       error: error,
       opencodeRunning: opencodeRunning ?? this.opencodeRunning,
+      isReconnecting: isReconnecting ?? this.isReconnecting,
+      rttMs: rttMs ?? this.rttMs,
     );
   }
 }
@@ -54,6 +63,7 @@ class ConnectionNotifier extends StateNotifier<BridgeConnectionState> {
   Timer? _reconnectTimer;
   int _reconnectAttempts = 0;
   bool _isConnecting = false;
+  final _random = Random();
 
   Future<void> _loadSavedConnection() async {
     final saved = await _storage.loadConnection();
@@ -70,12 +80,14 @@ class ConnectionNotifier extends StateNotifier<BridgeConnectionState> {
       connection: info,
       status: ConnectionStatus.connecting,
       error: null,
+      isReconnecting: _reconnectAttempts > 0,
     );
 
     try {
       await _socket.connect(info.toWebSocketUri());
       await _storage.saveConnection(info);
       _reconnectAttempts = 0;
+      state = state.copyWith(isReconnecting: false, error: null);
       // Status is set by the socket's status stream listener
     } catch (error) {
       state = state.copyWith(
@@ -117,22 +129,36 @@ class ConnectionNotifier extends StateNotifier<BridgeConnectionState> {
       final running = data['opencodeRunning'] == true;
       state = state.copyWith(opencodeRunning: running);
     }
+
+    if (message['type'] == 'connection_metrics') {
+      final data = message['data'] as Map<String, dynamic>? ?? const {};
+      final rtt = data['rttMs'];
+      if (rtt is int) {
+        state = state.copyWith(rttMs: rtt);
+      }
+    }
   }
 
   void _scheduleReconnect() {
     if (state.connection == null) return;
     if (_reconnectTimer?.isActive ?? false) return;
 
-    final delaySeconds = (_reconnectAttempts == 0 ? 2 : 2 << _reconnectAttempts)
-        .clamp(2, 30);
+    final baseDelaySeconds = min(30, pow(2, min(_reconnectAttempts, 4)) * 2);
+    final jitter = _random.nextDouble(); // 0-1s jitter to avoid thundering herd
+    final delaySeconds = (baseDelaySeconds + jitter).clamp(2, 30).toDouble();
     _reconnectAttempts += 1;
 
-    _reconnectTimer = Timer(Duration(seconds: delaySeconds), () {
-      final connection = state.connection;
-      if (connection != null) {
-        connect(connection);
-      }
-    });
+    state = state.copyWith(isReconnecting: true);
+
+    _reconnectTimer = Timer(
+      Duration(milliseconds: (delaySeconds * 1000).round()),
+      () {
+        final connection = state.connection;
+        if (connection != null) {
+          connect(connection);
+        }
+      },
+    );
   }
 
   @override

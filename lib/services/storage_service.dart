@@ -7,6 +7,7 @@ import '../models/connection.dart';
 class StorageService {
   static const _connectionKey = 'broski_connection';
   static const _disabledToolsKey = 'broski_disabled_tools';
+  static const _lastBrowsePathKey = 'broski_last_browse_path';
 
   final FlutterSecureStorage _storage = const FlutterSecureStorage();
 
@@ -49,5 +50,14 @@ class StorageService {
   Future<void> saveDisabledTools(Set<String> disabledTools) async {
     final json = jsonEncode(disabledTools.toList());
     await _storage.write(key: _disabledToolsKey, value: json);
+  }
+
+  // Browse tab
+  Future<String?> loadLastBrowsePath() async {
+    return _storage.read(key: _lastBrowsePathKey);
+  }
+
+  Future<void> saveLastBrowsePath(String path) async {
+    await _storage.write(key: _lastBrowsePathKey, value: path);
   }
 }

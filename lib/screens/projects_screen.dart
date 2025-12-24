@@ -239,14 +239,25 @@ class _ProjectsScreenState extends ConsumerState<ProjectsScreen> {
     );
   }
 
-  void _startOpenCode(BuildContext context) {
+  Future<void> _startOpenCode(BuildContext context) async {
     final bridge = ref.read(bridgeServiceProvider);
-    final theme = Theme.of(context);
-    bridge.startOpenCode();
-    ScaffoldMessenger.of(context).showSnackBar(
+    final messenger = ScaffoldMessenger.of(context);
+    final surfaceColor = Theme.of(context).colorScheme.surface;
+
+    messenger.showSnackBar(
       SnackBar(
-        content: const Text('Starting OpenCode on your Mac...'),
-        backgroundColor: theme.colorScheme.surface,
+        content: const Text('Restarting OpenCode...'),
+        backgroundColor: surfaceColor,
+        behavior: SnackBarBehavior.floating,
+      ),
+    );
+
+    final ok = await bridge.restartOpenCode();
+    if (!mounted) return;
+    messenger.showSnackBar(
+      SnackBar(
+        content: Text(ok ? 'OpenCode restarted' : 'Failed to restart OpenCode'),
+        backgroundColor: surfaceColor,
         behavior: SnackBarBehavior.floating,
       ),
     );

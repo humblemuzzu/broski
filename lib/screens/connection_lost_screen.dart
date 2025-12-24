@@ -21,7 +21,10 @@ class ConnectionLostScreen extends ConsumerWidget {
             children: [
               const Icon(Icons.wifi_off, size: 48, color: BroskiColors.ember),
               const SizedBox(height: 16),
-              Text('Connection lost', style: Theme.of(context).textTheme.titleLarge),
+              Text(
+                'Connection lost',
+                style: Theme.of(context).textTheme.titleLarge,
+              ),
               const SizedBox(height: 8),
               Text(
                 'Unable to reach your Mac. Make sure broski-bridge is running and you are on the same network or Tailscale.',
@@ -32,12 +35,15 @@ class ConnectionLostScreen extends ConsumerWidget {
               ElevatedButton(
                 onPressed: connection.connection == null
                     ? null
-                    : () => ref.read(connectionProvider.notifier).connect(connection.connection!),
+                    : () => ref
+                          .read(connectionProvider.notifier)
+                          .connect(connection.connection!),
                 child: const Text('Retry connection'),
               ),
               const SizedBox(height: 12),
               OutlinedButton(
-                onPressed: () => ref.read(connectionProvider.notifier).clearConnection(),
+                onPressed: () =>
+                    ref.read(connectionProvider.notifier).clearConnection(),
                 child: const Text('Scan new QR'),
               ),
             ],
