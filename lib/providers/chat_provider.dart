@@ -17,6 +17,7 @@ class ChatSessionState {
     this.projectPath,
     this.messages = const [],
     this.permissions = const [],
+    this.sessionDiffs = const [],
     this.todos = const [],
     this.vcsInfo,
     this.isCompacting = false,
@@ -28,6 +29,7 @@ class ChatSessionState {
   final String? projectPath;
   final List<ChatMessage> messages;
   final List<PermissionRequest> permissions;
+  final List<DiffEntry> sessionDiffs;
   final List<Todo> todos;
   final VcsInfo? vcsInfo; // Feature 10: Git branch info
   final bool isCompacting; // Feature 9: Compaction in progress
@@ -39,6 +41,7 @@ class ChatSessionState {
     String? projectPath,
     List<ChatMessage>? messages,
     List<PermissionRequest>? permissions,
+    List<DiffEntry>? sessionDiffs,
     List<Todo>? todos,
     VcsInfo? vcsInfo,
     bool? isCompacting,
@@ -49,6 +52,7 @@ class ChatSessionState {
       projectPath: projectPath ?? this.projectPath,
       messages: messages ?? this.messages,
       permissions: permissions ?? this.permissions,
+      sessionDiffs: sessionDiffs ?? this.sessionDiffs,
       todos: todos ?? this.todos,
       vcsInfo: vcsInfo ?? this.vcsInfo,
       isCompacting: isCompacting ?? this.isCompacting,
@@ -80,6 +84,7 @@ class ChatSessionNotifier extends StateNotifier<ChatSessionState> {
       projectPath: projectPath,
       messages: const [],
       permissions: const [],
+      sessionDiffs: const [],
       todos: const [],
     );
   }
@@ -87,6 +92,11 @@ class ChatSessionNotifier extends StateNotifier<ChatSessionState> {
   void hydrate(List<dynamic> rawMessages) {
     _messages.clear();
     _order.clear();
+    state = state.copyWith(
+      messages: const [],
+      permissions: const [],
+      sessionDiffs: const [],
+    );
 
     for (final item in rawMessages) {
       final map = item as Map<String, dynamic>;
@@ -103,6 +113,7 @@ class ChatSessionNotifier extends StateNotifier<ChatSessionState> {
 
       var textBuffer = StringBuffer();
       final tools = <ToolCall>[];
+      final diffs = <DiffEntry>[];
 
       for (final partItem in parts) {
         final part = partItem as Map<String, dynamic>;
@@ -111,6 +122,7 @@ class ChatSessionNotifier extends StateNotifier<ChatSessionState> {
           textBuffer.write(part['text'] as String? ?? '');
         }
         if (partType == 'tool') {
+          final partId = part['id'] as String? ?? '';
           final callId = part['callID'] as String? ?? '';
           final toolName = part['tool'] as String? ?? 'tool';
           final stateInfo = part['state'] as Map<String, dynamic>? ?? const {};
@@ -118,17 +130,27 @@ class ChatSessionNotifier extends StateNotifier<ChatSessionState> {
           final title = stateInfo['title'] as String?;
           final input = stateInfo['input'] as Map<String, dynamic>? ?? const {};
           final output = stateInfo['output'] as String?;
+          final metadataRaw = stateInfo['metadata'];
+          final metadata = metadataRaw is Map<String, dynamic>
+              ? metadataRaw
+              : const <String, dynamic>{};
           if (callId.isNotEmpty) {
-            tools.add(
-              ToolCall(
-                callId: callId,
-                name: toolName,
-                status: status,
-                title: title,
-                input: input,
-                output: output,
-              ),
+            final tool = ToolCall(
+              callId: callId,
+              partId: partId.isNotEmpty ? partId : callId,
+              name: toolName,
+              status: status,
+              title: title,
+              input: input,
+              output: output,
+              metadata: metadata,
             );
+            tools.add(tool);
+
+            final diff = _extractDiffFromTool(tool);
+            if (diff != null) {
+              diffs.add(diff);
+            }
           }
         }
       }
@@ -140,6 +162,7 @@ class ChatSessionNotifier extends StateNotifier<ChatSessionState> {
         createdAt: DateTime.fromMillisecondsSinceEpoch(created),
         text: textBuffer.toString(),
         toolCalls: tools,
+        diffs: diffs,
       );
 
       _addMessage(message);
@@ -333,6 +356,7 @@ class ChatSessionNotifier extends StateNotifier<ChatSessionState> {
     }
 
     if (partType == 'tool') {
+      final partId = part['id'] as String? ?? '';
       final callId = part['callID'] as String? ?? '';
       final toolName = part['tool'] as String? ?? 'tool';
       final stateInfo = part['state'] as Map<String, dynamic>? ?? const {};
@@ -340,6 +364,10 @@ class ChatSessionNotifier extends StateNotifier<ChatSessionState> {
       final title = stateInfo['title'] as String?;
       final input = stateInfo['input'] as Map<String, dynamic>? ?? const {};
       final output = stateInfo['output'] as String?;
+      final metadataRaw = stateInfo['metadata'];
+      final metadata = metadataRaw is Map<String, dynamic>
+          ? metadataRaw
+          : const <String, dynamic>{};
 
       final existing = message.toolCalls
           .where((tool) => tool.callId == callId)
@@ -350,14 +378,17 @@ class ChatSessionNotifier extends StateNotifier<ChatSessionState> {
             title: title,
             input: input,
             output: output,
+            metadata: metadata,
           ) ??
           ToolCall(
             callId: callId,
+            partId: partId.isNotEmpty ? partId : callId,
             name: toolName,
             status: status,
             title: title,
             input: input,
             output: output,
+            metadata: metadata,
           );
 
       final updatedTools = [
@@ -366,7 +397,15 @@ class ChatSessionNotifier extends StateNotifier<ChatSessionState> {
         updatedTool,
       ];
 
-      _updateMessage(messageId, message.copyWith(toolCalls: updatedTools));
+      final updatedDiffs = _mergeToolDiffs(
+        message.diffs,
+        tool: updatedTool,
+      );
+
+      _updateMessage(
+        messageId,
+        message.copyWith(toolCalls: updatedTools, diffs: updatedDiffs),
+      );
     }
   }
 
@@ -418,19 +457,82 @@ class ChatSessionNotifier extends StateNotifier<ChatSessionState> {
         )
         .toList();
 
-    // Skip empty diffs
     if (diffs.isEmpty) return;
+    state = state.copyWith(sessionDiffs: diffs);
+  }
 
-    final messageId = 'diff-${DateTime.now().millisecondsSinceEpoch}';
-    final message = ChatMessage(
-      id: messageId,
-      sessionId: sessionId,
-      role: MessageRole.system,
-      createdAt: DateTime.now(),
-      text: 'Session diff',
-      diffs: diffs,
+  List<DiffEntry> _mergeToolDiffs(
+    List<DiffEntry> existing, {
+    required ToolCall tool,
+  }) {
+    final extracted = _extractDiffFromTool(tool);
+    if (extracted == null) return existing;
+
+    // Dedupe by (file, partId) to avoid repeated tool updates spamming diffs.
+    return [
+      for (final diff in existing)
+        if (diff.file != extracted.file || diff.partId != extracted.partId) diff,
+      extracted,
+    ];
+  }
+
+  DiffEntry? _extractDiffFromTool(ToolCall tool) {
+    final status = tool.status.toLowerCase();
+    final isFinal = status == 'completed' || status == 'success' || status == 'error' || status == 'failed';
+    if (!isFinal) return null;
+
+    final metadata = tool.metadata;
+    if (metadata.isEmpty) return null;
+
+    final diffText = metadata['diff'] as String?;
+    final filediff = metadata['filediff'];
+
+    String file = '';
+    String before = '';
+    String after = '';
+    int additions = 0;
+    int deletions = 0;
+
+    if (filediff is Map<String, dynamic>) {
+      file = filediff['file'] as String? ?? '';
+      before = filediff['before'] as String? ?? '';
+      after = filediff['after'] as String? ?? '';
+      additions = (filediff['additions'] as num?)?.toInt() ?? 0;
+      deletions = (filediff['deletions'] as num?)?.toInt() ?? 0;
+    }
+
+    file = file.isNotEmpty
+        ? file
+        : (tool.input['filePath'] as String? ??
+              tool.input['path'] as String? ??
+              '');
+
+    // If we only have a unified diff text, derive +/- counts from it.
+    if ((additions == 0 && deletions == 0) && diffText != null) {
+      final lines = diffText.split('\n');
+      for (final line in lines) {
+        if (line.startsWith('+++') || line.startsWith('---')) continue;
+        if (line.startsWith('+')) additions++;
+        if (line.startsWith('-')) deletions++;
+      }
+    }
+
+    if (file.isEmpty) return null;
+    if ((diffText == null || diffText.isEmpty) &&
+        before.isEmpty &&
+        after.isEmpty) {
+      return null;
+    }
+
+    return DiffEntry(
+      file: file,
+      before: before,
+      after: after,
+      additions: additions,
+      deletions: deletions,
+      diff: diffText,
+      partId: tool.partId,
     );
-    _addMessage(message);
   }
 
   void _handleSessionError(Map<String, dynamic> payload) {

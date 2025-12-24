@@ -103,15 +103,16 @@ yarn.lock
 pnpm-lock.yaml
 
 # Reference codebases (not part of the app)
-/web-ui-cc/
+web-ui-cc/
+logs.md
+critical-g-*.md
+explaination-c.md
+
 
 # Logs and temp files
-logs.md
 *.log
 .env
 .env.*
 !.env.example
 config.json
-critical-g-*.md
 *.xcscheme
-explaination-c.md

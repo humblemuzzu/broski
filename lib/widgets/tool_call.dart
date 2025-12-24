@@ -28,6 +28,8 @@ class ToolCallCard extends StatefulWidget {
 
 class _ToolCallCardState extends State<ToolCallCard> {
   bool _isExpanded = false;
+  bool _showAllCode = false;
+  bool _showAllOutput = false;
 
   @override
   Widget build(BuildContext context) {
@@ -183,8 +185,9 @@ class _ToolCallCardState extends State<ToolCallCard> {
     final codeLines = _getCodeLines();
     if (codeLines.isEmpty) return const SizedBox.shrink();
 
-    final preview = codeLines.take(5).join('\n');
-    final hasMore = codeLines.length > 5;
+    final shown = _showAllCode ? codeLines : codeLines.take(6).toList();
+    final preview = shown.join('\n');
+    final hasMore = codeLines.length > shown.length;
     final language = _detectLanguage();
 
     return Column(
@@ -205,16 +208,28 @@ class _ToolCallCardState extends State<ToolCallCard> {
             textStyle: GoogleFonts.jetBrainsMono(fontSize: 12, height: 1.6),
           ),
         ),
-        if (hasMore)
+        if (hasMore || _showAllCode)
           Padding(
             padding: const EdgeInsets.only(top: 10),
             child: Center(
-              child: Text(
-                'Show ${codeLines.length - 5} more lines →',
-                style: const TextStyle(
-                  color: Color(0xFF60A5FA),
-                  fontSize: 13,
-                  fontWeight: FontWeight.w500,
+              child: InkWell(
+                onTap: () => setState(() => _showAllCode = !_showAllCode),
+                borderRadius: BorderRadius.circular(8),
+                child: Padding(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 10,
+                    vertical: 6,
+                  ),
+                  child: Text(
+                    _showAllCode
+                        ? 'Show less'
+                        : 'Show ${codeLines.length - shown.length} more lines →',
+                    style: const TextStyle(
+                      color: Color(0xFF60A5FA),
+                      fontSize: 13,
+                      fontWeight: FontWeight.w500,
+                    ),
+                  ),
                 ),
               ),
             ),
@@ -224,10 +239,10 @@ class _ToolCallCardState extends State<ToolCallCard> {
   }
 
   Widget _buildOutput(String output) {
-    // Limit output to 5 lines
     final lines = output.split('\n');
-    final preview = lines.take(5).join('\n');
-    final hasMore = lines.length > 5;
+    final shown = _showAllOutput ? lines : lines.take(6).toList();
+    final preview = shown.join('\n');
+    final hasMore = lines.length > shown.length;
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -258,16 +273,28 @@ class _ToolCallCardState extends State<ToolCallCard> {
             ),
           ),
         ),
-        if (hasMore)
+        if (hasMore || _showAllOutput)
           Padding(
             padding: const EdgeInsets.only(top: 8),
             child: Center(
-              child: Text(
-                'Show ${lines.length - 5} more lines →',
-                style: const TextStyle(
-                  color: Color(0xFF60A5FA),
-                  fontSize: 13,
-                  fontWeight: FontWeight.w500,
+              child: InkWell(
+                onTap: () => setState(() => _showAllOutput = !_showAllOutput),
+                borderRadius: BorderRadius.circular(8),
+                child: Padding(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 10,
+                    vertical: 6,
+                  ),
+                  child: Text(
+                    _showAllOutput
+                        ? 'Show less'
+                        : 'Show ${lines.length - shown.length} more lines →',
+                    style: const TextStyle(
+                      color: Color(0xFF60A5FA),
+                      fontSize: 13,
+                      fontWeight: FontWeight.w500,
+                    ),
+                  ),
                 ),
               ),
             ),
@@ -345,13 +372,22 @@ class _ToolCallCardState extends State<ToolCallCard> {
 
     switch (tool.name.toLowerCase()) {
       case 'read':
-        final path = tool.input['path'] as String? ?? '';
+        final path =
+            tool.input['path'] as String? ??
+            tool.input['filePath'] as String? ??
+            '';
         return 'Reading ${_getFileName(path)}';
       case 'edit':
-        final path = tool.input['path'] as String? ?? '';
+        final path =
+            tool.input['filePath'] as String? ??
+            tool.input['path'] as String? ??
+            '';
         return 'Editing ${_getFileName(path)}';
       case 'write':
-        final path = tool.input['path'] as String? ?? '';
+        final path =
+            tool.input['filePath'] as String? ??
+            tool.input['path'] as String? ??
+            '';
         return 'Writing ${_getFileName(path)}';
       case 'bash':
       case 'shell':
@@ -364,13 +400,22 @@ class _ToolCallCardState extends State<ToolCallCard> {
   String _getToolSummary(ToolCall tool) {
     switch (tool.name.toLowerCase()) {
       case 'read':
-        final path = tool.input['path'] as String? ?? '';
+        final path =
+            tool.input['path'] as String? ??
+            tool.input['filePath'] as String? ??
+            '';
         return path.isEmpty ? 'Reading file' : path;
       case 'edit':
-        final path = tool.input['path'] as String? ?? '';
+        final path =
+            tool.input['filePath'] as String? ??
+            tool.input['path'] as String? ??
+            '';
         return path.isEmpty ? 'Editing file' : path;
       case 'write':
-        final path = tool.input['path'] as String? ?? '';
+        final path =
+            tool.input['filePath'] as String? ??
+            tool.input['path'] as String? ??
+            '';
         return path.isEmpty ? 'Writing file' : path;
       case 'bash':
       case 'shell':
@@ -421,7 +466,10 @@ class _ToolCallCardState extends State<ToolCallCard> {
   }
 
   String _detectLanguage() {
-    final path = widget.tool.input['path'] as String? ?? '';
+    final path =
+        widget.tool.input['filePath'] as String? ??
+        widget.tool.input['path'] as String? ??
+        '';
     if (path.endsWith('.dart')) return 'dart';
     if (path.endsWith('.ts') || path.endsWith('.js')) return 'typescript';
     if (path.endsWith('.py')) return 'python';
@@ -451,7 +499,8 @@ class _ToolCallCardState extends State<ToolCallCard> {
   // Feature 7: Check if this tool can be undone (edit/write tools that are completed)
   bool get _canUndo {
     final toolName = widget.tool.name.toLowerCase();
-    final isEditTool = toolName == 'edit' || toolName == 'write';
+    final isEditTool =
+        toolName == 'edit' || toolName == 'write' || toolName == 'patch';
     final isCompleted = widget.tool.status == 'completed';
     return isEditTool && isCompleted && widget.messageId != null;
   }
@@ -459,7 +508,7 @@ class _ToolCallCardState extends State<ToolCallCard> {
   // Feature 7: Handle undo action
   void _handleUndo() {
     if (widget.onUndo != null && widget.messageId != null) {
-      widget.onUndo!(widget.messageId!, widget.tool.callId);
+      widget.onUndo!(widget.messageId!, widget.tool.partId);
     }
   }
 }

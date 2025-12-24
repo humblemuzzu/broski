@@ -47,33 +47,43 @@ enum MessageRole { user, assistant, system }
 class ToolCall {
   const ToolCall({
     required this.callId,
+    required this.partId,
     required this.name,
     required this.status,
     this.title,
     this.input = const {},
     this.output,
+    this.metadata = const {},
   });
 
+  /// OpenCode tool call ID (ToolPart.callID)
   final String callId;
+
+  /// OpenCode part ID (ToolPart.id) - required for precise undo (SessionRevert.partID).
+  final String partId;
   final String name;
   final String status;
   final String? title;
   final Map<String, dynamic> input;
   final String? output;
+  final Map<String, dynamic> metadata;
 
   ToolCall copyWith({
     String? status,
     String? title,
     Map<String, dynamic>? input,
     String? output,
+    Map<String, dynamic>? metadata,
   }) {
     return ToolCall(
       callId: callId,
+      partId: partId,
       name: name,
       status: status ?? this.status,
       title: title ?? this.title,
       input: input ?? this.input,
       output: output ?? this.output,
+      metadata: metadata ?? this.metadata,
     );
   }
 }
@@ -101,6 +111,8 @@ class DiffEntry {
     required this.after,
     required this.additions,
     required this.deletions,
+    this.diff,
+    this.partId,
   });
 
   final String file;
@@ -108,4 +120,10 @@ class DiffEntry {
   final String after;
   final int additions;
   final int deletions;
+
+  /// Unified diff text (preferred when available, includes hunks + context).
+  final String? diff;
+
+  /// Tool part ID (callID) that produced this diff, used for precise undo.
+  final String? partId;
 }

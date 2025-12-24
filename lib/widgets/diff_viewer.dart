@@ -1,25 +1,28 @@
 import 'package:flutter/material.dart';
-import 'package:flutter_highlight/flutter_highlight.dart';
-import 'package:flutter_highlight/themes/atom-one-dark.dart';
 import 'package:google_fonts/google_fonts.dart';
 
 import '../models/message.dart';
+import '../utils/diff_utils.dart';
 
 class DiffViewer extends StatefulWidget {
   const DiffViewer({
     super.key,
     required this.diff,
-    this.onRevert,
-    this.messageId,
+    required this.messageId,
+    this.onUndo,
+    this.onViewFull,
   });
 
   final DiffEntry diff;
 
-  /// Callback for Feature 7: Revert changes for this file
-  final void Function(String messageId)? onRevert;
+  /// Message ID this diff belongs to (needed for undo)
+  final String messageId;
 
-  /// Message ID this diff belongs to (needed for revert)
-  final String? messageId;
+  /// Callback for Feature 7: Undo changes (revert specific part when possible)
+  final void Function(String messageId, String? partId)? onUndo;
+
+  /// Open full-screen diff view
+  final VoidCallback? onViewFull;
 
   @override
   State<DiffViewer> createState() => _DiffViewerState();
@@ -34,8 +37,9 @@ class _DiffViewerState extends State<DiffViewer> {
     final additions = widget.diff.additions;
     final deletions = widget.diff.deletions;
 
-    return GestureDetector(
+    return InkWell(
       onTap: () => setState(() => _isExpanded = !_isExpanded),
+      borderRadius: BorderRadius.circular(18),
       child: Container(
         margin: const EdgeInsets.only(top: 10),
         padding: const EdgeInsets.all(16),
@@ -138,29 +142,30 @@ class _DiffViewerState extends State<DiffViewer> {
             ),
 
             // Expanded diff content
-            if (_isExpanded) ...[
-              const SizedBox(height: 14),
-              Container(height: 1, color: const Color(0xFF2A2D36)),
-              const SizedBox(height: 14),
-              _buildDiffContent(),
+            const SizedBox(height: 14),
+            _DiffPreview(
+              diff: widget.diff,
+              maxLines: _isExpanded ? 10 : 4,
+            ),
 
-              // Actions row
+            // Actions row (only when expanded)
+            if (_isExpanded) ...[
               const SizedBox(height: 12),
               Row(
                 children: [
-                  // Feature 7: Revert button
-                  if (widget.onRevert != null && widget.messageId != null)
+                  if (widget.onUndo != null)
                     TextButton.icon(
-                      onPressed: () {
-                        widget.onRevert!(widget.messageId!);
-                      },
+                      onPressed: () => widget.onUndo!(
+                        widget.messageId,
+                        widget.diff.partId,
+                      ),
                       icon: const Icon(
                         Icons.undo_rounded,
                         size: 14,
                         color: Color(0xFFF59E0B),
                       ),
                       label: const Text(
-                        'Revert',
+                        'Undo',
                         style: TextStyle(
                           fontSize: 13,
                           color: Color(0xFFF59E0B),
@@ -168,10 +173,21 @@ class _DiffViewerState extends State<DiffViewer> {
                       ),
                     ),
                   const Spacer(),
-                  // Collapse hint
-                  const Text(
-                    'Tap to collapse',
-                    style: TextStyle(color: Color(0xFF71717A), fontSize: 12),
+                  TextButton.icon(
+                    onPressed: widget.onViewFull,
+                    icon: const Icon(
+                      Icons.open_in_full_rounded,
+                      size: 14,
+                      color: Color(0xFF60A5FA),
+                    ),
+                    label: const Text(
+                      'View full',
+                      style: TextStyle(
+                        fontSize: 13,
+                        color: Color(0xFF60A5FA),
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
                   ),
                 ],
               ),
@@ -182,73 +198,108 @@ class _DiffViewerState extends State<DiffViewer> {
     );
   }
 
-  Widget _buildDiffContent() {
-    final diffText = _generateUnifiedDiff();
-    final lines = diffText.split('\n');
-    final preview = lines.take(10).join('\n');
-    final hasMore = lines.length > 10;
-
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Container(
-          padding: const EdgeInsets.all(14),
-          decoration: BoxDecoration(
-            color: const Color(0xFF17181C),
-            borderRadius: BorderRadius.circular(14),
-            border: Border.all(color: const Color(0xFF2A2D36)),
-          ),
-          child: HighlightView(
-            preview,
-            language: 'diff',
-            theme: atomOneDarkTheme,
-            padding: EdgeInsets.zero,
-            textStyle: GoogleFonts.jetBrainsMono(fontSize: 12, height: 1.7),
-          ),
-        ),
-        if (hasMore)
-          Padding(
-            padding: const EdgeInsets.only(top: 10),
-            child: Center(
-              child: Text(
-                'Show ${lines.length - 10} more lines →',
-                style: const TextStyle(
-                  color: Color(0xFF60A5FA),
-                  fontSize: 13,
-                  fontWeight: FontWeight.w500,
-                ),
-              ),
-            ),
-          ),
-      ],
-    );
-  }
-
-  String _generateUnifiedDiff() {
-    final beforeLines = widget.diff.before.split('\n');
-    final afterLines = widget.diff.after.split('\n');
-
-    final buffer = StringBuffer();
-    buffer.writeln('--- ${widget.diff.file}');
-    buffer.writeln('+++ ${widget.diff.file}');
-    buffer.writeln('@@ -1,${beforeLines.length} +1,${afterLines.length} @@');
-
-    // Show deletions
-    for (final line in beforeLines) {
-      buffer.writeln('-$line');
-    }
-
-    // Show additions
-    for (final line in afterLines) {
-      buffer.writeln('+$line');
-    }
-
-    return buffer.toString();
-  }
-
   String _getFileName(String path) {
     if (path.isEmpty) return 'file';
     final parts = path.split('/');
     return parts.last;
+  }
+}
+
+class _DiffPreview extends StatelessWidget {
+  const _DiffPreview({required this.diff, required this.maxLines});
+
+  static const _kSurface = Color(0xFF17181C);
+  static const _kBorder = Color(0xFF2A2D36);
+  static const _kMuted = Color(0xFF9CA3AF);
+
+  final DiffEntry diff;
+  final int maxLines;
+
+  @override
+  Widget build(BuildContext context) {
+    final diffText = (diff.diff != null && diff.diff!.trim().isNotEmpty)
+        ? diff.diff!
+        : UnifiedDiff.generate(
+            filePath: diff.file.isNotEmpty ? diff.file : 'file',
+            before: diff.before,
+            after: diff.after,
+          );
+
+    final parsed = UnifiedDiff.parse(diffText);
+    final previewLines = <DiffLine>[];
+    for (final line in parsed) {
+      if (line.kind == DiffLineKind.header ||
+          line.kind == DiffLineKind.hunk ||
+          line.kind == DiffLineKind.meta) {
+        continue;
+      }
+      previewLines.add(line);
+      if (previewLines.length >= maxLines) break;
+    }
+
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: _kSurface,
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(color: _kBorder),
+      ),
+      child: previewLines.isEmpty
+          ? Text(
+              'No preview available',
+              style: GoogleFonts.jetBrainsMono(fontSize: 12, color: _kMuted),
+            )
+          : Column(
+              children: [for (final line in previewLines) _PreviewRow(line: line)],
+            ),
+    );
+  }
+}
+
+class _PreviewRow extends StatelessWidget {
+  const _PreviewRow({required this.line});
+
+  static const _kText = Color(0xFFE4E4E7);
+  static const _kAdd = Color(0xFF10B981);
+  static const _kDel = Color(0xFFEF4444);
+
+  final DiffLine line;
+
+  @override
+  Widget build(BuildContext context) {
+    final bg = switch (line.kind) {
+      DiffLineKind.added => _kAdd.withValues(alpha: 0.12),
+      DiffLineKind.removed => _kDel.withValues(alpha: 0.12),
+      _ => Colors.transparent,
+    };
+    final fg = switch (line.kind) {
+      DiffLineKind.added => _kAdd,
+      DiffLineKind.removed => _kDel,
+      _ => _kText,
+    };
+    final prefix = switch (line.kind) {
+      DiffLineKind.added => '+',
+      DiffLineKind.removed => '-',
+      _ => ' ',
+    };
+
+    return Container(
+      width: double.infinity,
+      margin: const EdgeInsets.only(bottom: 2),
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+      decoration: BoxDecoration(
+        color: bg,
+        borderRadius: BorderRadius.circular(10),
+      ),
+      child: Text(
+        '$prefix ${line.text.isEmpty ? ' ' : line.text}',
+        style: GoogleFonts.jetBrainsMono(
+          fontSize: 12,
+          color: fg,
+          height: 1.35,
+        ),
+      ),
+    );
   }
 }

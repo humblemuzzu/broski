@@ -25,6 +25,7 @@ import '../widgets/message_bubble.dart';
 import '../widgets/permission_prompt.dart';
 import '../widgets/session_sidebar.dart';
 import '../widgets/tool_call.dart';
+import 'diff_view_screen.dart';
 
 // Utility function for color opacity (from expense_tracker)
 Color fade(Color color, double opacity) {
@@ -263,6 +264,18 @@ class _ChatScreenState extends ConsumerState<ChatScreen>
         ),
       );
     }
+  }
+
+  void _openDiffView(DiffEntry diff, {String? messageId}) {
+    Navigator.of(context).push(
+      MaterialPageRoute(
+        builder: (_) => DiffViewScreen(
+          diff: diff,
+          messageId: messageId,
+          onUndo: (msgId, partId) => _revertMessage(msgId, partId: partId),
+        ),
+      ),
+    );
   }
 
   // Feature 7: Unrevert session
@@ -751,6 +764,8 @@ class _ChatScreenState extends ConsumerState<ChatScreen>
         todos: chatState.todos,
         onClose: _closeSidebar,
         vcsInfo: _vcsInfo,
+        sessionDiffs: chatState.sessionDiffs,
+        onOpenDiff: (diff) => _openDiffView(diff),
       ),
       onEndDrawerChanged: (isOpen) {
         if (isOpen && !_sidebarOpen) {
@@ -885,7 +900,9 @@ class _ChatScreenState extends ConsumerState<ChatScreen>
             child: DiffViewer(
               diff: diff,
               messageId: message.id,
-              onRevert: (messageId) => _revertMessage(messageId),
+              onUndo: (messageId, partId) =>
+                  _revertMessage(messageId, partId: partId),
+              onViewFull: () => _openDiffView(diff, messageId: message.id),
             ),
           ),
 

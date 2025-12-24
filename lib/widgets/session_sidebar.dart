@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import '../models/message.dart';
 import '../models/session_context.dart';
 import '../models/todo.dart';
 import '../models/vcs.dart';
@@ -25,6 +26,8 @@ class SessionSidebar extends StatelessWidget {
     this.todos = const [],
     this.onClose,
     this.vcsInfo,
+    this.sessionDiffs = const [],
+    this.onOpenDiff,
   });
 
   final String sessionTitle;
@@ -33,6 +36,8 @@ class SessionSidebar extends StatelessWidget {
   final VoidCallback? onClose;
   // Feature 10: VCS/Git info
   final VcsInfo? vcsInfo;
+  final List<DiffEntry> sessionDiffs;
+  final void Function(DiffEntry diff)? onOpenDiff;
 
   @override
   Widget build(BuildContext context) {
@@ -58,6 +63,8 @@ class SessionSidebar extends StatelessWidget {
                   _buildPlanSection(),
                   const SizedBox(height: 20),
                   _buildLspSection(),
+                  const SizedBox(height: 20),
+                  _buildChangesSection(),
                   const SizedBox(height: 20),
                   _buildModifiedFilesSection(),
                   const SizedBox(height: 24),
@@ -298,6 +305,88 @@ class SessionSidebar extends StatelessWidget {
           _LspServerItem(server: server),
           if (server != lspServers.last) const SizedBox(height: 8),
         ],
+      ],
+    );
+  }
+
+  Widget _buildChangesSection() {
+    if (sessionDiffs.isEmpty) {
+      return _SidebarSection(
+        title: 'Changes',
+        icon: Icons.difference_rounded,
+        children: [
+          Container(
+            padding: const EdgeInsets.all(12),
+            decoration: BoxDecoration(
+              color: _kCard,
+              borderRadius: BorderRadius.circular(8),
+              border: Border.all(color: _kBorder, width: 1),
+            ),
+            child: const Row(
+              children: [
+                Icon(Icons.info_outline, color: _kMuted, size: 16),
+                SizedBox(width: 8),
+                Text(
+                  'No diffs yet',
+                  style: TextStyle(color: _kMuted, fontSize: 13),
+                ),
+              ],
+            ),
+          ),
+        ],
+      );
+    }
+
+    // Calculate totals
+    var totalAdditions = 0;
+    var totalDeletions = 0;
+    for (final diff in sessionDiffs) {
+      totalAdditions += diff.additions;
+      totalDeletions += diff.deletions;
+    }
+
+    return _SidebarSection(
+      title: 'Changes',
+      icon: Icons.difference_rounded,
+      trailing: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Text(
+            '+$totalAdditions',
+            style: const TextStyle(
+              fontSize: 12,
+              color: _kSuccess,
+              fontWeight: FontWeight.w600,
+            ),
+          ),
+          const SizedBox(width: 6),
+          Text(
+            '-$totalDeletions',
+            style: const TextStyle(
+              fontSize: 12,
+              color: _kError,
+              fontWeight: FontWeight.w600,
+            ),
+          ),
+        ],
+      ),
+      children: [
+        Container(
+          decoration: BoxDecoration(
+            color: _kCard,
+            borderRadius: BorderRadius.circular(10),
+            border: Border.all(color: _kBorder, width: 1),
+          ),
+          child: Column(
+            children: [
+              for (int i = 0; i < sessionDiffs.length; i++) ...[
+                _DiffFileItem(diff: sessionDiffs[i], onOpen: onOpenDiff),
+                if (i < sessionDiffs.length - 1)
+                  const Divider(color: _kBorder, height: 1),
+              ],
+            ],
+          ),
+        ),
       ],
     );
   }
@@ -588,6 +677,63 @@ class _ModifiedFileItem extends StatelessWidget {
         ],
       ),
     );
+  }
+}
+
+class _DiffFileItem extends StatelessWidget {
+  const _DiffFileItem({required this.diff, this.onOpen});
+
+  final DiffEntry diff;
+  final void Function(DiffEntry diff)? onOpen;
+
+  @override
+  Widget build(BuildContext context) {
+    return InkWell(
+      onTap: onOpen != null ? () => onOpen!(diff) : null,
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+        child: Row(
+          children: [
+            const Icon(Icons.code_rounded, size: 16, color: _kMuted),
+            const SizedBox(width: 10),
+            Expanded(
+              child: Text(
+                _shortPath(diff.file),
+                style: const TextStyle(fontSize: 13, color: _kOnBackground),
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+              ),
+            ),
+            const SizedBox(width: 8),
+            Text(
+              '+${diff.additions}',
+              style: const TextStyle(
+                fontSize: 12,
+                color: _kSuccess,
+                fontWeight: FontWeight.w600,
+              ),
+            ),
+            const SizedBox(width: 6),
+            Text(
+              '-${diff.deletions}',
+              style: const TextStyle(
+                fontSize: 12,
+                color: _kError,
+                fontWeight: FontWeight.w600,
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  String _shortPath(String path) {
+    if (path.isEmpty) return 'file';
+    final parts = path.split('/');
+    if (parts.length <= 2) return path;
+    final start = parts.length > 3 ? parts.length - 3 : 0;
+    return parts.sublist(start).join('/');
   }
 }
 
