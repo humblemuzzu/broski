@@ -10,6 +10,7 @@ import 'device_manager_screen.dart';
 import 'mcp_servers_screen.dart';
 import 'providers_screen.dart';
 import 'terminal_screen.dart';
+import 'theme_selector_screen.dart';
 import 'tools_screen.dart';
 
 class SettingsScreen extends ConsumerWidget {
@@ -18,7 +19,7 @@ class SettingsScreen extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final connection = ref.watch(connectionProvider);
-    final themeMode = ref.watch(themeProvider);
+    final currentThemeInfo = ref.watch(currentThemeInfoProvider);
     final theme = Theme.of(context);
 
     return Scaffold(
@@ -61,42 +62,39 @@ class SettingsScreen extends ConsumerWidget {
               child: Padding(
                 padding: const EdgeInsets.symmetric(horizontal: 20),
                 child: _SettingsCard(
-                  child: Column(
-                    children: [
-                      _SettingsTile(
-                        title: 'Dark Blue Theme',
-                        subtitle: 'Original blue-tinted dark theme',
-                        trailing: Radio<AppThemeMode>(
-                          value: AppThemeMode.dark,
-                          groupValue: themeMode,
-                          onChanged: (value) {
-                            if (value != null) {
-                              ref.read(themeProvider.notifier).setTheme(value);
-                            }
-                          },
+                  child: _SettingsTile(
+                    title: 'Theme',
+                    subtitle: currentThemeInfo?.name ?? 'OpenCode',
+                    icon: Icons.palette_rounded,
+                    trailing: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        // Theme color indicator
+                        Container(
+                          width: 16,
+                          height: 16,
+                          decoration: BoxDecoration(
+                            color:
+                                currentThemeInfo?.primaryColor ??
+                                theme.colorScheme.primary,
+                            shape: BoxShape.circle,
+                            border: Border.all(
+                              color: theme.colorScheme.onSurface.withValues(
+                                alpha: 0.2,
+                              ),
+                            ),
+                          ),
                         ),
-                        onTap: () => ref
-                            .read(themeProvider.notifier)
-                            .setTheme(AppThemeMode.dark),
+                        const SizedBox(width: 8),
+                        const Icon(Icons.chevron_right_rounded, size: 20),
+                      ],
+                    ),
+                    onTap: () => Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                        builder: (_) => const ThemeSelectorScreen(),
                       ),
-                      _Divider(),
-                      _SettingsTile(
-                        title: 'Pure Black Theme',
-                        subtitle: 'OLED-friendly pure black theme',
-                        trailing: Radio<AppThemeMode>(
-                          value: AppThemeMode.black,
-                          groupValue: themeMode,
-                          onChanged: (value) {
-                            if (value != null) {
-                              ref.read(themeProvider.notifier).setTheme(value);
-                            }
-                          },
-                        ),
-                        onTap: () => ref
-                            .read(themeProvider.notifier)
-                            .setTheme(AppThemeMode.black),
-                      ),
-                    ],
+                    ),
                   ),
                 ),
               ),

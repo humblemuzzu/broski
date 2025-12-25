@@ -14,17 +14,23 @@ class BroskiApp extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final themeMode = ref.watch(themeProvider);
+    final themeState = ref.watch(themeProvider);
+
+    // Show loading indicator while theme is loading
+    if (themeState.isLoading) {
+      return MaterialApp(
+        debugShowCheckedModeBanner: false,
+        theme: BroskiTheme.black(),
+        home: const Scaffold(body: Center(child: CircularProgressIndicator())),
+      );
+    }
 
     return MaterialApp(
       title: 'Broski',
       debugShowCheckedModeBanner: false,
-      theme: BroskiTheme.light(),
-      darkTheme: themeMode == AppThemeMode.black
-          ? BroskiTheme.black()
-          : BroskiTheme.dark(),
-      themeMode:
-          ThemeMode.dark, // Always use dark mode (switches between dark/black)
+      theme: BroskiTheme.fromThemeId(themeState.themeId),
+      darkTheme: BroskiTheme.fromThemeId(themeState.themeId),
+      themeMode: ThemeMode.dark, // Always use dark mode
       home: const RootScreen(),
     );
   }

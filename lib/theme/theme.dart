@@ -1,19 +1,21 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 
-import 'themes/opencode_dark.dart';
+import 'opencode_theme.dart';
+import 'themes/all_themes.dart';
 
 /// Broski app theme configuration.
 ///
 /// Uses OpenCodeTheme extension to provide semantic color tokens
 /// that match the OpenCode CLI design system.
 class BroskiTheme {
-  /// Pure Black Theme (OpenCode-inspired) - Default for mobile
-  ///
-  /// Uses the OpenCode theme colors with OLED-optimized blacks.
-  static ThemeData black() {
-    const ocTheme = opencodeMobileDark;
-    final base = ThemeData.dark();
+  /// Build a ThemeData from a specific OpenCodeTheme
+  /// Use [isLight] to switch base theme (affects system UI colors)
+  static ThemeData fromOpenCodeTheme(
+    OpenCodeTheme ocTheme, {
+    bool isLight = false,
+  }) {
+    final base = isLight ? ThemeData.light() : ThemeData.dark();
 
     final textTheme = GoogleFonts.interTextTheme(base.textTheme).copyWith(
       bodyLarge: GoogleFonts.inter(
@@ -68,18 +70,31 @@ class BroskiTheme {
       // Attach OpenCodeTheme as extension
       extensions: [ocTheme],
 
-      colorScheme: ColorScheme.dark(
-        primary: ocTheme.primary,
-        secondary: ocTheme.secondary,
-        tertiary: ocTheme.accent,
-        error: ocTheme.error,
-        surface: ocTheme.backgroundPanel,
-        onPrimary: ocTheme.selectedListItemText,
-        onSecondary: ocTheme.text,
-        onSurface: ocTheme.text,
-        onError: Colors.white,
-        surfaceContainerHighest: ocTheme.backgroundElement,
-      ),
+      colorScheme: isLight
+          ? ColorScheme.light(
+              primary: ocTheme.primary,
+              secondary: ocTheme.secondary,
+              tertiary: ocTheme.accent,
+              error: ocTheme.error,
+              surface: ocTheme.backgroundPanel,
+              onPrimary: ocTheme.selectedListItemText,
+              onSecondary: ocTheme.text,
+              onSurface: ocTheme.text,
+              onError: Colors.white,
+              surfaceContainerHighest: ocTheme.backgroundElement,
+            )
+          : ColorScheme.dark(
+              primary: ocTheme.primary,
+              secondary: ocTheme.secondary,
+              tertiary: ocTheme.accent,
+              error: ocTheme.error,
+              surface: ocTheme.backgroundPanel,
+              onPrimary: ocTheme.selectedListItemText,
+              onSecondary: ocTheme.text,
+              onSurface: ocTheme.text,
+              onError: Colors.white,
+              surfaceContainerHighest: ocTheme.backgroundElement,
+            ),
 
       scaffoldBackgroundColor: ocTheme.background,
       textTheme: textTheme,
@@ -283,89 +298,28 @@ class BroskiTheme {
     );
   }
 
-  /// Dark Blue Theme (original) - Alternative
-  static ThemeData dark() {
-    // Use standard opencode dark (not mobile variant)
-    const ocTheme = opencodeDark;
-    final base = ThemeData.dark();
-
-    final textTheme = GoogleFonts.interTextTheme(base.textTheme).copyWith(
-      bodyMedium: GoogleFonts.inter(fontSize: 15, color: ocTheme.text),
-      bodySmall: GoogleFonts.inter(fontSize: 13, color: ocTheme.textMuted),
-      labelLarge: GoogleFonts.inter(fontWeight: FontWeight.w600),
-    );
-
-    return base.copyWith(
-      extensions: [ocTheme],
-      colorScheme: ColorScheme.dark(
-        primary: ocTheme.primary,
-        secondary: ocTheme.secondary,
-        surface: ocTheme.backgroundPanel,
-        onPrimary: ocTheme.selectedListItemText,
-        onSecondary: ocTheme.text,
-        onSurface: ocTheme.text,
-        error: ocTheme.error,
-        onError: Colors.white,
-      ),
-      scaffoldBackgroundColor: ocTheme.background,
-      textTheme: textTheme,
-      appBarTheme: AppBarTheme(
-        backgroundColor: ocTheme.background,
-        elevation: 0,
-        titleTextStyle: textTheme.titleLarge?.copyWith(
-          fontWeight: FontWeight.w600,
-          color: ocTheme.text,
-        ),
-      ),
-      cardTheme: CardThemeData(
-        color: ocTheme.backgroundPanel,
-        elevation: 0,
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-      ),
-      inputDecorationTheme: InputDecorationTheme(
-        filled: true,
-        fillColor: ocTheme.backgroundPanel,
-        border: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(14),
-          borderSide: BorderSide.none,
-        ),
-      ),
-      bottomNavigationBarTheme: BottomNavigationBarThemeData(
-        backgroundColor: ocTheme.backgroundPanel,
-        selectedItemColor: ocTheme.primary,
-        unselectedItemColor: ocTheme.textMuted,
-      ),
-      elevatedButtonTheme: ElevatedButtonThemeData(
-        style: ElevatedButton.styleFrom(
-          backgroundColor: ocTheme.primary,
-          foregroundColor: Colors.white,
-          elevation: 0,
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(12),
-          ),
-        ),
-      ),
-      outlinedButtonTheme: OutlinedButtonThemeData(
-        style: OutlinedButton.styleFrom(
-          foregroundColor: ocTheme.text,
-          side: BorderSide(color: ocTheme.border),
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(12),
-          ),
-        ),
-      ),
-      listTileTheme: ListTileThemeData(
-        tileColor: ocTheme.backgroundPanel,
-        textColor: ocTheme.text,
-        iconColor: ocTheme.textMuted,
-      ),
-    );
+  /// Build theme from theme ID
+  static ThemeData fromThemeId(String themeId) {
+    final themeInfo = getThemeInfoById(themeId);
+    final theme = themeInfo?.theme ?? opencodeDarkTheme;
+    final isLight = themeInfo?.isLight ?? false;
+    return fromOpenCodeTheme(theme, isLight: isLight);
   }
 
-  /// Light theme (for future use)
+  /// Pure Black Theme (OpenCode-inspired) - Default for mobile
+  /// DEPRECATED: Use fromThemeId('opencode') instead
+  static ThemeData black() {
+    return fromOpenCodeTheme(opencodeDarkTheme);
+  }
+
+  /// Dark Blue Theme (original) - Alternative
+  /// DEPRECATED: Use fromThemeId() instead
+  static ThemeData dark() {
+    return fromOpenCodeTheme(opencodeDarkTheme);
+  }
+
+  /// Light theme - Clean, eye-friendly light theme for coding
   static ThemeData light() {
-    // For now, just return dark theme
-    // TODO: Implement proper light theme based on OpenCode light mode colors
-    return dark();
+    return fromOpenCodeTheme(opencodeLightTheme, isLight: true);
   }
 }
