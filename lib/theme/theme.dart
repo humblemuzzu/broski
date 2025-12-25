@@ -1,154 +1,343 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 
-import 'colors.dart';
+import 'themes/opencode_dark.dart';
 
+/// Broski app theme configuration.
+///
+/// Uses OpenCodeTheme extension to provide semantic color tokens
+/// that match the OpenCode CLI design system.
 class BroskiTheme {
-  // Pure Black Theme (OpenCode-inspired)
+  /// Pure Black Theme (OpenCode-inspired) - Default for mobile
+  ///
+  /// Uses the OpenCode theme colors with OLED-optimized blacks.
   static ThemeData black() {
+    const ocTheme = opencodeMobileDark;
     final base = ThemeData.dark();
-    final textTheme = GoogleFonts.spaceGroteskTextTheme(base.textTheme)
-        .copyWith(
-          bodyMedium: GoogleFonts.spaceGrotesk(
-            fontSize: 15,
-            color: const Color(0xFFE4E4E7), // Light gray text
-          ),
-          bodySmall: GoogleFonts.spaceGrotesk(
-            fontSize: 13,
-            color: const Color(0xFF9CA3AF), // Muted gray
-          ),
-          labelLarge: GoogleFonts.spaceGrotesk(fontWeight: FontWeight.w600),
-        );
+
+    final textTheme = GoogleFonts.interTextTheme(base.textTheme).copyWith(
+      bodyLarge: GoogleFonts.inter(
+        fontSize: 16,
+        color: ocTheme.text,
+        height: 1.5,
+      ),
+      bodyMedium: GoogleFonts.inter(
+        fontSize: 15,
+        color: ocTheme.text,
+        height: 1.5,
+      ),
+      bodySmall: GoogleFonts.inter(
+        fontSize: 13,
+        color: ocTheme.textMuted,
+        height: 1.4,
+      ),
+      titleLarge: GoogleFonts.inter(
+        fontSize: 20,
+        fontWeight: FontWeight.w600,
+        color: ocTheme.text,
+      ),
+      titleMedium: GoogleFonts.inter(
+        fontSize: 16,
+        fontWeight: FontWeight.w600,
+        color: ocTheme.text,
+      ),
+      titleSmall: GoogleFonts.inter(
+        fontSize: 14,
+        fontWeight: FontWeight.w600,
+        color: ocTheme.text,
+      ),
+      labelLarge: GoogleFonts.inter(
+        fontSize: 14,
+        fontWeight: FontWeight.w600,
+        color: ocTheme.text,
+      ),
+      labelMedium: GoogleFonts.inter(
+        fontSize: 12,
+        fontWeight: FontWeight.w500,
+        color: ocTheme.textMuted,
+      ),
+      labelSmall: GoogleFonts.inter(
+        fontSize: 11,
+        fontWeight: FontWeight.w500,
+        color: ocTheme.textMuted,
+        letterSpacing: 0.5,
+      ),
+    );
 
     return base.copyWith(
-      colorScheme: const ColorScheme.dark(
-        primary: Color(0xFF3B82F6), // Blue accent
-        secondary: Color(0xFF8B5CF6), // Purple accent
-        surface: Color(0xFF1C1C1E), // Darker card color (like settings)
-        surfaceContainerHighest: Color(0xFF2C2C2E), // Lighter surface
-        onPrimary: Colors.white,
-        onSecondary: Colors.white,
-        onSurface: Color(0xFFE4E4E7), // Light text
-        error: Color(0xFFEF4444),
+      // Attach OpenCodeTheme as extension
+      extensions: [ocTheme],
+
+      colorScheme: ColorScheme.dark(
+        primary: ocTheme.primary,
+        secondary: ocTheme.secondary,
+        tertiary: ocTheme.accent,
+        error: ocTheme.error,
+        surface: ocTheme.backgroundPanel,
+        onPrimary: ocTheme.selectedListItemText,
+        onSecondary: ocTheme.text,
+        onSurface: ocTheme.text,
         onError: Colors.white,
+        surfaceContainerHighest: ocTheme.backgroundElement,
       ),
-      scaffoldBackgroundColor: Colors.black, // Pure black
+
+      scaffoldBackgroundColor: ocTheme.background,
       textTheme: textTheme,
+
       appBarTheme: AppBarTheme(
-        backgroundColor: Colors.black,
+        backgroundColor: ocTheme.background,
         elevation: 0,
-        titleTextStyle: textTheme.titleLarge?.copyWith(
-          fontWeight: FontWeight.w600,
-          color: const Color(0xFFE4E4E7),
-        ),
+        scrolledUnderElevation: 0,
+        surfaceTintColor: Colors.transparent,
+        titleTextStyle: textTheme.titleMedium,
+        iconTheme: IconThemeData(color: ocTheme.text),
       ),
-      cardTheme: const CardThemeData(
-        color: Color(0xFF1C1C1E),
+
+      cardTheme: CardThemeData(
+        color: ocTheme.backgroundPanel,
         elevation: 0,
         shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.all(Radius.circular(16)),
+          borderRadius: BorderRadius.circular(16),
+          side: BorderSide(color: ocTheme.borderSubtle, width: 1),
         ),
       ),
+
       inputDecorationTheme: InputDecorationTheme(
         filled: true,
-        fillColor: const Color(0xFF1C1C1E),
+        fillColor: ocTheme.backgroundPanel,
         border: OutlineInputBorder(
           borderRadius: BorderRadius.circular(14),
           borderSide: BorderSide.none,
         ),
+        enabledBorder: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(14),
+          borderSide: BorderSide(color: ocTheme.borderSubtle, width: 1),
+        ),
+        focusedBorder: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(14),
+          borderSide: BorderSide(color: ocTheme.primary, width: 1.5),
+        ),
+        hintStyle: TextStyle(color: ocTheme.textMuted),
+        contentPadding: const EdgeInsets.symmetric(
+          horizontal: 16,
+          vertical: 14,
+        ),
       ),
-      bottomNavigationBarTheme: const BottomNavigationBarThemeData(
-        backgroundColor: Color(0xFF1C1C1E),
-        selectedItemColor: Color(0xFF3B82F6),
-        unselectedItemColor: Color(0xFF71717A),
+
+      bottomNavigationBarTheme: BottomNavigationBarThemeData(
+        backgroundColor: ocTheme.backgroundPanel,
+        selectedItemColor: ocTheme.primary,
+        unselectedItemColor: ocTheme.textMuted,
+        type: BottomNavigationBarType.fixed,
+        elevation: 0,
       ),
+
       elevatedButtonTheme: ElevatedButtonThemeData(
         style: ElevatedButton.styleFrom(
-          backgroundColor: const Color(0xFF3B82F6),
-          foregroundColor: Colors.white,
+          backgroundColor: ocTheme.primary,
+          foregroundColor: ocTheme.selectedListItemText,
           elevation: 0,
+          padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 14),
           shape: RoundedRectangleBorder(
             borderRadius: BorderRadius.circular(12),
           ),
+          textStyle: GoogleFonts.inter(
+            fontSize: 14,
+            fontWeight: FontWeight.w600,
+          ),
         ),
       ),
+
       outlinedButtonTheme: OutlinedButtonThemeData(
         style: OutlinedButton.styleFrom(
-          foregroundColor: const Color(0xFFE4E4E7),
-          side: const BorderSide(color: Color(0xFF71717A)),
+          foregroundColor: ocTheme.text,
+          side: BorderSide(color: ocTheme.border),
+          padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 14),
           shape: RoundedRectangleBorder(
             borderRadius: BorderRadius.circular(12),
           ),
+          textStyle: GoogleFonts.inter(
+            fontSize: 14,
+            fontWeight: FontWeight.w600,
+          ),
         ),
       ),
-      listTileTheme: const ListTileThemeData(
-        tileColor: Color(0xFF1C1C1E),
-        textColor: Color(0xFFE4E4E7),
-        iconColor: Color(0xFF71717A),
+
+      textButtonTheme: TextButtonThemeData(
+        style: TextButton.styleFrom(
+          foregroundColor: ocTheme.primary,
+          textStyle: GoogleFonts.inter(
+            fontSize: 14,
+            fontWeight: FontWeight.w600,
+          ),
+        ),
+      ),
+
+      iconButtonTheme: IconButtonThemeData(
+        style: IconButton.styleFrom(foregroundColor: ocTheme.text),
+      ),
+
+      listTileTheme: ListTileThemeData(
+        tileColor: Colors.transparent,
+        textColor: ocTheme.text,
+        iconColor: ocTheme.textMuted,
+        contentPadding: const EdgeInsets.symmetric(horizontal: 16),
+      ),
+
+      dividerTheme: DividerThemeData(
+        color: ocTheme.borderSubtle,
+        thickness: 1,
+        space: 1,
+      ),
+
+      dialogTheme: DialogThemeData(
+        backgroundColor: ocTheme.backgroundPanel,
+        elevation: 0,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+        titleTextStyle: textTheme.titleMedium,
+        contentTextStyle: textTheme.bodyMedium,
+      ),
+
+      bottomSheetTheme: BottomSheetThemeData(
+        backgroundColor: ocTheme.backgroundPanel,
+        modalBackgroundColor: ocTheme.backgroundPanel,
+        shape: const RoundedRectangleBorder(
+          borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+        ),
+      ),
+
+      snackBarTheme: SnackBarThemeData(
+        backgroundColor: ocTheme.backgroundPanel,
+        contentTextStyle: TextStyle(color: ocTheme.text),
+        behavior: SnackBarBehavior.floating,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+      ),
+
+      popupMenuTheme: PopupMenuThemeData(
+        color: ocTheme.backgroundMenu,
+        elevation: 8,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+        textStyle: textTheme.bodyMedium,
+      ),
+
+      progressIndicatorTheme: ProgressIndicatorThemeData(
+        color: ocTheme.primary,
+        circularTrackColor: ocTheme.borderSubtle,
+      ),
+
+      sliderTheme: SliderThemeData(
+        activeTrackColor: ocTheme.primary,
+        inactiveTrackColor: ocTheme.borderSubtle,
+        thumbColor: ocTheme.primary,
+      ),
+
+      switchTheme: SwitchThemeData(
+        thumbColor: WidgetStateProperty.resolveWith((states) {
+          if (states.contains(WidgetState.selected)) {
+            return ocTheme.primary;
+          }
+          return ocTheme.textMuted;
+        }),
+        trackColor: WidgetStateProperty.resolveWith((states) {
+          if (states.contains(WidgetState.selected)) {
+            return ocTheme.primary.withValues(alpha: 0.4);
+          }
+          return ocTheme.borderSubtle;
+        }),
+      ),
+
+      checkboxTheme: CheckboxThemeData(
+        fillColor: WidgetStateProperty.resolveWith((states) {
+          if (states.contains(WidgetState.selected)) {
+            return ocTheme.primary;
+          }
+          return Colors.transparent;
+        }),
+        checkColor: WidgetStateProperty.all(ocTheme.selectedListItemText),
+        side: BorderSide(color: ocTheme.border, width: 1.5),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(4)),
+      ),
+
+      radioTheme: RadioThemeData(
+        fillColor: WidgetStateProperty.resolveWith((states) {
+          if (states.contains(WidgetState.selected)) {
+            return ocTheme.primary;
+          }
+          return ocTheme.border;
+        }),
+      ),
+
+      tooltipTheme: TooltipThemeData(
+        decoration: BoxDecoration(
+          color: ocTheme.backgroundElement,
+          borderRadius: BorderRadius.circular(8),
+        ),
+        textStyle: TextStyle(color: ocTheme.text, fontSize: 12),
+      ),
+
+      scrollbarTheme: ScrollbarThemeData(
+        thumbColor: WidgetStateProperty.all(ocTheme.border),
+        radius: const Radius.circular(4),
+        thickness: WidgetStateProperty.all(4),
       ),
     );
   }
 
-  // Dark Blue Theme (original)
+  /// Dark Blue Theme (original) - Alternative
   static ThemeData dark() {
+    // Use standard opencode dark (not mobile variant)
+    const ocTheme = opencodeDark;
     final base = ThemeData.dark();
-    final textTheme = GoogleFonts.spaceGroteskTextTheme(base.textTheme)
-        .copyWith(
-          bodyMedium: GoogleFonts.spaceGrotesk(
-            fontSize: 15,
-            color: BroskiColors.fog,
-          ),
-          bodySmall: GoogleFonts.spaceGrotesk(
-            fontSize: 13,
-            color: BroskiColors.fog,
-          ),
-          labelLarge: GoogleFonts.spaceGrotesk(fontWeight: FontWeight.w600),
-        );
+
+    final textTheme = GoogleFonts.interTextTheme(base.textTheme).copyWith(
+      bodyMedium: GoogleFonts.inter(fontSize: 15, color: ocTheme.text),
+      bodySmall: GoogleFonts.inter(fontSize: 13, color: ocTheme.textMuted),
+      labelLarge: GoogleFonts.inter(fontWeight: FontWeight.w600),
+    );
 
     return base.copyWith(
-      colorScheme: const ColorScheme.dark(
-        primary: BroskiColors.frost,
-        secondary: BroskiColors.gold,
-        surface: BroskiColors.abyss,
-        onPrimary: Colors.white,
-        onSecondary: BroskiColors.midnight,
-        onSurface: BroskiColors.fog,
-        error: BroskiColors.ember,
+      extensions: [ocTheme],
+      colorScheme: ColorScheme.dark(
+        primary: ocTheme.primary,
+        secondary: ocTheme.secondary,
+        surface: ocTheme.backgroundPanel,
+        onPrimary: ocTheme.selectedListItemText,
+        onSecondary: ocTheme.text,
+        onSurface: ocTheme.text,
+        error: ocTheme.error,
         onError: Colors.white,
       ),
-      scaffoldBackgroundColor: BroskiColors.midnight,
+      scaffoldBackgroundColor: ocTheme.background,
       textTheme: textTheme,
       appBarTheme: AppBarTheme(
-        backgroundColor: BroskiColors.abyss,
+        backgroundColor: ocTheme.background,
         elevation: 0,
         titleTextStyle: textTheme.titleLarge?.copyWith(
           fontWeight: FontWeight.w600,
-          color: BroskiColors.fog,
+          color: ocTheme.text,
         ),
       ),
-      cardTheme: const CardThemeData(
-        color: BroskiColors.abyss,
+      cardTheme: CardThemeData(
+        color: ocTheme.backgroundPanel,
         elevation: 0,
-        shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.all(Radius.circular(16)),
-        ),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
       ),
       inputDecorationTheme: InputDecorationTheme(
         filled: true,
-        fillColor: BroskiColors.abyss,
+        fillColor: ocTheme.backgroundPanel,
         border: OutlineInputBorder(
           borderRadius: BorderRadius.circular(14),
           borderSide: BorderSide.none,
         ),
       ),
-      bottomNavigationBarTheme: const BottomNavigationBarThemeData(
-        backgroundColor: BroskiColors.abyss,
-        selectedItemColor: BroskiColors.frost,
-        unselectedItemColor: BroskiColors.fog,
+      bottomNavigationBarTheme: BottomNavigationBarThemeData(
+        backgroundColor: ocTheme.backgroundPanel,
+        selectedItemColor: ocTheme.primary,
+        unselectedItemColor: ocTheme.textMuted,
       ),
       elevatedButtonTheme: ElevatedButtonThemeData(
         style: ElevatedButton.styleFrom(
-          backgroundColor: BroskiColors.frost,
+          backgroundColor: ocTheme.primary,
           foregroundColor: Colors.white,
           elevation: 0,
           shape: RoundedRectangleBorder(
@@ -158,101 +347,25 @@ class BroskiTheme {
       ),
       outlinedButtonTheme: OutlinedButtonThemeData(
         style: OutlinedButton.styleFrom(
-          foregroundColor: BroskiColors.fog,
-          side: const BorderSide(color: BroskiColors.fog),
+          foregroundColor: ocTheme.text,
+          side: BorderSide(color: ocTheme.border),
           shape: RoundedRectangleBorder(
             borderRadius: BorderRadius.circular(12),
           ),
         ),
       ),
-      listTileTheme: const ListTileThemeData(
-        tileColor: BroskiColors.abyss,
-        textColor: BroskiColors.fog,
-        iconColor: BroskiColors.fog,
+      listTileTheme: ListTileThemeData(
+        tileColor: ocTheme.backgroundPanel,
+        textColor: ocTheme.text,
+        iconColor: ocTheme.textMuted,
       ),
     );
   }
 
+  /// Light theme (for future use)
   static ThemeData light() {
-    final base = ThemeData.light();
-    final textTheme = GoogleFonts.spaceGroteskTextTheme(base.textTheme)
-        .copyWith(
-          bodyMedium: GoogleFonts.spaceGrotesk(
-            fontSize: 15,
-            color: BroskiColors.ink,
-          ),
-          bodySmall: GoogleFonts.spaceGrotesk(
-            fontSize: 13,
-            color: BroskiColors.ink,
-          ),
-          labelLarge: GoogleFonts.spaceGrotesk(fontWeight: FontWeight.w600),
-        );
-
-    return base.copyWith(
-      colorScheme: const ColorScheme.light(
-        primary: BroskiColors.sky,
-        secondary: BroskiColors.gold,
-        surface: Colors.white,
-        onPrimary: Colors.white,
-        onSecondary: BroskiColors.ink,
-        onSurface: BroskiColors.ink,
-        error: BroskiColors.ember,
-        onError: Colors.white,
-      ),
-      scaffoldBackgroundColor: BroskiColors.paper,
-      textTheme: textTheme,
-      appBarTheme: AppBarTheme(
-        backgroundColor: Colors.white,
-        elevation: 0,
-        titleTextStyle: textTheme.titleLarge?.copyWith(
-          fontWeight: FontWeight.w600,
-          color: BroskiColors.ink,
-        ),
-      ),
-      cardTheme: const CardThemeData(
-        color: Colors.white,
-        elevation: 0,
-        shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.all(Radius.circular(16)),
-        ),
-      ),
-      inputDecorationTheme: InputDecorationTheme(
-        filled: true,
-        fillColor: BroskiColors.haze,
-        border: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(14),
-          borderSide: BorderSide.none,
-        ),
-      ),
-      bottomNavigationBarTheme: const BottomNavigationBarThemeData(
-        backgroundColor: Colors.white,
-        selectedItemColor: BroskiColors.sky,
-        unselectedItemColor: BroskiColors.ink,
-      ),
-      elevatedButtonTheme: ElevatedButtonThemeData(
-        style: ElevatedButton.styleFrom(
-          backgroundColor: BroskiColors.sky,
-          foregroundColor: Colors.white,
-          elevation: 0,
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(12),
-          ),
-        ),
-      ),
-      outlinedButtonTheme: OutlinedButtonThemeData(
-        style: OutlinedButton.styleFrom(
-          foregroundColor: BroskiColors.ink,
-          side: const BorderSide(color: BroskiColors.ink),
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(12),
-          ),
-        ),
-      ),
-      listTileTheme: const ListTileThemeData(
-        tileColor: Colors.white,
-        textColor: BroskiColors.ink,
-        iconColor: BroskiColors.ink,
-      ),
-    );
+    // For now, just return dark theme
+    // TODO: Implement proper light theme based on OpenCode light mode colors
+    return dark();
   }
 }

@@ -4,17 +4,8 @@ import '../models/message.dart';
 import '../models/session_context.dart';
 import '../models/todo.dart';
 import '../models/vcs.dart';
-
-// Color constants matching chat screen design
-const _kBackground = Color(0xFF16161E);
-const _kCard = Color(0xFF1F2128);
-const _kBorder = Color(0xFF2A2D36);
-const _kOnBackground = Color(0xFFE4E4E7);
-const _kMuted = Color(0xFF71717A);
-const _kSuccess = Color(0xFF10B981);
-const _kError = Color(0xFFEF4444);
-const _kInfo = Color(0xFF60A5FA);
-const _kWarning = Color(0xFFF59E0B);
+import '../theme/opencode_theme.dart';
+import 'status_indicator.dart';
 
 /// Session sidebar showing plan/todos, context usage, LSP servers, and modified files
 /// Designed to match the OpenCode desktop sidebar shown in the screenshot
@@ -41,32 +32,34 @@ class SessionSidebar extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final theme = OpenCodeTheme.of(context);
+
     return Container(
       width: MediaQuery.of(context).size.width * 0.78,
-      decoration: const BoxDecoration(
-        color: _kBackground,
-        border: Border(left: BorderSide(color: _kBorder, width: 1)),
+      decoration: BoxDecoration(
+        color: theme.background,
+        border: Border(left: BorderSide(color: theme.borderSubtle, width: 1)),
       ),
       child: SafeArea(
         left: false,
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            _buildHeader(),
+            _buildHeader(context, theme),
             Expanded(
               child: ListView(
                 padding: const EdgeInsets.symmetric(horizontal: 16),
                 children: [
                   const SizedBox(height: 8),
-                  _buildContextSection(),
+                  _buildContextSection(context, theme),
                   const SizedBox(height: 20),
-                  _buildPlanSection(),
+                  _buildPlanSection(context, theme),
                   const SizedBox(height: 20),
-                  _buildLspSection(),
+                  _buildLspSection(context, theme),
                   const SizedBox(height: 20),
-                  _buildChangesSection(),
+                  _buildChangesSection(context, theme),
                   const SizedBox(height: 20),
-                  _buildModifiedFilesSection(),
+                  _buildModifiedFilesSection(context, theme),
                   const SizedBox(height: 24),
                 ],
               ),
@@ -77,11 +70,11 @@ class SessionSidebar extends StatelessWidget {
     );
   }
 
-  Widget _buildHeader() {
+  Widget _buildHeader(BuildContext context, OpenCodeTheme theme) {
     return Container(
       padding: const EdgeInsets.fromLTRB(16, 12, 8, 12),
-      decoration: const BoxDecoration(
-        border: Border(bottom: BorderSide(color: _kBorder, width: 1)),
+      decoration: BoxDecoration(
+        border: Border(bottom: BorderSide(color: theme.borderSubtle, width: 1)),
       ),
       child: Row(
         children: [
@@ -91,10 +84,10 @@ class SessionSidebar extends StatelessWidget {
               children: [
                 Text(
                   sessionTitle.isNotEmpty ? sessionTitle : 'Session Details',
-                  style: const TextStyle(
+                  style: TextStyle(
                     fontSize: 16,
                     fontWeight: FontWeight.w600,
-                    color: _kOnBackground,
+                    color: theme.text,
                   ),
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
@@ -105,17 +98,17 @@ class SessionSidebar extends StatelessWidget {
                     padding: const EdgeInsets.only(top: 4),
                     child: Row(
                       children: [
-                        const Icon(
+                        Icon(
                           Icons.call_split_rounded,
                           size: 14,
-                          color: _kSuccess,
+                          color: theme.success,
                         ),
                         const SizedBox(width: 6),
                         Text(
                           vcsInfo!.branch ?? '',
-                          style: const TextStyle(
+                          style: TextStyle(
                             fontSize: 13,
-                            color: _kMuted,
+                            color: theme.textMuted,
                             fontWeight: FontWeight.w500,
                           ),
                         ),
@@ -128,7 +121,7 @@ class SessionSidebar extends StatelessWidget {
           if (onClose != null)
             IconButton(
               onPressed: onClose,
-              icon: const Icon(Icons.close, color: _kMuted, size: 20),
+              icon: Icon(Icons.close, color: theme.textMuted, size: 20),
               splashRadius: 20,
               tooltip: 'Close',
             ),
@@ -137,17 +130,18 @@ class SessionSidebar extends StatelessWidget {
     );
   }
 
-  Widget _buildContextSection() {
+  Widget _buildContextSection(BuildContext context, OpenCodeTheme theme) {
     final ctx = sessionContext;
     final usagePercent = ctx.contextUsagePercent;
 
     return _SidebarSection(
+      theme: theme,
       title: 'Context',
       trailing: Text(
         '${ctx.tokens.formatCount(ctx.tokens.total)} tokens',
-        style: const TextStyle(
+        style: TextStyle(
           fontSize: 12,
-          color: _kMuted,
+          color: theme.textMuted,
           fontWeight: FontWeight.w500,
         ),
       ),
@@ -156,7 +150,7 @@ class SessionSidebar extends StatelessWidget {
         Container(
           height: 6,
           decoration: BoxDecoration(
-            color: _kCard,
+            color: theme.backgroundPanel,
             borderRadius: BorderRadius.circular(3),
           ),
           child: LayoutBuilder(
@@ -168,10 +162,10 @@ class SessionSidebar extends StatelessWidget {
                     width: constraints.maxWidth * (usagePercent / 100),
                     decoration: BoxDecoration(
                       color: usagePercent > 80
-                          ? _kError
+                          ? theme.error
                           : usagePercent > 50
-                          ? const Color(0xFFF59E0B)
-                          : _kInfo,
+                          ? theme.warning
+                          : theme.info,
                       borderRadius: BorderRadius.circular(3),
                     ),
                   ),
@@ -186,11 +180,13 @@ class SessionSidebar extends StatelessWidget {
         Row(
           children: [
             _StatItem(
+              theme: theme,
               label: '${usagePercent.toStringAsFixed(0)}% used',
               icon: Icons.memory_outlined,
             ),
             const SizedBox(width: 16),
             _StatItem(
+              theme: theme,
               label: ctx.formattedCost,
               sublabel: 'spent',
               icon: Icons.attach_money,
@@ -201,26 +197,27 @@ class SessionSidebar extends StatelessWidget {
     );
   }
 
-  Widget _buildPlanSection() {
+  Widget _buildPlanSection(BuildContext context, OpenCodeTheme theme) {
     if (todos.isEmpty) {
       return _SidebarSection(
+        theme: theme,
         title: 'Plan',
         icon: Icons.checklist_rounded,
         children: [
           Container(
             padding: const EdgeInsets.all(12),
             decoration: BoxDecoration(
-              color: _kCard,
+              color: theme.backgroundPanel,
               borderRadius: BorderRadius.circular(8),
-              border: Border.all(color: _kBorder, width: 1),
+              border: Border.all(color: theme.borderSubtle, width: 1),
             ),
-            child: const Row(
+            child: Row(
               children: [
-                Icon(Icons.info_outline, color: _kMuted, size: 16),
-                SizedBox(width: 8),
+                Icon(Icons.info_outline, color: theme.textMuted, size: 16),
+                const SizedBox(width: 8),
                 Text(
                   'No active plan',
-                  style: TextStyle(color: _kMuted, fontSize: 13),
+                  style: TextStyle(color: theme.textMuted, fontSize: 13),
                 ),
               ],
             ),
@@ -236,29 +233,30 @@ class SessionSidebar extends StatelessWidget {
     final total = todos.length;
 
     return _SidebarSection(
+      theme: theme,
       title: 'Plan',
       icon: Icons.checklist_rounded,
       trailing: Text(
         '$completed/$total done',
-        style: const TextStyle(
+        style: TextStyle(
           fontSize: 12,
-          color: _kMuted,
+          color: theme.textMuted,
           fontWeight: FontWeight.w500,
         ),
       ),
       children: [
         Container(
           decoration: BoxDecoration(
-            color: _kCard,
+            color: theme.backgroundPanel,
             borderRadius: BorderRadius.circular(10),
-            border: Border.all(color: _kBorder, width: 1),
+            border: Border.all(color: theme.borderSubtle, width: 1),
           ),
           child: Column(
             children: [
               for (int i = 0; i < todos.length; i++) ...[
-                _TodoItem(todo: todos[i]),
+                _TodoItem(theme: theme, todo: todos[i]),
                 if (i < todos.length - 1)
-                  const Divider(color: _kBorder, height: 1),
+                  Divider(color: theme.borderSubtle, height: 1),
               ],
             ],
           ),
@@ -267,28 +265,29 @@ class SessionSidebar extends StatelessWidget {
     );
   }
 
-  Widget _buildLspSection() {
+  Widget _buildLspSection(BuildContext context, OpenCodeTheme theme) {
     final lspServers = sessionContext.lsp;
 
     if (lspServers.isEmpty) {
       return _SidebarSection(
+        theme: theme,
         title: 'LSP',
         icon: Icons.code,
         children: [
           Container(
             padding: const EdgeInsets.all(12),
             decoration: BoxDecoration(
-              color: _kCard,
+              color: theme.backgroundPanel,
               borderRadius: BorderRadius.circular(8),
-              border: Border.all(color: _kBorder, width: 1),
+              border: Border.all(color: theme.borderSubtle, width: 1),
             ),
-            child: const Row(
+            child: Row(
               children: [
-                Icon(Icons.info_outline, color: _kMuted, size: 16),
-                SizedBox(width: 8),
+                Icon(Icons.info_outline, color: theme.textMuted, size: 16),
+                const SizedBox(width: 8),
                 Text(
                   'No LSP servers active',
-                  style: TextStyle(color: _kMuted, fontSize: 13),
+                  style: TextStyle(color: theme.textMuted, fontSize: 13),
                 ),
               ],
             ),
@@ -298,37 +297,39 @@ class SessionSidebar extends StatelessWidget {
     }
 
     return _SidebarSection(
+      theme: theme,
       title: 'LSP',
       icon: Icons.code,
       children: [
         for (final server in lspServers) ...[
-          _LspServerItem(server: server),
+          _LspServerItem(theme: theme, server: server),
           if (server != lspServers.last) const SizedBox(height: 8),
         ],
       ],
     );
   }
 
-  Widget _buildChangesSection() {
+  Widget _buildChangesSection(BuildContext context, OpenCodeTheme theme) {
     if (sessionDiffs.isEmpty) {
       return _SidebarSection(
+        theme: theme,
         title: 'Changes',
         icon: Icons.difference_rounded,
         children: [
           Container(
             padding: const EdgeInsets.all(12),
             decoration: BoxDecoration(
-              color: _kCard,
+              color: theme.backgroundPanel,
               borderRadius: BorderRadius.circular(8),
-              border: Border.all(color: _kBorder, width: 1),
+              border: Border.all(color: theme.borderSubtle, width: 1),
             ),
-            child: const Row(
+            child: Row(
               children: [
-                Icon(Icons.info_outline, color: _kMuted, size: 16),
-                SizedBox(width: 8),
+                Icon(Icons.info_outline, color: theme.textMuted, size: 16),
+                const SizedBox(width: 8),
                 Text(
                   'No diffs yet',
-                  style: TextStyle(color: _kMuted, fontSize: 13),
+                  style: TextStyle(color: theme.textMuted, fontSize: 13),
                 ),
               ],
             ),
@@ -346,6 +347,7 @@ class SessionSidebar extends StatelessWidget {
     }
 
     return _SidebarSection(
+      theme: theme,
       title: 'Changes',
       icon: Icons.difference_rounded,
       trailing: Row(
@@ -353,18 +355,18 @@ class SessionSidebar extends StatelessWidget {
         children: [
           Text(
             '+$totalAdditions',
-            style: const TextStyle(
+            style: TextStyle(
               fontSize: 12,
-              color: _kSuccess,
+              color: theme.success,
               fontWeight: FontWeight.w600,
             ),
           ),
           const SizedBox(width: 6),
           Text(
             '-$totalDeletions',
-            style: const TextStyle(
+            style: TextStyle(
               fontSize: 12,
-              color: _kError,
+              color: theme.error,
               fontWeight: FontWeight.w600,
             ),
           ),
@@ -373,16 +375,20 @@ class SessionSidebar extends StatelessWidget {
       children: [
         Container(
           decoration: BoxDecoration(
-            color: _kCard,
+            color: theme.backgroundPanel,
             borderRadius: BorderRadius.circular(10),
-            border: Border.all(color: _kBorder, width: 1),
+            border: Border.all(color: theme.borderSubtle, width: 1),
           ),
           child: Column(
             children: [
               for (int i = 0; i < sessionDiffs.length; i++) ...[
-                _DiffFileItem(diff: sessionDiffs[i], onOpen: onOpenDiff),
+                _DiffFileItem(
+                  theme: theme,
+                  diff: sessionDiffs[i],
+                  onOpen: onOpenDiff,
+                ),
                 if (i < sessionDiffs.length - 1)
-                  const Divider(color: _kBorder, height: 1),
+                  Divider(color: theme.borderSubtle, height: 1),
               ],
             ],
           ),
@@ -391,28 +397,33 @@ class SessionSidebar extends StatelessWidget {
     );
   }
 
-  Widget _buildModifiedFilesSection() {
+  Widget _buildModifiedFilesSection(BuildContext context, OpenCodeTheme theme) {
     final files = sessionContext.modifiedFiles;
 
     if (files.isEmpty) {
       return _SidebarSection(
+        theme: theme,
         title: 'Modified Files',
         icon: Icons.edit_document,
         children: [
           Container(
             padding: const EdgeInsets.all(12),
             decoration: BoxDecoration(
-              color: _kCard,
+              color: theme.backgroundPanel,
               borderRadius: BorderRadius.circular(8),
-              border: Border.all(color: _kBorder, width: 1),
+              border: Border.all(color: theme.borderSubtle, width: 1),
             ),
-            child: const Row(
+            child: Row(
               children: [
-                Icon(Icons.check_circle_outline, color: _kSuccess, size: 16),
-                SizedBox(width: 8),
+                Icon(
+                  Icons.check_circle_outline,
+                  color: theme.success,
+                  size: 16,
+                ),
+                const SizedBox(width: 8),
                 Text(
                   'No files modified yet',
-                  style: TextStyle(color: _kMuted, fontSize: 13),
+                  style: TextStyle(color: theme.textMuted, fontSize: 13),
                 ),
               ],
             ),
@@ -430,6 +441,7 @@ class SessionSidebar extends StatelessWidget {
     }
 
     return _SidebarSection(
+      theme: theme,
       title: 'Modified Files',
       icon: Icons.edit_document,
       trailing: Row(
@@ -437,18 +449,18 @@ class SessionSidebar extends StatelessWidget {
         children: [
           Text(
             '+$totalAdditions',
-            style: const TextStyle(
+            style: TextStyle(
               fontSize: 12,
-              color: _kSuccess,
+              color: theme.success,
               fontWeight: FontWeight.w600,
             ),
           ),
           const SizedBox(width: 6),
           Text(
             '-$totalDeletions',
-            style: const TextStyle(
+            style: TextStyle(
               fontSize: 12,
-              color: _kError,
+              color: theme.error,
               fontWeight: FontWeight.w600,
             ),
           ),
@@ -457,16 +469,16 @@ class SessionSidebar extends StatelessWidget {
       children: [
         Container(
           decoration: BoxDecoration(
-            color: _kCard,
+            color: theme.backgroundPanel,
             borderRadius: BorderRadius.circular(10),
-            border: Border.all(color: _kBorder, width: 1),
+            border: Border.all(color: theme.borderSubtle, width: 1),
           ),
           child: Column(
             children: [
               for (int i = 0; i < files.length; i++) ...[
-                _ModifiedFileItem(file: files[i]),
+                _ModifiedFileItem(theme: theme, file: files[i]),
                 if (i < files.length - 1)
-                  const Divider(color: _kBorder, height: 1),
+                  Divider(color: theme.borderSubtle, height: 1),
               ],
             ],
           ),
@@ -479,12 +491,14 @@ class SessionSidebar extends StatelessWidget {
 /// Section container with title and optional icon
 class _SidebarSection extends StatelessWidget {
   const _SidebarSection({
+    required this.theme,
     required this.title,
     this.icon,
     this.trailing,
     required this.children,
   });
 
+  final OpenCodeTheme theme;
   final String title;
   final IconData? icon;
   final Widget? trailing;
@@ -498,15 +512,15 @@ class _SidebarSection extends StatelessWidget {
         Row(
           children: [
             if (icon != null) ...[
-              Icon(icon, size: 14, color: _kMuted),
+              Icon(icon, size: 14, color: theme.textMuted),
               const SizedBox(width: 6),
             ],
             Text(
               title,
-              style: const TextStyle(
+              style: TextStyle(
                 fontSize: 11,
                 fontWeight: FontWeight.w600,
-                color: _kMuted,
+                color: theme.textMuted,
                 letterSpacing: 0.5,
               ),
             ),
@@ -522,8 +536,14 @@ class _SidebarSection extends StatelessWidget {
 
 /// Stat item with icon and label
 class _StatItem extends StatelessWidget {
-  const _StatItem({required this.label, this.sublabel, required this.icon});
+  const _StatItem({
+    required this.theme,
+    required this.label,
+    this.sublabel,
+    required this.icon,
+  });
 
+  final OpenCodeTheme theme;
   final String label;
   final String? sublabel;
   final IconData icon;
@@ -533,20 +553,20 @@ class _StatItem extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
       decoration: BoxDecoration(
-        color: _kCard,
+        color: theme.backgroundPanel,
         borderRadius: BorderRadius.circular(6),
-        border: Border.all(color: _kBorder, width: 1),
+        border: Border.all(color: theme.borderSubtle, width: 1),
       ),
       child: Row(
         mainAxisSize: MainAxisSize.min,
         children: [
-          Icon(icon, size: 14, color: _kMuted),
+          Icon(icon, size: 14, color: theme.textMuted),
           const SizedBox(width: 6),
           Text(
             label,
-            style: const TextStyle(
+            style: TextStyle(
               fontSize: 12,
-              color: _kOnBackground,
+              color: theme.text,
               fontWeight: FontWeight.w500,
             ),
           ),
@@ -554,7 +574,7 @@ class _StatItem extends StatelessWidget {
             const SizedBox(width: 4),
             Text(
               sublabel!,
-              style: const TextStyle(fontSize: 12, color: _kMuted),
+              style: TextStyle(fontSize: 12, color: theme.textMuted),
             ),
           ],
         ],
@@ -565,43 +585,32 @@ class _StatItem extends StatelessWidget {
 
 /// LSP server item showing status and name
 class _LspServerItem extends StatelessWidget {
-  const _LspServerItem({required this.server});
+  const _LspServerItem({required this.theme, required this.server});
 
+  final OpenCodeTheme theme;
   final LspServer server;
 
   @override
   Widget build(BuildContext context) {
-    final statusColor = switch (server.status) {
-      LspStatus.running => _kSuccess,
-      LspStatus.error => _kError,
-      LspStatus.stopped => _kMuted,
+    final statusType = switch (server.status) {
+      LspStatus.running => StatusType.success,
+      LspStatus.error => StatusType.error,
+      LspStatus.stopped => StatusType.pending,
     };
 
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
       decoration: BoxDecoration(
-        color: _kCard,
+        color: theme.backgroundPanel,
         borderRadius: BorderRadius.circular(8),
-        border: Border.all(color: _kBorder, width: 1),
+        border: Border.all(color: theme.borderSubtle, width: 1),
       ),
       child: Row(
         children: [
-          Container(
-            width: 8,
-            height: 8,
-            decoration: BoxDecoration(
-              color: statusColor,
-              shape: BoxShape.circle,
-              boxShadow: server.status == LspStatus.running
-                  ? [
-                      BoxShadow(
-                        color: statusColor.withValues(alpha: 0.4),
-                        blurRadius: 4,
-                        spreadRadius: 1,
-                      ),
-                    ]
-                  : null,
-            ),
+          StatusIndicator(
+            status: statusType,
+            size: 8,
+            showGlow: server.status == LspStatus.running,
           ),
           const SizedBox(width: 10),
           Expanded(
@@ -610,9 +619,9 @@ class _LspServerItem extends StatelessWidget {
               children: [
                 Text(
                   server.displayName,
-                  style: const TextStyle(
+                  style: TextStyle(
                     fontSize: 13,
-                    color: _kOnBackground,
+                    color: theme.text,
                     fontWeight: FontWeight.w500,
                   ),
                 ),
@@ -620,7 +629,7 @@ class _LspServerItem extends StatelessWidget {
                   const SizedBox(height: 2),
                   Text(
                     server.shortRoot!,
-                    style: const TextStyle(fontSize: 11, color: _kMuted),
+                    style: TextStyle(fontSize: 11, color: theme.textMuted),
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
                   ),
@@ -636,8 +645,9 @@ class _LspServerItem extends StatelessWidget {
 
 /// Modified file item showing path and diff stats
 class _ModifiedFileItem extends StatelessWidget {
-  const _ModifiedFileItem({required this.file});
+  const _ModifiedFileItem({required this.theme, required this.file});
 
+  final OpenCodeTheme theme;
   final ModifiedFile file;
 
   @override
@@ -646,12 +656,12 @@ class _ModifiedFileItem extends StatelessWidget {
       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
       child: Row(
         children: [
-          const Icon(Icons.description_outlined, size: 16, color: _kMuted),
+          Icon(Icons.description_outlined, size: 16, color: theme.textMuted),
           const SizedBox(width: 10),
           Expanded(
             child: Text(
               file.shortPath,
-              style: const TextStyle(fontSize: 13, color: _kOnBackground),
+              style: TextStyle(fontSize: 13, color: theme.text),
               maxLines: 1,
               overflow: TextOverflow.ellipsis,
             ),
@@ -659,18 +669,18 @@ class _ModifiedFileItem extends StatelessWidget {
           const SizedBox(width: 8),
           Text(
             file.formattedAdditions,
-            style: const TextStyle(
+            style: TextStyle(
               fontSize: 12,
-              color: _kSuccess,
+              color: theme.success,
               fontWeight: FontWeight.w600,
             ),
           ),
           const SizedBox(width: 6),
           Text(
             file.formattedDeletions,
-            style: const TextStyle(
+            style: TextStyle(
               fontSize: 12,
-              color: _kError,
+              color: theme.error,
               fontWeight: FontWeight.w600,
             ),
           ),
@@ -681,8 +691,9 @@ class _ModifiedFileItem extends StatelessWidget {
 }
 
 class _DiffFileItem extends StatelessWidget {
-  const _DiffFileItem({required this.diff, this.onOpen});
+  const _DiffFileItem({required this.theme, required this.diff, this.onOpen});
 
+  final OpenCodeTheme theme;
   final DiffEntry diff;
   final void Function(DiffEntry diff)? onOpen;
 
@@ -694,12 +705,12 @@ class _DiffFileItem extends StatelessWidget {
         padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
         child: Row(
           children: [
-            const Icon(Icons.code_rounded, size: 16, color: _kMuted),
+            Icon(Icons.code_rounded, size: 16, color: theme.textMuted),
             const SizedBox(width: 10),
             Expanded(
               child: Text(
                 _shortPath(diff.file),
-                style: const TextStyle(fontSize: 13, color: _kOnBackground),
+                style: TextStyle(fontSize: 13, color: theme.text),
                 maxLines: 1,
                 overflow: TextOverflow.ellipsis,
               ),
@@ -707,18 +718,18 @@ class _DiffFileItem extends StatelessWidget {
             const SizedBox(width: 8),
             Text(
               '+${diff.additions}',
-              style: const TextStyle(
+              style: TextStyle(
                 fontSize: 12,
-                color: _kSuccess,
+                color: theme.success,
                 fontWeight: FontWeight.w600,
               ),
             ),
             const SizedBox(width: 6),
             Text(
               '-${diff.deletions}',
-              style: const TextStyle(
+              style: TextStyle(
                 fontSize: 12,
-                color: _kError,
+                color: theme.error,
                 fontWeight: FontWeight.w600,
               ),
             ),
@@ -739,25 +750,28 @@ class _DiffFileItem extends StatelessWidget {
 
 /// Todo item showing status icon and content
 class _TodoItem extends StatelessWidget {
-  const _TodoItem({required this.todo});
+  const _TodoItem({required this.theme, required this.todo});
 
+  final OpenCodeTheme theme;
   final Todo todo;
 
   @override
   Widget build(BuildContext context) {
     // Get status icon and color
-    final (icon, color) = switch (todo.status) {
-      TodoStatus.pending => (Icons.radio_button_unchecked, _kMuted),
-      TodoStatus.inProgress => (Icons.play_circle_outline, _kInfo),
-      TodoStatus.completed => (Icons.check_circle, _kSuccess),
-      TodoStatus.cancelled => (Icons.cancel_outlined, _kError),
+    final (icon, statusType) = switch (todo.status) {
+      TodoStatus.pending => (Icons.radio_button_unchecked, StatusType.pending),
+      TodoStatus.inProgress => (Icons.play_circle_outline, StatusType.info),
+      TodoStatus.completed => (Icons.check_circle, StatusType.success),
+      TodoStatus.cancelled => (Icons.cancel_outlined, StatusType.error),
     };
+
+    final color = _getStatusColor(statusType);
 
     // Get priority indicator
     final priorityColor = switch (todo.priority) {
-      TodoPriority.high => _kError,
-      TodoPriority.medium => _kWarning,
-      TodoPriority.low => _kMuted,
+      TodoPriority.high => theme.error,
+      TodoPriority.medium => theme.warning,
+      TodoPriority.low => theme.textMuted,
     };
 
     final isCompleted = todo.status == TodoStatus.completed;
@@ -782,8 +796,8 @@ class _TodoItem extends StatelessWidget {
                   style: TextStyle(
                     fontSize: 13,
                     color: (isCompleted || isCancelled)
-                        ? _kMuted
-                        : _kOnBackground,
+                        ? theme.textMuted
+                        : theme.text,
                     fontWeight: isActive ? FontWeight.w600 : FontWeight.w400,
                     decoration: isCancelled ? TextDecoration.lineThrough : null,
                   ),
@@ -819,7 +833,7 @@ class _TodoItem extends StatelessWidget {
                     // Status text
                     Text(
                       todo.status.displayName,
-                      style: const TextStyle(fontSize: 11, color: _kMuted),
+                      style: TextStyle(fontSize: 11, color: theme.textMuted),
                     ),
                   ],
                 ),
@@ -829,5 +843,20 @@ class _TodoItem extends StatelessWidget {
         ],
       ),
     );
+  }
+
+  Color _getStatusColor(StatusType status) {
+    switch (status) {
+      case StatusType.success:
+        return theme.success;
+      case StatusType.error:
+        return theme.error;
+      case StatusType.info:
+        return theme.info;
+      case StatusType.pending:
+        return theme.textMuted;
+      default:
+        return theme.textMuted;
+    }
   }
 }

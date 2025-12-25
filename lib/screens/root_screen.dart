@@ -14,6 +14,11 @@ class RootScreen extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final state = ref.watch(connectionProvider);
 
+    // Allow MainShell in offline mode
+    if (state.isOfflineMode) {
+      return const MainShell();
+    }
+
     if (state.isConnecting) {
       return const ConnectScreen();
     }

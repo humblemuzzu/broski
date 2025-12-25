@@ -4,16 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../models/provider.dart';
 import '../providers/service_providers.dart';
 import '../providers/selection_provider.dart';
-
-// Color constants matching chat screen design
-const _kBackground = Color(0xFF16161E);
-const _kCard = Color(0xFF1F2128);
-const _kBorder = Color(0xFF2A2D36);
-const _kOnBackground = Color(0xFFE4E4E7);
-const _kMuted = Color(0xFF71717A);
-const _kAccent = Color(0xFF3B82F6);
-const _kSuccess = Color(0xFF10B981);
-const _kError = Color(0xFFEF4444);
+import '../theme/opencode_theme.dart';
 
 class ProvidersScreen extends ConsumerStatefulWidget {
   const ProvidersScreen({super.key});
@@ -72,60 +63,61 @@ class _ProvidersScreenState extends ConsumerState<ProvidersScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final theme = OpenCodeTheme.of(context);
     return Scaffold(
-      backgroundColor: _kBackground,
+      backgroundColor: theme.background,
       appBar: AppBar(
-        backgroundColor: _kBackground,
+        backgroundColor: theme.background,
         elevation: 0,
         leading: IconButton(
-          icon: const Icon(Icons.arrow_back_rounded, color: _kOnBackground),
+          icon: Icon(Icons.arrow_back_rounded, color: theme.text),
           onPressed: () => Navigator.pop(context),
         ),
-        title: const Text(
+        title: Text(
           'Providers',
           style: TextStyle(
             fontSize: 18,
             fontWeight: FontWeight.w600,
-            color: _kOnBackground,
+            color: theme.text,
           ),
         ),
         actions: [
           IconButton(
-            icon: const Icon(Icons.refresh_rounded, color: _kOnBackground),
+            icon: Icon(Icons.refresh_rounded, color: theme.text),
             onPressed: _loadData,
           ),
         ],
       ),
       body: _isLoading
-          ? const Center(child: CircularProgressIndicator(color: _kAccent))
+          ? Center(child: CircularProgressIndicator(color: theme.primary))
           : _error != null
-          ? _buildError()
-          : _buildContent(),
+          ? _buildError(theme)
+          : _buildContent(theme),
     );
   }
 
-  Widget _buildError() {
+  Widget _buildError(OpenCodeTheme theme) {
     return Center(
       child: Column(
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
-          const Icon(Icons.error_outline, size: 48, color: _kError),
+          Icon(Icons.error_outline, size: 48, color: theme.error),
           const SizedBox(height: 16),
           Text(
             'Failed to load providers',
-            style: const TextStyle(color: _kOnBackground, fontSize: 16),
+            style: TextStyle(color: theme.text, fontSize: 16),
           ),
           const SizedBox(height: 8),
           Text(
             _error!,
-            style: const TextStyle(color: _kMuted, fontSize: 14),
+            style: TextStyle(color: theme.textMuted, fontSize: 14),
             textAlign: TextAlign.center,
           ),
           const SizedBox(height: 24),
           ElevatedButton(
             onPressed: _loadData,
             style: ElevatedButton.styleFrom(
-              backgroundColor: _kAccent,
+              backgroundColor: theme.primary,
               foregroundColor: Colors.white,
             ),
             child: const Text('Retry'),
@@ -135,31 +127,31 @@ class _ProvidersScreenState extends ConsumerState<ProvidersScreen> {
     );
   }
 
-  Widget _buildContent() {
+  Widget _buildContent(OpenCodeTheme theme) {
     if (_providerInfo == null || _providerInfo!.all.isEmpty) {
-      return const Center(
+      return Center(
         child: Text(
           'No providers available',
-          style: TextStyle(color: _kMuted, fontSize: 16),
+          style: TextStyle(color: theme.textMuted, fontSize: 16),
         ),
       );
     }
 
     return RefreshIndicator(
       onRefresh: _loadData,
-      color: _kAccent,
+      color: theme.primary,
       child: ListView(
         padding: const EdgeInsets.all(16),
         children: [
           // Current model section
           if (_currentModel != null) ...[
-            _SectionHeader(title: 'Current Model'),
+            const _SectionHeader(title: 'Current Model'),
             _CurrentModelCard(model: _currentModel!),
             const SizedBox(height: 24),
           ],
 
           // Providers section
-          _SectionHeader(title: 'Available Providers'),
+          const _SectionHeader(title: 'Available Providers'),
           ..._providerInfo!.all.map(
             (provider) => _ProviderCard(
               provider: provider,
@@ -177,6 +169,7 @@ class _ProvidersScreenState extends ConsumerState<ProvidersScreen> {
   Future<void> _selectModel(String providerId, String modelId) async {
     final bridge = ref.read(bridgeServiceProvider);
     final model = '$providerId/$modelId';
+    final theme = OpenCodeTheme.of(context);
 
     try {
       await bridge.setModel(model);
@@ -184,7 +177,7 @@ class _ProvidersScreenState extends ConsumerState<ProvidersScreen> {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             content: Text('Switched to $model'),
-            backgroundColor: _kSuccess,
+            backgroundColor: theme.success,
           ),
         );
         _loadData();
@@ -194,7 +187,7 @@ class _ProvidersScreenState extends ConsumerState<ProvidersScreen> {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             content: Text('Failed to switch model: $e'),
-            backgroundColor: _kError,
+            backgroundColor: theme.error,
           ),
         );
       }
@@ -204,6 +197,7 @@ class _ProvidersScreenState extends ConsumerState<ProvidersScreen> {
   Future<void> _setApiKey(String providerId, String key) async {
     final bridge = ref.read(bridgeServiceProvider);
     final selection = ref.read(selectionProvider);
+    final theme = OpenCodeTheme.of(context);
 
     try {
       final success = await bridge.setApiKey(
@@ -216,15 +210,15 @@ class _ProvidersScreenState extends ConsumerState<ProvidersScreen> {
           ScaffoldMessenger.of(context).showSnackBar(
             SnackBar(
               content: Text('API key set for $providerId'),
-              backgroundColor: _kSuccess,
+              backgroundColor: theme.success,
             ),
           );
           _loadData();
         } else {
           ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(
-              content: Text('Failed to set API key'),
-              backgroundColor: _kError,
+            SnackBar(
+              content: const Text('Failed to set API key'),
+              backgroundColor: theme.error,
             ),
           );
         }
@@ -232,7 +226,7 @@ class _ProvidersScreenState extends ConsumerState<ProvidersScreen> {
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Error: $e'), backgroundColor: _kError),
+          SnackBar(content: Text('Error: $e'), backgroundColor: theme.error),
         );
       }
     }
@@ -246,12 +240,13 @@ class _SectionHeader extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final theme = OpenCodeTheme.of(context);
     return Padding(
       padding: const EdgeInsets.only(bottom: 12),
       child: Text(
         title.toUpperCase(),
-        style: const TextStyle(
-          color: _kMuted,
+        style: TextStyle(
+          color: theme.textMuted,
           fontSize: 12,
           fontWeight: FontWeight.w600,
           letterSpacing: 0.5,
@@ -268,6 +263,7 @@ class _CurrentModelCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final theme = OpenCodeTheme.of(context);
     final parts = model.split('/');
     final provider = parts.isNotEmpty ? parts.first : 'Unknown';
     final modelName = parts.length > 1 ? parts.sublist(1).join('/') : model;
@@ -275,9 +271,9 @@ class _CurrentModelCard extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
-        color: _kCard,
+        color: theme.backgroundPanel,
         borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: _kAccent.withValues(alpha: 0.3)),
+        border: Border.all(color: theme.primary.withValues(alpha: 0.3)),
       ),
       child: Row(
         children: [
@@ -285,10 +281,10 @@ class _CurrentModelCard extends StatelessWidget {
             width: 48,
             height: 48,
             decoration: BoxDecoration(
-              color: _kAccent.withValues(alpha: 0.15),
+              color: theme.primary.withValues(alpha: 0.15),
               borderRadius: BorderRadius.circular(12),
             ),
-            child: const Icon(Icons.psychology, color: _kAccent, size: 24),
+            child: Icon(Icons.psychology, color: theme.primary, size: 24),
           ),
           const SizedBox(width: 16),
           Expanded(
@@ -297,8 +293,8 @@ class _CurrentModelCard extends StatelessWidget {
               children: [
                 Text(
                   modelName,
-                  style: const TextStyle(
-                    color: _kOnBackground,
+                  style: TextStyle(
+                    color: theme.text,
                     fontSize: 16,
                     fontWeight: FontWeight.w600,
                   ),
@@ -306,7 +302,7 @@ class _CurrentModelCard extends StatelessWidget {
                 const SizedBox(height: 4),
                 Text(
                   provider,
-                  style: const TextStyle(color: _kMuted, fontSize: 13),
+                  style: TextStyle(color: theme.textMuted, fontSize: 13),
                 ),
               ],
             ),
@@ -314,13 +310,13 @@ class _CurrentModelCard extends StatelessWidget {
           Container(
             padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
             decoration: BoxDecoration(
-              color: _kSuccess.withValues(alpha: 0.15),
+              color: theme.success.withValues(alpha: 0.15),
               borderRadius: BorderRadius.circular(12),
             ),
-            child: const Text(
+            child: Text(
               'Active',
               style: TextStyle(
-                color: _kSuccess,
+                color: theme.success,
                 fontSize: 12,
                 fontWeight: FontWeight.w600,
               ),
@@ -349,12 +345,13 @@ class _ProviderCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final theme = OpenCodeTheme.of(context);
     return Container(
       margin: const EdgeInsets.only(bottom: 12),
       decoration: BoxDecoration(
-        color: _kCard,
+        color: theme.backgroundPanel,
         borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: _kBorder),
+        border: Border.all(color: theme.borderSubtle),
       ),
       child: Theme(
         data: Theme.of(context).copyWith(dividerColor: Colors.transparent),
@@ -366,20 +363,20 @@ class _ProviderCard extends StatelessWidget {
             height: 44,
             decoration: BoxDecoration(
               color: isConnected
-                  ? _kSuccess.withValues(alpha: 0.15)
-                  : _kMuted.withValues(alpha: 0.15),
+                  ? theme.success.withValues(alpha: 0.15)
+                  : theme.textMuted.withValues(alpha: 0.15),
               borderRadius: BorderRadius.circular(12),
             ),
             child: Icon(
               _getProviderIcon(provider.id),
-              color: isConnected ? _kSuccess : _kMuted,
+              color: isConnected ? theme.success : theme.textMuted,
               size: 22,
             ),
           ),
           title: Text(
             provider.name,
-            style: const TextStyle(
-              color: _kOnBackground,
+            style: TextStyle(
+              color: theme.text,
               fontSize: 15,
               fontWeight: FontWeight.w600,
             ),
@@ -390,30 +387,30 @@ class _ProviderCard extends StatelessWidget {
               children: [
                 Text(
                   '${provider.modelCount} models',
-                  style: const TextStyle(color: _kMuted, fontSize: 13),
+                  style: TextStyle(color: theme.textMuted, fontSize: 13),
                 ),
                 if (isConnected) ...[
                   const SizedBox(width: 8),
                   Container(
                     width: 6,
                     height: 6,
-                    decoration: const BoxDecoration(
-                      color: _kSuccess,
+                    decoration: BoxDecoration(
+                      color: theme.success,
                       shape: BoxShape.circle,
                     ),
                   ),
                   const SizedBox(width: 4),
-                  const Text(
+                  Text(
                     'Connected',
-                    style: TextStyle(color: _kSuccess, fontSize: 12),
+                    style: TextStyle(color: theme.success, fontSize: 12),
                   ),
                 ],
               ],
             ),
           ),
-          trailing: const Icon(Icons.expand_more, color: _kMuted),
-          iconColor: _kMuted,
-          collapsedIconColor: _kMuted,
+          trailing: Icon(Icons.expand_more, color: theme.textMuted),
+          iconColor: theme.textMuted,
+          collapsedIconColor: theme.textMuted,
           children: [
             // Auth section (if not connected and has API key auth)
             if (!isConnected && authMethods.any((m) => m.isApiKey)) ...[
@@ -475,20 +472,21 @@ class _ApiKeyInputState extends State<_ApiKeyInput> {
 
   @override
   Widget build(BuildContext context) {
+    final theme = OpenCodeTheme.of(context);
     return Container(
       padding: const EdgeInsets.all(12),
       decoration: BoxDecoration(
-        color: _kBackground,
+        color: theme.background,
         borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: _kBorder),
+        border: Border.all(color: theme.borderSubtle),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const Text(
+          Text(
             'API Key',
             style: TextStyle(
-              color: _kOnBackground,
+              color: theme.text,
               fontSize: 13,
               fontWeight: FontWeight.w500,
             ),
@@ -500,21 +498,21 @@ class _ApiKeyInputState extends State<_ApiKeyInput> {
                 child: TextField(
                   controller: _controller,
                   obscureText: _obscureText,
-                  style: const TextStyle(
-                    color: _kOnBackground,
+                  style: TextStyle(
+                    color: theme.text,
                     fontSize: 14,
                     fontFamily: 'JetBrains Mono',
                   ),
                   decoration: InputDecoration(
                     hintText: 'Enter your API key...',
-                    hintStyle: const TextStyle(color: _kMuted),
+                    hintStyle: TextStyle(color: theme.textMuted),
                     border: InputBorder.none,
                     isDense: true,
                     contentPadding: EdgeInsets.zero,
                     suffixIcon: IconButton(
                       icon: Icon(
                         _obscureText ? Icons.visibility : Icons.visibility_off,
-                        color: _kMuted,
+                        color: theme.textMuted,
                         size: 20,
                       ),
                       onPressed: () {
@@ -530,7 +528,7 @@ class _ApiKeyInputState extends State<_ApiKeyInput> {
                     ? () => widget.onSubmit(_controller.text)
                     : null,
                 style: TextButton.styleFrom(
-                  backgroundColor: _kAccent,
+                  backgroundColor: theme.primary,
                   foregroundColor: Colors.white,
                   padding: const EdgeInsets.symmetric(
                     horizontal: 16,
@@ -563,6 +561,7 @@ class _ModelTile extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final theme = OpenCodeTheme.of(context);
     return InkWell(
       onTap: onSelect,
       borderRadius: BorderRadius.circular(12),
@@ -570,9 +569,9 @@ class _ModelTile extends StatelessWidget {
         padding: const EdgeInsets.all(12),
         margin: const EdgeInsets.only(bottom: 8),
         decoration: BoxDecoration(
-          color: _kBackground,
+          color: theme.background,
           borderRadius: BorderRadius.circular(12),
-          border: Border.all(color: _kBorder),
+          border: Border.all(color: theme.borderSubtle),
         ),
         child: Row(
           children: [
@@ -582,8 +581,8 @@ class _ModelTile extends StatelessWidget {
                 children: [
                   Text(
                     modelInfo.name,
-                    style: const TextStyle(
-                      color: _kOnBackground,
+                    style: TextStyle(
+                      color: theme.text,
                       fontSize: 14,
                       fontWeight: FontWeight.w500,
                     ),
@@ -592,18 +591,21 @@ class _ModelTile extends StatelessWidget {
                   Row(
                     children: [
                       if (modelInfo.contextWindow != null) ...[
-                        Icon(Icons.memory, size: 12, color: _kMuted),
+                        Icon(Icons.memory, size: 12, color: theme.textMuted),
                         const SizedBox(width: 4),
                         Text(
                           modelInfo.displayContextWindow,
-                          style: const TextStyle(color: _kMuted, fontSize: 11),
+                          style: TextStyle(
+                            color: theme.textMuted,
+                            fontSize: 11,
+                          ),
                         ),
                         const SizedBox(width: 12),
                       ],
                       Text(
                         modelId,
-                        style: const TextStyle(
-                          color: _kMuted,
+                        style: TextStyle(
+                          color: theme.textMuted,
                           fontSize: 11,
                           fontFamily: 'JetBrains Mono',
                         ),
@@ -613,7 +615,7 @@ class _ModelTile extends StatelessWidget {
                 ],
               ),
             ),
-            const Icon(Icons.chevron_right, color: _kMuted, size: 20),
+            Icon(Icons.chevron_right, color: theme.textMuted, size: 20),
           ],
         ),
       ),

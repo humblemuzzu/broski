@@ -4,7 +4,8 @@ import 'package:mobile_scanner/mobile_scanner.dart';
 
 import '../models/connection.dart';
 import '../providers/connection_provider.dart';
-import '../theme/colors.dart';
+import '../providers/service_providers.dart';
+import '../theme/opencode_theme.dart';
 
 class ScanScreen extends ConsumerStatefulWidget {
   const ScanScreen({super.key});
@@ -16,6 +17,25 @@ class ScanScreen extends ConsumerStatefulWidget {
 class _ScanScreenState extends ConsumerState<ScanScreen> {
   final MobileScannerController _scannerController = MobileScannerController();
   bool _handledScan = false;
+  bool _hasCachedData = false;
+  bool _checkingCache = true;
+
+  @override
+  void initState() {
+    super.initState();
+    _checkCachedData();
+  }
+
+  Future<void> _checkCachedData() async {
+    final storage = ref.read(storageServiceProvider);
+    final hasData = await storage.hasCachedData();
+    if (mounted) {
+      setState(() {
+        _hasCachedData = hasData;
+        _checkingCache = false;
+      });
+    }
+  }
 
   @override
   void dispose() {
@@ -25,8 +45,9 @@ class _ScanScreenState extends ConsumerState<ScanScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final ocTheme = OpenCodeTheme.of(context);
     return Scaffold(
-      backgroundColor: BroskiColors.midnight,
+      backgroundColor: ocTheme.background,
       body: SafeArea(
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -52,9 +73,9 @@ class _ScanScreenState extends ConsumerState<ScanScreen> {
               child: Container(
                 margin: const EdgeInsets.symmetric(horizontal: 20),
                 decoration: BoxDecoration(
-                  color: BroskiColors.abyss,
+                  color: ocTheme.backgroundPanel,
                   borderRadius: BorderRadius.circular(20),
-                  border: Border.all(color: BroskiColors.slate),
+                  border: Border.all(color: ocTheme.borderSubtle),
                 ),
                 child: ClipRRect(
                   borderRadius: BorderRadius.circular(20),
@@ -76,21 +97,50 @@ class _ScanScreenState extends ConsumerState<ScanScreen> {
             ),
             Padding(
               padding: const EdgeInsets.all(20),
-              child: Row(
+              child: Column(
                 children: [
-                  Expanded(
-                    child: OutlinedButton(
-                      onPressed: () => _showManualEntry(context),
-                      child: const Text('Enter manually'),
-                    ),
+                  Row(
+                    children: [
+                      Expanded(
+                        child: OutlinedButton(
+                          onPressed: () => _showManualEntry(context),
+                          child: const Text('Enter manually'),
+                        ),
+                      ),
+                      const SizedBox(width: 12),
+                      Expanded(
+                        child: ElevatedButton(
+                          onPressed: () {
+                            _scannerController.start();
+                          },
+                          child: const Text('Rescan'),
+                        ),
+                      ),
+                    ],
                   ),
-                  const SizedBox(width: 12),
-                  Expanded(
-                    child: ElevatedButton(
-                      onPressed: () {
-                        _scannerController.start();
-                      },
-                      child: const Text('Rescan'),
+                  // Browse Offline button
+                  const SizedBox(height: 16),
+                  SizedBox(
+                    width: double.infinity,
+                    child: TextButton.icon(
+                      onPressed: _checkingCache
+                          ? null
+                          : () {
+                              ref
+                                  .read(connectionProvider.notifier)
+                                  .enterOfflineMode();
+                            },
+                      icon: Icon(
+                        _hasCachedData
+                            ? Icons.cloud_off_rounded
+                            : Icons.visibility_rounded,
+                        size: 18,
+                        color: ocTheme.textMuted,
+                      ),
+                      label: Text(
+                        _hasCachedData ? 'Browse Offline' : 'Preview UI',
+                        style: TextStyle(color: ocTheme.textMuted),
+                      ),
                     ),
                   ),
                 ],

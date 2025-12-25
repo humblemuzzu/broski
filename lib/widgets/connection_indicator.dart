@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../services/websocket_service.dart';
-import '../theme/colors.dart';
+import '../theme/opencode_theme.dart';
 
 class ConnectionIndicator extends StatelessWidget {
   const ConnectionIndicator({
@@ -21,11 +21,12 @@ class ConnectionIndicator extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final theme = OpenCodeTheme.of(context);
     final color = switch (status) {
       ConnectionStatus.connected =>
-        opencodeRunning ? BroskiColors.mint : BroskiColors.gold,
-      ConnectionStatus.connecting => BroskiColors.gold,
-      ConnectionStatus.disconnected => BroskiColors.ember,
+        opencodeRunning ? theme.success : theme.warning,
+      ConnectionStatus.connecting => theme.warning,
+      ConnectionStatus.disconnected => theme.error,
     };
 
     final baseLabel = switch (status) {

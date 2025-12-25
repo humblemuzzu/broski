@@ -6,15 +6,7 @@ import '../models/vcs.dart';
 import '../providers/service_providers.dart';
 import '../providers/selection_provider.dart';
 import '../providers/tool_settings_provider.dart';
-
-// Color constants matching chat screen design
-const _kBackground = Color(0xFF16161E);
-const _kCard = Color(0xFF1F2128);
-const _kBorder = Color(0xFF2A2D36);
-const _kOnBackground = Color(0xFFE4E4E7);
-const _kMuted = Color(0xFF71717A);
-const _kAccent = Color(0xFF3B82F6);
-const _kSuccess = Color(0xFF10B981);
+import '../theme/opencode_theme.dart';
 
 /// Feature 17: Tool List Screen
 /// Shows available AI tools (bash, read, write, edit, glob, grep, etc.)
@@ -149,60 +141,61 @@ class _ToolsScreenState extends ConsumerState<ToolsScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final theme = OpenCodeTheme.of(context);
     return Scaffold(
-      backgroundColor: _kBackground,
+      backgroundColor: theme.background,
       appBar: AppBar(
-        backgroundColor: _kBackground,
+        backgroundColor: theme.background,
         elevation: 0,
         leading: IconButton(
-          icon: const Icon(Icons.arrow_back_rounded, color: _kOnBackground),
+          icon: Icon(Icons.arrow_back_rounded, color: theme.text),
           onPressed: () => Navigator.pop(context),
         ),
-        title: const Text(
+        title: Text(
           'Tools',
           style: TextStyle(
             fontSize: 18,
             fontWeight: FontWeight.w600,
-            color: _kOnBackground,
+            color: theme.text,
           ),
         ),
         actions: [
           IconButton(
-            icon: const Icon(Icons.refresh_rounded, color: _kOnBackground),
+            icon: Icon(Icons.refresh_rounded, color: theme.text),
             onPressed: _loadData,
           ),
         ],
       ),
       body: _isLoading
-          ? const Center(child: CircularProgressIndicator(color: _kAccent))
+          ? Center(child: CircularProgressIndicator(color: theme.primary))
           : _error != null
-          ? _buildError()
-          : _buildContent(),
+          ? _buildError(theme)
+          : _buildContent(theme),
     );
   }
 
-  Widget _buildError() {
+  Widget _buildError(OpenCodeTheme theme) {
     return Center(
       child: Column(
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
-          const Icon(Icons.error_outline, size: 48, color: _kMuted),
+          Icon(Icons.error_outline, size: 48, color: theme.textMuted),
           const SizedBox(height: 16),
           Text(
             'Failed to load tools',
-            style: const TextStyle(color: _kOnBackground, fontSize: 16),
+            style: TextStyle(color: theme.text, fontSize: 16),
           ),
           const SizedBox(height: 8),
           Text(
             _error!,
-            style: const TextStyle(color: _kMuted, fontSize: 14),
+            style: TextStyle(color: theme.textMuted, fontSize: 14),
             textAlign: TextAlign.center,
           ),
           const SizedBox(height: 24),
           ElevatedButton(
             onPressed: _loadData,
             style: ElevatedButton.styleFrom(
-              backgroundColor: _kAccent,
+              backgroundColor: theme.primary,
               foregroundColor: Colors.white,
             ),
             child: const Text('Retry'),
@@ -212,17 +205,17 @@ class _ToolsScreenState extends ConsumerState<ToolsScreen> {
     );
   }
 
-  Widget _buildContent() {
+  Widget _buildContent(OpenCodeTheme theme) {
     if (_tools == null || _tools!.isEmpty) {
-      return const Center(
+      return Center(
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            Icon(Icons.build_outlined, size: 48, color: _kMuted),
-            SizedBox(height: 16),
+            Icon(Icons.build_outlined, size: 48, color: theme.textMuted),
+            const SizedBox(height: 16),
             Text(
               'No tools available',
-              style: TextStyle(color: _kMuted, fontSize: 16),
+              style: TextStyle(color: theme.textMuted, fontSize: 16),
             ),
           ],
         ),
@@ -240,7 +233,7 @@ class _ToolsScreenState extends ConsumerState<ToolsScreen> {
 
     return RefreshIndicator(
       onRefresh: _loadData,
-      color: _kAccent,
+      color: theme.primary,
       child: ListView(
         padding: const EdgeInsets.all(16),
         children: [
@@ -282,10 +275,11 @@ class _FormatterCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final theme = OpenCodeTheme.of(context);
     final statusColor = switch (formatter.status) {
-      FormatterStatus.active => _kSuccess,
-      FormatterStatus.error => const Color(0xFFEF4444),
-      FormatterStatus.inactive => _kMuted,
+      FormatterStatus.active => theme.success,
+      FormatterStatus.error => theme.error,
+      FormatterStatus.inactive => theme.textMuted,
     };
 
     final statusLabel = switch (formatter.status) {
@@ -297,9 +291,9 @@ class _FormatterCard extends StatelessWidget {
     return Container(
       margin: const EdgeInsets.only(bottom: 8),
       decoration: BoxDecoration(
-        color: _kCard,
+        color: theme.backgroundPanel,
         borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: _kBorder),
+        border: Border.all(color: theme.borderSubtle),
       ),
       child: ListTile(
         contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
@@ -314,8 +308,8 @@ class _FormatterCard extends StatelessWidget {
         ),
         title: Text(
           formatter.name,
-          style: const TextStyle(
-            color: _kOnBackground,
+          style: TextStyle(
+            color: theme.text,
             fontSize: 15,
             fontWeight: FontWeight.w600,
           ),
@@ -327,7 +321,7 @@ class _FormatterCard extends StatelessWidget {
               if (formatter.language != null) ...[
                 Text(
                   formatter.language!,
-                  style: const TextStyle(color: _kMuted, fontSize: 13),
+                  style: TextStyle(color: theme.textMuted, fontSize: 13),
                 ),
                 const SizedBox(width: 8),
               ],
@@ -335,10 +329,7 @@ class _FormatterCard extends StatelessWidget {
                 Expanded(
                   child: Text(
                     formatter.error!,
-                    style: const TextStyle(
-                      color: Color(0xFFEF4444),
-                      fontSize: 12,
-                    ),
+                    style: TextStyle(color: theme.error, fontSize: 12),
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
                   ),
@@ -374,6 +365,7 @@ class _ToolsSummary extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
+    final theme = OpenCodeTheme.of(context);
     final toolSettings = ref.watch(toolSettingsProvider);
     final disabledCount = toolSettings.disabledTools.length;
     final enabledCount = totalTools - disabledCount;
@@ -382,9 +374,9 @@ class _ToolsSummary extends ConsumerWidget {
       padding: const EdgeInsets.all(16),
       margin: const EdgeInsets.only(bottom: 20),
       decoration: BoxDecoration(
-        color: _kCard,
+        color: theme.backgroundPanel,
         borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: _kBorder),
+        border: Border.all(color: theme.borderSubtle),
       ),
       child: Row(
         children: [
@@ -392,10 +384,10 @@ class _ToolsSummary extends ConsumerWidget {
             width: 48,
             height: 48,
             decoration: BoxDecoration(
-              color: _kAccent.withValues(alpha: 0.15),
+              color: theme.primary.withValues(alpha: 0.15),
               borderRadius: BorderRadius.circular(12),
             ),
-            child: const Icon(Icons.build, color: _kAccent, size: 24),
+            child: Icon(Icons.build, color: theme.primary, size: 24),
           ),
           const SizedBox(width: 16),
           Expanded(
@@ -404,8 +396,8 @@ class _ToolsSummary extends ConsumerWidget {
               children: [
                 Text(
                   '$totalTools Tools Available',
-                  style: const TextStyle(
-                    color: _kOnBackground,
+                  style: TextStyle(
+                    color: theme.text,
                     fontSize: 16,
                     fontWeight: FontWeight.w600,
                   ),
@@ -419,12 +411,12 @@ class _ToolsSummary extends ConsumerWidget {
                         vertical: 2,
                       ),
                       decoration: BoxDecoration(
-                        color: _kSuccess.withValues(alpha: 0.15),
+                        color: theme.success.withValues(alpha: 0.15),
                         borderRadius: BorderRadius.circular(8),
                       ),
                       child: Text(
                         '$enabledCount enabled',
-                        style: const TextStyle(color: _kSuccess, fontSize: 12),
+                        style: TextStyle(color: theme.success, fontSize: 12),
                       ),
                     ),
                     if (disabledCount > 0) ...[
@@ -435,12 +427,15 @@ class _ToolsSummary extends ConsumerWidget {
                           vertical: 2,
                         ),
                         decoration: BoxDecoration(
-                          color: _kMuted.withValues(alpha: 0.15),
+                          color: theme.textMuted.withValues(alpha: 0.15),
                           borderRadius: BorderRadius.circular(8),
                         ),
                         child: Text(
                           '$disabledCount disabled',
-                          style: const TextStyle(color: _kMuted, fontSize: 12),
+                          style: TextStyle(
+                            color: theme.textMuted,
+                            fontSize: 12,
+                          ),
                         ),
                       ),
                     ],
@@ -454,9 +449,9 @@ class _ToolsSummary extends ConsumerWidget {
               onPressed: () {
                 ref.read(toolSettingsProvider.notifier).enableAllTools();
               },
-              child: const Text(
+              child: Text(
                 'Enable All',
-                style: TextStyle(color: _kAccent, fontSize: 13),
+                style: TextStyle(color: theme.primary, fontSize: 13),
               ),
             ),
         ],
@@ -472,12 +467,13 @@ class _SectionHeader extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final theme = OpenCodeTheme.of(context);
     return Padding(
       padding: const EdgeInsets.only(bottom: 12),
       child: Text(
         title.toUpperCase(),
-        style: const TextStyle(
-          color: _kMuted,
+        style: TextStyle(
+          color: theme.textMuted,
           fontSize: 12,
           fontWeight: FontWeight.w600,
           letterSpacing: 0.5,
@@ -494,16 +490,17 @@ class _ToolCard extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
+    final theme = OpenCodeTheme.of(context);
     final toolSettings = ref.watch(toolSettingsProvider);
     final isEnabled = toolSettings.isToolEnabled(tool.id);
-    final iconColor = isEnabled ? _kAccent : _kMuted;
+    final iconColor = isEnabled ? theme.primary : theme.textMuted;
 
     return Container(
       margin: const EdgeInsets.only(bottom: 8),
       decoration: BoxDecoration(
-        color: _kCard,
+        color: theme.backgroundPanel,
         borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: _kBorder),
+        border: Border.all(color: theme.borderSubtle),
       ),
       child: ListTile(
         onTap: () {
@@ -522,7 +519,7 @@ class _ToolCard extends ConsumerWidget {
         title: Text(
           tool.displayName,
           style: TextStyle(
-            color: isEnabled ? _kOnBackground : _kMuted,
+            color: isEnabled ? theme.text : theme.textMuted,
             fontSize: 15,
             fontWeight: FontWeight.w600,
           ),
@@ -531,7 +528,7 @@ class _ToolCard extends ConsumerWidget {
           padding: const EdgeInsets.only(top: 4),
           child: Text(
             tool.description ?? '',
-            style: const TextStyle(color: _kMuted, fontSize: 13),
+            style: TextStyle(color: theme.textMuted, fontSize: 13),
           ),
         ),
         trailing: Switch.adaptive(
@@ -539,10 +536,10 @@ class _ToolCard extends ConsumerWidget {
           onChanged: (_) {
             ref.read(toolSettingsProvider.notifier).toggleTool(tool.id);
           },
-          activeThumbColor: _kSuccess,
-          activeTrackColor: _kSuccess.withValues(alpha: 0.3),
-          inactiveThumbColor: _kMuted,
-          inactiveTrackColor: _kMuted.withValues(alpha: 0.3),
+          activeThumbColor: theme.success,
+          activeTrackColor: theme.success.withValues(alpha: 0.3),
+          inactiveThumbColor: theme.textMuted,
+          inactiveTrackColor: theme.textMuted.withValues(alpha: 0.3),
         ),
       ),
     );

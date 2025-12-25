@@ -16,6 +16,7 @@ class BridgeConnectionState {
     this.opencodeRunning = true,
     this.isReconnecting = false,
     this.rttMs,
+    this.isOfflineMode = false,
   });
 
   final ConnectionInfo? connection;
@@ -25,24 +26,31 @@ class BridgeConnectionState {
   final bool isReconnecting;
   final int? rttMs;
 
+  /// When true, the app operates in read-only mode using cached data.
+  /// User can browse projects, sessions, and messages but cannot send new messages.
+  final bool isOfflineMode;
+
   bool get isConnected => status == ConnectionStatus.connected;
   bool get isConnecting => status == ConnectionStatus.connecting;
 
   BridgeConnectionState copyWith({
     ConnectionInfo? connection,
+    bool clearConnection = false,
     ConnectionStatus? status,
     String? error,
     bool? opencodeRunning,
     bool? isReconnecting,
     int? rttMs,
+    bool? isOfflineMode,
   }) {
     return BridgeConnectionState(
-      connection: connection ?? this.connection,
+      connection: clearConnection ? null : (connection ?? this.connection),
       status: status ?? this.status,
       error: error,
       opencodeRunning: opencodeRunning ?? this.opencodeRunning,
       isReconnecting: isReconnecting ?? this.isReconnecting,
       rttMs: rttMs ?? this.rttMs,
+      isOfflineMode: isOfflineMode ?? this.isOfflineMode,
     );
   }
 }
@@ -109,7 +117,23 @@ class ConnectionNotifier extends StateNotifier<BridgeConnectionState> {
   Future<void> clearConnection() async {
     await disconnect();
     await _storage.clearConnection();
-    state = state.copyWith(connection: null);
+    state = state.copyWith(clearConnection: true, isOfflineMode: false);
+  }
+
+  /// Enter offline/preview mode - allows browsing cached data without connection
+  void enterOfflineMode() {
+    _reconnectTimer?.cancel();
+    state = state.copyWith(isOfflineMode: true);
+  }
+
+  /// Exit offline mode
+  void exitOfflineMode() {
+    state = state.copyWith(isOfflineMode: false);
+    // Try to reconnect if we have a saved connection
+    final connection = state.connection;
+    if (connection != null) {
+      connect(connection);
+    }
   }
 
   void _handleStatus(ConnectionStatus status) {

@@ -7,6 +7,7 @@ import '../providers/chat_provider.dart';
 import '../providers/connection_provider.dart';
 import '../providers/sessions_provider.dart';
 import '../providers/service_providers.dart';
+import '../theme/opencode_theme.dart';
 import 'chat_screen.dart';
 
 class SessionsScreen extends ConsumerStatefulWidget {
@@ -106,7 +107,9 @@ class _SessionsScreenState extends ConsumerState<SessionsScreen> {
                   }
 
                   final projectsByPath = <String, ProjectSummary>{};
-                  for (final p in projectsAsync.valueOrNull ?? const <ProjectSummary>[]) {
+                  for (final p
+                      in projectsAsync.valueOrNull ??
+                          const <ProjectSummary>[]) {
                     projectsByPath[p.path] = p;
                   }
 
@@ -122,13 +125,14 @@ class _SessionsScreenState extends ConsumerState<SessionsScreen> {
                       sliver: SliverList(
                         delegate: SliverChildBuilderDelegate((context, index) {
                           final item = items[index];
+                          final ocTheme = OpenCodeTheme.of(context);
                           if (item is _SessionListHeader) {
                             return Padding(
                               padding: const EdgeInsets.fromLTRB(4, 14, 4, 10),
                               child: Text(
                                 item.title.toUpperCase(),
-                                style: const TextStyle(
-                                  color: Color(0xFF71717A),
+                                style: TextStyle(
+                                  color: ocTheme.textMuted,
                                   fontSize: 12,
                                   fontWeight: FontWeight.w700,
                                   letterSpacing: 0.5,
@@ -142,9 +146,14 @@ class _SessionsScreenState extends ConsumerState<SessionsScreen> {
                             padding: const EdgeInsets.only(bottom: 12),
                             child: _SessionCard(
                               session: session,
+                              isOfflineMode: connection.isOfflineMode,
                               onTap: () => _openSession(session),
-                              onDelete: () => _deleteSession(session),
-                              onRename: () => _showRenameDialog(session),
+                              onDelete: connection.isOfflineMode
+                                  ? null
+                                  : () => _deleteSession(session),
+                              onRename: connection.isOfflineMode
+                                  ? null
+                                  : () => _showRenameDialog(session),
                             ),
                           );
                         }, childCount: items.length),
@@ -198,9 +207,9 @@ class _SessionsScreenState extends ConsumerState<SessionsScreen> {
           ),
           TextButton(
             onPressed: () => Navigator.pop(context, true),
-            child: const Text(
+            child: Text(
               'Delete',
-              style: TextStyle(color: Color(0xFFEF4444)),
+              style: TextStyle(color: OpenCodeTheme.of(context).error),
             ),
           ),
         ],
@@ -217,19 +226,20 @@ class _SessionsScreenState extends ConsumerState<SessionsScreen> {
 
     if (!mounted) return;
 
+    final ocTheme = OpenCodeTheme.of(context);
     if (success) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Session deleted'),
-          backgroundColor: Color(0xFF1F2128),
+        SnackBar(
+          content: const Text('Session deleted'),
+          backgroundColor: ocTheme.backgroundPanel,
         ),
       );
       _refresh();
     } else {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Failed to delete session'),
-          backgroundColor: Color(0xFFEF4444),
+        SnackBar(
+          content: const Text('Failed to delete session'),
+          backgroundColor: ocTheme.error,
         ),
       );
     }
@@ -280,19 +290,21 @@ class _SessionsScreenState extends ConsumerState<SessionsScreen> {
 
       if (!mounted) return;
 
+      final ocTheme = OpenCodeTheme.of(context);
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: Text('Session renamed to "$newTitle"'),
-          backgroundColor: const Color(0xFF1F2128),
+          backgroundColor: ocTheme.backgroundPanel,
         ),
       );
       _refresh();
     } catch (e) {
       if (!mounted) return;
+      final ocTheme = OpenCodeTheme.of(context);
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Failed to rename session'),
-          backgroundColor: Color(0xFFEF4444),
+        SnackBar(
+          content: const Text('Failed to rename session'),
+          backgroundColor: ocTheme.error,
         ),
       );
     }
@@ -346,7 +358,8 @@ List<_SessionRowItem> _buildListItems({
   final items = <_SessionRowItem>[];
   for (final directory in directories) {
     items.add(_SessionListHeader(displayNameForDirectory(directory)));
-    final group = groups[directory]!..sort((a, b) => b.time.updated - a.time.updated);
+    final group = groups[directory]!
+      ..sort((a, b) => b.time.updated - a.time.updated);
     for (final session in group) {
       items.add(_SessionListItem(session));
     }
@@ -373,6 +386,7 @@ class _ModernHeader extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
+    final ocTheme = OpenCodeTheme.of(context);
     final filterLabel = _filterLabel(
       selectedPath: filterProjectPath,
       projects: projects,
@@ -389,7 +403,7 @@ class _ModernHeader extends StatelessWidget {
                 child: Text(
                   'Sessions',
                   style: TextStyle(
-                    color: theme.colorScheme.onSurface,
+                    color: ocTheme.text,
                     fontSize: 32,
                     fontWeight: FontWeight.w700,
                   ),
@@ -397,10 +411,7 @@ class _ModernHeader extends StatelessWidget {
               ),
               IconButton(
                 onPressed: onRefresh,
-                icon: Icon(
-                  Icons.refresh_rounded,
-                  color: theme.colorScheme.onSurface.withValues(alpha: 0.7),
-                ),
+                icon: Icon(Icons.refresh_rounded, color: ocTheme.textMuted),
                 tooltip: 'Refresh',
               ),
               // Connection indicator
@@ -411,8 +422,8 @@ class _ModernHeader extends StatelessWidget {
                 ),
                 decoration: BoxDecoration(
                   color: connection.isConnected
-                      ? const Color(0xFF10B981).withValues(alpha: 0.15)
-                      : theme.colorScheme.error.withValues(alpha: 0.15),
+                      ? ocTheme.success.withValues(alpha: 0.15)
+                      : ocTheme.error.withValues(alpha: 0.15),
                   borderRadius: BorderRadius.circular(12),
                 ),
                 child: Row(
@@ -423,8 +434,8 @@ class _ModernHeader extends StatelessWidget {
                       height: 6,
                       decoration: BoxDecoration(
                         color: connection.isConnected
-                            ? const Color(0xFF10B981)
-                            : theme.colorScheme.error,
+                            ? ocTheme.success
+                            : ocTheme.error,
                         shape: BoxShape.circle,
                       ),
                     ),
@@ -437,7 +448,7 @@ class _ModernHeader extends StatelessWidget {
           Text(
             'Continue your AI coding sessions',
             style: TextStyle(
-              color: theme.colorScheme.onSurface.withValues(alpha: 0.6),
+              color: ocTheme.textMuted,
               fontSize: 15,
               fontWeight: FontWeight.w500,
             ),
@@ -469,11 +480,7 @@ String _filterLabel({
   if (selectedPath == null) return 'All projects';
   final project = projects.valueOrNull?.firstWhere(
     (p) => p.path == selectedPath,
-    orElse: () => ProjectSummary(
-      id: 'unknown',
-      name: '',
-      path: selectedPath,
-    ),
+    orElse: () => ProjectSummary(id: 'unknown', name: '', path: selectedPath),
   );
   final name = project?.name ?? '';
   if (name.isNotEmpty) return name;
@@ -489,10 +496,7 @@ class _FilterChipButton extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    const kCard = Color(0xFF1F2128);
-    const kBorder = Color(0xFF2A2D36);
-    const kMuted = Color(0xFF71717A);
-    const kOnBackground = Color(0xFFE4E4E7);
+    final ocTheme = OpenCodeTheme.of(context);
 
     return InkWell(
       onTap: onTap,
@@ -500,25 +504,25 @@ class _FilterChipButton extends StatelessWidget {
       child: Container(
         padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
         decoration: BoxDecoration(
-          color: kCard,
+          color: ocTheme.backgroundPanel,
           borderRadius: BorderRadius.circular(999),
-          border: Border.all(color: kBorder),
+          border: Border.all(color: ocTheme.borderSubtle),
         ),
         child: Row(
           mainAxisSize: MainAxisSize.min,
           children: [
-            const Icon(Icons.filter_list_rounded, size: 16, color: kMuted),
+            Icon(Icons.filter_list_rounded, size: 16, color: ocTheme.textMuted),
             const SizedBox(width: 8),
             Text(
               label,
-              style: const TextStyle(
-                color: kOnBackground,
+              style: TextStyle(
+                color: ocTheme.text,
                 fontSize: 13,
                 fontWeight: FontWeight.w600,
               ),
             ),
             const SizedBox(width: 6),
-            const Icon(Icons.expand_more_rounded, size: 18, color: kMuted),
+            Icon(Icons.expand_more_rounded, size: 18, color: ocTheme.textMuted),
           ],
         ),
       ),
@@ -533,13 +537,15 @@ void _showProjectFilter({
   required AsyncValue<List<ProjectSummary>> projects,
   required ValueChanged<String?> onSelected,
 }) {
+  final ocTheme = OpenCodeTheme.of(context);
   showModalBottomSheet<void>(
     context: context,
-    backgroundColor: theme.colorScheme.surface,
+    backgroundColor: ocTheme.backgroundPanel,
     shape: const RoundedRectangleBorder(
       borderRadius: BorderRadius.vertical(top: Radius.circular(18)),
     ),
     builder: (context) {
+      final sheetOcTheme = OpenCodeTheme.of(context);
       return SafeArea(
         child: Padding(
           padding: const EdgeInsets.fromLTRB(16, 12, 16, 16),
@@ -553,7 +559,7 @@ void _showProjectFilter({
                     child: Text(
                       'Filter sessions',
                       style: TextStyle(
-                        color: theme.colorScheme.onSurface,
+                        color: sheetOcTheme.text,
                         fontSize: 16,
                         fontWeight: FontWeight.w700,
                       ),
@@ -563,7 +569,7 @@ void _showProjectFilter({
                     onPressed: () => Navigator.pop(context),
                     icon: Icon(
                       Icons.close_rounded,
-                      color: theme.colorScheme.onSurface.withValues(alpha: 0.7),
+                      color: sheetOcTheme.textMuted,
                     ),
                   ),
                 ],
@@ -574,12 +580,12 @@ void _showProjectFilter({
                 title: Text(
                   'All projects',
                   style: TextStyle(
-                    color: theme.colorScheme.onSurface,
+                    color: sheetOcTheme.text,
                     fontWeight: FontWeight.w600,
                   ),
                 ),
                 trailing: selectedPath == null
-                    ? const Icon(Icons.check_rounded, color: Color(0xFF10B981))
+                    ? Icon(Icons.check_rounded, color: sheetOcTheme.success)
                     : null,
                 onTap: () {
                   onSelected(null);
@@ -596,14 +602,15 @@ void _showProjectFilter({
                   padding: const EdgeInsets.symmetric(vertical: 16),
                   child: Text(
                     'Failed to load projects: $error',
-                    style: TextStyle(
-                      color: theme.colorScheme.onSurface.withValues(alpha: 0.7),
-                    ),
+                    style: TextStyle(color: sheetOcTheme.textMuted),
                   ),
                 ),
                 data: (items) {
                   final sorted = items.toList()
-                    ..sort((a, b) => a.name.toLowerCase().compareTo(b.name.toLowerCase()));
+                    ..sort(
+                      (a, b) =>
+                          a.name.toLowerCase().compareTo(b.name.toLowerCase()),
+                    );
                   return ConstrainedBox(
                     constraints: const BoxConstraints(maxHeight: 420),
                     child: ListView.builder(
@@ -617,25 +624,23 @@ void _showProjectFilter({
                           title: Text(
                             project.name,
                             style: TextStyle(
-                              color: theme.colorScheme.onSurface,
+                              color: sheetOcTheme.text,
                               fontWeight: FontWeight.w600,
                             ),
                           ),
                           subtitle: Text(
                             project.path,
                             style: TextStyle(
-                              color: theme.colorScheme.onSurface.withValues(
-                                alpha: 0.6,
-                              ),
+                              color: sheetOcTheme.textMuted,
                               fontSize: 12,
                             ),
                             maxLines: 1,
                             overflow: TextOverflow.ellipsis,
                           ),
                           trailing: isSelected
-                              ? const Icon(
+                              ? Icon(
                                   Icons.check_rounded,
-                                  color: Color(0xFF10B981),
+                                  color: sheetOcTheme.success,
                                 )
                               : null,
                           onTap: () {
@@ -661,14 +666,16 @@ class _SessionCard extends StatelessWidget {
   const _SessionCard({
     required this.session,
     required this.onTap,
-    required this.onDelete,
-    required this.onRename,
+    this.onDelete,
+    this.onRename,
+    this.isOfflineMode = false,
   });
 
   final SessionSummary session;
   final VoidCallback onTap;
-  final VoidCallback onDelete;
-  final VoidCallback onRename;
+  final VoidCallback? onDelete;
+  final VoidCallback? onRename;
+  final bool isOfflineMode;
 
   String _getProjectName() {
     return session.directory.split('/').where((item) => item.isNotEmpty).last;
@@ -692,15 +699,16 @@ class _SessionCard extends StatelessWidget {
   }
 
   Color _getIconColor(BuildContext context) {
-    // Generate color from session ID hash
+    // Generate color from session ID hash using theme colors
+    final ocTheme = OpenCodeTheme.of(context);
     final hash = session.id.hashCode;
     final colors = [
-      const Color(0xFF3B82F6), // Blue
-      const Color(0xFF8B5CF6), // Purple
-      const Color(0xFFEC4899), // Pink
-      const Color(0xFF10B981), // Green
-      const Color(0xFFF59E0B), // Amber
-      const Color(0xFF06B6D4), // Cyan
+      ocTheme.primary,
+      ocTheme.secondary,
+      ocTheme.accent,
+      ocTheme.success,
+      ocTheme.warning,
+      ocTheme.info,
     ];
     return colors[hash.abs() % colors.length];
   }
@@ -725,120 +733,119 @@ class _SessionCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final theme = Theme.of(context);
+    final ocTheme = OpenCodeTheme.of(context);
     final iconColor = _getIconColor(context);
 
-    // Feature 4: Swipe to delete with Dismissible
-    return Dismissible(
-      key: Key(session.id),
-      direction: DismissDirection.endToStart,
-      background: Container(
-        alignment: Alignment.centerRight,
-        padding: const EdgeInsets.only(right: 20),
+    // Base card widget
+    Widget card = GestureDetector(
+      onTap: onTap,
+      // Feature 5: Long press to rename (disabled in offline mode)
+      onLongPress: onRename,
+      child: Container(
+        padding: const EdgeInsets.all(16),
         decoration: BoxDecoration(
-          color: const Color(0xFFEF4444),
+          color: ocTheme.backgroundPanel,
           borderRadius: BorderRadius.circular(16),
+          border: Border.all(color: ocTheme.borderSubtle),
         ),
-        child: const Icon(
-          Icons.delete_outline_rounded,
-          color: Colors.white,
-          size: 24,
-        ),
-      ),
-      confirmDismiss: (_) async {
-        onDelete();
-        return false; // Let the parent handle actual deletion
-      },
-      child: GestureDetector(
-        onTap: onTap,
-        // Feature 5: Long press to rename
-        onLongPress: onRename,
-        child: Container(
-          padding: const EdgeInsets.all(16),
-          decoration: BoxDecoration(
-            color: theme.colorScheme.surface,
-            borderRadius: BorderRadius.circular(16),
-            border: Border.all(
-              color: theme.colorScheme.onSurface.withValues(alpha: 0.1),
+        child: Row(
+          children: [
+            // Icon with colored background
+            Container(
+              padding: const EdgeInsets.all(12),
+              decoration: BoxDecoration(
+                color: iconColor.withValues(alpha: 0.15),
+                borderRadius: BorderRadius.circular(12),
+              ),
+              child: Icon(_getSessionIcon(), color: iconColor, size: 22),
             ),
-          ),
-          child: Row(
-            children: [
-              // Icon with colored background
-              Container(
-                padding: const EdgeInsets.all(12),
-                decoration: BoxDecoration(
-                  color: iconColor.withValues(alpha: 0.15),
-                  borderRadius: BorderRadius.circular(12),
-                ),
-                child: Icon(_getSessionIcon(), color: iconColor, size: 22),
-              ),
-              const SizedBox(width: 14),
-              // Session info
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      session.title,
-                      style: TextStyle(
-                        color: theme.colorScheme.onSurface,
-                        fontSize: 15,
-                        fontWeight: FontWeight.w600,
+            const SizedBox(width: 14),
+            // Session info
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    session.title,
+                    style: TextStyle(
+                      color: ocTheme.text,
+                      fontSize: 15,
+                      fontWeight: FontWeight.w600,
+                    ),
+                    maxLines: 2,
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                  const SizedBox(height: 6),
+                  Row(
+                    children: [
+                      Icon(
+                        Icons.folder_rounded,
+                        size: 14,
+                        color: ocTheme.textMuted,
                       ),
-                      maxLines: 2,
-                      overflow: TextOverflow.ellipsis,
-                    ),
-                    const SizedBox(height: 6),
-                    Row(
-                      children: [
-                        Icon(
-                          Icons.folder_rounded,
-                          size: 14,
-                          color: theme.colorScheme.onSurface.withValues(
-                            alpha: 0.5,
-                          ),
-                        ),
-                        const SizedBox(width: 4),
-                        Expanded(
-                          child: Text(
-                            _getProjectName(),
-                            style: TextStyle(
-                              color: theme.colorScheme.onSurface.withValues(
-                                alpha: 0.6,
-                              ),
-                              fontSize: 13,
-                            ),
-                            overflow: TextOverflow.ellipsis,
-                          ),
-                        ),
-                        const SizedBox(width: 8),
-                        Text(
-                          _formatDate(session.time.updated),
+                      const SizedBox(width: 4),
+                      Expanded(
+                        child: Text(
+                          _getProjectName(),
                           style: TextStyle(
-                            color: theme.colorScheme.onSurface.withValues(
-                              alpha: 0.5,
-                            ),
-                            fontSize: 12,
+                            color: ocTheme.textMuted,
+                            fontSize: 13,
                           ),
+                          overflow: TextOverflow.ellipsis,
                         ),
-                      ],
-                    ),
-                  ],
-                ),
+                      ),
+                      const SizedBox(width: 8),
+                      Text(
+                        _formatDate(session.time.updated),
+                        style: TextStyle(
+                          color: ocTheme.textMuted,
+                          fontSize: 12,
+                        ),
+                      ),
+                    ],
+                  ),
+                ],
               ),
-              const SizedBox(width: 8),
-              // Chevron
-              Icon(
-                Icons.chevron_right_rounded,
-                color: theme.colorScheme.onSurface.withValues(alpha: 0.3),
-                size: 22,
-              ),
-            ],
-          ),
+            ),
+            const SizedBox(width: 8),
+            // Chevron
+            Icon(
+              Icons.chevron_right_rounded,
+              color: ocTheme.textMuted.withValues(alpha: 0.5),
+              size: 22,
+            ),
+          ],
         ),
       ),
     );
+
+    // Feature 4: Wrap with Dismissible for swipe-to-delete (only when online)
+    if (onDelete != null) {
+      card = Dismissible(
+        key: Key(session.id),
+        direction: DismissDirection.endToStart,
+        background: Container(
+          alignment: Alignment.centerRight,
+          padding: const EdgeInsets.only(right: 20),
+          decoration: BoxDecoration(
+            color: ocTheme.error,
+            borderRadius: BorderRadius.circular(16),
+          ),
+          child: const Icon(
+            Icons.delete_outline_rounded,
+            color: Colors.white,
+            size: 24,
+          ),
+        ),
+        confirmDismiss: (_) async {
+          onDelete!();
+          return false; // Let the parent handle actual deletion
+        },
+        child: card,
+      );
+    }
+
+    return card;
   }
 }
 
@@ -846,7 +853,7 @@ class _SessionCard extends StatelessWidget {
 class _EmptyState extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
-    final theme = Theme.of(context);
+    final ocTheme = OpenCodeTheme.of(context);
 
     return Center(
       child: Column(
@@ -855,20 +862,20 @@ class _EmptyState extends StatelessWidget {
           Container(
             padding: const EdgeInsets.all(24),
             decoration: BoxDecoration(
-              color: theme.colorScheme.primary.withValues(alpha: 0.1),
+              color: ocTheme.primary.withValues(alpha: 0.1),
               shape: BoxShape.circle,
             ),
             child: Icon(
               Icons.history_rounded,
               size: 48,
-              color: theme.colorScheme.primary,
+              color: ocTheme.primary,
             ),
           ),
           const SizedBox(height: 24),
           Text(
             'No sessions yet',
             style: TextStyle(
-              color: theme.colorScheme.onSurface,
+              color: ocTheme.text,
               fontSize: 20,
               fontWeight: FontWeight.w600,
             ),
@@ -878,10 +885,7 @@ class _EmptyState extends StatelessWidget {
             padding: const EdgeInsets.symmetric(horizontal: 40),
             child: Text(
               'Start a new coding session from the Projects tab',
-              style: TextStyle(
-                color: theme.colorScheme.onSurface.withValues(alpha: 0.6),
-                fontSize: 14,
-              ),
+              style: TextStyle(color: ocTheme.textMuted, fontSize: 14),
               textAlign: TextAlign.center,
             ),
           ),

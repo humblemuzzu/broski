@@ -9,6 +9,7 @@ import '../providers/connection_provider.dart';
 import '../providers/sessions_provider.dart';
 import '../providers/service_providers.dart';
 import '../services/websocket_service.dart';
+import '../theme/opencode_theme.dart';
 
 class MainShell extends ConsumerStatefulWidget {
   const MainShell({super.key});
@@ -38,6 +39,8 @@ class _MainShellState extends ConsumerState<MainShell> {
 
   @override
   Widget build(BuildContext context) {
+    final connection = ref.watch(connectionProvider);
+
     return Scaffold(
       extendBody: true,
       body: Stack(
@@ -51,6 +54,17 @@ class _MainShellState extends ConsumerState<MainShell> {
               SettingsScreen(),
             ],
           ),
+          // Offline mode banner at top
+          if (connection.isOfflineMode)
+            Positioned(
+              left: 0,
+              right: 0,
+              top: 0,
+              child: _OfflineBanner(
+                onExit: () =>
+                    ref.read(connectionProvider.notifier).exitOfflineMode(),
+              ),
+            ),
           Positioned(
             left: 0,
             right: 0,
@@ -59,7 +73,11 @@ class _MainShellState extends ConsumerState<MainShell> {
               currentIndex: _index,
               onTap: (value) {
                 setState(() => _index = value);
-                ref.read(bridgeServiceProvider).setView(projectPath: 'global');
+                if (!connection.isOfflineMode) {
+                  ref
+                      .read(bridgeServiceProvider)
+                      .setView(projectPath: 'global');
+                }
                 if (value == 2) {
                   ref.read(sessionsRefreshTickProvider.notifier).state++;
                 }
@@ -67,6 +85,67 @@ class _MainShellState extends ConsumerState<MainShell> {
             ),
           ),
         ],
+      ),
+    );
+  }
+}
+
+class _OfflineBanner extends StatelessWidget {
+  const _OfflineBanner({required this.onExit});
+
+  final VoidCallback onExit;
+
+  @override
+  Widget build(BuildContext context) {
+    final ocTheme = OpenCodeTheme.of(context);
+
+    return SafeArea(
+      bottom: false,
+      child: Container(
+        margin: const EdgeInsets.fromLTRB(16, 8, 16, 0),
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+        decoration: BoxDecoration(
+          color: ocTheme.warning.withValues(alpha: 0.15),
+          borderRadius: BorderRadius.circular(12),
+          border: Border.all(color: ocTheme.warning.withValues(alpha: 0.3)),
+        ),
+        child: Row(
+          children: [
+            Icon(Icons.cloud_off_rounded, color: ocTheme.warning, size: 18),
+            const SizedBox(width: 10),
+            Expanded(
+              child: Text(
+                'Offline Mode - Viewing cached data',
+                style: TextStyle(
+                  color: ocTheme.warning,
+                  fontSize: 13,
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
+            ),
+            GestureDetector(
+              onTap: onExit,
+              child: Container(
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 10,
+                  vertical: 4,
+                ),
+                decoration: BoxDecoration(
+                  color: ocTheme.warning,
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                child: const Text(
+                  'Reconnect',
+                  style: TextStyle(
+                    color: Colors.white,
+                    fontSize: 12,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+              ),
+            ),
+          ],
+        ),
       ),
     );
   }
@@ -80,16 +159,18 @@ class _ModernBottomNav extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    const kMuted = Color(0xFF71717A);
+    final ocTheme = OpenCodeTheme.of(context);
 
     return Container(
       margin: const EdgeInsets.fromLTRB(16, 0, 16, 16),
       padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 6),
       decoration: BoxDecoration(
-        color: theme.colorScheme.surface.withValues(alpha: 0.95),
+        color: ocTheme.backgroundPanel.withValues(alpha: 0.95),
         borderRadius: BorderRadius.circular(20),
-        border: Border.all(color: kMuted.withValues(alpha: 0.15), width: 1),
+        border: Border.all(
+          color: ocTheme.borderSubtle.withValues(alpha: 0.15),
+          width: 1,
+        ),
         boxShadow: [
           BoxShadow(
             color: Colors.black.withValues(alpha: 0.4),
@@ -146,9 +227,7 @@ class _NavItem extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    const kOnBackground = Color(0xFFE4E4E7);
-    const kMuted = Color(0xFF71717A);
-    const kAccent = Color(0xFF3B82F6);
+    final ocTheme = OpenCodeTheme.of(context);
 
     return Expanded(
       child: GestureDetector(
@@ -159,12 +238,16 @@ class _NavItem extends StatelessWidget {
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
-              Icon(icon, color: isSelected ? kAccent : kMuted, size: 22),
+              Icon(
+                icon,
+                color: isSelected ? ocTheme.primary : ocTheme.textMuted,
+                size: 22,
+              ),
               const SizedBox(height: 3),
               Text(
                 label,
                 style: TextStyle(
-                  color: isSelected ? kOnBackground : kMuted,
+                  color: isSelected ? ocTheme.text : ocTheme.textMuted,
                   fontSize: 11,
                   fontWeight: isSelected ? FontWeight.w600 : FontWeight.w500,
                 ),

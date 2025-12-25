@@ -3,7 +3,7 @@ import 'package:google_fonts/google_fonts.dart';
 
 import '../models/message.dart';
 import '../screens/diff_view_screen.dart';
-import '../theme/colors.dart';
+import '../theme/opencode_theme.dart';
 import '../utils/diff_utils.dart';
 
 class PermissionPrompt extends StatelessWidget {
@@ -20,6 +20,7 @@ class PermissionPrompt extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final theme = OpenCodeTheme.of(context);
     final diffText = request.metadata['diff'] as String?;
     final filePath =
         request.metadata['filePath'] as String? ??
@@ -28,9 +29,9 @@ class PermissionPrompt extends StatelessWidget {
 
     return Container(
       padding: const EdgeInsets.all(20),
-      decoration: const BoxDecoration(
-        color: BroskiColors.abyss,
-        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+      decoration: BoxDecoration(
+        color: theme.background,
+        borderRadius: const BorderRadius.vertical(top: Radius.circular(20)),
       ),
       child: Column(
         mainAxisSize: MainAxisSize.min,
@@ -51,19 +52,16 @@ class PermissionPrompt extends StatelessWidget {
           ],
           if (diffText != null && diffText.trim().isNotEmpty) ...[
             const SizedBox(height: 16),
-            const Text(
+            Text(
               'Proposed changes',
               style: TextStyle(
-                color: Color(0xFFE4E4E7),
+                color: theme.text,
                 fontSize: 13,
                 fontWeight: FontWeight.w600,
               ),
             ),
             const SizedBox(height: 10),
-            _PermissionDiffPreview(
-              diffText: diffText,
-              filePath: filePath,
-            ),
+            _PermissionDiffPreview(diffText: diffText, filePath: filePath),
           ],
           const SizedBox(height: 16),
           Row(
@@ -71,9 +69,7 @@ class PermissionPrompt extends StatelessWidget {
               Expanded(
                 child: OutlinedButton(
                   onPressed: onDeny,
-                  style: OutlinedButton.styleFrom(
-                    foregroundColor: BroskiColors.ember,
-                  ),
+                  style: OutlinedButton.styleFrom(foregroundColor: theme.error),
                   child: const Text('Deny'),
                 ),
               ),
@@ -100,6 +96,7 @@ class _PermissionDiffPreview extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final theme = OpenCodeTheme.of(context);
     final parsed = UnifiedDiff.parse(diffText);
     final preview = <DiffLine>[];
     for (final line in parsed) {
@@ -118,9 +115,9 @@ class _PermissionDiffPreview extends StatelessWidget {
       width: double.infinity,
       padding: const EdgeInsets.all(12),
       decoration: BoxDecoration(
-        color: const Color(0xFF17181C),
+        color: theme.backgroundElement,
         borderRadius: BorderRadius.circular(14),
-        border: Border.all(color: const Color(0xFF2A2D36)),
+        border: Border.all(color: theme.borderSubtle),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -130,11 +127,13 @@ class _PermissionDiffPreview extends StatelessWidget {
               'No preview available',
               style: GoogleFonts.jetBrainsMono(
                 fontSize: 12,
-                color: const Color(0xFF9CA3AF),
+                color: theme.textMuted,
               ),
             )
           else
-            Column(children: [for (final line in preview) _PreviewRow(line: line)]),
+            Column(
+              children: [for (final line in preview) _PreviewRow(line: line)],
+            ),
           const SizedBox(height: 10),
           Align(
             alignment: Alignment.centerRight,
@@ -182,15 +181,16 @@ class _PreviewRow extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final theme = OpenCodeTheme.of(context);
     final bg = switch (line.kind) {
-      DiffLineKind.added => const Color(0xFF10B981).withValues(alpha: 0.12),
-      DiffLineKind.removed => const Color(0xFFEF4444).withValues(alpha: 0.12),
+      DiffLineKind.added => theme.success.withValues(alpha: 0.12),
+      DiffLineKind.removed => theme.error.withValues(alpha: 0.12),
       _ => Colors.transparent,
     };
     final fg = switch (line.kind) {
-      DiffLineKind.added => const Color(0xFF10B981),
-      DiffLineKind.removed => const Color(0xFFEF4444),
-      _ => const Color(0xFFE4E4E7),
+      DiffLineKind.added => theme.success,
+      DiffLineKind.removed => theme.error,
+      _ => theme.text,
     };
     final prefix = switch (line.kind) {
       DiffLineKind.added => '+',
@@ -208,11 +208,7 @@ class _PreviewRow extends StatelessWidget {
       ),
       child: Text(
         '$prefix ${line.text.isEmpty ? ' ' : line.text}',
-        style: GoogleFonts.jetBrainsMono(
-          fontSize: 12,
-          color: fg,
-          height: 1.35,
-        ),
+        style: GoogleFonts.jetBrainsMono(fontSize: 12, color: fg, height: 1.35),
       ),
     );
   }

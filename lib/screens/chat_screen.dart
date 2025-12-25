@@ -20,6 +20,7 @@ import '../providers/service_providers.dart';
 import '../providers/tool_settings_provider.dart';
 import '../services/haptics_service.dart';
 import '../services/websocket_service.dart';
+import '../theme/opencode_theme.dart';
 import '../widgets/diff_viewer.dart';
 import '../widgets/message_bubble.dart';
 import '../widgets/permission_prompt.dart';
@@ -104,8 +105,22 @@ class _ChatScreenState extends ConsumerState<ChatScreen>
   }
 
   Future<void> _hydrateSession() async {
-    final bridge = ref.read(bridgeServiceProvider);
+    final connection = ref.read(connectionProvider);
+    final storage = ref.read(storageServiceProvider);
     final chat = ref.read(chatSessionProvider.notifier);
+
+    // In offline mode, load from cache
+    if (connection.isOfflineMode) {
+      final cachedMessages = await storage.getCachedMessages(widget.session.id);
+      if (cachedMessages.isNotEmpty) {
+        // Hydrate provider with cached messages format
+        chat.hydrate(cachedMessages.map((m) => _messageToRaw(m)).toList());
+      }
+      _scrollToBottom(animate: false);
+      return;
+    }
+
+    final bridge = ref.read(bridgeServiceProvider);
     final messages = await bridge.getSessionMessages(
       widget.session.id,
       projectPath: widget.project.path,
@@ -114,6 +129,42 @@ class _ChatScreenState extends ConsumerState<ChatScreen>
     _scrollToBottom(animate: false);
     // Load context after messages
     _loadSessionContext();
+
+    // Cache messages for offline use
+    final chatState = ref.read(chatSessionProvider);
+    if (chatState.messages.isNotEmpty) {
+      await storage.cacheSessionMessages(widget.session.id, chatState.messages);
+    }
+  }
+
+  /// Convert ChatMessage to raw format for hydrate
+  Map<String, dynamic> _messageToRaw(ChatMessage m) {
+    return {
+      'info': {
+        'id': m.id,
+        'sessionID': m.sessionId,
+        'role': m.role == MessageRole.user ? 'user' : 'assistant',
+        'time': {'created': m.createdAt.millisecondsSinceEpoch},
+      },
+      'parts': [
+        if (m.text.isNotEmpty) {'type': 'text', 'text': m.text},
+        ...m.toolCalls.map(
+          (t) => {
+            'type': 'tool',
+            'id': t.partId,
+            'callID': t.callId,
+            'tool': t.name,
+            'state': {
+              'status': t.status,
+              'title': t.title,
+              'input': t.input,
+              'output': t.output,
+              'metadata': t.metadata,
+            },
+          },
+        ),
+      ],
+    };
   }
 
   // Feature 2 & 3: Load available commands and agents
@@ -201,13 +252,14 @@ class _ChatScreenState extends ConsumerState<ChatScreen>
       );
       if (!mounted) return;
 
+      final theme = OpenCodeTheme.of(context);
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: Text('Session forked: ${forkedSession.title}'),
-          backgroundColor: const Color(0xFF1F2128),
+          backgroundColor: theme.backgroundPanel,
           action: SnackBarAction(
             label: 'Open',
-            textColor: const Color(0xFF3B82F6),
+            textColor: theme.primary,
             onPressed: () {
               // Navigate to the forked session
               Navigator.pushReplacement(
@@ -225,10 +277,11 @@ class _ChatScreenState extends ConsumerState<ChatScreen>
       );
     } catch (e) {
       if (!mounted) return;
+      final theme = OpenCodeTheme.of(context);
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: Text('Failed to fork session: $e'),
-          backgroundColor: const Color(0xFFEF4444),
+          backgroundColor: theme.error,
         ),
       );
     }
@@ -247,20 +300,22 @@ class _ChatScreenState extends ConsumerState<ChatScreen>
       );
       if (!mounted) return;
 
+      final theme = OpenCodeTheme.of(context);
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Changes reverted'),
-          backgroundColor: Color(0xFF1F2128),
+        SnackBar(
+          content: const Text('Changes reverted'),
+          backgroundColor: theme.backgroundPanel,
         ),
       );
       // Refresh session context to update modified files
       _loadSessionContext();
     } catch (e) {
       if (!mounted) return;
+      final theme = OpenCodeTheme.of(context);
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: Text('Failed to revert: $e'),
-          backgroundColor: const Color(0xFFEF4444),
+          backgroundColor: theme.error,
         ),
       );
     }
@@ -288,19 +343,21 @@ class _ChatScreenState extends ConsumerState<ChatScreen>
       );
       if (!mounted) return;
 
+      final theme = OpenCodeTheme.of(context);
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Revert undone'),
-          backgroundColor: Color(0xFF1F2128),
+        SnackBar(
+          content: const Text('Revert undone'),
+          backgroundColor: theme.backgroundPanel,
         ),
       );
       _loadSessionContext();
     } catch (e) {
       if (!mounted) return;
+      final theme = OpenCodeTheme.of(context);
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: Text('Failed to undo revert: $e'),
-          backgroundColor: const Color(0xFFEF4444),
+          backgroundColor: theme.error,
         ),
       );
     }
@@ -319,10 +376,11 @@ class _ChatScreenState extends ConsumerState<ChatScreen>
 
       final shareUrl = sharedSession.share?.url;
       if (shareUrl == null || shareUrl.isEmpty) {
+        final theme = OpenCodeTheme.of(context);
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('Failed to get share URL'),
-            backgroundColor: Color(0xFFEF4444),
+          SnackBar(
+            content: const Text('Failed to get share URL'),
+            backgroundColor: theme.error,
           ),
         );
         return;
@@ -332,59 +390,58 @@ class _ChatScreenState extends ConsumerState<ChatScreen>
       _showShareDialog(shareUrl);
     } catch (e) {
       if (!mounted) return;
+      final theme = OpenCodeTheme.of(context);
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: Text('Failed to share session: $e'),
-          backgroundColor: const Color(0xFFEF4444),
+          backgroundColor: theme.error,
         ),
       );
     }
   }
 
   void _showShareDialog(String url) {
+    final theme = OpenCodeTheme.of(context);
     showModalBottomSheet(
       context: context,
       backgroundColor: Colors.transparent,
       builder: (context) => Container(
         padding: const EdgeInsets.all(24),
-        decoration: const BoxDecoration(
-          color: Color(0xFF1F2128),
-          borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+        decoration: BoxDecoration(
+          color: theme.backgroundPanel,
+          borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
         ),
         child: Column(
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            const Text(
+            Text(
               'Session Shared',
               style: TextStyle(
                 fontSize: 20,
                 fontWeight: FontWeight.w600,
-                color: Color(0xFFE4E4E7),
+                color: theme.text,
               ),
             ),
             const SizedBox(height: 8),
-            const Text(
+            Text(
               'Anyone with this link can view your session:',
-              style: TextStyle(fontSize: 14, color: Color(0xFF9CA3AF)),
+              style: TextStyle(fontSize: 14, color: theme.textMuted),
             ),
             const SizedBox(height: 16),
             Container(
               padding: const EdgeInsets.all(12),
               decoration: BoxDecoration(
-                color: const Color(0xFF16161E),
+                color: theme.background,
                 borderRadius: BorderRadius.circular(12),
-                border: Border.all(color: const Color(0xFF2A2D36)),
+                border: Border.all(color: theme.borderSubtle),
               ),
               child: Row(
                 children: [
                   Expanded(
                     child: Text(
                       url,
-                      style: const TextStyle(
-                        fontSize: 13,
-                        color: Color(0xFF60A5FA),
-                      ),
+                      style: TextStyle(fontSize: 13, color: theme.info),
                       overflow: TextOverflow.ellipsis,
                     ),
                   ),
@@ -392,18 +449,14 @@ class _ChatScreenState extends ConsumerState<ChatScreen>
                     onPressed: () {
                       Clipboard.setData(ClipboardData(text: url));
                       ScaffoldMessenger.of(context).showSnackBar(
-                        const SnackBar(
-                          content: Text('Link copied'),
-                          backgroundColor: Color(0xFF1F2128),
-                          duration: Duration(seconds: 2),
+                        SnackBar(
+                          content: const Text('Link copied'),
+                          backgroundColor: theme.backgroundPanel,
+                          duration: const Duration(seconds: 2),
                         ),
                       );
                     },
-                    icon: const Icon(
-                      Icons.copy,
-                      color: Color(0xFF9CA3AF),
-                      size: 20,
-                    ),
+                    icon: Icon(Icons.copy, color: theme.textMuted, size: 20),
                   ),
                 ],
               ),
@@ -425,8 +478,8 @@ class _ChatScreenState extends ConsumerState<ChatScreen>
                     icon: const Icon(Icons.open_in_new, size: 18),
                     label: const Text('Open in Browser'),
                     style: OutlinedButton.styleFrom(
-                      foregroundColor: const Color(0xFFE4E4E7),
-                      side: const BorderSide(color: Color(0xFF2A2D36)),
+                      foregroundColor: theme.text,
+                      side: BorderSide(color: theme.borderSubtle),
                       padding: const EdgeInsets.symmetric(vertical: 14),
                     ),
                   ),
@@ -441,7 +494,7 @@ class _ChatScreenState extends ConsumerState<ChatScreen>
                     icon: const Icon(Icons.share, size: 18),
                     label: const Text('Share'),
                     style: ElevatedButton.styleFrom(
-                      backgroundColor: const Color(0xFF3B82F6),
+                      backgroundColor: theme.primary,
                       foregroundColor: Colors.white,
                       padding: const EdgeInsets.symmetric(vertical: 14),
                     ),
@@ -466,18 +519,20 @@ class _ChatScreenState extends ConsumerState<ChatScreen>
       );
       if (!mounted) return;
 
+      final theme = OpenCodeTheme.of(context);
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Session is no longer shared'),
-          backgroundColor: Color(0xFF1F2128),
+        SnackBar(
+          content: const Text('Session is no longer shared'),
+          backgroundColor: theme.backgroundPanel,
         ),
       );
     } catch (e) {
       if (!mounted) return;
+      final theme = OpenCodeTheme.of(context);
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: Text('Failed to unshare: $e'),
-          backgroundColor: const Color(0xFFEF4444),
+          backgroundColor: theme.error,
         ),
       );
     }
@@ -485,12 +540,13 @@ class _ChatScreenState extends ConsumerState<ChatScreen>
 
   // Feature 9: Summarize/Compact Session
   Future<void> _compactSession() async {
+    final theme = OpenCodeTheme.of(context);
     final selectedModel = ref.read(selectionProvider).model;
     if (selectedModel == null) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Please select a model first'),
-          backgroundColor: Color(0xFFEF4444),
+        SnackBar(
+          content: const Text('Please select a model first'),
+          backgroundColor: theme.error,
         ),
       );
       return;
@@ -500,14 +556,11 @@ class _ChatScreenState extends ConsumerState<ChatScreen>
     final confirm = await showDialog<bool>(
       context: context,
       builder: (context) => AlertDialog(
-        backgroundColor: const Color(0xFF1F2128),
-        title: const Text(
-          'Compact Session?',
-          style: TextStyle(color: Color(0xFFE4E4E7)),
-        ),
-        content: const Text(
+        backgroundColor: theme.backgroundPanel,
+        title: Text('Compact Session?', style: TextStyle(color: theme.text)),
+        content: Text(
           'This will summarize older messages to free up context window space. This cannot be undone.',
-          style: TextStyle(color: Color(0xFF9CA3AF)),
+          style: TextStyle(color: theme.textMuted),
         ),
         actions: [
           TextButton(
@@ -516,10 +569,7 @@ class _ChatScreenState extends ConsumerState<ChatScreen>
           ),
           TextButton(
             onPressed: () => Navigator.pop(context, true),
-            child: const Text(
-              'Compact',
-              style: TextStyle(color: Color(0xFF3B82F6)),
-            ),
+            child: Text('Compact', style: TextStyle(color: theme.primary)),
           ),
         ],
       ),
@@ -542,30 +592,33 @@ class _ChatScreenState extends ConsumerState<ChatScreen>
       if (!mounted) return;
 
       if (success) {
+        final theme = OpenCodeTheme.of(context);
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('Session compacted successfully'),
-            backgroundColor: Color(0xFF1F2128),
+          SnackBar(
+            content: const Text('Session compacted successfully'),
+            backgroundColor: theme.backgroundPanel,
           ),
         );
         // Refresh context to show updated token count
         _loadSessionContext();
       } else {
         ref.read(chatSessionProvider.notifier).setCompacting(false);
+        final theme = OpenCodeTheme.of(context);
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('Failed to compact session'),
-            backgroundColor: Color(0xFFEF4444),
+          SnackBar(
+            content: const Text('Failed to compact session'),
+            backgroundColor: theme.error,
           ),
         );
       }
     } catch (e) {
       if (!mounted) return;
       ref.read(chatSessionProvider.notifier).setCompacting(false);
+      final theme = OpenCodeTheme.of(context);
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: Text('Failed to compact: $e'),
-          backgroundColor: const Color(0xFFEF4444),
+          backgroundColor: theme.error,
         ),
       );
     }
@@ -573,12 +626,13 @@ class _ChatScreenState extends ConsumerState<ChatScreen>
 
   // Feature 20: Initialize Project (Create AGENTS.md)
   Future<void> _initializeProject() async {
+    final theme = OpenCodeTheme.of(context);
     final selectedModel = ref.read(selectionProvider).model;
     if (selectedModel == null) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Please select a model first'),
-          backgroundColor: Color(0xFFEF4444),
+        SnackBar(
+          content: const Text('Please select a model first'),
+          backgroundColor: theme.error,
         ),
       );
       return;
@@ -588,14 +642,11 @@ class _ChatScreenState extends ConsumerState<ChatScreen>
     final confirm = await showDialog<bool>(
       context: context,
       builder: (context) => AlertDialog(
-        backgroundColor: const Color(0xFF1F2128),
-        title: const Text(
-          'Initialize Project?',
-          style: TextStyle(color: Color(0xFFE4E4E7)),
-        ),
-        content: const Text(
+        backgroundColor: theme.backgroundPanel,
+        title: Text('Initialize Project?', style: TextStyle(color: theme.text)),
+        content: Text(
           'This will analyze your project and create an AGENTS.md file with project-specific instructions for the AI.',
-          style: TextStyle(color: Color(0xFF9CA3AF)),
+          style: TextStyle(color: theme.textMuted),
         ),
         actions: [
           TextButton(
@@ -604,10 +655,7 @@ class _ChatScreenState extends ConsumerState<ChatScreen>
           ),
           TextButton(
             onPressed: () => Navigator.pop(context, true),
-            child: const Text(
-              'Initialize',
-              style: TextStyle(color: Color(0xFF10B981)),
-            ),
+            child: Text('Initialize', style: TextStyle(color: theme.success)),
           ),
         ],
       ),
@@ -622,10 +670,10 @@ class _ChatScreenState extends ConsumerState<ChatScreen>
 
     // Show a loading message
     messenger.showSnackBar(
-      const SnackBar(
-        content: Text('Initializing project...'),
-        backgroundColor: Color(0xFF1F2128),
-        duration: Duration(seconds: 2),
+      SnackBar(
+        content: const Text('Initializing project...'),
+        backgroundColor: theme.backgroundPanel,
+        duration: const Duration(seconds: 2),
       ),
     );
 
@@ -649,26 +697,29 @@ class _ChatScreenState extends ConsumerState<ChatScreen>
       if (!mounted) return;
 
       if (success) {
+        final theme = OpenCodeTheme.of(context);
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('Project initialized! AGENTS.md created.'),
-            backgroundColor: Color(0xFF10B981),
+          SnackBar(
+            content: const Text('Project initialized! AGENTS.md created.'),
+            backgroundColor: theme.success,
           ),
         );
       } else {
+        final theme = OpenCodeTheme.of(context);
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('Failed to initialize project'),
-            backgroundColor: Color(0xFFEF4444),
+          SnackBar(
+            content: const Text('Failed to initialize project'),
+            backgroundColor: theme.error,
           ),
         );
       }
     } catch (e) {
       if (!mounted) return;
+      final theme = OpenCodeTheme.of(context);
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: Text('Failed to initialize: $e'),
-          backgroundColor: const Color(0xFFEF4444),
+          backgroundColor: theme.error,
         ),
       );
     }
@@ -750,13 +801,14 @@ class _ChatScreenState extends ConsumerState<ChatScreen>
 
   @override
   Widget build(BuildContext context) {
+    final theme = OpenCodeTheme.of(context);
     final chatState = ref.watch(chatSessionProvider);
     final connection = ref.watch(connectionProvider);
 
     _maybeShowPermissionPrompt(chatState);
 
     return Scaffold(
-      backgroundColor: const Color(0xFF16161E),
+      backgroundColor: theme.background,
       // Use endDrawer for right-side sidebar that can be swiped from edge
       endDrawer: SessionSidebar(
         sessionTitle: widget.session.title,
@@ -831,8 +883,10 @@ class _ChatScreenState extends ConsumerState<ChatScreen>
               isBusy: _hasStreamingMessage(chatState.messages),
               canSend:
                   connection.isConnected &&
+                  !connection.isOfflineMode &&
                   !_hasStreamingMessage(chatState.messages) &&
                   _controller.text.trim().isNotEmpty,
+              isOfflineMode: connection.isOfflineMode,
             ),
           ),
 
@@ -912,11 +966,10 @@ class _ChatScreenState extends ConsumerState<ChatScreen>
   }
 
   Widget _buildScrollToBottomButton() {
-    const kCard = Color(0xFF1F2128);
-    const kMuted = Color(0xFF71717A);
+    final theme = OpenCodeTheme.of(context);
 
     return Material(
-      color: kCard,
+      color: theme.backgroundPanel,
       borderRadius: BorderRadius.circular(26),
       elevation: 4,
       child: InkWell(
@@ -928,11 +981,11 @@ class _ChatScreenState extends ConsumerState<ChatScreen>
           alignment: Alignment.center,
           decoration: BoxDecoration(
             borderRadius: BorderRadius.circular(26),
-            border: Border.all(color: fade(kMuted, 0.25), width: 1),
+            border: Border.all(color: fade(theme.textMuted, 0.25), width: 1),
           ),
-          child: const Icon(
+          child: Icon(
             Icons.keyboard_arrow_down,
-            color: Color(0xFF9CA3AF),
+            color: theme.textMuted,
             size: 24,
           ),
         ),
@@ -941,8 +994,9 @@ class _ChatScreenState extends ConsumerState<ChatScreen>
   }
 
   Widget _buildStopButton(BuildContext context) {
+    final theme = OpenCodeTheme.of(context);
     return Material(
-      color: const Color(0xFFEF4444),
+      color: theme.error,
       borderRadius: BorderRadius.circular(26),
       elevation: 4,
       child: InkWell(
@@ -971,13 +1025,14 @@ class _ChatScreenState extends ConsumerState<ChatScreen>
   }
 
   void _handleMenuAction(String value, ChatSessionState chatState) {
+    final theme = OpenCodeTheme.of(context);
     switch (value) {
       case 'new_session':
         // TODO: Implement new session
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('New session - coming soon'),
-            backgroundColor: Color(0xFF1F2128),
+          SnackBar(
+            content: const Text('New session - coming soon'),
+            backgroundColor: theme.backgroundPanel,
           ),
         );
         break;
@@ -1012,9 +1067,9 @@ class _ChatScreenState extends ConsumerState<ChatScreen>
           _revertMessage(lastEditMessage.id);
         } else {
           ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(
-              content: Text('No file changes to undo'),
-              backgroundColor: Color(0xFF1F2128),
+            SnackBar(
+              content: const Text('No file changes to undo'),
+              backgroundColor: theme.backgroundPanel,
             ),
           );
         }
@@ -1022,9 +1077,9 @@ class _ChatScreenState extends ConsumerState<ChatScreen>
       case 'clear':
         // TODO: Implement clear chat
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('Clear chat - coming soon'),
-            backgroundColor: Color(0xFF1F2128),
+          SnackBar(
+            content: const Text('Clear chat - coming soon'),
+            backgroundColor: theme.backgroundPanel,
           ),
         );
         break;
@@ -1032,18 +1087,16 @@ class _ChatScreenState extends ConsumerState<ChatScreen>
   }
 
   void _showStopConfirmation(BuildContext context) {
+    final theme = OpenCodeTheme.of(context);
     _haptics.mediumImpact();
     showDialog(
       context: context,
       builder: (context) => AlertDialog(
-        backgroundColor: const Color(0xFF1F2128),
-        title: const Text(
-          'Stop Generation?',
-          style: TextStyle(color: Color(0xFFE4E4E7)),
-        ),
-        content: const Text(
+        backgroundColor: theme.backgroundPanel,
+        title: Text('Stop Generation?', style: TextStyle(color: theme.text)),
+        content: Text(
           'This will abort the current AI response.',
-          style: TextStyle(color: Color(0xFF9CA3AF)),
+          style: TextStyle(color: theme.textMuted),
         ),
         actions: [
           TextButton(
@@ -1055,10 +1108,7 @@ class _ChatScreenState extends ConsumerState<ChatScreen>
               ref.read(bridgeServiceProvider).abortSession(widget.session.id);
               Navigator.pop(context);
             },
-            child: const Text(
-              'Stop',
-              style: TextStyle(color: Color(0xFFEF4444)),
-            ),
+            child: Text('Stop', style: TextStyle(color: theme.error)),
           ),
         ],
       ),
@@ -1066,6 +1116,7 @@ class _ChatScreenState extends ConsumerState<ChatScreen>
   }
 
   void _showModelSelector(BuildContext context) {
+    final theme = OpenCodeTheme.of(context);
     showModalBottomSheet(
       context: context,
       isScrollControlled: true,
@@ -1077,7 +1128,7 @@ class _ChatScreenState extends ConsumerState<ChatScreen>
           ScaffoldMessenger.of(context).showSnackBar(
             SnackBar(
               content: Text('Switched to $model'),
-              backgroundColor: const Color(0xFF1F2128),
+              backgroundColor: theme.backgroundPanel,
               behavior: SnackBarBehavior.floating,
             ),
           );
@@ -1243,9 +1294,10 @@ class _FloatingHeader extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    const kCard = Color(0xFF1F2128);
-    const kMuted = Color(0xFF71717A);
-    const kOnBackground = Color(0xFFE4E4E7);
+    final theme = OpenCodeTheme.of(context);
+    final kCard = theme.backgroundPanel;
+    final kMuted = theme.textMuted;
+    final kOnBackground = theme.text;
 
     return Container(
       padding: EdgeInsets.fromLTRB(
@@ -1274,7 +1326,7 @@ class _FloatingHeader extends StatelessWidget {
                       borderRadius: BorderRadius.circular(20),
                       border: Border.all(color: fade(kMuted, 0.2), width: 0.5),
                     ),
-                    child: const Icon(
+                    child: Icon(
                       Icons.arrow_back_rounded,
                       color: kOnBackground,
                       size: 24,
@@ -1304,7 +1356,7 @@ class _FloatingHeader extends StatelessWidget {
                     child: Row(
                       mainAxisSize: MainAxisSize.min,
                       children: [
-                        const Icon(
+                        Icon(
                           Icons.folder_outlined,
                           size: 16,
                           color: kOnBackground,
@@ -1313,7 +1365,7 @@ class _FloatingHeader extends StatelessWidget {
                         Flexible(
                           child: Text(
                             projectName,
-                            style: const TextStyle(
+                            style: TextStyle(
                               fontWeight: FontWeight.w600,
                               fontSize: 13,
                               color: kOnBackground,
@@ -1352,17 +1404,17 @@ class _FloatingHeader extends StatelessWidget {
                       child: Row(
                         mainAxisSize: MainAxisSize.min,
                         children: [
-                          const Icon(
+                          Icon(
                             Icons.call_split_rounded,
                             size: 12,
-                            color: Color(0xFF10B981),
+                            color: theme.success,
                           ),
                           const SizedBox(width: 4),
                           ConstrainedBox(
                             constraints: const BoxConstraints(maxWidth: 50),
                             child: Text(
                               vcsInfo!.branch ?? '',
-                              style: const TextStyle(
+                              style: TextStyle(
                                 fontSize: 11,
                                 color: kOnBackground,
                                 fontWeight: FontWeight.w500,
@@ -1424,7 +1476,7 @@ class _FloatingHeader extends StatelessWidget {
                         const SizedBox(width: 6),
                         Text(
                           _getModelName(currentModel),
-                          style: const TextStyle(
+                          style: TextStyle(
                             fontSize: 11,
                             color: kOnBackground,
                             fontWeight: FontWeight.w600,
@@ -1464,7 +1516,7 @@ class _FloatingHeader extends StatelessWidget {
                       borderRadius: BorderRadius.circular(18),
                       border: Border.all(color: fade(kMuted, 0.2), width: 0.5),
                     ),
-                    child: const Icon(
+                    child: Icon(
                       Icons.menu_open_rounded,
                       color: kOnBackground,
                       size: 20,
@@ -1488,7 +1540,7 @@ class _FloatingHeader extends StatelessWidget {
                     border: Border.all(color: fade(kMuted, 0.2), width: 0.5),
                   ),
                   child: PopupMenuButton<String>(
-                    icon: const Icon(
+                    icon: Icon(
                       Icons.more_vert_rounded,
                       color: kOnBackground,
                       size: 20,
@@ -1499,7 +1551,7 @@ class _FloatingHeader extends StatelessWidget {
                     ),
                     onSelected: onMenu,
                     itemBuilder: (context) => [
-                      const PopupMenuItem(
+                      PopupMenuItem(
                         value: 'new_session',
                         child: Row(
                           children: [
@@ -1508,13 +1560,13 @@ class _FloatingHeader extends StatelessWidget {
                               size: 20,
                               color: kOnBackground,
                             ),
-                            SizedBox(width: 12),
-                            Text('New Session'),
+                            const SizedBox(width: 12),
+                            const Text('New Session'),
                           ],
                         ),
                       ),
                       // Feature 6: Fork Session
-                      const PopupMenuItem(
+                      PopupMenuItem(
                         value: 'fork',
                         child: Row(
                           children: [
@@ -1523,8 +1575,8 @@ class _FloatingHeader extends StatelessWidget {
                               size: 20,
                               color: kOnBackground,
                             ),
-                            SizedBox(width: 12),
-                            Text('Fork Session'),
+                            const SizedBox(width: 12),
+                            const Text('Fork Session'),
                           ],
                         ),
                       ),
@@ -1567,56 +1619,56 @@ class _FloatingHeader extends StatelessWidget {
                         ),
                       ),
                       // Feature 20: Initialize Project (Create AGENTS.md)
-                      const PopupMenuItem(
+                      PopupMenuItem(
                         value: 'init',
                         child: Row(
                           children: [
                             Icon(
                               Icons.auto_fix_high_rounded,
                               size: 20,
-                              color: Color(0xFF10B981),
+                              color: theme.success,
                             ),
-                            SizedBox(width: 12),
+                            const SizedBox(width: 12),
                             Text(
                               'Initialize Project',
-                              style: TextStyle(color: Color(0xFF10B981)),
+                              style: TextStyle(color: theme.success),
                             ),
                           ],
                         ),
                       ),
                       const PopupMenuDivider(),
                       // Feature 7: Undo Last Changes
-                      const PopupMenuItem(
+                      PopupMenuItem(
                         value: 'undo',
                         child: Row(
                           children: [
                             Icon(
                               Icons.undo_rounded,
                               size: 20,
-                              color: Color(0xFFF59E0B),
+                              color: theme.warning,
                             ),
-                            SizedBox(width: 12),
+                            const SizedBox(width: 12),
                             Text(
                               'Undo Last Changes',
-                              style: TextStyle(color: Color(0xFFF59E0B)),
+                              style: TextStyle(color: theme.warning),
                             ),
                           ],
                         ),
                       ),
                       const PopupMenuDivider(),
-                      const PopupMenuItem(
+                      PopupMenuItem(
                         value: 'clear',
                         child: Row(
                           children: [
                             Icon(
                               Icons.delete_outline_rounded,
                               size: 20,
-                              color: Color(0xFFEF4444),
+                              color: theme.error,
                             ),
-                            SizedBox(width: 12),
+                            const SizedBox(width: 12),
                             Text(
                               'Clear Chat',
-                              style: TextStyle(color: Color(0xFFEF4444)),
+                              style: TextStyle(color: theme.error),
                             ),
                           ],
                         ),
@@ -1652,19 +1704,22 @@ class _FloatingInputBar extends StatelessWidget {
     required this.onSend,
     required this.isBusy,
     required this.canSend,
+    this.isOfflineMode = false,
   });
 
   final TextEditingController controller;
   final VoidCallback onSend;
   final bool isBusy;
   final bool canSend;
+  final bool isOfflineMode;
 
   @override
   Widget build(BuildContext context) {
-    const kCard = Color(0xFF1F2128);
-    const kMuted = Color(0xFF71717A);
-    const kOnBackground = Color(0xFFE4E4E7);
-    const kBackground = Color(0xFF16161E);
+    final theme = OpenCodeTheme.of(context);
+    final kCard = theme.backgroundPanel;
+    final kMuted = theme.textMuted;
+    final kOnBackground = theme.text;
+    final kBackground = theme.background;
 
     return Container(
       padding: const EdgeInsets.fromLTRB(16, 4, 16, 4),
@@ -1680,8 +1735,8 @@ class _FloatingInputBar extends StatelessWidget {
               onTap: () {
                 // TODO: Add attach/upload functionality
                 ScaffoldMessenger.of(context).showSnackBar(
-                  const SnackBar(
-                    content: Text('Attach files - coming soon'),
+                  SnackBar(
+                    content: const Text('Attach files - coming soon'),
                     backgroundColor: kCard,
                     behavior: SnackBarBehavior.floating,
                   ),
@@ -1703,7 +1758,7 @@ class _FloatingInputBar extends StatelessWidget {
                     ),
                   ],
                 ),
-                child: const Center(
+                child: Center(
                   child: Icon(
                     Icons.add_rounded,
                     color: kOnBackground,
@@ -1739,15 +1794,18 @@ class _FloatingInputBar extends StatelessWidget {
                     Expanded(
                       child: TextField(
                         controller: controller,
+                        enabled: !isOfflineMode,
                         minLines: 1,
                         maxLines: 5,
-                        style: const TextStyle(
+                        style: TextStyle(
                           fontWeight: FontWeight.w500,
                           color: kOnBackground,
                           fontSize: 15,
                         ),
                         decoration: InputDecoration(
-                          hintText: 'Ask AI to edit code...',
+                          hintText: isOfflineMode
+                              ? 'Offline mode - read only'
+                              : 'Ask AI to edit code...',
                           filled: false,
                           border: InputBorder.none,
                           enabledBorder: InputBorder.none,
@@ -1755,8 +1813,8 @@ class _FloatingInputBar extends StatelessWidget {
                           disabledBorder: InputBorder.none,
                           errorBorder: InputBorder.none,
                           focusedErrorBorder: InputBorder.none,
-                          hintStyle: const TextStyle(
-                            color: kMuted,
+                          hintStyle: TextStyle(
+                            color: isOfflineMode ? theme.warning : kMuted,
                             fontWeight: FontWeight.w500,
                             fontSize: 15,
                           ),
@@ -1861,14 +1919,15 @@ class _ModelSelectorSheetState extends ConsumerState<_ModelSelectorSheet> {
 
   @override
   Widget build(BuildContext context) {
-    const kBackground = Color(0xFF16161E);
-    const kOnBackground = Color(0xFFE4E4E7);
-    const kMuted = Color(0xFF71717A);
+    final theme = OpenCodeTheme.of(context);
+    final kBackground = theme.background;
+    final kOnBackground = theme.text;
+    final kMuted = theme.textMuted;
 
     return Container(
-      decoration: const BoxDecoration(
+      decoration: BoxDecoration(
         color: kBackground,
-        borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+        borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
       ),
       child: DraggableScrollableSheet(
         initialChildSize: 0.6,
@@ -1877,8 +1936,8 @@ class _ModelSelectorSheetState extends ConsumerState<_ModelSelectorSheet> {
         expand: false,
         builder: (context, scrollController) {
           if (_loading) {
-            return const Center(
-              child: CircularProgressIndicator(color: Color(0xFF3B82F6)),
+            return Center(
+              child: CircularProgressIndicator(color: theme.primary),
             );
           }
 
@@ -1888,7 +1947,7 @@ class _ModelSelectorSheetState extends ConsumerState<_ModelSelectorSheet> {
                 padding: const EdgeInsets.all(20),
                 child: Text(
                   'Failed to load models: $_error',
-                  style: const TextStyle(color: kMuted),
+                  style: TextStyle(color: kMuted),
                 ),
               ),
             );
@@ -1901,7 +1960,7 @@ class _ModelSelectorSheetState extends ConsumerState<_ModelSelectorSheet> {
             controller: scrollController,
             padding: const EdgeInsets.all(20),
             children: [
-              const Text(
+              Text(
                 'Select Model',
                 style: TextStyle(
                   fontSize: 20,
@@ -1915,11 +1974,11 @@ class _ModelSelectorSheetState extends ConsumerState<_ModelSelectorSheet> {
                   padding: const EdgeInsets.only(bottom: 16),
                   child: Text(
                     'Current: $_currentModel',
-                    style: const TextStyle(fontSize: 13, color: kMuted),
+                    style: TextStyle(fontSize: 13, color: kMuted),
                   ),
                 ),
               if (providers.isEmpty)
-                const Text(
+                Text(
                   'No providers configured.',
                   style: TextStyle(color: kMuted),
                 )
@@ -1936,8 +1995,9 @@ class _ModelSelectorSheetState extends ConsumerState<_ModelSelectorSheet> {
   }
 
   Widget _buildProviderSection(Map<String, dynamic> provider) {
-    const kOnBackground = Color(0xFFE4E4E7);
-    const kMuted = Color(0xFF71717A);
+    final theme = OpenCodeTheme.of(context);
+    final kOnBackground = theme.text;
+    final kMuted = theme.textMuted;
 
     final id = provider['id'] as String? ?? 'provider';
     final name = provider['name'] as String? ?? id;
@@ -1948,7 +2008,7 @@ class _ModelSelectorSheetState extends ConsumerState<_ModelSelectorSheet> {
       children: [
         Text(
           name,
-          style: const TextStyle(
+          style: TextStyle(
             fontSize: 16,
             fontWeight: FontWeight.w600,
             color: kOnBackground,
@@ -1960,15 +2020,15 @@ class _ModelSelectorSheetState extends ConsumerState<_ModelSelectorSheet> {
             dense: true,
             contentPadding: EdgeInsets.zero,
             leading: _currentModel == '$id/${entry.key}'
-                ? const Icon(Icons.check_circle, color: Color(0xFF10B981))
-                : const Icon(Icons.circle_outlined, color: Color(0xFF52525B)),
+                ? Icon(Icons.check_circle, color: theme.success)
+                : Icon(Icons.circle_outlined, color: theme.borderSubtle),
             title: Text(
               entry.value['name'] as String? ?? entry.key,
-              style: const TextStyle(color: kOnBackground),
+              style: TextStyle(color: kOnBackground),
             ),
             subtitle: Text(
               entry.key,
-              style: const TextStyle(fontSize: 12, color: kMuted),
+              style: TextStyle(fontSize: 12, color: kMuted),
             ),
             onTap: () => _selectModel(id, entry.key),
           ),
@@ -1986,11 +2046,12 @@ class _CommandAutocomplete extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    const kCard = Color(0xFF1F2128);
-    const kBorder = Color(0xFF2A2D36);
-    const kOnBackground = Color(0xFFE4E4E7);
-    const kMuted = Color(0xFF71717A);
-    const kAccent = Color(0xFF3B82F6);
+    final theme = OpenCodeTheme.of(context);
+    final kCard = theme.backgroundPanel;
+    final kBorder = theme.borderSubtle;
+    final kOnBackground = theme.text;
+    final kMuted = theme.textMuted;
+    final kAccent = theme.primary;
 
     if (commands.isEmpty) {
       return const SizedBox.shrink();
@@ -2049,7 +2110,7 @@ class _CommandAutocomplete extends StatelessWidget {
                         children: [
                           Text(
                             command.displayName,
-                            style: const TextStyle(
+                            style: TextStyle(
                               fontSize: 14,
                               fontWeight: FontWeight.w600,
                               color: kOnBackground,
@@ -2058,7 +2119,7 @@ class _CommandAutocomplete extends StatelessWidget {
                           const SizedBox(height: 2),
                           Text(
                             command.shortDescription,
-                            style: const TextStyle(fontSize: 12, color: kMuted),
+                            style: TextStyle(fontSize: 12, color: kMuted),
                             maxLines: 1,
                             overflow: TextOverflow.ellipsis,
                           ),
@@ -2076,7 +2137,7 @@ class _CommandAutocomplete extends StatelessWidget {
                           color: kMuted.withValues(alpha: 0.2),
                           borderRadius: BorderRadius.circular(6),
                         ),
-                        child: const Text(
+                        child: Text(
                           'built-in',
                           style: TextStyle(
                             fontSize: 10,
@@ -2110,9 +2171,10 @@ class _AgentSelector extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    const kCard = Color(0xFF1F2128);
-    const kMuted = Color(0xFF71717A);
-    const kOnBackground = Color(0xFFE4E4E7);
+    final theme = OpenCodeTheme.of(context);
+    final kCard = theme.backgroundPanel;
+    final kMuted = theme.textMuted;
+    final kOnBackground = theme.text;
 
     // Get only primary agents for selection
     final primaryAgents = agents.where((a) => a.isPrimary).toList();
@@ -2150,18 +2212,14 @@ class _AgentSelector extends StatelessWidget {
             const SizedBox(width: 8),
             Text(
               current.displayName,
-              style: const TextStyle(
+              style: TextStyle(
                 fontSize: 12,
                 color: kOnBackground,
                 fontWeight: FontWeight.w600,
               ),
             ),
             const SizedBox(width: 4),
-            const Icon(
-              Icons.keyboard_arrow_down_rounded,
-              size: 16,
-              color: kMuted,
-            ),
+            Icon(Icons.keyboard_arrow_down_rounded, size: 16, color: kMuted),
           ],
         ),
       ),
@@ -2198,7 +2256,7 @@ class _AgentSelector extends StatelessWidget {
                     ),
                     Text(
                       agent.shortDescription,
-                      style: const TextStyle(fontSize: 11, color: kMuted),
+                      style: TextStyle(fontSize: 11, color: kMuted),
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
                     ),
@@ -2206,11 +2264,7 @@ class _AgentSelector extends StatelessWidget {
                 ),
               ),
               if (isSelected)
-                const Icon(
-                  Icons.check_rounded,
-                  size: 18,
-                  color: Color(0xFF10B981),
-                ),
+                Icon(Icons.check_rounded, size: 18, color: theme.success),
             ],
           ),
         );
@@ -2270,18 +2324,19 @@ class _StatusIndicatorState extends State<_StatusIndicator>
 
   @override
   Widget build(BuildContext context) {
+    final theme = OpenCodeTheme.of(context);
     final status = widget.sessionStatus;
 
     // Connection color
     Color baseColor;
     if (!widget.isConnected) {
-      baseColor = const Color(0xFFEF4444); // Red - disconnected
+      baseColor = theme.error; // Red - disconnected
     } else if (status.isBusy) {
-      baseColor = const Color(0xFF60A5FA); // Blue - busy/working
+      baseColor = theme.info; // Blue - busy/working
     } else if (status.isRetry) {
-      baseColor = const Color(0xFFFBBF24); // Yellow - retry
+      baseColor = theme.warning; // Yellow - retry
     } else {
-      baseColor = const Color(0xFF10B981); // Green - idle/connected
+      baseColor = theme.success; // Green - idle/connected
     }
 
     // Pulsing animation for busy/retry states

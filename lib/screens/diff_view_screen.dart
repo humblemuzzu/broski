@@ -5,6 +5,7 @@ import 'package:flutter/services.dart';
 import 'package:google_fonts/google_fonts.dart';
 
 import '../models/message.dart';
+import '../theme/opencode_theme.dart';
 import '../utils/diff_utils.dart';
 
 class DiffViewScreen extends StatefulWidget {
@@ -28,13 +29,6 @@ class DiffViewScreen extends StatefulWidget {
 }
 
 class _DiffViewScreenState extends State<DiffViewScreen> {
-  static const _kBg = Color(0xFF16161E);
-  static const _kCard = Color(0xFF1F2128);
-  static const _kBorder = Color(0xFF2A2D36);
-  static const _kText = Color(0xFFE4E4E7);
-  static const _kAdd = Color(0xFF10B981);
-  static const _kDel = Color(0xFFEF4444);
-
   late String _diffText;
   late List<DiffLine> _lines;
 
@@ -63,6 +57,7 @@ class _DiffViewScreenState extends State<DiffViewScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final ocTheme = OpenCodeTheme.of(context);
     final fileName = _fileName(widget.diff.file);
     final canUndo =
         widget.onUndo != null &&
@@ -75,10 +70,10 @@ class _DiffViewScreenState extends State<DiffViewScreen> {
     final gutterDigits = max(_digits(maxOld), _digits(maxNew));
 
     return Scaffold(
-      backgroundColor: _kBg,
+      backgroundColor: ocTheme.background,
       appBar: AppBar(
-        backgroundColor: _kBg,
-        foregroundColor: _kText,
+        backgroundColor: ocTheme.background,
+        foregroundColor: ocTheme.text,
         elevation: 0,
         titleSpacing: 0,
         title: Column(
@@ -96,9 +91,9 @@ class _DiffViewScreenState extends State<DiffViewScreen> {
                 if (widget.diff.additions > 0)
                   Text(
                     '+${widget.diff.additions}',
-                    style: const TextStyle(
+                    style: TextStyle(
                       fontSize: 12,
-                      color: _kAdd,
+                      color: ocTheme.success,
                       fontWeight: FontWeight.w600,
                     ),
                   ),
@@ -107,9 +102,9 @@ class _DiffViewScreenState extends State<DiffViewScreen> {
                 if (widget.diff.deletions > 0)
                   Text(
                     '-${widget.diff.deletions}',
-                    style: const TextStyle(
+                    style: TextStyle(
                       fontSize: 12,
-                      color: _kDel,
+                      color: ocTheme.error,
                       fontWeight: FontWeight.w600,
                     ),
                   ),
@@ -131,10 +126,8 @@ class _DiffViewScreenState extends State<DiffViewScreen> {
           if (canUndo)
             IconButton(
               tooltip: 'Undo',
-              onPressed: () => widget.onUndo!(
-                widget.messageId!,
-                widget.diff.partId!,
-              ),
+              onPressed: () =>
+                  widget.onUndo!(widget.messageId!, widget.diff.partId!),
               icon: const Icon(Icons.undo_rounded),
             ),
         ],
@@ -150,9 +143,9 @@ class _DiffViewScreenState extends State<DiffViewScreen> {
         child: Container(
           margin: const EdgeInsets.fromLTRB(16, 10, 16, 16),
           decoration: BoxDecoration(
-            color: _kCard,
+            color: ocTheme.backgroundPanel,
             borderRadius: BorderRadius.circular(16),
-            border: Border.all(color: _kBorder),
+            border: Border.all(color: ocTheme.borderSubtle),
           ),
           clipBehavior: Clip.antiAlias,
           child: ListView.builder(
@@ -175,12 +168,13 @@ class _DiffViewScreenState extends State<DiffViewScreen> {
   Future<void> _copy(BuildContext context) async {
     await Clipboard.setData(ClipboardData(text: _diffText));
     if (!context.mounted) return;
+    final ocTheme = OpenCodeTheme.of(context);
     ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(
-        content: Text('Diff copied'),
+      SnackBar(
+        content: const Text('Diff copied'),
         behavior: SnackBarBehavior.floating,
-        backgroundColor: _kCard,
-        duration: Duration(seconds: 2),
+        backgroundColor: ocTheme.backgroundPanel,
+        duration: const Duration(seconds: 2),
       ),
     );
   }
@@ -213,21 +207,17 @@ class _DiffRow extends StatelessWidget {
     required this.gutterDigits,
   });
 
-  static const _kGutterBg = Color(0xFF17181C);
-  static const _kText = Color(0xFFE4E4E7);
-  static const _kMuted = Color(0xFF9CA3AF);
-  static const _kAdd = Color(0xFF10B981);
-  static const _kDel = Color(0xFFEF4444);
-
   final DiffLine line;
   final double fontSize;
   final int gutterDigits;
 
   @override
   Widget build(BuildContext context) {
-    final bg = _background(line.kind);
-    final fg = _foreground(line.kind);
-    final showGutter = line.kind != DiffLineKind.header &&
+    final ocTheme = OpenCodeTheme.of(context);
+    final bg = _background(line.kind, ocTheme);
+    final fg = _foreground(line.kind, ocTheme);
+    final showGutter =
+        line.kind != DiffLineKind.header &&
         line.kind != DiffLineKind.hunk &&
         line.kind != DiffLineKind.meta;
 
@@ -240,14 +230,14 @@ class _DiffRow extends StatelessWidget {
           if (showGutter)
             Container(
               decoration: BoxDecoration(
-                color: _kGutterBg,
+                color: ocTheme.backgroundElement,
                 borderRadius: BorderRadius.circular(8),
               ),
               padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
               child: DefaultTextStyle(
                 style: GoogleFonts.jetBrainsMono(
                   fontSize: fontSize - 1,
-                  color: _kMuted,
+                  color: ocTheme.textMuted,
                   height: 1.4,
                 ),
                 child: Row(
@@ -295,12 +285,12 @@ class _DiffRow extends StatelessWidget {
     );
   }
 
-  Color _background(DiffLineKind kind) {
+  Color _background(DiffLineKind kind, OpenCodeTheme ocTheme) {
     switch (kind) {
       case DiffLineKind.added:
-        return _kAdd.withValues(alpha: 0.10);
+        return ocTheme.success.withValues(alpha: 0.10);
       case DiffLineKind.removed:
-        return _kDel.withValues(alpha: 0.10);
+        return ocTheme.error.withValues(alpha: 0.10);
       case DiffLineKind.hunk:
       case DiffLineKind.header:
       case DiffLineKind.meta:
@@ -310,18 +300,18 @@ class _DiffRow extends StatelessWidget {
     }
   }
 
-  Color _foreground(DiffLineKind kind) {
+  Color _foreground(DiffLineKind kind, OpenCodeTheme ocTheme) {
     switch (kind) {
       case DiffLineKind.added:
-        return _kAdd;
+        return ocTheme.success;
       case DiffLineKind.removed:
-        return _kDel;
+        return ocTheme.error;
       case DiffLineKind.hunk:
       case DiffLineKind.header:
       case DiffLineKind.meta:
-        return _kMuted;
+        return ocTheme.textMuted;
       case DiffLineKind.context:
-        return _kText;
+        return ocTheme.text;
     }
   }
 }

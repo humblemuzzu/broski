@@ -5,6 +5,7 @@ import 'package:flutter_highlight/themes/atom-one-dark.dart';
 import 'package:google_fonts/google_fonts.dart';
 
 import '../models/message.dart';
+import '../theme/opencode_theme.dart';
 
 class ToolCallCard extends StatefulWidget {
   const ToolCallCard({
@@ -33,8 +34,9 @@ class _ToolCallCardState extends State<ToolCallCard> {
 
   @override
   Widget build(BuildContext context) {
+    final theme = OpenCodeTheme.of(context);
     final icon = _getToolIcon(widget.tool.name);
-    final statusColor = _getStatusColor(widget.tool.status);
+    final statusColor = _getStatusColor(widget.tool.status, theme);
 
     return GestureDetector(
       onTap: () => setState(() => _isExpanded = !_isExpanded),
@@ -44,9 +46,9 @@ class _ToolCallCardState extends State<ToolCallCard> {
         margin: const EdgeInsets.symmetric(horizontal: 0, vertical: 6),
         padding: const EdgeInsets.all(16),
         decoration: BoxDecoration(
-          color: const Color(0xFF1F2128),
+          color: theme.backgroundPanel,
           borderRadius: BorderRadius.circular(18),
-          border: Border.all(color: const Color(0xFF2A2D36), width: 1),
+          border: Border.all(color: theme.borderSubtle, width: 1),
           boxShadow: widget.tool.status == 'running'
               ? [
                   BoxShadow(
@@ -78,19 +80,16 @@ class _ToolCallCardState extends State<ToolCallCard> {
                     children: [
                       Text(
                         _getToolTitle(widget.tool),
-                        style: const TextStyle(
+                        style: TextStyle(
                           fontSize: 14,
                           fontWeight: FontWeight.w600,
-                          color: Color(0xFFE4E4E7),
+                          color: theme.text,
                         ),
                       ),
                       const SizedBox(height: 3),
                       Text(
                         _getToolSummary(widget.tool),
-                        style: const TextStyle(
-                          fontSize: 13,
-                          color: Color(0xFF9CA3AF),
-                        ),
+                        style: TextStyle(fontSize: 13, color: theme.textMuted),
                         maxLines: 1,
                         overflow: TextOverflow.ellipsis,
                       ),
@@ -101,7 +100,7 @@ class _ToolCallCardState extends State<ToolCallCard> {
                   _isExpanded
                       ? Icons.keyboard_arrow_up
                       : Icons.keyboard_arrow_down,
-                  color: const Color(0xFF71717A),
+                  color: theme.textMuted,
                   size: 22,
                 ),
               ],
@@ -110,15 +109,15 @@ class _ToolCallCardState extends State<ToolCallCard> {
             // Expanded content
             if (_isExpanded) ...[
               const SizedBox(height: 14),
-              Container(height: 1, color: const Color(0xFF2A2D36)),
+              Container(height: 1, color: theme.borderSubtle),
               const SizedBox(height: 14),
 
               // Code content
-              if (_hasCodeContent(widget.tool)) _buildCodePreview(),
+              if (_hasCodeContent(widget.tool)) _buildCodePreview(theme),
 
               // Output
               if (widget.tool.output != null && widget.tool.output!.isNotEmpty)
-                _buildOutput(widget.tool.output!),
+                _buildOutput(widget.tool.output!, theme),
 
               // Actions
               const SizedBox(height: 10),
@@ -128,48 +127,33 @@ class _ToolCallCardState extends State<ToolCallCard> {
                     _buildStatusChip(
                       Icons.check_circle,
                       'Completed',
-                      const Color(0xFF10B981),
+                      theme.success,
                     ),
                   if (widget.tool.status == 'error')
-                    _buildStatusChip(
-                      Icons.error,
-                      'Failed',
-                      const Color(0xFFEF4444),
-                    ),
+                    _buildStatusChip(Icons.error, 'Failed', theme.error),
                   if (widget.tool.status == 'running')
-                    _buildStatusChip(
-                      Icons.sync,
-                      'Running',
-                      const Color(0xFF60A5FA),
-                    ),
+                    _buildStatusChip(Icons.sync, 'Running', theme.info),
                   const Spacer(),
                   // Feature 7: Undo button for edit/write tools
                   if (_canUndo && widget.onUndo != null)
                     TextButton.icon(
                       onPressed: _handleUndo,
-                      icon: const Icon(
+                      icon: Icon(
                         Icons.undo_rounded,
                         size: 14,
-                        color: Color(0xFFF59E0B),
+                        color: theme.warning,
                       ),
-                      label: const Text(
+                      label: Text(
                         'Undo',
-                        style: TextStyle(
-                          fontSize: 13,
-                          color: Color(0xFFF59E0B),
-                        ),
+                        style: TextStyle(fontSize: 13, color: theme.warning),
                       ),
                     ),
                   TextButton.icon(
                     onPressed: _copyToClipboard,
-                    icon: const Icon(
-                      Icons.copy,
-                      size: 14,
-                      color: Color(0xFF9CA3AF),
-                    ),
-                    label: const Text(
+                    icon: Icon(Icons.copy, size: 14, color: theme.textMuted),
+                    label: Text(
                       'Copy',
-                      style: TextStyle(fontSize: 13, color: Color(0xFF9CA3AF)),
+                      style: TextStyle(fontSize: 13, color: theme.textMuted),
                     ),
                   ),
                 ],
@@ -181,7 +165,7 @@ class _ToolCallCardState extends State<ToolCallCard> {
     );
   }
 
-  Widget _buildCodePreview() {
+  Widget _buildCodePreview(OpenCodeTheme theme) {
     final codeLines = _getCodeLines();
     if (codeLines.isEmpty) return const SizedBox.shrink();
 
@@ -196,9 +180,9 @@ class _ToolCallCardState extends State<ToolCallCard> {
         Container(
           padding: const EdgeInsets.all(14),
           decoration: BoxDecoration(
-            color: const Color(0xFF17181C),
+            color: theme.backgroundElement,
             borderRadius: BorderRadius.circular(14),
-            border: Border.all(color: const Color(0xFF2A2D36)),
+            border: Border.all(color: theme.borderSubtle),
           ),
           child: HighlightView(
             preview,
@@ -224,8 +208,8 @@ class _ToolCallCardState extends State<ToolCallCard> {
                     _showAllCode
                         ? 'Show less'
                         : 'Show ${codeLines.length - shown.length} more lines →',
-                    style: const TextStyle(
-                      color: Color(0xFF60A5FA),
+                    style: TextStyle(
+                      color: theme.info,
                       fontSize: 13,
                       fontWeight: FontWeight.w500,
                     ),
@@ -238,7 +222,7 @@ class _ToolCallCardState extends State<ToolCallCard> {
     );
   }
 
-  Widget _buildOutput(String output) {
+  Widget _buildOutput(String output, OpenCodeTheme theme) {
     final lines = output.split('\n');
     final shown = _showAllOutput ? lines : lines.take(6).toList();
     final preview = shown.join('\n');
@@ -248,27 +232,27 @@ class _ToolCallCardState extends State<ToolCallCard> {
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         const SizedBox(height: 10),
-        const Text(
+        Text(
           'Output',
           style: TextStyle(
             fontSize: 13,
             fontWeight: FontWeight.w600,
-            color: Color(0xFF9CA3AF),
+            color: theme.textMuted,
           ),
         ),
         const SizedBox(height: 8),
         Container(
           padding: const EdgeInsets.all(14),
           decoration: BoxDecoration(
-            color: const Color(0xFF17181C),
+            color: theme.backgroundElement,
             borderRadius: BorderRadius.circular(14),
-            border: Border.all(color: const Color(0xFF2A2D36)),
+            border: Border.all(color: theme.borderSubtle),
           ),
           child: Text(
             preview,
             style: GoogleFonts.jetBrainsMono(
               fontSize: 12,
-              color: const Color(0xFFD4D4D8),
+              color: theme.text,
               height: 1.6,
             ),
           ),
@@ -289,8 +273,8 @@ class _ToolCallCardState extends State<ToolCallCard> {
                     _showAllOutput
                         ? 'Show less'
                         : 'Show ${lines.length - shown.length} more lines →',
-                    style: const TextStyle(
-                      color: Color(0xFF60A5FA),
+                    style: TextStyle(
+                      color: theme.info,
                       fontSize: 13,
                       fontWeight: FontWeight.w500,
                     ),
@@ -349,19 +333,19 @@ class _ToolCallCardState extends State<ToolCallCard> {
     }
   }
 
-  Color _getStatusColor(String status) {
+  Color _getStatusColor(String status, OpenCodeTheme theme) {
     switch (status.toLowerCase()) {
       case 'completed':
       case 'success':
-        return const Color(0xFF10B981);
+        return theme.success;
       case 'error':
       case 'failed':
-        return const Color(0xFFEF4444);
+        return theme.error;
       case 'running':
       case 'pending':
-        return const Color(0xFF60A5FA);
+        return theme.info;
       default:
-        return const Color(0xFF71717A);
+        return theme.textMuted;
     }
   }
 
@@ -485,12 +469,13 @@ class _ToolCallCardState extends State<ToolCallCard> {
         widget.tool.input['content'] as String? ?? widget.tool.output ?? '';
     if (content.isNotEmpty) {
       Clipboard.setData(ClipboardData(text: content));
+      final theme = OpenCodeTheme.of(context);
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Copied to clipboard'),
+        SnackBar(
+          content: const Text('Copied to clipboard'),
           behavior: SnackBarBehavior.floating,
-          backgroundColor: Color(0xFF1F2128),
-          duration: Duration(seconds: 2),
+          backgroundColor: theme.backgroundPanel,
+          duration: const Duration(seconds: 2),
         ),
       );
     }

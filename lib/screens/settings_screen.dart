@@ -4,6 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../providers/connection_provider.dart';
 import '../providers/service_providers.dart';
 import '../providers/theme_provider.dart';
+import '../theme/opencode_theme.dart';
 import 'device_manager_screen.dart';
 import 'mcp_servers_screen.dart';
 import 'providers_screen.dart';
@@ -288,16 +289,15 @@ class _ActiveConnectionCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
+    final ocTheme = OpenCodeTheme.of(context);
     final isConnected = connection.isConnected;
 
     return Container(
       padding: const EdgeInsets.all(20),
       decoration: BoxDecoration(
-        color: const Color(0xFF1C1C1E),
+        color: ocTheme.backgroundPanel,
         borderRadius: BorderRadius.circular(20),
-        border: Border.all(
-          color: theme.colorScheme.onSurface.withValues(alpha: 0.1),
-        ),
+        border: Border.all(color: ocTheme.borderSubtle),
       ),
       child: Column(
         children: [
@@ -339,8 +339,8 @@ class _ActiveConnectionCard extends StatelessWidget {
                           height: 8,
                           decoration: BoxDecoration(
                             color: isConnected
-                                ? const Color(0xFF10B981)
-                                : theme.colorScheme.error,
+                                ? ocTheme.success
+                                : ocTheme.error,
                             shape: BoxShape.circle,
                           ),
                         ),
@@ -349,8 +349,8 @@ class _ActiveConnectionCard extends StatelessWidget {
                           isConnected ? 'Connected' : 'Disconnected',
                           style: TextStyle(
                             color: isConnected
-                                ? const Color(0xFF10B981)
-                                : theme.colorScheme.error,
+                                ? ocTheme.success
+                                : ocTheme.error,
                             fontSize: 14,
                             fontWeight: FontWeight.w600,
                           ),
@@ -381,7 +381,7 @@ class _ActiveConnectionCard extends StatelessWidget {
             Container(
               padding: const EdgeInsets.all(16),
               decoration: BoxDecoration(
-                color: const Color(0xFF0D0D0D),
+                color: ocTheme.backgroundElement,
                 borderRadius: BorderRadius.circular(16),
               ),
               child: Row(
@@ -490,15 +490,13 @@ class _SettingsCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final theme = Theme.of(context);
+    final ocTheme = OpenCodeTheme.of(context);
 
     return Container(
       decoration: BoxDecoration(
-        color: const Color(0xFF1C1C1E),
+        color: ocTheme.backgroundPanel,
         borderRadius: BorderRadius.circular(20),
-        border: Border.all(
-          color: theme.colorScheme.onSurface.withValues(alpha: 0.1),
-        ),
+        border: Border.all(color: ocTheme.borderSubtle),
       ),
       child: child,
     );

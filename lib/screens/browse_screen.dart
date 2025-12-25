@@ -8,17 +8,8 @@ import '../models/vcs.dart';
 import '../providers/connection_provider.dart';
 import '../providers/service_providers.dart';
 import '../providers/selection_provider.dart';
+import '../theme/opencode_theme.dart';
 import '../widgets/connection_indicator.dart';
-
-// Color constants matching chat screen design
-const _kBackground = Color(0xFF16161E);
-const _kCard = Color(0xFF1F2128);
-const _kBorder = Color(0xFF2A2D36);
-const _kOnBackground = Color(0xFFE4E4E7);
-const _kMuted = Color(0xFF71717A);
-const _kAccent = Color(0xFF3B82F6);
-const _kSuccess = Color(0xFF10B981);
-const _kError = Color(0xFFEF4444);
 
 class BrowseScreen extends ConsumerStatefulWidget {
   const BrowseScreen({super.key, this.initialPath});
@@ -104,7 +95,11 @@ class _BrowseScreenState extends ConsumerState<BrowseScreen>
     await storage.saveLastBrowsePath(path);
   }
 
-  void _setPath(String path, {required bool persist, required bool userInitiated}) {
+  void _setPath(
+    String path, {
+    required bool persist,
+    required bool userInitiated,
+  }) {
     if (!mounted) return;
     setState(() {
       _path = path;
@@ -187,13 +182,14 @@ class _BrowseScreenState extends ConsumerState<BrowseScreen>
       }
     } catch (e) {
       if (mounted) {
+        final theme = OpenCodeTheme.of(context);
         setState(() {
           _isLoadingFile = false;
         });
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             content: Text('Failed to load file: $e'),
-            backgroundColor: _kError,
+            backgroundColor: theme.error,
           ),
         );
       }
@@ -216,12 +212,13 @@ class _BrowseScreenState extends ConsumerState<BrowseScreen>
     final projectPath = selection.project?.path;
     if (projectPath == null) {
       if (mounted) {
+        final theme = OpenCodeTheme.of(context);
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text(
+          SnackBar(
+            content: const Text(
               'Select a project to use OpenCode search. File browsing works without it.',
             ),
-            backgroundColor: _kCard,
+            backgroundColor: theme.backgroundPanel,
             behavior: SnackBarBehavior.floating,
           ),
         );
@@ -279,11 +276,12 @@ class _BrowseScreenState extends ConsumerState<BrowseScreen>
       }
     } catch (e) {
       if (mounted) {
+        final theme = OpenCodeTheme.of(context);
         setState(() => _isSearching = false);
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             content: Text('Search failed: $e'),
-            backgroundColor: _kError,
+            backgroundColor: theme.error,
           ),
         );
       }
@@ -301,6 +299,7 @@ class _BrowseScreenState extends ConsumerState<BrowseScreen>
 
   @override
   Widget build(BuildContext context) {
+    final theme = OpenCodeTheme.of(context);
     final connection = ref.watch(connectionProvider);
     final selection = ref.watch(selectionProvider);
     final selectedProjectPath = selection.project?.path;
@@ -316,12 +315,12 @@ class _BrowseScreenState extends ConsumerState<BrowseScreen>
     }
 
     return Scaffold(
-      backgroundColor: _kBackground,
+      backgroundColor: theme.background,
       appBar: AppBar(
-        backgroundColor: _kBackground,
+        backgroundColor: theme.background,
         elevation: 0,
         leading: IconButton(
-          icon: const Icon(Icons.arrow_back_rounded, color: _kOnBackground),
+          icon: Icon(Icons.arrow_back_rounded, color: theme.text),
           onPressed: () {
             if (_showSearch) {
               setState(() => _showSearch = false);
@@ -332,14 +331,14 @@ class _BrowseScreenState extends ConsumerState<BrowseScreen>
           },
         ),
         title: _showSearch
-            ? _buildSearchBar()
+            ? _buildSearchBar(theme)
             : GestureDetector(
                 onTap: _showPathBreadcrumb,
                 child: Text(
                   _getDisplayPath(),
-                  style: const TextStyle(
+                  style: TextStyle(
                     fontSize: 16,
-                    color: _kOnBackground,
+                    color: theme.text,
                     fontWeight: FontWeight.w600,
                   ),
                   overflow: TextOverflow.ellipsis,
@@ -349,8 +348,8 @@ class _BrowseScreenState extends ConsumerState<BrowseScreen>
           // Search type selector (when searching)
           if (_showSearch)
             PopupMenuButton<SearchType>(
-              icon: Icon(_getSearchTypeIcon(), color: _kOnBackground),
-              color: _kCard,
+              icon: Icon(_getSearchTypeIcon(), color: theme.text),
+              color: theme.backgroundPanel,
               onSelected: (type) {
                 setState(() => _searchType = type);
                 _performSearch();
@@ -385,13 +384,13 @@ class _BrowseScreenState extends ConsumerState<BrowseScreen>
           // Search button (when not searching)
           if (!_showSearch)
             IconButton(
-              icon: const Icon(Icons.search, color: _kOnBackground),
+              icon: Icon(Icons.search, color: theme.text),
               onPressed: () => setState(() => _showSearch = true),
             ),
           if (!_showSearch && selectedProjectPath != null)
             IconButton(
               tooltip: 'Current project',
-              icon: const Icon(Icons.folder_open_rounded, color: _kOnBackground),
+              icon: Icon(Icons.folder_open_rounded, color: theme.text),
               onPressed: () {
                 _lastSeenProjectPath = selectedProjectPath;
                 _setPath(
@@ -414,7 +413,7 @@ class _BrowseScreenState extends ConsumerState<BrowseScreen>
           ),
         ],
       ),
-      body: _showSearch ? _buildSearchResults() : _buildFileBrowser(),
+      body: _showSearch ? _buildSearchResults(theme) : _buildFileBrowser(theme),
     );
   }
 
@@ -427,9 +426,10 @@ class _BrowseScreenState extends ConsumerState<BrowseScreen>
   }
 
   void _showPathBreadcrumb() {
+    final theme = OpenCodeTheme.of(context);
     showModalBottomSheet(
       context: context,
-      backgroundColor: _kCard,
+      backgroundColor: theme.backgroundPanel,
       shape: const RoundedRectangleBorder(
         borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
       ),
@@ -441,12 +441,12 @@ class _BrowseScreenState extends ConsumerState<BrowseScreen>
             mainAxisSize: MainAxisSize.min,
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              const Text(
+              Text(
                 'Current Path',
                 style: TextStyle(
                   fontSize: 18,
                   fontWeight: FontWeight.w600,
-                  color: _kOnBackground,
+                  color: theme.text,
                 ),
               ),
               const SizedBox(height: 16),
@@ -460,7 +460,7 @@ class _BrowseScreenState extends ConsumerState<BrowseScreen>
                     },
                   ),
                   for (var i = 0; i < parts.length; i++) ...[
-                    const Icon(Icons.chevron_right, color: _kMuted, size: 20),
+                    Icon(Icons.chevron_right, color: theme.textMuted, size: 20),
                     _PathChip(
                       label: parts[i],
                       onTap: () {
@@ -480,18 +480,18 @@ class _BrowseScreenState extends ConsumerState<BrowseScreen>
     );
   }
 
-  Widget _buildSearchBar() {
+  Widget _buildSearchBar(OpenCodeTheme theme) {
     return TextField(
       controller: _searchController,
       autofocus: true,
-      style: const TextStyle(color: _kOnBackground, fontSize: 16),
+      style: TextStyle(color: theme.text, fontSize: 16),
       decoration: InputDecoration(
         hintText: _getSearchHint(),
-        hintStyle: const TextStyle(color: _kMuted),
+        hintStyle: TextStyle(color: theme.textMuted),
         border: InputBorder.none,
         suffixIcon: _searchController.text.isNotEmpty
             ? IconButton(
-                icon: const Icon(Icons.clear, color: _kMuted),
+                icon: Icon(Icons.clear, color: theme.textMuted),
                 onPressed: _clearSearch,
               )
             : null,
@@ -522,42 +522,42 @@ class _BrowseScreenState extends ConsumerState<BrowseScreen>
     }
   }
 
-  Widget _buildSearchResults() {
+  Widget _buildSearchResults(OpenCodeTheme theme) {
     if (_isSearching) {
-      return const Center(child: CircularProgressIndicator(color: _kAccent));
+      return Center(child: CircularProgressIndicator(color: theme.primary));
     }
 
     if (_fileResults != null) {
-      return _buildFileSearchResults();
+      return _buildFileSearchResults(theme);
     }
 
     if (_textResults != null) {
-      return _buildTextSearchResults();
+      return _buildTextSearchResults(theme);
     }
 
     if (_symbolResults != null) {
-      return _buildSymbolSearchResults();
+      return _buildSymbolSearchResults(theme);
     }
 
     return Center(
       child: Column(
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
-          Icon(_getSearchTypeIcon(), size: 48, color: _kMuted),
+          Icon(_getSearchTypeIcon(), size: 48, color: theme.textMuted),
           const SizedBox(height: 16),
           Text(
             _getSearchHint(),
-            style: const TextStyle(color: _kMuted, fontSize: 16),
+            style: TextStyle(color: theme.textMuted, fontSize: 16),
           ),
         ],
       ),
     );
   }
 
-  Widget _buildFileSearchResults() {
+  Widget _buildFileSearchResults(OpenCodeTheme theme) {
     if (_fileResults!.isEmpty) {
-      return const Center(
-        child: Text('No files found', style: TextStyle(color: _kMuted)),
+      return Center(
+        child: Text('No files found', style: TextStyle(color: theme.textMuted)),
       );
     }
 
@@ -576,10 +576,13 @@ class _BrowseScreenState extends ConsumerState<BrowseScreen>
     );
   }
 
-  Widget _buildTextSearchResults() {
+  Widget _buildTextSearchResults(OpenCodeTheme theme) {
     if (_textResults!.isEmpty) {
-      return const Center(
-        child: Text('No matches found', style: TextStyle(color: _kMuted)),
+      return Center(
+        child: Text(
+          'No matches found',
+          style: TextStyle(color: theme.textMuted),
+        ),
       );
     }
 
@@ -596,10 +599,13 @@ class _BrowseScreenState extends ConsumerState<BrowseScreen>
     );
   }
 
-  Widget _buildSymbolSearchResults() {
+  Widget _buildSymbolSearchResults(OpenCodeTheme theme) {
     if (_symbolResults!.isEmpty) {
-      return const Center(
-        child: Text('No symbols found', style: TextStyle(color: _kMuted)),
+      return Center(
+        child: Text(
+          'No symbols found',
+          style: TextStyle(color: theme.textMuted),
+        ),
       );
     }
 
@@ -616,16 +622,16 @@ class _BrowseScreenState extends ConsumerState<BrowseScreen>
     );
   }
 
-  Widget _buildFileBrowser() {
+  Widget _buildFileBrowser(OpenCodeTheme theme) {
     return RefreshIndicator(
       onRefresh: _refresh,
-      color: _kAccent,
+      color: theme.primary,
       child: FutureBuilder<List<dynamic>>(
         future: _itemsFuture,
         builder: (context, snapshot) {
           if (snapshot.connectionState == ConnectionState.waiting) {
-            return const Center(
-              child: CircularProgressIndicator(color: _kAccent),
+            return Center(
+              child: CircularProgressIndicator(color: theme.primary),
             );
           }
           if (snapshot.hasError) {
@@ -633,12 +639,12 @@ class _BrowseScreenState extends ConsumerState<BrowseScreen>
               child: Column(
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
-                  const Icon(Icons.error_outline, size: 48, color: _kError),
+                  Icon(Icons.error_outline, size: 48, color: theme.error),
                   const SizedBox(height: 16),
                   Text(
                     'Failed to browse:\n${snapshot.error}',
                     textAlign: TextAlign.center,
-                    style: const TextStyle(color: _kMuted),
+                    style: TextStyle(color: theme.textMuted),
                   ),
                 ],
               ),
@@ -647,13 +653,16 @@ class _BrowseScreenState extends ConsumerState<BrowseScreen>
 
           final items = snapshot.data ?? [];
           if (items.isEmpty) {
-            return const Center(
+            return Center(
               child: Column(
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
-                  Icon(Icons.folder_open, size: 48, color: _kMuted),
-                  SizedBox(height: 16),
-                  Text('Empty folder', style: TextStyle(color: _kMuted)),
+                  Icon(Icons.folder_open, size: 48, color: theme.textMuted),
+                  const SizedBox(height: 16),
+                  Text(
+                    'Empty folder',
+                    style: TextStyle(color: theme.textMuted),
+                  ),
                 ],
               ),
             );
@@ -679,7 +688,7 @@ class _BrowseScreenState extends ConsumerState<BrowseScreen>
               if (_path != '~' && index == 0) {
                 return _FileTile(
                   icon: Icons.arrow_upward_rounded,
-                  iconColor: _kAccent,
+                  iconColor: theme.primary,
                   name: '..',
                   subtitle: 'Go up',
                   onTap: _goUp,
@@ -687,25 +696,25 @@ class _BrowseScreenState extends ConsumerState<BrowseScreen>
               }
 
               final itemIndex = _path != '~' ? index - 1 : index;
-          final item = items[itemIndex] as Map<String, dynamic>;
-          final type = item['type'] as String? ?? 'file';
-          final name = item['name'] as String? ?? '';
-          final resolvedNextPath =
-              item['absolute'] as String? ?? item['path'] as String? ?? '';
-          final nextPath = resolvedNextPath.isNotEmpty
-              ? resolvedNextPath
-              : _joinPath(_path, name);
+              final item = items[itemIndex] as Map<String, dynamic>;
+              final type = item['type'] as String? ?? 'file';
+              final name = item['name'] as String? ?? '';
+              final resolvedNextPath =
+                  item['absolute'] as String? ?? item['path'] as String? ?? '';
+              final nextPath = resolvedNextPath.isNotEmpty
+                  ? resolvedNextPath
+                  : _joinPath(_path, name);
 
-          // Feature 18: Get file status
-          final fileStatus = _fileStatusFor(nextPath);
+              // Feature 18: Get file status
+              final fileStatus = _fileStatusFor(nextPath);
 
-          return _FileTile(
-            icon: type == 'directory'
-                ? Icons.folder_rounded
+              return _FileTile(
+                icon: type == 'directory'
+                    ? Icons.folder_rounded
                     : _getFileIcon(name),
                 iconColor: type == 'directory'
-                    ? const Color(0xFFFCD34D)
-                    : _kMuted,
+                    ? theme.warning
+                    : theme.textMuted,
                 name: name,
                 subtitle: type == 'directory' ? 'Folder' : _getFileSize(item),
                 fileStatus: type != 'directory' ? fileStatus : null,
@@ -833,12 +842,13 @@ class _FileTile extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final theme = OpenCodeTheme.of(context);
     return Container(
       margin: const EdgeInsets.only(bottom: 8),
       decoration: BoxDecoration(
-        color: _kCard,
+        color: theme.backgroundPanel,
         borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: _kBorder),
+        border: Border.all(color: theme.borderSubtle),
       ),
       child: ListTile(
         onTap: onTap,
@@ -856,8 +866,8 @@ class _FileTile extends StatelessWidget {
             Expanded(
               child: Text(
                 name,
-                style: const TextStyle(
-                  color: _kOnBackground,
+                style: TextStyle(
+                  color: theme.text,
                   fontSize: 14,
                   fontWeight: FontWeight.w500,
                 ),
@@ -873,9 +883,9 @@ class _FileTile extends StatelessWidget {
         ),
         subtitle: Text(
           subtitle,
-          style: const TextStyle(color: _kMuted, fontSize: 12),
+          style: TextStyle(color: theme.textMuted, fontSize: 12),
         ),
-        trailing: const Icon(Icons.chevron_right, color: _kMuted, size: 20),
+        trailing: Icon(Icons.chevron_right, color: theme.textMuted, size: 20),
       ),
     );
   }
@@ -889,14 +899,15 @@ class _FileStatusBadge extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final theme = OpenCodeTheme.of(context);
     final (label, color) = switch (status.status) {
-      FileStatusType.modified => ('M', _kAccent),
-      FileStatusType.added => ('A', _kSuccess),
-      FileStatusType.deleted => ('D', _kError),
-      FileStatusType.renamed => ('R', const Color(0xFFF59E0B)),
-      FileStatusType.copied => ('C', const Color(0xFF818CF8)),
-      FileStatusType.untracked => ('?', _kMuted),
-      FileStatusType.ignored => ('!', _kMuted),
+      FileStatusType.modified => ('M', theme.primary),
+      FileStatusType.added => ('A', theme.success),
+      FileStatusType.deleted => ('D', theme.error),
+      FileStatusType.renamed => ('R', theme.warning),
+      FileStatusType.copied => ('C', theme.info),
+      FileStatusType.untracked => ('?', theme.textMuted),
+      FileStatusType.ignored => ('!', theme.textMuted),
     };
 
     return Container(
@@ -927,19 +938,20 @@ class _PathChip extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final theme = OpenCodeTheme.of(context);
     return GestureDetector(
       onTap: onTap,
       child: Container(
         padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
         margin: const EdgeInsets.only(right: 4, bottom: 4),
         decoration: BoxDecoration(
-          color: _kAccent.withValues(alpha: 0.15),
+          color: theme.primary.withValues(alpha: 0.15),
           borderRadius: BorderRadius.circular(8),
         ),
         child: Text(
           label,
-          style: const TextStyle(
-            color: _kAccent,
+          style: TextStyle(
+            color: theme.primary,
             fontSize: 13,
             fontWeight: FontWeight.w500,
           ),
@@ -963,19 +975,24 @@ class _SearchTypeItem extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final theme = OpenCodeTheme.of(context);
     return Row(
       children: [
-        Icon(icon, color: isSelected ? _kAccent : _kMuted, size: 20),
+        Icon(
+          icon,
+          color: isSelected ? theme.primary : theme.textMuted,
+          size: 20,
+        ),
         const SizedBox(width: 12),
         Text(
           label,
           style: TextStyle(
-            color: isSelected ? _kAccent : _kOnBackground,
+            color: isSelected ? theme.primary : theme.text,
             fontWeight: isSelected ? FontWeight.w600 : FontWeight.w500,
           ),
         ),
         const Spacer(),
-        if (isSelected) const Icon(Icons.check, color: _kAccent, size: 18),
+        if (isSelected) Icon(Icons.check, color: theme.primary, size: 18),
       ],
     );
   }
@@ -995,12 +1012,13 @@ class _FileResultTile extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final theme = OpenCodeTheme.of(context);
     return Container(
       margin: const EdgeInsets.only(bottom: 8),
       decoration: BoxDecoration(
-        color: _kCard,
+        color: theme.backgroundPanel,
         borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: _kBorder),
+        border: Border.all(color: theme.borderSubtle),
       ),
       child: ListTile(
         onTap: onTap,
@@ -1008,22 +1026,22 @@ class _FileResultTile extends StatelessWidget {
           width: 40,
           height: 40,
           decoration: BoxDecoration(
-            color: _kAccent.withValues(alpha: 0.15),
+            color: theme.primary.withValues(alpha: 0.15),
             borderRadius: BorderRadius.circular(10),
           ),
-          child: const Icon(Icons.description, color: _kAccent, size: 20),
+          child: Icon(Icons.description, color: theme.primary, size: 20),
         ),
         title: Text(
           filename,
-          style: const TextStyle(
-            color: _kOnBackground,
+          style: TextStyle(
+            color: theme.text,
             fontSize: 14,
             fontWeight: FontWeight.w500,
           ),
         ),
         subtitle: Text(
           path,
-          style: const TextStyle(color: _kMuted, fontSize: 12),
+          style: TextStyle(color: theme.textMuted, fontSize: 12),
           maxLines: 1,
           overflow: TextOverflow.ellipsis,
         ),
@@ -1041,12 +1059,13 @@ class _TextResultTile extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final theme = OpenCodeTheme.of(context);
     return Container(
       margin: const EdgeInsets.only(bottom: 8),
       decoration: BoxDecoration(
-        color: _kCard,
+        color: theme.backgroundPanel,
         borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: _kBorder),
+        border: Border.all(color: theme.borderSubtle),
       ),
       child: ListTile(
         onTap: onTap,
@@ -1054,8 +1073,8 @@ class _TextResultTile extends StatelessWidget {
           children: [
             Text(
               result.filename,
-              style: const TextStyle(
-                color: _kOnBackground,
+              style: TextStyle(
+                color: theme.text,
                 fontSize: 14,
                 fontWeight: FontWeight.w500,
               ),
@@ -1064,12 +1083,12 @@ class _TextResultTile extends StatelessWidget {
             Container(
               padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
               decoration: BoxDecoration(
-                color: _kMuted.withValues(alpha: 0.2),
+                color: theme.textMuted.withValues(alpha: 0.2),
                 borderRadius: BorderRadius.circular(4),
               ),
               child: Text(
                 'L${result.lineNumber}',
-                style: const TextStyle(color: _kMuted, fontSize: 11),
+                style: TextStyle(color: theme.textMuted, fontSize: 11),
               ),
             ),
           ],
@@ -1078,8 +1097,8 @@ class _TextResultTile extends StatelessWidget {
           padding: const EdgeInsets.only(top: 4),
           child: Text(
             result.lineText.trim(),
-            style: const TextStyle(
-              color: _kMuted,
+            style: TextStyle(
+              color: theme.textMuted,
               fontSize: 12,
               fontFamily: 'JetBrains Mono',
             ),
@@ -1101,12 +1120,13 @@ class _SymbolResultTile extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final theme = OpenCodeTheme.of(context);
     return Container(
       margin: const EdgeInsets.only(bottom: 8),
       decoration: BoxDecoration(
-        color: _kCard,
+        color: theme.backgroundPanel,
         borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: _kBorder),
+        border: Border.all(color: theme.borderSubtle),
       ),
       child: ListTile(
         onTap: onTap,
@@ -1114,14 +1134,14 @@ class _SymbolResultTile extends StatelessWidget {
           width: 36,
           height: 36,
           decoration: BoxDecoration(
-            color: _getSymbolColor(result.kind).withValues(alpha: 0.15),
+            color: _getSymbolColor(result.kind, theme).withValues(alpha: 0.15),
             borderRadius: BorderRadius.circular(8),
           ),
           child: Center(
             child: Text(
               result.icon,
               style: TextStyle(
-                color: _getSymbolColor(result.kind),
+                color: _getSymbolColor(result.kind, theme),
                 fontSize: 16,
                 fontWeight: FontWeight.w700,
               ),
@@ -1130,48 +1150,48 @@ class _SymbolResultTile extends StatelessWidget {
         ),
         title: Text(
           result.name,
-          style: const TextStyle(
-            color: _kOnBackground,
+          style: TextStyle(
+            color: theme.text,
             fontSize: 14,
             fontWeight: FontWeight.w500,
           ),
         ),
         subtitle: Text(
           '${result.filename}:${result.line}',
-          style: const TextStyle(color: _kMuted, fontSize: 12),
+          style: TextStyle(color: theme.textMuted, fontSize: 12),
         ),
         trailing: Container(
           padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
           decoration: BoxDecoration(
-            color: _kMuted.withValues(alpha: 0.2),
+            color: theme.textMuted.withValues(alpha: 0.2),
             borderRadius: BorderRadius.circular(6),
           ),
           child: Text(
             result.kind,
-            style: const TextStyle(color: _kMuted, fontSize: 11),
+            style: TextStyle(color: theme.textMuted, fontSize: 11),
           ),
         ),
       ),
     );
   }
 
-  Color _getSymbolColor(String kind) {
+  Color _getSymbolColor(String kind, OpenCodeTheme theme) {
     switch (kind.toLowerCase()) {
       case 'class':
       case 'interface':
-        return const Color(0xFFFCD34D);
+        return theme.warning;
       case 'function':
       case 'method':
-        return const Color(0xFF818CF8);
+        return theme.info;
       case 'variable':
       case 'field':
       case 'property':
-        return _kAccent;
+        return theme.primary;
       case 'enum':
       case 'enummember':
-        return _kSuccess;
+        return theme.success;
       default:
-        return _kMuted;
+        return theme.textMuted;
     }
   }
 }
@@ -1192,16 +1212,17 @@ class _FileViewerScreen extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final theme = OpenCodeTheme.of(context);
     final filename = filePath.split('/').last;
     final language = FileContent.languageFromPath(filePath);
 
     return Scaffold(
-      backgroundColor: _kBackground,
+      backgroundColor: theme.background,
       appBar: AppBar(
-        backgroundColor: _kBackground,
+        backgroundColor: theme.background,
         elevation: 0,
         leading: IconButton(
-          icon: const Icon(Icons.arrow_back_rounded, color: _kOnBackground),
+          icon: Icon(Icons.arrow_back_rounded, color: theme.text),
           onPressed: onClose,
         ),
         title: Column(
@@ -1209,28 +1230,28 @@ class _FileViewerScreen extends StatelessWidget {
           children: [
             Text(
               filename,
-              style: const TextStyle(
+              style: TextStyle(
                 fontSize: 16,
-                color: _kOnBackground,
+                color: theme.text,
                 fontWeight: FontWeight.w600,
               ),
             ),
             Text(
               language,
-              style: const TextStyle(fontSize: 12, color: _kMuted),
+              style: TextStyle(fontSize: 12, color: theme.textMuted),
             ),
           ],
         ),
         actions: [
           if (content != null)
             IconButton(
-              icon: const Icon(Icons.copy, color: _kOnBackground),
+              icon: Icon(Icons.copy, color: theme.text),
               onPressed: () {
                 Clipboard.setData(ClipboardData(text: content!.content));
                 ScaffoldMessenger.of(context).showSnackBar(
-                  const SnackBar(
-                    content: Text('Copied to clipboard'),
-                    backgroundColor: _kCard,
+                  SnackBar(
+                    content: const Text('Copied to clipboard'),
+                    backgroundColor: theme.backgroundPanel,
                   ),
                 );
               },
@@ -1238,31 +1259,31 @@ class _FileViewerScreen extends StatelessWidget {
         ],
       ),
       body: isLoading
-          ? const Center(child: CircularProgressIndicator(color: _kAccent))
+          ? Center(child: CircularProgressIndicator(color: theme.primary))
           : content == null
-          ? const Center(
+          ? Center(
               child: Text(
                 'Failed to load file',
-                style: TextStyle(color: _kMuted),
+                style: TextStyle(color: theme.textMuted),
               ),
             )
-          : _buildContent(),
+          : _buildContent(theme),
     );
   }
 
-  Widget _buildContent() {
+  Widget _buildContent(OpenCodeTheme theme) {
     if (content!.isImage) {
       return Center(
         child: Container(
           padding: const EdgeInsets.all(20),
-          child: const Column(
+          child: Column(
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
-              Icon(Icons.image, size: 64, color: _kMuted),
-              SizedBox(height: 16),
+              Icon(Icons.image, size: 64, color: theme.textMuted),
+              const SizedBox(height: 16),
               Text(
                 'Image preview not available',
-                style: TextStyle(color: _kMuted),
+                style: TextStyle(color: theme.textMuted),
               ),
             ],
           ),
@@ -1276,16 +1297,16 @@ class _FileViewerScreen extends StatelessWidget {
         width: double.infinity,
         padding: const EdgeInsets.all(16),
         decoration: BoxDecoration(
-          color: _kCard,
+          color: theme.backgroundPanel,
           borderRadius: BorderRadius.circular(12),
-          border: Border.all(color: _kBorder),
+          border: Border.all(color: theme.borderSubtle),
         ),
         child: SelectableText(
           content!.content,
-          style: const TextStyle(
+          style: TextStyle(
             fontFamily: 'JetBrains Mono',
             fontSize: 13,
-            color: _kOnBackground,
+            color: theme.text,
             height: 1.6,
           ),
         ),

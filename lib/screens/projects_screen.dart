@@ -6,6 +6,7 @@ import '../providers/chat_provider.dart';
 import '../providers/connection_provider.dart';
 import '../providers/selection_provider.dart';
 import '../providers/service_providers.dart';
+import '../theme/opencode_theme.dart';
 import 'chat_screen.dart';
 
 class ProjectsScreen extends ConsumerStatefulWidget {
@@ -24,9 +25,24 @@ class _ProjectsScreenState extends ConsumerState<ProjectsScreen> {
     _projectsFuture = _loadProjects();
   }
 
-  Future<List<ProjectSummary>> _loadProjects() {
+  Future<List<ProjectSummary>> _loadProjects() async {
+    final connection = ref.read(connectionProvider);
+    final storage = ref.read(storageServiceProvider);
+
+    // In offline mode, return cached projects
+    if (connection.isOfflineMode) {
+      return storage.getCachedProjects();
+    }
+
     final bridge = ref.read(bridgeServiceProvider);
-    return bridge.listProjects();
+    final projects = await bridge.listProjects();
+
+    // Cache for offline use
+    if (projects.isNotEmpty) {
+      await storage.cacheProjects(projects);
+    }
+
+    return projects;
   }
 
   Future<void> _refresh() async {
@@ -40,6 +56,7 @@ class _ProjectsScreenState extends ConsumerState<ProjectsScreen> {
   Widget build(BuildContext context) {
     final connection = ref.watch(connectionProvider);
     final theme = Theme.of(context);
+    final ocTheme = OpenCodeTheme.of(context);
 
     return Scaffold(
       backgroundColor: theme.scaffoldBackgroundColor,
@@ -48,8 +65,8 @@ class _ProjectsScreenState extends ConsumerState<ProjectsScreen> {
           future: _projectsFuture,
           builder: (context, snapshot) {
             if (snapshot.connectionState == ConnectionState.waiting) {
-              return const Center(
-                child: CircularProgressIndicator(color: Color(0xFF3B82F6)),
+              return Center(
+                child: CircularProgressIndicator(color: ocTheme.primary),
               );
             }
 
@@ -58,16 +75,16 @@ class _ProjectsScreenState extends ConsumerState<ProjectsScreen> {
                 child: Column(
                   mainAxisAlignment: MainAxisAlignment.center,
                   children: [
-                    const Icon(
+                    Icon(
                       Icons.error_outline_rounded,
-                      color: Color(0xFFEF4444),
+                      color: ocTheme.error,
                       size: 48,
                     ),
                     const SizedBox(height: 16),
                     Text(
                       'Failed to load projects',
-                      style: const TextStyle(
-                        color: Color(0xFFE4E4E7),
+                      style: TextStyle(
+                        color: ocTheme.text,
                         fontSize: 16,
                         fontWeight: FontWeight.w600,
                       ),
@@ -75,10 +92,7 @@ class _ProjectsScreenState extends ConsumerState<ProjectsScreen> {
                     const SizedBox(height: 8),
                     Text(
                       '${snapshot.error}',
-                      style: const TextStyle(
-                        color: Color(0xFF71717A),
-                        fontSize: 14,
-                      ),
+                      style: TextStyle(color: ocTheme.textMuted, fontSize: 14),
                       textAlign: TextAlign.center,
                     ),
                   ],
@@ -115,13 +129,13 @@ class _ProjectsScreenState extends ConsumerState<ProjectsScreen> {
 
                   // Recent Sessions section (if we have projects)
                   if (projects.isNotEmpty) ...[
-                    const SliverToBoxAdapter(
+                    SliverToBoxAdapter(
                       child: Padding(
-                        padding: EdgeInsets.fromLTRB(20, 24, 20, 12),
+                        padding: const EdgeInsets.fromLTRB(20, 24, 20, 12),
                         child: Text(
                           'RECENT SESSIONS',
                           style: TextStyle(
-                            color: Color(0xFF71717A),
+                            color: ocTheme.textMuted,
                             fontSize: 12,
                             fontWeight: FontWeight.w700,
                             letterSpacing: 0.5,
@@ -140,13 +154,13 @@ class _ProjectsScreenState extends ConsumerState<ProjectsScreen> {
 
                   // All Repositories section
                   if (projects.isNotEmpty) ...[
-                    const SliverToBoxAdapter(
+                    SliverToBoxAdapter(
                       child: Padding(
-                        padding: EdgeInsets.fromLTRB(20, 32, 20, 12),
+                        padding: const EdgeInsets.fromLTRB(20, 32, 20, 12),
                         child: Text(
                           'ALL REPOSITORIES',
                           style: TextStyle(
-                            color: Color(0xFF71717A),
+                            color: ocTheme.textMuted,
                             fontSize: 12,
                             fontWeight: FontWeight.w700,
                             letterSpacing: 0.5,
@@ -178,24 +192,22 @@ class _ProjectsScreenState extends ConsumerState<ProjectsScreen> {
                             Icon(
                               Icons.folder_open_rounded,
                               size: 64,
-                              color: const Color(
-                                0xFF71717A,
-                              ).withValues(alpha: 0.5),
+                              color: ocTheme.textMuted.withValues(alpha: 0.5),
                             ),
                             const SizedBox(height: 16),
-                            const Text(
+                            Text(
                               'No projects found',
                               style: TextStyle(
-                                color: Color(0xFFE4E4E7),
+                                color: ocTheme.text,
                                 fontSize: 18,
                                 fontWeight: FontWeight.w600,
                               ),
                             ),
                             const SizedBox(height: 8),
-                            const Text(
+                            Text(
                               'Open a repository to get started',
                               style: TextStyle(
-                                color: Color(0xFF71717A),
+                                color: ocTheme.textMuted,
                                 fontSize: 14,
                               ),
                             ),
@@ -216,12 +228,50 @@ class _ProjectsScreenState extends ConsumerState<ProjectsScreen> {
     BuildContext context,
     ProjectSummary project,
   ) async {
-    final bridge = ref.read(bridgeServiceProvider);
+    final connection = ref.read(connectionProvider);
     final selection = ref.read(selectionProvider.notifier);
     final chat = ref.read(chatSessionProvider.notifier);
+    final storage = ref.read(storageServiceProvider);
 
     selection.selectProject(project);
 
+    // In offline mode, try to find a cached session for this project
+    if (connection.isOfflineMode) {
+      final cachedSessions = await storage.getCachedSessions();
+      final projectSessions = cachedSessions
+          .where((s) => s.directory == project.path)
+          .toList();
+
+      if (projectSessions.isEmpty) {
+        if (!mounted) return;
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: const Text('No cached sessions for this project'),
+            backgroundColor: Theme.of(context).colorScheme.surface,
+            behavior: SnackBarBehavior.floating,
+          ),
+        );
+        return;
+      }
+
+      // Use the most recent session
+      projectSessions.sort((a, b) => b.time.updated - a.time.updated);
+      final session = projectSessions.first;
+
+      selection.selectSession(session);
+      chat.setSession(session, projectPath: project.path);
+
+      if (!mounted) return;
+      Navigator.push(
+        context,
+        MaterialPageRoute(
+          builder: (_) => ChatScreen(project: project, session: session),
+        ),
+      );
+      return;
+    }
+
+    final bridge = ref.read(bridgeServiceProvider);
     final session = await bridge.createSession(
       projectPath: project.path,
       title: 'Mobile session',
@@ -322,22 +372,6 @@ class _ModernHeader extends StatelessWidget {
                       ),
                     ),
                   ),
-                ),
-              ),
-              // Add project button
-              GestureDetector(
-                onTap: onAddProject,
-                child: Container(
-                  padding: const EdgeInsets.all(10),
-                  decoration: BoxDecoration(
-                    color: theme.colorScheme.surface,
-                    borderRadius: BorderRadius.circular(12),
-                    border: Border.all(
-                      color: theme.colorScheme.onSurface.withValues(
-                        alpha: 0.15,
-                      ),
-                    ),
-                  ),
                   child: Icon(
                     Icons.create_new_folder_rounded,
                     color: theme.colorScheme.onSurface,
@@ -381,8 +415,9 @@ class _ConnectionBadge extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
+    final ocTheme = OpenCodeTheme.of(context);
     final statusColor = isConnected && opencodeRunning
-        ? const Color(0xFF10B981)
+        ? ocTheme.success
         : theme.colorScheme.error;
     final statusText = isConnected && opencodeRunning
         ? 'Connected to OpenCode'
@@ -433,6 +468,7 @@ class _OpenCodeWarning extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
+    final ocTheme = OpenCodeTheme.of(context);
 
     return Container(
       margin: const EdgeInsets.fromLTRB(20, 20, 20, 0),
@@ -452,21 +488,21 @@ class _OpenCodeWarning extends StatelessWidget {
               Container(
                 padding: const EdgeInsets.all(8),
                 decoration: BoxDecoration(
-                  color: const Color(0xFFEF4444).withValues(alpha: 0.1),
+                  color: ocTheme.error.withValues(alpha: 0.1),
                   borderRadius: BorderRadius.circular(8),
                 ),
-                child: const Icon(
+                child: Icon(
                   Icons.warning_amber_rounded,
-                  color: Color(0xFFEF4444),
+                  color: ocTheme.error,
                   size: 20,
                 ),
               ),
               const SizedBox(width: 12),
-              const Expanded(
+              Expanded(
                 child: Text(
                   'OpenCode Not Running',
                   style: TextStyle(
-                    color: Color(0xFFE4E4E7),
+                    color: ocTheme.text,
                     fontSize: 16,
                     fontWeight: FontWeight.w600,
                   ),
@@ -475,9 +511,9 @@ class _OpenCodeWarning extends StatelessWidget {
             ],
           ),
           const SizedBox(height: 12),
-          const Text(
+          Text(
             'Start OpenCode on your Mac or run `opencode serve` in terminal.',
-            style: TextStyle(color: Color(0xFF9CA3AF), fontSize: 14),
+            style: TextStyle(color: ocTheme.textMuted, fontSize: 14),
           ),
           const SizedBox(height: 16),
           Row(
@@ -486,7 +522,7 @@ class _OpenCodeWarning extends StatelessWidget {
                 child: ElevatedButton(
                   onPressed: onStart,
                   style: ElevatedButton.styleFrom(
-                    backgroundColor: const Color(0xFF3B82F6),
+                    backgroundColor: ocTheme.primary,
                     foregroundColor: Colors.white,
                     padding: const EdgeInsets.symmetric(vertical: 12),
                     shape: RoundedRectangleBorder(
@@ -503,8 +539,8 @@ class _OpenCodeWarning extends StatelessWidget {
               OutlinedButton(
                 onPressed: onRefresh,
                 style: OutlinedButton.styleFrom(
-                  foregroundColor: const Color(0xFFE4E4E7),
-                  side: const BorderSide(color: Color(0xFF71717A)),
+                  foregroundColor: ocTheme.text,
+                  side: BorderSide(color: ocTheme.textMuted),
                   padding: const EdgeInsets.symmetric(
                     vertical: 12,
                     horizontal: 20,
@@ -560,26 +596,20 @@ class _SessionCard extends StatelessWidget {
   final VoidCallback onTap;
 
   IconData _getProjectIcon() {
-    // You can expand this based on project type
-    return Icons.shopping_bag_rounded; // Default icon
+    return Icons.shopping_bag_rounded;
   }
 
-  Color _getIconColor() {
-    // Generate color from project name hash
+  Color _getIconColor(OpenCodeTheme theme) {
     final hash = project.name.hashCode;
-    final colors = [
-      const Color(0xFF3B82F6), // Blue
-      const Color(0xFF8B5CF6), // Purple
-      const Color(0xFFEC4899), // Pink
-      const Color(0xFFF59E0B), // Amber
-      const Color(0xFF10B981), // Green
-    ];
+    final colors = [theme.primary, theme.info, theme.warning, theme.success];
     return colors[hash.abs() % colors.length];
   }
 
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
+    final ocTheme = OpenCodeTheme.of(context);
+    final iconColor = _getIconColor(ocTheme);
 
     return GestureDetector(
       onTap: onTap,
@@ -598,10 +628,10 @@ class _SessionCard extends StatelessWidget {
             Container(
               padding: const EdgeInsets.all(12),
               decoration: BoxDecoration(
-                color: _getIconColor().withValues(alpha: 0.15),
+                color: iconColor.withValues(alpha: 0.15),
                 borderRadius: BorderRadius.circular(12),
               ),
-              child: Icon(_getProjectIcon(), color: _getIconColor(), size: 24),
+              child: Icon(_getProjectIcon(), color: iconColor, size: 24),
             ),
             const SizedBox(width: 16),
             // Project info
@@ -611,8 +641,8 @@ class _SessionCard extends StatelessWidget {
                 children: [
                   Text(
                     project.name,
-                    style: const TextStyle(
-                      color: Color(0xFFE4E4E7),
+                    style: TextStyle(
+                      color: ocTheme.text,
                       fontSize: 16,
                       fontWeight: FontWeight.w600,
                     ),
@@ -620,17 +650,14 @@ class _SessionCard extends StatelessWidget {
                   const SizedBox(height: 4),
                   Text(
                     '~/${project.path.split('/').last}',
-                    style: const TextStyle(
-                      color: Color(0xFF71717A),
-                      fontSize: 13,
-                    ),
+                    style: TextStyle(color: ocTheme.textMuted, fontSize: 13),
                     overflow: TextOverflow.ellipsis,
                   ),
                   const SizedBox(height: 10),
-                  // Tags (placeholder - you can add real tech stack detection)
+                  // Tags
                   Wrap(
                     spacing: 6,
-                    children: [
+                    children: const [
                       _TechBadge(label: 'Flutter'),
                       _TechBadge(label: 'Dart'),
                     ],
@@ -639,9 +666,9 @@ class _SessionCard extends StatelessWidget {
               ),
             ),
             // Chevron
-            const Icon(
+            Icon(
               Icons.chevron_right_rounded,
-              color: Color(0xFF71717A),
+              color: ocTheme.textMuted,
               size: 24,
             ),
           ],
@@ -659,16 +686,17 @@ class _TechBadge extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final ocTheme = OpenCodeTheme.of(context);
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
       decoration: BoxDecoration(
-        color: const Color(0xFF71717A).withValues(alpha: 0.15),
+        color: ocTheme.textMuted.withValues(alpha: 0.15),
         borderRadius: BorderRadius.circular(6),
       ),
       child: Text(
         label,
-        style: const TextStyle(
-          color: Color(0xFF9CA3AF),
+        style: TextStyle(
+          color: ocTheme.textMuted,
           fontSize: 11,
           fontWeight: FontWeight.w600,
         ),
@@ -687,6 +715,7 @@ class _RepositoryListItem extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
+    final ocTheme = OpenCodeTheme.of(context);
 
     return Padding(
       padding: const EdgeInsets.only(bottom: 8),
@@ -700,26 +729,26 @@ class _RepositoryListItem extends StatelessWidget {
           ),
           child: Row(
             children: [
-              const Icon(
+              Icon(
                 Icons.account_tree_rounded,
-                color: Color(0xFF71717A),
+                color: ocTheme.textMuted,
                 size: 20,
               ),
               const SizedBox(width: 12),
               Expanded(
                 child: Text(
                   project.name,
-                  style: const TextStyle(
-                    color: Color(0xFFE4E4E7),
+                  style: TextStyle(
+                    color: ocTheme.text,
                     fontSize: 15,
                     fontWeight: FontWeight.w600,
                   ),
                 ),
               ),
-              const Text(
+              Text(
                 'Open',
                 style: TextStyle(
-                  color: Color(0xFF3B82F6),
+                  color: ocTheme.primary,
                   fontSize: 14,
                   fontWeight: FontWeight.w600,
                 ),

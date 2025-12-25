@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 
 import '../models/message.dart';
+import '../theme/opencode_theme.dart';
 import '../utils/diff_utils.dart';
 
 class DiffViewer extends StatefulWidget {
@@ -33,6 +34,7 @@ class _DiffViewerState extends State<DiffViewer> {
 
   @override
   Widget build(BuildContext context) {
+    final theme = OpenCodeTheme.of(context);
     final fileName = _getFileName(widget.diff.file);
     final additions = widget.diff.additions;
     final deletions = widget.diff.deletions;
@@ -44,9 +46,9 @@ class _DiffViewerState extends State<DiffViewer> {
         margin: const EdgeInsets.only(top: 10),
         padding: const EdgeInsets.all(16),
         decoration: BoxDecoration(
-          color: const Color(0xFF1F2128),
+          color: theme.backgroundPanel,
           borderRadius: BorderRadius.circular(18),
-          border: Border.all(color: const Color(0xFF2A2D36), width: 1),
+          border: Border.all(color: theme.borderSubtle, width: 1),
         ),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
@@ -57,14 +59,10 @@ class _DiffViewerState extends State<DiffViewer> {
                 Container(
                   padding: const EdgeInsets.all(9),
                   decoration: BoxDecoration(
-                    color: const Color(0xFF2A2D36),
+                    color: theme.borderSubtle,
                     borderRadius: BorderRadius.circular(10),
                   ),
-                  child: const Icon(
-                    Icons.code,
-                    size: 18,
-                    color: Color(0xFF9CA3AF),
-                  ),
+                  child: Icon(Icons.code, size: 18, color: theme.textMuted),
                 ),
                 const SizedBox(width: 12),
                 Expanded(
@@ -73,10 +71,10 @@ class _DiffViewerState extends State<DiffViewer> {
                     children: [
                       Text(
                         fileName,
-                        style: const TextStyle(
+                        style: TextStyle(
                           fontSize: 14,
                           fontWeight: FontWeight.w600,
-                          color: Color(0xFFE4E4E7),
+                          color: theme.text,
                         ),
                       ),
                       const SizedBox(height: 3),
@@ -89,16 +87,14 @@ class _DiffViewerState extends State<DiffViewer> {
                                 vertical: 3,
                               ),
                               decoration: BoxDecoration(
-                                color: const Color(
-                                  0xFF10B981,
-                                ).withValues(alpha: 0.1),
+                                color: theme.diffAdded.withValues(alpha: 0.1),
                                 borderRadius: BorderRadius.circular(6),
                               ),
                               child: Text(
                                 '+$additions',
-                                style: const TextStyle(
+                                style: TextStyle(
                                   fontSize: 11,
-                                  color: Color(0xFF10B981),
+                                  color: theme.diffAdded,
                                   fontWeight: FontWeight.w600,
                                 ),
                               ),
@@ -112,16 +108,14 @@ class _DiffViewerState extends State<DiffViewer> {
                                 vertical: 3,
                               ),
                               decoration: BoxDecoration(
-                                color: const Color(
-                                  0xFFEF4444,
-                                ).withValues(alpha: 0.1),
+                                color: theme.diffRemoved.withValues(alpha: 0.1),
                                 borderRadius: BorderRadius.circular(6),
                               ),
                               child: Text(
                                 '-$deletions',
-                                style: const TextStyle(
+                                style: TextStyle(
                                   fontSize: 11,
-                                  color: Color(0xFFEF4444),
+                                  color: theme.diffRemoved,
                                   fontWeight: FontWeight.w600,
                                 ),
                               ),
@@ -135,7 +129,7 @@ class _DiffViewerState extends State<DiffViewer> {
                   _isExpanded
                       ? Icons.keyboard_arrow_up
                       : Icons.keyboard_arrow_down,
-                  color: const Color(0xFF71717A),
+                  color: theme.textMuted,
                   size: 22,
                 ),
               ],
@@ -143,10 +137,7 @@ class _DiffViewerState extends State<DiffViewer> {
 
             // Expanded diff content
             const SizedBox(height: 14),
-            _DiffPreview(
-              diff: widget.diff,
-              maxLines: _isExpanded ? 10 : 4,
-            ),
+            _DiffPreview(diff: widget.diff, maxLines: _isExpanded ? 10 : 4),
 
             // Actions row (only when expanded)
             if (_isExpanded) ...[
@@ -155,36 +146,31 @@ class _DiffViewerState extends State<DiffViewer> {
                 children: [
                   if (widget.onUndo != null)
                     TextButton.icon(
-                      onPressed: () => widget.onUndo!(
-                        widget.messageId,
-                        widget.diff.partId,
-                      ),
-                      icon: const Icon(
+                      onPressed: () =>
+                          widget.onUndo!(widget.messageId, widget.diff.partId),
+                      icon: Icon(
                         Icons.undo_rounded,
                         size: 14,
-                        color: Color(0xFFF59E0B),
+                        color: theme.warning,
                       ),
-                      label: const Text(
+                      label: Text(
                         'Undo',
-                        style: TextStyle(
-                          fontSize: 13,
-                          color: Color(0xFFF59E0B),
-                        ),
+                        style: TextStyle(fontSize: 13, color: theme.warning),
                       ),
                     ),
                   const Spacer(),
                   TextButton.icon(
                     onPressed: widget.onViewFull,
-                    icon: const Icon(
+                    icon: Icon(
                       Icons.open_in_full_rounded,
                       size: 14,
-                      color: Color(0xFF60A5FA),
+                      color: theme.info,
                     ),
-                    label: const Text(
+                    label: Text(
                       'View full',
                       style: TextStyle(
                         fontSize: 13,
-                        color: Color(0xFF60A5FA),
+                        color: theme.info,
                         fontWeight: FontWeight.w600,
                       ),
                     ),
@@ -208,15 +194,12 @@ class _DiffViewerState extends State<DiffViewer> {
 class _DiffPreview extends StatelessWidget {
   const _DiffPreview({required this.diff, required this.maxLines});
 
-  static const _kSurface = Color(0xFF17181C);
-  static const _kBorder = Color(0xFF2A2D36);
-  static const _kMuted = Color(0xFF9CA3AF);
-
   final DiffEntry diff;
   final int maxLines;
 
   @override
   Widget build(BuildContext context) {
+    final theme = OpenCodeTheme.of(context);
     final diffText = (diff.diff != null && diff.diff!.trim().isNotEmpty)
         ? diff.diff!
         : UnifiedDiff.generate(
@@ -241,17 +224,22 @@ class _DiffPreview extends StatelessWidget {
       width: double.infinity,
       padding: const EdgeInsets.all(12),
       decoration: BoxDecoration(
-        color: _kSurface,
+        color: theme.backgroundElement,
         borderRadius: BorderRadius.circular(14),
-        border: Border.all(color: _kBorder),
+        border: Border.all(color: theme.borderSubtle),
       ),
       child: previewLines.isEmpty
           ? Text(
               'No preview available',
-              style: GoogleFonts.jetBrainsMono(fontSize: 12, color: _kMuted),
+              style: GoogleFonts.jetBrainsMono(
+                fontSize: 12,
+                color: theme.textMuted,
+              ),
             )
           : Column(
-              children: [for (final line in previewLines) _PreviewRow(line: line)],
+              children: [
+                for (final line in previewLines) _PreviewRow(line: line),
+              ],
             ),
     );
   }
@@ -260,23 +248,20 @@ class _DiffPreview extends StatelessWidget {
 class _PreviewRow extends StatelessWidget {
   const _PreviewRow({required this.line});
 
-  static const _kText = Color(0xFFE4E4E7);
-  static const _kAdd = Color(0xFF10B981);
-  static const _kDel = Color(0xFFEF4444);
-
   final DiffLine line;
 
   @override
   Widget build(BuildContext context) {
+    final theme = OpenCodeTheme.of(context);
     final bg = switch (line.kind) {
-      DiffLineKind.added => _kAdd.withValues(alpha: 0.12),
-      DiffLineKind.removed => _kDel.withValues(alpha: 0.12),
+      DiffLineKind.added => theme.diffAdded.withValues(alpha: 0.12),
+      DiffLineKind.removed => theme.diffRemoved.withValues(alpha: 0.12),
       _ => Colors.transparent,
     };
     final fg = switch (line.kind) {
-      DiffLineKind.added => _kAdd,
-      DiffLineKind.removed => _kDel,
-      _ => _kText,
+      DiffLineKind.added => theme.diffAdded,
+      DiffLineKind.removed => theme.diffRemoved,
+      _ => theme.text,
     };
     final prefix = switch (line.kind) {
       DiffLineKind.added => '+',
@@ -294,11 +279,7 @@ class _PreviewRow extends StatelessWidget {
       ),
       child: Text(
         '$prefix ${line.text.isEmpty ? ' ' : line.text}',
-        style: GoogleFonts.jetBrainsMono(
-          fontSize: 12,
-          color: fg,
-          height: 1.35,
-        ),
+        style: GoogleFonts.jetBrainsMono(fontSize: 12, color: fg, height: 1.35),
       ),
     );
   }
