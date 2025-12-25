@@ -164,6 +164,7 @@ export class OpenCodeConnector {
     model?: { providerID: string; modelID: string },
     agent?: string,
     disabledTools?: string[],
+    fileAttachments?: Array<{ path: string; isDirectory: boolean; mimeType?: string; base64Data?: string }>,
   ) {
     let tools: Record<string, boolean> | undefined
     if (disabledTools && disabledTools.length > 0) {
@@ -185,6 +186,35 @@ export class OpenCodeConnector {
       for (const id of disabledTools) tools[id] = false
     }
     
+    const parts: Array<{ type: string; text?: string; url?: string; filename?: string; mime?: string }> = [
+      { type: 'text', text: content },
+    ]
+
+    if (fileAttachments && fileAttachments.length > 0) {
+      const baseDir = directory ?? process.cwd()
+      for (const attachment of fileAttachments) {
+        if (attachment.base64Data && attachment.mimeType) {
+          parts.push({
+            type: 'file',
+            url: `data:${attachment.mimeType};base64,${attachment.base64Data}`,
+            filename: attachment.path.split('/').pop() ?? 'image',
+            mime: attachment.mimeType,
+          })
+        } else {
+          const absolutePath = attachment.path.startsWith('/') 
+            ? attachment.path 
+            : `${baseDir}/${attachment.path}`
+          const filename = attachment.path.split('/').pop() ?? attachment.path
+          parts.push({
+            type: 'file',
+            url: `file://${absolutePath}`,
+            filename: attachment.isDirectory ? `${filename}/` : filename,
+            mime: attachment.isDirectory ? 'inode/directory' : 'text/plain',
+          })
+        }
+      }
+    }
+    
     return this.client.session.prompt({
       responseStyle: 'data',
       path: { id: sessionId },
@@ -193,12 +223,7 @@ export class OpenCodeConnector {
         ...(model ? { model } : {}),
         ...(agent ? { agent } : {}),
         ...(tools ? { tools } : {}),
-        parts: [
-          {
-            type: 'text',
-            text: content,
-          },
-        ],
+        parts,
       },
     })
   }
@@ -598,6 +623,23 @@ export class OpenCodeConnector {
         },
       })
       return result ?? []
+    } catch {
+      return []
+    }
+  }
+
+  // Feature 12b: File Search - Find files AND directories (for @ autocomplete)
+  async searchFilesAndDirs(query: string, directory?: string, limit: number = 20): Promise<string[]> {
+    try {
+      const result = await this.client.find.files({
+        responseStyle: 'data',
+        query: {
+          query,
+          dirs: 'true',
+          ...(directory ? { directory } : {}),
+        },
+      })
+      return (result ?? []).slice(0, limit)
     } catch {
       return []
     }

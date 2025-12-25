@@ -337,12 +337,18 @@ class ChatSessionNotifier extends StateNotifier<ChatSessionState> {
 
     // If we don't have this message yet, only create if it's NOT a user message
     // Check if any local user message contains similar text (to avoid duplicates)
+    // Use startsWith to handle cases where local message has attachments appended
     final partType = part['type'] as String? ?? '';
     if (partType == 'text' && existingMessage == null) {
       final partText = part['text'] as String? ?? '';
-      final isUserEcho = _messages.values.any(
-        (msg) => msg.role == MessageRole.user && msg.text == partText,
-      );
+      final isUserEcho = _messages.values.any((msg) {
+        if (msg.role != MessageRole.user) return false;
+        final msgText = msg.text.trim();
+        final serverText = partText.trim();
+        return msgText == serverText ||
+            msgText.startsWith(serverText) ||
+            serverText.startsWith(msgText);
+      });
       if (isUserEcho) {
         return;
       }

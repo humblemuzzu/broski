@@ -8,6 +8,7 @@ import 'package:url_launcher/url_launcher.dart';
 
 import '../models/agent.dart';
 import '../models/command.dart';
+import '../models/file_attachment.dart';
 import '../models/message.dart';
 import '../models/project.dart';
 import '../models/session.dart';
@@ -15,14 +16,17 @@ import '../models/session_context.dart';
 import '../models/vcs.dart';
 import '../providers/chat_provider.dart';
 import '../providers/connection_provider.dart';
+import '../providers/file_search_provider.dart';
 import '../providers/input_style_provider.dart';
 import '../providers/selection_provider.dart';
 import '../providers/service_providers.dart';
 import '../providers/tool_settings_provider.dart';
 import '../services/haptics_service.dart';
+import '../services/image_picker_service.dart';
 import '../services/websocket_service.dart';
 import '../theme/opencode_theme.dart';
 import '../widgets/diff_viewer.dart';
+import '../widgets/file_tagging.dart';
 import '../widgets/message_bubble.dart';
 import '../widgets/permission_prompt.dart';
 import '../widgets/session_sidebar.dart';
@@ -69,6 +73,10 @@ class _ChatScreenState extends ConsumerState<ChatScreen>
 
   // Feature 10: VCS/Git info
   VcsInfo _vcsInfo = const VcsInfo();
+
+  // Feature 21: File @ tagging
+  final List<FileAttachment> _attachedFiles = [];
+  bool _showFileAutocomplete = false;
 
   // Message pagination state
   bool _loadingMoreMessages = false;
@@ -746,6 +754,7 @@ class _ChatScreenState extends ConsumerState<ChatScreen>
 
   void _onTextChanged() {
     final text = _controller.text;
+    final fileSearch = ref.read(fileSearchProvider.notifier);
 
     // Detect slash command autocomplete - ONLY when input starts fresh with /
     // Once there's a space after the command name, autocomplete closes
@@ -754,21 +763,206 @@ class _ChatScreenState extends ConsumerState<ChatScreen>
     final isSlashCommand =
         text.startsWith('/') && text.isNotEmpty && !text.contains(' ');
 
+    // Detect @ file mention - check for @something at cursor position
+    final atMatch = RegExp(r'@(\S*)$').firstMatch(text);
+
     if (isSlashCommand) {
       final filter = text.substring(1).toLowerCase();
       if (!_showCommandAutocomplete || _commandFilter != filter) {
         setState(() {
           _showCommandAutocomplete = true;
+          _showFileAutocomplete = false;
           _commandFilter = filter;
         });
+        fileSearch.clear();
       }
-    } else if (_showCommandAutocomplete) {
+    } else if (atMatch != null) {
+      final query = atMatch.group(1) ?? '';
+      fileSearch.setProjectPath(widget.project.path);
+      fileSearch.search(query);
       setState(() {
         _showCommandAutocomplete = false;
+        _showFileAutocomplete = true;
         _commandFilter = '';
       });
     } else {
-      setState(() {});
+      if (_showCommandAutocomplete || _showFileAutocomplete) {
+        setState(() {
+          _showCommandAutocomplete = false;
+          _showFileAutocomplete = false;
+          _commandFilter = '';
+        });
+        fileSearch.clear();
+      } else {
+        setState(() {});
+      }
+    }
+  }
+
+  void _handleFileSelection(FileAttachment attachment) {
+    if (_attachedFiles.contains(attachment)) return;
+
+    final text = _controller.text;
+    final newText = text.replaceFirst(RegExp(r'@\S*$'), '');
+    _controller.text = newText;
+    _controller.selection = TextSelection.collapsed(offset: newText.length);
+
+    setState(() {
+      _attachedFiles.add(attachment);
+      _showFileAutocomplete = false;
+    });
+    ref.read(fileSearchProvider.notifier).clear();
+  }
+
+  void _removeAttachedFile(FileAttachment attachment) {
+    setState(() {
+      _attachedFiles.remove(attachment);
+    });
+  }
+
+  void _showAttachmentOptions(BuildContext context) {
+    final theme = OpenCodeTheme.of(context);
+    showModalBottomSheet(
+      context: context,
+      backgroundColor: theme.backgroundPanel,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(16)),
+      ),
+      builder: (ctx) => SafeArea(
+        child: Padding(
+          padding: const EdgeInsets.symmetric(vertical: 16),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              ListTile(
+                leading: Icon(Icons.camera_alt_rounded, color: theme.primary),
+                title: Text('Take Photo', style: TextStyle(color: theme.text)),
+                onTap: () {
+                  Navigator.pop(ctx);
+                  _pickImageFromCamera();
+                },
+              ),
+              ListTile(
+                leading: Icon(
+                  Icons.photo_library_rounded,
+                  color: theme.primary,
+                ),
+                title: Text(
+                  'Choose from Gallery',
+                  style: TextStyle(color: theme.text),
+                ),
+                onTap: () {
+                  Navigator.pop(ctx);
+                  _pickImageFromGallery();
+                },
+              ),
+              ListTile(
+                leading: Icon(Icons.attach_file_rounded, color: theme.info),
+                title: Text(
+                  'Attach File (@)',
+                  style: TextStyle(color: theme.text),
+                ),
+                subtitle: Text(
+                  'Type @ in the input to search files',
+                  style: TextStyle(color: theme.textMuted, fontSize: 12),
+                ),
+                onTap: () => Navigator.pop(ctx),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  bool _modelSupportsImages(SelectedModel? model) {
+    if (model == null) return true;
+    final id = model.modelID.toLowerCase();
+    final provider = model.providerID.toLowerCase();
+
+    if (provider.contains('anthropic')) {
+      return id.contains('claude-3') ||
+          id.contains('claude-4') ||
+          id.contains('sonnet') ||
+          id.contains('opus') ||
+          id.contains('haiku');
+    }
+    if (provider.contains('openai')) {
+      return id.contains('gpt-4o') ||
+          id.contains('gpt-4-vision') ||
+          id.contains('gpt-4-turbo') ||
+          id.contains('o1') ||
+          id.contains('o3');
+    }
+    if (provider.contains('google')) {
+      return id.contains('gemini');
+    }
+    return true;
+  }
+
+  void _showImageNotSupportedWarning() {
+    final model = ref.read(selectionProvider).model;
+    if (!mounted) return;
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(
+          'Warning: ${model?.modelID ?? 'This model'} may not support images',
+        ),
+        backgroundColor: OpenCodeTheme.of(context).warning,
+        behavior: SnackBarBehavior.floating,
+        action: SnackBarAction(
+          label: 'OK',
+          textColor: Colors.white,
+          onPressed: () {},
+        ),
+      ),
+    );
+  }
+
+  Future<void> _pickImageFromGallery() async {
+    final model = ref.read(selectionProvider).model;
+    if (!_modelSupportsImages(model)) {
+      _showImageNotSupportedWarning();
+    }
+
+    final imagePicker = ref.read(imagePickerServiceProvider);
+    final attachment = await imagePicker.pickFromGallery();
+    if (attachment != null) {
+      setState(() => _attachedFiles.add(attachment));
+    }
+  }
+
+  Future<void> _pickImageFromCamera() async {
+    final model = ref.read(selectionProvider).model;
+    if (!_modelSupportsImages(model)) {
+      _showImageNotSupportedWarning();
+    }
+
+    final imagePicker = ref.read(imagePickerServiceProvider);
+    final attachment = await imagePicker.pickFromCamera();
+    if (attachment != null) {
+      setState(() => _attachedFiles.add(attachment));
+    }
+  }
+
+  void _handleFileAutocompleteKeyboard(KeyEvent event) {
+    if (!_showFileAutocomplete) return;
+
+    final fileSearch = ref.read(fileSearchProvider.notifier);
+    if (event is KeyDownEvent) {
+      if (event.logicalKey == LogicalKeyboardKey.arrowDown) {
+        fileSearch.selectNext();
+      } else if (event.logicalKey == LogicalKeyboardKey.arrowUp) {
+        fileSearch.selectPrevious();
+      } else if (event.logicalKey == LogicalKeyboardKey.enter) {
+        final attachment = fileSearch.getSelectedAttachment();
+        if (attachment != null) {
+          _handleFileSelection(attachment);
+        }
+      } else if (event.logicalKey == LogicalKeyboardKey.escape) {
+        setState(() => _showFileAutocomplete = false);
+        fileSearch.clear();
+      }
     }
   }
 
@@ -1045,14 +1239,17 @@ class _ChatScreenState extends ConsumerState<ChatScreen>
   ) {
     final inputStyle = ref.watch(inputStyleProvider);
     final isBusy = _hasStreamingMessage(chatState.messages);
+    final hasContent =
+        _controller.text.trim().isNotEmpty || _attachedFiles.isNotEmpty;
     final canSend =
         connection.isConnected &&
         !connection.isOfflineMode &&
         !isBusy &&
-        _controller.text.trim().isNotEmpty;
+        hasContent;
 
+    Widget inputBar;
     if (inputStyle == InputBarStyle.cli) {
-      return _CliStyleInputBar(
+      inputBar = _CliStyleInputBar(
         controller: _controller,
         onSend: () => _sendMessage(connection, chatState),
         isBusy: isBusy,
@@ -1063,16 +1260,28 @@ class _ChatScreenState extends ConsumerState<ChatScreen>
         onAgentChanged: (agent) => setState(() => _selectedAgent = agent),
         currentModel: ref.watch(selectionProvider).model,
         onModelTap: () => _showModelSelector(context),
+        attachedFiles: _attachedFiles,
+        onRemoveAttachment: _removeAttachedFile,
+        showFileAutocomplete: _showFileAutocomplete,
+        onFileSelect: _handleFileSelection,
+        onAttachTap: () => _showAttachmentOptions(context),
+      );
+    } else {
+      inputBar = _FloatingInputBar(
+        controller: _controller,
+        onSend: () => _sendMessage(connection, chatState),
+        isBusy: isBusy,
+        canSend: canSend,
+        isOfflineMode: connection.isOfflineMode,
+        attachedFiles: _attachedFiles,
+        onRemoveAttachment: _removeAttachedFile,
+        showFileAutocomplete: _showFileAutocomplete,
+        onFileSelect: _handleFileSelection,
+        onAttachTap: () => _showAttachmentOptions(context),
       );
     }
 
-    return _FloatingInputBar(
-      controller: _controller,
-      onSend: () => _sendMessage(connection, chatState),
-      isBusy: isBusy,
-      canSend: canSend,
-      isOfflineMode: connection.isOfflineMode,
-    );
+    return inputBar;
   }
 
   Widget _buildMessageGroup(ChatMessage message) {
@@ -1309,7 +1518,8 @@ class _ChatScreenState extends ConsumerState<ChatScreen>
     ChatSessionState chatState,
   ) {
     final text = _controller.text.trim();
-    if (text.isEmpty) return;
+    final hasAttachments = _attachedFiles.isNotEmpty;
+    if (text.isEmpty && !hasAttachments) return;
     if (!connection.isConnected) return;
     if (_hasStreamingMessage(chatState.messages)) return;
 
@@ -1317,8 +1527,8 @@ class _ChatScreenState extends ConsumerState<ChatScreen>
     final chat = ref.read(chatSessionProvider.notifier);
     final selectedModel = ref.read(selectionProvider).model;
 
-    // Feature 2: Check if this is a slash command
-    if (text.startsWith('/')) {
+    // Feature 2: Check if this is a slash command (attachments not supported for commands)
+    if (text.startsWith('/') && !hasAttachments) {
       final parts = text.substring(1).split(' ');
       final commandName = parts[0];
       final arguments = parts.length > 1 ? parts.sublist(1).join(' ') : '';
@@ -1338,8 +1548,26 @@ class _ChatScreenState extends ConsumerState<ChatScreen>
             : null,
       );
     } else {
-      // Regular chat message
-      chat.appendUserMessage(text);
+      // Build display message with file attachments
+      // For images: show "[Image 1]" instead of raw filename
+      // For files: show the @path
+      String displayText = text;
+      if (hasAttachments) {
+        final attachmentLabels = <String>[];
+        int imageCount = 0;
+        for (final f in _attachedFiles) {
+          if (f.isImage) {
+            imageCount++;
+            attachmentLabels.add('[Image $imageCount]');
+          } else {
+            attachmentLabels.add(f.displayPath);
+          }
+        }
+        if (attachmentLabels.isNotEmpty) {
+          displayText = '$text\n${attachmentLabels.join(' ')}';
+        }
+      }
+      chat.appendUserMessage(displayText);
 
       // Get disabled tools from settings
       final toolSettings = ref.read(toolSettingsProvider);
@@ -1353,10 +1581,12 @@ class _ChatScreenState extends ConsumerState<ChatScreen>
         modelID: selectedModel?.modelID,
         agent: _selectedAgent,
         disabledTools: disabledTools.isNotEmpty ? disabledTools : null,
+        fileAttachments: hasAttachments ? _attachedFiles : null,
       );
     }
 
     _controller.clear();
+    setState(() => _attachedFiles.clear());
     _scrollToBottom();
   }
 
@@ -1929,13 +2159,18 @@ class _GlassPill extends StatelessWidget {
 }
 
 // Floating input bar with streaming mode support
-class _FloatingInputBar extends StatelessWidget {
+class _FloatingInputBar extends ConsumerWidget {
   const _FloatingInputBar({
     required this.controller,
     required this.onSend,
     required this.isBusy,
     required this.canSend,
     this.isOfflineMode = false,
+    this.attachedFiles = const [],
+    this.onRemoveAttachment,
+    this.showFileAutocomplete = false,
+    this.onFileSelect,
+    this.onAttachTap,
   });
 
   final TextEditingController controller;
@@ -1943,9 +2178,14 @@ class _FloatingInputBar extends StatelessWidget {
   final bool isBusy;
   final bool canSend;
   final bool isOfflineMode;
+  final List<FileAttachment> attachedFiles;
+  final void Function(FileAttachment)? onRemoveAttachment;
+  final bool showFileAutocomplete;
+  final void Function(FileAttachment)? onFileSelect;
+  final VoidCallback? onAttachTap;
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
     final theme = OpenCodeTheme.of(context);
     final kCard = theme.backgroundPanel;
     final kMuted = theme.textMuted;
@@ -1961,122 +2201,142 @@ class _FloatingInputBar extends StatelessWidget {
         duration: const Duration(milliseconds: 150),
         opacity: isBusy ? 0.0 : 1.0,
         child: Container(
-          padding: const EdgeInsets.fromLTRB(16, 4, 16, 4),
           color: Colors.transparent,
           child: SafeArea(
             top: false,
             minimum: const EdgeInsets.only(bottom: 8),
-            child: Row(
-              crossAxisAlignment: CrossAxisAlignment.center,
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
               children: [
-                // Plus button - compact
-                GestureDetector(
-                  onTap: () {
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      SnackBar(
-                        content: const Text('Attach files - coming soon'),
-                        backgroundColor: kCard,
-                        behavior: SnackBarBehavior.floating,
-                      ),
-                    );
-                  },
-                  child: Container(
-                    height: 42,
-                    width: 42,
-                    margin: const EdgeInsets.only(right: 8),
-                    decoration: BoxDecoration(
-                      color: kCard,
-                      borderRadius: BorderRadius.circular(21),
-                      border: Border.all(color: fade(kMuted, 0.2)),
-                    ),
-                    child: Center(
-                      child: Icon(
-                        Icons.add_rounded,
-                        color: kOnBackground,
-                        size: 22,
-                      ),
+                // File autocomplete dropdown (appears above input)
+                if (showFileAutocomplete && onFileSelect != null)
+                  Padding(
+                    padding: const EdgeInsets.fromLTRB(16, 0, 16, 8),
+                    child: FileAutocomplete(
+                      visible: showFileAutocomplete,
+                      onSelect: onFileSelect!,
                     ),
                   ),
-                ),
-                // Prompt bar container
-                Expanded(
-                  child: Container(
-                    constraints: const BoxConstraints(minHeight: 42),
-                    decoration: BoxDecoration(
-                      color: kCard,
-                      borderRadius: BorderRadius.circular(22),
-                      border: Border.all(color: fade(kMuted, 0.2)),
+
+                // Attached files chips row
+                if (attachedFiles.isNotEmpty && onRemoveAttachment != null)
+                  Padding(
+                    padding: const EdgeInsets.fromLTRB(16, 0, 16, 4),
+                    child: AttachedFilesChips(
+                      attachments: attachedFiles,
+                      onRemove: onRemoveAttachment!,
                     ),
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 14,
-                      vertical: 4,
-                    ),
-                    child: Row(
-                      crossAxisAlignment: CrossAxisAlignment.center,
-                      children: [
-                        // Text input
-                        Expanded(
-                          child: TextField(
-                            controller: controller,
-                            enabled: !isOfflineMode && !isBusy,
-                            minLines: 1,
-                            maxLines: 5,
-                            style: TextStyle(
-                              fontWeight: FontWeight.w400,
+                  ),
+
+                // Main input row
+                Padding(
+                  padding: const EdgeInsets.fromLTRB(16, 4, 16, 4),
+                  child: Row(
+                    crossAxisAlignment: CrossAxisAlignment.center,
+                    children: [
+                      // Plus button - shows attachment options
+                      GestureDetector(
+                        onTap: onAttachTap,
+                        child: Container(
+                          height: 42,
+                          width: 42,
+                          margin: const EdgeInsets.only(right: 8),
+                          decoration: BoxDecoration(
+                            color: kCard,
+                            borderRadius: BorderRadius.circular(21),
+                            border: Border.all(color: fade(kMuted, 0.2)),
+                          ),
+                          child: Center(
+                            child: Icon(
+                              Icons.add_rounded,
                               color: kOnBackground,
-                              fontSize: 15,
-                            ),
-                            decoration: InputDecoration(
-                              hintText: isOfflineMode
-                                  ? 'Offline mode - read only'
-                                  : 'Ask AI to edit code...',
-                              filled: false,
-                              border: InputBorder.none,
-                              enabledBorder: InputBorder.none,
-                              focusedBorder: InputBorder.none,
-                              disabledBorder: InputBorder.none,
-                              errorBorder: InputBorder.none,
-                              focusedErrorBorder: InputBorder.none,
-                              hintStyle: TextStyle(
-                                color: isOfflineMode
-                                    ? theme.warning
-                                    : kMuted.withValues(alpha: 0.6),
-                                fontWeight: FontWeight.w400,
-                                fontSize: 15,
-                              ),
-                              contentPadding: const EdgeInsets.symmetric(
-                                horizontal: 0,
-                                vertical: 10,
-                              ),
-                              isDense: true,
-                            ),
-                            onSubmitted: canSend ? (_) => onSend() : null,
-                          ),
-                        ),
-                        const SizedBox(width: 8),
-                        // Send button
-                        GestureDetector(
-                          onTap: canSend ? onSend : null,
-                          child: Container(
-                            width: 30,
-                            height: 30,
-                            decoration: BoxDecoration(
-                              color: canSend
-                                  ? kOnBackground
-                                  : fade(kMuted, 0.1),
-                              borderRadius: BorderRadius.circular(15),
-                            ),
-                            child: Center(
-                              child: Icon(
-                                Icons.arrow_upward_rounded,
-                                color: canSend ? kBackground : kMuted,
-                                size: 16,
-                              ),
+                              size: 22,
                             ),
                           ),
                         ),
-                      ],
-                    ),
+                      ),
+                      // Prompt bar container
+                      Expanded(
+                        child: Container(
+                          constraints: const BoxConstraints(minHeight: 42),
+                          decoration: BoxDecoration(
+                            color: kCard,
+                            borderRadius: BorderRadius.circular(22),
+                            border: Border.all(color: fade(kMuted, 0.2)),
+                          ),
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 14,
+                            vertical: 4,
+                          ),
+                          child: Row(
+                            crossAxisAlignment: CrossAxisAlignment.center,
+                            children: [
+                              // Text input
+                              Expanded(
+                                child: TextField(
+                                  controller: controller,
+                                  enabled: !isOfflineMode && !isBusy,
+                                  minLines: 1,
+                                  maxLines: 5,
+                                  style: TextStyle(
+                                    fontWeight: FontWeight.w400,
+                                    color: kOnBackground,
+                                    fontSize: 15,
+                                  ),
+                                  decoration: InputDecoration(
+                                    hintText: isOfflineMode
+                                        ? 'Offline mode - read only'
+                                        : 'Ask AI to edit code...',
+                                    filled: false,
+                                    border: InputBorder.none,
+                                    enabledBorder: InputBorder.none,
+                                    focusedBorder: InputBorder.none,
+                                    disabledBorder: InputBorder.none,
+                                    errorBorder: InputBorder.none,
+                                    focusedErrorBorder: InputBorder.none,
+                                    hintStyle: TextStyle(
+                                      color: isOfflineMode
+                                          ? theme.warning
+                                          : kMuted.withValues(alpha: 0.6),
+                                      fontWeight: FontWeight.w400,
+                                      fontSize: 15,
+                                    ),
+                                    contentPadding: const EdgeInsets.symmetric(
+                                      horizontal: 0,
+                                      vertical: 10,
+                                    ),
+                                    isDense: true,
+                                  ),
+                                  onSubmitted: canSend ? (_) => onSend() : null,
+                                ),
+                              ),
+                              const SizedBox(width: 8),
+                              // Send button
+                              GestureDetector(
+                                onTap: canSend ? onSend : null,
+                                child: Container(
+                                  width: 30,
+                                  height: 30,
+                                  decoration: BoxDecoration(
+                                    color: canSend
+                                        ? kOnBackground
+                                        : fade(kMuted, 0.1),
+                                    borderRadius: BorderRadius.circular(15),
+                                  ),
+                                  child: Center(
+                                    child: Icon(
+                                      Icons.arrow_upward_rounded,
+                                      color: canSend ? kBackground : kMuted,
+                                      size: 16,
+                                    ),
+                                  ),
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ),
+                    ],
                   ),
                 ),
               ],
@@ -2101,6 +2361,11 @@ class _CliStyleInputBar extends StatefulWidget {
     this.onAgentChanged,
     this.currentModel,
     this.onModelTap,
+    this.attachedFiles = const [],
+    this.onRemoveAttachment,
+    this.showFileAutocomplete = false,
+    this.onFileSelect,
+    this.onAttachTap,
   });
 
   final TextEditingController controller;
@@ -2113,6 +2378,11 @@ class _CliStyleInputBar extends StatefulWidget {
   final void Function(String?)? onAgentChanged;
   final SelectedModel? currentModel;
   final VoidCallback? onModelTap;
+  final List<FileAttachment> attachedFiles;
+  final void Function(FileAttachment)? onRemoveAttachment;
+  final bool showFileAutocomplete;
+  final void Function(FileAttachment)? onFileSelect;
+  final VoidCallback? onAttachTap;
 
   @override
   State<_CliStyleInputBar> createState() => _CliStyleInputBarState();
@@ -2197,185 +2467,238 @@ class _CliStyleInputBarState extends State<_CliStyleInputBar> {
           child: SafeArea(
             top: false,
             minimum: const EdgeInsets.only(bottom: 8),
-            child: Container(
-              margin: const EdgeInsets.only(left: 8, right: 0),
-              // Light greyish background like OpenCode CLI - rgb(40,40,40)
-              decoration: const BoxDecoration(color: Color(0xFF282828)),
-              child: Row(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  // Glowing accent line on the left
-                  Container(
-                    width: 3,
-                    constraints: const BoxConstraints(minHeight: 80),
-                    decoration: BoxDecoration(
-                      color: agentColor,
-                      boxShadow: [
-                        BoxShadow(
-                          color: agentColor.withValues(alpha: 0.6),
-                          blurRadius: 8,
-                          spreadRadius: 1,
-                        ),
-                      ],
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                // File autocomplete dropdown (appears above input)
+                if (widget.showFileAutocomplete && widget.onFileSelect != null)
+                  Padding(
+                    padding: const EdgeInsets.fromLTRB(8, 0, 0, 8),
+                    child: FileAutocomplete(
+                      visible: widget.showFileAutocomplete,
+                      onSelect: widget.onFileSelect!,
                     ),
                   ),
 
-                  // Main content area
-                  Expanded(
-                    child: Column(
-                      mainAxisSize: MainAxisSize.min,
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        // Text input area
-                        Container(
-                          constraints: const BoxConstraints(
-                            minHeight: 44,
-                            maxHeight: 140,
-                          ),
-                          child: TextField(
-                            controller: widget.controller,
-                            focusNode: _focusNode,
-                            enabled: !widget.isOfflineMode && !widget.isBusy,
-                            minLines: 1,
-                            maxLines: 5,
-                            style: TextStyle(
-                              color: theme.text,
-                              fontSize: 14,
-                              height: 1.5,
+                // Main CLI input container
+                Container(
+                  margin: const EdgeInsets.only(left: 8, right: 0),
+                  // Light greyish background like OpenCode CLI - rgb(40,40,40)
+                  decoration: const BoxDecoration(color: Color(0xFF282828)),
+                  child: Row(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      // Glowing accent line on the left
+                      Container(
+                        width: 3,
+                        constraints: const BoxConstraints(minHeight: 80),
+                        decoration: BoxDecoration(
+                          color: agentColor,
+                          boxShadow: [
+                            BoxShadow(
+                              color: agentColor.withValues(alpha: 0.6),
+                              blurRadius: 8,
+                              spreadRadius: 1,
                             ),
-                            decoration: InputDecoration(
-                              hintText: widget.isOfflineMode
-                                  ? 'Offline mode - read only'
-                                  : _placeholders[_placeholderIndex],
-                              filled: false,
-                              border: InputBorder.none,
-                              enabledBorder: InputBorder.none,
-                              focusedBorder: InputBorder.none,
-                              disabledBorder: InputBorder.none,
-                              hintStyle: TextStyle(
-                                color: widget.isOfflineMode
-                                    ? theme.warning
-                                    : theme.textMuted.withValues(alpha: 0.4),
-                                fontSize: 14,
-                              ),
-                              contentPadding: const EdgeInsets.fromLTRB(
-                                16,
-                                12,
-                                16,
-                                4,
-                              ),
-                              isDense: true,
-                            ),
-                            onSubmitted: widget.canSend
-                                ? (_) => widget.onSend()
-                                : null,
-                          ),
+                          ],
                         ),
+                      ),
 
-                        // Bottom info row - like OpenCode CLI
-                        Padding(
-                          padding: const EdgeInsets.fromLTRB(16, 0, 12, 10),
-                          child: Row(
-                            children: [
-                              // Agent name (colored, tappable)
-                              GestureDetector(
-                                onTap:
-                                    widget.onAgentChanged != null &&
-                                        widget.agents.isNotEmpty
-                                    ? () => _showAgentPicker(context)
-                                    : null,
-                                child: Text(
-                                  agent?.displayName ?? 'Sisyphus',
-                                  style: TextStyle(
-                                    color: agentColor,
-                                    fontSize: 13,
-                                    fontWeight: FontWeight.w600,
-                                  ),
-                                ),
-                              ),
-
-                              // Separator dot
+                      // Main content area
+                      Expanded(
+                        child: Column(
+                          mainAxisSize: MainAxisSize.min,
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            // Attached files chips row
+                            if (widget.attachedFiles.isNotEmpty &&
+                                widget.onRemoveAttachment != null)
                               Padding(
-                                padding: const EdgeInsets.symmetric(
-                                  horizontal: 8,
+                                padding: const EdgeInsets.fromLTRB(
+                                  12,
+                                  8,
+                                  12,
+                                  0,
                                 ),
-                                child: Text(
-                                  '·',
-                                  style: TextStyle(
-                                    color: theme.textMuted.withValues(
-                                      alpha: 0.4,
-                                    ),
-                                    fontSize: 13,
-                                  ),
+                                child: AttachedFilesChips(
+                                  attachments: widget.attachedFiles,
+                                  onRemove: widget.onRemoveAttachment!,
                                 ),
                               ),
 
-                              // Model name (tappable)
-                              GestureDetector(
-                                onTap: widget.onModelTap,
-                                child: Text(
-                                  _getModelDisplayName(widget.currentModel),
-                                  style: TextStyle(
-                                    color: theme.text,
-                                    fontSize: 13,
-                                    fontWeight: FontWeight.w500,
-                                  ),
-                                ),
+                            // Text input area
+                            Container(
+                              constraints: const BoxConstraints(
+                                minHeight: 44,
+                                maxHeight: 140,
                               ),
-
-                              // Provider name (muted)
-                              if (_getProviderName(
-                                widget.currentModel,
-                              ).isNotEmpty) ...[
-                                const SizedBox(width: 6),
-                                Text(
-                                  _getProviderName(widget.currentModel),
-                                  style: TextStyle(
-                                    color: theme.textMuted.withValues(
-                                      alpha: 0.5,
-                                    ),
-                                    fontSize: 13,
-                                  ),
+                              child: TextField(
+                                controller: widget.controller,
+                                focusNode: _focusNode,
+                                enabled:
+                                    !widget.isOfflineMode && !widget.isBusy,
+                                minLines: 1,
+                                maxLines: 5,
+                                style: TextStyle(
+                                  color: theme.text,
+                                  fontSize: 14,
+                                  height: 1.5,
                                 ),
-                              ],
-
-                              const Spacer(),
-
-                              // Send button (minimal)
-                              GestureDetector(
-                                onTap: widget.canSend ? widget.onSend : null,
-                                child: Container(
-                                  width: 28,
-                                  height: 28,
-                                  decoration: BoxDecoration(
-                                    color: widget.canSend
-                                        ? theme.text
+                                decoration: InputDecoration(
+                                  hintText: widget.isOfflineMode
+                                      ? 'Offline mode - read only'
+                                      : _placeholders[_placeholderIndex],
+                                  filled: false,
+                                  border: InputBorder.none,
+                                  enabledBorder: InputBorder.none,
+                                  focusedBorder: InputBorder.none,
+                                  disabledBorder: InputBorder.none,
+                                  hintStyle: TextStyle(
+                                    color: widget.isOfflineMode
+                                        ? theme.warning
                                         : theme.textMuted.withValues(
-                                            alpha: 0.15,
+                                            alpha: 0.4,
                                           ),
-                                    borderRadius: BorderRadius.circular(6),
+                                    fontSize: 14,
                                   ),
-                                  child: Center(
-                                    child: Icon(
-                                      Icons.arrow_upward_rounded,
-                                      color: widget.canSend
-                                          ? theme.background
-                                          : theme.textMuted.withValues(
-                                              alpha: 0.4,
-                                            ),
-                                      size: 16,
+                                  contentPadding: const EdgeInsets.fromLTRB(
+                                    16,
+                                    12,
+                                    16,
+                                    4,
+                                  ),
+                                  isDense: true,
+                                ),
+                                onSubmitted: widget.canSend
+                                    ? (_) => widget.onSend()
+                                    : null,
+                              ),
+                            ),
+
+                            // Bottom info row - like OpenCode CLI
+                            Padding(
+                              padding: const EdgeInsets.fromLTRB(16, 0, 12, 10),
+                              child: Row(
+                                children: [
+                                  // Agent name (colored, tappable)
+                                  GestureDetector(
+                                    onTap:
+                                        widget.onAgentChanged != null &&
+                                            widget.agents.isNotEmpty
+                                        ? () => _showAgentPicker(context)
+                                        : null,
+                                    child: Text(
+                                      agent?.displayName ?? 'Sisyphus',
+                                      style: TextStyle(
+                                        color: agentColor,
+                                        fontSize: 13,
+                                        fontWeight: FontWeight.w600,
+                                      ),
                                     ),
                                   ),
-                                ),
+
+                                  // Separator dot
+                                  Padding(
+                                    padding: const EdgeInsets.symmetric(
+                                      horizontal: 8,
+                                    ),
+                                    child: Text(
+                                      '·',
+                                      style: TextStyle(
+                                        color: theme.textMuted.withValues(
+                                          alpha: 0.4,
+                                        ),
+                                        fontSize: 13,
+                                      ),
+                                    ),
+                                  ),
+
+                                  // Model name (tappable)
+                                  GestureDetector(
+                                    onTap: widget.onModelTap,
+                                    child: Text(
+                                      _getModelDisplayName(widget.currentModel),
+                                      style: TextStyle(
+                                        color: theme.text,
+                                        fontSize: 13,
+                                        fontWeight: FontWeight.w500,
+                                      ),
+                                    ),
+                                  ),
+
+                                  // Provider name (muted)
+                                  if (_getProviderName(
+                                    widget.currentModel,
+                                  ).isNotEmpty) ...[
+                                    const SizedBox(width: 6),
+                                    Text(
+                                      _getProviderName(widget.currentModel),
+                                      style: TextStyle(
+                                        color: theme.textMuted.withValues(
+                                          alpha: 0.5,
+                                        ),
+                                        fontSize: 13,
+                                      ),
+                                    ),
+                                  ],
+
+                                  const Spacer(),
+
+                                  // Attachment button
+                                  if (widget.onAttachTap != null)
+                                    GestureDetector(
+                                      onTap: widget.onAttachTap,
+                                      child: Padding(
+                                        padding: const EdgeInsets.only(
+                                          right: 12,
+                                        ),
+                                        child: Icon(
+                                          Icons.add_rounded,
+                                          color: theme.textMuted,
+                                          size: 22,
+                                        ),
+                                      ),
+                                    ),
+
+                                  // Send button (minimal)
+                                  GestureDetector(
+                                    onTap: widget.canSend
+                                        ? widget.onSend
+                                        : null,
+                                    child: Container(
+                                      width: 28,
+                                      height: 28,
+                                      decoration: BoxDecoration(
+                                        color: widget.canSend
+                                            ? theme.text
+                                            : theme.textMuted.withValues(
+                                                alpha: 0.15,
+                                              ),
+                                        borderRadius: BorderRadius.circular(6),
+                                      ),
+                                      child: Center(
+                                        child: Icon(
+                                          Icons.arrow_upward_rounded,
+                                          color: widget.canSend
+                                              ? theme.background
+                                              : theme.textMuted.withValues(
+                                                  alpha: 0.4,
+                                                ),
+                                          size: 16,
+                                        ),
+                                      ),
+                                    ),
+                                  ),
+                                ],
                               ),
-                            ],
-                          ),
+                            ),
+                          ],
                         ),
-                      ],
-                    ),
+                      ),
+                    ],
                   ),
-                ],
-              ),
+                ),
+              ],
             ),
           ),
         ),

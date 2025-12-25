@@ -35,7 +35,7 @@ export type ClientMessage =
   | { type: 'create_session'; projectPath?: string; title?: string }
   | { type: 'get_session'; sessionId: string; projectPath?: string }
   | { type: 'get_session_messages'; sessionId: string; projectPath?: string; limit?: number }
-  | { type: 'chat'; sessionId: string; content: string; projectPath?: string; model?: { providerID: string; modelID: string }; agent?: string; disabledTools?: string[] }
+  | { type: 'chat'; sessionId: string; content: string; projectPath?: string; model?: { providerID: string; modelID: string }; agent?: string; disabledTools?: string[]; fileAttachments?: FileAttachment[] }
   | { type: 'abort'; sessionId: string; projectPath?: string }
   | { type: 'diff'; sessionId: string; projectPath?: string; messageId?: string }
   | { type: 'browse'; path: string; projectPath?: string }
@@ -71,6 +71,7 @@ export type ClientMessage =
   | { type: 'find_files'; query: string; projectPath?: string }
   | { type: 'find_text'; pattern: string; include?: string; projectPath?: string }
   | { type: 'find_symbols'; query: string; projectPath?: string }
+  | { type: 'search_files_and_dirs'; query: string; projectPath?: string }
   // Feature 13: Session Status
   | { type: 'get_session_status'; projectPath?: string }
   // Feature 14: PTY Terminal Sessions
@@ -211,6 +212,7 @@ export type ServerMessage =
   | { type: 'files_found'; data: string[]; requestId?: string }
   | { type: 'text_found'; data: TextSearchResult[]; requestId?: string }
   | { type: 'symbols_found'; data: SymbolResult[]; requestId?: string }
+  | { type: 'files_and_dirs_found'; data: string[]; requestId?: string }
   // Feature 13: Session Status
   | { type: 'session_status'; data: Record<string, SessionStatusInfo>; requestId?: string }
   // Feature 14: PTY Terminal Sessions
@@ -342,4 +344,13 @@ export type FormatterInfo = {
   language?: string
   status: 'active' | 'inactive' | 'error'
   error?: string
+}
+
+// Feature 21: File Attachment (for @ tagging in prompt and image attachments)
+export type FileAttachment = {
+  path: string
+  isDirectory: boolean
+  // Image support fields (Phase 4)
+  mimeType?: string      // e.g., "image/png", "image/jpeg"
+  base64Data?: string    // Base64 encoded image data from mobile
 }

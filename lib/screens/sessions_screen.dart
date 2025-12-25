@@ -22,7 +22,18 @@ class _SessionsScreenState extends ConsumerState<SessionsScreen> {
     ref.read(sessionsRefreshTickProvider.notifier).state++;
     ref.invalidate(sessionsListProvider);
     ref.invalidate(projectsForSessionsProvider);
+    // Also refresh session statuses
+    ref.read(globalSessionStatusProvider.notifier).fetchAllStatuses();
     await ref.read(sessionsListProvider.future);
+  }
+
+  @override
+  void initState() {
+    super.initState();
+    // Fetch initial session statuses after first frame
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      ref.read(globalSessionStatusProvider.notifier).fetchAllStatuses();
+    });
   }
 
   @override
@@ -32,6 +43,8 @@ class _SessionsScreenState extends ConsumerState<SessionsScreen> {
     final filterProjectPath = ref.watch(sessionsFilterProjectPathProvider);
     final projectsAsync = ref.watch(projectsForSessionsProvider);
     final sessionsAsync = ref.watch(sessionsListProvider);
+    // Watch global session statuses for real-time updates
+    final sessionStatuses = ref.watch(globalSessionStatusProvider);
 
     return Scaffold(
       backgroundColor: theme.scaffoldBackgroundColor,
@@ -147,10 +160,12 @@ class _SessionsScreenState extends ConsumerState<SessionsScreen> {
                           }
 
                           final session = (item as _SessionListItem).session;
+                          final status = sessionStatuses[session.id];
                           return Padding(
                             padding: const EdgeInsets.only(bottom: 12),
                             child: _SessionCard(
                               session: session,
+                              status: status,
                               isOfflineMode: connection.isOfflineMode,
                               onTap: () => _openSession(session),
                               onDelete: connection.isOfflineMode
@@ -736,21 +751,25 @@ class _FilterProjectTile extends StatelessWidget {
   }
 }
 
-// Session card with swipe-to-delete and long-press to rename
+// Session card with swipe-to-delete, long-press to rename, and status indicator
 class _SessionCard extends StatelessWidget {
   const _SessionCard({
     required this.session,
     required this.onTap,
+    this.status,
     this.onDelete,
     this.onRename,
     this.isOfflineMode = false,
   });
 
   final SessionSummary session;
+  final SessionStatus? status;
   final VoidCallback onTap;
   final VoidCallback? onDelete;
   final VoidCallback? onRename;
   final bool isOfflineMode;
+
+  bool get isActive => status != null && (status!.isBusy || status!.isRetry);
 
   String _getProjectName() {
     return session.directory.split('/').where((item) => item.isNotEmpty).last;
@@ -806,36 +825,54 @@ class _SessionCard extends StatelessWidget {
         decoration: BoxDecoration(
           color: ocTheme.backgroundPanel,
           borderRadius: BorderRadius.circular(14),
-          border: Border.all(color: ocTheme.borderSubtle),
+          border: Border.all(
+            color: isActive
+                ? ocTheme.info.withValues(alpha: 0.5)
+                : ocTheme.borderSubtle,
+          ),
         ),
         child: Row(
           children: [
-            // Modern gradient orb - no icon, just abstract shape
-            Container(
-              width: 44,
-              height: 44,
-              decoration: BoxDecoration(
-                borderRadius: BorderRadius.circular(12),
-                gradient: LinearGradient(
-                  begin: Alignment.topLeft,
-                  end: Alignment.bottomRight,
-                  colors: [
-                    gradientColors[0].withValues(alpha: 0.8),
-                    gradientColors[1].withValues(alpha: 0.6),
-                  ],
-                ),
-              ),
-              child: Center(
-                child: Text(
-                  '>_',
-                  style: TextStyle(
-                    color: Colors.white.withValues(alpha: 0.9),
-                    fontSize: 14,
-                    fontWeight: FontWeight.w700,
-                    fontFamily: 'monospace',
+            // Modern gradient orb with optional activity indicator
+            Stack(
+              clipBehavior: Clip.none,
+              children: [
+                Container(
+                  width: 44,
+                  height: 44,
+                  decoration: BoxDecoration(
+                    borderRadius: BorderRadius.circular(12),
+                    gradient: LinearGradient(
+                      begin: Alignment.topLeft,
+                      end: Alignment.bottomRight,
+                      colors: [
+                        gradientColors[0].withValues(alpha: 0.8),
+                        gradientColors[1].withValues(alpha: 0.6),
+                      ],
+                    ),
+                  ),
+                  child: Center(
+                    child: Text(
+                      '>_',
+                      style: TextStyle(
+                        color: Colors.white.withValues(alpha: 0.9),
+                        fontSize: 14,
+                        fontWeight: FontWeight.w700,
+                        fontFamily: 'monospace',
+                      ),
+                    ),
                   ),
                 ),
-              ),
+                // Active session indicator - pulsing dot
+                if (isActive)
+                  Positioned(
+                    top: -2,
+                    right: -2,
+                    child: _PulsingDot(
+                      color: status!.isRetry ? ocTheme.warning : ocTheme.info,
+                    ),
+                  ),
+              ],
             ),
             const SizedBox(width: 12),
             // Session info
@@ -844,16 +881,50 @@ class _SessionCard extends StatelessWidget {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
-                  Text(
-                    session.title,
-                    style: TextStyle(
-                      color: ocTheme.text,
-                      fontSize: 14,
-                      fontWeight: FontWeight.w600,
-                      height: 1.2,
-                    ),
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
+                  Row(
+                    children: [
+                      Flexible(
+                        child: Text(
+                          session.title,
+                          style: TextStyle(
+                            color: ocTheme.text,
+                            fontSize: 14,
+                            fontWeight: FontWeight.w600,
+                            height: 1.2,
+                          ),
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                      ),
+                      // Status badge
+                      if (isActive) ...[
+                        const SizedBox(width: 8),
+                        Container(
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 6,
+                            vertical: 2,
+                          ),
+                          decoration: BoxDecoration(
+                            color:
+                                (status!.isRetry
+                                        ? ocTheme.warning
+                                        : ocTheme.info)
+                                    .withValues(alpha: 0.15),
+                            borderRadius: BorderRadius.circular(4),
+                          ),
+                          child: Text(
+                            status!.isRetry ? 'Retry' : 'Active',
+                            style: TextStyle(
+                              color: status!.isRetry
+                                  ? ocTheme.warning
+                                  : ocTheme.info,
+                              fontSize: 10,
+                              fontWeight: FontWeight.w600,
+                            ),
+                          ),
+                        ),
+                      ],
+                    ],
                   ),
                   const SizedBox(height: 4),
                   Text(
@@ -904,6 +975,65 @@ class _SessionCard extends StatelessWidget {
     }
 
     return card;
+  }
+}
+
+/// Pulsing dot indicator for active sessions
+class _PulsingDot extends StatefulWidget {
+  const _PulsingDot({required this.color});
+
+  final Color color;
+
+  @override
+  State<_PulsingDot> createState() => _PulsingDotState();
+}
+
+class _PulsingDotState extends State<_PulsingDot>
+    with SingleTickerProviderStateMixin {
+  late AnimationController _controller;
+  late Animation<double> _animation;
+
+  @override
+  void initState() {
+    super.initState();
+    _controller = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 1200),
+    )..repeat(reverse: true);
+    _animation = Tween<double>(
+      begin: 0.4,
+      end: 1.0,
+    ).animate(CurvedAnimation(parent: _controller, curve: Curves.easeInOut));
+  }
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return AnimatedBuilder(
+      animation: _animation,
+      builder: (context, child) {
+        return Container(
+          width: 10,
+          height: 10,
+          decoration: BoxDecoration(
+            shape: BoxShape.circle,
+            color: widget.color,
+            boxShadow: [
+              BoxShadow(
+                color: widget.color.withValues(alpha: _animation.value * 0.6),
+                blurRadius: 6,
+                spreadRadius: 1,
+              ),
+            ],
+          ),
+        );
+      },
+    );
   }
 }
 

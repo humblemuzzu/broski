@@ -1,6 +1,11 @@
 import { networkInterfaces } from 'os'
 import { $ } from 'bun'
 
+// Tailscale CLI path varies by platform
+const TAILSCALE_CLI = process.platform === 'darwin'
+  ? '/Applications/Tailscale.app/Contents/MacOS/Tailscale'
+  : 'tailscale'
+
 export function getLocalIP(): string | null {
   const interfaces = networkInterfaces()
 
@@ -24,7 +29,7 @@ export function getLocalIP(): string | null {
 
 export async function getTailscaleIP(): Promise<string | null> {
   try {
-    const result = await $`tailscale ip -4 2>/dev/null`.quiet()
+    const result = await $`${TAILSCALE_CLI} ip -4 2>/dev/null`.quiet()
     const ip = result.text().trim()
     if (ip.startsWith('100.')) return ip
     return null
@@ -35,7 +40,7 @@ export async function getTailscaleIP(): Promise<string | null> {
 
 export async function isTailscaleConnected(): Promise<boolean> {
   try {
-    const result = await $`tailscale status 2>/dev/null`.quiet()
+    const result = await $`${TAILSCALE_CLI} status 2>/dev/null`.quiet()
     return !result.text().includes('Tailscale is stopped')
   } catch {
     return false

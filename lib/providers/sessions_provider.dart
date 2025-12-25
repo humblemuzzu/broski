@@ -1,3 +1,7 @@
+import 'dart:async';
+import 'dart:developer' as developer;
+
+import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../models/message.dart';
@@ -5,6 +9,126 @@ import '../models/project.dart';
 import '../models/session.dart';
 import 'connection_provider.dart';
 import 'service_providers.dart';
+
+// ============================================================
+// Global Session Status Provider
+// ============================================================
+// Tracks busy/idle/retry status for ALL sessions, not just the active one.
+// This enables showing "Active" indicators on session cards in the list.
+
+/// Global session status map: sessionId -> SessionStatus
+/// Uses StateNotifierProvider for real-time SSE updates.
+final globalSessionStatusProvider =
+    StateNotifierProvider<
+      GlobalSessionStatusNotifier,
+      Map<String, SessionStatus>
+    >((ref) {
+      final notifier = GlobalSessionStatusNotifier(ref);
+      ref.onDispose(() => notifier.dispose());
+      return notifier;
+    });
+
+class GlobalSessionStatusNotifier
+    extends StateNotifier<Map<String, SessionStatus>> {
+  GlobalSessionStatusNotifier(this._ref) : super({}) {
+    _init();
+  }
+
+  final Ref _ref;
+  StreamSubscription<Map<String, dynamic>>? _subscription;
+
+  void _init() {
+    // Listen to SDK events for session.status and session.idle events
+    // These come through bridgeService.sdkEvents stream
+    final bridge = _ref.read(bridgeServiceProvider);
+    _subscription = bridge.sdkEvents.listen(_handleSdkEvent);
+  }
+
+  void _handleSdkEvent(Map<String, dynamic> event) {
+    // SDK events have structure: { directory?, payload: { type, properties } }
+    final payload = event['payload'] as Map<String, dynamic>? ?? {};
+    final type = payload['type'] as String? ?? '';
+
+    if (type == 'session.status') {
+      _handleSessionStatus(payload);
+    } else if (type == 'session.idle') {
+      _handleSessionIdle(payload);
+    }
+  }
+
+  void _handleSessionStatus(Map<String, dynamic> payload) {
+    final properties = payload['properties'] as Map<String, dynamic>? ?? {};
+    final sessionId = properties['sessionID'] as String? ?? '';
+    if (sessionId.isEmpty) return;
+
+    final statusData = properties['status'] as Map<String, dynamic>? ?? {};
+    final status = SessionStatus.fromJson(statusData);
+
+    if (kDebugMode) {
+      developer.log(
+        'Global session status: $sessionId -> ${status.displayString}',
+        name: 'GlobalSessionStatus',
+      );
+    }
+
+    // Update the map with new status
+    state = {...state, sessionId: status};
+  }
+
+  void _handleSessionIdle(Map<String, dynamic> payload) {
+    final properties = payload['properties'] as Map<String, dynamic>? ?? {};
+    final sessionId = properties['sessionID'] as String? ?? '';
+    if (sessionId.isEmpty) return;
+
+    if (kDebugMode) {
+      developer.log(
+        'Global session idle: $sessionId',
+        name: 'GlobalSessionStatus',
+      );
+    }
+
+    // Set session to idle
+    state = {...state, sessionId: const SessionStatus.idle()};
+  }
+
+  /// Fetch initial statuses for all sessions from bridge
+  Future<void> fetchAllStatuses() async {
+    final connection = _ref.read(connectionProvider);
+    if (connection.isOfflineMode) return;
+
+    try {
+      final bridge = _ref.read(bridgeServiceProvider);
+      final statuses = await bridge.getSessionStatus();
+
+      if (kDebugMode) {
+        developer.log(
+          'Fetched ${statuses.length} session statuses: ${statuses.entries.where((e) => !e.value.isIdle).map((e) => "${e.key}: ${e.value.displayString}").join(", ")}',
+          name: 'GlobalSessionStatus',
+        );
+      }
+
+      state = {...state, ...statuses};
+    } catch (e) {
+      if (kDebugMode) {
+        developer.log(
+          'Failed to fetch session statuses: $e',
+          name: 'GlobalSessionStatus',
+        );
+      }
+    }
+  }
+
+  /// Update status for a specific session
+  void updateStatus(String sessionId, SessionStatus status) {
+    state = {...state, sessionId: status};
+  }
+
+  @override
+  void dispose() {
+    _subscription?.cancel();
+    super.dispose();
+  }
+}
 
 // ============================================================
 // Predictive Prefetching

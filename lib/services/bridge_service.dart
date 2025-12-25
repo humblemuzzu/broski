@@ -4,6 +4,7 @@ import 'dart:math';
 
 import '../models/agent.dart';
 import '../models/command.dart';
+import '../models/file_attachment.dart';
 import '../models/file_content.dart';
 import '../models/mcp.dart';
 import '../models/project.dart';
@@ -253,10 +254,6 @@ class BridgeService {
     });
   }
 
-  /// Send a chat message to a session
-  ///
-  /// [agent] - Optional agent to use ("build" for full access, "plan" for read-only)
-  /// [disabledTools] - Optional list of tool IDs to disable for this request
   void sendChat({
     required String sessionId,
     required String content,
@@ -265,6 +262,7 @@ class BridgeService {
     String? modelID,
     String? agent,
     List<String>? disabledTools,
+    List<FileAttachment>? fileAttachments,
   }) {
     _socket.send({
       'type': 'chat',
@@ -276,6 +274,8 @@ class BridgeService {
       if (agent != null) 'agent': agent,
       if (disabledTools != null && disabledTools.isNotEmpty)
         'disabledTools': disabledTools,
+      if (fileAttachments != null && fileAttachments.isNotEmpty)
+        'fileAttachments': fileAttachments.map((f) => f.toJson()).toList(),
     });
   }
 
@@ -645,7 +645,6 @@ class BridgeService {
   // Feature 12: File Search
   // ============================================================
 
-  /// Find files by name (glob search)
   Future<List<String>> findFiles(String query, {String? projectPath}) async {
     final requestId = _generateRequestId();
     _socket.send({
@@ -659,7 +658,25 @@ class BridgeService {
     return data.map((item) => item.toString()).toList();
   }
 
-  /// Find text in files (ripgrep search)
+  Future<List<String>> searchFilesAndDirs(
+    String query, {
+    String? projectPath,
+  }) async {
+    final requestId = _generateRequestId();
+    _socket.send({
+      'type': 'search_files_and_dirs',
+      'query': query,
+      'requestId': requestId,
+      if (projectPath != null) 'projectPath': projectPath,
+    });
+    final response = await _waitFor(
+      'files_and_dirs_found',
+      requestId: requestId,
+    );
+    final data = response['data'] as List<dynamic>? ?? [];
+    return data.map((item) => item.toString()).toList();
+  }
+
   Future<List<TextSearchResult>> findText(
     String pattern, {
     String? include,

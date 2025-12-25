@@ -30,7 +30,9 @@
 		<true/>
 	</dict>
 	<key>NSCameraUsageDescription</key>
-	<string>Scan the Broski bridge QR code to connect to your Mac.</string>
+	<string>Scan the Broski bridge QR code to connect to your Mac, or take photos to attach to your AI conversations.</string>
+	<key>NSPhotoLibraryUsageDescription</key>
+	<string>Attach images from your photo library to your AI conversations.</string>
 	<key>NSLocalNetworkUsageDescription</key>
 	<string>Connect to your Mac over the local network for broski-bridge.</string>
 	<key>UILaunchStoryboardName</key>

@@ -403,6 +403,7 @@ export function createBridgeServer(options: BridgeServerOptions): BridgeServer {
             message.model,
             message.agent,
             message.disabledTools,
+            message.fileAttachments,
           )
           break
         }
@@ -579,6 +580,11 @@ export function createBridgeServer(options: BridgeServerOptions): BridgeServer {
         case 'find_symbols': {
           const symbols = await opencode.findSymbols(message.query, message.projectPath)
           reply({ type: 'symbols_found', data: symbols })
+          break
+        }
+        case 'search_files_and_dirs': {
+          const results = await opencode.searchFilesAndDirs(message.query, message.projectPath)
+          reply({ type: 'files_and_dirs_found', data: results })
           break
         }
         // Feature 13: Session Status
