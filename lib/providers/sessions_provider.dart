@@ -1,9 +1,138 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../models/message.dart';
 import '../models/project.dart';
 import '../models/session.dart';
 import 'connection_provider.dart';
 import 'service_providers.dart';
+
+// ============================================================
+// Predictive Prefetching
+// ============================================================
+// Preload messages for the top N visible sessions so opening them is instant.
+
+/// Number of sessions to prefetch messages for
+const int _prefetchSessionCount = 3;
+
+/// Limit of messages to prefetch per session (just enough for preview)
+const int _prefetchMessageLimit = 10;
+
+/// Prefetch messages for a session (fire-and-forget, caches result)
+final sessionMessagesPrefetchProvider =
+    FutureProvider.family<List<ChatMessage>, String>((ref, sessionId) async {
+      final storage = ref.watch(storageServiceProvider);
+
+      // Check if already cached in memory
+      final cached = await storage.getCachedMessages(sessionId);
+      if (cached.isNotEmpty) {
+        return cached; // Already have messages, no need to fetch
+      }
+
+      // Check if offline
+      final connection = ref.watch(connectionProvider);
+      if (connection.isOfflineMode) {
+        return [];
+      }
+
+      // Fetch limited messages and cache them
+      try {
+        final bridge = ref.watch(bridgeServiceProvider);
+        final rawMessages = await bridge.getSessionMessages(
+          sessionId,
+          limit: _prefetchMessageLimit,
+        );
+
+        // Parse and cache the messages
+        final messages = _parseMessages(sessionId, rawMessages);
+        if (messages.isNotEmpty) {
+          await storage.cacheSessionMessages(sessionId, messages);
+        }
+
+        return messages;
+      } catch (_) {
+        return [];
+      }
+    });
+
+/// Parse raw message data into ChatMessage objects
+List<ChatMessage> _parseMessages(String sessionId, List<dynamic> rawMessages) {
+  final messages = <ChatMessage>[];
+
+  for (final item in rawMessages) {
+    final map = item as Map<String, dynamic>;
+    final info = map['info'] as Map<String, dynamic>? ?? const {};
+    final parts = map['parts'] as List<dynamic>? ?? const [];
+    final messageId = info['id'] as String? ?? '';
+    final role = info['role'] as String? ?? 'assistant';
+    final created =
+        info['time']?['created'] as int? ??
+        DateTime.now().millisecondsSinceEpoch;
+
+    if (messageId.isEmpty) continue;
+
+    var textBuffer = StringBuffer();
+    final tools = <ToolCall>[];
+
+    for (final partItem in parts) {
+      final part = partItem as Map<String, dynamic>;
+      final partType = part['type'] as String? ?? '';
+      if (partType == 'text') {
+        textBuffer.write(part['text'] as String? ?? '');
+      }
+      if (partType == 'tool') {
+        final partId = part['id'] as String? ?? '';
+        final callId = part['callID'] as String? ?? '';
+        final toolName = part['tool'] as String? ?? 'tool';
+        final stateInfo = part['state'] as Map<String, dynamic>? ?? const {};
+        final status = stateInfo['status'] as String? ?? 'completed';
+        final title = stateInfo['title'] as String?;
+        final input = stateInfo['input'] as Map<String, dynamic>? ?? const {};
+        final output = stateInfo['output'] as String?;
+        final metadataRaw = stateInfo['metadata'];
+        final metadata = metadataRaw is Map<String, dynamic>
+            ? metadataRaw
+            : const <String, dynamic>{};
+        if (callId.isNotEmpty) {
+          tools.add(
+            ToolCall(
+              callId: callId,
+              partId: partId.isNotEmpty ? partId : callId,
+              name: toolName,
+              status: status,
+              title: title,
+              input: input,
+              output: output,
+              metadata: metadata,
+            ),
+          );
+        }
+      }
+    }
+
+    messages.add(
+      ChatMessage(
+        id: messageId,
+        sessionId: sessionId,
+        role: role == 'user' ? MessageRole.user : MessageRole.assistant,
+        createdAt: DateTime.fromMillisecondsSinceEpoch(created),
+        text: textBuffer.toString(),
+        toolCalls: tools,
+      ),
+    );
+  }
+
+  return messages;
+}
+
+/// Trigger prefetching for top N sessions (call this from UI when sessions are visible)
+void prefetchTopSessions(WidgetRef ref, List<SessionSummary> sessions) {
+  // Prefetch messages for top N sessions in parallel
+  final sessionsToFetch = sessions.take(_prefetchSessionCount);
+  for (final session in sessionsToFetch) {
+    // Fire-and-forget: read the provider to trigger prefetch
+    ref.read(sessionMessagesPrefetchProvider(session.id));
+  }
+}
 
 /// `null` means "all projects" (aggregate view).
 final sessionsFilterProjectPathProvider = StateProvider<String?>((ref) => null);
@@ -11,51 +140,105 @@ final sessionsFilterProjectPathProvider = StateProvider<String?>((ref) => null);
 /// Increment to force a reload of sessions/projects.
 final sessionsRefreshTickProvider = StateProvider<int>((ref) => 0);
 
-final sessionsListProvider = FutureProvider<List<SessionSummary>>((ref) async {
+/// Stale-while-revalidate pattern: yields cached data immediately, then fresh data.
+/// This provides instant perceived speed while still fetching fresh data.
+/// TTL optimization: Skip network if cache is < 30s old (prevents unnecessary fetches).
+final sessionsListProvider = StreamProvider<List<SessionSummary>>((ref) async* {
   ref.watch(sessionsRefreshTickProvider);
   final filterProjectPath = ref.watch(sessionsFilterProjectPathProvider);
   final connection = ref.watch(connectionProvider);
   final storage = ref.watch(storageServiceProvider);
 
-  // In offline mode, return cached sessions
-  if (connection.isOfflineMode) {
-    final cached = await storage.getCachedSessions();
-    if (filterProjectPath != null) {
-      return cached.where((s) => s.directory == filterProjectPath).toList();
+  // STEP 1: Immediately yield cached data (instant perceived load)
+  final cached = await storage.getCachedSessions();
+  if (cached.isNotEmpty) {
+    final filtered = filterProjectPath != null
+        ? cached.where((s) => s.directory == filterProjectPath).toList()
+        : cached;
+    if (filtered.isNotEmpty) {
+      yield filtered;
     }
-    return cached;
   }
 
-  final bridge = ref.watch(bridgeServiceProvider);
-  final sessions = await bridge.listSessions(projectPath: filterProjectPath);
-
-  // Cache the sessions for offline use (only when fetching all)
-  if (filterProjectPath == null && sessions.isNotEmpty) {
-    await storage.cacheSessions(sessions);
+  // STEP 2: If offline, stop here - we've already yielded cache
+  if (connection.isOfflineMode) {
+    // If no cached data was yielded, yield empty list
+    if (cached.isEmpty) {
+      yield [];
+    }
+    return;
   }
 
-  return sessions;
+  // STEP 3: TTL check - skip network if cache is fresh (< 30s old)
+  // This prevents unnecessary network calls on rapid navigation
+  if (cached.isNotEmpty && storage.isSessionsCacheFresh()) {
+    // Cache is fresh, no need to fetch - we already yielded cached data
+    return;
+  }
+
+  // STEP 4: Fetch fresh data in background and yield when ready
+  try {
+    final bridge = ref.watch(bridgeServiceProvider);
+    final fresh = await bridge.listSessions(projectPath: filterProjectPath);
+
+    // Cache the sessions for offline use (only when fetching all)
+    if (filterProjectPath == null && fresh.isNotEmpty) {
+      await storage.cacheSessions(fresh);
+    }
+
+    yield fresh;
+  } catch (e) {
+    // If fresh fetch fails but we already yielded cached data, that's fine
+    // Only rethrow if we have no data to show
+    if (cached.isEmpty) {
+      rethrow;
+    }
+    // Otherwise, silently continue with cached data
+  }
 });
 
-final projectsForSessionsProvider = FutureProvider<List<ProjectSummary>>((
+/// Stale-while-revalidate for projects: yields cached immediately, then fresh.
+/// TTL optimization: Skip network if cache is < 30s old.
+final projectsForSessionsProvider = StreamProvider<List<ProjectSummary>>((
   ref,
-) async {
+) async* {
   ref.watch(sessionsRefreshTickProvider);
   final connection = ref.watch(connectionProvider);
   final storage = ref.watch(storageServiceProvider);
 
-  // In offline mode, return cached projects
+  // STEP 1: Immediately yield cached data
+  final cached = await storage.getCachedProjects();
+  if (cached.isNotEmpty) {
+    yield cached;
+  }
+
+  // STEP 2: If offline, stop here
   if (connection.isOfflineMode) {
-    return storage.getCachedProjects();
+    if (cached.isEmpty) {
+      yield [];
+    }
+    return;
   }
 
-  final bridge = ref.watch(bridgeServiceProvider);
-  final projects = await bridge.listProjects();
-
-  // Cache the projects for offline use
-  if (projects.isNotEmpty) {
-    await storage.cacheProjects(projects);
+  // STEP 3: TTL check - skip network if cache is fresh
+  if (cached.isNotEmpty && storage.isProjectsCacheFresh()) {
+    return;
   }
 
-  return projects;
+  // STEP 4: Fetch fresh data
+  try {
+    final bridge = ref.watch(bridgeServiceProvider);
+    final fresh = await bridge.listProjects();
+
+    // Cache for offline use
+    if (fresh.isNotEmpty) {
+      await storage.cacheProjects(fresh);
+    }
+
+    yield fresh;
+  } catch (e) {
+    if (cached.isEmpty) {
+      rethrow;
+    }
+  }
 });

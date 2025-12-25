@@ -106,8 +106,7 @@ pnpm-lock.yaml
 web-ui-cc/
 logs.md
 critical-g-*.md
-explaination-c.md
-
+optimization.md
 
 # Logs and temp files
 *.log

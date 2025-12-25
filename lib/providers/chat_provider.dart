@@ -119,7 +119,13 @@ class ChatSessionNotifier extends StateNotifier<ChatSessionState> {
         final part = partItem as Map<String, dynamic>;
         final partType = part['type'] as String? ?? '';
         if (partType == 'text') {
-          textBuffer.write(part['text'] as String? ?? '');
+          // Skip synthetic and ignored text parts (system-injected content)
+          // OpenCode TUI does the same filtering
+          final isSynthetic = part['synthetic'] as bool? ?? false;
+          final isIgnored = part['ignored'] as bool? ?? false;
+          if (!isSynthetic && !isIgnored) {
+            textBuffer.write(part['text'] as String? ?? '');
+          }
         }
         if (partType == 'tool') {
           final partId = part['id'] as String? ?? '';
@@ -155,12 +161,20 @@ class ChatSessionNotifier extends StateNotifier<ChatSessionState> {
         }
       }
 
+      final textContent = textBuffer.toString();
+
+      // Skip user messages that have no visible content after filtering synthetic parts
+      // (these are system-injected context messages, not real user input)
+      if (role == 'user' && textContent.isEmpty && tools.isEmpty) {
+        continue;
+      }
+
       final message = ChatMessage(
         id: messageId,
         sessionId: sessionId,
         role: role == 'user' ? MessageRole.user : MessageRole.assistant,
         createdAt: DateTime.fromMillisecondsSinceEpoch(created),
-        text: textBuffer.toString(),
+        text: textContent,
         toolCalls: tools,
         diffs: diffs,
       );
@@ -345,6 +359,13 @@ class ChatSessionNotifier extends StateNotifier<ChatSessionState> {
         );
 
     if (partType == 'text') {
+      // Skip synthetic and ignored text parts during streaming too
+      final isSynthetic = part['synthetic'] as bool? ?? false;
+      final isIgnored = part['ignored'] as bool? ?? false;
+      if (isSynthetic || isIgnored) {
+        return;
+      }
+
       final delta = properties['delta'] as String?;
       final text = part['text'] as String? ?? '';
       final updated = delta != null ? message.text + delta : text;
@@ -397,10 +418,7 @@ class ChatSessionNotifier extends StateNotifier<ChatSessionState> {
         updatedTool,
       ];
 
-      final updatedDiffs = _mergeToolDiffs(
-        message.diffs,
-        tool: updatedTool,
-      );
+      final updatedDiffs = _mergeToolDiffs(message.diffs, tool: updatedTool);
 
       _updateMessage(
         messageId,
@@ -471,14 +489,19 @@ class ChatSessionNotifier extends StateNotifier<ChatSessionState> {
     // Dedupe by (file, partId) to avoid repeated tool updates spamming diffs.
     return [
       for (final diff in existing)
-        if (diff.file != extracted.file || diff.partId != extracted.partId) diff,
+        if (diff.file != extracted.file || diff.partId != extracted.partId)
+          diff,
       extracted,
     ];
   }
 
   DiffEntry? _extractDiffFromTool(ToolCall tool) {
     final status = tool.status.toLowerCase();
-    final isFinal = status == 'completed' || status == 'success' || status == 'error' || status == 'failed';
+    final isFinal =
+        status == 'completed' ||
+        status == 'success' ||
+        status == 'error' ||
+        status == 'failed';
     if (!isFinal) return null;
 
     final metadata = tool.metadata;

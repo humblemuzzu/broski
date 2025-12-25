@@ -70,6 +70,10 @@ class _ChatScreenState extends ConsumerState<ChatScreen>
   // Feature 10: VCS/Git info
   VcsInfo _vcsInfo = const VcsInfo();
 
+  // Message pagination state
+  bool _loadingMoreMessages = false;
+  bool _hasLoadedAllMessages = false;
+
   bool _resyncingAfterReconnect = false;
 
   @override
@@ -110,13 +114,20 @@ class _ChatScreenState extends ConsumerState<ChatScreen>
     final storage = ref.read(storageServiceProvider);
     final chat = ref.read(chatSessionProvider.notifier);
 
-    // In offline mode, load from cache
+    // Reset pagination state
+    setState(() {
+      _loadingMoreMessages = false;
+      _hasLoadedAllMessages = false;
+    });
+
+    // In offline mode, load from cache (all messages)
     if (connection.isOfflineMode) {
       final cachedMessages = await storage.getCachedMessages(widget.session.id);
       if (cachedMessages.isNotEmpty) {
         // Hydrate provider with cached messages format
         chat.hydrate(cachedMessages.map((m) => _messageToRaw(m)).toList());
       }
+      setState(() => _hasLoadedAllMessages = true); // Cache has all messages
       _scrollToBottom(animate: false);
       return;
     }
@@ -125,8 +136,15 @@ class _ChatScreenState extends ConsumerState<ChatScreen>
     final messages = await bridge.getSessionMessages(
       widget.session.id,
       projectPath: widget.project.path,
+      limit: 20, // Initial load: only fetch last 20 messages for speed
     );
     chat.hydrate(messages);
+
+    // If we got fewer than 20 messages, we already have all of them
+    if (messages.length < 20) {
+      setState(() => _hasLoadedAllMessages = true);
+    }
+
     _scrollToBottom(animate: false);
     // Load context after messages
     _loadSessionContext();
@@ -757,14 +775,69 @@ class _ChatScreenState extends ConsumerState<ChatScreen>
   void _onScroll() {
     if (!_scrollController.hasClients) return;
 
-    final isAtBottom =
-        _scrollController.position.pixels >=
-        _scrollController.position.maxScrollExtent - 100;
+    final position = _scrollController.position;
+
+    // Detect scroll to top - load more messages
+    final isAtTop = position.pixels <= 100;
+    if (isAtTop && !_loadingMoreMessages && !_hasLoadedAllMessages) {
+      _loadMoreMessages();
+    }
+
+    // Detect scroll to bottom - show/hide scroll button
+    final isAtBottom = position.pixels >= position.maxScrollExtent - 100;
 
     if (_showScrollToBottom == isAtBottom) {
       setState(() {
         _showScrollToBottom = !isAtBottom;
       });
+    }
+  }
+
+  Future<void> _loadMoreMessages() async {
+    if (_loadingMoreMessages || _hasLoadedAllMessages) return;
+
+    final connection = ref.read(connectionProvider);
+    if (connection.isOfflineMode) {
+      // In offline mode, we already loaded everything from cache
+      setState(() => _hasLoadedAllMessages = true);
+      return;
+    }
+
+    setState(() => _loadingMoreMessages = true);
+
+    try {
+      final bridge = ref.read(bridgeServiceProvider);
+      final chat = ref.read(chatSessionProvider.notifier);
+
+      // Fetch ALL messages (no limit) to get full history
+      final allMessages = await bridge.getSessionMessages(
+        widget.session.id,
+        projectPath: widget.project.path,
+        // No limit = get all messages
+      );
+
+      // Remember current scroll position to maintain it after adding messages
+      final currentOffset = _scrollController.position.pixels;
+      final currentMax = _scrollController.position.maxScrollExtent;
+
+      // Hydrate with all messages
+      chat.hydrate(allMessages);
+
+      // After hydration, scroll to maintain relative position
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (_scrollController.hasClients) {
+          final newMax = _scrollController.position.maxScrollExtent;
+          final addedHeight = newMax - currentMax;
+          _scrollController.jumpTo(currentOffset + addedHeight);
+        }
+      });
+
+      setState(() {
+        _loadingMoreMessages = false;
+        _hasLoadedAllMessages = true;
+      });
+    } catch (e) {
+      setState(() => _loadingMoreMessages = false);
     }
   }
 
@@ -838,9 +911,60 @@ class _ChatScreenState extends ConsumerState<ChatScreen>
                   child: ListView.builder(
                     controller: _scrollController,
                     padding: const EdgeInsets.fromLTRB(20, 20, 20, 90),
-                    itemCount: chatState.messages.length,
+                    // Add 1 for loading indicator at top when loading more
+                    itemCount:
+                        chatState.messages.length +
+                        (_loadingMoreMessages ? 1 : 0) +
+                        (!_hasLoadedAllMessages && chatState.messages.isNotEmpty
+                            ? 1
+                            : 0),
                     itemBuilder: (context, index) {
-                      final message = chatState.messages[index];
+                      // Show "load more" indicator at top
+                      if (!_hasLoadedAllMessages &&
+                          chatState.messages.isNotEmpty &&
+                          index == 0) {
+                        if (_loadingMoreMessages) {
+                          return const Padding(
+                            padding: EdgeInsets.symmetric(vertical: 16),
+                            child: Center(
+                              child: SizedBox(
+                                width: 20,
+                                height: 20,
+                                child: CircularProgressIndicator(
+                                  strokeWidth: 2,
+                                ),
+                              ),
+                            ),
+                          );
+                        }
+                        // Show "scroll up for more" hint
+                        return Padding(
+                          padding: const EdgeInsets.symmetric(vertical: 12),
+                          child: Center(
+                            child: Text(
+                              '↑ Scroll up to load earlier messages',
+                              style: TextStyle(
+                                color: theme.textMuted,
+                                fontSize: 12,
+                              ),
+                            ),
+                          ),
+                        );
+                      }
+
+                      // Adjust index for the loading indicator
+                      final messageIndex =
+                          (!_hasLoadedAllMessages &&
+                              chatState.messages.isNotEmpty)
+                          ? index - 1
+                          : index;
+
+                      if (messageIndex < 0 ||
+                          messageIndex >= chatState.messages.length) {
+                        return const SizedBox.shrink();
+                      }
+
+                      final message = chatState.messages[messageIndex];
                       return _buildMessageGroup(message);
                     },
                   ),

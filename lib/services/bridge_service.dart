@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:developer' as developer;
 import 'dart:math';
 
 import '../models/agent.dart';
@@ -20,6 +21,31 @@ class BridgeService {
   final WebSocketService _socket;
   final _random = Random();
   int _requestCounter = 0;
+
+  // ============================================================
+  // In-flight Request Deduplication
+  // ============================================================
+  final Map<String, Future<dynamic>> _inFlightRequests = {};
+
+  // ============================================================
+  // Request Timing (logs slow requests > 500ms)
+  // ============================================================
+  static const int _slowRequestThresholdMs = 500;
+
+  Future<T> _timedRequest<T>(String name, Future<T> Function() request) async {
+    final stopwatch = Stopwatch()..start();
+    try {
+      return await request();
+    } finally {
+      stopwatch.stop();
+      if (stopwatch.elapsedMilliseconds > _slowRequestThresholdMs) {
+        developer.log(
+          'Slow request: $name took ${stopwatch.elapsedMilliseconds}ms',
+          name: 'BridgeService',
+        );
+      }
+    }
+  }
 
   Stream<Map<String, dynamic>> get messages => _socket.messages;
 
@@ -47,27 +73,71 @@ class BridgeService {
   }
 
   Future<List<ProjectSummary>> listProjects() async {
-    final requestId = _generateRequestId();
-    _socket.send({'type': 'list_projects', 'requestId': requestId});
-    final response = await _waitFor('projects', requestId: requestId);
-    final data = response['data'] as List<dynamic>? ?? [];
-    return data
-        .map((item) => ProjectSummary.fromJson(item as Map<String, dynamic>))
-        .toList();
+    const dedupeKey = 'list_projects';
+
+    // Check if request is already in-flight
+    if (_inFlightRequests.containsKey(dedupeKey)) {
+      return await _inFlightRequests[dedupeKey] as List<ProjectSummary>;
+    }
+
+    // Create the request future
+    final future = _listProjectsInternal();
+    _inFlightRequests[dedupeKey] = future;
+
+    try {
+      return await future;
+    } finally {
+      _inFlightRequests.remove(dedupeKey);
+    }
+  }
+
+  Future<List<ProjectSummary>> _listProjectsInternal() async {
+    return _timedRequest('list_projects', () async {
+      final requestId = _generateRequestId();
+      _socket.send({'type': 'list_projects', 'requestId': requestId});
+      final response = await _waitFor('projects', requestId: requestId);
+      final data = response['data'] as List<dynamic>? ?? [];
+      return data
+          .map((item) => ProjectSummary.fromJson(item as Map<String, dynamic>))
+          .toList();
+    });
   }
 
   Future<List<SessionSummary>> listSessions({String? projectPath}) async {
-    final requestId = _generateRequestId();
-    _socket.send({
-      'type': 'list_sessions',
-      'requestId': requestId,
-      if (projectPath != null) 'projectPath': projectPath,
+    final dedupeKey = 'list_sessions:${projectPath ?? 'all'}';
+
+    // Check if request is already in-flight
+    if (_inFlightRequests.containsKey(dedupeKey)) {
+      return await _inFlightRequests[dedupeKey] as List<SessionSummary>;
+    }
+
+    // Create the request future
+    final future = _listSessionsInternal(projectPath: projectPath);
+    _inFlightRequests[dedupeKey] = future;
+
+    try {
+      return await future;
+    } finally {
+      _inFlightRequests.remove(dedupeKey);
+    }
+  }
+
+  Future<List<SessionSummary>> _listSessionsInternal({
+    String? projectPath,
+  }) async {
+    return _timedRequest('list_sessions', () async {
+      final requestId = _generateRequestId();
+      _socket.send({
+        'type': 'list_sessions',
+        'requestId': requestId,
+        if (projectPath != null) 'projectPath': projectPath,
+      });
+      final response = await _waitFor('sessions', requestId: requestId);
+      final data = response['data'] as List<dynamic>? ?? [];
+      return data
+          .map((item) => SessionSummary.fromJson(item as Map<String, dynamic>))
+          .toList();
     });
-    final response = await _waitFor('sessions', requestId: requestId);
-    final data = response['data'] as List<dynamic>? ?? [];
-    return data
-        .map((item) => SessionSummary.fromJson(item as Map<String, dynamic>))
-        .toList();
   }
 
   Future<Map<String, dynamic>> listProviders() async {
@@ -141,16 +211,46 @@ class BridgeService {
     String? projectPath,
     int? limit,
   }) async {
-    final requestId = _generateRequestId();
-    _socket.send({
-      'type': 'get_session_messages',
-      'sessionId': sessionId,
-      'requestId': requestId,
-      if (projectPath != null) 'projectPath': projectPath,
-      if (limit != null) 'limit': limit,
+    final dedupeKey =
+        'get_session_messages:$sessionId:${projectPath ?? 'null'}:${limit ?? 'all'}';
+
+    // Check if request is already in-flight
+    if (_inFlightRequests.containsKey(dedupeKey)) {
+      return await _inFlightRequests[dedupeKey] as List<dynamic>;
+    }
+
+    // Create the request future
+    final future = _getSessionMessagesInternal(
+      sessionId,
+      projectPath: projectPath,
+      limit: limit,
+    );
+    _inFlightRequests[dedupeKey] = future;
+
+    try {
+      return await future;
+    } finally {
+      _inFlightRequests.remove(dedupeKey);
+    }
+  }
+
+  Future<List<dynamic>> _getSessionMessagesInternal(
+    String sessionId, {
+    String? projectPath,
+    int? limit,
+  }) async {
+    return _timedRequest('get_session_messages', () async {
+      final requestId = _generateRequestId();
+      _socket.send({
+        'type': 'get_session_messages',
+        'sessionId': sessionId,
+        'requestId': requestId,
+        if (projectPath != null) 'projectPath': projectPath,
+        if (limit != null) 'limit': limit,
+      });
+      final response = await _waitFor('session_messages', requestId: requestId);
+      return response['data'] as List<dynamic>? ?? [];
     });
-    final response = await _waitFor('session_messages', requestId: requestId);
-    return response['data'] as List<dynamic>? ?? [];
   }
 
   /// Send a chat message to a session

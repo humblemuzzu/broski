@@ -132,6 +132,13 @@ export function createBridgeServer(options: BridgeServerOptions): BridgeServer {
   const sdkQueue: unknown[] = []
   let sdkFlushTimer: Timer | null = null
 
+  const BATCH_LOW = 16
+  const BATCH_HIGH = 8
+  const BATCH_BURST = 4
+  let currentBatchInterval = BATCH_LOW
+  let eventCount = 0
+  let eventCountResetTimer: Timer | null = null
+
   const extractSessionId = (event: any): string | null => {
     const payload = event?.payload ?? null
     const properties = payload?.properties ?? null
@@ -186,8 +193,21 @@ export function createBridgeServer(options: BridgeServerOptions): BridgeServer {
 
   const enqueueSdkEvent = (event: unknown) => {
     sdkQueue.push(event)
+    eventCount++
+
+    if (eventCount > 50) currentBatchInterval = BATCH_BURST
+    else if (eventCount > 20) currentBatchInterval = BATCH_HIGH
+    else currentBatchInterval = BATCH_LOW
+
+    if (!eventCountResetTimer) {
+      eventCountResetTimer = setTimeout(() => {
+        eventCount = 0
+        eventCountResetTimer = null
+      }, 1000)
+    }
+
     if (sdkFlushTimer) return
-    sdkFlushTimer = setTimeout(flushSdkEvents, 16)
+    sdkFlushTimer = setTimeout(flushSdkEvents, currentBatchInterval)
   }
 
   const HEARTBEAT_INTERVAL_MS = 20000

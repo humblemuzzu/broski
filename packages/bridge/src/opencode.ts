@@ -20,6 +20,10 @@ export class OpenCodeConnector {
   private baseUrl: string
   private toolIdsCache = new Map<string, { ids: string[]; fetchedAt: number }>()
 
+  // Session list cache with 5s TTL (prevents redundant fetches)
+  private sessionCache = new Map<string, { data: SessionSummary[]; fetchedAt: number }>()
+  private readonly SESSION_CACHE_TTL_MS = 5000 // 5 seconds
+
   constructor(options: OpenCodeConnectorOptions = {}) {
     this.baseUrl = options.baseUrl ?? DEFAULT_BASE_URL
     this.client =
@@ -60,16 +64,27 @@ export class OpenCodeConnector {
   }
 
   async listSessions(directory?: string): Promise<SessionSummary[]> {
-    // IMPORTANT: OpenCode is directory-scoped ("instances"). If we omit directory,
-    // the server will default to process.cwd() and sessions will appear to be "missing".
-    //
-    // For the mobile Sessions screen we want "all sessions across all projects"
-    // (docs/mvp/Architecture/APP_SCREENS.md). Achieve this by:
-    // - listing known projects, then
-    // - listing sessions per project worktree, then
-    // - merging + sorting.
+    const cacheKey = directory ?? '__all__'
+    const now = Date.now()
+    const cached = this.sessionCache.get(cacheKey)
 
-    // Filter by a specific project/directory.
+    if (cached && now - cached.fetchedAt < this.SESSION_CACHE_TTL_MS) {
+      return cached.data
+    }
+
+    const result = await this._listSessionsInternal(directory)
+    this.sessionCache.set(cacheKey, { data: result, fetchedAt: now })
+    return result
+  }
+
+  invalidateSessionCache(directory?: string): void {
+    if (directory) {
+      this.sessionCache.delete(directory)
+    }
+    this.sessionCache.delete('__all__')
+  }
+
+  private async _listSessionsInternal(directory?: string): Promise<SessionSummary[]> {
     if (directory != null && directory.length > 0) {
       const sessions =
         (await this.client.session.list({
@@ -79,12 +94,11 @@ export class OpenCodeConnector {
       return sessions.map((session) => this.mapSession(session))
     }
 
-    // Aggregate across all projects.
     const projects = await this.listProjects().catch(() => [])
     const queue = projects.filter((p) => p.path.length > 0).slice()
     const sessionsById = new Map<string, SessionSummary>()
 
-    const concurrency = 4
+    const concurrency = 8
     await Promise.all(
       Array.from({ length: Math.max(1, concurrency) }, async () => {
         for (;;) {
@@ -98,12 +112,10 @@ export class OpenCodeConnector {
               })) ?? []
             for (const session of sessions) {
               const mapped = this.mapSession(session)
-              // Hide archived sessions in the default UI list.
               if ((mapped.time as any)?.archived) continue
               sessionsById.set(mapped.id, mapped)
             }
           } catch {
-            // Ignore failures for individual projects; still return what we have.
           }
         }
       }),

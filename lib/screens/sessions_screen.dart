@@ -58,9 +58,8 @@ class _SessionsScreenState extends ConsumerState<SessionsScreen> {
               ),
               ...sessionsAsync.when(
                 loading: () => [
-                  const SliverFillRemaining(
-                    child: Center(child: CircularProgressIndicator()),
-                  ),
+                  // Smart skeleton: only show after 100ms delay to prevent flash
+                  SliverToBoxAdapter(child: _DelayedSkeletonList()),
                 ],
                 error: (error, _) => [
                   SliverFillRemaining(
@@ -105,6 +104,12 @@ class _SessionsScreenState extends ConsumerState<SessionsScreen> {
                   if (sessions.isEmpty) {
                     return [SliverFillRemaining(child: _EmptyState())];
                   }
+
+                  // Predictive prefetching: preload messages for top 3 sessions
+                  // Fire-and-forget after frame is rendered
+                  WidgetsBinding.instance.addPostFrameCallback((_) {
+                    prefetchTopSessions(ref, sessions);
+                  });
 
                   final projectsByPath = <String, ProjectSummary>{};
                   for (final p
@@ -944,6 +949,190 @@ class _EmptyState extends StatelessWidget {
           ),
         ],
       ),
+    );
+  }
+}
+
+/// Skeleton loading card that mimics the session card layout.
+/// Shows shimmer animation while data is loading.
+class _SkeletonSessionCard extends StatefulWidget {
+  @override
+  State<_SkeletonSessionCard> createState() => _SkeletonSessionCardState();
+}
+
+class _SkeletonSessionCardState extends State<_SkeletonSessionCard>
+    with SingleTickerProviderStateMixin {
+  late AnimationController _controller;
+  late Animation<double> _animation;
+
+  @override
+  void initState() {
+    super.initState();
+    _controller = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 1200),
+    )..repeat();
+    _animation = Tween<double>(begin: -2, end: 2).animate(
+      CurvedAnimation(parent: _controller, curve: Curves.easeInOutSine),
+    );
+  }
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final ocTheme = OpenCodeTheme.of(context);
+
+    return AnimatedBuilder(
+      animation: _animation,
+      builder: (context, child) {
+        return Container(
+          height: 76,
+          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+          decoration: BoxDecoration(
+            color: ocTheme.backgroundPanel,
+            borderRadius: BorderRadius.circular(14),
+            border: Border.all(color: ocTheme.borderSubtle),
+          ),
+          child: Row(
+            children: [
+              // Skeleton orb
+              _SkeletonBox(
+                width: 44,
+                height: 44,
+                borderRadius: 12,
+                shimmerValue: _animation.value,
+              ),
+              const SizedBox(width: 12),
+              // Skeleton text lines
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    _SkeletonBox(
+                      width: double.infinity,
+                      height: 14,
+                      borderRadius: 4,
+                      shimmerValue: _animation.value,
+                      maxWidthFraction: 0.7,
+                    ),
+                    const SizedBox(height: 8),
+                    _SkeletonBox(
+                      width: double.infinity,
+                      height: 12,
+                      borderRadius: 4,
+                      shimmerValue: _animation.value,
+                      maxWidthFraction: 0.5,
+                    ),
+                  ],
+                ),
+              ),
+              const SizedBox(width: 8),
+              // Skeleton chevron
+              _SkeletonBox(
+                width: 20,
+                height: 20,
+                borderRadius: 4,
+                shimmerValue: _animation.value,
+              ),
+            ],
+          ),
+        );
+      },
+    );
+  }
+}
+
+/// Delayed skeleton list: only shows skeleton after 100ms delay.
+/// Prevents flash when data loads quickly from cache.
+class _DelayedSkeletonList extends StatefulWidget {
+  @override
+  State<_DelayedSkeletonList> createState() => _DelayedSkeletonListState();
+}
+
+class _DelayedSkeletonListState extends State<_DelayedSkeletonList> {
+  bool _showSkeleton = false;
+
+  @override
+  void initState() {
+    super.initState();
+    Future.delayed(const Duration(milliseconds: 100), () {
+      if (mounted) {
+        setState(() => _showSkeleton = true);
+      }
+    });
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    if (!_showSkeleton) {
+      return const SizedBox.shrink();
+    }
+
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(20, 0, 20, 100),
+      child: Column(
+        children: List.generate(
+          6,
+          (index) => Padding(
+            padding: const EdgeInsets.only(bottom: 12),
+            child: _SkeletonSessionCard(),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+/// A shimmer box widget used for skeleton loading.
+class _SkeletonBox extends StatelessWidget {
+  const _SkeletonBox({
+    required this.width,
+    required this.height,
+    required this.borderRadius,
+    required this.shimmerValue,
+    this.maxWidthFraction = 1.0,
+  });
+
+  final double width;
+  final double height;
+  final double borderRadius;
+  final double shimmerValue;
+  final double maxWidthFraction;
+
+  @override
+  Widget build(BuildContext context) {
+    final ocTheme = OpenCodeTheme.of(context);
+
+    // Shimmer gradient that moves
+    final baseColor = ocTheme.borderSubtle;
+    final highlightColor = ocTheme.textMuted.withValues(alpha: 0.15);
+
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final actualWidth = width == double.infinity
+            ? constraints.maxWidth * maxWidthFraction
+            : width;
+
+        return Container(
+          width: actualWidth,
+          height: height,
+          decoration: BoxDecoration(
+            borderRadius: BorderRadius.circular(borderRadius),
+            gradient: LinearGradient(
+              begin: Alignment(shimmerValue - 1, 0),
+              end: Alignment(shimmerValue + 1, 0),
+              colors: [baseColor, highlightColor, baseColor],
+              stops: const [0.0, 0.5, 1.0],
+            ),
+          ),
+        );
+      },
     );
   }
 }
