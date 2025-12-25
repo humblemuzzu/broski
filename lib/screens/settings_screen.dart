@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../providers/connection_provider.dart';
+import '../providers/input_style_provider.dart';
 import '../providers/service_providers.dart';
 import '../providers/theme_provider.dart';
 import '../theme/opencode_theme.dart';
@@ -94,6 +95,35 @@ class SettingsScreen extends ConsumerWidget {
                         onTap: () => ref
                             .read(themeProvider.notifier)
                             .setTheme(AppThemeMode.black),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            ),
+
+            // Interface section
+            const SliverToBoxAdapter(child: SizedBox(height: 24)),
+            SliverToBoxAdapter(child: _SectionHeader(title: 'Interface')),
+            SliverToBoxAdapter(
+              child: Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 20),
+                child: _SettingsCard(
+                  child: Column(
+                    children: [
+                      _InputStyleTile(
+                        title: 'ChatGPT Style',
+                        subtitle: 'Rounded pill input with send button',
+                        icon: Icons.chat_bubble_outline_rounded,
+                        value: InputBarStyle.chatgpt,
+                      ),
+                      _Divider(),
+                      _InputStyleTile(
+                        title: 'CLI Style',
+                        subtitle:
+                            'Terminal-like input with agent & model selector',
+                        icon: Icons.terminal_rounded,
+                        value: InputBarStyle.cli,
                       ),
                     ],
                   ),
@@ -577,6 +607,74 @@ class _Divider extends StatelessWidget {
       indent: 16,
       endIndent: 16,
       color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.1),
+    );
+  }
+}
+
+// Input bar style selector tile
+class _InputStyleTile extends ConsumerWidget {
+  const _InputStyleTile({
+    required this.title,
+    required this.subtitle,
+    required this.icon,
+    required this.value,
+  });
+
+  final String title;
+  final String subtitle;
+  final IconData icon;
+  final InputBarStyle value;
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final theme = Theme.of(context);
+    final currentStyle = ref.watch(inputStyleProvider);
+
+    return InkWell(
+      onTap: () => ref.read(inputStyleProvider.notifier).setStyle(value),
+      borderRadius: BorderRadius.circular(20),
+      child: Padding(
+        padding: const EdgeInsets.all(16),
+        child: Row(
+          children: [
+            Icon(icon, color: theme.colorScheme.primary, size: 22),
+            const SizedBox(width: 12),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    title,
+                    style: TextStyle(
+                      color: theme.colorScheme.onSurface,
+                      fontSize: 15,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                  const SizedBox(height: 4),
+                  Text(
+                    subtitle,
+                    style: TextStyle(
+                      color: theme.colorScheme.onSurface.withValues(alpha: 0.6),
+                      fontSize: 13,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            const SizedBox(width: 8),
+            Radio<InputBarStyle>(
+              value: value,
+              groupValue: currentStyle,
+              onChanged: (v) {
+                if (v != null) {
+                  ref.read(inputStyleProvider.notifier).setStyle(v);
+                }
+              },
+            ),
+          ],
+        ),
+      ),
     );
   }
 }

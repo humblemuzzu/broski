@@ -541,124 +541,194 @@ void _showProjectFilter({
   showModalBottomSheet<void>(
     context: context,
     backgroundColor: ocTheme.backgroundPanel,
+    isScrollControlled: true,
     shape: const RoundedRectangleBorder(
-      borderRadius: BorderRadius.vertical(top: Radius.circular(18)),
+      borderRadius: BorderRadius.vertical(top: Radius.circular(16)),
     ),
     builder: (context) {
       final sheetOcTheme = OpenCodeTheme.of(context);
-      return SafeArea(
-        child: Padding(
-          padding: const EdgeInsets.fromLTRB(16, 12, 16, 16),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.start,
+      return DraggableScrollableSheet(
+        initialChildSize: 0.5,
+        minChildSize: 0.3,
+        maxChildSize: 0.85,
+        expand: false,
+        builder: (context, scrollController) {
+          return Column(
             children: [
-              Row(
-                children: [
-                  Expanded(
-                    child: Text(
-                      'Filter sessions',
-                      style: TextStyle(
-                        color: sheetOcTheme.text,
-                        fontSize: 16,
-                        fontWeight: FontWeight.w700,
+              // Drag handle
+              Container(
+                margin: const EdgeInsets.only(top: 12, bottom: 8),
+                width: 36,
+                height: 4,
+                decoration: BoxDecoration(
+                  color: sheetOcTheme.textMuted.withValues(alpha: 0.3),
+                  borderRadius: BorderRadius.circular(2),
+                ),
+              ),
+              // Header
+              Padding(
+                padding: const EdgeInsets.fromLTRB(20, 4, 12, 0),
+                child: Row(
+                  children: [
+                    Expanded(
+                      child: Text(
+                        'Filter by project',
+                        style: TextStyle(
+                          color: sheetOcTheme.text,
+                          fontSize: 15,
+                          fontWeight: FontWeight.w700,
+                        ),
                       ),
                     ),
-                  ),
-                  IconButton(
-                    onPressed: () => Navigator.pop(context),
-                    icon: Icon(
-                      Icons.close_rounded,
-                      color: sheetOcTheme.textMuted,
+                    IconButton(
+                      onPressed: () => Navigator.pop(context),
+                      icon: Icon(
+                        Icons.close_rounded,
+                        color: sheetOcTheme.textMuted,
+                        size: 22,
+                      ),
+                      visualDensity: VisualDensity.compact,
                     ),
-                  ),
-                ],
+                  ],
+                ),
               ),
-              const SizedBox(height: 8),
-              ListTile(
-                contentPadding: EdgeInsets.zero,
-                title: Text(
-                  'All projects',
-                  style: TextStyle(
-                    color: sheetOcTheme.text,
-                    fontWeight: FontWeight.w600,
-                  ),
-                ),
-                trailing: selectedPath == null
-                    ? Icon(Icons.check_rounded, color: sheetOcTheme.success)
-                    : null,
-                onTap: () {
-                  onSelected(null);
-                  Navigator.pop(context);
-                },
-              ),
-              const Divider(height: 16),
-              projects.when(
-                loading: () => const Padding(
-                  padding: EdgeInsets.symmetric(vertical: 24),
-                  child: Center(child: CircularProgressIndicator()),
-                ),
-                error: (error, _) => Padding(
-                  padding: const EdgeInsets.symmetric(vertical: 16),
-                  child: Text(
-                    'Failed to load projects: $error',
-                    style: TextStyle(color: sheetOcTheme.textMuted),
-                  ),
-                ),
-                data: (items) {
-                  final sorted = items.toList()
-                    ..sort(
-                      (a, b) =>
-                          a.name.toLowerCase().compareTo(b.name.toLowerCase()),
-                    );
-                  return ConstrainedBox(
-                    constraints: const BoxConstraints(maxHeight: 420),
-                    child: ListView.builder(
-                      shrinkWrap: true,
-                      itemCount: sorted.length,
-                      itemBuilder: (context, index) {
-                        final project = sorted[index];
-                        final isSelected = selectedPath == project.path;
-                        return ListTile(
-                          contentPadding: EdgeInsets.zero,
-                          title: Text(
-                            project.name,
-                            style: TextStyle(
-                              color: sheetOcTheme.text,
-                              fontWeight: FontWeight.w600,
+              const SizedBox(height: 4),
+              // Scrollable content
+              Expanded(
+                child: ListView(
+                  controller: scrollController,
+                  padding: const EdgeInsets.fromLTRB(16, 0, 16, 32),
+                  children: [
+                    // All projects option
+                    _FilterProjectTile(
+                      name: 'All projects',
+                      path: null,
+                      isSelected: selectedPath == null,
+                      onTap: () {
+                        onSelected(null);
+                        Navigator.pop(context);
+                      },
+                    ),
+                    Divider(height: 24, color: sheetOcTheme.borderSubtle),
+                    // Project list
+                    projects.when(
+                      loading: () => const Padding(
+                        padding: EdgeInsets.symmetric(vertical: 32),
+                        child: Center(
+                          child: CircularProgressIndicator(strokeWidth: 2),
+                        ),
+                      ),
+                      error: (error, _) => Padding(
+                        padding: const EdgeInsets.symmetric(vertical: 24),
+                        child: Text(
+                          'Failed to load projects',
+                          style: TextStyle(color: sheetOcTheme.textMuted),
+                          textAlign: TextAlign.center,
+                        ),
+                      ),
+                      data: (items) {
+                        final sorted = items.toList()
+                          ..sort(
+                            (a, b) => a.name.toLowerCase().compareTo(
+                              b.name.toLowerCase(),
                             ),
-                          ),
-                          subtitle: Text(
-                            project.path,
-                            style: TextStyle(
-                              color: sheetOcTheme.textMuted,
-                              fontSize: 12,
-                            ),
-                            maxLines: 1,
-                            overflow: TextOverflow.ellipsis,
-                          ),
-                          trailing: isSelected
-                              ? Icon(
-                                  Icons.check_rounded,
-                                  color: sheetOcTheme.success,
-                                )
-                              : null,
-                          onTap: () {
-                            onSelected(project.path);
-                            Navigator.pop(context);
-                          },
+                          );
+                        return Column(
+                          children: sorted.map((project) {
+                            final isSelected = selectedPath == project.path;
+                            return _FilterProjectTile(
+                              name: project.name,
+                              path: project.path,
+                              isSelected: isSelected,
+                              onTap: () {
+                                onSelected(project.path);
+                                Navigator.pop(context);
+                              },
+                            );
+                          }).toList(),
                         );
                       },
                     ),
-                  );
-                },
+                  ],
+                ),
               ),
             ],
-          ),
-        ),
+          );
+        },
       );
     },
   );
+}
+
+// Modern filter tile widget
+class _FilterProjectTile extends StatelessWidget {
+  const _FilterProjectTile({
+    required this.name,
+    required this.path,
+    required this.isSelected,
+    required this.onTap,
+  });
+
+  final String name;
+  final String? path;
+  final bool isSelected;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final ocTheme = OpenCodeTheme.of(context);
+
+    return InkWell(
+      onTap: onTap,
+      borderRadius: BorderRadius.circular(10),
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
+        decoration: BoxDecoration(
+          color: isSelected
+              ? ocTheme.primary.withValues(alpha: 0.1)
+              : Colors.transparent,
+          borderRadius: BorderRadius.circular(10),
+        ),
+        child: Row(
+          children: [
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    name,
+                    style: TextStyle(
+                      color: isSelected ? ocTheme.primary : ocTheme.text,
+                      fontSize: 14,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                  if (path != null) ...[
+                    const SizedBox(height: 2),
+                    Text(
+                      _shortenPath(path!),
+                      style: TextStyle(color: ocTheme.textMuted, fontSize: 11),
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                  ],
+                ],
+              ),
+            ),
+            if (isSelected)
+              Icon(Icons.check_rounded, color: ocTheme.primary, size: 20),
+          ],
+        ),
+      ),
+    );
+  }
+
+  String _shortenPath(String fullPath) {
+    // Show only last 2-3 segments for cleaner look
+    final parts = fullPath.split('/').where((p) => p.isNotEmpty).toList();
+    if (parts.length <= 3) return fullPath;
+    return '.../${parts.sublist(parts.length - 3).join('/')}';
+  }
 }
 
 // Session card with swipe-to-delete and long-press to rename
@@ -681,25 +751,8 @@ class _SessionCard extends StatelessWidget {
     return session.directory.split('/').where((item) => item.isNotEmpty).last;
   }
 
-  IconData _getSessionIcon() {
-    // You can customize based on session content
-    final title = session.title.toLowerCase();
-    if (title.contains('fix') || title.contains('bug')) {
-      return Icons.bug_report_rounded;
-    } else if (title.contains('design') || title.contains('ui')) {
-      return Icons.palette_rounded;
-    } else if (title.contains('build') || title.contains('create')) {
-      return Icons.construction_rounded;
-    } else if (title.contains('review') || title.contains('audit')) {
-      return Icons.fact_check_rounded;
-    } else if (title.contains('docs') || title.contains('read')) {
-      return Icons.description_rounded;
-    }
-    return Icons.chat_bubble_rounded;
-  }
-
-  Color _getIconColor(BuildContext context) {
-    // Generate color from session ID hash using theme colors
+  // Generate two colors for gradient based on session ID hash
+  List<Color> _getGradientColors(BuildContext context) {
     final ocTheme = OpenCodeTheme.of(context);
     final hash = session.id.hashCode;
     final colors = [
@@ -707,10 +760,11 @@ class _SessionCard extends StatelessWidget {
       ocTheme.secondary,
       ocTheme.accent,
       ocTheme.success,
-      ocTheme.warning,
       ocTheme.info,
     ];
-    return colors[hash.abs() % colors.length];
+    final c1 = colors[hash.abs() % colors.length];
+    final c2 = colors[(hash.abs() + 2) % colors.length];
+    return [c1, c2];
   }
 
   String _formatDate(int timestamp) {
@@ -734,75 +788,74 @@ class _SessionCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final ocTheme = OpenCodeTheme.of(context);
-    final iconColor = _getIconColor(context);
+    final gradientColors = _getGradientColors(context);
 
-    // Base card widget
+    // Base card widget - fixed height for uniformity
     Widget card = GestureDetector(
       onTap: onTap,
       // Feature 5: Long press to rename (disabled in offline mode)
       onLongPress: onRename,
       child: Container(
-        padding: const EdgeInsets.all(16),
+        height: 76,
+        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
         decoration: BoxDecoration(
           color: ocTheme.backgroundPanel,
-          borderRadius: BorderRadius.circular(16),
+          borderRadius: BorderRadius.circular(14),
           border: Border.all(color: ocTheme.borderSubtle),
         ),
         child: Row(
           children: [
-            // Icon with colored background
+            // Modern gradient orb - no icon, just abstract shape
             Container(
-              padding: const EdgeInsets.all(12),
+              width: 44,
+              height: 44,
               decoration: BoxDecoration(
-                color: iconColor.withValues(alpha: 0.15),
                 borderRadius: BorderRadius.circular(12),
+                gradient: LinearGradient(
+                  begin: Alignment.topLeft,
+                  end: Alignment.bottomRight,
+                  colors: [
+                    gradientColors[0].withValues(alpha: 0.8),
+                    gradientColors[1].withValues(alpha: 0.6),
+                  ],
+                ),
               ),
-              child: Icon(_getSessionIcon(), color: iconColor, size: 22),
+              child: Center(
+                child: Text(
+                  '>_',
+                  style: TextStyle(
+                    color: Colors.white.withValues(alpha: 0.9),
+                    fontSize: 14,
+                    fontWeight: FontWeight.w700,
+                    fontFamily: 'monospace',
+                  ),
+                ),
+              ),
             ),
-            const SizedBox(width: 14),
+            const SizedBox(width: 12),
             // Session info
             Expanded(
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
+                mainAxisAlignment: MainAxisAlignment.center,
                 children: [
                   Text(
                     session.title,
                     style: TextStyle(
                       color: ocTheme.text,
-                      fontSize: 15,
+                      fontSize: 14,
                       fontWeight: FontWeight.w600,
+                      height: 1.2,
                     ),
-                    maxLines: 2,
+                    maxLines: 1,
                     overflow: TextOverflow.ellipsis,
                   ),
-                  const SizedBox(height: 6),
-                  Row(
-                    children: [
-                      Icon(
-                        Icons.folder_rounded,
-                        size: 14,
-                        color: ocTheme.textMuted,
-                      ),
-                      const SizedBox(width: 4),
-                      Expanded(
-                        child: Text(
-                          _getProjectName(),
-                          style: TextStyle(
-                            color: ocTheme.textMuted,
-                            fontSize: 13,
-                          ),
-                          overflow: TextOverflow.ellipsis,
-                        ),
-                      ),
-                      const SizedBox(width: 8),
-                      Text(
-                        _formatDate(session.time.updated),
-                        style: TextStyle(
-                          color: ocTheme.textMuted,
-                          fontSize: 12,
-                        ),
-                      ),
-                    ],
+                  const SizedBox(height: 4),
+                  Text(
+                    '${_getProjectName()} · ${_formatDate(session.time.updated)}',
+                    style: TextStyle(color: ocTheme.textMuted, fontSize: 12),
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
                   ),
                 ],
               ),
@@ -811,8 +864,8 @@ class _SessionCard extends StatelessWidget {
             // Chevron
             Icon(
               Icons.chevron_right_rounded,
-              color: ocTheme.textMuted.withValues(alpha: 0.5),
-              size: 22,
+              color: ocTheme.textMuted.withValues(alpha: 0.4),
+              size: 20,
             ),
           ],
         ),

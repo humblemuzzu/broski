@@ -90,28 +90,25 @@ class MessageBubble extends StatelessWidget {
     return Align(
       alignment: Alignment.centerRight,
       child: Container(
-        margin: const EdgeInsets.only(left: 50, right: 0, top: 8, bottom: 8),
-        padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 14),
+        margin: const EdgeInsets.only(left: 60, right: 0, top: 6, bottom: 6),
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
         decoration: BoxDecoration(
-          color: theme.primary,
+          color: theme.primary.withValues(alpha: 0.15),
           borderRadius: const BorderRadius.only(
-            topLeft: Radius.circular(20),
-            topRight: Radius.circular(20),
-            bottomLeft: Radius.circular(20),
+            topLeft: Radius.circular(18),
+            topRight: Radius.circular(18),
+            bottomLeft: Radius.circular(18),
             bottomRight: Radius.circular(4),
           ),
-          boxShadow: [
-            BoxShadow(
-              color: Colors.black.withValues(alpha: 0.1),
-              blurRadius: 6,
-              offset: const Offset(0, 2),
-            ),
-          ],
+          border: Border.all(
+            color: theme.primary.withValues(alpha: 0.3),
+            width: 1,
+          ),
         ),
         child: Text(
           message.text,
           style: GoogleFonts.inter(
-            color: theme.selectedListItemText,
+            color: theme.text,
             fontSize: 15,
             height: 1.5,
             fontWeight: FontWeight.w400,
@@ -127,72 +124,71 @@ class MessageBubble extends StatelessWidget {
       onLongPress: onForkFromHere != null && message.id.isNotEmpty
           ? () => _showForkMenu(context, theme)
           : null,
-      child: Align(
-        alignment: Alignment.centerLeft,
-        child: Container(
-          margin: const EdgeInsets.only(right: 50, left: 0, top: 8, bottom: 8),
-          padding: const EdgeInsets.all(18),
-          decoration: BoxDecoration(
-            color: theme.backgroundPanel,
-            borderRadius: BorderRadius.circular(20),
-            border: Border.all(color: theme.borderSubtle, width: 1),
-          ),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              // AI badge - subtle, minimal
-              Row(
-                children: [
-                  Container(
-                    width: 24,
-                    height: 24,
-                    decoration: BoxDecoration(
-                      color: theme.backgroundElement,
-                      borderRadius: BorderRadius.circular(8),
-                    ),
-                    child: Icon(
-                      Icons.auto_awesome,
-                      size: 14,
-                      color: theme.textMuted,
-                    ),
-                  ),
-                  const SizedBox(width: 8),
-                  const Spacer(),
-                  if (message.isStreaming) _buildStreamingCursor(theme),
-                ],
+      child: Container(
+        margin: const EdgeInsets.symmetric(vertical: 4),
+        child: Row(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            // Subtle left accent bar
+            Container(
+              width: 2,
+              height: 20,
+              margin: const EdgeInsets.only(top: 4, right: 12),
+              decoration: BoxDecoration(
+                color: theme.borderSubtle,
+                borderRadius: BorderRadius.circular(1),
               ),
-              const SizedBox(height: 12),
+            ),
+            // Message content - full width, no box
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  // Streaming indicator (top right when streaming)
+                  if (message.isStreaming)
+                    Align(
+                      alignment: Alignment.centerRight,
+                      child: Padding(
+                        padding: const EdgeInsets.only(bottom: 8),
+                        child: _buildStreamingCursor(theme),
+                      ),
+                    ),
 
-              // Message text with markdown
-              if (message.text.isEmpty)
-                Text(
-                  'Thinking...',
-                  style: GoogleFonts.inter(
-                    fontSize: 15,
-                    color: theme.textMuted,
-                    height: 1.6,
-                    fontStyle: FontStyle.italic,
-                  ),
-                )
-              else
-                // Huge perf win: avoid markdown layout while streaming.
-                // Render markdown only once the message is stable.
-                message.isStreaming
-                    ? SelectableText(
-                        message.text,
+                  // Message text with markdown - full width, no box
+                  if (message.text.isEmpty)
+                    Opacity(
+                      opacity: 0.5,
+                      child: Text(
+                        'Thinking...',
                         style: GoogleFonts.inter(
                           fontSize: 15,
-                          color: theme.text,
+                          color: theme.textMuted,
                           height: 1.6,
+                          fontStyle: FontStyle.italic,
                         ),
-                      )
-                    : MarkdownBody(
-                        data: message.text,
-                        selectable: true,
-                        styleSheet: _buildMarkdownStyle(theme),
                       ),
-            ],
-          ),
+                    )
+                  else
+                    // Huge perf win: avoid markdown layout while streaming.
+                    // Render markdown only once the message is stable.
+                    message.isStreaming
+                        ? SelectableText(
+                            message.text,
+                            style: GoogleFonts.inter(
+                              fontSize: 15,
+                              color: theme.text,
+                              height: 1.6,
+                            ),
+                          )
+                        : MarkdownBody(
+                            data: message.text,
+                            selectable: true,
+                            styleSheet: _buildMarkdownStyle(theme),
+                          ),
+                ],
+              ),
+            ),
+          ],
         ),
       ),
     );

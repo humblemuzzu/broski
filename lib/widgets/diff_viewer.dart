@@ -41,87 +41,66 @@ class _DiffViewerState extends State<DiffViewer> {
 
     return InkWell(
       onTap: () => setState(() => _isExpanded = !_isExpanded),
-      borderRadius: BorderRadius.circular(18),
+      borderRadius: BorderRadius.circular(14),
       child: Container(
-        margin: const EdgeInsets.only(top: 10),
-        padding: const EdgeInsets.all(16),
+        margin: const EdgeInsets.only(top: 8),
+        padding: const EdgeInsets.all(14),
         decoration: BoxDecoration(
           color: theme.backgroundPanel,
-          borderRadius: BorderRadius.circular(18),
+          borderRadius: BorderRadius.circular(14),
           border: Border.all(color: theme.borderSubtle, width: 1),
         ),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            // Header
+            // Header - compact
             Row(
               children: [
                 Container(
-                  padding: const EdgeInsets.all(9),
+                  padding: const EdgeInsets.all(8),
                   decoration: BoxDecoration(
-                    color: theme.borderSubtle,
-                    borderRadius: BorderRadius.circular(10),
+                    color: theme.borderSubtle.withValues(alpha: 0.5),
+                    borderRadius: BorderRadius.circular(8),
                   ),
-                  child: Icon(Icons.code, size: 18, color: theme.textMuted),
+                  child: Icon(Icons.code, size: 16, color: theme.textMuted),
                 ),
-                const SizedBox(width: 12),
+                const SizedBox(width: 10),
                 Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
+                  child: Row(
                     children: [
-                      Text(
-                        fileName,
-                        style: TextStyle(
-                          fontSize: 14,
-                          fontWeight: FontWeight.w600,
-                          color: theme.text,
+                      Flexible(
+                        child: Text(
+                          fileName,
+                          style: TextStyle(
+                            fontSize: 13,
+                            fontWeight: FontWeight.w600,
+                            color: theme.text,
+                          ),
+                          overflow: TextOverflow.ellipsis,
                         ),
                       ),
-                      const SizedBox(height: 3),
-                      Row(
-                        children: [
-                          if (additions > 0)
-                            Container(
-                              padding: const EdgeInsets.symmetric(
-                                horizontal: 7,
-                                vertical: 3,
-                              ),
-                              decoration: BoxDecoration(
-                                color: theme.diffAdded.withValues(alpha: 0.1),
-                                borderRadius: BorderRadius.circular(6),
-                              ),
-                              child: Text(
-                                '+$additions',
-                                style: TextStyle(
-                                  fontSize: 11,
-                                  color: theme.diffAdded,
-                                  fontWeight: FontWeight.w600,
-                                ),
-                              ),
-                            ),
-                          if (additions > 0 && deletions > 0)
-                            const SizedBox(width: 6),
-                          if (deletions > 0)
-                            Container(
-                              padding: const EdgeInsets.symmetric(
-                                horizontal: 7,
-                                vertical: 3,
-                              ),
-                              decoration: BoxDecoration(
-                                color: theme.diffRemoved.withValues(alpha: 0.1),
-                                borderRadius: BorderRadius.circular(6),
-                              ),
-                              child: Text(
-                                '-$deletions',
-                                style: TextStyle(
-                                  fontSize: 11,
-                                  color: theme.diffRemoved,
-                                  fontWeight: FontWeight.w600,
-                                ),
-                              ),
-                            ),
-                        ],
-                      ),
+                      const SizedBox(width: 8),
+                      // Inline badges
+                      if (additions > 0)
+                        Text(
+                          '+$additions',
+                          style: TextStyle(
+                            fontSize: 11,
+                            color: theme.diffAdded,
+                            fontWeight: FontWeight.w600,
+                          ),
+                        ),
+                      if (additions > 0 && deletions > 0)
+                        const SizedBox(width: 4),
+                      if (deletions > 0)
+                        Text(
+                          '-$deletions',
+                          style: TextStyle(
+                            fontSize: 11,
+                            color: theme.diffRemoved,
+                            fontWeight: FontWeight.w600,
+                          ),
+                        ),
                     ],
                   ),
                 ),
@@ -129,19 +108,19 @@ class _DiffViewerState extends State<DiffViewer> {
                   _isExpanded
                       ? Icons.keyboard_arrow_up
                       : Icons.keyboard_arrow_down,
-                  color: theme.textMuted,
-                  size: 22,
+                  color: theme.textMuted.withValues(alpha: 0.6),
+                  size: 20,
                 ),
               ],
             ),
 
             // Expanded diff content
-            const SizedBox(height: 14),
-            _DiffPreview(diff: widget.diff, maxLines: _isExpanded ? 10 : 4),
+            const SizedBox(height: 12),
+            _DiffPreview(diff: widget.diff, maxLines: _isExpanded ? 8 : 3),
 
             // Actions row (only when expanded)
             if (_isExpanded) ...[
-              const SizedBox(height: 12),
+              const SizedBox(height: 10),
               Row(
                 children: [
                   if (widget.onUndo != null)
@@ -150,12 +129,17 @@ class _DiffViewerState extends State<DiffViewer> {
                           widget.onUndo!(widget.messageId, widget.diff.partId),
                       icon: Icon(
                         Icons.undo_rounded,
-                        size: 14,
+                        size: 13,
                         color: theme.warning,
                       ),
                       label: Text(
                         'Undo',
-                        style: TextStyle(fontSize: 13, color: theme.warning),
+                        style: TextStyle(fontSize: 12, color: theme.warning),
+                      ),
+                      style: TextButton.styleFrom(
+                        padding: const EdgeInsets.symmetric(horizontal: 8),
+                        minimumSize: Size.zero,
+                        tapTargetSize: MaterialTapTargetSize.shrinkWrap,
                       ),
                     ),
                   const Spacer(),
@@ -163,16 +147,21 @@ class _DiffViewerState extends State<DiffViewer> {
                     onPressed: widget.onViewFull,
                     icon: Icon(
                       Icons.open_in_full_rounded,
-                      size: 14,
+                      size: 13,
                       color: theme.info,
                     ),
                     label: Text(
                       'View full',
                       style: TextStyle(
-                        fontSize: 13,
+                        fontSize: 12,
                         color: theme.info,
-                        fontWeight: FontWeight.w600,
+                        fontWeight: FontWeight.w500,
                       ),
+                    ),
+                    style: TextButton.styleFrom(
+                      padding: const EdgeInsets.symmetric(horizontal: 8),
+                      minimumSize: Size.zero,
+                      tapTargetSize: MaterialTapTargetSize.shrinkWrap,
                     ),
                   ),
                 ],
@@ -222,18 +211,18 @@ class _DiffPreview extends StatelessWidget {
 
     return Container(
       width: double.infinity,
-      padding: const EdgeInsets.all(12),
+      padding: const EdgeInsets.all(10),
       decoration: BoxDecoration(
         color: theme.backgroundElement,
-        borderRadius: BorderRadius.circular(14),
+        borderRadius: BorderRadius.circular(10),
         border: Border.all(color: theme.borderSubtle),
       ),
       child: previewLines.isEmpty
           ? Text(
               'No preview available',
               style: GoogleFonts.jetBrainsMono(
-                fontSize: 12,
-                color: theme.textMuted,
+                fontSize: 11,
+                color: theme.textMuted.withValues(alpha: 0.6),
               ),
             )
           : Column(
@@ -254,14 +243,14 @@ class _PreviewRow extends StatelessWidget {
   Widget build(BuildContext context) {
     final theme = OpenCodeTheme.of(context);
     final bg = switch (line.kind) {
-      DiffLineKind.added => theme.diffAdded.withValues(alpha: 0.12),
-      DiffLineKind.removed => theme.diffRemoved.withValues(alpha: 0.12),
+      DiffLineKind.added => theme.diffAdded.withValues(alpha: 0.1),
+      DiffLineKind.removed => theme.diffRemoved.withValues(alpha: 0.1),
       _ => Colors.transparent,
     };
     final fg = switch (line.kind) {
       DiffLineKind.added => theme.diffAdded,
       DiffLineKind.removed => theme.diffRemoved,
-      _ => theme.text,
+      _ => theme.text.withValues(alpha: 0.8),
     };
     final prefix = switch (line.kind) {
       DiffLineKind.added => '+',
@@ -271,15 +260,15 @@ class _PreviewRow extends StatelessWidget {
 
     return Container(
       width: double.infinity,
-      margin: const EdgeInsets.only(bottom: 2),
-      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+      margin: const EdgeInsets.only(bottom: 1),
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
       decoration: BoxDecoration(
         color: bg,
-        borderRadius: BorderRadius.circular(10),
+        borderRadius: BorderRadius.circular(6),
       ),
       child: Text(
         '$prefix ${line.text.isEmpty ? ' ' : line.text}',
-        style: GoogleFonts.jetBrainsMono(fontSize: 12, color: fg, height: 1.35),
+        style: GoogleFonts.jetBrainsMono(fontSize: 11, color: fg, height: 1.4),
       ),
     );
   }

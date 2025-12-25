@@ -15,6 +15,7 @@ import '../models/session_context.dart';
 import '../models/vcs.dart';
 import '../providers/chat_provider.dart';
 import '../providers/connection_provider.dart';
+import '../providers/input_style_provider.dart';
 import '../providers/selection_provider.dart';
 import '../providers/service_providers.dart';
 import '../providers/tool_settings_provider.dart';
@@ -856,9 +857,14 @@ class _ChatScreenState extends ConsumerState<ChatScreen>
               child: _buildScrollToBottomButton(),
             ),
 
-          // Stop button when streaming
+          // Stop button when streaming - centered at bottom
           if (_hasStreamingMessage(chatState.messages))
-            Positioned(bottom: 100, left: 20, child: _buildStopButton(context)),
+            Positioned(
+              bottom: 24,
+              left: 0,
+              right: 0,
+              child: Center(child: _buildStopButton(context)),
+            ),
 
           // Slash command autocomplete popup
           if (_showCommandAutocomplete && _commands.isNotEmpty)
@@ -872,22 +878,12 @@ class _ChatScreenState extends ConsumerState<ChatScreen>
               ),
             ),
 
-          // Floating input bar at bottom (ChatGPT style)
+          // Floating input bar at bottom (style based on settings)
           Positioned(
             left: 0,
             right: 0,
             bottom: 0,
-            child: _FloatingInputBar(
-              controller: _controller,
-              onSend: () => _sendMessage(connection, chatState),
-              isBusy: _hasStreamingMessage(chatState.messages),
-              canSend:
-                  connection.isConnected &&
-                  !connection.isOfflineMode &&
-                  !_hasStreamingMessage(chatState.messages) &&
-                  _controller.text.trim().isNotEmpty,
-              isOfflineMode: connection.isOfflineMode,
-            ),
+            child: _buildInputBar(connection, chatState),
           ),
 
           // Floating header at top (glass pills)
@@ -904,22 +900,54 @@ class _ChatScreenState extends ConsumerState<ChatScreen>
               onModelTap: () => _showModelSelector(context),
               onMenu: (value) => _handleMenuAction(value, chatState),
               onOpenSidebar: () => Scaffold.of(context).openEndDrawer(),
-              // Feature 3: Agent switching
               currentAgent: _selectedAgent,
               agents: _agents,
               onAgentChanged: (agent) => setState(() => _selectedAgent = agent),
-              // Feature 10: VCS info
               vcsInfo: _vcsInfo,
-              // Feature 8: Session sharing state
               isSessionShared: widget.session.isShared,
-              // Feature 9: Compaction state
               isCompacting: chatState.isCompacting,
-              // Feature 13: Session status
               sessionStatus: chatState.sessionStatus,
+              isStreaming: _hasStreamingMessage(chatState.messages),
             ),
           ),
         ],
       ),
+    );
+  }
+
+  Widget _buildInputBar(
+    BridgeConnectionState connection,
+    ChatSessionState chatState,
+  ) {
+    final inputStyle = ref.watch(inputStyleProvider);
+    final isBusy = _hasStreamingMessage(chatState.messages);
+    final canSend =
+        connection.isConnected &&
+        !connection.isOfflineMode &&
+        !isBusy &&
+        _controller.text.trim().isNotEmpty;
+
+    if (inputStyle == InputBarStyle.cli) {
+      return _CliStyleInputBar(
+        controller: _controller,
+        onSend: () => _sendMessage(connection, chatState),
+        isBusy: isBusy,
+        canSend: canSend,
+        isOfflineMode: connection.isOfflineMode,
+        currentAgent: _selectedAgent,
+        agents: _agents,
+        onAgentChanged: (agent) => setState(() => _selectedAgent = agent),
+        currentModel: ref.watch(selectionProvider).model,
+        onModelTap: () => _showModelSelector(context),
+      );
+    }
+
+    return _FloatingInputBar(
+      controller: _controller,
+      onSend: () => _sendMessage(connection, chatState),
+      isBusy: isBusy,
+      canSend: canSend,
+      isOfflineMode: connection.isOfflineMode,
     );
   }
 
@@ -996,25 +1024,37 @@ class _ChatScreenState extends ConsumerState<ChatScreen>
   Widget _buildStopButton(BuildContext context) {
     final theme = OpenCodeTheme.of(context);
     return Material(
-      color: theme.error,
-      borderRadius: BorderRadius.circular(26),
-      elevation: 4,
+      color: theme.backgroundPanel,
+      borderRadius: BorderRadius.circular(24),
+      elevation: 8,
+      shadowColor: Colors.black.withValues(alpha: 0.3),
       child: InkWell(
         onTap: () => _showStopConfirmation(context),
-        borderRadius: BorderRadius.circular(26),
+        borderRadius: BorderRadius.circular(24),
         child: Container(
-          padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 14),
-          child: const Row(
+          padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
+          decoration: BoxDecoration(
+            borderRadius: BorderRadius.circular(24),
+            border: Border.all(color: theme.error.withValues(alpha: 0.3)),
+          ),
+          child: Row(
             mainAxisSize: MainAxisSize.min,
             children: [
-              Icon(Icons.stop, color: Colors.white, size: 20),
-              SizedBox(width: 8),
+              Container(
+                width: 8,
+                height: 8,
+                decoration: BoxDecoration(
+                  color: theme.error,
+                  shape: BoxShape.circle,
+                ),
+              ),
+              const SizedBox(width: 10),
               Text(
-                'Stop',
+                'Stop generating',
                 style: TextStyle(
-                  color: Colors.white,
+                  color: theme.text,
                   fontSize: 14,
-                  fontWeight: FontWeight.w600,
+                  fontWeight: FontWeight.w500,
                 ),
               ),
             ],
@@ -1027,6 +1067,9 @@ class _ChatScreenState extends ConsumerState<ChatScreen>
   void _handleMenuAction(String value, ChatSessionState chatState) {
     final theme = OpenCodeTheme.of(context);
     switch (value) {
+      case 'sidebar':
+        Scaffold.of(context).openEndDrawer();
+        break;
       case 'new_session':
         // TODO: Implement new session
         ScaffoldMessenger.of(context).showSnackBar(
@@ -1250,7 +1293,7 @@ class _ChatScreenState extends ConsumerState<ChatScreen>
   }
 }
 
-// Floating header with glass pills (exact from expense_tracker)
+// Floating header - simplified and compact
 class _FloatingHeader extends StatelessWidget {
   const _FloatingHeader({
     required this.projectName,
@@ -1267,8 +1310,8 @@ class _FloatingHeader extends StatelessWidget {
     this.vcsInfo,
     this.isSessionShared = false,
     this.isCompacting = false,
-    this.sessionStatus =
-        const SessionStatus.idle(), // Feature 13: Session status
+    this.sessionStatus = const SessionStatus.idle(),
+    this.isStreaming = false,
   });
 
   final String projectName;
@@ -1279,18 +1322,14 @@ class _FloatingHeader extends StatelessWidget {
   final VoidCallback onModelTap;
   final void Function(String) onMenu;
   final VoidCallback onOpenSidebar;
-  // Feature 3: Agent switching
   final String? currentAgent;
   final List<Agent> agents;
   final void Function(String?)? onAgentChanged;
-  // Feature 10: VCS info
   final VcsInfo? vcsInfo;
-  // Feature 8: Session sharing state
   final bool isSessionShared;
-  // Feature 9: Compaction state
   final bool isCompacting;
-  // Feature 13: Session status
   final SessionStatus sessionStatus;
+  final bool isStreaming;
 
   @override
   Widget build(BuildContext context) {
@@ -1299,385 +1338,416 @@ class _FloatingHeader extends StatelessWidget {
     final kMuted = theme.textMuted;
     final kOnBackground = theme.text;
 
-    return Container(
+    // Get current agent for display
+    final primaryAgents = agents.where((a) => a.isPrimary).toList();
+    final current = primaryAgents.isNotEmpty
+        ? primaryAgents.firstWhere(
+            (a) => a.name == currentAgent,
+            orElse: () => primaryAgents.first,
+          )
+        : null;
+
+    return AnimatedContainer(
+      duration: const Duration(milliseconds: 200),
       padding: EdgeInsets.fromLTRB(
         12,
         MediaQuery.of(context).padding.top + 8,
         12,
-        12,
+        isStreaming ? 6 : 10,
       ),
-      color: Colors.transparent, // Completely transparent
-      child: SingleChildScrollView(
-        scrollDirection: Axis.horizontal,
+      child: AnimatedOpacity(
+        duration: const Duration(milliseconds: 200),
+        opacity: isStreaming ? 0.6 : 1.0,
         child: Row(
-          mainAxisSize: MainAxisSize.min,
           children: [
-            // Back button with glass effect
-            ClipRRect(
-              borderRadius: BorderRadius.circular(20),
-              child: BackdropFilter(
-                filter: ImageFilter.blur(sigmaX: 10, sigmaY: 10),
-                child: GestureDetector(
-                  onTap: onBack,
-                  child: Container(
-                    padding: const EdgeInsets.all(8),
-                    decoration: BoxDecoration(
-                      color: kCard.withValues(alpha: 0.7),
-                      borderRadius: BorderRadius.circular(20),
-                      border: Border.all(color: fade(kMuted, 0.2), width: 0.5),
-                    ),
-                    child: Icon(
-                      Icons.arrow_back_rounded,
-                      color: kOnBackground,
-                      size: 24,
-                    ),
-                  ),
-                ),
+            // Back button
+            _GlassPill(
+              onTap: onBack,
+              child: Icon(
+                Icons.arrow_back_rounded,
+                color: kOnBackground,
+                size: 22,
               ),
             ),
             const SizedBox(width: 8),
 
-            // Project name with glass effect - wrapped in Flexible to shrink if needed
-            Flexible(
-              child: ClipRRect(
-                borderRadius: BorderRadius.circular(20),
-                child: BackdropFilter(
-                  filter: ImageFilter.blur(sigmaX: 10, sigmaY: 10),
-                  child: Container(
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 12,
-                      vertical: 8,
+            // Combined: Project + Agent (main pill)
+            Expanded(
+              child: _GlassPill(
+                onTap: onAgentChanged != null && agents.isNotEmpty
+                    ? () => _showAgentPicker(context)
+                    : null,
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    // Status dot
+                    _StatusIndicator(
+                      isConnected: isConnected,
+                      sessionStatus: sessionStatus,
                     ),
-                    decoration: BoxDecoration(
-                      color: kCard.withValues(alpha: 0.7),
-                      borderRadius: BorderRadius.circular(20),
-                      border: Border.all(color: fade(kMuted, 0.2), width: 0.5),
-                    ),
-                    child: Row(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        Icon(
-                          Icons.folder_outlined,
-                          size: 16,
+                    const SizedBox(width: 8),
+                    // Project name (compact)
+                    Flexible(
+                      child: Text(
+                        projectName,
+                        style: TextStyle(
+                          fontWeight: FontWeight.w600,
+                          fontSize: 13,
                           color: kOnBackground,
                         ),
-                        const SizedBox(width: 6),
-                        Flexible(
-                          child: Text(
-                            projectName,
-                            style: TextStyle(
-                              fontWeight: FontWeight.w600,
-                              fontSize: 13,
-                              color: kOnBackground,
-                            ),
-                            overflow: TextOverflow.ellipsis,
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                    ),
+                    // Agent indicator
+                    if (current != null) ...[
+                      Padding(
+                        padding: const EdgeInsets.symmetric(horizontal: 6),
+                        child: Text(
+                          '•',
+                          style: TextStyle(
+                            color: kMuted.withValues(alpha: 0.5),
+                            fontSize: 10,
                           ),
                         ),
-                      ],
-                    ),
-                  ),
+                      ),
+                      Container(
+                        width: 6,
+                        height: 6,
+                        decoration: BoxDecoration(
+                          color: current.displayColor,
+                          shape: BoxShape.circle,
+                        ),
+                      ),
+                      const SizedBox(width: 4),
+                      Text(
+                        current.displayName,
+                        style: TextStyle(
+                          fontSize: 12,
+                          color: kOnBackground,
+                          fontWeight: FontWeight.w500,
+                        ),
+                      ),
+                      Icon(
+                        Icons.keyboard_arrow_down_rounded,
+                        size: 16,
+                        color: kMuted.withValues(alpha: 0.6),
+                      ),
+                    ],
+                  ],
                 ),
               ),
             ),
 
-            // Feature 10: VCS branch indicator - reduced size
-            if (vcsInfo != null && vcsInfo!.isAvailable)
-              Padding(
-                padding: const EdgeInsets.only(left: 6),
-                child: ClipRRect(
-                  borderRadius: BorderRadius.circular(16),
-                  child: BackdropFilter(
-                    filter: ImageFilter.blur(sigmaX: 10, sigmaY: 10),
-                    child: Container(
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 8,
-                        vertical: 6,
-                      ),
-                      decoration: BoxDecoration(
-                        color: kCard.withValues(alpha: 0.7),
-                        borderRadius: BorderRadius.circular(16),
-                        border: Border.all(
-                          color: fade(kMuted, 0.2),
-                          width: 0.5,
-                        ),
-                      ),
+            const SizedBox(width: 8),
+
+            // Menu button (contains all secondary options)
+            _GlassPill(
+              compact: true,
+              child: PopupMenuButton<String>(
+                icon: Icon(
+                  Icons.more_horiz_rounded,
+                  color: kOnBackground,
+                  size: 18,
+                ),
+                padding: EdgeInsets.zero,
+                color: kCard,
+                constraints: const BoxConstraints(minWidth: 180, maxWidth: 220),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                onSelected: onMenu,
+                itemBuilder: (context) => [
+                  // Info section (non-clickable) - compact
+                  if (vcsInfo != null && vcsInfo!.isAvailable)
+                    PopupMenuItem(
+                      enabled: false,
+                      height: 28,
+                      padding: const EdgeInsets.symmetric(horizontal: 12),
                       child: Row(
-                        mainAxisSize: MainAxisSize.min,
                         children: [
                           Icon(
                             Icons.call_split_rounded,
-                            size: 12,
+                            size: 13,
                             color: theme.success,
                           ),
-                          const SizedBox(width: 4),
-                          ConstrainedBox(
-                            constraints: const BoxConstraints(maxWidth: 50),
-                            child: Text(
-                              vcsInfo!.branch ?? '',
-                              style: TextStyle(
-                                fontSize: 11,
-                                color: kOnBackground,
-                                fontWeight: FontWeight.w500,
-                              ),
-                              overflow: TextOverflow.ellipsis,
-                            ),
+                          const SizedBox(width: 8),
+                          Text(
+                            vcsInfo!.branch ?? 'unknown',
+                            style: TextStyle(fontSize: 12, color: kMuted),
                           ),
                         ],
                       ),
                     ),
-                  ),
-                ),
-              ),
-
-            const SizedBox(width: 8),
-
-            // Feature 3: Agent selector
-            if (agents.isNotEmpty && onAgentChanged != null)
-              Padding(
-                padding: const EdgeInsets.only(right: 6),
-                child: ClipRRect(
-                  borderRadius: BorderRadius.circular(18),
-                  child: BackdropFilter(
-                    filter: ImageFilter.blur(sigmaX: 10, sigmaY: 10),
-                    child: _AgentSelector(
-                      agents: agents,
-                      currentAgent: currentAgent,
-                      onAgentChanged: onAgentChanged!,
+                  if (isConnected && rttMs != null)
+                    PopupMenuItem(
+                      enabled: false,
+                      height: 28,
+                      padding: const EdgeInsets.symmetric(horizontal: 12),
+                      child: Row(
+                        children: [
+                          Icon(
+                            Icons.speed_rounded,
+                            size: 13,
+                            color: theme.info,
+                          ),
+                          const SizedBox(width: 8),
+                          Text(
+                            '${rttMs}ms',
+                            style: TextStyle(fontSize: 12, color: kMuted),
+                          ),
+                        ],
+                      ),
                     ),
-                  ),
-                ),
-              ),
-
-            // Connection indicator + Model selector + Status
-            ClipRRect(
-              borderRadius: BorderRadius.circular(18),
-              child: BackdropFilter(
-                filter: ImageFilter.blur(sigmaX: 10, sigmaY: 10),
-                child: GestureDetector(
-                  onTap: onModelTap,
-                  child: Container(
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 10,
-                      vertical: 7,
-                    ),
-                    decoration: BoxDecoration(
-                      color: kCard.withValues(alpha: 0.7),
-                      borderRadius: BorderRadius.circular(18),
-                      border: Border.all(color: fade(kMuted, 0.2), width: 0.5),
-                    ),
+                  // Model selector - tappable
+                  PopupMenuItem(
+                    height: 32,
+                    padding: const EdgeInsets.symmetric(horizontal: 12),
+                    onTap: onModelTap,
                     child: Row(
-                      mainAxisSize: MainAxisSize.min,
                       children: [
-                        // Feature 13: Animated status indicator
-                        _StatusIndicator(
-                          isConnected: isConnected,
-                          sessionStatus: sessionStatus,
+                        Icon(
+                          Icons.auto_awesome_rounded,
+                          size: 13,
+                          color: theme.primary,
                         ),
-                        const SizedBox(width: 6),
+                        const SizedBox(width: 8),
                         Text(
                           _getModelName(currentModel),
                           style: TextStyle(
-                            fontSize: 11,
-                            color: kOnBackground,
-                            fontWeight: FontWeight.w600,
+                            fontSize: 12,
+                            color: theme.primary,
+                            fontWeight: FontWeight.w500,
                           ),
                         ),
-                        if (isConnected && rttMs != null) ...[
-                          const SizedBox(width: 6),
-                          Text(
-                            '${rttMs}ms',
-                            style: TextStyle(
-                              fontSize: 11,
-                              color: fade(kMuted, 0.9),
-                              fontWeight: FontWeight.w600,
-                            ),
-                          ),
-                        ],
+                        const Spacer(),
+                        Icon(
+                          Icons.chevron_right_rounded,
+                          size: 14,
+                          color: kMuted,
+                        ),
                       ],
                     ),
                   ),
-                ),
-              ),
-            ),
-
-            const SizedBox(width: 6),
-
-            // Sidebar toggle button with glass effect
-            ClipRRect(
-              borderRadius: BorderRadius.circular(18),
-              child: BackdropFilter(
-                filter: ImageFilter.blur(sigmaX: 10, sigmaY: 10),
-                child: GestureDetector(
-                  onTap: onOpenSidebar,
-                  child: Container(
-                    padding: const EdgeInsets.all(7),
-                    decoration: BoxDecoration(
-                      color: kCard.withValues(alpha: 0.7),
-                      borderRadius: BorderRadius.circular(18),
-                      border: Border.all(color: fade(kMuted, 0.2), width: 0.5),
-                    ),
-                    child: Icon(
-                      Icons.menu_open_rounded,
-                      color: kOnBackground,
-                      size: 20,
+                  const PopupMenuDivider(height: 8),
+                  // Sidebar
+                  PopupMenuItem(
+                    value: 'sidebar',
+                    height: 36,
+                    padding: const EdgeInsets.symmetric(horizontal: 12),
+                    child: Row(
+                      children: [
+                        Icon(
+                          Icons.menu_open_rounded,
+                          size: 15,
+                          color: kOnBackground,
+                        ),
+                        const SizedBox(width: 10),
+                        Text(
+                          'Session Info',
+                          style: TextStyle(fontSize: 13, color: kOnBackground),
+                        ),
+                      ],
                     ),
                   ),
-                ),
+                  PopupMenuItem(
+                    value: 'new_session',
+                    height: 36,
+                    padding: const EdgeInsets.symmetric(horizontal: 12),
+                    child: Row(
+                      children: [
+                        Icon(Icons.add_rounded, size: 15, color: kOnBackground),
+                        const SizedBox(width: 10),
+                        Text(
+                          'New Session',
+                          style: TextStyle(fontSize: 13, color: kOnBackground),
+                        ),
+                      ],
+                    ),
+                  ),
+                  PopupMenuItem(
+                    value: 'fork',
+                    height: 36,
+                    padding: const EdgeInsets.symmetric(horizontal: 12),
+                    child: Row(
+                      children: [
+                        Icon(
+                          Icons.call_split_rounded,
+                          size: 15,
+                          color: kOnBackground,
+                        ),
+                        const SizedBox(width: 10),
+                        Text(
+                          'Fork',
+                          style: TextStyle(fontSize: 13, color: kOnBackground),
+                        ),
+                      ],
+                    ),
+                  ),
+                  PopupMenuItem(
+                    value: isSessionShared ? 'unshare' : 'share',
+                    height: 36,
+                    padding: const EdgeInsets.symmetric(horizontal: 12),
+                    child: Row(
+                      children: [
+                        Icon(
+                          isSessionShared ? Icons.link_off : Icons.share,
+                          size: 15,
+                          color: kOnBackground,
+                        ),
+                        const SizedBox(width: 10),
+                        Text(
+                          isSessionShared ? 'Unshare' : 'Share',
+                          style: TextStyle(fontSize: 13, color: kOnBackground),
+                        ),
+                      ],
+                    ),
+                  ),
+                  PopupMenuItem(
+                    value: 'compact',
+                    height: 36,
+                    padding: const EdgeInsets.symmetric(horizontal: 12),
+                    enabled: !isCompacting,
+                    child: Row(
+                      children: [
+                        Icon(
+                          Icons.compress_rounded,
+                          size: 15,
+                          color: isCompacting ? kMuted : kOnBackground,
+                        ),
+                        const SizedBox(width: 10),
+                        Text(
+                          isCompacting ? 'Compacting...' : 'Compact',
+                          style: TextStyle(
+                            fontSize: 13,
+                            color: isCompacting ? kMuted : kOnBackground,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                  PopupMenuItem(
+                    value: 'init',
+                    height: 36,
+                    padding: const EdgeInsets.symmetric(horizontal: 12),
+                    child: Row(
+                      children: [
+                        Icon(
+                          Icons.auto_fix_high_rounded,
+                          size: 18,
+                          color: theme.success,
+                        ),
+                        const SizedBox(width: 12),
+                        Text(
+                          'Initialize Project',
+                          style: TextStyle(color: theme.success),
+                        ),
+                      ],
+                    ),
+                  ),
+                  const PopupMenuDivider(),
+                  PopupMenuItem(
+                    value: 'undo',
+                    child: Row(
+                      children: [
+                        Icon(
+                          Icons.undo_rounded,
+                          size: 18,
+                          color: theme.warning,
+                        ),
+                        const SizedBox(width: 12),
+                        Text(
+                          'Undo Last Changes',
+                          style: TextStyle(color: theme.warning),
+                        ),
+                      ],
+                    ),
+                  ),
+                  const PopupMenuDivider(),
+                  PopupMenuItem(
+                    value: 'clear',
+                    child: Row(
+                      children: [
+                        Icon(
+                          Icons.delete_outline_rounded,
+                          size: 18,
+                          color: theme.error,
+                        ),
+                        const SizedBox(width: 12),
+                        Text(
+                          'Clear Chat',
+                          style: TextStyle(color: theme.error),
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
               ),
             ),
+          ],
+        ),
+      ),
+    );
+  }
 
-            const SizedBox(width: 6),
+  void _showAgentPicker(BuildContext context) {
+    final theme = OpenCodeTheme.of(context);
+    final primaryAgents = agents.where((a) => a.isPrimary).toList();
 
-            // Menu with glass effect
-            ClipRRect(
-              borderRadius: BorderRadius.circular(18),
-              child: BackdropFilter(
-                filter: ImageFilter.blur(sigmaX: 10, sigmaY: 10),
-                child: Container(
+    showModalBottomSheet(
+      context: context,
+      backgroundColor: Colors.transparent,
+      builder: (context) => Container(
+        padding: const EdgeInsets.all(20),
+        decoration: BoxDecoration(
+          color: theme.backgroundPanel,
+          borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
+        ),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              'Select Agent',
+              style: TextStyle(
+                fontSize: 18,
+                fontWeight: FontWeight.w600,
+                color: theme.text,
+              ),
+            ),
+            const SizedBox(height: 16),
+            for (final agent in primaryAgents)
+              ListTile(
+                contentPadding: EdgeInsets.zero,
+                leading: Container(
+                  width: 10,
+                  height: 10,
                   decoration: BoxDecoration(
-                    color: kCard.withValues(alpha: 0.7),
-                    borderRadius: BorderRadius.circular(18),
-                    border: Border.all(color: fade(kMuted, 0.2), width: 0.5),
-                  ),
-                  child: PopupMenuButton<String>(
-                    icon: Icon(
-                      Icons.more_vert_rounded,
-                      color: kOnBackground,
-                      size: 20,
-                    ),
-                    color: kCard,
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(16),
-                    ),
-                    onSelected: onMenu,
-                    itemBuilder: (context) => [
-                      PopupMenuItem(
-                        value: 'new_session',
-                        child: Row(
-                          children: [
-                            Icon(
-                              Icons.add_rounded,
-                              size: 20,
-                              color: kOnBackground,
-                            ),
-                            const SizedBox(width: 12),
-                            const Text('New Session'),
-                          ],
-                        ),
-                      ),
-                      // Feature 6: Fork Session
-                      PopupMenuItem(
-                        value: 'fork',
-                        child: Row(
-                          children: [
-                            Icon(
-                              Icons.call_split_rounded,
-                              size: 20,
-                              color: kOnBackground,
-                            ),
-                            const SizedBox(width: 12),
-                            const Text('Fork Session'),
-                          ],
-                        ),
-                      ),
-                      // Feature 8: Share/Unshare Session
-                      PopupMenuItem(
-                        value: isSessionShared ? 'unshare' : 'share',
-                        child: Row(
-                          children: [
-                            Icon(
-                              isSessionShared ? Icons.link_off : Icons.share,
-                              size: 20,
-                              color: kOnBackground,
-                            ),
-                            const SizedBox(width: 12),
-                            Text(isSessionShared ? 'Unshare' : 'Share Session'),
-                          ],
-                        ),
-                      ),
-                      // Feature 9: Compact Session
-                      PopupMenuItem(
-                        value: 'compact',
-                        enabled: !isCompacting,
-                        child: Row(
-                          children: [
-                            Icon(
-                              Icons.compress_rounded,
-                              size: 20,
-                              color: isCompacting ? kMuted : kOnBackground,
-                            ),
-                            const SizedBox(width: 12),
-                            Text(
-                              isCompacting
-                                  ? 'Compacting...'
-                                  : 'Compact Session',
-                              style: TextStyle(
-                                color: isCompacting ? kMuted : null,
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
-                      // Feature 20: Initialize Project (Create AGENTS.md)
-                      PopupMenuItem(
-                        value: 'init',
-                        child: Row(
-                          children: [
-                            Icon(
-                              Icons.auto_fix_high_rounded,
-                              size: 20,
-                              color: theme.success,
-                            ),
-                            const SizedBox(width: 12),
-                            Text(
-                              'Initialize Project',
-                              style: TextStyle(color: theme.success),
-                            ),
-                          ],
-                        ),
-                      ),
-                      const PopupMenuDivider(),
-                      // Feature 7: Undo Last Changes
-                      PopupMenuItem(
-                        value: 'undo',
-                        child: Row(
-                          children: [
-                            Icon(
-                              Icons.undo_rounded,
-                              size: 20,
-                              color: theme.warning,
-                            ),
-                            const SizedBox(width: 12),
-                            Text(
-                              'Undo Last Changes',
-                              style: TextStyle(color: theme.warning),
-                            ),
-                          ],
-                        ),
-                      ),
-                      const PopupMenuDivider(),
-                      PopupMenuItem(
-                        value: 'clear',
-                        child: Row(
-                          children: [
-                            Icon(
-                              Icons.delete_outline_rounded,
-                              size: 20,
-                              color: theme.error,
-                            ),
-                            const SizedBox(width: 12),
-                            Text(
-                              'Clear Chat',
-                              style: TextStyle(color: theme.error),
-                            ),
-                          ],
-                        ),
-                      ),
-                    ],
+                    color: agent.displayColor,
+                    shape: BoxShape.circle,
                   ),
                 ),
+                title: Text(
+                  agent.displayName,
+                  style: TextStyle(
+                    color: theme.text,
+                    fontWeight: agent.name == currentAgent
+                        ? FontWeight.w600
+                        : FontWeight.w400,
+                  ),
+                ),
+                subtitle: Text(
+                  agent.shortDescription,
+                  style: TextStyle(color: theme.textMuted, fontSize: 12),
+                ),
+                trailing: agent.name == currentAgent
+                    ? Icon(Icons.check_rounded, color: theme.success, size: 20)
+                    : null,
+                onTap: () {
+                  onAgentChanged?.call(agent.name);
+                  Navigator.pop(context);
+                },
               ),
-            ),
+            const SizedBox(height: 8),
           ],
         ),
       ),
@@ -1697,7 +1767,44 @@ class _FloatingHeader extends StatelessWidget {
   }
 }
 
-// ChatGPT-style floating input bar (exact from expense_tracker)
+// Glass pill widget for header elements
+class _GlassPill extends StatelessWidget {
+  const _GlassPill({required this.child, this.onTap, this.compact = false});
+
+  final Widget child;
+  final VoidCallback? onTap;
+  final bool compact;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = OpenCodeTheme.of(context);
+    final kCard = theme.backgroundPanel;
+    final kMuted = theme.textMuted;
+
+    return ClipRRect(
+      borderRadius: BorderRadius.circular(compact ? 16 : 20),
+      child: BackdropFilter(
+        filter: ImageFilter.blur(sigmaX: 10, sigmaY: 10),
+        child: GestureDetector(
+          onTap: onTap,
+          child: Container(
+            padding: compact
+                ? const EdgeInsets.all(6)
+                : const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+            decoration: BoxDecoration(
+              color: kCard.withValues(alpha: 0.75),
+              borderRadius: BorderRadius.circular(compact ? 16 : 20),
+              border: Border.all(color: fade(kMuted, 0.15), width: 0.5),
+            ),
+            child: child,
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+// Floating input bar with streaming mode support
 class _FloatingInputBar extends StatelessWidget {
   const _FloatingInputBar({
     required this.controller,
@@ -1721,138 +1828,507 @@ class _FloatingInputBar extends StatelessWidget {
     final kOnBackground = theme.text;
     final kBackground = theme.background;
 
-    return Container(
-      padding: const EdgeInsets.fromLTRB(16, 4, 16, 4),
-      color: Colors.transparent,
-      child: SafeArea(
-        top: false,
-        minimum: const EdgeInsets.only(bottom: 8),
-        child: Row(
-          crossAxisAlignment: CrossAxisAlignment.center,
+    // During streaming, hide the input bar completely
+    // (Stop button is shown separately)
+    return AnimatedSlide(
+      duration: const Duration(milliseconds: 200),
+      offset: isBusy ? const Offset(0, 1) : Offset.zero,
+      child: AnimatedOpacity(
+        duration: const Duration(milliseconds: 150),
+        opacity: isBusy ? 0.0 : 1.0,
+        child: Container(
+          padding: const EdgeInsets.fromLTRB(16, 4, 16, 4),
+          color: Colors.transparent,
+          child: SafeArea(
+            top: false,
+            minimum: const EdgeInsets.only(bottom: 8),
+            child: Row(
+              crossAxisAlignment: CrossAxisAlignment.center,
+              children: [
+                // Plus button - compact
+                GestureDetector(
+                  onTap: () {
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      SnackBar(
+                        content: const Text('Attach files - coming soon'),
+                        backgroundColor: kCard,
+                        behavior: SnackBarBehavior.floating,
+                      ),
+                    );
+                  },
+                  child: Container(
+                    height: 42,
+                    width: 42,
+                    margin: const EdgeInsets.only(right: 8),
+                    decoration: BoxDecoration(
+                      color: kCard,
+                      borderRadius: BorderRadius.circular(21),
+                      border: Border.all(color: fade(kMuted, 0.2)),
+                    ),
+                    child: Center(
+                      child: Icon(
+                        Icons.add_rounded,
+                        color: kOnBackground,
+                        size: 22,
+                      ),
+                    ),
+                  ),
+                ),
+                // Prompt bar container
+                Expanded(
+                  child: Container(
+                    constraints: const BoxConstraints(minHeight: 42),
+                    decoration: BoxDecoration(
+                      color: kCard,
+                      borderRadius: BorderRadius.circular(22),
+                      border: Border.all(color: fade(kMuted, 0.2)),
+                    ),
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 14,
+                      vertical: 4,
+                    ),
+                    child: Row(
+                      crossAxisAlignment: CrossAxisAlignment.center,
+                      children: [
+                        // Text input
+                        Expanded(
+                          child: TextField(
+                            controller: controller,
+                            enabled: !isOfflineMode && !isBusy,
+                            minLines: 1,
+                            maxLines: 5,
+                            style: TextStyle(
+                              fontWeight: FontWeight.w400,
+                              color: kOnBackground,
+                              fontSize: 15,
+                            ),
+                            decoration: InputDecoration(
+                              hintText: isOfflineMode
+                                  ? 'Offline mode - read only'
+                                  : 'Ask AI to edit code...',
+                              filled: false,
+                              border: InputBorder.none,
+                              enabledBorder: InputBorder.none,
+                              focusedBorder: InputBorder.none,
+                              disabledBorder: InputBorder.none,
+                              errorBorder: InputBorder.none,
+                              focusedErrorBorder: InputBorder.none,
+                              hintStyle: TextStyle(
+                                color: isOfflineMode
+                                    ? theme.warning
+                                    : kMuted.withValues(alpha: 0.6),
+                                fontWeight: FontWeight.w400,
+                                fontSize: 15,
+                              ),
+                              contentPadding: const EdgeInsets.symmetric(
+                                horizontal: 0,
+                                vertical: 10,
+                              ),
+                              isDense: true,
+                            ),
+                            onSubmitted: canSend ? (_) => onSend() : null,
+                          ),
+                        ),
+                        const SizedBox(width: 8),
+                        // Send button
+                        GestureDetector(
+                          onTap: canSend ? onSend : null,
+                          child: Container(
+                            width: 30,
+                            height: 30,
+                            decoration: BoxDecoration(
+                              color: canSend
+                                  ? kOnBackground
+                                  : fade(kMuted, 0.1),
+                              borderRadius: BorderRadius.circular(15),
+                            ),
+                            child: Center(
+                              child: Icon(
+                                Icons.arrow_upward_rounded,
+                                color: canSend ? kBackground : kMuted,
+                                size: 16,
+                              ),
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+// CLI-style input bar (OpenCode terminal aesthetic)
+class _CliStyleInputBar extends StatefulWidget {
+  const _CliStyleInputBar({
+    required this.controller,
+    required this.onSend,
+    required this.isBusy,
+    required this.canSend,
+    this.isOfflineMode = false,
+    this.currentAgent,
+    this.agents = const [],
+    this.onAgentChanged,
+    this.currentModel,
+    this.onModelTap,
+  });
+
+  final TextEditingController controller;
+  final VoidCallback onSend;
+  final bool isBusy;
+  final bool canSend;
+  final bool isOfflineMode;
+  final String? currentAgent;
+  final List<Agent> agents;
+  final void Function(String?)? onAgentChanged;
+  final SelectedModel? currentModel;
+  final VoidCallback? onModelTap;
+
+  @override
+  State<_CliStyleInputBar> createState() => _CliStyleInputBarState();
+}
+
+class _CliStyleInputBarState extends State<_CliStyleInputBar> {
+  static const _placeholders = [
+    'Fix a TODO in the codebase',
+    'What is the tech stack of this project?',
+    'Fix broken tests',
+    'Explain how authentication works',
+    'Find and fix security vulnerabilities',
+    'Add unit tests for the user service',
+    'Refactor this function to be more readable',
+    'Help me debug this issue',
+    'Optimize database queries',
+    'Add error handling to this function',
+  ];
+
+  int _placeholderIndex = 0;
+  late final FocusNode _focusNode;
+
+  @override
+  void initState() {
+    super.initState();
+    _focusNode = FocusNode();
+    _placeholderIndex = DateTime.now().millisecond % _placeholders.length;
+    // Rotate placeholder every 6 seconds
+    Future.doWhile(() async {
+      await Future.delayed(const Duration(seconds: 6));
+      if (!mounted) return false;
+      setState(() {
+        _placeholderIndex = (_placeholderIndex + 1) % _placeholders.length;
+      });
+      return true;
+    });
+  }
+
+  @override
+  void dispose() {
+    _focusNode.dispose();
+    super.dispose();
+  }
+
+  String _getModelDisplayName(SelectedModel? model) {
+    if (model == null) return 'Auto';
+    // Try to extract clean model name
+    final id = model.modelID;
+    if (id.contains('opus')) return 'Claude Opus 4.5 (latest)';
+    if (id.contains('sonnet')) return 'Claude Sonnet 4';
+    if (id.contains('haiku')) return 'Claude Haiku';
+    if (id.contains('gpt-4')) return 'GPT-4';
+    if (id.contains('gpt-3')) return 'GPT-3.5';
+    return id;
+  }
+
+  String _getProviderName(SelectedModel? model) {
+    if (model == null) return '';
+    final provider = model.providerID.toLowerCase();
+    if (provider.contains('anthropic')) return 'Anthropic';
+    if (provider.contains('openai')) return 'OpenAI';
+    if (provider.contains('google')) return 'Google';
+    if (provider.contains('openrouter')) return 'OpenRouter';
+    return model.providerID;
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = OpenCodeTheme.of(context);
+    final agent = _getCurrentAgent();
+    final agentColor = agent?.displayColor ?? theme.primary;
+
+    // During streaming, hide the input bar
+    return AnimatedSlide(
+      duration: const Duration(milliseconds: 200),
+      offset: widget.isBusy ? const Offset(0, 1) : Offset.zero,
+      child: AnimatedOpacity(
+        duration: const Duration(milliseconds: 150),
+        opacity: widget.isBusy ? 0.0 : 1.0,
+        child: Container(
+          color: Colors.transparent,
+          child: SafeArea(
+            top: false,
+            minimum: const EdgeInsets.only(bottom: 8),
+            child: Container(
+              margin: const EdgeInsets.only(left: 8, right: 0),
+              // Light greyish background like OpenCode CLI - rgb(40,40,40)
+              decoration: const BoxDecoration(color: Color(0xFF282828)),
+              child: Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  // Glowing accent line on the left
+                  Container(
+                    width: 3,
+                    constraints: const BoxConstraints(minHeight: 80),
+                    decoration: BoxDecoration(
+                      color: agentColor,
+                      boxShadow: [
+                        BoxShadow(
+                          color: agentColor.withValues(alpha: 0.6),
+                          blurRadius: 8,
+                          spreadRadius: 1,
+                        ),
+                      ],
+                    ),
+                  ),
+
+                  // Main content area
+                  Expanded(
+                    child: Column(
+                      mainAxisSize: MainAxisSize.min,
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        // Text input area
+                        Container(
+                          constraints: const BoxConstraints(
+                            minHeight: 44,
+                            maxHeight: 140,
+                          ),
+                          child: TextField(
+                            controller: widget.controller,
+                            focusNode: _focusNode,
+                            enabled: !widget.isOfflineMode && !widget.isBusy,
+                            minLines: 1,
+                            maxLines: 5,
+                            style: TextStyle(
+                              color: theme.text,
+                              fontSize: 14,
+                              height: 1.5,
+                            ),
+                            decoration: InputDecoration(
+                              hintText: widget.isOfflineMode
+                                  ? 'Offline mode - read only'
+                                  : _placeholders[_placeholderIndex],
+                              filled: false,
+                              border: InputBorder.none,
+                              enabledBorder: InputBorder.none,
+                              focusedBorder: InputBorder.none,
+                              disabledBorder: InputBorder.none,
+                              hintStyle: TextStyle(
+                                color: widget.isOfflineMode
+                                    ? theme.warning
+                                    : theme.textMuted.withValues(alpha: 0.4),
+                                fontSize: 14,
+                              ),
+                              contentPadding: const EdgeInsets.fromLTRB(
+                                16,
+                                12,
+                                16,
+                                4,
+                              ),
+                              isDense: true,
+                            ),
+                            onSubmitted: widget.canSend
+                                ? (_) => widget.onSend()
+                                : null,
+                          ),
+                        ),
+
+                        // Bottom info row - like OpenCode CLI
+                        Padding(
+                          padding: const EdgeInsets.fromLTRB(16, 0, 12, 10),
+                          child: Row(
+                            children: [
+                              // Agent name (colored, tappable)
+                              GestureDetector(
+                                onTap:
+                                    widget.onAgentChanged != null &&
+                                        widget.agents.isNotEmpty
+                                    ? () => _showAgentPicker(context)
+                                    : null,
+                                child: Text(
+                                  agent?.displayName ?? 'Sisyphus',
+                                  style: TextStyle(
+                                    color: agentColor,
+                                    fontSize: 13,
+                                    fontWeight: FontWeight.w600,
+                                  ),
+                                ),
+                              ),
+
+                              // Separator dot
+                              Padding(
+                                padding: const EdgeInsets.symmetric(
+                                  horizontal: 8,
+                                ),
+                                child: Text(
+                                  '·',
+                                  style: TextStyle(
+                                    color: theme.textMuted.withValues(
+                                      alpha: 0.4,
+                                    ),
+                                    fontSize: 13,
+                                  ),
+                                ),
+                              ),
+
+                              // Model name (tappable)
+                              GestureDetector(
+                                onTap: widget.onModelTap,
+                                child: Text(
+                                  _getModelDisplayName(widget.currentModel),
+                                  style: TextStyle(
+                                    color: theme.text,
+                                    fontSize: 13,
+                                    fontWeight: FontWeight.w500,
+                                  ),
+                                ),
+                              ),
+
+                              // Provider name (muted)
+                              if (_getProviderName(
+                                widget.currentModel,
+                              ).isNotEmpty) ...[
+                                const SizedBox(width: 6),
+                                Text(
+                                  _getProviderName(widget.currentModel),
+                                  style: TextStyle(
+                                    color: theme.textMuted.withValues(
+                                      alpha: 0.5,
+                                    ),
+                                    fontSize: 13,
+                                  ),
+                                ),
+                              ],
+
+                              const Spacer(),
+
+                              // Send button (minimal)
+                              GestureDetector(
+                                onTap: widget.canSend ? widget.onSend : null,
+                                child: Container(
+                                  width: 28,
+                                  height: 28,
+                                  decoration: BoxDecoration(
+                                    color: widget.canSend
+                                        ? theme.text
+                                        : theme.textMuted.withValues(
+                                            alpha: 0.15,
+                                          ),
+                                    borderRadius: BorderRadius.circular(6),
+                                  ),
+                                  child: Center(
+                                    child: Icon(
+                                      Icons.arrow_upward_rounded,
+                                      color: widget.canSend
+                                          ? theme.background
+                                          : theme.textMuted.withValues(
+                                              alpha: 0.4,
+                                            ),
+                                      size: 16,
+                                    ),
+                                  ),
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  Agent? _getCurrentAgent() {
+    final primaryAgents = widget.agents.where((a) => a.isPrimary).toList();
+    if (primaryAgents.isEmpty) return null;
+    return primaryAgents.firstWhere(
+      (a) => a.name == widget.currentAgent,
+      orElse: () => primaryAgents.first,
+    );
+  }
+
+  void _showAgentPicker(BuildContext context) {
+    final theme = OpenCodeTheme.of(context);
+    final primaryAgents = widget.agents.where((a) => a.isPrimary).toList();
+
+    showModalBottomSheet(
+      context: context,
+      backgroundColor: Colors.transparent,
+      builder: (context) => Container(
+        padding: const EdgeInsets.all(20),
+        decoration: BoxDecoration(
+          color: theme.backgroundPanel,
+          borderRadius: const BorderRadius.vertical(top: Radius.circular(20)),
+        ),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            // Plus button - same height and style as prompt bar (ChatGPT style)
-            GestureDetector(
-              onTap: () {
-                // TODO: Add attach/upload functionality
-                ScaffoldMessenger.of(context).showSnackBar(
-                  SnackBar(
-                    content: const Text('Attach files - coming soon'),
-                    backgroundColor: kCard,
-                    behavior: SnackBarBehavior.floating,
-                  ),
-                );
-              },
-              child: Container(
-                height: 44, // Same as prompt bar minHeight
-                width: 44,
-                margin: const EdgeInsets.only(right: 8),
-                decoration: BoxDecoration(
-                  color: kCard, // Same background as prompt bar
-                  borderRadius: BorderRadius.circular(22),
-                  border: Border.all(color: fade(kMuted, 0.25)), // Same border
-                  boxShadow: [
-                    BoxShadow(
-                      color: fade(kOnBackground, 0.06),
-                      blurRadius: 12,
-                      offset: const Offset(0, 2),
-                    ),
-                  ],
-                ),
-                child: Center(
-                  child: Icon(
-                    Icons.add_rounded,
-                    color: kOnBackground,
-                    size: 24,
-                  ),
-                ),
+            Text(
+              'Select Agent',
+              style: TextStyle(
+                fontSize: 16,
+                fontWeight: FontWeight.w600,
+                color: theme.text,
               ),
             ),
-            // Prompt bar container
-            Expanded(
-              child: Container(
-                constraints: const BoxConstraints(minHeight: 44),
-                decoration: BoxDecoration(
-                  color: kCard,
-                  borderRadius: BorderRadius.circular(24),
-                  border: Border.all(color: fade(kMuted, 0.25)),
-                  boxShadow: [
-                    BoxShadow(
-                      color: fade(kOnBackground, 0.06),
-                      blurRadius: 12,
-                      offset: const Offset(0, 2),
-                    ),
-                  ],
+            const SizedBox(height: 12),
+            for (final agent in primaryAgents)
+              ListTile(
+                contentPadding: EdgeInsets.zero,
+                dense: true,
+                leading: Container(
+                  width: 8,
+                  height: 8,
+                  decoration: BoxDecoration(
+                    color: agent.displayColor,
+                    shape: BoxShape.circle,
+                  ),
                 ),
-                padding: const EdgeInsets.symmetric(
-                  horizontal: 12,
-                  vertical: 6,
+                title: Text(
+                  agent.displayName,
+                  style: TextStyle(
+                    color: theme.text,
+                    fontSize: 14,
+                    fontWeight: agent.name == widget.currentAgent
+                        ? FontWeight.w600
+                        : FontWeight.w400,
+                  ),
                 ),
-                child: Row(
-                  crossAxisAlignment: CrossAxisAlignment.center,
-                  children: [
-                    // Text input
-                    Expanded(
-                      child: TextField(
-                        controller: controller,
-                        enabled: !isOfflineMode,
-                        minLines: 1,
-                        maxLines: 5,
-                        style: TextStyle(
-                          fontWeight: FontWeight.w500,
-                          color: kOnBackground,
-                          fontSize: 15,
-                        ),
-                        decoration: InputDecoration(
-                          hintText: isOfflineMode
-                              ? 'Offline mode - read only'
-                              : 'Ask AI to edit code...',
-                          filled: false,
-                          border: InputBorder.none,
-                          enabledBorder: InputBorder.none,
-                          focusedBorder: InputBorder.none,
-                          disabledBorder: InputBorder.none,
-                          errorBorder: InputBorder.none,
-                          focusedErrorBorder: InputBorder.none,
-                          hintStyle: TextStyle(
-                            color: isOfflineMode ? theme.warning : kMuted,
-                            fontWeight: FontWeight.w500,
-                            fontSize: 15,
-                          ),
-                          contentPadding: const EdgeInsets.symmetric(
-                            horizontal: 0,
-                            vertical: 10,
-                          ),
-                          isDense: true,
-                        ),
-                        onSubmitted: canSend ? (_) => onSend() : null,
-                      ),
-                    ),
-                    const SizedBox(width: 8),
-                    // Send button inside
-                    GestureDetector(
-                      onTap: canSend ? onSend : null,
-                      child: Container(
-                        width: 32,
-                        height: 32,
-                        decoration: BoxDecoration(
-                          color: canSend ? kOnBackground : fade(kMuted, 0.15),
-                          borderRadius: BorderRadius.circular(16),
-                        ),
-                        child: Center(
-                          child: Icon(
-                            isBusy
-                                ? Icons.stop_rounded
-                                : Icons.arrow_upward_rounded,
-                            color: canSend ? kBackground : kMuted,
-                            size: 18,
-                          ),
-                        ),
-                      ),
-                    ),
-                  ],
+                subtitle: Text(
+                  agent.shortDescription,
+                  style: TextStyle(color: theme.textMuted, fontSize: 11),
                 ),
+                trailing: agent.name == widget.currentAgent
+                    ? Icon(Icons.check_rounded, color: theme.success, size: 18)
+                    : null,
+                onTap: () {
+                  widget.onAgentChanged?.call(agent.name);
+                  Navigator.pop(context);
+                },
               ),
-            ),
+            const SizedBox(height: 8),
           ],
         ),
       ),
@@ -2153,122 +2629,6 @@ class _CommandAutocomplete extends StatelessWidget {
           },
         ),
       ),
-    );
-  }
-}
-
-// Feature 3: Agent selector dropdown
-class _AgentSelector extends StatelessWidget {
-  const _AgentSelector({
-    required this.agents,
-    required this.currentAgent,
-    required this.onAgentChanged,
-  });
-
-  final List<Agent> agents;
-  final String? currentAgent;
-  final void Function(String?) onAgentChanged;
-
-  @override
-  Widget build(BuildContext context) {
-    final theme = OpenCodeTheme.of(context);
-    final kCard = theme.backgroundPanel;
-    final kMuted = theme.textMuted;
-    final kOnBackground = theme.text;
-
-    // Get only primary agents for selection
-    final primaryAgents = agents.where((a) => a.isPrimary).toList();
-    if (primaryAgents.isEmpty) return const SizedBox.shrink();
-
-    // Find current agent or default to first
-    final current = primaryAgents.firstWhere(
-      (a) => a.name == currentAgent,
-      orElse: () => primaryAgents.first,
-    );
-
-    return PopupMenuButton<String>(
-      onSelected: onAgentChanged,
-      offset: const Offset(0, 45),
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-      color: kCard,
-      child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-        decoration: BoxDecoration(
-          color: kCard.withValues(alpha: 0.7),
-          borderRadius: BorderRadius.circular(20),
-          border: Border.all(color: fade(kMuted, 0.2), width: 0.5),
-        ),
-        child: Row(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Container(
-              width: 8,
-              height: 8,
-              decoration: BoxDecoration(
-                color: current.displayColor,
-                shape: BoxShape.circle,
-              ),
-            ),
-            const SizedBox(width: 8),
-            Text(
-              current.displayName,
-              style: TextStyle(
-                fontSize: 12,
-                color: kOnBackground,
-                fontWeight: FontWeight.w600,
-              ),
-            ),
-            const SizedBox(width: 4),
-            Icon(Icons.keyboard_arrow_down_rounded, size: 16, color: kMuted),
-          ],
-        ),
-      ),
-      itemBuilder: (context) => primaryAgents.map((agent) {
-        final isSelected =
-            agent.name == currentAgent ||
-            (currentAgent == null && agent == primaryAgents.first);
-        return PopupMenuItem<String>(
-          value: agent.name,
-          child: Row(
-            children: [
-              Container(
-                width: 8,
-                height: 8,
-                decoration: BoxDecoration(
-                  color: agent.displayColor,
-                  shape: BoxShape.circle,
-                ),
-              ),
-              const SizedBox(width: 12),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      agent.displayName,
-                      style: TextStyle(
-                        fontSize: 14,
-                        fontWeight: isSelected
-                            ? FontWeight.w600
-                            : FontWeight.w500,
-                        color: kOnBackground,
-                      ),
-                    ),
-                    Text(
-                      agent.shortDescription,
-                      style: TextStyle(fontSize: 11, color: kMuted),
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                    ),
-                  ],
-                ),
-              ),
-              if (isSelected)
-                Icon(Icons.check_rounded, size: 18, color: theme.success),
-            ],
-          ),
-        );
-      }).toList(),
     );
   }
 }

@@ -1,5 +1,3 @@
-import 'dart:math';
-
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:google_fonts/google_fonts.dart';
@@ -65,9 +63,15 @@ class _DiffViewScreenState extends State<DiffViewScreen> {
         widget.diff.partId != null &&
         widget.diff.partId!.isNotEmpty;
 
-    final maxOld = _maxLine(_lines.map((l) => l.oldLine));
     final maxNew = _maxLine(_lines.map((l) => l.newLine));
-    final gutterDigits = max(_digits(maxOld), _digits(maxNew));
+    final gutterDigits = _digits(maxNew);
+
+    // Filter out metadata lines for cleaner view
+    final contentLines = _lines
+        .where(
+          (l) => l.kind != DiffLineKind.header && l.kind != DiffLineKind.meta,
+        )
+        .toList();
 
     return Scaffold(
       backgroundColor: ocTheme.background,
@@ -76,59 +80,64 @@ class _DiffViewScreenState extends State<DiffViewScreen> {
         foregroundColor: ocTheme.text,
         elevation: 0,
         titleSpacing: 0,
-        title: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
+        title: Row(
           children: [
-            Text(
-              fileName,
-              style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w600),
-              maxLines: 1,
-              overflow: TextOverflow.ellipsis,
+            Flexible(
+              child: Text(
+                fileName,
+                style: const TextStyle(
+                  fontSize: 15,
+                  fontWeight: FontWeight.w600,
+                ),
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+              ),
             ),
-            const SizedBox(height: 2),
-            Row(
-              children: [
-                if (widget.diff.additions > 0)
-                  Text(
-                    '+${widget.diff.additions}',
-                    style: TextStyle(
-                      fontSize: 12,
-                      color: ocTheme.success,
-                      fontWeight: FontWeight.w600,
-                    ),
-                  ),
-                if (widget.diff.additions > 0 && widget.diff.deletions > 0)
-                  const SizedBox(width: 8),
-                if (widget.diff.deletions > 0)
-                  Text(
-                    '-${widget.diff.deletions}',
-                    style: TextStyle(
-                      fontSize: 12,
-                      color: ocTheme.error,
-                      fontWeight: FontWeight.w600,
-                    ),
-                  ),
-              ],
-            ),
+            const SizedBox(width: 12),
+            // Inline stats
+            if (widget.diff.additions > 0)
+              Text(
+                '+${widget.diff.additions}',
+                style: TextStyle(
+                  fontSize: 12,
+                  color: ocTheme.success,
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
+            if (widget.diff.additions > 0 && widget.diff.deletions > 0)
+              const SizedBox(width: 6),
+            if (widget.diff.deletions > 0)
+              Text(
+                '-${widget.diff.deletions}',
+                style: TextStyle(
+                  fontSize: 12,
+                  color: ocTheme.error,
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
           ],
         ),
         actions: [
           IconButton(
             tooltip: 'Copy diff',
             onPressed: () => _copy(context),
-            icon: const Icon(Icons.copy_rounded),
+            icon: Icon(Icons.copy_rounded, size: 20, color: ocTheme.textMuted),
           ),
           IconButton(
             tooltip: 'Reset zoom',
             onPressed: () => setState(() => _fontSize = 12.5),
-            icon: const Icon(Icons.text_fields_rounded),
+            icon: Icon(
+              Icons.text_fields_rounded,
+              size: 20,
+              color: ocTheme.textMuted,
+            ),
           ),
           if (canUndo)
             IconButton(
               tooltip: 'Undo',
               onPressed: () =>
                   widget.onUndo!(widget.messageId!, widget.diff.partId!),
-              icon: const Icon(Icons.undo_rounded),
+              icon: Icon(Icons.undo_rounded, size: 20, color: ocTheme.warning),
             ),
         ],
       ),
@@ -141,18 +150,18 @@ class _DiffViewScreenState extends State<DiffViewScreen> {
           setState(() => _fontSize = next);
         },
         child: Container(
-          margin: const EdgeInsets.fromLTRB(16, 10, 16, 16),
+          margin: const EdgeInsets.fromLTRB(12, 8, 12, 12),
           decoration: BoxDecoration(
             color: ocTheme.backgroundPanel,
-            borderRadius: BorderRadius.circular(16),
+            borderRadius: BorderRadius.circular(12),
             border: Border.all(color: ocTheme.borderSubtle),
           ),
           clipBehavior: Clip.antiAlias,
           child: ListView.builder(
-            padding: const EdgeInsets.symmetric(vertical: 10),
-            itemCount: _lines.length,
+            padding: const EdgeInsets.symmetric(vertical: 8),
+            itemCount: contentLines.length,
             itemBuilder: (context, index) {
-              final line = _lines[index];
+              final line = contentLines[index];
               return _DiffRow(
                 line: line,
                 fontSize: _fontSize,
@@ -216,60 +225,64 @@ class _DiffRow extends StatelessWidget {
     final ocTheme = OpenCodeTheme.of(context);
     final bg = _background(line.kind, ocTheme);
     final fg = _foreground(line.kind, ocTheme);
-    final showGutter =
-        line.kind != DiffLineKind.header &&
-        line.kind != DiffLineKind.hunk &&
-        line.kind != DiffLineKind.meta;
+    final showGutter = line.kind != DiffLineKind.hunk;
+    final isHunk = line.kind == DiffLineKind.hunk;
+
+    // For hunk lines, show them muted and compact
+    if (isHunk) {
+      return Container(
+        color: Colors.transparent,
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
+        child: Text(
+          line.text,
+          style: GoogleFonts.jetBrainsMono(
+            fontSize: fontSize - 2,
+            color: ocTheme.textMuted.withValues(alpha: 0.5),
+            height: 1.4,
+          ),
+        ),
+      );
+    }
+
+    // Prefix character for added/removed lines
+    final prefix = switch (line.kind) {
+      DiffLineKind.added => '+',
+      DiffLineKind.removed => '-',
+      _ => ' ',
+    };
 
     return Container(
       color: bg,
-      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 2),
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 1),
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
+          // Single line number column - compact, muted
           if (showGutter)
-            Container(
-              decoration: BoxDecoration(
-                color: ocTheme.backgroundElement,
-                borderRadius: BorderRadius.circular(8),
-              ),
-              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
-              child: DefaultTextStyle(
+            SizedBox(
+              width: (gutterDigits * 7.0).clamp(20.0, 40.0),
+              child: Text(
+                line.newLine?.toString() ?? '',
+                textAlign: TextAlign.right,
                 style: GoogleFonts.jetBrainsMono(
-                  fontSize: fontSize - 1,
-                  color: ocTheme.textMuted,
-                  height: 1.4,
-                ),
-                child: Row(
-                  children: [
-                    SizedBox(
-                      width: (gutterDigits * (fontSize - 1) * 0.62).clamp(
-                        14.0,
-                        60.0,
-                      ),
-                      child: Text(
-                        line.oldLine?.toString() ?? '',
-                        textAlign: TextAlign.right,
-                      ),
-                    ),
-                    const SizedBox(width: 10),
-                    SizedBox(
-                      width: (gutterDigits * (fontSize - 1) * 0.62).clamp(
-                        14.0,
-                        60.0,
-                      ),
-                      child: Text(
-                        line.newLine?.toString() ?? '',
-                        textAlign: TextAlign.right,
-                      ),
-                    ),
-                  ],
+                  fontSize: fontSize - 2,
+                  color: ocTheme.textMuted.withValues(alpha: 0.4),
+                  height: 1.6,
                 ),
               ),
-            )
-          else
-            const SizedBox(width: 0),
-          if (showGutter) const SizedBox(width: 10),
+            ),
+          if (showGutter) const SizedBox(width: 8),
+          // Prefix (+/-/space)
+          Text(
+            prefix,
+            style: GoogleFonts.jetBrainsMono(
+              fontSize: fontSize,
+              color: fg.withValues(alpha: 0.7),
+              height: 1.6,
+            ),
+          ),
+          const SizedBox(width: 4),
+          // Content
           Expanded(
             child: Text(
               line.text,
@@ -288,9 +301,9 @@ class _DiffRow extends StatelessWidget {
   Color _background(DiffLineKind kind, OpenCodeTheme ocTheme) {
     switch (kind) {
       case DiffLineKind.added:
-        return ocTheme.success.withValues(alpha: 0.10);
+        return ocTheme.success.withValues(alpha: 0.08);
       case DiffLineKind.removed:
-        return ocTheme.error.withValues(alpha: 0.10);
+        return ocTheme.error.withValues(alpha: 0.08);
       case DiffLineKind.hunk:
       case DiffLineKind.header:
       case DiffLineKind.meta:
@@ -311,7 +324,7 @@ class _DiffRow extends StatelessWidget {
       case DiffLineKind.meta:
         return ocTheme.textMuted;
       case DiffLineKind.context:
-        return ocTheme.text;
+        return ocTheme.text.withValues(alpha: 0.8);
     }
   }
 }

@@ -32,28 +32,339 @@ class _ToolCallCardState extends State<ToolCallCard> {
   bool _showAllCode = false;
   bool _showAllOutput = false;
 
+  /// Check if this is an edit tool with diff content
+  bool get _isEditWithDiff {
+    final toolName = widget.tool.name.toLowerCase();
+    if (toolName != 'edit' && toolName != 'patch') return false;
+    final oldString = widget.tool.input['oldString'] as String? ?? '';
+    final newString = widget.tool.input['newString'] as String? ?? '';
+    return oldString.isNotEmpty || newString.isNotEmpty;
+  }
+
   @override
   Widget build(BuildContext context) {
     final theme = OpenCodeTheme.of(context);
     final icon = _getToolIcon(widget.tool.name);
     final statusColor = _getStatusColor(widget.tool.status, theme);
 
+    // For edit tools with diff, show inline diff preview
+    if (_isEditWithDiff) {
+      return _buildEditDiffCard(theme, icon, statusColor);
+    }
+
+    // Default card for other tools
+    return _buildDefaultCard(theme, icon, statusColor);
+  }
+
+  /// Card with inline diff preview (for edit tools)
+  Widget _buildEditDiffCard(
+    OpenCodeTheme theme,
+    IconData icon,
+    Color statusColor,
+  ) {
+    final fileName = _getFileName(
+      widget.tool.input['filePath'] as String? ??
+          widget.tool.input['path'] as String? ??
+          '',
+    );
+    final oldString = widget.tool.input['oldString'] as String? ?? '';
+    final newString = widget.tool.input['newString'] as String? ?? '';
+
+    // Build diff lines
+    final diffLines = <_DiffLine>[];
+    for (final line in oldString.split('\n')) {
+      if (line.isNotEmpty) diffLines.add(_DiffLine(line, isRemoved: true));
+    }
+    for (final line in newString.split('\n')) {
+      if (line.isNotEmpty) diffLines.add(_DiffLine(line, isAdded: true));
+    }
+
+    // Count additions/removals
+    final additions = newString.split('\n').where((l) => l.isNotEmpty).length;
+    final removals = oldString.split('\n').where((l) => l.isNotEmpty).length;
+
+    // Show preview lines (max 4 when collapsed)
+    final previewLines = _isExpanded ? diffLines : diffLines.take(4).toList();
+    final hasMore = diffLines.length > 4;
+
+    return GestureDetector(
+      onTap: () => setState(() => _isExpanded = !_isExpanded),
+      child: Container(
+        margin: const EdgeInsets.symmetric(vertical: 4),
+        decoration: BoxDecoration(
+          color: theme.backgroundPanel,
+          borderRadius: BorderRadius.circular(12),
+          border: Border.all(color: theme.borderSubtle, width: 1),
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            // Header with filename and +/- stats
+            Container(
+              padding: const EdgeInsets.fromLTRB(12, 10, 12, 8),
+              child: Row(
+                children: [
+                  Container(
+                    padding: const EdgeInsets.all(6),
+                    decoration: BoxDecoration(
+                      color: statusColor.withValues(alpha: 0.1),
+                      borderRadius: BorderRadius.circular(6),
+                    ),
+                    child: Icon(icon, size: 14, color: statusColor),
+                  ),
+                  const SizedBox(width: 10),
+                  Expanded(
+                    child: Text(
+                      fileName,
+                      style: TextStyle(
+                        fontSize: 13,
+                        fontWeight: FontWeight.w600,
+                        color: theme.text,
+                      ),
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                  ),
+                  // +/- badges
+                  if (removals > 0)
+                    Container(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 6,
+                        vertical: 2,
+                      ),
+                      margin: const EdgeInsets.only(right: 4),
+                      decoration: BoxDecoration(
+                        color: theme.error.withValues(alpha: 0.15),
+                        borderRadius: BorderRadius.circular(4),
+                      ),
+                      child: Text(
+                        '-$removals',
+                        style: TextStyle(
+                          fontSize: 11,
+                          fontWeight: FontWeight.w600,
+                          color: theme.error,
+                        ),
+                      ),
+                    ),
+                  if (additions > 0)
+                    Container(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 6,
+                        vertical: 2,
+                      ),
+                      decoration: BoxDecoration(
+                        color: theme.success.withValues(alpha: 0.15),
+                        borderRadius: BorderRadius.circular(4),
+                      ),
+                      child: Text(
+                        '+$additions',
+                        style: TextStyle(
+                          fontSize: 11,
+                          fontWeight: FontWeight.w600,
+                          color: theme.success,
+                        ),
+                      ),
+                    ),
+                  const SizedBox(width: 8),
+                  Icon(
+                    _isExpanded
+                        ? Icons.keyboard_arrow_up
+                        : Icons.keyboard_arrow_down,
+                    color: theme.textMuted.withValues(alpha: 0.5),
+                    size: 18,
+                  ),
+                ],
+              ),
+            ),
+
+            // Inline diff preview - always visible
+            Container(
+              margin: const EdgeInsets.fromLTRB(8, 0, 8, 8),
+              decoration: BoxDecoration(
+                color: theme.backgroundElement,
+                borderRadius: BorderRadius.circular(8),
+              ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  for (int i = 0; i < previewLines.length; i++)
+                    _buildDiffRow(theme, previewLines[i], i + 1),
+                  // "Show more" indicator
+                  if (!_isExpanded && hasMore)
+                    Padding(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 10,
+                        vertical: 6,
+                      ),
+                      child: Text(
+                        '${diffLines.length - 4} more lines...',
+                        style: TextStyle(
+                          fontSize: 11,
+                          color: theme.textMuted.withValues(alpha: 0.6),
+                        ),
+                      ),
+                    ),
+                ],
+              ),
+            ),
+
+            // Actions row (only when expanded)
+            if (_isExpanded)
+              Padding(
+                padding: const EdgeInsets.fromLTRB(8, 0, 8, 8),
+                child: Row(
+                  children: [
+                    _buildStatusChip(
+                      widget.tool.status == 'completed'
+                          ? Icons.check_circle
+                          : Icons.sync,
+                      widget.tool.status == 'completed' ? 'Applied' : 'Running',
+                      widget.tool.status == 'completed'
+                          ? theme.success
+                          : theme.info,
+                    ),
+                    const Spacer(),
+                    if (_canUndo && widget.onUndo != null)
+                      _buildCompactButton(
+                        Icons.undo_rounded,
+                        'Undo',
+                        theme.warning,
+                        _handleUndo,
+                      ),
+                    _buildCompactButton(
+                      Icons.copy_rounded,
+                      'Copy',
+                      theme.textMuted,
+                      _copyToClipboard,
+                    ),
+                  ],
+                ),
+              ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildDiffRow(OpenCodeTheme theme, _DiffLine line, int lineNum) {
+    final bgColor = line.isAdded
+        ? theme.success.withValues(alpha: 0.1)
+        : line.isRemoved
+        ? theme.error.withValues(alpha: 0.1)
+        : Colors.transparent;
+    final textColor = line.isAdded
+        ? theme.success
+        : line.isRemoved
+        ? theme.error
+        : theme.text.withValues(alpha: 0.8);
+    final prefix = line.isAdded
+        ? '+'
+        : line.isRemoved
+        ? '-'
+        : ' ';
+
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+      decoration: BoxDecoration(
+        color: bgColor,
+        borderRadius: BorderRadius.circular(4),
+      ),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          // Line number
+          SizedBox(
+            width: 24,
+            child: Text(
+              '$lineNum',
+              style: GoogleFonts.jetBrainsMono(
+                fontSize: 10,
+                color: theme.textMuted.withValues(alpha: 0.4),
+                height: 1.4,
+              ),
+              textAlign: TextAlign.right,
+            ),
+          ),
+          const SizedBox(width: 6),
+          // Prefix (+/-)
+          Text(
+            prefix,
+            style: GoogleFonts.jetBrainsMono(
+              fontSize: 11,
+              color: textColor.withValues(alpha: 0.7),
+              height: 1.4,
+            ),
+          ),
+          const SizedBox(width: 4),
+          // Content
+          Expanded(
+            child: Text(
+              line.text,
+              style: GoogleFonts.jetBrainsMono(
+                fontSize: 11,
+                color: textColor,
+                height: 1.4,
+              ),
+              overflow: TextOverflow.ellipsis,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildCompactButton(
+    IconData icon,
+    String label,
+    Color color,
+    VoidCallback onTap,
+  ) {
+    return GestureDetector(
+      onTap: onTap,
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+        margin: const EdgeInsets.only(left: 4),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(icon, size: 12, color: color),
+            const SizedBox(width: 4),
+            Text(
+              label,
+              style: TextStyle(
+                fontSize: 11,
+                color: color,
+                fontWeight: FontWeight.w500,
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  /// Default card for non-edit tools
+  Widget _buildDefaultCard(
+    OpenCodeTheme theme,
+    IconData icon,
+    Color statusColor,
+  ) {
     return GestureDetector(
       onTap: () => setState(() => _isExpanded = !_isExpanded),
       child: AnimatedContainer(
-        duration: const Duration(milliseconds: 300),
+        duration: const Duration(milliseconds: 250),
         curve: Curves.easeInOut,
-        margin: const EdgeInsets.symmetric(horizontal: 0, vertical: 6),
-        padding: const EdgeInsets.all(16),
+        margin: const EdgeInsets.symmetric(horizontal: 0, vertical: 4),
+        padding: const EdgeInsets.all(12),
         decoration: BoxDecoration(
           color: theme.backgroundPanel,
-          borderRadius: BorderRadius.circular(18),
+          borderRadius: BorderRadius.circular(12),
           border: Border.all(color: theme.borderSubtle, width: 1),
           boxShadow: widget.tool.status == 'running'
               ? [
                   BoxShadow(
-                    color: statusColor.withValues(alpha: 0.15),
-                    blurRadius: 16,
+                    color: statusColor.withValues(alpha: 0.12),
+                    blurRadius: 12,
                     spreadRadius: 0,
                   ),
                 ]
@@ -62,18 +373,18 @@ class _ToolCallCardState extends State<ToolCallCard> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            // Header
+            // Header - compact
             Row(
               children: [
                 Container(
-                  padding: const EdgeInsets.all(9),
+                  padding: const EdgeInsets.all(6),
                   decoration: BoxDecoration(
                     color: statusColor.withValues(alpha: 0.1),
-                    borderRadius: BorderRadius.circular(10),
+                    borderRadius: BorderRadius.circular(6),
                   ),
-                  child: Icon(icon, size: 18, color: statusColor),
+                  child: Icon(icon, size: 14, color: statusColor),
                 ),
-                const SizedBox(width: 12),
+                const SizedBox(width: 10),
                 Expanded(
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
@@ -81,18 +392,23 @@ class _ToolCallCardState extends State<ToolCallCard> {
                       Text(
                         _getToolTitle(widget.tool),
                         style: TextStyle(
-                          fontSize: 14,
+                          fontSize: 13,
                           fontWeight: FontWeight.w600,
                           color: theme.text,
                         ),
                       ),
-                      const SizedBox(height: 3),
-                      Text(
-                        _getToolSummary(widget.tool),
-                        style: TextStyle(fontSize: 13, color: theme.textMuted),
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                      ),
+                      if (!_isExpanded) ...[
+                        const SizedBox(height: 2),
+                        Text(
+                          _getCompactSummary(widget.tool),
+                          style: TextStyle(
+                            fontSize: 11,
+                            color: theme.textMuted.withValues(alpha: 0.6),
+                          ),
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                      ],
                     ],
                   ),
                 ),
@@ -100,17 +416,20 @@ class _ToolCallCardState extends State<ToolCallCard> {
                   _isExpanded
                       ? Icons.keyboard_arrow_up
                       : Icons.keyboard_arrow_down,
-                  color: theme.textMuted,
-                  size: 22,
+                  color: theme.textMuted.withValues(alpha: 0.5),
+                  size: 18,
                 ),
               ],
             ),
 
             // Expanded content
             if (_isExpanded) ...[
-              const SizedBox(height: 14),
-              Container(height: 1, color: theme.borderSubtle),
-              const SizedBox(height: 14),
+              const SizedBox(height: 10),
+              Container(
+                height: 1,
+                color: theme.borderSubtle.withValues(alpha: 0.5),
+              ),
+              const SizedBox(height: 10),
 
               // Code content
               if (_hasCodeContent(widget.tool)) _buildCodePreview(theme),
@@ -120,41 +439,28 @@ class _ToolCallCardState extends State<ToolCallCard> {
                 _buildOutput(widget.tool.output!, theme),
 
               // Actions
-              const SizedBox(height: 10),
+              const SizedBox(height: 8),
               Row(
                 children: [
                   if (widget.tool.status == 'completed')
-                    _buildStatusChip(
-                      Icons.check_circle,
-                      'Completed',
-                      theme.success,
-                    ),
+                    _buildStatusChip(Icons.check_circle, 'Done', theme.success),
                   if (widget.tool.status == 'error')
                     _buildStatusChip(Icons.error, 'Failed', theme.error),
                   if (widget.tool.status == 'running')
                     _buildStatusChip(Icons.sync, 'Running', theme.info),
                   const Spacer(),
-                  // Feature 7: Undo button for edit/write tools
                   if (_canUndo && widget.onUndo != null)
-                    TextButton.icon(
-                      onPressed: _handleUndo,
-                      icon: Icon(
-                        Icons.undo_rounded,
-                        size: 14,
-                        color: theme.warning,
-                      ),
-                      label: Text(
-                        'Undo',
-                        style: TextStyle(fontSize: 13, color: theme.warning),
-                      ),
+                    _buildCompactButton(
+                      Icons.undo_rounded,
+                      'Undo',
+                      theme.warning,
+                      _handleUndo,
                     ),
-                  TextButton.icon(
-                    onPressed: _copyToClipboard,
-                    icon: Icon(Icons.copy, size: 14, color: theme.textMuted),
-                    label: Text(
-                      'Copy',
-                      style: TextStyle(fontSize: 13, color: theme.textMuted),
-                    ),
+                  _buildCompactButton(
+                    Icons.copy_rounded,
+                    'Copy',
+                    theme.textMuted,
+                    _copyToClipboard,
                   ),
                 ],
               ),
@@ -169,7 +475,7 @@ class _ToolCallCardState extends State<ToolCallCard> {
     final codeLines = _getCodeLines();
     if (codeLines.isEmpty) return const SizedBox.shrink();
 
-    final shown = _showAllCode ? codeLines : codeLines.take(6).toList();
+    final shown = _showAllCode ? codeLines : codeLines.take(5).toList();
     final preview = shown.join('\n');
     final hasMore = codeLines.length > shown.length;
     final language = _detectLanguage();
@@ -178,10 +484,10 @@ class _ToolCallCardState extends State<ToolCallCard> {
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Container(
-          padding: const EdgeInsets.all(14),
+          padding: const EdgeInsets.all(12),
           decoration: BoxDecoration(
             color: theme.backgroundElement,
-            borderRadius: BorderRadius.circular(14),
+            borderRadius: BorderRadius.circular(10),
             border: Border.all(color: theme.borderSubtle),
           ),
           child: HighlightView(
@@ -189,20 +495,20 @@ class _ToolCallCardState extends State<ToolCallCard> {
             language: language,
             theme: atomOneDarkTheme,
             padding: EdgeInsets.zero,
-            textStyle: GoogleFonts.jetBrainsMono(fontSize: 12, height: 1.6),
+            textStyle: GoogleFonts.jetBrainsMono(fontSize: 11, height: 1.5),
           ),
         ),
         if (hasMore || _showAllCode)
           Padding(
-            padding: const EdgeInsets.only(top: 10),
+            padding: const EdgeInsets.only(top: 8),
             child: Center(
               child: InkWell(
                 onTap: () => setState(() => _showAllCode = !_showAllCode),
-                borderRadius: BorderRadius.circular(8),
+                borderRadius: BorderRadius.circular(6),
                 child: Padding(
                   padding: const EdgeInsets.symmetric(
-                    horizontal: 10,
-                    vertical: 6,
+                    horizontal: 8,
+                    vertical: 4,
                   ),
                   child: Text(
                     _showAllCode
@@ -210,7 +516,7 @@ class _ToolCallCardState extends State<ToolCallCard> {
                         : 'Show ${codeLines.length - shown.length} more lines →',
                     style: TextStyle(
                       color: theme.info,
-                      fontSize: 13,
+                      fontSize: 12,
                       fontWeight: FontWeight.w500,
                     ),
                   ),
@@ -224,50 +530,50 @@ class _ToolCallCardState extends State<ToolCallCard> {
 
   Widget _buildOutput(String output, OpenCodeTheme theme) {
     final lines = output.split('\n');
-    final shown = _showAllOutput ? lines : lines.take(6).toList();
+    final shown = _showAllOutput ? lines : lines.take(5).toList();
     final preview = shown.join('\n');
     final hasMore = lines.length > shown.length;
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        const SizedBox(height: 10),
+        const SizedBox(height: 8),
         Text(
           'Output',
           style: TextStyle(
-            fontSize: 13,
+            fontSize: 11,
             fontWeight: FontWeight.w600,
-            color: theme.textMuted,
+            color: theme.textMuted.withValues(alpha: 0.7),
           ),
         ),
-        const SizedBox(height: 8),
+        const SizedBox(height: 6),
         Container(
-          padding: const EdgeInsets.all(14),
+          padding: const EdgeInsets.all(12),
           decoration: BoxDecoration(
             color: theme.backgroundElement,
-            borderRadius: BorderRadius.circular(14),
+            borderRadius: BorderRadius.circular(10),
             border: Border.all(color: theme.borderSubtle),
           ),
           child: Text(
             preview,
             style: GoogleFonts.jetBrainsMono(
-              fontSize: 12,
+              fontSize: 11,
               color: theme.text,
-              height: 1.6,
+              height: 1.5,
             ),
           ),
         ),
         if (hasMore || _showAllOutput)
           Padding(
-            padding: const EdgeInsets.only(top: 8),
+            padding: const EdgeInsets.only(top: 6),
             child: Center(
               child: InkWell(
                 onTap: () => setState(() => _showAllOutput = !_showAllOutput),
-                borderRadius: BorderRadius.circular(8),
+                borderRadius: BorderRadius.circular(6),
                 child: Padding(
                   padding: const EdgeInsets.symmetric(
-                    horizontal: 10,
-                    vertical: 6,
+                    horizontal: 8,
+                    vertical: 4,
                   ),
                   child: Text(
                     _showAllOutput
@@ -275,7 +581,7 @@ class _ToolCallCardState extends State<ToolCallCard> {
                         : 'Show ${lines.length - shown.length} more lines →',
                     style: TextStyle(
                       color: theme.info,
-                      fontSize: 13,
+                      fontSize: 12,
                       fontWeight: FontWeight.w500,
                     ),
                   ),
@@ -289,20 +595,20 @@ class _ToolCallCardState extends State<ToolCallCard> {
 
   Widget _buildStatusChip(IconData icon, String label, Color color) {
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
       decoration: BoxDecoration(
         color: color.withValues(alpha: 0.1),
-        borderRadius: BorderRadius.circular(8),
+        borderRadius: BorderRadius.circular(6),
       ),
       child: Row(
         mainAxisSize: MainAxisSize.min,
         children: [
-          Icon(icon, size: 13, color: color),
-          const SizedBox(width: 5),
+          Icon(icon, size: 12, color: color),
+          const SizedBox(width: 4),
           Text(
             label,
             style: TextStyle(
-              fontSize: 12,
+              fontSize: 11,
               fontWeight: FontWeight.w500,
               color: color,
             ),
@@ -410,6 +716,27 @@ class _ToolCallCardState extends State<ToolCallCard> {
     }
   }
 
+  /// Compact summary - just the filename or short command
+  String _getCompactSummary(ToolCall tool) {
+    switch (tool.name.toLowerCase()) {
+      case 'read':
+      case 'edit':
+      case 'write':
+        final path =
+            tool.input['filePath'] as String? ??
+            tool.input['path'] as String? ??
+            '';
+        return _getFileName(path);
+      case 'bash':
+      case 'shell':
+        final command = tool.input['command'] as String? ?? '';
+        // Show first 30 chars of command
+        return command.length > 30 ? '${command.substring(0, 30)}...' : command;
+      default:
+        return tool.status;
+    }
+  }
+
   String _getFileName(String path) {
     if (path.isEmpty) return 'file';
     final parts = path.split('/');
@@ -496,4 +823,13 @@ class _ToolCallCardState extends State<ToolCallCard> {
       widget.onUndo!(widget.messageId!, widget.tool.partId);
     }
   }
+}
+
+/// Simple diff line model
+class _DiffLine {
+  final String text;
+  final bool isAdded;
+  final bool isRemoved;
+
+  _DiffLine(this.text, {this.isAdded = false, this.isRemoved = false});
 }
