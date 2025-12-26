@@ -76,6 +76,29 @@ class ChatSessionNotifier extends StateNotifier<ChatSessionState> {
   bool _suppressEmit = false;
   bool _pendingEmitMessages = false;
 
+  Timer? _textDebounceTimer;
+  final Map<String, StringBuffer> _pendingTextBuffers = {};
+  int _lastRttMs = 0;
+
+  void updateConnectionMetrics(int rttMs) {
+    _lastRttMs = rttMs;
+  }
+
+  void _flushPendingText(String messageId, ChatMessage baseMessage) {
+    final buffer = _pendingTextBuffers[messageId];
+    if (buffer == null || buffer.isEmpty) return;
+
+    final pendingText = buffer.toString();
+    buffer.clear();
+
+    final existingMessage = _messages[messageId] ?? baseMessage;
+    final updated = existingMessage.text + pendingText;
+    _updateMessage(
+      messageId,
+      existingMessage.copyWith(text: updated, isStreaming: true),
+    );
+  }
+
   void setSession(SessionSummary session, {String? projectPath}) {
     _messages.clear();
     _order.clear();
@@ -365,7 +388,6 @@ class ChatSessionNotifier extends StateNotifier<ChatSessionState> {
         );
 
     if (partType == 'text') {
-      // Skip synthetic and ignored text parts during streaming too
       final isSynthetic = part['synthetic'] as bool? ?? false;
       final isIgnored = part['ignored'] as bool? ?? false;
       if (isSynthetic || isIgnored) {
@@ -374,11 +396,23 @@ class ChatSessionNotifier extends StateNotifier<ChatSessionState> {
 
       final delta = properties['delta'] as String?;
       final text = part['text'] as String? ?? '';
-      final updated = delta != null ? message.text + delta : text;
-      _updateMessage(
-        messageId,
-        message.copyWith(text: updated, isStreaming: delta != null),
-      );
+
+      if (delta != null && _lastRttMs > 50) {
+        _pendingTextBuffers.putIfAbsent(messageId, () => StringBuffer());
+        _pendingTextBuffers[messageId]!.write(delta);
+
+        _textDebounceTimer?.cancel();
+        _textDebounceTimer = Timer(
+          Duration(milliseconds: _lastRttMs.clamp(30, 100)),
+          () => _flushPendingText(messageId, message),
+        );
+      } else {
+        final updated = delta != null ? message.text + delta : text;
+        _updateMessage(
+          messageId,
+          message.copyWith(text: updated, isStreaming: delta != null),
+        );
+      }
       return;
     }
 
@@ -729,6 +763,7 @@ class ChatSessionNotifier extends StateNotifier<ChatSessionState> {
   void dispose() {
     _subscription?.cancel();
     _flushTimer?.cancel();
+    _textDebounceTimer?.cancel();
     super.dispose();
   }
 }

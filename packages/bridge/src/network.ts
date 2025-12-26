@@ -46,3 +46,40 @@ export async function isTailscaleConnected(): Promise<boolean> {
     return false
   }
 }
+
+export async function getTailscaleMagicDNS(): Promise<string | null> {
+  try {
+    // Get the current hostname from Tailscale status JSON
+    const result = await $`${TAILSCALE_CLI} status --json 2>/dev/null`.quiet()
+    const status = JSON.parse(result.text())
+
+    // The current device's MagicDNS name
+    const self = status.Self
+    if (self && self.DNSName) {
+      // DNSName includes trailing dot, remove it
+      return self.DNSName.replace(/\.$/, '')
+    }
+
+    return null
+  } catch {
+    return null
+  }
+}
+
+export async function getTailnetName(): Promise<string | null> {
+  try {
+    const result = await $`${TAILSCALE_CLI} status --json 2>/dev/null`.quiet()
+    const status = JSON.parse(result.text())
+
+    // Get tailnet name from MagicDNSSuffix
+    // e.g., "tailnet-name.ts.net" → "tailnet-name"
+    const suffix = status.MagicDNSSuffix
+    if (suffix) {
+      return suffix.replace(/\.ts\.net\.?$/, '')
+    }
+
+    return null
+  } catch {
+    return null
+  }
+}

@@ -7,6 +7,7 @@ import '../providers/connection_provider.dart';
 import '../providers/selection_provider.dart';
 import '../providers/service_providers.dart';
 import '../theme/opencode_theme.dart';
+import '../widgets/connection_quality_indicator.dart';
 import 'chat_screen.dart';
 
 class ProjectsScreen extends ConsumerStatefulWidget {
@@ -391,67 +392,8 @@ class _ModernHeader extends StatelessWidget {
             ),
           ),
           const SizedBox(height: 20),
-          // Connection status badge
-          _ConnectionBadge(
-            isConnected: connection.isConnected,
-            opencodeRunning: connection.opencodeRunning,
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-// Connection status badge
-class _ConnectionBadge extends StatelessWidget {
-  const _ConnectionBadge({
-    required this.isConnected,
-    required this.opencodeRunning,
-  });
-
-  final bool isConnected;
-  final bool opencodeRunning;
-
-  @override
-  Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    final ocTheme = OpenCodeTheme.of(context);
-    final statusColor = isConnected && opencodeRunning
-        ? ocTheme.success
-        : theme.colorScheme.error;
-    final statusText = isConnected && opencodeRunning
-        ? 'Connected to OpenCode'
-        : 'Not Connected';
-
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
-      decoration: BoxDecoration(
-        color: theme.colorScheme.surface,
-        borderRadius: BorderRadius.circular(20),
-        border: Border.all(
-          color: theme.colorScheme.onSurface.withValues(alpha: 0.15),
-        ),
-      ),
-      child: Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Container(
-            width: 8,
-            height: 8,
-            decoration: BoxDecoration(
-              color: statusColor,
-              shape: BoxShape.circle,
-            ),
-          ),
-          const SizedBox(width: 8),
-          Text(
-            statusText,
-            style: TextStyle(
-              color: statusColor,
-              fontSize: 14,
-              fontWeight: FontWeight.w600,
-            ),
-          ),
+          // Connection quality indicator with signal bars
+          const ConnectionQualityIndicator(),
         ],
       ),
     );

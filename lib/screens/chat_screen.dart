@@ -78,6 +78,9 @@ class _ChatScreenState extends ConsumerState<ChatScreen>
   final List<FileAttachment> _attachedFiles = [];
   bool _showFileAutocomplete = false;
 
+  // Focus node for input bar - needed to restore focus after autocomplete appears
+  final FocusNode _inputFocusNode = FocusNode();
+
   // Message pagination state
   bool _loadingMoreMessages = false;
   bool _hasLoadedAllMessages = false;
@@ -780,11 +783,18 @@ class _ChatScreenState extends ConsumerState<ChatScreen>
       final query = atMatch.group(1) ?? '';
       fileSearch.setProjectPath(widget.project.path);
       fileSearch.search(query);
+      final wasShowingAutocomplete = _showFileAutocomplete;
       setState(() {
         _showCommandAutocomplete = false;
         _showFileAutocomplete = true;
         _commandFilter = '';
       });
+      // Restore focus after autocomplete appears (fixes keyboard dismissal on mobile)
+      if (!wasShowingAutocomplete) {
+        WidgetsBinding.instance.addPostFrameCallback((_) {
+          if (mounted) _inputFocusNode.requestFocus();
+        });
+      }
     } else {
       if (_showCommandAutocomplete || _showFileAutocomplete) {
         setState(() {
@@ -1064,6 +1074,7 @@ class _ChatScreenState extends ConsumerState<ChatScreen>
     ref.read(bridgeServiceProvider).setView(projectPath: 'global');
     _controller.dispose();
     _scrollController.dispose();
+    _inputFocusNode.dispose();
     super.dispose();
   }
 
@@ -1251,6 +1262,7 @@ class _ChatScreenState extends ConsumerState<ChatScreen>
     if (inputStyle == InputBarStyle.cli) {
       inputBar = _CliStyleInputBar(
         controller: _controller,
+        focusNode: _inputFocusNode,
         onSend: () => _sendMessage(connection, chatState),
         isBusy: isBusy,
         canSend: canSend,
@@ -1269,6 +1281,7 @@ class _ChatScreenState extends ConsumerState<ChatScreen>
     } else {
       inputBar = _FloatingInputBar(
         controller: _controller,
+        focusNode: _inputFocusNode,
         onSend: () => _sendMessage(connection, chatState),
         isBusy: isBusy,
         canSend: canSend,
@@ -2162,6 +2175,7 @@ class _GlassPill extends StatelessWidget {
 class _FloatingInputBar extends ConsumerWidget {
   const _FloatingInputBar({
     required this.controller,
+    required this.focusNode,
     required this.onSend,
     required this.isBusy,
     required this.canSend,
@@ -2174,6 +2188,7 @@ class _FloatingInputBar extends ConsumerWidget {
   });
 
   final TextEditingController controller;
+  final FocusNode focusNode;
   final VoidCallback onSend;
   final bool isBusy;
   final bool canSend;
@@ -2275,6 +2290,7 @@ class _FloatingInputBar extends ConsumerWidget {
                               Expanded(
                                 child: TextField(
                                   controller: controller,
+                                  focusNode: focusNode,
                                   enabled: !isOfflineMode && !isBusy,
                                   minLines: 1,
                                   maxLines: 5,
@@ -2352,6 +2368,7 @@ class _FloatingInputBar extends ConsumerWidget {
 class _CliStyleInputBar extends StatefulWidget {
   const _CliStyleInputBar({
     required this.controller,
+    required this.focusNode,
     required this.onSend,
     required this.isBusy,
     required this.canSend,
@@ -2369,6 +2386,7 @@ class _CliStyleInputBar extends StatefulWidget {
   });
 
   final TextEditingController controller;
+  final FocusNode focusNode;
   final VoidCallback onSend;
   final bool isBusy;
   final bool canSend;
@@ -2403,12 +2421,10 @@ class _CliStyleInputBarState extends State<_CliStyleInputBar> {
   ];
 
   int _placeholderIndex = 0;
-  late final FocusNode _focusNode;
 
   @override
   void initState() {
     super.initState();
-    _focusNode = FocusNode();
     _placeholderIndex = DateTime.now().millisecond % _placeholders.length;
     // Rotate placeholder every 6 seconds
     Future.doWhile(() async {
@@ -2419,12 +2435,6 @@ class _CliStyleInputBarState extends State<_CliStyleInputBar> {
       });
       return true;
     });
-  }
-
-  @override
-  void dispose() {
-    _focusNode.dispose();
-    super.dispose();
   }
 
   String _getModelDisplayName(SelectedModel? model) {
@@ -2534,7 +2544,7 @@ class _CliStyleInputBarState extends State<_CliStyleInputBar> {
                               ),
                               child: TextField(
                                 controller: widget.controller,
-                                focusNode: _focusNode,
+                                focusNode: widget.focusNode,
                                 enabled:
                                     !widget.isOfflineMode && !widget.isBusy,
                                 minLines: 1,

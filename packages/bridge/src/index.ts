@@ -1,9 +1,12 @@
 import { createOpencode, type OpencodeClient } from '@opencode-ai/sdk'
 import { displayBanner, displayQRCode } from './qr'
-import { getLocalIP, getTailscaleIP, isTailscaleConnected } from './network'
+import { getLocalIP, getTailscaleIP, getTailscaleMagicDNS, isTailscaleConnected } from './network'
+import { enableFunnel, disableFunnel } from './funnel'
 import { OpenCodeConnector } from './opencode'
 import { createBridgeServer } from './server'
 import { parseCli, printHelp, promptForChoice } from './cli'
+import { runDoctor } from './doctor'
+import { runSetupTailscale } from './setup-tailscale'
 
 type ManagedOpenCodeServer = {
   url: string
@@ -101,6 +104,7 @@ let restartInFlight = false
 let managedHostname = '127.0.0.1'
 let managedPort = 0
 let verboseMode = false
+let funnelPort: number | null = null
 
 // Graceful shutdown handler
 async function shutdown(signal: string) {
@@ -117,14 +121,18 @@ async function shutdown(signal: string) {
     eventStreamController = null
   }
 
-  // Stop bridge server first (disconnects clients)
+  if (funnelPort !== null) {
+    console.log('Disabling Tailscale Funnel...')
+    await disableFunnel(funnelPort)
+    funnelPort = null
+  }
+
   if (bridgeServer) {
     console.log('Stopping bridge server...')
     bridgeServer.stop(true)
     bridgeServer = null
   }
 
-  // Stop managed OpenCode server (if we spawned it)
   if (opencodeServer && 'close' in opencodeServer) {
     console.log('Stopping managed OpenCode server...')
     await opencodeServer.close()
@@ -284,11 +292,19 @@ async function main() {
     printHelp()
     return
   }
-  // Setup graceful shutdown handlers as early as possible so we don't leave ports/processes around
-  // even if the user hits Ctrl+Z during startup.
+
+  if (cli.subCommand === 'doctor') {
+    await runDoctor()
+    return
+  }
+
+  if (cli.subCommand === 'setup-tailscale') {
+    await runSetupTailscale()
+    return
+  }
+
   process.on('SIGINT', () => void shutdown('SIGINT'))
   process.on('SIGTERM', () => void shutdown('SIGTERM'))
-  // Treat Ctrl+Z (SIGTSTP) as a graceful shutdown to avoid leaving the port bound.
   process.on('SIGTSTP', () => void shutdown('SIGTSTP'))
   verboseMode = cli.verbose
   managedHostname = cli.opencodeHostname
@@ -325,10 +341,14 @@ async function main() {
 
   const localIP = getLocalIP()
   const tailscaleIP = await getTailscaleIP()
+  const magicDNS = await getTailscaleMagicDNS()
   const tailscaleConnected = await isTailscaleConnected()
 
   if (!tailscaleConnected) {
     console.log('ℹ️  Tailscale not connected. Local network access only.')
+    if (cli.enableFunnel) {
+      console.log('⚠️  --funnel requires Tailscale. Skipping Funnel setup.')
+    }
   }
 
   // Create bridge server
@@ -384,6 +404,19 @@ async function main() {
   }
   const bridgePort = bridgeServer.port()
 
+  let funnelURL: string | null = null
+  if (cli.enableFunnel && tailscaleConnected) {
+    console.log('Enabling Tailscale Funnel...')
+    const result = await enableFunnel(bridgePort)
+    if (result.success && result.url) {
+      funnelURL = result.url
+      funnelPort = bridgePort
+      console.log(`✓ Funnel enabled: ${funnelURL}`)
+    } else {
+      console.log(`⚠️  Funnel setup failed: ${result.error ?? 'unknown error'}`)
+    }
+  }
+
   // Subscribe to OpenCode events and forward to clients
   eventStreamController = await opencode.startEventStream((event) => {
     if (cli.verbose) {
@@ -407,10 +440,11 @@ async function main() {
     }, 5000)
   }
 
-  // Display QR code for phone connection
   displayQRCode({
     localIP,
     tailscaleIP,
+    magicDNS,
+    funnelURL,
     port: bridgePort,
     version,
   })

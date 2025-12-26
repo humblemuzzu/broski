@@ -2,8 +2,10 @@ import { stdin as input, stdout as output } from 'node:process'
 import readline from 'node:readline/promises'
 
 export type OpencodeMode = 'managed' | 'manual' | 'attach'
+export type SubCommand = 'serve' | 'doctor' | 'setup-tailscale' | null
 
 export type CliOptions = {
+  subCommand: SubCommand
   bridgePort: number
   opencodeMode: OpencodeMode
   opencodeUrl?: string
@@ -11,6 +13,7 @@ export type CliOptions = {
   opencodePort: number
   verbose: boolean
   help: boolean
+  enableFunnel: boolean
 }
 
 const DEFAULT_BRIDGE_PORT = 18274
@@ -24,6 +27,7 @@ function parseNumber(value: string | undefined, fallback: number): number {
 export function parseCli(argv: string[], env: NodeJS.ProcessEnv): CliOptions {
   const args = argv.slice(2)
 
+  let subCommand: SubCommand = null
   let bridgePort = parseNumber(env.BROSKI_PORT, DEFAULT_BRIDGE_PORT)
   let opencodeMode: OpencodeMode = 'managed'
   let opencodeUrl: string | undefined = env.OPENCODE_BASE_URL
@@ -31,9 +35,22 @@ export function parseCli(argv: string[], env: NodeJS.ProcessEnv): CliOptions {
   let opencodePort = parseNumber(env.BROSKI_OPENCODE_PORT, 0)
   let verbose = env.BROSKI_VERBOSE === '1'
   let help = false
+  let enableFunnel = env.BROSKI_ENABLE_FUNNEL === '1'
+
+  const firstArg = args[0]
+  if (firstArg === 'doctor') {
+    subCommand = 'doctor'
+  } else if (firstArg === 'setup-tailscale') {
+    subCommand = 'setup-tailscale'
+  } else if (firstArg === 'serve' || !firstArg?.startsWith('-')) {
+    subCommand = 'serve'
+  }
 
   for (let i = 0; i < args.length; i++) {
     const arg = args[i]
+    if (arg === 'doctor' || arg === 'setup-tailscale' || arg === 'serve') {
+      continue
+    }
     if (arg === '--help' || arg === '-h') {
       help = true
       continue
@@ -74,6 +91,10 @@ export function parseCli(argv: string[], env: NodeJS.ProcessEnv): CliOptions {
       opencodeMode = 'managed'
       continue
     }
+    if (arg === '--funnel') {
+      enableFunnel = true
+      continue
+    }
   }
 
   if (opencodeUrl) {
@@ -81,6 +102,7 @@ export function parseCli(argv: string[], env: NodeJS.ProcessEnv): CliOptions {
   }
 
   return {
+    subCommand,
     bridgePort,
     opencodeMode,
     opencodeUrl,
@@ -88,24 +110,25 @@ export function parseCli(argv: string[], env: NodeJS.ProcessEnv): CliOptions {
     opencodePort,
     verbose,
     help,
+    enableFunnel,
   }
 }
 
 export function printHelp(): void {
-  // Keep this small and action-oriented (users see this in terminal).
-  // We avoid ANSI art here to keep copy/paste clean.
-  // eslint-disable-next-line no-console
   console.log(`
 Usage:
-  broski-bridge [options]
+  broski-bridge [command] [options]
 
-Default (recommended):
-  Starts and manages its own OpenCode server (no auto-attach, no ambiguity).
+Commands:
+  (default)         Start the bridge server
+  doctor            Check system requirements and diagnose issues
+  setup-tailscale   Install and configure Tailscale for remote access
 
 Options:
   --help, -h                Show help
   --verbose, -v             Verbose logging (SDK events + debug)
   --port, --bridge-port N   Bridge WebSocket port (default: 18274; use 0 for random free port)
+  --funnel                  Enable Tailscale Funnel for public HTTPS access (no VPN needed on phone)
 
 OpenCode:
   --managed                 Force managed mode (default)
@@ -116,10 +139,10 @@ OpenCode:
   --opencode-port N         Port for managed OpenCode server (default: 0 for random)
 
 Examples:
-  broski-bridge
-  broski-bridge --verbose
-  broski-bridge --opencode-url http://127.0.0.1:4096
-  broski-bridge --attach
+  broski-bridge                  Start the bridge
+  broski-bridge doctor           Check if everything is set up correctly
+  broski-bridge setup-tailscale  Set up Tailscale for remote access
+  broski-bridge --verbose        Start with debug logging
 `.trim())
 }
 

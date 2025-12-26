@@ -5,6 +5,7 @@ import '../models/session_context.dart';
 import '../models/todo.dart';
 import '../models/vcs.dart';
 import '../theme/opencode_theme.dart';
+import 'connection_quality_indicator.dart';
 import 'status_indicator.dart';
 
 /// Session sidebar showing plan/todos, context usage, LSP servers, and modified files
@@ -76,55 +77,67 @@ class SessionSidebar extends StatelessWidget {
       decoration: BoxDecoration(
         border: Border(bottom: BorderSide(color: theme.borderSubtle, width: 1)),
       ),
-      child: Row(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  sessionTitle.isNotEmpty ? sessionTitle : 'Session Details',
-                  style: TextStyle(
-                    fontSize: 16,
-                    fontWeight: FontWeight.w600,
-                    color: theme.text,
-                  ),
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                ),
-                // Feature 10: VCS branch display
-                if (vcsInfo != null && vcsInfo!.isAvailable)
-                  Padding(
-                    padding: const EdgeInsets.only(top: 4),
-                    child: Row(
-                      children: [
-                        Icon(
-                          Icons.call_split_rounded,
-                          size: 14,
-                          color: theme.success,
-                        ),
-                        const SizedBox(width: 6),
-                        Text(
-                          vcsInfo!.branch ?? '',
-                          style: TextStyle(
-                            fontSize: 13,
-                            color: theme.textMuted,
-                            fontWeight: FontWeight.w500,
-                          ),
-                        ),
-                      ],
+          Row(
+            children: [
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      sessionTitle.isNotEmpty
+                          ? sessionTitle
+                          : 'Session Details',
+                      style: TextStyle(
+                        fontSize: 16,
+                        fontWeight: FontWeight.w600,
+                        color: theme.text,
+                      ),
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
                     ),
-                  ),
-              ],
-            ),
+                    // Feature 10: VCS branch display
+                    if (vcsInfo != null && vcsInfo!.isAvailable)
+                      Padding(
+                        padding: const EdgeInsets.only(top: 4),
+                        child: Row(
+                          children: [
+                            Icon(
+                              Icons.call_split_rounded,
+                              size: 14,
+                              color: theme.success,
+                            ),
+                            const SizedBox(width: 6),
+                            Text(
+                              vcsInfo!.branch ?? '',
+                              style: TextStyle(
+                                fontSize: 13,
+                                color: theme.textMuted,
+                                fontWeight: FontWeight.w500,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                  ],
+                ),
+              ),
+              if (onClose != null)
+                IconButton(
+                  onPressed: onClose,
+                  icon: Icon(Icons.close, color: theme.textMuted, size: 20),
+                  splashRadius: 20,
+                  tooltip: 'Close',
+                ),
+            ],
           ),
-          if (onClose != null)
-            IconButton(
-              onPressed: onClose,
-              icon: Icon(Icons.close, color: theme.textMuted, size: 20),
-              splashRadius: 20,
-              tooltip: 'Close',
-            ),
+          // Connection quality indicator
+          const Padding(
+            padding: EdgeInsets.only(top: 12),
+            child: ConnectionQualityIndicator(),
+          ),
         ],
       ),
     );

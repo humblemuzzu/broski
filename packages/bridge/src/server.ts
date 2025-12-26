@@ -100,18 +100,43 @@ export type BridgeServer = {
   port: () => number
 }
 
+type ConnectionContext = {
+  projectPath?: string
+  sessionId?: string
+  lastPongAt: number
+  lastRttMs: number
+  pendingPing?: { id: string; sentAt: number }
+  connectionType: 'local' | 'tailscale' | 'unknown'
+}
+
+type ClientQueue = {
+  queue: unknown[]
+  timer: Timer | null
+}
+
+const BATCH_THRESHOLDS = {
+  local: { low: 16, high: 8, burst: 4 },
+  tailscale: { low: 32, high: 16, burst: 8 },
+  highLatency: { low: 50, high: 25, burst: 12 },
+}
+
+const MESSAGE_PRIORITIES: Record<string, 'immediate' | 'high' | 'normal' | 'low'> = {
+  'permission.updated': 'immediate',
+  'permission.replied': 'immediate',
+  'session.error': 'immediate',
+  'session.idle': 'high',
+  'message.part.updated': 'high',
+  'message.updated': 'normal',
+  'session.diff': 'normal',
+  'todo.updated': 'normal',
+  'file.watcher.updated': 'low',
+  'lsp.updated': 'low',
+}
+
 export function createBridgeServer(options: BridgeServerOptions): BridgeServer {
   const sockets = new Set<ServerWebSocket<unknown>>()
-  const contexts = new Map<
-    ServerWebSocket<unknown>,
-    {
-      projectPath?: string
-      sessionId?: string
-      lastPongAt: number
-      lastRttMs: number
-      pendingPing?: { id: string; sentAt: number }
-    }
-  >()
+  const contexts = new Map<ServerWebSocket<unknown>, ConnectionContext>()
+  const clientQueues = new Map<ServerWebSocket<unknown>, ClientQueue>()
   const { opencode, version, logger } = options
 
   const log = (message: string) => {
@@ -129,13 +154,6 @@ export function createBridgeServer(options: BridgeServerOptions): BridgeServer {
     }
   }
 
-  const sdkQueue: unknown[] = []
-  let sdkFlushTimer: Timer | null = null
-
-  const BATCH_LOW = 16
-  const BATCH_HIGH = 8
-  const BATCH_BURST = 4
-  let currentBatchInterval = BATCH_LOW
   let eventCount = 0
   let eventCountResetTimer: Timer | null = null
 
@@ -150,54 +168,88 @@ export function createBridgeServer(options: BridgeServerOptions): BridgeServer {
     return sessionId ? String(sessionId) : null
   }
 
-  const filterEventsForSocket = (ws: ServerWebSocket<unknown>, events: unknown[]): unknown[] => {
-    const ctx = contexts.get(ws)
-    if (!ctx || (!ctx.projectPath && !ctx.sessionId)) {
-      return events
-    }
-
-    const filtered: unknown[] = []
-    for (const raw of events) {
-      const event = raw as any
-      const directory = (typeof event?.directory === 'string' ? event.directory : null) ?? 'global'
-
-      if (ctx.projectPath === 'global') {
-        if (directory !== 'global') continue
-      } else if (ctx.projectPath && directory !== 'global' && directory !== ctx.projectPath) {
-        continue
-      }
-
-      if (ctx.sessionId) {
-        const sid = extractSessionId(event)
-        if (sid && sid !== ctx.sessionId) {
-          continue
-        }
-      }
-
-      filtered.push(raw)
-    }
-    return filtered
+  const getEventType = (event: any): string => {
+    const payload = event?.payload ?? null
+    return typeof payload?.type === 'string' ? payload.type : ''
   }
 
-  const flushSdkEvents = () => {
-    sdkFlushTimer = null
-    if (sdkQueue.length === 0) return
+  const getEventPriority = (event: unknown): 'immediate' | 'high' | 'normal' | 'low' => {
+    const eventType = getEventType(event)
+    return MESSAGE_PRIORITIES[eventType] ?? 'normal'
+  }
 
-    const events = sdkQueue.splice(0, sdkQueue.length)
-    for (const ws of sockets) {
-      const filtered = filterEventsForSocket(ws, events)
-      if (filtered.length === 0) continue
+  const getBatchInterval = (ctx: ConnectionContext): number => {
+    const rtt = ctx.lastRttMs
+
+    let thresholds = BATCH_THRESHOLDS.local
+    if (rtt > 100) {
+      thresholds = BATCH_THRESHOLDS.highLatency
+    } else if (rtt > 30 || ctx.connectionType === 'tailscale') {
+      thresholds = BATCH_THRESHOLDS.tailscale
+    }
+
+    if (eventCount > 50) return thresholds.burst
+    if (eventCount > 20) return thresholds.high
+    return thresholds.low
+  }
+
+  const filterEventForSocket = (ws: ServerWebSocket<unknown>, event: unknown): boolean => {
+    const ctx = contexts.get(ws)
+    if (!ctx || (!ctx.projectPath && !ctx.sessionId)) {
+      return true
+    }
+
+    const e = event as any
+    const directory = (typeof e?.directory === 'string' ? e.directory : null) ?? 'global'
+
+    if (ctx.projectPath === 'global') {
+      if (directory !== 'global') return false
+    } else if (ctx.projectPath && directory !== 'global' && directory !== ctx.projectPath) {
+      return false
+    }
+
+    if (ctx.sessionId) {
+      const sid = extractSessionId(event)
+      if (sid && sid !== ctx.sessionId) {
+        return false
+      }
+    }
+
+    return true
+  }
+
+  const flushClientQueue = (ws: ServerWebSocket<unknown>) => {
+    const clientQ = clientQueues.get(ws)
+    if (!clientQ || clientQ.queue.length === 0) return
+
+    clientQ.timer = null
+    const events = clientQ.queue.splice(0, clientQ.queue.length)
+
+    const filtered = events.filter((event) => filterEventForSocket(ws, event))
+    if (filtered.length > 0) {
       send(ws, { type: 'sdk_event_batch', data: filtered })
     }
   }
 
-  const enqueueSdkEvent = (event: unknown) => {
-    sdkQueue.push(event)
-    eventCount++
+  const enqueueForClient = (ws: ServerWebSocket<unknown>, event: unknown) => {
+    let clientQ = clientQueues.get(ws)
+    if (!clientQ) {
+      clientQ = { queue: [], timer: null }
+      clientQueues.set(ws, clientQ)
+    }
 
-    if (eventCount > 50) currentBatchInterval = BATCH_BURST
-    else if (eventCount > 20) currentBatchInterval = BATCH_HIGH
-    else currentBatchInterval = BATCH_LOW
+    clientQ.queue.push(event)
+
+    if (clientQ.timer) return
+
+    const ctx = contexts.get(ws) ?? { lastPongAt: Date.now(), lastRttMs: 0, connectionType: 'unknown' as const }
+    const batchMs = getBatchInterval(ctx)
+
+    clientQ.timer = setTimeout(() => flushClientQueue(ws), batchMs)
+  }
+
+  const enqueueSdkEvent = (event: unknown) => {
+    eventCount++
 
     if (!eventCountResetTimer) {
       eventCountResetTimer = setTimeout(() => {
@@ -206,8 +258,17 @@ export function createBridgeServer(options: BridgeServerOptions): BridgeServer {
       }, 1000)
     }
 
-    if (sdkFlushTimer) return
-    sdkFlushTimer = setTimeout(flushSdkEvents, currentBatchInterval)
+    const priority = getEventPriority(event)
+
+    for (const ws of sockets) {
+      if (!filterEventForSocket(ws, event)) continue
+
+      if (priority === 'immediate') {
+        send(ws, { type: 'sdk_event', data: event })
+      } else {
+        enqueueForClient(ws, event)
+      }
+    }
   }
 
   const HEARTBEAT_INTERVAL_MS = 20000
@@ -283,13 +344,18 @@ export function createBridgeServer(options: BridgeServerOptions): BridgeServer {
     websocket: {
       open(ws) {
         sockets.add(ws)
-        contexts.set(ws, { lastPongAt: Date.now(), lastRttMs: 0 })
+        contexts.set(ws, { lastPongAt: Date.now(), lastRttMs: 0, connectionType: 'unknown' })
         log(`Client connected (${sockets.size} total)`)
         void sendStatus(ws)
       },
       close(ws) {
         sockets.delete(ws)
         contexts.delete(ws)
+        const clientQ = clientQueues.get(ws)
+        if (clientQ?.timer) {
+          clearTimeout(clientQ.timer)
+        }
+        clientQueues.delete(ws)
         log(`Client disconnected (${sockets.size} total)`)
       },
       message(ws, raw) {
@@ -342,7 +408,10 @@ export function createBridgeServer(options: BridgeServerOptions): BridgeServer {
           if (ctx.pendingPing?.id === message.id) {
             ctx.pendingPing = undefined
           }
-          send(ws, { type: 'connection_metrics', data: { rttMs: ctx.lastRttMs, lastPongAt: ctx.lastPongAt } })
+          if (ctx.connectionType === 'unknown') {
+            ctx.connectionType = ctx.lastRttMs > 30 ? 'tailscale' : 'local'
+          }
+          send(ws, { type: 'connection_metrics', data: { rttMs: ctx.lastRttMs, lastPongAt: ctx.lastPongAt, connectionType: ctx.connectionType } })
           break
         }
         case 'list_projects': {

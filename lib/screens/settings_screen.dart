@@ -3,9 +3,11 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../providers/connection_provider.dart';
 import '../providers/input_style_provider.dart';
+import '../providers/onboarding_provider.dart';
 import '../providers/service_providers.dart';
 import '../providers/theme_provider.dart';
 import '../theme/opencode_theme.dart';
+import '../widgets/connection_quality_indicator.dart';
 import 'device_manager_screen.dart';
 import 'mcp_servers_screen.dart';
 import 'providers_screen.dart';
@@ -278,10 +280,54 @@ class SettingsScreen extends ConsumerWidget {
               ),
             ),
 
+            // Debug section
+            const SliverToBoxAdapter(child: SizedBox(height: 24)),
+            SliverToBoxAdapter(child: _SectionHeader(title: 'Debug')),
+            SliverToBoxAdapter(
+              child: Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 20),
+                child: _SettingsCard(
+                  child: _SettingsTile(
+                    title: 'Replay Onboarding',
+                    subtitle: 'See the first-launch experience again',
+                    icon: Icons.replay_rounded,
+                    trailing: const Icon(Icons.chevron_right_rounded, size: 20),
+                    onTap: () => _replayOnboarding(context, ref),
+                  ),
+                ),
+              ),
+            ),
+
             // Bottom padding for navbar
             const SliverToBoxAdapter(child: SizedBox(height: 100)),
           ],
         ),
+      ),
+    );
+  }
+
+  void _replayOnboarding(BuildContext context, WidgetRef ref) {
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Replay Onboarding?'),
+        content: const Text(
+          'This will reset the onboarding flow and show you the first-launch experience. You\'ll need to go through the setup flow again.',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('Cancel'),
+          ),
+          ElevatedButton(
+            onPressed: () {
+              Navigator.pop(context);
+              ref.read(onboardingProvider.notifier).resetOnboarding();
+              ref.read(connectionProvider.notifier).clearConnection();
+            },
+            child: const Text('Replay'),
+          ),
+        ],
       ),
     );
   }
@@ -360,43 +406,8 @@ class _ActiveConnectionCard extends StatelessWidget {
                       ),
                     ),
                     const SizedBox(height: 4),
-                    Row(
-                      children: [
-                        Container(
-                          width: 8,
-                          height: 8,
-                          decoration: BoxDecoration(
-                            color: isConnected
-                                ? ocTheme.success
-                                : ocTheme.error,
-                            shape: BoxShape.circle,
-                          ),
-                        ),
-                        const SizedBox(width: 6),
-                        Text(
-                          isConnected ? 'Connected' : 'Disconnected',
-                          style: TextStyle(
-                            color: isConnected
-                                ? ocTheme.success
-                                : ocTheme.error,
-                            fontSize: 14,
-                            fontWeight: FontWeight.w600,
-                          ),
-                        ),
-                        if (connection.connection?.localIP != null) ...[
-                          Text(
-                            ' • ${connection.connection!.localIP}',
-                            style: TextStyle(
-                              color: theme.colorScheme.onSurface.withValues(
-                                alpha: 0.6,
-                              ),
-                              fontSize: 14,
-                              fontWeight: FontWeight.w500,
-                            ),
-                          ),
-                        ],
-                      ],
-                    ),
+                    // Connection quality indicator with signal bars
+                    const ConnectionQualityIndicator(),
                   ],
                 ),
               ),
@@ -412,29 +423,73 @@ class _ActiveConnectionCard extends StatelessWidget {
                 color: ocTheme.backgroundElement,
                 borderRadius: BorderRadius.circular(16),
               ),
-              child: Row(
+              child: Column(
                 children: [
-                  // Local IP
-                  Expanded(
-                    child: _ConnectionStat(
-                      label: 'Local IP',
-                      value: connection.connection!.localIP ?? 'N/A',
-                      icon: Icons.wifi_rounded,
+                  // First row: Local IP and Port
+                  Row(
+                    children: [
+                      Expanded(
+                        child: _ConnectionStat(
+                          label: 'Local IP',
+                          value: connection.connection!.localIP ?? 'N/A',
+                          icon: Icons.wifi_rounded,
+                        ),
+                      ),
+                      Container(
+                        width: 1,
+                        height: 40,
+                        color: theme.colorScheme.onSurface.withValues(
+                          alpha: 0.1,
+                        ),
+                      ),
+                      Expanded(
+                        child: _ConnectionStat(
+                          label: 'Port',
+                          value: '${connection.connection!.port}',
+                          icon: Icons.settings_ethernet_rounded,
+                        ),
+                      ),
+                    ],
+                  ),
+                  // Second row: Tailscale IP and RTT (if available)
+                  if (connection.connection!.tailscaleIP != null ||
+                      connection.rttMs != null) ...[
+                    const SizedBox(height: 16),
+                    Divider(
+                      height: 1,
+                      color: theme.colorScheme.onSurface.withValues(alpha: 0.1),
                     ),
-                  ),
-                  Container(
-                    width: 1,
-                    height: 40,
-                    color: theme.colorScheme.onSurface.withValues(alpha: 0.1),
-                  ),
-                  // Port
-                  Expanded(
-                    child: _ConnectionStat(
-                      label: 'Port',
-                      value: '${connection.connection!.port ?? 'N/A'}',
-                      icon: Icons.settings_ethernet_rounded,
+                    const SizedBox(height: 16),
+                    Row(
+                      children: [
+                        if (connection.connection!.tailscaleIP != null)
+                          Expanded(
+                            child: _ConnectionStat(
+                              label: 'Tailscale IP',
+                              value: connection.connection!.tailscaleIP!,
+                              icon: Icons.vpn_lock_rounded,
+                            ),
+                          ),
+                        if (connection.connection!.tailscaleIP != null &&
+                            connection.rttMs != null)
+                          Container(
+                            width: 1,
+                            height: 40,
+                            color: theme.colorScheme.onSurface.withValues(
+                              alpha: 0.1,
+                            ),
+                          ),
+                        if (connection.rttMs != null)
+                          Expanded(
+                            child: _ConnectionStat(
+                              label: 'Latency',
+                              value: '${connection.rttMs}ms',
+                              icon: Icons.speed_rounded,
+                            ),
+                          ),
+                      ],
                     ),
-                  ),
+                  ],
                 ],
               ),
             ),

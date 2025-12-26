@@ -2458,12 +2458,28 @@ Server output: ${output}`;
     }
   };
 }
+// node_modules/@opencode-ai/sdk/dist/index.js
+async function createOpencode(options) {
+  const server2 = await createOpencodeServer({
+    ...options
+  });
+  const client3 = createOpencodeClient({
+    baseUrl: server2.url
+  });
+  return {
+    client: client3,
+    server: server2
+  };
+}
+
 // src/qr.ts
 var import_qrcode_terminal = __toESM(require_main(), 1);
 function displayQRCode(info) {
   const data = JSON.stringify({
     l: info.localIP,
     t: info.tailscaleIP,
+    m: info.magicDNS,
+    f: info.funnelURL,
     p: info.port,
     v: info.version
   });
@@ -2484,6 +2500,12 @@ function displayQRCode(info) {
   }
   if (info.tailscaleIP) {
     console.log(`  - Tailscale: ws://${info.tailscaleIP}:${info.port}`);
+  }
+  if (info.magicDNS) {
+    console.log(`  - MagicDNS:  ws://${info.magicDNS}:${info.port}`);
+  }
+  if (info.funnelURL) {
+    console.log(`  - Public:    ${info.funnelURL}`);
   }
   console.log("");
 }
@@ -2507,6 +2529,7 @@ function displayBanner() {
 // src/network.ts
 import { networkInterfaces } from "os";
 var {$ } = globalThis.Bun;
+var TAILSCALE_CLI = process.platform === "darwin" ? "/Applications/Tailscale.app/Contents/MacOS/Tailscale" : "tailscale";
 function getLocalIP() {
   const interfaces = networkInterfaces();
   for (const name of Object.keys(interfaces)) {
@@ -2528,7 +2551,7 @@ function getLocalIP() {
 }
 async function getTailscaleIP() {
   try {
-    const result = await $`tailscale ip -4 2>/dev/null`.quiet();
+    const result = await $`${TAILSCALE_CLI} ip -4 2>/dev/null`.quiet();
     const ip = result.text().trim();
     if (ip.startsWith("100."))
       return ip;
@@ -2539,8 +2562,80 @@ async function getTailscaleIP() {
 }
 async function isTailscaleConnected() {
   try {
-    const result = await $`tailscale status 2>/dev/null`.quiet();
+    const result = await $`${TAILSCALE_CLI} status 2>/dev/null`.quiet();
     return !result.text().includes("Tailscale is stopped");
+  } catch {
+    return false;
+  }
+}
+async function getTailscaleMagicDNS() {
+  try {
+    const result = await $`${TAILSCALE_CLI} status --json 2>/dev/null`.quiet();
+    const status = JSON.parse(result.text());
+    const self = status.Self;
+    if (self && self.DNSName) {
+      return self.DNSName.replace(/\.$/, "");
+    }
+    return null;
+  } catch {
+    return null;
+  }
+}
+
+// src/funnel.ts
+var {$: $2 } = globalThis.Bun;
+async function getFunnelStatus() {
+  try {
+    const result = await $2`tailscale funnel status --json 2>/dev/null`.quiet();
+    const status = JSON.parse(result.text());
+    const services = status.Services ?? {};
+    const funnelEntry = Object.entries(services).find(([_, s]) => s.Funnel === true);
+    if (funnelEntry) {
+      const [portStr, service] = funnelEntry;
+      return {
+        enabled: true,
+        url: service.URL ?? null,
+        port: parseInt(portStr, 10) || null
+      };
+    }
+    return { enabled: false, url: null, port: null };
+  } catch {
+    return { enabled: false, url: null, port: null };
+  }
+}
+async function enableFunnel(port) {
+  try {
+    await $2`tailscale funnel ${port}`.quiet();
+    await new Promise((resolve) => setTimeout(resolve, 1000));
+    const status = await getFunnelStatus();
+    if (status.enabled && status.url) {
+      return { success: true, url: status.url };
+    }
+    return {
+      success: false,
+      url: null,
+      error: "Funnel command succeeded but status shows not enabled. Check Tailscale admin console."
+    };
+  } catch (error) {
+    const message = error?.message ?? String(error);
+    if (message.includes("not enabled") || message.includes("admin console")) {
+      return {
+        success: false,
+        url: null,
+        error: "Tailscale Funnel is not enabled. Enable it in your Tailscale admin console first."
+      };
+    }
+    return {
+      success: false,
+      url: null,
+      error: `Failed to enable Funnel: ${message}`
+    };
+  }
+}
+async function disableFunnel(port) {
+  try {
+    await $2`tailscale funnel off ${port}`.quiet();
+    return true;
   } catch {
     return false;
   }
@@ -2553,9 +2648,12 @@ var DEFAULT_BASE_URL = "http://localhost:4096";
 class OpenCodeConnector {
   client;
   baseUrl;
+  toolIdsCache = new Map;
+  sessionCache = new Map;
+  SESSION_CACHE_TTL_MS = 5000;
   constructor(options = {}) {
     this.baseUrl = options.baseUrl ?? DEFAULT_BASE_URL;
-    this.client = createOpencodeClient({
+    this.client = options.client ?? createOpencodeClient({
       baseUrl: this.baseUrl,
       responseStyle: "data"
     });
@@ -2572,8 +2670,10 @@ class OpenCodeConnector {
   }
   async isRunning() {
     try {
-      await this.client.project.list({ responseStyle: "data" });
-      return true;
+      const response = await fetch(`${this.baseUrl}/path`, {
+        signal: AbortSignal.timeout(750)
+      });
+      return response.ok;
     } catch {
       return false;
     }
@@ -2583,11 +2683,58 @@ class OpenCodeConnector {
     return projects.map((project) => this.mapProject(project));
   }
   async listSessions(directory) {
-    const sessions = await this.client.session.list({
-      responseStyle: "data",
-      query: directory ? { directory } : { directory: "/" }
-    }) ?? [];
-    return sessions.map((session) => this.mapSession(session));
+    const cacheKey = directory ?? "__all__";
+    const now = Date.now();
+    const cached = this.sessionCache.get(cacheKey);
+    if (cached && now - cached.fetchedAt < this.SESSION_CACHE_TTL_MS) {
+      return cached.data;
+    }
+    const result = await this._listSessionsInternal(directory);
+    this.sessionCache.set(cacheKey, { data: result, fetchedAt: now });
+    return result;
+  }
+  invalidateSessionCache(directory) {
+    if (directory) {
+      this.sessionCache.delete(directory);
+    }
+    this.sessionCache.delete("__all__");
+  }
+  async _listSessionsInternal(directory) {
+    if (directory != null && directory.length > 0) {
+      const sessions = await this.client.session.list({
+        responseStyle: "data",
+        query: { directory }
+      }) ?? [];
+      return sessions.map((session) => this.mapSession(session));
+    }
+    const projects = await this.listProjects().catch(() => []);
+    const queue = projects.filter((p) => p.path.length > 0).slice();
+    const sessionsById = new Map;
+    const concurrency = 8;
+    await Promise.all(Array.from({ length: Math.max(1, concurrency) }, async () => {
+      for (;; ) {
+        const project = queue.shift();
+        if (!project)
+          break;
+        try {
+          const sessions = await this.client.session.list({
+            responseStyle: "data",
+            query: { directory: project.path }
+          }) ?? [];
+          for (const session of sessions) {
+            const mapped = this.mapSession(session);
+            if (mapped.time?.archived)
+              continue;
+            sessionsById.set(mapped.id, mapped);
+          }
+        } catch {}
+      }
+    }));
+    return Array.from(sessionsById.values()).sort((a, b) => {
+      const aUpdated = a.time?.updated ?? 0;
+      const bUpdated = b.time?.updated ?? 0;
+      return bUpdated - aUpdated;
+    });
   }
   async createSession(directory, title) {
     const session = await this.client.session.create({
@@ -2615,9 +2762,50 @@ class OpenCodeConnector {
       }
     });
   }
-  async sendPrompt(sessionId, content, directory, model, agent, disabledTools) {
+  async sendPrompt(sessionId, content, directory, model, agent, disabledTools, fileAttachments) {
+    let tools;
     if (disabledTools && disabledTools.length > 0) {
-      console.log(`[sendPrompt] Disabled tools: ${disabledTools.join(", ")}`);
+      const key = directory ?? "global";
+      const cached = this.toolIdsCache.get(key);
+      const now = Date.now();
+      const ttlMs = 30000;
+      let ids;
+      if (cached && now - cached.fetchedAt < ttlMs) {
+        ids = cached.ids;
+      } else {
+        ids = await this.listToolIds(directory);
+        this.toolIdsCache.set(key, { ids, fetchedAt: now });
+      }
+      tools = {};
+      for (const id of ids)
+        tools[id] = true;
+      for (const id of disabledTools)
+        tools[id] = false;
+    }
+    const parts = [
+      { type: "text", text: content }
+    ];
+    if (fileAttachments && fileAttachments.length > 0) {
+      const baseDir = directory ?? process.cwd();
+      for (const attachment of fileAttachments) {
+        if (attachment.base64Data && attachment.mimeType) {
+          parts.push({
+            type: "file",
+            url: `data:${attachment.mimeType};base64,${attachment.base64Data}`,
+            filename: attachment.path.split("/").pop() ?? "image",
+            mime: attachment.mimeType
+          });
+        } else {
+          const absolutePath = attachment.path.startsWith("/") ? attachment.path : `${baseDir}/${attachment.path}`;
+          const filename = attachment.path.split("/").pop() ?? attachment.path;
+          parts.push({
+            type: "file",
+            url: `file://${absolutePath}`,
+            filename: attachment.isDirectory ? `${filename}/` : filename,
+            mime: attachment.isDirectory ? "inode/directory" : "text/plain"
+          });
+        }
+      }
     }
     return this.client.session.prompt({
       responseStyle: "data",
@@ -2626,12 +2814,8 @@ class OpenCodeConnector {
       body: {
         ...model ? { model } : {},
         ...agent ? { agent } : {},
-        parts: [
-          {
-            type: "text",
-            text: content
-          }
-        ]
+        ...tools ? { tools } : {},
+        parts
       }
     });
   }
@@ -2939,6 +3123,21 @@ class OpenCodeConnector {
         }
       });
       return result ?? [];
+    } catch {
+      return [];
+    }
+  }
+  async searchFilesAndDirs(query, directory, limit = 20) {
+    try {
+      const result = await this.client.find.files({
+        responseStyle: "data",
+        query: {
+          query,
+          dirs: "true",
+          ...directory ? { directory } : {}
+        }
+      });
+      return (result ?? []).slice(0, limit);
     } catch {
       return [];
     }
@@ -3313,9 +3512,12 @@ async function listFilesDirectly(filePath) {
     for (const entry of entries) {
       if (entry.name.startsWith("."))
         continue;
+      const absolute = resolve(resolvedPath, entry.name);
       items.push({
         name: entry.name,
-        type: entry.isDirectory() ? "directory" : "file"
+        type: entry.isDirectory() ? "directory" : "file",
+        path: absolute,
+        absolute
       });
     }
     items.sort((a, b) => {
@@ -3330,8 +3532,52 @@ async function listFilesDirectly(filePath) {
     return [];
   }
 }
+async function readFileDirectly(filePath) {
+  const resolvedPath = filePath === "~" || filePath.startsWith("~/") ? filePath.replace(/^~/, homedir2()) : resolve(filePath);
+  try {
+    const file = Bun.file(resolvedPath);
+    const exists = await file.exists();
+    if (!exists)
+      return { content: "", mime: "text/plain" };
+    const mime = file.type || "application/octet-stream";
+    const isText = mime.startsWith("text/") || mime.includes("json") || mime.includes("xml") || mime.includes("javascript") || mime.includes("typescript") || mime.includes("markdown");
+    if (!isText) {
+      return { content: "", mime };
+    }
+    const text = await file.text();
+    const maxChars = 1e6;
+    if (text.length > maxChars) {
+      return { content: `${text.slice(0, maxChars)}
+
+\u2026(truncated)\u2026`, mime };
+    }
+    return { content: text, mime };
+  } catch (error) {
+    console.error(`[readFileDirectly] Error reading ${resolvedPath}:`, error);
+    return { content: "", mime: "text/plain" };
+  }
+}
+var BATCH_THRESHOLDS = {
+  local: { low: 16, high: 8, burst: 4 },
+  tailscale: { low: 32, high: 16, burst: 8 },
+  highLatency: { low: 50, high: 25, burst: 12 }
+};
+var MESSAGE_PRIORITIES = {
+  "permission.updated": "immediate",
+  "permission.replied": "immediate",
+  "session.error": "immediate",
+  "session.idle": "high",
+  "message.part.updated": "high",
+  "message.updated": "normal",
+  "session.diff": "normal",
+  "todo.updated": "normal",
+  "file.watcher.updated": "low",
+  "lsp.updated": "low"
+};
 function createBridgeServer(options) {
   const sockets = new Set;
+  const contexts = new Map;
+  const clientQueues = new Map;
   const { opencode, version, logger } = options;
   const log = (message) => {
     logger?.(message);
@@ -3345,6 +3591,125 @@ function createBridgeServer(options) {
       ws.send(payload);
     }
   };
+  let eventCount = 0;
+  let eventCountResetTimer = null;
+  const extractSessionId = (event) => {
+    const payload = event?.payload ?? null;
+    const properties = payload?.properties ?? null;
+    const info = properties?.info ?? null;
+    const sessionId = typeof info?.sessionID === "string" && info.sessionID || typeof properties?.sessionID === "string" && properties.sessionID || typeof properties?.sessionId === "string" && properties.sessionId;
+    return sessionId ? String(sessionId) : null;
+  };
+  const getEventType = (event) => {
+    const payload = event?.payload ?? null;
+    return typeof payload?.type === "string" ? payload.type : "";
+  };
+  const getEventPriority = (event) => {
+    const eventType = getEventType(event);
+    return MESSAGE_PRIORITIES[eventType] ?? "normal";
+  };
+  const getBatchInterval = (ctx) => {
+    const rtt = ctx.lastRttMs;
+    let thresholds = BATCH_THRESHOLDS.local;
+    if (rtt > 100) {
+      thresholds = BATCH_THRESHOLDS.highLatency;
+    } else if (rtt > 30 || ctx.connectionType === "tailscale") {
+      thresholds = BATCH_THRESHOLDS.tailscale;
+    }
+    if (eventCount > 50)
+      return thresholds.burst;
+    if (eventCount > 20)
+      return thresholds.high;
+    return thresholds.low;
+  };
+  const filterEventForSocket = (ws, event) => {
+    const ctx = contexts.get(ws);
+    if (!ctx || !ctx.projectPath && !ctx.sessionId) {
+      return true;
+    }
+    const e = event;
+    const directory = (typeof e?.directory === "string" ? e.directory : null) ?? "global";
+    if (ctx.projectPath === "global") {
+      if (directory !== "global")
+        return false;
+    } else if (ctx.projectPath && directory !== "global" && directory !== ctx.projectPath) {
+      return false;
+    }
+    if (ctx.sessionId) {
+      const sid = extractSessionId(event);
+      if (sid && sid !== ctx.sessionId) {
+        return false;
+      }
+    }
+    return true;
+  };
+  const flushClientQueue = (ws) => {
+    const clientQ = clientQueues.get(ws);
+    if (!clientQ || clientQ.queue.length === 0)
+      return;
+    clientQ.timer = null;
+    const events = clientQ.queue.splice(0, clientQ.queue.length);
+    const filtered = events.filter((event) => filterEventForSocket(ws, event));
+    if (filtered.length > 0) {
+      send(ws, { type: "sdk_event_batch", data: filtered });
+    }
+  };
+  const enqueueForClient = (ws, event) => {
+    let clientQ = clientQueues.get(ws);
+    if (!clientQ) {
+      clientQ = { queue: [], timer: null };
+      clientQueues.set(ws, clientQ);
+    }
+    clientQ.queue.push(event);
+    if (clientQ.timer)
+      return;
+    const ctx = contexts.get(ws) ?? { lastPongAt: Date.now(), lastRttMs: 0, connectionType: "unknown" };
+    const batchMs = getBatchInterval(ctx);
+    clientQ.timer = setTimeout(() => flushClientQueue(ws), batchMs);
+  };
+  const enqueueSdkEvent = (event) => {
+    eventCount++;
+    if (!eventCountResetTimer) {
+      eventCountResetTimer = setTimeout(() => {
+        eventCount = 0;
+        eventCountResetTimer = null;
+      }, 1000);
+    }
+    const priority = getEventPriority(event);
+    for (const ws of sockets) {
+      if (!filterEventForSocket(ws, event))
+        continue;
+      if (priority === "immediate") {
+        send(ws, { type: "sdk_event", data: event });
+      } else {
+        enqueueForClient(ws, event);
+      }
+    }
+  };
+  const HEARTBEAT_INTERVAL_MS = 20000;
+  const HEARTBEAT_DEAD_AFTER_MS = 90000;
+  const heartbeatTimer = setInterval(() => {
+    const now = Date.now();
+    for (const ws of sockets) {
+      const ctx = contexts.get(ws);
+      if (!ctx)
+        continue;
+      if (now - ctx.lastPongAt > HEARTBEAT_DEAD_AFTER_MS) {
+        try {
+          ws.close(4000, "Heartbeat timeout");
+        } catch {}
+        continue;
+      }
+      if (ctx.pendingPing)
+        continue;
+      const ping = {
+        id: `ping_${now}_${Math.floor(Math.random() * 1e6)}`,
+        sentAt: now
+      };
+      ctx.pendingPing = ping;
+      send(ws, { type: "ping", data: ping });
+    }
+  }, HEARTBEAT_INTERVAL_MS);
   const handleHttp = async (request) => {
     const url = new URL(request.url);
     if (url.pathname === "/") {
@@ -3382,11 +3747,18 @@ function createBridgeServer(options) {
     websocket: {
       open(ws) {
         sockets.add(ws);
+        contexts.set(ws, { lastPongAt: Date.now(), lastRttMs: 0, connectionType: "unknown" });
         log(`Client connected (${sockets.size} total)`);
         sendStatus(ws);
       },
       close(ws) {
         sockets.delete(ws);
+        contexts.delete(ws);
+        const clientQ = clientQueues.get(ws);
+        if (clientQ?.timer) {
+          clearTimeout(clientQ.timer);
+        }
+        clientQueues.delete(ws);
         log(`Client disconnected (${sockets.size} total)`);
       },
       message(ws, raw) {
@@ -3394,6 +3766,7 @@ function createBridgeServer(options) {
       }
     }
   });
+  const actualPort = server2.port ?? options.port;
   const sendStatus = async (ws) => {
     const running = await opencode.isRunning();
     send(ws, { type: "status", data: { opencodeRunning: running } });
@@ -3413,9 +3786,39 @@ function createBridgeServer(options) {
     };
     try {
       switch (message.type) {
+        case "set_view": {
+          const existing = contexts.get(ws) ?? { lastPongAt: Date.now(), lastRttMs: 0 };
+          contexts.set(ws, {
+            ...existing,
+            projectPath: message.projectPath || undefined,
+            sessionId: message.sessionId || undefined
+          });
+          sendStatus(ws);
+          break;
+        }
+        case "pong": {
+          const ctx = contexts.get(ws);
+          if (!ctx)
+            break;
+          ctx.lastPongAt = Date.now();
+          ctx.lastRttMs = Math.max(0, ctx.lastPongAt - message.sentAt);
+          if (ctx.pendingPing?.id === message.id) {
+            ctx.pendingPing = undefined;
+          }
+          if (ctx.connectionType === "unknown") {
+            ctx.connectionType = ctx.lastRttMs > 30 ? "tailscale" : "local";
+          }
+          send(ws, { type: "connection_metrics", data: { rttMs: ctx.lastRttMs, lastPongAt: ctx.lastPongAt, connectionType: ctx.connectionType } });
+          break;
+        }
         case "list_projects": {
           const projects = await opencode.listProjects();
           reply({ type: "projects", data: projects });
+          break;
+        }
+        case "restart_opencode": {
+          const ok = await options.restartOpenCode?.();
+          reply({ type: "opencode_restarted", data: ok === true });
           break;
         }
         case "list_sessions": {
@@ -3455,7 +3858,7 @@ function createBridgeServer(options) {
           break;
         }
         case "chat": {
-          await opencode.sendPrompt(message.sessionId, message.content, message.projectPath, message.model, message.agent, message.disabledTools);
+          await opencode.sendPrompt(message.sessionId, message.content, message.projectPath, message.model, message.agent, message.disabledTools, message.fileAttachments);
           break;
         }
         case "abort": {
@@ -3552,7 +3955,7 @@ function createBridgeServer(options) {
           break;
         }
         case "read_file": {
-          const content = await opencode.readFile(message.path, message.projectPath);
+          const content = message.projectPath ? await opencode.readFile(message.path, message.projectPath) : await readFileDirectly(message.path);
           reply({ type: "file_content", data: content, path: message.path });
           break;
         }
@@ -3569,6 +3972,11 @@ function createBridgeServer(options) {
         case "find_symbols": {
           const symbols = await opencode.findSymbols(message.query, message.projectPath);
           reply({ type: "symbols_found", data: symbols });
+          break;
+        }
+        case "search_files_and_dirs": {
+          const results = await opencode.searchFilesAndDirs(message.query, message.projectPath);
+          reply({ type: "files_and_dirs_found", data: results });
           break;
         }
         case "get_session_status": {
@@ -3678,8 +4086,13 @@ function createBridgeServer(options) {
   };
   return {
     broadcast,
-    stop: () => server2.stop(true),
-    connections: () => sockets.size
+    enqueueSdkEvent,
+    stop: (force = true) => {
+      clearInterval(heartbeatTimer);
+      server2.stop(force);
+    },
+    connections: () => sockets.size,
+    port: () => actualPort
   };
 }
 function jsonResponse(data, status = 200) {
@@ -3696,28 +4109,484 @@ function toErrorMessage(error) {
   return String(error);
 }
 
-// src/index.ts
-var DEFAULT_PORT = 18274;
-var DEFAULT_OPENCODE_PORT = 4096;
-async function checkPort(port) {
+// src/cli.ts
+import { stdin as input, stdout as output } from "process";
+import readline from "readline/promises";
+var DEFAULT_BRIDGE_PORT = 18274;
+function parseNumber(value, fallback) {
+  if (!value)
+    return fallback;
+  const parsed = Number(value);
+  return Number.isFinite(parsed) ? parsed : fallback;
+}
+function parseCli(argv, env) {
+  const args = argv.slice(2);
+  let subCommand = null;
+  let bridgePort = parseNumber(env.BROSKI_PORT, DEFAULT_BRIDGE_PORT);
+  let opencodeMode = "managed";
+  let opencodeUrl = env.OPENCODE_BASE_URL;
+  let opencodeHostname = env.BROSKI_OPENCODE_HOSTNAME ?? "127.0.0.1";
+  let opencodePort = parseNumber(env.BROSKI_OPENCODE_PORT, 0);
+  let verbose = env.BROSKI_VERBOSE === "1";
+  let help = false;
+  let enableFunnel2 = env.BROSKI_ENABLE_FUNNEL === "1";
+  const firstArg = args[0];
+  if (firstArg === "doctor") {
+    subCommand = "doctor";
+  } else if (firstArg === "setup-tailscale") {
+    subCommand = "setup-tailscale";
+  } else if (firstArg === "serve" || !firstArg?.startsWith("-")) {
+    subCommand = "serve";
+  }
+  for (let i = 0;i < args.length; i++) {
+    const arg = args[i];
+    if (arg === "doctor" || arg === "setup-tailscale" || arg === "serve") {
+      continue;
+    }
+    if (arg === "--help" || arg === "-h") {
+      help = true;
+      continue;
+    }
+    if (arg === "--verbose" || arg === "-v") {
+      verbose = true;
+      continue;
+    }
+    if (arg === "--port" || arg === "--bridge-port") {
+      bridgePort = parseNumber(args[i + 1], bridgePort);
+      i++;
+      continue;
+    }
+    if (arg === "--opencode-url") {
+      opencodeUrl = args[i + 1];
+      i++;
+      continue;
+    }
+    if (arg === "--opencode-hostname") {
+      opencodeHostname = args[i + 1] ?? opencodeHostname;
+      i++;
+      continue;
+    }
+    if (arg === "--opencode-port") {
+      opencodePort = parseNumber(args[i + 1], opencodePort);
+      i++;
+      continue;
+    }
+    if (arg === "--attach") {
+      opencodeMode = "attach";
+      continue;
+    }
+    if (arg === "--manual") {
+      opencodeMode = "manual";
+      continue;
+    }
+    if (arg === "--managed") {
+      opencodeMode = "managed";
+      continue;
+    }
+    if (arg === "--funnel") {
+      enableFunnel2 = true;
+      continue;
+    }
+  }
+  if (opencodeUrl) {
+    opencodeMode = "manual";
+  }
+  return {
+    subCommand,
+    bridgePort,
+    opencodeMode,
+    opencodeUrl,
+    opencodeHostname,
+    opencodePort,
+    verbose,
+    help,
+    enableFunnel: enableFunnel2
+  };
+}
+function printHelp() {
+  console.log(`
+Usage:
+  broski-bridge [command] [options]
+
+Commands:
+  (default)         Start the bridge server
+  doctor            Check system requirements and diagnose issues
+  setup-tailscale   Install and configure Tailscale for remote access
+
+Options:
+  --help, -h                Show help
+  --verbose, -v             Verbose logging (SDK events + debug)
+  --port, --bridge-port N   Bridge WebSocket port (default: 18274; use 0 for random free port)
+  --funnel                  Enable Tailscale Funnel for public HTTPS access (no VPN needed on phone)
+
+OpenCode:
+  --managed                 Force managed mode (default)
+  --manual                  Force manual/attach mode (requires --opencode-url or OPENCODE_BASE_URL)
+  --opencode-url URL        Attach to an existing OpenCode server (power users)
+  --attach                  Scan common ports and interactively choose a running OpenCode server
+  --opencode-hostname HOST  Hostname for managed OpenCode server (default: 127.0.0.1)
+  --opencode-port N         Port for managed OpenCode server (default: 0 for random)
+
+Examples:
+  broski-bridge                  Start the bridge
+  broski-bridge doctor           Check if everything is set up correctly
+  broski-bridge setup-tailscale  Set up Tailscale for remote access
+  broski-bridge --verbose        Start with debug logging
+`.trim());
+}
+async function promptForChoice(prompt, choices) {
+  if (choices.length === 0)
+    return null;
+  const rl = readline.createInterface({ input, output });
   try {
-    const response = await fetch(`http://localhost:${port}/project`, { signal: AbortSignal.timeout(500) });
-    return response.ok;
-  } catch {
-    return false;
+    console.log(prompt);
+    for (let i = 0;i < choices.length; i++) {
+      console.log(`  ${i + 1}) ${choices[i]}`);
+    }
+    const answer = (await rl.question(`Select 1-${choices.length} (or press Enter to cancel): `)).trim();
+    if (!answer)
+      return null;
+    const idx = Number(answer);
+    if (!Number.isFinite(idx) || idx < 1 || idx > choices.length)
+      return null;
+    return idx - 1;
+  } finally {
+    rl.close();
   }
 }
-async function discoverExistingOpencode() {
-  console.log("Scanning for existing OpenCode instances...");
-  const portsToScan = [
-    4096,
-    ...Array.from({ length: 30 }, (_, i) => 64864 + i)
-  ];
+
+// src/doctor.ts
+var {$: $3 } = globalThis.Bun;
+var TAILSCALE_CLI2 = process.platform === "darwin" ? "/Applications/Tailscale.app/Contents/MacOS/Tailscale" : "tailscale";
+var GREEN = "\x1B[32m";
+var YELLOW = "\x1B[33m";
+var RED = "\x1B[31m";
+var CYAN = "\x1B[36m";
+var BOLD = "\x1B[1m";
+var NC = "\x1B[0m";
+function printResult(result) {
+  const icon = result.status === "ok" ? `${GREEN}\u2713${NC}` : result.status === "warning" ? `${YELLOW}!${NC}` : `${RED}\u2717${NC}`;
+  console.log(`  ${icon} ${result.message}`);
+  if (result.fix) {
+    console.log(`    ${CYAN}Fix:${NC} ${result.fix}`);
+  }
+}
+async function checkBun() {
+  try {
+    const result = await $3`bun --version`.quiet();
+    const version = result.text().trim();
+    return {
+      name: "bun",
+      status: "ok",
+      message: `Bun v${version}`
+    };
+  } catch {
+    return {
+      name: "bun",
+      status: "error",
+      message: "Bun not found",
+      fix: "curl -fsSL https://bun.sh/install | bash"
+    };
+  }
+}
+async function checkOpenCode() {
+  try {
+    const result = await $3`opencode --version`.quiet();
+    const version = result.text().trim();
+    return {
+      name: "opencode",
+      status: "ok",
+      message: `OpenCode ${version}`
+    };
+  } catch {
+    return {
+      name: "opencode",
+      status: "error",
+      message: "OpenCode not found",
+      fix: "bun install -g opencode"
+    };
+  }
+}
+async function checkLocalNetwork() {
+  const ip = getLocalIP();
+  if (ip) {
+    return {
+      name: "local_ip",
+      status: "ok",
+      message: `Local IP: ${ip}`
+    };
+  }
+  return {
+    name: "local_ip",
+    status: "warning",
+    message: "Could not detect local IP",
+    fix: "Check your network connection"
+  };
+}
+async function checkTailscale() {
+  const results = [];
+  const appExists = await Bun.file("/Applications/Tailscale.app/Contents/Info.plist").exists();
+  if (!appExists) {
+    results.push({
+      name: "tailscale_installed",
+      status: "warning",
+      message: "Tailscale not installed",
+      fix: "Install from App Store or run: broski setup-tailscale"
+    });
+    return results;
+  }
+  results.push({
+    name: "tailscale_installed",
+    status: "ok",
+    message: "Tailscale installed"
+  });
+  const connected = await isTailscaleConnected();
+  if (!connected) {
+    results.push({
+      name: "tailscale_connected",
+      status: "warning",
+      message: "Tailscale not connected",
+      fix: "Click the Tailscale icon in your menu bar to connect"
+    });
+    return results;
+  }
+  results.push({
+    name: "tailscale_connected",
+    status: "ok",
+    message: "Tailscale running"
+  });
+  const ip = await getTailscaleIP();
+  if (ip) {
+    results.push({
+      name: "tailscale_ip",
+      status: "ok",
+      message: `Tailscale IP: ${ip}`
+    });
+  }
+  return results;
+}
+async function checkPort(port) {
+  try {
+    const result = await $3`lsof -nP -iTCP:${port} -sTCP:LISTEN`.quiet();
+    const output2 = result.text().trim();
+    if (output2) {
+      return {
+        name: "port",
+        status: "warning",
+        message: `Port ${port} is in use`,
+        fix: `lsof -nP -iTCP:${port} -sTCP:LISTEN | awk 'NR>1 {print $2}' | xargs kill`
+      };
+    }
+    return {
+      name: "port",
+      status: "ok",
+      message: `Port ${port} available`
+    };
+  } catch {
+    return {
+      name: "port",
+      status: "ok",
+      message: `Port ${port} available`
+    };
+  }
+}
+async function runDoctor() {
+  console.log(`
+${CYAN}\u2554\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2557
+\u2551                                                          \u2551
+\u2551   \uD83E\uDE7A Broski Doctor                                       \u2551
+\u2551                                                          \u2551
+\u255A\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u255D${NC}
+`);
+  const issues = [];
+  console.log(`${BOLD}DEPENDENCIES${NC}`);
+  console.log("\u2500".repeat(50));
+  const bunCheck = await checkBun();
+  printResult(bunCheck);
+  if (bunCheck.status !== "ok")
+    issues.push(bunCheck);
+  const opencodeCheck = await checkOpenCode();
+  printResult(opencodeCheck);
+  if (opencodeCheck.status !== "ok")
+    issues.push(opencodeCheck);
+  console.log("");
+  console.log(`${BOLD}NETWORK${NC}`);
+  console.log("\u2500".repeat(50));
+  const localCheck = await checkLocalNetwork();
+  printResult(localCheck);
+  if (localCheck.status !== "ok")
+    issues.push(localCheck);
+  const portCheck = await checkPort(18274);
+  printResult(portCheck);
+  if (portCheck.status !== "ok")
+    issues.push(portCheck);
+  const tailscaleChecks = await checkTailscale();
+  for (const check of tailscaleChecks) {
+    printResult(check);
+    if (check.status !== "ok")
+      issues.push(check);
+  }
+  console.log("");
+  console.log("\u2500".repeat(50));
+  if (issues.length === 0) {
+    console.log(`${GREEN}${BOLD}\u2713 All checks passed!${NC}`);
+    console.log("");
+    console.log("Run `broski-bridge` to start.");
+  } else {
+    const errors = issues.filter((i) => i.status === "error");
+    const warnings = issues.filter((i) => i.status === "warning");
+    if (errors.length > 0) {
+      console.log(`${RED}${BOLD}\u2717 ${errors.length} error(s) found${NC}`);
+    }
+    if (warnings.length > 0) {
+      console.log(`${YELLOW}${BOLD}! ${warnings.length} warning(s) found${NC}`);
+    }
+    console.log("");
+    console.log("Fix the issues above, then run `broski-bridge`.");
+  }
+  console.log("");
+}
+if (false) {}
+
+// src/setup-tailscale.ts
+var {$: $4 } = globalThis.Bun;
+import { stdin as input2, stdout as output2 } from "process";
+import readline2 from "readline/promises";
+var TAILSCALE_CLI3 = process.platform === "darwin" ? "/Applications/Tailscale.app/Contents/MacOS/Tailscale" : "tailscale";
+var TAILSCALE_MAC_APPSTORE = "macappstore://apps.apple.com/app/tailscale/id1475387142";
+var TAILSCALE_IOS_URL = "https://apps.apple.com/app/tailscale/id1470499037";
+var TAILSCALE_ANDROID_URL = "https://play.google.com/store/apps/details?id=com.tailscale.ipn";
+var GREEN2 = "\x1B[32m";
+var YELLOW2 = "\x1B[33m";
+var CYAN2 = "\x1B[36m";
+var BOLD2 = "\x1B[1m";
+var NC2 = "\x1B[0m";
+async function waitForEnter(prompt) {
+  const rl = readline2.createInterface({ input: input2, output: output2 });
+  try {
+    await rl.question(`  ${prompt}`);
+  } finally {
+    rl.close();
+  }
+}
+async function isTailscaleInstalled() {
+  return Bun.file("/Applications/Tailscale.app/Contents/Info.plist").exists();
+}
+async function sleep(ms) {
+  return new Promise((resolve2) => setTimeout(resolve2, ms));
+}
+async function runSetupTailscale() {
+  console.log(`
+${CYAN2}\u2554\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2557
+\u2551                                                          \u2551
+\u2551   \uD83D\uDD12 Tailscale Setup                                     \u2551
+\u2551                                                          \u2551
+\u2551   Tailscale lets you connect to your Mac from anywhere.  \u2551
+\u2551   It's free for personal use and takes 2 minutes.        \u2551
+\u2551                                                          \u2551
+\u255A\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u255D${NC2}
+`);
+  const installed = await isTailscaleInstalled();
+  if (!installed) {
+    console.log(`${BOLD2}Step 1: Install Tailscale${NC2}`);
+    console.log("\u2500".repeat(50));
+    console.log("");
+    console.log("  Opening App Store...");
+    await $4`open ${TAILSCALE_MAC_APPSTORE}`.quiet();
+    console.log("");
+    console.log("  Install Tailscale from the App Store.");
+    await waitForEnter("Press ENTER when installed...");
+    const nowInstalled = await isTailscaleInstalled();
+    if (!nowInstalled) {
+      console.log("");
+      console.log(`${YELLOW2}!${NC2} Tailscale not detected yet.`);
+      console.log("  You can run this command again after installing.");
+      return;
+    }
+    console.log(`${GREEN2}\u2713${NC2} Tailscale installed!`);
+    console.log("");
+  } else {
+    console.log(`${GREEN2}\u2713${NC2} Tailscale is already installed`);
+    console.log("");
+  }
+  const connected = await isTailscaleConnected();
+  if (!connected) {
+    console.log(`${BOLD2}Step 2: Connect to Tailscale${NC2}`);
+    console.log("\u2500".repeat(50));
+    console.log("");
+    console.log("  Opening Tailscale...");
+    await $4`open -a Tailscale`.quiet();
+    console.log("");
+    console.log("  Click the Tailscale icon in your menu bar (top-right).");
+    console.log("  Log in with Google, Microsoft, GitHub, or email.");
+    console.log("");
+    console.log("  Waiting for connection...");
+    let attempts = 0;
+    const maxAttempts = 60;
+    while (!await isTailscaleConnected()) {
+      await sleep(5000);
+      attempts++;
+      if (attempts >= maxAttempts) {
+        console.log("");
+        console.log(`${YELLOW2}!${NC2} Timeout waiting for connection.`);
+        console.log("  Connect via the menu bar, then run broski-bridge.");
+        return;
+      }
+      process.stdout.write(`\r  Waiting... (${attempts * 5}s)    `);
+    }
+    console.log("");
+  }
+  const ip = await getTailscaleIP();
+  console.log("");
+  console.log(`${GREEN2}\u2713${NC2} Connected to Tailscale!`);
+  if (ip) {
+    console.log(`  Your Tailscale IP: ${CYAN2}${ip}${NC2}`);
+  }
+  console.log("");
+  console.log(`${BOLD2}Step 3: Set up your phone${NC2}`);
+  console.log("\u2500".repeat(50));
+  console.log("");
+  console.log("  Install Tailscale on your phone:");
+  console.log("");
+  console.log(`  \u2022 iPhone:  ${TAILSCALE_IOS_URL}`);
+  console.log(`  \u2022 Android: ${TAILSCALE_ANDROID_URL}`);
+  console.log("");
+  console.log(`  ${YELLOW2}Important:${NC2} Log in with the SAME account you used on your Mac.`);
+  console.log("");
+  console.log("\u2500".repeat(50));
+  console.log("");
+  console.log(`${GREEN2}${BOLD2}All done!${NC2}`);
+  console.log("");
+  console.log("Run `broski-bridge` to start coding from your phone.");
+  console.log("");
+}
+if (false) {}
+
+// src/index.ts
+async function sleep2(ms) {
+  await new Promise((resolve2) => setTimeout(resolve2, ms));
+}
+async function waitForOpencodeReady(url, timeoutMs) {
+  const deadline = Date.now() + timeoutMs;
+  while (Date.now() < deadline) {
+    try {
+      const res = await fetch(`${url}/path`, { signal: AbortSignal.timeout(750) });
+      if (res.ok)
+        return true;
+    } catch {}
+    await sleep2(150);
+  }
+  return false;
+}
+async function discoverRunningOpencodeInstances(portsToScan, verbose) {
+  if (verbose) {
+    console.log("Scanning for running OpenCode instances...");
+  }
   const instances = [];
   const checks = portsToScan.map(async (port) => {
     try {
       const url = `http://localhost:${port}`;
-      const response = await fetch(`${url}/project`, { signal: AbortSignal.timeout(200) });
+      const response = await fetch(`${url}/project`, { signal: AbortSignal.timeout(750) });
       if (response.ok) {
         const projects = await response.json();
         let lastActivity = 0;
@@ -3738,82 +4607,36 @@ async function discoverExistingOpencode() {
       instances.push(result);
     }
   }
-  if (instances.length === 0) {
-    console.log("  No existing OpenCode instances found");
-    return null;
-  }
   instances.sort((a, b) => b.lastActivity - a.lastActivity);
-  console.log(`  Found ${instances.length} OpenCode instance(s):`);
-  for (const inst of instances) {
-    const ago = inst.lastActivity > 0 ? `${Math.round((Date.now() - inst.lastActivity) / 1000 / 60)}m ago` : "unknown";
-    console.log(`    - Port ${inst.port}: ${inst.projects.length} projects, last active ${ago}`);
-  }
-  const best = instances[0];
-  console.log(`  \u2713 Using existing OpenCode on port ${best.port}`);
-  return best.url;
-}
-async function ensureOpencodeServer() {
-  if (process.env.OPENCODE_BASE_URL) {
-    console.log(`Using OPENCODE_BASE_URL: ${process.env.OPENCODE_BASE_URL}`);
-    return {
-      url: process.env.OPENCODE_BASE_URL,
-      managed: false
-    };
-  }
-  const defaultPortRunning = await checkPort(DEFAULT_OPENCODE_PORT);
-  if (defaultPortRunning) {
-    const url = `http://localhost:${DEFAULT_OPENCODE_PORT}`;
-    console.log(`Found existing OpenCode on port ${DEFAULT_OPENCODE_PORT}`);
-    console.log("  (Bridge will connect to this instance, but will NOT stop it on shutdown)");
-    console.log("  (To manage OpenCode lifecycle with bridge, stop the existing instance)");
-    return {
-      url,
-      managed: false
-    };
-  }
-  const discoveredUrl = await discoverExistingOpencode();
-  if (discoveredUrl) {
-    console.log("  (Bridge will connect to this instance, but will NOT stop it on shutdown)");
-    console.log("  (To manage OpenCode lifecycle with bridge, stop the existing instance)");
-    return {
-      url: discoveredUrl,
-      managed: false
-    };
-  }
-  console.log("No existing OpenCode found. Spawning managed server...");
-  try {
-    const server2 = await createOpencodeServer({
-      port: DEFAULT_OPENCODE_PORT,
-      timeout: 1e4
-    });
-    console.log(`\u2713 Managed OpenCode server started on port ${DEFAULT_OPENCODE_PORT}`);
-    console.log("  (Bridge will manage this server lifecycle - will stop on shutdown)");
-    return {
-      url: server2.url,
-      close: async () => {
-        try {
-          await server2.close();
-          console.log("  Managed OpenCode server stopped");
-        } catch (error) {
-          console.error("  Error stopping managed OpenCode server:", error);
-        }
-      }
-    };
-  } catch (error) {
-    console.error("Failed to spawn managed OpenCode server:", error);
-    console.log("  Falling back to connecting to default port...");
-    console.log("  Please ensure OpenCode is installed and available");
-    return {
-      url: `http://localhost:${DEFAULT_OPENCODE_PORT}`,
-      managed: false
-    };
-  }
+  return instances;
 }
 var opencodeServer = null;
 var bridgeServer = null;
+var eventStreamController = null;
+var healthTimer = null;
+var opencodeConnector = null;
+var restartInFlight = false;
+var managedHostname = "127.0.0.1";
+var managedPort = 0;
+var verboseMode = false;
+var funnelPort = null;
 async function shutdown(signal) {
   console.log(`
 ${signal} received. Shutting down...`);
+  if (healthTimer) {
+    clearInterval(healthTimer);
+    healthTimer = null;
+  }
+  if (eventStreamController) {
+    console.log("Stopping OpenCode event stream...");
+    eventStreamController.abort();
+    eventStreamController = null;
+  }
+  if (funnelPort !== null) {
+    console.log("Disabling Tailscale Funnel...");
+    await disableFunnel(funnelPort);
+    funnelPort = null;
+  }
   if (bridgeServer) {
     console.log("Stopping bridge server...");
     bridgeServer.stop(true);
@@ -3829,49 +4652,275 @@ ${signal} received. Shutting down...`);
   console.log("Shutdown complete. Goodbye!");
   process.exit(0);
 }
-async function main() {
-  const packageJson = await Bun.file(new URL("../package.json", import.meta.url)).json();
-  const version = packageJson.version ?? "0.1.0";
-  displayBanner();
-  const port = Number(process.env.BROSKI_PORT ?? DEFAULT_PORT);
-  opencodeServer = await ensureOpencodeServer();
-  const opencode = new OpenCodeConnector({ baseUrl: opencodeServer.url });
-  console.log(`Using OpenCode at: ${opencodeServer.url}`);
-  const opencodeRunning = await opencode.isRunning();
-  if (!opencodeRunning) {
-    console.log("\u26A0\uFE0F  Warning: OpenCode is not responding. You may need to:");
-    console.log("  1. Install OpenCode: npm i -g @anthropic-ai/opencode");
-    console.log("  2. Start it manually: opencode serve");
-    console.log("  3. Or let the bridge manage it (ensure no existing instances running)");
+async function restartManagedOpenCode() {
+  if (restartInFlight)
+    return false;
+  if (!opencodeServer || !("close" in opencodeServer))
+    return false;
+  if (!opencodeConnector)
+    return false;
+  restartInFlight = true;
+  try {
+    console.log("Restarting managed OpenCode...");
+    if (eventStreamController) {
+      eventStreamController.abort();
+      eventStreamController = null;
+    }
+    try {
+      await opencodeServer.close();
+    } catch {}
+    const bootstrap = await bootstrapManagedOpenCode(managedHostname, managedPort, verboseMode);
+    opencodeServer = bootstrap.server;
+    opencodeConnector.updateBaseUrl(opencodeServer.url);
+    eventStreamController = await opencodeConnector.startEventStream((event) => {
+      if (verboseMode) {
+        console.log("[SDK Event]", JSON.stringify(event));
+      }
+      bridgeServer?.enqueueSdkEvent(event);
+    });
+    bridgeServer?.broadcast({ type: "status", data: { opencodeRunning: true } });
+    console.log("\u2713 OpenCode restarted");
+    return true;
+  } catch (error) {
+    console.error("Failed to restart OpenCode:", error);
+    bridgeServer?.broadcast({ type: "status", data: { opencodeRunning: false } });
+    return false;
+  } finally {
+    restartInFlight = false;
+  }
+}
+async function bootstrapManagedOpenCode(hostname, port, verbose) {
+  console.log("Starting OpenCode (managed)...");
+  try {
+    const { client: client3, server: server2 } = await createOpencode({
+      hostname,
+      port,
+      timeout: 1e4
+    });
+    const ready = await waitForOpencodeReady(server2.url, 1e4);
+    if (!ready) {
+      try {
+        server2.close();
+      } catch {}
+      throw new Error(`OpenCode started but did not become ready at ${server2.url}`);
+    }
+    if (verbose) {
+      console.log(`\u2713 OpenCode ready at ${server2.url}`);
+    } else {
+      console.log("\u2713 OpenCode ready");
+    }
+    return {
+      client: client3,
+      server: {
+        url: server2.url,
+        close: async () => {
+          try {
+            server2.close();
+            console.log("  Managed OpenCode server stopped");
+          } catch (error) {
+            console.error("  Error stopping managed OpenCode server:", error);
+          }
+        }
+      }
+    };
+  } catch (error) {
+    console.error("Failed to start managed OpenCode server:", error);
+    console.log("  Ensure OpenCode is installed and on PATH (e.g. `bun install -g opencode`)");
+    throw error;
+  }
+}
+async function bootstrapManualOpenCode(url) {
+  console.log(`Attaching to OpenCode (manual): ${url}`);
+  const ready = await waitForOpencodeReady(url, 5000);
+  if (!ready) {
+    console.log("\u26A0\uFE0F  OpenCode is not responding at the provided URL.");
   } else {
     console.log("\u2713 OpenCode is responding");
   }
+  return {
+    server: { url, managed: false }
+  };
+}
+function defaultAttachPorts() {
+  const ports = [4096];
+  for (let i = 0;i < 256; i++)
+    ports.push(64864 + i);
+  for (let i = 0;i < 256; i++)
+    ports.push(49152 + i);
+  return ports;
+}
+async function bootstrapAttachOpenCode(verbose) {
+  const instances = await discoverRunningOpencodeInstances(defaultAttachPorts(), verbose);
+  if (instances.length === 0) {
+    console.log("No running OpenCode servers found.");
+    console.log("  Start one: `opencode serve`");
+    console.log("  Or attach explicitly: `broski-bridge --opencode-url http://127.0.0.1:4096`");
+    throw new Error("No running OpenCode servers found");
+  }
+  if (instances.length === 1) {
+    const inst2 = instances[0];
+    console.log(`\u2713 Found OpenCode at ${inst2.url}`);
+    return { server: { url: inst2.url, managed: false } };
+  }
+  const choices = instances.map((inst2) => {
+    const ago = inst2.lastActivity > 0 ? `${Math.round((Date.now() - inst2.lastActivity) / 1000 / 60)}m ago` : "unknown";
+    return `${inst2.url} (${inst2.projects.length} projects, last active ${ago})`;
+  });
+  const selected = await promptForChoice("Multiple OpenCode servers detected:", choices);
+  if (selected == null) {
+    throw new Error("Attach cancelled");
+  }
+  const inst = instances[selected];
+  console.log(`\u2713 Using OpenCode at ${inst.url}`);
+  return { server: { url: inst.url, managed: false } };
+}
+async function main() {
+  const cli = parseCli(process.argv, process.env);
+  if (cli.help) {
+    printHelp();
+    return;
+  }
+  if (cli.subCommand === "doctor") {
+    await runDoctor();
+    return;
+  }
+  if (cli.subCommand === "setup-tailscale") {
+    await runSetupTailscale();
+    return;
+  }
+  process.on("SIGINT", () => void shutdown("SIGINT"));
+  process.on("SIGTERM", () => void shutdown("SIGTERM"));
+  process.on("SIGTSTP", () => void shutdown("SIGTSTP"));
+  verboseMode = cli.verbose;
+  managedHostname = cli.opencodeHostname;
+  managedPort = cli.opencodePort;
+  const packageJson = await Bun.file(new URL("../package.json", import.meta.url)).json();
+  const version = packageJson.version ?? "0.1.0";
+  displayBanner();
+  const port = cli.bridgePort;
+  let bootstrap;
+  if (cli.opencodeMode === "manual") {
+    if (!cli.opencodeUrl) {
+      console.log("Manual mode requires --opencode-url or OPENCODE_BASE_URL");
+      printHelp();
+      return;
+    }
+    bootstrap = await bootstrapManualOpenCode(cli.opencodeUrl);
+  } else if (cli.opencodeMode === "attach") {
+    bootstrap = await bootstrapAttachOpenCode(cli.verbose);
+  } else {
+    bootstrap = await bootstrapManagedOpenCode(cli.opencodeHostname, cli.opencodePort, cli.verbose);
+  }
+  opencodeServer = bootstrap.server;
+  const opencode = new OpenCodeConnector({
+    baseUrl: opencodeServer.url,
+    client: bootstrap.client
+  });
+  opencodeConnector = opencode;
   const localIP = getLocalIP();
   const tailscaleIP = await getTailscaleIP();
+  const magicDNS = await getTailscaleMagicDNS();
   const tailscaleConnected = await isTailscaleConnected();
   if (!tailscaleConnected) {
     console.log("\u2139\uFE0F  Tailscale not connected. Local network access only.");
+    if (cli.enableFunnel) {
+      console.log("\u26A0\uFE0F  --funnel requires Tailscale. Skipping Funnel setup.");
+    }
   }
-  bridgeServer = createBridgeServer({
-    port,
-    opencode,
-    version,
-    logger: (message) => console.log(message)
+  try {
+    bridgeServer = createBridgeServer({
+      port,
+      opencode,
+      version,
+      restartOpenCode: restartManagedOpenCode,
+      logger: (message) => console.log(message)
+    });
+  } catch (error) {
+    if (error?.code === "EADDRINUSE") {
+      console.error(`
+\u274C Bridge port ${port} is already in use.`);
+      console.error("This usually means another broski-bridge process is still running.");
+      console.error("If you stopped it with Ctrl+Z, it was suspended (not terminated) and will keep the port open.");
+      console.error("Fix options:");
+      console.error("  - If it is a suspended job: return to that terminal, run `fg`, then press Ctrl+C.");
+      console.error(`  - Or find and stop the process holding the port:`);
+      console.error(`      lsof -nP -iTCP:${port} -sTCP:LISTEN`);
+      console.error(`      kill <PID>`);
+      console.error(`  - Dev fallback: run the bridge on a different port: --port 0 (random free port)
+`);
+      try {
+        const proc = Bun.spawnSync({
+          cmd: ["lsof", "-nP", `-iTCP:${port}`, "-sTCP:LISTEN"],
+          stdout: "pipe",
+          stderr: "pipe"
+        });
+        const out = (proc.stdout?.toString() ?? "").trim();
+        if (out) {
+          console.error("Port owner:");
+          console.error(out);
+          console.error("");
+        }
+      } catch {}
+    } else {
+      console.error(`
+\u274C Failed to start bridge server:`, error);
+    }
+    if (opencodeServer && "close" in opencodeServer) {
+      try {
+        await opencodeServer.close();
+      } catch {}
+    }
+    process.exit(1);
+  }
+  const bridgePort = bridgeServer.port();
+  let funnelURL = null;
+  if (cli.enableFunnel && tailscaleConnected) {
+    console.log("Enabling Tailscale Funnel...");
+    const result = await enableFunnel(bridgePort);
+    if (result.success && result.url) {
+      funnelURL = result.url;
+      funnelPort = bridgePort;
+      console.log(`\u2713 Funnel enabled: ${funnelURL}`);
+    } else {
+      console.log(`\u26A0\uFE0F  Funnel setup failed: ${result.error ?? "unknown error"}`);
+    }
+  }
+  eventStreamController = await opencode.startEventStream((event) => {
+    if (cli.verbose) {
+      console.log("[SDK Event]", JSON.stringify(event));
+    }
+    bridgeServer?.enqueueSdkEvent(event);
   });
-  await opencode.startEventStream((event) => {
-    console.log("[SDK Event]", JSON.stringify(event, null, 2));
-    bridgeServer?.broadcast({ type: "sdk_event", data: event });
-  });
+  if (opencodeServer && "close" in opencodeServer) {
+    healthTimer = setInterval(() => {
+      (async () => {
+        if (!opencodeConnector)
+          return;
+        if (restartInFlight)
+          return;
+        const ok = await opencodeConnector.isRunning();
+        if (!ok) {
+          bridgeServer?.broadcast({ type: "status", data: { opencodeRunning: false } });
+          await restartManagedOpenCode();
+        }
+      })();
+    }, 5000);
+  }
   displayQRCode({
     localIP,
     tailscaleIP,
-    port,
+    magicDNS,
+    funnelURL,
+    port: bridgePort,
     version
   });
   console.log(`
-\u2713 Bridge listening on port ${port}`);
-  console.log("  Press Ctrl+C to shutdown (will stop managed OpenCode server if spawned)");
-  process.on("SIGINT", () => void shutdown("SIGINT"));
-  process.on("SIGTERM", () => void shutdown("SIGTERM"));
+\u2713 Bridge listening on port ${bridgePort}`);
+  console.log("  Press Ctrl+C to shutdown");
+  if (opencodeServer && "close" in opencodeServer) {
+    console.log("  (OpenCode is managed by the bridge and will stop on shutdown)");
+  } else {
+    console.log("  (OpenCode is external and will be left running)");
+  }
 }
 main();

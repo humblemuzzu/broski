@@ -297,6 +297,31 @@ class _BrowseScreenState extends ConsumerState<BrowseScreen>
     });
   }
 
+  /// Handle back navigation: file viewer → search → parent folder → exit
+  bool _handleBackNavigation() {
+    // First: close file viewer if open
+    if (_viewingFilePath != null) {
+      _closeFileViewer();
+      return true; // Handled, don't pop
+    }
+
+    // Second: close search if open
+    if (_showSearch) {
+      setState(() => _showSearch = false);
+      _clearSearch();
+      return true; // Handled, don't pop
+    }
+
+    // Third: go up if not at root
+    if (_path != '~') {
+      _goUp();
+      return true; // Handled, don't pop
+    }
+
+    // At root with no overlays - allow pop
+    return false;
+  }
+
   @override
   Widget build(BuildContext context) {
     final theme = OpenCodeTheme.of(context);
@@ -306,114 +331,130 @@ class _BrowseScreenState extends ConsumerState<BrowseScreen>
 
     // Show file viewer if viewing a file
     if (_viewingFilePath != null) {
-      return _FileViewerScreen(
-        filePath: _viewingFilePath!,
-        content: _viewingFileContent,
-        isLoading: _isLoadingFile,
-        onClose: _closeFileViewer,
+      return PopScope(
+        canPop: false,
+        onPopInvokedWithResult: (didPop, _) {
+          if (!didPop) {
+            _handleBackNavigation();
+          }
+        },
+        child: _FileViewerScreen(
+          filePath: _viewingFilePath!,
+          content: _viewingFileContent,
+          isLoading: _isLoadingFile,
+          onClose: _closeFileViewer,
+        ),
       );
     }
 
-    return Scaffold(
-      backgroundColor: theme.background,
-      appBar: AppBar(
+    return PopScope(
+      canPop: _path == '~' && !_showSearch,
+      onPopInvokedWithResult: (didPop, _) {
+        if (!didPop) {
+          _handleBackNavigation();
+        }
+      },
+      child: Scaffold(
         backgroundColor: theme.background,
-        elevation: 0,
-        leading: IconButton(
-          icon: Icon(Icons.arrow_back_rounded, color: theme.text),
-          onPressed: () {
-            if (_showSearch) {
-              setState(() => _showSearch = false);
-              _clearSearch();
-            } else {
-              Navigator.of(context).pop();
-            }
-          },
-        ),
-        title: _showSearch
-            ? _buildSearchBar(theme)
-            : GestureDetector(
-                onTap: _showPathBreadcrumb,
-                child: Text(
-                  _getDisplayPath(),
-                  style: TextStyle(
-                    fontSize: 16,
-                    color: theme.text,
-                    fontWeight: FontWeight.w600,
-                  ),
-                  overflow: TextOverflow.ellipsis,
-                ),
-              ),
-        actions: [
-          // Search type selector (when searching)
-          if (_showSearch)
-            PopupMenuButton<SearchType>(
-              icon: Icon(_getSearchTypeIcon(), color: theme.text),
-              color: theme.backgroundPanel,
-              onSelected: (type) {
-                setState(() => _searchType = type);
-                _performSearch();
-              },
-              itemBuilder: (context) => [
-                PopupMenuItem(
-                  value: SearchType.files,
-                  child: _SearchTypeItem(
-                    icon: Icons.description_outlined,
-                    label: 'Files',
-                    isSelected: _searchType == SearchType.files,
-                  ),
-                ),
-                PopupMenuItem(
-                  value: SearchType.text,
-                  child: _SearchTypeItem(
-                    icon: Icons.text_fields,
-                    label: 'Text',
-                    isSelected: _searchType == SearchType.text,
-                  ),
-                ),
-                PopupMenuItem(
-                  value: SearchType.symbols,
-                  child: _SearchTypeItem(
-                    icon: Icons.code,
-                    label: 'Symbols',
-                    isSelected: _searchType == SearchType.symbols,
-                  ),
-                ),
-              ],
-            ),
-          // Search button (when not searching)
-          if (!_showSearch)
-            IconButton(
-              icon: Icon(Icons.search, color: theme.text),
-              onPressed: () => setState(() => _showSearch = true),
-            ),
-          if (!_showSearch && selectedProjectPath != null)
-            IconButton(
-              tooltip: 'Current project',
-              icon: Icon(Icons.folder_open_rounded, color: theme.text),
-              onPressed: () {
-                _lastSeenProjectPath = selectedProjectPath;
-                _setPath(
-                  selectedProjectPath,
-                  persist: false,
-                  userInitiated: false,
-                );
-              },
-            ),
-          // Connection indicator
-          Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 8),
-            child: ConnectionIndicator(
-              status: connection.status,
-              opencodeRunning: connection.opencodeRunning,
-              isReconnecting: connection.isReconnecting,
-              rttMs: connection.rttMs,
-              compact: true,
-            ),
+        appBar: AppBar(
+          backgroundColor: theme.background,
+          elevation: 0,
+          leading: IconButton(
+            icon: Icon(Icons.arrow_back_rounded, color: theme.text),
+            onPressed: () {
+              final handled = _handleBackNavigation();
+              if (!handled) {
+                Navigator.of(context).pop();
+              }
+            },
           ),
-        ],
+          title: _showSearch
+              ? _buildSearchBar(theme)
+              : GestureDetector(
+                  onTap: _showPathBreadcrumb,
+                  child: Text(
+                    _getDisplayPath(),
+                    style: TextStyle(
+                      fontSize: 16,
+                      color: theme.text,
+                      fontWeight: FontWeight.w600,
+                    ),
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                ),
+          actions: [
+            // Search type selector (when searching)
+            if (_showSearch)
+              PopupMenuButton<SearchType>(
+                icon: Icon(_getSearchTypeIcon(), color: theme.text),
+                color: theme.backgroundPanel,
+                onSelected: (type) {
+                  setState(() => _searchType = type);
+                  _performSearch();
+                },
+                itemBuilder: (context) => [
+                  PopupMenuItem(
+                    value: SearchType.files,
+                    child: _SearchTypeItem(
+                      icon: Icons.description_outlined,
+                      label: 'Files',
+                      isSelected: _searchType == SearchType.files,
+                    ),
+                  ),
+                  PopupMenuItem(
+                    value: SearchType.text,
+                    child: _SearchTypeItem(
+                      icon: Icons.text_fields,
+                      label: 'Text',
+                      isSelected: _searchType == SearchType.text,
+                    ),
+                  ),
+                  PopupMenuItem(
+                    value: SearchType.symbols,
+                    child: _SearchTypeItem(
+                      icon: Icons.code,
+                      label: 'Symbols',
+                      isSelected: _searchType == SearchType.symbols,
+                    ),
+                  ),
+                ],
+              ),
+            // Search button (when not searching)
+            if (!_showSearch)
+              IconButton(
+                icon: Icon(Icons.search, color: theme.text),
+                onPressed: () => setState(() => _showSearch = true),
+              ),
+            if (!_showSearch && selectedProjectPath != null)
+              IconButton(
+                tooltip: 'Current project',
+                icon: Icon(Icons.folder_open_rounded, color: theme.text),
+                onPressed: () {
+                  _lastSeenProjectPath = selectedProjectPath;
+                  _setPath(
+                    selectedProjectPath,
+                    persist: false,
+                    userInitiated: false,
+                  );
+                },
+              ),
+            // Connection indicator
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 8),
+              child: ConnectionIndicator(
+                status: connection.status,
+                opencodeRunning: connection.opencodeRunning,
+                isReconnecting: connection.isReconnecting,
+                rttMs: connection.rttMs,
+                compact: true,
+              ),
+            ),
+          ],
+        ),
+        body: _showSearch
+            ? _buildSearchResults(theme)
+            : _buildFileBrowser(theme),
       ),
-      body: _showSearch ? _buildSearchResults(theme) : _buildFileBrowser(theme),
     );
   }
 
