@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import 'providers/theme_provider.dart';
 import 'screens/root_screen.dart';
+import 'services/notification_service.dart';
 import 'services/storage_service.dart';
 import 'theme/theme.dart';
 
@@ -25,6 +26,10 @@ void _prewarmCaches() {
       storage.getCachedProjects(),
       storage.getCachedSessions(),
     ]);
+
+    // Initialize notification service for background session alerts
+    await NotificationService.instance.initialize();
+    await NotificationService.instance.requestPermissions();
   });
 }
 

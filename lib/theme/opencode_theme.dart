@@ -9,7 +9,9 @@ import 'package:flutter/material.dart';
 /// - Core: primary, secondary, accent, error, warning, success, info
 /// - Text: text, textMuted, selectedListItemText
 /// - Background: background, backgroundPanel, backgroundElement, backgroundMenu
+/// - Extended BG: bgDeep, bgRaised, bgHover, bgActive, bgHighlight, bgOverlay, bgContrast
 /// - Border: border, borderActive, borderSubtle
+/// - Tool: toolThinking, toolEdit, toolRead, toolWrite, toolBash, toolSearch, toolTodo, toolSubtask
 /// - Diff: 12 tokens for diff viewer colors
 /// - Markdown: 14 tokens for markdown rendering
 /// - Syntax: 9 tokens for syntax highlighting
@@ -32,10 +34,27 @@ class OpenCodeTheme extends ThemeExtension<OpenCodeTheme> {
     required this.backgroundPanel,
     required this.backgroundElement,
     required this.backgroundMenu,
+    // Extended background scale (10 shades for better readability)
+    required this.bgDeep,
+    required this.bgRaised,
+    required this.bgHover,
+    required this.bgActive,
+    required this.bgHighlight,
+    required this.bgOverlay,
+    required this.bgContrast,
     // Border colors
     required this.border,
     required this.borderActive,
     required this.borderSubtle,
+    // Tool-specific accent colors (distinct per tool type)
+    required this.toolThinking,
+    required this.toolEdit,
+    required this.toolRead,
+    required this.toolWrite,
+    required this.toolBash,
+    required this.toolSearch,
+    required this.toolTodo,
+    required this.toolSubtask,
     // Diff colors
     required this.diffAdded,
     required this.diffRemoved,
@@ -131,6 +150,31 @@ class OpenCodeTheme extends ThemeExtension<OpenCodeTheme> {
   final Color backgroundMenu;
 
   // ═══════════════════════════════════════════════════════════════════════════
+  // Extended background scale (for better readability)
+  // ═══════════════════════════════════════════════════════════════════════════
+
+  /// Deepest background - modal overlays, deepest layer
+  final Color bgDeep;
+
+  /// Slightly raised from base - message area, content regions
+  final Color bgRaised;
+
+  /// Hover state background
+  final Color bgHover;
+
+  /// Active/pressed state background
+  final Color bgActive;
+
+  /// Selected/highlighted items background
+  final Color bgHighlight;
+
+  /// Tooltips, popovers background
+  final Color bgOverlay;
+
+  /// High contrast elements
+  final Color bgContrast;
+
+  // ═══════════════════════════════════════════════════════════════════════════
   // Border colors
   // ═══════════════════════════════════════════════════════════════════════════
 
@@ -142,6 +186,34 @@ class OpenCodeTheme extends ThemeExtension<OpenCodeTheme> {
 
   /// Subtle/divider borders
   final Color borderSubtle;
+
+  // ═══════════════════════════════════════════════════════════════════════════
+  // Tool-specific accent colors
+  // ═══════════════════════════════════════════════════════════════════════════
+
+  /// Thinking/reasoning - blue (cognitive, analytical)
+  final Color toolThinking;
+
+  /// Edit/patch operations - amber/orange (modification)
+  final Color toolEdit;
+
+  /// Read operations - cyan/teal (information retrieval)
+  final Color toolRead;
+
+  /// Write operations - green (creation)
+  final Color toolWrite;
+
+  /// Bash/shell commands - slate/steel (system)
+  final Color toolBash;
+
+  /// Search/glob operations - sky blue (discovery)
+  final Color toolSearch;
+
+  /// Todo items - coral/orange (task management)
+  final Color toolTodo;
+
+  /// Subtask/delegation - teal (delegated work)
+  final Color toolSubtask;
 
   // ═══════════════════════════════════════════════════════════════════════════
   // Diff colors
@@ -260,10 +332,27 @@ class OpenCodeTheme extends ThemeExtension<OpenCodeTheme> {
     Color? backgroundPanel,
     Color? backgroundElement,
     Color? backgroundMenu,
+    // Extended background scale
+    Color? bgDeep,
+    Color? bgRaised,
+    Color? bgHover,
+    Color? bgActive,
+    Color? bgHighlight,
+    Color? bgOverlay,
+    Color? bgContrast,
     // Border colors
     Color? border,
     Color? borderActive,
     Color? borderSubtle,
+    // Tool colors
+    Color? toolThinking,
+    Color? toolEdit,
+    Color? toolRead,
+    Color? toolWrite,
+    Color? toolBash,
+    Color? toolSearch,
+    Color? toolTodo,
+    Color? toolSubtask,
     // Diff colors
     Color? diffAdded,
     Color? diffRemoved,
@@ -318,9 +407,24 @@ class OpenCodeTheme extends ThemeExtension<OpenCodeTheme> {
       backgroundPanel: backgroundPanel ?? this.backgroundPanel,
       backgroundElement: backgroundElement ?? this.backgroundElement,
       backgroundMenu: backgroundMenu ?? this.backgroundMenu,
+      bgDeep: bgDeep ?? this.bgDeep,
+      bgRaised: bgRaised ?? this.bgRaised,
+      bgHover: bgHover ?? this.bgHover,
+      bgActive: bgActive ?? this.bgActive,
+      bgHighlight: bgHighlight ?? this.bgHighlight,
+      bgOverlay: bgOverlay ?? this.bgOverlay,
+      bgContrast: bgContrast ?? this.bgContrast,
       border: border ?? this.border,
       borderActive: borderActive ?? this.borderActive,
       borderSubtle: borderSubtle ?? this.borderSubtle,
+      toolThinking: toolThinking ?? this.toolThinking,
+      toolEdit: toolEdit ?? this.toolEdit,
+      toolRead: toolRead ?? this.toolRead,
+      toolWrite: toolWrite ?? this.toolWrite,
+      toolBash: toolBash ?? this.toolBash,
+      toolSearch: toolSearch ?? this.toolSearch,
+      toolTodo: toolTodo ?? this.toolTodo,
+      toolSubtask: toolSubtask ?? this.toolSubtask,
       diffAdded: diffAdded ?? this.diffAdded,
       diffRemoved: diffRemoved ?? this.diffRemoved,
       diffContext: diffContext ?? this.diffContext,
@@ -389,9 +493,24 @@ class OpenCodeTheme extends ThemeExtension<OpenCodeTheme> {
         t,
       )!,
       backgroundMenu: Color.lerp(backgroundMenu, other.backgroundMenu, t)!,
+      bgDeep: Color.lerp(bgDeep, other.bgDeep, t)!,
+      bgRaised: Color.lerp(bgRaised, other.bgRaised, t)!,
+      bgHover: Color.lerp(bgHover, other.bgHover, t)!,
+      bgActive: Color.lerp(bgActive, other.bgActive, t)!,
+      bgHighlight: Color.lerp(bgHighlight, other.bgHighlight, t)!,
+      bgOverlay: Color.lerp(bgOverlay, other.bgOverlay, t)!,
+      bgContrast: Color.lerp(bgContrast, other.bgContrast, t)!,
       border: Color.lerp(border, other.border, t)!,
       borderActive: Color.lerp(borderActive, other.borderActive, t)!,
       borderSubtle: Color.lerp(borderSubtle, other.borderSubtle, t)!,
+      toolThinking: Color.lerp(toolThinking, other.toolThinking, t)!,
+      toolEdit: Color.lerp(toolEdit, other.toolEdit, t)!,
+      toolRead: Color.lerp(toolRead, other.toolRead, t)!,
+      toolWrite: Color.lerp(toolWrite, other.toolWrite, t)!,
+      toolBash: Color.lerp(toolBash, other.toolBash, t)!,
+      toolSearch: Color.lerp(toolSearch, other.toolSearch, t)!,
+      toolTodo: Color.lerp(toolTodo, other.toolTodo, t)!,
+      toolSubtask: Color.lerp(toolSubtask, other.toolSubtask, t)!,
       diffAdded: Color.lerp(diffAdded, other.diffAdded, t)!,
       diffRemoved: Color.lerp(diffRemoved, other.diffRemoved, t)!,
       diffContext: Color.lerp(diffContext, other.diffContext, t)!,

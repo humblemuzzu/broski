@@ -11,6 +11,7 @@ class StorageService {
   static const _connectionKey = 'broski_connection';
   static const _disabledToolsKey = 'broski_disabled_tools';
   static const _lastBrowsePathKey = 'broski_last_browse_path';
+  static const _notificationsEnabledKey = 'broski_notifications_enabled';
 
   // Cache keys for offline mode
   static const _cachedProjectsKey = 'broski_cached_projects';
@@ -375,6 +376,25 @@ class StorageService {
       deletions: json['deletions'] as int? ?? 0,
       diff: json['diff'] as String?,
       partId: json['partId'] as String?,
+    );
+  }
+
+  // ============================================================
+  // Notification Settings
+  // ============================================================
+
+  /// Get notifications enabled setting (default: true)
+  Future<bool> getNotificationsEnabled() async {
+    final raw = await _storage.read(key: _notificationsEnabledKey);
+    if (raw == null) return true; // Default ON
+    return raw == 'true';
+  }
+
+  /// Set notifications enabled setting
+  Future<void> setNotificationsEnabled(bool enabled) async {
+    await _storage.write(
+      key: _notificationsEnabledKey,
+      value: enabled.toString(),
     );
   }
 }

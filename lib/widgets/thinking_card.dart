@@ -62,15 +62,20 @@ class _ThinkingCardState extends State<ThinkingCard>
     final isStreaming = message.isReasoningStreaming;
     final durationMs = message.reasoningDurationMs;
 
-    // Use secondary color for thinking - subtle and distinct from info (subtasks)
-    final thinkingColor = theme.secondary;
+    // Use dedicated toolThinking color for cognitive/reasoning displays
+    final thinkingColor = theme.toolThinking;
 
     return Container(
       margin: const EdgeInsets.symmetric(vertical: 6),
       decoration: BoxDecoration(
-        color: thinkingColor.withValues(alpha: 0.06),
+        color: thinkingColor.withValues(alpha: 0.08),
         borderRadius: BorderRadius.circular(10),
-        border: Border.all(color: thinkingColor.withValues(alpha: 0.15)),
+        border: Border.all(
+          color: isStreaming
+              ? thinkingColor.withValues(alpha: 0.4)
+              : thinkingColor.withValues(alpha: 0.2),
+          width: isStreaming ? 1.5 : 1.0,
+        ),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -246,7 +251,8 @@ class ThinkingChip extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final theme = OpenCodeTheme.of(context);
-    final thinkingColor = theme.secondary;
+    // Use dedicated toolThinking color
+    final thinkingColor = theme.toolThinking;
 
     return InkWell(
       onTap: onTap,

@@ -7,6 +7,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../models/message.dart';
 import '../models/project.dart';
 import '../models/session.dart';
+import '../services/notification_service.dart';
 import 'connection_provider.dart';
 import 'service_providers.dart';
 
@@ -28,6 +29,14 @@ final globalSessionStatusProvider =
       return notifier;
     });
 
+/// Tracks session activity for notifications (start time, last tool)
+class _SessionActivity {
+  final DateTime startedAt;
+  String? lastToolName;
+
+  _SessionActivity({required this.startedAt, this.lastToolName});
+}
+
 class GlobalSessionStatusNotifier
     extends StateNotifier<Map<String, SessionStatus>> {
   GlobalSessionStatusNotifier(this._ref) : super({}) {
@@ -37,8 +46,11 @@ class GlobalSessionStatusNotifier
   final Ref _ref;
   StreamSubscription<Map<String, dynamic>>? _subscription;
 
+  /// Tracks when sessions became busy and last tool used
+  final Map<String, _SessionActivity> _sessionActivity = {};
+
   void _init() {
-    // Listen to SDK events for session.status and session.idle events
+    // Listen to SDK events for session.status, session.idle, and tool events
     // These come through bridgeService.sdkEvents stream
     final bridge = _ref.read(bridgeServiceProvider);
     _subscription = bridge.sdkEvents.listen(_handleSdkEvent);
@@ -53,6 +65,8 @@ class GlobalSessionStatusNotifier
       _handleSessionStatus(payload);
     } else if (type == 'session.idle') {
       _handleSessionIdle(payload);
+    } else if (type == 'message.part.updated') {
+      _handleToolUpdate(payload);
     }
   }
 
@@ -63,6 +77,12 @@ class GlobalSessionStatusNotifier
 
     final statusData = properties['status'] as Map<String, dynamic>? ?? {};
     final status = SessionStatus.fromJson(statusData);
+
+    // Track when session becomes busy
+    final wasBusy = state[sessionId]?.isBusy ?? false;
+    if (!wasBusy && status.isBusy) {
+      _sessionActivity[sessionId] = _SessionActivity(startedAt: DateTime.now());
+    }
 
     if (kDebugMode) {
       developer.log(
@@ -75,20 +95,91 @@ class GlobalSessionStatusNotifier
     state = {...state, sessionId: status};
   }
 
+  void _handleToolUpdate(Map<String, dynamic> payload) {
+    final properties = payload['properties'] as Map<String, dynamic>? ?? {};
+    final sessionId =
+        properties['sessionID'] as String? ??
+        (properties['info'] as Map<String, dynamic>?)?['sessionID']
+            as String? ??
+        '';
+    if (sessionId.isEmpty) return;
+
+    // Extract tool name from the part
+    final part = properties['part'] as Map<String, dynamic>?;
+    final toolName = part?['tool'] as String?;
+
+    if (toolName != null && _sessionActivity.containsKey(sessionId)) {
+      _sessionActivity[sessionId]!.lastToolName = toolName;
+    }
+  }
+
   void _handleSessionIdle(Map<String, dynamic> payload) {
     final properties = payload['properties'] as Map<String, dynamic>? ?? {};
     final sessionId = properties['sessionID'] as String? ?? '';
     if (sessionId.isEmpty) return;
 
+    // Check if session was busy before (for notification)
+    final previousStatus = state[sessionId];
+    final wasBusy =
+        previousStatus != null &&
+        (previousStatus.isBusy || previousStatus.isRetry);
+
+    // Get activity info before clearing
+    final activity = _sessionActivity[sessionId];
+    final duration = activity != null
+        ? DateTime.now().difference(activity.startedAt)
+        : null;
+    final lastTool = activity?.lastToolName;
+
+    // Clear activity tracking
+    _sessionActivity.remove(sessionId);
+
     if (kDebugMode) {
       developer.log(
-        'Global session idle: $sessionId',
+        'Global session idle: $sessionId (was busy: $wasBusy, duration: ${duration?.inSeconds}s, lastTool: $lastTool)',
         name: 'GlobalSessionStatus',
       );
     }
 
     // Set session to idle
     state = {...state, sessionId: const SessionStatus.idle()};
+
+    // Show notification if session was busy and is now idle
+    if (wasBusy) {
+      _showCompletionNotification(
+        sessionId,
+        duration: duration,
+        lastTool: lastTool,
+      );
+    }
+  }
+
+  /// Show notification when a session completes
+  void _showCompletionNotification(
+    String sessionId, {
+    Duration? duration,
+    String? lastTool,
+  }) {
+    // Get session info from cache if available
+    _ref.read(storageServiceProvider).getCachedSessions().then((sessions) {
+      final session = sessions.where((s) => s.id == sessionId).firstOrNull;
+      final title = session?.title ?? 'Session';
+      final project = session?.directory.split('/').last ?? 'Project';
+
+      // Get summary stats
+      final additions = session?.summary?.additions;
+      final deletions = session?.summary?.deletions;
+
+      NotificationService.instance.showSessionCompleted(
+        sessionId: sessionId,
+        title: title,
+        projectName: project,
+        duration: duration,
+        lastTool: lastTool,
+        additions: additions,
+        deletions: deletions,
+      );
+    });
   }
 
   /// Fetch initial statuses for all sessions from bridge

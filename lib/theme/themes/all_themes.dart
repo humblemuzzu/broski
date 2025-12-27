@@ -36,7 +36,7 @@ const opencodeLightTheme = OpenCodeTheme(
   // Core colors - adjusted for light mode visibility
   primary: Color(0xFFD97706), // Warm amber/orange - visible on light bg
   secondary: Color(0xFF2563EB), // Blue - links, accents
-  accent: Color(0xFF7C3AED), // Purple - special highlights
+  accent: Color(0xFF0D9488), // Teal - special highlights (no purple)
   error: Color(0xFFDC2626), // Red - refined, not too harsh
   warning: Color(0xFFD97706), // Amber - warnings
   success: Color(0xFF059669), // Green - success states
@@ -50,10 +50,27 @@ const opencodeLightTheme = OpenCodeTheme(
   backgroundPanel: Color(0xFFFFFFFF), // Pure white for cards
   backgroundElement: Color(0xFFF5F5F4), // Slightly darker for inputs
   backgroundMenu: Color(0xFFFFFFFF), // White for menus
+  // Extended background scale for light theme
+  bgDeep: Color(0xFFFFFFFF), // Pure white - deepest layer
+  bgRaised: Color(0xFFFAFAF9), // Off-white - raised content
+  bgHover: Color(0xFFF5F5F4), // Hover state
+  bgActive: Color(0xFFE5E5E5), // Active/pressed
+  bgHighlight: Color(0xFFFEF3C7), // Amber highlight
+  bgOverlay: Color(0xFFFFFFFF), // Overlays
+  bgContrast: Color(0xFFE5E5E5), // High contrast
   // Border colors - subtle grays
   border: Color(0xFFE5E5E5), // Light gray
   borderActive: Color(0xFFD97706), // Amber when active
   borderSubtle: Color(0xFFF0F0F0), // Very subtle
+  // Tool-specific colors for light theme (readable, professional)
+  toolThinking: Color(0xFF2563EB), // Blue - cognitive
+  toolEdit: Color(0xFFD97706), // Amber - modification
+  toolRead: Color(0xFF0891B2), // Cyan - reading
+  toolWrite: Color(0xFF059669), // Green - creation
+  toolBash: Color(0xFF475569), // Slate - terminal
+  toolSearch: Color(0xFF0284C7), // Sky blue - search
+  toolTodo: Color(0xFFEA580C), // Orange - tasks
+  toolSubtask: Color(0xFF0D9488), // Teal - subtasks
   // Diff colors - proper light theme diff colors
   diffAdded: Color(0xFF166534), // Dark green text
   diffRemoved: Color(0xFFB91C1C), // Dark red text
@@ -69,7 +86,7 @@ const opencodeLightTheme = OpenCodeTheme(
   diffRemovedLineNumberBg: Color(0xFFFECACA), // Light red
   // Markdown colors - readable on light background
   markdownText: Color(0xFF1C1C1E),
-  markdownHeading: Color(0xFF7C3AED), // Purple headings
+  markdownHeading: Color(0xFF0D9488), // Teal headings
   markdownLink: Color(0xFF2563EB), // Blue links
   markdownLinkText: Color(0xFF0891B2), // Cyan link text
   markdownCode: Color(0xFF059669), // Green code
@@ -84,7 +101,7 @@ const opencodeLightTheme = OpenCodeTheme(
   markdownCodeBlock: Color(0xFF1C1C1E), // Dark text in code blocks
   // Syntax highlighting - designed for light backgrounds
   syntaxComment: Color(0xFF6B7280), // Gray comments
-  syntaxKeyword: Color(0xFF7C3AED), // Purple keywords
+  syntaxKeyword: Color(0xFF0D9488), // Teal keywords
   syntaxFunction: Color(0xFF2563EB), // Blue functions
   syntaxVariable: Color(0xFFDC2626), // Red variables
   syntaxString: Color(0xFF059669), // Green strings
@@ -100,7 +117,7 @@ const opencodeLightTheme = OpenCodeTheme(
 const opencodeDarkTheme = OpenCodeTheme(
   primary: Color(0xFFfab283),
   secondary: Color(0xFF5c9cf5),
-  accent: Color(0xFF9d7cd8),
+  accent: Color(0xFF56b6c2), // Teal instead of purple
   error: Color(0xFFe06c75),
   warning: Color(0xFFf5a742),
   success: Color(0xFF7fd88f),
@@ -112,9 +129,26 @@ const opencodeDarkTheme = OpenCodeTheme(
   backgroundPanel: Color(0xFF141414),
   backgroundElement: Color(0xFF1e1e1e),
   backgroundMenu: Color(0xFF1e1e1e),
+  // Extended background scale (10 shades for better readability)
+  bgDeep: Color(0xFF050505), // Deepest
+  bgRaised: Color(0xFF0f0f0f), // Slightly raised
+  bgHover: Color(0xFF1a1a1a), // Hover
+  bgActive: Color(0xFF242424), // Active
+  bgHighlight: Color(0xFF2a2a2a), // Highlight
+  bgOverlay: Color(0xFF303030), // Overlay
+  bgContrast: Color(0xFF383838), // High contrast
   border: Color(0xFF484848),
   borderActive: Color(0xFF606060),
   borderSubtle: Color(0xFF3c3c3c),
+  // Tool-specific colors (professional, readable - no purple/pink)
+  toolThinking: Color(0xFF5c9cf5), // Blue - cognitive
+  toolEdit: Color(0xFFf5a742), // Amber - modification
+  toolRead: Color(0xFF56b6c2), // Cyan - reading
+  toolWrite: Color(0xFF7fd88f), // Green - creation
+  toolBash: Color(0xFF94a3b8), // Slate - terminal
+  toolSearch: Color(0xFF38bdf8), // Sky blue - search
+  toolTodo: Color(0xFFfb923c), // Orange - tasks
+  toolSubtask: Color(0xFF2dd4bf), // Teal - subtasks
   diffAdded: Color(0xFF4fd6be),
   diffRemoved: Color(0xFFc53b53),
   diffContext: Color(0xFF828bb8),
@@ -128,7 +162,7 @@ const opencodeDarkTheme = OpenCodeTheme(
   diffAddedLineNumberBg: Color(0xFF1b2b34),
   diffRemovedLineNumberBg: Color(0xFF2d1f26),
   markdownText: Color(0xFFeeeeee),
-  markdownHeading: Color(0xFF9d7cd8),
+  markdownHeading: Color(0xFF56b6c2), // Teal headings
   markdownLink: Color(0xFFfab283),
   markdownLinkText: Color(0xFF56b6c2),
   markdownCode: Color(0xFF7fd88f),
@@ -142,7 +176,7 @@ const opencodeDarkTheme = OpenCodeTheme(
   markdownImageText: Color(0xFF56b6c2),
   markdownCodeBlock: Color(0xFFeeeeee),
   syntaxComment: Color(0xFF808080),
-  syntaxKeyword: Color(0xFF9d7cd8),
+  syntaxKeyword: Color(0xFF56b6c2), // Teal keywords
   syntaxFunction: Color(0xFFfab283),
   syntaxVariable: Color(0xFFe06c75),
   syntaxString: Color(0xFF7fd88f),
@@ -157,7 +191,7 @@ const opencodeDarkTheme = OpenCodeTheme(
 // ═══════════════════════════════════════════════════════════════════════════════
 const tokyonightDarkTheme = OpenCodeTheme(
   primary: Color(0xFF82aaff),
-  secondary: Color(0xFFc099ff),
+  secondary: Color(0xFF86e1fc),
   accent: Color(0xFFff966c),
   error: Color(0xFFff757f),
   warning: Color(0xFFff966c),
@@ -170,9 +204,24 @@ const tokyonightDarkTheme = OpenCodeTheme(
   backgroundPanel: Color(0xFF1e2030),
   backgroundElement: Color(0xFF222436),
   backgroundMenu: Color(0xFF222436),
+  bgDeep: Color(0xFF16161e),
+  bgRaised: Color(0xFF1a1b26),
+  bgHover: Color(0xFF1e2030),
+  bgActive: Color(0xFF282a3f),
+  bgHighlight: Color(0xFF2d3050),
+  bgOverlay: Color(0xFF32354a),
+  bgContrast: Color(0xFF3b3f5c),
   border: Color(0xFF737aa2),
   borderActive: Color(0xFF9099b2),
   borderSubtle: Color(0xFF545c7e),
+  toolThinking: Color(0xFF82aaff), // Blue
+  toolEdit: Color(0xFFff966c), // Orange
+  toolRead: Color(0xFF86e1fc), // Cyan
+  toolWrite: Color(0xFFc3e88d), // Green
+  toolBash: Color(0xFF828bb8), // Slate
+  toolSearch: Color(0xFF7dcfff), // Sky
+  toolTodo: Color(0xFFffc777), // Amber
+  toolSubtask: Color(0xFF4fd6be), // Teal
   diffAdded: Color(0xFF4fd6be),
   diffRemoved: Color(0xFFc53b53),
   diffContext: Color(0xFF828bb8),
@@ -186,7 +235,7 @@ const tokyonightDarkTheme = OpenCodeTheme(
   diffAddedLineNumberBg: Color(0xFF1b2b34),
   diffRemovedLineNumberBg: Color(0xFF2d1f26),
   markdownText: Color(0xFFc8d3f5),
-  markdownHeading: Color(0xFFc099ff),
+  markdownHeading: Color(0xFF82aaff),
   markdownLink: Color(0xFF82aaff),
   markdownLinkText: Color(0xFF86e1fc),
   markdownCode: Color(0xFFc3e88d),
@@ -200,7 +249,7 @@ const tokyonightDarkTheme = OpenCodeTheme(
   markdownImageText: Color(0xFF86e1fc),
   markdownCodeBlock: Color(0xFFc8d3f5),
   syntaxComment: Color(0xFF828bb8),
-  syntaxKeyword: Color(0xFFc099ff),
+  syntaxKeyword: Color(0xFF86e1fc),
   syntaxFunction: Color(0xFF82aaff),
   syntaxVariable: Color(0xFFff757f),
   syntaxString: Color(0xFFc3e88d),
@@ -214,8 +263,8 @@ const tokyonightDarkTheme = OpenCodeTheme(
 // DRACULA - Classic Purple
 // ═══════════════════════════════════════════════════════════════════════════════
 const draculaDarkTheme = OpenCodeTheme(
-  primary: Color(0xFFbd93f9),
-  secondary: Color(0xFFff79c6),
+  primary: Color(0xFF8be9fd),
+  secondary: Color(0xFF50fa7b),
   accent: Color(0xFF8be9fd),
   error: Color(0xFFff5555),
   warning: Color(0xFFf1fa8c),
@@ -228,9 +277,24 @@ const draculaDarkTheme = OpenCodeTheme(
   backgroundPanel: Color(0xFF21222c),
   backgroundElement: Color(0xFF44475a),
   backgroundMenu: Color(0xFF44475a),
+  bgDeep: Color(0xFF1e1f29),
+  bgRaised: Color(0xFF282a36),
+  bgHover: Color(0xFF2d303f),
+  bgActive: Color(0xFF363949),
+  bgHighlight: Color(0xFF3d4050),
+  bgOverlay: Color(0xFF44475a),
+  bgContrast: Color(0xFF4d5066),
   border: Color(0xFF44475a),
-  borderActive: Color(0xFFbd93f9),
+  borderActive: Color(0xFF8be9fd),
   borderSubtle: Color(0xFF191a21),
+  toolThinking: Color(0xFF8be9fd), // Cyan
+  toolEdit: Color(0xFFffb86c), // Orange
+  toolRead: Color(0xFF8be9fd), // Cyan
+  toolWrite: Color(0xFF50fa7b), // Green
+  toolBash: Color(0xFF6272a4), // Slate
+  toolSearch: Color(0xFF8be9fd), // Cyan
+  toolTodo: Color(0xFFf1fa8c), // Yellow
+  toolSubtask: Color(0xFF50fa7b), // Green
   diffAdded: Color(0xFF50fa7b),
   diffRemoved: Color(0xFFff5555),
   diffContext: Color(0xFF6272a4),
@@ -244,27 +308,27 @@ const draculaDarkTheme = OpenCodeTheme(
   diffAddedLineNumberBg: Color(0xFF1a3a1a),
   diffRemovedLineNumberBg: Color(0xFF3a1a1a),
   markdownText: Color(0xFFf8f8f2),
-  markdownHeading: Color(0xFFbd93f9),
+  markdownHeading: Color(0xFF8be9fd),
   markdownLink: Color(0xFF8be9fd),
-  markdownLinkText: Color(0xFFff79c6),
+  markdownLinkText: Color(0xFF50fa7b),
   markdownCode: Color(0xFF50fa7b),
   markdownBlockQuote: Color(0xFF6272a4),
   markdownEmph: Color(0xFFf1fa8c),
   markdownStrong: Color(0xFFffb86c),
   markdownHorizontalRule: Color(0xFF6272a4),
-  markdownListItem: Color(0xFFbd93f9),
+  markdownListItem: Color(0xFF8be9fd),
   markdownListEnumeration: Color(0xFF8be9fd),
   markdownImage: Color(0xFF8be9fd),
-  markdownImageText: Color(0xFFff79c6),
+  markdownImageText: Color(0xFF50fa7b),
   markdownCodeBlock: Color(0xFFf8f8f2),
   syntaxComment: Color(0xFF6272a4),
-  syntaxKeyword: Color(0xFFff79c6),
+  syntaxKeyword: Color(0xFF8be9fd),
   syntaxFunction: Color(0xFF50fa7b),
   syntaxVariable: Color(0xFFf8f8f2),
   syntaxString: Color(0xFFf1fa8c),
-  syntaxNumber: Color(0xFFbd93f9),
+  syntaxNumber: Color(0xFFffb86c),
   syntaxType: Color(0xFF8be9fd),
-  syntaxOperator: Color(0xFFff79c6),
+  syntaxOperator: Color(0xFF8be9fd),
   syntaxPunctuation: Color(0xFFf8f8f2),
 );
 
@@ -273,8 +337,8 @@ const draculaDarkTheme = OpenCodeTheme(
 // ═══════════════════════════════════════════════════════════════════════════════
 const catppuccinDarkTheme = OpenCodeTheme(
   primary: Color(0xFF89b4fa),
-  secondary: Color(0xFFcba6f7),
-  accent: Color(0xFFf5c2e7),
+  secondary: Color(0xFF89dceb),
+  accent: Color(0xFF94e2d5),
   error: Color(0xFFf38ba8),
   warning: Color(0xFFf9e2af),
   success: Color(0xFFa6e3a1),
@@ -286,9 +350,24 @@ const catppuccinDarkTheme = OpenCodeTheme(
   backgroundPanel: Color(0xFF181825),
   backgroundElement: Color(0xFF11111b),
   backgroundMenu: Color(0xFF11111b),
+  bgDeep: Color(0xFF0c0c14),
+  bgRaised: Color(0xFF1e1e2e),
+  bgHover: Color(0xFF24243a),
+  bgActive: Color(0xFF2a2a42),
+  bgHighlight: Color(0xFF313244),
+  bgOverlay: Color(0xFF363850),
+  bgContrast: Color(0xFF45475a),
   border: Color(0xFF313244),
   borderActive: Color(0xFF45475a),
   borderSubtle: Color(0xFF585b70),
+  toolThinking: Color(0xFF89b4fa), // Blue
+  toolEdit: Color(0xFFfab387), // Peach/Orange
+  toolRead: Color(0xFF89dceb), // Sky
+  toolWrite: Color(0xFFa6e3a1), // Green
+  toolBash: Color(0xFF9399b2), // Overlay
+  toolSearch: Color(0xFF74c7ec), // Sapphire
+  toolTodo: Color(0xFFf9e2af), // Yellow
+  toolSubtask: Color(0xFF94e2d5), // Teal
   diffAdded: Color(0xFFa6e3a1),
   diffRemoved: Color(0xFFf38ba8),
   diffContext: Color(0xFF9399b2),
@@ -302,7 +381,7 @@ const catppuccinDarkTheme = OpenCodeTheme(
   diffAddedLineNumberBg: Color(0xFF1e2a25),
   diffRemovedLineNumberBg: Color(0xFF32232a),
   markdownText: Color(0xFFcdd6f4),
-  markdownHeading: Color(0xFFcba6f7),
+  markdownHeading: Color(0xFF89b4fa),
   markdownLink: Color(0xFF89b4fa),
   markdownLinkText: Color(0xFF89dceb),
   markdownCode: Color(0xFFa6e3a1),
@@ -316,7 +395,7 @@ const catppuccinDarkTheme = OpenCodeTheme(
   markdownImageText: Color(0xFF89dceb),
   markdownCodeBlock: Color(0xFFcdd6f4),
   syntaxComment: Color(0xFF9399b2),
-  syntaxKeyword: Color(0xFFcba6f7),
+  syntaxKeyword: Color(0xFF89dceb),
   syntaxFunction: Color(0xFF89b4fa),
   syntaxVariable: Color(0xFFf38ba8),
   syntaxString: Color(0xFFa6e3a1),
@@ -344,9 +423,24 @@ const nordDarkTheme = OpenCodeTheme(
   backgroundPanel: Color(0xFF3B4252),
   backgroundElement: Color(0xFF434C5E),
   backgroundMenu: Color(0xFF434C5E),
+  bgDeep: Color(0xFF242933),
+  bgRaised: Color(0xFF2E3440),
+  bgHover: Color(0xFF353c4a),
+  bgActive: Color(0xFF3B4252),
+  bgHighlight: Color(0xFF434C5E),
+  bgOverlay: Color(0xFF4C566A),
+  bgContrast: Color(0xFF5E6779),
   border: Color(0xFF434C5E),
   borderActive: Color(0xFF4C566A),
   borderSubtle: Color(0xFF434C5E),
+  toolThinking: Color(0xFF81A1C1), // Blue
+  toolEdit: Color(0xFFD08770), // Orange
+  toolRead: Color(0xFF88C0D0), // Frost
+  toolWrite: Color(0xFFA3BE8C), // Green
+  toolBash: Color(0xFF8B95A7), // Gray
+  toolSearch: Color(0xFF5E81AC), // Blue darker
+  toolTodo: Color(0xFFEBCB8B), // Yellow
+  toolSubtask: Color(0xFF8FBCBB), // Teal
   diffAdded: Color(0xFFA3BE8C),
   diffRemoved: Color(0xFFBF616A),
   diffContext: Color(0xFF8B95A7),
@@ -378,7 +472,7 @@ const nordDarkTheme = OpenCodeTheme(
   syntaxFunction: Color(0xFF88C0D0),
   syntaxVariable: Color(0xFF8FBCBB),
   syntaxString: Color(0xFFA3BE8C),
-  syntaxNumber: Color(0xFFB48EAD),
+  syntaxNumber: Color(0xFFD08770),
   syntaxType: Color(0xFF8FBCBB),
   syntaxOperator: Color(0xFF81A1C1),
   syntaxPunctuation: Color(0xFFD8DEE9),
@@ -389,7 +483,7 @@ const nordDarkTheme = OpenCodeTheme(
 // ═══════════════════════════════════════════════════════════════════════════════
 const gruvboxDarkTheme = OpenCodeTheme(
   primary: Color(0xFF83a598),
-  secondary: Color(0xFFd3869b),
+  secondary: Color(0xFF8ec07c),
   accent: Color(0xFF8ec07c),
   error: Color(0xFFfb4934),
   warning: Color(0xFFfe8019),
@@ -402,9 +496,24 @@ const gruvboxDarkTheme = OpenCodeTheme(
   backgroundPanel: Color(0xFF3c3836),
   backgroundElement: Color(0xFF504945),
   backgroundMenu: Color(0xFF504945),
+  bgDeep: Color(0xFF1d2021),
+  bgRaised: Color(0xFF282828),
+  bgHover: Color(0xFF32302f),
+  bgActive: Color(0xFF3c3836),
+  bgHighlight: Color(0xFF504945),
+  bgOverlay: Color(0xFF665c54),
+  bgContrast: Color(0xFF7c6f64),
   border: Color(0xFF665c54),
   borderActive: Color(0xFFebdbb2),
   borderSubtle: Color(0xFF504945),
+  toolThinking: Color(0xFF83a598), // Aqua
+  toolEdit: Color(0xFFfe8019), // Orange
+  toolRead: Color(0xFF83a598), // Aqua
+  toolWrite: Color(0xFFb8bb26), // Green
+  toolBash: Color(0xFF928374), // Gray
+  toolSearch: Color(0xFF458588), // Blue
+  toolTodo: Color(0xFFfabd2f), // Yellow
+  toolSubtask: Color(0xFF8ec07c), // Aqua light
   diffAdded: Color(0xFF98971a),
   diffRemoved: Color(0xFFcc241d),
   diffContext: Color(0xFF928374),
@@ -423,7 +532,7 @@ const gruvboxDarkTheme = OpenCodeTheme(
   markdownLinkText: Color(0xFFb8bb26),
   markdownCode: Color(0xFFfabd2f),
   markdownBlockQuote: Color(0xFF928374),
-  markdownEmph: Color(0xFFd3869b),
+  markdownEmph: Color(0xFFfe8019),
   markdownStrong: Color(0xFFfe8019),
   markdownHorizontalRule: Color(0xFF928374),
   markdownListItem: Color(0xFF83a598),
@@ -432,11 +541,11 @@ const gruvboxDarkTheme = OpenCodeTheme(
   markdownImageText: Color(0xFFb8bb26),
   markdownCodeBlock: Color(0xFFebdbb2),
   syntaxComment: Color(0xFF928374),
-  syntaxKeyword: Color(0xFFfb4934),
+  syntaxKeyword: Color(0xFF83a598),
   syntaxFunction: Color(0xFFb8bb26),
   syntaxVariable: Color(0xFF83a598),
   syntaxString: Color(0xFFfabd2f),
-  syntaxNumber: Color(0xFFd3869b),
+  syntaxNumber: Color(0xFFfe8019),
   syntaxType: Color(0xFF8ec07c),
   syntaxOperator: Color(0xFFfe8019),
   syntaxPunctuation: Color(0xFFebdbb2),
@@ -446,13 +555,13 @@ const gruvboxDarkTheme = OpenCodeTheme(
 // AURA - Vibrant Purple
 // ═══════════════════════════════════════════════════════════════════════════════
 const auraDarkTheme = OpenCodeTheme(
-  primary: Color(0xFFa277ff),
-  secondary: Color(0xFFf694ff),
-  accent: Color(0xFFa277ff),
+  primary: Color(0xFF61ffca), // Teal instead of purple
+  secondary: Color(0xFF82e0ff),
+  accent: Color(0xFF61ffca),
   error: Color(0xFFff6767),
   warning: Color(0xFFffca85),
   success: Color(0xFF61ffca),
-  info: Color(0xFFa277ff),
+  info: Color(0xFF82e0ff),
   text: Color(0xFFedecee),
   textMuted: Color(0xFF6d6d6d),
   selectedListItemText: Color(0xFF0f0f0f),
@@ -460,9 +569,24 @@ const auraDarkTheme = OpenCodeTheme(
   backgroundPanel: Color(0xFF15141b),
   backgroundElement: Color(0xFF15141b),
   backgroundMenu: Color(0xFF15141b),
+  bgDeep: Color(0xFF080808),
+  bgRaised: Color(0xFF0f0f0f),
+  bgHover: Color(0xFF181820),
+  bgActive: Color(0xFF1e1e28),
+  bgHighlight: Color(0xFF252530),
+  bgOverlay: Color(0xFF2d2d38),
+  bgContrast: Color(0xFF383840),
   border: Color(0xFF2d2d2d),
   borderActive: Color(0xFF6d6d6d),
   borderSubtle: Color(0xFF2d2d2d),
+  toolThinking: Color(0xFF82e0ff), // Blue
+  toolEdit: Color(0xFFffca85), // Amber
+  toolRead: Color(0xFF61ffca), // Teal
+  toolWrite: Color(0xFF9dff65), // Green
+  toolBash: Color(0xFF6d6d6d), // Gray
+  toolSearch: Color(0xFF82e0ff), // Sky
+  toolTodo: Color(0xFFffca85), // Orange
+  toolSubtask: Color(0xFF61ffca), // Teal
   diffAdded: Color(0xFF61ffca),
   diffRemoved: Color(0xFFff6767),
   diffContext: Color(0xFF6d6d6d),
@@ -476,27 +600,27 @@ const auraDarkTheme = OpenCodeTheme(
   diffAddedLineNumberBg: Color(0xFF162620),
   diffRemovedLineNumberBg: Color(0xFF26161a),
   markdownText: Color(0xFFedecee),
-  markdownHeading: Color(0xFFa277ff),
-  markdownLink: Color(0xFFf694ff),
-  markdownLinkText: Color(0xFFa277ff),
+  markdownHeading: Color(0xFF61ffca),
+  markdownLink: Color(0xFF82e0ff),
+  markdownLinkText: Color(0xFF61ffca),
   markdownCode: Color(0xFF61ffca),
   markdownBlockQuote: Color(0xFF6d6d6d),
   markdownEmph: Color(0xFFffca85),
-  markdownStrong: Color(0xFFa277ff),
+  markdownStrong: Color(0xFFffca85),
   markdownHorizontalRule: Color(0xFF6d6d6d),
-  markdownListItem: Color(0xFFa277ff),
-  markdownListEnumeration: Color(0xFFa277ff),
-  markdownImage: Color(0xFFf694ff),
-  markdownImageText: Color(0xFFa277ff),
+  markdownListItem: Color(0xFF61ffca),
+  markdownListEnumeration: Color(0xFF82e0ff),
+  markdownImage: Color(0xFF82e0ff),
+  markdownImageText: Color(0xFF61ffca),
   markdownCodeBlock: Color(0xFFedecee),
   syntaxComment: Color(0xFF6d6d6d),
-  syntaxKeyword: Color(0xFFf694ff),
-  syntaxFunction: Color(0xFFa277ff),
-  syntaxVariable: Color(0xFFa277ff),
+  syntaxKeyword: Color(0xFF82e0ff),
+  syntaxFunction: Color(0xFF61ffca),
+  syntaxVariable: Color(0xFF61ffca),
   syntaxString: Color(0xFF61ffca),
   syntaxNumber: Color(0xFF9dff65),
-  syntaxType: Color(0xFFa277ff),
-  syntaxOperator: Color(0xFFf694ff),
+  syntaxType: Color(0xFF82e0ff),
+  syntaxOperator: Color(0xFF82e0ff),
   syntaxPunctuation: Color(0xFFedecee),
 );
 
@@ -505,7 +629,7 @@ const auraDarkTheme = OpenCodeTheme(
 // ═══════════════════════════════════════════════════════════════════════════════
 const monokaiDarkTheme = OpenCodeTheme(
   primary: Color(0xFF66d9ef),
-  secondary: Color(0xFFae81ff),
+  secondary: Color(0xFFa6e22e),
   accent: Color(0xFFa6e22e),
   error: Color(0xFFf92672),
   warning: Color(0xFFe6db74),
@@ -518,9 +642,24 @@ const monokaiDarkTheme = OpenCodeTheme(
   backgroundPanel: Color(0xFF1e1f1c),
   backgroundElement: Color(0xFF3e3d32),
   backgroundMenu: Color(0xFF3e3d32),
+  bgDeep: Color(0xFF1a1b16),
+  bgRaised: Color(0xFF272822),
+  bgHover: Color(0xFF2f302a),
+  bgActive: Color(0xFF3e3d32),
+  bgHighlight: Color(0xFF49483e),
+  bgOverlay: Color(0xFF555449),
+  bgContrast: Color(0xFF626155),
   border: Color(0xFF3e3d32),
   borderActive: Color(0xFF66d9ef),
   borderSubtle: Color(0xFF1e1f1c),
+  toolThinking: Color(0xFF66d9ef), // Cyan
+  toolEdit: Color(0xFFfd971f), // Orange
+  toolRead: Color(0xFF66d9ef), // Cyan
+  toolWrite: Color(0xFFa6e22e), // Green
+  toolBash: Color(0xFF75715e), // Gray
+  toolSearch: Color(0xFF66d9ef), // Cyan
+  toolTodo: Color(0xFFe6db74), // Yellow
+  toolSubtask: Color(0xFFa6e22e), // Green
   diffAdded: Color(0xFFa6e22e),
   diffRemoved: Color(0xFFf92672),
   diffContext: Color(0xFF75715e),
@@ -534,27 +673,27 @@ const monokaiDarkTheme = OpenCodeTheme(
   diffAddedLineNumberBg: Color(0xFF1a3a1a),
   diffRemovedLineNumberBg: Color(0xFF3a1a1a),
   markdownText: Color(0xFFf8f8f2),
-  markdownHeading: Color(0xFFf92672),
+  markdownHeading: Color(0xFF66d9ef),
   markdownLink: Color(0xFF66d9ef),
-  markdownLinkText: Color(0xFFae81ff),
+  markdownLinkText: Color(0xFFa6e22e),
   markdownCode: Color(0xFFa6e22e),
   markdownBlockQuote: Color(0xFF75715e),
   markdownEmph: Color(0xFFe6db74),
   markdownStrong: Color(0xFFfd971f),
   markdownHorizontalRule: Color(0xFF75715e),
   markdownListItem: Color(0xFF66d9ef),
-  markdownListEnumeration: Color(0xFFae81ff),
+  markdownListEnumeration: Color(0xFFa6e22e),
   markdownImage: Color(0xFF66d9ef),
-  markdownImageText: Color(0xFFae81ff),
+  markdownImageText: Color(0xFFa6e22e),
   markdownCodeBlock: Color(0xFFf8f8f2),
   syntaxComment: Color(0xFF75715e),
-  syntaxKeyword: Color(0xFFf92672),
+  syntaxKeyword: Color(0xFF66d9ef),
   syntaxFunction: Color(0xFFa6e22e),
   syntaxVariable: Color(0xFFf8f8f2),
   syntaxString: Color(0xFFe6db74),
-  syntaxNumber: Color(0xFFae81ff),
+  syntaxNumber: Color(0xFFfd971f),
   syntaxType: Color(0xFF66d9ef),
-  syntaxOperator: Color(0xFFf92672),
+  syntaxOperator: Color(0xFF66d9ef),
   syntaxPunctuation: Color(0xFFf8f8f2),
 );
 
@@ -576,9 +715,24 @@ const flexokiDarkTheme = OpenCodeTheme(
   backgroundPanel: Color(0xFF1C1B1A),
   backgroundElement: Color(0xFF282726),
   backgroundMenu: Color(0xFF282726),
+  bgDeep: Color(0xFF080808),
+  bgRaised: Color(0xFF100F0F),
+  bgHover: Color(0xFF1C1B1A),
+  bgActive: Color(0xFF282726),
+  bgHighlight: Color(0xFF343331),
+  bgOverlay: Color(0xFF403E3C),
+  bgContrast: Color(0xFF575653),
   border: Color(0xFF575653),
   borderActive: Color(0xFF6F6E69),
   borderSubtle: Color(0xFF403E3C),
+  toolThinking: Color(0xFF4385BE), // Blue
+  toolEdit: Color(0xFFda702c), // Orange
+  toolRead: Color(0xFF3AA99F), // Teal
+  toolWrite: Color(0xFF879A39), // Green
+  toolBash: Color(0xFF6F6E69), // Gray
+  toolSearch: Color(0xFF4385BE), // Blue
+  toolTodo: Color(0xFFD0A215), // Yellow
+  toolSubtask: Color(0xFF3AA99F), // Teal
   diffAdded: Color(0xFF879A39),
   diffRemoved: Color(0xFFD14D41),
   diffContext: Color(0xFF6F6E69),
@@ -634,9 +788,24 @@ const oneDarkTheme = OpenCodeTheme(
   backgroundPanel: Color(0xFF21252b),
   backgroundElement: Color(0xFF2c313a),
   backgroundMenu: Color(0xFF2c313a),
+  bgDeep: Color(0xFF1b1d23),
+  bgRaised: Color(0xFF282c34),
+  bgHover: Color(0xFF2c313a),
+  bgActive: Color(0xFF3e4451),
+  bgHighlight: Color(0xFF4b5263),
+  bgOverlay: Color(0xFF5c6370),
+  bgContrast: Color(0xFF6b7280),
   border: Color(0xFF3e4451),
   borderActive: Color(0xFF61afef),
   borderSubtle: Color(0xFF2c313a),
+  toolThinking: Color(0xFF61afef), // Blue
+  toolEdit: Color(0xFFd19a66), // Orange
+  toolRead: Color(0xFF56b6c2), // Cyan
+  toolWrite: Color(0xFF98c379), // Green
+  toolBash: Color(0xFF5c6370), // Gray
+  toolSearch: Color(0xFF61afef), // Blue
+  toolTodo: Color(0xFFe5c07b), // Yellow
+  toolSubtask: Color(0xFF56b6c2), // Teal
   diffAdded: Color(0xFF98c379),
   diffRemoved: Color(0xFFe06c75),
   diffContext: Color(0xFF5c6370),
@@ -692,9 +861,24 @@ const solarizedDarkTheme = OpenCodeTheme(
   backgroundPanel: Color(0xFF073642),
   backgroundElement: Color(0xFF073642),
   backgroundMenu: Color(0xFF073642),
+  bgDeep: Color(0xFF001f27),
+  bgRaised: Color(0xFF002b36),
+  bgHover: Color(0xFF073642),
+  bgActive: Color(0xFF094150),
+  bgHighlight: Color(0xFF0b5260),
+  bgOverlay: Color(0xFF586e75),
+  bgContrast: Color(0xFF657b83),
   border: Color(0xFF586e75),
   borderActive: Color(0xFF268bd2),
   borderSubtle: Color(0xFF073642),
+  toolThinking: Color(0xFF268bd2), // Blue
+  toolEdit: Color(0xFFcb4b16), // Orange
+  toolRead: Color(0xFF2aa198), // Cyan
+  toolWrite: Color(0xFF859900), // Green
+  toolBash: Color(0xFF586e75), // Gray
+  toolSearch: Color(0xFF268bd2), // Blue
+  toolTodo: Color(0xFFb58900), // Yellow
+  toolSubtask: Color(0xFF2aa198), // Teal
   diffAdded: Color(0xFF859900),
   diffRemoved: Color(0xFFdc322f),
   diffContext: Color(0xFF586e75),
@@ -750,9 +934,24 @@ const githubDarkTheme = OpenCodeTheme(
   backgroundPanel: Color(0xFF161b22),
   backgroundElement: Color(0xFF21262d),
   backgroundMenu: Color(0xFF21262d),
+  bgDeep: Color(0xFF010409),
+  bgRaised: Color(0xFF0d1117),
+  bgHover: Color(0xFF161b22),
+  bgActive: Color(0xFF21262d),
+  bgHighlight: Color(0xFF30363d),
+  bgOverlay: Color(0xFF484f58),
+  bgContrast: Color(0xFF6e7681),
   border: Color(0xFF30363d),
   borderActive: Color(0xFF58a6ff),
   borderSubtle: Color(0xFF21262d),
+  toolThinking: Color(0xFF58a6ff), // Blue
+  toolEdit: Color(0xFFf0883e), // Orange
+  toolRead: Color(0xFF79c0ff), // Cyan
+  toolWrite: Color(0xFF3fb950), // Green
+  toolBash: Color(0xFF8b949e), // Gray
+  toolSearch: Color(0xFF58a6ff), // Blue
+  toolTodo: Color(0xFFd29922), // Yellow
+  toolSubtask: Color(0xFF39d353), // Teal/Green
   diffAdded: Color(0xFF3fb950),
   diffRemoved: Color(0xFFf85149),
   diffContext: Color(0xFF8b949e),
@@ -808,9 +1007,24 @@ const matrixDarkTheme = OpenCodeTheme(
   backgroundPanel: Color(0xFF0a0a0a),
   backgroundElement: Color(0xFF111111),
   backgroundMenu: Color(0xFF111111),
+  bgDeep: Color(0xFF000000),
+  bgRaised: Color(0xFF050505),
+  bgHover: Color(0xFF0a0a0a),
+  bgActive: Color(0xFF111111),
+  bgHighlight: Color(0xFF1a1a1a),
+  bgOverlay: Color(0xFF222222),
+  bgContrast: Color(0xFF2a2a2a),
   border: Color(0xFF003300),
   borderActive: Color(0xFF2eff6a),
   borderSubtle: Color(0xFF001a00),
+  toolThinking: Color(0xFF00ffff), // Cyan
+  toolEdit: Color(0xFFffff00), // Yellow
+  toolRead: Color(0xFF2eff6a), // Green
+  toolWrite: Color(0xFF00ff00), // Bright green
+  toolBash: Color(0xFF006600), // Dark green
+  toolSearch: Color(0xFF00ffff), // Cyan
+  toolTodo: Color(0xFFffff00), // Yellow
+  toolSubtask: Color(0xFF2eff6a), // Green
   diffAdded: Color(0xFF2eff6a),
   diffRemoved: Color(0xFFff3333),
   diffContext: Color(0xFF006600),
@@ -866,9 +1080,24 @@ const synthwave84DarkTheme = OpenCodeTheme(
   backgroundPanel: Color(0xFF241b2f),
   backgroundElement: Color(0xFF34294f),
   backgroundMenu: Color(0xFF34294f),
+  bgDeep: Color(0xFF1a1525),
+  bgRaised: Color(0xFF2a2139),
+  bgHover: Color(0xFF34294f),
+  bgActive: Color(0xFF3e3360),
+  bgHighlight: Color(0xFF495495),
+  bgOverlay: Color(0xFF5a60a0),
+  bgContrast: Color(0xFF6b70b0),
   border: Color(0xFF495495),
   borderActive: Color(0xFF36f9f6),
   borderSubtle: Color(0xFF34294f),
+  toolThinking: Color(0xFF36f9f6), // Cyan
+  toolEdit: Color(0xFFfede5d), // Yellow
+  toolRead: Color(0xFF36f9f6), // Cyan
+  toolWrite: Color(0xFF72f1b8), // Green
+  toolBash: Color(0xFF848bbd), // Muted
+  toolSearch: Color(0xFF36f9f6), // Cyan
+  toolTodo: Color(0xFFfede5d), // Yellow
+  toolSubtask: Color(0xFF72f1b8), // Mint
   diffAdded: Color(0xFF72f1b8),
   diffRemoved: Color(0xFFfe4450),
   diffContext: Color(0xFF848bbd),
@@ -924,9 +1153,24 @@ const vesperDarkTheme = OpenCodeTheme(
   backgroundPanel: Color(0xFF181818),
   backgroundElement: Color(0xFF232323),
   backgroundMenu: Color(0xFF232323),
+  bgDeep: Color(0xFF080808),
+  bgRaised: Color(0xFF101010),
+  bgHover: Color(0xFF181818),
+  bgActive: Color(0xFF232323),
+  bgHighlight: Color(0xFF2e2e2e),
+  bgOverlay: Color(0xFF333333),
+  bgContrast: Color(0xFF444444),
   border: Color(0xFF333333),
   borderActive: Color(0xFFFFC799),
   borderSubtle: Color(0xFF232323),
+  toolThinking: Color(0xFF99D0FF), // Blue
+  toolEdit: Color(0xFFFFC799), // Peach
+  toolRead: Color(0xFF99FFE4), // Teal
+  toolWrite: Color(0xFF99FFE4), // Mint
+  toolBash: Color(0xFF7B7B7B), // Gray
+  toolSearch: Color(0xFF99D0FF), // Blue
+  toolTodo: Color(0xFFFFD6B3), // Warm
+  toolSubtask: Color(0xFF99FFE4), // Teal
   diffAdded: Color(0xFF99FFE4),
   diffRemoved: Color(0xFFFF6F6F),
   diffContext: Color(0xFF7B7B7B),
@@ -982,9 +1226,24 @@ const rosepineDarkTheme = OpenCodeTheme(
   backgroundPanel: Color(0xFF1f1d2e),
   backgroundElement: Color(0xFF26233a),
   backgroundMenu: Color(0xFF26233a),
+  bgDeep: Color(0xFF11101a),
+  bgRaised: Color(0xFF191724),
+  bgHover: Color(0xFF1f1d2e),
+  bgActive: Color(0xFF26233a),
+  bgHighlight: Color(0xFF312e45),
+  bgOverlay: Color(0xFF403d52),
+  bgContrast: Color(0xFF524f67),
   border: Color(0xFF403d52),
   borderActive: Color(0xFF9ccfd8),
   borderSubtle: Color(0xFF26233a),
+  toolThinking: Color(0xFF9ccfd8), // Foam
+  toolEdit: Color(0xFFf6c177), // Gold
+  toolRead: Color(0xFF9ccfd8), // Foam
+  toolWrite: Color(0xFF31748f), // Pine
+  toolBash: Color(0xFF908caa), // Muted
+  toolSearch: Color(0xFF9ccfd8), // Foam
+  toolTodo: Color(0xFFf6c177), // Gold
+  toolSubtask: Color(0xFF31748f), // Pine
   diffAdded: Color(0xFF31748f),
   diffRemoved: Color(0xFFeb6f92),
   diffContext: Color(0xFF908caa),
@@ -1040,9 +1299,24 @@ const vercelDarkTheme = OpenCodeTheme(
   backgroundPanel: Color(0xFF111111),
   backgroundElement: Color(0xFF1a1a1a),
   backgroundMenu: Color(0xFF1a1a1a),
+  bgDeep: Color(0xFF000000),
+  bgRaised: Color(0xFF0a0a0a),
+  bgHover: Color(0xFF111111),
+  bgActive: Color(0xFF1a1a1a),
+  bgHighlight: Color(0xFF262626),
+  bgOverlay: Color(0xFF333333),
+  bgContrast: Color(0xFF444444),
   border: Color(0xFF333333),
   borderActive: Color(0xFF0070F3),
   borderSubtle: Color(0xFF222222),
+  toolThinking: Color(0xFF0070F3), // Blue
+  toolEdit: Color(0xFFF5A623), // Orange
+  toolRead: Color(0xFF00DFD8), // Cyan
+  toolWrite: Color(0xFF0070F3), // Blue
+  toolBash: Color(0xFF888888), // Gray
+  toolSearch: Color(0xFF0070F3), // Blue
+  toolTodo: Color(0xFFF5A623), // Orange
+  toolSubtask: Color(0xFF00DFD8), // Cyan
   diffAdded: Color(0xFF0070F3),
   diffRemoved: Color(0xFFEE0000),
   diffContext: Color(0xFF888888),
@@ -1098,9 +1372,24 @@ const cobalt2DarkTheme = OpenCodeTheme(
   backgroundPanel: Color(0xFF122738),
   backgroundElement: Color(0xFF1d3b53),
   backgroundMenu: Color(0xFF1d3b53),
+  bgDeep: Color(0xFF0a1f2e),
+  bgRaised: Color(0xFF193549),
+  bgHover: Color(0xFF1d3b53),
+  bgActive: Color(0xFF254a68),
+  bgHighlight: Color(0xFF2d5a7a),
+  bgOverlay: Color(0xFF356a8c),
+  bgContrast: Color(0xFF3d7a9e),
   border: Color(0xFF0d3a58),
   borderActive: Color(0xFF0088ff),
   borderSubtle: Color(0xFF0d3a58),
+  toolThinking: Color(0xFF0088ff), // Blue
+  toolEdit: Color(0xFFff9d00), // Orange
+  toolRead: Color(0xFF80ffbb), // Mint
+  toolWrite: Color(0xFF3ad900), // Green
+  toolBash: Color(0xFF0d3a58), // Dark
+  toolSearch: Color(0xFF0088ff), // Blue
+  toolTodo: Color(0xFFffc600), // Yellow
+  toolSubtask: Color(0xFF80ffbb), // Mint
   diffAdded: Color(0xFF3ad900),
   diffRemoved: Color(0xFFff628c),
   diffContext: Color(0xFF0d3a58),
@@ -1156,9 +1445,24 @@ const nightowlDarkTheme = OpenCodeTheme(
   backgroundPanel: Color(0xFF0b2942),
   backgroundElement: Color(0xFF0b2942),
   backgroundMenu: Color(0xFF0b2942),
+  bgDeep: Color(0xFF000d1a),
+  bgRaised: Color(0xFF011627),
+  bgHover: Color(0xFF0b2942),
+  bgActive: Color(0xFF1d3b53),
+  bgHighlight: Color(0xFF234d68),
+  bgOverlay: Color(0xFF2a5f7d),
+  bgContrast: Color(0xFF327192),
   border: Color(0xFF1d3b53),
   borderActive: Color(0xFF82AAFF),
   borderSubtle: Color(0xFF0b2942),
+  toolThinking: Color(0xFF82AAFF), // Blue
+  toolEdit: Color(0xFFf78c6c), // Orange
+  toolRead: Color(0xFF7fdbca), // Cyan
+  toolWrite: Color(0xFFc3e88d), // Green
+  toolBash: Color(0xFF637777), // Gray
+  toolSearch: Color(0xFF82AAFF), // Blue
+  toolTodo: Color(0xFFffcb6b), // Yellow
+  toolSubtask: Color(0xFF7fdbca), // Cyan
   diffAdded: Color(0xFFc3e88d),
   diffRemoved: Color(0xFFef5350),
   diffContext: Color(0xFF637777),
@@ -1214,9 +1518,24 @@ const palenightDarkTheme = OpenCodeTheme(
   backgroundPanel: Color(0xFF1b1e2b),
   backgroundElement: Color(0xFF32374d),
   backgroundMenu: Color(0xFF32374d),
+  bgDeep: Color(0xFF15171f),
+  bgRaised: Color(0xFF292d3e),
+  bgHover: Color(0xFF32374d),
+  bgActive: Color(0xFF3b4158),
+  bgHighlight: Color(0xFF444267),
+  bgOverlay: Color(0xFF545880),
+  bgContrast: Color(0xFF646999),
   border: Color(0xFF444267),
   borderActive: Color(0xFF82aaff),
   borderSubtle: Color(0xFF32374d),
+  toolThinking: Color(0xFF82aaff), // Blue
+  toolEdit: Color(0xFFf78c6c), // Orange
+  toolRead: Color(0xFF89ddff), // Cyan
+  toolWrite: Color(0xFFc3e88d), // Green
+  toolBash: Color(0xFF676e95), // Gray
+  toolSearch: Color(0xFF82aaff), // Blue
+  toolTodo: Color(0xFFffcb6b), // Yellow
+  toolSubtask: Color(0xFF89ddff), // Cyan
   diffAdded: Color(0xFFc3e88d),
   diffRemoved: Color(0xFFff5370),
   diffContext: Color(0xFF676e95),
@@ -1272,9 +1591,24 @@ const catppuccinFrappeDarkTheme = OpenCodeTheme(
   backgroundPanel: Color(0xFF292c3c),
   backgroundElement: Color(0xFF232634),
   backgroundMenu: Color(0xFF232634),
+  bgDeep: Color(0xFF1e2030),
+  bgRaised: Color(0xFF303446),
+  bgHover: Color(0xFF363a4f),
+  bgActive: Color(0xFF414559),
+  bgHighlight: Color(0xFF51576d),
+  bgOverlay: Color(0xFF626880),
+  bgContrast: Color(0xFF737994),
   border: Color(0xFF414559),
   borderActive: Color(0xFF51576d),
   borderSubtle: Color(0xFF626880),
+  toolThinking: Color(0xFF8da4e2), // Blue
+  toolEdit: Color(0xFFef9f76), // Orange/Peach
+  toolRead: Color(0xFF81c8be), // Teal
+  toolWrite: Color(0xFFa6d189), // Green
+  toolBash: Color(0xFF949cbb), // Overlay
+  toolSearch: Color(0xFF8da4e2), // Blue
+  toolTodo: Color(0xFFe5c890), // Yellow
+  toolSubtask: Color(0xFF81c8be), // Teal
   diffAdded: Color(0xFFa6d189),
   diffRemoved: Color(0xFFe78284),
   diffContext: Color(0xFF949cb8),
@@ -1330,9 +1664,24 @@ const catppuccinMacchiatoDarkTheme = OpenCodeTheme(
   backgroundPanel: Color(0xFF1e2030),
   backgroundElement: Color(0xFF181926),
   backgroundMenu: Color(0xFF181926),
+  bgDeep: Color(0xFF141620),
+  bgRaised: Color(0xFF24273a),
+  bgHover: Color(0xFF2a2d42),
+  bgActive: Color(0xFF363a4f),
+  bgHighlight: Color(0xFF494d64),
+  bgOverlay: Color(0xFF5b6078),
+  bgContrast: Color(0xFF6e738d),
   border: Color(0xFF363a4f),
   borderActive: Color(0xFF494d64),
   borderSubtle: Color(0xFF5b6078),
+  toolThinking: Color(0xFF8aadf4), // Blue
+  toolEdit: Color(0xFFf5a97f), // Peach
+  toolRead: Color(0xFF8bd5ca), // Teal
+  toolWrite: Color(0xFFa6da95), // Green
+  toolBash: Color(0xFF939ab7), // Overlay
+  toolSearch: Color(0xFF8aadf4), // Blue
+  toolTodo: Color(0xFFeed49f), // Yellow
+  toolSubtask: Color(0xFF8bd5ca), // Teal
   diffAdded: Color(0xFFa6da95),
   diffRemoved: Color(0xFFed8796),
   diffContext: Color(0xFF939ab7),
@@ -1388,9 +1737,24 @@ const materialDarkTheme = OpenCodeTheme(
   backgroundPanel: Color(0xFF1e272c),
   backgroundElement: Color(0xFF37474f),
   backgroundMenu: Color(0xFF37474f),
+  bgDeep: Color(0xFF151c20),
+  bgRaised: Color(0xFF263238),
+  bgHover: Color(0xFF2e3c42),
+  bgActive: Color(0xFF37474f),
+  bgHighlight: Color(0xFF455a64),
+  bgOverlay: Color(0xFF546e7a),
+  bgContrast: Color(0xFF607d8b),
   border: Color(0xFF37474f),
   borderActive: Color(0xFF82aaff),
   borderSubtle: Color(0xFF1e272c),
+  toolThinking: Color(0xFF82aaff), // Blue
+  toolEdit: Color(0xFFf78c6c), // Orange
+  toolRead: Color(0xFF89ddff), // Cyan
+  toolWrite: Color(0xFFc3e88d), // Green
+  toolBash: Color(0xFF546e7a), // Gray
+  toolSearch: Color(0xFF82aaff), // Blue
+  toolTodo: Color(0xFFffcb6b), // Yellow
+  toolSubtask: Color(0xFF89ddff), // Cyan
   diffAdded: Color(0xFFc3e88d),
   diffRemoved: Color(0xFFf07178),
   diffContext: Color(0xFF546e7a),
@@ -1446,9 +1810,24 @@ const everforestDarkTheme = OpenCodeTheme(
   backgroundPanel: Color(0xFF333c43),
   backgroundElement: Color(0xFF343f44),
   backgroundMenu: Color(0xFF343f44),
+  bgDeep: Color(0xFF232a2e),
+  bgRaised: Color(0xFF2d353b),
+  bgHover: Color(0xFF333c43),
+  bgActive: Color(0xFF3d484d),
+  bgHighlight: Color(0xFF475258),
+  bgOverlay: Color(0xFF515c62),
+  bgContrast: Color(0xFF5b666c),
   border: Color(0xFF859289),
   borderActive: Color(0xFF9da9a0),
   borderSubtle: Color(0xFF7a8478),
+  toolThinking: Color(0xFF7fbbb3), // Blue-green
+  toolEdit: Color(0xFFe69875), // Orange
+  toolRead: Color(0xFF7fbbb3), // Aqua
+  toolWrite: Color(0xFFa7c080), // Green
+  toolBash: Color(0xFF7a8478), // Gray
+  toolSearch: Color(0xFF7fbbb3), // Aqua
+  toolTodo: Color(0xFFdbbc7f), // Yellow
+  toolSubtask: Color(0xFF83c092), // Teal
   diffAdded: Color(0xFF4fd6be),
   diffRemoved: Color(0xFFc53b53),
   diffContext: Color(0xFF828bb8),
@@ -1504,9 +1883,24 @@ const kanagawaDarkTheme = OpenCodeTheme(
   backgroundPanel: Color(0xFF2A2A37),
   backgroundElement: Color(0xFF363646),
   backgroundMenu: Color(0xFF363646),
+  bgDeep: Color(0xFF16161D),
+  bgRaised: Color(0xFF1F1F28),
+  bgHover: Color(0xFF2A2A37),
+  bgActive: Color(0xFF363646),
+  bgHighlight: Color(0xFF43435A),
+  bgOverlay: Color(0xFF54546D),
+  bgContrast: Color(0xFF626279),
   border: Color(0xFF54546D),
   borderActive: Color(0xFFC38D9D),
   borderSubtle: Color(0xFF363646),
+  toolThinking: Color(0xFF7E9CD8), // Blue
+  toolEdit: Color(0xFFD7A657), // Gold
+  toolRead: Color(0xFF7E9CD8), // Blue
+  toolWrite: Color(0xFF98BB6C), // Green
+  toolBash: Color(0xFF727169), // Gray
+  toolSearch: Color(0xFF7E9CD8), // Blue
+  toolTodo: Color(0xFFD7A657), // Gold
+  toolSubtask: Color(0xFF76946A), // Green/Teal
   diffAdded: Color(0xFF98BB6C),
   diffRemoved: Color(0xFFE82424),
   diffContext: Color(0xFF727169),
@@ -1562,9 +1956,24 @@ const zenburnDarkTheme = OpenCodeTheme(
   backgroundPanel: Color(0xFF4f4f4f),
   backgroundElement: Color(0xFF5f5f5f),
   backgroundMenu: Color(0xFF5f5f5f),
+  bgDeep: Color(0xFF2f2f2f),
+  bgRaised: Color(0xFF3f3f3f),
+  bgHover: Color(0xFF4f4f4f),
+  bgActive: Color(0xFF5f5f5f),
+  bgHighlight: Color(0xFF6f6f6f),
+  bgOverlay: Color(0xFF7f7f7f),
+  bgContrast: Color(0xFF8f8f8f),
   border: Color(0xFF5f5f5f),
   borderActive: Color(0xFF8cd0d3),
   borderSubtle: Color(0xFF4f4f4f),
+  toolThinking: Color(0xFF8cd0d3), // Cyan
+  toolEdit: Color(0xFFdfaf8f), // Orange
+  toolRead: Color(0xFF93e0e3), // Light cyan
+  toolWrite: Color(0xFF7f9f7f), // Green
+  toolBash: Color(0xFF9f9f9f), // Gray
+  toolSearch: Color(0xFF8cd0d3), // Cyan
+  toolTodo: Color(0xFFf0dfaf), // Yellow
+  toolSubtask: Color(0xFF93e0e3), // Light cyan
   diffAdded: Color(0xFF7f9f7f),
   diffRemoved: Color(0xFFcc9393),
   diffContext: Color(0xFF9f9f9f),
@@ -1620,9 +2029,24 @@ const mercuryDarkTheme = OpenCodeTheme(
   backgroundPanel: Color(0xFF10101a),
   backgroundElement: Color(0xFF272735),
   backgroundMenu: Color(0xFF272735),
+  bgDeep: Color(0xFF0a0a12),
+  bgRaised: Color(0xFF171721),
+  bgHover: Color(0xFF1e1e2a),
+  bgActive: Color(0xFF272735),
+  bgHighlight: Color(0xFF323242),
+  bgOverlay: Color(0xFF3d3d4f),
+  bgContrast: Color(0xFF48485c),
   border: Color(0x1Fb4b7c8),
   borderActive: Color(0xFF8da4f5),
   borderSubtle: Color(0x14b4b7c8),
+  toolThinking: Color(0xFF8da4f5), // Blue
+  toolEdit: Color(0xFFfc9b6f), // Orange
+  toolRead: Color(0xFF77becf), // Cyan
+  toolWrite: Color(0xFF77c599), // Green
+  toolBash: Color(0xFF9d9da8), // Gray
+  toolSearch: Color(0xFF8da4f5), // Blue
+  toolTodo: Color(0xFFfc9b6f), // Orange
+  toolSubtask: Color(0xFF77becf), // Cyan
   diffAdded: Color(0xFF77c599),
   diffRemoved: Color(0xFFfc92b4),
   diffContext: Color(0xFF9d9da8),
@@ -1678,9 +2102,24 @@ const cursorDarkTheme = OpenCodeTheme(
   backgroundPanel: Color(0xFF141414),
   backgroundElement: Color(0xFF262626),
   backgroundMenu: Color(0xFF262626),
+  bgDeep: Color(0xFF0c0c0c),
+  bgRaised: Color(0xFF181818),
+  bgHover: Color(0xFF1e1e1e),
+  bgActive: Color(0xFF262626),
+  bgHighlight: Color(0xFF303030),
+  bgOverlay: Color(0xFF3a3a3a),
+  bgContrast: Color(0xFF444444),
   border: Color(0x13e4e4e4),
   borderActive: Color(0xFF88c0d0),
   borderSubtle: Color(0xFF0f0f0f),
+  toolThinking: Color(0xFF81a1c1), // Blue
+  toolEdit: Color(0xFFf1b467), // Orange
+  toolRead: Color(0xFF88c0d0), // Cyan
+  toolWrite: Color(0xFF3fa266), // Green
+  toolBash: Color(0x5Ee4e4e4), // Muted
+  toolSearch: Color(0xFF88c0d0), // Cyan
+  toolTodo: Color(0xFFF8C762), // Yellow
+  toolSubtask: Color(0xFF82D2CE), // Teal
   diffAdded: Color(0xFF3fa266),
   diffRemoved: Color(0xFFe34671),
   diffContext: Color(0x5Ee4e4e4),
@@ -1736,9 +2175,24 @@ const ayuDarkTheme = OpenCodeTheme(
   backgroundPanel: Color(0xFF0F131A),
   backgroundElement: Color(0xFF0D1017),
   backgroundMenu: Color(0xFF0D1017),
+  bgDeep: Color(0xFF05080c),
+  bgRaised: Color(0xFF0B0E14),
+  bgHover: Color(0xFF0F131A),
+  bgActive: Color(0xFF151920),
+  bgHighlight: Color(0xFF1c2128),
+  bgOverlay: Color(0xFF252930),
+  bgContrast: Color(0xFF2e3238),
   border: Color(0xFF6C7380),
   borderActive: Color(0xFF6C7380),
   borderSubtle: Color(0xFF11151C),
+  toolThinking: Color(0xFF59C2FF), // Blue
+  toolEdit: Color(0xFFFFB454), // Orange
+  toolRead: Color(0xFF39BAE6), // Cyan
+  toolWrite: Color(0xFF7FD962), // Green
+  toolBash: Color(0xFF565B66), // Gray
+  toolSearch: Color(0xFF59C2FF), // Blue
+  toolTodo: Color(0xFFE6B673), // Yellow
+  toolSubtask: Color(0xFF39BAE6), // Cyan
   diffAdded: Color(0xFF7FD962),
   diffRemoved: Color(0xFFF26D78),
   diffContext: Color(0xFFACB6BF),
@@ -1794,9 +2248,24 @@ const orngDarkTheme = OpenCodeTheme(
   backgroundPanel: Color(0xFF141414),
   backgroundElement: Color(0xFF1e1e1e),
   backgroundMenu: Color(0xFF1e1e1e),
+  bgDeep: Color(0xFF050505),
+  bgRaised: Color(0xFF0a0a0a),
+  bgHover: Color(0xFF141414),
+  bgActive: Color(0xFF1e1e1e),
+  bgHighlight: Color(0xFF282828),
+  bgOverlay: Color(0xFF323232),
+  bgContrast: Color(0xFF3c3c3c),
   border: Color(0xFFEC5B2B),
   borderActive: Color(0xFFEE7948),
   borderSubtle: Color(0xFF3c3c3c),
+  toolThinking: Color(0xFF56b6c2), // Cyan
+  toolEdit: Color(0xFFEC5B2B), // Orange
+  toolRead: Color(0xFF56b6c2), // Cyan
+  toolWrite: Color(0xFF6ba1e6), // Blue
+  toolBash: Color(0xFF808080), // Gray
+  toolSearch: Color(0xFF56b6c2), // Cyan
+  toolTodo: Color(0xFFEE7948), // Orange light
+  toolSubtask: Color(0xFF56b6c2), // Cyan
   diffAdded: Color(0xFF6ba1e6),
   diffRemoved: Color(0xFFc53b53),
   diffContext: Color(0xFF828bb8),
@@ -1852,9 +2321,24 @@ const lucentOrngDarkTheme = OpenCodeTheme(
   backgroundPanel: Color(0x00000000),
   backgroundElement: Color(0x00000000),
   backgroundMenu: Color(0x00000000),
+  bgDeep: Color(0x00000000),
+  bgRaised: Color(0x00000000),
+  bgHover: Color(0x10ffffff),
+  bgActive: Color(0x20ffffff),
+  bgHighlight: Color(0x30ffffff),
+  bgOverlay: Color(0x40ffffff),
+  bgContrast: Color(0x50ffffff),
   border: Color(0xFFEC5B2B),
   borderActive: Color(0xFFEE7948),
   borderSubtle: Color(0xFF3c3c3c),
+  toolThinking: Color(0xFF56b6c2), // Cyan
+  toolEdit: Color(0xFFEC5B2B), // Orange
+  toolRead: Color(0xFF56b6c2), // Cyan
+  toolWrite: Color(0xFF6ba1e6), // Blue
+  toolBash: Color(0xFF808080), // Gray
+  toolSearch: Color(0xFF56b6c2), // Cyan
+  toolTodo: Color(0xFFEE7948), // Orange light
+  toolSubtask: Color(0xFF56b6c2), // Cyan
   diffAdded: Color(0xFF6ba1e6),
   diffRemoved: Color(0xFFc53b53),
   diffContext: Color(0xFF828bb8),

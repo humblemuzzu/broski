@@ -8,6 +8,7 @@ import '../providers/service_providers.dart';
 import '../providers/theme_provider.dart';
 import '../theme/opencode_theme.dart';
 import '../widgets/connection_quality_indicator.dart';
+import 'appearance_screen.dart';
 import 'device_manager_screen.dart';
 import 'mcp_servers_screen.dart';
 import 'providers_screen.dart';
@@ -64,39 +65,59 @@ class SettingsScreen extends ConsumerWidget {
               child: Padding(
                 padding: const EdgeInsets.symmetric(horizontal: 20),
                 child: _SettingsCard(
-                  child: _SettingsTile(
-                    title: 'Theme',
-                    subtitle: currentThemeInfo?.name ?? 'OpenCode',
-                    icon: Icons.palette_rounded,
-                    trailing: Row(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        // Theme color indicator
-                        Container(
-                          width: 16,
-                          height: 16,
-                          decoration: BoxDecoration(
-                            color:
-                                currentThemeInfo?.primaryColor ??
-                                theme.colorScheme.primary,
-                            shape: BoxShape.circle,
-                            border: Border.all(
-                              color: theme.colorScheme.onSurface.withValues(
-                                alpha: 0.2,
+                  child: Column(
+                    children: [
+                      _SettingsTile(
+                        title: 'Theme',
+                        subtitle: currentThemeInfo?.name ?? 'OpenCode',
+                        icon: Icons.palette_rounded,
+                        trailing: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            // Theme color indicator
+                            Container(
+                              width: 16,
+                              height: 16,
+                              decoration: BoxDecoration(
+                                color:
+                                    currentThemeInfo?.primaryColor ??
+                                    theme.colorScheme.primary,
+                                shape: BoxShape.circle,
+                                border: Border.all(
+                                  color: theme.colorScheme.onSurface.withValues(
+                                    alpha: 0.2,
+                                  ),
+                                ),
                               ),
                             ),
+                            const SizedBox(width: 8),
+                            const Icon(Icons.chevron_right_rounded, size: 20),
+                          ],
+                        ),
+                        onTap: () => Navigator.push(
+                          context,
+                          MaterialPageRoute(
+                            builder: (_) => const ThemeSelectorScreen(),
                           ),
                         ),
-                        const SizedBox(width: 8),
-                        const Icon(Icons.chevron_right_rounded, size: 20),
-                      ],
-                    ),
-                    onTap: () => Navigator.push(
-                      context,
-                      MaterialPageRoute(
-                        builder: (_) => const ThemeSelectorScreen(),
                       ),
-                    ),
+                      _Divider(),
+                      _SettingsTile(
+                        title: 'Tool Cards',
+                        subtitle: 'Icons, colors, and card styling',
+                        icon: Icons.view_agenda_rounded,
+                        trailing: const Icon(
+                          Icons.chevron_right_rounded,
+                          size: 20,
+                        ),
+                        onTap: () => Navigator.push(
+                          context,
+                          MaterialPageRoute(
+                            builder: (_) => const AppearanceScreen(),
+                          ),
+                        ),
+                      ),
+                    ],
                   ),
                 ),
               ),
@@ -125,6 +146,8 @@ class SettingsScreen extends ConsumerWidget {
                         icon: Icons.terminal_rounded,
                         value: InputBarStyle.cli,
                       ),
+                      _Divider(),
+                      _NotificationToggleTile(),
                     ],
                   ),
                 ),
@@ -724,6 +747,63 @@ class _InputStyleTile extends ConsumerWidget {
                   ref.read(inputStyleProvider.notifier).setStyle(v);
                 }
               },
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _NotificationToggleTile extends ConsumerWidget {
+  const _NotificationToggleTile();
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final theme = Theme.of(context);
+    final enabled = ref.watch(notificationsEnabledProvider);
+
+    return InkWell(
+      onTap: () => ref.read(notificationsEnabledProvider.notifier).toggle(),
+      borderRadius: BorderRadius.circular(20),
+      child: Padding(
+        padding: const EdgeInsets.all(16),
+        child: Row(
+          children: [
+            Icon(
+              Icons.notifications_rounded,
+              color: theme.colorScheme.primary,
+              size: 22,
+            ),
+            const SizedBox(width: 12),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    'Notifications',
+                    style: TextStyle(
+                      color: theme.colorScheme.onSurface,
+                      fontSize: 15,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                  const SizedBox(height: 4),
+                  Text(
+                    'Alert when background sessions complete',
+                    style: TextStyle(
+                      color: theme.colorScheme.onSurface.withValues(alpha: 0.6),
+                      fontSize: 13,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            const SizedBox(width: 8),
+            Switch.adaptive(
+              value: enabled,
+              onChanged: (v) =>
+                  ref.read(notificationsEnabledProvider.notifier).setEnabled(v),
             ),
           ],
         ),

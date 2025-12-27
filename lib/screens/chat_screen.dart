@@ -25,6 +25,7 @@ import '../services/haptics_service.dart';
 import '../services/image_picker_service.dart';
 import '../services/websocket_service.dart';
 import '../theme/opencode_theme.dart';
+import '../widgets/background_session_widgets.dart';
 import '../widgets/diff_viewer.dart';
 import '../widgets/file_tagging.dart';
 import '../widgets/message_bubble.dart';
@@ -33,6 +34,7 @@ import '../widgets/thinking_card.dart';
 import '../widgets/permission_prompt.dart';
 import '../widgets/session_sidebar.dart';
 import '../widgets/tool_call.dart';
+import '../widgets/app_background.dart';
 import 'diff_view_screen.dart';
 
 // Utility function for color opacity (from expense_tracker)
@@ -1110,6 +1112,8 @@ class _ChatScreenState extends ConsumerState<ChatScreen>
       drawerEdgeDragWidth: 40,
       body: Stack(
         children: [
+          // Custom background from appearance settings
+          const AppBackground(),
           SafeArea(
             child: Column(
               children: [
@@ -1240,6 +1244,15 @@ class _ChatScreenState extends ConsumerState<ChatScreen>
               sessionStatus: chatState.sessionStatus,
               isStreaming: _hasStreamingMessage(chatState.messages),
             ),
+          ),
+
+          // Floating indicator for other running sessions
+          FloatingActiveIndicator(
+            currentSessionId: widget.session.id,
+            onTap: () {
+              // Navigate back to see the sessions list
+              Navigator.pop(context);
+            },
           ),
         ],
       ),
@@ -1826,12 +1839,14 @@ class _FloatingHeader extends StatelessWidget {
             // Menu button (contains all secondary options)
             _GlassPill(
               compact: true,
+              constraints: const BoxConstraints(maxWidth: 32, maxHeight: 32),
               child: PopupMenuButton<String>(
                 icon: Icon(
                   Icons.more_horiz_rounded,
                   color: kOnBackground,
                   size: 18,
                 ),
+                splashRadius: 16,
                 padding: EdgeInsets.zero,
                 color: kCard,
                 constraints: const BoxConstraints(minWidth: 180, maxWidth: 220),
@@ -2152,11 +2167,17 @@ class _FloatingHeader extends StatelessWidget {
 
 // Glass pill widget for header elements
 class _GlassPill extends StatelessWidget {
-  const _GlassPill({required this.child, this.onTap, this.compact = false});
+  const _GlassPill({
+    required this.child,
+    this.onTap,
+    this.compact = false,
+    this.constraints,
+  });
 
   final Widget child;
   final VoidCallback? onTap;
   final bool compact;
+  final BoxConstraints? constraints;
 
   @override
   Widget build(BuildContext context) {
@@ -2171,13 +2192,13 @@ class _GlassPill extends StatelessWidget {
         child: GestureDetector(
           onTap: onTap,
           child: Container(
+            constraints: constraints,
             padding: compact
                 ? const EdgeInsets.all(6)
                 : const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
             decoration: BoxDecoration(
               color: kCard.withValues(alpha: 0.75),
               borderRadius: BorderRadius.circular(compact ? 16 : 20),
-              border: Border.all(color: fade(kMuted, 0.15), width: 0.5),
             ),
             child: child,
           ),

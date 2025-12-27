@@ -8,6 +8,7 @@ import '../providers/connection_provider.dart';
 import '../providers/sessions_provider.dart';
 import '../providers/service_providers.dart';
 import '../theme/opencode_theme.dart';
+import '../widgets/background_session_widgets.dart';
 import 'chat_screen.dart';
 
 class SessionsScreen extends ConsumerStatefulWidget {
@@ -56,6 +57,12 @@ class _SessionsScreenState extends ConsumerState<SessionsScreen> {
           child: CustomScrollView(
             physics: const AlwaysScrollableScrollPhysics(),
             slivers: [
+              // Active Sessions Section (sticky at top) - shows running sessions
+              SliverToBoxAdapter(
+                child: ActiveSessionsSection(
+                  onSessionTap: (session) => _openSession(session),
+                ),
+              ),
               SliverToBoxAdapter(
                 child: Builder(
                   builder: (context) {

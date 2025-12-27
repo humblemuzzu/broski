@@ -1,0 +1,1283 @@
+import 'dart:io';
+
+import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+
+import '../providers/appearance_provider.dart';
+import '../theme/opencode_theme.dart';
+import '../theme/tool_style.dart';
+
+class AppearanceScreen extends ConsumerWidget {
+  const AppearanceScreen({super.key});
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final theme = Theme.of(context);
+    final settings = ref.watch(appearanceProvider);
+
+    return Scaffold(
+      backgroundColor: theme.scaffoldBackgroundColor,
+      appBar: AppBar(
+        backgroundColor: Colors.transparent,
+        elevation: 0,
+        title: Text(
+          'Tool Appearance',
+          style: TextStyle(
+            color: theme.colorScheme.onSurface,
+            fontSize: 18,
+            fontWeight: FontWeight.w600,
+          ),
+        ),
+        leading: IconButton(
+          icon: Icon(
+            Icons.arrow_back_rounded,
+            color: theme.colorScheme.onSurface,
+          ),
+          onPressed: () => Navigator.pop(context),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () =>
+                ref.read(appearanceProvider.notifier).resetToDefaults(),
+            child: Text(
+              'Reset',
+              style: TextStyle(
+                color: theme.colorScheme.primary,
+                fontWeight: FontWeight.w600,
+              ),
+            ),
+          ),
+        ],
+      ),
+      body: ListView(
+        padding: const EdgeInsets.all(20),
+        children: [
+          // Live Preview Section
+          _SectionHeader(title: 'Preview'),
+          const SizedBox(height: 12),
+          _ToolPreviewCard(settings: settings),
+
+          const SizedBox(height: 32),
+
+          // Icon Pack Section
+          _SectionHeader(title: 'Icon Style'),
+          const SizedBox(height: 12),
+          _IconPackSelector(settings: settings),
+
+          const SizedBox(height: 32),
+
+          // Tool Colors Toggle
+          _SectionHeader(title: 'Colors'),
+          const SizedBox(height: 12),
+          _SettingsCard(
+            child: Column(
+              children: [
+                _ToggleTile(
+                  title: 'Tool Colors',
+                  subtitle: 'Use unique colors for each tool type',
+                  value: settings.useToolColors,
+                  onChanged: (v) =>
+                      ref.read(appearanceProvider.notifier).setUseToolColors(v),
+                ),
+                _Divider(),
+                _ToggleTile(
+                  title: 'Colored Borders',
+                  subtitle: 'Show colored borders on tool cards',
+                  value: settings.showToolBorders,
+                  onChanged: (v) => ref
+                      .read(appearanceProvider.notifier)
+                      .setShowToolBorders(v),
+                ),
+              ],
+            ),
+          ),
+
+          const SizedBox(height: 32),
+
+          // Card Style Section
+          _SectionHeader(title: 'Card Style'),
+          const SizedBox(height: 12),
+          _SettingsCard(
+            child: Column(
+              children: [
+                _SliderTile(
+                  title: 'Corner Radius',
+                  value: settings.cardBorderRadius,
+                  min: 4,
+                  max: 24,
+                  divisions: 10,
+                  onChanged: (v) => ref
+                      .read(appearanceProvider.notifier)
+                      .setCardBorderRadius(v),
+                ),
+                _Divider(),
+                _ToggleTile(
+                  title: 'Compact Mode',
+                  subtitle: 'Smaller cards and tighter spacing',
+                  value: settings.compactMode,
+                  onChanged: (v) =>
+                      ref.read(appearanceProvider.notifier).setCompactMode(v),
+                ),
+              ],
+            ),
+          ),
+
+          const SizedBox(height: 32),
+
+          // Background Section
+          _SectionHeader(title: 'Background'),
+          const SizedBox(height: 12),
+          _BackgroundSection(settings: settings),
+
+          const SizedBox(height: 32),
+
+          // Background Shade Picker (selectable)
+          _SectionHeader(title: 'Background Shade'),
+          const SizedBox(height: 12),
+          const _BackgroundShadePreview(),
+
+          const SizedBox(height: 32),
+
+          // Per-screen background toggles
+          _SectionHeader(title: 'Screen Selection'),
+          const SizedBox(height: 12),
+          const _ScreenBackgroundToggles(),
+
+          const SizedBox(height: 32),
+
+          // Tool Color Reference
+          _SectionHeader(title: 'Tool Color Reference'),
+          const SizedBox(height: 12),
+          _ToolColorGrid(),
+
+          const SizedBox(height: 100),
+        ],
+      ),
+    );
+  }
+}
+
+// Section header widget
+class _SectionHeader extends StatelessWidget {
+  const _SectionHeader({required this.title});
+
+  final String title;
+
+  @override
+  Widget build(BuildContext context) {
+    return Text(
+      title.toUpperCase(),
+      style: TextStyle(
+        color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.5),
+        fontSize: 12,
+        fontWeight: FontWeight.w700,
+        letterSpacing: 0.5,
+      ),
+    );
+  }
+}
+
+// Settings card container
+class _SettingsCard extends StatelessWidget {
+  const _SettingsCard({required this.child});
+
+  final Widget child;
+
+  @override
+  Widget build(BuildContext context) {
+    final ocTheme = OpenCodeTheme.of(context);
+
+    return Container(
+      decoration: BoxDecoration(
+        color: ocTheme.backgroundPanel,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: ocTheme.borderSubtle),
+      ),
+      child: child,
+    );
+  }
+}
+
+// Live preview of all tool types
+class _ToolPreviewCard extends StatelessWidget {
+  const _ToolPreviewCard({required this.settings});
+
+  final AppearanceSettings settings;
+
+  @override
+  Widget build(BuildContext context) {
+    final ocTheme = OpenCodeTheme.of(context);
+    final theme = Theme.of(context);
+
+    // Show a sample of tool types
+    final previewTools = [
+      ('thinking', 'Thinking...', true), // running
+      ('edit', 'Editing file.dart', false), // completed
+      ('bash', 'Running npm install', false),
+      ('read', 'Reading config.json', false),
+    ];
+
+    return Container(
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: ocTheme.background,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: ocTheme.borderSubtle),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          // Label
+          Row(
+            children: [
+              Icon(
+                Icons.visibility_rounded,
+                size: 14,
+                color: theme.colorScheme.onSurface.withValues(alpha: 0.5),
+              ),
+              const SizedBox(width: 6),
+              Text(
+                'Live Preview',
+                style: TextStyle(
+                  color: theme.colorScheme.onSurface.withValues(alpha: 0.5),
+                  fontSize: 11,
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 12),
+          // Preview cards
+          ...previewTools.map(
+            (tool) => Padding(
+              padding: const EdgeInsets.only(bottom: 8),
+              child: _MiniToolCard(
+                toolName: tool.$1,
+                title: tool.$2,
+                isRunning: tool.$3,
+                settings: settings,
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+// Mini tool card for preview
+class _MiniToolCard extends StatelessWidget {
+  const _MiniToolCard({
+    required this.toolName,
+    required this.title,
+    required this.isRunning,
+    required this.settings,
+  });
+
+  final String toolName;
+  final String title;
+  final bool isRunning;
+  final AppearanceSettings settings;
+
+  @override
+  Widget build(BuildContext context) {
+    final ocTheme = OpenCodeTheme.of(context);
+    final theme = Theme.of(context);
+    final toolColor = settings.useToolColors
+        ? ToolStyle.getColor(context, toolName)
+        : ocTheme.textMuted;
+    final icon = ToolStyle.getIcon(toolName, settings.iconPack);
+
+    return Container(
+      padding: EdgeInsets.all(settings.compactMode ? 10 : 14),
+      decoration: BoxDecoration(
+        color: ocTheme.bgRaised,
+        borderRadius: BorderRadius.circular(settings.cardBorderRadius),
+        border: settings.showToolBorders
+            ? Border.all(
+                color: isRunning
+                    ? toolColor.withValues(alpha: 0.8)
+                    : toolColor.withValues(alpha: 0.4),
+                width: isRunning ? 1.5 : 1.0,
+              )
+            : Border.all(color: ocTheme.borderSubtle),
+      ),
+      child: Row(
+        children: [
+          // Icon with optional glow
+          Container(
+            decoration: isRunning
+                ? BoxDecoration(
+                    shape: BoxShape.circle,
+                    boxShadow: [
+                      BoxShadow(
+                        color: toolColor.withValues(alpha: 0.3),
+                        blurRadius: 8,
+                        spreadRadius: 1,
+                      ),
+                    ],
+                  )
+                : null,
+            child: Icon(
+              icon,
+              size: settings.compactMode ? 16 : 18,
+              color: toolColor,
+            ),
+          ),
+          SizedBox(width: settings.compactMode ? 8 : 12),
+          Expanded(
+            child: Text(
+              title,
+              style: TextStyle(
+                color: theme.colorScheme.onSurface,
+                fontSize: settings.compactMode ? 13 : 14,
+                fontWeight: FontWeight.w500,
+              ),
+            ),
+          ),
+          // Status indicator
+          if (isRunning)
+            SizedBox(
+              width: 14,
+              height: 14,
+              child: CircularProgressIndicator(
+                strokeWidth: 2,
+                valueColor: AlwaysStoppedAnimation(toolColor),
+              ),
+            )
+          else
+            Icon(Icons.check_circle_rounded, size: 16, color: ocTheme.success),
+        ],
+      ),
+    );
+  }
+}
+
+// Icon pack selector grid
+class _IconPackSelector extends StatelessWidget {
+  const _IconPackSelector({required this.settings});
+
+  final AppearanceSettings settings;
+
+  @override
+  Widget build(BuildContext context) {
+    final ocTheme = OpenCodeTheme.of(context);
+
+    return Container(
+      decoration: BoxDecoration(
+        color: ocTheme.backgroundPanel,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: ocTheme.borderSubtle),
+      ),
+      child: Column(
+        children: allIconPacks.asMap().entries.map((entry) {
+          final index = entry.key;
+          final pack = entry.value;
+          final isSelected = settings.iconPack == pack.id;
+
+          return Column(
+            children: [
+              if (index > 0) _Divider(),
+              _IconPackTile(pack: pack, isSelected: isSelected),
+            ],
+          );
+        }).toList(),
+      ),
+    );
+  }
+}
+
+// Icon pack tile with preview icons
+class _IconPackTile extends ConsumerWidget {
+  const _IconPackTile({required this.pack, required this.isSelected});
+
+  final IconPackInfo pack;
+  final bool isSelected;
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final theme = Theme.of(context);
+    final ocTheme = OpenCodeTheme.of(context);
+
+    // Sample icons from this pack
+    final sampleTypes = [
+      ToolType.thinking,
+      ToolType.edit,
+      ToolType.bash,
+      ToolType.search,
+    ];
+
+    return InkWell(
+      onTap: () => ref.read(appearanceProvider.notifier).setIconPack(pack.id),
+      borderRadius: BorderRadius.circular(16),
+      child: Padding(
+        padding: const EdgeInsets.all(16),
+        child: Row(
+          children: [
+            // Radio button
+            Radio<IconPack>(
+              value: pack.id,
+              groupValue: isSelected ? pack.id : null,
+              onChanged: (v) {
+                if (v != null) {
+                  ref.read(appearanceProvider.notifier).setIconPack(v);
+                }
+              },
+            ),
+            const SizedBox(width: 8),
+            // Text info
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    pack.name,
+                    style: TextStyle(
+                      color: theme.colorScheme.onSurface,
+                      fontSize: 15,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                  const SizedBox(height: 2),
+                  Text(
+                    pack.description,
+                    style: TextStyle(
+                      color: theme.colorScheme.onSurface.withValues(alpha: 0.6),
+                      fontSize: 13,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            // Icon preview row
+            Row(
+              mainAxisSize: MainAxisSize.min,
+              children: sampleTypes.map((type) {
+                final config = ToolStyle.getConfig(type);
+                final color = config.colorGetter(ocTheme);
+                return Padding(
+                  padding: const EdgeInsets.only(left: 8),
+                  child: Icon(
+                    config.getIcon(pack.id),
+                    size: 18,
+                    color: isSelected ? color : color.withValues(alpha: 0.5),
+                  ),
+                );
+              }).toList(),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+// Toggle tile widget
+class _ToggleTile extends StatelessWidget {
+  const _ToggleTile({
+    required this.title,
+    required this.subtitle,
+    required this.value,
+    required this.onChanged,
+  });
+
+  final String title;
+  final String subtitle;
+  final bool value;
+  final ValueChanged<bool> onChanged;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+
+    return InkWell(
+      onTap: () => onChanged(!value),
+      child: Padding(
+        padding: const EdgeInsets.all(16),
+        child: Row(
+          children: [
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    title,
+                    style: TextStyle(
+                      color: theme.colorScheme.onSurface,
+                      fontSize: 15,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                  const SizedBox(height: 4),
+                  Text(
+                    subtitle,
+                    style: TextStyle(
+                      color: theme.colorScheme.onSurface.withValues(alpha: 0.6),
+                      fontSize: 13,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            Switch.adaptive(value: value, onChanged: onChanged),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+// Slider tile widget
+class _SliderTile extends StatelessWidget {
+  const _SliderTile({
+    required this.title,
+    required this.value,
+    required this.min,
+    required this.max,
+    required this.divisions,
+    required this.onChanged,
+  });
+
+  final String title;
+  final double value;
+  final double min;
+  final double max;
+  final int divisions;
+  final ValueChanged<double> onChanged;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+
+    return Padding(
+      padding: const EdgeInsets.all(16),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              Text(
+                title,
+                style: TextStyle(
+                  color: theme.colorScheme.onSurface,
+                  fontSize: 15,
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
+              Container(
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 10,
+                  vertical: 4,
+                ),
+                decoration: BoxDecoration(
+                  color: theme.colorScheme.primary.withValues(alpha: 0.15),
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                child: Text(
+                  '${value.toInt()}px',
+                  style: TextStyle(
+                    color: theme.colorScheme.primary,
+                    fontSize: 13,
+                    fontWeight: FontWeight.w700,
+                  ),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 8),
+          Slider(
+            value: value,
+            min: min,
+            max: max,
+            divisions: divisions,
+            onChanged: onChanged,
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+// Divider
+class _Divider extends StatelessWidget {
+  @override
+  Widget build(BuildContext context) {
+    return Divider(
+      height: 1,
+      thickness: 1,
+      indent: 16,
+      endIndent: 16,
+      color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.1),
+    );
+  }
+}
+
+// Tool color reference grid
+class _ToolColorGrid extends StatelessWidget {
+  @override
+  Widget build(BuildContext context) {
+    final ocTheme = OpenCodeTheme.of(context);
+    final theme = Theme.of(context);
+
+    final tools = [
+      (ToolType.thinking, 'Thinking', 'AI reasoning'),
+      (ToolType.edit, 'Edit', 'File changes'),
+      (ToolType.read, 'Read', 'File content'),
+      (ToolType.write, 'Write', 'New files'),
+      (ToolType.bash, 'Command', 'Shell/terminal'),
+      (ToolType.search, 'Search', 'Find files'),
+      (ToolType.todo, 'Todo', 'Task tracking'),
+      (ToolType.subtask, 'Subtask', 'Agent delegation'),
+    ];
+
+    return Container(
+      decoration: BoxDecoration(
+        color: ocTheme.backgroundPanel,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: ocTheme.borderSubtle),
+      ),
+      child: Wrap(
+        children: tools.asMap().entries.map((entry) {
+          final tool = entry.value;
+          final config = ToolStyle.getConfig(tool.$1);
+          final color = config.colorGetter(ocTheme);
+
+          return SizedBox(
+            width: MediaQuery.of(context).size.width / 2 - 28,
+            child: Padding(
+              padding: const EdgeInsets.all(12),
+              child: Row(
+                children: [
+                  Container(
+                    width: 32,
+                    height: 32,
+                    decoration: BoxDecoration(
+                      color: color.withValues(alpha: 0.15),
+                      borderRadius: BorderRadius.circular(8),
+                    ),
+                    child: Icon(
+                      config.getIcon(ToolStyle.currentIconPack),
+                      size: 18,
+                      color: color,
+                    ),
+                  ),
+                  const SizedBox(width: 10),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          tool.$2,
+                          style: TextStyle(
+                            color: theme.colorScheme.onSurface,
+                            fontSize: 13,
+                            fontWeight: FontWeight.w600,
+                          ),
+                        ),
+                        Text(
+                          tool.$3,
+                          style: TextStyle(
+                            color: theme.colorScheme.onSurface.withValues(
+                              alpha: 0.5,
+                            ),
+                            fontSize: 11,
+                          ),
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          );
+        }).toList(),
+      ),
+    );
+  }
+}
+
+// Background section with custom image picker
+class _BackgroundSection extends ConsumerWidget {
+  const _BackgroundSection({required this.settings});
+
+  final AppearanceSettings settings;
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final ocTheme = OpenCodeTheme.of(context);
+    final theme = Theme.of(context);
+
+    return _SettingsCard(
+      child: Column(
+        children: [
+          // Custom background image preview/picker
+          InkWell(
+            onTap: () => _showBackgroundOptions(context, ref),
+            borderRadius: const BorderRadius.vertical(top: Radius.circular(16)),
+            child: Padding(
+              padding: const EdgeInsets.all(16),
+              child: Row(
+                children: [
+                  // Thumbnail or placeholder
+                  Container(
+                    width: 60,
+                    height: 100,
+                    decoration: BoxDecoration(
+                      color: ocTheme.bgRaised,
+                      borderRadius: BorderRadius.circular(8),
+                      border: Border.all(color: ocTheme.borderSubtle),
+                      image: settings.hasCustomBackground
+                          ? DecorationImage(
+                              image: FileImage(
+                                File(settings.customBackgroundPath!),
+                              ),
+                              fit: BoxFit.cover,
+                            )
+                          : null,
+                    ),
+                    child: settings.hasCustomBackground
+                        ? null
+                        : Icon(
+                            Icons.add_photo_alternate_outlined,
+                            color: theme.colorScheme.onSurface.withValues(
+                              alpha: 0.4,
+                            ),
+                            size: 24,
+                          ),
+                  ),
+                  const SizedBox(width: 16),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          'Custom Background',
+                          style: TextStyle(
+                            color: theme.colorScheme.onSurface,
+                            fontSize: 15,
+                            fontWeight: FontWeight.w600,
+                          ),
+                        ),
+                        const SizedBox(height: 4),
+                        Text(
+                          settings.hasCustomBackground
+                              ? 'Tap to change or remove'
+                              : 'Add a personal wallpaper',
+                          style: TextStyle(
+                            color: theme.colorScheme.onSurface.withValues(
+                              alpha: 0.6,
+                            ),
+                            fontSize: 13,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                  Icon(
+                    Icons.chevron_right_rounded,
+                    color: theme.colorScheme.onSurface.withValues(alpha: 0.4),
+                    size: 20,
+                  ),
+                ],
+              ),
+            ),
+          ),
+
+          // Only show opacity/blur sliders if custom background is set
+          if (settings.hasCustomBackground) ...[
+            _Divider(),
+            _SliderTileWithLabel(
+              title: 'Opacity',
+              value: settings.backgroundOpacity,
+              min: 0.05,
+              max: 0.5,
+              divisions: 9,
+              valueLabel: '${(settings.backgroundOpacity * 100).toInt()}%',
+              onChanged: (v) =>
+                  ref.read(appearanceProvider.notifier).setBackgroundOpacity(v),
+            ),
+            _Divider(),
+            _SliderTileWithLabel(
+              title: 'Blur',
+              value: settings.backgroundBlur,
+              min: 0,
+              max: 20,
+              divisions: 20,
+              valueLabel: '${settings.backgroundBlur.toInt()}',
+              onChanged: (v) =>
+                  ref.read(appearanceProvider.notifier).setBackgroundBlur(v),
+            ),
+          ],
+        ],
+      ),
+    );
+  }
+
+  void _showBackgroundOptions(BuildContext context, WidgetRef ref) {
+    final theme = Theme.of(context);
+
+    showModalBottomSheet(
+      context: context,
+      backgroundColor: theme.scaffoldBackgroundColor,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+      ),
+      builder: (context) => SafeArea(
+        child: Padding(
+          padding: const EdgeInsets.all(20),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              // Handle bar
+              Container(
+                width: 40,
+                height: 4,
+                decoration: BoxDecoration(
+                  color: theme.colorScheme.onSurface.withValues(alpha: 0.2),
+                  borderRadius: BorderRadius.circular(2),
+                ),
+              ),
+              const SizedBox(height: 24),
+
+              // Choose from gallery
+              ListTile(
+                leading: Container(
+                  padding: const EdgeInsets.all(10),
+                  decoration: BoxDecoration(
+                    color: theme.colorScheme.primary.withValues(alpha: 0.15),
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                  child: Icon(
+                    Icons.photo_library_rounded,
+                    color: theme.colorScheme.primary,
+                  ),
+                ),
+                title: const Text('Choose from Gallery'),
+                subtitle: const Text('Pick a vertical image for best results'),
+                onTap: () async {
+                  Navigator.pop(context);
+                  final success = await ref
+                      .read(appearanceProvider.notifier)
+                      .pickBackgroundImage();
+                  if (context.mounted && !success) {
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      const SnackBar(content: Text('Failed to set background')),
+                    );
+                  }
+                },
+              ),
+
+              // Remove background (only if one is set)
+              if (settings.hasCustomBackground) ...[
+                const SizedBox(height: 8),
+                ListTile(
+                  leading: Container(
+                    padding: const EdgeInsets.all(10),
+                    decoration: BoxDecoration(
+                      color: theme.colorScheme.error.withValues(alpha: 0.15),
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                    child: Icon(
+                      Icons.delete_outline_rounded,
+                      color: theme.colorScheme.error,
+                    ),
+                  ),
+                  title: const Text('Remove Background'),
+                  subtitle: const Text('Go back to theme default'),
+                  onTap: () {
+                    Navigator.pop(context);
+                    ref.read(appearanceProvider.notifier).clearBackground();
+                  },
+                ),
+              ],
+
+              const SizedBox(height: 16),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+// Slider with custom label formatting
+class _SliderTileWithLabel extends StatelessWidget {
+  const _SliderTileWithLabel({
+    required this.title,
+    required this.value,
+    required this.min,
+    required this.max,
+    required this.divisions,
+    required this.valueLabel,
+    required this.onChanged,
+  });
+
+  final String title;
+  final double value;
+  final double min;
+  final double max;
+  final int divisions;
+  final String valueLabel;
+  final ValueChanged<double> onChanged;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+
+    return Padding(
+      padding: const EdgeInsets.all(16),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              Text(
+                title,
+                style: TextStyle(
+                  color: theme.colorScheme.onSurface,
+                  fontSize: 15,
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
+              Container(
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 10,
+                  vertical: 4,
+                ),
+                decoration: BoxDecoration(
+                  color: theme.colorScheme.primary.withValues(alpha: 0.15),
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                child: Text(
+                  valueLabel,
+                  style: TextStyle(
+                    color: theme.colorScheme.primary,
+                    fontSize: 13,
+                    fontWeight: FontWeight.w700,
+                  ),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 8),
+          Slider(
+            value: value,
+            min: min,
+            max: max,
+            divisions: divisions,
+            onChanged: onChanged,
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+// Selectable background shade picker
+class _BackgroundShadePreview extends ConsumerWidget {
+  const _BackgroundShadePreview();
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final ocTheme = OpenCodeTheme.of(context);
+    final theme = Theme.of(context);
+    final settings = ref.watch(appearanceProvider);
+
+    final shades = [
+      (BackgroundShade.none, 'Default', ocTheme.background, 'Theme default'),
+      (BackgroundShade.deep, 'Deep', ocTheme.bgDeep, 'Deepest background'),
+      (BackgroundShade.base, 'Base', ocTheme.background, 'Main background'),
+      (BackgroundShade.raised, 'Raised', ocTheme.bgRaised, 'Elevated surfaces'),
+      (BackgroundShade.hover, 'Hover', ocTheme.bgHover, 'Hover state'),
+      (BackgroundShade.active, 'Active', ocTheme.bgActive, 'Active/pressed'),
+      (
+        BackgroundShade.highlight,
+        'Highlight',
+        ocTheme.bgHighlight,
+        'Highlighted',
+      ),
+      (BackgroundShade.overlay, 'Overlay', ocTheme.bgOverlay, 'Modal overlays'),
+    ];
+
+    return Container(
+      decoration: BoxDecoration(
+        color: ocTheme.backgroundPanel,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: ocTheme.borderSubtle),
+      ),
+      padding: const EdgeInsets.all(16),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          // Info text
+          Row(
+            children: [
+              Icon(
+                Icons.palette_outlined,
+                size: 14,
+                color: theme.colorScheme.primary,
+              ),
+              const SizedBox(width: 6),
+              Expanded(
+                child: Text(
+                  'Tap to select a background shade',
+                  style: TextStyle(
+                    color: theme.colorScheme.onSurface.withValues(alpha: 0.7),
+                    fontSize: 12,
+                    fontWeight: FontWeight.w500,
+                  ),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 16),
+
+          // Shade swatches (selectable)
+          ...shades.map((shade) {
+            final isSelected = settings.selectedShade == shade.$1;
+            return Padding(
+              padding: const EdgeInsets.only(bottom: 8),
+              child: InkWell(
+                onTap: () => ref
+                    .read(appearanceProvider.notifier)
+                    .setSelectedShade(shade.$1),
+                borderRadius: BorderRadius.circular(10),
+                child: Container(
+                  padding: const EdgeInsets.all(10),
+                  decoration: BoxDecoration(
+                    color: isSelected
+                        ? theme.colorScheme.primary.withValues(alpha: 0.1)
+                        : Colors.transparent,
+                    borderRadius: BorderRadius.circular(10),
+                    border: isSelected
+                        ? Border.all(color: theme.colorScheme.primary, width: 2)
+                        : null,
+                  ),
+                  child: Row(
+                    children: [
+                      // Color swatch
+                      Container(
+                        width: 48,
+                        height: 32,
+                        decoration: BoxDecoration(
+                          color: shade.$3,
+                          borderRadius: BorderRadius.circular(6),
+                          border: Border.all(
+                            color: theme.colorScheme.onSurface.withValues(
+                              alpha: 0.1,
+                            ),
+                          ),
+                        ),
+                        child: shade.$1 == BackgroundShade.none
+                            ? Icon(
+                                Icons.block,
+                                size: 16,
+                                color: theme.colorScheme.onSurface.withValues(
+                                  alpha: 0.3,
+                                ),
+                              )
+                            : null,
+                      ),
+                      const SizedBox(width: 12),
+                      // Label and description
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              shade.$2,
+                              style: TextStyle(
+                                color: theme.colorScheme.onSurface,
+                                fontSize: 13,
+                                fontWeight: isSelected
+                                    ? FontWeight.w700
+                                    : FontWeight.w600,
+                              ),
+                            ),
+                            Text(
+                              shade.$4,
+                              style: TextStyle(
+                                color: theme.colorScheme.onSurface.withValues(
+                                  alpha: 0.5,
+                                ),
+                                fontSize: 11,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                      // Selection indicator
+                      if (isSelected)
+                        Icon(
+                          Icons.check_circle,
+                          color: theme.colorScheme.primary,
+                          size: 20,
+                        )
+                      else
+                        // Hex code
+                        Container(
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 8,
+                            vertical: 4,
+                          ),
+                          decoration: BoxDecoration(
+                            color: ocTheme.bgRaised,
+                            borderRadius: BorderRadius.circular(6),
+                          ),
+                          child: Text(
+                            '#${shade.$3.toARGB32().toRadixString(16).substring(2).toUpperCase()}',
+                            style: TextStyle(
+                              color: theme.colorScheme.onSurface.withValues(
+                                alpha: 0.7,
+                              ),
+                              fontSize: 10,
+                              fontFamily: 'monospace',
+                              fontWeight: FontWeight.w600,
+                            ),
+                          ),
+                        ),
+                    ],
+                  ),
+                ),
+              ),
+            );
+          }),
+        ],
+      ),
+    );
+  }
+}
+
+// Per-screen background toggle section
+class _ScreenBackgroundToggles extends ConsumerWidget {
+  const _ScreenBackgroundToggles();
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final ocTheme = OpenCodeTheme.of(context);
+    final theme = Theme.of(context);
+    final settings = ref.watch(appearanceProvider);
+
+    // Only show this section if there's a custom background or shade
+    if (!settings.hasCustomBackground && !settings.hasCustomShade) {
+      return Container(
+        decoration: BoxDecoration(
+          color: ocTheme.backgroundPanel,
+          borderRadius: BorderRadius.circular(16),
+          border: Border.all(color: ocTheme.borderSubtle),
+        ),
+        padding: const EdgeInsets.all(16),
+        child: Row(
+          children: [
+            Icon(
+              Icons.info_outline_rounded,
+              size: 18,
+              color: theme.colorScheme.onSurface.withValues(alpha: 0.5),
+            ),
+            const SizedBox(width: 12),
+            Expanded(
+              child: Text(
+                'Select a background image or shade above to enable',
+                style: TextStyle(
+                  color: theme.colorScheme.onSurface.withValues(alpha: 0.6),
+                  fontSize: 13,
+                ),
+              ),
+            ),
+          ],
+        ),
+      );
+    }
+
+    return Container(
+      decoration: BoxDecoration(
+        color: ocTheme.backgroundPanel,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: ocTheme.borderSubtle),
+      ),
+      padding: const EdgeInsets.all(16),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Icon(
+                Icons.check_circle_rounded,
+                size: 18,
+                color: theme.colorScheme.primary,
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Text(
+                  'Background applied to all screens',
+                  style: TextStyle(
+                    color: theme.colorScheme.onSurface,
+                    fontSize: 14,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 12),
+          Wrap(
+            spacing: 8,
+            runSpacing: 8,
+            children: [
+              _ScreenChip(
+                icon: Icons.chat_bubble_outline_rounded,
+                label: 'Chat',
+              ),
+              _ScreenChip(icon: Icons.grid_view_rounded, label: 'Projects'),
+              _ScreenChip(icon: Icons.folder_outlined, label: 'Browse'),
+              _ScreenChip(icon: Icons.history_rounded, label: 'Sessions'),
+              _ScreenChip(icon: Icons.tune_rounded, label: 'Settings'),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _ScreenChip extends StatelessWidget {
+  const _ScreenChip({required this.icon, required this.label});
+
+  final IconData icon;
+  final String label;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final ocTheme = OpenCodeTheme.of(context);
+
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+      decoration: BoxDecoration(
+        color: theme.colorScheme.primary.withValues(alpha: 0.1),
+        borderRadius: BorderRadius.circular(8),
+        border: Border.all(
+          color: theme.colorScheme.primary.withValues(alpha: 0.3),
+        ),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(icon, size: 14, color: theme.colorScheme.primary),
+          const SizedBox(width: 6),
+          Text(
+            label,
+            style: TextStyle(
+              color: theme.colorScheme.primary,
+              fontSize: 12,
+              fontWeight: FontWeight.w600,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}

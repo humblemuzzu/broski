@@ -6,6 +6,7 @@ import 'package:google_fonts/google_fonts.dart';
 
 import '../models/message.dart';
 import '../theme/opencode_theme.dart';
+import '../theme/tool_style.dart';
 
 class ToolCallCard extends StatefulWidget {
   const ToolCallCard({
@@ -44,16 +45,18 @@ class _ToolCallCardState extends State<ToolCallCard> {
   @override
   Widget build(BuildContext context) {
     final theme = OpenCodeTheme.of(context);
-    final icon = _getToolIcon(widget.tool.name);
-    final statusColor = _getStatusColor(widget.tool.status, theme);
+    // Use ToolStyle for consistent tool-specific icons and colors
+    final icon = ToolStyle.getIcon(widget.tool.name);
+    final toolColor = ToolStyle.getColor(context, widget.tool.name);
+    final statusColor = _getStatusColor(widget.tool.status, theme, toolColor);
 
     // For edit tools with diff, show inline diff preview
     if (_isEditWithDiff) {
-      return _buildEditDiffCard(theme, icon, statusColor);
+      return _buildEditDiffCard(theme, icon, statusColor, toolColor);
     }
 
     // Default card for other tools
-    return _buildDefaultCard(theme, icon, statusColor);
+    return _buildDefaultCard(theme, icon, statusColor, toolColor);
   }
 
   /// Card with inline diff preview (for edit tools)
@@ -61,6 +64,7 @@ class _ToolCallCardState extends State<ToolCallCard> {
     OpenCodeTheme theme,
     IconData icon,
     Color statusColor,
+    Color toolColor,
   ) {
     final fileName = _getFileName(
       widget.tool.input['filePath'] as String? ??
@@ -87,14 +91,23 @@ class _ToolCallCardState extends State<ToolCallCard> {
     final previewLines = _isExpanded ? diffLines : diffLines.take(4).toList();
     final hasMore = diffLines.length > 4;
 
+    // Determine border color based on tool color and status
+    final isRunning = widget.tool.status == 'running';
+    final hasError = widget.tool.status == 'error';
+    final borderColor = hasError
+        ? theme.error.withValues(alpha: 0.5)
+        : isRunning
+        ? toolColor.withValues(alpha: 0.6)
+        : toolColor.withValues(alpha: 0.3);
+
     return GestureDetector(
       onTap: () => setState(() => _isExpanded = !_isExpanded),
       child: Container(
         margin: const EdgeInsets.symmetric(vertical: 4),
         decoration: BoxDecoration(
-          color: theme.backgroundPanel,
+          color: _isExpanded ? theme.bgActive : theme.bgRaised,
           borderRadius: BorderRadius.circular(12),
-          border: Border.all(color: theme.borderSubtle, width: 1),
+          border: Border.all(color: borderColor, width: isRunning ? 1.5 : 1.0),
         ),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
@@ -107,10 +120,10 @@ class _ToolCallCardState extends State<ToolCallCard> {
                   Container(
                     padding: const EdgeInsets.all(6),
                     decoration: BoxDecoration(
-                      color: statusColor.withValues(alpha: 0.1),
+                      color: toolColor.withValues(alpha: 0.15),
                       borderRadius: BorderRadius.circular(6),
                     ),
-                    child: Icon(icon, size: 14, color: statusColor),
+                    child: Icon(icon, size: 14, color: toolColor),
                   ),
                   const SizedBox(width: 10),
                   Expanded(
@@ -348,7 +361,17 @@ class _ToolCallCardState extends State<ToolCallCard> {
     OpenCodeTheme theme,
     IconData icon,
     Color statusColor,
+    Color toolColor,
   ) {
+    // Determine border and background based on tool color and status
+    final isRunning = widget.tool.status == 'running';
+    final hasError = widget.tool.status == 'error';
+    final borderColor = hasError
+        ? theme.error.withValues(alpha: 0.5)
+        : isRunning
+        ? toolColor.withValues(alpha: 0.6)
+        : toolColor.withValues(alpha: 0.3);
+
     return GestureDetector(
       onTap: () => setState(() => _isExpanded = !_isExpanded),
       child: AnimatedContainer(
@@ -357,13 +380,13 @@ class _ToolCallCardState extends State<ToolCallCard> {
         margin: const EdgeInsets.symmetric(horizontal: 0, vertical: 4),
         padding: const EdgeInsets.all(12),
         decoration: BoxDecoration(
-          color: theme.backgroundPanel,
+          color: _isExpanded ? theme.bgActive : theme.bgRaised,
           borderRadius: BorderRadius.circular(12),
-          border: Border.all(color: theme.borderSubtle, width: 1),
-          boxShadow: widget.tool.status == 'running'
+          border: Border.all(color: borderColor, width: isRunning ? 1.5 : 1.0),
+          boxShadow: isRunning
               ? [
                   BoxShadow(
-                    color: statusColor.withValues(alpha: 0.12),
+                    color: toolColor.withValues(alpha: 0.15),
                     blurRadius: 12,
                     spreadRadius: 0,
                   ),
@@ -376,13 +399,14 @@ class _ToolCallCardState extends State<ToolCallCard> {
             // Header - compact
             Row(
               children: [
+                // Tool icon with tool-specific color
                 Container(
                   padding: const EdgeInsets.all(6),
                   decoration: BoxDecoration(
-                    color: statusColor.withValues(alpha: 0.1),
+                    color: toolColor.withValues(alpha: 0.15),
                     borderRadius: BorderRadius.circular(6),
                   ),
-                  child: Icon(icon, size: 14, color: statusColor),
+                  child: Icon(icon, size: 14, color: toolColor),
                 ),
                 const SizedBox(width: 10),
                 Expanded(
@@ -618,28 +642,9 @@ class _ToolCallCardState extends State<ToolCallCard> {
     );
   }
 
-  IconData _getToolIcon(String toolName) {
-    switch (toolName.toLowerCase()) {
-      case 'read':
-        return Icons.description_outlined;
-      case 'edit':
-        return Icons.edit_outlined;
-      case 'write':
-        return Icons.note_add_outlined;
-      case 'bash':
-      case 'shell':
-        return Icons.terminal;
-      case 'glob':
-      case 'search':
-        return Icons.search;
-      case 'task':
-        return Icons.psychology_outlined;
-      default:
-        return Icons.extension_outlined;
-    }
-  }
+  // Note: Tool icon is now provided by ToolStyle.getIcon()
 
-  Color _getStatusColor(String status, OpenCodeTheme theme) {
+  Color _getStatusColor(String status, OpenCodeTheme theme, Color toolColor) {
     switch (status.toLowerCase()) {
       case 'completed':
       case 'success':
@@ -649,7 +654,8 @@ class _ToolCallCardState extends State<ToolCallCard> {
         return theme.error;
       case 'running':
       case 'pending':
-        return theme.info;
+        // Use tool color for running state (more distinctive)
+        return toolColor;
       default:
         return theme.textMuted;
     }

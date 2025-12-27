@@ -10,6 +10,7 @@ import '../providers/sessions_provider.dart';
 import '../providers/service_providers.dart';
 import '../services/websocket_service.dart';
 import '../theme/opencode_theme.dart';
+import '../widgets/app_background.dart';
 
 class MainShell extends ConsumerStatefulWidget {
   const MainShell({super.key});
@@ -45,6 +46,8 @@ class _MainShellState extends ConsumerState<MainShell> {
       extendBody: true,
       body: Stack(
         children: [
+          // Custom background image/shade layer
+          const AppBackground(),
           IndexedStack(
             index: _index,
             children: const [
