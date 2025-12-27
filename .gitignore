@@ -104,9 +104,11 @@ pnpm-lock.yaml
 
 # Reference codebases (not part of the app)
 web-ui-cc/
+docs/
 logs.md
 critical-g-*.md
 optimization.md
+cursor-codex-cc-chat.md
 
 # Logs and temp files
 *.log

@@ -87,7 +87,6 @@ class FileAutocomplete extends ConsumerWidget {
     final state = ref.watch(fileSearchProvider);
 
     if (state.results.isEmpty && !state.isSearching) {
-      if (state.query.isEmpty) return const SizedBox.shrink();
       return Container(
         padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
         decoration: BoxDecoration(
@@ -103,7 +102,7 @@ class FileAutocomplete extends ConsumerWidget {
           ],
         ),
         child: Text(
-          'No matching files',
+          state.query.isEmpty ? 'No files in project' : 'No matching files',
           style: TextStyle(color: theme.textMuted, fontSize: 13),
         ),
       );

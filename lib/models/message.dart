@@ -7,6 +7,8 @@ class ChatMessage {
     required this.text,
     this.toolCalls = const [],
     this.diffs = const [],
+    this.subtaskNotifications = const [],
+    this.reasoningParts = const [],
     this.isStreaming = false,
     this.error,
   });
@@ -18,13 +20,42 @@ class ChatMessage {
   final String text;
   final List<ToolCall> toolCalls;
   final List<DiffEntry> diffs;
+
+  /// Background task completion notifications in this message
+  final List<SubtaskNotification> subtaskNotifications;
+
+  /// Model reasoning/thinking content (e.g., Claude's extended thinking)
+  final List<ReasoningPart> reasoningParts;
+
   final bool isStreaming;
   final String? error;
+
+  /// Whether this message has any subtask notifications
+  bool get hasSubtaskNotifications => subtaskNotifications.isNotEmpty;
+
+  /// Whether this message has any reasoning/thinking content
+  bool get hasReasoning => reasoningParts.isNotEmpty;
+
+  /// Whether any reasoning is still streaming
+  bool get isReasoningStreaming =>
+      reasoningParts.any((part) => part.isStreaming);
+
+  /// Combined reasoning text from all parts
+  String get reasoningText => reasoningParts.map((p) => p.text).join('');
+
+  /// Total reasoning duration in ms (sum of all completed parts)
+  int? get reasoningDurationMs {
+    final completed = reasoningParts.where((p) => p.durationMs != null);
+    if (completed.isEmpty) return null;
+    return completed.fold<int>(0, (sum, p) => sum + (p.durationMs ?? 0));
+  }
 
   ChatMessage copyWith({
     String? text,
     List<ToolCall>? toolCalls,
     List<DiffEntry>? diffs,
+    List<SubtaskNotification>? subtaskNotifications,
+    List<ReasoningPart>? reasoningParts,
     bool? isStreaming,
     String? error,
   }) {
@@ -36,6 +67,8 @@ class ChatMessage {
       text: text ?? this.text,
       toolCalls: toolCalls ?? this.toolCalls,
       diffs: diffs ?? this.diffs,
+      subtaskNotifications: subtaskNotifications ?? this.subtaskNotifications,
+      reasoningParts: reasoningParts ?? this.reasoningParts,
       isStreaming: isStreaming ?? this.isStreaming,
       error: error ?? this.error,
     );
@@ -126,4 +159,130 @@ class DiffEntry {
 
   /// Tool part ID (callID) that produced this diff, used for precise undo.
   final String? partId;
+}
+
+/// Represents model reasoning/thinking content.
+/// These are ReasoningParts from the OpenCode SDK that show
+/// the model's internal reasoning process (e.g., Claude's extended thinking).
+class ReasoningPart {
+  const ReasoningPart({
+    required this.id,
+    required this.messageId,
+    required this.text,
+    this.startTime,
+    this.endTime,
+    this.isStreaming = false,
+  });
+
+  /// Part ID
+  final String id;
+
+  /// Parent message ID
+  final String messageId;
+
+  /// The reasoning/thinking text content
+  final String text;
+
+  /// When thinking started (Unix timestamp in ms)
+  final int? startTime;
+
+  /// When thinking ended (Unix timestamp in ms)
+  final int? endTime;
+
+  /// Whether this reasoning is still streaming
+  final bool isStreaming;
+
+  /// Duration in milliseconds (if completed)
+  int? get durationMs {
+    if (startTime == null || endTime == null) return null;
+    return endTime! - startTime!;
+  }
+
+  /// Human-readable duration (e.g., "2.3s")
+  String? get durationString {
+    final ms = durationMs;
+    if (ms == null) return null;
+    if (ms < 1000) return '${ms}ms';
+    return '${(ms / 1000).toStringAsFixed(1)}s';
+  }
+
+  ReasoningPart copyWith({
+    String? text,
+    int? startTime,
+    int? endTime,
+    bool? isStreaming,
+  }) {
+    return ReasoningPart(
+      id: id,
+      messageId: messageId,
+      text: text ?? this.text,
+      startTime: startTime ?? this.startTime,
+      endTime: endTime ?? this.endTime,
+      isStreaming: isStreaming ?? this.isStreaming,
+    );
+  }
+
+  /// Parse from SDK reasoning part
+  factory ReasoningPart.fromJson(Map<String, dynamic> json) {
+    final time = json['time'] as Map<String, dynamic>?;
+    return ReasoningPart(
+      id: json['id'] as String? ?? '',
+      messageId: json['messageID'] as String? ?? '',
+      text: json['text'] as String? ?? '',
+      startTime: time?['start'] as int?,
+      endTime: time?['end'] as int?,
+    );
+  }
+}
+
+/// Represents a background task completion notification.
+/// These are SubtaskParts from the OpenCode SDK that notify when
+/// background agents complete their work.
+class SubtaskNotification {
+  const SubtaskNotification({
+    required this.id,
+    required this.description,
+    required this.agent,
+    required this.sessionId,
+    this.prompt,
+    this.command,
+    this.duration,
+    this.isCompleted = true,
+  });
+
+  /// Part ID
+  final String id;
+
+  /// Short description of the task (e.g., "Find auth implementations")
+  final String description;
+
+  /// Agent that ran the task (e.g., "explore", "librarian")
+  final String agent;
+
+  /// Session ID where the background task ran
+  final String sessionId;
+
+  /// Full prompt sent to the agent
+  final String? prompt;
+
+  /// Command that triggered this task (if any)
+  final String? command;
+
+  /// Duration in seconds (if available)
+  final int? duration;
+
+  /// Whether the task completed (vs still running)
+  final bool isCompleted;
+
+  /// Parse from SDK subtask part
+  factory SubtaskNotification.fromJson(Map<String, dynamic> json) {
+    return SubtaskNotification(
+      id: json['id'] as String? ?? '',
+      description: json['description'] as String? ?? 'Background task',
+      agent: json['agent'] as String? ?? 'subagent',
+      sessionId: json['sessionID'] as String? ?? '',
+      prompt: json['prompt'] as String?,
+      command: json['command'] as String?,
+    );
+  }
 }

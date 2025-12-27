@@ -155,11 +155,13 @@ class MessageBubble extends StatelessWidget {
                     ),
 
                   // Message text with markdown - full width, no box
-                  if (message.text.isEmpty)
+                  // Only show placeholder if no text AND no reasoning content
+                  // (reasoning is shown via ThinkingCard, not here)
+                  if (message.text.isEmpty && !message.hasReasoning)
                     Opacity(
                       opacity: 0.5,
                       child: Text(
-                        'Thinking...',
+                        '...',
                         style: GoogleFonts.inter(
                           fontSize: 15,
                           color: theme.textMuted,
@@ -168,7 +170,7 @@ class MessageBubble extends StatelessWidget {
                         ),
                       ),
                     )
-                  else
+                  else if (message.text.isNotEmpty)
                     // Huge perf win: avoid markdown layout while streaming.
                     // Render markdown only once the message is stable.
                     message.isStreaming

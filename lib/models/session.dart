@@ -22,6 +22,12 @@ class SessionSummary {
   /// Whether this session was forked from another session
   bool get isForked => parentID != null && parentID!.isNotEmpty;
 
+  /// Whether this is a background/subagent session (has a parent)
+  bool get isBackgroundTask => parentID != null && parentID!.isNotEmpty;
+
+  /// Whether this is a root/main session (no parent)
+  bool get isRootSession => parentID == null || parentID!.isEmpty;
+
   /// Whether this session is shared publicly
   bool get isShared => share != null && share!.url.isNotEmpty;
 

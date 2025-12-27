@@ -28,6 +28,8 @@ import '../theme/opencode_theme.dart';
 import '../widgets/diff_viewer.dart';
 import '../widgets/file_tagging.dart';
 import '../widgets/message_bubble.dart';
+import '../widgets/subtask_notification_card.dart';
+import '../widgets/thinking_card.dart';
 import '../widgets/permission_prompt.dart';
 import '../widgets/session_sidebar.dart';
 import '../widgets/tool_call.dart';
@@ -1301,6 +1303,13 @@ class _ChatScreenState extends ConsumerState<ChatScreen>
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
+        // Reasoning/thinking content (shows model's thinking process)
+        if (message.hasReasoning)
+          Padding(
+            padding: const EdgeInsets.only(bottom: 8),
+            child: ThinkingCard(message: message),
+          ),
+
         // Feature 6: Pass fork callback to message bubble
         MessageBubble(
           message: message,
@@ -1332,6 +1341,13 @@ class _ChatScreenState extends ConsumerState<ChatScreen>
                   _revertMessage(messageId, partId: partId),
               onViewFull: () => _openDiffView(diff, messageId: message.id),
             ),
+          ),
+
+        // Subtask notifications (background task completions)
+        for (final subtask in message.subtaskNotifications)
+          Padding(
+            padding: const EdgeInsets.only(top: 8),
+            child: SubtaskNotificationCard(notification: subtask),
           ),
 
         const SizedBox(height: 16),

@@ -219,9 +219,23 @@ class ConnectionNotifier extends StateNotifier<BridgeConnectionState> {
   }
 
   Future<void> clearConnection() async {
-    await disconnect();
+    // Cancel any pending reconnect first
+    _reconnectTimer?.cancel();
+    _reconnectAttempts = 0;
+    _failureStreak = 0;
+
+    // Clear connection state BEFORE disconnecting to prevent
+    // _handleStatus from scheduling a reconnect
     await _storage.clearConnection();
-    state = state.copyWith(clearConnection: true, isOfflineMode: false);
+    state = state.copyWith(
+      clearConnection: true,
+      status: ConnectionStatus.disconnected,
+      isOfflineMode: false,
+      isReconnecting: false,
+    );
+
+    // Now disconnect the socket
+    await _socket.disconnect();
   }
 
   /// Enter offline/preview mode - allows browsing cached data without connection

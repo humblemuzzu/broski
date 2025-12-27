@@ -57,16 +57,44 @@ class _SessionsScreenState extends ConsumerState<SessionsScreen> {
             physics: const AlwaysScrollableScrollPhysics(),
             slivers: [
               SliverToBoxAdapter(
-                child: _ModernHeader(
-                  connection: connection,
-                  filterProjectPath: filterProjectPath,
-                  projects: projectsAsync,
-                  onFilterChanged: (path) {
-                    ref.read(sessionsFilterProjectPathProvider.notifier).state =
-                        path;
-                    ref.read(sessionsRefreshTickProvider.notifier).state++;
+                child: Builder(
+                  builder: (context) {
+                    // Count background tasks from grouped sessions
+                    final groupedSessions = ref.watch(groupedSessionsProvider);
+                    final backgroundTaskCount = groupedSessions.fold<int>(
+                      0,
+                      (sum, g) => sum + g.children.length,
+                    );
+                    final showBgTasks = ref.watch(showBackgroundTasksProvider);
+
+                    return _ModernHeader(
+                      connection: connection,
+                      filterProjectPath: filterProjectPath,
+                      projects: projectsAsync,
+                      onFilterChanged: (path) {
+                        ref
+                                .read(
+                                  sessionsFilterProjectPathProvider.notifier,
+                                )
+                                .state =
+                            path;
+                        ref.read(sessionsRefreshTickProvider.notifier).state++;
+                      },
+                      onRefresh: _refresh,
+                      showBackgroundTasks: showBgTasks,
+                      onToggleBackgroundTasks: () {
+                        ref.read(showBackgroundTasksProvider.notifier).state =
+                            !showBgTasks;
+                        // Collapse all when hiding
+                        if (showBgTasks) {
+                          ref
+                              .read(expandedSessionsProvider.notifier)
+                              .collapseAll();
+                        }
+                      },
+                      backgroundTaskCount: backgroundTaskCount,
+                    );
                   },
-                  onRefresh: _refresh,
                 ),
               ),
               ...sessionsAsync.when(
@@ -118,10 +146,20 @@ class _SessionsScreenState extends ConsumerState<SessionsScreen> {
                     return [SliverFillRemaining(child: _EmptyState())];
                   }
 
-                  // Predictive prefetching: preload messages for top 3 sessions
+                  // Use grouped sessions for hierarchical display
+                  final groupedSessions = ref.watch(groupedSessionsProvider);
+                  final showBgTasks = ref.watch(showBackgroundTasksProvider);
+                  final expandedSessions = ref.watch(expandedSessionsProvider);
+
+                  // Filter to only root sessions (background tasks are nested)
+                  final rootSessions = sessions
+                      .where((s) => s.isRootSession)
+                      .toList();
+
+                  // Predictive prefetching: preload messages for top 3 root sessions
                   // Fire-and-forget after frame is rendered
                   WidgetsBinding.instance.addPostFrameCallback((_) {
-                    prefetchTopSessions(ref, sessions);
+                    prefetchTopSessions(ref, rootSessions);
                   });
 
                   final projectsByPath = <String, ProjectSummary>{};
@@ -131,10 +169,13 @@ class _SessionsScreenState extends ConsumerState<SessionsScreen> {
                     projectsByPath[p.path] = p;
                   }
 
-                  final items = _buildListItems(
-                    sessions: sessions,
+                  // Build items using grouped sessions
+                  final items = _buildGroupedListItems(
+                    groupedSessions: groupedSessions,
                     projectsByPath: projectsByPath,
                     grouped: filterProjectPath == null,
+                    showBackgroundTasks: showBgTasks,
+                    expandedSessions: expandedSessions,
                   );
 
                   return [
@@ -159,23 +200,69 @@ class _SessionsScreenState extends ConsumerState<SessionsScreen> {
                             );
                           }
 
-                          final session = (item as _SessionListItem).session;
-                          final status = sessionStatuses[session.id];
-                          return Padding(
-                            padding: const EdgeInsets.only(bottom: 12),
-                            child: _SessionCard(
-                              session: session,
-                              status: status,
-                              isOfflineMode: connection.isOfflineMode,
-                              onTap: () => _openSession(session),
-                              onDelete: connection.isOfflineMode
-                                  ? null
-                                  : () => _deleteSession(session),
-                              onRename: connection.isOfflineMode
-                                  ? null
-                                  : () => _showRenameDialog(session),
-                            ),
-                          );
+                          if (item is _SessionListItem) {
+                            final session = item.session;
+                            final status = sessionStatuses[session.id];
+                            final grouped = groupedSessions.firstWhere(
+                              (g) => g.session.id == session.id,
+                              orElse: () =>
+                                  SessionWithChildren(session: session),
+                            );
+                            final isExpanded = expandedSessions.contains(
+                              session.id,
+                            );
+                            final hasChildren = grouped.hasChildren;
+
+                            return Padding(
+                              padding: const EdgeInsets.only(bottom: 12),
+                              child: _SessionCard(
+                                session: session,
+                                status: status,
+                                isOfflineMode: connection.isOfflineMode,
+                                onTap: () => _openSession(session),
+                                onDelete: connection.isOfflineMode
+                                    ? null
+                                    : () => _deleteSession(session),
+                                onRename: connection.isOfflineMode
+                                    ? null
+                                    : () => _showRenameDialog(session),
+                                // Background task expansion
+                                childCount: showBgTasks && hasChildren
+                                    ? grouped.children.length
+                                    : 0,
+                                isExpanded: isExpanded,
+                                onToggleExpand: showBgTasks && hasChildren
+                                    ? () => ref
+                                          .read(
+                                            expandedSessionsProvider.notifier,
+                                          )
+                                          .toggle(session.id)
+                                    : null,
+                                activeChildCount: showBgTasks
+                                    ? grouped.activeChildCount(sessionStatuses)
+                                    : 0,
+                              ),
+                            );
+                          }
+
+                          if (item is _ChildSessionItem) {
+                            final session = item.session;
+                            final status = sessionStatuses[session.id];
+                            return Padding(
+                              padding: const EdgeInsets.only(
+                                left: 24,
+                                bottom: 8,
+                              ),
+                              child: _ChildSessionCard(
+                                session: session,
+                                status: status,
+                                isOfflineMode: connection.isOfflineMode,
+                                onTap: () => _openSession(session),
+                              ),
+                            );
+                          }
+
+                          return const SizedBox.shrink();
                         }, childCount: items.length),
                       ),
                     ),
@@ -343,10 +430,19 @@ final class _SessionListItem extends _SessionRowItem {
   final SessionSummary session;
 }
 
-List<_SessionRowItem> _buildListItems({
-  required List<SessionSummary> sessions,
+/// Child session item (background task nested under parent)
+final class _ChildSessionItem extends _SessionRowItem {
+  _ChildSessionItem(this.session);
+  final SessionSummary session;
+}
+
+/// Build list items with grouped sessions (parent + children)
+List<_SessionRowItem> _buildGroupedListItems({
+  required List<SessionWithChildren> groupedSessions,
   required Map<String, ProjectSummary> projectsByPath,
   required bool grouped,
+  required bool showBackgroundTasks,
+  required Set<String> expandedSessions,
 }) {
   String displayNameForDirectory(String directory) {
     final project = projectsByPath[directory];
@@ -356,21 +452,35 @@ List<_SessionRowItem> _buildListItems({
   }
 
   if (!grouped) {
-    return sessions.map((s) => _SessionListItem(s)).toList();
+    // No project grouping, just show all root sessions
+    final items = <_SessionRowItem>[];
+    for (final g in groupedSessions) {
+      items.add(_SessionListItem(g.session));
+      // Add children if expanded
+      if (showBackgroundTasks &&
+          g.hasChildren &&
+          expandedSessions.contains(g.session.id)) {
+        for (final child in g.children) {
+          items.add(_ChildSessionItem(child));
+        }
+      }
+    }
+    return items;
   }
 
-  final groups = <String, List<SessionSummary>>{};
-  for (final session in sessions) {
-    groups.putIfAbsent(session.directory, () => []).add(session);
+  // Group by directory (project)
+  final groups = <String, List<SessionWithChildren>>{};
+  for (final g in groupedSessions) {
+    groups.putIfAbsent(g.session.directory, () => []).add(g);
   }
 
   final directories = groups.keys.toList()
     ..sort((a, b) {
       final aMax = groups[a]!
-          .map((s) => s.time.updated)
+          .map((g) => g.session.time.updated)
           .fold<int>(0, (prev, v) => v > prev ? v : prev);
       final bMax = groups[b]!
-          .map((s) => s.time.updated)
+          .map((g) => g.session.time.updated)
           .fold<int>(0, (prev, v) => v > prev ? v : prev);
       return bMax.compareTo(aMax);
     });
@@ -379,9 +489,17 @@ List<_SessionRowItem> _buildListItems({
   for (final directory in directories) {
     items.add(_SessionListHeader(displayNameForDirectory(directory)));
     final group = groups[directory]!
-      ..sort((a, b) => b.time.updated - a.time.updated);
-    for (final session in group) {
-      items.add(_SessionListItem(session));
+      ..sort((a, b) => b.session.time.updated - a.session.time.updated);
+    for (final g in group) {
+      items.add(_SessionListItem(g.session));
+      // Add children if expanded
+      if (showBackgroundTasks &&
+          g.hasChildren &&
+          expandedSessions.contains(g.session.id)) {
+        for (final child in g.children) {
+          items.add(_ChildSessionItem(child));
+        }
+      }
     }
   }
   return items;
@@ -395,6 +513,9 @@ class _ModernHeader extends StatelessWidget {
     required this.projects,
     required this.onFilterChanged,
     required this.onRefresh,
+    required this.showBackgroundTasks,
+    required this.onToggleBackgroundTasks,
+    required this.backgroundTaskCount,
   });
 
   final BridgeConnectionState connection;
@@ -402,6 +523,9 @@ class _ModernHeader extends StatelessWidget {
   final AsyncValue<List<ProjectSummary>> projects;
   final ValueChanged<String?> onFilterChanged;
   final VoidCallback onRefresh;
+  final bool showBackgroundTasks;
+  final VoidCallback onToggleBackgroundTasks;
+  final int backgroundTaskCount;
 
   @override
   Widget build(BuildContext context) {
@@ -474,20 +598,94 @@ class _ModernHeader extends StatelessWidget {
             ),
           ),
           const SizedBox(height: 14),
-          Align(
-            alignment: Alignment.centerLeft,
-            child: _FilterChipButton(
-              label: filterLabel,
-              onTap: () => _showProjectFilter(
-                context: context,
-                theme: theme,
-                selectedPath: filterProjectPath,
-                projects: projects,
-                onSelected: onFilterChanged,
+          Row(
+            children: [
+              _FilterChipButton(
+                label: filterLabel,
+                onTap: () => _showProjectFilter(
+                  context: context,
+                  theme: theme,
+                  selectedPath: filterProjectPath,
+                  projects: projects,
+                  onSelected: onFilterChanged,
+                ),
               ),
-            ),
+              const SizedBox(width: 8),
+              // Background tasks toggle
+              if (backgroundTaskCount > 0)
+                _BackgroundTasksChip(
+                  count: backgroundTaskCount,
+                  isExpanded: showBackgroundTasks,
+                  onTap: onToggleBackgroundTasks,
+                ),
+            ],
           ),
         ],
+      ),
+    );
+  }
+}
+
+/// Chip button to toggle background tasks visibility
+class _BackgroundTasksChip extends StatelessWidget {
+  const _BackgroundTasksChip({
+    required this.count,
+    required this.isExpanded,
+    required this.onTap,
+  });
+
+  final int count;
+  final bool isExpanded;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final ocTheme = OpenCodeTheme.of(context);
+
+    return InkWell(
+      onTap: onTap,
+      borderRadius: BorderRadius.circular(999),
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 200),
+        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+        decoration: BoxDecoration(
+          color: isExpanded
+              ? ocTheme.info.withValues(alpha: 0.15)
+              : ocTheme.backgroundPanel,
+          borderRadius: BorderRadius.circular(999),
+          border: Border.all(
+            color: isExpanded ? ocTheme.info : ocTheme.borderSubtle,
+          ),
+        ),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(
+              Icons.account_tree_rounded,
+              size: 14,
+              color: isExpanded ? ocTheme.info : ocTheme.textMuted,
+            ),
+            const SizedBox(width: 6),
+            Text(
+              '$count',
+              style: TextStyle(
+                color: isExpanded ? ocTheme.info : ocTheme.text,
+                fontSize: 12,
+                fontWeight: FontWeight.w600,
+              ),
+            ),
+            const SizedBox(width: 4),
+            AnimatedRotation(
+              turns: isExpanded ? 0.5 : 0,
+              duration: const Duration(milliseconds: 200),
+              child: Icon(
+                Icons.expand_more_rounded,
+                size: 16,
+                color: isExpanded ? ocTheme.info : ocTheme.textMuted,
+              ),
+            ),
+          ],
+        ),
       ),
     );
   }
@@ -760,6 +958,10 @@ class _SessionCard extends StatelessWidget {
     this.onDelete,
     this.onRename,
     this.isOfflineMode = false,
+    this.childCount = 0,
+    this.isExpanded = false,
+    this.onToggleExpand,
+    this.activeChildCount = 0,
   });
 
   final SessionSummary session;
@@ -769,7 +971,21 @@ class _SessionCard extends StatelessWidget {
   final VoidCallback? onRename;
   final bool isOfflineMode;
 
+  /// Number of background task children
+  final int childCount;
+
+  /// Whether children are expanded
+  final bool isExpanded;
+
+  /// Callback to toggle expand/collapse
+  final VoidCallback? onToggleExpand;
+
+  /// Number of active (busy/retry) child sessions
+  final int activeChildCount;
+
   bool get isActive => status != null && (status!.isBusy || status!.isRetry);
+
+  bool get hasChildren => childCount > 0;
 
   String _getProjectName() {
     return session.directory.split('/').where((item) => item.isNotEmpty).last;
@@ -937,12 +1153,73 @@ class _SessionCard extends StatelessWidget {
               ),
             ),
             const SizedBox(width: 8),
-            // Chevron
-            Icon(
-              Icons.chevron_right_rounded,
-              color: ocTheme.textMuted.withValues(alpha: 0.4),
-              size: 20,
-            ),
+            // Background tasks expand button
+            if (hasChildren)
+              GestureDetector(
+                onTap: onToggleExpand,
+                behavior: HitTestBehavior.opaque,
+                child: Container(
+                  padding: const EdgeInsets.all(4),
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      // Badge with count
+                      Container(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 6,
+                          vertical: 2,
+                        ),
+                        decoration: BoxDecoration(
+                          color: activeChildCount > 0
+                              ? ocTheme.info.withValues(alpha: 0.15)
+                              : ocTheme.textMuted.withValues(alpha: 0.1),
+                          borderRadius: BorderRadius.circular(4),
+                        ),
+                        child: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Icon(
+                              Icons.account_tree_rounded,
+                              size: 10,
+                              color: activeChildCount > 0
+                                  ? ocTheme.info
+                                  : ocTheme.textMuted,
+                            ),
+                            const SizedBox(width: 3),
+                            Text(
+                              '$childCount',
+                              style: TextStyle(
+                                color: activeChildCount > 0
+                                    ? ocTheme.info
+                                    : ocTheme.textMuted,
+                                fontSize: 10,
+                                fontWeight: FontWeight.w600,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                      const SizedBox(width: 4),
+                      AnimatedRotation(
+                        turns: isExpanded ? 0.25 : 0,
+                        duration: const Duration(milliseconds: 200),
+                        child: Icon(
+                          Icons.chevron_right_rounded,
+                          color: ocTheme.textMuted.withValues(alpha: 0.6),
+                          size: 18,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              )
+            else
+              // Chevron (no children)
+              Icon(
+                Icons.chevron_right_rounded,
+                color: ocTheme.textMuted.withValues(alpha: 0.4),
+                size: 20,
+              ),
           ],
         ),
       ),
@@ -975,6 +1252,188 @@ class _SessionCard extends StatelessWidget {
     }
 
     return card;
+  }
+}
+
+/// Card for child (background task) sessions - compact design with indent
+class _ChildSessionCard extends StatelessWidget {
+  const _ChildSessionCard({
+    required this.session,
+    required this.onTap,
+    this.status,
+    this.isOfflineMode = false,
+  });
+
+  final SessionSummary session;
+  final SessionStatus? status;
+  final VoidCallback onTap;
+  final bool isOfflineMode;
+
+  bool get isActive => status != null && (status!.isBusy || status!.isRetry);
+
+  String _formatDate(int timestamp) {
+    final date = DateTime.fromMillisecondsSinceEpoch(timestamp * 1000);
+    final now = DateTime.now();
+    final diff = now.difference(date);
+
+    if (diff.inMinutes < 1) {
+      return 'Just now';
+    } else if (diff.inMinutes < 60) {
+      return '${diff.inMinutes}m ago';
+    } else if (diff.inHours < 24) {
+      return '${diff.inHours}h ago';
+    } else if (diff.inDays < 7) {
+      return '${diff.inDays}d ago';
+    } else {
+      return '${date.day}/${date.month}/${date.year}';
+    }
+  }
+
+  /// Extract agent name from title like "Description (@agent subagent)"
+  String? _extractAgentName() {
+    final match = RegExp(r'\(@(\w+) subagent\)$').firstMatch(session.title);
+    return match?.group(1);
+  }
+
+  /// Get title without the agent suffix
+  String _getCleanTitle() {
+    return session.title.replaceAll(RegExp(r'\s*\(@\w+ subagent\)$'), '');
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final ocTheme = OpenCodeTheme.of(context);
+    final agentName = _extractAgentName();
+    final cleanTitle = _getCleanTitle();
+
+    return GestureDetector(
+      onTap: onTap,
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+        decoration: BoxDecoration(
+          color: ocTheme.backgroundElement.withValues(alpha: 0.5),
+          borderRadius: BorderRadius.circular(10),
+          border: Border.all(
+            color: isActive
+                ? ocTheme.info.withValues(alpha: 0.4)
+                : ocTheme.borderSubtle.withValues(alpha: 0.5),
+          ),
+        ),
+        child: Row(
+          children: [
+            // Indent line indicator
+            Container(
+              width: 2,
+              height: 32,
+              margin: const EdgeInsets.only(right: 10),
+              decoration: BoxDecoration(
+                color: isActive
+                    ? ocTheme.info.withValues(alpha: 0.6)
+                    : ocTheme.textMuted.withValues(alpha: 0.3),
+                borderRadius: BorderRadius.circular(1),
+              ),
+            ),
+            // Agent icon
+            Container(
+              width: 28,
+              height: 28,
+              decoration: BoxDecoration(
+                color: ocTheme.info.withValues(alpha: 0.15),
+                borderRadius: BorderRadius.circular(6),
+              ),
+              child: Center(
+                child: Icon(
+                  Icons.auto_awesome_rounded,
+                  size: 14,
+                  color: ocTheme.info,
+                ),
+              ),
+            ),
+            const SizedBox(width: 10),
+            // Session info
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
+                    children: [
+                      if (agentName != null) ...[
+                        Container(
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 5,
+                            vertical: 1,
+                          ),
+                          decoration: BoxDecoration(
+                            color: ocTheme.info.withValues(alpha: 0.15),
+                            borderRadius: BorderRadius.circular(3),
+                          ),
+                          child: Text(
+                            '@$agentName',
+                            style: TextStyle(
+                              color: ocTheme.info,
+                              fontSize: 9,
+                              fontWeight: FontWeight.w600,
+                            ),
+                          ),
+                        ),
+                        const SizedBox(width: 6),
+                      ],
+                      if (isActive)
+                        Container(
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 5,
+                            vertical: 1,
+                          ),
+                          decoration: BoxDecoration(
+                            color:
+                                (status!.isRetry
+                                        ? ocTheme.warning
+                                        : ocTheme.info)
+                                    .withValues(alpha: 0.15),
+                            borderRadius: BorderRadius.circular(3),
+                          ),
+                          child: Text(
+                            status!.isRetry ? 'Retry' : 'Running',
+                            style: TextStyle(
+                              color: status!.isRetry
+                                  ? ocTheme.warning
+                                  : ocTheme.info,
+                              fontSize: 9,
+                              fontWeight: FontWeight.w600,
+                            ),
+                          ),
+                        ),
+                    ],
+                  ),
+                  const SizedBox(height: 3),
+                  Text(
+                    cleanTitle,
+                    style: TextStyle(
+                      color: ocTheme.text.withValues(alpha: 0.9),
+                      fontSize: 12,
+                      fontWeight: FontWeight.w500,
+                    ),
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                  const SizedBox(height: 2),
+                  Text(
+                    _formatDate(session.time.updated),
+                    style: TextStyle(color: ocTheme.textMuted, fontSize: 10),
+                  ),
+                ],
+              ),
+            ),
+            // Chevron
+            Icon(
+              Icons.chevron_right_rounded,
+              color: ocTheme.textMuted.withValues(alpha: 0.4),
+              size: 16,
+            ),
+          ],
+        ),
+      ),
+    );
   }
 }
 

@@ -137,6 +137,8 @@ class ChatSessionNotifier extends StateNotifier<ChatSessionState> {
       var textBuffer = StringBuffer();
       final tools = <ToolCall>[];
       final diffs = <DiffEntry>[];
+      final subtasks = <SubtaskNotification>[];
+      final reasoningParts = <ReasoningPart>[];
 
       for (final partItem in parts) {
         final part = partItem as Map<String, dynamic>;
@@ -182,6 +184,14 @@ class ChatSessionNotifier extends StateNotifier<ChatSessionState> {
             }
           }
         }
+        // Parse subtask notifications (background task completions)
+        if (partType == 'subtask') {
+          subtasks.add(SubtaskNotification.fromJson(part));
+        }
+        // Parse reasoning parts (model thinking content)
+        if (partType == 'reasoning') {
+          reasoningParts.add(ReasoningPart.fromJson(part));
+        }
       }
 
       final textContent = textBuffer.toString();
@@ -200,6 +210,8 @@ class ChatSessionNotifier extends StateNotifier<ChatSessionState> {
         text: textContent,
         toolCalls: tools,
         diffs: diffs,
+        subtaskNotifications: subtasks,
+        reasoningParts: reasoningParts,
       );
 
       _addMessage(message);
@@ -464,6 +476,77 @@ class ChatSessionNotifier extends StateNotifier<ChatSessionState> {
         messageId,
         message.copyWith(toolCalls: updatedTools, diffs: updatedDiffs),
       );
+    }
+
+    // Handle subtask parts (background task notifications)
+    if (partType == 'subtask') {
+      final subtask = SubtaskNotification.fromJson(part);
+      final existing = message.subtaskNotifications
+          .where((s) => s.id == subtask.id)
+          .toList();
+
+      if (existing.isEmpty) {
+        final updatedSubtasks = [...message.subtaskNotifications, subtask];
+
+        _updateMessage(
+          messageId,
+          message.copyWith(subtaskNotifications: updatedSubtasks),
+        );
+      }
+    }
+
+    // Handle reasoning parts (model thinking/reasoning content)
+    if (partType == 'reasoning') {
+      final partId = part['id'] as String? ?? '';
+      final delta = properties['delta'] as String?;
+      final text = part['text'] as String? ?? '';
+      final time = part['time'] as Map<String, dynamic>?;
+      final startTime = time?['start'] as int?;
+      final endTime = time?['end'] as int?;
+
+      // Find existing reasoning part with same ID
+      final existingIdx = message.reasoningParts.indexWhere(
+        (r) => r.id == partId,
+      );
+
+      if (existingIdx >= 0) {
+        // Update existing reasoning part (streaming delta or completion)
+        final existing = message.reasoningParts[existingIdx];
+        final updatedText = delta != null ? existing.text + delta : text;
+        final isComplete = endTime != null;
+
+        final updatedPart = existing.copyWith(
+          text: updatedText,
+          endTime: endTime,
+          isStreaming: !isComplete,
+        );
+
+        final updatedParts = [...message.reasoningParts];
+        updatedParts[existingIdx] = updatedPart;
+
+        _updateMessage(
+          messageId,
+          message.copyWith(reasoningParts: updatedParts),
+        );
+      } else {
+        // New reasoning part
+        final isComplete = endTime != null;
+        final newPart = ReasoningPart(
+          id: partId,
+          messageId: messageId,
+          text: delta ?? text,
+          startTime: startTime,
+          endTime: endTime,
+          isStreaming: !isComplete,
+        );
+
+        _updateMessage(
+          messageId,
+          message.copyWith(
+            reasoningParts: [...message.reasoningParts, newPart],
+          ),
+        );
+      }
     }
   }
 

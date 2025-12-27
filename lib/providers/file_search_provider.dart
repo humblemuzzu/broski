@@ -48,14 +48,12 @@ class FileSearchNotifier extends StateNotifier<FileSearchState> {
   void search(String query) {
     _debounce?.cancel();
 
-    if (query.isEmpty) {
-      state = const FileSearchState();
-      return;
-    }
-
     state = state.copyWith(query: query, isSearching: true, selectedIndex: 0);
 
-    _debounce = Timer(const Duration(milliseconds: 150), () async {
+    // Shorter debounce for empty query (initial @ trigger) for snappy UX
+    final debounceMs = query.isEmpty ? 50 : 150;
+
+    _debounce = Timer(Duration(milliseconds: debounceMs), () async {
       try {
         final results = await _bridge.searchFilesAndDirs(
           query,

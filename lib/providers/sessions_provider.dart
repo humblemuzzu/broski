@@ -261,6 +261,43 @@ void prefetchTopSessions(WidgetRef ref, List<SessionSummary> sessions) {
 /// `null` means "all projects" (aggregate view).
 final sessionsFilterProjectPathProvider = StateProvider<String?>((ref) => null);
 
+/// Toggle to show/hide background task sessions in the list.
+/// When false (default), background tasks are collapsed under parent sessions.
+final showBackgroundTasksProvider = StateProvider<bool>((ref) => false);
+
+/// Tracks which parent sessions have their children expanded.
+/// Key: parent session ID, Value: true if expanded.
+final expandedSessionsProvider =
+    StateNotifierProvider<ExpandedSessionsNotifier, Set<String>>((ref) {
+      return ExpandedSessionsNotifier();
+    });
+
+class ExpandedSessionsNotifier extends StateNotifier<Set<String>> {
+  ExpandedSessionsNotifier() : super({});
+
+  void toggle(String sessionId) {
+    if (state.contains(sessionId)) {
+      state = {...state}..remove(sessionId);
+    } else {
+      state = {...state, sessionId};
+    }
+  }
+
+  void expand(String sessionId) {
+    state = {...state, sessionId};
+  }
+
+  void collapse(String sessionId) {
+    state = {...state}..remove(sessionId);
+  }
+
+  void collapseAll() {
+    state = {};
+  }
+
+  bool isExpanded(String sessionId) => state.contains(sessionId);
+}
+
 /// Increment to force a reload of sessions/projects.
 final sessionsRefreshTickProvider = StateProvider<int>((ref) => 0);
 
@@ -319,6 +356,57 @@ final sessionsListProvider = StreamProvider<List<SessionSummary>>((ref) async* {
     }
     // Otherwise, silently continue with cached data
   }
+});
+
+/// A session with its child (background task) sessions grouped together.
+class SessionWithChildren {
+  const SessionWithChildren({required this.session, this.children = const []});
+
+  final SessionSummary session;
+  final List<SessionSummary> children;
+
+  /// Whether this session has any background task children
+  bool get hasChildren => children.isNotEmpty;
+
+  /// Number of active (busy/retry) child sessions
+  int activeChildCount(Map<String, SessionStatus> statuses) {
+    return children.where((c) {
+      final status = statuses[c.id];
+      return status != null && (status.isBusy || status.isRetry);
+    }).length;
+  }
+}
+
+/// Groups sessions by parent/child relationship.
+/// Root sessions (no parentID) become the main entries.
+/// Child sessions (have parentID) are nested under their parent.
+final groupedSessionsProvider = Provider<List<SessionWithChildren>>((ref) {
+  final sessionsAsync = ref.watch(sessionsListProvider);
+  final sessions = sessionsAsync.valueOrNull ?? [];
+
+  // Separate root and child sessions
+  final rootSessions = <SessionSummary>[];
+  final childrenByParent = <String, List<SessionSummary>>{};
+
+  for (final session in sessions) {
+    if (session.isRootSession) {
+      rootSessions.add(session);
+    } else {
+      final parentId = session.parentID!;
+      childrenByParent.putIfAbsent(parentId, () => []).add(session);
+    }
+  }
+
+  // Sort root sessions by updated time (newest first)
+  rootSessions.sort((a, b) => b.time.updated.compareTo(a.time.updated));
+
+  // Build grouped list
+  return rootSessions.map((root) {
+    final children = childrenByParent[root.id] ?? [];
+    // Sort children by updated time (newest first)
+    children.sort((a, b) => b.time.updated.compareTo(a.time.updated));
+    return SessionWithChildren(session: root, children: children);
+  }).toList();
 });
 
 /// Stale-while-revalidate for projects: yields cached immediately, then fresh.
