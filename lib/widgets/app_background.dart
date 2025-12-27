@@ -25,12 +25,22 @@ import '../theme/opencode_theme.dart';
 /// )
 /// ```
 class AppBackground extends ConsumerWidget {
-  const AppBackground({super.key});
+  const AppBackground({super.key, this.screenId});
+
+  /// Optional screen identifier for per-screen background control.
+  /// Use values from [AppScreen] (e.g., AppScreen.chat, AppScreen.projects).
+  /// If null, background shows regardless of per-screen settings.
+  final String? screenId;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final appearance = ref.watch(appearanceProvider);
     final ocTheme = OpenCodeTheme.of(context);
+
+    // Check if background should show for this screen
+    if (screenId != null && !appearance.isEnabledForScreen(screenId!)) {
+      return const SizedBox.shrink();
+    }
 
     // Priority: Custom image > Custom shade > Nothing
     if (appearance.hasCustomBackground) {
@@ -87,7 +97,7 @@ class _ShadeBackgroundLayer extends StatelessWidget {
 }
 
 /// Background layer that renders a custom image with blur and opacity
-class _ImageBackgroundLayer extends StatelessWidget {
+class _ImageBackgroundLayer extends StatefulWidget {
   const _ImageBackgroundLayer({
     required this.imagePath,
     required this.opacity,
@@ -99,7 +109,40 @@ class _ImageBackgroundLayer extends StatelessWidget {
   final double blur;
 
   @override
+  State<_ImageBackgroundLayer> createState() => _ImageBackgroundLayerState();
+}
+
+class _ImageBackgroundLayerState extends State<_ImageBackgroundLayer> {
+  bool _imageExists = true;
+
+  @override
+  void initState() {
+    super.initState();
+    _checkImageExists();
+  }
+
+  @override
+  void didUpdateWidget(_ImageBackgroundLayer oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.imagePath != widget.imagePath) {
+      _checkImageExists();
+    }
+  }
+
+  Future<void> _checkImageExists() async {
+    final exists = await File(widget.imagePath).exists();
+    if (mounted && exists != _imageExists) {
+      setState(() => _imageExists = exists);
+    }
+  }
+
+  @override
   Widget build(BuildContext context) {
+    // Don't render if image doesn't exist
+    if (!_imageExists) {
+      return const SizedBox.shrink();
+    }
+
     final theme = Theme.of(context);
 
     return Positioned.fill(
@@ -108,7 +151,7 @@ class _ImageBackgroundLayer extends StatelessWidget {
         children: [
           // The image
           Image.file(
-            File(imagePath),
+            File(widget.imagePath),
             fit: BoxFit.cover,
             errorBuilder: (context, error, stackTrace) {
               // If image fails to load, show nothing
@@ -116,15 +159,18 @@ class _ImageBackgroundLayer extends StatelessWidget {
             },
           ),
           // Blur layer (if blur > 0)
-          if (blur > 0)
+          if (widget.blur > 0)
             BackdropFilter(
-              filter: ImageFilter.blur(sigmaX: blur, sigmaY: blur),
+              filter: ImageFilter.blur(
+                sigmaX: widget.blur,
+                sigmaY: widget.blur,
+              ),
               child: Container(color: Colors.transparent),
             ),
           // Dark overlay for readability
           Container(
             color: theme.scaffoldBackgroundColor.withValues(
-              alpha: 1.0 - opacity,
+              alpha: 1.0 - widget.opacity,
             ),
           ),
         ],
@@ -138,6 +184,7 @@ class _ImageBackgroundLayer extends StatelessWidget {
 ///
 /// ```dart
 /// return BackgroundScaffold(
+///   screenId: AppScreen.chat,
 ///   appBar: AppBar(...),
 ///   body: YourContent(),
 /// );
@@ -145,6 +192,7 @@ class _ImageBackgroundLayer extends StatelessWidget {
 class BackgroundScaffold extends ConsumerWidget {
   const BackgroundScaffold({
     super.key,
+    this.screenId,
     this.appBar,
     required this.body,
     this.floatingActionButton,
@@ -155,6 +203,8 @@ class BackgroundScaffold extends ConsumerWidget {
     this.resizeToAvoidBottomInset = true,
   });
 
+  /// Optional screen identifier for per-screen background control.
+  final String? screenId;
   final PreferredSizeWidget? appBar;
   final Widget body;
   final Widget? floatingActionButton;
@@ -169,17 +219,26 @@ class BackgroundScaffold extends ConsumerWidget {
     final appearance = ref.watch(appearanceProvider);
     final hasBackground =
         appearance.hasCustomBackground || appearance.hasCustomShade;
+    // Check if enabled for this specific screen
+    final isEnabledForScreen =
+        screenId == null || appearance.isEnabledForScreen(screenId!);
+    final shouldShowBackground = hasBackground && isEnabledForScreen;
 
     return Scaffold(
       backgroundColor: backgroundColor,
-      extendBody: extendBody || hasBackground,
-      extendBodyBehindAppBar: extendBodyBehindAppBar || hasBackground,
+      extendBody: extendBody || shouldShowBackground,
+      extendBodyBehindAppBar: extendBodyBehindAppBar || shouldShowBackground,
       resizeToAvoidBottomInset: resizeToAvoidBottomInset,
       appBar: appBar,
       floatingActionButton: floatingActionButton,
       bottomNavigationBar: bottomNavigationBar,
-      body: hasBackground
-          ? Stack(children: [const AppBackground(), body])
+      body: shouldShowBackground
+          ? Stack(
+              children: [
+                AppBackground(screenId: screenId),
+                body,
+              ],
+            )
           : body,
     );
   }

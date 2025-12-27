@@ -1192,6 +1192,17 @@ class _ScreenBackgroundToggles extends ConsumerWidget {
       );
     }
 
+    final screens = [
+      (AppScreen.chat, Icons.chat_bubble_outline_rounded, 'Chat'),
+      (AppScreen.projects, Icons.grid_view_rounded, 'Projects'),
+      (AppScreen.browse, Icons.folder_outlined, 'Browse'),
+      (AppScreen.sessions, Icons.history_rounded, 'Sessions'),
+      (AppScreen.settings, Icons.tune_rounded, 'Settings'),
+    ];
+
+    // Check if all screens are enabled (empty means all enabled)
+    final allEnabled = settings.enabledScreens.isEmpty;
+
     return Container(
       decoration: BoxDecoration(
         color: ocTheme.backgroundPanel,
@@ -1202,17 +1213,18 @@ class _ScreenBackgroundToggles extends ConsumerWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
+          // Header with toggle all
           Row(
             children: [
               Icon(
-                Icons.check_circle_rounded,
+                Icons.apps_rounded,
                 size: 18,
                 color: theme.colorScheme.primary,
               ),
               const SizedBox(width: 12),
               Expanded(
                 child: Text(
-                  'Background applied to all screens',
+                  'Select screens to apply background',
                   style: TextStyle(
                     color: theme.colorScheme.onSurface,
                     fontSize: 14,
@@ -1220,22 +1232,67 @@ class _ScreenBackgroundToggles extends ConsumerWidget {
                   ),
                 ),
               ),
+              // Toggle all button
+              GestureDetector(
+                onTap: () {
+                  if (allEnabled) {
+                    // If all enabled, disable all (set empty which means all)
+                    // Actually we want to toggle to "none selected"
+                    // But empty set = all enabled, so we need a full set = none enabled
+                    // Let's just toggle: if empty, set all screens; if full, set empty
+                    ref
+                        .read(appearanceProvider.notifier)
+                        .setAllScreensEnabled(false);
+                  } else {
+                    ref
+                        .read(appearanceProvider.notifier)
+                        .setAllScreensEnabled(true);
+                  }
+                },
+                child: Container(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 8,
+                    vertical: 4,
+                  ),
+                  decoration: BoxDecoration(
+                    color: allEnabled
+                        ? theme.colorScheme.primary.withValues(alpha: 0.15)
+                        : ocTheme.bgRaised,
+                    borderRadius: BorderRadius.circular(6),
+                  ),
+                  child: Text(
+                    allEnabled ? 'All' : 'Custom',
+                    style: TextStyle(
+                      color: allEnabled
+                          ? theme.colorScheme.primary
+                          : theme.colorScheme.onSurface.withValues(alpha: 0.7),
+                      fontSize: 11,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                ),
+              ),
             ],
           ),
-          const SizedBox(height: 12),
+          const SizedBox(height: 16),
+          // Screen toggles
           Wrap(
             spacing: 8,
             runSpacing: 8,
-            children: [
-              _ScreenChip(
-                icon: Icons.chat_bubble_outline_rounded,
-                label: 'Chat',
-              ),
-              _ScreenChip(icon: Icons.grid_view_rounded, label: 'Projects'),
-              _ScreenChip(icon: Icons.folder_outlined, label: 'Browse'),
-              _ScreenChip(icon: Icons.history_rounded, label: 'Sessions'),
-              _ScreenChip(icon: Icons.tune_rounded, label: 'Settings'),
-            ],
+            children: screens.map((screen) {
+              final isEnabled = settings.isEnabledForScreen(screen.$1);
+              return _ScreenToggleChip(
+                screenId: screen.$1,
+                icon: screen.$2,
+                label: screen.$3,
+                isEnabled: isEnabled,
+                onTap: () {
+                  ref
+                      .read(appearanceProvider.notifier)
+                      .toggleScreenEnabled(screen.$1);
+                },
+              );
+            }).toList(),
           ),
         ],
       ),
@@ -1243,40 +1300,74 @@ class _ScreenBackgroundToggles extends ConsumerWidget {
   }
 }
 
-class _ScreenChip extends StatelessWidget {
-  const _ScreenChip({required this.icon, required this.label});
+class _ScreenToggleChip extends StatelessWidget {
+  const _ScreenToggleChip({
+    required this.screenId,
+    required this.icon,
+    required this.label,
+    required this.isEnabled,
+    required this.onTap,
+  });
 
+  final String screenId;
   final IconData icon;
   final String label;
+  final bool isEnabled;
+  final VoidCallback onTap;
 
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final ocTheme = OpenCodeTheme.of(context);
 
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-      decoration: BoxDecoration(
-        color: theme.colorScheme.primary.withValues(alpha: 0.1),
-        borderRadius: BorderRadius.circular(8),
-        border: Border.all(
-          color: theme.colorScheme.primary.withValues(alpha: 0.3),
-        ),
-      ),
-      child: Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Icon(icon, size: 14, color: theme.colorScheme.primary),
-          const SizedBox(width: 6),
-          Text(
-            label,
-            style: TextStyle(
-              color: theme.colorScheme.primary,
-              fontSize: 12,
-              fontWeight: FontWeight.w600,
-            ),
+    return GestureDetector(
+      onTap: onTap,
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 200),
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+        decoration: BoxDecoration(
+          color: isEnabled
+              ? theme.colorScheme.primary.withValues(alpha: 0.15)
+              : ocTheme.bgRaised,
+          borderRadius: BorderRadius.circular(10),
+          border: Border.all(
+            color: isEnabled
+                ? theme.colorScheme.primary.withValues(alpha: 0.5)
+                : ocTheme.borderSubtle,
+            width: isEnabled ? 1.5 : 1,
           ),
-        ],
+        ),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(
+              icon,
+              size: 16,
+              color: isEnabled
+                  ? theme.colorScheme.primary
+                  : theme.colorScheme.onSurface.withValues(alpha: 0.5),
+            ),
+            const SizedBox(width: 8),
+            Text(
+              label,
+              style: TextStyle(
+                color: isEnabled
+                    ? theme.colorScheme.primary
+                    : theme.colorScheme.onSurface.withValues(alpha: 0.7),
+                fontSize: 13,
+                fontWeight: isEnabled ? FontWeight.w600 : FontWeight.w500,
+              ),
+            ),
+            const SizedBox(width: 6),
+            Icon(
+              isEnabled ? Icons.check_circle : Icons.circle_outlined,
+              size: 16,
+              color: isEnabled
+                  ? theme.colorScheme.primary
+                  : theme.colorScheme.onSurface.withValues(alpha: 0.3),
+            ),
+          ],
+        ),
       ),
     );
   }

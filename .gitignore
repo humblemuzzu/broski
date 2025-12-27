@@ -117,3 +117,12 @@ cursor-codex-cc-chat.md
 !.env.example
 config.json
 *.xcscheme
+# Continuous Claude
+.claude/cache/
+.claude/skills/
+.claude/hooks/
+.claude/agents/
+.claude/rules/
+.claude/scripts/
+.claude/settings.json
+thoughts/

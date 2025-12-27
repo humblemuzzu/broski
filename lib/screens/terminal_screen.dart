@@ -6,6 +6,7 @@ import '../providers/service_providers.dart';
 import '../providers/selection_provider.dart';
 import '../theme/opencode_theme.dart';
 import '../widgets/connection_indicator.dart';
+import 'terminal_view_screen.dart';
 
 /// PTY Terminal Sessions Screen
 ///
@@ -361,7 +362,8 @@ class _TerminalScreenState extends ConsumerState<TerminalScreen> {
           final pty = _ptySessions[index];
           return _PtySessionTile(
             pty: pty,
-            onTap: () => _showSessionDetails(pty),
+            onTap: () => _openTerminal(pty),
+            onLongPress: () => _showSessionDetails(pty),
             onRename: () => _renameSession(
               pty['id'] as String? ?? '',
               pty['title'] as String? ?? 'Terminal',
@@ -372,6 +374,29 @@ class _TerminalScreenState extends ConsumerState<TerminalScreen> {
             ),
           );
         },
+      ),
+    );
+  }
+
+  void _openTerminal(Map<String, dynamic> pty) {
+    final id = pty['id'] as String? ?? '';
+    final title = pty['title'] as String? ?? 'Terminal';
+    final status = pty['status'] as String? ?? 'unknown';
+
+    if (status != 'running') {
+      final ocTheme = OpenCodeTheme.of(context);
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: const Text('Terminal has exited'),
+          backgroundColor: ocTheme.warning,
+        ),
+      );
+      return;
+    }
+
+    Navigator.of(context).push(
+      MaterialPageRoute(
+        builder: (context) => TerminalViewScreen(ptyId: id, title: title),
       ),
     );
   }
@@ -467,6 +492,26 @@ class _TerminalScreenState extends ConsumerState<TerminalScreen> {
               ),
               _DetailRow(label: 'PID', value: pid > 0 ? pid.toString() : '-'),
               const SizedBox(height: 24),
+              if (status == 'running')
+                Padding(
+                  padding: const EdgeInsets.only(bottom: 12),
+                  child: SizedBox(
+                    width: double.infinity,
+                    child: ElevatedButton.icon(
+                      onPressed: () {
+                        Navigator.pop(context);
+                        _openTerminal(pty);
+                      },
+                      icon: const Icon(Icons.open_in_new, size: 18),
+                      label: const Text('Open Terminal'),
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: sheetTheme.primary,
+                        foregroundColor: Colors.white,
+                        padding: const EdgeInsets.symmetric(vertical: 14),
+                      ),
+                    ),
+                  ),
+                ),
               Row(
                 children: [
                   Expanded(
@@ -517,10 +562,12 @@ class _PtySessionTile extends StatelessWidget {
     required this.onTap,
     required this.onRename,
     required this.onDelete,
+    this.onLongPress,
   });
 
   final Map<String, dynamic> pty;
   final VoidCallback onTap;
+  final VoidCallback? onLongPress;
   final VoidCallback onRename;
   final VoidCallback onDelete;
 
@@ -546,6 +593,7 @@ class _PtySessionTile extends StatelessWidget {
         color: Colors.transparent,
         child: InkWell(
           onTap: onTap,
+          onLongPress: onLongPress,
           borderRadius: BorderRadius.circular(16),
           child: Padding(
             padding: const EdgeInsets.all(16),

@@ -5,6 +5,7 @@ import 'browse_screen.dart';
 import 'projects_screen.dart';
 import 'sessions_screen.dart';
 import 'settings_screen.dart';
+import '../providers/appearance_provider.dart';
 import '../providers/connection_provider.dart';
 import '../providers/sessions_provider.dart';
 import '../providers/service_providers.dart';
@@ -21,6 +22,22 @@ class MainShell extends ConsumerStatefulWidget {
 
 class _MainShellState extends ConsumerState<MainShell> {
   int _index = 0;
+
+  /// Get the screen ID for the current tab index
+  String _getScreenId(int index) {
+    switch (index) {
+      case 0:
+        return AppScreen.projects;
+      case 1:
+        return AppScreen.browse;
+      case 2:
+        return AppScreen.sessions;
+      case 3:
+        return AppScreen.settings;
+      default:
+        return AppScreen.projects;
+    }
+  }
 
   @override
   void initState() {
@@ -41,13 +58,15 @@ class _MainShellState extends ConsumerState<MainShell> {
   @override
   Widget build(BuildContext context) {
     final connection = ref.watch(connectionProvider);
+    final theme = Theme.of(context);
 
     return Scaffold(
+      backgroundColor: theme.scaffoldBackgroundColor,
       extendBody: true,
       body: Stack(
         children: [
-          // Custom background image/shade layer
-          const AppBackground(),
+          // Custom background image/shade layer - pass current screen ID
+          AppBackground(screenId: _getScreenId(_index)),
           IndexedStack(
             index: _index,
             children: const [

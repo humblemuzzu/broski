@@ -469,34 +469,36 @@ class SessionWithChildren {
 }
 
 /// Groups sessions by parent/child relationship.
-/// Root sessions (no parentID) become the main entries.
-/// Child sessions (have parentID) are nested under their parent.
+/// Root sessions and forked sessions become the main entries.
+/// Only background tasks (isBackgroundTask) are nested under their parent.
 final groupedSessionsProvider = Provider<List<SessionWithChildren>>((ref) {
   final sessionsAsync = ref.watch(sessionsListProvider);
   final sessions = sessionsAsync.valueOrNull ?? [];
 
-  // Separate root and child sessions
-  final rootSessions = <SessionSummary>[];
+  // Separate main sessions (root + forked) and background task children
+  final mainSessions = <SessionSummary>[];
   final childrenByParent = <String, List<SessionSummary>>{};
 
   for (final session in sessions) {
-    if (session.isRootSession) {
-      rootSessions.add(session);
-    } else {
+    if (session.isRootSession || session.isForkedSession) {
+      // Root sessions and forked sessions appear as main entries
+      mainSessions.add(session);
+    } else if (session.isBackgroundTask) {
+      // Only background tasks are nested under parent
       final parentId = session.parentID!;
       childrenByParent.putIfAbsent(parentId, () => []).add(session);
     }
   }
 
-  // Sort root sessions by updated time (newest first)
-  rootSessions.sort((a, b) => b.time.updated.compareTo(a.time.updated));
+  // Sort main sessions by updated time (newest first)
+  mainSessions.sort((a, b) => b.time.updated.compareTo(a.time.updated));
 
   // Build grouped list
-  return rootSessions.map((root) {
-    final children = childrenByParent[root.id] ?? [];
+  return mainSessions.map((main) {
+    final children = childrenByParent[main.id] ?? [];
     // Sort children by updated time (newest first)
     children.sort((a, b) => b.time.updated.compareTo(a.time.updated));
-    return SessionWithChildren(session: root, children: children);
+    return SessionWithChildren(session: main, children: children);
   }).toList();
 });
 

@@ -193,6 +193,17 @@ class AppearanceNotifier extends StateNotifier<AppearanceSettings> {
         state = AppearanceSettings.fromMap(map);
         // Sync icon pack with ToolStyle
         ToolStyle.setIconPack(state.iconPack);
+
+        // Validate that custom background image still exists
+        // (can be deleted by clean builds, app reinstalls, etc.)
+        if (state.hasCustomBackground) {
+          final file = File(state.customBackgroundPath!);
+          if (!await file.exists()) {
+            // Image file is gone, clear the invalid path
+            state = state.copyWith(clearBackground: true);
+            await _saveSettings();
+          }
+        }
       } catch (_) {
         // Invalid JSON, use defaults
       }

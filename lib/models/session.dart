@@ -19,14 +19,26 @@ class SessionSummary {
   final SessionSummaryStats? summary;
   final SessionShare? share; // Share URL if shared
 
-  /// Whether this session was forked from another session
-  bool get isForked => parentID != null && parentID!.isNotEmpty;
+  /// Whether this is a background/subagent task (title contains @agent subagent pattern)
+  bool get isBackgroundTask {
+    if (parentID == null || parentID!.isEmpty) return false;
+    final titleLower = title.toLowerCase();
+    return titleLower.contains('@agent') ||
+        titleLower.contains('subagent') ||
+        titleLower.contains('background');
+  }
 
-  /// Whether this is a background/subagent session (has a parent)
-  bool get isBackgroundTask => parentID != null && parentID!.isNotEmpty;
+  /// Whether this session was forked from another session (has parent but not a background task)
+  bool get isForkedSession {
+    if (parentID == null || parentID!.isEmpty) return false;
+    return !isBackgroundTask;
+  }
 
   /// Whether this is a root/main session (no parent)
   bool get isRootSession => parentID == null || parentID!.isEmpty;
+
+  /// Whether this has a parent (either forked or background task)
+  bool get hasParent => parentID != null && parentID!.isNotEmpty;
 
   /// Whether this session is shared publicly
   bool get isShared => share != null && share!.url.isNotEmpty;

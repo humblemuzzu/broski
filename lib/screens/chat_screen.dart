@@ -35,6 +35,7 @@ import '../widgets/permission_prompt.dart';
 import '../widgets/session_sidebar.dart';
 import '../widgets/tool_call.dart';
 import '../widgets/app_background.dart';
+import '../providers/appearance_provider.dart';
 import 'diff_view_screen.dart';
 
 // Utility function for color opacity (from expense_tracker)
@@ -59,7 +60,14 @@ class _ChatScreenState extends ConsumerState<ChatScreen>
   final ScrollController _scrollController = ScrollController();
   final HapticsService _haptics = HapticsService();
   String? _activePermissionId;
-  bool _showScrollToBottom = false;
+
+  // Auto-scroll state: tracks if user has intentionally scrolled up
+  // When true, we don't auto-scroll (respect user's intent to view history)
+  // When false (user is at/near bottom), we auto-scroll as new content arrives
+  bool _userHasScrolledUp = false;
+  // Track previous message count to detect new content
+  int _previousMessageCount = 0;
+  int _previousContentLength = 0;
 
   // Sidebar state
   bool _sidebarOpen = false;
@@ -116,6 +124,10 @@ class _ChatScreenState extends ConsumerState<ChatScreen>
         });
       }
     });
+
+    // Auto-scroll: Listen to chat state changes to trigger auto-scroll
+    // when new content arrives (streaming text, tool calls, diffs, etc.)
+    ref.listen(chatSessionProvider, _handleAutoScroll);
 
     _hydrateSession();
     _controller.addListener(_onTextChanged);
@@ -992,11 +1004,79 @@ class _ChatScreenState extends ConsumerState<ChatScreen>
     }
 
     // Detect scroll to bottom - show/hide scroll button
-    final isAtBottom = position.pixels >= position.maxScrollExtent - 100;
+    // Use a threshold of 150px to determine "near bottom"
+    final isNearBottom = _isNearBottom();
 
-    if (_showScrollToBottom == isAtBottom) {
-      setState(() {
-        _showScrollToBottom = !isAtBottom;
+    // Track user scroll intent for auto-scroll feature
+    // If user scrolls up (away from bottom), mark that they've scrolled up
+    // If they scroll back to bottom, clear the flag
+    if (isNearBottom) {
+      _userHasScrolledUp = false;
+    } else {
+      // User has scrolled up - they want to view history
+      _userHasScrolledUp = true;
+    }
+  }
+
+  /// Check if scroll position is near the bottom (within threshold)
+  /// Used for auto-scroll decision making
+  bool _isNearBottom() {
+    if (!_scrollController.hasClients) return true;
+    final position = _scrollController.position;
+    // Consider "near bottom" if within 150px of max scroll extent
+    return position.pixels >= position.maxScrollExtent - 150;
+  }
+
+  /// Calculate a content hash to detect when messages have new content
+  /// (text length + tool count + diff count)
+  int _calculateContentLength(List<ChatMessage> messages) {
+    int length = 0;
+    for (final msg in messages) {
+      length += msg.text.length;
+      length += msg.toolCalls.length * 100; // Weight tool calls
+      length += msg.diffs.length * 100; // Weight diffs
+      length += msg.subtaskNotifications.length * 50;
+      length += msg.reasoningParts.fold(0, (sum, r) => sum + r.text.length);
+    }
+    return length;
+  }
+
+  /// Handle auto-scroll when new content arrives
+  /// Only scrolls if user hasn't intentionally scrolled up
+  void _handleAutoScroll(ChatSessionState? previous, ChatSessionState next) {
+    // Skip if user has scrolled up to view history
+    if (_userHasScrolledUp) return;
+
+    final messages = next.messages;
+    final currentCount = messages.length;
+    final currentLength = _calculateContentLength(messages);
+
+    // Detect if content has grown (new message or streaming content)
+    final hasNewMessage = currentCount > _previousMessageCount;
+    final hasNewContent = currentLength > _previousContentLength;
+    final isStreaming = _hasStreamingMessage(messages);
+
+    // Update tracking variables
+    _previousMessageCount = currentCount;
+    _previousContentLength = currentLength;
+
+    // Auto-scroll conditions:
+    // 1. New message arrived
+    // 2. Content grew (streaming text, new tool calls, etc.)
+    // 3. Currently streaming (keep scrolling as content flows)
+    if (hasNewMessage || hasNewContent || isStreaming) {
+      // Use a short delay to let the ListView rebuild with new content
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (!mounted) return;
+        if (_userHasScrolledUp) return; // Double-check after frame
+
+        // During streaming, use jumpTo for smoother continuous scroll
+        // After streaming completes, use animated scroll
+        if (isStreaming) {
+          _scrollToBottom(animate: false);
+        } else {
+          _scrollToBottom(animate: true);
+        }
       });
     }
   }
@@ -1113,84 +1193,93 @@ class _ChatScreenState extends ConsumerState<ChatScreen>
       body: Stack(
         children: [
           // Custom background from appearance settings
-          const AppBackground(),
+          const AppBackground(screenId: AppScreen.chat),
           SafeArea(
             child: Column(
               children: [
-                // Chat messages
+                // Chat messages with smooth auto-hiding scrollbar
                 Expanded(
-                  child: ListView.builder(
-                    controller: _scrollController,
-                    padding: const EdgeInsets.fromLTRB(20, 20, 20, 90),
-                    // Add 1 for loading indicator at top when loading more
-                    itemCount:
-                        chatState.messages.length +
-                        (_loadingMoreMessages ? 1 : 0) +
-                        (!_hasLoadedAllMessages && chatState.messages.isNotEmpty
-                            ? 1
-                            : 0),
-                    itemBuilder: (context, index) {
-                      // Show "load more" indicator at top
-                      if (!_hasLoadedAllMessages &&
-                          chatState.messages.isNotEmpty &&
-                          index == 0) {
-                        if (_loadingMoreMessages) {
-                          return const Padding(
-                            padding: EdgeInsets.symmetric(vertical: 16),
-                            child: Center(
-                              child: SizedBox(
-                                width: 20,
-                                height: 20,
-                                child: CircularProgressIndicator(
-                                  strokeWidth: 2,
+                  child: ScrollbarTheme(
+                    data: ScrollbarThemeData(
+                      thumbColor: WidgetStateProperty.all(
+                        theme.textMuted.withValues(alpha: 0.3),
+                      ),
+                      trackColor: WidgetStateProperty.all(Colors.transparent),
+                      radius: const Radius.circular(4),
+                      thickness: WidgetStateProperty.all(6),
+                      minThumbLength: 48,
+                      interactive: true,
+                    ),
+                    child: Scrollbar(
+                      controller: _scrollController,
+                      thumbVisibility: false, // Auto-hide when not scrolling
+                      child: ListView.builder(
+                        controller: _scrollController,
+                        padding: const EdgeInsets.fromLTRB(20, 20, 20, 90),
+                        // Add 1 for loading indicator at top when loading more
+                        itemCount:
+                            chatState.messages.length +
+                            (_loadingMoreMessages ? 1 : 0) +
+                            (!_hasLoadedAllMessages &&
+                                    chatState.messages.isNotEmpty
+                                ? 1
+                                : 0),
+                        itemBuilder: (context, index) {
+                          // Show "load more" indicator at top
+                          if (!_hasLoadedAllMessages &&
+                              chatState.messages.isNotEmpty &&
+                              index == 0) {
+                            if (_loadingMoreMessages) {
+                              return const Padding(
+                                padding: EdgeInsets.symmetric(vertical: 16),
+                                child: Center(
+                                  child: SizedBox(
+                                    width: 20,
+                                    height: 20,
+                                    child: CircularProgressIndicator(
+                                      strokeWidth: 2,
+                                    ),
+                                  ),
+                                ),
+                              );
+                            }
+                            // Show "scroll up for more" hint
+                            return Padding(
+                              padding: const EdgeInsets.symmetric(vertical: 12),
+                              child: Center(
+                                child: Text(
+                                  '↑ Scroll up to load earlier messages',
+                                  style: TextStyle(
+                                    color: theme.textMuted,
+                                    fontSize: 12,
+                                  ),
                                 ),
                               ),
-                            ),
-                          );
-                        }
-                        // Show "scroll up for more" hint
-                        return Padding(
-                          padding: const EdgeInsets.symmetric(vertical: 12),
-                          child: Center(
-                            child: Text(
-                              '↑ Scroll up to load earlier messages',
-                              style: TextStyle(
-                                color: theme.textMuted,
-                                fontSize: 12,
-                              ),
-                            ),
-                          ),
-                        );
-                      }
+                            );
+                          }
 
-                      // Adjust index for the loading indicator
-                      final messageIndex =
-                          (!_hasLoadedAllMessages &&
-                              chatState.messages.isNotEmpty)
-                          ? index - 1
-                          : index;
+                          // Adjust index for the loading indicator
+                          final messageIndex =
+                              (!_hasLoadedAllMessages &&
+                                  chatState.messages.isNotEmpty)
+                              ? index - 1
+                              : index;
 
-                      if (messageIndex < 0 ||
-                          messageIndex >= chatState.messages.length) {
-                        return const SizedBox.shrink();
-                      }
+                          if (messageIndex < 0 ||
+                              messageIndex >= chatState.messages.length) {
+                            return const SizedBox.shrink();
+                          }
 
-                      final message = chatState.messages[messageIndex];
-                      return _buildMessageGroup(message);
-                    },
+                          final message = chatState.messages[messageIndex];
+                          return _buildMessageGroup(message);
+                        },
+                      ),
+                    ),
                   ),
                 ),
               ],
             ),
           ),
-
-          // Scroll to bottom button
-          if (_showScrollToBottom)
-            Positioned(
-              bottom: 100,
-              right: 20,
-              child: _buildScrollToBottomButton(),
-            ),
 
           // Stop button when streaming - centered at bottom
           if (_hasStreamingMessage(chatState.messages))
@@ -1368,34 +1457,6 @@ class _ChatScreenState extends ConsumerState<ChatScreen>
     );
   }
 
-  Widget _buildScrollToBottomButton() {
-    final theme = OpenCodeTheme.of(context);
-
-    return Material(
-      color: theme.backgroundPanel,
-      borderRadius: BorderRadius.circular(26),
-      elevation: 4,
-      child: InkWell(
-        onTap: () => _scrollToBottom(),
-        borderRadius: BorderRadius.circular(26),
-        child: Container(
-          width: 52,
-          height: 52,
-          alignment: Alignment.center,
-          decoration: BoxDecoration(
-            borderRadius: BorderRadius.circular(26),
-            border: Border.all(color: fade(theme.textMuted, 0.25), width: 1),
-          ),
-          child: Icon(
-            Icons.keyboard_arrow_down,
-            color: theme.textMuted,
-            size: 24,
-          ),
-        ),
-      ),
-    );
-  }
-
   Widget _buildStopButton(BuildContext context) {
     final theme = OpenCodeTheme.of(context);
     return Material(
@@ -1492,16 +1553,55 @@ class _ChatScreenState extends ConsumerState<ChatScreen>
           );
         }
         break;
-      case 'clear':
-        // TODO: Implement clear chat
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: const Text('Clear chat - coming soon'),
-            backgroundColor: theme.backgroundPanel,
-          ),
-        );
+      case 'clear_instance':
+        _clearInstance();
         break;
     }
+  }
+
+  Future<void> _clearInstance() async {
+    final theme = OpenCodeTheme.of(context);
+    final confirm = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        backgroundColor: theme.backgroundPanel,
+        title: Text('Clear Instance?', style: TextStyle(color: theme.text)),
+        content: Text(
+          'This will reset the project context on OpenCode server. '
+          'Caches and loaded files will be cleared.\n\n'
+          'Your chat history will remain.',
+          style: TextStyle(color: theme.textMuted),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context, false),
+            child: const Text('Cancel'),
+          ),
+          TextButton(
+            onPressed: () => Navigator.pop(context, true),
+            child: Text('Clear', style: TextStyle(color: theme.warning)),
+          ),
+        ],
+      ),
+    );
+
+    if (confirm != true || !mounted) return;
+
+    final bridge = ref.read(bridgeServiceProvider);
+    final success = await bridge.disposeInstance(
+      projectPath: widget.project.path,
+    );
+
+    if (!mounted) return;
+
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(
+          success ? 'Instance cleared' : 'Failed to clear instance',
+        ),
+        backgroundColor: theme.backgroundPanel,
+      ),
+    );
   }
 
   void _showStopConfirmation(BuildContext context) {
@@ -1629,6 +1729,8 @@ class _ChatScreenState extends ConsumerState<ChatScreen>
 
     _controller.clear();
     setState(() => _attachedFiles.clear());
+    // User sent a message - they want to see the response, so reset scroll intent
+    _userHasScrolledUp = false;
     _scrollToBottom();
   }
 
@@ -2062,18 +2164,33 @@ class _FloatingHeader extends StatelessWidget {
                   ),
                   const PopupMenuDivider(),
                   PopupMenuItem(
-                    value: 'clear',
+                    value: 'clear_instance',
                     child: Row(
                       children: [
                         Icon(
-                          Icons.delete_outline_rounded,
+                          Icons.cleaning_services_outlined,
                           size: 18,
-                          color: theme.error,
+                          color: theme.warning,
                         ),
                         const SizedBox(width: 12),
-                        Text(
-                          'Clear Chat',
-                          style: TextStyle(color: theme.error),
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              Text(
+                                'Clear Instance',
+                                style: TextStyle(color: theme.text),
+                              ),
+                              Text(
+                                'Reset project context',
+                                style: TextStyle(
+                                  fontSize: 11,
+                                  color: theme.textMuted,
+                                ),
+                              ),
+                            ],
+                          ),
                         ),
                       ],
                     ),
@@ -3007,7 +3124,7 @@ class _ModelSelectorSheetState extends ConsumerState<_ModelSelectorSheet> {
   }
 }
 
-// Feature 2: Slash command autocomplete popup
+// Feature 2: Slash command autocomplete popup with grouping
 class _CommandAutocomplete extends StatelessWidget {
   const _CommandAutocomplete({required this.commands, required this.onSelect});
 
@@ -3022,13 +3139,18 @@ class _CommandAutocomplete extends StatelessWidget {
     final kOnBackground = theme.text;
     final kMuted = theme.textMuted;
     final kAccent = theme.primary;
+    final kSuccess = theme.success;
+    final kInfo = theme.info;
 
     if (commands.isEmpty) {
       return const SizedBox.shrink();
     }
 
+    // Group commands by built-in vs custom
+    final groups = CommandGroups.fromCommands(commands);
+
     return Container(
-      constraints: const BoxConstraints(maxHeight: 200),
+      constraints: const BoxConstraints(maxHeight: 280),
       decoration: BoxDecoration(
         color: kCard,
         borderRadius: BorderRadius.circular(16),
@@ -3043,84 +3165,202 @@ class _CommandAutocomplete extends StatelessWidget {
       ),
       child: ClipRRect(
         borderRadius: BorderRadius.circular(16),
-        child: ListView.builder(
+        child: ListView(
           shrinkWrap: true,
           padding: const EdgeInsets.symmetric(vertical: 8),
-          itemCount: commands.length,
-          itemBuilder: (context, index) {
-            final command = commands[index];
-            return InkWell(
-              onTap: () => onSelect(command),
-              child: Container(
-                padding: const EdgeInsets.symmetric(
-                  horizontal: 16,
-                  vertical: 12,
-                ),
-                child: Row(
-                  children: [
-                    // Command icon
-                    Container(
-                      width: 32,
-                      height: 32,
-                      decoration: BoxDecoration(
-                        color: kAccent.withValues(alpha: 0.15),
-                        borderRadius: BorderRadius.circular(8),
-                      ),
-                      child: Icon(
-                        command.builtin ? Icons.terminal : Icons.extension,
-                        size: 16,
-                        color: kAccent,
-                      ),
-                    ),
-                    const SizedBox(width: 12),
-                    // Command name and description
-                    Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text(
-                            command.displayName,
-                            style: TextStyle(
-                              fontSize: 14,
-                              fontWeight: FontWeight.w600,
-                              color: kOnBackground,
-                            ),
-                          ),
-                          const SizedBox(height: 2),
-                          Text(
-                            command.shortDescription,
-                            style: TextStyle(fontSize: 12, color: kMuted),
-                            maxLines: 1,
-                            overflow: TextOverflow.ellipsis,
-                          ),
-                        ],
-                      ),
-                    ),
-                    // Built-in badge
-                    if (command.builtin)
-                      Container(
-                        padding: const EdgeInsets.symmetric(
-                          horizontal: 8,
-                          vertical: 4,
-                        ),
-                        decoration: BoxDecoration(
-                          color: kMuted.withValues(alpha: 0.2),
-                          borderRadius: BorderRadius.circular(6),
-                        ),
-                        child: Text(
-                          'built-in',
-                          style: TextStyle(
-                            fontSize: 10,
-                            color: kMuted,
-                            fontWeight: FontWeight.w500,
-                          ),
-                        ),
-                      ),
-                  ],
+          children: [
+            // Built-in commands section
+            if (groups.hasBuiltIn) ...[
+              _buildSectionHeader(
+                'Built-in',
+                Icons.terminal,
+                kAccent,
+                kMuted,
+                groups.builtIn.length,
+              ),
+              ...groups.builtIn.map(
+                (cmd) => _buildCommandTile(
+                  cmd,
+                  kOnBackground,
+                  kMuted,
+                  kAccent,
+                  kSuccess,
+                  kInfo,
                 ),
               ),
-            );
-          },
+            ],
+            // Custom commands section
+            if (groups.hasCustom) ...[
+              if (groups.hasBuiltIn) const SizedBox(height: 8),
+              _buildSectionHeader(
+                'Custom',
+                Icons.extension,
+                kSuccess,
+                kMuted,
+                groups.custom.length,
+              ),
+              ...groups.custom.map(
+                (cmd) => _buildCommandTile(
+                  cmd,
+                  kOnBackground,
+                  kMuted,
+                  kSuccess,
+                  kSuccess,
+                  kInfo,
+                ),
+              ),
+            ],
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildSectionHeader(
+    String title,
+    IconData icon,
+    Color iconColor,
+    Color textColor,
+    int count,
+  ) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
+      child: Row(
+        children: [
+          Icon(icon, size: 14, color: iconColor),
+          const SizedBox(width: 6),
+          Text(
+            title,
+            style: TextStyle(
+              fontSize: 11,
+              fontWeight: FontWeight.w600,
+              color: textColor,
+              letterSpacing: 0.5,
+            ),
+          ),
+          const SizedBox(width: 4),
+          Text(
+            '($count)',
+            style: TextStyle(
+              fontSize: 11,
+              color: textColor.withValues(alpha: 0.6),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildCommandTile(
+    SlashCommand command,
+    Color textColor,
+    Color mutedColor,
+    Color accentColor,
+    Color agentColor,
+    Color modelColor,
+  ) {
+    return InkWell(
+      onTap: () => onSelect(command),
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+        child: Row(
+          children: [
+            // Command icon
+            Container(
+              width: 32,
+              height: 32,
+              decoration: BoxDecoration(
+                color: accentColor.withValues(alpha: 0.15),
+                borderRadius: BorderRadius.circular(8),
+              ),
+              child: Icon(
+                command.builtin ? Icons.terminal : Icons.extension,
+                size: 16,
+                color: accentColor,
+              ),
+            ),
+            const SizedBox(width: 12),
+            // Command name and description
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
+                    children: [
+                      Text(
+                        command.displayName,
+                        style: TextStyle(
+                          fontSize: 14,
+                          fontWeight: FontWeight.w600,
+                          color: textColor,
+                        ),
+                      ),
+                      // Agent badge
+                      if (command.hasAgent) ...[
+                        const SizedBox(width: 6),
+                        Container(
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 5,
+                            vertical: 2,
+                          ),
+                          decoration: BoxDecoration(
+                            color: agentColor.withValues(alpha: 0.15),
+                            borderRadius: BorderRadius.circular(4),
+                          ),
+                          child: Text(
+                            '@${command.agent}',
+                            style: TextStyle(
+                              fontSize: 9,
+                              color: agentColor,
+                              fontWeight: FontWeight.w500,
+                            ),
+                          ),
+                        ),
+                      ],
+                      // Model badge
+                      if (command.hasModel) ...[
+                        const SizedBox(width: 4),
+                        Container(
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 5,
+                            vertical: 2,
+                          ),
+                          decoration: BoxDecoration(
+                            color: modelColor.withValues(alpha: 0.15),
+                            borderRadius: BorderRadius.circular(4),
+                          ),
+                          child: Text(
+                            command.shortModelName ?? '',
+                            style: TextStyle(
+                              fontSize: 9,
+                              color: modelColor,
+                              fontWeight: FontWeight.w500,
+                            ),
+                          ),
+                        ),
+                      ],
+                      // Subtask badge
+                      if (command.subtask) ...[
+                        const SizedBox(width: 4),
+                        Icon(
+                          Icons.subdirectory_arrow_right,
+                          size: 12,
+                          color: mutedColor,
+                        ),
+                      ],
+                    ],
+                  ),
+                  const SizedBox(height: 2),
+                  Text(
+                    command.shortDescription,
+                    style: TextStyle(fontSize: 12, color: mutedColor),
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                ],
+              ),
+            ),
+          ],
         ),
       ),
     );

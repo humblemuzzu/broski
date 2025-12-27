@@ -35,15 +35,27 @@ class _ProjectsScreenState extends ConsumerState<ProjectsScreen> {
       return storage.getCachedProjects();
     }
 
-    final bridge = ref.read(bridgeServiceProvider);
-    final projects = await bridge.listProjects();
+    // Try live data first, fallback to cache on failure
+    try {
+      final bridge = ref.read(bridgeServiceProvider);
+      final projects = await bridge.listProjects();
 
-    // Cache for offline use
-    if (projects.isNotEmpty) {
-      await storage.cacheProjects(projects);
+      // Cache for offline use
+      if (projects.isNotEmpty) {
+        await storage.cacheProjects(projects);
+      }
+
+      return projects;
+    } catch (e) {
+      // On any error (timeout, connection issues), try cached data
+      final cached = await storage.getCachedProjects();
+      if (cached.isNotEmpty) {
+        // Return cached data silently - user can pull to refresh
+        return cached;
+      }
+      // No cached data available, rethrow to show error
+      rethrow;
     }
-
-    return projects;
   }
 
   Future<void> _refresh() async {
@@ -60,7 +72,7 @@ class _ProjectsScreenState extends ConsumerState<ProjectsScreen> {
     final ocTheme = OpenCodeTheme.of(context);
 
     return Scaffold(
-      backgroundColor: theme.scaffoldBackgroundColor,
+      backgroundColor: Colors.transparent,
       body: SafeArea(
         child: FutureBuilder<List<ProjectSummary>>(
           future: _projectsFuture,

@@ -1137,6 +1137,52 @@ class BridgeService {
   }
 
   // ============================================================
+  // Feature 14b: PTY Interactive I/O
+  // ============================================================
+
+  Future<bool> connectPty(String ptyId, {String? projectPath}) async {
+    final requestId = _generateRequestId();
+    _socket.send({
+      'type': 'pty_connect',
+      'ptyId': ptyId,
+      'requestId': requestId,
+      if (projectPath != null) 'projectPath': projectPath,
+    });
+    try {
+      await _waitFor('pty_connected', requestId: requestId);
+      return true;
+    } catch (_) {
+      return false;
+    }
+  }
+
+  void sendPtyInput(String ptyId, String data) {
+    _socket.send({'type': 'pty_input', 'ptyId': ptyId, 'data': data});
+  }
+
+  void disconnectPty(String ptyId) {
+    _socket.send({'type': 'pty_disconnect', 'ptyId': ptyId});
+  }
+
+  void resizePty(String ptyId, int rows, int cols, {String? projectPath}) {
+    _socket.send({
+      'type': 'pty_resize',
+      'ptyId': ptyId,
+      'rows': rows,
+      'cols': cols,
+      if (projectPath != null) 'projectPath': projectPath,
+    });
+  }
+
+  Stream<String> get ptyOutput => _socket.messages
+      .where((m) => m['type'] == 'pty_output')
+      .map((m) => m['data'] as String? ?? '');
+
+  Stream<Map<String, dynamic>> get ptyEvents => _socket.messages.where(
+    (m) => m['type'] == 'pty_output' || m['type'] == 'pty_exit',
+  );
+
+  // ============================================================
   // Feature 15: MCP Server Management
   // ============================================================
 
@@ -1437,6 +1483,25 @@ class BridgeService {
 
   void disconnectDevice(String deviceId) {
     _socket.send({'type': 'disconnect_device', 'deviceId': deviceId});
+  }
+
+  Future<bool> disposeInstance({String? projectPath}) {
+    final dedupeKey = 'dispose_instance:${projectPath ?? 'current'}';
+    return _deduplicatedRequest(
+      dedupeKey,
+      () => _disposeInstanceInternal(projectPath: projectPath),
+    );
+  }
+
+  Future<bool> _disposeInstanceInternal({String? projectPath}) async {
+    final requestId = _generateRequestId();
+    _socket.send({
+      'type': 'dispose_instance',
+      'requestId': requestId,
+      if (projectPath != null) 'projectPath': projectPath,
+    });
+    final response = await _waitFor('instance_disposed', requestId: requestId);
+    return response['data'] as bool? ?? false;
   }
 
   // ============================================================

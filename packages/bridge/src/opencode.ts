@@ -1023,6 +1023,27 @@ export class OpenCodeConnector {
     }
   }
 
+  async disposeInstance(directory?: string): Promise<boolean> {
+    try {
+      const client = await this.getClient(directory)
+      await client.instance.dispose()
+      return true
+    } catch {
+      return false
+    }
+  }
+
+  getPtyWebSocketUrl(ptyId: string, directory?: string): string {
+    // Build the WebSocket URL for PTY connection
+    // OpenCode exposes PTY I/O at ws://host:port/pty/{id}
+    const wsUrl = this.baseUrl.replace('http', 'ws')
+    const baseWsUrl = `${wsUrl}/pty/${ptyId}`
+    if (directory) {
+      return `${baseWsUrl}?directory=${encodeURIComponent(directory)}`
+    }
+    return baseWsUrl
+  }
+
   private mapPtySession(pty: any): PtySession {
     return {
       id: pty.id ?? '',

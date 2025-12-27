@@ -350,9 +350,9 @@ class _BrowseScreenState extends ConsumerState<BrowseScreen>
     final language = FileContent.languageFromPath(_viewingFilePath!);
 
     return Scaffold(
-      backgroundColor: theme.background,
+      backgroundColor: Colors.transparent,
       appBar: AppBar(
-        backgroundColor: theme.background,
+        backgroundColor: Colors.transparent,
         elevation: 0,
         leading: IconButton(
           icon: Icon(Icons.arrow_back_rounded, color: theme.text),
@@ -465,9 +465,9 @@ class _BrowseScreenState extends ConsumerState<BrowseScreen>
         }
       },
       child: Scaffold(
-        backgroundColor: theme.background,
+        backgroundColor: Colors.transparent,
         appBar: AppBar(
-          backgroundColor: theme.background,
+          backgroundColor: Colors.transparent,
           elevation: 0,
           leading: IconButton(
             icon: Icon(Icons.arrow_back_rounded, color: theme.text),

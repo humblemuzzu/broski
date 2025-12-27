@@ -48,7 +48,7 @@ class _SessionsScreenState extends ConsumerState<SessionsScreen> {
     final sessionStatuses = ref.watch(globalSessionStatusProvider);
 
     return Scaffold(
-      backgroundColor: theme.scaffoldBackgroundColor,
+      backgroundColor: Colors.transparent,
       body: SafeArea(
         child: RefreshIndicator(
           onRefresh: _refresh,
@@ -1119,6 +1119,39 @@ class _SessionCard extends StatelessWidget {
                           overflow: TextOverflow.ellipsis,
                         ),
                       ),
+                      // Forked indicator
+                      if (session.isForkedSession) ...[
+                        const SizedBox(width: 6),
+                        Container(
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 6,
+                            vertical: 2,
+                          ),
+                          decoration: BoxDecoration(
+                            color: ocTheme.accent.withValues(alpha: 0.15),
+                            borderRadius: BorderRadius.circular(4),
+                          ),
+                          child: Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              Icon(
+                                Icons.fork_right,
+                                size: 10,
+                                color: ocTheme.accent,
+                              ),
+                              const SizedBox(width: 3),
+                              Text(
+                                'Forked',
+                                style: TextStyle(
+                                  color: ocTheme.accent,
+                                  fontSize: 10,
+                                  fontWeight: FontWeight.w600,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ],
                       // Status badge
                       if (isActive) ...[
                         const SizedBox(width: 8),

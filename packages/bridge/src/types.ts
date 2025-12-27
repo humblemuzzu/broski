@@ -9,10 +9,15 @@ export type Todo = {
 }
 
 // Slash command from OpenCode SDK
+// See: https://opencode.ai/docs/commands
 export type Command = {
   name: string
   description?: string
   builtin: boolean
+  agent?: string    // Specific agent to use (e.g., "build", "plan")
+  model?: string    // Specific model to use (e.g., "anthropic/claude-sonnet-4")
+  template?: string // Command template (for custom commands)
+  subtask?: boolean // Run as background subtask
 }
 
 // Agent from OpenCode SDK
@@ -98,6 +103,11 @@ export type ClientMessage =
   | { type: 'get_pty'; ptyId: string; projectPath?: string }
   | { type: 'update_pty'; ptyId: string; title?: string; rows?: number; cols?: number; projectPath?: string }
   | { type: 'delete_pty'; ptyId: string; projectPath?: string }
+  // Feature 14b: PTY Interactive Terminal I/O
+  | { type: 'pty_connect'; ptyId: string; projectPath?: string }
+  | { type: 'pty_disconnect'; ptyId: string }
+  | { type: 'pty_input'; ptyId: string; data: string }
+  | { type: 'pty_resize'; ptyId: string; rows: number; cols: number; projectPath?: string }
   // Feature 15: MCP Server Management
   | { type: 'get_mcp_status'; projectPath?: string }
   | { type: 'connect_mcp'; name: string; projectPath?: string }
@@ -115,6 +125,8 @@ export type ClientMessage =
   | { type: 'get_formatter_status'; projectPath?: string }
   // Feature 20: Session Init
   | { type: 'init_session'; sessionId: string; providerID: string; modelID: string; messageID: string; projectPath?: string }
+  // Feature 22: Instance Disposal (Clear project context)
+  | { type: 'dispose_instance'; projectPath?: string }
 
 export type ProjectSummary = {
   id: string
@@ -246,6 +258,10 @@ export type ServerMessage =
   | { type: 'pty'; data: PtySession; requestId?: string }
   | { type: 'pty_updated'; data: PtySession; requestId?: string }
   | { type: 'pty_deleted'; data: boolean; ptyId: string; requestId?: string }
+  | { type: 'pty_connected'; ptyId: string; requestId?: string }
+  | { type: 'pty_disconnected'; ptyId: string; requestId?: string }
+  | { type: 'pty_output'; ptyId: string; data: string }
+  | { type: 'pty_exit'; ptyId: string; exitCode?: number }
   // Feature 15: MCP Server Management
   | { type: 'mcp_status'; data: Record<string, McpServerStatus>; requestId?: string }
   | { type: 'mcp_connected'; data: boolean; name: string; requestId?: string }
@@ -263,6 +279,8 @@ export type ServerMessage =
   | { type: 'formatter_status'; data: FormatterInfo[]; requestId?: string }
   // Feature 20: Session Init
   | { type: 'session_initialized'; data: boolean; sessionId: string; requestId?: string }
+  // Feature 22: Instance Disposal
+  | { type: 'instance_disposed'; data: boolean; requestId?: string }
 
 // Feature 11: File Content
 export type FileContent = {

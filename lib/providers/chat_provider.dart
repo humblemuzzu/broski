@@ -79,6 +79,7 @@ class ChatSessionNotifier extends StateNotifier<ChatSessionState> {
   Timer? _textDebounceTimer;
   final Map<String, StringBuffer> _pendingTextBuffers = {};
   int _lastRttMs = 0;
+  bool _lspStatusFetched = false;
 
   void updateConnectionMetrics(int rttMs) {
     _lastRttMs = rttMs;
@@ -102,6 +103,7 @@ class ChatSessionNotifier extends StateNotifier<ChatSessionState> {
   void setSession(SessionSummary session, {String? projectPath}) {
     _messages.clear();
     _order.clear();
+    _lspStatusFetched = false;
     state = ChatSessionState(
       session: session,
       projectPath: projectPath,
@@ -476,6 +478,12 @@ class ChatSessionNotifier extends StateNotifier<ChatSessionState> {
         messageId,
         message.copyWith(toolCalls: updatedTools, diffs: updatedDiffs),
       );
+
+      // Trigger LSP status fetch once after first 'read' tool completes
+      if (!_lspStatusFetched && toolName == 'Read' && status == 'completed') {
+        _lspStatusFetched = true;
+        _fetchLspStatus();
+      }
     }
 
     // Handle subtask parts (background task notifications)
@@ -840,6 +848,23 @@ class ChatSessionNotifier extends StateNotifier<ChatSessionState> {
   void _emitMessages() {
     final list = _order.map((id) => _messages[id]!).toList();
     state = state.copyWith(messages: list);
+  }
+
+  Future<void> _fetchLspStatus() async {
+    final projectPath = state.projectPath;
+    try {
+      await _bridge.getLspStatus(projectPath: projectPath);
+      developer.log(
+        'LSP status fetched for $projectPath',
+        name: 'ChatProvider',
+      );
+    } catch (e) {
+      developer.log('Failed to fetch LSP status: $e', name: 'ChatProvider');
+    }
+  }
+
+  void resetLspStatusFetched() {
+    _lspStatusFetched = false;
   }
 
   @override

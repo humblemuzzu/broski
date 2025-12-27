@@ -225,6 +225,7 @@ export function createBridgeServer(options: BridgeServerOptions): BridgeServer {
   const sockets = new Set<ServerWebSocket<unknown>>()
   const contexts = new Map<ServerWebSocket<unknown>, ConnectionContext>()
   const clientQueues = new Map<ServerWebSocket<unknown>, ClientQueue>()
+  const ptyConnections = new Map<string, WebSocket>()
   const { opencode, version, logger } = options
   
   const authToken = options.authToken || generateAuthToken()
@@ -926,6 +927,66 @@ export function createBridgeServer(options: BridgeServerOptions): BridgeServer {
           reply({ type: 'pty_deleted', data: deleted, ptyId: message.ptyId })
           break
         }
+        case 'pty_connect': {
+          const ptyId = message.ptyId
+          const existingWs = ptyConnections.get(ptyId)
+          if (existingWs) {
+            reply({ type: 'pty_connected', ptyId })
+            break
+          }
+          
+          const ptyWsUrl = opencode.getPtyWebSocketUrl(ptyId, message.projectPath)
+          log(`Connecting to PTY WebSocket: ${ptyWsUrl}`)
+          
+          try {
+            const ptyWs = new WebSocket(ptyWsUrl)
+            
+            ptyWs.onopen = () => {
+              ptyConnections.set(ptyId, ptyWs)
+              reply({ type: 'pty_connected', ptyId })
+              log(`PTY ${ptyId} connected`)
+            }
+            
+            ptyWs.onmessage = (event) => {
+              const data = typeof event.data === 'string' ? event.data : event.data.toString()
+              send(ws, { type: 'pty_output', ptyId, data })
+            }
+            
+            ptyWs.onerror = (error) => {
+              log(`PTY ${ptyId} error: ${error}`)
+              reply({ type: 'error', message: `PTY connection failed: ${error}` })
+            }
+            
+            ptyWs.onclose = (event) => {
+              ptyConnections.delete(ptyId)
+              send(ws, { type: 'pty_exit', ptyId, exitCode: event.code })
+              log(`PTY ${ptyId} closed with code ${event.code}`)
+            }
+          } catch (error) {
+            reply({ type: 'error', message: `PTY connect failed: ${error}` })
+          }
+          break
+        }
+        case 'pty_input': {
+          const ptyWs = ptyConnections.get(message.ptyId)
+          if (ptyWs && ptyWs.readyState === WebSocket.OPEN) {
+            ptyWs.send(message.data)
+          }
+          break
+        }
+        case 'pty_disconnect': {
+          const ptyWs = ptyConnections.get(message.ptyId)
+          if (ptyWs) {
+            ptyWs.close()
+            ptyConnections.delete(message.ptyId)
+          }
+          reply({ type: 'pty_disconnected', ptyId: message.ptyId })
+          break
+        }
+        case 'pty_resize': {
+          await opencode.updatePty(message.ptyId, undefined, message.rows, message.cols, message.projectPath)
+          break
+        }
         // Feature 15: MCP Server Management
         case 'get_mcp_status': {
           const status = await opencode.getMcpStatus(message.projectPath)
@@ -991,6 +1052,11 @@ export function createBridgeServer(options: BridgeServerOptions): BridgeServer {
             message.projectPath,
           )
           reply({ type: 'session_initialized', data: initialized, sessionId: message.sessionId })
+          break
+        }
+        case 'dispose_instance': {
+          const disposed = await opencode.disposeInstance(message.projectPath)
+          reply({ type: 'instance_disposed', data: disposed })
           break
         }
         default: {
