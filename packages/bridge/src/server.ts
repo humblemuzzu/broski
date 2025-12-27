@@ -58,7 +58,6 @@ async function readFileDirectly(filePath: string): Promise<{ content: string; mi
     if (!exists) return { content: '', mime: 'text/plain' }
 
     const mime = file.type || 'application/octet-stream'
-    // Only read text-like content; images/binary are handled as "no preview" in the UI.
     const isText =
       mime.startsWith('text/') ||
       mime.includes('json') ||
@@ -72,7 +71,6 @@ async function readFileDirectly(filePath: string): Promise<{ content: string; mi
     }
 
     const text = await file.text()
-    // Prevent accidental huge payloads over WS.
     const maxChars = 1_000_000
     if (text.length > maxChars) {
       return { content: `${text.slice(0, maxChars)}\n\n…(truncated)…`, mime }
@@ -81,6 +79,36 @@ async function readFileDirectly(filePath: string): Promise<{ content: string; mi
   } catch (error) {
     console.error(`[readFileDirectly] Error reading ${resolvedPath}:`, error)
     return { content: '', mime: 'text/plain' }
+  }
+}
+
+async function readFileBinaryDirectly(
+  filePath: string,
+  maxSizeMb: number = 10,
+): Promise<{ base64: string; mime: string; size: number } | { error: 'not_found' | 'too_large'; size?: number }> {
+  const resolvedPath = filePath === '~' || filePath.startsWith('~/')
+    ? filePath.replace(/^~/, homedir())
+    : resolve(filePath)
+
+  try {
+    const file = Bun.file(resolvedPath)
+    const exists = await file.exists()
+    if (!exists) return { error: 'not_found' }
+
+    const size = file.size
+    const maxBytes = maxSizeMb * 1024 * 1024
+    if (size > maxBytes) {
+      return { error: 'too_large', size }
+    }
+
+    const buffer = await file.arrayBuffer()
+    const base64 = Buffer.from(buffer).toString('base64')
+    const mime = file.type || 'application/octet-stream'
+
+    return { base64, mime, size }
+  } catch (error) {
+    console.error(`[readFileBinaryDirectly] Error reading ${resolvedPath}:`, error)
+    return { error: 'not_found' }
   }
 }
 
@@ -633,6 +661,21 @@ export function createBridgeServer(options: BridgeServerOptions): BridgeServer {
             ? await opencode.readFile(message.path, message.projectPath)
             : await readFileDirectly(message.path)
           reply({ type: 'file_content', data: content, path: message.path })
+          break
+        }
+        // Feature 21: Binary File Content Read
+        case 'read_file_binary': {
+          const maxSizeMb = message.maxSizeMb ?? 10
+          const result = await readFileBinaryDirectly(message.path, maxSizeMb)
+          if ('error' in result) {
+            if (result.error === 'too_large') {
+              reply({ type: 'file_too_large', path: message.path, size: result.size ?? 0, maxSize: maxSizeMb * 1024 * 1024 })
+            } else {
+              reply({ type: 'error', message: 'File not found' })
+            }
+          } else {
+            reply({ type: 'file_binary', data: result, path: message.path })
+          }
           break
         }
         // Feature 12: File Search

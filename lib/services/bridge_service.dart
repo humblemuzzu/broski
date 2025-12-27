@@ -5,6 +5,7 @@ import 'dart:math';
 import '../models/agent.dart';
 import '../models/command.dart';
 import '../models/file_attachment.dart';
+import '../models/file_binary_content.dart';
 import '../models/file_content.dart';
 import '../models/mcp.dart';
 import '../models/project.dart';
@@ -26,7 +27,68 @@ class BridgeService {
   // ============================================================
   // In-flight Request Deduplication
   // ============================================================
+  // Tracks in-flight async requests to prevent duplicate API calls.
+  // When the same operation is requested while one is already pending,
+  // the caller receives the same Future instead of creating a duplicate.
   final Map<String, Future<dynamic>> _inFlightRequests = {};
+
+  // Tracks in-flight fire-and-forget operations (void methods).
+  // These don't return a value, so we just track whether they're active.
+  final Set<String> _inFlightFireAndForget = {};
+
+  // ============================================================
+  // Generic Deduplication Wrapper
+  // ============================================================
+  // Use this for all write/update operations that return a value.
+  // If the same operation (by key) is already in-flight, returns the
+  // existing Future instead of creating a duplicate request.
+  Future<T> _deduplicatedRequest<T>(
+    String key,
+    Future<T> Function() operation,
+  ) async {
+    // If same request is already in-flight, return that future
+    if (_inFlightRequests.containsKey(key)) {
+      return await _inFlightRequests[key] as T;
+    }
+
+    // Create and track the request
+    final future = operation();
+    _inFlightRequests[key] = future;
+
+    try {
+      return await future;
+    } finally {
+      _inFlightRequests.remove(key);
+    }
+  }
+
+  // ============================================================
+  // Fire-and-Forget Guard
+  // ============================================================
+  // Use this for void methods that don't wait for a response.
+  // Prevents duplicate sends during lag by tracking active operations.
+  // Returns true if the operation should proceed, false if duplicate.
+  bool _guardFireAndForget(
+    String key, {
+    Duration cooldown = const Duration(milliseconds: 500),
+  }) {
+    if (_inFlightFireAndForget.contains(key)) {
+      developer.log(
+        'Blocked duplicate fire-and-forget: $key',
+        name: 'BridgeService',
+      );
+      return false; // Duplicate - don't proceed
+    }
+
+    _inFlightFireAndForget.add(key);
+
+    // Auto-remove after cooldown (since we don't have a response to wait for)
+    Future.delayed(cooldown, () {
+      _inFlightFireAndForget.remove(key);
+    });
+
+    return true; // Proceed with operation
+  }
 
   // ============================================================
   // Request Timing (logs slow requests > 500ms)
@@ -177,7 +239,18 @@ class BridgeService {
     });
   }
 
-  Future<SessionSummary> createSession({
+  /// Create a new session (protected against duplicate calls)
+  Future<SessionSummary> createSession({String? projectPath, String? title}) {
+    // Dedupe by project path - if already creating a session for this project,
+    // return the same future instead of creating another session
+    final dedupeKey = 'create_session:${projectPath ?? 'global'}';
+    return _deduplicatedRequest(
+      dedupeKey,
+      () => _createSessionInternal(projectPath: projectPath, title: title),
+    );
+  }
+
+  Future<SessionSummary> _createSessionInternal({
     String? projectPath,
     String? title,
   }) async {
@@ -254,6 +327,7 @@ class BridgeService {
     });
   }
 
+  /// Send a chat message (protected against duplicate sends during lag)
   void sendChat({
     required String sessionId,
     required String content,
@@ -264,6 +338,15 @@ class BridgeService {
     List<String>? disabledTools,
     List<FileAttachment>? fileAttachments,
   }) {
+    // Guard against duplicate sends - use content hash to allow different messages
+    // but prevent the exact same message from being sent twice
+    final contentHash = content.hashCode;
+    final guardKey = 'chat:$sessionId:$contentHash';
+
+    if (!_guardFireAndForget(guardKey, cooldown: const Duration(seconds: 2))) {
+      return; // Duplicate detected, skip
+    }
+
     _socket.send({
       'type': 'chat',
       'sessionId': sessionId,
@@ -317,12 +400,21 @@ class BridgeService {
     return data['items'] as List<dynamic>? ?? [];
   }
 
+  /// Respond to a permission request (protected against duplicate responses)
   void respondToPermission({
     required String sessionId,
     required String permissionId,
     required String response,
     String? projectPath,
   }) {
+    // Guard against duplicate permission responses - each permission should only
+    // be responded to once
+    final guardKey = 'permission:$permissionId';
+
+    if (!_guardFireAndForget(guardKey, cooldown: const Duration(seconds: 5))) {
+      return; // Already responded, skip
+    }
+
     _socket.send({
       'type': 'permission_response',
       'sessionId': sessionId,
@@ -397,7 +489,7 @@ class BridgeService {
         .toList();
   }
 
-  /// Execute a slash command
+  /// Execute a slash command (protected against duplicate executions)
   void executeCommand({
     required String sessionId,
     required String command,
@@ -406,6 +498,13 @@ class BridgeService {
     String? agent,
     String? model,
   }) {
+    // Guard against duplicate command executions
+    final guardKey = 'command:$sessionId:$command:${arguments.hashCode}';
+
+    if (!_guardFireAndForget(guardKey, cooldown: const Duration(seconds: 2))) {
+      return; // Duplicate detected, skip
+    }
+
     _socket.send({
       'type': 'execute_command',
       'sessionId': sessionId,
@@ -440,8 +539,19 @@ class BridgeService {
   // Feature 4: Session Delete
   // ============================================================
 
-  /// Delete a session
-  Future<bool> deleteSession(String sessionId, {String? projectPath}) async {
+  /// Delete a session (protected against duplicate deletions)
+  Future<bool> deleteSession(String sessionId, {String? projectPath}) {
+    final dedupeKey = 'delete_session:$sessionId';
+    return _deduplicatedRequest(
+      dedupeKey,
+      () => _deleteSessionInternal(sessionId, projectPath: projectPath),
+    );
+  }
+
+  Future<bool> _deleteSessionInternal(
+    String sessionId, {
+    String? projectPath,
+  }) async {
     final requestId = _generateRequestId();
     _socket.send({
       'type': 'delete_session',
@@ -457,8 +567,26 @@ class BridgeService {
   // Feature 5: Session Update (Rename)
   // ============================================================
 
-  /// Update session (rename title, archive)
+  /// Update session (rename title, archive) - protected against duplicate updates
   Future<SessionSummary> updateSession(
+    String sessionId, {
+    String? title,
+    bool? archived,
+    String? projectPath,
+  }) {
+    final dedupeKey = 'update_session:$sessionId';
+    return _deduplicatedRequest(
+      dedupeKey,
+      () => _updateSessionInternal(
+        sessionId,
+        title: title,
+        archived: archived,
+        projectPath: projectPath,
+      ),
+    );
+  }
+
+  Future<SessionSummary> _updateSessionInternal(
     String sessionId, {
     String? title,
     bool? archived,
@@ -482,9 +610,27 @@ class BridgeService {
   // ============================================================
 
   /// Fork a session to create a branch from a specific point
+  /// (protected against duplicate forks)
   ///
   /// [messageId] - Optional message ID to fork from; if omitted, forks at end
   Future<SessionSummary> forkSession(
+    String sessionId, {
+    String? messageId,
+    String? projectPath,
+  }) {
+    // Dedupe by session + message - same fork request returns same result
+    final dedupeKey = 'fork_session:$sessionId:${messageId ?? 'end'}';
+    return _deduplicatedRequest(
+      dedupeKey,
+      () => _forkSessionInternal(
+        sessionId,
+        messageId: messageId,
+        projectPath: projectPath,
+      ),
+    );
+  }
+
+  Future<SessionSummary> _forkSessionInternal(
     String sessionId, {
     String? messageId,
     String? projectPath,
@@ -506,9 +652,28 @@ class BridgeService {
   // ============================================================
 
   /// Revert a message (undo file changes made by the AI)
+  /// (protected against duplicate reverts)
   ///
   /// [partId] - Optional part ID to revert a specific tool call
   Future<SessionSummary> revertMessage(
+    String sessionId, {
+    required String messageId,
+    String? partId,
+    String? projectPath,
+  }) {
+    final dedupeKey = 'revert:$sessionId:$messageId:${partId ?? 'all'}';
+    return _deduplicatedRequest(
+      dedupeKey,
+      () => _revertMessageInternal(
+        sessionId,
+        messageId: messageId,
+        partId: partId,
+        projectPath: projectPath,
+      ),
+    );
+  }
+
+  Future<SessionSummary> _revertMessageInternal(
     String sessionId, {
     required String messageId,
     String? partId,
@@ -528,7 +693,19 @@ class BridgeService {
   }
 
   /// Unrevert a session (restore reverted messages)
+  /// (protected against duplicate unreverts)
   Future<SessionSummary> unrevertSession(
+    String sessionId, {
+    String? projectPath,
+  }) {
+    final dedupeKey = 'unrevert:$sessionId';
+    return _deduplicatedRequest(
+      dedupeKey,
+      () => _unrevertSessionInternal(sessionId, projectPath: projectPath),
+    );
+  }
+
+  Future<SessionSummary> _unrevertSessionInternal(
     String sessionId, {
     String? projectPath,
   }) async {
@@ -548,7 +725,16 @@ class BridgeService {
   // ============================================================
 
   /// Share a session publicly (get shareable URL)
-  Future<SessionSummary> shareSession(
+  /// (protected against duplicate share requests)
+  Future<SessionSummary> shareSession(String sessionId, {String? projectPath}) {
+    final dedupeKey = 'share:$sessionId';
+    return _deduplicatedRequest(
+      dedupeKey,
+      () => _shareSessionInternal(sessionId, projectPath: projectPath),
+    );
+  }
+
+  Future<SessionSummary> _shareSessionInternal(
     String sessionId, {
     String? projectPath,
   }) async {
@@ -564,7 +750,19 @@ class BridgeService {
   }
 
   /// Unshare a session (remove public URL)
+  /// (protected against duplicate unshare requests)
   Future<SessionSummary> unshareSession(
+    String sessionId, {
+    String? projectPath,
+  }) {
+    final dedupeKey = 'unshare:$sessionId';
+    return _deduplicatedRequest(
+      dedupeKey,
+      () => _unshareSessionInternal(sessionId, projectPath: projectPath),
+    );
+  }
+
+  Future<SessionSummary> _unshareSessionInternal(
     String sessionId, {
     String? projectPath,
   }) async {
@@ -584,10 +782,31 @@ class BridgeService {
   // ============================================================
 
   /// Summarize/compact a session to free up context window
+  /// (protected against duplicate summarization - expensive operation!)
   ///
   /// This will summarize old messages and reduce token usage.
   /// Returns true if summarization was successful.
   Future<bool> summarizeSession(
+    String sessionId, {
+    required String providerID,
+    required String modelID,
+    String? projectPath,
+  }) {
+    // Important: Summarization is expensive (uses AI tokens), so we definitely
+    // want to prevent duplicate calls
+    final dedupeKey = 'summarize:$sessionId';
+    return _deduplicatedRequest(
+      dedupeKey,
+      () => _summarizeSessionInternal(
+        sessionId,
+        providerID: providerID,
+        modelID: modelID,
+        projectPath: projectPath,
+      ),
+    );
+  }
+
+  Future<bool> _summarizeSessionInternal(
     String sessionId, {
     required String providerID,
     required String modelID,
@@ -627,7 +846,6 @@ class BridgeService {
   // Feature 11: File Content Read
   // ============================================================
 
-  /// Read the contents of a file
   Future<FileContent> readFile(String path, {String? projectPath}) async {
     final requestId = _generateRequestId();
     _socket.send({
@@ -639,6 +857,43 @@ class BridgeService {
     final response = await _waitFor('file_content', requestId: requestId);
     final data = response['data'] as Map<String, dynamic>? ?? {};
     return FileContent.fromJson(data);
+  }
+
+  Future<FileBinaryResult> readFileBinary(
+    String path, {
+    int maxSizeMb = 10,
+  }) async {
+    final requestId = _generateRequestId();
+    _socket.send({
+      'type': 'read_file_binary',
+      'path': path,
+      'requestId': requestId,
+      'maxSizeMb': maxSizeMb,
+    });
+
+    final response = await _socket.messages
+        .firstWhere((message) {
+          if (message['requestId'] != requestId) return false;
+          final type = message['type'];
+          return type == 'file_binary' ||
+              type == 'file_too_large' ||
+              type == 'error';
+        })
+        .timeout(
+          const Duration(seconds: 30),
+          onTimeout: () => throw TimeoutException('Binary file read timeout'),
+        );
+
+    final type = response['type'];
+    if (type == 'file_too_large') {
+      return FileBinaryResult.tooLarge(FileTooLargeError.fromJson(response));
+    }
+    if (type == 'error') {
+      throw Exception(response['message'] ?? 'Failed to read file');
+    }
+
+    final data = response['data'] as Map<String, dynamic>? ?? {};
+    return FileBinaryResult.success(FileBinaryContent.fromJson(data));
   }
 
   // ============================================================
@@ -758,8 +1013,29 @@ class BridgeService {
     return data.cast<Map<String, dynamic>>();
   }
 
-  /// Create a new PTY session
+  /// Create a new PTY session (protected against duplicate creates)
   Future<Map<String, dynamic>?> createPty({
+    String? command,
+    List<String>? args,
+    String? cwd,
+    String? title,
+    String? projectPath,
+  }) {
+    // Dedupe by command + cwd to prevent duplicate terminals
+    final dedupeKey = 'create_pty:${command ?? 'default'}:${cwd ?? 'none'}';
+    return _deduplicatedRequest(
+      dedupeKey,
+      () => _createPtyInternal(
+        command: command,
+        args: args,
+        cwd: cwd,
+        title: title,
+        projectPath: projectPath,
+      ),
+    );
+  }
+
+  Future<Map<String, dynamic>?> _createPtyInternal({
     String? command,
     List<String>? args,
     String? cwd,
@@ -796,8 +1072,28 @@ class BridgeService {
     return response['data'] as Map<String, dynamic>?;
   }
 
-  /// Update a PTY session (title, size)
+  /// Update a PTY session (title, size) - protected against race conditions
   Future<Map<String, dynamic>?> updatePty(
+    String ptyId, {
+    String? title,
+    int? rows,
+    int? cols,
+    String? projectPath,
+  }) {
+    final dedupeKey = 'update_pty:$ptyId';
+    return _deduplicatedRequest(
+      dedupeKey,
+      () => _updatePtyInternal(
+        ptyId,
+        title: title,
+        rows: rows,
+        cols: cols,
+        projectPath: projectPath,
+      ),
+    );
+  }
+
+  Future<Map<String, dynamic>?> _updatePtyInternal(
     String ptyId, {
     String? title,
     int? rows,
@@ -818,8 +1114,16 @@ class BridgeService {
     return response['data'] as Map<String, dynamic>?;
   }
 
-  /// Delete a PTY session
-  Future<bool> deletePty(String ptyId, {String? projectPath}) async {
+  /// Delete a PTY session (protected against duplicate deletions)
+  Future<bool> deletePty(String ptyId, {String? projectPath}) {
+    final dedupeKey = 'delete_pty:$ptyId';
+    return _deduplicatedRequest(
+      dedupeKey,
+      () => _deletePtyInternal(ptyId, projectPath: projectPath),
+    );
+  }
+
+  Future<bool> _deletePtyInternal(String ptyId, {String? projectPath}) async {
     final requestId = _generateRequestId();
     _socket.send({
       'type': 'delete_pty',
@@ -856,8 +1160,16 @@ class BridgeService {
     return result;
   }
 
-  /// Connect to an MCP server
-  Future<bool> connectMcp(String name, {String? projectPath}) async {
+  /// Connect to an MCP server (protected against duplicate connects)
+  Future<bool> connectMcp(String name, {String? projectPath}) {
+    final dedupeKey = 'connect_mcp:$name';
+    return _deduplicatedRequest(
+      dedupeKey,
+      () => _connectMcpInternal(name, projectPath: projectPath),
+    );
+  }
+
+  Future<bool> _connectMcpInternal(String name, {String? projectPath}) async {
     final requestId = _generateRequestId();
     _socket.send({
       'type': 'connect_mcp',
@@ -869,8 +1181,19 @@ class BridgeService {
     return response['data'] as bool? ?? false;
   }
 
-  /// Disconnect from an MCP server
-  Future<bool> disconnectMcp(String name, {String? projectPath}) async {
+  /// Disconnect from an MCP server (protected against duplicate disconnects)
+  Future<bool> disconnectMcp(String name, {String? projectPath}) {
+    final dedupeKey = 'disconnect_mcp:$name';
+    return _deduplicatedRequest(
+      dedupeKey,
+      () => _disconnectMcpInternal(name, projectPath: projectPath),
+    );
+  }
+
+  Future<bool> _disconnectMcpInternal(
+    String name, {
+    String? projectPath,
+  }) async {
     final requestId = _generateRequestId();
     _socket.send({
       'type': 'disconnect_mcp',
@@ -921,8 +1244,24 @@ class BridgeService {
     return result;
   }
 
-  /// Set API key for a provider
+  /// Set API key for a provider (protected against duplicate sets)
   Future<bool> setApiKey({
+    required String providerID,
+    required String key,
+    String? projectPath,
+  }) {
+    final dedupeKey = 'set_api_key:$providerID';
+    return _deduplicatedRequest(
+      dedupeKey,
+      () => _setApiKeyInternal(
+        providerID: providerID,
+        key: key,
+        projectPath: projectPath,
+      ),
+    );
+  }
+
+  Future<bool> _setApiKeyInternal({
     required String providerID,
     required String key,
     String? projectPath,
@@ -1020,10 +1359,31 @@ class BridgeService {
   // ============================================================
 
   /// Initialize a session (create AGENTS.md)
+  /// (protected against duplicate initialization)
   ///
   /// This analyzes the project and generates an AGENTS.md file
   /// with project-specific instructions for the AI.
   Future<bool> initSession({
+    required String sessionId,
+    required String providerID,
+    required String modelID,
+    required String messageID,
+    String? projectPath,
+  }) {
+    final dedupeKey = 'init_session:$sessionId';
+    return _deduplicatedRequest(
+      dedupeKey,
+      () => _initSessionInternal(
+        sessionId: sessionId,
+        providerID: providerID,
+        modelID: modelID,
+        messageID: messageID,
+        projectPath: projectPath,
+      ),
+    );
+  }
+
+  Future<bool> _initSessionInternal({
     required String sessionId,
     required String providerID,
     required String modelID,

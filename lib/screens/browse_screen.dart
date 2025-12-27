@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../models/file_binary_content.dart';
 import '../models/file_content.dart';
 import '../models/search_result.dart';
 import '../models/vcs.dart';
@@ -10,6 +11,7 @@ import '../providers/service_providers.dart';
 import '../providers/selection_provider.dart';
 import '../theme/opencode_theme.dart';
 import '../widgets/connection_indicator.dart';
+import '../widgets/file_viewers/file_viewers.dart';
 
 class BrowseScreen extends ConsumerStatefulWidget {
   const BrowseScreen({super.key, this.initialPath});
@@ -39,7 +41,9 @@ class _BrowseScreenState extends ConsumerState<BrowseScreen>
   // File viewer state
   String? _viewingFilePath;
   FileContent? _viewingFileContent;
+  Uint8List? _viewingBinaryData;
   bool _isLoadingFile = false;
+  String? _fileTooLargeMessage;
 
   // Feature 18: File status (git)
   Map<String, FileStatusInfo>? _fileStatusMap;
@@ -150,35 +154,57 @@ class _BrowseScreenState extends ConsumerState<BrowseScreen>
     await _itemsFuture;
   }
 
-  // Feature 11: Read file content
   Future<void> _viewFile(String filePath) async {
     setState(() {
       _viewingFilePath = filePath;
+      _viewingFileContent = null;
+      _viewingBinaryData = null;
+      _fileTooLargeMessage = null;
       _isLoadingFile = true;
     });
 
     try {
       final bridge = ref.read(bridgeServiceProvider);
-      final selection = ref.read(selectionProvider);
-      final projectPath = selection.project?.path;
-      final withinProject =
-          projectPath != null &&
-          projectPath.isNotEmpty &&
-          filePath.startsWith(projectPath);
+      final isBinary = FileContent.isBinaryPath(filePath);
 
-      // OpenCode file APIs expect project-relative paths for correct git diffs/status.
-      final requestPath = withinProject
-          ? filePath.substring(projectPath.length).replaceFirst('/', '')
-          : filePath;
-      final content = await bridge.readFile(
-        requestPath,
-        projectPath: withinProject ? projectPath : null,
-      );
-      if (mounted) {
-        setState(() {
-          _viewingFileContent = content;
-          _isLoadingFile = false;
-        });
+      if (isBinary) {
+        final result = await bridge.readFileBinary(filePath);
+        if (!mounted) return;
+
+        switch (result) {
+          case FileBinarySuccess(:final content):
+            setState(() {
+              _viewingBinaryData = content.bytes;
+              _isLoadingFile = false;
+            });
+          case FileBinaryTooLarge(:final error):
+            setState(() {
+              _fileTooLargeMessage =
+                  'File too large (${error.sizeFormatted}). Maximum: ${error.maxSizeFormatted}';
+              _isLoadingFile = false;
+            });
+        }
+      } else {
+        final selection = ref.read(selectionProvider);
+        final projectPath = selection.project?.path;
+        final withinProject =
+            projectPath != null &&
+            projectPath.isNotEmpty &&
+            filePath.startsWith(projectPath);
+
+        final requestPath = withinProject
+            ? filePath.substring(projectPath.length).replaceFirst('/', '')
+            : filePath;
+        final content = await bridge.readFile(
+          requestPath,
+          projectPath: withinProject ? projectPath : null,
+        );
+        if (mounted) {
+          setState(() {
+            _viewingFileContent = content;
+            _isLoadingFile = false;
+          });
+        }
       }
     } catch (e) {
       if (mounted) {
@@ -200,6 +226,8 @@ class _BrowseScreenState extends ConsumerState<BrowseScreen>
     setState(() {
       _viewingFilePath = null;
       _viewingFileContent = null;
+      _viewingBinaryData = null;
+      _fileTooLargeMessage = null;
     });
   }
 
@@ -297,29 +325,116 @@ class _BrowseScreenState extends ConsumerState<BrowseScreen>
     });
   }
 
-  /// Handle back navigation: file viewer → search → parent folder → exit
   bool _handleBackNavigation() {
-    // First: close file viewer if open
     if (_viewingFilePath != null) {
       _closeFileViewer();
-      return true; // Handled, don't pop
+      return true;
     }
 
-    // Second: close search if open
     if (_showSearch) {
       setState(() => _showSearch = false);
       _clearSearch();
-      return true; // Handled, don't pop
+      return true;
     }
 
-    // Third: go up if not at root
     if (_path != '~') {
       _goUp();
-      return true; // Handled, don't pop
+      return true;
     }
 
-    // At root with no overlays - allow pop
     return false;
+  }
+
+  Widget _buildFileViewerScreen(OpenCodeTheme theme) {
+    final filename = _viewingFilePath!.split('/').last;
+    final language = FileContent.languageFromPath(_viewingFilePath!);
+
+    return Scaffold(
+      backgroundColor: theme.background,
+      appBar: AppBar(
+        backgroundColor: theme.background,
+        elevation: 0,
+        leading: IconButton(
+          icon: Icon(Icons.arrow_back_rounded, color: theme.text),
+          onPressed: _closeFileViewer,
+        ),
+        title: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              filename,
+              style: TextStyle(
+                fontSize: 16,
+                color: theme.text,
+                fontWeight: FontWeight.w600,
+              ),
+            ),
+            Text(
+              language,
+              style: TextStyle(fontSize: 12, color: theme.textMuted),
+            ),
+          ],
+        ),
+        actions: [
+          if (_viewingFileContent != null &&
+              _viewingFileContent!.content.isNotEmpty)
+            IconButton(
+              icon: Icon(Icons.copy, color: theme.text),
+              onPressed: () {
+                Clipboard.setData(
+                  ClipboardData(text: _viewingFileContent!.content),
+                );
+                ScaffoldMessenger.of(context).showSnackBar(
+                  SnackBar(
+                    content: const Text('Copied to clipboard'),
+                    backgroundColor: theme.backgroundPanel,
+                  ),
+                );
+              },
+            ),
+        ],
+      ),
+      body: _buildFileViewerBody(theme),
+    );
+  }
+
+  Widget _buildFileViewerBody(OpenCodeTheme theme) {
+    if (_isLoadingFile) {
+      return Center(child: CircularProgressIndicator(color: theme.primary));
+    }
+
+    if (_fileTooLargeMessage != null) {
+      return Center(
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Icon(Icons.error_outline, size: 64, color: theme.warning),
+            const SizedBox(height: 16),
+            Text(
+              _fileTooLargeMessage!,
+              style: TextStyle(color: theme.textMuted),
+              textAlign: TextAlign.center,
+            ),
+          ],
+        ),
+      );
+    }
+
+    if (_viewingFilePath == null) {
+      return Center(
+        child: Text(
+          'No file selected',
+          style: TextStyle(color: theme.textMuted),
+        ),
+      );
+    }
+
+    return UnifiedFileViewer(
+      filePath: _viewingFilePath!,
+      textContent: _viewingFileContent?.content,
+      binaryData: _viewingBinaryData,
+      mimeType: _viewingFileContent?.mime,
+    );
   }
 
   @override
@@ -338,12 +453,7 @@ class _BrowseScreenState extends ConsumerState<BrowseScreen>
             _handleBackNavigation();
           }
         },
-        child: _FileViewerScreen(
-          filePath: _viewingFilePath!,
-          content: _viewingFileContent,
-          isLoading: _isLoadingFile,
-          onClose: _closeFileViewer,
-        ),
+        child: _buildFileViewerScreen(theme),
       );
     }
 
@@ -1234,124 +1344,5 @@ class _SymbolResultTile extends StatelessWidget {
       default:
         return theme.textMuted;
     }
-  }
-}
-
-// File viewer screen
-class _FileViewerScreen extends StatelessWidget {
-  const _FileViewerScreen({
-    required this.filePath,
-    required this.content,
-    required this.isLoading,
-    required this.onClose,
-  });
-
-  final String filePath;
-  final FileContent? content;
-  final bool isLoading;
-  final VoidCallback onClose;
-
-  @override
-  Widget build(BuildContext context) {
-    final theme = OpenCodeTheme.of(context);
-    final filename = filePath.split('/').last;
-    final language = FileContent.languageFromPath(filePath);
-
-    return Scaffold(
-      backgroundColor: theme.background,
-      appBar: AppBar(
-        backgroundColor: theme.background,
-        elevation: 0,
-        leading: IconButton(
-          icon: Icon(Icons.arrow_back_rounded, color: theme.text),
-          onPressed: onClose,
-        ),
-        title: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text(
-              filename,
-              style: TextStyle(
-                fontSize: 16,
-                color: theme.text,
-                fontWeight: FontWeight.w600,
-              ),
-            ),
-            Text(
-              language,
-              style: TextStyle(fontSize: 12, color: theme.textMuted),
-            ),
-          ],
-        ),
-        actions: [
-          if (content != null)
-            IconButton(
-              icon: Icon(Icons.copy, color: theme.text),
-              onPressed: () {
-                Clipboard.setData(ClipboardData(text: content!.content));
-                ScaffoldMessenger.of(context).showSnackBar(
-                  SnackBar(
-                    content: const Text('Copied to clipboard'),
-                    backgroundColor: theme.backgroundPanel,
-                  ),
-                );
-              },
-            ),
-        ],
-      ),
-      body: isLoading
-          ? Center(child: CircularProgressIndicator(color: theme.primary))
-          : content == null
-          ? Center(
-              child: Text(
-                'Failed to load file',
-                style: TextStyle(color: theme.textMuted),
-              ),
-            )
-          : _buildContent(theme),
-    );
-  }
-
-  Widget _buildContent(OpenCodeTheme theme) {
-    if (content!.isImage) {
-      return Center(
-        child: Container(
-          padding: const EdgeInsets.all(20),
-          child: Column(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              Icon(Icons.image, size: 64, color: theme.textMuted),
-              const SizedBox(height: 16),
-              Text(
-                'Image preview not available',
-                style: TextStyle(color: theme.textMuted),
-              ),
-            ],
-          ),
-        ),
-      );
-    }
-
-    return SingleChildScrollView(
-      padding: const EdgeInsets.all(16),
-      child: Container(
-        width: double.infinity,
-        padding: const EdgeInsets.all(16),
-        decoration: BoxDecoration(
-          color: theme.backgroundPanel,
-          borderRadius: BorderRadius.circular(12),
-          border: Border.all(color: theme.borderSubtle),
-        ),
-        child: SelectableText(
-          content!.content,
-          style: TextStyle(
-            fontFamily: 'JetBrains Mono',
-            fontSize: 13,
-            color: theme.text,
-            height: 1.6,
-          ),
-        ),
-      ),
-    );
   }
 }

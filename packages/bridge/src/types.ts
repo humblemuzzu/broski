@@ -67,6 +67,8 @@ export type ClientMessage =
   | { type: 'get_vcs'; projectPath?: string }
   // Feature 11: File Content Read
   | { type: 'read_file'; path: string; projectPath?: string }
+  // Feature 21: Binary File Content Read (images, PDFs, etc.)
+  | { type: 'read_file_binary'; path: string; maxSizeMb?: number }
   // Feature 12: File Search
   | { type: 'find_files'; query: string; projectPath?: string }
   | { type: 'find_text'; pattern: string; include?: string; projectPath?: string }
@@ -208,6 +210,9 @@ export type ServerMessage =
   | { type: 'vcs'; data: VcsInfo; requestId?: string }
   // Feature 11: File Content Read
   | { type: 'file_content'; data: FileContent; path: string; requestId?: string }
+  // Feature 21: Binary File Content
+  | { type: 'file_binary'; data: FileBinaryContent; path: string; requestId?: string }
+  | { type: 'file_too_large'; path: string; size: number; maxSize: number; requestId?: string }
   // Feature 12: File Search
   | { type: 'files_found'; data: string[]; requestId?: string }
   | { type: 'text_found'; data: TextSearchResult[]; requestId?: string }
@@ -243,6 +248,13 @@ export type ServerMessage =
 export type FileContent = {
   content: string
   mime: string
+}
+
+// Feature 21: Binary File Content (images, PDFs, etc.)
+export type FileBinaryContent = {
+  base64: string
+  mime: string
+  size: number
 }
 
 // Feature 12: File Search Types

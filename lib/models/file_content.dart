@@ -1,4 +1,3 @@
-/// File content from the read file API
 class FileContent {
   final String content;
   final String mime;
@@ -12,7 +11,6 @@ class FileContent {
     );
   }
 
-  /// Check if the file is a text file
   bool get isText =>
       mime.startsWith('text/') ||
       mime.contains('json') ||
@@ -20,10 +18,12 @@ class FileContent {
       mime.contains('javascript') ||
       mime.contains('typescript');
 
-  /// Check if the file is an image
   bool get isImage => mime.startsWith('image/');
 
-  /// Get a language hint for syntax highlighting based on mime type
+  bool get isPdf => mime == 'application/pdf';
+
+  bool get isCsv => mime.contains('csv') || mime == 'text/csv';
+
   String get languageHint {
     if (mime.contains('dart')) return 'dart';
     if (mime.contains('typescript')) return 'typescript';
@@ -115,5 +115,76 @@ class FileContent {
       default:
         return 'plaintext';
     }
+  }
+
+  static bool isImagePath(String path) {
+    final ext = path.split('.').last.toLowerCase();
+    return [
+      'png',
+      'jpg',
+      'jpeg',
+      'gif',
+      'webp',
+      'bmp',
+      'ico',
+      'svg',
+    ].contains(ext);
+  }
+
+  static bool isPdfPath(String path) {
+    return path.toLowerCase().endsWith('.pdf');
+  }
+
+  static bool isMarkdownPath(String path) {
+    final ext = path.split('.').last.toLowerCase();
+    return ['md', 'markdown'].contains(ext);
+  }
+
+  static bool isCsvPath(String path) {
+    return path.toLowerCase().endsWith('.csv');
+  }
+
+  static bool isBinaryPath(String path) {
+    return isImagePath(path) || isPdfPath(path);
+  }
+
+  static bool isCodePath(String path) {
+    final ext = path.split('.').last.toLowerCase();
+    return [
+      'dart',
+      'ts',
+      'tsx',
+      'js',
+      'jsx',
+      'py',
+      'java',
+      'kt',
+      'kts',
+      'swift',
+      'rs',
+      'go',
+      'rb',
+      'php',
+      'cpp',
+      'cc',
+      'cxx',
+      'hpp',
+      'c',
+      'h',
+      'css',
+      'scss',
+      'sass',
+      'html',
+      'htm',
+      'xml',
+      'json',
+      'yaml',
+      'yml',
+      'sql',
+      'sh',
+      'bash',
+      'gradle',
+      'toml',
+    ].contains(ext);
   }
 }
