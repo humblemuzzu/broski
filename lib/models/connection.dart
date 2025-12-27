@@ -8,6 +8,7 @@ class ConnectionInfo {
     this.magicDNSHostname,
     this.funnelURL,
     this.version,
+    this.authToken,
   });
 
   final String? localIP;
@@ -16,6 +17,7 @@ class ConnectionInfo {
   final String? funnelURL;
   final int port;
   final String? version;
+  final String? authToken;
 
   String get preferredHost => tailscaleIP ?? localIP ?? '';
 
@@ -53,6 +55,7 @@ class ConnectionInfo {
     'funnelURL': funnelURL,
     'port': port,
     'version': version,
+    'authToken': authToken,
   };
 
   static ConnectionInfo? parseQrPayload(String raw) {
@@ -69,6 +72,7 @@ class ConnectionInfo {
         funnelURL: data['f'] as String?,
         port: port,
         version: data['v'] as String?,
+        authToken: data['a'] as String?,
       );
     } catch (_) {
       return null;
@@ -88,6 +92,7 @@ class ConnectionInfo {
       funnelURL: json['funnelURL'] as String?,
       port: port,
       version: json['version'] as String?,
+      authToken: json['authToken'] as String?,
     );
   }
 }

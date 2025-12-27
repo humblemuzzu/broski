@@ -1,29 +1,79 @@
 import type { ServerWebSocket } from 'bun'
-import { readdir } from 'node:fs/promises'
+import { readdir, realpath } from 'node:fs/promises'
 import { homedir } from 'node:os'
-import { resolve } from 'node:path'
+import { resolve, sep } from 'node:path'
+import { randomBytes, timingSafeEqual } from 'node:crypto'
 import type { OpenCodeConnector } from './opencode'
 import type { ClientMessage, DeviceInfo, ServerMessage } from './types'
 
-// Direct file listing (doesn't require OpenCode SDK)
-// Note: Bun supports Node.js APIs natively with better performance
+// Security: Generate a random auth token for this bridge session
+function generateAuthToken(): string {
+  return randomBytes(24).toString('base64url')
+}
+
+// Security: Constant-time token comparison to prevent timing attacks
+function validateAuthToken(provided: string, expected: string): boolean {
+  try {
+    const providedBuf = Buffer.from(provided)
+    const expectedBuf = Buffer.from(expected)
+    if (providedBuf.length !== expectedBuf.length) return false
+    return timingSafeEqual(providedBuf, expectedBuf)
+  } catch {
+    return false
+  }
+}
+
+const SECURITY_ALLOWED_BASE_PATHS = [
+  homedir(),
+  '/tmp',
+  '/var/tmp',
+]
+
+async function isPathAllowed(requestedPath: string): Promise<boolean> {
+  try {
+    const expandedPath = requestedPath.startsWith('~')
+      ? requestedPath.replace(/^~/, homedir())
+      : resolve(requestedPath)
+    
+    const realPath = await realpath(expandedPath).catch(() => null)
+    if (!realPath) return false
+    
+    return SECURITY_ALLOWED_BASE_PATHS.some(base => 
+      realPath === base || realPath.startsWith(base + sep)
+    )
+  } catch {
+    return false
+  }
+}
+
+async function getSecurePath(requestedPath: string): Promise<string | null> {
+  const expandedPath = requestedPath.startsWith('~')
+    ? requestedPath.replace(/^~/, homedir())
+    : resolve(requestedPath)
+  
+  const allowed = await isPathAllowed(expandedPath)
+  if (!allowed) return null
+  
+  return expandedPath
+}
+
 async function listFilesDirectly(
   filePath: string,
 ): Promise<Array<{ name: string; type: 'file' | 'directory'; path: string; absolute: string }>> {
-  // Expand ~ to actual home directory
-  const resolvedPath = filePath === '~' || filePath.startsWith('~/')
-    ? filePath.replace(/^~/, homedir())
-    : resolve(filePath)
+  const securePath = await getSecurePath(filePath)
+  if (!securePath) {
+    console.error(`[listFilesDirectly] Access denied: ${filePath}`)
+    return []
+  }
 
   try {
-    const entries = await readdir(resolvedPath, { withFileTypes: true })
+    const entries = await readdir(securePath, { withFileTypes: true })
     const items: Array<{ name: string; type: 'file' | 'directory'; path: string; absolute: string }> = []
 
     for (const entry of entries) {
-      // Skip hidden files/folders (starting with .)
       if (entry.name.startsWith('.')) continue
 
-      const absolute = resolve(resolvedPath, entry.name)
+      const absolute = resolve(securePath, entry.name)
       items.push({
         name: entry.name,
         type: entry.isDirectory() ? 'directory' : 'file',
@@ -42,18 +92,20 @@ async function listFilesDirectly(
 
     return items
   } catch (error) {
-    console.error(`[listFilesDirectly] Error listing ${resolvedPath}:`, error)
+    console.error(`[listFilesDirectly] Error listing ${securePath}:`, error)
     return []
   }
 }
 
 async function readFileDirectly(filePath: string): Promise<{ content: string; mime: string }> {
-  const resolvedPath = filePath === '~' || filePath.startsWith('~/')
-    ? filePath.replace(/^~/, homedir())
-    : resolve(filePath)
+  const securePath = await getSecurePath(filePath)
+  if (!securePath) {
+    console.error(`[readFileDirectly] Access denied: ${filePath}`)
+    return { content: '', mime: 'text/plain' }
+  }
 
   try {
-    const file = Bun.file(resolvedPath)
+    const file = Bun.file(securePath)
     const exists = await file.exists()
     if (!exists) return { content: '', mime: 'text/plain' }
 
@@ -77,7 +129,7 @@ async function readFileDirectly(filePath: string): Promise<{ content: string; mi
     }
     return { content: text, mime }
   } catch (error) {
-    console.error(`[readFileDirectly] Error reading ${resolvedPath}:`, error)
+    console.error(`[readFileDirectly] Error reading ${securePath}:`, error)
     return { content: '', mime: 'text/plain' }
   }
 }
@@ -85,13 +137,15 @@ async function readFileDirectly(filePath: string): Promise<{ content: string; mi
 async function readFileBinaryDirectly(
   filePath: string,
   maxSizeMb: number = 10,
-): Promise<{ base64: string; mime: string; size: number } | { error: 'not_found' | 'too_large'; size?: number }> {
-  const resolvedPath = filePath === '~' || filePath.startsWith('~/')
-    ? filePath.replace(/^~/, homedir())
-    : resolve(filePath)
+): Promise<{ base64: string; mime: string; size: number } | { error: 'not_found' | 'too_large' | 'access_denied'; size?: number }> {
+  const securePath = await getSecurePath(filePath)
+  if (!securePath) {
+    console.error(`[readFileBinaryDirectly] Access denied: ${filePath}`)
+    return { error: 'access_denied' }
+  }
 
   try {
-    const file = Bun.file(resolvedPath)
+    const file = Bun.file(securePath)
     const exists = await file.exists()
     if (!exists) return { error: 'not_found' }
 
@@ -107,7 +161,7 @@ async function readFileBinaryDirectly(
 
     return { base64, mime, size }
   } catch (error) {
-    console.error(`[readFileBinaryDirectly] Error reading ${resolvedPath}:`, error)
+    console.error(`[readFileBinaryDirectly] Error reading ${securePath}:`, error)
     return { error: 'not_found' }
   }
 }
@@ -116,6 +170,7 @@ export type BridgeServerOptions = {
   port: number
   opencode: OpenCodeConnector
   version: string
+  authToken?: string
   restartOpenCode?: () => Promise<boolean>
   logger?: (message: string) => void
 }
@@ -126,6 +181,7 @@ export type BridgeServer = {
   stop: (force?: boolean) => void
   connections: () => number
   port: () => number
+  authToken: () => string
 }
 
 type ConnectionContext = {
@@ -170,6 +226,8 @@ export function createBridgeServer(options: BridgeServerOptions): BridgeServer {
   const contexts = new Map<ServerWebSocket<unknown>, ConnectionContext>()
   const clientQueues = new Map<ServerWebSocket<unknown>, ClientQueue>()
   const { opencode, version, logger } = options
+  
+  const authToken = options.authToken || generateAuthToken()
 
   const log = (message: string) => {
     logger?.(message)
@@ -403,7 +461,32 @@ export function createBridgeServer(options: BridgeServerOptions): BridgeServer {
   const server = Bun.serve({
     port: options.port,
     fetch(request, serverInstance) {
-      if (serverInstance.upgrade(request)) return
+      const url = new URL(request.url)
+      
+      const tokenFromQuery = url.searchParams.get('token')
+      const authHeader = request.headers.get('authorization')
+      const tokenFromHeader = authHeader?.startsWith('Bearer ') ? authHeader.slice(7) : null
+      const providedToken = tokenFromQuery || tokenFromHeader
+      
+      const isWebSocketUpgrade = request.headers.get('upgrade')?.toLowerCase() === 'websocket'
+      const isValidToken = providedToken && validateAuthToken(providedToken, authToken)
+      
+      if (isWebSocketUpgrade) {
+        if (!isValidToken) {
+          log('Connection rejected: invalid or missing auth token')
+          return new Response('Unauthorized', { status: 401 })
+        }
+        if (serverInstance.upgrade(request)) return
+        return new Response('WebSocket upgrade failed', { status: 500 })
+      }
+      
+      if (!isValidToken) {
+        return new Response(JSON.stringify({ error: 'Unauthorized' }), {
+          status: 401,
+          headers: { 'content-type': 'application/json' },
+        })
+      }
+      
       return handleHttp(request)
     },
     websocket: {
@@ -750,13 +833,14 @@ export function createBridgeServer(options: BridgeServerOptions): BridgeServer {
           reply({ type: 'file_content', data: content, path: message.path })
           break
         }
-        // Feature 21: Binary File Content Read
         case 'read_file_binary': {
           const maxSizeMb = message.maxSizeMb ?? 10
           const result = await readFileBinaryDirectly(message.path, maxSizeMb)
           if ('error' in result) {
             if (result.error === 'too_large') {
               reply({ type: 'file_too_large', path: message.path, size: result.size ?? 0, maxSize: maxSizeMb * 1024 * 1024 })
+            } else if (result.error === 'access_denied') {
+              reply({ type: 'error', message: 'Access denied' })
             } else {
               reply({ type: 'error', message: 'File not found' })
             }
@@ -967,6 +1051,7 @@ export function createBridgeServer(options: BridgeServerOptions): BridgeServer {
     },
     connections: () => sockets.size,
     port: () => actualPort,
+    authToken: () => authToken,
   }
 }
 

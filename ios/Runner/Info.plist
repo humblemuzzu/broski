@@ -28,6 +28,8 @@
 	<dict>
 		<key>NSAllowsArbitraryLoads</key>
 		<true/>
+		<key>NSAllowsLocalNetworking</key>
+		<true/>
 	</dict>
 	<key>NSCameraUsageDescription</key>
 	<string>Scan the Broski bridge QR code to connect to your Mac, or take photos to attach to your AI conversations.</string>

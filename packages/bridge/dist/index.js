@@ -2481,7 +2481,8 @@ function displayQRCode(info) {
     m: info.magicDNS,
     f: info.funnelURL,
     p: info.port,
-    v: info.version
+    v: info.version,
+    a: info.authToken
   });
   console.log(`
 `);
@@ -3501,18 +3502,60 @@ class OpenCodeConnector {
 }
 
 // src/server.ts
-import { readdir } from "fs/promises";
+import { readdir, realpath } from "fs/promises";
 import { homedir as homedir2 } from "os";
-import { resolve } from "path";
-async function listFilesDirectly(filePath) {
-  const resolvedPath = filePath === "~" || filePath.startsWith("~/") ? filePath.replace(/^~/, homedir2()) : resolve(filePath);
+import { resolve, sep } from "path";
+import { randomBytes, timingSafeEqual } from "crypto";
+function generateAuthToken() {
+  return randomBytes(24).toString("base64url");
+}
+function validateAuthToken(provided, expected) {
   try {
-    const entries = await readdir(resolvedPath, { withFileTypes: true });
+    const providedBuf = Buffer.from(provided);
+    const expectedBuf = Buffer.from(expected);
+    if (providedBuf.length !== expectedBuf.length)
+      return false;
+    return timingSafeEqual(providedBuf, expectedBuf);
+  } catch {
+    return false;
+  }
+}
+var SECURITY_ALLOWED_BASE_PATHS = [
+  homedir2(),
+  "/tmp",
+  "/var/tmp"
+];
+async function isPathAllowed(requestedPath) {
+  try {
+    const expandedPath = requestedPath.startsWith("~") ? requestedPath.replace(/^~/, homedir2()) : resolve(requestedPath);
+    const realPath = await realpath(expandedPath).catch(() => null);
+    if (!realPath)
+      return false;
+    return SECURITY_ALLOWED_BASE_PATHS.some((base) => realPath === base || realPath.startsWith(base + sep));
+  } catch {
+    return false;
+  }
+}
+async function getSecurePath(requestedPath) {
+  const expandedPath = requestedPath.startsWith("~") ? requestedPath.replace(/^~/, homedir2()) : resolve(requestedPath);
+  const allowed = await isPathAllowed(expandedPath);
+  if (!allowed)
+    return null;
+  return expandedPath;
+}
+async function listFilesDirectly(filePath) {
+  const securePath = await getSecurePath(filePath);
+  if (!securePath) {
+    console.error(`[listFilesDirectly] Access denied: ${filePath}`);
+    return [];
+  }
+  try {
+    const entries = await readdir(securePath, { withFileTypes: true });
     const items = [];
     for (const entry of entries) {
       if (entry.name.startsWith("."))
         continue;
-      const absolute = resolve(resolvedPath, entry.name);
+      const absolute = resolve(securePath, entry.name);
       items.push({
         name: entry.name,
         type: entry.isDirectory() ? "directory" : "file",
@@ -3528,14 +3571,18 @@ async function listFilesDirectly(filePath) {
     });
     return items;
   } catch (error) {
-    console.error(`[listFilesDirectly] Error listing ${resolvedPath}:`, error);
+    console.error(`[listFilesDirectly] Error listing ${securePath}:`, error);
     return [];
   }
 }
 async function readFileDirectly(filePath) {
-  const resolvedPath = filePath === "~" || filePath.startsWith("~/") ? filePath.replace(/^~/, homedir2()) : resolve(filePath);
+  const securePath = await getSecurePath(filePath);
+  if (!securePath) {
+    console.error(`[readFileDirectly] Access denied: ${filePath}`);
+    return { content: "", mime: "text/plain" };
+  }
   try {
-    const file = Bun.file(resolvedPath);
+    const file = Bun.file(securePath);
     const exists = await file.exists();
     if (!exists)
       return { content: "", mime: "text/plain" };
@@ -3553,8 +3600,33 @@ async function readFileDirectly(filePath) {
     }
     return { content: text, mime };
   } catch (error) {
-    console.error(`[readFileDirectly] Error reading ${resolvedPath}:`, error);
+    console.error(`[readFileDirectly] Error reading ${securePath}:`, error);
     return { content: "", mime: "text/plain" };
+  }
+}
+async function readFileBinaryDirectly(filePath, maxSizeMb = 10) {
+  const securePath = await getSecurePath(filePath);
+  if (!securePath) {
+    console.error(`[readFileBinaryDirectly] Access denied: ${filePath}`);
+    return { error: "access_denied" };
+  }
+  try {
+    const file = Bun.file(securePath);
+    const exists = await file.exists();
+    if (!exists)
+      return { error: "not_found" };
+    const size = file.size;
+    const maxBytes = maxSizeMb * 1024 * 1024;
+    if (size > maxBytes) {
+      return { error: "too_large", size };
+    }
+    const buffer = await file.arrayBuffer();
+    const base64 = Buffer.from(buffer).toString("base64");
+    const mime = file.type || "application/octet-stream";
+    return { base64, mime, size };
+  } catch (error) {
+    console.error(`[readFileBinaryDirectly] Error reading ${securePath}:`, error);
+    return { error: "not_found" };
   }
 }
 var BATCH_THRESHOLDS = {
@@ -3579,6 +3651,7 @@ function createBridgeServer(options) {
   const contexts = new Map;
   const clientQueues = new Map;
   const { opencode, version, logger } = options;
+  const authToken = options.authToken || generateAuthToken();
   const log = (message) => {
     logger?.(message);
   };
@@ -3590,6 +3663,37 @@ function createBridgeServer(options) {
     for (const ws of sockets) {
       ws.send(payload);
     }
+  };
+  const getDeviceInfo = (ws) => {
+    const ctx = contexts.get(ws);
+    if (!ctx || !ctx.deviceId)
+      return null;
+    return {
+      deviceId: ctx.deviceId,
+      deviceName: ctx.deviceName ?? "Unknown Device",
+      platform: ctx.platform ?? "unknown",
+      connectionType: ctx.connectionType,
+      rttMs: ctx.lastRttMs,
+      connectedAt: ctx.connectedAt,
+      currentView: ctx.projectPath || ctx.sessionId ? { projectPath: ctx.projectPath, sessionId: ctx.sessionId } : undefined
+    };
+  };
+  const getAllDevices = () => {
+    const devices = [];
+    for (const ws of sockets) {
+      const device = getDeviceInfo(ws);
+      if (device)
+        devices.push(device);
+    }
+    return devices;
+  };
+  const findSocketByDeviceId = (deviceId) => {
+    for (const ws of sockets) {
+      const ctx = contexts.get(ws);
+      if (ctx?.deviceId === deviceId)
+        return ws;
+    }
+    return null;
   };
   let eventCount = 0;
   let eventCountResetTimer = null;
@@ -3740,18 +3844,46 @@ function createBridgeServer(options) {
   const server2 = Bun.serve({
     port: options.port,
     fetch(request, serverInstance) {
-      if (serverInstance.upgrade(request))
-        return;
+      const url = new URL(request.url);
+      const tokenFromQuery = url.searchParams.get("token");
+      const authHeader = request.headers.get("authorization");
+      const tokenFromHeader = authHeader?.startsWith("Bearer ") ? authHeader.slice(7) : null;
+      const providedToken = tokenFromQuery || tokenFromHeader;
+      const isWebSocketUpgrade = request.headers.get("upgrade")?.toLowerCase() === "websocket";
+      const isValidToken = providedToken && validateAuthToken(providedToken, authToken);
+      if (isWebSocketUpgrade) {
+        if (!isValidToken) {
+          log("Connection rejected: invalid or missing auth token");
+          return new Response("Unauthorized", { status: 401 });
+        }
+        if (serverInstance.upgrade(request))
+          return;
+        return new Response("WebSocket upgrade failed", { status: 500 });
+      }
+      if (!isValidToken) {
+        return new Response(JSON.stringify({ error: "Unauthorized" }), {
+          status: 401,
+          headers: { "content-type": "application/json" }
+        });
+      }
       return handleHttp(request);
     },
     websocket: {
       open(ws) {
         sockets.add(ws);
-        contexts.set(ws, { lastPongAt: Date.now(), lastRttMs: 0, connectionType: "unknown" });
+        contexts.set(ws, {
+          lastPongAt: Date.now(),
+          lastRttMs: 0,
+          connectionType: "unknown",
+          connectedAt: Date.now()
+        });
         log(`Client connected (${sockets.size} total)`);
         sendStatus(ws);
       },
       close(ws) {
+        const ctx = contexts.get(ws);
+        const disconnectedDeviceId = ctx?.deviceId;
+        const disconnectedDeviceName = ctx?.deviceName;
         sockets.delete(ws);
         contexts.delete(ws);
         const clientQ = clientQueues.get(ws);
@@ -3760,6 +3892,15 @@ function createBridgeServer(options) {
         }
         clientQueues.delete(ws);
         log(`Client disconnected (${sockets.size} total)`);
+        if (disconnectedDeviceId) {
+          broadcast({
+            type: "device_disconnected",
+            data: {
+              deviceId: disconnectedDeviceId,
+              deviceName: disconnectedDeviceName
+            }
+          });
+        }
       },
       message(ws, raw) {
         handleMessage(ws, raw);
@@ -3770,6 +3911,362 @@ function createBridgeServer(options) {
   const sendStatus = async (ws) => {
     const running = await opencode.isRunning();
     send(ws, { type: "status", data: { opencodeRunning: running } });
+  };
+  const processSingleMessage = async (ws, message, reply) => {
+    switch (message.type) {
+      case "register_device": {
+        const existing = contexts.get(ws) ?? {
+          lastPongAt: Date.now(),
+          lastRttMs: 0,
+          connectionType: "unknown",
+          connectedAt: Date.now()
+        };
+        contexts.set(ws, {
+          ...existing,
+          deviceId: message.deviceId,
+          deviceName: message.deviceName,
+          platform: message.platform
+        });
+        const deviceInfo = getDeviceInfo(ws);
+        if (deviceInfo) {
+          reply({ type: "device_registered", data: deviceInfo });
+          broadcast({ type: "device_connected", data: deviceInfo });
+        }
+        log(`Device registered: ${message.deviceName} (${message.platform})`);
+        break;
+      }
+      case "list_devices": {
+        const devices = getAllDevices();
+        reply({ type: "devices", data: devices });
+        break;
+      }
+      case "disconnect_device": {
+        const targetWs = findSocketByDeviceId(message.deviceId);
+        if (targetWs && targetWs !== ws) {
+          const targetCtx = contexts.get(targetWs);
+          try {
+            targetWs.close(4001, "Disconnected by another device");
+          } catch {}
+          broadcast({
+            type: "device_disconnected",
+            data: {
+              deviceId: message.deviceId,
+              deviceName: targetCtx?.deviceName
+            }
+          });
+        }
+        break;
+      }
+      case "set_view": {
+        const existing = contexts.get(ws) ?? { lastPongAt: Date.now(), lastRttMs: 0 };
+        contexts.set(ws, {
+          ...existing,
+          projectPath: message.projectPath || undefined,
+          sessionId: message.sessionId || undefined
+        });
+        sendStatus(ws);
+        break;
+      }
+      case "pong": {
+        const ctx = contexts.get(ws);
+        if (!ctx)
+          break;
+        ctx.lastPongAt = Date.now();
+        ctx.lastRttMs = Math.max(0, ctx.lastPongAt - message.sentAt);
+        if (ctx.pendingPing?.id === message.id) {
+          ctx.pendingPing = undefined;
+        }
+        if (ctx.connectionType === "unknown") {
+          ctx.connectionType = ctx.lastRttMs > 30 ? "tailscale" : "local";
+        }
+        send(ws, { type: "connection_metrics", data: { rttMs: ctx.lastRttMs, lastPongAt: ctx.lastPongAt, connectionType: ctx.connectionType } });
+        break;
+      }
+      case "list_projects": {
+        const projects = await opencode.listProjects();
+        reply({ type: "projects", data: projects });
+        break;
+      }
+      case "restart_opencode": {
+        const ok = await options.restartOpenCode?.();
+        reply({ type: "opencode_restarted", data: ok === true });
+        break;
+      }
+      case "list_sessions": {
+        const sessions = await opencode.listSessions(message.projectPath);
+        reply({ type: "sessions", data: sessions, projectPath: message.projectPath });
+        break;
+      }
+      case "list_providers": {
+        const providers = await opencode.listProviders();
+        reply({ type: "providers", data: providers });
+        break;
+      }
+      case "get_config": {
+        const config = await opencode.getConfig();
+        reply({ type: "config", data: config });
+        break;
+      }
+      case "set_model": {
+        await opencode.updateModel(message.model);
+        const config = await opencode.getConfig();
+        reply({ type: "config", data: config });
+        break;
+      }
+      case "create_session": {
+        const session = await opencode.createSession(message.projectPath, message.title);
+        reply({ type: "session_created", data: session });
+        break;
+      }
+      case "get_session": {
+        const session = await opencode.getSession(message.sessionId, message.projectPath);
+        reply({ type: "session", data: session });
+        break;
+      }
+      case "get_session_messages": {
+        const messages = await opencode.getSessionMessages(message.sessionId, message.projectPath, message.limit);
+        reply({ type: "session_messages", data: messages, sessionId: message.sessionId });
+        break;
+      }
+      case "chat": {
+        await opencode.sendPrompt(message.sessionId, message.content, message.projectPath, message.model, message.agent, message.disabledTools, message.fileAttachments);
+        break;
+      }
+      case "abort": {
+        await opencode.abortSession(message.sessionId, message.projectPath);
+        break;
+      }
+      case "diff": {
+        const diff = await opencode.getSessionDiff(message.sessionId, message.projectPath, message.messageId);
+        reply({ type: "diff", data: diff, sessionId: message.sessionId });
+        break;
+      }
+      case "browse": {
+        const items = await listFilesDirectly(message.path);
+        reply({ type: "browse_result", data: { path: message.path, items } });
+        break;
+      }
+      case "permission_response": {
+        await opencode.respondToPermission(message.sessionId, message.permissionId, message.response, message.projectPath);
+        break;
+      }
+      case "get_lsp_status": {
+        const lspStatus = await opencode.getLspStatus(message.projectPath);
+        reply({ type: "lsp_status", data: lspStatus });
+        break;
+      }
+      case "get_session_context": {
+        const context = await opencode.getSessionContext(message.sessionId, message.projectPath);
+        reply({ type: "session_context", data: context, sessionId: message.sessionId });
+        break;
+      }
+      case "get_todos": {
+        const todos = await opencode.getTodos(message.sessionId, message.projectPath);
+        reply({ type: "todos", data: todos, sessionId: message.sessionId });
+        break;
+      }
+      case "list_commands": {
+        const commands = await opencode.listCommands(message.projectPath);
+        reply({ type: "commands", data: commands });
+        break;
+      }
+      case "execute_command": {
+        const result = await opencode.executeCommand(message.sessionId, message.command, message.arguments, message.projectPath, message.agent, message.model);
+        reply({ type: "command_executed", data: result, sessionId: message.sessionId });
+        break;
+      }
+      case "list_agents": {
+        const agents = await opencode.listAgents(message.projectPath);
+        reply({ type: "agents", data: agents });
+        break;
+      }
+      case "delete_session": {
+        const deleted = await opencode.deleteSession(message.sessionId, message.projectPath);
+        reply({ type: "session_deleted", data: deleted, sessionId: message.sessionId });
+        break;
+      }
+      case "update_session": {
+        const session = await opencode.updateSession(message.sessionId, message.title, message.archived, message.projectPath);
+        reply({ type: "session_updated", data: session, sessionId: message.sessionId });
+        break;
+      }
+      case "fork_session": {
+        const session = await opencode.forkSession(message.sessionId, message.messageId, message.projectPath);
+        reply({ type: "session_forked", data: session });
+        break;
+      }
+      case "revert_message": {
+        const session = await opencode.revertMessage(message.sessionId, message.messageId, message.partId, message.projectPath);
+        reply({ type: "message_reverted", data: session, sessionId: message.sessionId });
+        break;
+      }
+      case "unrevert_session": {
+        const session = await opencode.unrevertSession(message.sessionId, message.projectPath);
+        reply({ type: "session_unreverted", data: session, sessionId: message.sessionId });
+        break;
+      }
+      case "share_session": {
+        const session = await opencode.shareSession(message.sessionId, message.projectPath);
+        reply({ type: "session_shared", data: session, sessionId: message.sessionId });
+        break;
+      }
+      case "unshare_session": {
+        const session = await opencode.unshareSession(message.sessionId, message.projectPath);
+        reply({ type: "session_unshared", data: session, sessionId: message.sessionId });
+        break;
+      }
+      case "summarize_session": {
+        const success = await opencode.summarizeSession(message.sessionId, message.providerID, message.modelID, message.projectPath);
+        reply({ type: "session_summarized", data: success, sessionId: message.sessionId });
+        break;
+      }
+      case "get_vcs": {
+        const vcs = await opencode.getVcsInfo(message.projectPath);
+        reply({ type: "vcs", data: vcs });
+        break;
+      }
+      case "read_file": {
+        const content = message.projectPath ? await opencode.readFile(message.path, message.projectPath) : await readFileDirectly(message.path);
+        reply({ type: "file_content", data: content, path: message.path });
+        break;
+      }
+      case "read_file_binary": {
+        const maxSizeMb = message.maxSizeMb ?? 10;
+        const result = await readFileBinaryDirectly(message.path, maxSizeMb);
+        if ("error" in result) {
+          if (result.error === "too_large") {
+            reply({ type: "file_too_large", path: message.path, size: result.size ?? 0, maxSize: maxSizeMb * 1024 * 1024 });
+          } else if (result.error === "access_denied") {
+            reply({ type: "error", message: "Access denied" });
+          } else {
+            reply({ type: "error", message: "File not found" });
+          }
+        } else {
+          reply({ type: "file_binary", data: result, path: message.path });
+        }
+        break;
+      }
+      case "find_files": {
+        const files = await opencode.findFiles(message.query, message.projectPath);
+        reply({ type: "files_found", data: files });
+        break;
+      }
+      case "find_text": {
+        const results = await opencode.findText(message.pattern, message.include, message.projectPath);
+        reply({ type: "text_found", data: results });
+        break;
+      }
+      case "find_symbols": {
+        const symbols = await opencode.findSymbols(message.query, message.projectPath);
+        reply({ type: "symbols_found", data: symbols });
+        break;
+      }
+      case "search_files_and_dirs": {
+        const results = await opencode.searchFilesAndDirs(message.query, message.projectPath);
+        reply({ type: "files_and_dirs_found", data: results });
+        break;
+      }
+      case "get_session_status": {
+        const status = await opencode.getSessionStatus(message.projectPath);
+        reply({ type: "session_status", data: status });
+        break;
+      }
+      case "list_pty": {
+        const ptys = await opencode.listPty(message.projectPath);
+        reply({ type: "pty_list", data: ptys });
+        break;
+      }
+      case "create_pty": {
+        const pty = await opencode.createPty(message.command, message.args, message.cwd, message.title, message.projectPath);
+        if (pty) {
+          reply({ type: "pty_created", data: pty });
+        } else {
+          reply({ type: "error", message: "Failed to create PTY session" });
+        }
+        break;
+      }
+      case "get_pty": {
+        const pty = await opencode.getPty(message.ptyId, message.projectPath);
+        if (pty) {
+          reply({ type: "pty", data: pty });
+        } else {
+          reply({ type: "error", message: "PTY session not found" });
+        }
+        break;
+      }
+      case "update_pty": {
+        const pty = await opencode.updatePty(message.ptyId, message.title, message.rows, message.cols, message.projectPath);
+        if (pty) {
+          reply({ type: "pty_updated", data: pty });
+        } else {
+          reply({ type: "error", message: "Failed to update PTY session" });
+        }
+        break;
+      }
+      case "delete_pty": {
+        const deleted = await opencode.deletePty(message.ptyId, message.projectPath);
+        reply({ type: "pty_deleted", data: deleted, ptyId: message.ptyId });
+        break;
+      }
+      case "get_mcp_status": {
+        const status = await opencode.getMcpStatus(message.projectPath);
+        reply({ type: "mcp_status", data: status });
+        break;
+      }
+      case "connect_mcp": {
+        const connected = await opencode.connectMcp(message.name, message.projectPath);
+        reply({ type: "mcp_connected", data: connected, name: message.name });
+        break;
+      }
+      case "disconnect_mcp": {
+        const disconnected = await opencode.disconnectMcp(message.name, message.projectPath);
+        reply({ type: "mcp_disconnected", data: disconnected, name: message.name });
+        break;
+      }
+      case "list_all_providers": {
+        const providers = await opencode.listAllProviders(message.projectPath);
+        reply({ type: "all_providers", data: providers });
+        break;
+      }
+      case "get_provider_auth": {
+        const auth = await opencode.getProviderAuth(message.projectPath);
+        reply({ type: "provider_auth", data: auth });
+        break;
+      }
+      case "set_api_key": {
+        const success = await opencode.setApiKey(message.providerID, message.key, message.projectPath);
+        reply({ type: "api_key_set", data: success, providerID: message.providerID });
+        break;
+      }
+      case "list_tool_ids": {
+        const toolIds = await opencode.listToolIds(message.projectPath);
+        reply({ type: "tool_ids", data: toolIds });
+        break;
+      }
+      case "list_tools": {
+        const tools = await opencode.listTools(message.provider, message.model, message.projectPath);
+        reply({ type: "tools", data: tools });
+        break;
+      }
+      case "get_file_status": {
+        const fileStatus = await opencode.getFileStatus(message.projectPath);
+        reply({ type: "file_status", data: fileStatus });
+        break;
+      }
+      case "get_formatter_status": {
+        const formatterStatus = await opencode.getFormatterStatus(message.projectPath);
+        reply({ type: "formatter_status", data: formatterStatus });
+        break;
+      }
+      case "init_session": {
+        const initialized = await opencode.initSession(message.sessionId, message.providerID, message.modelID, message.messageID, message.projectPath);
+        reply({ type: "session_initialized", data: initialized, sessionId: message.sessionId });
+        break;
+      }
+      default: {
+        reply({ type: "error", message: "Unknown message type" });
+      }
+    }
   };
   const handleMessage = async (ws, raw) => {
     const text = typeof raw === "string" ? raw : new TextDecoder().decode(raw);
@@ -3785,300 +4282,24 @@ function createBridgeServer(options) {
       send(ws, requestId ? { ...response, requestId } : response);
     };
     try {
-      switch (message.type) {
-        case "set_view": {
-          const existing = contexts.get(ws) ?? { lastPongAt: Date.now(), lastRttMs: 0 };
-          contexts.set(ws, {
-            ...existing,
-            projectPath: message.projectPath || undefined,
-            sessionId: message.sessionId || undefined
-          });
-          sendStatus(ws);
-          break;
+      if (message.type === "batch") {
+        const batchedMessages = message.messages;
+        if (!Array.isArray(batchedMessages)) {
+          reply({ type: "error", message: "Invalid batch: messages must be an array" });
+          return;
         }
-        case "pong": {
-          const ctx = contexts.get(ws);
-          if (!ctx)
-            break;
-          ctx.lastPongAt = Date.now();
-          ctx.lastRttMs = Math.max(0, ctx.lastPongAt - message.sentAt);
-          if (ctx.pendingPing?.id === message.id) {
-            ctx.pendingPing = undefined;
+        for (const batchedMsg of batchedMessages) {
+          const batchReply = (response) => {
+            send(ws, batchedMsg.requestId ? { ...response, requestId: batchedMsg.requestId } : response);
+          };
+          try {
+            await processSingleMessage(ws, batchedMsg, batchReply);
+          } catch (batchError) {
+            batchReply({ type: "error", message: toErrorMessage(batchError) });
           }
-          if (ctx.connectionType === "unknown") {
-            ctx.connectionType = ctx.lastRttMs > 30 ? "tailscale" : "local";
-          }
-          send(ws, { type: "connection_metrics", data: { rttMs: ctx.lastRttMs, lastPongAt: ctx.lastPongAt, connectionType: ctx.connectionType } });
-          break;
         }
-        case "list_projects": {
-          const projects = await opencode.listProjects();
-          reply({ type: "projects", data: projects });
-          break;
-        }
-        case "restart_opencode": {
-          const ok = await options.restartOpenCode?.();
-          reply({ type: "opencode_restarted", data: ok === true });
-          break;
-        }
-        case "list_sessions": {
-          const sessions = await opencode.listSessions(message.projectPath);
-          reply({ type: "sessions", data: sessions, projectPath: message.projectPath });
-          break;
-        }
-        case "list_providers": {
-          const providers = await opencode.listProviders();
-          reply({ type: "providers", data: providers });
-          break;
-        }
-        case "get_config": {
-          const config = await opencode.getConfig();
-          reply({ type: "config", data: config });
-          break;
-        }
-        case "set_model": {
-          await opencode.updateModel(message.model);
-          const config = await opencode.getConfig();
-          reply({ type: "config", data: config });
-          break;
-        }
-        case "create_session": {
-          const session = await opencode.createSession(message.projectPath, message.title);
-          reply({ type: "session_created", data: session });
-          break;
-        }
-        case "get_session": {
-          const session = await opencode.getSession(message.sessionId, message.projectPath);
-          reply({ type: "session", data: session });
-          break;
-        }
-        case "get_session_messages": {
-          const messages = await opencode.getSessionMessages(message.sessionId, message.projectPath, message.limit);
-          reply({ type: "session_messages", data: messages, sessionId: message.sessionId });
-          break;
-        }
-        case "chat": {
-          await opencode.sendPrompt(message.sessionId, message.content, message.projectPath, message.model, message.agent, message.disabledTools, message.fileAttachments);
-          break;
-        }
-        case "abort": {
-          await opencode.abortSession(message.sessionId, message.projectPath);
-          break;
-        }
-        case "diff": {
-          const diff = await opencode.getSessionDiff(message.sessionId, message.projectPath, message.messageId);
-          reply({ type: "diff", data: diff, sessionId: message.sessionId });
-          break;
-        }
-        case "browse": {
-          const items = await listFilesDirectly(message.path);
-          reply({ type: "browse_result", data: { path: message.path, items } });
-          break;
-        }
-        case "permission_response": {
-          await opencode.respondToPermission(message.sessionId, message.permissionId, message.response, message.projectPath);
-          break;
-        }
-        case "get_lsp_status": {
-          const lspStatus = await opencode.getLspStatus(message.projectPath);
-          reply({ type: "lsp_status", data: lspStatus });
-          break;
-        }
-        case "get_session_context": {
-          const context = await opencode.getSessionContext(message.sessionId, message.projectPath);
-          reply({ type: "session_context", data: context, sessionId: message.sessionId });
-          break;
-        }
-        case "get_todos": {
-          const todos = await opencode.getTodos(message.sessionId, message.projectPath);
-          reply({ type: "todos", data: todos, sessionId: message.sessionId });
-          break;
-        }
-        case "list_commands": {
-          const commands = await opencode.listCommands(message.projectPath);
-          reply({ type: "commands", data: commands });
-          break;
-        }
-        case "execute_command": {
-          const result = await opencode.executeCommand(message.sessionId, message.command, message.arguments, message.projectPath, message.agent, message.model);
-          reply({ type: "command_executed", data: result, sessionId: message.sessionId });
-          break;
-        }
-        case "list_agents": {
-          const agents = await opencode.listAgents(message.projectPath);
-          reply({ type: "agents", data: agents });
-          break;
-        }
-        case "delete_session": {
-          const deleted = await opencode.deleteSession(message.sessionId, message.projectPath);
-          reply({ type: "session_deleted", data: deleted, sessionId: message.sessionId });
-          break;
-        }
-        case "update_session": {
-          const session = await opencode.updateSession(message.sessionId, message.title, message.archived, message.projectPath);
-          reply({ type: "session_updated", data: session, sessionId: message.sessionId });
-          break;
-        }
-        case "fork_session": {
-          const session = await opencode.forkSession(message.sessionId, message.messageId, message.projectPath);
-          reply({ type: "session_forked", data: session });
-          break;
-        }
-        case "revert_message": {
-          const session = await opencode.revertMessage(message.sessionId, message.messageId, message.partId, message.projectPath);
-          reply({ type: "message_reverted", data: session, sessionId: message.sessionId });
-          break;
-        }
-        case "unrevert_session": {
-          const session = await opencode.unrevertSession(message.sessionId, message.projectPath);
-          reply({ type: "session_unreverted", data: session, sessionId: message.sessionId });
-          break;
-        }
-        case "share_session": {
-          const session = await opencode.shareSession(message.sessionId, message.projectPath);
-          reply({ type: "session_shared", data: session, sessionId: message.sessionId });
-          break;
-        }
-        case "unshare_session": {
-          const session = await opencode.unshareSession(message.sessionId, message.projectPath);
-          reply({ type: "session_unshared", data: session, sessionId: message.sessionId });
-          break;
-        }
-        case "summarize_session": {
-          const success = await opencode.summarizeSession(message.sessionId, message.providerID, message.modelID, message.projectPath);
-          reply({ type: "session_summarized", data: success, sessionId: message.sessionId });
-          break;
-        }
-        case "get_vcs": {
-          const vcs = await opencode.getVcsInfo(message.projectPath);
-          reply({ type: "vcs", data: vcs });
-          break;
-        }
-        case "read_file": {
-          const content = message.projectPath ? await opencode.readFile(message.path, message.projectPath) : await readFileDirectly(message.path);
-          reply({ type: "file_content", data: content, path: message.path });
-          break;
-        }
-        case "find_files": {
-          const files = await opencode.findFiles(message.query, message.projectPath);
-          reply({ type: "files_found", data: files });
-          break;
-        }
-        case "find_text": {
-          const results = await opencode.findText(message.pattern, message.include, message.projectPath);
-          reply({ type: "text_found", data: results });
-          break;
-        }
-        case "find_symbols": {
-          const symbols = await opencode.findSymbols(message.query, message.projectPath);
-          reply({ type: "symbols_found", data: symbols });
-          break;
-        }
-        case "search_files_and_dirs": {
-          const results = await opencode.searchFilesAndDirs(message.query, message.projectPath);
-          reply({ type: "files_and_dirs_found", data: results });
-          break;
-        }
-        case "get_session_status": {
-          const status = await opencode.getSessionStatus(message.projectPath);
-          reply({ type: "session_status", data: status });
-          break;
-        }
-        case "list_pty": {
-          const ptys = await opencode.listPty(message.projectPath);
-          reply({ type: "pty_list", data: ptys });
-          break;
-        }
-        case "create_pty": {
-          const pty = await opencode.createPty(message.command, message.args, message.cwd, message.title, message.projectPath);
-          if (pty) {
-            reply({ type: "pty_created", data: pty });
-          } else {
-            reply({ type: "error", message: "Failed to create PTY session" });
-          }
-          break;
-        }
-        case "get_pty": {
-          const pty = await opencode.getPty(message.ptyId, message.projectPath);
-          if (pty) {
-            reply({ type: "pty", data: pty });
-          } else {
-            reply({ type: "error", message: "PTY session not found" });
-          }
-          break;
-        }
-        case "update_pty": {
-          const pty = await opencode.updatePty(message.ptyId, message.title, message.rows, message.cols, message.projectPath);
-          if (pty) {
-            reply({ type: "pty_updated", data: pty });
-          } else {
-            reply({ type: "error", message: "Failed to update PTY session" });
-          }
-          break;
-        }
-        case "delete_pty": {
-          const deleted = await opencode.deletePty(message.ptyId, message.projectPath);
-          reply({ type: "pty_deleted", data: deleted, ptyId: message.ptyId });
-          break;
-        }
-        case "get_mcp_status": {
-          const status = await opencode.getMcpStatus(message.projectPath);
-          reply({ type: "mcp_status", data: status });
-          break;
-        }
-        case "connect_mcp": {
-          const connected = await opencode.connectMcp(message.name, message.projectPath);
-          reply({ type: "mcp_connected", data: connected, name: message.name });
-          break;
-        }
-        case "disconnect_mcp": {
-          const disconnected = await opencode.disconnectMcp(message.name, message.projectPath);
-          reply({ type: "mcp_disconnected", data: disconnected, name: message.name });
-          break;
-        }
-        case "list_all_providers": {
-          const providers = await opencode.listAllProviders(message.projectPath);
-          reply({ type: "all_providers", data: providers });
-          break;
-        }
-        case "get_provider_auth": {
-          const auth = await opencode.getProviderAuth(message.projectPath);
-          reply({ type: "provider_auth", data: auth });
-          break;
-        }
-        case "set_api_key": {
-          const success = await opencode.setApiKey(message.providerID, message.key, message.projectPath);
-          reply({ type: "api_key_set", data: success, providerID: message.providerID });
-          break;
-        }
-        case "list_tool_ids": {
-          const toolIds = await opencode.listToolIds(message.projectPath);
-          reply({ type: "tool_ids", data: toolIds });
-          break;
-        }
-        case "list_tools": {
-          const tools = await opencode.listTools(message.provider, message.model, message.projectPath);
-          reply({ type: "tools", data: tools });
-          break;
-        }
-        case "get_file_status": {
-          const fileStatus = await opencode.getFileStatus(message.projectPath);
-          reply({ type: "file_status", data: fileStatus });
-          break;
-        }
-        case "get_formatter_status": {
-          const formatterStatus = await opencode.getFormatterStatus(message.projectPath);
-          reply({ type: "formatter_status", data: formatterStatus });
-          break;
-        }
-        case "init_session": {
-          const initialized = await opencode.initSession(message.sessionId, message.providerID, message.modelID, message.messageID, message.projectPath);
-          reply({ type: "session_initialized", data: initialized, sessionId: message.sessionId });
-          break;
-        }
-        default: {
-          reply({ type: "error", message: "Unknown message type" });
-        }
+      } else {
+        await processSingleMessage(ws, message, reply);
       }
     } catch (error) {
       reply({ type: "error", message: toErrorMessage(error) });
@@ -4092,7 +4313,8 @@ function createBridgeServer(options) {
       server2.stop(force);
     },
     connections: () => sockets.size,
-    port: () => actualPort
+    port: () => actualPort,
+    authToken: () => authToken
   };
 }
 function jsonResponse(data, status = 200) {
@@ -4912,7 +5134,8 @@ async function main() {
     magicDNS,
     funnelURL,
     port: bridgePort,
-    version
+    version,
+    authToken: bridgeServer.authToken()
   });
   console.log(`
 \u2713 Bridge listening on port ${bridgePort}`);

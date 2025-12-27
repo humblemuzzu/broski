@@ -7,6 +7,7 @@ export interface ConnectionInfo {
   funnelURL: string | null
   port: number
   version: string
+  authToken: string
 }
 
 export function displayQRCode(info: ConnectionInfo): void {
@@ -17,6 +18,7 @@ export function displayQRCode(info: ConnectionInfo): void {
     f: info.funnelURL,
     p: info.port,
     v: info.version,
+    a: info.authToken,
   })
 
   console.log('\n')

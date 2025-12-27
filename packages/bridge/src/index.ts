@@ -447,6 +447,7 @@ async function main() {
     funnelURL,
     port: bridgePort,
     version,
+    authToken: bridgeServer.authToken(),
   })
 
   console.log(`\n✓ Bridge listening on port ${bridgePort}`)

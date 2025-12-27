@@ -288,7 +288,6 @@ class ConnectionNotifier extends StateNotifier<BridgeConnectionState> {
   ) {
     final endpoints = <({ConnectionType type, Uri uri, String host})>[];
 
-    // Helper to add an endpoint if valid
     void addEndpoint(
       ConnectionType type,
       String? host, {
@@ -297,7 +296,10 @@ class ConnectionNotifier extends StateNotifier<BridgeConnectionState> {
       if (host == null || host.isEmpty) return;
 
       final scheme = isSecure ? 'wss' : 'ws';
-      final uri = Uri.parse('$scheme://$host:${info.port}');
+      final baseUri = Uri.parse('$scheme://$host:${info.port}');
+      final uri = info.authToken != null
+          ? baseUri.replace(queryParameters: {'token': info.authToken!})
+          : baseUri;
       endpoints.add((type: type, uri: uri, host: host));
     }
 
@@ -327,12 +329,14 @@ class ConnectionNotifier extends StateNotifier<BridgeConnectionState> {
       addEndpoint(ConnectionType.magicDNS, info.magicDNSHostname);
     }
 
-    // Add Funnel endpoint (WSS) if available
     if (info.funnelURL != null && info.funnelURL!.isNotEmpty) {
       final funnelWss = info.funnelURL!.replaceFirst('https://', 'wss://');
-      final funnelUri = Uri.parse(funnelWss);
+      final baseFunnelUri = Uri.parse(funnelWss);
+      final funnelUri = info.authToken != null
+          ? baseFunnelUri.replace(queryParameters: {'token': info.authToken!})
+          : baseFunnelUri;
       endpoints.add((
-        type: ConnectionType.unknown, // Funnel is a special case
+        type: ConnectionType.unknown,
         uri: funnelUri,
         host: funnelUri.host,
       ));
@@ -341,21 +345,19 @@ class ConnectionNotifier extends StateNotifier<BridgeConnectionState> {
     return endpoints;
   }
 
-  /// Try connecting to multiple endpoints concurrently.
-  /// Returns the first successful connection, or null if all fail.
   Future<_ConnectionResult?> _tryConnectConcurrent(
     List<({ConnectionType type, Uri uri, String host})> endpoints,
   ) async {
     if (endpoints.isEmpty) return null;
 
-    // If only one endpoint, just try it directly
-    if (endpoints.length == 1) {
-      final ep = endpoints.first;
+    Object? lastError;
+
+    for (final ep in endpoints) {
       try {
         await _socket
             .connect(ep.uri)
             .timeout(
-              const Duration(seconds: 5),
+              const Duration(seconds: 3),
               onTimeout: () => throw TimeoutException('Connection timeout'),
             );
         return _ConnectionResult(
@@ -365,62 +367,18 @@ class ConnectionNotifier extends StateNotifier<BridgeConnectionState> {
           success: true,
         );
       } catch (e) {
-        return _ConnectionResult(
-          type: ep.type,
-          uri: ep.uri,
-          host: ep.host,
-          success: false,
-          error: e,
-        );
+        lastError = e;
       }
     }
 
-    // Multiple endpoints: race them with individual timeouts
-    final completer = Completer<_ConnectionResult?>();
-    var completedCount = 0;
-    Object? lastError;
-
-    // Track which attempts are still in flight
-    final inFlight = <int>{};
-
-    for (var i = 0; i < endpoints.length; i++) {
-      inFlight.add(i);
-      final ep = endpoints[i];
-
-      _tryConnectSingle(ep).then((result) {
-        if (completer.isCompleted) return;
-
-        completedCount++;
-        inFlight.remove(i);
-
-        if (result.success) {
-          completer.complete(result);
-        } else {
-          lastError = result.error;
-          // All failed
-          if (completedCount >= endpoints.length) {
-            completer.complete(
-              _ConnectionResult(
-                type: ep.type,
-                uri: ep.uri,
-                host: ep.host,
-                success: false,
-                error: lastError,
-              ),
-            );
-          }
-        }
-      });
-    }
-
-    // Overall timeout
-    Future.delayed(const Duration(seconds: 6), () {
-      if (!completer.isCompleted) {
-        completer.complete(null);
-      }
-    });
-
-    return completer.future;
+    final lastEp = endpoints.last;
+    return _ConnectionResult(
+      type: lastEp.type,
+      uri: lastEp.uri,
+      host: lastEp.host,
+      success: false,
+      error: lastError,
+    );
   }
 
   /// Try to connect to a single endpoint with timeout.
