@@ -23,10 +23,26 @@ export type Agent = {
   mode: 'primary' | 'subagent' | 'all'
 }
 
+// Device information for multi-device support
+export type DeviceInfo = {
+  deviceId: string
+  deviceName: string
+  platform: string
+  connectionType: 'local' | 'tailscale' | 'unknown'
+  rttMs: number
+  connectedAt: number
+  currentView?: { projectPath?: string; sessionId?: string }
+}
+
 export type ClientMessage =
+  | { type: 'batch'; messages: Array<ClientMessage & { requestId?: string }>; count?: number; timestamp?: number }
   | { type: 'set_view'; projectPath?: string; sessionId?: string }
   | { type: 'restart_opencode' }
   | { type: 'pong'; id: string; sentAt: number }
+  // Multi-device support
+  | { type: 'register_device'; deviceId: string; deviceName: string; platform: string }
+  | { type: 'list_devices' }
+  | { type: 'disconnect_device'; deviceId: string }
   | { type: 'list_projects' }
   | { type: 'list_sessions'; projectPath?: string }
   | { type: 'list_providers' }
@@ -179,12 +195,16 @@ export type ServerMessage =
   | { type: 'sdk_event'; data: unknown }
   | { type: 'sdk_event_batch'; data: unknown[] }
   | { type: 'ping'; data: { id: string; sentAt: number } }
-  | { type: 'connection_metrics'; data: { rttMs: number; lastPongAt: number } }
+  | { type: 'connection_metrics'; data: { rttMs: number; lastPongAt: number; connectionType?: string } }
   | { type: 'opencode_restarted'; data: boolean; requestId?: string }
   | { type: 'status'; data: { opencodeRunning: boolean } }
   | { type: 'error'; message: string; code?: string; requestId?: string }
   | { type: 'lsp_status'; data: LspServerStatus[]; requestId?: string }
   | { type: 'session_context'; data: SessionContextInfo; sessionId: string; requestId?: string }
+  | { type: 'device_registered'; data: DeviceInfo; requestId?: string }
+  | { type: 'devices'; data: DeviceInfo[]; requestId?: string }
+  | { type: 'device_disconnected'; data: { deviceId: string; deviceName?: string }; requestId?: string }
+  | { type: 'device_connected'; data: DeviceInfo }
   // Feature 1: Todo/Plan Management
   | { type: 'todos'; data: Todo[]; sessionId: string; requestId?: string }
   // Feature 2: Slash Commands

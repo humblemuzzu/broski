@@ -4,6 +4,7 @@ import 'dart:math';
 
 import '../models/agent.dart';
 import '../models/command.dart';
+import '../models/device.dart';
 import '../models/file_attachment.dart';
 import '../models/file_binary_content.dart';
 import '../models/file_content.dart';
@@ -1405,6 +1406,37 @@ class BridgeService {
       requestId: requestId,
     );
     return response['data'] as bool? ?? false;
+  }
+
+  // ============================================================
+  // Multi-Device Support
+  // ============================================================
+
+  void registerDevice({
+    required String deviceId,
+    required String deviceName,
+    required String platform,
+  }) {
+    _socket.send({
+      'type': 'register_device',
+      'deviceId': deviceId,
+      'deviceName': deviceName,
+      'platform': platform,
+    });
+  }
+
+  Future<List<DeviceInfo>> listDevices() async {
+    final requestId = _generateRequestId();
+    _socket.send({'type': 'list_devices', 'requestId': requestId});
+    final response = await _waitFor('devices', requestId: requestId);
+    final data = response['data'] as List<dynamic>? ?? [];
+    return data
+        .map((item) => DeviceInfo.fromJson(item as Map<String, dynamic>))
+        .toList();
+  }
+
+  void disconnectDevice(String deviceId) {
+    _socket.send({'type': 'disconnect_device', 'deviceId': deviceId});
   }
 
   // ============================================================

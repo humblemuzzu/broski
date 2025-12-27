@@ -1,10 +1,13 @@
 import 'dart:async';
+import 'dart:io';
 import 'dart:math';
 
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../models/connection.dart';
 import '../models/connection_quality.dart';
+import '../models/device.dart';
+import '../services/bridge_service.dart';
 import '../services/network_monitor_service.dart';
 import '../services/storage_service.dart';
 import '../services/websocket_service.dart';
@@ -21,6 +24,8 @@ class BridgeConnectionState {
     this.isOfflineMode = false,
     this.connectionType = ConnectionType.unknown,
     this.connectedHost,
+    this.thisDevice,
+    this.connectedDevices = const [],
   });
 
   final ConnectionInfo? connection;
@@ -31,6 +36,9 @@ class BridgeConnectionState {
   final int? rttMs;
   final ConnectionType connectionType;
   final String? connectedHost;
+
+  final DeviceInfo? thisDevice;
+  final List<DeviceInfo> connectedDevices;
 
   /// When true, the app operates in read-only mode using cached data.
   /// User can browse projects, sessions, and messages but cannot send new messages.
@@ -65,6 +73,8 @@ class BridgeConnectionState {
     bool? isOfflineMode,
     ConnectionType? connectionType,
     String? connectedHost,
+    DeviceInfo? thisDevice,
+    List<DeviceInfo>? connectedDevices,
   }) {
     return BridgeConnectionState(
       connection: clearConnection ? null : (connection ?? this.connection),
@@ -76,7 +86,16 @@ class BridgeConnectionState {
       isOfflineMode: isOfflineMode ?? this.isOfflineMode,
       connectionType: connectionType ?? this.connectionType,
       connectedHost: connectedHost ?? this.connectedHost,
+      thisDevice: thisDevice ?? this.thisDevice,
+      connectedDevices: connectedDevices ?? this.connectedDevices,
     );
+  }
+
+  int get otherDevicesCount {
+    if (thisDevice == null) return connectedDevices.length;
+    return connectedDevices
+        .where((d) => d.deviceId != thisDevice!.deviceId)
+        .length;
   }
 }
 
@@ -94,9 +113,30 @@ enum ReconnectionStrategy {
   final Duration delay;
 }
 
+/// Result of a connection attempt to a specific endpoint.
+class _ConnectionResult {
+  final ConnectionType type;
+  final Uri uri;
+  final String host;
+  final bool success;
+  final Object? error;
+
+  _ConnectionResult({
+    required this.type,
+    required this.uri,
+    required this.host,
+    required this.success,
+    this.error,
+  });
+}
+
 class ConnectionNotifier extends StateNotifier<BridgeConnectionState> {
-  ConnectionNotifier(this._storage, this._socket, this._networkMonitor)
-    : super(const BridgeConnectionState()) {
+  ConnectionNotifier(
+    this._storage,
+    this._socket,
+    this._networkMonitor,
+    this._bridge,
+  ) : super(const BridgeConnectionState()) {
     _statusSub = _socket.statusStream.listen(_handleStatus);
     _messageSub = _socket.messages.listen(_handleMessage);
     _networkSub = _networkMonitor.stateStream.listen(_handleNetworkChange);
@@ -106,6 +146,7 @@ class ConnectionNotifier extends StateNotifier<BridgeConnectionState> {
   final StorageService _storage;
   final WebSocketService _socket;
   final NetworkMonitorService _networkMonitor;
+  final BridgeService _bridge;
 
   StreamSubscription<ConnectionStatus>? _statusSub;
   StreamSubscription<Map<String, dynamic>>? _messageSub;
@@ -119,6 +160,15 @@ class ConnectionNotifier extends StateNotifier<BridgeConnectionState> {
   DateTime? _lastSuccessfulConnection;
   ConnectionType? _lastSuccessfulType;
 
+  // Message deduplication cache
+  final Map<String, DateTime> _sentMessages = {};
+  static const _dedupeTtl = Duration(seconds: 5);
+  static const _maxDedupeEntries = 500;
+
+  // Device info
+  String? _deviceId;
+  String? _deviceName;
+
   Future<void> _loadSavedConnection() async {
     final saved = await _storage.loadConnection();
     if (saved != null) {
@@ -126,6 +176,46 @@ class ConnectionNotifier extends StateNotifier<BridgeConnectionState> {
     }
   }
 
+  Future<void> _registerThisDevice() async {
+    _deviceId = await _storage.getOrCreateDeviceId();
+    _deviceName = _getDeviceName();
+    final platform = _getPlatformName();
+
+    _bridge.registerDevice(
+      deviceId: _deviceId!,
+      deviceName: _deviceName!,
+      platform: platform,
+    );
+  }
+
+  String _getDeviceName() {
+    if (Platform.isIOS) return 'iPhone';
+    if (Platform.isAndroid) return 'Android';
+    if (Platform.isMacOS) return 'Mac';
+    if (Platform.isWindows) return 'Windows';
+    if (Platform.isLinux) return 'Linux';
+    return 'Unknown Device';
+  }
+
+  String _getPlatformName() {
+    if (Platform.isIOS) return 'ios';
+    if (Platform.isAndroid) return 'android';
+    if (Platform.isMacOS) return 'macos';
+    if (Platform.isWindows) return 'windows';
+    if (Platform.isLinux) return 'linux';
+    return 'unknown';
+  }
+
+  Future<List<DeviceInfo>> listDevices() async {
+    return _bridge.listDevices();
+  }
+
+  void disconnectDevice(String deviceId) {
+    _bridge.disconnectDevice(deviceId);
+  }
+
+  /// Connect to the bridge using concurrent multi-endpoint failover.
+  /// Tries all available endpoints simultaneously and uses the first successful one.
   Future<void> connect(
     ConnectionInfo info, {
     ConnectionType? preferredType,
@@ -133,6 +223,10 @@ class ConnectionNotifier extends StateNotifier<BridgeConnectionState> {
     if (_isConnecting) return;
     _isConnecting = true;
     _reconnectTimer?.cancel();
+
+    // Clear dedupe cache on new connection
+    _sentMessages.clear();
+
     state = state.copyWith(
       connection: info,
       status: ConnectionStatus.connecting,
@@ -141,24 +235,40 @@ class ConnectionNotifier extends StateNotifier<BridgeConnectionState> {
     );
 
     try {
-      final uri = _getConnectionUri(info, preferredType);
-      await _socket.connect(uri);
+      // Build list of endpoints to try
+      final endpoints = _buildEndpointsToTry(info, preferredType);
+
+      if (endpoints.isEmpty) {
+        throw StateError('No valid endpoints available');
+      }
+
+      // Try all endpoints concurrently (first success wins)
+      final result = await _tryConnectConcurrent(endpoints);
+
+      if (result == null || !result.success) {
+        throw StateError(
+          result?.error?.toString() ?? 'All connection attempts failed',
+        );
+      }
+
       await _storage.saveConnection(info);
       _reconnectAttempts = 0;
       _failureStreak = 0;
 
-      final connectedHost = uri.host;
-      final connectionType = _detectConnectionType(info, connectedHost);
-
       _lastSuccessfulConnection = DateTime.now();
-      _lastSuccessfulType = connectionType;
+      _lastSuccessfulType = result.type;
+
+      // Update WebSocket service with connection info for batching
+      _socket.updateConnectionType(_connectionTypeToString(result.type));
 
       state = state.copyWith(
         isReconnecting: false,
         error: null,
-        connectionType: connectionType,
-        connectedHost: connectedHost,
+        connectionType: result.type,
+        connectedHost: result.host,
       );
+
+      await _registerThisDevice();
     } catch (error) {
       _failureStreak++;
       state = state.copyWith(
@@ -171,45 +281,263 @@ class ConnectionNotifier extends StateNotifier<BridgeConnectionState> {
     }
   }
 
-  Uri _getConnectionUri(ConnectionInfo info, ConnectionType? preferredType) {
-    if (preferredType == ConnectionType.local && info.localIP != null) {
-      return Uri.parse('ws://${info.localIP}:${info.port}');
+  /// Build list of endpoints to try, ordered by preference.
+  List<({ConnectionType type, Uri uri, String host})> _buildEndpointsToTry(
+    ConnectionInfo info,
+    ConnectionType? preferredType,
+  ) {
+    final endpoints = <({ConnectionType type, Uri uri, String host})>[];
+
+    // Helper to add an endpoint if valid
+    void addEndpoint(
+      ConnectionType type,
+      String? host, {
+      bool isSecure = false,
+    }) {
+      if (host == null || host.isEmpty) return;
+
+      final scheme = isSecure ? 'wss' : 'ws';
+      final uri = Uri.parse('$scheme://$host:${info.port}');
+      endpoints.add((type: type, uri: uri, host: host));
     }
-    if (preferredType == ConnectionType.tailscale && info.tailscaleIP != null) {
-      return Uri.parse('ws://${info.tailscaleIP}:${info.port}');
+
+    // If preferred type specified, add it first
+    if (preferredType != null) {
+      switch (preferredType) {
+        case ConnectionType.local:
+          addEndpoint(ConnectionType.local, info.localIP);
+        case ConnectionType.tailscale:
+          addEndpoint(ConnectionType.tailscale, info.tailscaleIP);
+        case ConnectionType.magicDNS:
+          addEndpoint(ConnectionType.magicDNS, info.magicDNSHostname);
+        case ConnectionType.unknown:
+          break;
+      }
     }
-    if (preferredType == ConnectionType.magicDNS &&
+
+    // Add all endpoints (if not already added as preferred)
+    if (preferredType != ConnectionType.local && info.localIP != null) {
+      addEndpoint(ConnectionType.local, info.localIP);
+    }
+    if (preferredType != ConnectionType.tailscale && info.tailscaleIP != null) {
+      addEndpoint(ConnectionType.tailscale, info.tailscaleIP);
+    }
+    if (preferredType != ConnectionType.magicDNS &&
         info.magicDNSHostname != null) {
-      return Uri.parse('ws://${info.magicDNSHostname}:${info.port}');
+      addEndpoint(ConnectionType.magicDNS, info.magicDNSHostname);
     }
-    return info.toWebSocketUri();
+
+    // Add Funnel endpoint (WSS) if available
+    if (info.funnelURL != null && info.funnelURL!.isNotEmpty) {
+      final funnelWss = info.funnelURL!.replaceFirst('https://', 'wss://');
+      final funnelUri = Uri.parse(funnelWss);
+      endpoints.add((
+        type: ConnectionType.unknown, // Funnel is a special case
+        uri: funnelUri,
+        host: funnelUri.host,
+      ));
+    }
+
+    return endpoints;
   }
 
-  ConnectionType _detectConnectionType(
-    ConnectionInfo info,
-    String? connectedHost,
-  ) {
-    if (connectedHost == null) return ConnectionType.unknown;
+  /// Try connecting to multiple endpoints concurrently.
+  /// Returns the first successful connection, or null if all fail.
+  Future<_ConnectionResult?> _tryConnectConcurrent(
+    List<({ConnectionType type, Uri uri, String host})> endpoints,
+  ) async {
+    if (endpoints.isEmpty) return null;
 
-    if (info.localIP != null && connectedHost == info.localIP) {
-      return ConnectionType.local;
+    // If only one endpoint, just try it directly
+    if (endpoints.length == 1) {
+      final ep = endpoints.first;
+      try {
+        await _socket
+            .connect(ep.uri)
+            .timeout(
+              const Duration(seconds: 5),
+              onTimeout: () => throw TimeoutException('Connection timeout'),
+            );
+        return _ConnectionResult(
+          type: ep.type,
+          uri: ep.uri,
+          host: ep.host,
+          success: true,
+        );
+      } catch (e) {
+        return _ConnectionResult(
+          type: ep.type,
+          uri: ep.uri,
+          host: ep.host,
+          success: false,
+          error: e,
+        );
+      }
     }
 
-    if (info.tailscaleIP != null && connectedHost == info.tailscaleIP) {
-      return ConnectionType.tailscale;
+    // Multiple endpoints: race them with individual timeouts
+    final completer = Completer<_ConnectionResult?>();
+    var completedCount = 0;
+    Object? lastError;
+
+    // Track which attempts are still in flight
+    final inFlight = <int>{};
+
+    for (var i = 0; i < endpoints.length; i++) {
+      inFlight.add(i);
+      final ep = endpoints[i];
+
+      _tryConnectSingle(ep).then((result) {
+        if (completer.isCompleted) return;
+
+        completedCount++;
+        inFlight.remove(i);
+
+        if (result.success) {
+          completer.complete(result);
+        } else {
+          lastError = result.error;
+          // All failed
+          if (completedCount >= endpoints.length) {
+            completer.complete(
+              _ConnectionResult(
+                type: ep.type,
+                uri: ep.uri,
+                host: ep.host,
+                success: false,
+                error: lastError,
+              ),
+            );
+          }
+        }
+      });
     }
 
-    if (info.magicDNSHostname != null &&
-        connectedHost == info.magicDNSHostname) {
-      return ConnectionType.magicDNS;
+    // Overall timeout
+    Future.delayed(const Duration(seconds: 6), () {
+      if (!completer.isCompleted) {
+        completer.complete(null);
+      }
+    });
+
+    return completer.future;
+  }
+
+  /// Try to connect to a single endpoint with timeout.
+  Future<_ConnectionResult> _tryConnectSingle(
+    ({ConnectionType type, Uri uri, String host}) endpoint,
+  ) async {
+    try {
+      await _socket
+          .connect(endpoint.uri)
+          .timeout(
+            const Duration(seconds: 5),
+            onTimeout: () => throw TimeoutException('Connection timeout'),
+          );
+      return _ConnectionResult(
+        type: endpoint.type,
+        uri: endpoint.uri,
+        host: endpoint.host,
+        success: true,
+      );
+    } catch (e) {
+      return _ConnectionResult(
+        type: endpoint.type,
+        uri: endpoint.uri,
+        host: endpoint.host,
+        success: false,
+        error: e,
+      );
+    }
+  }
+
+  String _connectionTypeToString(ConnectionType type) {
+    switch (type) {
+      case ConnectionType.local:
+        return 'local';
+      case ConnectionType.tailscale:
+      case ConnectionType.magicDNS:
+        return 'tailscale';
+      case ConnectionType.unknown:
+        return 'unknown';
+    }
+  }
+
+  /// Send a message with deduplication support.
+  /// Returns true if message was sent, false if it was a duplicate.
+  bool sendWithDedupe(Map<String, dynamic> message) {
+    final key = _generateIdempotencyKey(message);
+    final now = DateTime.now();
+
+    // Check if recently sent
+    final lastSent = _sentMessages[key];
+    if (lastSent != null && now.difference(lastSent) < _dedupeTtl) {
+      // Duplicate detected, skip sending
+      return false;
     }
 
-    // Check for Tailscale IP prefix (100.x.x.x)
-    if (connectedHost.startsWith('100.')) {
-      return ConnectionType.tailscale;
+    // Mark as sent
+    _sentMessages[key] = now;
+
+    // Send via socket
+    _socket.send(message);
+
+    // Cleanup old entries periodically
+    _cleanupDedupeCache();
+
+    return true;
+  }
+
+  String _generateIdempotencyKey(Map<String, dynamic> message) {
+    final type = message['type'] as String? ?? '';
+    final sessionId = message['sessionId'] as String?;
+    final requestId = message['requestId'] as String?;
+
+    // For messages with requestId, use that as the key
+    if (requestId != null) {
+      return '$type:$requestId';
     }
 
-    return ConnectionType.unknown;
+    // For chat messages, include content hash
+    if (type == 'chat') {
+      final content = message['content'] as String? ?? '';
+      return '$type:$sessionId:${content.hashCode}';
+    }
+
+    // For other messages, use type + sessionId
+    if (sessionId != null) {
+      return '$type:$sessionId';
+    }
+
+    return '$type:${message.hashCode}';
+  }
+
+  void _cleanupDedupeCache() {
+    if (_sentMessages.length <= _maxDedupeEntries) return;
+
+    final now = DateTime.now();
+    final expiredKeys = <String>[];
+
+    for (final entry in _sentMessages.entries) {
+      if (now.difference(entry.value) > _dedupeTtl) {
+        expiredKeys.add(entry.key);
+      }
+    }
+
+    for (final key in expiredKeys) {
+      _sentMessages.remove(key);
+    }
+
+    // If still too many, remove oldest
+    if (_sentMessages.length > _maxDedupeEntries) {
+      final sorted = _sentMessages.entries.toList()
+        ..sort((a, b) => a.value.compareTo(b.value));
+
+      final toRemove = sorted.length - _maxDedupeEntries;
+      for (var i = 0; i < toRemove; i++) {
+        _sentMessages.remove(sorted[i].key);
+      }
+    }
   }
 
   Future<void> disconnect() async {
@@ -223,6 +551,7 @@ class ConnectionNotifier extends StateNotifier<BridgeConnectionState> {
     _reconnectTimer?.cancel();
     _reconnectAttempts = 0;
     _failureStreak = 0;
+    _sentMessages.clear();
 
     // Clear connection state BEFORE disconnecting to prevent
     // _handleStatus from scheduling a reconnect
@@ -277,6 +606,36 @@ class ConnectionNotifier extends StateNotifier<BridgeConnectionState> {
       final rtt = data['rttMs'];
       if (rtt is int) {
         state = state.copyWith(rttMs: rtt);
+        _socket.updateRtt(rtt);
+      }
+      final connType = data['connectionType'] as String?;
+      if (connType != null) {
+        _socket.updateConnectionType(connType);
+      }
+    }
+
+    if (message['type'] == 'device_registered') {
+      final data = message['data'] as Map<String, dynamic>? ?? const {};
+      final device = DeviceInfo.fromJson(data);
+      state = state.copyWith(thisDevice: device);
+    }
+
+    if (message['type'] == 'device_connected') {
+      final data = message['data'] as Map<String, dynamic>? ?? const {};
+      final device = DeviceInfo.fromJson(data);
+      final devices = List<DeviceInfo>.from(state.connectedDevices);
+      devices.removeWhere((d) => d.deviceId == device.deviceId);
+      devices.add(device);
+      state = state.copyWith(connectedDevices: devices);
+    }
+
+    if (message['type'] == 'device_disconnected') {
+      final data = message['data'] as Map<String, dynamic>? ?? const {};
+      final deviceId = data['deviceId'] as String?;
+      if (deviceId != null) {
+        final devices = List<DeviceInfo>.from(state.connectedDevices);
+        devices.removeWhere((d) => d.deviceId == deviceId);
+        state = state.copyWith(connectedDevices: devices);
       }
     }
   }
@@ -394,6 +753,7 @@ class ConnectionNotifier extends StateNotifier<BridgeConnectionState> {
     _messageSub?.cancel();
     _networkSub?.cancel();
     _reconnectTimer?.cancel();
+    _sentMessages.clear();
     super.dispose();
   }
 }
@@ -403,5 +763,6 @@ final connectionProvider =
       final storage = ref.watch(storageServiceProvider);
       final socket = ref.watch(webSocketServiceProvider);
       final networkMonitor = ref.watch(networkMonitorServiceProvider);
-      return ConnectionNotifier(storage, socket, networkMonitor);
+      final bridge = ref.watch(bridgeServiceProvider);
+      return ConnectionNotifier(storage, socket, networkMonitor, bridge);
     });

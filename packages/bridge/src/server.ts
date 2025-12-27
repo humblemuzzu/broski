@@ -3,7 +3,7 @@ import { readdir } from 'node:fs/promises'
 import { homedir } from 'node:os'
 import { resolve } from 'node:path'
 import type { OpenCodeConnector } from './opencode'
-import type { ClientMessage, ServerMessage } from './types'
+import type { ClientMessage, DeviceInfo, ServerMessage } from './types'
 
 // Direct file listing (doesn't require OpenCode SDK)
 // Note: Bun supports Node.js APIs natively with better performance
@@ -135,6 +135,10 @@ type ConnectionContext = {
   lastRttMs: number
   pendingPing?: { id: string; sentAt: number }
   connectionType: 'local' | 'tailscale' | 'unknown'
+  deviceId?: string
+  deviceName?: string
+  platform?: string
+  connectedAt: number
 }
 
 type ClientQueue = {
@@ -180,6 +184,39 @@ export function createBridgeServer(options: BridgeServerOptions): BridgeServer {
     for (const ws of sockets) {
       ws.send(payload)
     }
+  }
+
+  const getDeviceInfo = (ws: ServerWebSocket<unknown>): DeviceInfo | null => {
+    const ctx = contexts.get(ws)
+    if (!ctx || !ctx.deviceId) return null
+    return {
+      deviceId: ctx.deviceId,
+      deviceName: ctx.deviceName ?? 'Unknown Device',
+      platform: ctx.platform ?? 'unknown',
+      connectionType: ctx.connectionType,
+      rttMs: ctx.lastRttMs,
+      connectedAt: ctx.connectedAt,
+      currentView: ctx.projectPath || ctx.sessionId
+        ? { projectPath: ctx.projectPath, sessionId: ctx.sessionId }
+        : undefined,
+    }
+  }
+
+  const getAllDevices = (): DeviceInfo[] => {
+    const devices: DeviceInfo[] = []
+    for (const ws of sockets) {
+      const device = getDeviceInfo(ws)
+      if (device) devices.push(device)
+    }
+    return devices
+  }
+
+  const findSocketByDeviceId = (deviceId: string): ServerWebSocket<unknown> | null => {
+    for (const ws of sockets) {
+      const ctx = contexts.get(ws)
+      if (ctx?.deviceId === deviceId) return ws
+    }
+    return null
   }
 
   let eventCount = 0
@@ -372,11 +409,20 @@ export function createBridgeServer(options: BridgeServerOptions): BridgeServer {
     websocket: {
       open(ws) {
         sockets.add(ws)
-        contexts.set(ws, { lastPongAt: Date.now(), lastRttMs: 0, connectionType: 'unknown' })
+        contexts.set(ws, { 
+          lastPongAt: Date.now(), 
+          lastRttMs: 0, 
+          connectionType: 'unknown',
+          connectedAt: Date.now(),
+        })
         log(`Client connected (${sockets.size} total)`)
         void sendStatus(ws)
       },
       close(ws) {
+        const ctx = contexts.get(ws)
+        const disconnectedDeviceId = ctx?.deviceId
+        const disconnectedDeviceName = ctx?.deviceName
+        
         sockets.delete(ws)
         contexts.delete(ws)
         const clientQ = clientQueues.get(ws)
@@ -385,6 +431,16 @@ export function createBridgeServer(options: BridgeServerOptions): BridgeServer {
         }
         clientQueues.delete(ws)
         log(`Client disconnected (${sockets.size} total)`)
+        
+        if (disconnectedDeviceId) {
+          broadcast({ 
+            type: 'device_disconnected', 
+            data: { 
+              deviceId: disconnectedDeviceId,
+              deviceName: disconnectedDeviceName,
+            } 
+          })
+        }
       },
       message(ws, raw) {
         void handleMessage(ws, raw)
@@ -398,27 +454,58 @@ export function createBridgeServer(options: BridgeServerOptions): BridgeServer {
     send(ws, { type: 'status', data: { opencodeRunning: running } })
   }
 
-  const handleMessage = async (ws: ServerWebSocket<unknown>, raw: string | Uint8Array) => {
-    const text = typeof raw === 'string' ? raw : new TextDecoder().decode(raw)
-
-    let message: ClientMessage & { requestId?: string }
-    try {
-      message = JSON.parse(text) as ClientMessage & { requestId?: string }
-    } catch {
-      send(ws, { type: 'error', message: 'Invalid JSON payload' })
-      return
-    }
-
-    const requestId = message.requestId
-
-    // Helper to include requestId in responses
-    const reply = (response: ServerMessage) => {
-      send(ws, requestId ? { ...response, requestId } : response)
-    }
-
-    try {
-      switch (message.type) {
-        case 'set_view': {
+  const processSingleMessage = async (
+    ws: ServerWebSocket<unknown>,
+    message: ClientMessage & { requestId?: string },
+    reply: (response: ServerMessage) => void,
+  ) => {
+    switch (message.type) {
+      case 'register_device': {
+        const existing = contexts.get(ws) ?? { 
+          lastPongAt: Date.now(), 
+          lastRttMs: 0, 
+          connectionType: 'unknown' as const,
+          connectedAt: Date.now(),
+        }
+        contexts.set(ws, {
+          ...existing,
+          deviceId: message.deviceId,
+          deviceName: message.deviceName,
+          platform: message.platform,
+        })
+        const deviceInfo = getDeviceInfo(ws)
+        if (deviceInfo) {
+          reply({ type: 'device_registered', data: deviceInfo })
+          broadcast({ type: 'device_connected', data: deviceInfo })
+        }
+        log(`Device registered: ${message.deviceName} (${message.platform})`)
+        break
+      }
+      case 'list_devices': {
+        const devices = getAllDevices()
+        reply({ type: 'devices', data: devices })
+        break
+      }
+      case 'disconnect_device': {
+        const targetWs = findSocketByDeviceId(message.deviceId)
+        if (targetWs && targetWs !== ws) {
+          const targetCtx = contexts.get(targetWs)
+          try {
+            targetWs.close(4001, 'Disconnected by another device')
+          } catch {
+            // ignore
+          }
+          broadcast({ 
+            type: 'device_disconnected', 
+            data: { 
+              deviceId: message.deviceId,
+              deviceName: targetCtx?.deviceName,
+            } 
+          })
+        }
+        break
+      }
+      case 'set_view': {
           const existing = contexts.get(ws) ?? { lastPongAt: Date.now(), lastRttMs: 0 }
           contexts.set(ws, {
             ...existing,
@@ -825,6 +912,46 @@ export function createBridgeServer(options: BridgeServerOptions): BridgeServer {
         default: {
           reply({ type: 'error', message: 'Unknown message type' })
         }
+      }
+    }
+
+  const handleMessage = async (ws: ServerWebSocket<unknown>, raw: string | Uint8Array) => {
+    const text = typeof raw === 'string' ? raw : new TextDecoder().decode(raw)
+
+    let message: ClientMessage & { requestId?: string }
+    try {
+      message = JSON.parse(text) as ClientMessage & { requestId?: string }
+    } catch {
+      send(ws, { type: 'error', message: 'Invalid JSON payload' })
+      return
+    }
+
+    const requestId = message.requestId
+    const reply = (response: ServerMessage) => {
+      send(ws, requestId ? { ...response, requestId } : response)
+    }
+
+    try {
+      if (message.type === 'batch') {
+        const batchedMessages = message.messages as Array<ClientMessage & { requestId?: string }>
+        if (!Array.isArray(batchedMessages)) {
+          reply({ type: 'error', message: 'Invalid batch: messages must be an array' })
+          return
+        }
+        
+        for (const batchedMsg of batchedMessages) {
+          const batchReply = (response: ServerMessage) => {
+            send(ws, batchedMsg.requestId ? { ...response, requestId: batchedMsg.requestId } : response)
+          }
+          
+          try {
+            await processSingleMessage(ws, batchedMsg, batchReply)
+          } catch (batchError) {
+            batchReply({ type: 'error', message: toErrorMessage(batchError) })
+          }
+        }
+      } else {
+        await processSingleMessage(ws, message, reply)
       }
     } catch (error) {
       reply({ type: 'error', message: toErrorMessage(error) })

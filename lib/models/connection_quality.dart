@@ -1,3 +1,5 @@
+import 'dart:math' as math;
+
 import 'package:flutter/material.dart';
 
 enum ConnectionType { local, tailscale, magicDNS, unknown }
@@ -118,5 +120,107 @@ class ConnectionMetrics {
       lastPingAt: lastPingAt ?? this.lastPingAt,
       connectedHost: connectedHost ?? this.connectedHost,
     );
+  }
+}
+
+class ConnectionHealthTracker {
+  final List<int> _rttHistory = [];
+  final List<bool> _connectionAttempts = [];
+  DateTime? _lastStableAt;
+  int _consecutiveFailures = 0;
+
+  static const int _maxHistorySize = 20;
+
+  void recordRtt(int rttMs) {
+    _rttHistory.add(rttMs);
+    if (_rttHistory.length > _maxHistorySize) {
+      _rttHistory.removeAt(0);
+    }
+    _consecutiveFailures = 0;
+    _lastStableAt = DateTime.now();
+  }
+
+  void recordConnectionAttempt(bool success) {
+    _connectionAttempts.add(success);
+    if (_connectionAttempts.length > _maxHistorySize) {
+      _connectionAttempts.removeAt(0);
+    }
+
+    if (success) {
+      _consecutiveFailures = 0;
+      _lastStableAt = DateTime.now();
+    } else {
+      _consecutiveFailures++;
+    }
+  }
+
+  void recordDisconnect() {
+    _consecutiveFailures++;
+  }
+
+  double get healthScore {
+    if (_rttHistory.isEmpty && _connectionAttempts.isEmpty) {
+      return 0.5;
+    }
+
+    double rttScore = 1.0;
+    if (_rttHistory.isNotEmpty) {
+      final avgRtt = _rttHistory.reduce((a, b) => a + b) / _rttHistory.length;
+      rttScore = _clamp(1.0 - (avgRtt / 500), 0, 1);
+    }
+
+    double successRate = 1.0;
+    if (_connectionAttempts.isNotEmpty) {
+      final successes = _connectionAttempts.where((s) => s).length;
+      successRate = successes / _connectionAttempts.length;
+    }
+
+    double stabilityScore = 0.5;
+    if (_lastStableAt != null) {
+      final minutesSinceStable = DateTime.now()
+          .difference(_lastStableAt!)
+          .inMinutes;
+      stabilityScore = _clamp(1.0 - (minutesSinceStable / 30), 0, 1);
+    }
+
+    return (rttScore * 0.4) + (successRate * 0.4) + (stabilityScore * 0.2);
+  }
+
+  bool get isHealthy => healthScore > 0.7;
+  bool get isDegraded => healthScore < 0.4;
+  bool get shouldSwitchEndpoint => _consecutiveFailures >= 2 || isDegraded;
+
+  int? get averageRtt {
+    if (_rttHistory.isEmpty) return null;
+    return (_rttHistory.reduce((a, b) => a + b) / _rttHistory.length).round();
+  }
+
+  int? get rttVariance {
+    if (_rttHistory.length < 2) return null;
+    final avg = averageRtt!;
+    final sumSquaredDiffs = _rttHistory
+        .map((r) => (r - avg) * (r - avg))
+        .reduce((a, b) => a + b);
+    return (sumSquaredDiffs / _rttHistory.length).round();
+  }
+
+  int? get rttJitter {
+    if (_rttHistory.length < 2) return null;
+    int totalDiff = 0;
+    for (int i = 1; i < _rttHistory.length; i++) {
+      totalDiff += (_rttHistory[i] - _rttHistory[i - 1]).abs();
+    }
+    return (totalDiff / (_rttHistory.length - 1)).round();
+  }
+
+  void reset() {
+    _rttHistory.clear();
+    _connectionAttempts.clear();
+    _lastStableAt = null;
+    _consecutiveFailures = 0;
+  }
+
+  double _clamp(double value, double min, double max) {
+    return math.max(min, math.min(max, value));
   }
 }

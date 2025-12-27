@@ -1,6 +1,7 @@
 import 'dart:convert';
 
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
+import 'package:uuid/uuid.dart';
 
 import '../models/connection.dart';
 import '../models/message.dart';
@@ -12,6 +13,9 @@ class StorageService {
   static const _disabledToolsKey = 'broski_disabled_tools';
   static const _lastBrowsePathKey = 'broski_last_browse_path';
   static const _notificationsEnabledKey = 'broski_notifications_enabled';
+  static const _deviceIdKey = 'broski_device_id';
+
+  static const _uuid = Uuid();
 
   // Cache keys for offline mode
   static const _cachedProjectsKey = 'broski_cached_projects';
@@ -77,6 +81,20 @@ class StorageService {
 
   Future<void> clearConnection() async {
     await _storage.delete(key: _connectionKey);
+  }
+
+  Future<String> getOrCreateDeviceId() async {
+    final existing = await _storage.read(key: _deviceIdKey);
+    if (existing != null && existing.isNotEmpty) {
+      return existing;
+    }
+    final newId = _uuid.v4();
+    await _storage.write(key: _deviceIdKey, value: newId);
+    return newId;
+  }
+
+  Future<String?> getDeviceId() async {
+    return _storage.read(key: _deviceIdKey);
   }
 
   // Generic string storage methods
