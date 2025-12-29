@@ -4,6 +4,7 @@ import 'dart:developer' as developer;
 import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../models/claude_code.dart';
 import '../models/message.dart';
 import '../models/session.dart';
 import '../models/todo.dart';
@@ -23,6 +24,14 @@ class ChatSessionState {
     this.isCompacting = false,
     this.sessionStatus =
         const SessionStatus.idle(), // Feature 13: Session status
+    // Claude Code support
+    this.isClaudeCode = false,
+    this.ccSessionId,
+    this.ccCwd,
+    this.ccModel,
+    this.ccInit,
+    this.ccTokenUsage,
+    this.ccIsStreaming = false,
   });
 
   final SessionSummary? session;
@@ -36,6 +45,21 @@ class ChatSessionState {
   final SessionStatus
   sessionStatus; // Feature 13: Session status (idle/busy/retry)
 
+  // Claude Code support
+  final bool isClaudeCode;
+  final String? ccSessionId;
+  final String? ccCwd;
+  final String? ccModel;
+  final CCSessionInit? ccInit;
+  final CCTokenUsage? ccTokenUsage;
+  final bool ccIsStreaming;
+
+  /// Get the effective session ID (works for both OC and CC)
+  String? get effectiveSessionId => isClaudeCode ? ccSessionId : session?.id;
+
+  /// Get the effective project path (works for both OC and CC)
+  String? get effectivePath => isClaudeCode ? ccCwd : projectPath;
+
   ChatSessionState copyWith({
     SessionSummary? session,
     String? projectPath,
@@ -46,6 +70,13 @@ class ChatSessionState {
     VcsInfo? vcsInfo,
     bool? isCompacting,
     SessionStatus? sessionStatus,
+    bool? isClaudeCode,
+    String? ccSessionId,
+    String? ccCwd,
+    String? ccModel,
+    CCSessionInit? ccInit,
+    CCTokenUsage? ccTokenUsage,
+    bool? ccIsStreaming,
   }) {
     return ChatSessionState(
       session: session ?? this.session,
@@ -57,6 +88,13 @@ class ChatSessionState {
       vcsInfo: vcsInfo ?? this.vcsInfo,
       isCompacting: isCompacting ?? this.isCompacting,
       sessionStatus: sessionStatus ?? this.sessionStatus,
+      isClaudeCode: isClaudeCode ?? this.isClaudeCode,
+      ccSessionId: ccSessionId ?? this.ccSessionId,
+      ccCwd: ccCwd ?? this.ccCwd,
+      ccModel: ccModel ?? this.ccModel,
+      ccInit: ccInit ?? this.ccInit,
+      ccTokenUsage: ccTokenUsage ?? this.ccTokenUsage,
+      ccIsStreaming: ccIsStreaming ?? this.ccIsStreaming,
     );
   }
 }
@@ -64,12 +102,14 @@ class ChatSessionState {
 class ChatSessionNotifier extends StateNotifier<ChatSessionState> {
   ChatSessionNotifier(this._bridge) : super(const ChatSessionState()) {
     _subscription = _bridge.sdkEvents.listen(_enqueueSdkEvent);
+    _ccSubscription = _bridge.ccStreamMessages.listen(_handleCCStreamMessage);
   }
 
   final BridgeService _bridge;
   final Map<String, ChatMessage> _messages = {};
   final List<String> _order = [];
   StreamSubscription<Map<String, dynamic>>? _subscription;
+  StreamSubscription<ClaudeCodeStreamMessage>? _ccSubscription;
 
   final List<Map<String, dynamic>> _pendingEvents = [];
   Timer? _flushTimer;
@@ -80,6 +120,13 @@ class ChatSessionNotifier extends StateNotifier<ChatSessionState> {
   final Map<String, StringBuffer> _pendingTextBuffers = {};
   int _lastRttMs = 0;
   bool _lspStatusFetched = false;
+
+  // Claude Code streaming state
+  String _ccCurrentAssistantMessageId = '';
+  final StringBuffer _ccAssistantTextBuffer = StringBuffer();
+  final List<ToolCall> _ccPendingToolCalls = [];
+  String _ccThinkingPartId = '';
+  final StringBuffer _ccThinkingBuffer = StringBuffer();
 
   void updateConnectionMetrics(int rttMs) {
     _lastRttMs = rttMs;
@@ -104,6 +151,7 @@ class ChatSessionNotifier extends StateNotifier<ChatSessionState> {
     _messages.clear();
     _order.clear();
     _lspStatusFetched = false;
+    _resetCCState();
     state = ChatSessionState(
       session: session,
       projectPath: projectPath,
@@ -111,7 +159,224 @@ class ChatSessionNotifier extends StateNotifier<ChatSessionState> {
       permissions: const [],
       sessionDiffs: const [],
       todos: const [],
+      isClaudeCode: false,
     );
+  }
+
+  /// Set a Claude Code session (instead of OpenCode session)
+  void setCCSession({
+    required String sessionId,
+    required String cwd,
+    String? model,
+    String? title,
+  }) {
+    _messages.clear();
+    _order.clear();
+    _lspStatusFetched = false;
+    _resetCCState();
+    state = ChatSessionState(
+      session: null,
+      projectPath: cwd,
+      messages: const [],
+      permissions: const [],
+      sessionDiffs: const [],
+      todos: const [],
+      isClaudeCode: true,
+      ccSessionId: sessionId.isEmpty ? null : sessionId,
+      ccCwd: cwd,
+      ccModel: model,
+    );
+  }
+
+  void setCCModel(String? model) {
+    if (!state.isClaudeCode) return;
+    state = state.copyWith(ccModel: model);
+  }
+
+  void _resetCCState() {
+    _ccCurrentAssistantMessageId = '';
+    _ccAssistantTextBuffer.clear();
+    _ccPendingToolCalls.clear();
+    _ccThinkingPartId = '';
+    _ccThinkingBuffer.clear();
+  }
+
+  Map<String, dynamic> _ccMetadataFromToolUseResult(dynamic toolUseResult) {
+    if (toolUseResult is! Map<String, dynamic>) return const {};
+
+    final metadata = <String, dynamic>{'toolUseResult': toolUseResult};
+    final filePath = toolUseResult['filePath'] as String?;
+    if (filePath == null || filePath.isEmpty) return metadata;
+
+    final before =
+        (toolUseResult['oldString'] as String?) ??
+        (toolUseResult['originalFile'] as String?) ??
+        '';
+    final after =
+        (toolUseResult['newString'] as String?) ??
+        (toolUseResult['content'] as String?) ??
+        '';
+
+    String? diff;
+    int additions = 0;
+    int deletions = 0;
+
+    final structuredPatch = toolUseResult['structuredPatch'];
+    if (structuredPatch is List) {
+      final sb = StringBuffer()
+        ..writeln('--- a/$filePath')
+        ..writeln('+++ b/$filePath');
+
+      for (final hunk in structuredPatch) {
+        if (hunk is! Map<String, dynamic>) continue;
+        final oldStart = (hunk['oldStart'] as num?)?.toInt() ?? 0;
+        final oldLines = (hunk['oldLines'] as num?)?.toInt() ?? 0;
+        final newStart = (hunk['newStart'] as num?)?.toInt() ?? 0;
+        final newLines = (hunk['newLines'] as num?)?.toInt() ?? 0;
+        sb.writeln('@@ -$oldStart,$oldLines +$newStart,$newLines @@');
+
+        final lines = hunk['lines'];
+        if (lines is List) {
+          for (final line in lines) {
+            if (line is! String) continue;
+            if (line.startsWith('+') && !line.startsWith('+++')) additions++;
+            if (line.startsWith('-') && !line.startsWith('---')) deletions++;
+            sb.writeln(line);
+          }
+        }
+      }
+
+      diff = sb.toString().trimRight();
+    }
+
+    metadata['filediff'] = {
+      'file': filePath,
+      'before': before,
+      'after': after,
+      'additions': additions,
+      'deletions': deletions,
+    };
+    if (diff != null && diff.trim().isNotEmpty) metadata['diff'] = diff;
+
+    return metadata;
+  }
+
+  /// Hydrate chat with Claude Code transcript messages from the bridge.
+  void hydrateClaudeCodeTranscript(List<Map<String, dynamic>> items) {
+    _messages.clear();
+    _order.clear();
+    _resetCCState();
+
+    state = state.copyWith(
+      messages: const [],
+      permissions: const [],
+      sessionDiffs: const [],
+      ccIsStreaming: false,
+    );
+
+    _suppressEmit = true;
+    _pendingEmitMessages = false;
+
+    try {
+      for (final item in items) {
+        final id = item['id'] as String? ?? '';
+        final role = item['role'] as String? ?? 'assistant';
+        final createdAtMs = item['createdAt'] as int? ?? 0;
+        final text = item['text'] as String? ?? '';
+        if (id.isEmpty) continue;
+
+        final thinking = item['thinking'] as String?;
+        final toolCallsRaw = item['toolCalls'];
+        final diffsRaw = item['diffs'];
+
+        final reasoningParts = <ReasoningPart>[];
+        if (thinking != null && thinking.trim().isNotEmpty) {
+          reasoningParts.add(
+            ReasoningPart(
+              id: 'cc-thinking-$id',
+              messageId: id,
+              text: thinking,
+              isStreaming: false,
+            ),
+          );
+        }
+
+        final tools = <ToolCall>[];
+        if (toolCallsRaw is List) {
+          for (final t in toolCallsRaw) {
+            if (t is! Map<String, dynamic>) continue;
+            final toolUseId = t['toolUseId'] as String? ?? '';
+            if (toolUseId.isEmpty) continue;
+            final toolName = t['tool'] as String? ?? 'tool';
+            final input = t['input'];
+            final status = t['status'] as String? ?? 'completed';
+            final output = t['output'] as String?;
+            final metaRaw = t['metadata'];
+            final metadata = metaRaw is Map<String, dynamic>
+                ? metaRaw
+                : const <String, dynamic>{};
+
+            tools.add(
+              ToolCall(
+                callId: toolUseId,
+                partId: toolUseId,
+                name: toolName,
+                status: status,
+                title: toolName,
+                input: input is Map<String, dynamic>
+                    ? input
+                    : {'input': input?.toString() ?? ''},
+                output: output,
+                metadata: metadata,
+              ),
+            );
+          }
+        }
+
+        final diffs = <DiffEntry>[];
+        if (diffsRaw is List) {
+          for (final d in diffsRaw) {
+            if (d is! Map<String, dynamic>) continue;
+            final file = d['file'] as String? ?? '';
+            if (file.isEmpty) continue;
+            diffs.add(
+              DiffEntry(
+                file: file,
+                before: d['before'] as String? ?? '',
+                after: d['after'] as String? ?? '',
+                additions: d['additions'] as int? ?? 0,
+                deletions: d['deletions'] as int? ?? 0,
+                diff: d['diff'] as String?,
+                partId: d['partId'] as String?,
+              ),
+            );
+          }
+        }
+
+        final message = ChatMessage(
+          id: id,
+          sessionId: state.ccSessionId ?? '',
+          role: switch (role) {
+            'user' => MessageRole.user,
+            'assistant' => MessageRole.assistant,
+            _ => MessageRole.system,
+          },
+          createdAt: DateTime.fromMillisecondsSinceEpoch(createdAtMs),
+          text: text,
+          toolCalls: tools,
+          diffs: diffs,
+          reasoningParts: reasoningParts,
+          isStreaming: false,
+        );
+
+        _addMessage(message);
+      }
+    } finally {
+      _suppressEmit = false;
+      if (_pendingEmitMessages) {
+        _emitMessages();
+      }
+    }
   }
 
   void hydrate(List<dynamic> rawMessages) {
@@ -221,6 +486,21 @@ class ChatSessionNotifier extends StateNotifier<ChatSessionState> {
   }
 
   void appendUserMessage(String content) {
+    // Handle Claude Code mode
+    if (state.isClaudeCode) {
+      final sessionId = state.ccSessionId ?? '';
+      final message = ChatMessage(
+        id: 'local-${DateTime.now().microsecondsSinceEpoch}',
+        sessionId: sessionId,
+        role: MessageRole.user,
+        createdAt: DateTime.now(),
+        text: content,
+      );
+      _addMessage(message);
+      return;
+    }
+
+    // OpenCode mode
     final session = state.session;
     if (session == null) return;
 
@@ -867,9 +1147,209 @@ class ChatSessionNotifier extends StateNotifier<ChatSessionState> {
     _lspStatusFetched = false;
   }
 
+  // ============================================================
+  // Claude Code Stream Message Handling
+  // ============================================================
+
+  void _handleCCStreamMessage(ClaudeCodeStreamMessage message) {
+    // Only process if in Claude Code mode
+    if (!state.isClaudeCode) return;
+
+    if (message is CCSessionCreated) {
+      // Session started - update model if provided
+      state = state.copyWith(
+        ccSessionId: message.sessionId.isNotEmpty ? message.sessionId : state.ccSessionId,
+        ccModel: message.model ?? state.ccModel,
+        ccIsStreaming: true,
+      );
+      return;
+    }
+
+    if (message is CCSessionInit) {
+      state = state.copyWith(
+        ccSessionId: message.sessionId.isNotEmpty ? message.sessionId : state.ccSessionId,
+        ccModel: message.model.isNotEmpty ? message.model : state.ccModel,
+        ccInit: message,
+        ccIsStreaming: true,
+      );
+      return;
+    }
+
+    if (message is CCPermissionRequest) {
+      // Surface as the existing permission prompt UI (haptics + bottom sheet)
+      final request = PermissionRequest(
+        id: message.toolUseId,
+        sessionId: message.sessionId,
+        title: 'Allow ${message.tool}?',
+        command: null,
+        metadata: {
+          'tool': message.tool,
+          'input': message.input,
+          if (message.decisionReason != null) 'reason': message.decisionReason,
+          if (message.blockedPath != null) 'blockedPath': message.blockedPath,
+          'hasSuggestions': message.hasSuggestions,
+        },
+      );
+      state = state.copyWith(permissions: [request, ...state.permissions]);
+      return;
+    }
+
+    if (message is CCAssistantMessageDelta) {
+      // Streaming delta - accumulate text
+      _ccAssistantTextBuffer.write(message.content);
+      _updateCCAssistantMessage(isStreaming: true);
+      return;
+    }
+
+    if (message is CCAssistantMessage) {
+      // Complete assistant message (if server sends full message)
+      _ccAssistantTextBuffer.clear();
+      _ccAssistantTextBuffer.write(message.content);
+      _updateCCAssistantMessage(isStreaming: false);
+      return;
+    }
+
+    if (message is CCThinkingDelta) {
+      if (_ccThinkingPartId.isEmpty) {
+        _ccThinkingPartId = message.partId ?? 'cc-thinking-${DateTime.now().microsecondsSinceEpoch}';
+      }
+      _ccThinkingBuffer.write(message.content);
+      _updateCCAssistantMessage(isStreaming: true);
+      return;
+    }
+
+    if (message is CCToolCall) {
+      // Tool call - add to current message
+      final tool = ToolCall(
+        callId:
+            message.toolUseId ?? 'cc-${DateTime.now().microsecondsSinceEpoch}',
+        partId:
+            message.toolUseId ?? 'cc-${DateTime.now().microsecondsSinceEpoch}',
+        name: message.tool,
+        status: message.status,
+        title: message.tool,
+        input: message.input is Map<String, dynamic>
+            ? message.input as Map<String, dynamic>
+            : {'input': message.input?.toString() ?? ''},
+        output: null,
+        metadata: const {},
+      );
+
+      // Update or add tool to pending list
+      final existingIdx = _ccPendingToolCalls.indexWhere(
+        (t) => t.callId == tool.callId,
+      );
+      if (existingIdx >= 0) {
+        _ccPendingToolCalls[existingIdx] = tool;
+      } else {
+        _ccPendingToolCalls.add(tool);
+      }
+
+      _updateCCAssistantMessage(isStreaming: true);
+      return;
+    }
+
+    if (message is CCToolResult) {
+      // Tool completed - update tool status
+      final toolIdx = _ccPendingToolCalls.indexWhere(
+        (t) => t.callId == message.toolUseId,
+      );
+      if (toolIdx >= 0) {
+        final existing = _ccPendingToolCalls[toolIdx];
+        final toolMeta = _ccMetadataFromToolUseResult(message.toolUseResult);
+        _ccPendingToolCalls[toolIdx] = existing.copyWith(
+          status: 'completed',
+          output: message.result?.toString(),
+          metadata: {
+            ...existing.metadata,
+            ...toolMeta,
+          },
+        );
+        _updateCCAssistantMessage(isStreaming: true);
+      }
+      return;
+    }
+
+    if (message is CCTokenUsage) {
+      // End of turn - finalize assistant message
+      state = state.copyWith(ccTokenUsage: message, ccIsStreaming: false);
+      _updateCCAssistantMessage(isStreaming: false);
+      // Reset for next turn
+      _ccCurrentAssistantMessageId = '';
+      _ccAssistantTextBuffer.clear();
+      _ccPendingToolCalls.clear();
+      _ccThinkingPartId = '';
+      _ccThinkingBuffer.clear();
+      return;
+    }
+
+    if (message is CCError) {
+      // Error - add as system message
+      state = state.copyWith(ccIsStreaming: false);
+      final errorMsg = ChatMessage(
+        id: 'cc-error-${DateTime.now().microsecondsSinceEpoch}',
+        sessionId: state.ccSessionId ?? '',
+        role: MessageRole.system,
+        createdAt: DateTime.now(),
+        text: message.message,
+        error: message.code,
+      );
+      _addMessage(errorMsg);
+      return;
+    }
+  }
+
+  /// Update or create the current CC assistant message
+  void _updateCCAssistantMessage({required bool isStreaming}) {
+    if (_ccCurrentAssistantMessageId.isEmpty) {
+      _ccCurrentAssistantMessageId =
+          'cc-assistant-${DateTime.now().microsecondsSinceEpoch}';
+    }
+
+    final text = _ccAssistantTextBuffer.toString();
+    final reasoningParts = <ReasoningPart>[];
+    if (_ccThinkingBuffer.isNotEmpty) {
+      reasoningParts.add(
+        ReasoningPart(
+          id: _ccThinkingPartId.isNotEmpty
+              ? _ccThinkingPartId
+              : 'cc-thinking-${DateTime.now().microsecondsSinceEpoch}',
+          messageId: _ccCurrentAssistantMessageId,
+          text: _ccThinkingBuffer.toString(),
+          isStreaming: isStreaming,
+        ),
+      );
+    }
+
+    var diffs = <DiffEntry>[];
+    for (final tool in _ccPendingToolCalls) {
+      diffs = _mergeToolDiffs(diffs, tool: tool);
+    }
+
+    final message = ChatMessage(
+      id: _ccCurrentAssistantMessageId,
+      sessionId: state.ccSessionId ?? '',
+      role: MessageRole.assistant,
+      createdAt: DateTime.now(),
+      text: text,
+      toolCalls: List.from(_ccPendingToolCalls),
+      diffs: diffs,
+      reasoningParts: reasoningParts,
+      isStreaming: isStreaming,
+    );
+
+    _updateMessage(_ccCurrentAssistantMessageId, message);
+  }
+
+  /// Set CC streaming state (called when sending a message)
+  void setCCStreaming(bool isStreaming) {
+    state = state.copyWith(ccIsStreaming: isStreaming);
+  }
+
   @override
   void dispose() {
     _subscription?.cancel();
+    _ccSubscription?.cancel();
     _flushTimer?.cancel();
     _textDebounceTimer?.cancel();
     super.dispose();

@@ -1,19 +1,57 @@
 {
   "name": "broski-bridge",
   "version": "0.1.0",
+  "description": "Bridge server connecting Broski mobile app to OpenCode AI coding agent",
+  "author": "humblemuzzu <broskiappp@gmail.com>",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/humblemuzzu/broski.git",
+    "directory": "packages/bridge"
+  },
+  "homepage": "https://github.com/humblemuzzu/broski#readme",
+  "bugs": {
+    "url": "https://github.com/humblemuzzu/broski/issues"
+  },
+  "keywords": [
+    "opencode",
+    "ai",
+    "coding-agent",
+    "mobile",
+    "bridge",
+    "websocket",
+    "bun",
+    "claude",
+    "tailscale"
+  ],
   "type": "module",
+  "main": "./src/index.ts",
   "bin": {
     "broski-bridge": "./bin/broski-bridge.ts"
   },
+  "files": [
+    "bin",
+    "src",
+    "README.md"
+  ],
   "scripts": {
     "dev": "bun --watch src/index.ts",
-    "start": "bun src/index.ts"
+    "start": "bun src/index.ts",
+    "prepublishOnly": "echo 'Ready to publish!'"
   },
   "dependencies": {
+    "@anthropic-ai/claude-agent-sdk": "^0.1.76",
     "@opencode-ai/sdk": "^1.0.193",
+    "ignore": "^7.0.5",
     "qrcode-terminal": "^0.12.0"
   },
   "devDependencies": {
     "@types/bun": "latest"
+  },
+  "engines": {
+    "bun": ">=1.0.0"
+  },
+  "publishConfig": {
+    "access": "public"
   }
 }

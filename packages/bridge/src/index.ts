@@ -2,8 +2,8 @@ import { createOpencode, type OpencodeClient } from '@opencode-ai/sdk'
 import { displayBanner, displayQRCode } from './qr'
 import { getLocalIP, getTailscaleIP, getTailscaleMagicDNS, isTailscaleConnected } from './network'
 import { enableFunnel, disableFunnel } from './funnel'
-import { OpenCodeConnector } from './opencode'
-import { createBridgeServer } from './server'
+import { OpenCodeConnector } from './connectors/opencode'
+import { createBridgeServer, loadOrCreateAuthToken } from './server'
 import { parseCli, printHelp, promptForChoice } from './cli'
 import { runDoctor } from './doctor'
 import { runSetupTailscale } from './setup-tailscale'
@@ -351,12 +351,21 @@ async function main() {
     }
   }
 
+  // Load persistent auth token (same token survives bridge restarts)
+  const authToken = await loadOrCreateAuthToken(cli.newToken)
+  if (cli.newToken) {
+    console.log('✓ New auth token generated (old QR codes are now invalid)')
+  } else {
+    console.log('✓ Auth token loaded (persistent across restarts)')
+  }
+
   // Create bridge server
   try {
     bridgeServer = createBridgeServer({
       port,
       opencode,
       version,
+      authToken,
       restartOpenCode: restartManagedOpenCode,
       logger: (message) => console.log(message),
     })

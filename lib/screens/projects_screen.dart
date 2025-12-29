@@ -1,7 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../models/agent_type.dart';
 import '../models/project.dart';
+import '../providers/agent_type_provider.dart';
 import '../providers/chat_provider.dart';
 import '../providers/connection_provider.dart';
 import '../providers/selection_provider.dart';
@@ -19,39 +21,64 @@ class ProjectsScreen extends ConsumerStatefulWidget {
 
 class _ProjectsScreenState extends ConsumerState<ProjectsScreen> {
   late Future<List<ProjectSummary>> _projectsFuture;
+  late AgentType _agentType;
+  late final ProviderSubscription<AgentType> _agentTypeSub;
 
   @override
   void initState() {
     super.initState();
-    _projectsFuture = _loadProjects();
+    _agentType = ref.read(agentTypeProvider);
+    _projectsFuture = _loadProjects(_agentType);
+
+    _agentTypeSub = ref.listenManual<AgentType>(agentTypeProvider, (
+      previous,
+      next,
+    ) {
+      if (previous == next) return;
+      if (!mounted) return;
+      setState(() {
+        _agentType = next;
+        _projectsFuture = _loadProjects(next);
+      });
+    });
   }
 
-  Future<List<ProjectSummary>> _loadProjects() async {
+  @override
+  void dispose() {
+    _agentTypeSub.close();
+    super.dispose();
+  }
+
+  Future<List<ProjectSummary>> _loadProjects(AgentType agentType) async {
     final connection = ref.read(connectionProvider);
     final storage = ref.read(storageServiceProvider);
 
     // In offline mode, return cached projects
-    if (connection.isOfflineMode) {
+    if (connection.isOfflineMode && agentType == AgentType.opencode) {
       return storage.getCachedProjects();
     }
 
     // Try live data first, fallback to cache on failure
     try {
       final bridge = ref.read(bridgeServiceProvider);
-      final projects = await bridge.listProjects();
+      final projects = agentType == AgentType.claudeCode
+          ? await bridge.ccListProjects()
+          : await bridge.listProjects();
 
       // Cache for offline use
-      if (projects.isNotEmpty) {
+      if (projects.isNotEmpty && agentType == AgentType.opencode) {
         await storage.cacheProjects(projects);
       }
 
       return projects;
     } catch (e) {
       // On any error (timeout, connection issues), try cached data
-      final cached = await storage.getCachedProjects();
-      if (cached.isNotEmpty) {
-        // Return cached data silently - user can pull to refresh
-        return cached;
+      if (agentType == AgentType.opencode) {
+        final cached = await storage.getCachedProjects();
+        if (cached.isNotEmpty) {
+          // Return cached data silently - user can pull to refresh
+          return cached;
+        }
       }
       // No cached data available, rethrow to show error
       rethrow;
@@ -60,13 +87,14 @@ class _ProjectsScreenState extends ConsumerState<ProjectsScreen> {
 
   Future<void> _refresh() async {
     setState(() {
-      _projectsFuture = _loadProjects();
+      _projectsFuture = _loadProjects(_agentType);
     });
     await _projectsFuture;
   }
 
   @override
   Widget build(BuildContext context) {
+    final agentType = ref.watch(agentTypeProvider);
     final connection = ref.watch(connectionProvider);
     final theme = Theme.of(context);
     final ocTheme = OpenCodeTheme.of(context);
@@ -127,12 +155,14 @@ class _ProjectsScreenState extends ConsumerState<ProjectsScreen> {
                     child: _ModernHeader(
                       connection: connection,
                       onRefresh: _refresh,
-                      onAddProject: _showAddProject,
+                      onAddProject:
+                          agentType == AgentType.opencode ? _showAddProject : null,
                     ),
                   ),
 
                   // OpenCode warning if not running
-                  if (!connection.opencodeRunning)
+                  if (agentType == AgentType.opencode &&
+                      !connection.opencodeRunning)
                     SliverToBoxAdapter(
                       child: _OpenCodeWarning(
                         onStart: () => _startOpenCode(context),
@@ -141,7 +171,8 @@ class _ProjectsScreenState extends ConsumerState<ProjectsScreen> {
                     ),
 
                   // Recent Sessions section (if we have projects)
-                  if (projects.isNotEmpty) ...[
+                  if (agentType == AgentType.opencode && projects.isNotEmpty)
+                    ...[
                     SliverToBoxAdapter(
                       child: Padding(
                         padding: const EdgeInsets.fromLTRB(20, 24, 20, 12),
@@ -171,7 +202,9 @@ class _ProjectsScreenState extends ConsumerState<ProjectsScreen> {
                       child: Padding(
                         padding: const EdgeInsets.fromLTRB(20, 32, 20, 12),
                         child: Text(
-                          'ALL REPOSITORIES',
+                          agentType == AgentType.claudeCode
+                              ? 'CLAUDE PROJECTS'
+                              : 'ALL REPOSITORIES',
                           style: TextStyle(
                             color: ocTheme.textMuted,
                             fontSize: 12,
@@ -241,6 +274,11 @@ class _ProjectsScreenState extends ConsumerState<ProjectsScreen> {
     BuildContext context,
     ProjectSummary project,
   ) async {
+    final currentAgentType = ref.read(agentTypeProvider);
+    if (currentAgentType == AgentType.claudeCode) {
+      await _openClaudeProject(context, project);
+      return;
+    }
     final connection = ref.read(connectionProvider);
     final selection = ref.read(selectionProvider.notifier);
     final chat = ref.read(chatSessionProvider.notifier);
@@ -302,6 +340,24 @@ class _ProjectsScreenState extends ConsumerState<ProjectsScreen> {
     );
   }
 
+  Future<void> _openClaudeProject(
+    BuildContext context,
+    ProjectSummary project,
+  ) async {
+    ref.read(selectionProvider.notifier).selectProject(project);
+
+    if (!mounted) return;
+    Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (_) => ChatScreen.claudeCodeDraft(
+          cwd: project.path,
+          title: project.name,
+        ),
+      ),
+    );
+  }
+
   Future<void> _startOpenCode(BuildContext context) async {
     final bridge = ref.read(bridgeServiceProvider);
     final messenger = ScaffoldMessenger.of(context);
@@ -343,12 +399,12 @@ class _ModernHeader extends StatelessWidget {
   const _ModernHeader({
     required this.connection,
     required this.onRefresh,
-    required this.onAddProject,
+    this.onAddProject,
   });
 
   final BridgeConnectionState connection;
   final VoidCallback onRefresh;
-  final VoidCallback onAddProject;
+  final VoidCallback? onAddProject;
 
   @override
   Widget build(BuildContext context) {
@@ -372,26 +428,27 @@ class _ModernHeader extends StatelessWidget {
                 ),
               ),
               // Add project button
-              GestureDetector(
-                onTap: onAddProject,
-                child: Container(
-                  padding: const EdgeInsets.all(10),
-                  decoration: BoxDecoration(
-                    color: theme.colorScheme.surface,
-                    borderRadius: BorderRadius.circular(12),
-                    border: Border.all(
-                      color: theme.colorScheme.onSurface.withValues(
-                        alpha: 0.15,
+              if (onAddProject != null)
+                GestureDetector(
+                  onTap: onAddProject,
+                  child: Container(
+                    padding: const EdgeInsets.all(10),
+                    decoration: BoxDecoration(
+                      color: theme.colorScheme.surface,
+                      borderRadius: BorderRadius.circular(12),
+                      border: Border.all(
+                        color: theme.colorScheme.onSurface.withValues(
+                          alpha: 0.15,
+                        ),
                       ),
                     ),
-                  ),
-                  child: Icon(
-                    Icons.create_new_folder_rounded,
-                    color: theme.colorScheme.onSurface,
-                    size: 24,
+                    child: Icon(
+                      Icons.create_new_folder_rounded,
+                      color: theme.colorScheme.onSurface,
+                      size: 24,
+                    ),
                   ),
                 ),
-              ),
             ],
           ),
           const SizedBox(height: 8),

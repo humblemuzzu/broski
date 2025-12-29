@@ -14,6 +14,7 @@ export type CliOptions = {
   verbose: boolean
   help: boolean
   enableFunnel: boolean
+  newToken: boolean
 }
 
 const DEFAULT_BRIDGE_PORT = 18274
@@ -36,6 +37,7 @@ export function parseCli(argv: string[], env: NodeJS.ProcessEnv): CliOptions {
   let verbose = env.BROSKI_VERBOSE === '1'
   let help = false
   let enableFunnel = env.BROSKI_ENABLE_FUNNEL === '1'
+  let newToken = false
 
   const firstArg = args[0]
   if (firstArg === 'doctor') {
@@ -95,6 +97,10 @@ export function parseCli(argv: string[], env: NodeJS.ProcessEnv): CliOptions {
       enableFunnel = true
       continue
     }
+    if (arg === '--new-token') {
+      newToken = true
+      continue
+    }
   }
 
   if (opencodeUrl) {
@@ -111,6 +117,7 @@ export function parseCli(argv: string[], env: NodeJS.ProcessEnv): CliOptions {
     verbose,
     help,
     enableFunnel,
+    newToken,
   }
 }
 
@@ -129,6 +136,7 @@ Options:
   --verbose, -v             Verbose logging (SDK events + debug)
   --port, --bridge-port N   Bridge WebSocket port (default: 18274; use 0 for random free port)
   --funnel                  Enable Tailscale Funnel for public HTTPS access (no VPN needed on phone)
+  --new-token               Generate a new auth token (invalidates existing QR codes)
 
 OpenCode:
   --managed                 Force managed mode (default)

@@ -2,6 +2,7 @@ import 'dart:async';
 import 'dart:io';
 import 'dart:math';
 
+import 'package:flutter/widgets.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../models/connection.dart';
@@ -130,7 +131,8 @@ class _ConnectionResult {
   });
 }
 
-class ConnectionNotifier extends StateNotifier<BridgeConnectionState> {
+class ConnectionNotifier extends StateNotifier<BridgeConnectionState>
+    with WidgetsBindingObserver {
   ConnectionNotifier(
     this._storage,
     this._socket,
@@ -141,6 +143,9 @@ class ConnectionNotifier extends StateNotifier<BridgeConnectionState> {
     _messageSub = _socket.messages.listen(_handleMessage);
     _networkSub = _networkMonitor.stateStream.listen(_handleNetworkChange);
     _loadSavedConnection();
+
+    // Register for app lifecycle events
+    WidgetsBinding.instance.addObserver(this);
   }
 
   final StorageService _storage;
@@ -168,6 +173,10 @@ class ConnectionNotifier extends StateNotifier<BridgeConnectionState> {
   // Device info
   String? _deviceId;
   String? _deviceName;
+
+  // App lifecycle tracking
+  bool _wasBackgrounded = false;
+  DateTime? _backgroundedAt;
 
   Future<void> _loadSavedConnection() async {
     final saved = await _storage.loadConnection();
@@ -706,7 +715,81 @@ class ConnectionNotifier extends StateNotifier<BridgeConnectionState> {
   }
 
   @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    switch (state) {
+      case AppLifecycleState.paused:
+      case AppLifecycleState.inactive:
+        // App is going to background or becoming inactive
+        _handleAppBackgrounded();
+
+      case AppLifecycleState.resumed:
+        // App is coming back to foreground
+        _handleAppResumed();
+
+      case AppLifecycleState.detached:
+      case AppLifecycleState.hidden:
+        // App is being terminated or hidden - just mark as backgrounded
+        _wasBackgrounded = true;
+        _backgroundedAt = DateTime.now();
+    }
+  }
+
+  void _handleAppBackgrounded() {
+    _wasBackgrounded = true;
+    _backgroundedAt = DateTime.now();
+
+    // Cancel any pending reconnect timers since we'll handle this on resume
+    _reconnectTimer?.cancel();
+
+    // If we have a connection, force close the socket to prevent stale state.
+    // iOS will drop the connection anyway when the app is suspended,
+    // so it's better to close it cleanly now.
+    if (state.connection != null &&
+        state.status == ConnectionStatus.connected) {
+      _socket.forceClose();
+    }
+  }
+
+  void _handleAppResumed() {
+    if (!_wasBackgrounded) return;
+    _wasBackgrounded = false;
+
+    // Calculate how long we were backgrounded
+    final backgroundDuration = _backgroundedAt != null
+        ? DateTime.now().difference(_backgroundedAt!)
+        : Duration.zero;
+
+    // If we have a saved connection and we're not connected, reconnect immediately
+    final connection = state.connection;
+    if (connection != null && state.status != ConnectionStatus.connected) {
+      // Reset failure streak since this is a fresh resume
+      _failureStreak = 0;
+      _reconnectAttempts = 0;
+
+      // For short background durations (<30s), the server might still have our session
+      // For longer durations, we need a full reconnect
+      final preferredType = backgroundDuration.inSeconds < 30
+          ? _lastSuccessfulType
+          : null;
+
+      // Connect immediately (no timer delay)
+      connect(connection, preferredType: preferredType);
+    } else if (connection != null &&
+        state.status == ConnectionStatus.connected) {
+      // We think we're connected, but the socket might be stale after backgrounding.
+      // Check if the socket is actually healthy
+      if (!_socket.isHealthy) {
+        _socket.forceClose();
+        _failureStreak = 0;
+        _reconnectAttempts = 0;
+        connect(connection, preferredType: _lastSuccessfulType);
+      }
+    }
+  }
+
+  @override
   void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
     _statusSub?.cancel();
     _messageSub?.cancel();
     _networkSub?.cancel();

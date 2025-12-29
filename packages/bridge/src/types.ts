@@ -28,6 +28,9 @@ export type Agent = {
   mode: 'primary' | 'subagent' | 'all'
 }
 
+// Agent type for multi-agent support
+export type AgentType = 'opencode' | 'claude-code'
+
 // Device information for multi-device support
 export type DeviceInfo = {
   deviceId: string
@@ -42,8 +45,11 @@ export type DeviceInfo = {
 export type ClientMessage =
   | { type: 'batch'; messages: Array<ClientMessage & { requestId?: string }>; count?: number; timestamp?: number }
   | { type: 'set_view'; projectPath?: string; sessionId?: string }
+  | { type: 'set_agent'; agent: AgentType }
   | { type: 'restart_opencode' }
   | { type: 'pong'; id: string; sentAt: number }
+  // Client-initiated ping (for app lifecycle detection)
+  | { type: 'client_ping'; id: string; sentAt: number }
   // Multi-device support
   | { type: 'register_device'; deviceId: string; deviceName: string; platform: string }
   | { type: 'list_devices' }
@@ -127,6 +133,23 @@ export type ClientMessage =
   | { type: 'init_session'; sessionId: string; providerID: string; modelID: string; messageID: string; projectPath?: string }
   // Feature 22: Instance Disposal (Clear project context)
   | { type: 'dispose_instance'; projectPath?: string }
+  | { type: 'get_agents_status' }
+  // Claude Code-specific messages
+  | { type: 'cc_list_projects' }
+  | { type: 'cc_list_sessions'; cwd?: string }
+  | { type: 'cc_get_session'; sessionId: string; cwd?: string }
+  | { type: 'cc_get_session_messages'; sessionId: string; cwd?: string; limit?: number }
+  | { type: 'cc_create_session'; cwd: string; model?: string }
+  | { type: 'cc_delete_session'; sessionId: string; cwd?: string }
+  | { type: 'cc_fork_session'; sessionId: string; messageId?: string; cwd?: string }
+  | { type: 'cc_chat'; sessionId?: string; prompt: string; cwd?: string; model?: string; permissionMode?: ClaudeCodePermissionMode; allowedTools?: string[]; disallowedTools?: string[]; maxThinkingTokens?: number | null; systemPrompt?: ClaudeCodeSystemPrompt }
+  | { type: 'cc_abort'; sessionId: string }
+  | { type: 'cc_permission_response'; sessionId: string; toolUseId: string; response: PermissionResponse }
+  | { type: 'cc_list_skills'; cwd?: string }
+  | { type: 'cc_list_hooks'; cwd?: string }
+  | { type: 'cc_list_commands'; cwd?: string }
+  | { type: 'cc_get_config'; cwd?: string }
+  | { type: 'cc_set_config'; config: Partial<ClaudeCodeConfig>; cwd?: string }
 
 export type ProjectSummary = {
   id: string
@@ -207,6 +230,7 @@ export type ServerMessage =
   | { type: 'sdk_event'; data: unknown }
   | { type: 'sdk_event_batch'; data: unknown[] }
   | { type: 'ping'; data: { id: string; sentAt: number } }
+  | { type: 'client_pong'; id: string; sentAt: number; receivedAt: number }
   | { type: 'connection_metrics'; data: { rttMs: number; lastPongAt: number; connectionType?: string } }
   | { type: 'opencode_restarted'; data: boolean; requestId?: string }
   | { type: 'status'; data: { opencodeRunning: boolean } }
@@ -279,8 +303,21 @@ export type ServerMessage =
   | { type: 'formatter_status'; data: FormatterInfo[]; requestId?: string }
   // Feature 20: Session Init
   | { type: 'session_initialized'; data: boolean; sessionId: string; requestId?: string }
-  // Feature 22: Instance Disposal
   | { type: 'instance_disposed'; data: boolean; requestId?: string }
+  | { type: 'agents_status'; data: Record<AgentType, AgentStatusInfo>; requestId?: string }
+  | { type: 'cc_projects'; data: ProjectSummary[]; requestId?: string }
+  | { type: 'cc_sessions'; data: ClaudeCodeSession[]; requestId?: string }
+  | { type: 'cc_session'; data: ClaudeCodeSession; requestId?: string }
+  | { type: 'cc_session_created'; data: ClaudeCodeSession; requestId?: string }
+  | { type: 'cc_session_deleted'; data: boolean; sessionId: string; requestId?: string }
+  | { type: 'cc_session_forked'; data: ClaudeCodeSession | null; requestId?: string }
+  | { type: 'cc_session_messages'; data: ClaudeCodeTranscriptMessage[]; sessionId: string; requestId?: string }
+  | { type: 'cc_skills'; data: ClaudeCodeSkill[]; requestId?: string }
+  | { type: 'cc_hooks'; data: ClaudeCodeHook[]; requestId?: string }
+  | { type: 'cc_commands'; data: ClaudeCodeCommand[]; requestId?: string }
+  | { type: 'cc_config'; data: ClaudeCodeConfig; requestId?: string }
+  | { type: 'cc_config_updated'; data: ClaudeCodeConfig; requestId?: string }
+  | { type: 'cc_stream'; data: ClaudeCodeStreamMessage; sessionId: string }
 
 // Feature 11: File Content
 export type FileContent = {
@@ -394,6 +431,123 @@ export type FormatterInfo = {
   language?: string
   status: 'active' | 'inactive' | 'error'
   error?: string
+}
+
+// NEW: Agent Status for multi-agent support
+export type AgentStatusInfo = {
+  available: boolean
+  authMethod?: string
+  version?: string
+}
+
+// ============================================================================
+// CLAUDE CODE-SPECIFIC TYPES
+// ============================================================================
+
+// Claude Code Skill (auto-invoked capability)
+export type ClaudeCodeSkill = {
+  name: string
+  description?: string
+  autoInvoke: boolean
+  tags?: string[]
+  license?: string
+}
+
+// Claude Code Hook Event Types
+export type ClaudeCodeHookEvent = 
+  | 'PreToolUse'
+  | 'PostToolUse'
+  | 'SessionStart'
+  | 'Stop'
+  | 'PermissionRequest'
+  | 'UserPromptSubmit'
+
+// Claude Code Hook Configuration
+export type ClaudeCodeHook = {
+  id: string
+  event: ClaudeCodeHookEvent
+  matcher?: string  // Tool name pattern (e.g., 'Bash', 'Write|Edit')
+  enabled: boolean
+  description?: string
+}
+
+// Claude Code Session (different from OpenCode session)
+export type ClaudeCodeSession = {
+  id: string
+  title?: string
+  cwd: string
+  model?: string
+  createdAt: number
+  updatedAt: number
+  messageCount?: number
+}
+
+// Claude Code Command (slash command)
+export type ClaudeCodeCommand = {
+  name: string
+  description?: string
+  agent?: string
+  model?: string
+  subtask?: boolean
+}
+
+// Claude Code Permission Mode
+export type ClaudeCodePermissionMode = 'default' | 'acceptEdits' | 'plan' | 'bypassPermissions'
+
+export type ClaudeCodeSystemPrompt = 
+  | string 
+  | { type: 'preset'; preset: 'claude_code'; append?: string }
+  | null
+
+// Claude Code Configuration
+export type ClaudeCodeConfig = {
+  permissionMode: ClaudeCodePermissionMode
+  allowedTools: string[]
+  disallowedTools: string[]
+  model?: string
+  systemPrompt?: ClaudeCodeSystemPrompt
+}
+
+// Claude Code Message (for streaming)
+export type ClaudeCodeStreamMessage = 
+  | { type: 'session-created'; sessionId: string; agent: 'claude-code'; model?: string }
+  | { type: 'session-init'; sessionId: string; model: string; permissionMode: ClaudeCodePermissionMode; tools: string[]; slashCommands: string[]; skills: string[]; mcpServers: Array<{ name: string; status: string }>; plugins: Array<{ name: string; path: string }>; apiKeySource?: string; claudeCodeVersion?: string }
+  | { type: 'permission-request'; sessionId: string; toolUseId: string; tool: string; input: Record<string, unknown>; decisionReason?: string; blockedPath?: string; hasSuggestions?: boolean }
+  | { type: 'assistant-message'; content: string }
+  | { type: 'assistant-message-delta'; content: string }
+  | { type: 'thinking-delta'; content: string; partId?: string }
+  | { type: 'tool-call'; tool: string; input: any; toolUseId?: string; status: 'running' | 'completed' | 'failed' }
+  | { type: 'tool-result'; toolUseId?: string; result: any; toolUseResult?: any }
+  | { type: 'token-usage'; usage: { inputTokens?: number; outputTokens?: number; cacheReadTokens?: number } }
+  | { type: 'error'; message: string; code?: string }
+
+export type ClaudeCodeTranscriptToolCall = {
+  toolUseId: string
+  tool: string
+  input?: any
+  status: 'running' | 'completed' | 'failed'
+  output?: string
+  metadata?: Record<string, unknown>
+}
+
+export type ClaudeCodeTranscriptDiff = {
+  file: string
+  before: string
+  after: string
+  additions: number
+  deletions: number
+  diff?: string
+  partId?: string
+}
+
+export type ClaudeCodeTranscriptMessage = {
+  id: string
+  role: 'user' | 'assistant' | 'system'
+  createdAt: number
+  text: string
+  thinking?: string
+  toolCalls?: ClaudeCodeTranscriptToolCall[]
+  diffs?: ClaudeCodeTranscriptDiff[]
 }
 
 // Feature 21: File Attachment (for @ tagging in prompt and image attachments)

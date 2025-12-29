@@ -1,9 +1,13 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../models/agent_type.dart';
+import '../models/claude_code.dart';
 import '../models/project.dart';
 import '../models/session.dart';
+import '../providers/agent_type_provider.dart';
 import '../providers/chat_provider.dart';
+import '../providers/claude_code_provider.dart';
 import '../providers/connection_provider.dart';
 import '../providers/sessions_provider.dart';
 import '../providers/service_providers.dart';
@@ -39,12 +43,17 @@ class _SessionsScreenState extends ConsumerState<SessionsScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final agentType = ref.watch(agentTypeProvider);
+
+    if (agentType == AgentType.claudeCode) {
+      return _ClaudeCodeSessionsView(onRefresh: _refresh);
+    }
+
     final connection = ref.watch(connectionProvider);
     final theme = Theme.of(context);
     final filterProjectPath = ref.watch(sessionsFilterProjectPathProvider);
     final projectsAsync = ref.watch(projectsForSessionsProvider);
     final sessionsAsync = ref.watch(sessionsListProvider);
-    // Watch global session statuses for real-time updates
     final sessionStatuses = ref.watch(globalSessionStatusProvider);
 
     return Scaffold(
@@ -1762,6 +1771,1078 @@ class _SkeletonBox extends StatelessWidget {
           ),
         );
       },
+    );
+  }
+}
+
+// ============================================================================
+// Claude Code Sessions View
+// ============================================================================
+
+class _ClaudeCodeSessionsView extends ConsumerStatefulWidget {
+  const _ClaudeCodeSessionsView({required this.onRefresh});
+
+  final Future<void> Function() onRefresh;
+
+  @override
+  ConsumerState<_ClaudeCodeSessionsView> createState() =>
+      _ClaudeCodeSessionsViewState();
+}
+
+class _ClaudeCodeSessionsViewState
+    extends ConsumerState<_ClaudeCodeSessionsView> {
+  @override
+  void initState() {
+    super.initState();
+    // Load sessions on init
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      ref.read(ccSessionsProvider.notifier).load();
+    });
+  }
+
+  Future<void> _refresh() async {
+    await ref.read(ccSessionsProvider.notifier).refresh();
+    await widget.onRefresh();
+  }
+
+  Future<void> _deleteSession(ClaudeCodeSession session) async {
+    final confirm = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        backgroundColor: Theme.of(context).colorScheme.surface,
+        title: const Text('Delete Session?'),
+        content: Text(
+          'Are you sure you want to delete "${session.displayTitle}"? This action cannot be undone.',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context, false),
+            child: const Text('Cancel'),
+          ),
+          TextButton(
+            onPressed: () => Navigator.pop(context, true),
+            child: Text(
+              'Delete',
+              style: TextStyle(color: OpenCodeTheme.of(context).error),
+            ),
+          ),
+        ],
+      ),
+    );
+
+    if (confirm != true) return;
+
+    final success = await ref
+        .read(ccSessionsProvider.notifier)
+        .deleteSession(session.id, cwd: session.cwd);
+
+    if (!mounted) return;
+
+    final ocTheme = OpenCodeTheme.of(context);
+    if (success) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: const Text('Session deleted'),
+          backgroundColor: ocTheme.backgroundPanel,
+        ),
+      );
+    } else {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: const Text('Failed to delete session'),
+          backgroundColor: ocTheme.error,
+        ),
+      );
+    }
+  }
+
+  void _openSession(ClaudeCodeSession session) {
+    Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (_) => ChatScreen.claudeCode(ccSession: session),
+      ),
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final sessionsAsync = ref.watch(ccSessionsProvider);
+    final ocTheme = OpenCodeTheme.of(context);
+
+    return Scaffold(
+      backgroundColor: Colors.transparent,
+      body: SafeArea(
+        child: RefreshIndicator(
+          onRefresh: _refresh,
+          color: ocTheme.primary,
+          backgroundColor: ocTheme.backgroundPanel,
+          child: CustomScrollView(
+            physics: const AlwaysScrollableScrollPhysics(),
+            slivers: [
+              // Header
+              SliverToBoxAdapter(
+                child: Padding(
+                  padding: const EdgeInsets.fromLTRB(20, 16, 20, 20),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Row(
+                        children: [
+                          Expanded(
+                            child: Text(
+                              'Sessions',
+                              style: TextStyle(
+                                color: ocTheme.text,
+                                fontSize: 32,
+                                fontWeight: FontWeight.w700,
+                              ),
+                            ),
+                          ),
+                          IconButton(
+                            onPressed: _refresh,
+                            icon: Icon(
+                              Icons.refresh_rounded,
+                              color: ocTheme.textMuted,
+                            ),
+                            tooltip: 'Refresh',
+                          ),
+                          // Claude Code badge
+                          Container(
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 10,
+                              vertical: 6,
+                            ),
+                            decoration: BoxDecoration(
+                              color: ocTheme.accent.withValues(alpha: 0.15),
+                              borderRadius: BorderRadius.circular(12),
+                            ),
+                            child: Row(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                Icon(
+                                  Icons.terminal_rounded,
+                                  size: 14,
+                                  color: ocTheme.accent,
+                                ),
+                                const SizedBox(width: 6),
+                                Text(
+                                  'Claude Code',
+                                  style: TextStyle(
+                                    color: ocTheme.accent,
+                                    fontSize: 12,
+                                    fontWeight: FontWeight.w600,
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 8),
+                      Text(
+                        'Claude Code sessions from ~/.claude',
+                        style: TextStyle(
+                          color: ocTheme.textMuted,
+                          fontSize: 15,
+                          fontWeight: FontWeight.w500,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+              // Sessions list
+              ...sessionsAsync.when(
+                loading: () => [
+                  SliverToBoxAdapter(child: _DelayedSkeletonList()),
+                ],
+                error: (error, _) => [
+                  SliverFillRemaining(
+                    child: Center(
+                      child: Column(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          Icon(
+                            Icons.error_outline_rounded,
+                            color: ocTheme.error,
+                            size: 48,
+                          ),
+                          const SizedBox(height: 16),
+                          Text(
+                            'Failed to load sessions',
+                            style: TextStyle(
+                              color: ocTheme.text,
+                              fontSize: 16,
+                              fontWeight: FontWeight.w600,
+                            ),
+                          ),
+                          const SizedBox(height: 8),
+                          Padding(
+                            padding: const EdgeInsets.symmetric(horizontal: 24),
+                            child: Text(
+                              '$error',
+                              style: TextStyle(
+                                color: ocTheme.textMuted,
+                                fontSize: 14,
+                              ),
+                              textAlign: TextAlign.center,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                ],
+                data: (sessions) {
+                  if (sessions.isEmpty) {
+                    return [SliverFillRemaining(child: _CCEmptyState())];
+                  }
+
+                  // Sort by updatedAt descending
+                  final sorted = sessions.toList()
+                    ..sort((a, b) => b.updatedAt.compareTo(a.updatedAt));
+
+                  return [
+                    SliverPadding(
+                      padding: const EdgeInsets.fromLTRB(20, 0, 20, 100),
+                      sliver: SliverList(
+                        delegate: SliverChildBuilderDelegate((context, index) {
+                          final session = sorted[index];
+                          return Padding(
+                            padding: const EdgeInsets.only(bottom: 12),
+                            child: _CCSessionCard(
+                              session: session,
+                              onTap: () => _openSession(session),
+                              onDelete: () => _deleteSession(session),
+                            ),
+                          );
+                        }, childCount: sorted.length),
+                      ),
+                    ),
+                  ];
+                },
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+/// Claude Code session card
+class _CCSessionCard extends StatelessWidget {
+  const _CCSessionCard({
+    required this.session,
+    required this.onTap,
+    required this.onDelete,
+  });
+
+  final ClaudeCodeSession session;
+  final VoidCallback onTap;
+  final VoidCallback onDelete;
+
+  String _getProjectName() {
+    final parts = session.cwd.split('/').where((p) => p.isNotEmpty).toList();
+    return parts.isEmpty ? 'Unknown' : parts.last;
+  }
+
+  String _formatDate(int timestamp) {
+    final date = DateTime.fromMillisecondsSinceEpoch(timestamp);
+    final now = DateTime.now();
+    final diff = now.difference(date);
+
+    if (diff.inMinutes < 1) {
+      return 'Just now';
+    } else if (diff.inMinutes < 60) {
+      return '${diff.inMinutes}m ago';
+    } else if (diff.inHours < 24) {
+      return '${diff.inHours}h ago';
+    } else if (diff.inDays < 7) {
+      return '${diff.inDays}d ago';
+    } else {
+      return '${date.day}/${date.month}/${date.year}';
+    }
+  }
+
+  // Generate gradient colors based on session ID
+  List<Color> _getGradientColors(BuildContext context) {
+    final ocTheme = OpenCodeTheme.of(context);
+    final hash = session.id.hashCode;
+    final colors = [
+      ocTheme.accent,
+      ocTheme.secondary,
+      ocTheme.primary,
+      ocTheme.info,
+      ocTheme.success,
+    ];
+    final c1 = colors[hash.abs() % colors.length];
+    final c2 = colors[(hash.abs() + 2) % colors.length];
+    return [c1, c2];
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final ocTheme = OpenCodeTheme.of(context);
+    final gradientColors = _getGradientColors(context);
+
+    Widget card = GestureDetector(
+      onTap: onTap,
+      child: Container(
+        height: 76,
+        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+        decoration: BoxDecoration(
+          color: ocTheme.backgroundPanel,
+          borderRadius: BorderRadius.circular(14),
+          border: Border.all(color: ocTheme.borderSubtle),
+        ),
+        child: Row(
+          children: [
+            // Gradient orb
+            Container(
+              width: 44,
+              height: 44,
+              decoration: BoxDecoration(
+                borderRadius: BorderRadius.circular(12),
+                gradient: LinearGradient(
+                  begin: Alignment.topLeft,
+                  end: Alignment.bottomRight,
+                  colors: [
+                    gradientColors[0].withValues(alpha: 0.8),
+                    gradientColors[1].withValues(alpha: 0.6),
+                  ],
+                ),
+              ),
+              child: Center(
+                child: Icon(
+                  Icons.terminal_rounded,
+                  color: Colors.white.withValues(alpha: 0.9),
+                  size: 20,
+                ),
+              ),
+            ),
+            const SizedBox(width: 12),
+            // Session info
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  Row(
+                    children: [
+                      Flexible(
+                        child: Text(
+                          session.displayTitle,
+                          style: TextStyle(
+                            color: ocTheme.text,
+                            fontSize: 14,
+                            fontWeight: FontWeight.w600,
+                            height: 1.2,
+                          ),
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                      ),
+                      // Model badge if available
+                      if (session.model != null) ...[
+                        const SizedBox(width: 6),
+                        Container(
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 6,
+                            vertical: 2,
+                          ),
+                          decoration: BoxDecoration(
+                            color: ocTheme.info.withValues(alpha: 0.15),
+                            borderRadius: BorderRadius.circular(4),
+                          ),
+                          child: Text(
+                            session.model!.split('/').last,
+                            style: TextStyle(
+                              color: ocTheme.info,
+                              fontSize: 10,
+                              fontWeight: FontWeight.w600,
+                            ),
+                          ),
+                        ),
+                      ],
+                    ],
+                  ),
+                  const SizedBox(height: 4),
+                  Text(
+                    '${_getProjectName()} · ${_formatDate(session.updatedAt)}',
+                    style: TextStyle(color: ocTheme.textMuted, fontSize: 12),
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                ],
+              ),
+            ),
+            const SizedBox(width: 8),
+            // Chevron
+            Icon(
+              Icons.chevron_right_rounded,
+              color: ocTheme.textMuted.withValues(alpha: 0.4),
+              size: 20,
+            ),
+          ],
+        ),
+      ),
+    );
+
+    // Swipe to delete
+    return Dismissible(
+      key: Key(session.id),
+      direction: DismissDirection.endToStart,
+      background: Container(
+        alignment: Alignment.centerRight,
+        padding: const EdgeInsets.only(right: 20),
+        decoration: BoxDecoration(
+          color: ocTheme.error,
+          borderRadius: BorderRadius.circular(14),
+        ),
+        child: const Icon(
+          Icons.delete_outline_rounded,
+          color: Colors.white,
+          size: 24,
+        ),
+      ),
+      confirmDismiss: (_) async {
+        onDelete();
+        return false; // Let parent handle actual deletion
+      },
+      child: card,
+    );
+  }
+}
+
+/// Empty state for Claude Code sessions
+class _CCEmptyState extends StatelessWidget {
+  @override
+  Widget build(BuildContext context) {
+    final ocTheme = OpenCodeTheme.of(context);
+
+    return Center(
+      child: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          Container(
+            padding: const EdgeInsets.all(24),
+            decoration: BoxDecoration(
+              color: ocTheme.accent.withValues(alpha: 0.1),
+              shape: BoxShape.circle,
+            ),
+            child: Icon(
+              Icons.terminal_rounded,
+              size: 48,
+              color: ocTheme.accent,
+            ),
+          ),
+          const SizedBox(height: 24),
+          Text(
+            'No Claude Code sessions',
+            style: TextStyle(
+              color: ocTheme.text,
+              fontSize: 20,
+              fontWeight: FontWeight.w600,
+            ),
+          ),
+          const SizedBox(height: 8),
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 40),
+            child: Text(
+              'Sessions will appear here when you use Claude Code',
+              style: TextStyle(color: ocTheme.textMuted, fontSize: 14),
+              textAlign: TextAlign.center,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+// ============================================================================
+// Claude Code Chat Screen
+// ============================================================================
+
+class CCChatScreen extends ConsumerStatefulWidget {
+  const CCChatScreen({super.key, required this.session});
+
+  final ClaudeCodeSession session;
+
+  @override
+  ConsumerState<CCChatScreen> createState() => _CCChatScreenState();
+}
+
+class _CCChatScreenState extends ConsumerState<CCChatScreen> {
+  final TextEditingController _controller = TextEditingController();
+  final ScrollController _scrollController = ScrollController();
+  final FocusNode _focusNode = FocusNode();
+
+  @override
+  void initState() {
+    super.initState();
+    // Initialize chat provider with this session
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      ref.read(ccChatProvider.notifier).setSession(widget.session.id);
+    });
+  }
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    _scrollController.dispose();
+    _focusNode.dispose();
+    super.dispose();
+  }
+
+  void _sendMessage() {
+    final text = _controller.text.trim();
+    if (text.isEmpty) return;
+
+    ref
+        .read(ccChatProvider.notifier)
+        .sendMessage(
+          sessionId: widget.session.id,
+          prompt: text,
+          cwd: widget.session.cwd,
+        );
+
+    _controller.clear();
+    _scrollToBottom();
+  }
+
+  void _abort() {
+    ref.read(ccChatProvider.notifier).abort();
+  }
+
+  void _scrollToBottom() {
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (_scrollController.hasClients) {
+        _scrollController.animateTo(
+          _scrollController.position.maxScrollExtent,
+          duration: const Duration(milliseconds: 200),
+          curve: Curves.easeOut,
+        );
+      }
+    });
+  }
+
+  String _getProjectName() {
+    final parts = widget.session.cwd
+        .split('/')
+        .where((p) => p.isNotEmpty)
+        .toList();
+    return parts.isEmpty ? 'Unknown' : parts.last;
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final ocTheme = OpenCodeTheme.of(context);
+    final chatState = ref.watch(ccChatProvider);
+
+    // Build display messages from stream messages
+    final displayMessages = _buildDisplayMessages(chatState.messages);
+
+    return Scaffold(
+      backgroundColor: ocTheme.background,
+      appBar: AppBar(
+        backgroundColor: ocTheme.backgroundPanel,
+        elevation: 0,
+        leading: IconButton(
+          icon: Icon(Icons.arrow_back_rounded, color: ocTheme.text),
+          onPressed: () => Navigator.pop(context),
+        ),
+        title: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              widget.session.displayTitle,
+              style: TextStyle(
+                color: ocTheme.text,
+                fontSize: 16,
+                fontWeight: FontWeight.w600,
+              ),
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+            ),
+            Text(
+              _getProjectName(),
+              style: TextStyle(color: ocTheme.textMuted, fontSize: 12),
+            ),
+          ],
+        ),
+        actions: [
+          // Claude Code badge
+          Container(
+            margin: const EdgeInsets.only(right: 12),
+            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+            decoration: BoxDecoration(
+              color: ocTheme.accent.withValues(alpha: 0.15),
+              borderRadius: BorderRadius.circular(8),
+            ),
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Icon(Icons.terminal_rounded, size: 12, color: ocTheme.accent),
+                const SizedBox(width: 4),
+                Text(
+                  'CC',
+                  style: TextStyle(
+                    color: ocTheme.accent,
+                    fontSize: 11,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+      body: Column(
+        children: [
+          // Messages list
+          Expanded(
+            child: displayMessages.isEmpty
+                ? _CCChatEmptyState()
+                : ListView.builder(
+                    controller: _scrollController,
+                    padding: const EdgeInsets.fromLTRB(16, 16, 16, 100),
+                    itemCount: displayMessages.length,
+                    itemBuilder: (context, index) {
+                      final msg = displayMessages[index];
+                      return _CCMessageBubble(
+                        message: msg,
+                        isStreaming:
+                            chatState.isStreaming &&
+                            index == displayMessages.length - 1,
+                      );
+                    },
+                  ),
+          ),
+          // Input bar
+          _CCInputBar(
+            controller: _controller,
+            focusNode: _focusNode,
+            isStreaming: chatState.isStreaming,
+            onSend: _sendMessage,
+            onAbort: _abort,
+          ),
+        ],
+      ),
+    );
+  }
+
+  /// Convert stream messages to display messages
+  List<_CCDisplayMessage> _buildDisplayMessages(
+    List<ClaudeCodeStreamMessage> messages,
+  ) {
+    final display = <_CCDisplayMessage>[];
+    String assistantText = '';
+    final toolCalls = <CCToolCall>[];
+
+    for (final msg in messages) {
+      if (msg is CCSessionCreated) {
+        // Session started - could show a system message if needed
+        continue;
+      }
+
+      if (msg is CCAssistantMessage) {
+        // Complete assistant message
+        if (assistantText.isNotEmpty || toolCalls.isNotEmpty) {
+          display.add(
+            _CCDisplayMessage(
+              role: 'assistant',
+              text: assistantText,
+              toolCalls: List.from(toolCalls),
+            ),
+          );
+          assistantText = '';
+          toolCalls.clear();
+        }
+        assistantText = msg.content;
+      }
+
+      if (msg is CCAssistantMessageDelta) {
+        // Streaming delta - accumulate
+        assistantText += msg.content;
+      }
+
+      if (msg is CCToolCall) {
+        toolCalls.add(msg);
+      }
+
+      if (msg is CCToolResult) {
+        // Tool completed - could update tool call status
+      }
+
+      if (msg is CCTokenUsage) {
+        // End of turn - finalize assistant message
+        if (assistantText.isNotEmpty || toolCalls.isNotEmpty) {
+          display.add(
+            _CCDisplayMessage(
+              role: 'assistant',
+              text: assistantText,
+              toolCalls: List.from(toolCalls),
+              tokenUsage: msg,
+            ),
+          );
+          assistantText = '';
+          toolCalls.clear();
+        }
+      }
+
+      if (msg is CCError) {
+        display.add(_CCDisplayMessage(role: 'error', text: msg.message));
+      }
+    }
+
+    // Add any in-progress content
+    if (assistantText.isNotEmpty || toolCalls.isNotEmpty) {
+      display.add(
+        _CCDisplayMessage(
+          role: 'assistant',
+          text: assistantText,
+          toolCalls: List.from(toolCalls),
+        ),
+      );
+    }
+
+    return display;
+  }
+}
+
+/// Display message model for CC chat
+class _CCDisplayMessage {
+  final String role; // 'user', 'assistant', 'error'
+  final String text;
+  final List<CCToolCall> toolCalls;
+  final CCTokenUsage? tokenUsage;
+
+  const _CCDisplayMessage({
+    required this.role,
+    this.text = '',
+    this.toolCalls = const [],
+    this.tokenUsage,
+  });
+}
+
+/// Message bubble for CC chat
+class _CCMessageBubble extends StatelessWidget {
+  const _CCMessageBubble({required this.message, this.isStreaming = false});
+
+  final _CCDisplayMessage message;
+  final bool isStreaming;
+
+  @override
+  Widget build(BuildContext context) {
+    final ocTheme = OpenCodeTheme.of(context);
+
+    if (message.role == 'error') {
+      return Container(
+        margin: const EdgeInsets.only(bottom: 12),
+        padding: const EdgeInsets.all(12),
+        decoration: BoxDecoration(
+          color: ocTheme.error.withValues(alpha: 0.1),
+          borderRadius: BorderRadius.circular(12),
+          border: Border.all(color: ocTheme.error.withValues(alpha: 0.3)),
+        ),
+        child: Row(
+          children: [
+            Icon(Icons.error_outline, color: ocTheme.error, size: 20),
+            const SizedBox(width: 8),
+            Expanded(
+              child: Text(
+                message.text,
+                style: TextStyle(color: ocTheme.error, fontSize: 14),
+              ),
+            ),
+          ],
+        ),
+      );
+    }
+
+    final isUser = message.role == 'user';
+
+    return Container(
+      margin: const EdgeInsets.only(bottom: 12),
+      child: Column(
+        crossAxisAlignment: isUser
+            ? CrossAxisAlignment.end
+            : CrossAxisAlignment.start,
+        children: [
+          // Text content
+          if (message.text.isNotEmpty)
+            Container(
+              constraints: BoxConstraints(
+                maxWidth: MediaQuery.of(context).size.width * 0.85,
+              ),
+              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+              decoration: BoxDecoration(
+                color: isUser ? ocTheme.primary : ocTheme.backgroundPanel,
+                borderRadius: BorderRadius.only(
+                  topLeft: const Radius.circular(16),
+                  topRight: const Radius.circular(16),
+                  bottomLeft: Radius.circular(isUser ? 16 : 4),
+                  bottomRight: Radius.circular(isUser ? 4 : 16),
+                ),
+              ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    message.text,
+                    style: TextStyle(
+                      color: isUser ? Colors.white : ocTheme.text,
+                      fontSize: 15,
+                      height: 1.4,
+                    ),
+                  ),
+                  if (isStreaming) ...[
+                    const SizedBox(height: 4),
+                    SizedBox(
+                      width: 12,
+                      height: 12,
+                      child: CircularProgressIndicator(
+                        strokeWidth: 2,
+                        color: ocTheme.textMuted,
+                      ),
+                    ),
+                  ],
+                ],
+              ),
+            ),
+          // Tool calls
+          if (message.toolCalls.isNotEmpty) ...[
+            const SizedBox(height: 8),
+            ...message.toolCalls.map((tool) => _CCToolCallCard(tool: tool)),
+          ],
+          // Token usage
+          if (message.tokenUsage != null) ...[
+            const SizedBox(height: 4),
+            Text(
+              '${message.tokenUsage!.inputTokens ?? 0} in · ${message.tokenUsage!.outputTokens ?? 0} out',
+              style: TextStyle(color: ocTheme.textMuted, fontSize: 10),
+            ),
+          ],
+        ],
+      ),
+    );
+  }
+}
+
+/// Tool call card for CC chat
+class _CCToolCallCard extends StatelessWidget {
+  const _CCToolCallCard({required this.tool});
+
+  final CCToolCall tool;
+
+  @override
+  Widget build(BuildContext context) {
+    final ocTheme = OpenCodeTheme.of(context);
+    final isRunning = tool.status == 'running';
+
+    return Container(
+      margin: const EdgeInsets.only(bottom: 6),
+      padding: const EdgeInsets.all(10),
+      decoration: BoxDecoration(
+        color: ocTheme.backgroundElement,
+        borderRadius: BorderRadius.circular(10),
+        border: Border.all(color: ocTheme.borderSubtle),
+      ),
+      child: Row(
+        children: [
+          Container(
+            width: 28,
+            height: 28,
+            decoration: BoxDecoration(
+              color: isRunning
+                  ? ocTheme.info.withValues(alpha: 0.15)
+                  : ocTheme.success.withValues(alpha: 0.15),
+              borderRadius: BorderRadius.circular(6),
+            ),
+            child: Center(
+              child: isRunning
+                  ? SizedBox(
+                      width: 12,
+                      height: 12,
+                      child: CircularProgressIndicator(
+                        strokeWidth: 2,
+                        color: ocTheme.info,
+                      ),
+                    )
+                  : Icon(Icons.check_rounded, size: 14, color: ocTheme.success),
+            ),
+          ),
+          const SizedBox(width: 10),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  tool.tool,
+                  style: TextStyle(
+                    color: ocTheme.text,
+                    fontSize: 13,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+                if (tool.input != null) ...[
+                  const SizedBox(height: 2),
+                  Text(
+                    _formatInput(tool.input),
+                    style: TextStyle(
+                      color: ocTheme.textMuted,
+                      fontSize: 11,
+                      fontFamily: 'monospace',
+                    ),
+                    maxLines: 2,
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                ],
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  String _formatInput(dynamic input) {
+    if (input == null) return '';
+    if (input is String) return input;
+    if (input is Map) {
+      // Show first key-value or command
+      if (input.containsKey('command')) return input['command'].toString();
+      if (input.containsKey('path')) return input['path'].toString();
+      if (input.containsKey('file_path')) return input['file_path'].toString();
+      return input.entries.first.value.toString();
+    }
+    return input.toString();
+  }
+}
+
+/// Empty state for CC chat
+class _CCChatEmptyState extends StatelessWidget {
+  @override
+  Widget build(BuildContext context) {
+    final ocTheme = OpenCodeTheme.of(context);
+
+    return Center(
+      child: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          Icon(
+            Icons.chat_bubble_outline_rounded,
+            size: 48,
+            color: ocTheme.textMuted.withValues(alpha: 0.5),
+          ),
+          const SizedBox(height: 16),
+          Text(
+            'Start a conversation',
+            style: TextStyle(
+              color: ocTheme.textMuted,
+              fontSize: 16,
+              fontWeight: FontWeight.w500,
+            ),
+          ),
+          const SizedBox(height: 4),
+          Text(
+            'Send a message to begin',
+            style: TextStyle(
+              color: ocTheme.textMuted.withValues(alpha: 0.7),
+              fontSize: 14,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+/// Input bar for CC chat
+class _CCInputBar extends StatelessWidget {
+  const _CCInputBar({
+    required this.controller,
+    required this.focusNode,
+    required this.isStreaming,
+    required this.onSend,
+    required this.onAbort,
+  });
+
+  final TextEditingController controller;
+  final FocusNode focusNode;
+  final bool isStreaming;
+  final VoidCallback onSend;
+  final VoidCallback onAbort;
+
+  @override
+  Widget build(BuildContext context) {
+    final ocTheme = OpenCodeTheme.of(context);
+    final bottomPadding = MediaQuery.of(context).viewInsets.bottom;
+
+    return Container(
+      padding: EdgeInsets.fromLTRB(16, 12, 16, 12 + bottomPadding),
+      decoration: BoxDecoration(
+        color: ocTheme.backgroundPanel,
+        border: Border(top: BorderSide(color: ocTheme.borderSubtle)),
+      ),
+      child: SafeArea(
+        top: false,
+        child: Row(
+          children: [
+            Expanded(
+              child: Container(
+                decoration: BoxDecoration(
+                  color: ocTheme.backgroundElement,
+                  borderRadius: BorderRadius.circular(24),
+                  border: Border.all(color: ocTheme.borderSubtle),
+                ),
+                child: TextField(
+                  controller: controller,
+                  focusNode: focusNode,
+                  enabled: !isStreaming,
+                  maxLines: 5,
+                  minLines: 1,
+                  textInputAction: TextInputAction.send,
+                  onSubmitted: (_) => onSend(),
+                  style: TextStyle(color: ocTheme.text, fontSize: 15),
+                  decoration: InputDecoration(
+                    hintText: isStreaming
+                        ? 'Claude is thinking...'
+                        : 'Message Claude Code',
+                    hintStyle: TextStyle(color: ocTheme.textMuted),
+                    contentPadding: const EdgeInsets.symmetric(
+                      horizontal: 16,
+                      vertical: 10,
+                    ),
+                    border: InputBorder.none,
+                  ),
+                ),
+              ),
+            ),
+            const SizedBox(width: 8),
+            // Send or Abort button
+            GestureDetector(
+              onTap: isStreaming ? onAbort : onSend,
+              child: Container(
+                width: 44,
+                height: 44,
+                decoration: BoxDecoration(
+                  color: isStreaming ? ocTheme.error : ocTheme.primary,
+                  shape: BoxShape.circle,
+                ),
+                child: Icon(
+                  isStreaming ? Icons.stop_rounded : Icons.arrow_upward_rounded,
+                  color: Colors.white,
+                  size: 22,
+                ),
+              ),
+            ),
+          ],
+        ),
+      ),
     );
   }
 }

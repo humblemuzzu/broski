@@ -34,6 +34,14 @@ class WebSocketService {
   int _currentRttMs = 0;
   String _connectionType = 'unknown';
 
+  // Ping/pong heartbeat state
+  Timer? _pingTimer;
+  Timer? _pongTimeoutTimer;
+  DateTime? _lastPongReceived;
+  static const _pingInterval = Duration(seconds: 15);
+  static const _pongTimeout = Duration(seconds: 10);
+  bool _waitingForPong = false;
+
   // Message types that should be sent immediately (bypass batching)
   static const _immediateTypes = {
     'permission_response',
@@ -53,6 +61,13 @@ class WebSocketService {
   Stream<Map<String, dynamic>> get messages => _messageController.stream;
   Stream<ConnectionStatus> get statusStream => _statusController.stream;
   ConnectionStatus get status => _status;
+
+  /// Whether the connection appears healthy (received pong recently).
+  bool get isHealthy {
+    if (_status != ConnectionStatus.connected) return false;
+    if (_lastPongReceived == null) return true; // Haven't sent first ping yet
+    return DateTime.now().difference(_lastPongReceived!) < _pongTimeout * 2;
+  }
 
   /// Update RTT for adaptive batching thresholds.
   void updateRtt(int rttMs) {
@@ -84,6 +99,7 @@ class WebSocketService {
     try {
       await _channel!.ready;
       _setStatus(ConnectionStatus.connected);
+      _startHeartbeat();
     } catch (e) {
       _channel = null;
       _setStatus(ConnectionStatus.disconnected);
@@ -203,6 +219,7 @@ class WebSocketService {
   }
 
   Future<void> disconnect() async {
+    _stopHeartbeat();
     _batchTimer?.cancel();
     _pendingBatch.clear();
     await _channel?.sink.close();
@@ -210,10 +227,75 @@ class WebSocketService {
     _setStatus(ConnectionStatus.disconnected);
   }
 
+  /// Force close the connection without graceful shutdown.
+  /// Use this when the app goes to background to ensure clean state.
+  void forceClose() {
+    _stopHeartbeat();
+    _batchTimer?.cancel();
+    _pendingBatch.clear();
+    _channel?.sink.close();
+    _channel = null;
+    _setStatus(ConnectionStatus.disconnected);
+  }
+
   void dispose() {
+    _stopHeartbeat();
     _batchTimer?.cancel();
     _messageController.close();
     _statusController.close();
+  }
+
+  /// Start heartbeat pings to detect dead connections.
+  void _startHeartbeat() {
+    _stopHeartbeat();
+    _waitingForPong = false;
+    _lastPongReceived = DateTime.now();
+
+    _pingTimer = Timer.periodic(_pingInterval, (_) {
+      if (_channel == null || _status != ConnectionStatus.connected) return;
+
+      // If we're still waiting for a pong from the last ping, connection is dead
+      if (_waitingForPong) {
+        _handlePongTimeout();
+        return;
+      }
+
+      // Send a ping (client-initiated, not the bridge's ping)
+      _waitingForPong = true;
+      final pingId = DateTime.now().millisecondsSinceEpoch.toString();
+      sendImmediate({
+        'type': 'client_ping',
+        'id': pingId,
+        'sentAt': DateTime.now().millisecondsSinceEpoch,
+      });
+
+      // Set a timeout for pong response
+      _pongTimeoutTimer?.cancel();
+      _pongTimeoutTimer = Timer(_pongTimeout, _handlePongTimeout);
+    });
+  }
+
+  void _stopHeartbeat() {
+    _pingTimer?.cancel();
+    _pingTimer = null;
+    _pongTimeoutTimer?.cancel();
+    _pongTimeoutTimer = null;
+    _waitingForPong = false;
+  }
+
+  void _handlePongTimeout() {
+    // Connection is dead, force disconnect
+    _stopHeartbeat();
+    _channel?.sink.close();
+    _channel = null;
+    _setStatus(ConnectionStatus.disconnected);
+  }
+
+  /// Call this when a pong is received (either client_pong or bridge's pong).
+  void _onPongReceived() {
+    _waitingForPong = false;
+    _lastPongReceived = DateTime.now();
+    _pongTimeoutTimer?.cancel();
   }
 
   void _handleMessage(String raw) {
@@ -229,6 +311,14 @@ class WebSocketService {
           // Pong is immediate priority - send directly
           sendImmediate({'type': 'pong', 'id': id, 'sentAt': sentAt});
         }
+        // Bridge ping counts as proof connection is alive
+        _onPongReceived();
+        return;
+      }
+
+      // Handle response to our client ping
+      if (data['type'] == 'client_pong') {
+        _onPongReceived();
         return;
       }
 

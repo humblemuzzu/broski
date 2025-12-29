@@ -164,7 +164,7 @@ export class OpenCodeConnector {
     model?: { providerID: string; modelID: string },
     agent?: string,
     disabledTools?: string[],
-    fileAttachments?: Array<{ path: string; isDirectory: boolean; mimeType?: string; base64Data?: string }>,
+    fileAttachments?: FileAttachment[],
   ) {
     let tools: Record<string, boolean> | undefined
     if (disabledTools && disabledTools.length > 0) {

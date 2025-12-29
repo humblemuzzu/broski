@@ -3,6 +3,8 @@ import 'dart:developer' as developer;
 import 'dart:math';
 
 import '../models/agent.dart';
+import '../models/agent_type.dart';
+import '../models/claude_code.dart';
 import '../models/command.dart';
 import '../models/device.dart';
 import '../models/file_attachment.dart';
@@ -1502,6 +1504,255 @@ class BridgeService {
     });
     final response = await _waitFor('instance_disposed', requestId: requestId);
     return response['data'] as bool? ?? false;
+  }
+
+  // ============================================================
+  // Agent Type Management (OpenCode vs Claude Code)
+  // ============================================================
+
+  Future<AgentsStatus> getAgentsStatus() async {
+    final requestId = _generateRequestId();
+    _socket.send({'type': 'get_agents_status', 'requestId': requestId});
+    final response = await _waitFor('agents_status', requestId: requestId);
+    final data = response['data'] as Map<String, dynamic>? ?? {};
+    return AgentsStatus.fromJson(data);
+  }
+
+  void setAgent(AgentType agentType) {
+    _socket.send({'type': 'set_agent', 'agent': agentType.wireValue});
+  }
+
+  // ============================================================
+  // Claude Code - Sessions
+  // ============================================================
+
+  Future<List<ProjectSummary>> ccListProjects() async {
+    final requestId = _generateRequestId();
+    _socket.send({'type': 'cc_list_projects', 'requestId': requestId});
+    final response = await _waitFor('cc_projects', requestId: requestId);
+    final data = response['data'] as List<dynamic>? ?? [];
+    return data
+        .map((item) => ProjectSummary.fromJson(item as Map<String, dynamic>))
+        .toList();
+  }
+
+  Future<List<ClaudeCodeSession>> ccListSessions({String? cwd}) async {
+    final requestId = _generateRequestId();
+    _socket.send({
+      'type': 'cc_list_sessions',
+      'requestId': requestId,
+      if (cwd != null) 'cwd': cwd,
+    });
+    final response = await _waitFor('cc_sessions', requestId: requestId);
+    final data = response['data'] as List<dynamic>? ?? [];
+    return data
+        .map((item) => ClaudeCodeSession.fromJson(item as Map<String, dynamic>))
+        .toList();
+  }
+
+  Future<ClaudeCodeSession?> ccGetSession(
+    String sessionId, {
+    String? cwd,
+  }) async {
+    final requestId = _generateRequestId();
+    _socket.send({
+      'type': 'cc_get_session',
+      'sessionId': sessionId,
+      'requestId': requestId,
+      if (cwd != null) 'cwd': cwd,
+    });
+    try {
+      final response = await _waitFor('cc_session', requestId: requestId);
+      final data = response['data'] as Map<String, dynamic>?;
+      if (data == null) return null;
+      return ClaudeCodeSession.fromJson(data);
+    } catch (_) {
+      return null;
+    }
+  }
+
+  Future<List<Map<String, dynamic>>> ccGetSessionMessages(
+    String sessionId, {
+    String? cwd,
+    int? limit,
+  }) async {
+    final requestId = _generateRequestId();
+    _socket.send({
+      'type': 'cc_get_session_messages',
+      'sessionId': sessionId,
+      'requestId': requestId,
+      if (cwd != null) 'cwd': cwd,
+      if (limit != null) 'limit': limit,
+    });
+    final response = await _waitFor(
+      'cc_session_messages',
+      requestId: requestId,
+    );
+    final data = response['data'] as List<dynamic>? ?? const [];
+    return data.whereType<Map<String, dynamic>>().toList(growable: false);
+  }
+
+  Future<bool> ccDeleteSession(String sessionId, {String? cwd}) async {
+    final requestId = _generateRequestId();
+    _socket.send({
+      'type': 'cc_delete_session',
+      'sessionId': sessionId,
+      'requestId': requestId,
+      if (cwd != null) 'cwd': cwd,
+    });
+    final response = await _waitFor('cc_session_deleted', requestId: requestId);
+    return response['data'] as bool? ?? false;
+  }
+
+  Future<ClaudeCodeSession?> ccForkSession(
+    String sessionId, {
+    String? messageId,
+    String? cwd,
+  }) async {
+    final requestId = _generateRequestId();
+    _socket.send({
+      'type': 'cc_fork_session',
+      'sessionId': sessionId,
+      'requestId': requestId,
+      if (messageId != null) 'messageId': messageId,
+      if (cwd != null) 'cwd': cwd,
+    });
+    try {
+      final response = await _waitFor(
+        'cc_session_forked',
+        requestId: requestId,
+      );
+      final data = response['data'] as Map<String, dynamic>?;
+      if (data == null) return null;
+      return ClaudeCodeSession.fromJson(data);
+    } catch (_) {
+      return null;
+    }
+  }
+
+  // ============================================================
+  // Claude Code - Chat (Streaming)
+  // ============================================================
+
+  void ccChat({
+    String? sessionId,
+    required String prompt,
+    String? cwd,
+    String? model,
+    ClaudeCodePermissionMode? permissionMode,
+    List<String>? allowedTools,
+    List<String>? disallowedTools,
+    int? maxThinkingTokens,
+  }) {
+    final guardKey = 'cc_chat:${sessionId ?? 'new'}:${prompt.hashCode}';
+    if (!_guardFireAndForget(guardKey, cooldown: const Duration(seconds: 2))) {
+      return;
+    }
+
+    _socket.send({
+      'type': 'cc_chat',
+      if (sessionId != null) 'sessionId': sessionId,
+      'prompt': prompt,
+      if (cwd != null) 'cwd': cwd,
+      if (model != null) 'model': model,
+      if (permissionMode != null) 'permissionMode': permissionMode.wireValue,
+      if (allowedTools != null) 'allowedTools': allowedTools,
+      if (disallowedTools != null) 'disallowedTools': disallowedTools,
+      if (maxThinkingTokens != null) 'maxThinkingTokens': maxThinkingTokens,
+    });
+  }
+
+  void ccAbort(String sessionId) {
+    _socket.send({'type': 'cc_abort', 'sessionId': sessionId});
+  }
+
+  void ccRespondToPermission({
+    required String sessionId,
+    required String toolUseId,
+    required String response,
+  }) {
+    _socket.send({
+      'type': 'cc_permission_response',
+      'sessionId': sessionId,
+      'toolUseId': toolUseId,
+      'response': response,
+    });
+  }
+
+  Stream<ClaudeCodeStreamMessage> get ccStreamMessages =>
+      _socket.messages.where((m) => m['type'] == 'cc_stream').map((m) {
+        final data = m['data'] as Map<String, dynamic>? ?? {};
+        return ClaudeCodeStreamMessage.fromJson(data);
+      });
+
+  // ============================================================
+  // Claude Code - Skills, Hooks, Commands
+  // ============================================================
+
+  Future<List<ClaudeCodeSkill>> ccListSkills({String? cwd}) async {
+    final requestId = _generateRequestId();
+    _socket.send({
+      'type': 'cc_list_skills',
+      'requestId': requestId,
+      if (cwd != null) 'cwd': cwd,
+    });
+    final response = await _waitFor('cc_skills', requestId: requestId);
+    final data = response['data'] as List<dynamic>? ?? [];
+    return data
+        .map((item) => ClaudeCodeSkill.fromJson(item as Map<String, dynamic>))
+        .toList();
+  }
+
+  Future<List<ClaudeCodeHook>> ccListHooks({String? cwd}) async {
+    final requestId = _generateRequestId();
+    _socket.send({
+      'type': 'cc_list_hooks',
+      'requestId': requestId,
+      if (cwd != null) 'cwd': cwd,
+    });
+    final response = await _waitFor('cc_hooks', requestId: requestId);
+    final data = response['data'] as List<dynamic>? ?? [];
+    return data
+        .map((item) => ClaudeCodeHook.fromJson(item as Map<String, dynamic>))
+        .toList();
+  }
+
+  Future<List<ClaudeCodeCommand>> ccListCommands({String? cwd}) async {
+    final requestId = _generateRequestId();
+    _socket.send({
+      'type': 'cc_list_commands',
+      'requestId': requestId,
+      if (cwd != null) 'cwd': cwd,
+    });
+    final response = await _waitFor('cc_commands', requestId: requestId);
+    final data = response['data'] as List<dynamic>? ?? [];
+    return data
+        .map((item) => ClaudeCodeCommand.fromJson(item as Map<String, dynamic>))
+        .toList();
+  }
+
+  // ============================================================
+  // Claude Code - Config
+  // ============================================================
+
+  Future<ClaudeCodeConfig> ccGetConfig() async {
+    final requestId = _generateRequestId();
+    _socket.send({'type': 'cc_get_config', 'requestId': requestId});
+    final response = await _waitFor('cc_config', requestId: requestId);
+    final data = response['data'] as Map<String, dynamic>? ?? {};
+    return ClaudeCodeConfig.fromJson(data);
+  }
+
+  Future<ClaudeCodeConfig> ccSetConfig(ClaudeCodeConfig config) async {
+    final requestId = _generateRequestId();
+    _socket.send({
+      'type': 'cc_set_config',
+      'config': config.toJson(),
+      'requestId': requestId,
+    });
+    final response = await _waitFor('cc_config_updated', requestId: requestId);
+    final data = response['data'] as Map<String, dynamic>? ?? {};
+    return ClaudeCodeConfig.fromJson(data);
   }
 
   // ============================================================

@@ -14,6 +14,7 @@ class StorageService {
   static const _lastBrowsePathKey = 'broski_last_browse_path';
   static const _notificationsEnabledKey = 'broski_notifications_enabled';
   static const _deviceIdKey = 'broski_device_id';
+  static const _selectedAgentTypeKey = 'broski_selected_agent_type';
 
   static const _uuid = Uuid();
 
@@ -414,5 +415,13 @@ class StorageService {
       key: _notificationsEnabledKey,
       value: enabled.toString(),
     );
+  }
+
+  Future<String?> getSelectedAgentType() async {
+    return _storage.read(key: _selectedAgentTypeKey);
+  }
+
+  Future<void> setSelectedAgentType(String agentType) async {
+    await _storage.write(key: _selectedAgentTypeKey, value: agentType);
   }
 }

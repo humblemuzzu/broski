@@ -7,6 +7,7 @@ import 'package:share_plus/share_plus.dart';
 import 'package:url_launcher/url_launcher.dart';
 
 import '../models/agent.dart';
+import '../models/claude_code.dart';
 import '../models/command.dart';
 import '../models/file_attachment.dart';
 import '../models/message.dart';
@@ -15,6 +16,7 @@ import '../models/session.dart';
 import '../models/session_context.dart';
 import '../models/vcs.dart';
 import '../providers/chat_provider.dart';
+import '../providers/claude_code_provider.dart';
 import '../providers/connection_provider.dart';
 import '../providers/file_search_provider.dart';
 import '../providers/input_style_provider.dart';
@@ -45,10 +47,76 @@ Color fade(Color color, double opacity) {
 }
 
 class ChatScreen extends ConsumerStatefulWidget {
-  const ChatScreen({super.key, required this.project, required this.session});
+  /// Constructor for OpenCode sessions
+  const ChatScreen({super.key, required this.project, required this.session})
+    : ccSession = null,
+      ccDraftCwd = null,
+      ccDraftTitle = null,
+      ccDraftModel = null,
+      isClaudeCode = false;
+
+  /// Named constructor for Claude Code sessions
+  const ChatScreen.claudeCode({super.key, required this.ccSession})
+    : project = const ProjectSummary(id: '', name: '', path: ''),
+      session = const SessionSummary(
+        id: '',
+        title: '',
+        projectID: '',
+        directory: '',
+        time: SessionTime(created: 0, updated: 0),
+      ),
+      ccDraftCwd = null,
+      ccDraftTitle = null,
+      ccDraftModel = null,
+      isClaudeCode = true;
+
+  /// Named constructor for a new Claude Code chat (session ID assigned on first turn)
+  const ChatScreen.claudeCodeDraft({
+    super.key,
+    required String cwd,
+    String? title,
+    String? model,
+  }) : project = const ProjectSummary(id: '', name: '', path: ''),
+       session = const SessionSummary(
+         id: '',
+         title: '',
+         projectID: '',
+         directory: '',
+         time: SessionTime(created: 0, updated: 0),
+       ),
+       ccSession = null,
+       ccDraftCwd = cwd,
+       ccDraftTitle = title,
+       ccDraftModel = model,
+       isClaudeCode = true;
 
   final ProjectSummary project;
   final SessionSummary session;
+  final ClaudeCodeSession? ccSession;
+  final String? ccDraftCwd;
+  final String? ccDraftTitle;
+  final String? ccDraftModel;
+  final bool isClaudeCode;
+
+  /// Get the effective session ID
+  String get effectiveSessionId =>
+      isClaudeCode ? (ccSession?.id ?? '') : session.id;
+
+  /// Get the effective project path
+  String get effectivePath =>
+      isClaudeCode ? (ccSession?.cwd ?? ccDraftCwd ?? '') : project.path;
+
+  /// Get the effective title
+  String get effectiveTitle => isClaudeCode
+      ? (ccSession?.displayTitle ?? ccDraftTitle ?? 'Claude Code')
+      : session.title;
+
+  /// Get project name from path
+  String get projectName {
+    final path = effectivePath;
+    final parts = path.split('/').where((p) => p.isNotEmpty).toList();
+    return parts.isEmpty ? 'Unknown' : parts.last;
+  }
 
   @override
   ConsumerState<ChatScreen> createState() => _ChatScreenState();
@@ -90,6 +158,10 @@ class _ChatScreenState extends ConsumerState<ChatScreen>
   final List<FileAttachment> _attachedFiles = [];
   bool _showFileAutocomplete = false;
 
+  // Feature 22: Agent @ mentions
+  bool _showAgentAutocomplete = false;
+  String _agentQuery = '';
+
   // Focus node for input bar - needed to restore focus after autocomplete appears
   final FocusNode _inputFocusNode = FocusNode();
 
@@ -103,10 +175,14 @@ class _ChatScreenState extends ConsumerState<ChatScreen>
   void initState() {
     super.initState();
     final bridge = ref.read(bridgeServiceProvider);
-    bridge.setView(
-      projectPath: widget.project.path,
-      sessionId: widget.session.id,
-    );
+
+    // Set up view routing (OpenCode only - CC doesn't need this)
+    if (!widget.isClaudeCode) {
+      bridge.setView(
+        projectPath: widget.project.path,
+        sessionId: widget.session.id,
+      );
+    }
 
     ref.listen(connectionProvider, (previous, next) {
       final wasConnected = previous?.status == ConnectionStatus.connected;
@@ -115,10 +191,12 @@ class _ChatScreenState extends ConsumerState<ChatScreen>
         // Re-assert view routing and re-sync session state after network flips.
         if (_resyncingAfterReconnect) return;
         _resyncingAfterReconnect = true;
-        bridge.setView(
-          projectPath: widget.project.path,
-          sessionId: widget.session.id,
-        );
+        if (!widget.isClaudeCode) {
+          bridge.setView(
+            projectPath: widget.project.path,
+            sessionId: widget.session.id,
+          );
+        }
         _hydrateSession().whenComplete(() {
           _resyncingAfterReconnect = false;
         });
@@ -132,8 +210,16 @@ class _ChatScreenState extends ConsumerState<ChatScreen>
     _hydrateSession();
     _controller.addListener(_onTextChanged);
     _scrollController.addListener(_onScroll);
+
+    // Load commands for both modes (different implementations)
     _loadCommandsAndAgents();
-    _loadVcsInfo();
+
+    if (!widget.isClaudeCode) {
+      _loadVcsInfo();
+    } else {
+      // Preload Claude Code config so the tools sheet is instant.
+      ref.read(ccConfigProvider.notifier).load();
+    }
   }
 
   Future<void> _hydrateSession() async {
@@ -146,6 +232,37 @@ class _ChatScreenState extends ConsumerState<ChatScreen>
       _loadingMoreMessages = false;
       _hasLoadedAllMessages = false;
     });
+
+    // Claude Code mode - set up CC session in provider (session ID may be assigned on first turn)
+    if (widget.isClaudeCode) {
+      final cwd = widget.ccSession?.cwd ?? widget.ccDraftCwd ?? '';
+      chat.setCCSession(
+        sessionId: widget.ccSession?.id ?? '',
+        cwd: cwd,
+        model: widget.ccSession?.model ?? widget.ccDraftModel,
+        title: widget.ccSession?.displayTitle ?? widget.ccDraftTitle,
+      );
+
+      // If this is an existing Claude Code session, hydrate transcript from host.
+      final sessionId = widget.ccSession?.id;
+      if (sessionId != null && sessionId.isNotEmpty) {
+        try {
+          final items = await ref
+              .read(bridgeServiceProvider)
+              .ccGetSessionMessages(sessionId, cwd: cwd);
+          chat.hydrateClaudeCodeTranscript(items);
+        } catch (_) {
+          // Best-effort: leave empty; streaming still works.
+        }
+      }
+
+      _scrollToBottom(animate: false);
+      setState(() => _hasLoadedAllMessages = true);
+      return;
+    }
+
+    // OpenCode mode - set up OC session in provider
+    chat.setSession(widget.session, projectPath: widget.project.path);
 
     // In offline mode, load from cache (all messages)
     if (connection.isOfflineMode) {
@@ -216,6 +333,14 @@ class _ChatScreenState extends ConsumerState<ChatScreen>
   // Feature 2 & 3: Load available commands and agents
   Future<void> _loadCommandsAndAgents() async {
     final bridge = ref.read(bridgeServiceProvider);
+
+    // Claude Code mode - load CC commands
+    if (widget.isClaudeCode) {
+      await _loadClaudeCodeCommands();
+      return;
+    }
+
+    // OpenCode mode
     try {
       final commands = await bridge.listCommands(
         projectPath: widget.project.path,
@@ -232,6 +357,70 @@ class _ChatScreenState extends ConsumerState<ChatScreen>
       if (mounted) {
         setState(() {
           _agents = kDefaultAgents;
+        });
+      }
+    }
+  }
+
+  /// Load slash commands for Claude Code
+  Future<void> _loadClaudeCodeCommands() async {
+    final bridge = ref.read(bridgeServiceProvider);
+    final cwd = widget.ccSession?.cwd ?? widget.ccDraftCwd;
+
+    try {
+      // Fetch custom commands from .claude/commands/ directories
+      final ccCommands = await bridge.ccListCommands(cwd: cwd);
+
+      // Built-in Claude Code commands
+      const builtInCommands = [
+        SlashCommand(
+          name: 'compact',
+          description: 'Summarize conversation to free context',
+          builtin: true,
+        ),
+        SlashCommand(
+          name: 'clear',
+          description: 'Clear conversation and start fresh',
+          builtin: true,
+        ),
+        SlashCommand(
+          name: 'help',
+          description: 'Show available commands',
+          builtin: true,
+        ),
+      ];
+
+      // Convert CC commands to SlashCommand and merge
+      final customCommands = ccCommands
+          .map((c) => c.toSlashCommand(builtin: false))
+          .toList();
+
+      if (mounted) {
+        setState(() {
+          _commands = [...builtInCommands, ...customCommands];
+        });
+      }
+    } catch (e) {
+      // Use just built-in commands if loading fails
+      if (mounted) {
+        setState(() {
+          _commands = const [
+            SlashCommand(
+              name: 'compact',
+              description: 'Summarize conversation to free context',
+              builtin: true,
+            ),
+            SlashCommand(
+              name: 'clear',
+              description: 'Clear conversation and start fresh',
+              builtin: true,
+            ),
+            SlashCommand(
+              name: 'help',
+              description: 'Show available commands',
+              builtin: true,
+            ),
+          ];
         });
       }
     }
@@ -286,44 +475,92 @@ class _ChatScreenState extends ConsumerState<ChatScreen>
     }
   }
 
-  // Feature 6: Fork Session
   Future<void> _forkSession({String? messageId}) async {
     _haptics.mediumImpact();
+    final theme = OpenCodeTheme.of(context);
     try {
       final bridge = ref.read(bridgeServiceProvider);
-      final forkedSession = await bridge.forkSession(
-        widget.session.id,
-        messageId: messageId,
-        projectPath: widget.project.path,
-      );
-      if (!mounted) return;
 
-      final theme = OpenCodeTheme.of(context);
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text('Session forked: ${forkedSession.title}'),
-          backgroundColor: theme.backgroundPanel,
-          action: SnackBarAction(
-            label: 'Open',
-            textColor: theme.primary,
-            onPressed: () {
-              // Navigate to the forked session
-              Navigator.pushReplacement(
-                context,
-                MaterialPageRoute(
-                  builder: (_) => ChatScreen(
-                    project: widget.project,
-                    session: forkedSession,
+      if (widget.isClaudeCode) {
+        final chatState = ref.read(chatSessionProvider);
+        final sessionId = chatState.ccSessionId ?? widget.ccSession?.id;
+        if (sessionId == null || sessionId.isEmpty) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: const Text('Cannot fork: no active session'),
+              backgroundColor: theme.error,
+            ),
+          );
+          return;
+        }
+
+        final forkedCC = await bridge.ccForkSession(
+          sessionId,
+          messageId: messageId,
+          cwd: chatState.ccCwd ?? widget.ccSession?.cwd,
+        );
+        if (!mounted) return;
+
+        if (forkedCC == null) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: const Text('Failed to fork session'),
+              backgroundColor: theme.error,
+            ),
+          );
+          return;
+        }
+
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Session forked: ${forkedCC.displayTitle}'),
+            backgroundColor: theme.backgroundPanel,
+            action: SnackBarAction(
+              label: 'Open',
+              textColor: theme.primary,
+              onPressed: () {
+                Navigator.pushReplacement(
+                  context,
+                  MaterialPageRoute(
+                    builder: (_) => ChatScreen.claudeCode(ccSession: forkedCC),
                   ),
-                ),
-              );
-            },
+                );
+              },
+            ),
           ),
-        ),
-      );
+        );
+      } else {
+        final forkedSession = await bridge.forkSession(
+          widget.session.id,
+          messageId: messageId,
+          projectPath: widget.project.path,
+        );
+        if (!mounted) return;
+
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Session forked: ${forkedSession.title}'),
+            backgroundColor: theme.backgroundPanel,
+            action: SnackBarAction(
+              label: 'Open',
+              textColor: theme.primary,
+              onPressed: () {
+                Navigator.pushReplacement(
+                  context,
+                  MaterialPageRoute(
+                    builder: (_) => ChatScreen(
+                      project: widget.project,
+                      session: forkedSession,
+                    ),
+                  ),
+                );
+              },
+            ),
+          ),
+        );
+      }
     } catch (e) {
       if (!mounted) return;
-      final theme = OpenCodeTheme.of(context);
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: Text('Failed to fork session: $e'),
@@ -782,7 +1019,7 @@ class _ChatScreenState extends ConsumerState<ChatScreen>
     final isSlashCommand =
         text.startsWith('/') && text.isNotEmpty && !text.contains(' ');
 
-    // Detect @ file mention - check for @something at cursor position
+    // Detect @ mention - check for @something at cursor position
     final atMatch = RegExp(r'@(\S*)$').firstMatch(text);
 
     if (isSlashCommand) {
@@ -791,32 +1028,78 @@ class _ChatScreenState extends ConsumerState<ChatScreen>
         setState(() {
           _showCommandAutocomplete = true;
           _showFileAutocomplete = false;
+          _showAgentAutocomplete = false;
           _commandFilter = filter;
+          _agentQuery = '';
         });
         fileSearch.clear();
       }
     } else if (atMatch != null) {
       final query = atMatch.group(1) ?? '';
-      fileSearch.setProjectPath(widget.project.path);
-      fileSearch.search(query);
-      final wasShowingAutocomplete = _showFileAutocomplete;
-      setState(() {
-        _showCommandAutocomplete = false;
-        _showFileAutocomplete = true;
-        _commandFilter = '';
-      });
-      // Restore focus after autocomplete appears (fixes keyboard dismissal on mobile)
-      if (!wasShowingAutocomplete) {
-        WidgetsBinding.instance.addPostFrameCallback((_) {
-          if (mounted) _inputFocusNode.requestFocus();
-        });
-      }
-    } else {
-      if (_showCommandAutocomplete || _showFileAutocomplete) {
+      final lowerQuery = query.toLowerCase();
+
+      // Check if this matches any agent name (prioritize agents over files)
+      // Only show agent autocomplete if:
+      // 1. Query is empty (just typed @) - show both options
+      // 2. Query matches an agent name prefix
+      final matchesAgent = _agents.any(
+        (a) =>
+            a.name.toLowerCase().startsWith(lowerQuery) ||
+            (a.description?.toLowerCase().contains(lowerQuery) ?? false),
+      );
+
+      // If query is short and could be an agent, show agent autocomplete first
+      // Once query is longer and doesn't match agents, fall back to file search
+      final shouldShowAgents =
+          query.isEmpty || (query.length <= 10 && matchesAgent);
+
+      if (shouldShowAgents && _agents.isNotEmpty) {
+        // Show agent autocomplete
+        final wasShowingAutocomplete = _showAgentAutocomplete;
         setState(() {
           _showCommandAutocomplete = false;
           _showFileAutocomplete = false;
+          _showAgentAutocomplete = true;
+          _agentQuery = query;
           _commandFilter = '';
+        });
+        fileSearch.clear();
+        // Restore focus after autocomplete appears
+        if (!wasShowingAutocomplete) {
+          WidgetsBinding.instance.addPostFrameCallback((_) {
+            if (mounted) _inputFocusNode.requestFocus();
+          });
+        }
+      } else {
+        // Show file autocomplete
+        // Use effectivePath for both OpenCode (project.path) and Claude Code (ccSession.cwd)
+        fileSearch.setProjectPath(widget.effectivePath);
+        fileSearch.search(query);
+        final wasShowingAutocomplete = _showFileAutocomplete;
+        setState(() {
+          _showCommandAutocomplete = false;
+          _showFileAutocomplete = true;
+          _showAgentAutocomplete = false;
+          _agentQuery = '';
+          _commandFilter = '';
+        });
+        // Restore focus after autocomplete appears (fixes keyboard dismissal on mobile)
+        if (!wasShowingAutocomplete) {
+          WidgetsBinding.instance.addPostFrameCallback((_) {
+            if (mounted) _inputFocusNode.requestFocus();
+          });
+        }
+      }
+    } else {
+      if (_showCommandAutocomplete ||
+          _showFileAutocomplete ||
+          _showAgentAutocomplete) {
+        setState(() {
+          _showCommandAutocomplete = false;
+          _showFileAutocomplete = false;
+          _showAgentAutocomplete = false;
+          _commandFilter = '';
+          _agentQuery = '';
         });
         fileSearch.clear();
       } else {
@@ -826,6 +1109,13 @@ class _ChatScreenState extends ConsumerState<ChatScreen>
   }
 
   void _handleFileSelection(FileAttachment attachment) {
+    // For Claude Code, just insert the @path as text (SDK handles file references)
+    if (widget.isClaudeCode) {
+      _handleFileSelectionAsText(attachment);
+      return;
+    }
+
+    // For OpenCode, add as file attachment
     if (_attachedFiles.contains(attachment)) return;
 
     final text = _controller.text;
@@ -838,6 +1128,36 @@ class _ChatScreenState extends ConsumerState<ChatScreen>
       _showFileAutocomplete = false;
     });
     ref.read(fileSearchProvider.notifier).clear();
+  }
+
+  /// For Claude Code: Insert file path as @path text instead of attachment
+  void _handleFileSelectionAsText(FileAttachment attachment) {
+    final text = _controller.text;
+    // Replace @query with @path (keep the @ and add a space)
+    final newText = text.replaceFirst(RegExp(r'@\S*$'), '@${attachment.path} ');
+    _controller.text = newText;
+    _controller.selection = TextSelection.collapsed(offset: newText.length);
+
+    setState(() {
+      _showFileAutocomplete = false;
+    });
+    ref.read(fileSearchProvider.notifier).clear();
+  }
+
+  /// Handle @agent selection - replace @query with @agentname and set as selected agent
+  void _handleAgentSelection(Agent agent) {
+    final text = _controller.text;
+    // Replace @query with @agentname (keep the @ and agent name in the message)
+    final newText = text.replaceFirst(RegExp(r'@\S*$'), '@${agent.name} ');
+    _controller.text = newText;
+    _controller.selection = TextSelection.collapsed(offset: newText.length);
+
+    setState(() {
+      _showAgentAutocomplete = false;
+      _agentQuery = '';
+      // Also set as the selected agent for this message
+      _selectedAgent = agent.name;
+    });
   }
 
   void _removeAttachedFile(FileAttachment attachment) {
@@ -898,6 +1218,1007 @@ class _ChatScreenState extends ConsumerState<ChatScreen>
           ),
         ),
       ),
+    );
+  }
+
+  void _showClaudeCodeToolsSheet() {
+    final theme = OpenCodeTheme.of(context);
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (_) {
+        return SafeArea(
+          child: Container(
+            decoration: BoxDecoration(
+              color: theme.backgroundPanel,
+              borderRadius: const BorderRadius.vertical(
+                top: Radius.circular(18),
+              ),
+              border: Border.all(
+                color: theme.borderSubtle.withValues(alpha: 0.2),
+              ),
+            ),
+            padding: const EdgeInsets.fromLTRB(16, 16, 16, 20),
+            child: Consumer(
+              builder: (context, ref, _) {
+                final chatState = ref.watch(chatSessionProvider);
+                final init = chatState.ccInit;
+                final configAsync = ref.watch(ccConfigProvider);
+
+                final config =
+                    configAsync.valueOrNull ??
+                    ClaudeCodeConfig(
+                      permissionMode: ClaudeCodePermissionMode.defaultMode,
+                      allowedTools: init?.tools ?? const [],
+                      disallowedTools: const [],
+                      model: init?.model,
+                    );
+
+                final toolUniverse = <String>{
+                  ...config.allowedTools,
+                  ...config.disallowedTools,
+                  ...?init?.tools,
+                }.toList()..sort();
+
+                void updateConfig(ClaudeCodeConfig next) {
+                  ref.read(ccConfigProvider.notifier).updateConfig(next);
+                }
+
+                return Column(
+                  mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Row(
+                      children: [
+                        Icon(Icons.tune_rounded, color: theme.accent, size: 18),
+                        const SizedBox(width: 10),
+                        Expanded(
+                          child: Text(
+                            'Claude Code Tools',
+                            style: TextStyle(
+                              color: theme.text,
+                              fontSize: 16,
+                              fontWeight: FontWeight.w700,
+                            ),
+                          ),
+                        ),
+                        IconButton(
+                          onPressed: () => Navigator.pop(context),
+                          icon: Icon(
+                            Icons.close_rounded,
+                            color: theme.textMuted,
+                          ),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 6),
+                    Text(
+                      'Controls permissions and which tools Claude Code can use in this session.',
+                      style: TextStyle(color: theme.textMuted, fontSize: 13),
+                    ),
+                    const SizedBox(height: 14),
+
+                    // Permission mode
+                    Row(
+                      children: [
+                        Text(
+                          'Permission mode',
+                          style: TextStyle(
+                            color: theme.text,
+                            fontSize: 13,
+                            fontWeight: FontWeight.w600,
+                          ),
+                        ),
+                        const Spacer(),
+                        DropdownButtonHideUnderline(
+                          child: DropdownButton<ClaudeCodePermissionMode>(
+                            value: config.permissionMode,
+                            dropdownColor: theme.backgroundPanel,
+                            style: TextStyle(color: theme.text, fontSize: 13),
+                            items: ClaudeCodePermissionMode.values
+                                .map(
+                                  (m) => DropdownMenuItem(
+                                    value: m,
+                                    child: Text(m.displayName),
+                                  ),
+                                )
+                                .toList(),
+                            onChanged: (value) {
+                              if (value == null) return;
+                              updateConfig(
+                                config.copyWith(permissionMode: value),
+                              );
+                            },
+                          ),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 12),
+
+                    // System prompt
+                    Row(
+                      children: [
+                        Text(
+                          'System prompt',
+                          style: TextStyle(
+                            color: theme.text,
+                            fontSize: 13,
+                            fontWeight: FontWeight.w600,
+                          ),
+                        ),
+                        const Spacer(),
+                        DropdownButtonHideUnderline(
+                          child: DropdownButton<String>(
+                            value: config.systemPrompt?.isEmpty ?? true
+                                ? 'none'
+                                : config.systemPrompt?.preset != null
+                                ? 'preset'
+                                : 'custom',
+                            dropdownColor: theme.backgroundPanel,
+                            style: TextStyle(color: theme.text, fontSize: 13),
+                            items: const [
+                              DropdownMenuItem(
+                                value: 'none',
+                                child: Text('None'),
+                              ),
+                              DropdownMenuItem(
+                                value: 'preset',
+                                child: Text('Claude Code'),
+                              ),
+                              DropdownMenuItem(
+                                value: 'custom',
+                                child: Text('Custom...'),
+                              ),
+                            ],
+                            onChanged: (value) async {
+                              if (value == null) return;
+                              if (value == 'none') {
+                                updateConfig(
+                                  config.copyWith(
+                                    systemPrompt:
+                                        const ClaudeCodeSystemPrompt(),
+                                  ),
+                                );
+                              } else if (value == 'preset') {
+                                updateConfig(
+                                  config.copyWith(
+                                    systemPrompt: const ClaudeCodeSystemPrompt(
+                                      preset: 'claude_code',
+                                    ),
+                                  ),
+                                );
+                              } else if (value == 'custom') {
+                                final customText =
+                                    await _promptSystemPromptText();
+                                if (customText != null &&
+                                    customText.isNotEmpty) {
+                                  updateConfig(
+                                    config.copyWith(
+                                      systemPrompt: ClaudeCodeSystemPrompt(
+                                        text: customText,
+                                      ),
+                                    ),
+                                  );
+                                }
+                              }
+                            },
+                          ),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 12),
+
+                    // Tools list
+                    Flexible(
+                      child: ListView.builder(
+                        shrinkWrap: true,
+                        itemCount: toolUniverse.length,
+                        itemBuilder: (context, index) {
+                          final tool = toolUniverse[index];
+                          final enabled = !config.disallowedTools.contains(
+                            tool,
+                          );
+                          return SwitchListTile(
+                            dense: true,
+                            contentPadding: EdgeInsets.zero,
+                            title: Text(
+                              tool,
+                              style: TextStyle(color: theme.text, fontSize: 13),
+                            ),
+                            value: enabled,
+                            onChanged: (v) {
+                              final allowed = [...config.allowedTools];
+                              final disallowed = [...config.disallowedTools];
+
+                              if (v) {
+                                disallowed.remove(tool);
+                                if (!allowed.contains(tool)) allowed.add(tool);
+                              } else {
+                                allowed.remove(tool);
+                                if (!disallowed.contains(tool))
+                                  disallowed.add(tool);
+                              }
+
+                              updateConfig(
+                                config.copyWith(
+                                  allowedTools: allowed,
+                                  disallowedTools: disallowed,
+                                ),
+                              );
+                            },
+                          );
+                        },
+                      ),
+                    ),
+                  ],
+                );
+              },
+            ),
+          ),
+        );
+      },
+    );
+  }
+
+  Future<String?> _promptSystemPromptText() async {
+    final theme = OpenCodeTheme.of(context);
+    final controller = TextEditingController();
+    return showDialog<String>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        backgroundColor: theme.backgroundPanel,
+        title: Text(
+          'Custom System Prompt',
+          style: TextStyle(color: theme.text),
+        ),
+        content: SizedBox(
+          width: double.maxFinite,
+          child: TextField(
+            controller: controller,
+            maxLines: 5,
+            style: TextStyle(color: theme.text, fontSize: 14),
+            decoration: InputDecoration(
+              hintText: 'Enter custom instructions for Claude...',
+              hintStyle: TextStyle(color: theme.textMuted),
+              filled: true,
+              fillColor: theme.background,
+              border: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(8),
+                borderSide: BorderSide(color: theme.borderSubtle),
+              ),
+              enabledBorder: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(8),
+                borderSide: BorderSide(color: theme.borderSubtle),
+              ),
+              focusedBorder: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(8),
+                borderSide: BorderSide(color: theme.primary),
+              ),
+            ),
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx),
+            child: Text('Cancel', style: TextStyle(color: theme.textMuted)),
+          ),
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, controller.text.trim()),
+            child: Text('Save', style: TextStyle(color: theme.primary)),
+          ),
+        ],
+      ),
+    );
+  }
+
+  void _showClaudeCodeCommandsSheet() {
+    final theme = OpenCodeTheme.of(context);
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (_) {
+        return SafeArea(
+          child: Container(
+            decoration: BoxDecoration(
+              color: theme.backgroundPanel,
+              borderRadius: const BorderRadius.vertical(
+                top: Radius.circular(18),
+              ),
+              border: Border.all(
+                color: theme.borderSubtle.withValues(alpha: 0.2),
+              ),
+            ),
+            padding: const EdgeInsets.fromLTRB(16, 16, 16, 20),
+            child: Consumer(
+              builder: (context, ref, _) {
+                final chatState = ref.watch(chatSessionProvider);
+                final cwd = chatState.ccCwd;
+                final builtins = chatState.ccInit?.slashCommands ?? const [];
+                final customAsync = ref.watch(ccCommandsProvider(cwd));
+
+                List<String> custom = const [];
+                if (customAsync.hasValue) {
+                  custom = customAsync.value!
+                      .map((c) => '/${c.name}')
+                      .toList(growable: false);
+                }
+
+                final all = <String>{...builtins, ...custom}.toList()..sort();
+
+                return Column(
+                  mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Row(
+                      children: [
+                        Icon(Icons.bolt_rounded, color: theme.accent, size: 18),
+                        const SizedBox(width: 10),
+                        Expanded(
+                          child: Text(
+                            'Commands',
+                            style: TextStyle(
+                              color: theme.text,
+                              fontSize: 16,
+                              fontWeight: FontWeight.w700,
+                            ),
+                          ),
+                        ),
+                        IconButton(
+                          onPressed: () => Navigator.pop(context),
+                          icon: Icon(
+                            Icons.close_rounded,
+                            color: theme.textMuted,
+                          ),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 8),
+                    if (all.isEmpty)
+                      Padding(
+                        padding: const EdgeInsets.only(top: 8),
+                        child: Text(
+                          'No commands found for this project.',
+                          style: TextStyle(
+                            color: theme.textMuted,
+                            fontSize: 13,
+                          ),
+                        ),
+                      )
+                    else
+                      Flexible(
+                        child: ListView.builder(
+                          shrinkWrap: true,
+                          itemCount: all.length,
+                          itemBuilder: (context, index) {
+                            final cmd = all[index];
+                            return ListTile(
+                              dense: true,
+                              contentPadding: EdgeInsets.zero,
+                              leading: Icon(
+                                Icons.chevron_right_rounded,
+                                color: theme.textMuted,
+                                size: 18,
+                              ),
+                              title: Text(
+                                cmd,
+                                style: TextStyle(
+                                  color: theme.text,
+                                  fontSize: 13,
+                                ),
+                              ),
+                              onTap: () {
+                                final normalized = cmd.startsWith('/')
+                                    ? cmd
+                                    : '/$cmd';
+                                _controller.text = '$normalized ';
+                                _controller
+                                    .selection = TextSelection.fromPosition(
+                                  TextPosition(offset: _controller.text.length),
+                                );
+                                Navigator.pop(context);
+                                WidgetsBinding.instance.addPostFrameCallback((
+                                  _,
+                                ) {
+                                  if (mounted) _inputFocusNode.requestFocus();
+                                });
+                              },
+                            );
+                          },
+                        ),
+                      ),
+                  ],
+                );
+              },
+            ),
+          ),
+        );
+      },
+    );
+  }
+
+  void _showClaudeCodeSkillsSheet() {
+    final theme = OpenCodeTheme.of(context);
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (_) {
+        return SafeArea(
+          child: Container(
+            decoration: BoxDecoration(
+              color: theme.backgroundPanel,
+              borderRadius: const BorderRadius.vertical(
+                top: Radius.circular(18),
+              ),
+              border: Border.all(
+                color: theme.borderSubtle.withValues(alpha: 0.2),
+              ),
+            ),
+            padding: const EdgeInsets.fromLTRB(16, 16, 16, 20),
+            child: Consumer(
+              builder: (context, ref, _) {
+                final cwd = ref.watch(chatSessionProvider).ccCwd;
+                final skillsAsync = ref.watch(ccSkillsProvider(cwd));
+
+                return Column(
+                  mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Row(
+                      children: [
+                        Icon(
+                          Icons.auto_awesome_rounded,
+                          color: theme.accent,
+                          size: 18,
+                        ),
+                        const SizedBox(width: 10),
+                        Expanded(
+                          child: Text(
+                            'Skills',
+                            style: TextStyle(
+                              color: theme.text,
+                              fontSize: 16,
+                              fontWeight: FontWeight.w700,
+                            ),
+                          ),
+                        ),
+                        IconButton(
+                          onPressed: () => Navigator.pop(context),
+                          icon: Icon(
+                            Icons.close_rounded,
+                            color: theme.textMuted,
+                          ),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 8),
+                    skillsAsync.when(
+                      data: (skills) {
+                        if (skills.isEmpty) {
+                          return Padding(
+                            padding: const EdgeInsets.only(top: 8),
+                            child: Text(
+                              'No skills found.',
+                              style: TextStyle(
+                                color: theme.textMuted,
+                                fontSize: 13,
+                              ),
+                            ),
+                          );
+                        }
+                        return Flexible(
+                          child: ListView.builder(
+                            shrinkWrap: true,
+                            itemCount: skills.length,
+                            itemBuilder: (context, index) {
+                              final s = skills[index];
+                              return ListTile(
+                                dense: true,
+                                contentPadding: EdgeInsets.zero,
+                                title: Text(
+                                  s.name,
+                                  style: TextStyle(
+                                    color: theme.text,
+                                    fontSize: 13,
+                                  ),
+                                ),
+                                subtitle: s.description == null
+                                    ? null
+                                    : Text(
+                                        s.description!,
+                                        style: TextStyle(
+                                          color: theme.textMuted,
+                                          fontSize: 12,
+                                        ),
+                                      ),
+                                trailing: s.autoInvoke
+                                    ? Container(
+                                        padding: const EdgeInsets.symmetric(
+                                          horizontal: 8,
+                                          vertical: 4,
+                                        ),
+                                        decoration: BoxDecoration(
+                                          color: theme.success.withValues(
+                                            alpha: 0.15,
+                                          ),
+                                          borderRadius: BorderRadius.circular(
+                                            8,
+                                          ),
+                                        ),
+                                        child: Text(
+                                          'Auto',
+                                          style: TextStyle(
+                                            color: theme.success,
+                                            fontSize: 11,
+                                            fontWeight: FontWeight.w600,
+                                          ),
+                                        ),
+                                      )
+                                    : null,
+                              );
+                            },
+                          ),
+                        );
+                      },
+                      loading: () => Padding(
+                        padding: const EdgeInsets.only(top: 16),
+                        child: Center(
+                          child: CircularProgressIndicator(
+                            color: theme.primary,
+                          ),
+                        ),
+                      ),
+                      error: (e, _) => Padding(
+                        padding: const EdgeInsets.only(top: 8),
+                        child: Text(
+                          '$e',
+                          style: TextStyle(color: theme.error, fontSize: 13),
+                        ),
+                      ),
+                    ),
+                  ],
+                );
+              },
+            ),
+          ),
+        );
+      },
+    );
+  }
+
+  void _showClaudeCodeHooksSheet() {
+    final theme = OpenCodeTheme.of(context);
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (_) {
+        return SafeArea(
+          child: Container(
+            decoration: BoxDecoration(
+              color: theme.backgroundPanel,
+              borderRadius: const BorderRadius.vertical(
+                top: Radius.circular(18),
+              ),
+              border: Border.all(
+                color: theme.borderSubtle.withValues(alpha: 0.2),
+              ),
+            ),
+            padding: const EdgeInsets.fromLTRB(16, 16, 16, 20),
+            child: Consumer(
+              builder: (context, ref, _) {
+                final cwd = ref.watch(chatSessionProvider).ccCwd;
+                final hooksAsync = ref.watch(ccHooksProvider(cwd));
+
+                return Column(
+                  mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Row(
+                      children: [
+                        Icon(Icons.link_rounded, color: theme.accent, size: 18),
+                        const SizedBox(width: 10),
+                        Expanded(
+                          child: Text(
+                            'Hooks',
+                            style: TextStyle(
+                              color: theme.text,
+                              fontSize: 16,
+                              fontWeight: FontWeight.w700,
+                            ),
+                          ),
+                        ),
+                        IconButton(
+                          onPressed: () => Navigator.pop(context),
+                          icon: Icon(
+                            Icons.close_rounded,
+                            color: theme.textMuted,
+                          ),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 8),
+                    hooksAsync.when(
+                      data: (hooks) {
+                        if (hooks.isEmpty) {
+                          return Padding(
+                            padding: const EdgeInsets.only(top: 8),
+                            child: Text(
+                              'No hooks found.',
+                              style: TextStyle(
+                                color: theme.textMuted,
+                                fontSize: 13,
+                              ),
+                            ),
+                          );
+                        }
+                        return Flexible(
+                          child: ListView.builder(
+                            shrinkWrap: true,
+                            itemCount: hooks.length,
+                            itemBuilder: (context, index) {
+                              final h = hooks[index];
+                              return ListTile(
+                                dense: true,
+                                contentPadding: EdgeInsets.zero,
+                                title: Text(
+                                  h.event,
+                                  style: TextStyle(
+                                    color: theme.text,
+                                    fontSize: 13,
+                                  ),
+                                ),
+                                subtitle: Text(
+                                  h.matcher == null
+                                      ? 'All tools'
+                                      : 'Matcher: ${h.matcher}',
+                                  style: TextStyle(
+                                    color: theme.textMuted,
+                                    fontSize: 12,
+                                  ),
+                                ),
+                              );
+                            },
+                          ),
+                        );
+                      },
+                      loading: () => Padding(
+                        padding: const EdgeInsets.only(top: 16),
+                        child: Center(
+                          child: CircularProgressIndicator(
+                            color: theme.primary,
+                          ),
+                        ),
+                      ),
+                      error: (e, _) => Padding(
+                        padding: const EdgeInsets.only(top: 8),
+                        child: Text(
+                          '$e',
+                          style: TextStyle(color: theme.error, fontSize: 13),
+                        ),
+                      ),
+                    ),
+                  ],
+                );
+              },
+            ),
+          ),
+        );
+      },
+    );
+  }
+
+  void _showClaudeCodeMcpSheet() {
+    final theme = OpenCodeTheme.of(context);
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (_) {
+        return SafeArea(
+          child: Container(
+            decoration: BoxDecoration(
+              color: theme.backgroundPanel,
+              borderRadius: const BorderRadius.vertical(
+                top: Radius.circular(18),
+              ),
+              border: Border.all(
+                color: theme.borderSubtle.withValues(alpha: 0.2),
+              ),
+            ),
+            padding: const EdgeInsets.fromLTRB(16, 16, 16, 20),
+            child: Consumer(
+              builder: (context, ref, _) {
+                final init = ref.watch(chatSessionProvider).ccInit;
+                final servers = init?.mcpServers ?? const [];
+
+                return Column(
+                  mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Row(
+                      children: [
+                        Icon(Icons.hub_rounded, color: theme.accent, size: 18),
+                        const SizedBox(width: 10),
+                        Expanded(
+                          child: Text(
+                            'MCP Servers',
+                            style: TextStyle(
+                              color: theme.text,
+                              fontSize: 16,
+                              fontWeight: FontWeight.w700,
+                            ),
+                          ),
+                        ),
+                        IconButton(
+                          onPressed: () => Navigator.pop(context),
+                          icon: Icon(
+                            Icons.close_rounded,
+                            color: theme.textMuted,
+                          ),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 8),
+                    if (servers.isEmpty)
+                      Padding(
+                        padding: const EdgeInsets.only(top: 8),
+                        child: Text(
+                          'No MCP servers reported yet (start a turn to initialize).',
+                          style: TextStyle(
+                            color: theme.textMuted,
+                            fontSize: 13,
+                          ),
+                        ),
+                      )
+                    else
+                      Flexible(
+                        child: ListView.builder(
+                          shrinkWrap: true,
+                          itemCount: servers.length,
+                          itemBuilder: (context, index) {
+                            final s = servers[index];
+                            final name = s['name']?.toString() ?? 'server';
+                            final status = s['status']?.toString() ?? '';
+                            return ListTile(
+                              dense: true,
+                              contentPadding: EdgeInsets.zero,
+                              title: Text(
+                                name,
+                                style: TextStyle(
+                                  color: theme.text,
+                                  fontSize: 13,
+                                ),
+                              ),
+                              subtitle: Text(
+                                status,
+                                style: TextStyle(
+                                  color: theme.textMuted,
+                                  fontSize: 12,
+                                ),
+                              ),
+                            );
+                          },
+                        ),
+                      ),
+                  ],
+                );
+              },
+            ),
+          ),
+        );
+      },
+    );
+  }
+
+  void _handleClaudeCodeMenuAction(String value) {
+    switch (value) {
+      case 'cc_model':
+        _showClaudeCodeModelSheet();
+        break;
+      case 'cc_tools':
+        _showClaudeCodeToolsSheet();
+        break;
+      case 'cc_commands':
+        _showClaudeCodeCommandsSheet();
+        break;
+      case 'cc_skills':
+        _showClaudeCodeSkillsSheet();
+        break;
+      case 'cc_hooks':
+        _showClaudeCodeHooksSheet();
+        break;
+      case 'cc_mcp':
+        _showClaudeCodeMcpSheet();
+        break;
+      case 'cc_fork':
+        _forkSession();
+        break;
+    }
+  }
+
+  Future<String?> _promptCustomClaudeModel() async {
+    final controller = TextEditingController();
+    final theme = OpenCodeTheme.of(context);
+    return showDialog<String>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        backgroundColor: theme.backgroundPanel,
+        title: const Text('Custom model'),
+        content: TextField(
+          controller: controller,
+          autofocus: true,
+          decoration: const InputDecoration(
+            hintText: 'e.g. sonnet, opus, haiku, or a full model id',
+            border: OutlineInputBorder(),
+          ),
+          onSubmitted: (value) => Navigator.pop(ctx, value.trim()),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx),
+            child: const Text('Cancel'),
+          ),
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, controller.text.trim()),
+            child: const Text('Save'),
+          ),
+        ],
+      ),
+    );
+  }
+
+  void _showClaudeCodeModelSheet() {
+    final theme = OpenCodeTheme.of(context);
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (_) {
+        return SafeArea(
+          child: Container(
+            decoration: BoxDecoration(
+              color: theme.backgroundPanel,
+              borderRadius: const BorderRadius.vertical(
+                top: Radius.circular(18),
+              ),
+              border: Border.all(
+                color: theme.borderSubtle.withValues(alpha: 0.2),
+              ),
+            ),
+            padding: const EdgeInsets.fromLTRB(16, 16, 16, 20),
+            child: Consumer(
+              builder: (context, ref, _) {
+                final chatState = ref.watch(chatSessionProvider);
+                final init = chatState.ccInit;
+                final configAsync = ref.watch(ccConfigProvider);
+                final config =
+                    configAsync.valueOrNull ??
+                    ClaudeCodeConfig(
+                      permissionMode: ClaudeCodePermissionMode.defaultMode,
+                      allowedTools: init?.tools ?? const [],
+                      disallowedTools: const [],
+                      model: init?.model,
+                    );
+
+                final current =
+                    config.model ??
+                    chatState.ccModel ??
+                    init?.model ??
+                    widget.ccSession?.model ??
+                    widget.ccDraftModel ??
+                    'sonnet';
+
+                Future<void> setModel(String model) async {
+                  await ref
+                      .read(ccConfigProvider.notifier)
+                      .updateConfig(config.copyWith(model: model));
+                  ref.read(chatSessionProvider.notifier).setCCModel(model);
+                }
+
+                Widget modelTile(String model, String label) {
+                  final selected = current == model;
+                  return ListTile(
+                    dense: true,
+                    contentPadding: EdgeInsets.zero,
+                    leading: Icon(
+                      selected
+                          ? Icons.radio_button_checked_rounded
+                          : Icons.radio_button_off_rounded,
+                      size: 18,
+                      color: selected ? theme.accent : theme.textMuted,
+                    ),
+                    title: Text(
+                      label,
+                      style: TextStyle(color: theme.text, fontSize: 13),
+                    ),
+                    subtitle: Text(
+                      model,
+                      style: TextStyle(color: theme.textMuted, fontSize: 12),
+                    ),
+                    onTap: () async {
+                      await setModel(model);
+                      if (!mounted) return;
+                      Navigator.pop(context);
+                    },
+                  );
+                }
+
+                return Column(
+                  mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Row(
+                      children: [
+                        Icon(
+                          Icons.auto_awesome_rounded,
+                          color: theme.accent,
+                          size: 18,
+                        ),
+                        const SizedBox(width: 10),
+                        Expanded(
+                          child: Text(
+                            'Claude Code model',
+                            style: TextStyle(
+                              color: theme.text,
+                              fontSize: 16,
+                              fontWeight: FontWeight.w700,
+                            ),
+                          ),
+                        ),
+                        IconButton(
+                          onPressed: () => Navigator.pop(context),
+                          icon: Icon(
+                            Icons.close_rounded,
+                            color: theme.textMuted,
+                          ),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 6),
+                    Text(
+                      'Select the model used for Claude Code turns.',
+                      style: TextStyle(color: theme.textMuted, fontSize: 13),
+                    ),
+                    const SizedBox(height: 14),
+                    modelTile('sonnet', 'Sonnet'),
+                    modelTile('opus', 'Opus'),
+                    modelTile('haiku', 'Haiku'),
+                    const Divider(),
+                    ListTile(
+                      dense: true,
+                      contentPadding: EdgeInsets.zero,
+                      leading: Icon(
+                        Icons.edit_rounded,
+                        size: 18,
+                        color: theme.textMuted,
+                      ),
+                      title: Text(
+                        'Custom…',
+                        style: TextStyle(color: theme.text, fontSize: 13),
+                      ),
+                      subtitle: Text(
+                        current,
+                        style: TextStyle(color: theme.textMuted, fontSize: 12),
+                      ),
+                      onTap: () async {
+                        final custom = await _promptCustomClaudeModel();
+                        final value = custom?.trim();
+                        if (value == null || value.isEmpty) return;
+                        await setModel(value);
+                        if (!mounted) return;
+                        Navigator.pop(context);
+                      },
+                    ),
+                  ],
+                );
+              },
+            ),
+          ),
+        );
+      },
     );
   }
 
@@ -1302,6 +2623,20 @@ class _ChatScreenState extends ConsumerState<ChatScreen>
               ),
             ),
 
+          // Agent @ mention autocomplete popup
+          if (_showAgentAutocomplete && _agents.isNotEmpty)
+            Positioned(
+              left: 16,
+              right: 16,
+              bottom: 70,
+              child: AgentAutocomplete(
+                agents: _agents,
+                query: _agentQuery,
+                onSelect: _handleAgentSelection,
+                visible: true,
+              ),
+            ),
+
           // Floating input bar at bottom (style based on settings)
           Positioned(
             left: 0,
@@ -1316,33 +2651,55 @@ class _ChatScreenState extends ConsumerState<ChatScreen>
             right: 0,
             top: 0,
             child: _FloatingHeader(
-              projectName: widget.project.name,
+              projectName: widget.projectName,
               isConnected: connection.isConnected,
-              currentModel: ref.watch(selectionProvider).model,
+              currentModel: widget.isClaudeCode
+                  ? null
+                  : ref.watch(selectionProvider).model,
               rttMs: connection.rttMs,
               onBack: () => Navigator.of(context).pop(),
-              onModelTap: () => _showModelSelector(context),
-              onMenu: (value) => _handleMenuAction(value, chatState),
-              onOpenSidebar: () => Scaffold.of(context).openEndDrawer(),
+              onModelTap: widget.isClaudeCode
+                  ? null
+                  : () => _showModelSelector(context),
+              onMenu: widget.isClaudeCode
+                  ? (value) => _handleClaudeCodeMenuAction(value)
+                  : (value) => _handleMenuAction(value, chatState),
+              onOpenSidebar: widget.isClaudeCode
+                  ? null
+                  : () => Scaffold.of(context).openEndDrawer(),
               currentAgent: _selectedAgent,
-              agents: _agents,
-              onAgentChanged: (agent) => setState(() => _selectedAgent = agent),
+              agents: widget.isClaudeCode ? [] : _agents,
+              onAgentChanged: widget.isClaudeCode
+                  ? null
+                  : (agent) => setState(() => _selectedAgent = agent),
               vcsInfo: _vcsInfo,
-              isSessionShared: widget.session.isShared,
+              isSessionShared: widget.isClaudeCode
+                  ? false
+                  : widget.session.isShared,
               isCompacting: chatState.isCompacting,
               sessionStatus: chatState.sessionStatus,
-              isStreaming: _hasStreamingMessage(chatState.messages),
+              isStreaming: widget.isClaudeCode
+                  ? chatState.ccIsStreaming
+                  : _hasStreamingMessage(chatState.messages),
+              isClaudeCode: widget.isClaudeCode,
+              ccModel:
+                  ref.watch(ccConfigProvider).valueOrNull?.model ??
+                  chatState.ccModel ??
+                  chatState.ccInit?.model ??
+                  widget.ccSession?.model ??
+                  widget.ccDraftModel,
             ),
           ),
 
-          // Floating indicator for other running sessions
-          FloatingActiveIndicator(
-            currentSessionId: widget.session.id,
-            onTap: () {
-              // Navigate back to see the sessions list
-              Navigator.pop(context);
-            },
-          ),
+          // Floating indicator for other running sessions (OpenCode only)
+          if (!widget.isClaudeCode)
+            FloatingActiveIndicator(
+              currentSessionId: widget.session.id,
+              onTap: () {
+                // Navigate back to see the sessions list
+                Navigator.pop(context);
+              },
+            ),
         ],
       ),
     );
@@ -1353,7 +2710,9 @@ class _ChatScreenState extends ConsumerState<ChatScreen>
     ChatSessionState chatState,
   ) {
     final inputStyle = ref.watch(inputStyleProvider);
-    final isBusy = _hasStreamingMessage(chatState.messages);
+    final isBusy = widget.isClaudeCode
+        ? chatState.ccIsStreaming
+        : _hasStreamingMessage(chatState.messages);
     final hasContent =
         _controller.text.trim().isNotEmpty || _attachedFiles.isNotEmpty;
     final canSend =
@@ -1371,16 +2730,29 @@ class _ChatScreenState extends ConsumerState<ChatScreen>
         isBusy: isBusy,
         canSend: canSend,
         isOfflineMode: connection.isOfflineMode,
-        currentAgent: _selectedAgent,
-        agents: _agents,
-        onAgentChanged: (agent) => setState(() => _selectedAgent = agent),
-        currentModel: ref.watch(selectionProvider).model,
-        onModelTap: () => _showModelSelector(context),
-        attachedFiles: _attachedFiles,
-        onRemoveAttachment: _removeAttachedFile,
+        currentAgent: widget.isClaudeCode ? null : _selectedAgent,
+        agents: widget.isClaudeCode ? const [] : _agents,
+        onAgentChanged: widget.isClaudeCode
+            ? null
+            : (agent) => setState(() => _selectedAgent = agent),
+        currentModel: widget.isClaudeCode
+            ? null
+            : ref.watch(selectionProvider).model,
+        onModelTap: widget.isClaudeCode
+            ? null
+            : () => _showModelSelector(context),
+        // For CC: no file chips (they're in the text), for OC: file attachment chips
+        attachedFiles: widget.isClaudeCode ? const [] : _attachedFiles,
+        onRemoveAttachment: widget.isClaudeCode ? null : _removeAttachedFile,
+        // Enable file autocomplete for both CC (inserts @path as text) and OC (adds attachment)
         showFileAutocomplete: _showFileAutocomplete,
         onFileSelect: _handleFileSelection,
-        onAttachTap: () => _showAttachmentOptions(context),
+        onAttachTap: widget.isClaudeCode
+            ? () => _showClaudeCodeToolsSheet()
+            : () => _showAttachmentOptions(context),
+        attachIcon: widget.isClaudeCode
+            ? Icons.tune_rounded
+            : Icons.add_rounded,
       );
     } else {
       inputBar = _FloatingInputBar(
@@ -1390,11 +2762,18 @@ class _ChatScreenState extends ConsumerState<ChatScreen>
         isBusy: isBusy,
         canSend: canSend,
         isOfflineMode: connection.isOfflineMode,
-        attachedFiles: _attachedFiles,
-        onRemoveAttachment: _removeAttachedFile,
+        // For CC: no file chips (they're in the text), for OC: file attachment chips
+        attachedFiles: widget.isClaudeCode ? const [] : _attachedFiles,
+        onRemoveAttachment: widget.isClaudeCode ? null : _removeAttachedFile,
+        // Enable file autocomplete for both CC (inserts @path as text) and OC (adds attachment)
         showFileAutocomplete: _showFileAutocomplete,
         onFileSelect: _handleFileSelection,
-        onAttachTap: () => _showAttachmentOptions(context),
+        onAttachTap: widget.isClaudeCode
+            ? () => _showClaudeCodeToolsSheet()
+            : () => _showAttachmentOptions(context),
+        attachIcon: widget.isClaudeCode
+            ? Icons.tune_rounded
+            : Icons.add_rounded,
       );
     }
 
@@ -1623,7 +3002,17 @@ class _ChatScreenState extends ConsumerState<ChatScreen>
           ),
           TextButton(
             onPressed: () {
-              ref.read(bridgeServiceProvider).abortSession(widget.session.id);
+              final bridge = ref.read(bridgeServiceProvider);
+              if (widget.isClaudeCode) {
+                final chatState = ref.read(chatSessionProvider);
+                final sid = chatState.ccSessionId;
+                if (sid != null && sid.isNotEmpty) {
+                  bridge.ccAbort(sid);
+                }
+                ref.read(chatSessionProvider.notifier).setCCStreaming(false);
+              } else {
+                bridge.abortSession(widget.session.id);
+              }
               Navigator.pop(context);
             },
             child: Text('Stop', style: TextStyle(color: theme.error)),
@@ -1663,12 +3052,65 @@ class _ChatScreenState extends ConsumerState<ChatScreen>
     final hasAttachments = _attachedFiles.isNotEmpty;
     if (text.isEmpty && !hasAttachments) return;
     if (!connection.isConnected) return;
-    if (_hasStreamingMessage(chatState.messages)) return;
+
+    // Check for streaming state (different for CC vs OC)
+    if (widget.isClaudeCode) {
+      if (chatState.ccIsStreaming) return;
+    } else {
+      if (_hasStreamingMessage(chatState.messages)) return;
+    }
 
     final bridge = ref.read(bridgeServiceProvider);
     final chat = ref.read(chatSessionProvider.notifier);
     final selectedModel = ref.read(selectionProvider).model;
 
+    // Parse @agent mention from message text
+    // Pattern: @agentname followed by space or end of string
+    // This extracts the agent to use for this message
+    String? messageAgent = _selectedAgent;
+    final agentMatch = RegExp(r'@(\w+)(?:\s|$)').firstMatch(text);
+    if (agentMatch != null) {
+      final mentionedAgent = agentMatch.group(1)?.toLowerCase();
+      // Check if this matches a known agent
+      final matchedAgent = _agents.firstWhere(
+        (a) => a.name.toLowerCase() == mentionedAgent,
+        orElse: () => Agent(name: '', mode: AgentMode.primary),
+      );
+      if (matchedAgent.name.isNotEmpty) {
+        messageAgent = matchedAgent.name;
+      }
+    }
+
+    // Claude Code mode
+    if (widget.isClaudeCode) {
+      final ccConfig = ref.read(ccConfigProvider).valueOrNull;
+      final cwd = chatState.ccCwd ?? widget.ccSession?.cwd ?? widget.ccDraftCwd;
+      final model =
+          ccConfig?.model ??
+          chatState.ccModel ??
+          chatState.ccInit?.model ??
+          widget.ccSession?.model ??
+          widget.ccDraftModel;
+
+      chat.appendUserMessage(text);
+      chat.setCCStreaming(true);
+      bridge.ccChat(
+        sessionId: chatState.ccSessionId,
+        prompt: text,
+        cwd: cwd,
+        model: model,
+        permissionMode: ccConfig?.permissionMode,
+        allowedTools: ccConfig?.allowedTools,
+        disallowedTools: ccConfig?.disallowedTools,
+      );
+      _controller.clear();
+      setState(() => _attachedFiles.clear());
+      _userHasScrolledUp = false;
+      _scrollToBottom();
+      return;
+    }
+
+    // OpenCode mode
     // Feature 2: Check if this is a slash command (attachments not supported for commands)
     if (text.startsWith('/') && !hasAttachments) {
       final parts = text.substring(1).split(' ');
@@ -1684,7 +3126,7 @@ class _ChatScreenState extends ConsumerState<ChatScreen>
         command: commandName,
         arguments: arguments,
         projectPath: widget.project.path,
-        agent: _selectedAgent,
+        agent: messageAgent,
         model: selectedModel != null
             ? '${selectedModel.providerID}/${selectedModel.modelID}'
             : null,
@@ -1721,7 +3163,7 @@ class _ChatScreenState extends ConsumerState<ChatScreen>
         projectPath: widget.project.path,
         providerID: selectedModel?.providerID,
         modelID: selectedModel?.modelID,
-        agent: _selectedAgent,
+        agent: messageAgent,
         disabledTools: disabledTools.isNotEmpty ? disabledTools : null,
         fileAttachments: hasAttachments ? _attachedFiles : null,
       );
@@ -1780,12 +3222,20 @@ class _ChatScreenState extends ConsumerState<ChatScreen>
   void _respondToPermission(PermissionRequest request, String response) {
     final bridge = ref.read(bridgeServiceProvider);
     final chat = ref.read(chatSessionProvider.notifier);
-    bridge.respondToPermission(
-      sessionId: request.sessionId,
-      permissionId: request.id,
-      response: response,
-      projectPath: widget.project.path,
-    );
+    if (widget.isClaudeCode) {
+      bridge.ccRespondToPermission(
+        sessionId: request.sessionId,
+        toolUseId: request.id,
+        response: response,
+      );
+    } else {
+      bridge.respondToPermission(
+        sessionId: request.sessionId,
+        permissionId: request.id,
+        response: response,
+        projectPath: widget.project.path,
+      );
+    }
     chat.resolvePermission(request.id);
     Navigator.pop(context);
   }
@@ -1799,9 +3249,9 @@ class _FloatingHeader extends StatelessWidget {
     required this.currentModel,
     this.rttMs,
     required this.onBack,
-    required this.onModelTap,
-    required this.onMenu,
-    required this.onOpenSidebar,
+    this.onModelTap,
+    this.onMenu,
+    this.onOpenSidebar,
     this.currentAgent,
     this.agents = const [],
     this.onAgentChanged,
@@ -1810,6 +3260,8 @@ class _FloatingHeader extends StatelessWidget {
     this.isCompacting = false,
     this.sessionStatus = const SessionStatus.idle(),
     this.isStreaming = false,
+    this.isClaudeCode = false,
+    this.ccModel,
   });
 
   final String projectName;
@@ -1817,9 +3269,9 @@ class _FloatingHeader extends StatelessWidget {
   final SelectedModel? currentModel;
   final int? rttMs;
   final VoidCallback onBack;
-  final VoidCallback onModelTap;
-  final void Function(String) onMenu;
-  final VoidCallback onOpenSidebar;
+  final VoidCallback? onModelTap;
+  final void Function(String)? onMenu;
+  final VoidCallback? onOpenSidebar;
   final String? currentAgent;
   final List<Agent> agents;
   final void Function(String?)? onAgentChanged;
@@ -1828,6 +3280,9 @@ class _FloatingHeader extends StatelessWidget {
   final bool isCompacting;
   final SessionStatus sessionStatus;
   final bool isStreaming;
+  // Claude Code support
+  final bool isClaudeCode;
+  final String? ccModel;
 
   @override
   Widget build(BuildContext context) {
@@ -1896,8 +3351,41 @@ class _FloatingHeader extends StatelessWidget {
                         overflow: TextOverflow.ellipsis,
                       ),
                     ),
-                    // Agent indicator
-                    if (current != null) ...[
+                    // Claude Code badge
+                    if (isClaudeCode) ...[
+                      const SizedBox(width: 6),
+                      Container(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 6,
+                          vertical: 2,
+                        ),
+                        decoration: BoxDecoration(
+                          color: theme.accent.withValues(alpha: 0.2),
+                          borderRadius: BorderRadius.circular(6),
+                        ),
+                        child: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Icon(
+                              Icons.terminal_rounded,
+                              size: 10,
+                              color: theme.accent,
+                            ),
+                            const SizedBox(width: 3),
+                            Text(
+                              'CC',
+                              style: TextStyle(
+                                color: theme.accent,
+                                fontSize: 9,
+                                fontWeight: FontWeight.w700,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ],
+                    // Agent indicator (OpenCode only)
+                    if (!isClaudeCode && current != null) ...[
                       Padding(
                         padding: const EdgeInsets.symmetric(horizontal: 6),
                         child: Text(
@@ -1939,265 +3427,426 @@ class _FloatingHeader extends StatelessWidget {
             const SizedBox(width: 8),
 
             // Menu button (contains all secondary options)
-            _GlassPill(
-              compact: true,
-              constraints: const BoxConstraints(maxWidth: 32, maxHeight: 32),
-              child: PopupMenuButton<String>(
-                icon: Icon(
-                  Icons.more_horiz_rounded,
-                  color: kOnBackground,
-                  size: 18,
-                ),
-                splashRadius: 16,
-                padding: EdgeInsets.zero,
-                color: kCard,
-                constraints: const BoxConstraints(minWidth: 180, maxWidth: 220),
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(12),
-                ),
-                onSelected: onMenu,
-                itemBuilder: (context) => [
-                  // Info section (non-clickable) - compact
-                  if (vcsInfo != null && vcsInfo!.isAvailable)
+            // For Claude Code: simplified menu
+            if (isClaudeCode)
+              _GlassPill(
+                compact: true,
+                constraints: const BoxConstraints(maxWidth: 32, maxHeight: 32),
+                child: PopupMenuButton<String>(
+                  onSelected: (v) => onMenu?.call(v),
+                  icon: Icon(
+                    Icons.more_horiz_rounded,
+                    color: kOnBackground,
+                    size: 18,
+                  ),
+                  splashRadius: 16,
+                  padding: EdgeInsets.zero,
+                  color: kCard,
+                  constraints: const BoxConstraints(
+                    minWidth: 180,
+                    maxWidth: 220,
+                  ),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                  itemBuilder: (context) => [
+                    // CC Model picker
                     PopupMenuItem(
-                      enabled: false,
-                      height: 28,
+                      value: 'cc_model',
+                      height: 32,
+                      padding: const EdgeInsets.symmetric(horizontal: 12),
+                      child: Row(
+                        children: [
+                          Icon(
+                            Icons.auto_awesome_rounded,
+                            size: 13,
+                            color: theme.accent,
+                          ),
+                          const SizedBox(width: 8),
+                          Expanded(
+                            child: Text(
+                              'Model: ${ccModel ?? 'Claude'}',
+                              style: TextStyle(
+                                fontSize: 12,
+                                color: theme.accent,
+                                fontWeight: FontWeight.w500,
+                              ),
+                              overflow: TextOverflow.ellipsis,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                    const PopupMenuDivider(),
+                    const PopupMenuItem(
+                      value: 'cc_tools',
+                      height: 36,
+                      child: Row(
+                        children: [
+                          Icon(Icons.tune_rounded, size: 16),
+                          SizedBox(width: 10),
+                          Text('Tools & permissions'),
+                        ],
+                      ),
+                    ),
+                    const PopupMenuItem(
+                      value: 'cc_commands',
+                      height: 36,
+                      child: Row(
+                        children: [
+                          Icon(Icons.bolt_rounded, size: 16),
+                          SizedBox(width: 10),
+                          Text('Commands'),
+                        ],
+                      ),
+                    ),
+                    const PopupMenuItem(
+                      value: 'cc_skills',
+                      height: 36,
+                      child: Row(
+                        children: [
+                          Icon(Icons.auto_awesome_rounded, size: 16),
+                          SizedBox(width: 10),
+                          Text('Skills'),
+                        ],
+                      ),
+                    ),
+                    const PopupMenuItem(
+                      value: 'cc_hooks',
+                      height: 36,
+                      child: Row(
+                        children: [
+                          Icon(Icons.link_rounded, size: 16),
+                          SizedBox(width: 10),
+                          Text('Hooks'),
+                        ],
+                      ),
+                    ),
+                    const PopupMenuItem(
+                      value: 'cc_mcp',
+                      height: 36,
+                      child: Row(
+                        children: [
+                          Icon(Icons.hub_rounded, size: 16),
+                          SizedBox(width: 10),
+                          Text('MCP servers'),
+                        ],
+                      ),
+                    ),
+                    const PopupMenuDivider(),
+                    const PopupMenuItem(
+                      value: 'cc_fork',
+                      height: 36,
+                      child: Row(
+                        children: [
+                          Icon(Icons.call_split_rounded, size: 16),
+                          SizedBox(width: 10),
+                          Text('Fork session'),
+                        ],
+                      ),
+                    ),
+                    if (isConnected && rttMs != null)
+                      PopupMenuItem(
+                        enabled: false,
+                        height: 28,
+                        padding: const EdgeInsets.symmetric(horizontal: 12),
+                        child: Row(
+                          children: [
+                            Icon(
+                              Icons.speed_rounded,
+                              size: 13,
+                              color: theme.info,
+                            ),
+                            const SizedBox(width: 8),
+                            Text(
+                              '${rttMs}ms',
+                              style: TextStyle(fontSize: 12, color: kMuted),
+                            ),
+                          ],
+                        ),
+                      ),
+                  ],
+                ),
+              )
+            else
+              _GlassPill(
+                compact: true,
+                constraints: const BoxConstraints(maxWidth: 32, maxHeight: 32),
+                child: PopupMenuButton<String>(
+                  icon: Icon(
+                    Icons.more_horiz_rounded,
+                    color: kOnBackground,
+                    size: 18,
+                  ),
+                  splashRadius: 16,
+                  padding: EdgeInsets.zero,
+                  color: kCard,
+                  constraints: const BoxConstraints(
+                    minWidth: 180,
+                    maxWidth: 220,
+                  ),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                  onSelected: onMenu,
+                  itemBuilder: (context) => [
+                    // Info section (non-clickable) - compact
+                    if (vcsInfo != null && vcsInfo!.isAvailable)
+                      PopupMenuItem(
+                        enabled: false,
+                        height: 28,
+                        padding: const EdgeInsets.symmetric(horizontal: 12),
+                        child: Row(
+                          children: [
+                            Icon(
+                              Icons.call_split_rounded,
+                              size: 13,
+                              color: theme.success,
+                            ),
+                            const SizedBox(width: 8),
+                            Text(
+                              vcsInfo!.branch ?? 'unknown',
+                              style: TextStyle(fontSize: 12, color: kMuted),
+                            ),
+                          ],
+                        ),
+                      ),
+                    if (isConnected && rttMs != null)
+                      PopupMenuItem(
+                        enabled: false,
+                        height: 28,
+                        padding: const EdgeInsets.symmetric(horizontal: 12),
+                        child: Row(
+                          children: [
+                            Icon(
+                              Icons.speed_rounded,
+                              size: 13,
+                              color: theme.info,
+                            ),
+                            const SizedBox(width: 8),
+                            Text(
+                              '${rttMs}ms',
+                              style: TextStyle(fontSize: 12, color: kMuted),
+                            ),
+                          ],
+                        ),
+                      ),
+                    // Model selector - tappable
+                    PopupMenuItem(
+                      height: 32,
+                      padding: const EdgeInsets.symmetric(horizontal: 12),
+                      onTap: onModelTap,
+                      child: Row(
+                        children: [
+                          Icon(
+                            Icons.auto_awesome_rounded,
+                            size: 13,
+                            color: theme.primary,
+                          ),
+                          const SizedBox(width: 8),
+                          Text(
+                            _getModelName(currentModel),
+                            style: TextStyle(
+                              fontSize: 12,
+                              color: theme.primary,
+                              fontWeight: FontWeight.w500,
+                            ),
+                          ),
+                          const Spacer(),
+                          Icon(
+                            Icons.chevron_right_rounded,
+                            size: 14,
+                            color: kMuted,
+                          ),
+                        ],
+                      ),
+                    ),
+                    const PopupMenuDivider(height: 8),
+                    // Sidebar
+                    PopupMenuItem(
+                      value: 'sidebar',
+                      height: 36,
+                      padding: const EdgeInsets.symmetric(horizontal: 12),
+                      child: Row(
+                        children: [
+                          Icon(
+                            Icons.menu_open_rounded,
+                            size: 15,
+                            color: kOnBackground,
+                          ),
+                          const SizedBox(width: 10),
+                          Text(
+                            'Session Info',
+                            style: TextStyle(
+                              fontSize: 13,
+                              color: kOnBackground,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                    PopupMenuItem(
+                      value: 'new_session',
+                      height: 36,
+                      padding: const EdgeInsets.symmetric(horizontal: 12),
+                      child: Row(
+                        children: [
+                          Icon(
+                            Icons.add_rounded,
+                            size: 15,
+                            color: kOnBackground,
+                          ),
+                          const SizedBox(width: 10),
+                          Text(
+                            'New Session',
+                            style: TextStyle(
+                              fontSize: 13,
+                              color: kOnBackground,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                    PopupMenuItem(
+                      value: 'fork',
+                      height: 36,
                       padding: const EdgeInsets.symmetric(horizontal: 12),
                       child: Row(
                         children: [
                           Icon(
                             Icons.call_split_rounded,
-                            size: 13,
-                            color: theme.success,
+                            size: 15,
+                            color: kOnBackground,
                           ),
-                          const SizedBox(width: 8),
+                          const SizedBox(width: 10),
                           Text(
-                            vcsInfo!.branch ?? 'unknown',
-                            style: TextStyle(fontSize: 12, color: kMuted),
+                            'Fork',
+                            style: TextStyle(
+                              fontSize: 13,
+                              color: kOnBackground,
+                            ),
                           ),
                         ],
                       ),
                     ),
-                  if (isConnected && rttMs != null)
                     PopupMenuItem(
-                      enabled: false,
-                      height: 28,
+                      value: isSessionShared ? 'unshare' : 'share',
+                      height: 36,
                       padding: const EdgeInsets.symmetric(horizontal: 12),
                       child: Row(
                         children: [
                           Icon(
-                            Icons.speed_rounded,
-                            size: 13,
-                            color: theme.info,
+                            isSessionShared ? Icons.link_off : Icons.share,
+                            size: 15,
+                            color: kOnBackground,
                           ),
-                          const SizedBox(width: 8),
+                          const SizedBox(width: 10),
                           Text(
-                            '${rttMs}ms',
-                            style: TextStyle(fontSize: 12, color: kMuted),
+                            isSessionShared ? 'Unshare' : 'Share',
+                            style: TextStyle(
+                              fontSize: 13,
+                              color: kOnBackground,
+                            ),
                           ),
                         ],
                       ),
                     ),
-                  // Model selector - tappable
-                  PopupMenuItem(
-                    height: 32,
-                    padding: const EdgeInsets.symmetric(horizontal: 12),
-                    onTap: onModelTap,
-                    child: Row(
-                      children: [
-                        Icon(
-                          Icons.auto_awesome_rounded,
-                          size: 13,
-                          color: theme.primary,
-                        ),
-                        const SizedBox(width: 8),
-                        Text(
-                          _getModelName(currentModel),
-                          style: TextStyle(
-                            fontSize: 12,
-                            color: theme.primary,
-                            fontWeight: FontWeight.w500,
-                          ),
-                        ),
-                        const Spacer(),
-                        Icon(
-                          Icons.chevron_right_rounded,
-                          size: 14,
-                          color: kMuted,
-                        ),
-                      ],
-                    ),
-                  ),
-                  const PopupMenuDivider(height: 8),
-                  // Sidebar
-                  PopupMenuItem(
-                    value: 'sidebar',
-                    height: 36,
-                    padding: const EdgeInsets.symmetric(horizontal: 12),
-                    child: Row(
-                      children: [
-                        Icon(
-                          Icons.menu_open_rounded,
-                          size: 15,
-                          color: kOnBackground,
-                        ),
-                        const SizedBox(width: 10),
-                        Text(
-                          'Session Info',
-                          style: TextStyle(fontSize: 13, color: kOnBackground),
-                        ),
-                      ],
-                    ),
-                  ),
-                  PopupMenuItem(
-                    value: 'new_session',
-                    height: 36,
-                    padding: const EdgeInsets.symmetric(horizontal: 12),
-                    child: Row(
-                      children: [
-                        Icon(Icons.add_rounded, size: 15, color: kOnBackground),
-                        const SizedBox(width: 10),
-                        Text(
-                          'New Session',
-                          style: TextStyle(fontSize: 13, color: kOnBackground),
-                        ),
-                      ],
-                    ),
-                  ),
-                  PopupMenuItem(
-                    value: 'fork',
-                    height: 36,
-                    padding: const EdgeInsets.symmetric(horizontal: 12),
-                    child: Row(
-                      children: [
-                        Icon(
-                          Icons.call_split_rounded,
-                          size: 15,
-                          color: kOnBackground,
-                        ),
-                        const SizedBox(width: 10),
-                        Text(
-                          'Fork',
-                          style: TextStyle(fontSize: 13, color: kOnBackground),
-                        ),
-                      ],
-                    ),
-                  ),
-                  PopupMenuItem(
-                    value: isSessionShared ? 'unshare' : 'share',
-                    height: 36,
-                    padding: const EdgeInsets.symmetric(horizontal: 12),
-                    child: Row(
-                      children: [
-                        Icon(
-                          isSessionShared ? Icons.link_off : Icons.share,
-                          size: 15,
-                          color: kOnBackground,
-                        ),
-                        const SizedBox(width: 10),
-                        Text(
-                          isSessionShared ? 'Unshare' : 'Share',
-                          style: TextStyle(fontSize: 13, color: kOnBackground),
-                        ),
-                      ],
-                    ),
-                  ),
-                  PopupMenuItem(
-                    value: 'compact',
-                    height: 36,
-                    padding: const EdgeInsets.symmetric(horizontal: 12),
-                    enabled: !isCompacting,
-                    child: Row(
-                      children: [
-                        Icon(
-                          Icons.compress_rounded,
-                          size: 15,
-                          color: isCompacting ? kMuted : kOnBackground,
-                        ),
-                        const SizedBox(width: 10),
-                        Text(
-                          isCompacting ? 'Compacting...' : 'Compact',
-                          style: TextStyle(
-                            fontSize: 13,
+                    PopupMenuItem(
+                      value: 'compact',
+                      height: 36,
+                      padding: const EdgeInsets.symmetric(horizontal: 12),
+                      enabled: !isCompacting,
+                      child: Row(
+                        children: [
+                          Icon(
+                            Icons.compress_rounded,
+                            size: 15,
                             color: isCompacting ? kMuted : kOnBackground,
                           ),
-                        ),
-                      ],
-                    ),
-                  ),
-                  PopupMenuItem(
-                    value: 'init',
-                    height: 36,
-                    padding: const EdgeInsets.symmetric(horizontal: 12),
-                    child: Row(
-                      children: [
-                        Icon(
-                          Icons.auto_fix_high_rounded,
-                          size: 18,
-                          color: theme.success,
-                        ),
-                        const SizedBox(width: 12),
-                        Text(
-                          'Initialize Project',
-                          style: TextStyle(color: theme.success),
-                        ),
-                      ],
-                    ),
-                  ),
-                  const PopupMenuDivider(),
-                  PopupMenuItem(
-                    value: 'undo',
-                    child: Row(
-                      children: [
-                        Icon(
-                          Icons.undo_rounded,
-                          size: 18,
-                          color: theme.warning,
-                        ),
-                        const SizedBox(width: 12),
-                        Text(
-                          'Undo Last Changes',
-                          style: TextStyle(color: theme.warning),
-                        ),
-                      ],
-                    ),
-                  ),
-                  const PopupMenuDivider(),
-                  PopupMenuItem(
-                    value: 'clear_instance',
-                    child: Row(
-                      children: [
-                        Icon(
-                          Icons.cleaning_services_outlined,
-                          size: 18,
-                          color: theme.warning,
-                        ),
-                        const SizedBox(width: 12),
-                        Expanded(
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            mainAxisSize: MainAxisSize.min,
-                            children: [
-                              Text(
-                                'Clear Instance',
-                                style: TextStyle(color: theme.text),
-                              ),
-                              Text(
-                                'Reset project context',
-                                style: TextStyle(
-                                  fontSize: 11,
-                                  color: theme.textMuted,
-                                ),
-                              ),
-                            ],
+                          const SizedBox(width: 10),
+                          Text(
+                            isCompacting ? 'Compacting...' : 'Compact',
+                            style: TextStyle(
+                              fontSize: 13,
+                              color: isCompacting ? kMuted : kOnBackground,
+                            ),
                           ),
-                        ),
-                      ],
+                        ],
+                      ),
                     ),
-                  ),
-                ],
+                    PopupMenuItem(
+                      value: 'init',
+                      height: 36,
+                      padding: const EdgeInsets.symmetric(horizontal: 12),
+                      child: Row(
+                        children: [
+                          Icon(
+                            Icons.auto_fix_high_rounded,
+                            size: 18,
+                            color: theme.success,
+                          ),
+                          const SizedBox(width: 12),
+                          Text(
+                            'Initialize Project',
+                            style: TextStyle(color: theme.success),
+                          ),
+                        ],
+                      ),
+                    ),
+                    const PopupMenuDivider(),
+                    PopupMenuItem(
+                      value: 'undo',
+                      child: Row(
+                        children: [
+                          Icon(
+                            Icons.undo_rounded,
+                            size: 18,
+                            color: theme.warning,
+                          ),
+                          const SizedBox(width: 12),
+                          Text(
+                            'Undo Last Changes',
+                            style: TextStyle(color: theme.warning),
+                          ),
+                        ],
+                      ),
+                    ),
+                    const PopupMenuDivider(),
+                    PopupMenuItem(
+                      value: 'clear_instance',
+                      child: Row(
+                        children: [
+                          Icon(
+                            Icons.cleaning_services_outlined,
+                            size: 18,
+                            color: theme.warning,
+                          ),
+                          const SizedBox(width: 12),
+                          Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                Text(
+                                  'Clear Instance',
+                                  style: TextStyle(color: theme.text),
+                                ),
+                                Text(
+                                  'Reset project context',
+                                  style: TextStyle(
+                                    fontSize: 11,
+                                    color: theme.textMuted,
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ],
+                ),
               ),
-            ),
           ],
         ),
       ),
@@ -2339,6 +3988,7 @@ class _FloatingInputBar extends ConsumerWidget {
     this.showFileAutocomplete = false,
     this.onFileSelect,
     this.onAttachTap,
+    this.attachIcon = Icons.add_rounded,
   });
 
   final TextEditingController controller;
@@ -2352,6 +4002,7 @@ class _FloatingInputBar extends ConsumerWidget {
   final bool showFileAutocomplete;
   final void Function(FileAttachment)? onFileSelect;
   final VoidCallback? onAttachTap;
+  final IconData attachIcon;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -2417,7 +4068,7 @@ class _FloatingInputBar extends ConsumerWidget {
                           ),
                           child: Center(
                             child: Icon(
-                              Icons.add_rounded,
+                              attachIcon,
                               color: kOnBackground,
                               size: 22,
                             ),
@@ -2537,6 +4188,7 @@ class _CliStyleInputBar extends StatefulWidget {
     this.showFileAutocomplete = false,
     this.onFileSelect,
     this.onAttachTap,
+    this.attachIcon = Icons.add_rounded,
   });
 
   final TextEditingController controller;
@@ -2555,6 +4207,7 @@ class _CliStyleInputBar extends StatefulWidget {
   final bool showFileAutocomplete;
   final void Function(FileAttachment)? onFileSelect;
   final VoidCallback? onAttachTap;
+  final IconData attachIcon;
 
   @override
   State<_CliStyleInputBar> createState() => _CliStyleInputBarState();
@@ -2817,7 +4470,7 @@ class _CliStyleInputBarState extends State<_CliStyleInputBar> {
                                           right: 12,
                                         ),
                                         child: Icon(
-                                          Icons.add_rounded,
+                                          widget.attachIcon,
                                           color: theme.textMuted,
                                           size: 22,
                                         ),

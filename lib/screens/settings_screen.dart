@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../models/agent_type.dart';
+import '../providers/agent_type_provider.dart';
 import '../providers/connection_provider.dart';
 import '../providers/input_style_provider.dart';
 import '../providers/onboarding_provider.dart';
@@ -58,6 +60,35 @@ class SettingsScreen extends ConsumerWidget {
               ),
               const SliverToBoxAdapter(child: SizedBox(height: 24)),
             ],
+
+            // AI Backend section
+            SliverToBoxAdapter(child: _SectionHeader(title: 'AI Backend')),
+            SliverToBoxAdapter(
+              child: Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 20),
+                child: _SettingsCard(
+                  child: Column(
+                    children: [
+                      _AgentTypeTile(
+                        agentType: AgentType.opencode,
+                        title: 'OpenCode',
+                        subtitle: 'Open source AI coding agent',
+                        icon: Icons.code_rounded,
+                      ),
+                      _Divider(),
+                      _AgentTypeTile(
+                        agentType: AgentType.claudeCode,
+                        title: 'Claude Code',
+                        subtitle:
+                            'Anthropic Claude Code SDK (requires API key)',
+                        icon: Icons.auto_awesome_rounded,
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            ),
+            const SliverToBoxAdapter(child: SizedBox(height: 24)),
 
             // Appearance section
             SliverToBoxAdapter(child: _SectionHeader(title: 'Appearance')),
@@ -804,6 +835,80 @@ class _NotificationToggleTile extends ConsumerWidget {
               value: enabled,
               onChanged: (v) =>
                   ref.read(notificationsEnabledProvider.notifier).setEnabled(v),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _AgentTypeTile extends ConsumerWidget {
+  const _AgentTypeTile({
+    required this.agentType,
+    required this.title,
+    required this.subtitle,
+    required this.icon,
+  });
+
+  final AgentType agentType;
+  final String title;
+  final String subtitle;
+  final IconData icon;
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final theme = Theme.of(context);
+    final currentAgent = ref.watch(agentTypeProvider);
+    final isSelected = currentAgent == agentType;
+
+    return InkWell(
+      onTap: () {
+        ref.read(agentTypeProvider.notifier).setAgentType(agentType);
+        final bridge = ref.read(bridgeServiceProvider);
+        bridge.setAgent(agentType);
+      },
+      borderRadius: BorderRadius.circular(20),
+      child: Padding(
+        padding: const EdgeInsets.all(16),
+        child: Row(
+          children: [
+            Icon(icon, color: theme.colorScheme.primary, size: 22),
+            const SizedBox(width: 12),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    title,
+                    style: TextStyle(
+                      color: theme.colorScheme.onSurface,
+                      fontSize: 15,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                  const SizedBox(height: 4),
+                  Text(
+                    subtitle,
+                    style: TextStyle(
+                      color: theme.colorScheme.onSurface.withValues(alpha: 0.6),
+                      fontSize: 13,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            const SizedBox(width: 8),
+            Radio<AgentType>(
+              value: agentType,
+              groupValue: currentAgent,
+              onChanged: (v) {
+                if (v != null) {
+                  ref.read(agentTypeProvider.notifier).setAgentType(v);
+                  final bridge = ref.read(bridgeServiceProvider);
+                  bridge.setAgent(v);
+                }
+              },
             ),
           ],
         ),

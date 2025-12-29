@@ -1,14 +1,42 @@
 import type { ServerWebSocket } from 'bun'
-import { readdir, realpath } from 'node:fs/promises'
+import { mkdir, readdir, readFile, realpath, writeFile } from 'node:fs/promises'
 import { homedir } from 'node:os'
-import { resolve, sep } from 'node:path'
+import { dirname, resolve, sep } from 'node:path'
 import { randomBytes, timingSafeEqual } from 'node:crypto'
-import type { OpenCodeConnector } from './opencode'
-import type { ClientMessage, DeviceInfo, ServerMessage } from './types'
+import type { OpenCodeConnector } from './connectors/opencode'
+import type { AgentType, ClientMessage, DeviceInfo, FileAttachment, ServerMessage } from './types'
+import * as claudeCode from './connectors/claude-code'
+import * as fileSearch from './file-search'
 
-// Security: Generate a random auth token for this bridge session
+const TOKEN_FILE = resolve(homedir(), '.broski', 'token')
+
+// Security: Generate a random auth token
 function generateAuthToken(): string {
   return randomBytes(24).toString('base64url')
+}
+
+// Load or create persistent auth token
+export async function loadOrCreateAuthToken(forceNew = false): Promise<string> {
+  if (!forceNew) {
+    try {
+      const existing = await readFile(TOKEN_FILE, 'utf-8')
+      const token = existing.trim()
+      if (token.length >= 16) {
+        return token
+      }
+    } catch {
+      // File doesn't exist or is unreadable - create new token
+    }
+  }
+
+  const token = generateAuthToken()
+  try {
+    await mkdir(dirname(TOKEN_FILE), { recursive: true })
+    await writeFile(TOKEN_FILE, token, { mode: 0o600 }) // Only owner can read/write
+  } catch (err) {
+    console.warn('Warning: Could not persist auth token:', err)
+  }
+  return token
 }
 
 // Security: Constant-time token comparison to prevent timing attacks
@@ -169,6 +197,7 @@ async function readFileBinaryDirectly(
 export type BridgeServerOptions = {
   port: number
   opencode: OpenCodeConnector
+  currentAgent?: AgentType
   version: string
   authToken?: string
   restartOpenCode?: () => Promise<boolean>
@@ -226,7 +255,13 @@ export function createBridgeServer(options: BridgeServerOptions): BridgeServer {
   const contexts = new Map<ServerWebSocket<unknown>, ConnectionContext>()
   const clientQueues = new Map<ServerWebSocket<unknown>, ClientQueue>()
   const ptyConnections = new Map<string, WebSocket>()
+  const ccPermissionWaiters = new Map<
+    string,
+    { resolve: (response: 'once' | 'always' | 'reject') => void; timer: Timer }
+  >()
   const { opencode, version, logger } = options
+  
+  let currentAgent: AgentType = options.currentAgent || 'opencode'
   
   const authToken = options.authToken || generateAuthToken()
 
@@ -613,6 +648,11 @@ export function createBridgeServer(options: BridgeServerOptions): BridgeServer {
           send(ws, { type: 'connection_metrics', data: { rttMs: ctx.lastRttMs, lastPongAt: ctx.lastPongAt, connectionType: ctx.connectionType } })
           break
         }
+        case 'client_ping': {
+          // Client-initiated ping for app lifecycle detection - respond immediately
+          send(ws, { type: 'client_pong', id: message.id, sentAt: message.sentAt, receivedAt: Date.now() })
+          break
+        }
         case 'list_projects': {
           const projects = await opencode.listProjects()
           reply({ type: 'projects', data: projects })
@@ -867,8 +907,24 @@ export function createBridgeServer(options: BridgeServerOptions): BridgeServer {
           break
         }
         case 'search_files_and_dirs': {
-          const results = await opencode.searchFilesAndDirs(message.query, message.projectPath)
-          reply({ type: 'files_and_dirs_found', data: results })
+          // Use our unified file search module - works for both OpenCode and Claude Code
+          // Falls back to OpenCode SDK if no projectPath is provided and OpenCode is running
+          const cwd = message.projectPath
+          
+          if (cwd) {
+            // Project path provided - use our file search module (faster, works for any directory)
+            const results = await fileSearch.searchFilesAndDirs({
+              query: message.query ?? '',
+              cwd,
+              limit: 50,
+              includeDirs: true,
+            })
+            reply({ type: 'files_and_dirs_found', data: results })
+          } else {
+            // No project path - try OpenCode SDK (it uses its current working directory)
+            const results = await opencode.searchFilesAndDirs(message.query, message.projectPath)
+            reply({ type: 'files_and_dirs_found', data: results })
+          }
           break
         }
         // Feature 13: Session Status
@@ -1057,6 +1113,221 @@ export function createBridgeServer(options: BridgeServerOptions): BridgeServer {
         case 'dispose_instance': {
           const disposed = await opencode.disposeInstance(message.projectPath)
           reply({ type: 'instance_disposed', data: disposed })
+          break
+        }
+        case 'set_agent': {
+          currentAgent = message.agent
+          log(`Agent switched to: ${currentAgent}`)
+          if (currentAgent === 'claude-code') {
+            const envKey = !!process.env.ANTHROPIC_API_KEY
+            const available = await claudeCode.checkClaudeCodeAvailable()
+            log(
+              `[Claude Code] Auth: ${
+                available ? 'OK' : 'MISSING'
+              } (${envKey ? 'ANTHROPIC_API_KEY' : '~/.claude/settings.json'})`,
+            )
+            if (!available) {
+              log(
+                `[Claude Code] Set ANTHROPIC_API_KEY or run 'claude login' on this machine before using Claude Code from Broski.`,
+              )
+            }
+          }
+          break
+        }
+        case 'get_agents_status': {
+          const opencodeRunning = await opencode.isRunning()
+          const claudeCodeAvailable = await claudeCode.checkClaudeCodeAvailable()
+          reply({
+            type: 'agents_status',
+            data: {
+              opencode: {
+                available: opencodeRunning,
+                version: version,
+              },
+              'claude-code': {
+                available: claudeCodeAvailable,
+                authMethod: claudeCodeAvailable ? 'api-key' : undefined,
+              },
+            },
+          })
+          break
+        }
+        case 'cc_list_projects': {
+          const projects = await claudeCode.listProjects()
+          reply({ type: 'cc_projects', data: projects })
+          break
+        }
+        case 'cc_list_sessions': {
+          const sessions = await claudeCode.listSessions(message.cwd)
+          reply({ type: 'cc_sessions', data: sessions })
+          break
+        }
+        case 'cc_get_session': {
+          const session = await claudeCode.getSession(message.sessionId, message.cwd)
+          if (session) {
+            reply({ type: 'cc_session', data: session })
+          } else {
+            reply({ type: 'error', message: 'Session not found' })
+          }
+          break
+        }
+        case 'cc_get_session_messages': {
+          const items = await claudeCode.getSessionMessages(
+            message.sessionId,
+            message.cwd,
+            message.limit,
+          )
+          reply({
+            type: 'cc_session_messages',
+            data: items,
+            sessionId: message.sessionId,
+          })
+          break
+        }
+        case 'cc_delete_session': {
+          const deleted = await claudeCode.deleteSession(message.sessionId, message.cwd)
+          reply({ type: 'cc_session_deleted', data: deleted, sessionId: message.sessionId })
+          break
+        }
+        case 'cc_fork_session': {
+          const forked = await claudeCode.forkSession(message.sessionId, message.messageId, message.cwd)
+          reply({ type: 'cc_session_forked', data: forked })
+          break
+        }
+        case 'cc_chat': {
+          const cwd = message.cwd || process.cwd()
+          let actualSessionId = message.sessionId ?? ''
+          const cfg = claudeCode.getConfig()
+          const model = message.model || cfg.model || 'sonnet'
+          const permissionMode = message.permissionMode || cfg.permissionMode
+          const allowedTools = message.allowedTools || cfg.allowedTools
+          const disallowedTools = message.disallowedTools || cfg.disallowedTools
+
+          const available = await claudeCode.checkClaudeCodeAvailable()
+          if (!available) {
+            const err = 'Claude Code auth not configured (set ANTHROPIC_API_KEY or run `claude login`).'
+            log(`[Claude Code] ${err}`)
+            send(ws, {
+              type: 'cc_stream',
+              data: { type: 'error', message: err, code: 'cc_auth_missing' },
+              sessionId: actualSessionId || 'unknown',
+            })
+            break
+          }
+
+          log(
+            `[Claude Code] chat: ${message.sessionId ? 'resume' : 'new'} cwd=${cwd} model=${model} permissionMode=${permissionMode}`,
+          )
+          log(
+            `[Claude Code] tools: allowed=${allowedTools.length} disallowed=${disallowedTools.length}`,
+          )
+
+          claudeCode.queryClaudeCode(
+            message.prompt,
+            {
+              cwd,
+              sessionId: message.sessionId,
+              model,
+              permissionMode,
+              allowedTools,
+              disallowedTools,
+              maxThinkingTokens: message.maxThinkingTokens,
+              systemPrompt: message.systemPrompt ?? cfg.systemPrompt,
+            },
+            (streamMsg) => {
+              if ((streamMsg as any)?.type === 'session-created' && typeof (streamMsg as any)?.sessionId === 'string') {
+                actualSessionId = (streamMsg as any).sessionId
+                log(`[Claude Code] session created: ${actualSessionId}`)
+              }
+              send(ws, { type: 'cc_stream', data: streamMsg, sessionId: actualSessionId })
+            },
+            (completedSessionId) => {
+              log(`Claude Code session ${completedSessionId} completed`)
+            },
+            (error) => {
+              log(`[Claude Code] error: ${error.message}`)
+              send(ws, {
+                type: 'cc_stream',
+                data: { type: 'error', message: error.message, code: 'cc_error' },
+                sessionId: actualSessionId || message.sessionId || 'unknown',
+              })
+            },
+            async (req) => {
+              const sid = req.sessionId || actualSessionId
+              if (sid) actualSessionId = sid
+
+              // Ask the requesting socket for approval (mobile UI shows prompt)
+              send(ws, {
+                type: 'cc_stream',
+                data: {
+                  type: 'permission-request',
+                  sessionId: sid,
+                  toolUseId: req.toolUseId,
+                  tool: req.tool,
+                  input: req.input,
+                  decisionReason: req.decisionReason,
+                  blockedPath: req.blockedPath,
+                  hasSuggestions: req.hasSuggestions,
+                },
+                sessionId: sid,
+              })
+
+              // Wait for a response from the client
+              const key = `${sid}:${req.toolUseId}`
+              const existing = ccPermissionWaiters.get(key)
+              if (existing) {
+                // If we somehow re-request, default to deny to avoid deadlocks
+                return 'reject'
+              }
+
+              return await new Promise<'once' | 'always' | 'reject'>((resolve) => {
+                const timer = setTimeout(() => {
+                  ccPermissionWaiters.delete(key)
+                  resolve('reject')
+                }, 120_000)
+                ccPermissionWaiters.set(key, { resolve, timer })
+              })
+            },
+          )
+          break
+        }
+        case 'cc_abort': {
+          await claudeCode.abortClaudeCode(message.sessionId)
+          break
+        }
+        case 'cc_permission_response': {
+          const key = `${message.sessionId}:${message.toolUseId}`
+          const waiter = ccPermissionWaiters.get(key)
+          if (waiter) {
+            clearTimeout(waiter.timer)
+            ccPermissionWaiters.delete(key)
+            waiter.resolve(message.response)
+          }
+          break
+        }
+        case 'cc_list_skills': {
+          const skills = await claudeCode.listSkills(message.cwd)
+          reply({ type: 'cc_skills', data: skills })
+          break
+        }
+        case 'cc_list_hooks': {
+          const hooks = await claudeCode.listHooks(message.cwd)
+          reply({ type: 'cc_hooks', data: hooks })
+          break
+        }
+        case 'cc_list_commands': {
+          const commands = await claudeCode.listCommands(message.cwd)
+          reply({ type: 'cc_commands', data: commands })
+          break
+        }
+        case 'cc_get_config': {
+          const config = claudeCode.getConfig()
+          reply({ type: 'cc_config', data: config })
+          break
+        }
+        case 'cc_set_config': {
+          const config = claudeCode.setConfig(message.config)
+          reply({ type: 'cc_config_updated', data: config })
           break
         }
         default: {

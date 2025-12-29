@@ -3,6 +3,7 @@ import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../models/agent.dart';
 import '../models/file_attachment.dart';
 import '../providers/file_search_provider.dart';
 import '../theme/opencode_theme.dart';
@@ -373,6 +374,253 @@ class _AttachedFileChip extends StatelessWidget {
                   size: 14,
                   color: theme.textMuted,
                 ),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+// =============================================================================
+// Agent @ mention autocomplete
+// =============================================================================
+
+/// Autocomplete dropdown for @agent mentions
+class AgentAutocomplete extends StatelessWidget {
+  const AgentAutocomplete({
+    super.key,
+    required this.agents,
+    required this.query,
+    required this.onSelect,
+    required this.visible,
+  });
+
+  final List<Agent> agents;
+  final String query;
+  final void Function(Agent agent) onSelect;
+  final bool visible;
+
+  @override
+  Widget build(BuildContext context) {
+    if (!visible || agents.isEmpty) return const SizedBox.shrink();
+
+    final theme = OpenCodeTheme.of(context);
+    final lowerQuery = query.toLowerCase();
+
+    // Filter agents by query (name or description)
+    final filtered = agents.where((a) {
+      if (lowerQuery.isEmpty) return true;
+      return a.name.toLowerCase().contains(lowerQuery) ||
+          (a.description?.toLowerCase().contains(lowerQuery) ?? false);
+    }).toList();
+
+    if (filtered.isEmpty) {
+      return Container(
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+        decoration: BoxDecoration(
+          color: theme.backgroundPanel,
+          borderRadius: BorderRadius.circular(8),
+          border: Border.all(color: theme.borderSubtle),
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black.withValues(alpha: 0.2),
+              blurRadius: 8,
+              offset: const Offset(0, -2),
+            ),
+          ],
+        ),
+        child: Text(
+          'No matching agents',
+          style: TextStyle(color: theme.textMuted, fontSize: 13),
+        ),
+      );
+    }
+
+    // Group by primary vs subagent
+    final primaryAgents = filtered.where((a) => a.isPrimary).toList();
+    final subAgents = filtered
+        .where((a) => a.mode == AgentMode.subagent)
+        .toList();
+
+    return Container(
+      constraints: const BoxConstraints(maxHeight: 280),
+      decoration: BoxDecoration(
+        color: theme.backgroundPanel,
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: theme.borderSubtle),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: 0.25),
+            blurRadius: 12,
+            offset: const Offset(0, -4),
+          ),
+        ],
+      ),
+      child: ClipRRect(
+        borderRadius: BorderRadius.circular(12),
+        child: ListView(
+          shrinkWrap: true,
+          padding: const EdgeInsets.symmetric(vertical: 6),
+          children: [
+            // Primary agents section
+            if (primaryAgents.isNotEmpty) ...[
+              _buildSectionHeader(
+                'Primary Agents',
+                Icons.person_rounded,
+                theme.primary,
+                theme.textMuted,
+                primaryAgents.length,
+              ),
+              ...primaryAgents.map(
+                (agent) => _AgentAutocompleteItem(
+                  agent: agent,
+                  onTap: () => onSelect(agent),
+                ),
+              ),
+            ],
+            // Subagents section
+            if (subAgents.isNotEmpty) ...[
+              if (primaryAgents.isNotEmpty) const SizedBox(height: 4),
+              _buildSectionHeader(
+                'Subagents',
+                Icons.smart_toy_outlined,
+                theme.info,
+                theme.textMuted,
+                subAgents.length,
+              ),
+              ...subAgents.map(
+                (agent) => _AgentAutocompleteItem(
+                  agent: agent,
+                  onTap: () => onSelect(agent),
+                ),
+              ),
+            ],
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildSectionHeader(
+    String title,
+    IconData icon,
+    Color iconColor,
+    Color textColor,
+    int count,
+  ) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 6),
+      child: Row(
+        children: [
+          Icon(icon, size: 13, color: iconColor),
+          const SizedBox(width: 6),
+          Text(
+            title,
+            style: TextStyle(
+              fontSize: 11,
+              fontWeight: FontWeight.w600,
+              color: textColor,
+              letterSpacing: 0.3,
+            ),
+          ),
+          const SizedBox(width: 4),
+          Text(
+            '($count)',
+            style: TextStyle(
+              fontSize: 11,
+              color: textColor.withValues(alpha: 0.6),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _AgentAutocompleteItem extends StatelessWidget {
+  const _AgentAutocompleteItem({required this.agent, required this.onTap});
+
+  final Agent agent;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = OpenCodeTheme.of(context);
+    final agentColor = agent.displayColor;
+
+    return InkWell(
+      onTap: onTap,
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+        child: Row(
+          children: [
+            // Agent icon with color
+            Container(
+              width: 28,
+              height: 28,
+              decoration: BoxDecoration(
+                color: agentColor.withValues(alpha: 0.15),
+                borderRadius: BorderRadius.circular(6),
+              ),
+              child: Icon(
+                agent.isPrimary
+                    ? Icons.person_rounded
+                    : Icons.smart_toy_outlined,
+                size: 14,
+                color: agentColor,
+              ),
+            ),
+            const SizedBox(width: 10),
+            // Agent name and description
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
+                    children: [
+                      Text(
+                        '@${agent.name}',
+                        style: TextStyle(
+                          fontSize: 14,
+                          fontWeight: FontWeight.w600,
+                          color: theme.text,
+                        ),
+                      ),
+                      const SizedBox(width: 6),
+                      // Mode badge
+                      Container(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 5,
+                          vertical: 2,
+                        ),
+                        decoration: BoxDecoration(
+                          color: agentColor.withValues(alpha: 0.12),
+                          borderRadius: BorderRadius.circular(4),
+                        ),
+                        child: Text(
+                          agent.mode.displayName,
+                          style: TextStyle(
+                            fontSize: 9,
+                            color: agentColor,
+                            fontWeight: FontWeight.w500,
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                  if (agent.description != null &&
+                      agent.description!.isNotEmpty) ...[
+                    const SizedBox(height: 2),
+                    Text(
+                      agent.shortDescription,
+                      style: TextStyle(fontSize: 12, color: theme.textMuted),
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                  ],
+                ],
               ),
             ),
           ],
