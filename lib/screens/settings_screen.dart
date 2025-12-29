@@ -2,9 +2,11 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../models/agent_type.dart';
+import '../models/nav_bar_style.dart';
 import '../providers/agent_type_provider.dart';
 import '../providers/connection_provider.dart';
 import '../providers/input_style_provider.dart';
+import '../providers/nav_bar_style_provider.dart';
 import '../providers/onboarding_provider.dart';
 import '../providers/service_providers.dart';
 import '../providers/theme_provider.dart';
@@ -14,6 +16,7 @@ import 'appearance_screen.dart';
 import 'device_manager_screen.dart';
 import 'mcp_servers_screen.dart';
 import 'providers_screen.dart';
+import 'subscription_usage_screen.dart';
 import 'terminal_screen.dart';
 import 'theme_selector_screen.dart';
 import 'tools_screen.dart';
@@ -185,6 +188,34 @@ class SettingsScreen extends ConsumerWidget {
               ),
             ),
 
+            // Navigation section
+            const SliverToBoxAdapter(child: SizedBox(height: 24)),
+            SliverToBoxAdapter(child: _SectionHeader(title: 'Navigation')),
+            SliverToBoxAdapter(
+              child: Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 20),
+                child: _SettingsCard(
+                  child: Column(
+                    children: [
+                      _NavBarStyleTile(
+                        title: 'Classic',
+                        subtitle: 'Simple rounded bar with icons and labels',
+                        icon: Icons.view_agenda_rounded,
+                        value: NavBarStyle.classic,
+                      ),
+                      _Divider(),
+                      _NavBarStyleTile(
+                        title: 'Glassmorphic',
+                        subtitle: 'Floating glass island with frosted blur',
+                        icon: Icons.blur_on_rounded,
+                        value: NavBarStyle.glassmorphic,
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            ),
+
             // Management section
             const SliverToBoxAdapter(child: SizedBox(height: 24)),
             SliverToBoxAdapter(child: _SectionHeader(title: 'Management')),
@@ -270,6 +301,22 @@ class SettingsScreen extends ConsumerWidget {
                           context,
                           MaterialPageRoute(
                             builder: (_) => const ToolsScreen(),
+                          ),
+                        ),
+                      ),
+                      _Divider(),
+                      _SettingsTile(
+                        title: 'Subscription Usage',
+                        subtitle: 'API limits, credits, and reset times',
+                        icon: Icons.data_usage_rounded,
+                        trailing: const Icon(
+                          Icons.chevron_right_rounded,
+                          size: 20,
+                        ),
+                        onTap: () => Navigator.push(
+                          context,
+                          MaterialPageRoute(
+                            builder: (_) => const SubscriptionUsageScreen(),
                           ),
                         ),
                       ),
@@ -776,6 +823,73 @@ class _InputStyleTile extends ConsumerWidget {
               onChanged: (v) {
                 if (v != null) {
                   ref.read(inputStyleProvider.notifier).setStyle(v);
+                }
+              },
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _NavBarStyleTile extends ConsumerWidget {
+  const _NavBarStyleTile({
+    required this.title,
+    required this.subtitle,
+    required this.icon,
+    required this.value,
+  });
+
+  final String title;
+  final String subtitle;
+  final IconData icon;
+  final NavBarStyle value;
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final theme = Theme.of(context);
+    final currentStyle = ref.watch(navBarStyleProvider);
+
+    return InkWell(
+      onTap: () => ref.read(navBarStyleProvider.notifier).setStyle(value),
+      borderRadius: BorderRadius.circular(20),
+      child: Padding(
+        padding: const EdgeInsets.all(16),
+        child: Row(
+          children: [
+            Icon(icon, color: theme.colorScheme.primary, size: 22),
+            const SizedBox(width: 12),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    title,
+                    style: TextStyle(
+                      color: theme.colorScheme.onSurface,
+                      fontSize: 15,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                  const SizedBox(height: 4),
+                  Text(
+                    subtitle,
+                    style: TextStyle(
+                      color: theme.colorScheme.onSurface.withValues(alpha: 0.6),
+                      fontSize: 13,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            const SizedBox(width: 8),
+            Radio<NavBarStyle>(
+              value: value,
+              groupValue: currentStyle,
+              onChanged: (v) {
+                if (v != null) {
+                  ref.read(navBarStyleProvider.notifier).setStyle(v);
                 }
               },
             ),

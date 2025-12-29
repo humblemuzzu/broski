@@ -1330,6 +1330,19 @@ export function createBridgeServer(options: BridgeServerOptions): BridgeServer {
           reply({ type: 'cc_config_updated', data: config })
           break
         }
+        // Subscription Usage Tracking
+        case 'get_subscription_usage': {
+          const subscriptionTracker = await import('./subscription-tracker')
+          const usage = await subscriptionTracker.getSubscriptionUsage()
+          reply({ type: 'subscription_usage', data: usage })
+          break
+        }
+        case 'get_provider_usage': {
+          const subscriptionTracker = await import('./subscription-tracker')
+          const usage = await subscriptionTracker.getProviderUsage(message.providerId)
+          reply({ type: 'provider_usage', data: usage })
+          break
+        }
         default: {
           reply({ type: 'error', message: 'Unknown message type' })
         }

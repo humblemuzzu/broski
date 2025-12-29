@@ -5,13 +5,16 @@ import 'browse_screen.dart';
 import 'projects_screen.dart';
 import 'sessions_screen.dart';
 import 'settings_screen.dart';
+import '../models/nav_bar_style.dart';
 import '../providers/appearance_provider.dart';
 import '../providers/connection_provider.dart';
+import '../providers/nav_bar_style_provider.dart';
 import '../providers/sessions_provider.dart';
 import '../providers/service_providers.dart';
 import '../services/websocket_service.dart';
 import '../theme/opencode_theme.dart';
 import '../widgets/app_background.dart';
+import '../widgets/glassmorphic_nav_bar.dart';
 
 class MainShell extends ConsumerStatefulWidget {
   const MainShell({super.key});
@@ -58,6 +61,7 @@ class _MainShellState extends ConsumerState<MainShell> {
   @override
   Widget build(BuildContext context) {
     final connection = ref.watch(connectionProvider);
+    final navBarStyle = ref.watch(navBarStyleProvider);
     final theme = Theme.of(context);
 
     return Scaffold(
@@ -87,28 +91,35 @@ class _MainShellState extends ConsumerState<MainShell> {
                     ref.read(connectionProvider.notifier).exitOfflineMode(),
               ),
             ),
+          // Navigation bar - switches between styles
           Positioned(
             left: 0,
             right: 0,
             bottom: 0,
-            child: _ModernBottomNav(
-              currentIndex: _index,
-              onTap: (value) {
-                setState(() => _index = value);
-                if (!connection.isOfflineMode) {
-                  ref
-                      .read(bridgeServiceProvider)
-                      .setView(projectPath: 'global');
-                }
-                if (value == 2) {
-                  ref.read(sessionsRefreshTickProvider.notifier).state++;
-                }
-              },
-            ),
+            child: _buildNavBar(navBarStyle, connection),
           ),
         ],
       ),
     );
+  }
+
+  Widget _buildNavBar(NavBarStyle style, BridgeConnectionState connection) {
+    final onTap = (int value) {
+      setState(() => _index = value);
+      if (!connection.isOfflineMode) {
+        ref.read(bridgeServiceProvider).setView(projectPath: 'global');
+      }
+      if (value == 2) {
+        ref.read(sessionsRefreshTickProvider.notifier).state++;
+      }
+    };
+
+    switch (style) {
+      case NavBarStyle.classic:
+        return _ModernBottomNav(currentIndex: _index, onTap: onTap);
+      case NavBarStyle.glassmorphic:
+        return GlasmorphicNavBar(currentIndex: _index, onTap: onTap);
+    }
   }
 }
 

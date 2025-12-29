@@ -346,9 +346,114 @@ class _ChatScreenState extends ConsumerState<ChatScreen>
         projectPath: widget.project.path,
       );
       final agents = await bridge.listAgents(projectPath: widget.project.path);
+
+      // Built-in OpenCode commands (matching TUI)
+      final builtInCommands = [
+        const SlashCommand(
+          name: 'undo',
+          description: 'Undo last message',
+          builtin: true,
+        ),
+        const SlashCommand(
+          name: 'redo',
+          description: 'Redo last message',
+          builtin: true,
+        ),
+        const SlashCommand(
+          name: 'compact',
+          description: 'Compact session',
+          builtin: true,
+        ),
+        const SlashCommand(
+          name: 'summarize',
+          description: 'Compact session (alias)',
+          builtin: true,
+        ),
+        const SlashCommand(
+          name: 'unshare',
+          description: 'Unshare session',
+          builtin: true,
+        ),
+        const SlashCommand(
+          name: 'rename',
+          description: 'Rename session',
+          builtin: true,
+        ),
+        const SlashCommand(
+          name: 'copy',
+          description: 'Copy transcript to clipboard',
+          builtin: true,
+        ),
+        const SlashCommand(
+          name: 'export',
+          description: 'Export transcript to file',
+          builtin: true,
+        ),
+        const SlashCommand(
+          name: 'timeline',
+          description: 'Jump to message',
+          builtin: true,
+        ),
+        const SlashCommand(
+          name: 'fork',
+          description: 'Fork session',
+          builtin: true,
+        ),
+        const SlashCommand(
+          name: 'thinking',
+          description: 'Toggle thinking visibility',
+          builtin: true,
+        ),
+        const SlashCommand(
+          name: 'share',
+          description: 'Share session',
+          builtin: true,
+        ),
+        const SlashCommand(
+          name: 'new',
+          description: 'Create new session',
+          builtin: true,
+        ),
+        const SlashCommand(
+          name: 'clear',
+          description: 'Create new session (alias)',
+          builtin: true,
+        ),
+        const SlashCommand(
+          name: 'models',
+          description: 'List models',
+          builtin: true,
+        ),
+        const SlashCommand(
+          name: 'agents',
+          description: 'List agents',
+          builtin: true,
+        ),
+        const SlashCommand(
+          name: 'session',
+          description: 'List sessions',
+          builtin: true,
+        ),
+        const SlashCommand(
+          name: 'resume',
+          description: 'List sessions (alias)',
+          builtin: true,
+        ),
+        const SlashCommand(
+          name: 'continue',
+          description: 'List sessions (alias)',
+          builtin: true,
+        ),
+        const SlashCommand(
+          name: 'help',
+          description: 'Show available commands',
+          builtin: true,
+        ),
+      ];
+
       if (mounted) {
         setState(() {
-          _commands = commands;
+          _commands = [...builtInCommands, ...commands];
           _agents = agents.isNotEmpty ? agents : kDefaultAgents;
         });
       }
@@ -713,11 +818,10 @@ class _ChatScreenState extends ConsumerState<ChatScreen>
             ),
             const SizedBox(height: 16),
             Container(
-              padding: const EdgeInsets.all(12),
+              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
               decoration: BoxDecoration(
-                color: theme.background,
-                borderRadius: BorderRadius.circular(12),
-                border: Border.all(color: theme.borderSubtle),
+                color: theme.bgDeep,
+                borderRadius: BorderRadius.circular(4),
               ),
               child: Row(
                 children: [
@@ -2463,7 +2567,174 @@ class _ChatScreenState extends ConsumerState<ChatScreen>
   }
 
   // Feature 2: Handle command selection from autocomplete
-  void _selectCommand(SlashCommand command) {
+  void _selectCommand(SlashCommand command) async {
+    final bridge = ref.read(bridgeServiceProvider);
+    final chatState = ref.read(chatSessionProvider);
+    final selectedModel = ref.read(selectionProvider).model;
+    final theme = OpenCodeTheme.of(context);
+
+    // Handle built-in commands
+    if (command.builtin) {
+      switch (command.name) {
+        case 'undo':
+          if (chatState.messages.isNotEmpty) {
+            try {
+              await bridge.revertMessage(
+                widget.session.id,
+                messageId: chatState.messages.last.id,
+                projectPath: widget.project.path,
+              );
+              if (mounted) {
+                ScaffoldMessenger.of(
+                  context,
+                ).showSnackBar(const SnackBar(content: Text('Message undone')));
+              }
+            } catch (e) {
+              if (mounted) {
+                ScaffoldMessenger.of(
+                  context,
+                ).showSnackBar(SnackBar(content: Text('Failed to undo: $e')));
+              }
+            }
+          } else {
+            if (mounted) {
+              ScaffoldMessenger.of(context).showSnackBar(
+                const SnackBar(content: Text('No messages to undo')),
+              );
+            }
+          }
+          break;
+
+        case 'redo':
+          try {
+            await bridge.unrevertSession(
+              widget.session.id,
+              projectPath: widget.project.path,
+            );
+            if (mounted) {
+              ScaffoldMessenger.of(
+                context,
+              ).showSnackBar(const SnackBar(content: Text('Message redone')));
+            }
+          } catch (e) {
+            if (mounted) {
+              ScaffoldMessenger.of(
+                context,
+              ).showSnackBar(SnackBar(content: Text('Failed to redo: $e')));
+            }
+          }
+          break;
+
+        case 'compact':
+        case 'summarize':
+          if (selectedModel != null) {
+            try {
+              final success = await bridge.summarizeSession(
+                widget.session.id,
+                providerID: selectedModel!.providerID,
+                modelID: selectedModel!.modelID,
+                projectPath: widget.project.path,
+              );
+              if (mounted) {
+                ScaffoldMessenger.of(context).showSnackBar(
+                  success
+                      ? const SnackBar(content: Text('Session compacted'))
+                      : const SnackBar(
+                          content: Text('Failed to compact session'),
+                        ),
+                );
+              }
+            } catch (e) {
+              if (mounted) {
+                ScaffoldMessenger.of(context).showSnackBar(
+                  SnackBar(content: Text('Failed to compact: $e')),
+                );
+              }
+            }
+          } else {
+            if (mounted) {
+              ScaffoldMessenger.of(context).showSnackBar(
+                const SnackBar(content: Text('Model not configured')),
+              );
+            }
+          }
+          break;
+
+        case 'share':
+          _shareSession();
+          break;
+
+        case 'unshare':
+          _unshareSession();
+          break;
+
+        case 'new':
+        case 'clear':
+          if (mounted) {
+            Navigator.of(context).pushNamed('/create_session');
+          }
+          break;
+
+        case 'session':
+        case 'resume':
+        case 'continue':
+          if (mounted) {
+            Navigator.of(context).pushNamed('/sessions');
+          }
+          break;
+
+        case 'help':
+          _showHelpDialog();
+          break;
+
+        case 'rename':
+          _showRenameSessionDialog();
+          break;
+
+        case 'copy':
+          _copyTranscriptToClipboard();
+          break;
+
+        case 'export':
+          _exportTranscript();
+          break;
+
+        case 'timeline':
+          _showTimelineDialog();
+          break;
+
+        case 'fork':
+          _showForkDialog();
+          break;
+
+        case 'thinking':
+          _toggleThinkingVisibility();
+          break;
+
+        case 'models':
+          _showModelsDialog();
+          break;
+
+        case 'agents':
+          _showAgentsDialog();
+          break;
+
+        default:
+          _controller.text = '/${command.name} ';
+          _controller.selection = TextSelection.fromPosition(
+            TextPosition(offset: _controller.text.length),
+          );
+          break;
+      }
+
+      setState(() {
+        _showCommandAutocomplete = false;
+        _commandFilter = '';
+      });
+      return;
+    }
+
+    // Handle custom commands (insert text for user to edit)
     _controller.text = '/${command.name} ';
     _controller.selection = TextSelection.fromPosition(
       TextPosition(offset: _controller.text.length),
@@ -2472,6 +2743,686 @@ class _ChatScreenState extends ConsumerState<ChatScreen>
       _showCommandAutocomplete = false;
       _commandFilter = '';
     });
+  }
+
+  // ============================================================
+  // Slash Command Implementations
+  // ============================================================
+
+  /// Show help dialog with all available commands
+  void _showHelpDialog() {
+    final theme = OpenCodeTheme.of(context);
+    showModalBottomSheet(
+      context: context,
+      backgroundColor: Colors.transparent,
+      isScrollControlled: true,
+      builder: (context) => DraggableScrollableSheet(
+        initialChildSize: 0.7,
+        minChildSize: 0.5,
+        maxChildSize: 0.9,
+        builder: (context, scrollController) => Container(
+          decoration: BoxDecoration(
+            color: theme.backgroundPanel,
+            borderRadius: const BorderRadius.vertical(top: Radius.circular(20)),
+          ),
+          child: Column(
+            children: [
+              Container(
+                margin: const EdgeInsets.only(top: 12),
+                width: 40,
+                height: 4,
+                decoration: BoxDecoration(
+                  color: theme.textMuted,
+                  borderRadius: BorderRadius.circular(2),
+                ),
+              ),
+              Padding(
+                padding: const EdgeInsets.all(16),
+                child: Text(
+                  'Available Commands',
+                  style: TextStyle(
+                    fontSize: 18,
+                    fontWeight: FontWeight.w600,
+                    color: theme.text,
+                  ),
+                ),
+              ),
+              Expanded(
+                child: ListView(
+                  controller: scrollController,
+                  padding: const EdgeInsets.symmetric(horizontal: 16),
+                  children: [
+                    _buildCommandSection('Session Actions', [
+                      ('/undo', 'Undo last message'),
+                      ('/redo', 'Redo last message'),
+                      ('/compact', 'Compact session to free context'),
+                      ('/fork', 'Fork session from a message'),
+                      ('/rename', 'Rename session'),
+                      ('/share', 'Share session publicly'),
+                      ('/unshare', 'Remove public share'),
+                    ], theme),
+                    _buildCommandSection('Navigation', [
+                      ('/new', 'Create new session'),
+                      ('/clear', 'Alias for /new'),
+                      ('/session', 'List all sessions'),
+                      ('/resume', 'Alias for /session'),
+                      ('/timeline', 'Jump to a message'),
+                    ], theme),
+                    _buildCommandSection('Configuration', [
+                      ('/models', 'List available models'),
+                      ('/agents', 'List available agents'),
+                      ('/thinking', 'Toggle thinking visibility'),
+                    ], theme),
+                    _buildCommandSection('Export', [
+                      ('/copy', 'Copy transcript to clipboard'),
+                      ('/export', 'Export transcript to file'),
+                    ], theme),
+                    if (_commands.any((c) => !c.builtin))
+                      _buildCommandSection(
+                        'Custom Commands',
+                        _commands
+                            .where((c) => !c.builtin)
+                            .map(
+                              (c) => (
+                                '/${c.name}',
+                                c.description ?? 'No description',
+                              ),
+                            )
+                            .toList(),
+                        theme,
+                      ),
+                    const SizedBox(height: 20),
+                  ],
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildCommandSection(
+    String title,
+    List<(String, String)> commands,
+    OpenCodeTheme theme,
+  ) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Padding(
+          padding: const EdgeInsets.symmetric(vertical: 8),
+          child: Text(
+            title,
+            style: TextStyle(
+              fontSize: 14,
+              fontWeight: FontWeight.w600,
+              color: theme.primary,
+            ),
+          ),
+        ),
+        ...commands.map(
+          (cmd) => Padding(
+            padding: const EdgeInsets.symmetric(vertical: 4),
+            child: Row(
+              children: [
+                Container(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 8,
+                    vertical: 4,
+                  ),
+                  decoration: BoxDecoration(
+                    color: theme.bgDeep,
+                    borderRadius: BorderRadius.circular(4),
+                  ),
+                  child: Text(
+                    cmd.$1,
+                    style: TextStyle(
+                      fontFamily: 'monospace',
+                      fontSize: 13,
+                      color: theme.accent,
+                    ),
+                  ),
+                ),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Text(
+                    cmd.$2,
+                    style: TextStyle(fontSize: 13, color: theme.textMuted),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+        const SizedBox(height: 8),
+      ],
+    );
+  }
+
+  // Get providers from config for models dialog
+  Map<String, dynamic> _getProvidersFromConfig() {
+    // For now, return empty - the models dialog will be simplified
+    return {};
+  }
+
+  /// Show rename session dialog
+  void _showRenameSessionDialog() {
+    final theme = OpenCodeTheme.of(context);
+    final controller = TextEditingController(text: widget.session.title);
+
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        backgroundColor: theme.backgroundPanel,
+        title: Text('Rename Session', style: TextStyle(color: theme.text)),
+        content: TextField(
+          controller: controller,
+          autofocus: true,
+          style: TextStyle(color: theme.text),
+          decoration: InputDecoration(
+            hintText: 'Enter new title',
+            hintStyle: TextStyle(color: theme.textMuted),
+            border: OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: Text('Cancel', style: TextStyle(color: theme.textMuted)),
+          ),
+          TextButton(
+            onPressed: () async {
+              final newTitle = controller.text.trim();
+              if (newTitle.isEmpty) return;
+
+              Navigator.pop(context);
+              try {
+                final bridge = ref.read(bridgeServiceProvider);
+                await bridge.updateSession(
+                  widget.session.id,
+                  title: newTitle,
+                  projectPath: widget.project.path,
+                );
+                if (mounted) {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    SnackBar(content: Text('Session renamed to "$newTitle"')),
+                  );
+                }
+              } catch (e) {
+                if (mounted) {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    SnackBar(content: Text('Failed to rename: $e')),
+                  );
+                }
+              }
+            },
+            child: Text('Rename', style: TextStyle(color: theme.primary)),
+          ),
+        ],
+      ),
+    );
+  }
+
+  /// Copy transcript to clipboard
+  void _copyTranscriptToClipboard() {
+    final chatState = ref.read(chatSessionProvider);
+    if (chatState.messages.isEmpty) {
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(const SnackBar(content: Text('No messages to copy')));
+      return;
+    }
+
+    final buffer = StringBuffer();
+    buffer.writeln('# Session: ${widget.session.title}');
+    buffer.writeln('Date: ${DateTime.now().toIso8601String()}');
+    buffer.writeln('---\n');
+
+    for (final msg in chatState.messages) {
+      final role = msg.role == 'user' ? 'You' : 'Assistant';
+      buffer.writeln('## $role');
+      buffer.writeln(msg.text);
+      buffer.writeln();
+    }
+
+    Clipboard.setData(ClipboardData(text: buffer.toString()));
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(content: Text('Transcript copied to clipboard')),
+    );
+  }
+
+  /// Export transcript (show options)
+  void _exportTranscript() {
+    final theme = OpenCodeTheme.of(context);
+    final chatState = ref.read(chatSessionProvider);
+
+    if (chatState.messages.isEmpty) {
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(const SnackBar(content: Text('No messages to export')));
+      return;
+    }
+
+    showModalBottomSheet(
+      context: context,
+      backgroundColor: Colors.transparent,
+      builder: (context) => Container(
+        padding: const EdgeInsets.all(24),
+        decoration: BoxDecoration(
+          color: theme.backgroundPanel,
+          borderRadius: const BorderRadius.vertical(top: Radius.circular(20)),
+        ),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              'Export Transcript',
+              style: TextStyle(
+                fontSize: 18,
+                fontWeight: FontWeight.w600,
+                color: theme.text,
+              ),
+            ),
+            const SizedBox(height: 16),
+            ListTile(
+              leading: Icon(Icons.copy, color: theme.primary),
+              title: Text(
+                'Copy to Clipboard',
+                style: TextStyle(color: theme.text),
+              ),
+              subtitle: Text(
+                'Copy as markdown',
+                style: TextStyle(color: theme.textMuted),
+              ),
+              onTap: () {
+                Navigator.pop(context);
+                _copyTranscriptToClipboard();
+              },
+            ),
+            ListTile(
+              leading: Icon(Icons.share, color: theme.primary),
+              title: Text('Share', style: TextStyle(color: theme.text)),
+              subtitle: Text(
+                'Share transcript via system share',
+                style: TextStyle(color: theme.textMuted),
+              ),
+              onTap: () {
+                Navigator.pop(context);
+                _shareTranscript();
+              },
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  /// Share transcript via system share sheet
+  void _shareTranscript() {
+    final chatState = ref.read(chatSessionProvider);
+    final buffer = StringBuffer();
+    buffer.writeln('# Session: ${widget.session.title}');
+    buffer.writeln('---\n');
+
+    for (final msg in chatState.messages) {
+      final role = msg.role == 'user' ? 'You' : 'Assistant';
+      buffer.writeln('## $role');
+      buffer.writeln(msg.text);
+      buffer.writeln();
+    }
+
+    Share.share(
+      buffer.toString(),
+      subject: 'Chat Session: ${widget.session.title}',
+    );
+  }
+
+  /// Show timeline dialog to jump to a specific message
+  void _showTimelineDialog() {
+    final theme = OpenCodeTheme.of(context);
+    final chatState = ref.read(chatSessionProvider);
+
+    if (chatState.messages.isEmpty) {
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(const SnackBar(content: Text('No messages in session')));
+      return;
+    }
+
+    showModalBottomSheet(
+      context: context,
+      backgroundColor: Colors.transparent,
+      isScrollControlled: true,
+      builder: (context) => DraggableScrollableSheet(
+        initialChildSize: 0.6,
+        minChildSize: 0.4,
+        maxChildSize: 0.9,
+        builder: (context, scrollController) => Container(
+          decoration: BoxDecoration(
+            color: theme.backgroundPanel,
+            borderRadius: const BorderRadius.vertical(top: Radius.circular(20)),
+          ),
+          child: Column(
+            children: [
+              Container(
+                margin: const EdgeInsets.only(top: 12),
+                width: 40,
+                height: 4,
+                decoration: BoxDecoration(
+                  color: theme.textMuted,
+                  borderRadius: BorderRadius.circular(2),
+                ),
+              ),
+              Padding(
+                padding: const EdgeInsets.all(16),
+                child: Text(
+                  'Jump to Message',
+                  style: TextStyle(
+                    fontSize: 18,
+                    fontWeight: FontWeight.w600,
+                    color: theme.text,
+                  ),
+                ),
+              ),
+              Expanded(
+                child: ListView.builder(
+                  controller: scrollController,
+                  itemCount: chatState.messages.length,
+                  itemBuilder: (context, index) {
+                    final msg = chatState.messages[index];
+                    final isUser = msg.role == 'user';
+                    return ListTile(
+                      leading: CircleAvatar(
+                        backgroundColor: isUser ? theme.primary : theme.accent,
+                        radius: 16,
+                        child: Icon(
+                          isUser ? Icons.person : Icons.smart_toy,
+                          size: 16,
+                          color: Colors.white,
+                        ),
+                      ),
+                      title: Text(
+                        isUser ? 'You' : 'Assistant',
+                        style: TextStyle(
+                          fontWeight: FontWeight.w500,
+                          color: theme.text,
+                        ),
+                      ),
+                      subtitle: Text(
+                        msg.text.length > 60
+                            ? '${msg.text.substring(0, 60)}...'
+                            : msg.text,
+                        style: TextStyle(color: theme.textMuted),
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                      onTap: () {
+                        Navigator.pop(context);
+                        // Scroll to the message
+                        final targetIndex =
+                            chatState.messages.length - 1 - index;
+                        if (_scrollController.hasClients) {
+                          _scrollController.animateTo(
+                            targetIndex * 120.0, // Approximate message height
+                            duration: const Duration(milliseconds: 300),
+                            curve: Curves.easeInOut,
+                          );
+                        }
+                      },
+                    );
+                  },
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  /// Show fork dialog to create a branch from a specific message
+  void _showForkDialog() {
+    final theme = OpenCodeTheme.of(context);
+    final chatState = ref.read(chatSessionProvider);
+
+    if (chatState.messages.isEmpty) {
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(const SnackBar(content: Text('No messages to fork from')));
+      return;
+    }
+
+    showModalBottomSheet(
+      context: context,
+      backgroundColor: Colors.transparent,
+      isScrollControlled: true,
+      builder: (context) => DraggableScrollableSheet(
+        initialChildSize: 0.6,
+        minChildSize: 0.4,
+        maxChildSize: 0.9,
+        builder: (context, scrollController) => Container(
+          decoration: BoxDecoration(
+            color: theme.backgroundPanel,
+            borderRadius: const BorderRadius.vertical(top: Radius.circular(20)),
+          ),
+          child: Column(
+            children: [
+              Container(
+                margin: const EdgeInsets.only(top: 12),
+                width: 40,
+                height: 4,
+                decoration: BoxDecoration(
+                  color: theme.textMuted,
+                  borderRadius: BorderRadius.circular(2),
+                ),
+              ),
+              Padding(
+                padding: const EdgeInsets.all(16),
+                child: Column(
+                  children: [
+                    Text(
+                      'Fork Session',
+                      style: TextStyle(
+                        fontSize: 18,
+                        fontWeight: FontWeight.w600,
+                        color: theme.text,
+                      ),
+                    ),
+                    const SizedBox(height: 4),
+                    Text(
+                      'Select a message to fork from',
+                      style: TextStyle(fontSize: 13, color: theme.textMuted),
+                    ),
+                  ],
+                ),
+              ),
+              Expanded(
+                child: ListView.builder(
+                  controller: scrollController,
+                  itemCount: chatState.messages.length,
+                  itemBuilder: (context, index) {
+                    final msg = chatState.messages[index];
+                    final isUser = msg.role == 'user';
+                    return ListTile(
+                      leading: CircleAvatar(
+                        backgroundColor: isUser ? theme.primary : theme.accent,
+                        radius: 16,
+                        child: Icon(
+                          isUser ? Icons.person : Icons.smart_toy,
+                          size: 16,
+                          color: Colors.white,
+                        ),
+                      ),
+                      title: Text(
+                        isUser ? 'You' : 'Assistant',
+                        style: TextStyle(
+                          fontWeight: FontWeight.w500,
+                          color: theme.text,
+                        ),
+                      ),
+                      subtitle: Text(
+                        msg.text.length > 60
+                            ? '${msg.text.substring(0, 60)}...'
+                            : msg.text,
+                        style: TextStyle(color: theme.textMuted),
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                      trailing: Icon(Icons.fork_right, color: theme.primary),
+                      onTap: () async {
+                        Navigator.pop(context);
+                        try {
+                          final bridge = ref.read(bridgeServiceProvider);
+                          final forkedSession = await bridge.forkSession(
+                            widget.session.id,
+                            messageId: msg.id,
+                            projectPath: widget.project.path,
+                          );
+                          if (mounted) {
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              SnackBar(
+                                content: Text(
+                                  'Forked to "${forkedSession.title}"',
+                                ),
+                                action: SnackBarAction(
+                                  label: 'Open',
+                                  onPressed: () {
+                                    // Navigate to the forked session
+                                    Navigator.of(context).pushReplacementNamed(
+                                      '/chat',
+                                      arguments: {
+                                        'session': forkedSession,
+                                        'project': widget.project,
+                                      },
+                                    );
+                                  },
+                                ),
+                              ),
+                            );
+                          }
+                        } catch (e) {
+                          if (mounted) {
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              SnackBar(content: Text('Failed to fork: $e')),
+                            );
+                          }
+                        }
+                      },
+                    );
+                  },
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  /// Toggle thinking/reasoning visibility
+  void _toggleThinkingVisibility() {
+    // Toggle the state - for now we'll use a simple snackbar notification
+    // In a full implementation, this would toggle a provider state
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(
+        content: Text('Thinking visibility toggled'),
+        duration: Duration(seconds: 2),
+      ),
+    );
+  }
+
+  /// Show models selection dialog
+  void _showModelsDialog() {
+    final theme = OpenCodeTheme.of(context);
+
+    // Use existing model selector
+    _showModelSelector(context);
+  }
+
+  /// Show agents selection dialog
+  void _showAgentsDialog() {
+    final theme = OpenCodeTheme.of(context);
+
+    showModalBottomSheet(
+      context: context,
+      backgroundColor: Colors.transparent,
+      builder: (context) => Container(
+        padding: const EdgeInsets.all(24),
+        decoration: BoxDecoration(
+          color: theme.backgroundPanel,
+          borderRadius: const BorderRadius.vertical(top: Radius.circular(20)),
+        ),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              'Available Agents',
+              style: TextStyle(
+                fontSize: 18,
+                fontWeight: FontWeight.w600,
+                color: theme.text,
+              ),
+            ),
+            const SizedBox(height: 16),
+            if (_agents.isEmpty)
+              Padding(
+                padding: const EdgeInsets.all(16),
+                child: Text(
+                  'No agents available',
+                  style: TextStyle(color: theme.textMuted),
+                ),
+              )
+            else
+              ...List.generate(_agents.length, (index) {
+                final agent = _agents[index];
+                final isSelected = _selectedAgent == agent.name;
+                return ListTile(
+                  leading: CircleAvatar(
+                    backgroundColor: isSelected ? theme.primary : theme.bgDeep,
+                    child: Icon(
+                      Icons.smart_toy,
+                      color: isSelected ? Colors.white : theme.textMuted,
+                      size: 20,
+                    ),
+                  ),
+                  title: Text(
+                    agent.name,
+                    style: TextStyle(
+                      color: theme.text,
+                      fontWeight: isSelected
+                          ? FontWeight.w600
+                          : FontWeight.normal,
+                    ),
+                  ),
+                  subtitle: agent.description != null
+                      ? Text(
+                          agent.description!,
+                          style: TextStyle(
+                            color: theme.textMuted,
+                            fontSize: 12,
+                          ),
+                        )
+                      : null,
+                  trailing: isSelected
+                      ? Icon(Icons.check_circle, color: theme.primary)
+                      : null,
+                  onTap: () {
+                    setState(() => _selectedAgent = agent.name);
+                    Navigator.pop(context);
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      SnackBar(content: Text('Selected ${agent.name} agent')),
+                    );
+                  },
+                );
+              }),
+            const SizedBox(height: 8),
+          ],
+        ),
+      ),
+    );
   }
 
   @override

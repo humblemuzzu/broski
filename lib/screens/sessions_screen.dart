@@ -1007,20 +1007,14 @@ class _SessionCard extends StatelessWidget {
     return session.directory.split('/').where((item) => item.isNotEmpty).last;
   }
 
-  // Generate two colors for gradient based on session ID hash
-  List<Color> _getGradientColors(BuildContext context) {
-    final ocTheme = OpenCodeTheme.of(context);
-    final hash = session.id.hashCode;
-    final colors = [
-      ocTheme.primary,
-      ocTheme.secondary,
-      ocTheme.accent,
-      ocTheme.success,
-      ocTheme.info,
-    ];
-    final c1 = colors[hash.abs() % colors.length];
-    final c2 = colors[(hash.abs() + 2) % colors.length];
-    return [c1, c2];
+  // Get first letter of session title for avatar
+  String _getAvatarLetter() {
+    if (session.title.isEmpty) return '?';
+    // Get first alphanumeric character
+    final match = RegExp(r'[a-zA-Z0-9]').firstMatch(session.title);
+    return match != null
+        ? match.group(0)!.toUpperCase()
+        : session.title[0].toUpperCase();
   }
 
   String _formatDate(int timestamp) {
@@ -1044,7 +1038,6 @@ class _SessionCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final ocTheme = OpenCodeTheme.of(context);
-    final gradientColors = _getGradientColors(context);
 
     // Base card widget - fixed height for uniformity
     Widget card = GestureDetector(
@@ -1052,8 +1045,8 @@ class _SessionCard extends StatelessWidget {
       // Feature 5: Long press to rename (disabled in offline mode)
       onLongPress: onRename,
       child: Container(
-        height: 76,
-        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+        height: 80,
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
         decoration: BoxDecoration(
           color: ocTheme.backgroundPanel,
           borderRadius: BorderRadius.circular(14),
@@ -1065,7 +1058,7 @@ class _SessionCard extends StatelessWidget {
         ),
         child: Row(
           children: [
-            // Modern gradient orb with optional activity indicator
+            // Modern letter avatar with status dot
             Stack(
               clipBehavior: Clip.none,
               children: [
@@ -1074,39 +1067,43 @@ class _SessionCard extends StatelessWidget {
                   height: 44,
                   decoration: BoxDecoration(
                     borderRadius: BorderRadius.circular(12),
-                    gradient: LinearGradient(
-                      begin: Alignment.topLeft,
-                      end: Alignment.bottomRight,
-                      colors: [
-                        gradientColors[0].withValues(alpha: 0.8),
-                        gradientColors[1].withValues(alpha: 0.6),
-                      ],
-                    ),
+                    color: ocTheme.backgroundElement,
+                    border: Border.all(color: ocTheme.borderSubtle, width: 1),
                   ),
                   child: Center(
                     child: Text(
-                      '>_',
+                      _getAvatarLetter(),
                       style: TextStyle(
-                        color: Colors.white.withValues(alpha: 0.9),
-                        fontSize: 14,
-                        fontWeight: FontWeight.w700,
-                        fontFamily: 'monospace',
+                        color: ocTheme.textMuted,
+                        fontSize: 18,
+                        fontWeight: FontWeight.w600,
+                        letterSpacing: -0.5,
                       ),
                     ),
                   ),
                 ),
-                // Active session indicator - pulsing dot
-                if (isActive)
-                  Positioned(
-                    top: -2,
-                    right: -2,
-                    child: _PulsingDot(
-                      color: status!.isRetry ? ocTheme.warning : ocTheme.info,
+                // Status dot at bottom-left corner
+                Positioned(
+                  bottom: -2,
+                  left: -2,
+                  child: Container(
+                    width: 12,
+                    height: 12,
+                    decoration: BoxDecoration(
+                      shape: BoxShape.circle,
+                      color: isActive
+                          ? (status!.isRetry ? ocTheme.warning : ocTheme.info)
+                          : ocTheme.textMuted.withValues(alpha: 0.4),
+                      border: Border.all(
+                        color: ocTheme.backgroundPanel,
+                        width: 2,
+                      ),
                     ),
                   ),
+                ),
               ],
             ),
-            const SizedBox(width: 12),
+            const SizedBox(width: 16),
             // Session info
             Expanded(
               child: Column(
@@ -1120,9 +1117,10 @@ class _SessionCard extends StatelessWidget {
                           session.title,
                           style: TextStyle(
                             color: ocTheme.text,
-                            fontSize: 14,
+                            fontSize: 15,
                             fontWeight: FontWeight.w600,
-                            height: 1.2,
+                            height: 1.4,
+                            letterSpacing: -0.2,
                           ),
                           maxLines: 1,
                           overflow: TextOverflow.ellipsis,
@@ -1191,10 +1189,15 @@ class _SessionCard extends StatelessWidget {
                       ],
                     ],
                   ),
-                  const SizedBox(height: 4),
+                  const SizedBox(height: 6),
                   Text(
                     '${_getProjectName()} · ${_formatDate(session.time.updated)}',
-                    style: TextStyle(color: ocTheme.textMuted, fontSize: 12),
+                    style: TextStyle(
+                      color: ocTheme.textMuted,
+                      fontSize: 13,
+                      height: 1.4,
+                      letterSpacing: -0.1,
+                    ),
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
                   ),
@@ -2066,32 +2069,26 @@ class _CCSessionCard extends StatelessWidget {
     }
   }
 
-  // Generate gradient colors based on session ID
-  List<Color> _getGradientColors(BuildContext context) {
-    final ocTheme = OpenCodeTheme.of(context);
-    final hash = session.id.hashCode;
-    final colors = [
-      ocTheme.accent,
-      ocTheme.secondary,
-      ocTheme.primary,
-      ocTheme.info,
-      ocTheme.success,
-    ];
-    final c1 = colors[hash.abs() % colors.length];
-    final c2 = colors[(hash.abs() + 2) % colors.length];
-    return [c1, c2];
+  // Get first letter of session title for avatar
+  String _getAvatarLetter() {
+    final title = session.displayTitle;
+    if (title.isEmpty) return '?';
+    // Get first alphanumeric character
+    final match = RegExp(r'[a-zA-Z0-9]').firstMatch(title);
+    return match != null
+        ? match.group(0)!.toUpperCase()
+        : title[0].toUpperCase();
   }
 
   @override
   Widget build(BuildContext context) {
     final ocTheme = OpenCodeTheme.of(context);
-    final gradientColors = _getGradientColors(context);
 
     Widget card = GestureDetector(
       onTap: onTap,
       child: Container(
-        height: 76,
-        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+        height: 80,
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
         decoration: BoxDecoration(
           color: ocTheme.backgroundPanel,
           borderRadius: BorderRadius.circular(14),
@@ -2099,30 +2096,50 @@ class _CCSessionCard extends StatelessWidget {
         ),
         child: Row(
           children: [
-            // Gradient orb
-            Container(
-              width: 44,
-              height: 44,
-              decoration: BoxDecoration(
-                borderRadius: BorderRadius.circular(12),
-                gradient: LinearGradient(
-                  begin: Alignment.topLeft,
-                  end: Alignment.bottomRight,
-                  colors: [
-                    gradientColors[0].withValues(alpha: 0.8),
-                    gradientColors[1].withValues(alpha: 0.6),
-                  ],
+            // Modern letter avatar with status dot (no active status for CC)
+            Stack(
+              clipBehavior: Clip.none,
+              children: [
+                Container(
+                  width: 44,
+                  height: 44,
+                  decoration: BoxDecoration(
+                    borderRadius: BorderRadius.circular(12),
+                    color: ocTheme.backgroundElement,
+                    border: Border.all(color: ocTheme.borderSubtle, width: 1),
+                  ),
+                  child: Center(
+                    child: Text(
+                      _getAvatarLetter(),
+                      style: TextStyle(
+                        color: ocTheme.textMuted,
+                        fontSize: 18,
+                        fontWeight: FontWeight.w600,
+                        letterSpacing: -0.5,
+                      ),
+                    ),
+                  ),
                 ),
-              ),
-              child: Center(
-                child: Icon(
-                  Icons.terminal_rounded,
-                  color: Colors.white.withValues(alpha: 0.9),
-                  size: 20,
+                // Status dot at bottom-left corner (gray for idle)
+                Positioned(
+                  bottom: -2,
+                  left: -2,
+                  child: Container(
+                    width: 12,
+                    height: 12,
+                    decoration: BoxDecoration(
+                      shape: BoxShape.circle,
+                      color: ocTheme.textMuted.withValues(alpha: 0.4),
+                      border: Border.all(
+                        color: ocTheme.backgroundPanel,
+                        width: 2,
+                      ),
+                    ),
+                  ),
                 ),
-              ),
+              ],
             ),
-            const SizedBox(width: 12),
+            const SizedBox(width: 16),
             // Session info
             Expanded(
               child: Column(
@@ -2136,9 +2153,10 @@ class _CCSessionCard extends StatelessWidget {
                           session.displayTitle,
                           style: TextStyle(
                             color: ocTheme.text,
-                            fontSize: 14,
+                            fontSize: 15,
                             fontWeight: FontWeight.w600,
-                            height: 1.2,
+                            height: 1.4,
+                            letterSpacing: -0.2,
                           ),
                           maxLines: 1,
                           overflow: TextOverflow.ellipsis,
@@ -2168,10 +2186,15 @@ class _CCSessionCard extends StatelessWidget {
                       ],
                     ],
                   ),
-                  const SizedBox(height: 4),
+                  const SizedBox(height: 6),
                   Text(
                     '${_getProjectName()} · ${_formatDate(session.updatedAt)}',
-                    style: TextStyle(color: ocTheme.textMuted, fontSize: 12),
+                    style: TextStyle(
+                      color: ocTheme.textMuted,
+                      fontSize: 13,
+                      height: 1.4,
+                      letterSpacing: -0.1,
+                    ),
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
                   ),

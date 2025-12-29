@@ -150,6 +150,9 @@ export type ClientMessage =
   | { type: 'cc_list_commands'; cwd?: string }
   | { type: 'cc_get_config'; cwd?: string }
   | { type: 'cc_set_config'; config: Partial<ClaudeCodeConfig>; cwd?: string }
+  // Subscription Usage Tracking
+  | { type: 'get_subscription_usage' }
+  | { type: 'get_provider_usage'; providerId: 'claude' | 'openai' }
 
 export type ProjectSummary = {
   id: string
@@ -318,6 +321,9 @@ export type ServerMessage =
   | { type: 'cc_config'; data: ClaudeCodeConfig; requestId?: string }
   | { type: 'cc_config_updated'; data: ClaudeCodeConfig; requestId?: string }
   | { type: 'cc_stream'; data: ClaudeCodeStreamMessage; sessionId: string }
+  // Subscription Usage Tracking
+  | { type: 'subscription_usage'; data: SubscriptionUsage; requestId?: string }
+  | { type: 'provider_usage'; data: ProviderUsage; requestId?: string }
 
 // Feature 11: File Content
 export type FileContent = {
@@ -557,4 +563,49 @@ export type FileAttachment = {
   // Image support fields (Phase 4)
   mimeType?: string      // e.g., "image/png", "image/jpeg"
   base64Data?: string    // Base64 encoded image data from mobile
+}
+
+// ============================================================================
+// SUBSCRIPTION USAGE TYPES
+// ============================================================================
+
+export type UsageWindow = {
+  usedPercent: number       // 0-100
+  resetsAt: number | null   // Unix timestamp (seconds)
+  windowSeconds: number     // Window duration in seconds
+}
+
+export type ExtraUsage = {
+  isEnabled: boolean
+  monthlyLimit: number | null
+  usedCredits: number | null
+  utilization: number | null  // 0-100
+  currency: string
+  resetsAt: number | null
+}
+
+export type Credits = {
+  hasCredits: boolean
+  unlimited: boolean
+  balance: number | null
+}
+
+export type ProviderUsage = {
+  providerId: 'claude' | 'openai'
+  providerName: string
+  plan: string | null
+  sessionWindow: UsageWindow | null
+  weeklyWindow: UsageWindow | null
+  weeklyOpusWindow: UsageWindow | null
+  weeklySonnetWindow: UsageWindow | null
+  extraUsage: ExtraUsage | null
+  credits: Credits | null
+  source: string
+  fetchedAt: number
+  error: string | null
+}
+
+export type SubscriptionUsage = {
+  providers: ProviderUsage[]
+  fetchedAt: number
 }

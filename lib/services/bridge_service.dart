@@ -16,6 +16,7 @@ import '../models/provider.dart';
 import '../models/search_result.dart';
 import '../models/session.dart';
 import '../models/todo.dart';
+import '../models/subscription_usage.dart';
 import '../models/tool.dart';
 import '../models/vcs.dart';
 import 'websocket_service.dart';
@@ -1753,6 +1754,30 @@ class BridgeService {
     final response = await _waitFor('cc_config_updated', requestId: requestId);
     final data = response['data'] as Map<String, dynamic>? ?? {};
     return ClaudeCodeConfig.fromJson(data);
+  }
+
+  // ============================================================
+  // Subscription Usage Tracking
+  // ============================================================
+
+  Future<SubscriptionUsage> getSubscriptionUsage() async {
+    final requestId = _generateRequestId();
+    _socket.send({'type': 'get_subscription_usage', 'requestId': requestId});
+    final response = await _waitFor('subscription_usage', requestId: requestId);
+    final data = response['data'] as Map<String, dynamic>? ?? {};
+    return SubscriptionUsage.fromJson(data);
+  }
+
+  Future<ProviderUsage> getProviderUsage(String providerId) async {
+    final requestId = _generateRequestId();
+    _socket.send({
+      'type': 'get_provider_usage',
+      'providerId': providerId,
+      'requestId': requestId,
+    });
+    final response = await _waitFor('provider_usage', requestId: requestId);
+    final data = response['data'] as Map<String, dynamic>? ?? {};
+    return ProviderUsage.fromJson(data);
   }
 
   // ============================================================
