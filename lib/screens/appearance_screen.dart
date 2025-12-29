@@ -21,7 +21,7 @@ class AppearanceScreen extends ConsumerWidget {
         backgroundColor: Colors.transparent,
         elevation: 0,
         title: Text(
-          'Tool Appearance',
+          'Tool Cards',
           style: TextStyle(
             color: theme.colorScheme.onSurface,
             fontSize: 18,

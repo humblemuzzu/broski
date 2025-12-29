@@ -2,23 +2,19 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../models/agent_type.dart';
-import '../models/nav_bar_style.dart';
 import '../providers/agent_type_provider.dart';
 import '../providers/connection_provider.dart';
-import '../providers/input_style_provider.dart';
-import '../providers/nav_bar_style_provider.dart';
 import '../providers/onboarding_provider.dart';
-import '../providers/service_providers.dart';
 import '../providers/theme_provider.dart';
 import '../theme/opencode_theme.dart';
 import '../widgets/connection_quality_indicator.dart';
-import 'appearance_screen.dart';
+import 'ai_backend_screen.dart';
+import 'customization_screen.dart';
 import 'device_manager_screen.dart';
 import 'mcp_servers_screen.dart';
 import 'providers_screen.dart';
 import 'subscription_usage_screen.dart';
 import 'terminal_screen.dart';
-import 'theme_selector_screen.dart';
 import 'tools_screen.dart';
 
 class SettingsScreen extends ConsumerWidget {
@@ -28,6 +24,7 @@ class SettingsScreen extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final connection = ref.watch(connectionProvider);
     final currentThemeInfo = ref.watch(currentThemeInfoProvider);
+    final currentAgent = ref.watch(agentTypeProvider);
     final theme = Theme.of(context);
 
     return Scaffold(
@@ -35,10 +32,10 @@ class SettingsScreen extends ConsumerWidget {
       body: SafeArea(
         child: CustomScrollView(
           slivers: [
-            // Modern header
+            // Header
             SliverToBoxAdapter(
               child: Padding(
-                padding: const EdgeInsets.fromLTRB(20, 16, 20, 20),
+                padding: const EdgeInsets.fromLTRB(20, 16, 20, 24),
                 child: Text(
                   'Settings',
                   style: TextStyle(
@@ -50,205 +47,160 @@ class SettingsScreen extends ConsumerWidget {
               ),
             ),
 
-            // Active Connection (if connected)
+            // CONNECTION Section
             if (connection.connection != null && connection.isConnected) ...[
-              SliverToBoxAdapter(
-                child: _SectionHeader(title: 'Active Connection'),
-              ),
+              SliverToBoxAdapter(child: _SectionHeader(title: 'Connection')),
               SliverToBoxAdapter(
                 child: Padding(
                   padding: const EdgeInsets.symmetric(horizontal: 20),
                   child: _ActiveConnectionCard(connection: connection),
                 ),
               ),
-              const SliverToBoxAdapter(child: SizedBox(height: 24)),
-            ],
-
-            // AI Backend section
-            SliverToBoxAdapter(child: _SectionHeader(title: 'AI Backend')),
-            SliverToBoxAdapter(
-              child: Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 20),
-                child: _SettingsCard(
-                  child: Column(
-                    children: [
-                      _AgentTypeTile(
-                        agentType: AgentType.opencode,
-                        title: 'OpenCode',
-                        subtitle: 'Open source AI coding agent',
-                        icon: Icons.code_rounded,
-                      ),
-                      _Divider(),
-                      _AgentTypeTile(
-                        agentType: AgentType.claudeCode,
-                        title: 'Claude Code',
-                        subtitle:
-                            'Anthropic Claude Code SDK (requires API key)',
-                        icon: Icons.auto_awesome_rounded,
-                      ),
-                    ],
+              const SliverToBoxAdapter(child: SizedBox(height: 12)),
+              SliverToBoxAdapter(
+                child: Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 20),
+                  child: _SettingsCard(
+                    child: Column(
+                      children: [
+                        _SettingsTile(
+                          title: 'Device Manager',
+                          subtitle: 'Paired Macs and connections',
+                          icon: Icons.devices_rounded,
+                          onTap: () => Navigator.push(
+                            context,
+                            MaterialPageRoute(
+                              builder: (_) => const DeviceManagerScreen(),
+                            ),
+                          ),
+                        ),
+                        _Divider(),
+                        _ActionTile(
+                          title: 'Disconnect',
+                          subtitle: 'End current session',
+                          icon: Icons.link_off_rounded,
+                          iconColor: theme.colorScheme.error,
+                          onTap: () => ref
+                              .read(connectionProvider.notifier)
+                              .disconnect(),
+                        ),
+                      ],
+                    ),
                   ),
                 ),
               ),
-            ),
-            const SliverToBoxAdapter(child: SizedBox(height: 24)),
+              const SliverToBoxAdapter(child: SizedBox(height: 28)),
+            ],
 
-            // Appearance section
+            // APPEARANCE Section
             SliverToBoxAdapter(child: _SectionHeader(title: 'Appearance')),
             SliverToBoxAdapter(
               child: Padding(
                 padding: const EdgeInsets.symmetric(horizontal: 20),
                 child: _SettingsCard(
+                  child: _SettingsTile(
+                    title: 'Customization',
+                    subtitle: 'Theme, input bar, navigation',
+                    icon: Icons.palette_rounded,
+                    trailing: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Container(
+                          width: 14,
+                          height: 14,
+                          decoration: BoxDecoration(
+                            color:
+                                currentThemeInfo?.primaryColor ??
+                                theme.colorScheme.primary,
+                            shape: BoxShape.circle,
+                            border: Border.all(
+                              color: theme.colorScheme.onSurface.withValues(
+                                alpha: 0.2,
+                              ),
+                            ),
+                          ),
+                        ),
+                        const SizedBox(width: 8),
+                        Icon(
+                          Icons.chevron_right_rounded,
+                          size: 20,
+                          color: theme.colorScheme.onSurface.withValues(
+                            alpha: 0.5,
+                          ),
+                        ),
+                      ],
+                    ),
+                    onTap: () => Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                        builder: (_) => const CustomizationScreen(),
+                      ),
+                    ),
+                  ),
+                ),
+              ),
+            ),
+            const SliverToBoxAdapter(child: SizedBox(height: 28)),
+
+            // AI Section
+            SliverToBoxAdapter(child: _SectionHeader(title: 'AI')),
+            SliverToBoxAdapter(
+              child: Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 20),
+                child: _SettingsCard(
                   child: Column(
                     children: [
                       _SettingsTile(
-                        title: 'Theme',
-                        subtitle: currentThemeInfo?.name ?? 'OpenCode',
-                        icon: Icons.palette_rounded,
+                        title: 'AI Backend',
+                        subtitle: currentAgent.displayName,
+                        icon: Icons.smart_toy_rounded,
                         trailing: Row(
                           mainAxisSize: MainAxisSize.min,
                           children: [
-                            // Theme color indicator
                             Container(
-                              width: 16,
-                              height: 16,
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 8,
+                                vertical: 4,
+                              ),
                               decoration: BoxDecoration(
-                                color:
-                                    currentThemeInfo?.primaryColor ??
-                                    theme.colorScheme.primary,
-                                shape: BoxShape.circle,
-                                border: Border.all(
-                                  color: theme.colorScheme.onSurface.withValues(
-                                    alpha: 0.2,
-                                  ),
+                                color: theme.colorScheme.primary.withValues(
+                                  alpha: 0.15,
+                                ),
+                                borderRadius: BorderRadius.circular(6),
+                              ),
+                              child: Text(
+                                currentAgent == AgentType.opencode
+                                    ? 'OC'
+                                    : 'CC',
+                                style: TextStyle(
+                                  color: theme.colorScheme.primary,
+                                  fontSize: 11,
+                                  fontWeight: FontWeight.w700,
                                 ),
                               ),
                             ),
                             const SizedBox(width: 8),
-                            const Icon(Icons.chevron_right_rounded, size: 20),
+                            Icon(
+                              Icons.chevron_right_rounded,
+                              size: 20,
+                              color: theme.colorScheme.onSurface.withValues(
+                                alpha: 0.5,
+                              ),
+                            ),
                           ],
                         ),
                         onTap: () => Navigator.push(
                           context,
                           MaterialPageRoute(
-                            builder: (_) => const ThemeSelectorScreen(),
+                            builder: (_) => const AIBackendScreen(),
                           ),
                         ),
                       ),
                       _Divider(),
                       _SettingsTile(
-                        title: 'Tool Cards',
-                        subtitle: 'Icons, colors, and card styling',
-                        icon: Icons.view_agenda_rounded,
-                        trailing: const Icon(
-                          Icons.chevron_right_rounded,
-                          size: 20,
-                        ),
-                        onTap: () => Navigator.push(
-                          context,
-                          MaterialPageRoute(
-                            builder: (_) => const AppearanceScreen(),
-                          ),
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-              ),
-            ),
-
-            // Interface section
-            const SliverToBoxAdapter(child: SizedBox(height: 24)),
-            SliverToBoxAdapter(child: _SectionHeader(title: 'Interface')),
-            SliverToBoxAdapter(
-              child: Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 20),
-                child: _SettingsCard(
-                  child: Column(
-                    children: [
-                      _InputStyleTile(
-                        title: 'ChatGPT Style',
-                        subtitle: 'Rounded pill input with send button',
-                        icon: Icons.chat_bubble_outline_rounded,
-                        value: InputBarStyle.chatgpt,
-                      ),
-                      _Divider(),
-                      _InputStyleTile(
-                        title: 'CLI Style',
-                        subtitle:
-                            'Terminal-like input with agent & model selector',
-                        icon: Icons.terminal_rounded,
-                        value: InputBarStyle.cli,
-                      ),
-                      _Divider(),
-                      _NotificationToggleTile(),
-                    ],
-                  ),
-                ),
-              ),
-            ),
-
-            // Navigation section
-            const SliverToBoxAdapter(child: SizedBox(height: 24)),
-            SliverToBoxAdapter(child: _SectionHeader(title: 'Navigation')),
-            SliverToBoxAdapter(
-              child: Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 20),
-                child: _SettingsCard(
-                  child: Column(
-                    children: [
-                      _NavBarStyleTile(
-                        title: 'Classic',
-                        subtitle: 'Simple rounded bar with icons and labels',
-                        icon: Icons.view_agenda_rounded,
-                        value: NavBarStyle.classic,
-                      ),
-                      _Divider(),
-                      _NavBarStyleTile(
-                        title: 'Glassmorphic',
-                        subtitle: 'Floating glass island with frosted blur',
-                        icon: Icons.blur_on_rounded,
-                        value: NavBarStyle.glassmorphic,
-                      ),
-                    ],
-                  ),
-                ),
-              ),
-            ),
-
-            // Management section
-            const SliverToBoxAdapter(child: SizedBox(height: 24)),
-            SliverToBoxAdapter(child: _SectionHeader(title: 'Management')),
-            SliverToBoxAdapter(
-              child: Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 20),
-                child: _SettingsCard(
-                  child: Column(
-                    children: [
-                      _SettingsTile(
-                        title: 'Device Manager',
-                        subtitle: 'Paired Macs and connection info',
-                        icon: Icons.devices_rounded,
-                        trailing: const Icon(
-                          Icons.chevron_right_rounded,
-                          size: 20,
-                        ),
-                        onTap: () => Navigator.push(
-                          context,
-                          MaterialPageRoute(
-                            builder: (_) => const DeviceManagerScreen(),
-                          ),
-                        ),
-                      ),
-                      _Divider(),
-                      _SettingsTile(
-                        title: 'OpenCode Providers',
-                        subtitle: 'Models configured in OpenCode CLI',
+                        title: 'Providers',
+                        subtitle: 'Models and API keys',
                         icon: Icons.psychology_rounded,
-                        trailing: const Icon(
-                          Icons.chevron_right_rounded,
-                          size: 20,
-                        ),
                         onTap: () => Navigator.push(
                           context,
                           MaterialPageRoute(
@@ -256,150 +208,114 @@ class SettingsScreen extends ConsumerWidget {
                           ),
                         ),
                       ),
-                      _Divider(),
-                      _SettingsTile(
-                        title: 'Terminal Sessions',
-                        subtitle: 'PTY terminal sessions on your Mac',
-                        icon: Icons.terminal_rounded,
-                        trailing: const Icon(
-                          Icons.chevron_right_rounded,
-                          size: 20,
-                        ),
-                        onTap: () => Navigator.push(
-                          context,
-                          MaterialPageRoute(
-                            builder: (_) => const TerminalScreen(),
-                          ),
-                        ),
-                      ),
-                      _Divider(),
-                      _SettingsTile(
-                        title: 'MCP Servers',
-                        subtitle: 'Model Context Protocol servers',
-                        icon: Icons.dns_rounded,
-                        trailing: const Icon(
-                          Icons.chevron_right_rounded,
-                          size: 20,
-                        ),
-                        onTap: () => Navigator.push(
-                          context,
-                          MaterialPageRoute(
-                            builder: (_) => const McpServersScreen(),
-                          ),
-                        ),
-                      ),
-                      _Divider(),
-                      _SettingsTile(
-                        title: 'Tools',
-                        subtitle: 'AI tools (bash, edit, read, etc.)',
-                        icon: Icons.build_rounded,
-                        trailing: const Icon(
-                          Icons.chevron_right_rounded,
-                          size: 20,
-                        ),
-                        onTap: () => Navigator.push(
-                          context,
-                          MaterialPageRoute(
-                            builder: (_) => const ToolsScreen(),
-                          ),
-                        ),
-                      ),
-                      _Divider(),
-                      _SettingsTile(
-                        title: 'Subscription Usage',
-                        subtitle: 'API limits, credits, and reset times',
-                        icon: Icons.data_usage_rounded,
-                        trailing: const Icon(
-                          Icons.chevron_right_rounded,
-                          size: 20,
-                        ),
-                        onTap: () => Navigator.push(
-                          context,
-                          MaterialPageRoute(
-                            builder: (_) => const SubscriptionUsageScreen(),
-                          ),
-                        ),
-                      ),
                     ],
                   ),
                 ),
               ),
             ),
+            const SliverToBoxAdapter(child: SizedBox(height: 28)),
 
-            // Actions section
-            const SliverToBoxAdapter(child: SizedBox(height: 24)),
-            SliverToBoxAdapter(child: _SectionHeader(title: 'Actions')),
-            SliverToBoxAdapter(
-              child: Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 20),
-                child: Column(
-                  children: [
-                    if (!connection.opencodeRunning) ...[
-                      SizedBox(
-                        width: double.infinity,
-                        child: ElevatedButton.icon(
-                          onPressed: () => _startOpenCode(context, ref),
-                          icon: const Icon(Icons.play_arrow_rounded),
-                          label: const Text('Start OpenCode'),
-                          style: ElevatedButton.styleFrom(
-                            padding: const EdgeInsets.symmetric(vertical: 14),
+            // OPENCODE Section (only when OpenCode is selected)
+            if (currentAgent == AgentType.opencode) ...[
+              SliverToBoxAdapter(child: _SectionHeader(title: 'OpenCode')),
+              SliverToBoxAdapter(
+                child: Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 20),
+                  child: _SettingsCard(
+                    child: Column(
+                      children: [
+                        _SettingsTile(
+                          title: 'Terminal Sessions',
+                          subtitle: 'PTY terminal sessions',
+                          icon: Icons.terminal_rounded,
+                          onTap: () => Navigator.push(
+                            context,
+                            MaterialPageRoute(
+                              builder: (_) => const TerminalScreen(),
+                            ),
                           ),
                         ),
-                      ),
-                      const SizedBox(height: 12),
-                    ],
-                    SizedBox(
-                      width: double.infinity,
-                      child: OutlinedButton.icon(
-                        onPressed: () => ref
-                            .read(connectionProvider.notifier)
-                            .clearConnection(),
-                        icon: const Icon(Icons.clear_rounded, size: 20),
-                        label: const Text('Clear Connection'),
-                        style: OutlinedButton.styleFrom(
-                          padding: const EdgeInsets.symmetric(vertical: 14),
+                        _Divider(),
+                        _SettingsTile(
+                          title: 'MCP Servers',
+                          subtitle: 'Model Context Protocol',
+                          icon: Icons.dns_rounded,
+                          onTap: () => Navigator.push(
+                            context,
+                            MaterialPageRoute(
+                              builder: (_) => const McpServersScreen(),
+                            ),
+                          ),
                         ),
-                      ),
-                    ),
-                    const SizedBox(height: 12),
-                    SizedBox(
-                      width: double.infinity,
-                      child: OutlinedButton.icon(
-                        onPressed: () =>
-                            ref.read(connectionProvider.notifier).disconnect(),
-                        icon: const Icon(Icons.link_off_rounded, size: 20),
-                        label: const Text('Disconnect'),
-                        style: OutlinedButton.styleFrom(
-                          padding: const EdgeInsets.symmetric(vertical: 14),
-                          foregroundColor: theme.colorScheme.error,
-                          side: BorderSide(color: theme.colorScheme.error),
+                        _Divider(),
+                        _SettingsTile(
+                          title: 'Tools',
+                          subtitle: 'AI tools configuration',
+                          icon: Icons.build_rounded,
+                          onTap: () => Navigator.push(
+                            context,
+                            MaterialPageRoute(
+                              builder: (_) => const ToolsScreen(),
+                            ),
+                          ),
                         ),
-                      ),
+                      ],
                     ),
-                  ],
+                  ),
                 ),
               ),
-            ),
+              const SliverToBoxAdapter(child: SizedBox(height: 28)),
+            ],
 
-            // Debug section
-            const SliverToBoxAdapter(child: SizedBox(height: 24)),
-            SliverToBoxAdapter(child: _SectionHeader(title: 'Debug')),
+            // ACCOUNT Section
+            SliverToBoxAdapter(child: _SectionHeader(title: 'Account')),
             SliverToBoxAdapter(
               child: Padding(
                 padding: const EdgeInsets.symmetric(horizontal: 20),
                 child: _SettingsCard(
                   child: _SettingsTile(
-                    title: 'Replay Onboarding',
-                    subtitle: 'See the first-launch experience again',
-                    icon: Icons.replay_rounded,
-                    trailing: const Icon(Icons.chevron_right_rounded, size: 20),
-                    onTap: () => _replayOnboarding(context, ref),
+                    title: 'Subscription Usage',
+                    subtitle: 'API limits and credits',
+                    icon: Icons.data_usage_rounded,
+                    onTap: () => Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                        builder: (_) => const SubscriptionUsageScreen(),
+                      ),
+                    ),
+                  ),
+                ),
+              ),
+            ),
+            const SliverToBoxAdapter(child: SizedBox(height: 28)),
+
+            // ABOUT Section
+            SliverToBoxAdapter(child: _SectionHeader(title: 'About')),
+            SliverToBoxAdapter(
+              child: Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 20),
+                child: _SettingsCard(
+                  child: Column(
+                    children: [
+                      _SettingsTile(
+                        title: 'Replay Onboarding',
+                        subtitle: 'First-launch experience',
+                        icon: Icons.replay_rounded,
+                        onTap: () => _replayOnboarding(context, ref),
+                      ),
+                      _Divider(),
+                      _InfoTile(
+                        title: 'Version',
+                        value: '1.0.0',
+                        icon: Icons.info_outline_rounded,
+                      ),
+                    ],
                   ),
                 ),
               ),
             ),
 
-            // Bottom padding for navbar
+            // Bottom padding
             const SliverToBoxAdapter(child: SizedBox(height: 100)),
           ],
         ),
@@ -432,170 +348,174 @@ class SettingsScreen extends ConsumerWidget {
       ),
     );
   }
-
-  Future<void> _startOpenCode(BuildContext context, WidgetRef ref) async {
-    final messenger = ScaffoldMessenger.of(context);
-    final surfaceColor = Theme.of(context).colorScheme.surface;
-    messenger.showSnackBar(
-      SnackBar(
-        content: const Text('Restarting OpenCode...'),
-        backgroundColor: surfaceColor,
-        behavior: SnackBarBehavior.floating,
-      ),
-    );
-
-    final ok = await ref.read(bridgeServiceProvider).restartOpenCode();
-    messenger.showSnackBar(
-      SnackBar(
-        content: Text(ok ? 'OpenCode restarted' : 'Failed to restart OpenCode'),
-        backgroundColor: surfaceColor,
-        behavior: SnackBarBehavior.floating,
-      ),
-    );
-  }
 }
 
-// Active Connection Card (inspired by the image)
-class _ActiveConnectionCard extends StatelessWidget {
+// Active Connection Card (expandable)
+class _ActiveConnectionCard extends StatefulWidget {
   const _ActiveConnectionCard({required this.connection});
 
   final BridgeConnectionState connection;
 
   @override
+  State<_ActiveConnectionCard> createState() => _ActiveConnectionCardState();
+}
+
+class _ActiveConnectionCardState extends State<_ActiveConnectionCard> {
+  bool _isExpanded = false;
+
+  @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final ocTheme = OpenCodeTheme.of(context);
+    final connection = widget.connection;
     final isConnected = connection.isConnected;
 
-    return Container(
-      padding: const EdgeInsets.all(20),
-      decoration: BoxDecoration(
-        color: ocTheme.backgroundPanel,
-        borderRadius: BorderRadius.circular(20),
-        border: Border.all(color: ocTheme.borderSubtle),
-      ),
-      child: Column(
-        children: [
-          // Device info row
-          Row(
-            children: [
-              // Device icon
+    return GestureDetector(
+      onTap: () => setState(() => _isExpanded = !_isExpanded),
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 200),
+        padding: const EdgeInsets.all(20),
+        decoration: BoxDecoration(
+          color: ocTheme.backgroundPanel,
+          borderRadius: BorderRadius.circular(20),
+          border: Border.all(color: ocTheme.borderSubtle),
+        ),
+        child: Column(
+          children: [
+            // Header row (always visible)
+            Row(
+              children: [
+                // Device icon
+                Container(
+                  padding: const EdgeInsets.all(16),
+                  decoration: BoxDecoration(
+                    color: theme.colorScheme.primary.withValues(alpha: 0.15),
+                    shape: BoxShape.circle,
+                  ),
+                  child: Icon(
+                    Icons.laptop_mac_rounded,
+                    color: theme.colorScheme.primary,
+                    size: 28,
+                  ),
+                ),
+                const SizedBox(width: 16),
+                // Device name and status
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        'OpenCode Bridge',
+                        style: TextStyle(
+                          color: theme.colorScheme.onSurface,
+                          fontSize: 18,
+                          fontWeight: FontWeight.w700,
+                        ),
+                      ),
+                      const SizedBox(height: 4),
+                      const ConnectionQualityIndicator(),
+                    ],
+                  ),
+                ),
+                // Expand/collapse indicator
+                AnimatedRotation(
+                  turns: _isExpanded ? 0.5 : 0,
+                  duration: const Duration(milliseconds: 200),
+                  child: Icon(
+                    Icons.keyboard_arrow_down_rounded,
+                    color: theme.colorScheme.onSurface.withValues(alpha: 0.5),
+                    size: 24,
+                  ),
+                ),
+              ],
+            ),
+
+            // Expanded details
+            if (_isExpanded &&
+                isConnected &&
+                connection.connection != null) ...[
+              const SizedBox(height: 20),
               Container(
                 padding: const EdgeInsets.all(16),
                 decoration: BoxDecoration(
-                  color: theme.colorScheme.primary.withValues(alpha: 0.15),
-                  shape: BoxShape.circle,
+                  color: ocTheme.backgroundElement,
+                  borderRadius: BorderRadius.circular(16),
                 ),
-                child: Icon(
-                  Icons.laptop_mac_rounded,
-                  color: theme.colorScheme.primary,
-                  size: 28,
-                ),
-              ),
-              const SizedBox(width: 16),
-              // Device name and status
-              Expanded(
                 child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Text(
-                      'OpenCode Bridge',
-                      style: TextStyle(
-                        color: theme.colorScheme.onSurface,
-                        fontSize: 18,
-                        fontWeight: FontWeight.w700,
-                      ),
-                    ),
-                    const SizedBox(height: 4),
-                    // Connection quality indicator with signal bars
-                    const ConnectionQualityIndicator(),
-                  ],
-                ),
-              ),
-            ],
-          ),
-
-          // Stats row (if connected)
-          if (isConnected && connection.connection != null) ...[
-            const SizedBox(height: 20),
-            Container(
-              padding: const EdgeInsets.all(16),
-              decoration: BoxDecoration(
-                color: ocTheme.backgroundElement,
-                borderRadius: BorderRadius.circular(16),
-              ),
-              child: Column(
-                children: [
-                  // First row: Local IP and Port
-                  Row(
-                    children: [
-                      Expanded(
-                        child: _ConnectionStat(
-                          label: 'Local IP',
-                          value: connection.connection!.localIP ?? 'N/A',
-                          icon: Icons.wifi_rounded,
+                    // First row: Local IP and Port
+                    Row(
+                      children: [
+                        Expanded(
+                          child: _ConnectionStat(
+                            label: 'Local IP',
+                            value: connection.connection!.localIP ?? 'N/A',
+                            icon: Icons.wifi_rounded,
+                          ),
                         ),
-                      ),
-                      Container(
-                        width: 1,
-                        height: 40,
+                        Container(
+                          width: 1,
+                          height: 40,
+                          color: theme.colorScheme.onSurface.withValues(
+                            alpha: 0.1,
+                          ),
+                        ),
+                        Expanded(
+                          child: _ConnectionStat(
+                            label: 'Port',
+                            value: '${connection.connection!.port}',
+                            icon: Icons.settings_ethernet_rounded,
+                          ),
+                        ),
+                      ],
+                    ),
+                    // Second row: Tailscale IP and RTT (if available)
+                    if (connection.connection!.tailscaleIP != null ||
+                        connection.rttMs != null) ...[
+                      const SizedBox(height: 16),
+                      Divider(
+                        height: 1,
                         color: theme.colorScheme.onSurface.withValues(
                           alpha: 0.1,
                         ),
                       ),
-                      Expanded(
-                        child: _ConnectionStat(
-                          label: 'Port',
-                          value: '${connection.connection!.port}',
-                          icon: Icons.settings_ethernet_rounded,
-                        ),
+                      const SizedBox(height: 16),
+                      Row(
+                        children: [
+                          if (connection.connection!.tailscaleIP != null)
+                            Expanded(
+                              child: _ConnectionStat(
+                                label: 'Tailscale IP',
+                                value: connection.connection!.tailscaleIP!,
+                                icon: Icons.vpn_lock_rounded,
+                              ),
+                            ),
+                          if (connection.connection!.tailscaleIP != null &&
+                              connection.rttMs != null)
+                            Container(
+                              width: 1,
+                              height: 40,
+                              color: theme.colorScheme.onSurface.withValues(
+                                alpha: 0.1,
+                              ),
+                            ),
+                          if (connection.rttMs != null)
+                            Expanded(
+                              child: _ConnectionStat(
+                                label: 'Latency',
+                                value: '${connection.rttMs}ms',
+                                icon: Icons.speed_rounded,
+                              ),
+                            ),
+                        ],
                       ),
                     ],
-                  ),
-                  // Second row: Tailscale IP and RTT (if available)
-                  if (connection.connection!.tailscaleIP != null ||
-                      connection.rttMs != null) ...[
-                    const SizedBox(height: 16),
-                    Divider(
-                      height: 1,
-                      color: theme.colorScheme.onSurface.withValues(alpha: 0.1),
-                    ),
-                    const SizedBox(height: 16),
-                    Row(
-                      children: [
-                        if (connection.connection!.tailscaleIP != null)
-                          Expanded(
-                            child: _ConnectionStat(
-                              label: 'Tailscale IP',
-                              value: connection.connection!.tailscaleIP!,
-                              icon: Icons.vpn_lock_rounded,
-                            ),
-                          ),
-                        if (connection.connection!.tailscaleIP != null &&
-                            connection.rttMs != null)
-                          Container(
-                            width: 1,
-                            height: 40,
-                            color: theme.colorScheme.onSurface.withValues(
-                              alpha: 0.1,
-                            ),
-                          ),
-                        if (connection.rttMs != null)
-                          Expanded(
-                            child: _ConnectionStat(
-                              label: 'Latency',
-                              value: '${connection.rttMs}ms',
-                              icon: Icons.speed_rounded,
-                            ),
-                          ),
-                      ],
-                    ),
                   ],
-                ],
+                ),
               ),
-            ),
+            ],
           ],
-        ],
+        ),
       ),
     );
   }
@@ -679,7 +599,7 @@ class _SettingsCard extends StatelessWidget {
     return Container(
       decoration: BoxDecoration(
         color: ocTheme.backgroundPanel,
-        borderRadius: BorderRadius.circular(20),
+        borderRadius: BorderRadius.circular(16),
         border: Border.all(color: ocTheme.borderSubtle),
       ),
       child: child,
@@ -690,17 +610,17 @@ class _SettingsCard extends StatelessWidget {
 class _SettingsTile extends StatelessWidget {
   const _SettingsTile({
     required this.title,
-    this.subtitle,
-    this.icon,
+    required this.subtitle,
+    required this.icon,
+    required this.onTap,
     this.trailing,
-    this.onTap,
   });
 
   final String title;
-  final String? subtitle;
-  final IconData? icon;
+  final String subtitle;
+  final IconData icon;
+  final VoidCallback onTap;
   final Widget? trailing;
-  final VoidCallback? onTap;
 
   @override
   Widget build(BuildContext context) {
@@ -708,15 +628,13 @@ class _SettingsTile extends StatelessWidget {
 
     return InkWell(
       onTap: onTap,
-      borderRadius: BorderRadius.circular(20),
+      borderRadius: BorderRadius.circular(16),
       child: Padding(
         padding: const EdgeInsets.all(16),
         child: Row(
           children: [
-            if (icon != null) ...[
-              Icon(icon, color: theme.colorScheme.primary, size: 22),
-              const SizedBox(width: 12),
-            ],
+            Icon(icon, color: theme.colorScheme.primary, size: 22),
+            const SizedBox(width: 12),
             Expanded(
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
@@ -729,24 +647,130 @@ class _SettingsTile extends StatelessWidget {
                       fontWeight: FontWeight.w600,
                     ),
                   ),
-                  if (subtitle != null) ...[
-                    const SizedBox(height: 4),
-                    Text(
-                      subtitle!,
-                      style: TextStyle(
-                        color: theme.colorScheme.onSurface.withValues(
-                          alpha: 0.6,
-                        ),
-                        fontSize: 13,
-                      ),
+                  const SizedBox(height: 3),
+                  Text(
+                    subtitle,
+                    style: TextStyle(
+                      color: theme.colorScheme.onSurface.withValues(alpha: 0.6),
+                      fontSize: 13,
                     ),
-                  ],
+                  ),
                 ],
               ),
             ),
-            if (trailing != null) ...[const SizedBox(width: 8), trailing!],
+            trailing ??
+                Icon(
+                  Icons.chevron_right_rounded,
+                  size: 20,
+                  color: theme.colorScheme.onSurface.withValues(alpha: 0.5),
+                ),
           ],
         ),
+      ),
+    );
+  }
+}
+
+class _ActionTile extends StatelessWidget {
+  const _ActionTile({
+    required this.title,
+    required this.subtitle,
+    required this.icon,
+    required this.onTap,
+    this.iconColor,
+  });
+
+  final String title;
+  final String subtitle;
+  final IconData icon;
+  final VoidCallback onTap;
+  final Color? iconColor;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+
+    return InkWell(
+      onTap: onTap,
+      borderRadius: BorderRadius.circular(16),
+      child: Padding(
+        padding: const EdgeInsets.all(16),
+        child: Row(
+          children: [
+            Icon(icon, color: iconColor ?? theme.colorScheme.primary, size: 22),
+            const SizedBox(width: 12),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    title,
+                    style: TextStyle(
+                      color: iconColor ?? theme.colorScheme.onSurface,
+                      fontSize: 15,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                  const SizedBox(height: 3),
+                  Text(
+                    subtitle,
+                    style: TextStyle(
+                      color: theme.colorScheme.onSurface.withValues(alpha: 0.6),
+                      fontSize: 13,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _InfoTile extends StatelessWidget {
+  const _InfoTile({
+    required this.title,
+    required this.value,
+    required this.icon,
+  });
+
+  final String title;
+  final String value;
+  final IconData icon;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+
+    return Padding(
+      padding: const EdgeInsets.all(16),
+      child: Row(
+        children: [
+          Icon(
+            icon,
+            color: theme.colorScheme.onSurface.withValues(alpha: 0.5),
+            size: 22,
+          ),
+          const SizedBox(width: 12),
+          Text(
+            title,
+            style: TextStyle(
+              color: theme.colorScheme.onSurface,
+              fontSize: 15,
+              fontWeight: FontWeight.w600,
+            ),
+          ),
+          const Spacer(),
+          Text(
+            value,
+            style: TextStyle(
+              color: theme.colorScheme.onSurface.withValues(alpha: 0.6),
+              fontSize: 15,
+            ),
+          ),
+        ],
       ),
     );
   }
@@ -761,272 +785,6 @@ class _Divider extends StatelessWidget {
       indent: 16,
       endIndent: 16,
       color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.1),
-    );
-  }
-}
-
-// Input bar style selector tile
-class _InputStyleTile extends ConsumerWidget {
-  const _InputStyleTile({
-    required this.title,
-    required this.subtitle,
-    required this.icon,
-    required this.value,
-  });
-
-  final String title;
-  final String subtitle;
-  final IconData icon;
-  final InputBarStyle value;
-
-  @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    final theme = Theme.of(context);
-    final currentStyle = ref.watch(inputStyleProvider);
-
-    return InkWell(
-      onTap: () => ref.read(inputStyleProvider.notifier).setStyle(value),
-      borderRadius: BorderRadius.circular(20),
-      child: Padding(
-        padding: const EdgeInsets.all(16),
-        child: Row(
-          children: [
-            Icon(icon, color: theme.colorScheme.primary, size: 22),
-            const SizedBox(width: 12),
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    title,
-                    style: TextStyle(
-                      color: theme.colorScheme.onSurface,
-                      fontSize: 15,
-                      fontWeight: FontWeight.w600,
-                    ),
-                  ),
-                  const SizedBox(height: 4),
-                  Text(
-                    subtitle,
-                    style: TextStyle(
-                      color: theme.colorScheme.onSurface.withValues(alpha: 0.6),
-                      fontSize: 13,
-                    ),
-                  ),
-                ],
-              ),
-            ),
-            const SizedBox(width: 8),
-            Radio<InputBarStyle>(
-              value: value,
-              groupValue: currentStyle,
-              onChanged: (v) {
-                if (v != null) {
-                  ref.read(inputStyleProvider.notifier).setStyle(v);
-                }
-              },
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-}
-
-class _NavBarStyleTile extends ConsumerWidget {
-  const _NavBarStyleTile({
-    required this.title,
-    required this.subtitle,
-    required this.icon,
-    required this.value,
-  });
-
-  final String title;
-  final String subtitle;
-  final IconData icon;
-  final NavBarStyle value;
-
-  @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    final theme = Theme.of(context);
-    final currentStyle = ref.watch(navBarStyleProvider);
-
-    return InkWell(
-      onTap: () => ref.read(navBarStyleProvider.notifier).setStyle(value),
-      borderRadius: BorderRadius.circular(20),
-      child: Padding(
-        padding: const EdgeInsets.all(16),
-        child: Row(
-          children: [
-            Icon(icon, color: theme.colorScheme.primary, size: 22),
-            const SizedBox(width: 12),
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    title,
-                    style: TextStyle(
-                      color: theme.colorScheme.onSurface,
-                      fontSize: 15,
-                      fontWeight: FontWeight.w600,
-                    ),
-                  ),
-                  const SizedBox(height: 4),
-                  Text(
-                    subtitle,
-                    style: TextStyle(
-                      color: theme.colorScheme.onSurface.withValues(alpha: 0.6),
-                      fontSize: 13,
-                    ),
-                  ),
-                ],
-              ),
-            ),
-            const SizedBox(width: 8),
-            Radio<NavBarStyle>(
-              value: value,
-              groupValue: currentStyle,
-              onChanged: (v) {
-                if (v != null) {
-                  ref.read(navBarStyleProvider.notifier).setStyle(v);
-                }
-              },
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-}
-
-class _NotificationToggleTile extends ConsumerWidget {
-  const _NotificationToggleTile();
-
-  @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    final theme = Theme.of(context);
-    final enabled = ref.watch(notificationsEnabledProvider);
-
-    return InkWell(
-      onTap: () => ref.read(notificationsEnabledProvider.notifier).toggle(),
-      borderRadius: BorderRadius.circular(20),
-      child: Padding(
-        padding: const EdgeInsets.all(16),
-        child: Row(
-          children: [
-            Icon(
-              Icons.notifications_rounded,
-              color: theme.colorScheme.primary,
-              size: 22,
-            ),
-            const SizedBox(width: 12),
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    'Notifications',
-                    style: TextStyle(
-                      color: theme.colorScheme.onSurface,
-                      fontSize: 15,
-                      fontWeight: FontWeight.w600,
-                    ),
-                  ),
-                  const SizedBox(height: 4),
-                  Text(
-                    'Alert when background sessions complete',
-                    style: TextStyle(
-                      color: theme.colorScheme.onSurface.withValues(alpha: 0.6),
-                      fontSize: 13,
-                    ),
-                  ),
-                ],
-              ),
-            ),
-            const SizedBox(width: 8),
-            Switch.adaptive(
-              value: enabled,
-              onChanged: (v) =>
-                  ref.read(notificationsEnabledProvider.notifier).setEnabled(v),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-}
-
-class _AgentTypeTile extends ConsumerWidget {
-  const _AgentTypeTile({
-    required this.agentType,
-    required this.title,
-    required this.subtitle,
-    required this.icon,
-  });
-
-  final AgentType agentType;
-  final String title;
-  final String subtitle;
-  final IconData icon;
-
-  @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    final theme = Theme.of(context);
-    final currentAgent = ref.watch(agentTypeProvider);
-    final isSelected = currentAgent == agentType;
-
-    return InkWell(
-      onTap: () {
-        ref.read(agentTypeProvider.notifier).setAgentType(agentType);
-        final bridge = ref.read(bridgeServiceProvider);
-        bridge.setAgent(agentType);
-      },
-      borderRadius: BorderRadius.circular(20),
-      child: Padding(
-        padding: const EdgeInsets.all(16),
-        child: Row(
-          children: [
-            Icon(icon, color: theme.colorScheme.primary, size: 22),
-            const SizedBox(width: 12),
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    title,
-                    style: TextStyle(
-                      color: theme.colorScheme.onSurface,
-                      fontSize: 15,
-                      fontWeight: FontWeight.w600,
-                    ),
-                  ),
-                  const SizedBox(height: 4),
-                  Text(
-                    subtitle,
-                    style: TextStyle(
-                      color: theme.colorScheme.onSurface.withValues(alpha: 0.6),
-                      fontSize: 13,
-                    ),
-                  ),
-                ],
-              ),
-            ),
-            const SizedBox(width: 8),
-            Radio<AgentType>(
-              value: agentType,
-              groupValue: currentAgent,
-              onChanged: (v) {
-                if (v != null) {
-                  ref.read(agentTypeProvider.notifier).setAgentType(v);
-                  final bridge = ref.read(bridgeServiceProvider);
-                  bridge.setAgent(v);
-                }
-              },
-            ),
-          ],
-        ),
-      ),
     );
   }
 }
