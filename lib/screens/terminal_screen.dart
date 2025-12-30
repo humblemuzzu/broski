@@ -66,19 +66,15 @@ class _TerminalScreenState extends ConsumerState<TerminalScreen> {
 
     if (result == null) return;
 
-    debugPrint('[Terminal] Creating PTY with: $result');
-
     try {
       final bridge = ref.read(bridgeServiceProvider);
       final selection = ref.read(selectionProvider);
-      debugPrint('[Terminal] projectPath: ${selection.project?.path}');
       final pty = await bridge.createPty(
         command: result['command'],
         title: result['title'],
         cwd: result['cwd'],
         projectPath: selection.project?.path,
       );
-      debugPrint('[Terminal] createPty result: $pty');
 
       if (pty != null && mounted) {
         final ocTheme = OpenCodeTheme.of(context);
@@ -90,9 +86,7 @@ class _TerminalScreenState extends ConsumerState<TerminalScreen> {
         );
         _loadSessions();
       }
-    } catch (e, stack) {
-      debugPrint('[Terminal] Error creating PTY: $e');
-      debugPrint('[Terminal] Stack: $stack');
+    } catch (e) {
       if (mounted) {
         final ocTheme = OpenCodeTheme.of(context);
         ScaffoldMessenger.of(context).showSnackBar(
@@ -145,14 +139,23 @@ class _TerminalScreenState extends ConsumerState<TerminalScreen> {
         projectPath: selection.project?.path,
       );
 
-      if (success && mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: const Text('Terminal deleted'),
-            backgroundColor: ocTheme.backgroundPanel,
-          ),
-        );
-        _loadSessions();
+      if (mounted) {
+        if (success) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: const Text('Terminal deleted'),
+              backgroundColor: ocTheme.backgroundPanel,
+            ),
+          );
+          await _loadSessions();
+        } else {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: const Text('Failed to delete terminal'),
+              backgroundColor: ocTheme.error,
+            ),
+          );
+        }
       }
     } catch (e) {
       if (mounted) {
@@ -228,7 +231,7 @@ class _TerminalScreenState extends ConsumerState<TerminalScreen> {
         title: newTitle,
         projectPath: selection.project?.path,
       );
-      _loadSessions();
+      await _loadSessions();
     } catch (e) {
       if (mounted) {
         final ocTheme = OpenCodeTheme.of(context);
@@ -837,7 +840,6 @@ class _CreatePtyDialogState extends State<_CreatePtyDialog> {
                   ? null
                   : _cwdController.text.trim(),
             };
-            debugPrint('[Terminal] Dialog returning: $result');
             Navigator.pop(context, result);
           },
           style: ElevatedButton.styleFrom(

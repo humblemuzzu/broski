@@ -58,6 +58,20 @@ export class OpenCodeConnector {
     }
   }
 
+  // Get the current OpenCode instance directory
+  async getInstanceDirectory(): Promise<string | null> {
+    try {
+      const response = await fetch(`${this.baseUrl}/path`, {
+        signal: AbortSignal.timeout(2000),
+      })
+      if (!response.ok) return null
+      const data = await response.json()
+      return data.directory ?? null
+    } catch {
+      return null
+    }
+  }
+
   async listProjects(): Promise<ProjectSummary[]> {
     const projects = (await this.client.project.list({ responseStyle: 'data' })) ?? []
     return projects.map((project) => this.mapProject(project))
@@ -725,12 +739,12 @@ export class OpenCodeConnector {
   // Feature 14: PTY Terminal Sessions - List
   async listPty(directory?: string): Promise<PtySession[]> {
     try {
-      console.log('[PTY] Listing PTY sessions for directory:', directory ?? '(none)')
+      // Use instance directory if none provided
+      const dir = directory ?? await this.getInstanceDirectory()
       const result = await this.client.pty.list({
         responseStyle: 'data',
-        query: directory ? { directory } : undefined,
+        query: dir ? { directory: dir } : undefined,
       })
-      console.log('[PTY] List result:', result)
       return (result ?? []).map((pty: any) => this.mapPtySession(pty))
     } catch (error) {
       console.error('[PTY] listPty failed:', error)
@@ -747,10 +761,11 @@ export class OpenCodeConnector {
     directory?: string,
   ): Promise<PtySession | null> {
     try {
-      console.log('[PTY] Creating PTY session:', { command, args, cwd, title, directory })
+      // Use instance directory if none provided
+      const dir = directory ?? await this.getInstanceDirectory()
       const result = await this.client.pty.create({
         responseStyle: 'data',
-        query: directory ? { directory } : undefined,
+        query: dir ? { directory: dir } : undefined,
         body: {
           ...(command ? { command } : {}),
           ...(args ? { args } : {}),
@@ -758,7 +773,6 @@ export class OpenCodeConnector {
           ...(title ? { title } : {}),
         },
       })
-      console.log('[PTY] Create result:', result)
       return result ? this.mapPtySession(result) : null
     } catch (error) {
       console.error('[PTY] createPty failed:', error)
@@ -769,10 +783,12 @@ export class OpenCodeConnector {
   // Feature 14: PTY Terminal Sessions - Get
   async getPty(ptyId: string, directory?: string): Promise<PtySession | null> {
     try {
+      // Use instance directory if none provided
+      const dir = directory ?? await this.getInstanceDirectory()
       const result = await this.client.pty.get({
         responseStyle: 'data',
         path: { ptyID: ptyId },
-        query: directory ? { directory } : undefined,
+        query: dir ? { directory: dir } : undefined,
       })
       return result ? this.mapPtySession(result) : null
     } catch (error) {
@@ -790,10 +806,12 @@ export class OpenCodeConnector {
     directory?: string,
   ): Promise<PtySession | null> {
     try {
+      // Use instance directory if none provided
+      const dir = directory ?? await this.getInstanceDirectory()
       const result = await this.client.pty.update({
         responseStyle: 'data',
         path: { ptyID: ptyId },
-        query: directory ? { directory } : undefined,
+        query: dir ? { directory: dir } : undefined,
         body: {
           ...(title ? { title } : {}),
           ...(rows && cols ? { size: { rows, cols } } : {}),
@@ -809,14 +827,20 @@ export class OpenCodeConnector {
   // Feature 14: PTY Terminal Sessions - Delete
   async deletePty(ptyId: string, directory?: string): Promise<boolean> {
     try {
+      // Use instance directory if none provided
+      const dir = directory ?? await this.getInstanceDirectory()
       await this.client.pty.remove({
         responseStyle: 'data',
         path: { ptyID: ptyId },
-        query: directory ? { directory } : undefined,
+        query: dir ? { directory: dir } : undefined,
       })
       return true
-    } catch (error) {
-      console.error('[PTY] deletePty failed:', error)
+    } catch (error: any) {
+      console.error('[PTY] deletePty failed:', error?.message || error)
+      // Return true if it's a 404 (already deleted) 
+      if (error?.response?.status === 404) {
+        return true
+      }
       return false
     }
   }
