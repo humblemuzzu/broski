@@ -785,9 +785,10 @@ export class OpenCodeConnector {
     try {
       // Use instance directory if none provided
       const dir = directory ?? await this.getInstanceDirectory()
+      // SDK uses 'id' in path template (/pty/{id})
       const result = await this.client.pty.get({
         responseStyle: 'data',
-        path: { ptyID: ptyId },
+        path: { id: ptyId },
         query: dir ? { directory: dir } : undefined,
       })
       return result ? this.mapPtySession(result) : null
@@ -808,9 +809,10 @@ export class OpenCodeConnector {
     try {
       // Use instance directory if none provided
       const dir = directory ?? await this.getInstanceDirectory()
+      // SDK uses 'id' in path template (/pty/{id})
       const result = await this.client.pty.update({
         responseStyle: 'data',
-        path: { ptyID: ptyId },
+        path: { id: ptyId },
         query: dir ? { directory: dir } : undefined,
         body: {
           ...(title ? { title } : {}),
@@ -829,9 +831,10 @@ export class OpenCodeConnector {
     try {
       // Use instance directory if none provided
       const dir = directory ?? await this.getInstanceDirectory()
+      // SDK uses 'id' in path template (/pty/{id}), not 'ptyID'
       await this.client.pty.remove({
         responseStyle: 'data',
-        path: { ptyID: ptyId },
+        path: { id: ptyId },
         query: dir ? { directory: dir } : undefined,
       })
       return true
