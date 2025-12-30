@@ -3,9 +3,11 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../models/highlight_color.dart';
 import '../models/nav_bar_style.dart';
+import '../models/prompt_accent_color.dart';
 import '../providers/highlights_provider.dart';
 import '../providers/input_style_provider.dart';
 import '../providers/nav_bar_style_provider.dart';
+import '../providers/prompt_accent_provider.dart';
 import '../providers/service_providers.dart';
 import '../providers/theme_provider.dart';
 import '../theme/opencode_theme.dart';
@@ -32,6 +34,8 @@ class CustomizationScreen extends ConsumerWidget {
     final notificationsEnabled = ref.watch(notificationsEnabledProvider);
     final highlights = ref.watch(highlightsProvider);
     final selectedHighlightColor = highlights.color;
+    final promptAccent = ref.watch(promptAccentProvider);
+    final ocTheme = OpenCodeTheme.of(context);
 
     return Scaffold(
       backgroundColor: theme.scaffoldBackgroundColor,
@@ -147,6 +151,120 @@ class CustomizationScreen extends ConsumerWidget {
             ),
           ),
 
+          // Only show prompt accent when CLI style is selected
+          if (inputStyle == InputBarStyle.cli) ...[
+            const SizedBox(height: 28),
+
+            // Prompt Accent Section
+            _SectionHeader(title: 'Prompt Accent'),
+            const SizedBox(height: 12),
+            _SettingsCard(
+              child: Padding(
+                padding: const EdgeInsets.all(16),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Row(
+                      children: [
+                        Icon(
+                          Icons.border_left_rounded,
+                          color: theme.colorScheme.primary,
+                          size: 22,
+                        ),
+                        const SizedBox(width: 12),
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                'Accent Color',
+                                style: TextStyle(
+                                  color: theme.colorScheme.onSurface,
+                                  fontSize: 15,
+                                  fontWeight: FontWeight.w600,
+                                ),
+                              ),
+                              const SizedBox(height: 4),
+                              Text(
+                                'Left bar color in CLI-style input',
+                                style: TextStyle(
+                                  color: theme.colorScheme.onSurface.withValues(
+                                    alpha: 0.6,
+                                  ),
+                                  fontSize: 13,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 16),
+                    // Color swatches
+                    Wrap(
+                      spacing: 10,
+                      runSpacing: 10,
+                      children: PromptAccentColor.values.map((color) {
+                        final isSelected = color == promptAccent;
+                        final displayColor = color.getColor(ocTheme.primary);
+                        return GestureDetector(
+                          onTap: () => ref
+                              .read(promptAccentProvider.notifier)
+                              .setColor(color),
+                          child: AnimatedContainer(
+                            duration: const Duration(milliseconds: 200),
+                            width: 40,
+                            height: 40,
+                            decoration: BoxDecoration(
+                              color: displayColor,
+                              borderRadius: BorderRadius.circular(10),
+                              border: Border.all(
+                                color: isSelected
+                                    ? theme.colorScheme.onSurface
+                                    : Colors.transparent,
+                                width: 2,
+                              ),
+                              boxShadow: isSelected
+                                  ? [
+                                      BoxShadow(
+                                        color: displayColor.withValues(
+                                          alpha: 0.4,
+                                        ),
+                                        blurRadius: 8,
+                                        spreadRadius: 1,
+                                      ),
+                                    ]
+                                  : null,
+                            ),
+                            child: isSelected
+                                ? Icon(
+                                    Icons.check_rounded,
+                                    color: _contrastColor(displayColor),
+                                    size: 20,
+                                  )
+                                : null,
+                          ),
+                        );
+                      }).toList(),
+                    ),
+                    const SizedBox(height: 12),
+                    // Selected color name
+                    Text(
+                      promptAccent.displayName,
+                      style: TextStyle(
+                        color: theme.colorScheme.onSurface.withValues(
+                          alpha: 0.5,
+                        ),
+                        fontSize: 12,
+                        fontWeight: FontWeight.w500,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          ],
+
           const SizedBox(height: 28),
 
           // Navigation Section
@@ -233,6 +351,7 @@ class CustomizationScreen extends ConsumerWidget {
                       final isSelected = color == selectedHighlightColor;
                       final displayColor = color.forBrightness(
                         theme.brightness,
+                        themePrimary: ocTheme.primary,
                       );
                       return GestureDetector(
                         onTap: () => ref

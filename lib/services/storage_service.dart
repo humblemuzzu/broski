@@ -22,6 +22,9 @@ class StorageService {
   static const _highlightedSessionsKey = 'broski_highlighted_sessions';
   static const _highlightColorKey = 'broski_highlight_color';
 
+  // Prompt accent key
+  static const _promptAccentColorKey = 'broski_prompt_accent_color';
+
   static const _uuid = Uuid();
 
   // Cache keys for offline mode
@@ -480,5 +483,19 @@ class StorageService {
   /// Save selected highlight color
   Future<void> saveHighlightColor(HighlightColor color) async {
     await _storage.write(key: _highlightColorKey, value: color.name);
+  }
+
+  // ============================================================
+  // Prompt Accent Color Settings
+  // ============================================================
+
+  /// Get selected prompt accent color
+  Future<String?> getPromptAccentColor() async {
+    return _storage.read(key: _promptAccentColorKey);
+  }
+
+  /// Save selected prompt accent color
+  Future<void> savePromptAccentColor(String colorName) async {
+    await _storage.write(key: _promptAccentColorKey, value: colorName);
   }
 }

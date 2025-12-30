@@ -198,6 +198,7 @@ class _ProjectsScreenState extends ConsumerState<ProjectsScreen> {
                               size: 14,
                               color: highlights.color.forBrightness(
                                 theme.brightness,
+                                themePrimary: ocTheme.primary,
                               ),
                             ),
                             const SizedBox(width: 6),
@@ -206,6 +207,7 @@ class _ProjectsScreenState extends ConsumerState<ProjectsScreen> {
                               style: TextStyle(
                                 color: highlights.color.forBrightness(
                                   theme.brightness,
+                                  themePrimary: ocTheme.primary,
                                 ),
                                 fontSize: 12,
                                 fontWeight: FontWeight.w700,
@@ -656,7 +658,10 @@ class _HighlightedProjectCard extends StatelessWidget {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final ocTheme = OpenCodeTheme.of(context);
-    final color = highlightColor.forBrightness(theme.brightness);
+    final color = highlightColor.forBrightness(
+      theme.brightness,
+      themePrimary: ocTheme.primary,
+    );
 
     return GestureDetector(
       onTap: onTap,
@@ -664,16 +669,30 @@ class _HighlightedProjectCard extends StatelessWidget {
       child: Container(
         padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
         decoration: BoxDecoration(
-          color: highlightColor.backgroundFor(theme.brightness),
+          color: highlightColor.backgroundFor(
+            theme.brightness,
+            themePrimary: ocTheme.primary,
+          ),
           borderRadius: BorderRadius.circular(12),
           border: Border(
             left: BorderSide(color: color, width: 3),
-            top: BorderSide(color: highlightColor.borderFor(theme.brightness)),
+            top: BorderSide(
+              color: highlightColor.borderFor(
+                theme.brightness,
+                themePrimary: ocTheme.primary,
+              ),
+            ),
             right: BorderSide(
-              color: highlightColor.borderFor(theme.brightness),
+              color: highlightColor.borderFor(
+                theme.brightness,
+                themePrimary: ocTheme.primary,
+              ),
             ),
             bottom: BorderSide(
-              color: highlightColor.borderFor(theme.brightness),
+              color: highlightColor.borderFor(
+                theme.brightness,
+                themePrimary: ocTheme.primary,
+              ),
             ),
           ),
         ),

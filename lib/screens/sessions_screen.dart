@@ -461,6 +461,7 @@ class _SessionsScreenState extends ConsumerState<SessionsScreen> {
                     color: isHighlighted
                         ? highlightColor.forBrightness(
                             Theme.of(context).brightness,
+                            themePrimary: ocTheme.primary,
                           )
                         : ocTheme.textMuted,
                   ),
@@ -1108,7 +1109,11 @@ class _HighlightedSessionsSection extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final color = highlightColor.forBrightness(Theme.of(context).brightness);
+    final ocTheme = OpenCodeTheme.of(context);
+    final color = highlightColor.forBrightness(
+      Theme.of(context).brightness,
+      themePrimary: ocTheme.primary,
+    );
 
     return Padding(
       padding: const EdgeInsets.fromLTRB(20, 0, 20, 16),
@@ -1213,8 +1218,14 @@ class _HighlightedSessionCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final ocTheme = OpenCodeTheme.of(context);
-    final color = highlightColor.forBrightness(Theme.of(context).brightness);
-    final bgColor = highlightColor.backgroundFor(Theme.of(context).brightness);
+    final color = highlightColor.forBrightness(
+      Theme.of(context).brightness,
+      themePrimary: ocTheme.primary,
+    );
+    final bgColor = highlightColor.backgroundFor(
+      Theme.of(context).brightness,
+      themePrimary: ocTheme.primary,
+    );
 
     Widget card = GestureDetector(
       onTap: onTap,
@@ -1227,7 +1238,10 @@ class _HighlightedSessionCard extends StatelessWidget {
           border: Border.all(
             color: isActive
                 ? ocTheme.info.withValues(alpha: 0.5)
-                : highlightColor.borderFor(Theme.of(context).brightness),
+                : highlightColor.borderFor(
+                    Theme.of(context).brightness,
+                    themePrimary: ocTheme.primary,
+                  ),
           ),
         ),
         child: Row(
@@ -2376,6 +2390,7 @@ class _ClaudeCodeSessionsViewState
                     color: isHighlighted
                         ? highlightColor.forBrightness(
                             Theme.of(context).brightness,
+                            themePrimary: ocTheme.primary,
                           )
                         : ocTheme.textMuted,
                   ),
@@ -2614,7 +2629,11 @@ class _CCHighlightedSessionsSection extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final color = highlightColor.forBrightness(Theme.of(context).brightness);
+    final ocTheme = OpenCodeTheme.of(context);
+    final color = highlightColor.forBrightness(
+      Theme.of(context).brightness,
+      themePrimary: ocTheme.primary,
+    );
 
     return Padding(
       padding: const EdgeInsets.fromLTRB(20, 0, 20, 16),
@@ -2710,8 +2729,14 @@ class _CCHighlightedSessionCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final ocTheme = OpenCodeTheme.of(context);
-    final color = highlightColor.forBrightness(Theme.of(context).brightness);
-    final bgColor = highlightColor.backgroundFor(Theme.of(context).brightness);
+    final color = highlightColor.forBrightness(
+      Theme.of(context).brightness,
+      themePrimary: ocTheme.primary,
+    );
+    final bgColor = highlightColor.backgroundFor(
+      Theme.of(context).brightness,
+      themePrimary: ocTheme.primary,
+    );
 
     Widget card = GestureDetector(
       onTap: onTap,
@@ -2722,7 +2747,10 @@ class _CCHighlightedSessionCard extends StatelessWidget {
           color: bgColor,
           borderRadius: BorderRadius.circular(14),
           border: Border.all(
-            color: highlightColor.borderFor(Theme.of(context).brightness),
+            color: highlightColor.borderFor(
+              Theme.of(context).brightness,
+              themePrimary: ocTheme.primary,
+            ),
           ),
         ),
         child: Row(
