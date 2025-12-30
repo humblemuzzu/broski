@@ -108,6 +108,24 @@ class CCConfigNotifier extends StateNotifier<AsyncValue<ClaudeCodeConfig>> {
       state = AsyncValue.error(e, st);
     }
   }
+
+  /// Set the model for Claude Code (null for Auto)
+  Future<void> setModel(String? model) async {
+    final current = state.valueOrNull;
+    if (current == null) return;
+
+    final updated = current.copyWith(model: model);
+    await updateConfig(updated);
+  }
+
+  /// Set the permission mode for Claude Code
+  Future<void> setPermissionMode(ClaudeCodePermissionMode mode) async {
+    final current = state.valueOrNull;
+    if (current == null) return;
+
+    final updated = current.copyWith(permissionMode: mode);
+    await updateConfig(updated);
+  }
 }
 
 class CCChatState {

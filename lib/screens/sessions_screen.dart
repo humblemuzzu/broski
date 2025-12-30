@@ -3,12 +3,14 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../models/agent_type.dart';
 import '../models/claude_code.dart';
+import '../models/highlight_color.dart';
 import '../models/project.dart';
 import '../models/session.dart';
 import '../providers/agent_type_provider.dart';
 import '../providers/chat_provider.dart';
 import '../providers/claude_code_provider.dart';
 import '../providers/connection_provider.dart';
+import '../providers/highlights_provider.dart';
 import '../providers/sessions_provider.dart';
 import '../providers/service_providers.dart';
 import '../theme/opencode_theme.dart';
@@ -167,9 +169,18 @@ class _SessionsScreenState extends ConsumerState<SessionsScreen> {
                   final showBgTasks = ref.watch(showBackgroundTasksProvider);
                   final expandedSessions = ref.watch(expandedSessionsProvider);
 
+                  // Get highlighted sessions
+                  final highlights = ref.watch(highlightsProvider);
+                  final highlightColor = highlights.color;
+
                   // Filter to only root sessions (background tasks are nested)
                   final rootSessions = sessions
                       .where((s) => s.isRootSession)
+                      .toList();
+
+                  // Get highlighted sessions for the section
+                  final highlightedSessions = rootSessions
+                      .where((s) => highlights.isSessionHighlighted(s.id))
                       .toList();
 
                   // Predictive prefetching: preload messages for top 3 root sessions
@@ -185,9 +196,14 @@ class _SessionsScreenState extends ConsumerState<SessionsScreen> {
                     projectsByPath[p.path] = p;
                   }
 
-                  // Build items using grouped sessions
+                  // Build items using grouped sessions (only for regular sessions)
+                  final regularGrouped = groupedSessions
+                      .where(
+                        (g) => !highlights.isSessionHighlighted(g.session.id),
+                      )
+                      .toList();
                   final items = _buildGroupedListItems(
-                    groupedSessions: groupedSessions,
+                    groupedSessions: regularGrouped,
                     projectsByPath: projectsByPath,
                     grouped: filterProjectPath == null,
                     showBackgroundTasks: showBgTasks,
@@ -195,6 +211,24 @@ class _SessionsScreenState extends ConsumerState<SessionsScreen> {
                   );
 
                   return [
+                    // Highlighted Sessions Section
+                    if (highlightedSessions.isNotEmpty)
+                      SliverToBoxAdapter(
+                        child: _HighlightedSessionsSection(
+                          sessions: highlightedSessions,
+                          sessionStatuses: sessionStatuses,
+                          highlightColor: highlightColor,
+                          isOfflineMode: connection.isOfflineMode,
+                          onTap: _openSession,
+                          onLongPress: connection.isOfflineMode
+                              ? null
+                              : _showSessionOptions,
+                          onDelete: connection.isOfflineMode
+                              ? null
+                              : _deleteSession,
+                        ),
+                      ),
+                    // Regular Sessions
                     SliverPadding(
                       padding: const EdgeInsets.fromLTRB(20, 0, 20, 100),
                       sliver: SliverList(
@@ -239,9 +273,9 @@ class _SessionsScreenState extends ConsumerState<SessionsScreen> {
                                 onDelete: connection.isOfflineMode
                                     ? null
                                     : () => _deleteSession(session),
-                                onRename: connection.isOfflineMode
+                                onLongPress: connection.isOfflineMode
                                     ? null
-                                    : () => _showRenameDialog(session),
+                                    : () => _showSessionOptions(session),
                                 // Background task expansion
                                 childCount: showBgTasks && hasChildren
                                     ? grouped.children.length
@@ -366,6 +400,93 @@ class _SessionsScreenState extends ConsumerState<SessionsScreen> {
         ),
       );
     }
+  }
+
+  // Toggle highlight for a session
+  void _toggleHighlight(String sessionId) {
+    ref.read(highlightsProvider.notifier).toggleSession(sessionId);
+  }
+
+  // Show options menu (highlight + rename)
+  Future<void> _showSessionOptions(SessionSummary session) async {
+    final highlights = ref.read(highlightsProvider);
+    final isHighlighted = highlights.isSessionHighlighted(session.id);
+    final ocTheme = OpenCodeTheme.of(context);
+    final highlightColor = highlights.color;
+
+    await showModalBottomSheet<void>(
+      context: context,
+      backgroundColor: ocTheme.backgroundPanel,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(16)),
+      ),
+      builder: (context) {
+        return SafeArea(
+          child: Padding(
+            padding: const EdgeInsets.symmetric(vertical: 16),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                // Drag handle
+                Container(
+                  width: 36,
+                  height: 4,
+                  decoration: BoxDecoration(
+                    color: ocTheme.textMuted.withValues(alpha: 0.3),
+                    borderRadius: BorderRadius.circular(2),
+                  ),
+                ),
+                const SizedBox(height: 16),
+                // Session title
+                Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 20),
+                  child: Text(
+                    session.title,
+                    style: TextStyle(
+                      color: ocTheme.text,
+                      fontSize: 16,
+                      fontWeight: FontWeight.w600,
+                    ),
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                ),
+                const SizedBox(height: 16),
+                // Options
+                ListTile(
+                  leading: Icon(
+                    isHighlighted
+                        ? Icons.star_rounded
+                        : Icons.star_border_rounded,
+                    color: isHighlighted
+                        ? highlightColor.forBrightness(
+                            Theme.of(context).brightness,
+                          )
+                        : ocTheme.textMuted,
+                  ),
+                  title: Text(
+                    isHighlighted ? 'Remove Highlight' : 'Highlight',
+                    style: TextStyle(color: ocTheme.text),
+                  ),
+                  onTap: () {
+                    Navigator.pop(context);
+                    _toggleHighlight(session.id);
+                  },
+                ),
+                ListTile(
+                  leading: Icon(Icons.edit_rounded, color: ocTheme.textMuted),
+                  title: Text('Rename', style: TextStyle(color: ocTheme.text)),
+                  onTap: () {
+                    Navigator.pop(context);
+                    _showRenameDialog(session);
+                  },
+                ),
+              ],
+            ),
+          ),
+        );
+      },
+    );
   }
 
   // Feature 5: Rename session
@@ -965,14 +1086,342 @@ class _FilterProjectTile extends StatelessWidget {
   }
 }
 
-// Session card with swipe-to-delete, long-press to rename, and status indicator
+/// Section showing highlighted sessions at the top
+class _HighlightedSessionsSection extends StatelessWidget {
+  const _HighlightedSessionsSection({
+    required this.sessions,
+    required this.sessionStatuses,
+    required this.highlightColor,
+    required this.isOfflineMode,
+    required this.onTap,
+    this.onLongPress,
+    this.onDelete,
+  });
+
+  final List<SessionSummary> sessions;
+  final Map<String, SessionStatus> sessionStatuses;
+  final HighlightColor highlightColor;
+  final bool isOfflineMode;
+  final void Function(SessionSummary) onTap;
+  final void Function(SessionSummary)? onLongPress;
+  final void Function(SessionSummary)? onDelete;
+
+  @override
+  Widget build(BuildContext context) {
+    final color = highlightColor.forBrightness(Theme.of(context).brightness);
+
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(20, 0, 20, 16),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          // Section header
+          Padding(
+            padding: const EdgeInsets.fromLTRB(4, 0, 4, 10),
+            child: Row(
+              children: [
+                Icon(Icons.star_rounded, size: 14, color: color),
+                const SizedBox(width: 6),
+                Text(
+                  'HIGHLIGHTED',
+                  style: TextStyle(
+                    color: color,
+                    fontSize: 12,
+                    fontWeight: FontWeight.w700,
+                    letterSpacing: 0.5,
+                  ),
+                ),
+              ],
+            ),
+          ),
+          // Highlighted session cards
+          ...sessions.map((session) {
+            final status = sessionStatuses[session.id];
+            return Padding(
+              padding: const EdgeInsets.only(bottom: 12),
+              child: _HighlightedSessionCard(
+                session: session,
+                status: status,
+                highlightColor: highlightColor,
+                isOfflineMode: isOfflineMode,
+                onTap: () => onTap(session),
+                onLongPress: onLongPress != null
+                    ? () => onLongPress!(session)
+                    : null,
+                onDelete: onDelete != null ? () => onDelete!(session) : null,
+              ),
+            );
+          }),
+        ],
+      ),
+    );
+  }
+}
+
+/// Highlighted session card with accent styling
+class _HighlightedSessionCard extends StatelessWidget {
+  const _HighlightedSessionCard({
+    required this.session,
+    required this.highlightColor,
+    required this.onTap,
+    this.status,
+    this.isOfflineMode = false,
+    this.onLongPress,
+    this.onDelete,
+  });
+
+  final SessionSummary session;
+  final SessionStatus? status;
+  final HighlightColor highlightColor;
+  final VoidCallback onTap;
+  final VoidCallback? onLongPress;
+  final VoidCallback? onDelete;
+  final bool isOfflineMode;
+
+  bool get isActive => status != null && (status!.isBusy || status!.isRetry);
+
+  String _getProjectName() {
+    return session.directory.split('/').where((item) => item.isNotEmpty).last;
+  }
+
+  String _getAvatarLetter() {
+    if (session.title.isEmpty) return '?';
+    final match = RegExp(r'[a-zA-Z0-9]').firstMatch(session.title);
+    return match != null
+        ? match.group(0)!.toUpperCase()
+        : session.title[0].toUpperCase();
+  }
+
+  String _formatDate(int timestamp) {
+    final date = DateTime.fromMillisecondsSinceEpoch(timestamp * 1000);
+    final now = DateTime.now();
+    final diff = now.difference(date);
+
+    if (diff.inMinutes < 1) {
+      return 'Just now';
+    } else if (diff.inMinutes < 60) {
+      return '${diff.inMinutes}m ago';
+    } else if (diff.inHours < 24) {
+      return '${diff.inHours}h ago';
+    } else if (diff.inDays < 7) {
+      return '${diff.inDays}d ago';
+    } else {
+      return '${date.day}/${date.month}/${date.year}';
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final ocTheme = OpenCodeTheme.of(context);
+    final color = highlightColor.forBrightness(Theme.of(context).brightness);
+    final bgColor = highlightColor.backgroundFor(Theme.of(context).brightness);
+
+    Widget card = GestureDetector(
+      onTap: onTap,
+      onLongPress: onLongPress,
+      child: Container(
+        height: 80,
+        decoration: BoxDecoration(
+          color: bgColor,
+          borderRadius: BorderRadius.circular(14),
+          border: Border.all(
+            color: isActive
+                ? ocTheme.info.withValues(alpha: 0.5)
+                : highlightColor.borderFor(Theme.of(context).brightness),
+          ),
+        ),
+        child: Row(
+          children: [
+            // Left accent border
+            Container(
+              width: 3,
+              decoration: BoxDecoration(
+                color: color,
+                borderRadius: const BorderRadius.only(
+                  topLeft: Radius.circular(14),
+                  bottomLeft: Radius.circular(14),
+                ),
+              ),
+            ),
+            Expanded(
+              child: Padding(
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 13,
+                  vertical: 14,
+                ),
+                child: Row(
+                  children: [
+                    // Avatar with status dot
+                    Stack(
+                      clipBehavior: Clip.none,
+                      children: [
+                        Container(
+                          width: 44,
+                          height: 44,
+                          decoration: BoxDecoration(
+                            borderRadius: BorderRadius.circular(12),
+                            color: ocTheme.backgroundElement,
+                            border: Border.all(
+                              color: ocTheme.borderSubtle,
+                              width: 1,
+                            ),
+                          ),
+                          child: Center(
+                            child: Text(
+                              _getAvatarLetter(),
+                              style: TextStyle(
+                                color: ocTheme.textMuted,
+                                fontSize: 18,
+                                fontWeight: FontWeight.w600,
+                                letterSpacing: -0.5,
+                              ),
+                            ),
+                          ),
+                        ),
+                        Positioned(
+                          bottom: -2,
+                          left: -2,
+                          child: Container(
+                            width: 12,
+                            height: 12,
+                            decoration: BoxDecoration(
+                              shape: BoxShape.circle,
+                              color: isActive
+                                  ? (status!.isRetry
+                                        ? ocTheme.warning
+                                        : ocTheme.info)
+                                  : ocTheme.textMuted.withValues(alpha: 0.4),
+                              border: Border.all(color: bgColor, width: 2),
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(width: 16),
+                    // Session info
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          Row(
+                            children: [
+                              Flexible(
+                                child: Text(
+                                  session.title,
+                                  style: TextStyle(
+                                    color: ocTheme.text,
+                                    fontSize: 15,
+                                    fontWeight: FontWeight.w600,
+                                    height: 1.4,
+                                    letterSpacing: -0.2,
+                                  ),
+                                  maxLines: 1,
+                                  overflow: TextOverflow.ellipsis,
+                                ),
+                              ),
+                              // Status badge
+                              if (isActive) ...[
+                                const SizedBox(width: 8),
+                                Container(
+                                  padding: const EdgeInsets.symmetric(
+                                    horizontal: 6,
+                                    vertical: 2,
+                                  ),
+                                  decoration: BoxDecoration(
+                                    color:
+                                        (status!.isRetry
+                                                ? ocTheme.warning
+                                                : ocTheme.info)
+                                            .withValues(alpha: 0.15),
+                                    borderRadius: BorderRadius.circular(4),
+                                  ),
+                                  child: Text(
+                                    status!.isRetry ? 'Retry' : 'Active',
+                                    style: TextStyle(
+                                      color: status!.isRetry
+                                          ? ocTheme.warning
+                                          : ocTheme.info,
+                                      fontSize: 10,
+                                      fontWeight: FontWeight.w600,
+                                    ),
+                                  ),
+                                ),
+                              ],
+                            ],
+                          ),
+                          const SizedBox(height: 6),
+                          Text(
+                            '${_getProjectName()} · ${_formatDate(session.time.updated)}',
+                            style: TextStyle(
+                              color: ocTheme.textMuted,
+                              fontSize: 13,
+                              height: 1.4,
+                              letterSpacing: -0.1,
+                            ),
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                        ],
+                      ),
+                    ),
+                    const SizedBox(width: 8),
+                    // Star icon
+                    Icon(Icons.star_rounded, color: color, size: 20),
+                    const SizedBox(width: 4),
+                    // Chevron
+                    Icon(
+                      Icons.chevron_right_rounded,
+                      color: ocTheme.textMuted.withValues(alpha: 0.4),
+                      size: 20,
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+
+    // Swipe to delete
+    if (onDelete != null) {
+      card = Dismissible(
+        key: Key(session.id),
+        direction: DismissDirection.endToStart,
+        background: Container(
+          alignment: Alignment.centerRight,
+          padding: const EdgeInsets.only(right: 20),
+          decoration: BoxDecoration(
+            color: ocTheme.error,
+            borderRadius: BorderRadius.circular(14),
+          ),
+          child: const Icon(
+            Icons.delete_outline_rounded,
+            color: Colors.white,
+            size: 24,
+          ),
+        ),
+        confirmDismiss: (_) async {
+          onDelete!();
+          return false;
+        },
+        child: card,
+      );
+    }
+
+    return card;
+  }
+}
+
+// Session card with swipe-to-delete, long-press for options, and status indicator
 class _SessionCard extends StatelessWidget {
   const _SessionCard({
     required this.session,
     required this.onTap,
     this.status,
     this.onDelete,
-    this.onRename,
+    this.onLongPress,
     this.isOfflineMode = false,
     this.childCount = 0,
     this.isExpanded = false,
@@ -984,7 +1433,7 @@ class _SessionCard extends StatelessWidget {
   final SessionStatus? status;
   final VoidCallback onTap;
   final VoidCallback? onDelete;
-  final VoidCallback? onRename;
+  final VoidCallback? onLongPress;
   final bool isOfflineMode;
 
   /// Number of background task children
@@ -1042,8 +1491,8 @@ class _SessionCard extends StatelessWidget {
     // Base card widget - fixed height for uniformity
     Widget card = GestureDetector(
       onTap: onTap,
-      // Feature 5: Long press to rename (disabled in offline mode)
-      onLongPress: onRename,
+      // Long press for options (highlight, rename)
+      onLongPress: onLongPress,
       child: Container(
         height: 80,
         padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
@@ -1868,10 +2317,102 @@ class _ClaudeCodeSessionsViewState
     );
   }
 
+  // Toggle highlight for a CC session
+  void _toggleHighlight(String sessionId) {
+    ref.read(highlightsProvider.notifier).toggleSession(sessionId);
+  }
+
+  // Show options menu (highlight + delete)
+  Future<void> _showSessionOptions(ClaudeCodeSession session) async {
+    final highlights = ref.read(highlightsProvider);
+    final isHighlighted = highlights.isSessionHighlighted(session.id);
+    final ocTheme = OpenCodeTheme.of(context);
+    final highlightColor = highlights.color;
+
+    await showModalBottomSheet<void>(
+      context: context,
+      backgroundColor: ocTheme.backgroundPanel,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(16)),
+      ),
+      builder: (context) {
+        return SafeArea(
+          child: Padding(
+            padding: const EdgeInsets.symmetric(vertical: 16),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                // Drag handle
+                Container(
+                  width: 36,
+                  height: 4,
+                  decoration: BoxDecoration(
+                    color: ocTheme.textMuted.withValues(alpha: 0.3),
+                    borderRadius: BorderRadius.circular(2),
+                  ),
+                ),
+                const SizedBox(height: 16),
+                // Session title
+                Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 20),
+                  child: Text(
+                    session.displayTitle,
+                    style: TextStyle(
+                      color: ocTheme.text,
+                      fontSize: 16,
+                      fontWeight: FontWeight.w600,
+                    ),
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                ),
+                const SizedBox(height: 16),
+                // Options
+                ListTile(
+                  leading: Icon(
+                    isHighlighted
+                        ? Icons.star_rounded
+                        : Icons.star_border_rounded,
+                    color: isHighlighted
+                        ? highlightColor.forBrightness(
+                            Theme.of(context).brightness,
+                          )
+                        : ocTheme.textMuted,
+                  ),
+                  title: Text(
+                    isHighlighted ? 'Remove Highlight' : 'Highlight',
+                    style: TextStyle(color: ocTheme.text),
+                  ),
+                  onTap: () {
+                    Navigator.pop(context);
+                    _toggleHighlight(session.id);
+                  },
+                ),
+                ListTile(
+                  leading: Icon(
+                    Icons.delete_outline_rounded,
+                    color: ocTheme.error,
+                  ),
+                  title: Text('Delete', style: TextStyle(color: ocTheme.error)),
+                  onTap: () {
+                    Navigator.pop(context);
+                    _deleteSession(session);
+                  },
+                ),
+              ],
+            ),
+          ),
+        );
+      },
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final sessionsAsync = ref.watch(ccSessionsProvider);
     final ocTheme = OpenCodeTheme.of(context);
+    final highlights = ref.watch(highlightsProvider);
+    final highlightColor = highlights.color;
 
     return Scaffold(
       backgroundColor: Colors.transparent,
@@ -2006,21 +2547,42 @@ class _ClaudeCodeSessionsViewState
                   final sorted = sessions.toList()
                     ..sort((a, b) => b.updatedAt.compareTo(a.updatedAt));
 
+                  // Separate highlighted and regular sessions
+                  final highlightedSessions = sorted
+                      .where((s) => highlights.isSessionHighlighted(s.id))
+                      .toList();
+                  final regularSessions = sorted
+                      .where((s) => !highlights.isSessionHighlighted(s.id))
+                      .toList();
+
                   return [
+                    // Highlighted Sessions Section
+                    if (highlightedSessions.isNotEmpty)
+                      SliverToBoxAdapter(
+                        child: _CCHighlightedSessionsSection(
+                          sessions: highlightedSessions,
+                          highlightColor: highlightColor,
+                          onTap: _openSession,
+                          onLongPress: _showSessionOptions,
+                          onDelete: _deleteSession,
+                        ),
+                      ),
+                    // Regular Sessions
                     SliverPadding(
                       padding: const EdgeInsets.fromLTRB(20, 0, 20, 100),
                       sliver: SliverList(
                         delegate: SliverChildBuilderDelegate((context, index) {
-                          final session = sorted[index];
+                          final session = regularSessions[index];
                           return Padding(
                             padding: const EdgeInsets.only(bottom: 12),
                             child: _CCSessionCard(
                               session: session,
                               onTap: () => _openSession(session),
+                              onLongPress: () => _showSessionOptions(session),
                               onDelete: () => _deleteSession(session),
                             ),
                           );
-                        }, childCount: sorted.length),
+                        }, childCount: regularSessions.length),
                       ),
                     ),
                   ];
@@ -2034,17 +2596,300 @@ class _ClaudeCodeSessionsViewState
   }
 }
 
+/// Section showing highlighted Claude Code sessions at the top
+class _CCHighlightedSessionsSection extends StatelessWidget {
+  const _CCHighlightedSessionsSection({
+    required this.sessions,
+    required this.highlightColor,
+    required this.onTap,
+    required this.onLongPress,
+    required this.onDelete,
+  });
+
+  final List<ClaudeCodeSession> sessions;
+  final HighlightColor highlightColor;
+  final void Function(ClaudeCodeSession) onTap;
+  final void Function(ClaudeCodeSession) onLongPress;
+  final void Function(ClaudeCodeSession) onDelete;
+
+  @override
+  Widget build(BuildContext context) {
+    final color = highlightColor.forBrightness(Theme.of(context).brightness);
+
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(20, 0, 20, 16),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          // Section header
+          Padding(
+            padding: const EdgeInsets.fromLTRB(4, 0, 4, 10),
+            child: Row(
+              children: [
+                Icon(Icons.star_rounded, size: 14, color: color),
+                const SizedBox(width: 6),
+                Text(
+                  'HIGHLIGHTED',
+                  style: TextStyle(
+                    color: color,
+                    fontSize: 12,
+                    fontWeight: FontWeight.w700,
+                    letterSpacing: 0.5,
+                  ),
+                ),
+              ],
+            ),
+          ),
+          // Highlighted session cards
+          ...sessions.map((session) {
+            return Padding(
+              padding: const EdgeInsets.only(bottom: 12),
+              child: _CCHighlightedSessionCard(
+                session: session,
+                highlightColor: highlightColor,
+                onTap: () => onTap(session),
+                onLongPress: () => onLongPress(session),
+                onDelete: () => onDelete(session),
+              ),
+            );
+          }),
+        ],
+      ),
+    );
+  }
+}
+
+/// Highlighted Claude Code session card with accent styling
+class _CCHighlightedSessionCard extends StatelessWidget {
+  const _CCHighlightedSessionCard({
+    required this.session,
+    required this.highlightColor,
+    required this.onTap,
+    required this.onLongPress,
+    required this.onDelete,
+  });
+
+  final ClaudeCodeSession session;
+  final HighlightColor highlightColor;
+  final VoidCallback onTap;
+  final VoidCallback onLongPress;
+  final VoidCallback onDelete;
+
+  String _getProjectName() {
+    final parts = session.cwd.split('/').where((p) => p.isNotEmpty).toList();
+    return parts.isEmpty ? 'Unknown' : parts.last;
+  }
+
+  String _formatDate(int timestamp) {
+    final date = DateTime.fromMillisecondsSinceEpoch(timestamp);
+    final now = DateTime.now();
+    final diff = now.difference(date);
+
+    if (diff.inMinutes < 1) {
+      return 'Just now';
+    } else if (diff.inMinutes < 60) {
+      return '${diff.inMinutes}m ago';
+    } else if (diff.inHours < 24) {
+      return '${diff.inHours}h ago';
+    } else if (diff.inDays < 7) {
+      return '${diff.inDays}d ago';
+    } else {
+      return '${date.day}/${date.month}/${date.year}';
+    }
+  }
+
+  String _getAvatarLetter() {
+    final title = session.displayTitle;
+    if (title.isEmpty) return '?';
+    final match = RegExp(r'[a-zA-Z0-9]').firstMatch(title);
+    return match != null
+        ? match.group(0)!.toUpperCase()
+        : title[0].toUpperCase();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final ocTheme = OpenCodeTheme.of(context);
+    final color = highlightColor.forBrightness(Theme.of(context).brightness);
+    final bgColor = highlightColor.backgroundFor(Theme.of(context).brightness);
+
+    Widget card = GestureDetector(
+      onTap: onTap,
+      onLongPress: onLongPress,
+      child: Container(
+        height: 80,
+        decoration: BoxDecoration(
+          color: bgColor,
+          borderRadius: BorderRadius.circular(14),
+          border: Border.all(
+            color: highlightColor.borderFor(Theme.of(context).brightness),
+          ),
+        ),
+        child: Row(
+          children: [
+            // Left accent border
+            Container(
+              width: 3,
+              decoration: BoxDecoration(
+                color: color,
+                borderRadius: const BorderRadius.only(
+                  topLeft: Radius.circular(14),
+                  bottomLeft: Radius.circular(14),
+                ),
+              ),
+            ),
+            Expanded(
+              child: Padding(
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 13,
+                  vertical: 14,
+                ),
+                child: Row(
+                  children: [
+                    // Avatar
+                    Container(
+                      width: 44,
+                      height: 44,
+                      decoration: BoxDecoration(
+                        borderRadius: BorderRadius.circular(12),
+                        color: ocTheme.backgroundElement,
+                        border: Border.all(
+                          color: ocTheme.borderSubtle,
+                          width: 1,
+                        ),
+                      ),
+                      child: Center(
+                        child: Text(
+                          _getAvatarLetter(),
+                          style: TextStyle(
+                            color: ocTheme.textMuted,
+                            fontSize: 18,
+                            fontWeight: FontWeight.w600,
+                            letterSpacing: -0.5,
+                          ),
+                        ),
+                      ),
+                    ),
+                    const SizedBox(width: 16),
+                    // Session info
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          Row(
+                            children: [
+                              Flexible(
+                                child: Text(
+                                  session.displayTitle,
+                                  style: TextStyle(
+                                    color: ocTheme.text,
+                                    fontSize: 15,
+                                    fontWeight: FontWeight.w600,
+                                    height: 1.4,
+                                    letterSpacing: -0.2,
+                                  ),
+                                  maxLines: 1,
+                                  overflow: TextOverflow.ellipsis,
+                                ),
+                              ),
+                              // Model badge if available
+                              if (session.model != null) ...[
+                                const SizedBox(width: 6),
+                                Container(
+                                  padding: const EdgeInsets.symmetric(
+                                    horizontal: 6,
+                                    vertical: 2,
+                                  ),
+                                  decoration: BoxDecoration(
+                                    color: ocTheme.info.withValues(alpha: 0.15),
+                                    borderRadius: BorderRadius.circular(4),
+                                  ),
+                                  child: Text(
+                                    session.model!.split('/').last,
+                                    style: TextStyle(
+                                      color: ocTheme.info,
+                                      fontSize: 10,
+                                      fontWeight: FontWeight.w600,
+                                    ),
+                                  ),
+                                ),
+                              ],
+                            ],
+                          ),
+                          const SizedBox(height: 6),
+                          Text(
+                            '${_getProjectName()} · ${_formatDate(session.updatedAt)}',
+                            style: TextStyle(
+                              color: ocTheme.textMuted,
+                              fontSize: 13,
+                              height: 1.4,
+                              letterSpacing: -0.1,
+                            ),
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                        ],
+                      ),
+                    ),
+                    const SizedBox(width: 8),
+                    // Star icon
+                    Icon(Icons.star_rounded, color: color, size: 20),
+                    const SizedBox(width: 4),
+                    // Chevron
+                    Icon(
+                      Icons.chevron_right_rounded,
+                      color: ocTheme.textMuted.withValues(alpha: 0.4),
+                      size: 20,
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+
+    // Swipe to delete
+    return Dismissible(
+      key: Key(session.id),
+      direction: DismissDirection.endToStart,
+      background: Container(
+        alignment: Alignment.centerRight,
+        padding: const EdgeInsets.only(right: 20),
+        decoration: BoxDecoration(
+          color: ocTheme.error,
+          borderRadius: BorderRadius.circular(14),
+        ),
+        child: const Icon(
+          Icons.delete_outline_rounded,
+          color: Colors.white,
+          size: 24,
+        ),
+      ),
+      confirmDismiss: (_) async {
+        onDelete();
+        return false;
+      },
+      child: card,
+    );
+  }
+}
+
 /// Claude Code session card
 class _CCSessionCard extends StatelessWidget {
   const _CCSessionCard({
     required this.session,
     required this.onTap,
     required this.onDelete,
+    this.onLongPress,
   });
 
   final ClaudeCodeSession session;
   final VoidCallback onTap;
   final VoidCallback onDelete;
+  final VoidCallback? onLongPress;
 
   String _getProjectName() {
     final parts = session.cwd.split('/').where((p) => p.isNotEmpty).toList();
@@ -2086,6 +2931,7 @@ class _CCSessionCard extends StatelessWidget {
 
     Widget card = GestureDetector(
       onTap: onTap,
+      onLongPress: onLongPress,
       child: Container(
         height: 80,
         padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),

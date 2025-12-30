@@ -3672,6 +3672,11 @@ class _ChatScreenState extends ConsumerState<ChatScreen>
         !isBusy &&
         hasContent;
 
+    // Get CC config for Claude Code mode
+    final ccConfig = widget.isClaudeCode
+        ? ref.watch(ccConfigProvider).valueOrNull
+        : null;
+
     Widget inputBar;
     if (inputStyle == InputBarStyle.cli) {
       inputBar = _CliStyleInputBar(
@@ -3704,6 +3709,22 @@ class _ChatScreenState extends ConsumerState<ChatScreen>
         attachIcon: widget.isClaudeCode
             ? Icons.tune_rounded
             : Icons.add_rounded,
+        // Claude Code specific props
+        isClaudeCode: widget.isClaudeCode,
+        ccPermissionMode:
+            ccConfig?.permissionMode ?? chatState.ccInit?.permissionMode,
+        ccModel:
+            ccConfig?.model ??
+            chatState.ccModel ??
+            chatState.ccInit?.model ??
+            widget.ccSession?.model ??
+            widget.ccDraftModel,
+        onCCModelTap: widget.isClaudeCode
+            ? () => _showClaudeCodeModelSelector(context)
+            : null,
+        onCCPermissionModeTap: widget.isClaudeCode
+            ? () => _showClaudeCodePermissionModeSelector(context)
+            : null,
       );
     } else {
       inputBar = _FloatingInputBar(
@@ -3991,6 +4012,217 @@ class _ChatScreenState extends ConsumerState<ChatScreen>
             ),
           );
         },
+      ),
+    );
+  }
+
+  /// Show Claude Code model selector (Auto/Haiku/Sonnet/Opus)
+  void _showClaudeCodeModelSelector(BuildContext context) {
+    final theme = OpenCodeTheme.of(context);
+    final chatState = ref.read(chatSessionProvider);
+    final ccConfig = ref.read(ccConfigProvider).valueOrNull;
+    final currentModel =
+        ccConfig?.model ??
+        chatState.ccModel ??
+        chatState.ccInit?.model ??
+        widget.ccSession?.model;
+
+    // Claude Code models
+    final models = [
+      {
+        'id': null,
+        'name': 'Auto',
+        'description': 'Let Claude Code choose the best model',
+      },
+      {
+        'id': 'haiku',
+        'name': 'Haiku',
+        'description': 'Fastest, most compact model',
+      },
+      {
+        'id': 'sonnet',
+        'name': 'Sonnet',
+        'description': 'Balanced speed and capability',
+      },
+      {'id': 'opus', 'name': 'Opus', 'description': 'Most capable model'},
+    ];
+
+    showModalBottomSheet(
+      context: context,
+      backgroundColor: theme.background,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+      ),
+      builder: (context) => SafeArea(
+        child: Padding(
+          padding: const EdgeInsets.all(20),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                'Select Model',
+                style: TextStyle(
+                  fontSize: 18,
+                  fontWeight: FontWeight.w600,
+                  color: theme.text,
+                ),
+              ),
+              const SizedBox(height: 16),
+              ...models.map((model) {
+                final modelId = model['id'] as String?;
+                final isSelected =
+                    (modelId == null &&
+                        (currentModel == null || currentModel == 'auto')) ||
+                    (modelId != null &&
+                        currentModel?.toLowerCase().contains(modelId) == true);
+                return ListTile(
+                  contentPadding: EdgeInsets.zero,
+                  leading: Icon(
+                    isSelected ? Icons.check_circle : Icons.circle_outlined,
+                    color: isSelected ? theme.success : theme.borderSubtle,
+                  ),
+                  title: Text(
+                    model['name'] as String,
+                    style: TextStyle(
+                      color: theme.text,
+                      fontWeight: isSelected
+                          ? FontWeight.w600
+                          : FontWeight.w400,
+                    ),
+                  ),
+                  subtitle: Text(
+                    model['description'] as String,
+                    style: TextStyle(color: theme.textMuted, fontSize: 12),
+                  ),
+                  onTap: () {
+                    // Update CC config with new model
+                    final notifier = ref.read(ccConfigProvider.notifier);
+                    notifier.setModel(modelId);
+                    Navigator.pop(context);
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      SnackBar(
+                        content: Text('Model set to ${model['name']}'),
+                        backgroundColor: theme.backgroundPanel,
+                        behavior: SnackBarBehavior.floating,
+                      ),
+                    );
+                  },
+                );
+              }),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  /// Show Claude Code permission mode selector
+  void _showClaudeCodePermissionModeSelector(BuildContext context) {
+    final theme = OpenCodeTheme.of(context);
+    final ccConfig = ref.read(ccConfigProvider).valueOrNull;
+    final chatState = ref.read(chatSessionProvider);
+    final currentMode =
+        ccConfig?.permissionMode ??
+        chatState.ccInit?.permissionMode ??
+        ClaudeCodePermissionMode.defaultMode;
+
+    final modes = [
+      {
+        'mode': ClaudeCodePermissionMode.defaultMode,
+        'description': 'Ask before making changes',
+        'color': theme.primary,
+      },
+      {
+        'mode': ClaudeCodePermissionMode.acceptEdits,
+        'description': 'Auto-accept file edits',
+        'color': theme.success,
+      },
+      {
+        'mode': ClaudeCodePermissionMode.plan,
+        'description': 'Planning only, no execution',
+        'color': theme.warning,
+      },
+      {
+        'mode': ClaudeCodePermissionMode.bypassPermissions,
+        'description': 'Skip all permission checks',
+        'color': theme.error,
+      },
+    ];
+
+    showModalBottomSheet(
+      context: context,
+      backgroundColor: theme.background,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+      ),
+      builder: (context) => SafeArea(
+        child: Padding(
+          padding: const EdgeInsets.all(20),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                'Permission Mode',
+                style: TextStyle(
+                  fontSize: 18,
+                  fontWeight: FontWeight.w600,
+                  color: theme.text,
+                ),
+              ),
+              const SizedBox(height: 16),
+              ...modes.map((item) {
+                final mode = item['mode'] as ClaudeCodePermissionMode;
+                final isSelected = mode == currentMode;
+                final color = item['color'] as Color;
+                return ListTile(
+                  contentPadding: EdgeInsets.zero,
+                  leading: Container(
+                    width: 24,
+                    height: 24,
+                    decoration: BoxDecoration(
+                      color: isSelected ? color : Colors.transparent,
+                      shape: BoxShape.circle,
+                      border: Border.all(color: color, width: 2),
+                    ),
+                    child: isSelected
+                        ? Icon(Icons.check, color: theme.background, size: 16)
+                        : null,
+                  ),
+                  title: Text(
+                    mode.displayName,
+                    style: TextStyle(
+                      color: theme.text,
+                      fontWeight: isSelected
+                          ? FontWeight.w600
+                          : FontWeight.w400,
+                    ),
+                  ),
+                  subtitle: Text(
+                    item['description'] as String,
+                    style: TextStyle(color: theme.textMuted, fontSize: 12),
+                  ),
+                  onTap: () {
+                    // Update CC config with new permission mode
+                    final notifier = ref.read(ccConfigProvider.notifier);
+                    notifier.setPermissionMode(mode);
+                    Navigator.pop(context);
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      SnackBar(
+                        content: Text(
+                          'Permission mode set to ${mode.displayName}',
+                        ),
+                        backgroundColor: theme.backgroundPanel,
+                        behavior: SnackBarBehavior.floating,
+                      ),
+                    );
+                  },
+                );
+              }),
+            ],
+          ),
+        ),
       ),
     );
   }
@@ -5140,6 +5372,12 @@ class _CliStyleInputBar extends StatefulWidget {
     this.onFileSelect,
     this.onAttachTap,
     this.attachIcon = Icons.add_rounded,
+    // Claude Code specific props
+    this.isClaudeCode = false,
+    this.ccPermissionMode,
+    this.ccModel,
+    this.onCCModelTap,
+    this.onCCPermissionModeTap,
   });
 
   final TextEditingController controller;
@@ -5159,6 +5397,12 @@ class _CliStyleInputBar extends StatefulWidget {
   final void Function(FileAttachment)? onFileSelect;
   final VoidCallback? onAttachTap;
   final IconData attachIcon;
+  // Claude Code specific props
+  final bool isClaudeCode;
+  final ClaudeCodePermissionMode? ccPermissionMode;
+  final String? ccModel;
+  final VoidCallback? onCCModelTap;
+  final VoidCallback? onCCPermissionModeTap;
 
   @override
   State<_CliStyleInputBar> createState() => _CliStyleInputBarState();
@@ -5217,11 +5461,46 @@ class _CliStyleInputBarState extends State<_CliStyleInputBar> {
     return model.providerID;
   }
 
+  /// Get Claude Code model display name from model string
+  String _getCCModelDisplayName(String? model) {
+    if (model == null || model.isEmpty) return 'Auto';
+    final m = model.toLowerCase();
+    if (m.contains('opus')) return 'Opus';
+    if (m.contains('sonnet')) return 'Sonnet';
+    if (m.contains('haiku')) return 'Haiku';
+    if (m == 'auto') return 'Auto';
+    // Return just the model part if it's a full model ID
+    final parts = model.split('/');
+    return parts.last;
+  }
+
+  /// Get color for permission mode
+  Color _getPermissionModeColor(
+    ClaudeCodePermissionMode? mode,
+    OpenCodeTheme theme,
+  ) {
+    switch (mode) {
+      case ClaudeCodePermissionMode.defaultMode:
+        return theme.primary; // Normal mode - primary color
+      case ClaudeCodePermissionMode.acceptEdits:
+        return theme.success; // Auto-accept edits - green
+      case ClaudeCodePermissionMode.plan:
+        return theme.warning; // Plan mode - amber/yellow
+      case ClaudeCodePermissionMode.bypassPermissions:
+        return theme.error; // Dangerous mode - red
+      case null:
+        return theme.primary;
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     final theme = OpenCodeTheme.of(context);
     final agent = _getCurrentAgent();
-    final agentColor = agent?.displayColor ?? theme.primary;
+    // For Claude Code: use permission mode color; for OpenCode: use agent color
+    final agentColor = widget.isClaudeCode
+        ? _getPermissionModeColor(widget.ccPermissionMode, theme)
+        : (agent?.displayColor ?? theme.primary);
 
     // During streaming, hide the input bar
     return AnimatedSlide(
@@ -5348,22 +5627,38 @@ class _CliStyleInputBarState extends State<_CliStyleInputBar> {
                               padding: const EdgeInsets.fromLTRB(16, 0, 12, 10),
                               child: Row(
                                 children: [
-                                  // Agent name (colored, tappable)
-                                  GestureDetector(
-                                    onTap:
-                                        widget.onAgentChanged != null &&
-                                            widget.agents.isNotEmpty
-                                        ? () => _showAgentPicker(context)
-                                        : null,
-                                    child: Text(
-                                      agent?.displayName ?? 'Sisyphus',
-                                      style: TextStyle(
-                                        color: agentColor,
-                                        fontSize: 13,
-                                        fontWeight: FontWeight.w600,
+                                  // For Claude Code: Permission mode (tappable)
+                                  // For OpenCode: Agent name (tappable)
+                                  if (widget.isClaudeCode) ...[
+                                    GestureDetector(
+                                      onTap: widget.onCCPermissionModeTap,
+                                      child: Text(
+                                        widget.ccPermissionMode?.displayName ??
+                                            'Default',
+                                        style: TextStyle(
+                                          color: agentColor,
+                                          fontSize: 13,
+                                          fontWeight: FontWeight.w600,
+                                        ),
                                       ),
                                     ),
-                                  ),
+                                  ] else ...[
+                                    GestureDetector(
+                                      onTap:
+                                          widget.onAgentChanged != null &&
+                                              widget.agents.isNotEmpty
+                                          ? () => _showAgentPicker(context)
+                                          : null,
+                                      child: Text(
+                                        agent?.displayName ?? 'Build',
+                                        style: TextStyle(
+                                          color: agentColor,
+                                          fontSize: 13,
+                                          fontWeight: FontWeight.w600,
+                                        ),
+                                      ),
+                                    ),
+                                  ],
 
                                   // Separator dot
                                   Padding(
@@ -5381,33 +5676,50 @@ class _CliStyleInputBarState extends State<_CliStyleInputBar> {
                                     ),
                                   ),
 
-                                  // Model name (tappable)
-                                  GestureDetector(
-                                    onTap: widget.onModelTap,
-                                    child: Text(
-                                      _getModelDisplayName(widget.currentModel),
-                                      style: TextStyle(
-                                        color: theme.text,
-                                        fontSize: 13,
-                                        fontWeight: FontWeight.w500,
-                                      ),
-                                    ),
-                                  ),
-
-                                  // Provider name (muted)
-                                  if (_getProviderName(
-                                    widget.currentModel,
-                                  ).isNotEmpty) ...[
-                                    const SizedBox(width: 6),
-                                    Text(
-                                      _getProviderName(widget.currentModel),
-                                      style: TextStyle(
-                                        color: theme.textMuted.withValues(
-                                          alpha: 0.5,
+                                  // For Claude Code: CC model selector (tappable)
+                                  // For OpenCode: OC model selector (tappable)
+                                  if (widget.isClaudeCode) ...[
+                                    GestureDetector(
+                                      onTap: widget.onCCModelTap,
+                                      child: Text(
+                                        _getCCModelDisplayName(widget.ccModel),
+                                        style: TextStyle(
+                                          color: theme.text,
+                                          fontSize: 13,
+                                          fontWeight: FontWeight.w500,
                                         ),
-                                        fontSize: 13,
                                       ),
                                     ),
+                                  ] else ...[
+                                    GestureDetector(
+                                      onTap: widget.onModelTap,
+                                      child: Text(
+                                        _getModelDisplayName(
+                                          widget.currentModel,
+                                        ),
+                                        style: TextStyle(
+                                          color: theme.text,
+                                          fontSize: 13,
+                                          fontWeight: FontWeight.w500,
+                                        ),
+                                      ),
+                                    ),
+
+                                    // Provider name (muted) - only for OpenCode
+                                    if (_getProviderName(
+                                      widget.currentModel,
+                                    ).isNotEmpty) ...[
+                                      const SizedBox(width: 6),
+                                      Text(
+                                        _getProviderName(widget.currentModel),
+                                        style: TextStyle(
+                                          color: theme.textMuted.withValues(
+                                            alpha: 0.5,
+                                          ),
+                                          fontSize: 13,
+                                        ),
+                                      ),
+                                    ],
                                   ],
 
                                   const Spacer(),

@@ -1,7 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../models/highlight_color.dart';
 import '../models/nav_bar_style.dart';
+import '../providers/highlights_provider.dart';
 import '../providers/input_style_provider.dart';
 import '../providers/nav_bar_style_provider.dart';
 import '../providers/service_providers.dart';
@@ -9,6 +11,13 @@ import '../providers/theme_provider.dart';
 import '../theme/opencode_theme.dart';
 import 'appearance_screen.dart';
 import 'theme_selector_screen.dart';
+
+/// Helper to get contrasting text color for a background
+Color _contrastColor(Color background) {
+  // Calculate luminance and return white or black
+  final luminance = background.computeLuminance();
+  return luminance > 0.5 ? Colors.black : Colors.white;
+}
 
 /// Unified customization screen for all appearance and UX settings
 class CustomizationScreen extends ConsumerWidget {
@@ -21,6 +30,8 @@ class CustomizationScreen extends ConsumerWidget {
     final inputStyle = ref.watch(inputStyleProvider);
     final navBarStyle = ref.watch(navBarStyleProvider);
     final notificationsEnabled = ref.watch(notificationsEnabledProvider);
+    final highlights = ref.watch(highlightsProvider);
+    final selectedHighlightColor = highlights.color;
 
     return Scaffold(
       backgroundColor: theme.scaffoldBackgroundColor,
@@ -164,6 +175,117 @@ class CustomizationScreen extends ConsumerWidget {
                       .setStyle(NavBarStyle.glassmorphic),
                 ),
               ],
+            ),
+          ),
+
+          const SizedBox(height: 28),
+
+          // Highlights Section
+          _SectionHeader(title: 'Highlights'),
+          const SizedBox(height: 12),
+          _SettingsCard(
+            child: Padding(
+              padding: const EdgeInsets.all(16),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
+                    children: [
+                      Icon(
+                        Icons.star_rounded,
+                        color: theme.colorScheme.primary,
+                        size: 22,
+                      ),
+                      const SizedBox(width: 12),
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              'Highlight Color',
+                              style: TextStyle(
+                                color: theme.colorScheme.onSurface,
+                                fontSize: 15,
+                                fontWeight: FontWeight.w600,
+                              ),
+                            ),
+                            const SizedBox(height: 4),
+                            Text(
+                              'Color for pinned sessions and projects',
+                              style: TextStyle(
+                                color: theme.colorScheme.onSurface.withValues(
+                                  alpha: 0.6,
+                                ),
+                                fontSize: 13,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 16),
+                  // Color swatches
+                  Wrap(
+                    spacing: 10,
+                    runSpacing: 10,
+                    children: HighlightColor.values.map((color) {
+                      final isSelected = color == selectedHighlightColor;
+                      final displayColor = color.forBrightness(
+                        theme.brightness,
+                      );
+                      return GestureDetector(
+                        onTap: () => ref
+                            .read(highlightsProvider.notifier)
+                            .setColor(color),
+                        child: AnimatedContainer(
+                          duration: const Duration(milliseconds: 200),
+                          width: 40,
+                          height: 40,
+                          decoration: BoxDecoration(
+                            color: displayColor,
+                            borderRadius: BorderRadius.circular(10),
+                            border: Border.all(
+                              color: isSelected
+                                  ? theme.colorScheme.onSurface
+                                  : Colors.transparent,
+                              width: 2,
+                            ),
+                            boxShadow: isSelected
+                                ? [
+                                    BoxShadow(
+                                      color: displayColor.withValues(
+                                        alpha: 0.4,
+                                      ),
+                                      blurRadius: 8,
+                                      spreadRadius: 1,
+                                    ),
+                                  ]
+                                : null,
+                          ),
+                          child: isSelected
+                              ? Icon(
+                                  Icons.check_rounded,
+                                  color: _contrastColor(displayColor),
+                                  size: 20,
+                                )
+                              : null,
+                        ),
+                      );
+                    }).toList(),
+                  ),
+                  const SizedBox(height: 12),
+                  // Selected color name
+                  Text(
+                    selectedHighlightColor.displayName,
+                    style: TextStyle(
+                      color: theme.colorScheme.onSurface.withValues(alpha: 0.5),
+                      fontSize: 12,
+                      fontWeight: FontWeight.w500,
+                    ),
+                  ),
+                ],
+              ),
             ),
           ),
 

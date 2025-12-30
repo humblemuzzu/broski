@@ -2,10 +2,12 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../models/agent_type.dart';
+import '../models/highlight_color.dart';
 import '../models/project.dart';
 import '../providers/agent_type_provider.dart';
 import '../providers/chat_provider.dart';
 import '../providers/connection_provider.dart';
+import '../providers/highlights_provider.dart';
 import '../providers/selection_provider.dart';
 import '../providers/service_providers.dart';
 import '../theme/opencode_theme.dart';
@@ -92,10 +94,15 @@ class _ProjectsScreenState extends ConsumerState<ProjectsScreen> {
     await _projectsFuture;
   }
 
+  void _toggleHighlight(ProjectSummary project) {
+    ref.read(highlightsProvider.notifier).toggleProject(project.id);
+  }
+
   @override
   Widget build(BuildContext context) {
     final agentType = ref.watch(agentTypeProvider);
     final connection = ref.watch(connectionProvider);
+    final highlights = ref.watch(highlightsProvider);
     final theme = Theme.of(context);
     final ocTheme = OpenCodeTheme.of(context);
 
@@ -143,6 +150,14 @@ class _ProjectsScreenState extends ConsumerState<ProjectsScreen> {
 
             final projects = snapshot.data ?? [];
 
+            // Separate highlighted and non-highlighted projects
+            final highlightedProjects = projects
+                .where((p) => highlights.isProjectHighlighted(p.id))
+                .toList();
+            final regularProjects = projects
+                .where((p) => !highlights.isProjectHighlighted(p.id))
+                .toList();
+
             return RefreshIndicator(
               onRefresh: _refresh,
               color: theme.colorScheme.primary,
@@ -155,8 +170,9 @@ class _ProjectsScreenState extends ConsumerState<ProjectsScreen> {
                     child: _ModernHeader(
                       connection: connection,
                       onRefresh: _refresh,
-                      onAddProject:
-                          agentType == AgentType.opencode ? _showAddProject : null,
+                      onAddProject: agentType == AgentType.opencode
+                          ? _showAddProject
+                          : null,
                     ),
                   ),
 
@@ -170,9 +186,58 @@ class _ProjectsScreenState extends ConsumerState<ProjectsScreen> {
                       ),
                     ),
 
+                  // Highlighted Projects section
+                  if (highlightedProjects.isNotEmpty) ...[
+                    SliverToBoxAdapter(
+                      child: Padding(
+                        padding: const EdgeInsets.fromLTRB(20, 24, 20, 12),
+                        child: Row(
+                          children: [
+                            Icon(
+                              Icons.star_rounded,
+                              size: 14,
+                              color: highlights.color.forBrightness(
+                                theme.brightness,
+                              ),
+                            ),
+                            const SizedBox(width: 6),
+                            Text(
+                              'HIGHLIGHTED',
+                              style: TextStyle(
+                                color: highlights.color.forBrightness(
+                                  theme.brightness,
+                                ),
+                                fontSize: 12,
+                                fontWeight: FontWeight.w700,
+                                letterSpacing: 0.5,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
+                    SliverPadding(
+                      padding: const EdgeInsets.fromLTRB(20, 0, 20, 8),
+                      sliver: SliverList(
+                        delegate: SliverChildBuilderDelegate((context, index) {
+                          final project = highlightedProjects[index];
+                          return Padding(
+                            padding: const EdgeInsets.only(bottom: 8),
+                            child: _HighlightedProjectCard(
+                              project: project,
+                              highlightColor: highlights.color,
+                              onTap: () => _openProject(context, project),
+                              onLongPress: () => _toggleHighlight(project),
+                            ),
+                          );
+                        }, childCount: highlightedProjects.length),
+                      ),
+                    ),
+                  ],
+
                   // Recent Sessions section (if we have projects)
-                  if (agentType == AgentType.opencode && projects.isNotEmpty)
-                    ...[
+                  if (agentType == AgentType.opencode &&
+                      regularProjects.isNotEmpty) ...[
                     SliverToBoxAdapter(
                       child: Padding(
                         padding: const EdgeInsets.fromLTRB(20, 24, 20, 12),
@@ -189,15 +254,16 @@ class _ProjectsScreenState extends ConsumerState<ProjectsScreen> {
                     ),
                     SliverToBoxAdapter(
                       child: _RecentSessions(
-                        projects: projects.take(2).toList(),
+                        projects: regularProjects.take(2).toList(),
                         onProjectTap: (project) =>
                             _openProject(context, project),
+                        onProjectLongPress: _toggleHighlight,
                       ),
                     ),
                   ],
 
                   // All Repositories section
-                  if (projects.isNotEmpty) ...[
+                  if (regularProjects.isNotEmpty) ...[
                     SliverToBoxAdapter(
                       child: Padding(
                         padding: const EdgeInsets.fromLTRB(20, 32, 20, 12),
@@ -218,12 +284,13 @@ class _ProjectsScreenState extends ConsumerState<ProjectsScreen> {
                       padding: const EdgeInsets.fromLTRB(20, 0, 20, 100),
                       sliver: SliverList(
                         delegate: SliverChildBuilderDelegate((context, index) {
-                          final project = projects[index];
+                          final project = regularProjects[index];
                           return _RepositoryListItem(
                             project: project,
                             onTap: () => _openProject(context, project),
+                            onLongPress: () => _toggleHighlight(project),
                           );
-                        }, childCount: projects.length),
+                        }, childCount: regularProjects.length),
                       ),
                     ),
                   ],
@@ -350,10 +417,8 @@ class _ProjectsScreenState extends ConsumerState<ProjectsScreen> {
     Navigator.push(
       context,
       MaterialPageRoute(
-        builder: (_) => ChatScreen.claudeCodeDraft(
-          cwd: project.path,
-          title: project.name,
-        ),
+        builder: (_) =>
+            ChatScreen.claudeCodeDraft(cwd: project.path, title: project.name),
       ),
     );
   }
@@ -573,12 +638,96 @@ class _OpenCodeWarning extends StatelessWidget {
   }
 }
 
+// Highlighted project card with accent border
+class _HighlightedProjectCard extends StatelessWidget {
+  const _HighlightedProjectCard({
+    required this.project,
+    required this.highlightColor,
+    required this.onTap,
+    required this.onLongPress,
+  });
+
+  final ProjectSummary project;
+  final HighlightColor highlightColor;
+  final VoidCallback onTap;
+  final VoidCallback onLongPress;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final ocTheme = OpenCodeTheme.of(context);
+    final color = highlightColor.forBrightness(theme.brightness);
+
+    return GestureDetector(
+      onTap: onTap,
+      onLongPress: onLongPress,
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+        decoration: BoxDecoration(
+          color: highlightColor.backgroundFor(theme.brightness),
+          borderRadius: BorderRadius.circular(12),
+          border: Border(
+            left: BorderSide(color: color, width: 3),
+            top: BorderSide(color: highlightColor.borderFor(theme.brightness)),
+            right: BorderSide(
+              color: highlightColor.borderFor(theme.brightness),
+            ),
+            bottom: BorderSide(
+              color: highlightColor.borderFor(theme.brightness),
+            ),
+          ),
+        ),
+        child: Row(
+          children: [
+            Icon(Icons.star_rounded, color: color, size: 20),
+            const SizedBox(width: 12),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    project.name,
+                    style: TextStyle(
+                      color: ocTheme.text,
+                      fontSize: 15,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                  const SizedBox(height: 2),
+                  Text(
+                    '~/${project.path.split('/').last}',
+                    style: TextStyle(color: ocTheme.textMuted, fontSize: 12),
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                ],
+              ),
+            ),
+            Text(
+              'Open',
+              style: TextStyle(
+                color: color,
+                fontSize: 14,
+                fontWeight: FontWeight.w600,
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
 // Recent sessions with rich cards
 class _RecentSessions extends StatelessWidget {
-  const _RecentSessions({required this.projects, required this.onProjectTap});
+  const _RecentSessions({
+    required this.projects,
+    required this.onProjectTap,
+    this.onProjectLongPress,
+  });
 
   final List<ProjectSummary> projects;
   final void Function(ProjectSummary) onProjectTap;
+  final void Function(ProjectSummary)? onProjectLongPress;
 
   @override
   Widget build(BuildContext context) {
@@ -591,6 +740,9 @@ class _RecentSessions extends StatelessWidget {
             child: _SessionCard(
               project: project,
               onTap: () => onProjectTap(project),
+              onLongPress: onProjectLongPress != null
+                  ? () => onProjectLongPress!(project)
+                  : null,
             ),
           );
         }).toList(),
@@ -601,10 +753,15 @@ class _RecentSessions extends StatelessWidget {
 
 // Rich session card
 class _SessionCard extends StatelessWidget {
-  const _SessionCard({required this.project, required this.onTap});
+  const _SessionCard({
+    required this.project,
+    required this.onTap,
+    this.onLongPress,
+  });
 
   final ProjectSummary project;
   final VoidCallback onTap;
+  final VoidCallback? onLongPress;
 
   IconData _getProjectIcon() {
     return Icons.shopping_bag_rounded;
@@ -624,6 +781,7 @@ class _SessionCard extends StatelessWidget {
 
     return GestureDetector(
       onTap: onTap,
+      onLongPress: onLongPress,
       child: Container(
         padding: const EdgeInsets.all(16),
         decoration: BoxDecoration(
@@ -718,10 +876,15 @@ class _TechBadge extends StatelessWidget {
 
 // Simple repository list item
 class _RepositoryListItem extends StatelessWidget {
-  const _RepositoryListItem({required this.project, required this.onTap});
+  const _RepositoryListItem({
+    required this.project,
+    required this.onTap,
+    this.onLongPress,
+  });
 
   final ProjectSummary project;
   final VoidCallback onTap;
+  final VoidCallback? onLongPress;
 
   @override
   Widget build(BuildContext context) {
@@ -732,6 +895,7 @@ class _RepositoryListItem extends StatelessWidget {
       padding: const EdgeInsets.only(bottom: 8),
       child: GestureDetector(
         onTap: onTap,
+        onLongPress: onLongPress,
         child: Container(
           padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
           decoration: BoxDecoration(

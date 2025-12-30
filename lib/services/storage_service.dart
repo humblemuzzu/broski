@@ -4,6 +4,7 @@ import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:uuid/uuid.dart';
 
 import '../models/connection.dart';
+import '../models/highlight_color.dart';
 import '../models/message.dart';
 import '../models/project.dart';
 import '../models/session.dart';
@@ -15,6 +16,11 @@ class StorageService {
   static const _notificationsEnabledKey = 'broski_notifications_enabled';
   static const _deviceIdKey = 'broski_device_id';
   static const _selectedAgentTypeKey = 'broski_selected_agent_type';
+
+  // Highlight keys
+  static const _highlightedProjectsKey = 'broski_highlighted_projects';
+  static const _highlightedSessionsKey = 'broski_highlighted_sessions';
+  static const _highlightColorKey = 'broski_highlight_color';
 
   static const _uuid = Uuid();
 
@@ -423,5 +429,56 @@ class StorageService {
 
   Future<void> setSelectedAgentType(String agentType) async {
     await _storage.write(key: _selectedAgentTypeKey, value: agentType);
+  }
+
+  // ============================================================
+  // Highlight Settings
+  // ============================================================
+
+  /// Get highlighted project IDs
+  Future<Set<String>> getHighlightedProjects() async {
+    final raw = await _storage.read(key: _highlightedProjectsKey);
+    if (raw == null) return {};
+    try {
+      final List<dynamic> list = jsonDecode(raw);
+      return Set<String>.from(list.cast<String>());
+    } catch (_) {
+      return {};
+    }
+  }
+
+  /// Save highlighted project IDs
+  Future<void> saveHighlightedProjects(Set<String> projectIds) async {
+    final json = jsonEncode(projectIds.toList());
+    await _storage.write(key: _highlightedProjectsKey, value: json);
+  }
+
+  /// Get highlighted session IDs
+  Future<Set<String>> getHighlightedSessions() async {
+    final raw = await _storage.read(key: _highlightedSessionsKey);
+    if (raw == null) return {};
+    try {
+      final List<dynamic> list = jsonDecode(raw);
+      return Set<String>.from(list.cast<String>());
+    } catch (_) {
+      return {};
+    }
+  }
+
+  /// Save highlighted session IDs
+  Future<void> saveHighlightedSessions(Set<String> sessionIds) async {
+    final json = jsonEncode(sessionIds.toList());
+    await _storage.write(key: _highlightedSessionsKey, value: json);
+  }
+
+  /// Get selected highlight color
+  Future<HighlightColor> getHighlightColor() async {
+    final raw = await _storage.read(key: _highlightColorKey);
+    return HighlightColor.fromString(raw);
+  }
+
+  /// Save selected highlight color
+  Future<void> saveHighlightColor(HighlightColor color) async {
+    await _storage.write(key: _highlightColorKey, value: color.name);
   }
 }
