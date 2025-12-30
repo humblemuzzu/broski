@@ -59,22 +59,26 @@ class _TerminalScreenState extends ConsumerState<TerminalScreen> {
   }
 
   Future<void> _createSession() async {
-    final result = await showDialog<Map<String, String>>(
+    final result = await showDialog<Map<String, String?>>(
       context: context,
       builder: (context) => const _CreatePtyDialog(),
     );
 
     if (result == null) return;
 
+    debugPrint('[Terminal] Creating PTY with: $result');
+
     try {
       final bridge = ref.read(bridgeServiceProvider);
       final selection = ref.read(selectionProvider);
+      debugPrint('[Terminal] projectPath: ${selection.project?.path}');
       final pty = await bridge.createPty(
         command: result['command'],
         title: result['title'],
         cwd: result['cwd'],
         projectPath: selection.project?.path,
       );
+      debugPrint('[Terminal] createPty result: $pty');
 
       if (pty != null && mounted) {
         final ocTheme = OpenCodeTheme.of(context);
@@ -86,7 +90,9 @@ class _TerminalScreenState extends ConsumerState<TerminalScreen> {
         );
         _loadSessions();
       }
-    } catch (e) {
+    } catch (e, stack) {
+      debugPrint('[Terminal] Error creating PTY: $e');
+      debugPrint('[Terminal] Stack: $stack');
       if (mounted) {
         final ocTheme = OpenCodeTheme.of(context);
         ScaffoldMessenger.of(context).showSnackBar(
@@ -820,7 +826,7 @@ class _CreatePtyDialogState extends State<_CreatePtyDialog> {
         ),
         ElevatedButton(
           onPressed: () {
-            Navigator.pop(context, {
+            final result = <String, String?>{
               'title': _titleController.text.trim().isEmpty
                   ? 'Terminal'
                   : _titleController.text.trim(),
@@ -830,7 +836,9 @@ class _CreatePtyDialogState extends State<_CreatePtyDialog> {
               'cwd': _cwdController.text.trim().isEmpty
                   ? null
                   : _cwdController.text.trim(),
-            });
+            };
+            debugPrint('[Terminal] Dialog returning: $result');
+            Navigator.pop(context, result);
           },
           style: ElevatedButton.styleFrom(
             backgroundColor: ocTheme.primary,

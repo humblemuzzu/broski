@@ -935,22 +935,37 @@ export function createBridgeServer(options: BridgeServerOptions): BridgeServer {
         }
         // Feature 14: PTY Terminal Sessions
         case 'list_pty': {
-          const ptys = await opencode.listPty(message.projectPath)
-          reply({ type: 'pty_list', data: ptys })
+          try {
+            log(`[PTY] Listing PTY sessions for projectPath: ${message.projectPath ?? '(none)'}`)
+            const ptys = await opencode.listPty(message.projectPath)
+            log(`[PTY] Found ${ptys.length} PTY sessions`)
+            reply({ type: 'pty_list', data: ptys })
+          } catch (error) {
+            log(`[PTY] list_pty error: ${error}`)
+            reply({ type: 'error', message: `PTY list failed: ${error}` })
+          }
           break
         }
         case 'create_pty': {
-          const pty = await opencode.createPty(
-            message.command,
-            message.args,
-            message.cwd,
-            message.title,
-            message.projectPath,
-          )
-          if (pty) {
-            reply({ type: 'pty_created', data: pty })
-          } else {
-            reply({ type: 'error', message: 'Failed to create PTY session' })
+          try {
+            log(`[PTY] Creating PTY session: command=${message.command}, title=${message.title}, cwd=${message.cwd}, projectPath=${message.projectPath}`)
+            const pty = await opencode.createPty(
+              message.command,
+              message.args,
+              message.cwd,
+              message.title,
+              message.projectPath,
+            )
+            if (pty) {
+              log(`[PTY] Created PTY session: ${JSON.stringify(pty)}`)
+              reply({ type: 'pty_created', data: pty })
+            } else {
+              log(`[PTY] createPty returned null`)
+              reply({ type: 'error', message: 'Failed to create PTY session - OpenCode returned null' })
+            }
+          } catch (error) {
+            log(`[PTY] create_pty error: ${error}`)
+            reply({ type: 'error', message: `PTY create failed: ${error}` })
           }
           break
         }
@@ -992,32 +1007,28 @@ export function createBridgeServer(options: BridgeServerOptions): BridgeServer {
           }
           
           const ptyWsUrl = opencode.getPtyWebSocketUrl(ptyId, message.projectPath)
-          log(`Connecting to PTY WebSocket: ${ptyWsUrl}`)
           
           try {
             const ptyWs = new WebSocket(ptyWsUrl)
             
-            ptyWs.onopen = () => {
+            ptyWs.addEventListener('open', () => {
               ptyConnections.set(ptyId, ptyWs)
               reply({ type: 'pty_connected', ptyId })
-              log(`PTY ${ptyId} connected`)
-            }
+            })
             
-            ptyWs.onmessage = (event) => {
+            ptyWs.addEventListener('message', (event) => {
               const data = typeof event.data === 'string' ? event.data : event.data.toString()
               send(ws, { type: 'pty_output', ptyId, data })
-            }
+            })
             
-            ptyWs.onerror = (error) => {
-              log(`PTY ${ptyId} error: ${error}`)
-              reply({ type: 'error', message: `PTY connection failed: ${error}` })
-            }
+            ptyWs.addEventListener('error', () => {
+              reply({ type: 'error', message: `PTY connection failed` })
+            })
             
-            ptyWs.onclose = (event) => {
+            ptyWs.addEventListener('close', (event) => {
               ptyConnections.delete(ptyId)
               send(ws, { type: 'pty_exit', ptyId, exitCode: event.code })
-              log(`PTY ${ptyId} closed with code ${event.code}`)
-            }
+            })
           } catch (error) {
             reply({ type: 'error', message: `PTY connect failed: ${error}` })
           }

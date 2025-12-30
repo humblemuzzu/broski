@@ -725,12 +725,15 @@ export class OpenCodeConnector {
   // Feature 14: PTY Terminal Sessions - List
   async listPty(directory?: string): Promise<PtySession[]> {
     try {
+      console.log('[PTY] Listing PTY sessions for directory:', directory ?? '(none)')
       const result = await this.client.pty.list({
         responseStyle: 'data',
         query: directory ? { directory } : undefined,
       })
+      console.log('[PTY] List result:', result)
       return (result ?? []).map((pty: any) => this.mapPtySession(pty))
-    } catch {
+    } catch (error) {
+      console.error('[PTY] listPty failed:', error)
       return []
     }
   }
@@ -744,6 +747,7 @@ export class OpenCodeConnector {
     directory?: string,
   ): Promise<PtySession | null> {
     try {
+      console.log('[PTY] Creating PTY session:', { command, args, cwd, title, directory })
       const result = await this.client.pty.create({
         responseStyle: 'data',
         query: directory ? { directory } : undefined,
@@ -754,8 +758,10 @@ export class OpenCodeConnector {
           ...(title ? { title } : {}),
         },
       })
+      console.log('[PTY] Create result:', result)
       return result ? this.mapPtySession(result) : null
-    } catch {
+    } catch (error) {
+      console.error('[PTY] createPty failed:', error)
       return null
     }
   }
@@ -765,11 +771,12 @@ export class OpenCodeConnector {
     try {
       const result = await this.client.pty.get({
         responseStyle: 'data',
-        path: { id: ptyId },
+        path: { ptyID: ptyId },
         query: directory ? { directory } : undefined,
       })
       return result ? this.mapPtySession(result) : null
-    } catch {
+    } catch (error) {
+      console.error('[PTY] getPty failed:', error)
       return null
     }
   }
@@ -785,7 +792,7 @@ export class OpenCodeConnector {
     try {
       const result = await this.client.pty.update({
         responseStyle: 'data',
-        path: { id: ptyId },
+        path: { ptyID: ptyId },
         query: directory ? { directory } : undefined,
         body: {
           ...(title ? { title } : {}),
@@ -793,7 +800,8 @@ export class OpenCodeConnector {
         },
       })
       return result ? this.mapPtySession(result) : null
-    } catch {
+    } catch (error) {
+      console.error('[PTY] updatePty failed:', error)
       return null
     }
   }
@@ -803,11 +811,12 @@ export class OpenCodeConnector {
     try {
       await this.client.pty.remove({
         responseStyle: 'data',
-        path: { id: ptyId },
+        path: { ptyID: ptyId },
         query: directory ? { directory } : undefined,
       })
       return true
-    } catch {
+    } catch (error) {
+      console.error('[PTY] deletePty failed:', error)
       return false
     }
   }
@@ -1035,9 +1044,10 @@ export class OpenCodeConnector {
 
   getPtyWebSocketUrl(ptyId: string, directory?: string): string {
     // Build the WebSocket URL for PTY connection
-    // OpenCode exposes PTY I/O at ws://host:port/pty/{id}
+    // OpenCode exposes PTY I/O at ws://host:port/pty/{id}/connect
+    // The /connect suffix is required - it's the WebSocket upgrade endpoint
     const wsUrl = this.baseUrl.replace('http', 'ws')
-    const baseWsUrl = `${wsUrl}/pty/${ptyId}`
+    const baseWsUrl = `${wsUrl}/pty/${ptyId}/connect`
     if (directory) {
       return `${baseWsUrl}?directory=${encodeURIComponent(directory)}`
     }

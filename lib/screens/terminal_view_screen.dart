@@ -1,7 +1,6 @@
 import 'dart:async';
 
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:xterm/xterm.dart';
 
@@ -25,17 +24,22 @@ class TerminalViewScreen extends ConsumerStatefulWidget {
 
 class _TerminalViewScreenState extends ConsumerState<TerminalViewScreen> {
   late final Terminal _terminal;
+  late final TerminalController _terminalController;
   StreamSubscription? _outputSubscription;
   bool _isConnected = false;
   bool _isConnecting = true;
   String? _error;
-  final _focusNode = FocusNode();
+
+  // Input handling
+  final _inputController = TextEditingController();
+  final _inputFocusNode = FocusNode();
+  String _currentInput = '';
 
   @override
   void initState() {
     super.initState();
     _terminal = Terminal(maxLines: 10000);
-    _terminal.onOutput = _sendInput;
+    _terminalController = TerminalController();
     _connectToPty();
   }
 
@@ -43,7 +47,8 @@ class _TerminalViewScreenState extends ConsumerState<TerminalViewScreen> {
   void dispose() {
     _outputSubscription?.cancel();
     _disconnectPty();
-    _focusNode.dispose();
+    _inputController.dispose();
+    _inputFocusNode.dispose();
     super.dispose();
   }
 
@@ -88,9 +93,9 @@ class _TerminalViewScreenState extends ConsumerState<TerminalViewScreen> {
         });
 
         if (connected) {
-          _terminal.write('\x1b[2J\x1b[H');
           WidgetsBinding.instance.addPostFrameCallback((_) {
-            _focusNode.requestFocus();
+            _inputFocusNode.requestFocus();
+            _sendResize();
           });
         }
       }
@@ -110,13 +115,38 @@ class _TerminalViewScreenState extends ConsumerState<TerminalViewScreen> {
   }
 
   void _sendInput(String data) {
-    if (!_isConnected) return;
+    if (!_isConnected || data.isEmpty) return;
     final bridge = ref.read(bridgeServiceProvider);
     bridge.sendPtyInput(widget.ptyId, data);
   }
 
-  void _handleResize(int rows, int cols) {
-    if (!_isConnected) return;
+  void _handleInputChanged(String value) {
+    // Detect what changed
+    if (value.length > _currentInput.length) {
+      // Characters added - send the new characters
+      final newChars = value.substring(_currentInput.length);
+      _sendInput(newChars);
+    } else if (value.length < _currentInput.length) {
+      // Characters deleted - send backspace for each deleted char
+      final deletedCount = _currentInput.length - value.length;
+      for (int i = 0; i < deletedCount; i++) {
+        _sendInput('\x7f'); // DEL character
+      }
+    }
+    _currentInput = value;
+  }
+
+  void _handleInputSubmitted(String value) {
+    // Send enter key
+    _sendInput('\r');
+    // Clear the input field
+    _inputController.clear();
+    _currentInput = '';
+  }
+
+  void _sendResize() {
+    const rows = 24;
+    const cols = 80;
     final bridge = ref.read(bridgeServiceProvider);
     final selection = ref.read(selectionProvider);
     bridge.resizePty(
@@ -125,6 +155,41 @@ class _TerminalViewScreenState extends ConsumerState<TerminalViewScreen> {
       cols,
       projectPath: selection.project?.path,
     );
+  }
+
+  void _sendSpecialKey(String key) {
+    switch (key) {
+      case 'tab':
+        _sendInput('\t');
+        break;
+      case 'escape':
+        _sendInput('\x1b');
+        break;
+      case 'up':
+        _sendInput('\x1b[A');
+        break;
+      case 'down':
+        _sendInput('\x1b[B');
+        break;
+      case 'left':
+        _sendInput('\x1b[D');
+        break;
+      case 'right':
+        _sendInput('\x1b[C');
+        break;
+      case 'ctrl+c':
+        _sendInput('\x03');
+        break;
+      case 'ctrl+d':
+        _sendInput('\x04');
+        break;
+      case 'ctrl+z':
+        _sendInput('\x1a');
+        break;
+      case 'ctrl+l':
+        _sendInput('\x0c');
+        break;
+    }
   }
 
   @override
@@ -256,70 +321,149 @@ class _TerminalViewScreenState extends ConsumerState<TerminalViewScreen> {
       );
     }
 
-    return KeyboardListener(
-      focusNode: _focusNode,
-      autofocus: true,
-      onKeyEvent: _handleKeyEvent,
-      child: LayoutBuilder(
-        builder: (context, constraints) {
-          return GestureDetector(
-            onTap: () => _focusNode.requestFocus(),
-            child: Container(
-              color: ocTheme.background,
-              padding: const EdgeInsets.all(8),
-              child: TerminalView(
-                _terminal,
-                theme: _buildTerminalTheme(ocTheme),
-                textStyle: const TerminalStyle(
-                  fontSize: 14,
-                  fontFamily: 'JetBrains Mono',
-                ),
+    return Column(
+      children: [
+        // Terminal output display
+        Expanded(
+          child: Container(
+            color: ocTheme.background,
+            padding: const EdgeInsets.all(8),
+            child: TerminalView(
+              _terminal,
+              controller: _terminalController,
+              theme: _buildTerminalTheme(ocTheme),
+              textStyle: const TerminalStyle(
+                fontSize: 13,
+                fontFamily: 'JetBrains Mono',
               ),
+              readOnly: true, // Make it read-only, we handle input separately
             ),
-          );
-        },
-      ),
+          ),
+        ),
+
+        // Special keys bar
+        Container(
+          color: ocTheme.backgroundPanel,
+          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+          child: SingleChildScrollView(
+            scrollDirection: Axis.horizontal,
+            child: Row(
+              children: [
+                _SpecialKeyButton(
+                  label: 'Tab',
+                  onTap: () => _sendSpecialKey('tab'),
+                  ocTheme: ocTheme,
+                ),
+                _SpecialKeyButton(
+                  label: 'Esc',
+                  onTap: () => _sendSpecialKey('escape'),
+                  ocTheme: ocTheme,
+                ),
+                _SpecialKeyButton(
+                  icon: Icons.arrow_upward,
+                  onTap: () => _sendSpecialKey('up'),
+                  ocTheme: ocTheme,
+                ),
+                _SpecialKeyButton(
+                  icon: Icons.arrow_downward,
+                  onTap: () => _sendSpecialKey('down'),
+                  ocTheme: ocTheme,
+                ),
+                _SpecialKeyButton(
+                  icon: Icons.arrow_back,
+                  onTap: () => _sendSpecialKey('left'),
+                  ocTheme: ocTheme,
+                ),
+                _SpecialKeyButton(
+                  icon: Icons.arrow_forward,
+                  onTap: () => _sendSpecialKey('right'),
+                  ocTheme: ocTheme,
+                ),
+                _SpecialKeyButton(
+                  label: 'Ctrl+C',
+                  onTap: () => _sendSpecialKey('ctrl+c'),
+                  ocTheme: ocTheme,
+                ),
+                _SpecialKeyButton(
+                  label: 'Ctrl+D',
+                  onTap: () => _sendSpecialKey('ctrl+d'),
+                  ocTheme: ocTheme,
+                ),
+                _SpecialKeyButton(
+                  label: 'Ctrl+Z',
+                  onTap: () => _sendSpecialKey('ctrl+z'),
+                  ocTheme: ocTheme,
+                ),
+                _SpecialKeyButton(
+                  label: 'Clear',
+                  onTap: () => _sendSpecialKey('ctrl+l'),
+                  ocTheme: ocTheme,
+                ),
+              ],
+            ),
+          ),
+        ),
+
+        // Input field
+        Container(
+          color: ocTheme.backgroundPanel,
+          padding: const EdgeInsets.fromLTRB(12, 8, 12, 12),
+          child: SafeArea(
+            top: false,
+            child: Row(
+              children: [
+                Text(
+                  '\$',
+                  style: TextStyle(
+                    color: ocTheme.primary,
+                    fontSize: 16,
+                    fontWeight: FontWeight.bold,
+                    fontFamily: 'JetBrains Mono',
+                  ),
+                ),
+                const SizedBox(width: 8),
+                Expanded(
+                  child: TextField(
+                    controller: _inputController,
+                    focusNode: _inputFocusNode,
+                    onChanged: _handleInputChanged,
+                    onSubmitted: _handleInputSubmitted,
+                    style: TextStyle(
+                      color: ocTheme.text,
+                      fontSize: 14,
+                      fontFamily: 'JetBrains Mono',
+                    ),
+                    decoration: InputDecoration(
+                      hintText: 'Type command...',
+                      hintStyle: TextStyle(color: ocTheme.textMuted),
+                      filled: true,
+                      fillColor: ocTheme.background,
+                      contentPadding: const EdgeInsets.symmetric(
+                        horizontal: 12,
+                        vertical: 10,
+                      ),
+                      border: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(8),
+                        borderSide: BorderSide.none,
+                      ),
+                    ),
+                    autocorrect: false,
+                    enableSuggestions: false,
+                    textInputAction: TextInputAction.send,
+                  ),
+                ),
+                const SizedBox(width: 8),
+                IconButton(
+                  onPressed: () => _handleInputSubmitted(_inputController.text),
+                  icon: Icon(Icons.send, color: ocTheme.primary),
+                  tooltip: 'Send',
+                ),
+              ],
+            ),
+          ),
+        ),
+      ],
     );
-  }
-
-  void _handleKeyEvent(KeyEvent event) {
-    if (event is! KeyDownEvent && event is! KeyRepeatEvent) return;
-
-    String? data;
-
-    if (event.logicalKey == LogicalKeyboardKey.enter) {
-      data = '\r';
-    } else if (event.logicalKey == LogicalKeyboardKey.backspace) {
-      data = '\x7f';
-    } else if (event.logicalKey == LogicalKeyboardKey.tab) {
-      data = '\t';
-    } else if (event.logicalKey == LogicalKeyboardKey.escape) {
-      data = '\x1b';
-    } else if (event.logicalKey == LogicalKeyboardKey.arrowUp) {
-      data = '\x1b[A';
-    } else if (event.logicalKey == LogicalKeyboardKey.arrowDown) {
-      data = '\x1b[B';
-    } else if (event.logicalKey == LogicalKeyboardKey.arrowRight) {
-      data = '\x1b[C';
-    } else if (event.logicalKey == LogicalKeyboardKey.arrowLeft) {
-      data = '\x1b[D';
-    } else if (event.logicalKey == LogicalKeyboardKey.home) {
-      data = '\x1b[H';
-    } else if (event.logicalKey == LogicalKeyboardKey.end) {
-      data = '\x1b[F';
-    } else if (event.logicalKey == LogicalKeyboardKey.pageUp) {
-      data = '\x1b[5~';
-    } else if (event.logicalKey == LogicalKeyboardKey.pageDown) {
-      data = '\x1b[6~';
-    } else if (event.logicalKey == LogicalKeyboardKey.delete) {
-      data = '\x1b[3~';
-    } else if (event.character != null && event.character!.isNotEmpty) {
-      data = event.character;
-    }
-
-    if (data != null) {
-      _sendInput(data);
-    }
   }
 
   TerminalTheme _buildTerminalTheme(OpenCodeTheme ocTheme) {
@@ -347,6 +491,48 @@ class _TerminalViewScreenState extends ConsumerState<TerminalViewScreen> {
       searchHitBackground: ocTheme.warning.withValues(alpha: 0.3),
       searchHitBackgroundCurrent: ocTheme.warning.withValues(alpha: 0.6),
       searchHitForeground: ocTheme.text,
+    );
+  }
+}
+
+class _SpecialKeyButton extends StatelessWidget {
+  const _SpecialKeyButton({
+    this.label,
+    this.icon,
+    required this.onTap,
+    required this.ocTheme,
+  });
+
+  final String? label;
+  final IconData? icon;
+  final VoidCallback onTap;
+  final OpenCodeTheme ocTheme;
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.only(right: 6),
+      child: Material(
+        color: ocTheme.background,
+        borderRadius: BorderRadius.circular(6),
+        child: InkWell(
+          onTap: onTap,
+          borderRadius: BorderRadius.circular(6),
+          child: Container(
+            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+            child: icon != null
+                ? Icon(icon, size: 16, color: ocTheme.textMuted)
+                : Text(
+                    label!,
+                    style: TextStyle(
+                      color: ocTheme.textMuted,
+                      fontSize: 12,
+                      fontFamily: 'JetBrains Mono',
+                    ),
+                  ),
+          ),
+        ),
+      ),
     );
   }
 }

@@ -1047,7 +1047,7 @@ class BridgeService {
     String? projectPath,
   }) async {
     final requestId = _generateRequestId();
-    _socket.send({
+    final message = {
       'type': 'create_pty',
       'requestId': requestId,
       if (command != null) 'command': command,
@@ -1055,8 +1055,15 @@ class BridgeService {
       if (cwd != null) 'cwd': cwd,
       if (title != null) 'title': title,
       if (projectPath != null) 'projectPath': projectPath,
-    });
+    };
+    developer.log('[PTY] Sending create_pty: $message', name: 'BridgeService');
+    _socket.send(message);
+    developer.log(
+      '[PTY] Waiting for pty_created with requestId: $requestId',
+      name: 'BridgeService',
+    );
     final response = await _waitFor('pty_created', requestId: requestId);
+    developer.log('[PTY] Got response: $response', name: 'BridgeService');
     return response['data'] as Map<String, dynamic>?;
   }
 
@@ -1787,17 +1794,31 @@ class BridgeService {
   Future<Map<String, dynamic>> _waitFor(String type, {String? requestId}) {
     return _socket.messages
         .firstWhere((message) {
-          if (message['type'] != type) return false;
-          // If we have a requestId, match it; otherwise accept any matching type
+          final msgType = message['type'] as String?;
+
+          // Match by requestId if provided
           if (requestId != null && message['requestId'] != null) {
-            return message['requestId'] == requestId;
+            if (message['requestId'] != requestId) return false;
+            // If requestId matches, check if it's our type OR an error
+            if (msgType == type || msgType == 'error') return true;
+            return false;
           }
-          return true;
+
+          // No requestId - match by type
+          return msgType == type;
         })
         .timeout(
           const Duration(seconds: 10),
           onTimeout: () =>
               throw TimeoutException('Bridge response timeout: $type'),
-        );
+        )
+        .then((message) {
+          // If we received an error, throw it instead of returning
+          if (message['type'] == 'error') {
+            final errorMsg = message['message'] as String? ?? 'Unknown error';
+            throw Exception('Bridge error: $errorMsg');
+          }
+          return message;
+        });
   }
 }
