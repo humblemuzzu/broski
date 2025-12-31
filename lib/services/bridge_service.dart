@@ -4,6 +4,8 @@ import 'dart:math';
 
 import '../models/agent.dart';
 import '../models/agent_type.dart';
+import '../models/artifact.dart';
+import '../models/artifacts_settings.dart';
 import '../models/claude_code.dart';
 import '../models/command.dart';
 import '../models/device.dart';
@@ -226,6 +228,118 @@ class BridgeService {
     _socket.send({'type': 'set_model', 'model': model, 'requestId': requestId});
     final response = await _waitFor('config', requestId: requestId);
     return response['data'] as Map<String, dynamic>? ?? const {};
+  }
+
+  // ============================================================
+  // Artifact Index (SQLite)
+  // ============================================================
+
+  Future<ArtifactSearchResult> searchArtifacts({
+    String? text,
+    ArtifactSearchFilters? filters,
+    int limit = 50,
+    int offset = 0,
+  }) async {
+    return _timedRequest('artifacts_search', () async {
+      final requestId = _generateRequestId();
+      _socket.send({
+        'type': 'artifacts_search',
+        'requestId': requestId,
+        if (text != null) 'text': text,
+        if (filters != null) 'filters': filters.toJson(),
+        'limit': limit,
+        'offset': offset,
+      });
+      final response = await _waitFor('artifacts_results', requestId: requestId);
+      final data = response['data'] as Map<String, dynamic>? ?? const {};
+      return ArtifactSearchResult.fromJson(data);
+    });
+  }
+
+  Future<Artifact?> getArtifact(String id) async {
+    return _deduplicatedRequest('artifact_get:$id', () async {
+      final requestId = _generateRequestId();
+      _socket.send({'type': 'artifacts_get', 'id': id, 'requestId': requestId});
+      final response = await _waitFor('artifact', requestId: requestId);
+      final data = response['data'];
+      if (data is Map<String, dynamic>) {
+        return Artifact.fromJson(data);
+      }
+      return null;
+    });
+  }
+
+  Future<bool> updateArtifact({
+    required String id,
+    List<String>? userTags,
+    bool? starred,
+    String? notes,
+  }) async {
+    return _timedRequest('artifact_update', () async {
+      final requestId = _generateRequestId();
+      _socket.send({
+        'type': 'artifacts_update',
+        'id': id,
+        'requestId': requestId,
+        if (userTags != null) 'userTags': userTags,
+        if (starred != null) 'starred': starred,
+        if (notes != null) 'notes': notes,
+      });
+      final response = await _waitFor(
+        'artifact_updated',
+        requestId: requestId,
+      );
+      return response['data'] as bool? ?? false;
+    });
+  }
+
+  Future<ArtifactsConfig> getArtifactsConfig() async {
+    return _deduplicatedRequest('artifacts_get_config', () async {
+      final requestId = _generateRequestId();
+      _socket.send({'type': 'artifacts_get_config', 'requestId': requestId});
+      final response = await _waitFor('artifacts_config', requestId: requestId);
+      final data = response['data'] as Map<String, dynamic>? ?? const {};
+      return ArtifactsConfig.fromJson(data);
+    });
+  }
+
+  Future<ArtifactsConfig> setArtifactsConfig(ArtifactsConfig config) async {
+    final requestId = _generateRequestId();
+    _socket.send({
+      'type': 'artifacts_set_config',
+      'requestId': requestId,
+      'config': config.toJson(),
+    });
+    final response = await _waitFor('artifacts_config', requestId: requestId);
+    final data = response['data'] as Map<String, dynamic>? ?? const {};
+    // Clear cache so subsequent reads refresh.
+    _inFlightRequests.remove('artifacts_get_config');
+    return ArtifactsConfig.fromJson(data);
+  }
+
+  Future<bool> clearArtifacts() async {
+    final requestId = _generateRequestId();
+    _socket.send({'type': 'artifacts_clear', 'requestId': requestId});
+    final response = await _waitFor('artifacts_cleared', requestId: requestId);
+    return response['data'] as bool? ?? false;
+  }
+
+  Future<ArtifactsStats> getArtifactsStats() async {
+    final requestId = _generateRequestId();
+    _socket.send({'type': 'artifacts_stats', 'requestId': requestId});
+    final response = await _waitFor('artifacts_stats', requestId: requestId);
+    final data = response['data'] as Map<String, dynamic>? ?? const {};
+    return ArtifactsStats.fromJson(data);
+  }
+
+  Future<bool> enrichArtifactsNow() async {
+    final requestId = _generateRequestId();
+    _socket.send({'type': 'artifacts_enrich_now', 'requestId': requestId});
+    final response = await _waitFor(
+      'artifacts_enrich_started',
+      requestId: requestId,
+    );
+    return response['data'] as bool? ?? false;
   }
 
   Future<bool> restartOpenCode() async {

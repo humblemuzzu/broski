@@ -242,6 +242,81 @@ export class OpenCodeConnector {
     })
   }
 
+  /**
+   * Async prompt: returns immediately while the session runs in background.
+   * Useful for background jobs like artifact enrichment.
+   */
+  async sendPromptAsync(
+    sessionId: string,
+    content: string,
+    directory?: string,
+    model?: { providerID: string; modelID: string },
+    agent?: string,
+    disabledTools?: string[],
+    fileAttachments?: FileAttachment[],
+  ) {
+    let tools: Record<string, boolean> | undefined
+    if (disabledTools && disabledTools.length > 0) {
+      const key = directory ?? 'global'
+      const cached = this.toolIdsCache.get(key)
+      const now = Date.now()
+      const ttlMs = 30_000
+
+      let ids: string[]
+      if (cached && now - cached.fetchedAt < ttlMs) {
+        ids = cached.ids
+      } else {
+        ids = await this.listToolIds(directory)
+        this.toolIdsCache.set(key, { ids, fetchedAt: now })
+      }
+
+      tools = {}
+      for (const id of ids) tools[id] = true
+      for (const id of disabledTools) tools[id] = false
+    }
+
+    const parts: Array<{ type: string; text?: string; url?: string; filename?: string; mime?: string }> = [
+      { type: 'text', text: content },
+    ]
+
+    if (fileAttachments && fileAttachments.length > 0) {
+      const baseDir = directory ?? process.cwd()
+      for (const attachment of fileAttachments) {
+        if (attachment.base64Data && attachment.mimeType) {
+          parts.push({
+            type: 'file',
+            url: `data:${attachment.mimeType};base64,${attachment.base64Data}`,
+            filename: attachment.path.split('/').pop() ?? 'image',
+            mime: attachment.mimeType,
+          })
+        } else {
+          const absolutePath = attachment.path.startsWith('/')
+            ? attachment.path
+            : `${baseDir}/${attachment.path}`
+          const filename = attachment.path.split('/').pop() ?? attachment.path
+          parts.push({
+            type: 'file',
+            url: `file://${absolutePath}`,
+            filename: attachment.isDirectory ? `${filename}/` : filename,
+            mime: attachment.isDirectory ? 'inode/directory' : 'text/plain',
+          })
+        }
+      }
+    }
+
+    return this.client.session.promptAsync({
+      responseStyle: 'data',
+      path: { id: sessionId },
+      query: directory ? { directory } : undefined,
+      body: {
+        ...(model ? { model } : {}),
+        ...(agent ? { agent } : {}),
+        ...(tools ? { tools } : {}),
+        parts,
+      },
+    })
+  }
+
   async abortSession(sessionId: string, directory?: string): Promise<boolean> {
     return this.client.session.abort({
       responseStyle: 'data',

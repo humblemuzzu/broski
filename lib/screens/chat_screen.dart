@@ -53,7 +53,12 @@ Color fade(Color color, double opacity) {
 
 class ChatScreen extends ConsumerStatefulWidget {
   /// Constructor for OpenCode sessions
-  const ChatScreen({super.key, required this.project, required this.session})
+  const ChatScreen({
+    super.key,
+    required this.project,
+    required this.session,
+    this.initialPrompt,
+  })
     : ccSession = null,
       ccDraftCwd = null,
       ccDraftTitle = null,
@@ -61,7 +66,11 @@ class ChatScreen extends ConsumerStatefulWidget {
       isClaudeCode = false;
 
   /// Named constructor for Claude Code sessions
-  const ChatScreen.claudeCode({super.key, required this.ccSession})
+  const ChatScreen.claudeCode({
+    super.key,
+    required this.ccSession,
+    this.initialPrompt,
+  })
     : project = const ProjectSummary(id: '', name: '', path: ''),
       session = const SessionSummary(
         id: '',
@@ -72,8 +81,8 @@ class ChatScreen extends ConsumerStatefulWidget {
       ),
       ccDraftCwd = null,
       ccDraftTitle = null,
-      ccDraftModel = null,
-      isClaudeCode = true;
+       ccDraftModel = null,
+       isClaudeCode = true;
 
   /// Named constructor for a new Claude Code chat (session ID assigned on first turn)
   const ChatScreen.claudeCodeDraft({
@@ -81,6 +90,7 @@ class ChatScreen extends ConsumerStatefulWidget {
     required String cwd,
     String? title,
     String? model,
+    this.initialPrompt,
   }) : project = const ProjectSummary(id: '', name: '', path: ''),
        session = const SessionSummary(
          id: '',
@@ -102,6 +112,7 @@ class ChatScreen extends ConsumerStatefulWidget {
   final String? ccDraftTitle;
   final String? ccDraftModel;
   final bool isClaudeCode;
+  final String? initialPrompt;
 
   /// Get the effective session ID
   String get effectiveSessionId =>
@@ -175,6 +186,7 @@ class _ChatScreenState extends ConsumerState<ChatScreen>
   bool _hasLoadedAllMessages = false;
 
   bool _resyncingAfterReconnect = false;
+  bool _initialPromptSent = false;
 
   @override
   void initState() {
@@ -204,6 +216,7 @@ class _ChatScreenState extends ConsumerState<ChatScreen>
         }
         _hydrateSession().whenComplete(() {
           _resyncingAfterReconnect = false;
+          _maybeSendInitialPrompt();
         });
       }
     });
@@ -212,7 +225,7 @@ class _ChatScreenState extends ConsumerState<ChatScreen>
     // when new content arrives (streaming text, tool calls, diffs, etc.)
     ref.listen(chatSessionProvider, _handleAutoScroll);
 
-    _hydrateSession();
+    _hydrateSession().whenComplete(_maybeSendInitialPrompt);
     _controller.addListener(_onTextChanged);
     _scrollController.addListener(_onScroll);
 
@@ -225,6 +238,26 @@ class _ChatScreenState extends ConsumerState<ChatScreen>
       // Preload Claude Code config so the tools sheet is instant.
       ref.read(ccConfigProvider.notifier).load();
     }
+  }
+
+  void _maybeSendInitialPrompt() {
+    if (_initialPromptSent) return;
+    final prompt = widget.initialPrompt?.trim() ?? '';
+    if (prompt.isEmpty) return;
+
+    final connection = ref.read(connectionProvider);
+    if (!connection.isConnected) return;
+
+    final chatState = ref.read(chatSessionProvider);
+    // Avoid sending twice if we already have messages (e.g., opening an existing session).
+    if (chatState.messages.isNotEmpty) {
+      _initialPromptSent = true;
+      return;
+    }
+
+    _initialPromptSent = true;
+    _controller.text = prompt;
+    _sendMessage(connection, chatState);
   }
 
   Future<void> _hydrateSession() async {

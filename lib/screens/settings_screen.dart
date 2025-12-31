@@ -19,6 +19,7 @@ import 'terminal_screen.dart';
 import 'tools_screen.dart';
 import 'custom_tools_screen.dart';
 import 'plugins_screen.dart';
+import 'artifacts_screen.dart';
 
 class SettingsScreen extends ConsumerWidget {
   const SettingsScreen({super.key});
@@ -208,6 +209,18 @@ class SettingsScreen extends ConsumerWidget {
                           context,
                           MaterialPageRoute(
                             builder: (_) => const ProvidersScreen(),
+                          ),
+                        ),
+                      ),
+                      _Divider(),
+                      _SettingsTile(
+                        title: 'Artifacts',
+                        subtitle: 'Search AI-created files and diffs',
+                        icon: Icons.inventory_2_outlined,
+                        onTap: () => Navigator.push(
+                          context,
+                          MaterialPageRoute(
+                            builder: (_) => const ArtifactsScreen(),
                           ),
                         ),
                       ),
