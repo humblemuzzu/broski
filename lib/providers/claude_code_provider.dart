@@ -126,6 +126,80 @@ class CCConfigNotifier extends StateNotifier<AsyncValue<ClaudeCodeConfig>> {
     final updated = current.copyWith(permissionMode: mode);
     await updateConfig(updated);
   }
+
+  // ==========================================================================
+  // SUBAGENT MANAGEMENT
+  // ==========================================================================
+
+  /// Get all configured subagents
+  List<ClaudeCodeSubagent> get subagents => state.valueOrNull?.subagents ?? [];
+
+  /// Get the currently active subagent name (null = no subagent selected)
+  String? get activeSubagent => state.valueOrNull?.activeSubagent;
+
+  /// Set the active subagent by name (null to clear selection)
+  Future<void> setActiveSubagent(String? name) async {
+    final current = state.valueOrNull;
+    if (current == null) return;
+
+    final updated = current.copyWith(activeSubagent: name);
+    await updateConfig(updated);
+  }
+
+  /// Add a new subagent
+  Future<void> addSubagent(ClaudeCodeSubagent subagent) async {
+    final current = state.valueOrNull;
+    if (current == null) return;
+
+    // Check for duplicate name
+    final existing = current.subagents.where((s) => s.name == subagent.name);
+    if (existing.isNotEmpty) {
+      throw ArgumentError(
+        'Subagent with name "${subagent.name}" already exists',
+      );
+    }
+
+    final updated = current.copyWith(
+      subagents: [...current.subagents, subagent],
+    );
+    await updateConfig(updated);
+  }
+
+  /// Update an existing subagent (by name)
+  Future<void> updateSubagent(ClaudeCodeSubagent subagent) async {
+    final current = state.valueOrNull;
+    if (current == null) return;
+
+    final index = current.subagents.indexWhere((s) => s.name == subagent.name);
+    if (index == -1) {
+      throw ArgumentError('Subagent with name "${subagent.name}" not found');
+    }
+
+    final newList = List<ClaudeCodeSubagent>.from(current.subagents);
+    newList[index] = subagent;
+
+    final updated = current.copyWith(subagents: newList);
+    await updateConfig(updated);
+  }
+
+  /// Delete a subagent by name
+  Future<void> deleteSubagent(String name) async {
+    final current = state.valueOrNull;
+    if (current == null) return;
+
+    final newList = current.subagents.where((s) => s.name != name).toList();
+
+    // Clear active subagent if we're deleting it
+    final activeSubagent = current.activeSubagent == name
+        ? null
+        : current.activeSubagent;
+
+    final updated = current.copyWith(
+      subagents: newList,
+      activeSubagent: activeSubagent,
+    );
+    await updateConfig(updated);
+  }
 }
 
 class CCChatState {
@@ -134,11 +208,16 @@ class CCChatState {
   final bool isStreaming;
   final String? error;
 
+  /// The most recent checkpoint UUID for file revert (undo) functionality.
+  /// Updated whenever we receive a checkpoint-created event from the SDK.
+  final CCCheckpointCreated? latestCheckpoint;
+
   const CCChatState({
     this.sessionId,
     this.messages = const [],
     this.isStreaming = false,
     this.error,
+    this.latestCheckpoint,
   });
 
   CCChatState copyWith({
@@ -146,12 +225,17 @@ class CCChatState {
     List<ClaudeCodeStreamMessage>? messages,
     bool? isStreaming,
     String? error,
+    CCCheckpointCreated? latestCheckpoint,
+    bool clearCheckpoint = false,
   }) {
     return CCChatState(
       sessionId: sessionId ?? this.sessionId,
       messages: messages ?? this.messages,
       isStreaming: isStreaming ?? this.isStreaming,
       error: error,
+      latestCheckpoint: clearCheckpoint
+          ? null
+          : (latestCheckpoint ?? this.latestCheckpoint),
     );
   }
 }
@@ -177,6 +261,7 @@ class CCChatNotifier extends StateNotifier<CCChatState> {
     String? cwd,
     String? model,
     ClaudeCodePermissionMode? permissionMode,
+    String? activeSubagent,
   }) {
     state = state.copyWith(
       sessionId: sessionId,
@@ -190,6 +275,7 @@ class CCChatNotifier extends StateNotifier<CCChatState> {
       cwd: cwd,
       model: model,
       permissionMode: permissionMode,
+      activeSubagent: activeSubagent,
     );
   }
 
@@ -205,6 +291,12 @@ class CCChatNotifier extends StateNotifier<CCChatState> {
       state = state.copyWith(sessionId: message.sessionId);
     } else if (message is CCError) {
       state = state.copyWith(isStreaming: false, error: message.message);
+    } else if (message is CCCheckpointCreated) {
+      // Track the latest checkpoint for undo/revert functionality.
+      // Only track if it matches the current session.
+      if (message.sessionId == state.sessionId) {
+        state = state.copyWith(latestCheckpoint: message);
+      }
     }
 
     state = state.copyWith(messages: [...state.messages, message]);
@@ -219,7 +311,33 @@ class CCChatNotifier extends StateNotifier<CCChatState> {
   }
 
   void setSession(String sessionId) {
+    // Clear checkpoint when switching sessions - it's session-specific
     state = CCChatState(sessionId: sessionId);
+  }
+
+  /// Rewind files to the latest checkpoint (undo file changes).
+  /// Returns true if successful, false otherwise.
+  Future<bool> rewindToCheckpoint({required String cwd}) async {
+    final checkpoint = state.latestCheckpoint;
+    final sessionId = state.sessionId;
+
+    if (checkpoint == null || sessionId == null) {
+      return false;
+    }
+
+    final success = await _bridge.ccRewindCheckpoint(
+      sessionId: sessionId,
+      checkpointUuid: checkpoint.checkpointUuid,
+      cwd: cwd,
+    );
+
+    if (success) {
+      // Clear the checkpoint after successful rewind.
+      // The SDK will create a new checkpoint on the next file operation.
+      state = state.copyWith(clearCheckpoint: true);
+    }
+
+    return success;
   }
 
   @override
@@ -228,3 +346,242 @@ class CCChatNotifier extends StateNotifier<CCChatState> {
     super.dispose();
   }
 }
+
+// =============================================================================
+// CUSTOM TOOLS PROVIDER
+// =============================================================================
+
+final ccCustomToolsProvider =
+    StateNotifierProvider<
+      CCCustomToolsNotifier,
+      AsyncValue<List<ClaudeCodeCustomTool>>
+    >((ref) {
+      final bridge = ref.watch(bridgeServiceProvider);
+      return CCCustomToolsNotifier(bridge);
+    });
+
+class CCCustomToolsNotifier
+    extends StateNotifier<AsyncValue<List<ClaudeCodeCustomTool>>> {
+  CCCustomToolsNotifier(this._bridge) : super(const AsyncValue.loading());
+
+  final BridgeService _bridge;
+
+  /// Load all custom tools
+  Future<void> load() async {
+    state = const AsyncValue.loading();
+    try {
+      final tools = await _bridge.ccListCustomTools();
+      state = AsyncValue.data(tools);
+    } catch (e, st) {
+      state = AsyncValue.error(e, st);
+    }
+  }
+
+  /// Refresh the custom tools list
+  Future<void> refresh() async {
+    try {
+      final tools = await _bridge.ccListCustomTools();
+      state = AsyncValue.data(tools);
+    } catch (e, st) {
+      state = AsyncValue.error(e, st);
+    }
+  }
+
+  /// Get all custom tools (loaded)
+  List<ClaudeCodeCustomTool> get tools => state.valueOrNull ?? [];
+
+  /// Get enabled custom tools only
+  List<ClaudeCodeCustomTool> get enabledTools =>
+      tools.where((t) => t.enabled).toList();
+
+  /// Save a custom tool (create or update)
+  Future<ClaudeCodeCustomTool?> saveTool(ClaudeCodeCustomTool tool) async {
+    try {
+      final saved = await _bridge.ccSaveCustomTool(tool);
+      if (saved != null) {
+        // Update local state
+        final current = state.valueOrNull ?? [];
+        final index = current.indexWhere((t) => t.id == saved.id);
+        if (index >= 0) {
+          final newList = List<ClaudeCodeCustomTool>.from(current);
+          newList[index] = saved;
+          state = AsyncValue.data(newList);
+        } else {
+          state = AsyncValue.data([...current, saved]);
+        }
+      }
+      return saved;
+    } catch (e, st) {
+      state = AsyncValue.error(e, st);
+      return null;
+    }
+  }
+
+  /// Delete a custom tool
+  Future<bool> deleteTool(String id) async {
+    try {
+      final deleted = await _bridge.ccDeleteCustomTool(id);
+      if (deleted) {
+        final current = state.valueOrNull ?? [];
+        state = AsyncValue.data(current.where((t) => t.id != id).toList());
+      }
+      return deleted;
+    } catch (_) {
+      return false;
+    }
+  }
+
+  /// Toggle a tool's enabled state
+  Future<bool> toggleTool(String id, bool enabled) async {
+    final current = state.valueOrNull ?? [];
+    final tool = current.firstWhere(
+      (t) => t.id == id,
+      orElse: () => throw ArgumentError('Tool not found: $id'),
+    );
+
+    final updated = tool.copyWith(enabled: enabled);
+    final saved = await saveTool(updated);
+    return saved != null;
+  }
+
+  /// Test a custom tool with sample arguments
+  Future<CustomToolTestResult> testTool(
+    ClaudeCodeCustomTool tool,
+    Map<String, dynamic> testArgs,
+  ) async {
+    try {
+      return await _bridge.ccTestCustomTool(tool, testArgs);
+    } catch (e) {
+      return CustomToolTestResult(success: false, error: e.toString());
+    }
+  }
+
+  /// Get the MCP tool names for all enabled custom tools
+  /// These are the names that will appear in the Claude Code tools list
+  List<String> get enabledToolMcpNames =>
+      enabledTools.map((t) => t.mcpToolName).toList();
+}
+
+// =============================================================================
+// PLUGINS PROVIDER
+// =============================================================================
+
+final ccPluginsProvider =
+    StateNotifierProvider<
+      CCPluginsNotifier,
+      AsyncValue<List<ClaudeCodePlugin>>
+    >((ref) {
+      final bridge = ref.watch(bridgeServiceProvider);
+      return CCPluginsNotifier(bridge);
+    });
+
+class CCPluginsNotifier
+    extends StateNotifier<AsyncValue<List<ClaudeCodePlugin>>> {
+  CCPluginsNotifier(this._bridge) : super(const AsyncValue.loading());
+
+  final BridgeService _bridge;
+
+  /// Load all plugins
+  Future<void> load({String? cwd}) async {
+    state = const AsyncValue.loading();
+    try {
+      final plugins = await _bridge.ccListPlugins(cwd: cwd);
+      state = AsyncValue.data(plugins);
+    } catch (e, st) {
+      state = AsyncValue.error(e, st);
+    }
+  }
+
+  /// Refresh the plugin list
+  Future<void> refresh({String? cwd}) async {
+    try {
+      final plugins = await _bridge.ccListPlugins(cwd: cwd);
+      state = AsyncValue.data(plugins);
+    } catch (e, st) {
+      state = AsyncValue.error(e, st);
+    }
+  }
+
+  /// Get all plugins (loaded)
+  List<ClaudeCodePlugin> get plugins => state.valueOrNull ?? [];
+
+  /// Get enabled plugins only
+  List<ClaudeCodePlugin> get enabledPlugins =>
+      plugins.where((p) => p.status == ClaudeCodePluginStatus.enabled).toList();
+
+  /// Get disabled plugins only
+  List<ClaudeCodePlugin> get disabledPlugins => plugins
+      .where((p) => p.status == ClaudeCodePluginStatus.disabled)
+      .toList();
+
+  /// Toggle a plugin's enabled/disabled state
+  Future<bool> togglePlugin(String name, {required bool enabled}) async {
+    try {
+      final success = await _bridge.ccTogglePlugin(name, enabled: enabled);
+      if (success) {
+        // Update local state
+        final current = state.valueOrNull ?? [];
+        final index = current.indexWhere((p) => p.name == name);
+        if (index >= 0) {
+          final newList = List<ClaudeCodePlugin>.from(current);
+          newList[index] = current[index].copyWith(
+            status: enabled
+                ? ClaudeCodePluginStatus.enabled
+                : ClaudeCodePluginStatus.disabled,
+          );
+          state = AsyncValue.data(newList);
+        }
+      }
+      return success;
+    } catch (_) {
+      return false;
+    }
+  }
+
+  /// Add a custom plugin path
+  Future<bool> addPluginPath(String path) async {
+    try {
+      final success = await _bridge.ccAddPluginPath(path);
+      if (success) {
+        // Reload to get the new plugin
+        await refresh();
+      }
+      return success;
+    } catch (_) {
+      return false;
+    }
+  }
+
+  /// Remove a custom plugin path
+  Future<bool> removePluginPath(String path) async {
+    try {
+      final success = await _bridge.ccRemovePluginPath(path);
+      if (success) {
+        // Reload to reflect removal
+        await refresh();
+      }
+      return success;
+    } catch (_) {
+      return false;
+    }
+  }
+
+  /// Force reload plugins (clear cache and re-discover)
+  Future<void> reload({String? cwd}) async {
+    state = const AsyncValue.loading();
+    try {
+      final plugins = await _bridge.ccReloadPlugins(cwd: cwd);
+      state = AsyncValue.data(plugins);
+    } catch (e, st) {
+      state = AsyncValue.error(e, st);
+    }
+  }
+}
+
+/// Provider for plugin configuration
+final ccPluginConfigProvider = FutureProvider<ClaudeCodePluginConfig>((
+  ref,
+) async {
+  final bridge = ref.watch(bridgeServiceProvider);
+  return bridge.ccGetPluginConfig();
+});

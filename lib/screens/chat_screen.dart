@@ -38,6 +38,9 @@ import '../widgets/thinking_card.dart';
 import '../widgets/permission_prompt.dart';
 import '../widgets/session_sidebar.dart';
 import '../widgets/tool_call.dart';
+import 'subagents_screen.dart';
+import 'custom_tools_screen.dart';
+import 'plugins_screen.dart';
 import '../widgets/app_background.dart';
 import '../providers/appearance_provider.dart';
 import 'diff_view_screen.dart';
@@ -747,6 +750,57 @@ class _ChatScreenState extends ConsumerState<ChatScreen>
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: Text('Failed to undo revert: $e'),
+          backgroundColor: theme.error,
+        ),
+      );
+    }
+  }
+
+  // Claude Code: Rewind files to checkpoint (undo file changes)
+  Future<void> _ccRewindToCheckpoint() async {
+    _haptics.mediumImpact();
+    final theme = OpenCodeTheme.of(context);
+
+    // Check if we have a checkpoint to rewind to
+    final ccChatState = ref.read(ccChatProvider);
+    if (ccChatState.latestCheckpoint == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: const Text('No file changes to undo'),
+          backgroundColor: theme.backgroundPanel,
+        ),
+      );
+      return;
+    }
+
+    try {
+      final ccChat = ref.read(ccChatProvider.notifier);
+      final success = await ccChat.rewindToCheckpoint(
+        cwd: widget.effectivePath,
+      );
+
+      if (!mounted) return;
+
+      if (success) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: const Text('File changes reverted'),
+            backgroundColor: theme.backgroundPanel,
+          ),
+        );
+      } else {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: const Text('Failed to revert file changes'),
+            backgroundColor: theme.error,
+          ),
+        );
+      }
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Failed to revert: $e'),
           backgroundColor: theme.error,
         ),
       );
@@ -1514,6 +1568,262 @@ class _ChatScreenState extends ConsumerState<ChatScreen>
                       ],
                     ),
                     const SizedBox(height: 12),
+
+                    // Subagent selector
+                    Row(
+                      children: [
+                        Text(
+                          'Subagent',
+                          style: TextStyle(
+                            color: theme.text,
+                            fontSize: 13,
+                            fontWeight: FontWeight.w600,
+                          ),
+                        ),
+                        const SizedBox(width: 8),
+                        IconButton(
+                          icon: Icon(
+                            Icons.settings_outlined,
+                            color: theme.textMuted,
+                            size: 18,
+                          ),
+                          tooltip: 'Manage subagents',
+                          onPressed: () {
+                            Navigator.pop(context);
+                            Navigator.push(
+                              context,
+                              MaterialPageRoute(
+                                builder: (_) => const SubagentsScreen(),
+                              ),
+                            );
+                          },
+                        ),
+                        const Spacer(),
+                        DropdownButtonHideUnderline(
+                          child: DropdownButton<String?>(
+                            value: config.activeSubagent,
+                            dropdownColor: theme.backgroundPanel,
+                            style: TextStyle(color: theme.text, fontSize: 13),
+                            hint: Text(
+                              'None (default)',
+                              style: TextStyle(
+                                color: theme.textMuted,
+                                fontSize: 13,
+                              ),
+                            ),
+                            items: [
+                              const DropdownMenuItem<String?>(
+                                value: null,
+                                child: Text('None (default)'),
+                              ),
+                              ...config.subagents.map(
+                                (s) => DropdownMenuItem<String?>(
+                                  value: s.name,
+                                  child: Text(s.name),
+                                ),
+                              ),
+                            ],
+                            onChanged: (value) {
+                              ref
+                                  .read(ccConfigProvider.notifier)
+                                  .setActiveSubagent(value);
+                            },
+                          ),
+                        ),
+                      ],
+                    ),
+                    if (config.subagents.isEmpty)
+                      Padding(
+                        padding: const EdgeInsets.only(bottom: 8),
+                        child: Text(
+                          'Add subagents to delegate specialized tasks',
+                          style: TextStyle(
+                            color: theme.textMuted.withValues(alpha: 0.7),
+                            fontSize: 12,
+                          ),
+                        ),
+                      ),
+                    const SizedBox(height: 12),
+
+                    // Custom Tools section
+                    Row(
+                      children: [
+                        Text(
+                          'Custom Tools',
+                          style: TextStyle(
+                            color: theme.text,
+                            fontSize: 13,
+                            fontWeight: FontWeight.w600,
+                          ),
+                        ),
+                        const SizedBox(width: 8),
+                        IconButton(
+                          icon: Icon(
+                            Icons.settings_outlined,
+                            color: theme.textMuted,
+                            size: 18,
+                          ),
+                          tooltip: 'Manage custom tools',
+                          onPressed: () {
+                            Navigator.pop(context);
+                            Navigator.push(
+                              context,
+                              MaterialPageRoute(
+                                builder: (_) => const CustomToolsScreen(),
+                              ),
+                            );
+                          },
+                        ),
+                        const Spacer(),
+                        Consumer(
+                          builder: (context, ref, _) {
+                            final customToolsAsync = ref.watch(
+                              ccCustomToolsProvider,
+                            );
+                            return customToolsAsync.when(
+                              data: (tools) {
+                                final enabledCount = tools
+                                    .where((t) => t.enabled)
+                                    .length;
+                                return Text(
+                                  '$enabledCount enabled',
+                                  style: TextStyle(
+                                    color: enabledCount > 0
+                                        ? theme.accent
+                                        : theme.textMuted,
+                                    fontSize: 13,
+                                  ),
+                                );
+                              },
+                              loading: () => SizedBox(
+                                width: 12,
+                                height: 12,
+                                child: CircularProgressIndicator(
+                                  strokeWidth: 1.5,
+                                  color: theme.textMuted,
+                                ),
+                              ),
+                              error: (_, __) => Text(
+                                'Error',
+                                style: TextStyle(
+                                  color: theme.error,
+                                  fontSize: 13,
+                                ),
+                              ),
+                            );
+                          },
+                        ),
+                      ],
+                    ),
+                    Padding(
+                      padding: const EdgeInsets.only(bottom: 12),
+                      child: Text(
+                        'Custom tools appear as mcp__broski-custom-tools__<name>',
+                        style: TextStyle(
+                          color: theme.textMuted.withOpacity(0.7),
+                          fontSize: 12,
+                        ),
+                      ),
+                    ),
+                    const SizedBox(height: 4),
+
+                    // Plugins section
+                    Row(
+                      children: [
+                        Text(
+                          'Plugins',
+                          style: TextStyle(
+                            color: theme.text,
+                            fontSize: 13,
+                            fontWeight: FontWeight.w600,
+                          ),
+                        ),
+                        const SizedBox(width: 8),
+                        IconButton(
+                          icon: Icon(
+                            Icons.settings_outlined,
+                            color: theme.textMuted,
+                            size: 18,
+                          ),
+                          tooltip: 'Manage plugins',
+                          onPressed: () {
+                            Navigator.pop(context);
+                            Navigator.push(
+                              context,
+                              MaterialPageRoute(
+                                builder: (_) => const PluginsScreen(),
+                              ),
+                            );
+                          },
+                        ),
+                        const Spacer(),
+                        Consumer(
+                          builder: (context, ref, _) {
+                            final pluginsAsync = ref.watch(ccPluginsProvider);
+                            return pluginsAsync.when(
+                              data: (plugins) {
+                                final enabledCount = plugins
+                                    .where(
+                                      (p) =>
+                                          p.status ==
+                                          ClaudeCodePluginStatus.enabled,
+                                    )
+                                    .length;
+                                return Text(
+                                  '$enabledCount enabled',
+                                  style: TextStyle(
+                                    color: enabledCount > 0
+                                        ? theme.accent
+                                        : theme.textMuted,
+                                    fontSize: 13,
+                                  ),
+                                );
+                              },
+                              loading: () => SizedBox(
+                                width: 12,
+                                height: 12,
+                                child: CircularProgressIndicator(
+                                  strokeWidth: 1.5,
+                                  color: theme.textMuted,
+                                ),
+                              ),
+                              error: (_, __) => Text(
+                                'Error',
+                                style: TextStyle(
+                                  color: theme.error,
+                                  fontSize: 13,
+                                ),
+                              ),
+                            );
+                          },
+                        ),
+                      ],
+                    ),
+                    Padding(
+                      padding: const EdgeInsets.only(bottom: 12),
+                      child: Text(
+                        'Plugins provide commands, skills, hooks, and MCP servers',
+                        style: TextStyle(
+                          color: theme.textMuted.withOpacity(0.7),
+                          fontSize: 12,
+                        ),
+                      ),
+                    ),
+
+                    // Divider before built-in tools
+                    Divider(color: theme.borderSubtle, height: 1),
+                    const SizedBox(height: 12),
+
+                    // Tools list header
+                    Text(
+                      'Built-in Tools',
+                      style: TextStyle(
+                        color: theme.text,
+                        fontSize: 13,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                    const SizedBox(height: 8),
 
                     // Tools list
                     Flexible(
@@ -3782,14 +4092,18 @@ class _ChatScreenState extends ConsumerState<ChatScreen>
         ),
 
         // Tool calls with Feature 7: Undo callback
+        // For Claude Code, undo rewinds to the latest checkpoint (session-wide).
+        // For OpenCode, undo reverts a specific message/part.
         for (final tool in message.toolCalls)
           Padding(
             padding: const EdgeInsets.only(top: 8),
             child: ToolCallCard(
               tool: tool,
               messageId: message.id,
-              onUndo: (messageId, partId) =>
-                  _revertMessage(messageId, partId: partId),
+              onUndo: widget.isClaudeCode
+                  ? (_, __) => _ccRewindToCheckpoint()
+                  : (messageId, partId) =>
+                        _revertMessage(messageId, partId: partId),
             ),
           ),
 
@@ -3800,8 +4114,10 @@ class _ChatScreenState extends ConsumerState<ChatScreen>
             child: DiffViewer(
               diff: diff,
               messageId: message.id,
-              onUndo: (messageId, partId) =>
-                  _revertMessage(messageId, partId: partId),
+              onUndo: widget.isClaudeCode
+                  ? (_, __) => _ccRewindToCheckpoint()
+                  : (messageId, partId) =>
+                        _revertMessage(messageId, partId: partId),
               onViewFull: () => _openDiffView(diff, messageId: message.id),
             ),
           ),
@@ -3892,26 +4208,31 @@ class _ChatScreenState extends ConsumerState<ChatScreen>
         _initializeProject();
         break;
       case 'undo':
-        // Find the last assistant message with tool calls
-        ChatMessage? lastEditMessage;
-        for (final msg in chatState.messages.reversed) {
-          if (msg.role == MessageRole.assistant &&
-              msg.toolCalls.any(
-                (tool) => tool.name == 'edit' || tool.name == 'write',
-              )) {
-            lastEditMessage = msg;
-            break;
-          }
-        }
-        if (lastEditMessage != null) {
-          _revertMessage(lastEditMessage.id);
+        if (widget.isClaudeCode) {
+          // Claude Code uses checkpoint-based revert (session-wide)
+          _ccRewindToCheckpoint();
         } else {
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(
-              content: const Text('No file changes to undo'),
-              backgroundColor: theme.backgroundPanel,
-            ),
-          );
+          // OpenCode uses per-message revert
+          ChatMessage? lastEditMessage;
+          for (final msg in chatState.messages.reversed) {
+            if (msg.role == MessageRole.assistant &&
+                msg.toolCalls.any(
+                  (tool) => tool.name == 'edit' || tool.name == 'write',
+                )) {
+              lastEditMessage = msg;
+              break;
+            }
+          }
+          if (lastEditMessage != null) {
+            _revertMessage(lastEditMessage.id);
+          } else {
+            ScaffoldMessenger.of(context).showSnackBar(
+              SnackBar(
+                content: const Text('No file changes to undo'),
+                backgroundColor: theme.backgroundPanel,
+              ),
+            );
+          }
         }
         break;
       case 'clear_instance':
@@ -4295,6 +4616,7 @@ class _ChatScreenState extends ConsumerState<ChatScreen>
         permissionMode: ccConfig?.permissionMode,
         allowedTools: ccConfig?.allowedTools,
         disallowedTools: ccConfig?.disallowedTools,
+        activeSubagent: ccConfig?.activeSubagent,
       );
       _controller.clear();
       setState(() => _attachedFiles.clear());

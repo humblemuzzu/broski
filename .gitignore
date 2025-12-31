@@ -127,3 +127,7 @@ config.json
 .claude/scripts/
 .claude/settings.json
 thoughts/
+
+# Node.js build artifacts
+**/dist/
+packages/bridge/dist/

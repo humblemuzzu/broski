@@ -142,7 +142,7 @@ export type ClientMessage =
   | { type: 'cc_create_session'; cwd: string; model?: string }
   | { type: 'cc_delete_session'; sessionId: string; cwd?: string }
   | { type: 'cc_fork_session'; sessionId: string; messageId?: string; cwd?: string }
-  | { type: 'cc_chat'; sessionId?: string; prompt: string; cwd?: string; model?: string; permissionMode?: ClaudeCodePermissionMode; allowedTools?: string[]; disallowedTools?: string[]; maxThinkingTokens?: number | null; systemPrompt?: ClaudeCodeSystemPrompt }
+  | { type: 'cc_chat'; sessionId?: string; prompt: string; cwd?: string; model?: string; permissionMode?: ClaudeCodePermissionMode; allowedTools?: string[]; disallowedTools?: string[]; maxThinkingTokens?: number | null; systemPrompt?: ClaudeCodeSystemPrompt; activeSubagent?: string }
   | { type: 'cc_abort'; sessionId: string }
   | { type: 'cc_permission_response'; sessionId: string; toolUseId: string; response: PermissionResponse }
   | { type: 'cc_list_skills'; cwd?: string }
@@ -150,6 +150,22 @@ export type ClientMessage =
   | { type: 'cc_list_commands'; cwd?: string }
   | { type: 'cc_get_config'; cwd?: string }
   | { type: 'cc_set_config'; config: Partial<ClaudeCodeConfig>; cwd?: string }
+  // Claude Code File Checkpointing (Undo/Revert)
+  | { type: 'cc_rewind_checkpoint'; sessionId: string; checkpointUuid: string; cwd: string }
+  // Claude Code Custom Tools
+  | { type: 'cc_list_custom_tools' }
+  | { type: 'cc_get_custom_tool'; id: string }
+  | { type: 'cc_save_custom_tool'; tool: ClaudeCodeCustomTool }
+  | { type: 'cc_delete_custom_tool'; id: string }
+  | { type: 'cc_test_custom_tool'; tool: ClaudeCodeCustomTool; testArgs: Record<string, unknown> }
+  // Claude Code Plugins
+  | { type: 'cc_list_plugins'; cwd?: string }
+  | { type: 'cc_get_plugin'; name: string }
+  | { type: 'cc_toggle_plugin'; name: string; enabled: boolean }
+  | { type: 'cc_add_plugin_path'; path: string }
+  | { type: 'cc_remove_plugin_path'; path: string }
+  | { type: 'cc_get_plugin_config' }
+  | { type: 'cc_reload_plugins'; cwd?: string }
   // Subscription Usage Tracking
   | { type: 'get_subscription_usage' }
   | { type: 'get_provider_usage'; providerId: 'claude' | 'openai' }
@@ -321,6 +337,20 @@ export type ServerMessage =
   | { type: 'cc_config'; data: ClaudeCodeConfig; requestId?: string }
   | { type: 'cc_config_updated'; data: ClaudeCodeConfig; requestId?: string }
   | { type: 'cc_stream'; data: ClaudeCodeStreamMessage; sessionId: string }
+  // Claude Code Custom Tools
+  | { type: 'cc_custom_tools'; data: ClaudeCodeCustomTool[]; requestId?: string }
+  | { type: 'cc_custom_tool'; data: ClaudeCodeCustomTool | null; requestId?: string }
+  | { type: 'cc_custom_tool_saved'; data: ClaudeCodeCustomTool; requestId?: string }
+  | { type: 'cc_custom_tool_deleted'; data: boolean; id: string; requestId?: string }
+  | { type: 'cc_custom_tool_test_result'; data: { success: boolean; result?: string; error?: string }; requestId?: string }
+  // Claude Code Plugins
+  | { type: 'cc_plugins'; data: ClaudeCodePlugin[]; requestId?: string }
+  | { type: 'cc_plugin'; data: ClaudeCodePlugin | null; requestId?: string }
+  | { type: 'cc_plugin_toggled'; data: boolean; name: string; enabled: boolean; requestId?: string }
+  | { type: 'cc_plugin_path_added'; data: boolean; path: string; requestId?: string }
+  | { type: 'cc_plugin_path_removed'; data: boolean; path: string; requestId?: string }
+  | { type: 'cc_plugin_config'; data: ClaudeCodePluginConfig; requestId?: string }
+  | { type: 'cc_plugins_reloaded'; data: ClaudeCodePlugin[]; requestId?: string }
   // Subscription Usage Tracking
   | { type: 'subscription_usage'; data: SubscriptionUsage; requestId?: string }
   | { type: 'provider_usage'; data: ProviderUsage; requestId?: string }
@@ -505,6 +535,103 @@ export type ClaudeCodeSystemPrompt =
   | { type: 'preset'; preset: 'claude_code'; append?: string }
   | null
 
+// Claude Code Subagent Definition (matches SDK AgentDefinition)
+export type ClaudeCodeSubagent = {
+  name: string                   // Unique identifier for the subagent
+  description: string            // When Claude should use this subagent
+  prompt: string                 // System prompt for the subagent
+  tools?: string[]               // Allowed tools (inherits if omitted)
+  model?: 'sonnet' | 'opus' | 'haiku' | 'inherit'  // Model override
+}
+
+// Claude Code Custom Tool Parameter
+export type ClaudeCodeCustomToolParameter = {
+  name: string
+  type: 'string' | 'number' | 'boolean' | 'array' | 'object'
+  description?: string
+  required?: boolean
+  default?: unknown
+  enum?: string[]  // For string types with fixed options
+}
+
+// Claude Code Custom Tool HTTP Handler Config
+export type ClaudeCodeHttpHandlerConfig = {
+  url: string
+  method: 'GET' | 'POST' | 'PUT' | 'DELETE' | 'PATCH'
+  headers?: Record<string, string>
+  bodyTemplate?: string  // JSON template with {{param}} placeholders
+}
+
+// Claude Code Custom Tool Script Handler Config
+export type ClaudeCodeScriptHandlerConfig = {
+  command: string
+  args?: string[]
+  cwd?: string
+  timeout?: number
+  shell?: boolean
+}
+
+// Claude Code Custom Tool Definition
+export type ClaudeCodeCustomTool = {
+  id: string
+  name: string
+  description: string
+  parameters: ClaudeCodeCustomToolParameter[]
+  handler: 'http' | 'script'
+  handlerConfig: ClaudeCodeHttpHandlerConfig | ClaudeCodeScriptHandlerConfig
+  enabled: boolean
+  createdAt: number
+  updatedAt: number
+}
+
+// ============================================================================
+// CLAUDE CODE PLUGIN TYPES
+// ============================================================================
+
+// Plugin manifest from plugin.json
+export type ClaudeCodePluginManifest = {
+  name: string
+  version?: string
+  description?: string
+  author?: {
+    name?: string
+    email?: string
+    url?: string
+  }
+  homepage?: string
+  repository?: string
+  license?: string
+  keywords?: string[]
+}
+
+// Plugin status
+export type ClaudeCodePluginStatus = 'enabled' | 'disabled' | 'error'
+
+// Full plugin definition
+export type ClaudeCodePlugin = {
+  name: string
+  path: string                    // Absolute path to plugin directory
+  status: ClaudeCodePluginStatus
+  manifest?: ClaudeCodePluginManifest
+  // Discovered components
+  commands?: string[]             // Slash commands provided by plugin
+  agents?: string[]               // Agent definitions
+  skills?: string[]               // Skills provided
+  hasHooks?: boolean              // Has hooks.json
+  hasMcpServers?: boolean         // Has MCP server configs
+  hasLspServers?: boolean         // Has LSP server configs
+  // Runtime info
+  loadedAt?: number               // When plugin was last loaded
+  error?: string                  // Error message if status is 'error'
+}
+
+// Plugin configuration (what we store in ~/.broski/plugins-config.json)
+export type ClaudeCodePluginConfig = {
+  enabled: string[]               // Plugin names that are enabled
+  disabled: string[]              // Plugin names that are explicitly disabled
+  customPaths: string[]           // Additional plugin paths to scan
+}
+
 // Claude Code Configuration
 export type ClaudeCodeConfig = {
   permissionMode: ClaudeCodePermissionMode
@@ -512,6 +639,8 @@ export type ClaudeCodeConfig = {
   disallowedTools: string[]
   model?: string
   systemPrompt?: ClaudeCodeSystemPrompt
+  subagents?: ClaudeCodeSubagent[]           // Custom subagent definitions
+  activeSubagent?: string                     // Currently selected subagent name
 }
 
 // Claude Code Message (for streaming)
@@ -519,11 +648,13 @@ export type ClaudeCodeStreamMessage =
   | { type: 'session-created'; sessionId: string; agent: 'claude-code'; model?: string }
   | { type: 'session-init'; sessionId: string; model: string; permissionMode: ClaudeCodePermissionMode; tools: string[]; slashCommands: string[]; skills: string[]; mcpServers: Array<{ name: string; status: string }>; plugins: Array<{ name: string; path: string }>; apiKeySource?: string; claudeCodeVersion?: string }
   | { type: 'permission-request'; sessionId: string; toolUseId: string; tool: string; input: Record<string, unknown>; decisionReason?: string; blockedPath?: string; hasSuggestions?: boolean }
+  | { type: 'checkpoint-created'; sessionId: string; checkpointUuid: string; timestamp: number }
   | { type: 'assistant-message'; content: string }
   | { type: 'assistant-message-delta'; content: string }
   | { type: 'thinking-delta'; content: string; partId?: string }
   | { type: 'tool-call'; tool: string; input: any; toolUseId?: string; status: 'running' | 'completed' | 'failed' }
   | { type: 'tool-result'; toolUseId?: string; result: any; toolUseResult?: any }
+  | { type: 'subagent-invocation'; subagentName: string; toolUseId?: string; prompt?: string; description?: string }
   | { type: 'token-usage'; usage: { inputTokens?: number; outputTokens?: number; cacheReadTokens?: number } }
   | { type: 'error'; message: string; code?: string }
 

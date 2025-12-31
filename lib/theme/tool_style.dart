@@ -157,19 +157,19 @@ class ToolStyle {
       return ToolType.search;
     }
 
-    // Todo patterns
-    if (name.contains('todo') ||
-        name.contains('task') ||
-        name.contains('plan')) {
-      return ToolType.todo;
-    }
-
-    // Subtask/agent patterns
-    if (name.contains('subtask') ||
+    // Subtask/agent patterns - check BEFORE todo patterns
+    // "Task" tool (exact match) is used for subagent invocation
+    if (name == 'task' ||
+        name.contains('subtask') ||
         name.contains('delegate') ||
         name.contains('agent') ||
         name.contains('spawn')) {
       return ToolType.subtask;
+    }
+
+    // Todo patterns - but NOT "task" (which is subtask)
+    if (name.contains('todo') || name.contains('plan')) {
+      return ToolType.todo;
     }
 
     return ToolType.unknown;

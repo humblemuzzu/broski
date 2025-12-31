@@ -13,6 +13,7 @@ import type {
   ClaudeCodePermissionMode,
   ClaudeCodeStreamMessage,
   ClaudeCodeTranscriptMessage,
+  ClaudeCodeSubagent,
 } from '../types'
 
 const CLAUDE_PROJECTS_DIR = join(homedir(), '.claude', 'projects')
@@ -46,6 +47,9 @@ export type ClaudeCodeQueryOptions = {
   permissionMode?: ClaudeCodePermissionMode
   maxThinkingTokens?: number | null
   systemPrompt?: string | { type: 'preset'; preset: string; append?: string } | null
+  enableFileCheckpointing?: boolean
+  agents?: Record<string, ClaudeCodeSubagent>  // Custom subagent definitions
+  activeSubagent?: string  // Name of the subagent to use for this query (prepends prompt hint)
 }
 
 /**
@@ -852,6 +856,23 @@ export function setConfig(config: Partial<ClaudeCodeConfig>): ClaudeCodeConfig {
   return { ...currentConfig }
 }
 
+/**
+ * Convert an array of ClaudeCodeSubagent to SDK's agents Record format.
+ * The SDK expects agents as Record<name, { description, prompt, tools?, model? }>
+ */
+function convertSubagentsToRecord(subagents: ClaudeCodeSubagent[]): Record<string, { description: string; prompt: string; tools?: string[]; model?: string }> {
+  const record: Record<string, { description: string; prompt: string; tools?: string[]; model?: string }> = {}
+  for (const agent of subagents) {
+    record[agent.name] = {
+      description: agent.description,
+      prompt: agent.prompt,
+      ...(agent.tools?.length && { tools: agent.tools }),
+      ...(agent.model && agent.model !== 'inherit' && { model: agent.model }),
+    }
+  }
+  return record
+}
+
 export async function queryClaudeCode(
   prompt: string,
   options: ClaudeCodeQueryOptions,
@@ -874,6 +895,7 @@ export async function queryClaudeCode(
 
   try {
     const systemPrompt = options.systemPrompt ?? currentConfig.systemPrompt
+    const enableCheckpointing = options.enableFileCheckpointing ?? true // Default to true for undo support
     const sdkOptions: any = {
       cwd: options.cwd,
       model: options.model || currentConfig.model || 'sonnet',
@@ -882,10 +904,50 @@ export async function queryClaudeCode(
       permissionMode: options.permissionMode || currentConfig.permissionMode,
       abortController: controller,
       settingSources: ['project'],
+      // File checkpointing: enable tracking of file changes for undo/rewind support
+      ...(enableCheckpointing && {
+        enableFileCheckpointing: true,
+        extraArgs: { 'replay-user-messages': null }, // Required to get user message UUIDs
+        env: { CLAUDE_CODE_ENABLE_SDK_FILE_CHECKPOINTING: '1' },
+      }),
     }
 
     if (systemPrompt) {
       sdkOptions.systemPrompt = systemPrompt
+    }
+
+    // Custom subagents: Convert from our format to SDK's AgentDefinition format
+    // Note: agents must include the Task tool in allowedTools for subagent invocation to work
+    const agents = options.agents || (currentConfig.subagents?.length ? convertSubagentsToRecord(currentConfig.subagents) : undefined)
+    if (agents && Object.keys(agents).length > 0) {
+      sdkOptions.agents = agents
+    }
+
+    // Custom MCP Tools: Load user-defined custom tools
+    try {
+      const customToolsModule = await import('../custom-tools')
+      const customToolsServer = await customToolsModule.createCustomToolsServer()
+      if (customToolsServer) {
+        sdkOptions.mcpServers = {
+          ...sdkOptions.mcpServers,
+          'broski-custom-tools': customToolsServer,
+        }
+      }
+    } catch (err) {
+      // Custom tools are optional, log but don't fail
+      console.warn('[Claude Code] Failed to load custom tools:', err)
+    }
+
+    // Load enabled plugins
+    try {
+      const pluginsModule = await import('../plugins')
+      const enabledPlugins = await pluginsModule.getEnabledPluginsForSdk(options.cwd)
+      if (enabledPlugins.length > 0) {
+        sdkOptions.plugins = enabledPlugins
+      }
+    } catch (err) {
+      // Plugins are optional, log but don't fail
+      console.warn('[Claude Code] Failed to load plugins:', err)
     }
 
     if (options.sessionId) {
@@ -934,7 +996,19 @@ export async function queryClaudeCode(
       }
     }
 
-    const q = query({ prompt, options: sdkOptions })
+    // If activeSubagent is specified, prepend an explicit invocation hint to the prompt
+    // Per SDK docs: "To guarantee Claude uses a specific subagent, mention it by name in your prompt"
+    let finalPrompt = prompt
+    if (options.activeSubagent) {
+      const agentName = options.activeSubagent
+      // Check if this agent exists in the configured agents
+      const agents = sdkOptions.agents || {}
+      if (agents[agentName]) {
+        finalPrompt = `Use the ${agentName} agent to handle this request.\n\n${prompt}`
+      }
+    }
+
+    const q = query({ prompt: finalPrompt, options: sdkOptions })
 
     for await (const message of q as any) {
       // System init: session created + capabilities snapshot (tools/commands/etc)
@@ -979,13 +1053,31 @@ export async function queryClaudeCode(
         if (eventType === 'content_block_start') {
           const block = event?.content_block
           if (block?.type === 'tool_use') {
+            const toolName = block.name as string
+            const toolInput = block.input as Record<string, unknown>
+            
             onMessage({
               type: 'tool-call',
-              tool: block.name,
-              input: block.input,
+              tool: toolName,
+              input: toolInput,
               toolUseId: block.id,
               status: 'running',
             })
+            
+            // Detect subagent invocations via Task tool
+            // Per SDK docs, Task tool is used to invoke subagents with subagent_type in input
+            if (toolName === 'Task') {
+              const subagentType = toolInput?.subagent_type as string | undefined
+              if (subagentType) {
+                onMessage({
+                  type: 'subagent-invocation',
+                  subagentName: subagentType,
+                  toolUseId: block.id,
+                  prompt: toolInput?.prompt as string | undefined,
+                  description: toolInput?.description as string | undefined,
+                })
+              }
+            }
           }
         }
 
@@ -1025,19 +1117,48 @@ export async function queryClaudeCode(
           if (block?.type === 'text') {
             onMessage({ type: 'assistant-message', content: block.text ?? '' })
           } else if (block?.type === 'tool_use') {
+            const toolName = block.name as string
+            const toolInput = block.input as Record<string, unknown>
+            
             onMessage({
               type: 'tool-call',
-              tool: block.name,
-              input: block.input,
+              tool: toolName,
+              input: toolInput,
               toolUseId: block.id,
               status: 'running',
             })
+            
+            // Detect subagent invocations via Task tool (fallback handler)
+            if (toolName === 'Task') {
+              const subagentType = toolInput?.subagent_type as string | undefined
+              if (subagentType) {
+                onMessage({
+                  type: 'subagent-invocation',
+                  subagentName: subagentType,
+                  toolUseId: block.id,
+                  prompt: toolInput?.prompt as string | undefined,
+                  description: toolInput?.description as string | undefined,
+                })
+              }
+            }
           }
         }
       }
 
       // Tool results can surface as "user" messages with tool_result blocks
+      // User messages also contain checkpoint UUIDs when file checkpointing is enabled
       if (message?.type === 'user') {
+        // Emit checkpoint if UUID is present (for file checkpointing/undo support)
+        const checkpointUuid = message.uuid as string | undefined
+        if (checkpointUuid && sessionId) {
+          onMessage({
+            type: 'checkpoint-created',
+            sessionId,
+            checkpointUuid,
+            timestamp: Date.now(),
+          })
+        }
+
         const content = message.message?.content || []
         for (const block of content) {
           if (block?.type === 'tool_result') {
@@ -1094,6 +1215,54 @@ export async function abortClaudeCode(sessionId: string): Promise<void> {
     }
     session.controller.abort()
     activeSessions.delete(sessionId)
+  }
+}
+
+/**
+ * Rewind files to a previous checkpoint state.
+ * 
+ * This restores files modified by Write/Edit/NotebookEdit tools to their state
+ * at the specified checkpoint. The conversation history remains intact.
+ * 
+ * @param sessionId - The session ID to rewind
+ * @param checkpointUuid - The checkpoint UUID to rewind to (from user message uuid)
+ * @param cwd - Working directory of the session
+ * @returns true if rewind succeeded, false otherwise
+ */
+export async function rewindToCheckpoint(
+  sessionId: string,
+  checkpointUuid: string,
+  cwd: string,
+): Promise<boolean> {
+  try {
+    // Resume the session with an empty prompt to get access to rewindFiles
+    const resumeOptions: any = {
+      cwd,
+      resume: sessionId,
+      enableFileCheckpointing: true,
+      extraArgs: { 'replay-user-messages': null },
+      env: { CLAUDE_CODE_ENABLE_SDK_FILE_CHECKPOINTING: '1' },
+    }
+
+    const q = query({ prompt: '', options: resumeOptions })
+
+    // Call rewindFiles on the resumed query
+    if (typeof (q as any).rewindFiles === 'function') {
+      await (q as any).rewindFiles(checkpointUuid)
+      
+      // Consume the stream to complete the operation
+      for await (const _message of q as any) {
+        // Just drain the stream
+      }
+      
+      return true
+    } else {
+      console.error('rewindFiles is not available on the query object')
+      return false
+    }
+  } catch (error) {
+    console.error('Failed to rewind to checkpoint:', error)
+    return false
   }
 }
 

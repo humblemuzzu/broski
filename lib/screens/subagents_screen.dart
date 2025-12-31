@@ -1,0 +1,711 @@
+import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+
+import '../models/claude_code.dart';
+import '../providers/claude_code_provider.dart';
+import '../theme/opencode_theme.dart';
+
+/// Screen for managing Claude Code custom subagents.
+/// Subagents are separate agent instances that can be spawned to handle focused subtasks.
+class SubagentsScreen extends ConsumerStatefulWidget {
+  const SubagentsScreen({super.key});
+
+  @override
+  ConsumerState<SubagentsScreen> createState() => _SubagentsScreenState();
+}
+
+class _SubagentsScreenState extends ConsumerState<SubagentsScreen> {
+  @override
+  void initState() {
+    super.initState();
+    // Load config if not already loaded
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      ref.read(ccConfigProvider.notifier).load();
+    });
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final oc = theme.extension<OpenCodeTheme>()!;
+    final configAsync = ref.watch(ccConfigProvider);
+
+    return Scaffold(
+      backgroundColor: oc.background,
+      appBar: AppBar(
+        backgroundColor: oc.background,
+        elevation: 0,
+        title: Text('Subagents', style: TextStyle(color: oc.text)),
+        iconTheme: IconThemeData(color: oc.text),
+        actions: [
+          IconButton(
+            icon: const Icon(Icons.add),
+            tooltip: 'Add Subagent',
+            onPressed: () => _showSubagentEditor(context, null),
+          ),
+        ],
+      ),
+      body: configAsync.when(
+        loading: () => const Center(child: CircularProgressIndicator()),
+        error: (e, _) => Center(
+          child: Text('Error: $e', style: TextStyle(color: oc.error)),
+        ),
+        data: (config) {
+          final subagents = config.subagents;
+
+          if (subagents.isEmpty) {
+            return Center(
+              child: Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  Icon(
+                    Icons.smart_toy_outlined,
+                    size: 64,
+                    color: oc.textMuted.withOpacity(0.7),
+                  ),
+                  const SizedBox(height: 16),
+                  Text(
+                    'No subagents configured',
+                    style: TextStyle(color: oc.textMuted, fontSize: 16),
+                  ),
+                  const SizedBox(height: 8),
+                  Text(
+                    'Subagents can handle focused subtasks\nwith specialized instructions.',
+                    textAlign: TextAlign.center,
+                    style: TextStyle(
+                      color: oc.textMuted.withOpacity(0.7),
+                      fontSize: 14,
+                    ),
+                  ),
+                  const SizedBox(height: 24),
+                  ElevatedButton.icon(
+                    onPressed: () => _showSubagentEditor(context, null),
+                    icon: const Icon(Icons.add),
+                    label: const Text('Add Subagent'),
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: oc.primary,
+                      foregroundColor: Colors.white,
+                    ),
+                  ),
+                ],
+              ),
+            );
+          }
+
+          return ListView.builder(
+            padding: const EdgeInsets.all(16),
+            itemCount: subagents.length,
+            itemBuilder: (context, index) {
+              final subagent = subagents[index];
+              final isActive = config.activeSubagent == subagent.name;
+
+              return _SubagentCard(
+                subagent: subagent,
+                isActive: isActive,
+                onTap: () => _showSubagentEditor(context, subagent),
+                onSetActive: () => _setActiveSubagent(subagent.name, isActive),
+                onDelete: () => _deleteSubagent(subagent.name),
+              );
+            },
+          );
+        },
+      ),
+    );
+  }
+
+  Future<void> _showSubagentEditor(
+    BuildContext context,
+    ClaudeCodeSubagent? existing,
+  ) async {
+    final result = await Navigator.push<ClaudeCodeSubagent>(
+      context,
+      MaterialPageRoute(
+        builder: (_) => _SubagentEditorScreen(existing: existing),
+      ),
+    );
+
+    if (result != null) {
+      final notifier = ref.read(ccConfigProvider.notifier);
+      if (existing != null) {
+        await notifier.updateSubagent(result);
+      } else {
+        await notifier.addSubagent(result);
+      }
+    }
+  }
+
+  Future<void> _setActiveSubagent(String name, bool isCurrentlyActive) async {
+    final notifier = ref.read(ccConfigProvider.notifier);
+    await notifier.setActiveSubagent(isCurrentlyActive ? null : name);
+  }
+
+  Future<void> _deleteSubagent(String name) async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('Delete Subagent'),
+        content: Text('Are you sure you want to delete "$name"?'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, false),
+            child: const Text('Cancel'),
+          ),
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, true),
+            style: TextButton.styleFrom(foregroundColor: Colors.red),
+            child: const Text('Delete'),
+          ),
+        ],
+      ),
+    );
+
+    if (confirmed == true) {
+      await ref.read(ccConfigProvider.notifier).deleteSubagent(name);
+    }
+  }
+}
+
+class _SubagentCard extends StatelessWidget {
+  final ClaudeCodeSubagent subagent;
+  final bool isActive;
+  final VoidCallback onTap;
+  final VoidCallback onSetActive;
+  final VoidCallback onDelete;
+
+  const _SubagentCard({
+    required this.subagent,
+    required this.isActive,
+    required this.onTap,
+    required this.onSetActive,
+    required this.onDelete,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final oc = theme.extension<OpenCodeTheme>()!;
+
+    return Card(
+      color: oc.backgroundElement,
+      margin: const EdgeInsets.only(bottom: 12),
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(12),
+        side: isActive
+            ? BorderSide(color: oc.primary, width: 2)
+            : BorderSide(color: oc.border),
+      ),
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(12),
+        child: Padding(
+          padding: const EdgeInsets.all(16),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
+                children: [
+                  Icon(
+                    Icons.smart_toy_outlined,
+                    color: isActive ? oc.primary : oc.textMuted,
+                    size: 24,
+                  ),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Row(
+                          children: [
+                            Text(
+                              subagent.name,
+                              style: TextStyle(
+                                color: oc.text,
+                                fontSize: 16,
+                                fontWeight: FontWeight.w600,
+                              ),
+                            ),
+                            if (isActive) ...[
+                              const SizedBox(width: 8),
+                              Container(
+                                padding: const EdgeInsets.symmetric(
+                                  horizontal: 8,
+                                  vertical: 2,
+                                ),
+                                decoration: BoxDecoration(
+                                  color: oc.primary.withOpacity(0.2),
+                                  borderRadius: BorderRadius.circular(4),
+                                ),
+                                child: Text(
+                                  'ACTIVE',
+                                  style: TextStyle(
+                                    color: oc.primary,
+                                    fontSize: 10,
+                                    fontWeight: FontWeight.bold,
+                                  ),
+                                ),
+                              ),
+                            ],
+                          ],
+                        ),
+                        const SizedBox(height: 4),
+                        Text(
+                          subagent.description,
+                          style: TextStyle(color: oc.textMuted, fontSize: 13),
+                          maxLines: 2,
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                      ],
+                    ),
+                  ),
+                  PopupMenuButton<String>(
+                    icon: Icon(
+                      Icons.more_vert,
+                      color: oc.textMuted.withOpacity(0.7),
+                    ),
+                    onSelected: (value) {
+                      switch (value) {
+                        case 'toggle':
+                          onSetActive();
+                          break;
+                        case 'delete':
+                          onDelete();
+                          break;
+                      }
+                    },
+                    itemBuilder: (ctx) => [
+                      PopupMenuItem(
+                        value: 'toggle',
+                        child: Row(
+                          children: [
+                            Icon(
+                              isActive
+                                  ? Icons.radio_button_checked
+                                  : Icons.radio_button_unchecked,
+                              size: 20,
+                            ),
+                            const SizedBox(width: 8),
+                            Text(isActive ? 'Deactivate' : 'Set Active'),
+                          ],
+                        ),
+                      ),
+                      const PopupMenuItem(
+                        value: 'delete',
+                        child: Row(
+                          children: [
+                            Icon(
+                              Icons.delete_outline,
+                              size: 20,
+                              color: Colors.red,
+                            ),
+                            SizedBox(width: 8),
+                            Text('Delete', style: TextStyle(color: Colors.red)),
+                          ],
+                        ),
+                      ),
+                    ],
+                  ),
+                ],
+              ),
+              const SizedBox(height: 12),
+              // Model and tools info
+              Wrap(
+                spacing: 8,
+                runSpacing: 8,
+                children: [
+                  _InfoChip(
+                    icon: Icons.memory,
+                    label: subagent.model.displayName,
+                  ),
+                  if (subagent.tools != null && subagent.tools!.isNotEmpty)
+                    _InfoChip(
+                      icon: Icons.build_outlined,
+                      label: '${subagent.tools!.length} tools',
+                    )
+                  else
+                    _InfoChip(icon: Icons.build_outlined, label: 'All tools'),
+                ],
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _InfoChip extends StatelessWidget {
+  final IconData icon;
+  final String label;
+
+  const _InfoChip({required this.icon, required this.label});
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final oc = theme.extension<OpenCodeTheme>()!;
+
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+      decoration: BoxDecoration(
+        color: oc.background,
+        borderRadius: BorderRadius.circular(6),
+        border: Border.all(color: oc.border),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(icon, size: 14, color: oc.textMuted.withOpacity(0.7)),
+          const SizedBox(width: 4),
+          Text(label, style: TextStyle(color: oc.textMuted, fontSize: 12)),
+        ],
+      ),
+    );
+  }
+}
+
+// =============================================================================
+// SUBAGENT EDITOR SCREEN
+// =============================================================================
+
+class _SubagentEditorScreen extends StatefulWidget {
+  final ClaudeCodeSubagent? existing;
+
+  const _SubagentEditorScreen({this.existing});
+
+  @override
+  State<_SubagentEditorScreen> createState() => _SubagentEditorScreenState();
+}
+
+class _SubagentEditorScreenState extends State<_SubagentEditorScreen> {
+  late final TextEditingController _nameController;
+  late final TextEditingController _descriptionController;
+  late final TextEditingController _promptController;
+  late final TextEditingController _toolsController;
+  late ClaudeCodeSubagentModel _model;
+
+  bool get isEditing => widget.existing != null;
+
+  @override
+  void initState() {
+    super.initState();
+    final existing = widget.existing;
+    _nameController = TextEditingController(text: existing?.name ?? '');
+    _descriptionController = TextEditingController(
+      text: existing?.description ?? '',
+    );
+    _promptController = TextEditingController(text: existing?.prompt ?? '');
+    _toolsController = TextEditingController(
+      text: existing?.tools?.join(', ') ?? '',
+    );
+    _model = existing?.model ?? ClaudeCodeSubagentModel.inherit;
+  }
+
+  @override
+  void dispose() {
+    _nameController.dispose();
+    _descriptionController.dispose();
+    _promptController.dispose();
+    _toolsController.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final oc = theme.extension<OpenCodeTheme>()!;
+
+    return Scaffold(
+      backgroundColor: oc.background,
+      appBar: AppBar(
+        backgroundColor: oc.background,
+        elevation: 0,
+        title: Text('Subagents', style: TextStyle(color: oc.text)),
+        iconTheme: IconThemeData(color: oc.text),
+        actions: [
+          TextButton(
+            onPressed: _save,
+            child: Text(
+              'Save',
+              style: TextStyle(color: oc.primary, fontWeight: FontWeight.w600),
+            ),
+          ),
+        ],
+      ),
+      body: SingleChildScrollView(
+        padding: const EdgeInsets.all(16),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            // Name field
+            _buildLabel('Name', oc),
+            const SizedBox(height: 8),
+            TextField(
+              controller: _nameController,
+              enabled: !isEditing, // Can't change name when editing
+              decoration: _inputDecoration('e.g., code-reviewer', oc),
+              style: TextStyle(color: oc.text),
+            ),
+            if (!isEditing) ...[
+              const SizedBox(height: 4),
+              Text(
+                'A unique identifier for this subagent (cannot be changed later)',
+                style: TextStyle(
+                  color: oc.textMuted.withOpacity(0.7),
+                  fontSize: 12,
+                ),
+              ),
+            ],
+
+            const SizedBox(height: 24),
+
+            // Description field
+            _buildLabel('Description', oc),
+            const SizedBox(height: 8),
+            TextField(
+              controller: _descriptionController,
+              decoration: _inputDecoration(
+                'When should Claude use this subagent?',
+                oc,
+              ),
+              style: TextStyle(color: oc.text),
+              maxLines: 2,
+            ),
+            const SizedBox(height: 4),
+            Text(
+              'Claude uses this to decide when to invoke the subagent',
+              style: TextStyle(
+                color: oc.textMuted.withOpacity(0.7),
+                fontSize: 12,
+              ),
+            ),
+
+            const SizedBox(height: 24),
+
+            // Prompt field
+            _buildLabel('System Prompt', oc),
+            const SizedBox(height: 8),
+            TextField(
+              controller: _promptController,
+              decoration: _inputDecoration(
+                'Instructions for the subagent...',
+                oc,
+              ),
+              style: TextStyle(color: oc.text),
+              maxLines: 6,
+              minLines: 4,
+            ),
+            const SizedBox(height: 4),
+            Text(
+              'Defines the subagent\'s role, expertise, and behavior',
+              style: TextStyle(
+                color: oc.textMuted.withOpacity(0.7),
+                fontSize: 12,
+              ),
+            ),
+
+            const SizedBox(height: 24),
+
+            // Model dropdown
+            _buildLabel('Model', oc),
+            const SizedBox(height: 8),
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 12),
+              decoration: BoxDecoration(
+                color: oc.backgroundElement,
+                borderRadius: BorderRadius.circular(8),
+                border: Border.all(color: oc.border),
+              ),
+              child: DropdownButtonHideUnderline(
+                child: DropdownButton<ClaudeCodeSubagentModel>(
+                  value: _model,
+                  isExpanded: true,
+                  dropdownColor: oc.backgroundElement,
+                  style: TextStyle(color: oc.text),
+                  items: ClaudeCodeSubagentModel.values.map((m) {
+                    return DropdownMenuItem(
+                      value: m,
+                      child: Text(m.displayName),
+                    );
+                  }).toList(),
+                  onChanged: (value) {
+                    if (value != null) {
+                      setState(() => _model = value);
+                    }
+                  },
+                ),
+              ),
+            ),
+            const SizedBox(height: 4),
+            Text(
+              'Inherit uses the main model; others override it',
+              style: TextStyle(
+                color: oc.textMuted.withOpacity(0.7),
+                fontSize: 12,
+              ),
+            ),
+
+            const SizedBox(height: 24),
+
+            // Tools field
+            _buildLabel('Allowed Tools (optional)', oc),
+            const SizedBox(height: 8),
+            TextField(
+              controller: _toolsController,
+              decoration: _inputDecoration('e.g., Read, Grep, Glob', oc),
+              style: TextStyle(color: oc.text),
+            ),
+            const SizedBox(height: 4),
+            Text(
+              'Comma-separated list of tool names. Leave empty to inherit all tools.',
+              style: TextStyle(
+                color: oc.textMuted.withOpacity(0.7),
+                fontSize: 12,
+              ),
+            ),
+
+            const SizedBox(height: 32),
+
+            // Common tool presets
+            Text(
+              'Tool Presets',
+              style: TextStyle(
+                color: oc.textMuted,
+                fontSize: 14,
+                fontWeight: FontWeight.w600,
+              ),
+            ),
+            const SizedBox(height: 12),
+            Wrap(
+              spacing: 8,
+              runSpacing: 8,
+              children: [
+                _PresetChip(
+                  label: 'Read-only',
+                  onTap: () => _toolsController.text = 'Read, Grep, Glob',
+                ),
+                _PresetChip(
+                  label: 'Test runner',
+                  onTap: () => _toolsController.text = 'Bash, Read, Grep',
+                ),
+                _PresetChip(
+                  label: 'Code editor',
+                  onTap: () =>
+                      _toolsController.text = 'Read, Edit, Write, Grep, Glob',
+                ),
+                _PresetChip(
+                  label: 'All tools',
+                  onTap: () => _toolsController.text = '',
+                ),
+              ],
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildLabel(String text, OpenCodeTheme oc) {
+    return Text(
+      text,
+      style: TextStyle(
+        color: oc.textMuted,
+        fontSize: 14,
+        fontWeight: FontWeight.w600,
+      ),
+    );
+  }
+
+  InputDecoration _inputDecoration(String hint, OpenCodeTheme oc) {
+    return InputDecoration(
+      hintText: hint,
+      hintStyle: TextStyle(color: oc.textMuted.withOpacity(0.7)),
+      filled: true,
+      fillColor: oc.backgroundElement,
+      border: OutlineInputBorder(
+        borderRadius: BorderRadius.circular(8),
+        borderSide: BorderSide(color: oc.border),
+      ),
+      enabledBorder: OutlineInputBorder(
+        borderRadius: BorderRadius.circular(8),
+        borderSide: BorderSide(color: oc.border),
+      ),
+      focusedBorder: OutlineInputBorder(
+        borderRadius: BorderRadius.circular(8),
+        borderSide: BorderSide(color: oc.primary),
+      ),
+      disabledBorder: OutlineInputBorder(
+        borderRadius: BorderRadius.circular(8),
+        borderSide: BorderSide(color: oc.border.withOpacity(0.5)),
+      ),
+    );
+  }
+
+  void _save() {
+    final name = _nameController.text.trim();
+    final description = _descriptionController.text.trim();
+    final prompt = _promptController.text.trim();
+
+    if (name.isEmpty) {
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(const SnackBar(content: Text('Name is required')));
+      return;
+    }
+
+    if (description.isEmpty) {
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(const SnackBar(content: Text('Description is required')));
+      return;
+    }
+
+    if (prompt.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('System prompt is required')),
+      );
+      return;
+    }
+
+    // Parse tools
+    List<String>? tools;
+    final toolsText = _toolsController.text.trim();
+    if (toolsText.isNotEmpty) {
+      tools = toolsText
+          .split(',')
+          .map((t) => t.trim())
+          .where((t) => t.isNotEmpty)
+          .toList();
+    }
+
+    final subagent = ClaudeCodeSubagent(
+      name: name,
+      description: description,
+      prompt: prompt,
+      tools: tools,
+      model: _model,
+    );
+
+    Navigator.pop(context, subagent);
+  }
+}
+
+class _PresetChip extends StatelessWidget {
+  final String label;
+  final VoidCallback onTap;
+
+  const _PresetChip({required this.label, required this.onTap});
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final oc = theme.extension<OpenCodeTheme>()!;
+
+    return ActionChip(
+      label: Text(label),
+      labelStyle: TextStyle(color: oc.textMuted, fontSize: 12),
+      backgroundColor: oc.backgroundElement,
+      side: BorderSide(color: oc.border),
+      onPressed: onTap,
+    );
+  }
+}

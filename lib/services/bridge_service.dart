@@ -1638,6 +1638,33 @@ class BridgeService {
     }
   }
 
+  /// Rewinds files to a previous checkpoint created during a Claude Code session.
+  /// This undoes file changes made by Write/Edit/NotebookEdit tools.
+  /// Returns true if successful, false otherwise.
+  Future<bool> ccRewindCheckpoint({
+    required String sessionId,
+    required String checkpointUuid,
+    required String cwd,
+  }) async {
+    final requestId = _generateRequestId();
+    _socket.send({
+      'type': 'cc_rewind_checkpoint',
+      'sessionId': sessionId,
+      'checkpointUuid': checkpointUuid,
+      'cwd': cwd,
+      'requestId': requestId,
+    });
+    try {
+      final response = await _waitFor(
+        'cc_checkpoint_rewound',
+        requestId: requestId,
+      );
+      return response['success'] as bool? ?? false;
+    } catch (_) {
+      return false;
+    }
+  }
+
   // ============================================================
   // Claude Code - Chat (Streaming)
   // ============================================================
@@ -1651,6 +1678,7 @@ class BridgeService {
     List<String>? allowedTools,
     List<String>? disallowedTools,
     int? maxThinkingTokens,
+    String? activeSubagent,
   }) {
     final guardKey = 'cc_chat:${sessionId ?? 'new'}:${prompt.hashCode}';
     if (!_guardFireAndForget(guardKey, cooldown: const Duration(seconds: 2))) {
@@ -1667,6 +1695,7 @@ class BridgeService {
       if (allowedTools != null) 'allowedTools': allowedTools,
       if (disallowedTools != null) 'disallowedTools': disallowedTools,
       if (maxThinkingTokens != null) 'maxThinkingTokens': maxThinkingTokens,
+      if (activeSubagent != null) 'activeSubagent': activeSubagent,
     });
   }
 
@@ -1761,6 +1790,194 @@ class BridgeService {
     final response = await _waitFor('cc_config_updated', requestId: requestId);
     final data = response['data'] as Map<String, dynamic>? ?? {};
     return ClaudeCodeConfig.fromJson(data);
+  }
+
+  // ============================================================
+  // Claude Code - Custom Tools
+  // ============================================================
+
+  /// List all custom tools
+  Future<List<ClaudeCodeCustomTool>> ccListCustomTools() async {
+    final requestId = _generateRequestId();
+    _socket.send({'type': 'cc_list_custom_tools', 'requestId': requestId});
+    final response = await _waitFor('cc_custom_tools', requestId: requestId);
+    final data = response['data'] as List<dynamic>? ?? [];
+    return data
+        .map(
+          (item) => ClaudeCodeCustomTool.fromJson(item as Map<String, dynamic>),
+        )
+        .toList();
+  }
+
+  /// Get a single custom tool by ID
+  Future<ClaudeCodeCustomTool?> ccGetCustomTool(String id) async {
+    final requestId = _generateRequestId();
+    _socket.send({
+      'type': 'cc_get_custom_tool',
+      'id': id,
+      'requestId': requestId,
+    });
+    final response = await _waitFor('cc_custom_tool', requestId: requestId);
+    final data = response['data'] as Map<String, dynamic>?;
+    if (data == null) return null;
+    return ClaudeCodeCustomTool.fromJson(data);
+  }
+
+  /// Save (create or update) a custom tool
+  Future<ClaudeCodeCustomTool?> ccSaveCustomTool(
+    ClaudeCodeCustomTool tool,
+  ) async {
+    final requestId = _generateRequestId();
+    _socket.send({
+      'type': 'cc_save_custom_tool',
+      'tool': tool.toJson(),
+      'requestId': requestId,
+    });
+    final response = await _waitFor(
+      'cc_custom_tool_saved',
+      requestId: requestId,
+    );
+    final data = response['data'] as Map<String, dynamic>?;
+    if (data == null) return null;
+    return ClaudeCodeCustomTool.fromJson(data);
+  }
+
+  /// Delete a custom tool by ID
+  Future<bool> ccDeleteCustomTool(String id) async {
+    final requestId = _generateRequestId();
+    _socket.send({
+      'type': 'cc_delete_custom_tool',
+      'id': id,
+      'requestId': requestId,
+    });
+    final response = await _waitFor(
+      'cc_custom_tool_deleted',
+      requestId: requestId,
+    );
+    return response['data'] as bool? ?? false;
+  }
+
+  /// Test a custom tool with sample arguments
+  Future<CustomToolTestResult> ccTestCustomTool(
+    ClaudeCodeCustomTool tool,
+    Map<String, dynamic> testArgs,
+  ) async {
+    final requestId = _generateRequestId();
+    _socket.send({
+      'type': 'cc_test_custom_tool',
+      'tool': tool.toJson(),
+      'testArgs': testArgs,
+      'requestId': requestId,
+    });
+    final response = await _waitFor(
+      'cc_custom_tool_test_result',
+      requestId: requestId,
+    );
+    final data = response['data'] as Map<String, dynamic>? ?? {};
+    return CustomToolTestResult.fromJson(data);
+  }
+
+  // ============================================================
+  // Claude Code Plugin Management
+  // ============================================================
+
+  /// List all discovered plugins
+  Future<List<ClaudeCodePlugin>> ccListPlugins({String? cwd}) async {
+    final requestId = _generateRequestId();
+    _socket.send({
+      'type': 'cc_list_plugins',
+      if (cwd != null) 'cwd': cwd,
+      'requestId': requestId,
+    });
+    final response = await _waitFor('cc_plugins', requestId: requestId);
+    final data = response['data'] as List<dynamic>? ?? [];
+    return data
+        .map((item) => ClaudeCodePlugin.fromJson(item as Map<String, dynamic>))
+        .toList();
+  }
+
+  /// Get a specific plugin by name
+  Future<ClaudeCodePlugin?> ccGetPlugin(String name) async {
+    final requestId = _generateRequestId();
+    _socket.send({
+      'type': 'cc_get_plugin',
+      'name': name,
+      'requestId': requestId,
+    });
+    final response = await _waitFor('cc_plugin', requestId: requestId);
+    final data = response['data'] as Map<String, dynamic>?;
+    if (data == null) return null;
+    return ClaudeCodePlugin.fromJson(data);
+  }
+
+  /// Toggle a plugin's enabled/disabled state
+  Future<bool> ccTogglePlugin(String name, {required bool enabled}) async {
+    final requestId = _generateRequestId();
+    _socket.send({
+      'type': 'cc_toggle_plugin',
+      'name': name,
+      'enabled': enabled,
+      'requestId': requestId,
+    });
+    final response = await _waitFor('cc_plugin_toggled', requestId: requestId);
+    return response['data'] as bool? ?? false;
+  }
+
+  /// Add a custom plugin path
+  Future<bool> ccAddPluginPath(String path) async {
+    final requestId = _generateRequestId();
+    _socket.send({
+      'type': 'cc_add_plugin_path',
+      'path': path,
+      'requestId': requestId,
+    });
+    final response = await _waitFor(
+      'cc_plugin_path_added',
+      requestId: requestId,
+    );
+    return response['data'] as bool? ?? false;
+  }
+
+  /// Remove a custom plugin path
+  Future<bool> ccRemovePluginPath(String path) async {
+    final requestId = _generateRequestId();
+    _socket.send({
+      'type': 'cc_remove_plugin_path',
+      'path': path,
+      'requestId': requestId,
+    });
+    final response = await _waitFor(
+      'cc_plugin_path_removed',
+      requestId: requestId,
+    );
+    return response['data'] as bool? ?? false;
+  }
+
+  /// Get plugin configuration (enabled/disabled lists, custom paths)
+  Future<ClaudeCodePluginConfig> ccGetPluginConfig() async {
+    final requestId = _generateRequestId();
+    _socket.send({'type': 'cc_get_plugin_config', 'requestId': requestId});
+    final response = await _waitFor('cc_plugin_config', requestId: requestId);
+    final data = response['data'] as Map<String, dynamic>? ?? {};
+    return ClaudeCodePluginConfig.fromJson(data);
+  }
+
+  /// Force reload plugins (clear cache and re-discover)
+  Future<List<ClaudeCodePlugin>> ccReloadPlugins({String? cwd}) async {
+    final requestId = _generateRequestId();
+    _socket.send({
+      'type': 'cc_reload_plugins',
+      if (cwd != null) 'cwd': cwd,
+      'requestId': requestId,
+    });
+    final response = await _waitFor(
+      'cc_plugins_reloaded',
+      requestId: requestId,
+    );
+    final data = response['data'] as List<dynamic>? ?? [];
+    return data
+        .map((item) => ClaudeCodePlugin.fromJson(item as Map<String, dynamic>))
+        .toList();
   }
 
   // ============================================================

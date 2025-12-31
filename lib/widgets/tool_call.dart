@@ -688,6 +688,13 @@ class _ToolCallCardState extends State<ToolCallCard> {
       case 'bash':
       case 'shell':
         return 'Running command';
+      case 'task':
+        // Task tool is used for subagent invocation
+        final subagentType = tool.input['subagent_type'] as String?;
+        if (subagentType != null && subagentType.isNotEmpty) {
+          return 'Subagent: $subagentType';
+        }
+        return 'Running subagent task';
       default:
         return tool.name;
     }
@@ -738,6 +745,19 @@ class _ToolCallCardState extends State<ToolCallCard> {
         final command = tool.input['command'] as String? ?? '';
         // Show first 30 chars of command
         return command.length > 30 ? '${command.substring(0, 30)}...' : command;
+      case 'task':
+        // Show subagent description or prompt preview
+        final description = tool.input['description'] as String?;
+        final prompt = tool.input['prompt'] as String? ?? '';
+        if (description != null && description.isNotEmpty) {
+          return description.length > 50
+              ? '${description.substring(0, 50)}...'
+              : description;
+        }
+        if (prompt.isNotEmpty) {
+          return prompt.length > 50 ? '${prompt.substring(0, 50)}...' : prompt;
+        }
+        return 'Delegating task...';
       default:
         return tool.status;
     }

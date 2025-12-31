@@ -1244,6 +1244,7 @@ export function createBridgeServer(options: BridgeServerOptions): BridgeServer {
               disallowedTools,
               maxThinkingTokens: message.maxThinkingTokens,
               systemPrompt: message.systemPrompt ?? cfg.systemPrompt,
+              activeSubagent: message.activeSubagent,
             },
             (streamMsg) => {
               if ((streamMsg as any)?.type === 'session-created' && typeof (streamMsg as any)?.sessionId === 'string') {
@@ -1339,6 +1340,101 @@ export function createBridgeServer(options: BridgeServerOptions): BridgeServer {
         case 'cc_set_config': {
           const config = claudeCode.setConfig(message.config)
           reply({ type: 'cc_config_updated', data: config })
+          break
+        }
+        // Claude Code File Checkpointing (Undo/Revert)
+        case 'cc_rewind_checkpoint': {
+          const success = await claudeCode.rewindToCheckpoint(
+            message.sessionId,
+            message.checkpointUuid,
+            message.cwd,
+          )
+          reply({ type: 'cc_checkpoint_rewound', success, sessionId: message.sessionId, checkpointUuid: message.checkpointUuid })
+          break
+        }
+        // Claude Code Custom Tools
+        case 'cc_list_custom_tools': {
+          const customTools = await import('./custom-tools')
+          const tools = await customTools.getCustomTools()
+          reply({ type: 'cc_custom_tools', data: tools })
+          break
+        }
+        case 'cc_get_custom_tool': {
+          const customTools = await import('./custom-tools')
+          const tool = await customTools.getCustomTool(message.id)
+          reply({ type: 'cc_custom_tool', data: tool || null })
+          break
+        }
+        case 'cc_save_custom_tool': {
+          const customTools = await import('./custom-tools')
+          // Validate the tool definition
+          const validation = customTools.validateCustomTool(message.tool)
+          if (!validation.valid) {
+            reply({ type: 'error', message: `Invalid tool: ${validation.errors.join(', ')}` })
+            break
+          }
+          // Generate ID if not present
+          const toolToSave = {
+            ...message.tool,
+            id: message.tool.id || customTools.generateToolId(),
+          }
+          const savedTool = await customTools.saveCustomTool(toolToSave)
+          reply({ type: 'cc_custom_tool_saved', data: savedTool })
+          break
+        }
+        case 'cc_delete_custom_tool': {
+          const customTools = await import('./custom-tools')
+          const deleted = await customTools.deleteCustomTool(message.id)
+          reply({ type: 'cc_custom_tool_deleted', data: deleted, id: message.id })
+          break
+        }
+        case 'cc_test_custom_tool': {
+          const customTools = await import('./custom-tools')
+          const result = await customTools.testCustomTool(message.tool, message.testArgs)
+          reply({ type: 'cc_custom_tool_test_result', data: result })
+          break
+        }
+        // Claude Code Plugins
+        case 'cc_list_plugins': {
+          const plugins = await import('./plugins')
+          const pluginList = await plugins.discoverPlugins(message.cwd)
+          reply({ type: 'cc_plugins', data: pluginList })
+          break
+        }
+        case 'cc_get_plugin': {
+          const plugins = await import('./plugins')
+          const plugin = await plugins.getPlugin(message.name)
+          reply({ type: 'cc_plugin', data: plugin || null })
+          break
+        }
+        case 'cc_toggle_plugin': {
+          const plugins = await import('./plugins')
+          const success = await plugins.togglePlugin(message.name, message.enabled)
+          reply({ type: 'cc_plugin_toggled', data: success, name: message.name, enabled: message.enabled })
+          break
+        }
+        case 'cc_add_plugin_path': {
+          const plugins = await import('./plugins')
+          const success = await plugins.addPluginPath(message.path)
+          reply({ type: 'cc_plugin_path_added', data: success, path: message.path })
+          break
+        }
+        case 'cc_remove_plugin_path': {
+          const plugins = await import('./plugins')
+          const success = await plugins.removePluginPath(message.path)
+          reply({ type: 'cc_plugin_path_removed', data: success, path: message.path })
+          break
+        }
+        case 'cc_get_plugin_config': {
+          const plugins = await import('./plugins')
+          const config = await plugins.getPluginConfig()
+          reply({ type: 'cc_plugin_config', data: config })
+          break
+        }
+        case 'cc_reload_plugins': {
+          const plugins = await import('./plugins')
+          const pluginList = await plugins.reloadPlugins(message.cwd)
+          reply({ type: 'cc_plugins_reloaded', data: pluginList })
           break
         }
         // Subscription Usage Tracking

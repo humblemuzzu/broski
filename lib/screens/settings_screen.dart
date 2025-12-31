@@ -14,8 +14,11 @@ import 'device_manager_screen.dart';
 import 'mcp_servers_screen.dart';
 import 'providers_screen.dart';
 import 'subscription_usage_screen.dart';
+import 'subagents_screen.dart';
 import 'terminal_screen.dart';
 import 'tools_screen.dart';
+import 'custom_tools_screen.dart';
+import 'plugins_screen.dart';
 
 class SettingsScreen extends ConsumerWidget {
   const SettingsScreen({super.key});
@@ -256,6 +259,58 @@ class SettingsScreen extends ConsumerWidget {
                             context,
                             MaterialPageRoute(
                               builder: (_) => const ToolsScreen(),
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+              ),
+              const SliverToBoxAdapter(child: SizedBox(height: 28)),
+            ],
+
+            // CLAUDE CODE Section (only when Claude Code is selected)
+            if (currentAgent == AgentType.claudeCode) ...[
+              SliverToBoxAdapter(child: _SectionHeader(title: 'Claude Code')),
+              SliverToBoxAdapter(
+                child: Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 20),
+                  child: _SettingsCard(
+                    child: Column(
+                      children: [
+                        _SettingsTile(
+                          title: 'Subagents',
+                          subtitle: 'Custom subagent definitions',
+                          icon: Icons.smart_toy_outlined,
+                          onTap: () => Navigator.push(
+                            context,
+                            MaterialPageRoute(
+                              builder: (_) => const SubagentsScreen(),
+                            ),
+                          ),
+                        ),
+                        _Divider(),
+                        _SettingsTile(
+                          title: 'Custom Tools',
+                          subtitle: 'HTTP APIs, scripts, and more',
+                          icon: Icons.extension_rounded,
+                          onTap: () => Navigator.push(
+                            context,
+                            MaterialPageRoute(
+                              builder: (_) => const CustomToolsScreen(),
+                            ),
+                          ),
+                        ),
+                        _Divider(),
+                        _SettingsTile(
+                          title: 'Plugins',
+                          subtitle: 'Commands, skills, hooks, MCP',
+                          icon: Icons.extension_off_rounded,
+                          onTap: () => Navigator.push(
+                            context,
+                            MaterialPageRoute(
+                              builder: (_) => const PluginsScreen(),
                             ),
                           ),
                         ),
