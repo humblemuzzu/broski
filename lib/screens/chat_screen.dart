@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:ui';
 
 import 'package:flutter/material.dart';
@@ -58,29 +59,27 @@ class ChatScreen extends ConsumerStatefulWidget {
     required this.project,
     required this.session,
     this.initialPrompt,
-  })
-    : ccSession = null,
-      ccDraftCwd = null,
-      ccDraftTitle = null,
-      ccDraftModel = null,
-      isClaudeCode = false;
+  }) : ccSession = null,
+       ccDraftCwd = null,
+       ccDraftTitle = null,
+       ccDraftModel = null,
+       isClaudeCode = false;
 
   /// Named constructor for Claude Code sessions
   const ChatScreen.claudeCode({
     super.key,
     required this.ccSession,
     this.initialPrompt,
-  })
-    : project = const ProjectSummary(id: '', name: '', path: ''),
-      session = const SessionSummary(
-        id: '',
-        title: '',
-        projectID: '',
-        directory: '',
-        time: SessionTime(created: 0, updated: 0),
-      ),
-      ccDraftCwd = null,
-      ccDraftTitle = null,
+  }) : project = const ProjectSummary(id: '', name: '', path: ''),
+       session = const SessionSummary(
+         id: '',
+         title: '',
+         projectID: '',
+         directory: '',
+         time: SessionTime(created: 0, updated: 0),
+       ),
+       ccDraftCwd = null,
+       ccDraftTitle = null,
        ccDraftModel = null,
        isClaudeCode = true;
 
@@ -188,6 +187,10 @@ class _ChatScreenState extends ConsumerState<ChatScreen>
   bool _resyncingAfterReconnect = false;
   bool _initialPromptSent = false;
 
+  // FIX: Store listener subscriptions for proper cleanup
+  ProviderSubscription<BridgeConnectionState>? _connectionSubscription;
+  ProviderSubscription<ChatSessionState>? _chatSubscription;
+
   @override
   void initState() {
     super.initState();
@@ -201,7 +204,11 @@ class _ChatScreenState extends ConsumerState<ChatScreen>
       );
     }
 
-    ref.listen(connectionProvider, (previous, next) {
+    // FIX: Use listenManual for proper subscription lifecycle management
+    _connectionSubscription = ref.listenManual(connectionProvider, (
+      previous,
+      next,
+    ) {
       final wasConnected = previous?.status == ConnectionStatus.connected;
       final isConnected = next.status == ConnectionStatus.connected;
       if (!wasConnected && isConnected) {
@@ -221,9 +228,13 @@ class _ChatScreenState extends ConsumerState<ChatScreen>
       }
     });
 
+    // FIX: Use listenManual for proper subscription lifecycle management
     // Auto-scroll: Listen to chat state changes to trigger auto-scroll
     // when new content arrives (streaming text, tool calls, diffs, etc.)
-    ref.listen(chatSessionProvider, _handleAutoScroll);
+    _chatSubscription = ref.listenManual(
+      chatSessionProvider,
+      _handleAutoScroll,
+    );
 
     _hydrateSession().whenComplete(_maybeSendInitialPrompt);
     _controller.addListener(_onTextChanged);
@@ -572,6 +583,37 @@ class _ChatScreenState extends ConsumerState<ChatScreen>
   Future<void> _loadSessionContext() async {
     if (_loadingContext) return;
     setState(() => _loadingContext = true);
+
+    // Claude Code mode - build context from stream state
+    if (widget.isClaudeCode) {
+      final chatState = ref.read(chatSessionProvider);
+      final tokenUsage = chatState.ccTokenUsage;
+
+      // Build modified files from session diffs
+      final modifiedFiles = chatState.sessionDiffs
+          .map(
+            (diff) => ModifiedFile(
+              file: diff.file,
+              additions: diff.additions,
+              deletions: diff.deletions,
+            ),
+          )
+          .toList();
+
+      setState(() {
+        _sessionContext = SessionContext.fromClaudeCode(
+          inputTokens: tokenUsage?.inputTokens ?? 0,
+          outputTokens: tokenUsage?.outputTokens ?? 0,
+          cacheReadTokens: tokenUsage?.cacheReadTokens ?? 0,
+          totalCostUsd: tokenUsage?.totalCostUsd,
+          modifiedFiles: modifiedFiles,
+        );
+        _loadingContext = false;
+      });
+      return;
+    }
+
+    // OpenCode mode - fetch from bridge
     try {
       final bridge = ref.read(bridgeServiceProvider);
       // Load context and todos in parallel
@@ -759,7 +801,8 @@ class _ChatScreenState extends ConsumerState<ChatScreen>
     );
   }
 
-  // Feature 7: Unrevert session
+  // Feature 7: Unrevert session (reserved for future use)
+  // ignore: unused_element
   Future<void> _unrevertSession() async {
     try {
       final bridge = ref.read(bridgeServiceProvider);
@@ -2741,6 +2784,7 @@ class _ChatScreenState extends ConsumerState<ChatScreen>
     }
   }
 
+  // ignore: unused_element
   void _handleFileAutocompleteKeyboard(KeyEvent event) {
     if (!_showFileAutocomplete) return;
 
@@ -2797,19 +2841,8 @@ class _ChatScreenState extends ConsumerState<ChatScreen>
     return position.pixels >= position.maxScrollExtent - 150;
   }
 
-  /// Calculate a content hash to detect when messages have new content
-  /// (text length + tool count + diff count)
-  int _calculateContentLength(List<ChatMessage> messages) {
-    int length = 0;
-    for (final msg in messages) {
-      length += msg.text.length;
-      length += msg.toolCalls.length * 100; // Weight tool calls
-      length += msg.diffs.length * 100; // Weight diffs
-      length += msg.subtaskNotifications.length * 50;
-      length += msg.reasoningParts.fold(0, (sum, r) => sum + r.text.length);
-    }
-    return length;
-  }
+  // FIX: Removed _calculateContentLength - now using pre-computed contentLength from provider
+  // This avoids O(n) iteration on every UI frame during streaming
 
   /// Handle auto-scroll when new content arrives
   /// Only scrolls if user hasn't intentionally scrolled up
@@ -2819,12 +2852,14 @@ class _ChatScreenState extends ConsumerState<ChatScreen>
 
     final messages = next.messages;
     final currentCount = messages.length;
-    final currentLength = _calculateContentLength(messages);
+    // FIX: Use pre-computed content length instead of recalculating every frame
+    final currentLength = next.contentLength;
 
     // Detect if content has grown (new message or streaming content)
     final hasNewMessage = currentCount > _previousMessageCount;
     final hasNewContent = currentLength > _previousContentLength;
     final isStreaming = _hasStreamingMessage(messages);
+    final hasRunningTools = _hasRunningTools(messages);
 
     // Update tracking variables
     _previousMessageCount = currentCount;
@@ -2834,15 +2869,16 @@ class _ChatScreenState extends ConsumerState<ChatScreen>
     // 1. New message arrived
     // 2. Content grew (streaming text, new tool calls, etc.)
     // 3. Currently streaming (keep scrolling as content flows)
-    if (hasNewMessage || hasNewContent || isStreaming) {
+    // 4. Tools are running (OpenCode doesn't stream text during tool execution)
+    if (hasNewMessage || hasNewContent || isStreaming || hasRunningTools) {
       // Use a short delay to let the ListView rebuild with new content
       WidgetsBinding.instance.addPostFrameCallback((_) {
         if (!mounted) return;
         if (_userHasScrolledUp) return; // Double-check after frame
 
-        // During streaming, use jumpTo for smoother continuous scroll
+        // During streaming or tool execution, use jumpTo for smoother continuous scroll
         // After streaming completes, use animated scroll
-        if (isStreaming) {
+        if (isStreaming || hasRunningTools) {
           _scrollToBottom(animate: false);
         } else {
           _scrollToBottom(animate: true);
@@ -2903,6 +2939,17 @@ class _ChatScreenState extends ConsumerState<ChatScreen>
     return messages.any((msg) => msg.isStreaming);
   }
 
+  /// Check if any tools are currently running (for auto-scroll during tool execution)
+  bool _hasRunningTools(List<ChatMessage> messages) {
+    return messages.any(
+      (msg) => msg.toolCalls.any(
+        (tool) =>
+            tool.status.toLowerCase() == 'running' ||
+            tool.status.toLowerCase() == 'pending',
+      ),
+    );
+  }
+
   // Feature 2: Get filtered commands based on current input
   List<SlashCommand> get _filteredCommands {
     if (_commandFilter.isEmpty) return _commands;
@@ -2916,7 +2963,6 @@ class _ChatScreenState extends ConsumerState<ChatScreen>
     final bridge = ref.read(bridgeServiceProvider);
     final chatState = ref.read(chatSessionProvider);
     final selectedModel = ref.read(selectionProvider).model;
-    final theme = OpenCodeTheme.of(context);
 
     // Handle built-in commands
     if (command.builtin) {
@@ -2976,8 +3022,8 @@ class _ChatScreenState extends ConsumerState<ChatScreen>
             try {
               final success = await bridge.summarizeSession(
                 widget.session.id,
-                providerID: selectedModel!.providerID,
-                modelID: selectedModel!.modelID,
+                providerID: selectedModel.providerID,
+                modelID: selectedModel.modelID,
                 projectPath: widget.project.path,
               );
               if (mounted) {
@@ -3243,12 +3289,6 @@ class _ChatScreenState extends ConsumerState<ChatScreen>
         const SizedBox(height: 8),
       ],
     );
-  }
-
-  // Get providers from config for models dialog
-  Map<String, dynamic> _getProvidersFromConfig() {
-    // For now, return empty - the models dialog will be simplified
-    return {};
   }
 
   /// Show rename session dialog
@@ -3680,8 +3720,6 @@ class _ChatScreenState extends ConsumerState<ChatScreen>
 
   /// Show models selection dialog
   void _showModelsDialog() {
-    final theme = OpenCodeTheme.of(context);
-
     // Use existing model selector
     _showModelSelector(context);
   }
@@ -3772,6 +3810,9 @@ class _ChatScreenState extends ConsumerState<ChatScreen>
 
   @override
   void dispose() {
+    // FIX: Cancel listener subscriptions to prevent callbacks after dispose
+    _connectionSubscription?.close();
+    _chatSubscription?.close();
     ref.read(bridgeServiceProvider).setView(projectPath: 'global');
     _controller.dispose();
     _scrollController.dispose();
@@ -3782,22 +3823,53 @@ class _ChatScreenState extends ConsumerState<ChatScreen>
   @override
   Widget build(BuildContext context) {
     final theme = OpenCodeTheme.of(context);
-    final chatState = ref.watch(chatSessionProvider);
+
+    // PERF: Use select() to only rebuild when specific parts of state change.
+    // The message list is the most expensive part, so we isolate it.
+    final messages = ref.watch(chatSessionProvider.select((s) => s.messages));
+    final permissions = ref.watch(
+      chatSessionProvider.select((s) => s.permissions),
+    );
+    final todos = ref.watch(chatSessionProvider.select((s) => s.todos));
+    final sessionDiffs = ref.watch(
+      chatSessionProvider.select((s) => s.sessionDiffs),
+    );
+    final isCompacting = ref.watch(
+      chatSessionProvider.select((s) => s.isCompacting),
+    );
+    final sessionStatus = ref.watch(
+      chatSessionProvider.select((s) => s.sessionStatus),
+    );
+    final ccIsStreaming = ref.watch(
+      chatSessionProvider.select((s) => s.ccIsStreaming),
+    );
+    final ccInit = ref.watch(chatSessionProvider.select((s) => s.ccInit));
+    final ccModel = ref.watch(chatSessionProvider.select((s) => s.ccModel));
+    // Watch these for rebuild triggers (values accessed via ref.read in callbacks)
+    ref.watch(chatSessionProvider.select((s) => s.ccCwd));
+    ref.watch(chatSessionProvider.select((s) => s.ccSessionId));
+
     final connection = ref.watch(connectionProvider);
 
-    _maybeShowPermissionPrompt(chatState);
+    _maybeShowPermissionPromptFromList(permissions);
 
     return Scaffold(
       backgroundColor: theme.background,
       // Use endDrawer for right-side sidebar that can be swiped from edge
       endDrawer: SessionSidebar(
-        sessionTitle: widget.session.title,
+        sessionTitle: widget.isClaudeCode
+            ? (widget.ccSession?.displayTitle ??
+                  widget.ccDraftTitle ??
+                  'Claude Code')
+            : widget.session.title,
         sessionContext: _sessionContext,
-        todos: chatState.todos,
+        todos: todos, // Both OC and CC have todos (CC via TodoWrite tool)
         onClose: _closeSidebar,
         vcsInfo: _vcsInfo,
-        sessionDiffs: chatState.sessionDiffs,
+        sessionDiffs: sessionDiffs,
         onOpenDiff: (diff) => _openDiffView(diff),
+        isClaudeCode: widget.isClaudeCode,
+        ccInit: widget.isClaudeCode ? ccInit : null,
       ),
       onEndDrawerChanged: (isOpen) {
         if (isOpen && !_sidebarOpen) {
@@ -3832,19 +3904,20 @@ class _ChatScreenState extends ConsumerState<ChatScreen>
                       thumbVisibility: false, // Auto-hide when not scrolling
                       child: ListView.builder(
                         controller: _scrollController,
+                        // PERF: Pre-render 500px above/below viewport for smoother scrolling
+                        cacheExtent: 500,
                         padding: const EdgeInsets.fromLTRB(20, 20, 20, 90),
                         // Add 1 for loading indicator at top when loading more
                         itemCount:
-                            chatState.messages.length +
+                            messages.length +
                             (_loadingMoreMessages ? 1 : 0) +
-                            (!_hasLoadedAllMessages &&
-                                    chatState.messages.isNotEmpty
+                            (!_hasLoadedAllMessages && messages.isNotEmpty
                                 ? 1
                                 : 0),
                         itemBuilder: (context, index) {
                           // Show "load more" indicator at top
                           if (!_hasLoadedAllMessages &&
-                              chatState.messages.isNotEmpty &&
+                              messages.isNotEmpty &&
                               index == 0) {
                             if (_loadingMoreMessages) {
                               return const Padding(
@@ -3877,18 +3950,21 @@ class _ChatScreenState extends ConsumerState<ChatScreen>
 
                           // Adjust index for the loading indicator
                           final messageIndex =
-                              (!_hasLoadedAllMessages &&
-                                  chatState.messages.isNotEmpty)
+                              (!_hasLoadedAllMessages && messages.isNotEmpty)
                               ? index - 1
                               : index;
 
                           if (messageIndex < 0 ||
-                              messageIndex >= chatState.messages.length) {
+                              messageIndex >= messages.length) {
                             return const SizedBox.shrink();
                           }
 
-                          final message = chatState.messages[messageIndex];
-                          return _buildMessageGroup(message);
+                          final message = messages[messageIndex];
+                          // PERF: ValueKey helps Flutter track widget identity across rebuilds
+                          return KeyedSubtree(
+                            key: ValueKey(message.id),
+                            child: _buildMessageGroup(message),
+                          );
                         },
                       ),
                     ),
@@ -3899,7 +3975,7 @@ class _ChatScreenState extends ConsumerState<ChatScreen>
           ),
 
           // Stop button when streaming - centered at bottom
-          if (_hasStreamingMessage(chatState.messages))
+          if (_hasStreamingMessage(messages))
             Positioned(
               bottom: 24,
               left: 0,
@@ -3938,7 +4014,13 @@ class _ChatScreenState extends ConsumerState<ChatScreen>
             left: 0,
             right: 0,
             bottom: 0,
-            child: _buildInputBar(connection, chatState),
+            child: _buildInputBarWithParams(
+              connection: connection,
+              messages: messages,
+              ccIsStreaming: ccIsStreaming,
+              ccInit: ccInit,
+              ccModel: ccModel,
+            ),
           ),
 
           // Floating header at top (glass pills)
@@ -3959,7 +4041,7 @@ class _ChatScreenState extends ConsumerState<ChatScreen>
                   : () => _showModelSelector(context),
               onMenu: widget.isClaudeCode
                   ? (value) => _handleClaudeCodeMenuAction(value)
-                  : (value) => _handleMenuAction(value, chatState),
+                  : (value) => _handleMenuActionWithMessages(value, messages),
               onOpenSidebar: widget.isClaudeCode
                   ? null
                   : () => Scaffold.of(context).openEndDrawer(),
@@ -3972,16 +4054,16 @@ class _ChatScreenState extends ConsumerState<ChatScreen>
               isSessionShared: widget.isClaudeCode
                   ? false
                   : widget.session.isShared,
-              isCompacting: chatState.isCompacting,
-              sessionStatus: chatState.sessionStatus,
+              isCompacting: isCompacting,
+              sessionStatus: sessionStatus,
               isStreaming: widget.isClaudeCode
-                  ? chatState.ccIsStreaming
-                  : _hasStreamingMessage(chatState.messages),
+                  ? ccIsStreaming
+                  : _hasStreamingMessage(messages),
               isClaudeCode: widget.isClaudeCode,
               ccModel:
                   ref.watch(ccConfigProvider).valueOrNull?.model ??
-                  chatState.ccModel ??
-                  chatState.ccInit?.model ??
+                  ccModel ??
+                  ccInit?.model ??
                   widget.ccSession?.model ??
                   widget.ccDraftModel,
             ),
@@ -4001,14 +4083,19 @@ class _ChatScreenState extends ConsumerState<ChatScreen>
     );
   }
 
-  Widget _buildInputBar(
-    BridgeConnectionState connection,
-    ChatSessionState chatState,
-  ) {
+  // PERF: Input bar version that takes individual params instead of full chatState
+  // This allows using select() in the build method for better performance
+  Widget _buildInputBarWithParams({
+    required BridgeConnectionState connection,
+    required List<ChatMessage> messages,
+    required bool ccIsStreaming,
+    CCSessionInit? ccInit,
+    String? ccModel,
+  }) {
     final inputStyle = ref.watch(inputStyleProvider);
     final isBusy = widget.isClaudeCode
-        ? chatState.ccIsStreaming
-        : _hasStreamingMessage(chatState.messages);
+        ? ccIsStreaming
+        : _hasStreamingMessage(messages);
     final hasContent =
         _controller.text.trim().isNotEmpty || _attachedFiles.isNotEmpty;
     final canSend =
@@ -4034,7 +4121,8 @@ class _ChatScreenState extends ConsumerState<ChatScreen>
       inputBar = _CliStyleInputBar(
         controller: _controller,
         focusNode: _inputFocusNode,
-        onSend: () => _sendMessage(connection, chatState),
+        onSend: () =>
+            _sendMessageWithParams(connection, messages, ccIsStreaming),
         isBusy: isBusy,
         canSend: canSend,
         isOfflineMode: connection.isOfflineMode,
@@ -4049,10 +4137,8 @@ class _ChatScreenState extends ConsumerState<ChatScreen>
         onModelTap: widget.isClaudeCode
             ? null
             : () => _showModelSelector(context),
-        // For CC: no file chips (they're in the text), for OC: file attachment chips
         attachedFiles: widget.isClaudeCode ? const [] : _attachedFiles,
         onRemoveAttachment: widget.isClaudeCode ? null : _removeAttachedFile,
-        // Enable file autocomplete for both CC (inserts @path as text) and OC (adds attachment)
         showFileAutocomplete: _showFileAutocomplete,
         onFileSelect: _handleFileSelection,
         onAttachTap: widget.isClaudeCode
@@ -4061,14 +4147,12 @@ class _ChatScreenState extends ConsumerState<ChatScreen>
         attachIcon: widget.isClaudeCode
             ? Icons.tune_rounded
             : Icons.add_rounded,
-        // Claude Code specific props
         isClaudeCode: widget.isClaudeCode,
-        ccPermissionMode:
-            ccConfig?.permissionMode ?? chatState.ccInit?.permissionMode,
+        ccPermissionMode: ccConfig?.permissionMode ?? ccInit?.permissionMode,
         ccModel:
             ccConfig?.model ??
-            chatState.ccModel ??
-            chatState.ccInit?.model ??
+            ccModel ??
+            ccInit?.model ??
             widget.ccSession?.model ??
             widget.ccDraftModel,
         onCCModelTap: widget.isClaudeCode
@@ -4083,14 +4167,13 @@ class _ChatScreenState extends ConsumerState<ChatScreen>
       inputBar = _FloatingInputBar(
         controller: _controller,
         focusNode: _inputFocusNode,
-        onSend: () => _sendMessage(connection, chatState),
+        onSend: () =>
+            _sendMessageWithParams(connection, messages, ccIsStreaming),
         isBusy: isBusy,
         canSend: canSend,
         isOfflineMode: connection.isOfflineMode,
-        // For CC: no file chips (they're in the text), for OC: file attachment chips
         attachedFiles: widget.isClaudeCode ? const [] : _attachedFiles,
         onRemoveAttachment: widget.isClaudeCode ? null : _removeAttachedFile,
-        // Enable file autocomplete for both CC (inserts @path as text) and OC (adds attachment)
         showFileAutocomplete: _showFileAutocomplete,
         onFileSelect: _handleFileSelection,
         onAttachTap: widget.isClaudeCode
@@ -4106,64 +4189,68 @@ class _ChatScreenState extends ConsumerState<ChatScreen>
   }
 
   Widget _buildMessageGroup(ChatMessage message) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.stretch,
-      children: [
-        // Reasoning/thinking content (shows model's thinking process)
-        if (message.hasReasoning)
-          Padding(
-            padding: const EdgeInsets.only(bottom: 8),
-            child: ThinkingCard(message: message),
-          ),
-
-        // Feature 6: Pass fork callback to message bubble
-        MessageBubble(
-          message: message,
-          onForkFromHere: message.role == MessageRole.assistant
-              ? (messageId) => _forkSession(messageId: messageId)
-              : null,
-        ),
-
-        // Tool calls with Feature 7: Undo callback
-        // For Claude Code, undo rewinds to the latest checkpoint (session-wide).
-        // For OpenCode, undo reverts a specific message/part.
-        for (final tool in message.toolCalls)
-          Padding(
-            padding: const EdgeInsets.only(top: 8),
-            child: ToolCallCard(
-              tool: tool,
-              messageId: message.id,
-              onUndo: widget.isClaudeCode
-                  ? (_, __) => _ccRewindToCheckpoint()
-                  : (messageId, partId) =>
-                        _revertMessage(messageId, partId: partId),
+    // PERF: RepaintBoundary isolates this message's painting from others.
+    // Changes to one message don't trigger repaints of nearby messages.
+    return RepaintBoundary(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          // Reasoning/thinking content (shows model's thinking process)
+          if (message.hasReasoning)
+            Padding(
+              padding: const EdgeInsets.only(bottom: 8),
+              child: ThinkingCard(message: message),
             ),
+
+          // Feature 6: Pass fork callback to message bubble
+          MessageBubble(
+            message: message,
+            onForkFromHere: message.role == MessageRole.assistant
+                ? (messageId) => _forkSession(messageId: messageId)
+                : null,
           ),
 
-        // Diffs with Feature 7: Revert callback
-        for (final diff in message.diffs)
-          Padding(
-            padding: const EdgeInsets.only(top: 8),
-            child: DiffViewer(
-              diff: diff,
-              messageId: message.id,
-              onUndo: widget.isClaudeCode
-                  ? (_, __) => _ccRewindToCheckpoint()
-                  : (messageId, partId) =>
-                        _revertMessage(messageId, partId: partId),
-              onViewFull: () => _openDiffView(diff, messageId: message.id),
+          // Tool calls with Feature 7: Undo callback
+          // For Claude Code, undo rewinds to the latest checkpoint (session-wide).
+          // For OpenCode, undo reverts a specific message/part.
+          for (final tool in message.toolCalls)
+            Padding(
+              padding: const EdgeInsets.only(top: 8),
+              child: ToolCallCard(
+                tool: tool,
+                messageId: message.id,
+                onUndo: widget.isClaudeCode
+                    ? (_, __) => _ccRewindToCheckpoint()
+                    : (messageId, partId) =>
+                          _revertMessage(messageId, partId: partId),
+              ),
             ),
-          ),
 
-        // Subtask notifications (background task completions)
-        for (final subtask in message.subtaskNotifications)
-          Padding(
-            padding: const EdgeInsets.only(top: 8),
-            child: SubtaskNotificationCard(notification: subtask),
-          ),
+          // Diffs with Feature 7: Revert callback
+          for (final diff in message.diffs)
+            Padding(
+              padding: const EdgeInsets.only(top: 8),
+              child: DiffViewer(
+                diff: diff,
+                messageId: message.id,
+                onUndo: widget.isClaudeCode
+                    ? (_, __) => _ccRewindToCheckpoint()
+                    : (messageId, partId) =>
+                          _revertMessage(messageId, partId: partId),
+                onViewFull: () => _openDiffView(diff, messageId: message.id),
+              ),
+            ),
 
-        const SizedBox(height: 16),
-      ],
+          // Subtask notifications (background task completions)
+          for (final subtask in message.subtaskNotifications)
+            Padding(
+              padding: const EdgeInsets.only(top: 8),
+              child: SubtaskNotificationCard(notification: subtask),
+            ),
+
+          const SizedBox(height: 16),
+        ],
+      ),
     );
   }
 
@@ -4210,7 +4297,8 @@ class _ChatScreenState extends ConsumerState<ChatScreen>
     );
   }
 
-  void _handleMenuAction(String value, ChatSessionState chatState) {
+  // PERF: Menu action handler that takes messages list directly (used with select())
+  void _handleMenuActionWithMessages(String value, List<ChatMessage> messages) {
     final theme = OpenCodeTheme.of(context);
     switch (value) {
       case 'sidebar':
@@ -4247,7 +4335,7 @@ class _ChatScreenState extends ConsumerState<ChatScreen>
         } else {
           // OpenCode uses per-message revert
           ChatMessage? lastEditMessage;
-          for (final msg in chatState.messages.reversed) {
+          for (final msg in messages.reversed) {
             if (msg.role == MessageRole.assistant &&
                 msg.toolCalls.any(
                   (tool) => tool.name == 'edit' || tool.name == 'write',
@@ -4434,7 +4522,7 @@ class _ChatScreenState extends ConsumerState<ChatScreen>
               ),
               const SizedBox(height: 16),
               ...models.map((model) {
-                final modelId = model['id'] as String?;
+                final modelId = model['id'];
                 final isSelected =
                     (modelId == null &&
                         (currentModel == null || currentModel == 'auto')) ||
@@ -4591,6 +4679,17 @@ class _ChatScreenState extends ConsumerState<ChatScreen>
     );
   }
 
+  // PERF: Version that takes individual params, used with select()
+  void _sendMessageWithParams(
+    BridgeConnectionState connection,
+    List<ChatMessage> messages,
+    bool ccIsStreaming,
+  ) {
+    // Read the full state from provider for the actual send operation
+    final chatState = ref.read(chatSessionProvider);
+    _sendMessage(connection, chatState);
+  }
+
   void _sendMessage(
     BridgeConnectionState connection,
     ChatSessionState chatState,
@@ -4739,13 +4838,14 @@ class _ChatScreenState extends ConsumerState<ChatScreen>
     });
   }
 
-  void _maybeShowPermissionPrompt(ChatSessionState state) {
-    if (state.permissions.isEmpty) {
+  // PERF: Separate method that takes just the permissions list, used with select()
+  void _maybeShowPermissionPromptFromList(List<PermissionRequest> permissions) {
+    if (permissions.isEmpty) {
       _activePermissionId = null;
       return;
     }
 
-    final request = state.permissions.first;
+    final request = permissions.first;
     if (_activePermissionId == request.id) return;
 
     _activePermissionId = request.id;
@@ -5480,6 +5580,8 @@ class _FloatingHeader extends StatelessWidget {
 }
 
 // Glass pill widget for header elements
+// FIX: Removed expensive BackdropFilter - uses simple semi-transparent background instead
+// BackdropFilter causes severe frame drops during scrolling as it rasterizes everything behind it
 class _GlassPill extends StatelessWidget {
   const _GlassPill({
     required this.child,
@@ -5497,26 +5599,28 @@ class _GlassPill extends StatelessWidget {
   Widget build(BuildContext context) {
     final theme = OpenCodeTheme.of(context);
     final kCard = theme.backgroundPanel;
-    final kMuted = theme.textMuted;
+    final borderRadius = BorderRadius.circular(compact ? 16 : 20);
 
-    return ClipRRect(
-      borderRadius: BorderRadius.circular(compact ? 16 : 20),
-      child: BackdropFilter(
-        filter: ImageFilter.blur(sigmaX: 10, sigmaY: 10),
-        child: GestureDetector(
-          onTap: onTap,
-          child: Container(
-            constraints: constraints,
-            padding: compact
-                ? const EdgeInsets.all(6)
-                : const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-            decoration: BoxDecoration(
-              color: kCard.withValues(alpha: 0.75),
-              borderRadius: BorderRadius.circular(compact ? 16 : 20),
-            ),
-            child: child,
+    // FIX: Simple semi-transparent container instead of expensive BackdropFilter
+    // The visual difference is minimal but performance improvement is significant
+    return GestureDetector(
+      onTap: onTap,
+      child: Container(
+        constraints: constraints,
+        padding: compact
+            ? const EdgeInsets.all(6)
+            : const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+        decoration: BoxDecoration(
+          // Slightly higher opacity to compensate for lack of blur
+          color: kCard.withValues(alpha: 0.85),
+          borderRadius: borderRadius,
+          // Add subtle border for definition
+          border: Border.all(
+            color: theme.border.withValues(alpha: 0.3),
+            width: 0.5,
           ),
         ),
+        child: child,
       ),
     );
   }
@@ -5792,20 +5896,26 @@ class _CliStyleInputBarState extends State<_CliStyleInputBar> {
   ];
 
   int _placeholderIndex = 0;
+  Timer?
+  _placeholderTimer; // FIX: Use cancellable Timer instead of Future.doWhile
 
   @override
   void initState() {
     super.initState();
     _placeholderIndex = DateTime.now().millisecond % _placeholders.length;
-    // Rotate placeholder every 6 seconds
-    Future.doWhile(() async {
-      await Future.delayed(const Duration(seconds: 6));
-      if (!mounted) return false;
+    // FIX: Use periodic Timer that can be cancelled on dispose
+    _placeholderTimer = Timer.periodic(const Duration(seconds: 6), (_) {
+      if (!mounted) return;
       setState(() {
         _placeholderIndex = (_placeholderIndex + 1) % _placeholders.length;
       });
-      return true;
     });
+  }
+
+  @override
+  void dispose() {
+    _placeholderTimer?.cancel(); // FIX: Cancel timer to prevent memory leak
+    super.dispose();
   }
 
   String _getModelDisplayName(SelectedModel? model) {

@@ -374,9 +374,7 @@ class _ToolCallCardState extends State<ToolCallCard> {
 
     return GestureDetector(
       onTap: () => setState(() => _isExpanded = !_isExpanded),
-      child: AnimatedContainer(
-        duration: const Duration(milliseconds: 250),
-        curve: Curves.easeInOut,
+      child: Container(
         margin: const EdgeInsets.symmetric(horizontal: 0, vertical: 4),
         padding: const EdgeInsets.all(12),
         decoration: BoxDecoration(
@@ -503,6 +501,8 @@ class _ToolCallCardState extends State<ToolCallCard> {
     final preview = shown.join('\n');
     final hasMore = codeLines.length > shown.length;
     final language = _detectLanguage();
+    final isComplete =
+        widget.tool.status == 'completed' || widget.tool.status == 'error';
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -514,13 +514,22 @@ class _ToolCallCardState extends State<ToolCallCard> {
             borderRadius: BorderRadius.circular(10),
             border: Border.all(color: theme.borderSubtle),
           ),
-          child: HighlightView(
-            preview,
-            language: language,
-            theme: atomOneDarkTheme,
-            padding: EdgeInsets.zero,
-            textStyle: GoogleFonts.jetBrainsMono(fontSize: 11, height: 1.5),
-          ),
+          child: isComplete
+              ? HighlightView(
+                  preview,
+                  language: language,
+                  theme: atomOneDarkTheme,
+                  padding: EdgeInsets.zero,
+                  textStyle: GoogleFonts.jetBrainsMono(fontSize: 11, height: 1.5),
+                )
+              : Text(
+                  preview,
+                  style: GoogleFonts.jetBrainsMono(
+                    fontSize: 11,
+                    height: 1.5,
+                    color: theme.text,
+                  ),
+                ),
         ),
         if (hasMore || _showAllCode)
           Padding(

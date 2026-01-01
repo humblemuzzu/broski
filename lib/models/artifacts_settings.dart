@@ -1,6 +1,7 @@
 class ArtifactsEnrichmentConfig {
   const ArtifactsEnrichmentConfig({
     required this.provider,
+    required this.followSelectedAgent,
     required this.enabled,
     required this.batchSize,
     required this.maxCharsPerArtifact,
@@ -8,6 +9,7 @@ class ArtifactsEnrichmentConfig {
   });
 
   final String provider; // 'off' | 'claude-code' | 'opencode'
+  final bool followSelectedAgent;
   final bool enabled;
   final int batchSize;
   final int maxCharsPerArtifact;
@@ -16,6 +18,7 @@ class ArtifactsEnrichmentConfig {
   factory ArtifactsEnrichmentConfig.fromJson(Map<String, dynamic> json) {
     return ArtifactsEnrichmentConfig(
       provider: json['provider'] as String? ?? 'off',
+      followSelectedAgent: json['followSelectedAgent'] as bool? ?? true,
       enabled: json['enabled'] as bool? ?? false,
       batchSize: (json['batchSize'] as num?)?.toInt() ?? 5,
       maxCharsPerArtifact: (json['maxCharsPerArtifact'] as num?)?.toInt() ?? 6000,
@@ -25,6 +28,7 @@ class ArtifactsEnrichmentConfig {
 
   Map<String, dynamic> toJson() => {
     'provider': provider,
+    'followSelectedAgent': followSelectedAgent,
     'enabled': enabled,
     'batchSize': batchSize,
     'maxCharsPerArtifact': maxCharsPerArtifact,
@@ -93,4 +97,3 @@ class ArtifactsStats {
     );
   }
 }
-

@@ -1,9 +1,11 @@
 import { mkdir } from 'node:fs/promises'
 import { query } from '@anthropic-ai/claude-agent-sdk'
 import type { OpenCodeConnector } from '../connectors/opencode'
+import type { AgentType } from '../types'
 import { getArtifactsDb } from './db'
 import { getArtifactsConfig } from './config'
 import { artifactIndex } from './index'
+import type { ArtifactsEnrichmentEvent } from './types'
 
 type Candidate = {
   id: string
@@ -24,13 +26,44 @@ let opencode: OpenCodeConnector | null = null
 let schedulerStarted = false
 let runInFlight = false
 let pendingKick = false
+let queuedSessionIds = new Set<string>()
+let queueTimer: Timer | null = null
+let onEnrichmentEvent: ((evt: ArtifactsEnrichmentEvent) => void) | null = null
+let getCurrentAgent: (() => AgentType) | null = null
 
-export function configureArtifactsEnrichment(deps: { opencodeConnector: OpenCodeConnector }): void {
+export function configureArtifactsEnrichment(deps: {
+  opencodeConnector: OpenCodeConnector
+  onEnrichmentEvent?: (evt: ArtifactsEnrichmentEvent) => void
+  getCurrentAgent?: () => AgentType
+}): void {
   opencode = deps.opencodeConnector
+  onEnrichmentEvent = deps.onEnrichmentEvent ?? null
+  getCurrentAgent = deps.getCurrentAgent ?? null
   if (schedulerStarted) return
   schedulerStarted = true
-  // Periodic best-effort enrichment (only runs when enabled).
-  setInterval(() => void triggerArtifactsEnrichment(), 30_000)
+  // Periodic best-effort enrichment: catch anything missed by event triggers.
+  setInterval(() => void triggerArtifactsEnrichment(), 120_000)
+}
+
+function resolveEffectiveProvider(cfg: Awaited<ReturnType<typeof getArtifactsConfig>>): 'off' | 'claude-code' | 'opencode' {
+  const follow = cfg.enrichment.followSelectedAgent
+  if (follow && getCurrentAgent) {
+    const agent = getCurrentAgent()
+    return agent === 'claude-code' ? 'claude-code' : 'opencode'
+  }
+  return cfg.enrichment.provider
+}
+
+export function queueArtifactsEnrichmentForSession(sessionId: string): void {
+  const sid = String(sessionId ?? '').trim()
+  if (!sid) return
+  queuedSessionIds.add(sid)
+  if (queueTimer) return
+  // Small delay to allow artifact indexing to finish after tool completion.
+  queueTimer = setTimeout(() => {
+    queueTimer = null
+    void triggerArtifactsEnrichment()
+  }, 3_000)
 }
 
 export async function triggerArtifactsEnrichment(): Promise<boolean> {
@@ -40,13 +73,48 @@ export async function triggerArtifactsEnrichment(): Promise<boolean> {
   }
 
   const cfg = await getArtifactsConfig()
-  if (!cfg.enrichment.enabled || cfg.enrichment.provider === 'off') return false
+  const effectiveProvider = resolveEffectiveProvider(cfg)
+  if (!cfg.enrichment.enabled || effectiveProvider === 'off') return false
 
   runInFlight = true
   pendingKick = false
   try {
-    await runOnce()
-    return true
+    const provider = effectiveProvider
+    const pendingBefore = countPendingCandidates()
+    onEnrichmentEvent?.({
+      phase: 'started',
+      provider,
+      pendingCount: pendingBefore,
+      at: Date.now(),
+    })
+
+    const snapshotSessionIds = Array.from(queuedSessionIds)
+    queuedSessionIds.clear()
+
+    const enrichedCount = await runOnce({
+      sessionIds: snapshotSessionIds.length > 0 ? snapshotSessionIds : null,
+      provider,
+    })
+    const pendingAfter = countPendingCandidates()
+
+    onEnrichmentEvent?.({
+      phase: 'completed',
+      provider,
+      enrichedCount,
+      pendingCount: pendingAfter,
+      at: Date.now(),
+    })
+
+    return enrichedCount > 0
+  } catch (err: any) {
+    const provider = resolveEffectiveProvider(await getArtifactsConfig())
+    onEnrichmentEvent?.({
+      phase: 'error',
+      provider,
+      message: err?.message ? String(err.message) : String(err),
+      at: Date.now(),
+    })
+    return false
   } finally {
     runInFlight = false
     if (pendingKick) {
@@ -56,42 +124,87 @@ export async function triggerArtifactsEnrichment(): Promise<boolean> {
   }
 }
 
-async function runOnce(): Promise<void> {
-  const cfg = await getArtifactsConfig()
-  if (!cfg.enrichment.enabled || cfg.enrichment.provider === 'off') return
+function countPendingCandidates(sessionIds?: string[] | null): number {
+  const { db } = getArtifactsDb()
+  const sessions = (sessionIds ?? []).filter(Boolean).slice(0, 50)
+  const hasSessions = sessions.length > 0
 
-  const batch = fetchCandidates(cfg.enrichment.batchSize)
-  if (batch.length === 0) return
+  const whereSessions = hasSessions
+    ? ` AND sessionId IN (${sessions.map((_, i) => `?${i + 1}`).join(', ')})`
+    : ''
+
+  const stmt = db.prepare(
+    `
+    SELECT COUNT(*) as c
+    FROM artifacts
+    WHERE (summary IS NULL OR summary = '')
+      AND (contentAfter IS NOT NULL AND length(contentAfter) > 0)
+      ${whereSessions};
+  `,
+  )
+
+  const row = (hasSessions ? stmt.get(...sessions) : stmt.get()) as Record<string, unknown> | null
+  return Number(row?.c ?? 0)
+}
+
+async function runOnce(opts: { sessionIds: string[] | null; provider: 'claude-code' | 'opencode' }): Promise<number> {
+  const cfg = await getArtifactsConfig()
+  if (!cfg.enrichment.enabled) return 0
+
+  // Prefer session-scoped enrichment when queued; fall back to global if needed.
+  let batch = fetchCandidates(cfg.enrichment.batchSize, opts.sessionIds)
+  if (batch.length === 0 && opts.sessionIds && opts.sessionIds.length > 0) {
+    batch = fetchCandidates(cfg.enrichment.batchSize, null)
+  }
+  if (batch.length === 0) return 0
 
   await mkdir(cfg.enrichment.hiddenCwd, { recursive: true }).catch(() => {})
 
   let results: EnrichmentResult[] = []
-  if (cfg.enrichment.provider === 'claude-code') {
+  if (opts.provider === 'claude-code') {
     results = await enrichWithClaudeCode(batch, cfg.enrichment.maxCharsPerArtifact, cfg.enrichment.hiddenCwd)
-  } else if (cfg.enrichment.provider === 'opencode') {
+  } else if (opts.provider === 'opencode') {
     results = await enrichWithOpenCode(batch, cfg.enrichment.maxCharsPerArtifact, cfg.enrichment.hiddenCwd)
   }
 
   const now = Date.now()
   const modelLabel =
-    cfg.enrichment.provider === 'claude-code'
+    opts.provider === 'claude-code'
       ? 'claude-code'
-      : cfg.enrichment.provider === 'opencode'
+      : opts.provider === 'opencode'
         ? 'opencode'
         : 'unknown'
 
+  let updated = 0
   for (const item of results) {
-    artifactIndex.updateEnrichmentFields(item.id, {
+    const ok = artifactIndex.updateEnrichmentFields(item.id, {
       summary: item.summary,
       smartTags: item.tags,
       enrichedAt: now,
       enrichmentModel: modelLabel,
     })
+    if (ok) updated++
   }
+
+  if (updated === 0 && results.length > 0) {
+    // This usually indicates artifacts were deleted/cleared while enriching.
+    console.warn('[Artifacts] Enrichment produced results but nothing was updated.')
+  }
+
+  return updated
 }
 
-function fetchCandidates(limit: number): Candidate[] {
+function fetchCandidates(limit: number, sessionIds?: string[] | null): Candidate[] {
   const { db } = getArtifactsDb()
+  const sessions = (sessionIds ?? []).filter(Boolean).slice(0, 50)
+  const hasSessions = sessions.length > 0
+  const limitValue = Math.min(Math.max(limit, 1), 20)
+
+  const whereSessions = hasSessions
+    ? ` AND sessionId IN (${sessions.map((_, i) => `?${i + 1}`).join(', ')})`
+    : ''
+  const limitParamIdx = hasSessions ? sessions.length + 1 : 1
+
   const rows = db
     .prepare(
       `
@@ -99,11 +212,12 @@ function fetchCandidates(limit: number): Candidate[] {
       FROM artifacts
       WHERE (summary IS NULL OR summary = '')
         AND (contentAfter IS NOT NULL AND length(contentAfter) > 0)
+        ${whereSessions}
       ORDER BY createdAt DESC
-      LIMIT $limit;
+      LIMIT ?${limitParamIdx};
     `,
     )
-    .all({ $limit: Math.min(Math.max(limit, 1), 20) }) as Array<Record<string, unknown>>
+    .all(...(hasSessions ? [...sessions, limitValue] : [limitValue])) as Array<Record<string, unknown>>
 
   return rows.map((r) => ({
     id: String(r.id),
@@ -181,6 +295,7 @@ async function enrichWithClaudeCode(items: Candidate[], maxCharsPerArtifact: num
     cwd: hiddenCwd,
     model: cfg.model || 'sonnet',
     allowedTools: [],
+    // Disallow all tools during enrichment to keep it side-effect free.
     disallowedTools: cfg.allowedTools ?? [],
     permissionMode: 'default',
     outputFormat: { type: 'json_schema', schema },
@@ -314,4 +429,3 @@ function tryParseJson(text: string): any | null {
     return null
   }
 }
-

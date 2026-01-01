@@ -173,8 +173,10 @@ class MessageBubble extends StatelessWidget {
                   else if (message.text.isNotEmpty)
                     // Huge perf win: avoid markdown layout while streaming.
                     // Render markdown only once the message is stable.
+                    //
+                    // Also avoid SelectableText while streaming: selection layout is expensive.
                     message.isStreaming
-                        ? SelectableText(
+                        ? Text(
                             message.text,
                             style: GoogleFonts.inter(
                               fontSize: 15,
@@ -298,23 +300,51 @@ class MessageBubble extends StatelessWidget {
     );
   }
 
-  Widget _buildStreamingCursor(OpenCodeTheme theme) {
-    return TweenAnimationBuilder<double>(
-      tween: Tween(begin: 0.0, end: 1.0),
+  Widget _buildStreamingCursor(OpenCodeTheme theme) =>
+      _StreamingCursor(color: theme.info);
+}
+
+class _StreamingCursor extends StatefulWidget {
+  const _StreamingCursor({required this.color});
+
+  final Color color;
+
+  @override
+  State<_StreamingCursor> createState() => _StreamingCursorState();
+}
+
+class _StreamingCursorState extends State<_StreamingCursor>
+    with SingleTickerProviderStateMixin {
+  late final AnimationController _controller;
+
+  @override
+  void initState() {
+    super.initState();
+    _controller = AnimationController(
+      vsync: this,
       duration: const Duration(milliseconds: 800),
-      builder: (context, value, child) {
-        return Opacity(
-          opacity: value > 0.5 ? 1.0 : 0.2,
-          child: Container(
-            width: 7,
-            height: 7,
-            decoration: BoxDecoration(
-              color: theme.info,
-              shape: BoxShape.circle,
-            ),
-          ),
-        );
-      },
+    )..repeat();
+  }
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return AnimatedBuilder(
+      animation: _controller,
+      builder: (context, child) => Opacity(
+        opacity: _controller.value > 0.5 ? 1.0 : 0.2,
+        child: child,
+      ),
+      child: Container(
+        width: 7,
+        height: 7,
+        decoration: BoxDecoration(color: widget.color, shape: BoxShape.circle),
+      ),
     );
   }
 }

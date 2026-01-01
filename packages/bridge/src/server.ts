@@ -7,11 +7,33 @@ import type { OpenCodeConnector } from './connectors/opencode'
 import type { AgentType, ClientMessage, DeviceInfo, FileAttachment, ServerMessage } from './types'
 import * as claudeCode from './connectors/claude-code'
 import * as fileSearch from './file-search'
-import { artifactIndex } from './artifacts'
-import { getArtifactsConfig, getArtifactsDbSizeBytes, setArtifactsConfig } from './artifacts/config'
-import { getArtifactsDbPath } from './artifacts/db'
 
 const TOKEN_FILE = resolve(homedir(), '.broski', 'token')
+const DEBUG_ARTIFACTS = process.env.BROSKI_DEBUG_ARTIFACTS === '1'
+
+// Feature flag: Set to true to re-enable artifacts feature
+// TODO(artifacts): Set to true when feature is ready for production
+const ARTIFACTS_ENABLED = false
+
+// Lazy imports for artifacts - only load when enabled
+// This prevents DB initialization logs when artifacts are disabled
+let artifactIndex: Awaited<typeof import('./artifacts')>['artifactIndex'] | null = null
+let getArtifactsConfig: typeof import('./artifacts/config')['getArtifactsConfig'] | null = null
+let getArtifactsDbSizeBytes: typeof import('./artifacts/config')['getArtifactsDbSizeBytes'] | null = null
+let setArtifactsConfig: typeof import('./artifacts/config')['setArtifactsConfig'] | null = null
+let getArtifactsDbPath: typeof import('./artifacts/db')['getArtifactsDbPath'] | null = null
+
+async function initArtifactsIfEnabled() {
+  if (!ARTIFACTS_ENABLED || artifactIndex) return
+  const artifacts = await import('./artifacts')
+  const config = await import('./artifacts/config')
+  const db = await import('./artifacts/db')
+  artifactIndex = artifacts.artifactIndex
+  getArtifactsConfig = config.getArtifactsConfig
+  getArtifactsDbSizeBytes = config.getArtifactsDbSizeBytes
+  setArtifactsConfig = config.setArtifactsConfig
+  getArtifactsDbPath = db.getArtifactsDbPath
+}
 
 function structuredPatchToUnifiedDiff(filePath: string, patches: unknown): string | null {
   if (!Array.isArray(patches) || patches.length === 0) return null
@@ -293,15 +315,29 @@ export function createBridgeServer(options: BridgeServerOptions): BridgeServer {
   
   const authToken = options.authToken || generateAuthToken()
 
-  // Load artifacts config (async, best-effort)
-  void getArtifactsConfig()
-    .then((cfg) => artifactIndex.applyConfig(cfg))
-    .catch((err) => console.warn('[Artifacts] Failed to load config:', err))
+  // Load artifacts config (async, best-effort) - only if enabled
+  // TODO(artifacts): Re-enable when feature is ready
+  let artifactsEnrichment: (typeof import('./artifacts/enrichment')) | null = null
+  if (ARTIFACTS_ENABLED) {
+    void initArtifactsIfEnabled()
+      .then(() => getArtifactsConfig?.())
+      .then((cfg) => cfg && artifactIndex?.applyConfig(cfg))
+      .catch((err) => console.warn('[Artifacts] Failed to load config:', err))
   
-  // Configure enrichment worker (async, best-effort)
-  void import('./artifacts/enrichment')
-    .then((m) => m.configureArtifactsEnrichment({ opencodeConnector: opencode }))
+    // Configure enrichment worker (async, best-effort)
+    void import('./artifacts/enrichment')
+      .then((m) => {
+        artifactsEnrichment = m
+        m.configureArtifactsEnrichment({
+          opencodeConnector: opencode,
+          getCurrentAgent: () => currentAgent,
+        onEnrichmentEvent: (evt) => {
+          broadcast({ type: 'artifacts_enrichment', data: evt })
+        },
+      })
+    })
     .catch((err) => console.warn('[Artifacts] Failed to init enrichment worker:', err))
+  } // End of ARTIFACTS_ENABLED block
 
   const log = (message: string) => {
     logger?.(message)
@@ -455,127 +491,111 @@ export function createBridgeServer(options: BridgeServerOptions): BridgeServer {
       }, 1000)
     }
 
-    // Artifact indexing (OpenCode): non-blocking; queue work for background worker.
-    try {
-      const e = event as any
-      const directory = safeString(e?.directory)
-      const payloadType = safeString(e?.payload?.type)
-
-      if (payloadType === 'vcs.branch.updated' && directory) {
-        const branch = safeString(e?.payload?.properties?.branch)
-        if (branch) lastGitBranchByProject.set(directory, branch)
-      }
-
-      // Debug: Log all message.part.updated events to understand the structure
-      if (payloadType === 'message.part.updated') {
-        const part = e?.payload?.properties?.part
-        const stateInfo = part?.state ?? {}
-        const status = safeString(stateInfo?.status)
-        const tool = safeString(part?.tool)
-        console.log('[Artifacts DEBUG] message.part.updated:', {
-          directory,
-          partType: part?.type,
-          tool: tool || '(none)',
-          status: status || '(none)',
-          hasState: !!part?.state,
-          hasMetadata: !!stateInfo?.metadata,
-          hasInput: !!stateInfo?.input,
-        })
-      }
-
-      if (payloadType === 'message.part.updated' && directory && directory !== 'global') {
-        const part = e?.payload?.properties?.part
-        if (part?.type === 'tool' && typeof part === 'object') {
-          const stateInfo = part?.state ?? {}
-          const status = safeString(stateInfo?.status)
-          const tool = safeString(part?.tool)
-
-          const isCompleted = status === 'completed' || status === 'success'
-          const toolLower = tool.toLowerCase()
-          const isFileWriteTool =
-            toolLower === 'write' || toolLower === 'edit' || toolLower === 'multiedit' || toolLower === 'patch' || toolLower === 'notebookedit'
-
-          console.log('[Artifacts DEBUG] Checking tool:', { tool, status, isCompleted, isFileWriteTool, directory })
-
-          if (isCompleted && isFileWriteTool) {
-            const metadata = (stateInfo?.metadata && typeof stateInfo.metadata === 'object')
-              ? stateInfo.metadata
-              : {}
-            const input = (stateInfo?.input && typeof stateInfo.input === 'object')
-              ? stateInfo.input
-              : {}
-
-            const filePath =
-              safeString(metadata?.filePath) ||
-              safeString(input?.filePath) ||
-              safeString(input?.path)
-
-            console.log('[Artifacts DEBUG] filePath extraction:', {
-              metadataFilePath: safeString(metadata?.filePath),
-              inputFilePath: safeString(input?.filePath),
-              inputPath: safeString(input?.path),
-              finalFilePath: filePath,
-            })
-
-            if (filePath) {
-              const structuredPatch = metadata?.structuredPatch
-              const unifiedDiff =
-                safeString(metadata?.diff) ||
-                structuredPatchToUnifiedDiff(filePath, structuredPatch)
-
-              // Debug: log the part structure to find correct field names
-              console.log('[Artifacts DEBUG] Part structure:', {
-                partKeys: Object.keys(part || {}),
-                sessionID: part?.sessionID,
-                session_id: part?.session_id,
-                sessionId: part?.sessionId,
-                callID: part?.callID,
-                call_id: part?.call_id,
-                callId: part?.callId,
-                id: part?.id,
-                toolCallId: part?.toolCallId,
-              })
-              
-              // Try multiple possible field names for session and tool IDs
-              const sessionId = safeString(part?.sessionID) || safeString(part?.session_id) || safeString(part?.sessionId) || `session_${Date.now()}`
-              const toolUseId = safeString(part?.callID) || safeString(part?.call_id) || safeString(part?.callId) || safeString(part?.id) || safeString(part?.toolCallId) || `tool_${Date.now()}_${Math.random().toString(36).slice(2)}`
-              
-              console.log('[Artifacts DEBUG] ENQUEUEING artifact:', { filePath, tool, directory, sessionId, toolUseId })
-              artifactIndex.enqueue({
-                backend: 'opencode',
-                sessionId,
-                messageId: safeString(part?.messageID) || safeString(part?.message_id) || safeString(part?.messageId) || null,
-                toolUseId,
-                projectPath: directory,
-                gitBranch: lastGitBranchByProject.get(directory) ?? null,
-                tool,
-                toolInput: input,
-                toolOutput: typeof stateInfo?.output === 'string' ? stateInfo.output : null,
-                filePath,
-                contentBefore: safeString(metadata?.oldString) || null,
-                contentAfter: safeString(metadata?.newString) || null,
-                unifiedDiff: unifiedDiff || null,
-                timestamp: typeof stateInfo?.time?.end === 'number' ? stateInfo.time.end : Date.now(),
-              })
-            }
-          }
-        }
-      }
-    } catch (err) {
-      console.warn('[Artifacts] Failed to enqueue OpenCode artifact:', err)
-    }
-
     const priority = getEventPriority(event)
 
     for (const ws of sockets) {
       if (!filterEventForSocket(ws, event)) continue
 
-      if (priority === 'immediate') {
+      if (priority === 'immediate' || priority === 'high') {
         send(ws, { type: 'sdk_event', data: event })
       } else {
         enqueueForClient(ws, event)
       }
     }
+
+    // Keep the hot path lean: forward SDK events first, then do any heavier work.
+    queueMicrotask(() => {
+      try {
+        const e = event as any
+        const directory = safeString(e?.directory)
+        const payloadType = safeString(e?.payload?.type)
+
+        if (payloadType === 'vcs.branch.updated' && directory) {
+          const branch = safeString(e?.payload?.properties?.branch)
+          if (branch) lastGitBranchByProject.set(directory, branch)
+        }
+
+        // Trigger enrichment on session idle (natural batching).
+        // TODO(artifacts): Re-enable when feature is ready
+        if (ARTIFACTS_ENABLED && payloadType === 'session.idle') {
+          const sid = extractSessionId(event)
+          if (sid) artifactsEnrichment?.queueArtifactsEnrichmentForSession(sid)
+        }
+
+        // Artifact indexing (OpenCode): capture completed file-write tools.
+        // TODO(artifacts): Re-enable when feature is ready
+        if (!ARTIFACTS_ENABLED) return
+        if (payloadType !== 'message.part.updated') return
+        if (!directory || directory === 'global') return
+
+        const part = e?.payload?.properties?.part
+        if (part?.type !== 'tool' || typeof part !== 'object') return
+
+        const stateInfo = part?.state ?? {}
+        const status = safeString(stateInfo?.status)
+        const tool = safeString(part?.tool)
+
+        const isCompleted = status === 'completed' || status === 'success'
+        if (!isCompleted) return
+
+        const toolLower = tool.toLowerCase()
+        const isFileWriteTool =
+          toolLower === 'write' ||
+          toolLower === 'edit' ||
+          toolLower === 'multiedit' ||
+          toolLower === 'patch' ||
+          toolLower === 'notebookedit'
+        if (!isFileWriteTool) return
+
+        const metadata = (stateInfo?.metadata && typeof stateInfo.metadata === 'object') ? stateInfo.metadata : {}
+        const input = (stateInfo?.input && typeof stateInfo.input === 'object') ? stateInfo.input : {}
+
+        const filePath =
+          safeString(metadata?.filePath) ||
+          safeString(input?.filePath) ||
+          safeString(input?.path)
+        if (!filePath) return
+
+        const structuredPatch = metadata?.structuredPatch
+        const unifiedDiff = safeString(metadata?.diff) || structuredPatchToUnifiedDiff(filePath, structuredPatch)
+
+        const sessionId =
+          safeString(part?.sessionID) ||
+          safeString(part?.session_id) ||
+          safeString(part?.sessionId) ||
+          ''
+        const toolUseId =
+          safeString(part?.callID) ||
+          safeString(part?.call_id) ||
+          safeString(part?.callId) ||
+          safeString(part?.id) ||
+          safeString(part?.toolCallId) ||
+          ''
+
+        if (DEBUG_ARTIFACTS) {
+          console.log('[Artifacts DEBUG] enqueue:', { filePath, tool, directory, sessionId, toolUseId })
+        }
+
+        artifactIndex?.enqueue({
+          backend: 'opencode',
+          sessionId: sessionId || `session_${Date.now()}`,
+          messageId: safeString(part?.messageID) || safeString(part?.message_id) || safeString(part?.messageId) || null,
+          toolUseId: toolUseId || `tool_${Date.now()}_${Math.random().toString(36).slice(2)}`,
+          projectPath: directory,
+          gitBranch: lastGitBranchByProject.get(directory) ?? null,
+          tool,
+          toolInput: input,
+          toolOutput: typeof stateInfo?.output === 'string' ? stateInfo.output : null,
+          filePath,
+          contentBefore: safeString(metadata?.oldString) || null,
+          contentAfter: safeString(metadata?.newString) || null,
+          unifiedDiff: unifiedDiff || null,
+          timestamp: typeof stateInfo?.time?.end === 'number' ? stateInfo.time.end : Date.now(),
+        })
+      } catch (err) {
+        console.warn('[Artifacts] Failed to process OpenCode artifact event:', err)
+      }
+    })
   }
 
   const HEARTBEAT_INTERVAL_MS = 20000
@@ -1401,7 +1421,7 @@ export function createBridgeServer(options: BridgeServerOptions): BridgeServer {
                 log(`[Claude Code] session created: ${actualSessionId}`)
               }
 
-              // Artifact indexing (Claude Code): track tool calls and index file-write results.
+              // Track tool calls quickly (needed for later tool-result indexing).
               try {
                 if ((streamMsg as any)?.type === 'tool-call') {
                   const toolUseId = safeString((streamMsg as any)?.toolUseId)
@@ -1410,48 +1430,62 @@ export function createBridgeServer(options: BridgeServerOptions): BridgeServer {
                   const input = (inputRaw && typeof inputRaw === 'object') ? (inputRaw as Record<string, unknown>) : {}
                   if (toolUseId) toolCallsById.set(toolUseId, { tool, input })
                 }
-
-                if ((streamMsg as any)?.type === 'tool-result') {
-                  const toolUseId = safeString((streamMsg as any)?.toolUseId)
-                  const toolUseResult = (streamMsg as any)?.toolUseResult
-                  const toolCall = toolUseId ? toolCallsById.get(toolUseId) : null
-                  const tool = toolCall?.tool ?? ''
-                  const filePath = safeString(toolUseResult?.filePath)
-
-                  if (toolUseId && filePath) {
-                    const isFileWriteTool =
-                      tool === 'Write' || tool === 'Edit' || tool === 'MultiEdit' || tool === 'Patch' || tool === 'NotebookEdit'
-                    if (isFileWriteTool) {
-                      const structuredPatch = toolUseResult?.structuredPatch
-                      const unifiedDiff = structuredPatchToUnifiedDiff(filePath, structuredPatch)
-
-                      artifactIndex.enqueue({
-                        backend: 'claude-code',
-                        sessionId: actualSessionId || message.sessionId || '',
-                        messageId: null,
-                        toolUseId,
-                        projectPath: cwd,
-                        gitBranch: null,
-                        tool,
-                        toolInput: toolCall?.input ?? {},
-                        toolOutput: null,
-                        filePath,
-                        contentBefore: safeString(toolUseResult?.oldString) || safeString(toolUseResult?.originalFile) || null,
-                        contentAfter: safeString(toolUseResult?.newString) || safeString(toolUseResult?.content) || null,
-                        unifiedDiff: unifiedDiff,
-                        timestamp: Date.now(),
-                      })
-                    }
-                  }
-                }
               } catch (err) {
-                console.warn('[Artifacts] Failed to enqueue Claude Code artifact:', err)
+                console.warn('[Artifacts] Failed to track Claude Code tool call:', err)
               }
 
               send(ws, { type: 'cc_stream', data: streamMsg, sessionId: actualSessionId })
+
+              // Artifact indexing (Claude Code): keep streaming hot path fast.
+              // Queue heavier work after sending the stream message.
+              // TODO(artifacts): Re-enable when feature is ready
+              if (ARTIFACTS_ENABLED) {
+                queueMicrotask(() => {
+                  try {
+                    if ((streamMsg as any)?.type !== 'tool-result') return
+                    const toolUseId = safeString((streamMsg as any)?.toolUseId)
+                    const toolUseResult = (streamMsg as any)?.toolUseResult
+                    const toolCall = toolUseId ? toolCallsById.get(toolUseId) : null
+                    const tool = toolCall?.tool ?? ''
+                    const filePath = safeString(toolUseResult?.filePath)
+
+                    if (!toolUseId || !filePath) return
+
+                    const isFileWriteTool =
+                      tool === 'Write' || tool === 'Edit' || tool === 'MultiEdit' || tool === 'Patch' || tool === 'NotebookEdit'
+                    if (!isFileWriteTool) return
+
+                    const structuredPatch = toolUseResult?.structuredPatch
+                    const unifiedDiff = structuredPatchToUnifiedDiff(filePath, structuredPatch)
+
+                    artifactIndex?.enqueue({
+                      backend: 'claude-code',
+                      sessionId: actualSessionId || message.sessionId || '',
+                      messageId: null,
+                      toolUseId,
+                      projectPath: cwd,
+                      gitBranch: null,
+                      tool,
+                      toolInput: toolCall?.input ?? {},
+                      toolOutput: null,
+                      filePath,
+                      contentBefore: safeString(toolUseResult?.oldString) || safeString(toolUseResult?.originalFile) || null,
+                      contentAfter: safeString(toolUseResult?.newString) || safeString(toolUseResult?.content) || null,
+                      unifiedDiff,
+                      timestamp: Date.now(),
+                    })
+                  } catch (err) {
+                    console.warn('[Artifacts] Failed to enqueue Claude Code artifact:', err)
+                  }
+                })
+              }
             },
             (completedSessionId) => {
               log(`Claude Code session ${completedSessionId} completed`)
+              // TODO(artifacts): Re-enable when feature is ready
+              if (ARTIFACTS_ENABLED) {
+                artifactsEnrichment?.queueArtifactsEnrichmentForSession(completedSessionId)
+              }
             },
             (error) => {
               log(`[Claude Code] error: ${error.message}`)
@@ -1635,8 +1669,13 @@ export function createBridgeServer(options: BridgeServerOptions): BridgeServer {
           break
         }
         // Artifact Index (SQLite)
+        // TODO(artifacts): Re-enable when feature is ready (set ARTIFACTS_ENABLED = true)
         case 'artifacts_search': {
-          const result = artifactIndex.search({
+          if (!ARTIFACTS_ENABLED) {
+            reply({ type: 'artifacts_results', data: { artifacts: [], total: 0 } })
+            break
+          }
+          const result = artifactIndex!.search({
             text: message.text,
             filters: message.filters,
             limit: message.limit,
@@ -1646,12 +1685,20 @@ export function createBridgeServer(options: BridgeServerOptions): BridgeServer {
           break
         }
         case 'artifacts_get': {
-          const artifact = artifactIndex.get(message.id)
+          if (!ARTIFACTS_ENABLED) {
+            reply({ type: 'artifact', data: null })
+            break
+          }
+          const artifact = artifactIndex!.get(message.id)
           reply({ type: 'artifact', data: artifact })
           break
         }
         case 'artifacts_update': {
-          const ok = artifactIndex.updateUserFields(message.id, {
+          if (!ARTIFACTS_ENABLED) {
+            reply({ type: 'artifact_updated', data: false, id: message.id })
+            break
+          }
+          const ok = artifactIndex!.updateUserFields(message.id, {
             ...(message.userTags != null ? { userTags: message.userTags } : {}),
             ...(typeof message.starred === 'boolean' ? { starred: message.starred } : {}),
             ...(message.notes !== undefined ? { notes: message.notes } : {}),
@@ -1660,13 +1707,21 @@ export function createBridgeServer(options: BridgeServerOptions): BridgeServer {
           break
         }
         case 'artifacts_get_config': {
-          const cfg = await getArtifactsConfig()
+          if (!ARTIFACTS_ENABLED) {
+            reply({ type: 'artifacts_config', data: { indexingEnabled: false, maxContentChars: 0, enrichment: { provider: 'off', followSelectedAgent: false, enabled: false, batchSize: 0, maxCharsPerArtifact: 0, hiddenCwd: '' } } })
+            break
+          }
+          const cfg = await getArtifactsConfig!()
           reply({ type: 'artifacts_config', data: cfg })
           break
         }
         case 'artifacts_set_config': {
-          const next = await setArtifactsConfig(message.config ?? {})
-          artifactIndex.applyConfig(next)
+          if (!ARTIFACTS_ENABLED) {
+            reply({ type: 'artifacts_config', data: { indexingEnabled: false, maxContentChars: 0, enrichment: { provider: 'off', followSelectedAgent: false, enabled: false, batchSize: 0, maxCharsPerArtifact: 0, hiddenCwd: '' } } })
+            break
+          }
+          const next = await setArtifactsConfig!(message.config ?? {})
+          artifactIndex!.applyConfig(next)
           reply({ type: 'artifacts_config', data: next })
           // Kick enrichment if newly enabled.
           if (next.enrichment.enabled && next.enrichment.provider !== 'off') {
@@ -1677,14 +1732,22 @@ export function createBridgeServer(options: BridgeServerOptions): BridgeServer {
           break
         }
         case 'artifacts_clear': {
-          artifactIndex.clearAll()
+          if (!ARTIFACTS_ENABLED) {
+            reply({ type: 'artifacts_cleared', data: true })
+            break
+          }
+          artifactIndex!.clearAll()
           reply({ type: 'artifacts_cleared', data: true })
           break
         }
         case 'artifacts_stats': {
-          const base = artifactIndex.stats()
-          const dbPath = getArtifactsDbPath()
-          const dbSizeBytes = await getArtifactsDbSizeBytes(dbPath)
+          if (!ARTIFACTS_ENABLED) {
+            reply({ type: 'artifacts_stats', data: { dbPath: '', dbSizeBytes: 0, totalArtifacts: 0, starredArtifacts: 0, backends: {}, queue: {}, updatedAt: Date.now() } })
+            break
+          }
+          const base = artifactIndex!.stats()
+          const dbPath = getArtifactsDbPath!()
+          const dbSizeBytes = await getArtifactsDbSizeBytes!(dbPath)
           reply({
             type: 'artifacts_stats',
             data: {
@@ -1693,6 +1756,7 @@ export function createBridgeServer(options: BridgeServerOptions): BridgeServer {
               totalArtifacts: base.total,
               starredArtifacts: base.starred,
               backends: base.backends,
+              queue: base.queue,
               updatedAt: Date.now(),
             },
           })
@@ -1700,6 +1764,11 @@ export function createBridgeServer(options: BridgeServerOptions): BridgeServer {
         }
         case 'artifacts_enrich_now': {
           // Implemented in artifacts/enrichment - no-op until enabled.
+          // TODO(artifacts): Re-enable when feature is ready
+          if (!ARTIFACTS_ENABLED) {
+            reply({ type: 'artifacts_enrich_started', data: false })
+            break
+          }
           const started = await (await import('./artifacts/enrichment')).triggerArtifactsEnrichment()
           reply({ type: 'artifacts_enrich_started', data: started })
           break

@@ -105,6 +105,7 @@ export type ArtifactEnrichmentProvider = 'off' | 'claude-code' | 'opencode'
 
 export type ArtifactEnrichmentConfig = {
   provider: ArtifactEnrichmentProvider
+  followSelectedAgent: boolean
   enabled: boolean
   batchSize: number
   maxCharsPerArtifact: number
@@ -123,7 +124,24 @@ export type ArtifactsStats = {
   totalArtifacts: number
   starredArtifacts: number
   backends: Record<ArtifactBackend, number>
+  queue?: {
+    pendingKeys: number
+    pendingChars: number
+    evictedKeys: number
+    coalescedUpdates: number
+    maxPendingKeys: number
+    maxPendingChars: number
+  }
   updatedAt: number
+}
+
+export type ArtifactsEnrichmentEvent = {
+  phase: 'started' | 'completed' | 'error'
+  provider: ArtifactEnrichmentProvider
+  enrichedCount?: number
+  pendingCount?: number
+  message?: string
+  at: number
 }
 
 export type ArtifactIndexEvent = {

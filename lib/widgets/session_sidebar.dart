@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import '../models/claude_code.dart';
 import '../models/message.dart';
 import '../models/session_context.dart';
 import '../models/todo.dart';
@@ -20,6 +21,8 @@ class SessionSidebar extends StatelessWidget {
     this.vcsInfo,
     this.sessionDiffs = const [],
     this.onOpenDiff,
+    this.isClaudeCode = false,
+    this.ccInit,
   });
 
   final String sessionTitle;
@@ -30,6 +33,9 @@ class SessionSidebar extends StatelessWidget {
   final VcsInfo? vcsInfo;
   final List<DiffEntry> sessionDiffs;
   final void Function(DiffEntry diff)? onOpenDiff;
+  // Claude Code mode
+  final bool isClaudeCode;
+  final CCSessionInit? ccInit;
 
   @override
   Widget build(BuildContext context) {
@@ -54,10 +60,18 @@ class SessionSidebar extends StatelessWidget {
                   const SizedBox(height: 8),
                   _buildContextSection(context, theme),
                   const SizedBox(height: 20),
-                  _buildPlanSection(context, theme),
-                  const SizedBox(height: 20),
-                  _buildLspSection(context, theme),
-                  const SizedBox(height: 20),
+                  // Claude Code: Show session info + plan (CC has TodoWrite tool)
+                  if (isClaudeCode) ...[
+                    _buildClaudeCodeInfoSection(context, theme),
+                    const SizedBox(height: 20),
+                    _buildPlanSection(context, theme),
+                    const SizedBox(height: 20),
+                  ] else ...[
+                    _buildPlanSection(context, theme),
+                    const SizedBox(height: 20),
+                    _buildLspSection(context, theme),
+                    const SizedBox(height: 20),
+                  ],
                   _buildChangesSection(context, theme),
                   const SizedBox(height: 20),
                   _buildModifiedFilesSection(context, theme),
@@ -205,6 +219,101 @@ class SessionSidebar extends StatelessWidget {
               icon: Icons.attach_money,
             ),
           ],
+        ),
+      ],
+    );
+  }
+
+  /// Claude Code specific info section showing model, permission mode, tools
+  Widget _buildClaudeCodeInfoSection(
+    BuildContext context,
+    OpenCodeTheme theme,
+  ) {
+    final init = ccInit;
+    if (init == null) {
+      return _SidebarSection(
+        theme: theme,
+        title: 'Session Info',
+        icon: Icons.info_outline,
+        children: [
+          Container(
+            padding: const EdgeInsets.all(12),
+            decoration: BoxDecoration(
+              color: theme.backgroundPanel,
+              borderRadius: BorderRadius.circular(8),
+              border: Border.all(color: theme.borderSubtle, width: 1),
+            ),
+            child: Row(
+              children: [
+                Icon(Icons.hourglass_empty, color: theme.textMuted, size: 16),
+                const SizedBox(width: 8),
+                Text(
+                  'Waiting for session...',
+                  style: TextStyle(color: theme.textMuted, fontSize: 13),
+                ),
+              ],
+            ),
+          ),
+        ],
+      );
+    }
+
+    return _SidebarSection(
+      theme: theme,
+      title: 'Claude Code',
+      icon: Icons.smart_toy_outlined,
+      children: [
+        Container(
+          decoration: BoxDecoration(
+            color: theme.backgroundPanel,
+            borderRadius: BorderRadius.circular(10),
+            border: Border.all(color: theme.borderSubtle, width: 1),
+          ),
+          child: Column(
+            children: [
+              // Model info
+              _InfoRow(
+                theme: theme,
+                icon: Icons.memory,
+                label: 'Model',
+                value: init.model.isNotEmpty ? init.model : 'sonnet',
+              ),
+              Divider(height: 1, color: theme.borderSubtle),
+              // Permission mode
+              _InfoRow(
+                theme: theme,
+                icon: Icons.security,
+                label: 'Mode',
+                value: init.permissionMode.displayName,
+              ),
+              Divider(height: 1, color: theme.borderSubtle),
+              // Tools count
+              _InfoRow(
+                theme: theme,
+                icon: Icons.build_outlined,
+                label: 'Tools',
+                value: '${init.tools.length} enabled',
+              ),
+              if (init.mcpServers.isNotEmpty) ...[
+                Divider(height: 1, color: theme.borderSubtle),
+                _InfoRow(
+                  theme: theme,
+                  icon: Icons.dns_outlined,
+                  label: 'MCP Servers',
+                  value: '${init.mcpServers.length} connected',
+                ),
+              ],
+              if (init.claudeCodeVersion != null) ...[
+                Divider(height: 1, color: theme.borderSubtle),
+                _InfoRow(
+                  theme: theme,
+                  icon: Icons.info_outline,
+                  label: 'Version',
+                  value: init.claudeCodeVersion!,
+                ),
+              ],
+            ],
+          ),
         ),
       ],
     );
@@ -590,6 +699,48 @@ class _StatItem extends StatelessWidget {
               style: TextStyle(fontSize: 12, color: theme.textMuted),
             ),
           ],
+        ],
+      ),
+    );
+  }
+}
+
+/// Info row for Claude Code sidebar (icon, label, value)
+class _InfoRow extends StatelessWidget {
+  const _InfoRow({
+    required this.theme,
+    required this.icon,
+    required this.label,
+    required this.value,
+  });
+
+  final OpenCodeTheme theme;
+  final IconData icon;
+  final String label;
+  final String value;
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+      child: Row(
+        children: [
+          Icon(icon, size: 16, color: theme.textMuted),
+          const SizedBox(width: 10),
+          Expanded(
+            child: Text(
+              label,
+              style: TextStyle(fontSize: 13, color: theme.textMuted),
+            ),
+          ),
+          Text(
+            value,
+            style: TextStyle(
+              fontSize: 13,
+              color: theme.text,
+              fontWeight: FontWeight.w500,
+            ),
+          ),
         ],
       ),
     );

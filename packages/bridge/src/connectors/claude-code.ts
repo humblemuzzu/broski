@@ -905,10 +905,11 @@ export async function queryClaudeCode(
       abortController: controller,
       settingSources: ['project'],
       // File checkpointing: enable tracking of file changes for undo/rewind support
+      // Note: The env option was removed as it causes the SDK to hang.
+      // enableFileCheckpointing alone should be sufficient for undo support.
       ...(enableCheckpointing && {
         enableFileCheckpointing: true,
         extraArgs: { 'replay-user-messages': null }, // Required to get user message UUIDs
-        env: { CLAUDE_CODE_ENABLE_SDK_FILE_CHECKPOINTING: '1' },
       }),
     }
 
@@ -1172,7 +1173,7 @@ export async function queryClaudeCode(
         }
       }
 
-      // Result / token usage + cost (end of turn)
+      // Result / token usage + cost (end of conversation - cumulative totals)
       if (message?.type === 'result') {
         if (message.usage) {
           onMessage({
@@ -1181,7 +1182,10 @@ export async function queryClaudeCode(
               inputTokens: message.usage.input_tokens,
               outputTokens: message.usage.output_tokens,
               cacheReadTokens: message.usage.cache_read_input_tokens,
+              cacheCreationTokens: message.usage.cache_creation_input_tokens,
             },
+            // Include cost if available (cumulative for entire session)
+            totalCostUsd: message.usage.total_cost_usd,
           })
         }
       }

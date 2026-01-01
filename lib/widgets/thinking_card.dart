@@ -174,12 +174,14 @@ class _ThinkingCardState extends State<ThinkingCard>
       ),
       child: Center(
         child: isStreaming
-            ? SizedBox(
-                width: 14,
-                height: 14,
-                child: CircularProgressIndicator(
-                  strokeWidth: 2,
-                  valueColor: AlwaysStoppedAnimation<Color>(thinkingColor),
+            ? RepaintBoundary(
+                child: SizedBox(
+                  width: 14,
+                  height: 14,
+                  child: CircularProgressIndicator(
+                    strokeWidth: 2,
+                    valueColor: AlwaysStoppedAnimation<Color>(thinkingColor),
+                  ),
                 ),
               )
             : Icon(Icons.psychology_rounded, size: 14, color: thinkingColor),
@@ -268,12 +270,14 @@ class ThinkingChip extends StatelessWidget {
           mainAxisSize: MainAxisSize.min,
           children: [
             if (isStreaming)
-              SizedBox(
-                width: 12,
-                height: 12,
-                child: CircularProgressIndicator(
-                  strokeWidth: 1.5,
-                  valueColor: AlwaysStoppedAnimation<Color>(thinkingColor),
+              RepaintBoundary(
+                child: SizedBox(
+                  width: 12,
+                  height: 12,
+                  child: CircularProgressIndicator(
+                    strokeWidth: 1.5,
+                    valueColor: AlwaysStoppedAnimation<Color>(thinkingColor),
+                  ),
                 ),
               )
             else

@@ -24,11 +24,17 @@ import '../models/vcs.dart';
 import 'websocket_service.dart';
 
 class BridgeService {
-  BridgeService(this._socket);
+  BridgeService(this._socket) {
+    _dispatcherSub = _socket.messages.listen(_dispatchMessage);
+  }
 
   final WebSocketService _socket;
   final _random = Random();
   int _requestCounter = 0;
+  late final StreamSubscription<Map<String, dynamic>> _dispatcherSub;
+  final Map<String, Completer<Map<String, dynamic>>> _pendingByRequestId = {};
+  final Map<String, Map<String, dynamic>> _earlyResponsesByRequestId = {};
+  final Map<String, int> _earlyResponseAtMs = {};
 
   // ============================================================
   // In-flight Request Deduplication
@@ -117,6 +123,42 @@ class BridgeService {
   }
 
   Stream<Map<String, dynamic>> get messages => _socket.messages;
+
+  void _dispatchMessage(Map<String, dynamic> message) {
+    final requestId = message['requestId'];
+    if (requestId is! String || requestId.isEmpty) return;
+    final waiter = _pendingByRequestId.remove(requestId);
+    if (waiter != null && !waiter.isCompleted) {
+      waiter.complete(message);
+      return;
+    }
+
+    // Response arrived before the caller registered its waiter. Keep a short
+    // lived cache to avoid rare "missed response" timeouts.
+    final nowMs = DateTime.now().millisecondsSinceEpoch;
+    _earlyResponsesByRequestId[requestId] = message;
+    _earlyResponseAtMs[requestId] = nowMs;
+
+    // Best-effort cleanup to keep memory bounded.
+    if (_earlyResponsesByRequestId.length > 64) {
+      _earlyResponsesByRequestId.clear();
+      _earlyResponseAtMs.clear();
+    }
+  }
+
+  void dispose() {
+    _dispatcherSub.cancel();
+    for (final entry in _pendingByRequestId.entries) {
+      if (!entry.value.isCompleted) {
+        entry.value.completeError(
+          StateError('BridgeService disposed while waiting for response'),
+        );
+      }
+    }
+    _pendingByRequestId.clear();
+    _earlyResponsesByRequestId.clear();
+    _earlyResponseAtMs.clear();
+  }
 
   Stream<Map<String, dynamic>> get sdkEvents =>
       _socket.messages.expand((message) {
@@ -250,7 +292,10 @@ class BridgeService {
         'limit': limit,
         'offset': offset,
       });
-      final response = await _waitFor('artifacts_results', requestId: requestId);
+      final response = await _waitFor(
+        'artifacts_results',
+        requestId: requestId,
+      );
       final data = response['data'] as Map<String, dynamic>? ?? const {};
       return ArtifactSearchResult.fromJson(data);
     });
@@ -285,10 +330,7 @@ class BridgeService {
         if (starred != null) 'starred': starred,
         if (notes != null) 'notes': notes,
       });
-      final response = await _waitFor(
-        'artifact_updated',
-        requestId: requestId,
-      );
+      final response = await _waitFor('artifact_updated', requestId: requestId);
       return response['data'] as bool? ?? false;
     });
   }
@@ -2123,33 +2165,75 @@ class BridgeService {
   // ============================================================
 
   Future<Map<String, dynamic>> _waitFor(String type, {String? requestId}) {
-    return _socket.messages
-        .firstWhere((message) {
-          final msgType = message['type'] as String?;
+    if (requestId == null || requestId.isEmpty) {
+      return _socket.messages
+          .firstWhere((message) {
+            final msgType = message['type'] as String?;
+            return msgType == type || msgType == 'error';
+          })
+          .timeout(
+            const Duration(seconds: 10),
+            onTimeout: () =>
+                throw TimeoutException('Bridge response timeout: $type'),
+          )
+          .then((message) {
+            if (message['type'] == 'error') {
+              final errorMsg = message['message'] as String? ?? 'Unknown error';
+              throw Exception('Bridge error: $errorMsg');
+            }
+            return message;
+          });
+    }
 
-          // Match by requestId if provided
-          if (requestId != null && message['requestId'] != null) {
-            if (message['requestId'] != requestId) return false;
-            // If requestId matches, check if it's our type OR an error
-            if (msgType == type || msgType == 'error') return true;
-            return false;
-          }
+    final nowMs = DateTime.now().millisecondsSinceEpoch;
+    final cached = _earlyResponsesByRequestId.remove(requestId);
+    final cachedAt = _earlyResponseAtMs.remove(requestId);
+    if (cached != null && cachedAt != null && nowMs - cachedAt <= 10_000) {
+      final msgType = cached['type'] as String?;
+      if (msgType == 'error') {
+        final errorMsg = cached['message'] as String? ?? 'Unknown error';
+        throw Exception('Bridge error: $errorMsg');
+      }
+      if (msgType != type) {
+        throw Exception(
+          'Bridge response mismatch: expected=$type got=$msgType',
+        );
+      }
+      return Future.value(cached);
+    }
 
-          // No requestId - match by type
-          return msgType == type;
-        })
-        .timeout(
-          const Duration(seconds: 10),
-          onTimeout: () =>
-              throw TimeoutException('Bridge response timeout: $type'),
-        )
-        .then((message) {
-          // If we received an error, throw it instead of returning
-          if (message['type'] == 'error') {
-            final errorMsg = message['message'] as String? ?? 'Unknown error';
-            throw Exception('Bridge error: $errorMsg');
-          }
-          return message;
-        });
+    if (_pendingByRequestId.containsKey(requestId)) {
+      return _pendingByRequestId[requestId]!.future;
+    }
+
+    final completer = Completer<Map<String, dynamic>>();
+    _pendingByRequestId[requestId] = completer;
+
+    final timer = Timer(const Duration(seconds: 10), () {
+      _pendingByRequestId.remove(requestId);
+      if (!completer.isCompleted) {
+        completer.completeError(
+          TimeoutException('Bridge response timeout: $type'),
+        );
+      }
+    });
+
+    return completer.future.then((message) {
+      timer.cancel();
+
+      final msgType = message['type'] as String?;
+      if (msgType == 'error') {
+        final errorMsg = message['message'] as String? ?? 'Unknown error';
+        throw Exception('Bridge error: $errorMsg');
+      }
+
+      if (msgType != type) {
+        throw Exception(
+          'Bridge response mismatch: expected=$type got=$msgType',
+        );
+      }
+
+      return message;
+    });
   }
 }

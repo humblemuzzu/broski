@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'dart:convert';
 
+import 'package:flutter/foundation.dart';
 import 'package:web_socket_channel/web_socket_channel.dart';
 
 enum ConnectionStatus { disconnected, connecting, connected }
@@ -23,7 +24,10 @@ class BatchThresholds {
 
 class WebSocketService {
   WebSocketChannel? _channel;
+  StreamSubscription<dynamic>? _channelSubscription; // FIX: Track subscription
   ConnectionStatus _status = ConnectionStatus.disconnected;
+  int _connectionId =
+      0; // FIX: Track connection attempts for race condition prevention
 
   final _messageController = StreamController<Map<String, dynamic>>.broadcast();
   final _statusController = StreamController<ConnectionStatus>.broadcast();
@@ -34,6 +38,11 @@ class WebSocketService {
   int _currentRttMs = 0;
   String _connectionType = 'unknown';
 
+  // FIX: Queue for messages during reconnection
+  final List<Map<String, dynamic>> _reconnectQueue = [];
+  static const _maxQueueSize = 50; // Prevent unbounded growth
+  bool _isReconnecting = false;
+
   // Ping/pong heartbeat state
   Timer? _pingTimer;
   Timer? _pongTimeoutTimer;
@@ -42,12 +51,20 @@ class WebSocketService {
   static const _pongTimeout = Duration(seconds: 10);
   bool _waitingForPong = false;
 
+  // Incoming message decode queue (keeps ordering while allowing background
+  // JSON parsing for large payloads).
+  final List<String> _rawQueue = [];
+  bool _isDecoding = false;
+
   // Message types that should be sent immediately (bypass batching)
   static const _immediateTypes = {
     'permission_response',
+    'cc_permission_response',
     'abort',
+    'cc_abort',
     'pong',
     'set_view',
+    'cc_chat',
   };
 
   // Message types with high priority (shorter batch window)
@@ -84,6 +101,13 @@ class WebSocketService {
       throw StateError('Invalid connection URI');
     }
 
+    // FIX: Increment connection ID to invalidate any in-flight operations
+    final thisConnectionId = ++_connectionId;
+
+    // FIX: Cancel existing subscription before closing channel
+    await _channelSubscription?.cancel();
+    _channelSubscription = null;
+
     // Close existing channel without triggering disconnected status
     await _channel?.sink.close();
     _channel = null;
@@ -93,21 +117,40 @@ class WebSocketService {
     _pendingBatch.clear();
 
     _setStatus(ConnectionStatus.connecting);
+    _isReconnecting = true;
     _channel = WebSocketChannel.connect(uri);
 
     // Wait for the connection to be ready
     try {
       await _channel!.ready;
+
+      // FIX: Check if this connection attempt is still valid
+      if (_connectionId != thisConnectionId) {
+        // A newer connection attempt superseded us, abort
+        _channel?.sink.close();
+        return;
+      }
+
       _setStatus(ConnectionStatus.connected);
+      _isReconnecting = false;
       _startHeartbeat();
+
+      // FIX: Flush any queued messages from during reconnection
+      _flushReconnectQueue();
     } catch (e) {
+      if (_connectionId != thisConnectionId) return; // Superseded
       _channel = null;
+      _isReconnecting = false;
       _setStatus(ConnectionStatus.disconnected);
       rethrow;
     }
 
-    _channel!.stream.listen(
+    // FIX: Store subscription so we can cancel it
+    _channelSubscription = _channel!.stream.listen(
       (event) {
+        // FIX: Ignore events from stale connections
+        if (_connectionId != thisConnectionId) return;
+
         if (event is String) {
           _handleMessage(event);
         } else if (event is List<int>) {
@@ -115,9 +158,11 @@ class WebSocketService {
         }
       },
       onError: (_) {
+        if (_connectionId != thisConnectionId) return;
         _setStatus(ConnectionStatus.disconnected);
       },
       onDone: () {
+        if (_connectionId != thisConnectionId) return;
         _setStatus(ConnectionStatus.disconnected);
       },
       cancelOnError: true,
@@ -125,9 +170,14 @@ class WebSocketService {
   }
 
   /// Send a message with optional batching based on priority.
-  void send(Map<String, dynamic> message) {
+  /// Returns true if sent/queued successfully, false if dropped.
+  bool send(Map<String, dynamic> message) {
     final channel = _channel;
-    if (channel == null) return;
+
+    // FIX: Queue messages during reconnection instead of dropping
+    if (channel == null || _isReconnecting) {
+      return _queueForReconnect(message);
+    }
 
     final type = message['type'] as String? ?? '';
     final priority = _getPriority(type);
@@ -135,7 +185,7 @@ class WebSocketService {
     // Immediate priority bypasses batching entirely
     if (priority == MessagePriority.immediate) {
       channel.sink.add(jsonEncode(message));
-      return;
+      return true;
     }
 
     // Add to batch
@@ -146,13 +196,54 @@ class WebSocketService {
       final delayMs = _getBatchDelay(priority);
       _batchTimer = Timer(Duration(milliseconds: delayMs), _flushBatch);
     }
+    return true;
   }
 
   /// Send a message immediately without batching.
-  void sendImmediate(Map<String, dynamic> message) {
+  /// Returns true if sent successfully, false if queued or dropped.
+  bool sendImmediate(Map<String, dynamic> message) {
+    final channel = _channel;
+
+    // FIX: Queue during reconnection
+    if (channel == null || _isReconnecting) {
+      return _queueForReconnect(message);
+    }
+
+    channel.sink.add(jsonEncode(message));
+    return true;
+  }
+
+  /// Queue a message to be sent after reconnection.
+  bool _queueForReconnect(Map<String, dynamic> message) {
+    final type = message['type'] as String? ?? '';
+
+    // Don't queue low-value messages
+    if (type == 'client_ping' || type == 'pong') {
+      return false;
+    }
+
+    // Prevent unbounded queue growth
+    if (_reconnectQueue.length >= _maxQueueSize) {
+      // Remove oldest non-critical message
+      _reconnectQueue.removeAt(0);
+    }
+
+    _reconnectQueue.add(message);
+    return true;
+  }
+
+  /// Flush queued messages after successful reconnection.
+  void _flushReconnectQueue() {
+    if (_reconnectQueue.isEmpty) return;
+
     final channel = _channel;
     if (channel == null) return;
-    channel.sink.add(jsonEncode(message));
+
+    // Send all queued messages
+    for (final message in _reconnectQueue) {
+      channel.sink.add(jsonEncode(message));
+    }
+    _reconnectQueue.clear();
   }
 
   MessagePriority _getPriority(String type) {
@@ -195,7 +286,11 @@ class WebSocketService {
     if (_pendingBatch.isEmpty) return;
 
     final channel = _channel;
-    if (channel == null) {
+    if (channel == null || _isReconnecting) {
+      // FIX: Queue batched messages instead of dropping
+      for (final msg in _pendingBatch) {
+        _queueForReconnect(msg);
+      }
       _pendingBatch.clear();
       return;
     }
@@ -219,28 +314,45 @@ class WebSocketService {
   }
 
   Future<void> disconnect() async {
+    _connectionId++; // Invalidate any in-flight operations
     _stopHeartbeat();
     _batchTimer?.cancel();
     _pendingBatch.clear();
+    _reconnectQueue.clear(); // Clear queue on intentional disconnect
+    await _channelSubscription?.cancel();
+    _channelSubscription = null;
     await _channel?.sink.close();
     _channel = null;
+    _isReconnecting = false;
     _setStatus(ConnectionStatus.disconnected);
   }
 
   /// Force close the connection without graceful shutdown.
   /// Use this when the app goes to background to ensure clean state.
   void forceClose() {
+    _connectionId++; // Invalidate any in-flight operations
     _stopHeartbeat();
     _batchTimer?.cancel();
     _pendingBatch.clear();
+    // Keep reconnect queue - we might want these after foregrounding
+    _channelSubscription?.cancel();
+    _channelSubscription = null;
     _channel?.sink.close();
     _channel = null;
+    _isReconnecting = false;
     _setStatus(ConnectionStatus.disconnected);
   }
 
   void dispose() {
+    _connectionId++; // Invalidate any in-flight operations
     _stopHeartbeat();
     _batchTimer?.cancel();
+    _pendingBatch.clear();
+    _reconnectQueue.clear();
+    _channelSubscription?.cancel();
+    _channelSubscription = null;
+    _channel?.sink.close(); // FIX: Close the channel on dispose
+    _channel = null;
     _messageController.close();
     _statusController.close();
   }
@@ -298,33 +410,59 @@ class WebSocketService {
     _pongTimeoutTimer?.cancel();
   }
 
+  static Map<String, dynamic> _decodeJsonMap(String raw) {
+    final decoded = jsonDecode(raw);
+    return decoded is Map<String, dynamic> ? decoded : <String, dynamic>{};
+  }
+
   void _handleMessage(String raw) {
+    _rawQueue.add(raw);
+    if (_isDecoding) return;
+    _isDecoding = true;
+    unawaited(_drainRawQueue());
+  }
+
+  Future<void> _drainRawQueue() async {
     try {
-      final data = jsonDecode(raw) as Map<String, dynamic>;
+      while (_rawQueue.isNotEmpty) {
+        final raw = _rawQueue.removeAt(0);
 
-      // Handle bridge heartbeat without bubbling it up to the UI.
-      if (data['type'] == 'ping') {
-        final payload = data['data'] as Map<String, dynamic>? ?? const {};
-        final id = payload['id'] as String? ?? '';
-        final sentAt = payload['sentAt'] as int? ?? 0;
-        if (id.isNotEmpty && sentAt > 0) {
-          // Pong is immediate priority - send directly
-          sendImmediate({'type': 'pong', 'id': id, 'sentAt': sentAt});
+        final Map<String, dynamic> data;
+        if (raw.length > 4096) {
+          // Offload large payload parsing to a background isolate.
+          data = await compute(_decodeJsonMap, raw);
+        } else {
+          data = _decodeJsonMap(raw);
         }
-        // Bridge ping counts as proof connection is alive
-        _onPongReceived();
-        return;
-      }
 
-      // Handle response to our client ping
-      if (data['type'] == 'client_pong') {
-        _onPongReceived();
-        return;
-      }
+        if (data.isEmpty) continue;
 
-      _messageController.add(data);
+        // Handle bridge heartbeat without bubbling it up to the UI.
+        if (data['type'] == 'ping') {
+          final payload = data['data'] as Map<String, dynamic>? ?? const {};
+          final id = payload['id'] as String? ?? '';
+          final sentAt = payload['sentAt'] as int? ?? 0;
+          if (id.isNotEmpty && sentAt > 0) {
+            // Pong is immediate priority - send directly
+            sendImmediate({'type': 'pong', 'id': id, 'sentAt': sentAt});
+          }
+          // Bridge ping counts as proof connection is alive
+          _onPongReceived();
+          continue;
+        }
+
+        // Handle response to our client ping
+        if (data['type'] == 'client_pong') {
+          _onPongReceived();
+          continue;
+        }
+
+        _messageController.add(data);
+      }
     } catch (_) {
       // Ignore malformed payloads.
+    } finally {
+      _isDecoding = false;
     }
   }
 

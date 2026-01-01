@@ -15,10 +15,107 @@ import type {
   ArtifactTool,
 } from './types'
 
+const DEBUG_ARTIFACTS = process.env.BROSKI_DEBUG_ARTIFACTS === '1'
+
+function clampIntEnv(name: string, fallback: number, min: number, max: number): number {
+  const raw = process.env[name]
+  if (raw == null || raw.trim().length === 0) return fallback
+  const n = Number(raw)
+  if (!Number.isFinite(n)) return fallback
+  return Math.min(Math.max(Math.trunc(n), min), max)
+}
+
 function clampText(value: string | null | undefined, maxChars: number): string | null {
   if (typeof value !== 'string') return null
   if (value.length <= maxChars) return value
   return `${value.slice(0, maxChars)}\n\n…(truncated)…`
+}
+
+function clampQueueText(value: unknown, maxChars: number): string | null {
+  if (maxChars <= 0) return null
+  if (typeof value !== 'string') return null
+  if (value.length <= maxChars) return value
+  return value.slice(0, maxChars)
+}
+
+function stableArtifactKey(backend: ArtifactBackend, sessionId: string, toolUseId: string): string {
+  return `${backend}:${sessionId}:${toolUseId}`
+}
+
+function estimateEventSizeChars(event: ArtifactIndexEvent): number {
+  let n = 0
+  // Most risk comes from large string payloads; we track those.
+  if (typeof event.filePath === 'string') n += event.filePath.length
+  if (typeof event.contentBefore === 'string') n += event.contentBefore.length
+  if (typeof event.contentAfter === 'string') n += event.contentAfter.length
+  if (typeof event.unifiedDiff === 'string') n += event.unifiedDiff.length
+  if (typeof event.toolOutput === 'string') n += event.toolOutput.length
+  // Tool input is typically small metadata; count a small constant to avoid expensive sizing.
+  if (event.toolInput && typeof event.toolInput === 'object') n += 256
+  return n
+}
+
+function normalizeEventForQueue(
+  event: ArtifactIndexEvent,
+  pressure: 'normal' | 'high' | 'critical',
+): ArtifactIndexEvent {
+  const caps =
+    pressure === 'critical'
+      ? { contentAfter: 0, contentBefore: 0, unifiedDiff: 5_000, toolOutput: 0 }
+      : pressure === 'high'
+        ? { contentAfter: 10_000, contentBefore: 5_000, unifiedDiff: 20_000, toolOutput: 5_000 }
+        : { contentAfter: 50_000, contentBefore: 20_000, unifiedDiff: 80_000, toolOutput: 20_000 }
+
+  return {
+    ...event,
+    // Under pressure, drop non-essential tool input to keep memory bounded.
+    toolInput: pressure === 'critical' ? {} : (event.toolInput ?? {}),
+    contentAfter: clampQueueText(event.contentAfter, caps.contentAfter),
+    contentBefore: clampQueueText(event.contentBefore, caps.contentBefore),
+    unifiedDiff: clampQueueText(event.unifiedDiff, caps.unifiedDiff),
+    toolOutput: clampQueueText(event.toolOutput, caps.toolOutput),
+  }
+}
+
+function mergeArtifactEvents(prev: ArtifactIndexEvent, next: ArtifactIndexEvent): ArtifactIndexEvent {
+  const pickString = (a: unknown, b: unknown): string | null => {
+    const as = typeof a === 'string' && a.trim().length > 0 ? a : null
+    const bs = typeof b === 'string' && b.trim().length > 0 ? b : null
+    return bs ?? as
+  }
+
+  const pickLonger = (a: unknown, b: unknown): string | null => {
+    const as = typeof a === 'string' && a.length > 0 ? a : null
+    const bs = typeof b === 'string' && b.length > 0 ? b : null
+    if (!as) return bs
+    if (!bs) return as
+    return bs.length >= as.length ? bs : as
+  }
+
+  const mergedToolInput =
+    next.toolInput && Object.keys(next.toolInput).length > 0
+      ? next.toolInput
+      : (prev.toolInput ?? {})
+
+  return {
+    ...prev,
+    ...next,
+    messageId: next.messageId ?? prev.messageId ?? null,
+    gitBranch: next.gitBranch ?? prev.gitBranch ?? null,
+    filePath: pickString(prev.filePath, next.filePath),
+    tool: pickString(prev.tool, next.tool) ?? '',
+    toolInput: mergedToolInput,
+    toolOutput: pickLonger(prev.toolOutput, next.toolOutput),
+    contentBefore: pickLonger(prev.contentBefore, next.contentBefore),
+    contentAfter: pickLonger(prev.contentAfter, next.contentAfter),
+    unifiedDiff: pickLonger(prev.unifiedDiff, next.unifiedDiff),
+    timestamp: (() => {
+      const a = Number(prev.timestamp ?? 0)
+      const b = Number(next.timestamp ?? 0)
+      const t = Math.max(a, b)
+      return t > 0 ? t : (next.timestamp ?? prev.timestamp)
+    })(),
+  }
 }
 
 function joinText(values: string[] | null | undefined): { json: string | null; text: string | null } {
@@ -234,17 +331,30 @@ function rowToArtifactSummary(row: SqlRow): ArtifactSummary {
 }
 
 export class ArtifactIndex {
-  private queue: ArtifactIndexEvent[] = []
+  // Option A: bounded, coalescing in-memory queue (never unbounded RAM growth).
+  // We coalesce by stable artifact identity (backend+sessionId+toolUseId).
+  // We keep an LRU-like order list using (key, version) tokens so updates are O(1).
+  private pendingByKey = new Map<string, { event: ArtifactIndexEvent; sizeChars: number; v: number }>()
+  private order: Array<{ k: string; v: number }> = []
+  private processHead = 0
+  private evictHead = 0
+  private pendingChars = 0
+  private seq = 0
+  private evictedKeys = 0
+  private coalescedUpdates = 0
   private processing = false
   private enabled = true
   private maxContentChars = 250_000
   private enrichment: ArtifactEnrichmentConfig = {
     provider: 'off',
+    followSelectedAgent: true,
     enabled: false,
     batchSize: 5,
     maxCharsPerArtifact: 6000,
     hiddenCwd: '/tmp/broski-enrichment',
   }
+  private maxPendingKeys = clampIntEnv('BROSKI_ARTIFACT_QUEUE_MAX_KEYS', 1000, 50, 50_000)
+  private maxPendingChars = clampIntEnv('BROSKI_ARTIFACT_QUEUE_MAX_CHARS', 12_000_000, 200_000, 200_000_000)
 
   applyConfig(config: ArtifactsConfig): void {
     this.enabled = config.indexingEnabled
@@ -258,7 +368,33 @@ export class ArtifactIndex {
     if (event.projectPath && this.enrichment.hiddenCwd && event.projectPath.startsWith(this.enrichment.hiddenCwd)) {
       return
     }
-    this.queue.push(event)
+
+    const key = stableArtifactKey(event.backend, event.sessionId, event.toolUseId)
+    const pressure = this.queuePressure()
+    const normalized = normalizeEventForQueue(event, pressure)
+
+    const existing = this.pendingByKey.get(key)
+    if (existing) {
+      const merged = mergeArtifactEvents(existing.event, normalized)
+      const nextSize = estimateEventSizeChars(merged)
+      this.pendingChars += nextSize - existing.sizeChars
+      existing.event = merged
+      existing.sizeChars = nextSize
+      existing.v = ++this.seq
+      this.order.push({ k: key, v: existing.v })
+      this.coalescedUpdates++
+    } else {
+      const next = {
+        event: normalized,
+        sizeChars: estimateEventSizeChars(normalized),
+        v: ++this.seq,
+      }
+      this.pendingByKey.set(key, next)
+      this.pendingChars += next.sizeChars
+      this.order.push({ k: key, v: next.v })
+    }
+
+    this.evictIfNeeded()
     this.kick()
   }
 
@@ -270,7 +406,7 @@ export class ArtifactIndex {
 
   private async processLoop(): Promise<void> {
     for (;;) {
-      const next = this.queue.shift()
+      const next = this.dequeueNext()
       if (!next) break
       try {
         await this.indexEvent(next)
@@ -279,7 +415,71 @@ export class ArtifactIndex {
       }
     }
     this.processing = false
-    if (this.queue.length > 0) this.kick()
+    if (this.pendingByKey.size > 0) this.kick()
+  }
+
+  private dequeueNext(): ArtifactIndexEvent | null {
+    for (;;) {
+      if (this.processHead >= this.order.length) {
+        this.compactOrderIfNeeded()
+        return null
+      }
+      const token = this.order[this.processHead++]
+      const entry = this.pendingByKey.get(token.k)
+      if (!entry) continue
+      if (entry.v !== token.v) continue
+
+      this.pendingByKey.delete(token.k)
+      this.pendingChars -= entry.sizeChars
+      this.compactOrderIfNeeded()
+      return entry.event
+    }
+  }
+
+  private compactOrderIfNeeded(): void {
+    // Prevent the order list from growing forever due to version tokens.
+    const minHead = Math.min(this.processHead, this.evictHead)
+    if (minHead < 4096) return
+    if (minHead < this.order.length / 2) return
+    this.order = this.order.slice(minHead)
+    this.processHead -= minHead
+    this.evictHead -= minHead
+  }
+
+  private queuePressure(): 'normal' | 'high' | 'critical' {
+    const keyRatio = this.maxPendingKeys > 0 ? this.pendingByKey.size / this.maxPendingKeys : 0
+    const charRatio = this.maxPendingChars > 0 ? this.pendingChars / this.maxPendingChars : 0
+    const r = Math.max(keyRatio, charRatio)
+    if (r >= 0.9) return 'critical'
+    if (r >= 0.7) return 'high'
+    return 'normal'
+  }
+
+  private evictIfNeeded(): void {
+    // Evict oldest (LRU-token order) until within bounds.
+    while (this.pendingByKey.size > this.maxPendingKeys || this.pendingChars > this.maxPendingChars) {
+      const evicted = this.evictOne()
+      if (!evicted) break
+    }
+  }
+
+  private evictOne(): boolean {
+    for (;;) {
+      if (this.evictHead >= this.order.length) {
+        // Nothing left to evict.
+        this.compactOrderIfNeeded()
+        return false
+      }
+      const token = this.order[this.evictHead++]
+      const entry = this.pendingByKey.get(token.k)
+      if (!entry) continue
+      if (entry.v !== token.v) continue
+      this.pendingByKey.delete(token.k)
+      this.pendingChars -= entry.sizeChars
+      this.evictedKeys++
+      this.compactOrderIfNeeded()
+      return true
+    }
   }
 
   private async indexEvent(event: ArtifactIndexEvent): Promise<void> {
@@ -399,12 +599,26 @@ export class ArtifactIndex {
       createdAt,                             // ?25
     ]
 
-    console.log('[Artifacts] Inserting artifact:', { id, filePath: filePathRaw, tool, sessionId: event.sessionId })
+    if (DEBUG_ARTIFACTS) {
+      console.log('[Artifacts] Inserting artifact:', { id, filePath: filePathRaw, tool, sessionId: event.sessionId })
+    }
     stmt.run(...values)
-    console.log('[Artifacts] Successfully inserted artifact:', id)
+    if (DEBUG_ARTIFACTS) {
+      console.log('[Artifacts] Successfully inserted artifact:', id)
+    }
   }
 
   clearAll(): void {
+    // Also clear any pending queue to avoid processing stale events after wipe.
+    this.pendingByKey.clear()
+    this.order = []
+    this.processHead = 0
+    this.evictHead = 0
+    this.pendingChars = 0
+    this.seq = 0
+    this.evictedKeys = 0
+    this.coalescedUpdates = 0
+
     const { db, hasFts } = getArtifactsDb()
     db.exec(`DELETE FROM artifacts;`)
     if (hasFts) {
@@ -416,7 +630,19 @@ export class ArtifactIndex {
     }
   }
 
-  stats(): { total: number; starred: number; backends: Record<ArtifactBackend, number> } {
+  stats(): {
+    total: number
+    starred: number
+    backends: Record<ArtifactBackend, number>
+    queue: {
+      pendingKeys: number
+      pendingChars: number
+      evictedKeys: number
+      coalescedUpdates: number
+      maxPendingKeys: number
+      maxPendingChars: number
+    }
+  } {
     const { db } = getArtifactsDb()
     const totalRow = db.prepare(`SELECT COUNT(*) as c FROM artifacts;`).get() as SqlRow
     const starredRow = db.prepare(`SELECT COUNT(*) as c FROM artifacts WHERE starred = 1;`).get() as SqlRow
@@ -432,6 +658,14 @@ export class ArtifactIndex {
       total: Number(totalRow?.c ?? 0),
       starred: Number(starredRow?.c ?? 0),
       backends,
+      queue: {
+        pendingKeys: this.pendingByKey.size,
+        pendingChars: this.pendingChars,
+        evictedKeys: this.evictedKeys,
+        coalescedUpdates: this.coalescedUpdates,
+        maxPendingKeys: this.maxPendingKeys,
+        maxPendingChars: this.maxPendingChars,
+      },
     }
   }
 
@@ -442,7 +676,9 @@ export class ArtifactIndex {
     const offset = Math.max(Number(query.offset ?? 0), 0)
     const filters = query.filters ?? {}
 
-    console.log('[Artifacts] search called with:', { text, limit, offset, filters, hasFts })
+    if (DEBUG_ARTIFACTS) {
+      console.log('[Artifacts] search called with:', { text, limit, offset, filters, hasFts })
+    }
 
     // NOTE: Bun's SQLite has bugs with named parameters ($name) for LIMIT/OFFSET and FTS5 MATCH.
     // We use indexed positional parameters (?N) throughout for reliability.
@@ -479,7 +715,9 @@ export class ArtifactIndex {
 
     if (text.length === 0) {
       const whereSql = whereConditions.length ? `WHERE ${whereConditions.join(' AND ')}` : ''
-      console.log('[Artifacts] No text search, using simple query:', { whereSql, filterValues })
+      if (DEBUG_ARTIFACTS) {
+        console.log('[Artifacts] No text search, using simple query:', { whereSql, filterValues })
+      }
 
       try {
         const selectParams = [...filterValues, limit, offset]
@@ -505,7 +743,9 @@ export class ArtifactIndex {
           ? db.prepare(`SELECT COUNT(*) as c FROM artifacts a ${whereSql};`).get(...filterValues) as SqlRow
           : db.prepare(`SELECT COUNT(*) as c FROM artifacts a;`).get() as SqlRow
 
-        console.log('[Artifacts] Query returned', rows.length, 'rows, total:', totalRow?.c)
+        if (DEBUG_ARTIFACTS) {
+          console.log('[Artifacts] Query returned', rows.length, 'rows, total:', totalRow?.c)
+        }
         return {
           artifacts: rows.map(rowToArtifactSummary),
           total: Number(totalRow?.c ?? 0),
@@ -520,7 +760,9 @@ export class ArtifactIndex {
     if (hasFts) {
       try {
         const searchQuery = text.replaceAll('\u0000', '')
-        console.log('[Artifacts] FTS search with:', { searchQuery, filterValues })
+        if (DEBUG_ARTIFACTS) {
+          console.log('[Artifacts] FTS search with:', { searchQuery, filterValues })
+        }
 
         // For FTS, parameter order is: ?1 = search query, then filters, then limit, offset
         // Build FTS-specific WHERE clause with adjusted indices
@@ -550,7 +792,9 @@ export class ArtifactIndex {
         const ftsSelectParams = [searchQuery, ...filterValues, limit, offset]
         const ftsCountParams = [searchQuery, ...filterValues]
 
-        console.log('[Artifacts] FTS query params:', { ftsWhereSql, ftsSelectParams, ftsCountParams })
+        if (DEBUG_ARTIFACTS) {
+          console.log('[Artifacts] FTS query params:', { ftsWhereSql, ftsSelectParams, ftsCountParams })
+        }
 
         const rows = db
           .prepare(
@@ -594,7 +838,9 @@ export class ArtifactIndex {
           )
           .get(...ftsCountParams) as SqlRow
 
-        console.log('[Artifacts] FTS query returned', rows.length, 'rows, total:', totalRow?.c)
+        if (DEBUG_ARTIFACTS) {
+          console.log('[Artifacts] FTS query returned', rows.length, 'rows, total:', totalRow?.c)
+        }
         return {
           artifacts: rows.map(rowToArtifactSummary),
           total: Number(totalRow?.c ?? 0),
@@ -607,7 +853,9 @@ export class ArtifactIndex {
 
     // Fallback: basic LIKE search when FTS is unavailable.
     const likePattern = `%${text}%`
-    console.log('[Artifacts] LIKE search with:', { likePattern, filterValues })
+    if (DEBUG_ARTIFACTS) {
+      console.log('[Artifacts] LIKE search with:', { likePattern, filterValues })
+    }
 
     // For LIKE, parameter order is: ?1 = like pattern (used 5 times for OR), then filters, then limit, offset
     // We use the same ?1 parameter for all LIKE comparisons
@@ -678,7 +926,9 @@ export class ArtifactIndex {
         )
         .get(...likeCountParams) as SqlRow
 
-      console.log('[Artifacts] LIKE query returned', rows.length, 'rows, total:', totalRow?.c)
+      if (DEBUG_ARTIFACTS) {
+        console.log('[Artifacts] LIKE query returned', rows.length, 'rows, total:', totalRow?.c)
+      }
       return {
         artifacts: rows.map(rowToArtifactSummary),
         total: Number(totalRow?.c ?? 0),

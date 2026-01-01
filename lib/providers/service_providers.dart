@@ -18,7 +18,9 @@ final webSocketServiceProvider = Provider<WebSocketService>((ref) {
 
 final bridgeServiceProvider = Provider<BridgeService>((ref) {
   final socket = ref.watch(webSocketServiceProvider);
-  return BridgeService(socket);
+  final bridge = BridgeService(socket);
+  ref.onDispose(bridge.dispose);
+  return bridge;
 });
 
 final networkMonitorServiceProvider = Provider<NetworkMonitorService>((ref) {

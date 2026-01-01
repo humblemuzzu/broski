@@ -1,4 +1,12 @@
-import type { Artifact, ArtifactSearchFilters, ArtifactSearchQuery, ArtifactSearchResult, ArtifactsConfig, ArtifactsStats } from './artifacts/types'
+import type {
+  Artifact,
+  ArtifactSearchFilters,
+  ArtifactSearchQuery,
+  ArtifactSearchResult,
+  ArtifactsConfig,
+  ArtifactsEnrichmentEvent,
+  ArtifactsStats,
+} from './artifacts/types'
 
 export type PermissionResponse = 'once' | 'always' | 'reject'
 
@@ -370,11 +378,20 @@ export type ServerMessage =
   | { type: 'artifacts_cleared'; data: boolean; requestId?: string }
   | { type: 'artifacts_stats'; data: ArtifactsStats; requestId?: string }
   | { type: 'artifacts_enrich_started'; data: boolean; requestId?: string }
+  | { type: 'artifacts_enrichment'; data: ArtifactsEnrichmentEvent }
   // Subscription Usage Tracking
   | { type: 'subscription_usage'; data: SubscriptionUsage; requestId?: string }
   | { type: 'provider_usage'; data: ProviderUsage; requestId?: string }
 
-export type { Artifact, ArtifactSearchFilters, ArtifactSearchQuery, ArtifactSearchResult, ArtifactsConfig, ArtifactsStats } from './artifacts/types'
+export type {
+  Artifact,
+  ArtifactSearchFilters,
+  ArtifactSearchQuery,
+  ArtifactSearchResult,
+  ArtifactsConfig,
+  ArtifactsEnrichmentEvent,
+  ArtifactsStats,
+} from './artifacts/types'
 
 // Feature 11: File Content
 export type FileContent = {

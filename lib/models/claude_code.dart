@@ -718,11 +718,15 @@ class CCTokenUsage extends ClaudeCodeStreamMessage {
   final int? inputTokens;
   final int? outputTokens;
   final int? cacheReadTokens;
+  final int? cacheCreationTokens;
+  final double? totalCostUsd;
 
   const CCTokenUsage({
     this.inputTokens,
     this.outputTokens,
     this.cacheReadTokens,
+    this.cacheCreationTokens,
+    this.totalCostUsd,
   });
 
   factory CCTokenUsage.fromJson(Map<String, dynamic> json) {
@@ -731,8 +735,14 @@ class CCTokenUsage extends ClaudeCodeStreamMessage {
       inputTokens: usage['inputTokens'] as int?,
       outputTokens: usage['outputTokens'] as int?,
       cacheReadTokens: usage['cacheReadTokens'] as int?,
+      cacheCreationTokens: usage['cacheCreationTokens'] as int?,
+      totalCostUsd: (json['totalCostUsd'] as num?)?.toDouble(),
     );
   }
+
+  /// Total tokens used (input + output + cache)
+  int get totalTokens =>
+      (inputTokens ?? 0) + (outputTokens ?? 0) + (cacheReadTokens ?? 0);
 }
 
 class CCError extends ClaudeCodeStreamMessage {

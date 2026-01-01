@@ -39,6 +39,30 @@ class SessionContext {
     );
   }
 
+  /// Create context from Claude Code token usage (cumulative from SDK result)
+  /// The SDK provides cumulative totals and cost in the result message
+  factory SessionContext.fromClaudeCode({
+    int inputTokens = 0,
+    int outputTokens = 0,
+    int cacheReadTokens = 0,
+    double? totalCostUsd,
+    List<ModifiedFile> modifiedFiles = const [],
+  }) {
+    final total = inputTokens + outputTokens + cacheReadTokens;
+    return SessionContext(
+      tokens: TokenUsage(
+        input: inputTokens,
+        output: outputTokens,
+        total: total,
+        // Claude's context window varies by model, use 200K as default
+        contextWindow: 200000,
+      ),
+      cost: totalCostUsd ?? 0.0,
+      lsp: const [], // Claude Code doesn't have LSP
+      modifiedFiles: modifiedFiles,
+    );
+  }
+
   /// Percentage of context window used (0-100)
   double get contextUsagePercent {
     if (tokens.contextWindow == 0) return 0;

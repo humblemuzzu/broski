@@ -11,6 +11,7 @@ const DEFAULT_CONFIG: ArtifactsConfig = {
   maxContentChars: 250_000,
   enrichment: {
     provider: 'off',
+    followSelectedAgent: true,
     enabled: false,
     batchSize: 5,
     maxCharsPerArtifact: 6000,
@@ -33,6 +34,10 @@ function sanitizeConfig(partial: Partial<ArtifactsConfig>): ArtifactsConfig {
     provider === 'off' || provider === 'claude-code' || provider === 'opencode'
       ? provider
       : DEFAULT_CONFIG.enrichment.provider
+  const followSelectedAgent =
+    typeof (enrichment as any).followSelectedAgent === 'boolean'
+      ? Boolean((enrichment as any).followSelectedAgent)
+      : DEFAULT_CONFIG.enrichment.followSelectedAgent
 
   const hiddenCwd =
     typeof enrichment.hiddenCwd === 'string' && enrichment.hiddenCwd.trim().length > 0
@@ -44,6 +49,7 @@ function sanitizeConfig(partial: Partial<ArtifactsConfig>): ArtifactsConfig {
     maxContentChars: clampInt(partial.maxContentChars, DEFAULT_CONFIG.maxContentChars, 20_000, 2_000_000),
     enrichment: {
       provider: safeProvider,
+      followSelectedAgent,
       enabled: enrichment.enabled ?? DEFAULT_CONFIG.enrichment.enabled,
       batchSize: clampInt(enrichment.batchSize, DEFAULT_CONFIG.enrichment.batchSize, 1, 20),
       maxCharsPerArtifact: clampInt(enrichment.maxCharsPerArtifact, DEFAULT_CONFIG.enrichment.maxCharsPerArtifact, 500, 20_000),
@@ -95,4 +101,3 @@ export async function getArtifactsDbSizeBytes(dbPath: string): Promise<number> {
     return 0
   }
 }
-

@@ -180,34 +180,69 @@ class _DiffViewerState extends State<DiffViewer> {
   }
 }
 
-class _DiffPreview extends StatelessWidget {
+class _DiffPreview extends StatefulWidget {
   const _DiffPreview({required this.diff, required this.maxLines});
 
   final DiffEntry diff;
   final int maxLines;
 
   @override
-  Widget build(BuildContext context) {
-    final theme = OpenCodeTheme.of(context);
-    final diffText = (diff.diff != null && diff.diff!.trim().isNotEmpty)
+  State<_DiffPreview> createState() => _DiffPreviewState();
+}
+
+class _DiffPreviewState extends State<_DiffPreview> {
+  String? _lastDiffText;
+  List<DiffLine> _contentLines = const [];
+
+  @override
+  void initState() {
+    super.initState();
+    _recompute();
+  }
+
+  @override
+  void didUpdateWidget(covariant _DiffPreview oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.diff != widget.diff) {
+      _recompute();
+    } else if (oldWidget.maxLines != widget.maxLines) {
+      // No-op: we slice from cached lines in build().
+    }
+  }
+
+  String _computeDiffText() {
+    final diff = widget.diff;
+    return (diff.diff != null && diff.diff!.trim().isNotEmpty)
         ? diff.diff!
         : UnifiedDiff.generate(
             filePath: diff.file.isNotEmpty ? diff.file : 'file',
             before: diff.before,
             after: diff.after,
           );
+  }
+
+  void _recompute() {
+    final diffText = _computeDiffText();
+    if (diffText == _lastDiffText) return;
+    _lastDiffText = diffText;
 
     final parsed = UnifiedDiff.parse(diffText);
-    final previewLines = <DiffLine>[];
+    final contentLines = <DiffLine>[];
     for (final line in parsed) {
       if (line.kind == DiffLineKind.header ||
           line.kind == DiffLineKind.hunk ||
           line.kind == DiffLineKind.meta) {
         continue;
       }
-      previewLines.add(line);
-      if (previewLines.length >= maxLines) break;
+      contentLines.add(line);
     }
+    _contentLines = contentLines;
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = OpenCodeTheme.of(context);
+    final previewLines = _contentLines.take(widget.maxLines).toList();
 
     return Container(
       width: double.infinity,

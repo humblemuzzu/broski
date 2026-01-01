@@ -2,8 +2,10 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../models/artifacts_settings.dart';
+import '../models/agent_type.dart';
 import '../providers/artifacts_provider.dart';
 import '../providers/artifacts_settings_provider.dart';
+import '../providers/agent_type_provider.dart';
 import '../theme/opencode_theme.dart';
 
 class ArtifactsSettingsScreen extends ConsumerWidget {
@@ -14,6 +16,7 @@ class ArtifactsSettingsScreen extends ConsumerWidget {
     final ocTheme = OpenCodeTheme.of(context);
     final cfgAsync = ref.watch(artifactsConfigProvider);
     final statsAsync = ref.watch(artifactsStatsProvider);
+    final agentType = ref.watch(agentTypeProvider);
 
     return Scaffold(
       backgroundColor: ocTheme.background,
@@ -34,9 +37,12 @@ class ArtifactsSettingsScreen extends ConsumerWidget {
         ],
       ),
       body: cfgAsync.when(
-        data: (cfg) => ListView(
-          padding: const EdgeInsets.fromLTRB(16, 8, 16, 24),
-          children: [
+        data: (cfg) {
+          final effectiveProvider =
+              agentType == AgentType.claudeCode ? 'claude-code' : 'opencode';
+          return ListView(
+            padding: const EdgeInsets.fromLTRB(16, 8, 16, 24),
+            children: [
             _SectionTitle(title: 'Indexing'),
             _Card(
               child: SwitchListTile(
@@ -66,11 +72,30 @@ class ArtifactsSettingsScreen extends ConsumerWidget {
                     ),
                   ),
                   const Divider(height: 1),
+                  SwitchListTile(
+                    value: cfg.enrichment.followSelectedAgent,
+                    onChanged: (v) => ref
+                        .read(artifactsConfigProvider.notifier)
+                        .update(cfg.copyWithEnrichment(followSelectedAgent: v)),
+                    title: const Text('Follow selected AI backend'),
+                    subtitle: Text(
+                      cfg.enrichment.followSelectedAgent
+                          ? 'Auto: ${_providerLabel(effectiveProvider)}'
+                          : 'Manual selection (choose a provider below)',
+                    ),
+                  ),
+                  const Divider(height: 1),
                   ListTile(
                     title: const Text('Provider'),
-                    subtitle: Text(_providerLabel(cfg.enrichment.provider)),
+                    subtitle: Text(
+                      cfg.enrichment.followSelectedAgent
+                          ? 'Auto: ${_providerLabel(effectiveProvider)}'
+                          : _providerLabel(cfg.enrichment.provider),
+                    ),
                     trailing: const Icon(Icons.chevron_right_rounded),
-                    onTap: () => _pickProvider(context, ref, cfg),
+                    onTap: cfg.enrichment.followSelectedAgent
+                        ? null
+                        : () => _pickProvider(context, ref, cfg),
                   ),
                   const Divider(height: 1),
                   ListTile(
@@ -90,7 +115,8 @@ class ArtifactsSettingsScreen extends ConsumerWidget {
                     trailing: const Icon(Icons.auto_awesome_rounded),
                     onTap:
                         !cfg.enrichment.enabled ||
-                            cfg.enrichment.provider == 'off'
+                            (!cfg.enrichment.followSelectedAgent &&
+                                cfg.enrichment.provider == 'off')
                         ? null
                         : () async {
                             final ok = await ref
@@ -191,8 +217,9 @@ class ArtifactsSettingsScreen extends ConsumerWidget {
                 onTap: () => _confirmClear(context, ref),
               ),
             ),
-          ],
-        ),
+            ],
+          );
+        },
         loading: () =>
             Center(child: CircularProgressIndicator(color: ocTheme.primary)),
         error: (e, _) => Center(
@@ -359,6 +386,7 @@ extension on ArtifactsConfig {
 
   ArtifactsConfig copyWithEnrichment({
     String? provider,
+    bool? followSelectedAgent,
     bool? enabled,
     int? batchSize,
     int? maxCharsPerArtifact,
@@ -367,6 +395,7 @@ extension on ArtifactsConfig {
     return copyWith(
       enrichment: ArtifactsEnrichmentConfig(
         provider: provider ?? enrichment.provider,
+        followSelectedAgent: followSelectedAgent ?? enrichment.followSelectedAgent,
         enabled: enabled ?? enrichment.enabled,
         batchSize: batchSize ?? enrichment.batchSize,
         maxCharsPerArtifact:

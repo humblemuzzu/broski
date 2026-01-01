@@ -32,6 +32,8 @@ class ChatSessionState {
     this.ccInit,
     this.ccTokenUsage,
     this.ccIsStreaming = false,
+    // FIX: Track content length incrementally instead of recalculating every frame
+    this.contentLength = 0,
   });
 
   final SessionSummary? session;
@@ -53,6 +55,9 @@ class ChatSessionState {
   final CCSessionInit? ccInit;
   final CCTokenUsage? ccTokenUsage;
   final bool ccIsStreaming;
+
+  // FIX: Pre-computed content length for efficient auto-scroll detection
+  final int contentLength;
 
   /// Get the effective session ID (works for both OC and CC)
   String? get effectiveSessionId => isClaudeCode ? ccSessionId : session?.id;
@@ -77,6 +82,7 @@ class ChatSessionState {
     CCSessionInit? ccInit,
     CCTokenUsage? ccTokenUsage,
     bool? ccIsStreaming,
+    int? contentLength,
   }) {
     return ChatSessionState(
       session: session ?? this.session,
@@ -95,6 +101,7 @@ class ChatSessionState {
       ccInit: ccInit ?? this.ccInit,
       ccTokenUsage: ccTokenUsage ?? this.ccTokenUsage,
       ccIsStreaming: ccIsStreaming ?? this.ccIsStreaming,
+      contentLength: contentLength ?? this.contentLength,
     );
   }
 }
@@ -121,12 +128,18 @@ class ChatSessionNotifier extends StateNotifier<ChatSessionState> {
   int _lastRttMs = 0;
   bool _lspStatusFetched = false;
 
+  // FIX: Track session switch to prevent race conditions
+  // Events captured before session switch should be discarded
+  int _sessionVersion = 0;
+  int _eventCaptureVersion = 0;
+
   // Claude Code streaming state
   String _ccCurrentAssistantMessageId = '';
   final StringBuffer _ccAssistantTextBuffer = StringBuffer();
-  final List<ToolCall> _ccPendingToolCalls = [];
+  final Map<String, ToolCall> _ccPendingToolCallsById = {};
   String _ccThinkingPartId = '';
   final StringBuffer _ccThinkingBuffer = StringBuffer();
+  Timer? _ccUpdateTimer;
 
   void updateConnectionMetrics(int rttMs) {
     _lastRttMs = rttMs;
@@ -148,8 +161,16 @@ class ChatSessionNotifier extends StateNotifier<ChatSessionState> {
   }
 
   void setSession(SessionSummary session, {String? projectPath}) {
+    // FIX: Increment session version to invalidate pending events
+    _sessionVersion++;
     _messages.clear();
     _order.clear();
+    _pendingEvents.clear(); // FIX: Clear pending events for old session
+    _pendingTextBuffers.clear(); // FIX: Clear text buffers for old session
+    _flushTimer?.cancel();
+    _flushTimer = null;
+    _textDebounceTimer?.cancel();
+    _textDebounceTimer = null;
     _lspStatusFetched = false;
     _resetCCState();
     state = ChatSessionState(
@@ -170,8 +191,16 @@ class ChatSessionNotifier extends StateNotifier<ChatSessionState> {
     String? model,
     String? title,
   }) {
+    // FIX: Increment session version to invalidate pending events
+    _sessionVersion++;
     _messages.clear();
     _order.clear();
+    _pendingEvents.clear(); // FIX: Clear pending events for old session
+    _pendingTextBuffers.clear(); // FIX: Clear text buffers for old session
+    _flushTimer?.cancel();
+    _flushTimer = null;
+    _textDebounceTimer?.cancel();
+    _textDebounceTimer = null;
     _lspStatusFetched = false;
     _resetCCState();
     state = ChatSessionState(
@@ -196,9 +225,25 @@ class ChatSessionNotifier extends StateNotifier<ChatSessionState> {
   void _resetCCState() {
     _ccCurrentAssistantMessageId = '';
     _ccAssistantTextBuffer.clear();
-    _ccPendingToolCalls.clear();
+    _ccPendingToolCallsById.clear();
     _ccThinkingPartId = '';
     _ccThinkingBuffer.clear();
+    _ccUpdateTimer?.cancel();
+    _ccUpdateTimer = null;
+  }
+
+  void _scheduleCCAssistantUpdate({required bool isStreaming}) {
+    if (_ccUpdateTimer != null) return;
+    _ccUpdateTimer = Timer(const Duration(milliseconds: 16), () {
+      _ccUpdateTimer = null;
+      _updateCCAssistantMessage(isStreaming: isStreaming);
+    });
+  }
+
+  void _flushCCAssistantUpdate({required bool isStreaming}) {
+    _ccUpdateTimer?.cancel();
+    _ccUpdateTimer = null;
+    _updateCCAssistantMessage(isStreaming: isStreaming);
   }
 
   Map<String, dynamic> _ccMetadataFromToolUseResult(dynamic toolUseResult) {
@@ -523,6 +568,8 @@ class ChatSessionNotifier extends StateNotifier<ChatSessionState> {
   }
 
   void _enqueueSdkEvent(Map<String, dynamic> event) {
+    // FIX: Capture current session version when event arrives
+    _eventCaptureVersion = _sessionVersion;
     _pendingEvents.add(event);
     _flushTimer ??= Timer(const Duration(milliseconds: 16), _flushSdkEvents);
   }
@@ -530,6 +577,13 @@ class ChatSessionNotifier extends StateNotifier<ChatSessionState> {
   void _flushSdkEvents() {
     _flushTimer = null;
     if (_pendingEvents.isEmpty) return;
+
+    // FIX: Check if session changed since events were captured
+    // If so, discard all pending events - they're for the old session
+    if (_eventCaptureVersion != _sessionVersion) {
+      _pendingEvents.clear();
+      return;
+    }
 
     final batch = List<Map<String, dynamic>>.from(_pendingEvents);
     _pendingEvents.clear();
@@ -1127,7 +1181,24 @@ class ChatSessionNotifier extends StateNotifier<ChatSessionState> {
 
   void _emitMessages() {
     final list = _order.map((id) => _messages[id]!).toList();
-    state = state.copyWith(messages: list);
+    // FIX: Calculate content length here once when messages change
+    // instead of recalculating on every UI frame
+    final contentLength = _calculateContentLength(list);
+    state = state.copyWith(messages: list, contentLength: contentLength);
+  }
+
+  /// Calculate content length for auto-scroll detection
+  /// This is now called once per emit instead of every frame
+  int _calculateContentLength(List<ChatMessage> messages) {
+    int length = 0;
+    for (final msg in messages) {
+      length += msg.text.length;
+      length += msg.toolCalls.length * 100;
+      length += msg.diffs.length * 100;
+      length += msg.subtaskNotifications.length * 50;
+      length += msg.reasoningParts.fold(0, (sum, r) => sum + r.text.length);
+    }
+    return length;
   }
 
   Future<void> _fetchLspStatus() async {
@@ -1151,6 +1222,25 @@ class ChatSessionNotifier extends StateNotifier<ChatSessionState> {
   // Claude Code Stream Message Handling
   // ============================================================
 
+  /// Handle TodoWrite tool calls from Claude Code
+  /// Parses the todos list from input and updates state
+  void _handleCCTodoWrite(dynamic input) {
+    if (input is! Map<String, dynamic>) return;
+    final todosRaw = input['todos'];
+    if (todosRaw is! List) return;
+
+    final todos = <Todo>[];
+    for (final item in todosRaw) {
+      if (item is Map<String, dynamic>) {
+        todos.add(Todo.fromJson(item));
+      }
+    }
+
+    if (todos.isNotEmpty) {
+      state = state.copyWith(todos: todos);
+    }
+  }
+
   void _handleCCStreamMessage(ClaudeCodeStreamMessage message) {
     // Only process if in Claude Code mode
     if (!state.isClaudeCode) return;
@@ -1158,7 +1248,9 @@ class ChatSessionNotifier extends StateNotifier<ChatSessionState> {
     if (message is CCSessionCreated) {
       // Session started - update model if provided
       state = state.copyWith(
-        ccSessionId: message.sessionId.isNotEmpty ? message.sessionId : state.ccSessionId,
+        ccSessionId: message.sessionId.isNotEmpty
+            ? message.sessionId
+            : state.ccSessionId,
         ccModel: message.model ?? state.ccModel,
         ccIsStreaming: true,
       );
@@ -1167,7 +1259,9 @@ class ChatSessionNotifier extends StateNotifier<ChatSessionState> {
 
     if (message is CCSessionInit) {
       state = state.copyWith(
-        ccSessionId: message.sessionId.isNotEmpty ? message.sessionId : state.ccSessionId,
+        ccSessionId: message.sessionId.isNotEmpty
+            ? message.sessionId
+            : state.ccSessionId,
         ccModel: message.model.isNotEmpty ? message.model : state.ccModel,
         ccInit: message,
         ccIsStreaming: true,
@@ -1197,7 +1291,7 @@ class ChatSessionNotifier extends StateNotifier<ChatSessionState> {
     if (message is CCAssistantMessageDelta) {
       // Streaming delta - accumulate text
       _ccAssistantTextBuffer.write(message.content);
-      _updateCCAssistantMessage(isStreaming: true);
+      _scheduleCCAssistantUpdate(isStreaming: true);
       return;
     }
 
@@ -1205,26 +1299,35 @@ class ChatSessionNotifier extends StateNotifier<ChatSessionState> {
       // Complete assistant message (if server sends full message)
       _ccAssistantTextBuffer.clear();
       _ccAssistantTextBuffer.write(message.content);
-      _updateCCAssistantMessage(isStreaming: false);
+      _flushCCAssistantUpdate(isStreaming: false);
       return;
     }
 
     if (message is CCThinkingDelta) {
       if (_ccThinkingPartId.isEmpty) {
-        _ccThinkingPartId = message.partId ?? 'cc-thinking-${DateTime.now().microsecondsSinceEpoch}';
+        _ccThinkingPartId =
+            message.partId ??
+            'cc-thinking-${DateTime.now().microsecondsSinceEpoch}';
       }
       _ccThinkingBuffer.write(message.content);
-      _updateCCAssistantMessage(isStreaming: true);
+      _scheduleCCAssistantUpdate(isStreaming: true);
       return;
     }
 
     if (message is CCToolCall) {
+      // Check for TodoWrite tool - update todos state
+      if (message.tool == 'TodoWrite') {
+        _handleCCTodoWrite(message.input);
+        // Don't show TodoWrite as a tool card in chat
+        return;
+      }
+
       // Tool call - add to current message
+      final toolUseId =
+          message.toolUseId ?? 'cc-${DateTime.now().microsecondsSinceEpoch}';
       final tool = ToolCall(
-        callId:
-            message.toolUseId ?? 'cc-${DateTime.now().microsecondsSinceEpoch}',
-        partId:
-            message.toolUseId ?? 'cc-${DateTime.now().microsecondsSinceEpoch}',
+        callId: toolUseId,
+        partId: toolUseId,
         name: message.tool,
         status: message.status,
         title: message.tool,
@@ -1235,37 +1338,24 @@ class ChatSessionNotifier extends StateNotifier<ChatSessionState> {
         metadata: const {},
       );
 
-      // Update or add tool to pending list
-      final existingIdx = _ccPendingToolCalls.indexWhere(
-        (t) => t.callId == tool.callId,
-      );
-      if (existingIdx >= 0) {
-        _ccPendingToolCalls[existingIdx] = tool;
-      } else {
-        _ccPendingToolCalls.add(tool);
-      }
-
-      _updateCCAssistantMessage(isStreaming: true);
+      _ccPendingToolCallsById[tool.callId] = tool;
+      _scheduleCCAssistantUpdate(isStreaming: true);
       return;
     }
 
     if (message is CCToolResult) {
       // Tool completed - update tool status
-      final toolIdx = _ccPendingToolCalls.indexWhere(
-        (t) => t.callId == message.toolUseId,
-      );
-      if (toolIdx >= 0) {
-        final existing = _ccPendingToolCalls[toolIdx];
+      final toolUseId = message.toolUseId;
+      if (toolUseId == null || toolUseId.isEmpty) return;
+      final existing = _ccPendingToolCallsById[toolUseId];
+      if (existing != null) {
         final toolMeta = _ccMetadataFromToolUseResult(message.toolUseResult);
-        _ccPendingToolCalls[toolIdx] = existing.copyWith(
+        _ccPendingToolCallsById[toolUseId] = existing.copyWith(
           status: 'completed',
           output: message.result?.toString(),
-          metadata: {
-            ...existing.metadata,
-            ...toolMeta,
-          },
+          metadata: {...existing.metadata, ...toolMeta},
         );
-        _updateCCAssistantMessage(isStreaming: true);
+        _scheduleCCAssistantUpdate(isStreaming: true);
       }
       return;
     }
@@ -1273,11 +1363,11 @@ class ChatSessionNotifier extends StateNotifier<ChatSessionState> {
     if (message is CCTokenUsage) {
       // End of turn - finalize assistant message
       state = state.copyWith(ccTokenUsage: message, ccIsStreaming: false);
-      _updateCCAssistantMessage(isStreaming: false);
+      _flushCCAssistantUpdate(isStreaming: false);
       // Reset for next turn
       _ccCurrentAssistantMessageId = '';
       _ccAssistantTextBuffer.clear();
-      _ccPendingToolCalls.clear();
+      _ccPendingToolCallsById.clear();
       _ccThinkingPartId = '';
       _ccThinkingBuffer.clear();
       return;
@@ -1322,7 +1412,7 @@ class ChatSessionNotifier extends StateNotifier<ChatSessionState> {
     }
 
     var diffs = <DiffEntry>[];
-    for (final tool in _ccPendingToolCalls) {
+    for (final tool in _ccPendingToolCallsById.values) {
       diffs = _mergeToolDiffs(diffs, tool: tool);
     }
 
@@ -1332,7 +1422,7 @@ class ChatSessionNotifier extends StateNotifier<ChatSessionState> {
       role: MessageRole.assistant,
       createdAt: DateTime.now(),
       text: text,
-      toolCalls: List.from(_ccPendingToolCalls),
+      toolCalls: List<ToolCall>.from(_ccPendingToolCallsById.values),
       diffs: diffs,
       reasoningParts: reasoningParts,
       isStreaming: isStreaming,
@@ -1352,6 +1442,7 @@ class ChatSessionNotifier extends StateNotifier<ChatSessionState> {
     _ccSubscription?.cancel();
     _flushTimer?.cancel();
     _textDebounceTimer?.cancel();
+    _ccUpdateTimer?.cancel();
     super.dispose();
   }
 }
