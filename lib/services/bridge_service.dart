@@ -1927,6 +1927,14 @@ class BridgeService {
         .toList();
   }
 
+  Future<List<Map<String, dynamic>>> ccGetActiveSessions() async {
+    final requestId = _generateRequestId();
+    _socket.send({'type': 'cc_get_active_sessions', 'requestId': requestId});
+    final response = await _waitFor('cc_active_sessions', requestId: requestId);
+    final data = response['data'] as List<dynamic>? ?? [];
+    return data.whereType<Map<String, dynamic>>().toList();
+  }
+
   // ============================================================
   // Claude Code - Config
   // ============================================================

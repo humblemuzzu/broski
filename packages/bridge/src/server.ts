@@ -1613,6 +1613,11 @@ export function createBridgeServer(options: BridgeServerOptions): BridgeServer {
           reply({ type: 'cc_commands', data: commands })
           break
         }
+        case 'cc_get_active_sessions': {
+          const sessions = claudeCode.listActiveSessions()
+          reply({ type: 'cc_active_sessions', data: sessions })
+          break
+        }
         case 'cc_get_config': {
           const config = claudeCode.getConfig()
           reply({ type: 'cc_config', data: config })

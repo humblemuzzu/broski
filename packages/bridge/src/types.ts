@@ -160,6 +160,7 @@ export type ClientMessage =
   | { type: 'cc_list_commands'; cwd?: string }
   | { type: 'cc_get_config'; cwd?: string }
   | { type: 'cc_set_config'; config: Partial<ClaudeCodeConfig>; cwd?: string }
+  | { type: 'cc_get_active_sessions' }
   // Claude Code File Checkpointing (Undo/Revert)
   | { type: 'cc_rewind_checkpoint'; sessionId: string; checkpointUuid: string; cwd: string }
   // Claude Code Custom Tools

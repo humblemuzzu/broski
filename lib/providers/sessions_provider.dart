@@ -208,6 +208,14 @@ class GlobalSessionStatusNotifier
       final bridge = _ref.read(bridgeServiceProvider);
       final statuses = await bridge.getSessionStatus();
 
+      // Claude Code: sessions running in the bridge runtime (best-effort)
+      final ccActive = await bridge.ccGetActiveSessions();
+      for (final item in ccActive) {
+        final sessionId = item['sessionId'] as String? ?? '';
+        if (sessionId.isEmpty) continue;
+        statuses[sessionId] = const SessionStatus.busy();
+      }
+
       if (kDebugMode) {
         developer.log(
           'Fetched ${statuses.length} session statuses: ${statuses.entries.where((e) => !e.value.isIdle).map((e) => "${e.key}: ${e.value.displayString}").join(", ")}',

@@ -28,6 +28,7 @@ type ActiveSession = {
   controller: AbortController
   cwd: string
   query?: { interrupt: () => Promise<void> }
+  startedAt: number
 }
 
 const activeSessions = new Map<string, ActiveSession>()
@@ -1154,7 +1155,12 @@ export async function queryClaudeCode(
       // System init: session created + capabilities snapshot (tools/commands/etc)
       if (message?.type === 'system' && message?.subtype === 'init') {
         sessionId = message.session_id
-        activeSessions.set(sessionId, { controller, cwd: options.cwd, query: q })
+        activeSessions.set(sessionId, {
+          controller,
+          cwd: options.cwd,
+          query: q,
+          startedAt: Date.now(),
+        })
         onMessage({
           type: 'session-created',
           sessionId,
@@ -1365,6 +1371,18 @@ export async function abortClaudeCode(sessionId: string): Promise<void> {
     session.controller.abort()
     activeSessions.delete(sessionId)
   }
+}
+
+export function listActiveSessions(): Array<{
+  sessionId: string
+  cwd: string
+  startedAt: number
+}> {
+  return Array.from(activeSessions.entries()).map(([sessionId, s]) => ({
+    sessionId,
+    cwd: s.cwd,
+    startedAt: s.startedAt,
+  }))
 }
 
 /**

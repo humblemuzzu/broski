@@ -103,7 +103,7 @@ yarn.lock
 pnpm-lock.yaml
 
 # Reference codebases (not part of the app)
-web-ui-cc/
+reference/
 docs/
 logs.md
 critical-g-*.md
