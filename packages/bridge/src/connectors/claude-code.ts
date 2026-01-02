@@ -902,6 +902,8 @@ export async function queryClaudeCode(
       allowedTools: options.allowedTools || currentConfig.allowedTools,
       disallowedTools: options.disallowedTools || currentConfig.disallowedTools,
       permissionMode: options.permissionMode || currentConfig.permissionMode,
+      // Required for real-time text deltas (SDK docs: default is false).
+      includePartialMessages: true,
       abortController: controller,
       settingSources: ['project'],
       // File checkpointing: enable tracking of file changes for undo/rewind support
@@ -1053,6 +1055,9 @@ export async function queryClaudeCode(
 
         if (eventType === 'content_block_start') {
           const block = event?.content_block
+          if (block?.type === 'text' && typeof block?.text === 'string' && block.text.length > 0) {
+            onMessage({ type: 'assistant-message-delta', content: block.text })
+          }
           if (block?.type === 'tool_use') {
             const toolName = block.name as string
             const toolInput = block.input as Record<string, unknown>
@@ -1175,6 +1180,9 @@ export async function queryClaudeCode(
 
       // Result / token usage + cost (end of conversation - cumulative totals)
       if (message?.type === 'result') {
+        if (typeof message.result === 'string' && message.result.trim().length > 0) {
+          onMessage({ type: 'assistant-message', content: message.result })
+        }
         if (message.usage) {
           onMessage({
             type: 'token-usage',

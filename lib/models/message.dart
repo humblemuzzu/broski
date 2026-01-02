@@ -1,3 +1,40 @@
+/// Represents an ordered part of a message (text or tool) for sequential rendering.
+/// Used by Claude Code to maintain arrival order of text and tools during streaming.
+sealed class MessagePart {
+  const MessagePart({required this.sequence});
+
+  /// Sequence number for ordering (arrival order)
+  final int sequence;
+}
+
+/// A text segment within a message
+class TextPart extends MessagePart {
+  const TextPart({
+    required super.sequence,
+    required this.text,
+    this.isStreaming = false,
+  });
+
+  final String text;
+  final bool isStreaming;
+
+  TextPart copyWith({String? text, bool? isStreaming}) {
+    return TextPart(
+      sequence: sequence,
+      text: text ?? this.text,
+      isStreaming: isStreaming ?? this.isStreaming,
+    );
+  }
+}
+
+/// A tool call within a message (references ToolCall by callId)
+class ToolPart extends MessagePart {
+  const ToolPart({required super.sequence, required this.callId});
+
+  /// Reference to the ToolCall.callId
+  final String callId;
+}
+
 class ChatMessage {
   const ChatMessage({
     required this.id,
@@ -9,6 +46,7 @@ class ChatMessage {
     this.diffs = const [],
     this.subtaskNotifications = const [],
     this.reasoningParts = const [],
+    this.parts = const [],
     this.isStreaming = false,
     this.error,
   });
@@ -20,6 +58,10 @@ class ChatMessage {
   final String text;
   final List<ToolCall> toolCalls;
   final List<DiffEntry> diffs;
+
+  /// Ordered parts for sequential rendering (Claude Code).
+  /// When non-empty, use this for rendering order instead of fixed text-first.
+  final List<MessagePart> parts;
 
   /// Background task completion notifications in this message
   final List<SubtaskNotification> subtaskNotifications;
@@ -50,12 +92,16 @@ class ChatMessage {
     return completed.fold<int>(0, (sum, p) => sum + (p.durationMs ?? 0));
   }
 
+  /// Whether this message uses ordered parts for rendering
+  bool get hasOrderedParts => parts.isNotEmpty;
+
   ChatMessage copyWith({
     String? text,
     List<ToolCall>? toolCalls,
     List<DiffEntry>? diffs,
     List<SubtaskNotification>? subtaskNotifications,
     List<ReasoningPart>? reasoningParts,
+    List<MessagePart>? parts,
     bool? isStreaming,
     String? error,
   }) {
@@ -69,6 +115,7 @@ class ChatMessage {
       diffs: diffs ?? this.diffs,
       subtaskNotifications: subtaskNotifications ?? this.subtaskNotifications,
       reasoningParts: reasoningParts ?? this.reasoningParts,
+      parts: parts ?? this.parts,
       isStreaming: isStreaming ?? this.isStreaming,
       error: error ?? this.error,
     );

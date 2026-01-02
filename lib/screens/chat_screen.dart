@@ -4358,31 +4358,37 @@ class _ChatScreenState extends ConsumerState<ChatScreen>
               child: ThinkingCard(message: message),
             ),
 
-          // Feature 6: Pass fork callback to message bubble
-          MessageBubble(
-            message: message,
-            onForkFromHere: message.role == MessageRole.assistant
-                ? (messageId) => _forkSession(messageId: messageId)
-                : null,
-          ),
-
-          // Tool calls with Feature 7: Undo callback
-          // For Claude Code, undo rewinds to the latest checkpoint (session-wide).
-          // For OpenCode, undo reverts a specific message/part.
-          for (final tool in message.toolCalls)
-            Padding(
-              padding: const EdgeInsets.only(top: 8),
-              child: ToolCallCard(
-                tool: tool,
-                messageId: message.id,
-                onUndo: widget.isClaudeCode
-                    ? (_, __) => _ccRewindToCheckpoint()
-                    : (messageId, partId) =>
-                          _revertMessage(messageId, partId: partId),
-              ),
+          // Claude Code with ordered parts: Render in arrival order (text-tool-text interleaved)
+          // OpenCode or no parts: Use fixed order (text first, then all tools)
+          if (message.hasOrderedParts)
+            ..._buildOrderedParts(message)
+          else ...[
+            // Feature 6: Pass fork callback to message bubble
+            MessageBubble(
+              message: message,
+              onForkFromHere: message.role == MessageRole.assistant
+                  ? (messageId) => _forkSession(messageId: messageId)
+                  : null,
             ),
 
-          // Diffs with Feature 7: Revert callback
+            // Tool calls with Feature 7: Undo callback
+            // For Claude Code, undo rewinds to the latest checkpoint (session-wide).
+            // For OpenCode, undo reverts a specific message/part.
+            for (final tool in message.toolCalls)
+              Padding(
+                padding: const EdgeInsets.only(top: 8),
+                child: ToolCallCard(
+                  tool: tool,
+                  messageId: message.id,
+                  onUndo: widget.isClaudeCode
+                      ? (_, __) => _ccRewindToCheckpoint()
+                      : (messageId, partId) =>
+                            _revertMessage(messageId, partId: partId),
+                ),
+              ),
+          ],
+
+          // Diffs with Feature 7: Revert callback (always after parts)
           for (final diff in message.diffs)
             Padding(
               padding: const EdgeInsets.only(top: 8),
@@ -4408,6 +4414,84 @@ class _ChatScreenState extends ConsumerState<ChatScreen>
         ],
       ),
     );
+  }
+
+  /// Build widgets for ordered parts (Claude Code sequential rendering)
+  /// Returns widgets in arrival order: text segments and tool calls interleaved
+  List<Widget> _buildOrderedParts(ChatMessage message) {
+    final widgets = <Widget>[];
+    final toolsById = {for (final t in message.toolCalls) t.callId: t};
+
+    for (final part in message.parts) {
+      switch (part) {
+        case TextPart(:final text, :final isStreaming):
+          if (text.trim().isNotEmpty) {
+            // Create a mini ChatMessage for this text segment
+            final textMessage = ChatMessage(
+              id: '${message.id}-text-${part.sequence}',
+              sessionId: message.sessionId,
+              role: message.role,
+              createdAt: message.createdAt,
+              text: text,
+              isStreaming: isStreaming,
+            );
+            widgets.add(
+              Padding(
+                padding: EdgeInsets.only(top: widgets.isEmpty ? 0 : 8),
+                child: MessageBubble(
+                  message: textMessage,
+                  onForkFromHere: message.role == MessageRole.assistant
+                      ? (messageId) => _forkSession(messageId: message.id)
+                      : null,
+                ),
+              ),
+            );
+          }
+        case ToolPart(:final callId):
+          final tool = toolsById[callId];
+          if (tool != null) {
+            widgets.add(
+              Padding(
+                padding: const EdgeInsets.only(top: 8),
+                child: ToolCallCard(
+                  tool: tool,
+                  messageId: message.id,
+                  onUndo: (_, __) => _ccRewindToCheckpoint(),
+                ),
+              ),
+            );
+          }
+      }
+    }
+
+    // Fallback: if no widgets were built from parts but message has content,
+    // add the main text and tools (handles edge cases where parts are malformed)
+    if (widgets.isEmpty) {
+      if (message.text.trim().isNotEmpty) {
+        widgets.add(
+          MessageBubble(
+            message: message,
+            onForkFromHere: message.role == MessageRole.assistant
+                ? (messageId) => _forkSession(messageId: message.id)
+                : null,
+          ),
+        );
+      }
+      for (final tool in message.toolCalls) {
+        widgets.add(
+          Padding(
+            padding: const EdgeInsets.only(top: 8),
+            child: ToolCallCard(
+              tool: tool,
+              messageId: message.id,
+              onUndo: (_, __) => _ccRewindToCheckpoint(),
+            ),
+          ),
+        );
+      }
+    }
+
+    return widgets;
   }
 
   Widget _buildStopButton(BuildContext context) {

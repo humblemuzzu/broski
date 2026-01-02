@@ -141,6 +141,34 @@ class ChatSessionNotifier extends StateNotifier<ChatSessionState> {
   final StringBuffer _ccThinkingBuffer = StringBuffer();
   Timer? _ccUpdateTimer;
 
+  // Claude Code ordered parts tracking (for text-tool-text interleaved rendering)
+  final List<MessagePart> _ccOrderedParts = [];
+  int _ccPartSequence = 0;
+  // Track the current text part index (-1 if last part was not text)
+  int _ccCurrentTextPartIndex = -1;
+
+  void _ensureCCHasRenderableTextPart({required bool isStreaming}) {
+    final text = _ccAssistantTextBuffer.toString();
+    if (text.trim().isEmpty) return;
+
+    final hasTextPart = _ccOrderedParts.any(
+      (p) => p is TextPart && p.text.trim().isNotEmpty,
+    );
+    if (hasTextPart) return;
+
+    // Best-effort fallback: if tools streamed but no text deltas arrived,
+    // synthesize a single text part so the ordered-parts UI can render output.
+    _ccOrderedParts.insert(
+      0,
+      TextPart(
+        sequence: _ccPartSequence++,
+        text: text,
+        isStreaming: isStreaming,
+      ),
+    );
+    _ccCurrentTextPartIndex = 0;
+  }
+
   void updateConnectionMetrics(int rttMs) {
     _lastRttMs = rttMs;
   }
@@ -230,6 +258,10 @@ class ChatSessionNotifier extends StateNotifier<ChatSessionState> {
     _ccThinkingBuffer.clear();
     _ccUpdateTimer?.cancel();
     _ccUpdateTimer = null;
+    // Reset ordered parts tracking
+    _ccOrderedParts.clear();
+    _ccPartSequence = 0;
+    _ccCurrentTextPartIndex = -1;
   }
 
   void _scheduleCCAssistantUpdate({required bool isStreaming}) {
@@ -1289,8 +1321,31 @@ class ChatSessionNotifier extends StateNotifier<ChatSessionState> {
     }
 
     if (message is CCAssistantMessageDelta) {
-      // Streaming delta - accumulate text
+      // Streaming delta - accumulate text AND track in ordered parts
       _ccAssistantTextBuffer.write(message.content);
+
+      // Track in ordered parts: append to current text part or create new one
+      if (_ccCurrentTextPartIndex >= 0 &&
+          _ccCurrentTextPartIndex < _ccOrderedParts.length) {
+        // Append to existing text part
+        final existingPart =
+            _ccOrderedParts[_ccCurrentTextPartIndex] as TextPart;
+        _ccOrderedParts[_ccCurrentTextPartIndex] = existingPart.copyWith(
+          text: existingPart.text + message.content,
+          isStreaming: true,
+        );
+      } else {
+        // Create new text part (first text or after a tool)
+        _ccCurrentTextPartIndex = _ccOrderedParts.length;
+        _ccOrderedParts.add(
+          TextPart(
+            sequence: _ccPartSequence++,
+            text: message.content,
+            isStreaming: true,
+          ),
+        );
+      }
+
       _scheduleCCAssistantUpdate(isStreaming: true);
       return;
     }
@@ -1299,6 +1354,7 @@ class ChatSessionNotifier extends StateNotifier<ChatSessionState> {
       // Complete assistant message (if server sends full message)
       _ccAssistantTextBuffer.clear();
       _ccAssistantTextBuffer.write(message.content);
+      _ensureCCHasRenderableTextPart(isStreaming: false);
       _flushCCAssistantUpdate(isStreaming: false);
       return;
     }
@@ -1339,6 +1395,24 @@ class ChatSessionNotifier extends StateNotifier<ChatSessionState> {
       );
 
       _ccPendingToolCallsById[tool.callId] = tool;
+
+      // Track in ordered parts: add tool part and reset text tracking
+      // Mark current text part as not streaming (tool arrived)
+      if (_ccCurrentTextPartIndex >= 0 &&
+          _ccCurrentTextPartIndex < _ccOrderedParts.length) {
+        final existingPart =
+            _ccOrderedParts[_ccCurrentTextPartIndex] as TextPart;
+        _ccOrderedParts[_ccCurrentTextPartIndex] = existingPart.copyWith(
+          isStreaming: false,
+        );
+      }
+      // Add tool part
+      _ccOrderedParts.add(
+        ToolPart(sequence: _ccPartSequence++, callId: toolUseId),
+      );
+      // Reset text part index so next text creates a new part
+      _ccCurrentTextPartIndex = -1;
+
       _scheduleCCAssistantUpdate(isStreaming: true);
       return;
     }
@@ -1363,6 +1437,7 @@ class ChatSessionNotifier extends StateNotifier<ChatSessionState> {
     if (message is CCTokenUsage) {
       // End of turn - finalize assistant message
       state = state.copyWith(ccTokenUsage: message, ccIsStreaming: false);
+      _ensureCCHasRenderableTextPart(isStreaming: false);
       _flushCCAssistantUpdate(isStreaming: false);
       // Reset for next turn
       _ccCurrentAssistantMessageId = '';
@@ -1370,6 +1445,10 @@ class ChatSessionNotifier extends StateNotifier<ChatSessionState> {
       _ccPendingToolCallsById.clear();
       _ccThinkingPartId = '';
       _ccThinkingBuffer.clear();
+      // Reset ordered parts tracking
+      _ccOrderedParts.clear();
+      _ccPartSequence = 0;
+      _ccCurrentTextPartIndex = -1;
       return;
     }
 
@@ -1416,15 +1495,32 @@ class ChatSessionNotifier extends StateNotifier<ChatSessionState> {
       diffs = _mergeToolDiffs(diffs, tool: tool);
     }
 
+    // Build ordered parts list for sequential rendering
+    // Mark the last text part's streaming state
+    final orderedParts = <MessagePart>[];
+    for (int i = 0; i < _ccOrderedParts.length; i++) {
+      final part = _ccOrderedParts[i];
+      if (part is TextPart) {
+        // Last text part inherits the message's streaming state
+        final isLastTextPart = i == _ccCurrentTextPartIndex;
+        orderedParts.add(
+          part.copyWith(isStreaming: isLastTextPart && isStreaming),
+        );
+      } else {
+        orderedParts.add(part);
+      }
+    }
+
     final message = ChatMessage(
       id: _ccCurrentAssistantMessageId,
       sessionId: state.ccSessionId ?? '',
       role: MessageRole.assistant,
       createdAt: DateTime.now(),
       text: text,
-      toolCalls: List<ToolCall>.from(_ccPendingToolCallsById.values),
+      toolCalls: List<ToolCall>.unmodifiable(_ccPendingToolCallsById.values),
       diffs: diffs,
       reasoningParts: reasoningParts,
+      parts: List<MessagePart>.unmodifiable(orderedParts),
       isStreaming: isStreaming,
     );
 
