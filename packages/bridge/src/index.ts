@@ -1,6 +1,6 @@
 import { createOpencode, type OpencodeClient } from '@opencode-ai/sdk'
 import { displayBanner, displayQRCode } from './qr'
-import { getLocalIP, getTailscaleIP, getTailscaleMagicDNS, isTailscaleConnected } from './network'
+import { getLocalIP, getHotspotIP, getTailscaleIP, getTailscaleMagicDNS, isTailscaleConnected } from './network'
 import { enableFunnel, disableFunnel } from './funnel'
 import { OpenCodeConnector } from './connectors/opencode'
 import { createBridgeServer, loadOrCreateAuthToken } from './server'
@@ -343,6 +343,16 @@ async function main() {
   const tailscaleIP = await getTailscaleIP()
   const magicDNS = await getTailscaleMagicDNS()
   const tailscaleConnected = await isTailscaleConnected()
+  const hotspotIP = cli.detectHotspot ? getHotspotIP() : null
+
+  if (cli.detectHotspot) {
+    if (hotspotIP) {
+      console.log(`✓ Hotspot IP detected: ${hotspotIP}`)
+    } else {
+      console.log('ℹ️  Hotspot detection enabled but no hotspot IP found')
+      console.log('   Ensure your device is connected to a mobile hotspot')
+    }
+  }
 
   if (!tailscaleConnected) {
     console.log('ℹ️  Tailscale not connected. Local network access only.')
@@ -454,6 +464,7 @@ async function main() {
     tailscaleIP,
     magicDNS,
     funnelURL,
+    hotspotIP,
     port: bridgePort,
     version,
     authToken: bridgeServer.authToken(),

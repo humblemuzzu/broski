@@ -171,6 +171,9 @@ class ConnectionTypeBadge extends ConsumerWidget {
       case ConnectionType.local:
         label = 'Local';
         icon = Icons.wifi;
+      case ConnectionType.hotspot:
+        label = 'Hotspot';
+        icon = Icons.network_wifi;
       case ConnectionType.tailscale:
         label = 'Tailscale';
         icon = Icons.vpn_lock;

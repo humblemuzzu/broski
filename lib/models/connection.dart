@@ -7,6 +7,7 @@ class ConnectionInfo {
     this.tailscaleIP,
     this.magicDNSHostname,
     this.funnelURL,
+    this.hotspotIP,
     this.version,
     this.authToken,
   });
@@ -15,6 +16,7 @@ class ConnectionInfo {
   final String? tailscaleIP;
   final String? magicDNSHostname;
   final String? funnelURL;
+  final String? hotspotIP;
   final int port;
   final String? version;
   final String? authToken;
@@ -53,6 +55,7 @@ class ConnectionInfo {
     'tailscaleIP': tailscaleIP,
     'magicDNSHostname': magicDNSHostname,
     'funnelURL': funnelURL,
+    'hotspotIP': hotspotIP,
     'port': port,
     'version': version,
     'authToken': authToken,
@@ -70,6 +73,7 @@ class ConnectionInfo {
         tailscaleIP: data['t'] as String?,
         magicDNSHostname: data['m'] as String?,
         funnelURL: data['f'] as String?,
+        hotspotIP: data['h'] as String?,
         port: port,
         version: data['v'] as String?,
         authToken: data['a'] as String?,
@@ -90,6 +94,7 @@ class ConnectionInfo {
       tailscaleIP: json['tailscaleIP'] as String?,
       magicDNSHostname: json['magicDNSHostname'] as String?,
       funnelURL: json['funnelURL'] as String?,
+      hotspotIP: json['hotspotIP'] as String?,
       port: port,
       version: json['version'] as String?,
       authToken: json['authToken'] as String?,

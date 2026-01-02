@@ -15,6 +15,7 @@ export type CliOptions = {
   help: boolean
   enableFunnel: boolean
   newToken: boolean
+  detectHotspot: boolean
 }
 
 const DEFAULT_BRIDGE_PORT = 18274
@@ -38,6 +39,7 @@ export function parseCli(argv: string[], env: NodeJS.ProcessEnv): CliOptions {
   let help = false
   let enableFunnel = env.BROSKI_ENABLE_FUNNEL === '1'
   let newToken = false
+  let detectHotspot = false
 
   const firstArg = args[0]
   if (firstArg === 'doctor') {
@@ -101,6 +103,10 @@ export function parseCli(argv: string[], env: NodeJS.ProcessEnv): CliOptions {
       newToken = true
       continue
     }
+    if (arg === '--hotspot' || arg === '--detect-hotspot') {
+      detectHotspot = true
+      continue
+    }
   }
 
   if (opencodeUrl) {
@@ -118,6 +124,7 @@ export function parseCli(argv: string[], env: NodeJS.ProcessEnv): CliOptions {
     help,
     enableFunnel,
     newToken,
+    detectHotspot,
   }
 }
 
@@ -131,12 +138,13 @@ Commands:
   doctor            Check system requirements and diagnose issues
   setup-tailscale   Install and configure Tailscale for remote access
 
-Options:
+ Options:
   --help, -h                Show help
   --verbose, -v             Verbose logging (SDK events + debug)
   --port, --bridge-port N   Bridge WebSocket port (default: 18274; use 0 for random free port)
   --funnel                  Enable Tailscale Funnel for public HTTPS access (no VPN needed on phone)
   --new-token               Generate a new auth token (invalidates existing QR codes)
+  --hotspot, --detect-hotspot Detect and prioritize hotspot IP for remote access via mobile hotspot
 
 OpenCode:
   --managed                 Force managed mode (default)

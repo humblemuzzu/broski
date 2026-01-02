@@ -2466,18 +2466,24 @@ class _ChatScreenState extends ConsumerState<ChatScreen>
       isScrollControlled: true,
       backgroundColor: Colors.transparent,
       builder: (_) {
-        return SafeArea(
-          child: Container(
-            decoration: BoxDecoration(
-              color: theme.backgroundPanel,
-              borderRadius: const BorderRadius.vertical(
-                top: Radius.circular(18),
+        final screenHeight = MediaQuery.of(context).size.height;
+        final maxSheetHeight = screenHeight * 0.85;
+
+        return Container(
+          constraints: BoxConstraints(maxHeight: maxSheetHeight),
+          decoration: BoxDecoration(
+            color: theme.backgroundPanel,
+            borderRadius: const BorderRadius.vertical(top: Radius.circular(20)),
+            boxShadow: [
+              BoxShadow(
+                color: Colors.black.withValues(alpha: 0.3),
+                blurRadius: 20,
+                offset: const Offset(0, -4),
               ),
-              border: Border.all(
-                color: theme.borderSubtle.withValues(alpha: 0.2),
-              ),
-            ),
-            padding: const EdgeInsets.fromLTRB(16, 16, 16, 20),
+            ],
+          ),
+          child: SafeArea(
+            top: false,
             child: Consumer(
               builder: (context, ref, _) {
                 final cwd = ref.watch(chatSessionProvider).ccCwd;
@@ -2485,117 +2491,193 @@ class _ChatScreenState extends ConsumerState<ChatScreen>
 
                 return Column(
                   mainAxisSize: MainAxisSize.min,
-                  crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Row(
-                      children: [
-                        Icon(
-                          Icons.auto_awesome_rounded,
-                          color: theme.accent,
-                          size: 18,
-                        ),
-                        const SizedBox(width: 10),
-                        Expanded(
-                          child: Text(
-                            'Skills',
-                            style: TextStyle(
-                              color: theme.text,
-                              fontSize: 16,
-                              fontWeight: FontWeight.w700,
-                            ),
-                          ),
-                        ),
-                        IconButton(
-                          onPressed: () => Navigator.pop(context),
-                          icon: Icon(
-                            Icons.close_rounded,
-                            color: theme.textMuted,
-                          ),
-                        ),
-                      ],
+                    // Drag handle
+                    Container(
+                      margin: const EdgeInsets.only(top: 12, bottom: 8),
+                      width: 40,
+                      height: 4,
+                      decoration: BoxDecoration(
+                        color: theme.textMuted.withValues(alpha: 0.3),
+                        borderRadius: BorderRadius.circular(2),
+                      ),
                     ),
-                    const SizedBox(height: 8),
-                    skillsAsync.when(
-                      data: (skills) {
-                        if (skills.isEmpty) {
-                          return Padding(
-                            padding: const EdgeInsets.only(top: 8),
-                            child: Text(
-                              'No skills found.',
-                              style: TextStyle(
-                                color: theme.textMuted,
-                                fontSize: 13,
-                              ),
+
+                    // Header with close button
+                    Padding(
+                      padding: const EdgeInsets.fromLTRB(20, 8, 12, 0),
+                      child: Row(
+                        children: [
+                          Container(
+                            padding: const EdgeInsets.all(8),
+                            decoration: BoxDecoration(
+                              color: theme.accent.withValues(alpha: 0.15),
+                              borderRadius: BorderRadius.circular(10),
                             ),
-                          );
-                        }
-                        return Flexible(
-                          child: ListView.builder(
-                            shrinkWrap: true,
-                            itemCount: skills.length,
-                            itemBuilder: (context, index) {
-                              final s = skills[index];
-                              return ListTile(
-                                dense: true,
-                                contentPadding: EdgeInsets.zero,
-                                title: Text(
-                                  s.name,
+                            child: Icon(
+                              Icons.auto_awesome_rounded,
+                              color: theme.accent,
+                              size: 20,
+                            ),
+                          ),
+                          const SizedBox(width: 12),
+                          Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text(
+                                  'Skills',
                                   style: TextStyle(
                                     color: theme.text,
-                                    fontSize: 13,
+                                    fontSize: 17,
+                                    fontWeight: FontWeight.w700,
                                   ),
                                 ),
-                                subtitle: s.description == null
-                                    ? null
-                                    : Text(
-                                        s.description!,
-                                        style: TextStyle(
-                                          color: theme.textMuted,
-                                          fontSize: 12,
-                                        ),
-                                      ),
-                                trailing: s.autoInvoke
-                                    ? Container(
-                                        padding: const EdgeInsets.symmetric(
-                                          horizontal: 8,
-                                          vertical: 4,
-                                        ),
-                                        decoration: BoxDecoration(
-                                          color: theme.success.withValues(
-                                            alpha: 0.15,
-                                          ),
-                                          borderRadius: BorderRadius.circular(
-                                            8,
-                                          ),
-                                        ),
-                                        child: Text(
-                                          'Auto',
-                                          style: TextStyle(
-                                            color: theme.success,
-                                            fontSize: 11,
-                                            fontWeight: FontWeight.w600,
-                                          ),
-                                        ),
-                                      )
-                                    : null,
-                              );
-                            },
+                                const SizedBox(height: 2),
+                                Text(
+                                  'Specialized knowledge & workflows',
+                                  style: TextStyle(
+                                    color: theme.textMuted,
+                                    fontSize: 12,
+                                  ),
+                                ),
+                              ],
+                            ),
                           ),
-                        );
-                      },
-                      loading: () => Padding(
-                        padding: const EdgeInsets.only(top: 16),
-                        child: Center(
-                          child: CircularProgressIndicator(
-                            color: theme.primary,
+                          Material(
+                            color: Colors.transparent,
+                            child: InkWell(
+                              onTap: () => Navigator.pop(context),
+                              borderRadius: BorderRadius.circular(20),
+                              child: Container(
+                                padding: const EdgeInsets.all(8),
+                                decoration: BoxDecoration(
+                                  color: theme.textMuted.withValues(alpha: 0.1),
+                                  shape: BoxShape.circle,
+                                ),
+                                child: Icon(
+                                  Icons.close_rounded,
+                                  color: theme.textMuted,
+                                  size: 20,
+                                ),
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+
+                    const SizedBox(height: 16),
+                    Divider(
+                      color: theme.borderSubtle.withValues(alpha: 0.5),
+                      height: 1,
+                    ),
+
+                    // Skills content
+                    Flexible(
+                      child: skillsAsync.when(
+                        data: (skills) {
+                          if (skills.isEmpty) {
+                            return Padding(
+                              padding: const EdgeInsets.all(32),
+                              child: Column(
+                                mainAxisSize: MainAxisSize.min,
+                                children: [
+                                  Icon(
+                                    Icons.school_outlined,
+                                    size: 48,
+                                    color: theme.textMuted.withValues(
+                                      alpha: 0.5,
+                                    ),
+                                  ),
+                                  const SizedBox(height: 16),
+                                  Text(
+                                    'No skills found',
+                                    style: TextStyle(
+                                      color: theme.textMuted,
+                                      fontSize: 15,
+                                      fontWeight: FontWeight.w500,
+                                    ),
+                                  ),
+                                  const SizedBox(height: 4),
+                                  Text(
+                                    'Skills provide specialized workflows and knowledge',
+                                    style: TextStyle(
+                                      color: theme.textMuted.withValues(
+                                        alpha: 0.7,
+                                      ),
+                                      fontSize: 13,
+                                    ),
+                                    textAlign: TextAlign.center,
+                                  ),
+                                ],
+                              ),
+                            );
+                          }
+                          return ListView.separated(
+                            padding: const EdgeInsets.fromLTRB(20, 16, 20, 24),
+                            shrinkWrap: true,
+                            itemCount: skills.length,
+                            separatorBuilder: (_, __) =>
+                                const SizedBox(height: 8),
+                            itemBuilder: (context, index) {
+                              final s = skills[index];
+                              return _buildSkillCard(theme, s);
+                            },
+                          );
+                        },
+                        loading: () => Padding(
+                          padding: const EdgeInsets.all(32),
+                          child: Column(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              CircularProgressIndicator(
+                                color: theme.accent,
+                                strokeWidth: 2,
+                              ),
+                              const SizedBox(height: 16),
+                              Text(
+                                'Loading skills...',
+                                style: TextStyle(
+                                  color: theme.textMuted,
+                                  fontSize: 13,
+                                ),
+                              ),
+                            ],
                           ),
                         ),
-                      ),
-                      error: (e, _) => Padding(
-                        padding: const EdgeInsets.only(top: 8),
-                        child: Text(
-                          '$e',
-                          style: TextStyle(color: theme.error, fontSize: 13),
+                        error: (e, _) => Padding(
+                          padding: const EdgeInsets.all(32),
+                          child: Column(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              Icon(
+                                Icons.error_outline_rounded,
+                                size: 48,
+                                color: theme.error.withValues(alpha: 0.7),
+                              ),
+                              const SizedBox(height: 16),
+                              Text(
+                                'Failed to load skills',
+                                style: TextStyle(
+                                  color: theme.text,
+                                  fontSize: 15,
+                                  fontWeight: FontWeight.w500,
+                                ),
+                              ),
+                              const SizedBox(height: 4),
+                              Text(
+                                '$e',
+                                style: TextStyle(
+                                  color: theme.error,
+                                  fontSize: 12,
+                                ),
+                                textAlign: TextAlign.center,
+                                maxLines: 2,
+                                overflow: TextOverflow.ellipsis,
+                              ),
+                            ],
+                          ),
                         ),
                       ),
                     ),
@@ -2607,6 +2689,112 @@ class _ChatScreenState extends ConsumerState<ChatScreen>
         );
       },
     );
+  }
+
+  Widget _buildSkillCard(OpenCodeTheme theme, ClaudeCodeSkill skill) {
+    return Container(
+      padding: const EdgeInsets.all(14),
+      decoration: BoxDecoration(
+        color: theme.background.withValues(alpha: 0.5),
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: theme.borderSubtle.withValues(alpha: 0.3)),
+      ),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Container(
+            padding: const EdgeInsets.all(8),
+            decoration: BoxDecoration(
+              color: theme.info.withValues(alpha: 0.12),
+              borderRadius: BorderRadius.circular(8),
+            ),
+            child: Icon(_getSkillIcon(skill.name), size: 18, color: theme.info),
+          ),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
+                  children: [
+                    Expanded(
+                      child: Text(
+                        skill.name,
+                        style: TextStyle(
+                          color: theme.text,
+                          fontSize: 14,
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
+                    ),
+                    if (skill.autoInvoke)
+                      Container(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 8,
+                          vertical: 3,
+                        ),
+                        decoration: BoxDecoration(
+                          color: theme.success.withValues(alpha: 0.15),
+                          borderRadius: BorderRadius.circular(6),
+                        ),
+                        child: Text(
+                          'Auto',
+                          style: TextStyle(
+                            color: theme.success,
+                            fontSize: 10,
+                            fontWeight: FontWeight.w600,
+                          ),
+                        ),
+                      ),
+                  ],
+                ),
+                if (skill.description != null) ...[
+                  const SizedBox(height: 4),
+                  Text(
+                    skill.description!,
+                    style: TextStyle(
+                      color: theme.textMuted,
+                      fontSize: 12,
+                      height: 1.4,
+                    ),
+                    maxLines: 2,
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                ],
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  IconData _getSkillIcon(String name) {
+    final lower = name.toLowerCase();
+    if (lower.contains('search') || lower.contains('find')) {
+      return Icons.search_rounded;
+    } else if (lower.contains('git') || lower.contains('commit')) {
+      return Icons.commit_rounded;
+    } else if (lower.contains('test')) {
+      return Icons.bug_report_rounded;
+    } else if (lower.contains('doc') || lower.contains('research')) {
+      return Icons.description_rounded;
+    } else if (lower.contains('debug') || lower.contains('hook')) {
+      return Icons.code_rounded;
+    } else if (lower.contains('check') || lower.contains('quality')) {
+      return Icons.check_circle_outline_rounded;
+    } else if (lower.contains('plan') || lower.contains('create')) {
+      return Icons.architecture_rounded;
+    } else if (lower.contains('explore') || lower.contains('repo')) {
+      return Icons.folder_open_rounded;
+    } else if (lower.contains('analyze') || lower.contains('brain')) {
+      return Icons.psychology_rounded;
+    } else if (lower.contains('pr') || lower.contains('describe')) {
+      return Icons.rate_review_rounded;
+    } else if (lower.contains('develop')) {
+      return Icons.developer_mode_rounded;
+    }
+    return Icons.auto_awesome_rounded;
   }
 
   void _showClaudeCodeHooksSheet() {
@@ -4212,7 +4400,10 @@ class _ChatScreenState extends ConsumerState<ChatScreen>
         children: [
           // Custom background from appearance settings
           const AppBackground(screenId: AppScreen.chat),
+          // Disable SafeArea top/bottom to reclaim space - header/input handle their own
           SafeArea(
+            top: false,
+            bottom: false,
             child: Column(
               children: [
                 // Chat messages with smooth auto-hiding scrollbar
@@ -4241,7 +4432,7 @@ class _ChatScreenState extends ConsumerState<ChatScreen>
                           controller: _scrollController,
                           // PERF: Pre-render 500px above/below viewport for smoother scrolling
                           cacheExtent: 500,
-                          padding: const EdgeInsets.fromLTRB(20, 20, 20, 90),
+                          padding: const EdgeInsets.fromLTRB(20, 15, 20, 80),
                           // Add 1 for loading indicator at top when loading more
                           itemCount:
                               messages.length +
@@ -5381,9 +5572,9 @@ class _FloatingHeader extends StatelessWidget {
       duration: const Duration(milliseconds: 200),
       padding: EdgeInsets.fromLTRB(
         12,
-        MediaQuery.of(context).padding.top + 8,
+        MediaQuery.of(context).padding.top + 0,
         12,
-        isStreaming ? 6 : 10,
+        isStreaming ? 0 : 2,
       ),
       child: AnimatedOpacity(
         duration: const Duration(milliseconds: 200),
@@ -6105,7 +6296,7 @@ class _FloatingInputBar extends ConsumerWidget {
           color: Colors.transparent,
           child: SafeArea(
             top: false,
-            minimum: const EdgeInsets.only(bottom: 8),
+            minimum: EdgeInsets.zero,
             child: Column(
               mainAxisSize: MainAxisSize.min,
               children: [
@@ -6435,7 +6626,7 @@ class _CliStyleInputBarState extends State<_CliStyleInputBar> {
           color: Colors.transparent,
           child: SafeArea(
             top: false,
-            minimum: const EdgeInsets.only(bottom: 8),
+            minimum: EdgeInsets.zero,
             child: Column(
               mainAxisSize: MainAxisSize.min,
               children: [

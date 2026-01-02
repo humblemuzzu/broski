@@ -54,6 +54,8 @@ class BridgeConnectionState {
     switch (connectionType) {
       case ConnectionType.local:
         return 'Local • ${rttMs ?? 0}ms';
+      case ConnectionType.hotspot:
+        return 'Hotspot • ${rttMs ?? 0}ms';
       case ConnectionType.tailscale:
         return 'Tailscale • ${rttMs ?? 0}ms';
       case ConnectionType.magicDNS:
@@ -317,6 +319,8 @@ class ConnectionNotifier extends StateNotifier<BridgeConnectionState>
       switch (preferredType) {
         case ConnectionType.local:
           addEndpoint(ConnectionType.local, info.localIP);
+        case ConnectionType.hotspot:
+          addEndpoint(ConnectionType.hotspot, info.hotspotIP);
         case ConnectionType.tailscale:
           addEndpoint(ConnectionType.tailscale, info.tailscaleIP);
         case ConnectionType.magicDNS:
@@ -329,6 +333,9 @@ class ConnectionNotifier extends StateNotifier<BridgeConnectionState>
     // Add all endpoints (if not already added as preferred)
     if (preferredType != ConnectionType.local && info.localIP != null) {
       addEndpoint(ConnectionType.local, info.localIP);
+    }
+    if (preferredType != ConnectionType.hotspot && info.hotspotIP != null) {
+      addEndpoint(ConnectionType.hotspot, info.hotspotIP);
     }
     if (preferredType != ConnectionType.tailscale && info.tailscaleIP != null) {
       addEndpoint(ConnectionType.tailscale, info.tailscaleIP);
@@ -422,6 +429,8 @@ class ConnectionNotifier extends StateNotifier<BridgeConnectionState>
     switch (type) {
       case ConnectionType.local:
         return 'local';
+      case ConnectionType.hotspot:
+        return 'hotspot';
       case ConnectionType.tailscale:
       case ConnectionType.magicDNS:
         return 'tailscale';

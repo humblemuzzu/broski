@@ -2,7 +2,7 @@ import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
 
-enum ConnectionType { local, tailscale, magicDNS, unknown }
+enum ConnectionType { local, hotspot, tailscale, magicDNS, unknown }
 
 enum ConnectionQuality { excellent, good, fair, poor, disconnected }
 
@@ -77,6 +77,8 @@ class ConnectionMetrics {
     switch (type) {
       case ConnectionType.local:
         return 'Local';
+      case ConnectionType.hotspot:
+        return 'Hotspot';
       case ConnectionType.tailscale:
         return 'Tailscale';
       case ConnectionType.magicDNS:
@@ -90,6 +92,8 @@ class ConnectionMetrics {
     switch (type) {
       case ConnectionType.local:
         return Icons.wifi;
+      case ConnectionType.hotspot:
+        return Icons.network_wifi;
       case ConnectionType.tailscale:
         return Icons.vpn_lock;
       case ConnectionType.magicDNS:

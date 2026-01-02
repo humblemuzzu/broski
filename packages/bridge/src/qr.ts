@@ -5,6 +5,7 @@ export interface ConnectionInfo {
   tailscaleIP: string | null
   magicDNS: string | null
   funnelURL: string | null
+  hotspotIP: string | null
   port: number
   version: string
   authToken: string
@@ -16,6 +17,7 @@ export function displayQRCode(info: ConnectionInfo): void {
     t: info.tailscaleIP,
     m: info.magicDNS,
     f: info.funnelURL,
+    h: info.hotspotIP,
     p: info.port,
     v: info.version,
     a: info.authToken,
@@ -37,6 +39,9 @@ export function displayQRCode(info: ConnectionInfo): void {
   console.log('  Or connect manually:')
   if (info.localIP) {
     console.log(`  - Local:     ws://${info.localIP}:${info.port}`)
+  }
+  if (info.hotspotIP) {
+    console.log(`  - Hotspot:   ws://${info.hotspotIP}:${info.port}`)
   }
   if (info.tailscaleIP) {
     console.log(`  - Tailscale: ws://${info.tailscaleIP}:${info.port}`)
