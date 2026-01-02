@@ -1361,9 +1361,21 @@ class _ChatScreenState extends ConsumerState<ChatScreen>
     }
   }
 
+  /// Dismiss keyboard if the input field is focused.
+  /// Called on tap/drag in the chat area for smooth UX.
+  void _dismissKeyboardIfFocused() {
+    if (_inputFocusNode.hasFocus) {
+      _inputFocusNode.unfocus();
+    }
+  }
+
   void _onTextChanged() {
     final text = _controller.text;
     final fileSearch = ref.read(fileSearchProvider.notifier);
+
+    // CRITICAL: Capture focus state BEFORE any setState calls.
+    // setState can cause focus loss on mobile during widget tree rebuilds.
+    final hadFocus = _inputFocusNode.hasFocus;
 
     // Detect slash command autocomplete - ONLY when input starts fresh with /
     // Once there's a space after the command name, autocomplete closes
@@ -1378,14 +1390,13 @@ class _ChatScreenState extends ConsumerState<ChatScreen>
     if (isSlashCommand) {
       final filter = text.substring(1).toLowerCase();
       if (!_showCommandAutocomplete || _commandFilter != filter) {
-        setState(() {
-          _showCommandAutocomplete = true;
-          _showFileAutocomplete = false;
-          _showAgentAutocomplete = false;
-          _commandFilter = filter;
-          _agentQuery = '';
-        });
+        _showCommandAutocomplete = true;
+        _showFileAutocomplete = false;
+        _showAgentAutocomplete = false;
+        _commandFilter = filter;
+        _agentQuery = '';
         fileSearch.clear();
+        _setStateAndRestoreFocus(hadFocus);
       }
     } else if (atMatch != null) {
       final query = atMatch.group(1) ?? '';
@@ -1408,56 +1419,68 @@ class _ChatScreenState extends ConsumerState<ChatScreen>
 
       if (shouldShowAgents && _agents.isNotEmpty) {
         // Show agent autocomplete
-        final wasShowingAutocomplete = _showAgentAutocomplete;
-        setState(() {
-          _showCommandAutocomplete = false;
-          _showFileAutocomplete = false;
-          _showAgentAutocomplete = true;
-          _agentQuery = query;
-          _commandFilter = '';
-        });
+        _showCommandAutocomplete = false;
+        _showFileAutocomplete = false;
+        _showAgentAutocomplete = true;
+        _agentQuery = query;
+        _commandFilter = '';
         fileSearch.clear();
-        // Restore focus after autocomplete appears
-        if (!wasShowingAutocomplete) {
-          WidgetsBinding.instance.addPostFrameCallback((_) {
-            if (mounted) _inputFocusNode.requestFocus();
-          });
-        }
+        _setStateAndRestoreFocus(hadFocus);
       } else {
         // Show file autocomplete
+        _showCommandAutocomplete = false;
+        _showFileAutocomplete = true;
+        _showAgentAutocomplete = false;
+        _agentQuery = '';
+        _commandFilter = '';
+        // Trigger file search AFTER updating state flags
+        _setStateAndRestoreFocus(hadFocus);
         // Use effectivePath for both OpenCode (project.path) and Claude Code (ccSession.cwd)
         fileSearch.setProjectPath(widget.effectivePath);
         fileSearch.search(query);
-        final wasShowingAutocomplete = _showFileAutocomplete;
-        setState(() {
-          _showCommandAutocomplete = false;
-          _showFileAutocomplete = true;
-          _showAgentAutocomplete = false;
-          _agentQuery = '';
-          _commandFilter = '';
-        });
-        // Restore focus after autocomplete appears (fixes keyboard dismissal on mobile)
-        if (!wasShowingAutocomplete) {
-          WidgetsBinding.instance.addPostFrameCallback((_) {
-            if (mounted) _inputFocusNode.requestFocus();
-          });
-        }
       }
     } else {
-      if (_showCommandAutocomplete ||
+      // No autocomplete trigger - close any open autocomplete
+      final wasShowing =
+          _showCommandAutocomplete ||
           _showFileAutocomplete ||
-          _showAgentAutocomplete) {
-        setState(() {
-          _showCommandAutocomplete = false;
-          _showFileAutocomplete = false;
-          _showAgentAutocomplete = false;
-          _commandFilter = '';
-          _agentQuery = '';
-        });
+          _showAgentAutocomplete;
+      if (wasShowing) {
+        _showCommandAutocomplete = false;
+        _showFileAutocomplete = false;
+        _showAgentAutocomplete = false;
+        _commandFilter = '';
+        _agentQuery = '';
         fileSearch.clear();
-      } else {
-        setState(() {});
       }
+      _setStateAndRestoreFocus(hadFocus);
+    }
+  }
+
+  /// Call setState and restore focus if it was previously focused.
+  /// This is the KEY fix - we always restore focus after setState if the
+  /// input had focus before the text change. This prevents focus loss
+  /// during autocomplete transitions and popup appearances.
+  void _setStateAndRestoreFocus(bool hadFocus) {
+    setState(() {});
+    if (hadFocus) {
+      // AGGRESSIVE focus restoration for mobile:
+      // 1. Immediate attempt (may work if focus wasn't actually lost yet)
+      if (!_inputFocusNode.hasFocus) {
+        _inputFocusNode.requestFocus();
+      }
+      // 2. Post-frame callback (after rebuild completes)
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted && !_inputFocusNode.hasFocus) {
+          _inputFocusNode.requestFocus();
+        }
+      });
+      // 3. Delayed attempt (catches edge cases where focus is lost after rebuild)
+      Future.delayed(const Duration(milliseconds: 50), () {
+        if (mounted && !_inputFocusNode.hasFocus) {
+          _inputFocusNode.requestFocus();
+        }
+      });
     }
   }
 
@@ -4005,84 +4028,93 @@ class _ChatScreenState extends ConsumerState<ChatScreen>
               children: [
                 // Chat messages with smooth auto-hiding scrollbar
                 Expanded(
-                  child: ScrollbarTheme(
-                    data: ScrollbarThemeData(
-                      thumbColor: WidgetStateProperty.all(
-                        theme.textMuted.withValues(alpha: 0.3),
+                  // GestureDetector for tap-to-unfocus with smooth behavior
+                  // Handles: tap anywhere, tap-and-drag, long press - all dismiss keyboard
+                  child: GestureDetector(
+                    behavior: HitTestBehavior.translucent,
+                    onTap: _dismissKeyboardIfFocused,
+                    onPanDown: (_) => _dismissKeyboardIfFocused(),
+                    child: ScrollbarTheme(
+                      data: ScrollbarThemeData(
+                        thumbColor: WidgetStateProperty.all(
+                          theme.textMuted.withValues(alpha: 0.3),
+                        ),
+                        trackColor: WidgetStateProperty.all(Colors.transparent),
+                        radius: const Radius.circular(4),
+                        thickness: WidgetStateProperty.all(6),
+                        minThumbLength: 48,
+                        interactive: true,
                       ),
-                      trackColor: WidgetStateProperty.all(Colors.transparent),
-                      radius: const Radius.circular(4),
-                      thickness: WidgetStateProperty.all(6),
-                      minThumbLength: 48,
-                      interactive: true,
-                    ),
-                    child: Scrollbar(
-                      controller: _scrollController,
-                      thumbVisibility: false, // Auto-hide when not scrolling
-                      child: ListView.builder(
+                      child: Scrollbar(
                         controller: _scrollController,
-                        // PERF: Pre-render 500px above/below viewport for smoother scrolling
-                        cacheExtent: 500,
-                        padding: const EdgeInsets.fromLTRB(20, 20, 20, 90),
-                        // Add 1 for loading indicator at top when loading more
-                        itemCount:
-                            messages.length +
-                            (_loadingMoreMessages ? 1 : 0) +
-                            (!_hasLoadedAllMessages && messages.isNotEmpty
-                                ? 1
-                                : 0),
-                        itemBuilder: (context, index) {
-                          // Show "load more" indicator at top
-                          if (!_hasLoadedAllMessages &&
-                              messages.isNotEmpty &&
-                              index == 0) {
-                            if (_loadingMoreMessages) {
-                              return const Padding(
-                                padding: EdgeInsets.symmetric(vertical: 16),
+                        thumbVisibility: false, // Auto-hide when not scrolling
+                        child: ListView.builder(
+                          controller: _scrollController,
+                          // PERF: Pre-render 500px above/below viewport for smoother scrolling
+                          cacheExtent: 500,
+                          padding: const EdgeInsets.fromLTRB(20, 20, 20, 90),
+                          // Add 1 for loading indicator at top when loading more
+                          itemCount:
+                              messages.length +
+                              (_loadingMoreMessages ? 1 : 0) +
+                              (!_hasLoadedAllMessages && messages.isNotEmpty
+                                  ? 1
+                                  : 0),
+                          itemBuilder: (context, index) {
+                            // Show "load more" indicator at top
+                            if (!_hasLoadedAllMessages &&
+                                messages.isNotEmpty &&
+                                index == 0) {
+                              if (_loadingMoreMessages) {
+                                return const Padding(
+                                  padding: EdgeInsets.symmetric(vertical: 16),
+                                  child: Center(
+                                    child: SizedBox(
+                                      width: 20,
+                                      height: 20,
+                                      child: CircularProgressIndicator(
+                                        strokeWidth: 2,
+                                      ),
+                                    ),
+                                  ),
+                                );
+                              }
+                              // Show "scroll up for more" hint
+                              return Padding(
+                                padding: const EdgeInsets.symmetric(
+                                  vertical: 12,
+                                ),
                                 child: Center(
-                                  child: SizedBox(
-                                    width: 20,
-                                    height: 20,
-                                    child: CircularProgressIndicator(
-                                      strokeWidth: 2,
+                                  child: Text(
+                                    '↑ Scroll up to load earlier messages',
+                                    style: TextStyle(
+                                      color: theme.textMuted,
+                                      fontSize: 12,
                                     ),
                                   ),
                                 ),
                               );
                             }
-                            // Show "scroll up for more" hint
-                            return Padding(
-                              padding: const EdgeInsets.symmetric(vertical: 12),
-                              child: Center(
-                                child: Text(
-                                  '↑ Scroll up to load earlier messages',
-                                  style: TextStyle(
-                                    color: theme.textMuted,
-                                    fontSize: 12,
-                                  ),
-                                ),
-                              ),
+
+                            // Adjust index for the loading indicator
+                            final messageIndex =
+                                (!_hasLoadedAllMessages && messages.isNotEmpty)
+                                ? index - 1
+                                : index;
+
+                            if (messageIndex < 0 ||
+                                messageIndex >= messages.length) {
+                              return const SizedBox.shrink();
+                            }
+
+                            final message = messages[messageIndex];
+                            // PERF: ValueKey helps Flutter track widget identity across rebuilds
+                            return KeyedSubtree(
+                              key: ValueKey(message.id),
+                              child: _buildMessageGroup(message),
                             );
-                          }
-
-                          // Adjust index for the loading indicator
-                          final messageIndex =
-                              (!_hasLoadedAllMessages && messages.isNotEmpty)
-                              ? index - 1
-                              : index;
-
-                          if (messageIndex < 0 ||
-                              messageIndex >= messages.length) {
-                            return const SizedBox.shrink();
-                          }
-
-                          final message = messages[messageIndex];
-                          // PERF: ValueKey helps Flutter track widget identity across rebuilds
-                          return KeyedSubtree(
-                            key: ValueKey(message.id),
-                            child: _buildMessageGroup(message),
-                          );
-                        },
+                          },
+                        ),
                       ),
                     ),
                   ),
@@ -4100,24 +4132,29 @@ class _ChatScreenState extends ConsumerState<ChatScreen>
               child: Center(child: _buildStopButton(context)),
             ),
 
-          // Slash command autocomplete popup
-          if (_showCommandAutocomplete && _commands.isNotEmpty)
-            Positioned(
-              left: 16,
-              right: 16,
-              bottom: 70,
+          // Slash command autocomplete popup (kept mounted to avoid focus loss)
+          Positioned(
+            left: 16,
+            right: 16,
+            bottom: 70,
+            child: Visibility(
+              visible: _showCommandAutocomplete && _commands.isNotEmpty,
+              maintainState: true,
               child: _CommandAutocomplete(
                 commands: _filteredCommands,
                 onSelect: _selectCommand,
               ),
             ),
+          ),
 
-          // Agent @ mention autocomplete popup
-          if (_showAgentAutocomplete && _agents.isNotEmpty)
-            Positioned(
-              left: 16,
-              right: 16,
-              bottom: 70,
+          // Agent @ mention autocomplete popup (kept mounted to avoid focus loss)
+          Positioned(
+            left: 16,
+            right: 16,
+            bottom: 70,
+            child: Visibility(
+              visible: _showAgentAutocomplete && _agents.isNotEmpty,
+              maintainState: true,
               child: AgentAutocomplete(
                 agents: _agents,
                 query: _agentQuery,
@@ -4125,9 +4162,11 @@ class _ChatScreenState extends ConsumerState<ChatScreen>
                 visible: true,
               ),
             ),
+          ),
 
           // Floating input bar at bottom (style based on settings)
           Positioned(
+            key: const ValueKey('chat-input-bar'),
             left: 0,
             right: 0,
             bottom: 0,
@@ -5798,27 +5837,36 @@ class _FloatingInputBar extends ConsumerWidget {
               mainAxisSize: MainAxisSize.min,
               children: [
                 // File autocomplete dropdown (appears above input)
-                if (showFileAutocomplete && onFileSelect != null)
-                  Padding(
-                    padding: const EdgeInsets.fromLTRB(16, 0, 16, 8),
-                    child: FileAutocomplete(
-                      visible: showFileAutocomplete,
-                      onSelect: onFileSelect!,
+                if (onFileSelect != null)
+                  Visibility(
+                    visible: showFileAutocomplete,
+                    maintainState: true,
+                    child: Padding(
+                      padding: const EdgeInsets.fromLTRB(16, 0, 16, 8),
+                      child: FileAutocomplete(
+                        visible: showFileAutocomplete,
+                        onSelect: onFileSelect!,
+                      ),
                     ),
                   ),
 
                 // Attached files chips row
-                if (attachedFiles.isNotEmpty && onRemoveAttachment != null)
-                  Padding(
-                    padding: const EdgeInsets.fromLTRB(16, 0, 16, 4),
-                    child: AttachedFilesChips(
-                      attachments: attachedFiles,
-                      onRemove: onRemoveAttachment!,
+                if (onRemoveAttachment != null)
+                  Visibility(
+                    visible: attachedFiles.isNotEmpty,
+                    maintainState: true,
+                    child: Padding(
+                      padding: const EdgeInsets.fromLTRB(16, 0, 16, 4),
+                      child: AttachedFilesChips(
+                        attachments: attachedFiles,
+                        onRemove: onRemoveAttachment!,
+                      ),
                     ),
                   ),
 
                 // Main input row
                 Padding(
+                  key: const ValueKey('floating-input-row'),
                   padding: const EdgeInsets.fromLTRB(16, 4, 16, 4),
                   child: Row(
                     crossAxisAlignment: CrossAxisAlignment.center,
@@ -6119,17 +6167,22 @@ class _CliStyleInputBarState extends State<_CliStyleInputBar> {
               mainAxisSize: MainAxisSize.min,
               children: [
                 // File autocomplete dropdown (appears above input)
-                if (widget.showFileAutocomplete && widget.onFileSelect != null)
-                  Padding(
-                    padding: const EdgeInsets.fromLTRB(8, 0, 0, 8),
-                    child: FileAutocomplete(
-                      visible: widget.showFileAutocomplete,
-                      onSelect: widget.onFileSelect!,
+                if (widget.onFileSelect != null)
+                  Visibility(
+                    visible: widget.showFileAutocomplete,
+                    maintainState: true,
+                    child: Padding(
+                      padding: const EdgeInsets.fromLTRB(8, 0, 0, 8),
+                      child: FileAutocomplete(
+                        visible: widget.showFileAutocomplete,
+                        onSelect: widget.onFileSelect!,
+                      ),
                     ),
                   ),
 
                 // Main CLI input container
                 Container(
+                  key: const ValueKey('cli-input-container'),
                   margin: const EdgeInsets.only(left: 8, right: 0),
                   // Light greyish background like OpenCode CLI - rgb(40,40,40)
                   decoration: const BoxDecoration(color: Color(0xFF282828)),
@@ -6159,18 +6212,21 @@ class _CliStyleInputBarState extends State<_CliStyleInputBar> {
                             crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
                               // Attached files chips row
-                              if (widget.attachedFiles.isNotEmpty &&
-                                  widget.onRemoveAttachment != null)
-                                Padding(
-                                  padding: const EdgeInsets.fromLTRB(
-                                    12,
-                                    8,
-                                    12,
-                                    0,
-                                  ),
-                                  child: AttachedFilesChips(
-                                    attachments: widget.attachedFiles,
-                                    onRemove: widget.onRemoveAttachment!,
+                              if (widget.onRemoveAttachment != null)
+                                Visibility(
+                                  visible: widget.attachedFiles.isNotEmpty,
+                                  maintainState: true,
+                                  child: Padding(
+                                    padding: const EdgeInsets.fromLTRB(
+                                      12,
+                                      8,
+                                      12,
+                                      0,
+                                    ),
+                                    child: AttachedFilesChips(
+                                      attachments: widget.attachedFiles,
+                                      onRemove: widget.onRemoveAttachment!,
+                                    ),
                                   ),
                                 ),
 

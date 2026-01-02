@@ -87,31 +87,74 @@ class FileAutocomplete extends ConsumerWidget {
     final theme = OpenCodeTheme.of(context);
     final state = ref.watch(fileSearchProvider);
 
+    // ExcludeFocus on all states to prevent focus stealing from TextField
     if (state.results.isEmpty && !state.isSearching) {
-      return Container(
-        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-        decoration: BoxDecoration(
-          color: theme.backgroundPanel,
-          borderRadius: BorderRadius.circular(8),
-          border: Border.all(color: theme.borderSubtle),
-          boxShadow: [
-            BoxShadow(
-              color: Colors.black.withValues(alpha: 0.2),
-              blurRadius: 8,
-              offset: const Offset(0, -2),
-            ),
-          ],
-        ),
-        child: Text(
-          state.query.isEmpty ? 'No files in project' : 'No matching files',
-          style: TextStyle(color: theme.textMuted, fontSize: 13),
+      return ExcludeFocus(
+        child: Container(
+          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+          decoration: BoxDecoration(
+            color: theme.backgroundPanel,
+            borderRadius: BorderRadius.circular(8),
+            border: Border.all(color: theme.borderSubtle),
+            boxShadow: [
+              BoxShadow(
+                color: Colors.black.withValues(alpha: 0.2),
+                blurRadius: 8,
+                offset: const Offset(0, -2),
+              ),
+            ],
+          ),
+          child: Text(
+            state.query.isEmpty ? 'No files in project' : 'No matching files',
+            style: TextStyle(color: theme.textMuted, fontSize: 13),
+          ),
         ),
       );
     }
 
     if (state.isSearching && state.results.isEmpty) {
-      return Container(
-        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+      return ExcludeFocus(
+        child: Container(
+          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+          decoration: BoxDecoration(
+            color: theme.backgroundPanel,
+            borderRadius: BorderRadius.circular(8),
+            border: Border.all(color: theme.borderSubtle),
+            boxShadow: [
+              BoxShadow(
+                color: Colors.black.withValues(alpha: 0.2),
+                blurRadius: 8,
+                offset: const Offset(0, -2),
+              ),
+            ],
+          ),
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              SizedBox(
+                width: 14,
+                height: 14,
+                child: CircularProgressIndicator(
+                  strokeWidth: 2,
+                  color: theme.textMuted,
+                ),
+              ),
+              const SizedBox(width: 8),
+              Text(
+                'Searching...',
+                style: TextStyle(color: theme.textMuted, fontSize: 13),
+              ),
+            ],
+          ),
+        ),
+      );
+    }
+
+    // ExcludeFocus prevents the ListView from stealing focus from the TextField
+    // This is critical for mobile where focus can be easily lost during widget rebuilds
+    return ExcludeFocus(
+      child: Container(
+        constraints: const BoxConstraints(maxHeight: 240),
         decoration: BoxDecoration(
           color: theme.backgroundPanel,
           borderRadius: BorderRadius.circular(8),
@@ -124,60 +167,26 @@ class FileAutocomplete extends ConsumerWidget {
             ),
           ],
         ),
-        child: Row(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            SizedBox(
-              width: 14,
-              height: 14,
-              child: CircularProgressIndicator(
-                strokeWidth: 2,
-                color: theme.textMuted,
-              ),
-            ),
-            const SizedBox(width: 8),
-            Text(
-              'Searching...',
-              style: TextStyle(color: theme.textMuted, fontSize: 13),
-            ),
-          ],
+        child: ListView.builder(
+          shrinkWrap: true,
+          padding: const EdgeInsets.symmetric(vertical: 4),
+          itemCount: state.results.length,
+          itemBuilder: (context, index) {
+            final path = state.results[index];
+            final isSelected = index == state.selectedIndex;
+            final isDirectory = path.endsWith('/');
+            final attachment = FileAttachment.fromPath(path);
+
+            return _FileAutocompleteItem(
+              path: path,
+              directory: attachment.directory,
+              filename: attachment.filename,
+              isDirectory: isDirectory,
+              isSelected: isSelected,
+              onTap: () => onSelect(attachment),
+            );
+          },
         ),
-      );
-    }
-
-    return Container(
-      constraints: const BoxConstraints(maxHeight: 240),
-      decoration: BoxDecoration(
-        color: theme.backgroundPanel,
-        borderRadius: BorderRadius.circular(8),
-        border: Border.all(color: theme.borderSubtle),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withValues(alpha: 0.2),
-            blurRadius: 8,
-            offset: const Offset(0, -2),
-          ),
-        ],
-      ),
-      child: ListView.builder(
-        shrinkWrap: true,
-        padding: const EdgeInsets.symmetric(vertical: 4),
-        itemCount: state.results.length,
-        itemBuilder: (context, index) {
-          final path = state.results[index];
-          final isSelected = index == state.selectedIndex;
-          final isDirectory = path.endsWith('/');
-          final attachment = FileAttachment.fromPath(path);
-
-          return _FileAutocompleteItem(
-            path: path,
-            directory: attachment.directory,
-            filename: attachment.filename,
-            isDirectory: isDirectory,
-            isSelected: isSelected,
-            onTap: () => onSelect(attachment),
-          );
-        },
       ),
     );
   }
@@ -417,23 +426,25 @@ class AgentAutocomplete extends StatelessWidget {
     }).toList();
 
     if (filtered.isEmpty) {
-      return Container(
-        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-        decoration: BoxDecoration(
-          color: theme.backgroundPanel,
-          borderRadius: BorderRadius.circular(8),
-          border: Border.all(color: theme.borderSubtle),
-          boxShadow: [
-            BoxShadow(
-              color: Colors.black.withValues(alpha: 0.2),
-              blurRadius: 8,
-              offset: const Offset(0, -2),
-            ),
-          ],
-        ),
-        child: Text(
-          'No matching agents',
-          style: TextStyle(color: theme.textMuted, fontSize: 13),
+      return ExcludeFocus(
+        child: Container(
+          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+          decoration: BoxDecoration(
+            color: theme.backgroundPanel,
+            borderRadius: BorderRadius.circular(8),
+            border: Border.all(color: theme.borderSubtle),
+            boxShadow: [
+              BoxShadow(
+                color: Colors.black.withValues(alpha: 0.2),
+                blurRadius: 8,
+                offset: const Offset(0, -2),
+              ),
+            ],
+          ),
+          child: Text(
+            'No matching agents',
+            style: TextStyle(color: theme.textMuted, fontSize: 13),
+          ),
         ),
       );
     }
@@ -444,60 +455,63 @@ class AgentAutocomplete extends StatelessWidget {
         .where((a) => a.mode == AgentMode.subagent)
         .toList();
 
-    return Container(
-      constraints: const BoxConstraints(maxHeight: 280),
-      decoration: BoxDecoration(
-        color: theme.backgroundPanel,
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: theme.borderSubtle),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withValues(alpha: 0.25),
-            blurRadius: 12,
-            offset: const Offset(0, -4),
-          ),
-        ],
-      ),
-      child: ClipRRect(
-        borderRadius: BorderRadius.circular(12),
-        child: ListView(
-          shrinkWrap: true,
-          padding: const EdgeInsets.symmetric(vertical: 6),
-          children: [
-            // Primary agents section
-            if (primaryAgents.isNotEmpty) ...[
-              _buildSectionHeader(
-                'Primary Agents',
-                Icons.person_rounded,
-                theme.primary,
-                theme.textMuted,
-                primaryAgents.length,
-              ),
-              ...primaryAgents.map(
-                (agent) => _AgentAutocompleteItem(
-                  agent: agent,
-                  onTap: () => onSelect(agent),
-                ),
-              ),
-            ],
-            // Subagents section
-            if (subAgents.isNotEmpty) ...[
-              if (primaryAgents.isNotEmpty) const SizedBox(height: 4),
-              _buildSectionHeader(
-                'Subagents',
-                Icons.smart_toy_outlined,
-                theme.info,
-                theme.textMuted,
-                subAgents.length,
-              ),
-              ...subAgents.map(
-                (agent) => _AgentAutocompleteItem(
-                  agent: agent,
-                  onTap: () => onSelect(agent),
-                ),
-              ),
-            ],
+    // ExcludeFocus prevents the ListView from stealing focus from the TextField
+    return ExcludeFocus(
+      child: Container(
+        constraints: const BoxConstraints(maxHeight: 280),
+        decoration: BoxDecoration(
+          color: theme.backgroundPanel,
+          borderRadius: BorderRadius.circular(12),
+          border: Border.all(color: theme.borderSubtle),
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black.withValues(alpha: 0.25),
+              blurRadius: 12,
+              offset: const Offset(0, -4),
+            ),
           ],
+        ),
+        child: ClipRRect(
+          borderRadius: BorderRadius.circular(12),
+          child: ListView(
+            shrinkWrap: true,
+            padding: const EdgeInsets.symmetric(vertical: 6),
+            children: [
+              // Primary agents section
+              if (primaryAgents.isNotEmpty) ...[
+                _buildSectionHeader(
+                  'Primary Agents',
+                  Icons.person_rounded,
+                  theme.primary,
+                  theme.textMuted,
+                  primaryAgents.length,
+                ),
+                ...primaryAgents.map(
+                  (agent) => _AgentAutocompleteItem(
+                    agent: agent,
+                    onTap: () => onSelect(agent),
+                  ),
+                ),
+              ],
+              // Subagents section
+              if (subAgents.isNotEmpty) ...[
+                if (primaryAgents.isNotEmpty) const SizedBox(height: 4),
+                _buildSectionHeader(
+                  'Subagents',
+                  Icons.smart_toy_outlined,
+                  theme.info,
+                  theme.textMuted,
+                  subAgents.length,
+                ),
+                ...subAgents.map(
+                  (agent) => _AgentAutocompleteItem(
+                    agent: agent,
+                    onTap: () => onSelect(agent),
+                  ),
+                ),
+              ],
+            ],
+          ),
         ),
       ),
     );
