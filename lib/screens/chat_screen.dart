@@ -1604,18 +1604,24 @@ class _ChatScreenState extends ConsumerState<ChatScreen>
       isScrollControlled: true,
       backgroundColor: Colors.transparent,
       builder: (_) {
-        return SafeArea(
-          child: Container(
-            decoration: BoxDecoration(
-              color: theme.backgroundPanel,
-              borderRadius: const BorderRadius.vertical(
-                top: Radius.circular(18),
+        final screenHeight = MediaQuery.of(context).size.height;
+        final maxSheetHeight = screenHeight * 0.85;
+
+        return Container(
+          constraints: BoxConstraints(maxHeight: maxSheetHeight),
+          decoration: BoxDecoration(
+            color: theme.backgroundPanel,
+            borderRadius: const BorderRadius.vertical(top: Radius.circular(20)),
+            boxShadow: [
+              BoxShadow(
+                color: Colors.black.withValues(alpha: 0.3),
+                blurRadius: 20,
+                offset: const Offset(0, -4),
               ),
-              border: Border.all(
-                color: theme.borderSubtle.withValues(alpha: 0.2),
-              ),
-            ),
-            padding: const EdgeInsets.fromLTRB(16, 16, 16, 20),
+            ],
+          ),
+          child: SafeArea(
+            top: false,
             child: Consumer(
               builder: (context, ref, _) {
                 final chatState = ref.watch(chatSessionProvider);
@@ -1643,444 +1649,442 @@ class _ChatScreenState extends ConsumerState<ChatScreen>
 
                 return Column(
                   mainAxisSize: MainAxisSize.min,
-                  crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Row(
-                      children: [
-                        Icon(Icons.tune_rounded, color: theme.accent, size: 18),
-                        const SizedBox(width: 10),
-                        Expanded(
-                          child: Text(
-                            'Claude Code Tools',
-                            style: TextStyle(
-                              color: theme.text,
-                              fontSize: 16,
-                              fontWeight: FontWeight.w700,
+                    // Drag handle
+                    Container(
+                      margin: const EdgeInsets.only(top: 12, bottom: 8),
+                      width: 40,
+                      height: 4,
+                      decoration: BoxDecoration(
+                        color: theme.textMuted.withValues(alpha: 0.3),
+                        borderRadius: BorderRadius.circular(2),
+                      ),
+                    ),
+
+                    // Header with close button
+                    Padding(
+                      padding: const EdgeInsets.fromLTRB(20, 8, 12, 0),
+                      child: Row(
+                        children: [
+                          Container(
+                            padding: const EdgeInsets.all(8),
+                            decoration: BoxDecoration(
+                              color: theme.accent.withValues(alpha: 0.15),
+                              borderRadius: BorderRadius.circular(10),
+                            ),
+                            child: Icon(
+                              Icons.tune_rounded,
+                              color: theme.accent,
+                              size: 20,
                             ),
                           ),
-                        ),
-                        IconButton(
-                          onPressed: () => Navigator.pop(context),
-                          icon: Icon(
-                            Icons.close_rounded,
-                            color: theme.textMuted,
-                          ),
-                        ),
-                      ],
-                    ),
-                    const SizedBox(height: 6),
-                    Text(
-                      'Controls permissions and which tools Claude Code can use in this session.',
-                      style: TextStyle(color: theme.textMuted, fontSize: 13),
-                    ),
-                    const SizedBox(height: 14),
-
-                    // Permission mode
-                    Row(
-                      children: [
-                        Text(
-                          'Permission mode',
-                          style: TextStyle(
-                            color: theme.text,
-                            fontSize: 13,
-                            fontWeight: FontWeight.w600,
-                          ),
-                        ),
-                        const Spacer(),
-                        DropdownButtonHideUnderline(
-                          child: DropdownButton<ClaudeCodePermissionMode>(
-                            value: config.permissionMode,
-                            dropdownColor: theme.backgroundPanel,
-                            style: TextStyle(color: theme.text, fontSize: 13),
-                            items: ClaudeCodePermissionMode.values
-                                .map(
-                                  (m) => DropdownMenuItem(
-                                    value: m,
-                                    child: Text(m.displayName),
+                          const SizedBox(width: 12),
+                          Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text(
+                                  'Claude Code Tools',
+                                  style: TextStyle(
+                                    color: theme.text,
+                                    fontSize: 17,
+                                    fontWeight: FontWeight.w700,
                                   ),
-                                )
-                                .toList(),
-                            onChanged: (value) {
-                              if (value == null) return;
-                              updateConfig(
-                                config.copyWith(permissionMode: value),
+                                ),
+                                const SizedBox(height: 2),
+                                Text(
+                                  'Permissions & tool configuration',
+                                  style: TextStyle(
+                                    color: theme.textMuted,
+                                    fontSize: 12,
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                          Material(
+                            color: Colors.transparent,
+                            child: InkWell(
+                              onTap: () => Navigator.pop(context),
+                              borderRadius: BorderRadius.circular(20),
+                              child: Container(
+                                padding: const EdgeInsets.all(8),
+                                decoration: BoxDecoration(
+                                  color: theme.textMuted.withValues(alpha: 0.1),
+                                  shape: BoxShape.circle,
+                                ),
+                                child: Icon(
+                                  Icons.close_rounded,
+                                  color: theme.textMuted,
+                                  size: 20,
+                                ),
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+
+                    const SizedBox(height: 16),
+                    Divider(
+                      color: theme.borderSubtle.withValues(alpha: 0.5),
+                      height: 1,
+                    ),
+
+                    // Scrollable content
+                    Flexible(
+                      child: SingleChildScrollView(
+                        padding: const EdgeInsets.fromLTRB(20, 16, 20, 24),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            // Permission mode
+                            _buildSettingsRow(
+                              theme,
+                              'Permission mode',
+                              _buildStyledDropdown<ClaudeCodePermissionMode>(
+                                theme: theme,
+                                value: config.permissionMode,
+                                items: ClaudeCodePermissionMode.values
+                                    .map(
+                                      (m) => DropdownMenuItem(
+                                        value: m,
+                                        child: Text(m.displayName),
+                                      ),
+                                    )
+                                    .toList(),
+                                onChanged: (value) {
+                                  if (value == null) return;
+                                  updateConfig(
+                                    config.copyWith(permissionMode: value),
+                                  );
+                                },
+                              ),
+                            ),
+
+                            const SizedBox(height: 16),
+
+                            // System prompt
+                            _buildSettingsRow(
+                              theme,
+                              'System prompt',
+                              _buildStyledDropdown<String>(
+                                theme: theme,
+                                value: config.systemPrompt?.isEmpty ?? true
+                                    ? 'none'
+                                    : config.systemPrompt?.preset != null
+                                    ? 'preset'
+                                    : 'custom',
+                                items: const [
+                                  DropdownMenuItem(
+                                    value: 'none',
+                                    child: Text('None'),
+                                  ),
+                                  DropdownMenuItem(
+                                    value: 'preset',
+                                    child: Text('Claude Code'),
+                                  ),
+                                  DropdownMenuItem(
+                                    value: 'custom',
+                                    child: Text('Custom...'),
+                                  ),
+                                ],
+                                onChanged: (value) async {
+                                  if (value == null) return;
+                                  if (value == 'none') {
+                                    updateConfig(
+                                      config.copyWith(
+                                        systemPrompt:
+                                            const ClaudeCodeSystemPrompt(),
+                                      ),
+                                    );
+                                  } else if (value == 'preset') {
+                                    updateConfig(
+                                      config.copyWith(
+                                        systemPrompt:
+                                            const ClaudeCodeSystemPrompt(
+                                              preset: 'claude_code',
+                                            ),
+                                      ),
+                                    );
+                                  } else if (value == 'custom') {
+                                    final customText =
+                                        await _promptSystemPromptText();
+                                    if (customText != null &&
+                                        customText.isNotEmpty) {
+                                      updateConfig(
+                                        config.copyWith(
+                                          systemPrompt: ClaudeCodeSystemPrompt(
+                                            text: customText,
+                                          ),
+                                        ),
+                                      );
+                                    }
+                                  }
+                                },
+                              ),
+                            ),
+
+                            const SizedBox(height: 20),
+                            Divider(
+                              color: theme.borderSubtle.withValues(alpha: 0.5),
+                              height: 1,
+                            ),
+                            const SizedBox(height: 20),
+
+                            // Subagent selector
+                            _buildSettingsTile(
+                              theme: theme,
+                              icon: Icons.account_tree_rounded,
+                              iconColor: theme.info,
+                              title: 'Subagents',
+                              subtitle: 'Delegate specialized tasks',
+                              trailing: Row(
+                                mainAxisSize: MainAxisSize.min,
+                                children: [
+                                  _buildStyledDropdown<String?>(
+                                    theme: theme,
+                                    value: config.activeSubagent,
+                                    hint: 'None',
+                                    items: [
+                                      const DropdownMenuItem<String?>(
+                                        value: null,
+                                        child: Text('None'),
+                                      ),
+                                      ...config.subagents.map(
+                                        (s) => DropdownMenuItem<String?>(
+                                          value: s.name,
+                                          child: Text(s.name),
+                                        ),
+                                      ),
+                                    ],
+                                    onChanged: (value) {
+                                      ref
+                                          .read(ccConfigProvider.notifier)
+                                          .setActiveSubagent(value);
+                                    },
+                                  ),
+                                  const SizedBox(width: 4),
+                                  _buildSettingsIconButton(
+                                    theme: theme,
+                                    icon: Icons.chevron_right_rounded,
+                                    onTap: () {
+                                      Navigator.pop(context);
+                                      Navigator.push(
+                                        context,
+                                        MaterialPageRoute(
+                                          builder: (_) =>
+                                              const SubagentsScreen(),
+                                        ),
+                                      );
+                                    },
+                                  ),
+                                ],
+                              ),
+                            ),
+
+                            const SizedBox(height: 12),
+
+                            // Custom Tools section
+                            _buildSettingsTile(
+                              theme: theme,
+                              icon: Icons.build_rounded,
+                              iconColor: theme.warning,
+                              title: 'Custom Tools',
+                              subtitle: 'mcp__broski-custom-tools__<name>',
+                              trailing: Row(
+                                mainAxisSize: MainAxisSize.min,
+                                children: [
+                                  Consumer(
+                                    builder: (context, ref, _) {
+                                      final customToolsAsync = ref.watch(
+                                        ccCustomToolsProvider,
+                                      );
+                                      return customToolsAsync.when(
+                                        data: (tools) {
+                                          final enabledCount = tools
+                                              .where((t) => t.enabled)
+                                              .length;
+                                          return _buildCountBadge(
+                                            theme,
+                                            enabledCount,
+                                          );
+                                        },
+                                        loading: () => SizedBox(
+                                          width: 14,
+                                          height: 14,
+                                          child: CircularProgressIndicator(
+                                            strokeWidth: 1.5,
+                                            color: theme.textMuted,
+                                          ),
+                                        ),
+                                        error: (_, __) => Icon(
+                                          Icons.error_outline,
+                                          size: 16,
+                                          color: theme.error,
+                                        ),
+                                      );
+                                    },
+                                  ),
+                                  const SizedBox(width: 8),
+                                  _buildSettingsIconButton(
+                                    theme: theme,
+                                    icon: Icons.chevron_right_rounded,
+                                    onTap: () {
+                                      Navigator.pop(context);
+                                      Navigator.push(
+                                        context,
+                                        MaterialPageRoute(
+                                          builder: (_) =>
+                                              const CustomToolsScreen(),
+                                        ),
+                                      );
+                                    },
+                                  ),
+                                ],
+                              ),
+                            ),
+
+                            const SizedBox(height: 12),
+
+                            // Plugins section
+                            _buildSettingsTile(
+                              theme: theme,
+                              icon: Icons.extension_rounded,
+                              iconColor: theme.success,
+                              title: 'Plugins',
+                              subtitle: 'Commands, skills, hooks, MCP servers',
+                              trailing: Row(
+                                mainAxisSize: MainAxisSize.min,
+                                children: [
+                                  Consumer(
+                                    builder: (context, ref, _) {
+                                      final pluginsAsync = ref.watch(
+                                        ccPluginsProvider,
+                                      );
+                                      return pluginsAsync.when(
+                                        data: (plugins) {
+                                          final enabledCount = plugins
+                                              .where(
+                                                (p) =>
+                                                    p.status ==
+                                                    ClaudeCodePluginStatus
+                                                        .enabled,
+                                              )
+                                              .length;
+                                          return _buildCountBadge(
+                                            theme,
+                                            enabledCount,
+                                          );
+                                        },
+                                        loading: () => SizedBox(
+                                          width: 14,
+                                          height: 14,
+                                          child: CircularProgressIndicator(
+                                            strokeWidth: 1.5,
+                                            color: theme.textMuted,
+                                          ),
+                                        ),
+                                        error: (_, __) => Icon(
+                                          Icons.error_outline,
+                                          size: 16,
+                                          color: theme.error,
+                                        ),
+                                      );
+                                    },
+                                  ),
+                                  const SizedBox(width: 8),
+                                  _buildSettingsIconButton(
+                                    theme: theme,
+                                    icon: Icons.chevron_right_rounded,
+                                    onTap: () {
+                                      Navigator.pop(context);
+                                      Navigator.push(
+                                        context,
+                                        MaterialPageRoute(
+                                          builder: (_) => const PluginsScreen(),
+                                        ),
+                                      );
+                                    },
+                                  ),
+                                ],
+                              ),
+                            ),
+
+                            const SizedBox(height: 20),
+                            Divider(
+                              color: theme.borderSubtle.withValues(alpha: 0.5),
+                              height: 1,
+                            ),
+                            const SizedBox(height: 16),
+
+                            // Tools list header
+                            Row(
+                              children: [
+                                Icon(
+                                  Icons.construction_rounded,
+                                  size: 16,
+                                  color: theme.textMuted,
+                                ),
+                                const SizedBox(width: 8),
+                                Text(
+                                  'Built-in Tools',
+                                  style: TextStyle(
+                                    color: theme.text,
+                                    fontSize: 14,
+                                    fontWeight: FontWeight.w600,
+                                  ),
+                                ),
+                                const Spacer(),
+                                Text(
+                                  '${toolUniverse.length} tools',
+                                  style: TextStyle(
+                                    color: theme.textMuted,
+                                    fontSize: 12,
+                                  ),
+                                ),
+                              ],
+                            ),
+                            const SizedBox(height: 12),
+
+                            // Tools list
+                            ...toolUniverse.map((tool) {
+                              final enabled = !config.disallowedTools.contains(
+                                tool,
                               );
-                            },
-                          ),
-                        ),
-                      ],
-                    ),
-                    const SizedBox(height: 12),
+                              return _buildToolToggleRow(
+                                theme: theme,
+                                tool: tool,
+                                enabled: enabled,
+                                onChanged: (v) {
+                                  final allowed = [...config.allowedTools];
+                                  final disallowed = [
+                                    ...config.disallowedTools,
+                                  ];
 
-                    // System prompt
-                    Row(
-                      children: [
-                        Text(
-                          'System prompt',
-                          style: TextStyle(
-                            color: theme.text,
-                            fontSize: 13,
-                            fontWeight: FontWeight.w600,
-                          ),
-                        ),
-                        const Spacer(),
-                        DropdownButtonHideUnderline(
-                          child: DropdownButton<String>(
-                            value: config.systemPrompt?.isEmpty ?? true
-                                ? 'none'
-                                : config.systemPrompt?.preset != null
-                                ? 'preset'
-                                : 'custom',
-                            dropdownColor: theme.backgroundPanel,
-                            style: TextStyle(color: theme.text, fontSize: 13),
-                            items: const [
-                              DropdownMenuItem(
-                                value: 'none',
-                                child: Text('None'),
-                              ),
-                              DropdownMenuItem(
-                                value: 'preset',
-                                child: Text('Claude Code'),
-                              ),
-                              DropdownMenuItem(
-                                value: 'custom',
-                                child: Text('Custom...'),
-                              ),
-                            ],
-                            onChanged: (value) async {
-                              if (value == null) return;
-                              if (value == 'none') {
-                                updateConfig(
-                                  config.copyWith(
-                                    systemPrompt:
-                                        const ClaudeCodeSystemPrompt(),
-                                  ),
-                                );
-                              } else if (value == 'preset') {
-                                updateConfig(
-                                  config.copyWith(
-                                    systemPrompt: const ClaudeCodeSystemPrompt(
-                                      preset: 'claude_code',
-                                    ),
-                                  ),
-                                );
-                              } else if (value == 'custom') {
-                                final customText =
-                                    await _promptSystemPromptText();
-                                if (customText != null &&
-                                    customText.isNotEmpty) {
+                                  if (v) {
+                                    disallowed.remove(tool);
+                                    if (!allowed.contains(tool)) {
+                                      allowed.add(tool);
+                                    }
+                                  } else {
+                                    allowed.remove(tool);
+                                    if (!disallowed.contains(tool)) {
+                                      disallowed.add(tool);
+                                    }
+                                  }
+
                                   updateConfig(
                                     config.copyWith(
-                                      systemPrompt: ClaudeCodeSystemPrompt(
-                                        text: customText,
-                                      ),
+                                      allowedTools: allowed,
+                                      disallowedTools: disallowed,
                                     ),
                                   );
-                                }
-                              }
-                            },
-                          ),
-                        ),
-                      ],
-                    ),
-                    const SizedBox(height: 12),
-
-                    // Subagent selector
-                    Row(
-                      children: [
-                        Text(
-                          'Subagent',
-                          style: TextStyle(
-                            color: theme.text,
-                            fontSize: 13,
-                            fontWeight: FontWeight.w600,
-                          ),
-                        ),
-                        const SizedBox(width: 8),
-                        IconButton(
-                          icon: Icon(
-                            Icons.settings_outlined,
-                            color: theme.textMuted,
-                            size: 18,
-                          ),
-                          tooltip: 'Manage subagents',
-                          onPressed: () {
-                            Navigator.pop(context);
-                            Navigator.push(
-                              context,
-                              MaterialPageRoute(
-                                builder: (_) => const SubagentsScreen(),
-                              ),
-                            );
-                          },
-                        ),
-                        const Spacer(),
-                        DropdownButtonHideUnderline(
-                          child: DropdownButton<String?>(
-                            value: config.activeSubagent,
-                            dropdownColor: theme.backgroundPanel,
-                            style: TextStyle(color: theme.text, fontSize: 13),
-                            hint: Text(
-                              'None (default)',
-                              style: TextStyle(
-                                color: theme.textMuted,
-                                fontSize: 13,
-                              ),
-                            ),
-                            items: [
-                              const DropdownMenuItem<String?>(
-                                value: null,
-                                child: Text('None (default)'),
-                              ),
-                              ...config.subagents.map(
-                                (s) => DropdownMenuItem<String?>(
-                                  value: s.name,
-                                  child: Text(s.name),
-                                ),
-                              ),
-                            ],
-                            onChanged: (value) {
-                              ref
-                                  .read(ccConfigProvider.notifier)
-                                  .setActiveSubagent(value);
-                            },
-                          ),
-                        ),
-                      ],
-                    ),
-                    if (config.subagents.isEmpty)
-                      Padding(
-                        padding: const EdgeInsets.only(bottom: 8),
-                        child: Text(
-                          'Add subagents to delegate specialized tasks',
-                          style: TextStyle(
-                            color: theme.textMuted.withValues(alpha: 0.7),
-                            fontSize: 12,
-                          ),
-                        ),
-                      ),
-                    const SizedBox(height: 12),
-
-                    // Custom Tools section
-                    Row(
-                      children: [
-                        Text(
-                          'Custom Tools',
-                          style: TextStyle(
-                            color: theme.text,
-                            fontSize: 13,
-                            fontWeight: FontWeight.w600,
-                          ),
-                        ),
-                        const SizedBox(width: 8),
-                        IconButton(
-                          icon: Icon(
-                            Icons.settings_outlined,
-                            color: theme.textMuted,
-                            size: 18,
-                          ),
-                          tooltip: 'Manage custom tools',
-                          onPressed: () {
-                            Navigator.pop(context);
-                            Navigator.push(
-                              context,
-                              MaterialPageRoute(
-                                builder: (_) => const CustomToolsScreen(),
-                              ),
-                            );
-                          },
-                        ),
-                        const Spacer(),
-                        Consumer(
-                          builder: (context, ref, _) {
-                            final customToolsAsync = ref.watch(
-                              ccCustomToolsProvider,
-                            );
-                            return customToolsAsync.when(
-                              data: (tools) {
-                                final enabledCount = tools
-                                    .where((t) => t.enabled)
-                                    .length;
-                                return Text(
-                                  '$enabledCount enabled',
-                                  style: TextStyle(
-                                    color: enabledCount > 0
-                                        ? theme.accent
-                                        : theme.textMuted,
-                                    fontSize: 13,
-                                  ),
-                                );
-                              },
-                              loading: () => SizedBox(
-                                width: 12,
-                                height: 12,
-                                child: CircularProgressIndicator(
-                                  strokeWidth: 1.5,
-                                  color: theme.textMuted,
-                                ),
-                              ),
-                              error: (_, __) => Text(
-                                'Error',
-                                style: TextStyle(
-                                  color: theme.error,
-                                  fontSize: 13,
-                                ),
-                              ),
-                            );
-                          },
-                        ),
-                      ],
-                    ),
-                    Padding(
-                      padding: const EdgeInsets.only(bottom: 12),
-                      child: Text(
-                        'Custom tools appear as mcp__broski-custom-tools__<name>',
-                        style: TextStyle(
-                          color: theme.textMuted.withOpacity(0.7),
-                          fontSize: 12,
-                        ),
-                      ),
-                    ),
-                    const SizedBox(height: 4),
-
-                    // Plugins section
-                    Row(
-                      children: [
-                        Text(
-                          'Plugins',
-                          style: TextStyle(
-                            color: theme.text,
-                            fontSize: 13,
-                            fontWeight: FontWeight.w600,
-                          ),
-                        ),
-                        const SizedBox(width: 8),
-                        IconButton(
-                          icon: Icon(
-                            Icons.settings_outlined,
-                            color: theme.textMuted,
-                            size: 18,
-                          ),
-                          tooltip: 'Manage plugins',
-                          onPressed: () {
-                            Navigator.pop(context);
-                            Navigator.push(
-                              context,
-                              MaterialPageRoute(
-                                builder: (_) => const PluginsScreen(),
-                              ),
-                            );
-                          },
-                        ),
-                        const Spacer(),
-                        Consumer(
-                          builder: (context, ref, _) {
-                            final pluginsAsync = ref.watch(ccPluginsProvider);
-                            return pluginsAsync.when(
-                              data: (plugins) {
-                                final enabledCount = plugins
-                                    .where(
-                                      (p) =>
-                                          p.status ==
-                                          ClaudeCodePluginStatus.enabled,
-                                    )
-                                    .length;
-                                return Text(
-                                  '$enabledCount enabled',
-                                  style: TextStyle(
-                                    color: enabledCount > 0
-                                        ? theme.accent
-                                        : theme.textMuted,
-                                    fontSize: 13,
-                                  ),
-                                );
-                              },
-                              loading: () => SizedBox(
-                                width: 12,
-                                height: 12,
-                                child: CircularProgressIndicator(
-                                  strokeWidth: 1.5,
-                                  color: theme.textMuted,
-                                ),
-                              ),
-                              error: (_, __) => Text(
-                                'Error',
-                                style: TextStyle(
-                                  color: theme.error,
-                                  fontSize: 13,
-                                ),
-                              ),
-                            );
-                          },
-                        ),
-                      ],
-                    ),
-                    Padding(
-                      padding: const EdgeInsets.only(bottom: 12),
-                      child: Text(
-                        'Plugins provide commands, skills, hooks, and MCP servers',
-                        style: TextStyle(
-                          color: theme.textMuted.withOpacity(0.7),
-                          fontSize: 12,
-                        ),
-                      ),
-                    ),
-
-                    // Divider before built-in tools
-                    Divider(color: theme.borderSubtle, height: 1),
-                    const SizedBox(height: 12),
-
-                    // Tools list header
-                    Text(
-                      'Built-in Tools',
-                      style: TextStyle(
-                        color: theme.text,
-                        fontSize: 13,
-                        fontWeight: FontWeight.w600,
-                      ),
-                    ),
-                    const SizedBox(height: 8),
-
-                    // Tools list
-                    Flexible(
-                      child: ListView.builder(
-                        shrinkWrap: true,
-                        itemCount: toolUniverse.length,
-                        itemBuilder: (context, index) {
-                          final tool = toolUniverse[index];
-                          final enabled = !config.disallowedTools.contains(
-                            tool,
-                          );
-                          return SwitchListTile(
-                            dense: true,
-                            contentPadding: EdgeInsets.zero,
-                            title: Text(
-                              tool,
-                              style: TextStyle(color: theme.text, fontSize: 13),
-                            ),
-                            value: enabled,
-                            onChanged: (v) {
-                              final allowed = [...config.allowedTools];
-                              final disallowed = [...config.disallowedTools];
-
-                              if (v) {
-                                disallowed.remove(tool);
-                                if (!allowed.contains(tool)) allowed.add(tool);
-                              } else {
-                                allowed.remove(tool);
-                                if (!disallowed.contains(tool))
-                                  disallowed.add(tool);
-                              }
-
-                              updateConfig(
-                                config.copyWith(
-                                  allowedTools: allowed,
-                                  disallowedTools: disallowed,
-                                ),
+                                },
                               );
-                            },
-                          );
-                        },
+                            }),
+                          ],
+                        ),
                       ),
                     ),
                   ],
@@ -2090,6 +2094,191 @@ class _ChatScreenState extends ConsumerState<ChatScreen>
           ),
         );
       },
+    );
+  }
+
+  // Helper widgets for the Claude Code tools sheet
+  Widget _buildSettingsRow(OpenCodeTheme theme, String label, Widget child) {
+    return Row(
+      children: [
+        Text(
+          label,
+          style: TextStyle(
+            color: theme.text,
+            fontSize: 14,
+            fontWeight: FontWeight.w500,
+          ),
+        ),
+        const Spacer(),
+        child,
+      ],
+    );
+  }
+
+  Widget _buildSettingsTile({
+    required OpenCodeTheme theme,
+    required IconData icon,
+    required Color iconColor,
+    required String title,
+    required String subtitle,
+    required Widget trailing,
+  }) {
+    return Container(
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: theme.background.withValues(alpha: 0.5),
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: theme.borderSubtle.withValues(alpha: 0.3)),
+      ),
+      child: Row(
+        children: [
+          Container(
+            padding: const EdgeInsets.all(8),
+            decoration: BoxDecoration(
+              color: iconColor.withValues(alpha: 0.12),
+              borderRadius: BorderRadius.circular(8),
+            ),
+            child: Icon(icon, size: 18, color: iconColor),
+          ),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  title,
+                  style: TextStyle(
+                    color: theme.text,
+                    fontSize: 14,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+                const SizedBox(height: 2),
+                Text(
+                  subtitle,
+                  style: TextStyle(color: theme.textMuted, fontSize: 11),
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                ),
+              ],
+            ),
+          ),
+          trailing,
+        ],
+      ),
+    );
+  }
+
+  Widget _buildStyledDropdown<T>({
+    required OpenCodeTheme theme,
+    required T? value,
+    required List<DropdownMenuItem<T>> items,
+    required ValueChanged<T?> onChanged,
+    String? hint,
+  }) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
+      decoration: BoxDecoration(
+        color: theme.background.withValues(alpha: 0.5),
+        borderRadius: BorderRadius.circular(8),
+        border: Border.all(color: theme.borderSubtle.withValues(alpha: 0.3)),
+      ),
+      child: DropdownButtonHideUnderline(
+        child: DropdownButton<T>(
+          value: value,
+          dropdownColor: theme.backgroundPanel,
+          style: TextStyle(color: theme.text, fontSize: 13),
+          hint: hint != null
+              ? Text(
+                  hint,
+                  style: TextStyle(color: theme.textMuted, fontSize: 13),
+                )
+              : null,
+          icon: Icon(
+            Icons.keyboard_arrow_down_rounded,
+            size: 18,
+            color: theme.textMuted,
+          ),
+          items: items,
+          onChanged: onChanged,
+          isDense: true,
+        ),
+      ),
+    );
+  }
+
+  Widget _buildSettingsIconButton({
+    required OpenCodeTheme theme,
+    required IconData icon,
+    required VoidCallback onTap,
+  }) {
+    return Material(
+      color: Colors.transparent,
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(6),
+        child: Container(
+          padding: const EdgeInsets.all(4),
+          child: Icon(icon, size: 20, color: theme.textMuted),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildCountBadge(OpenCodeTheme theme, int count) {
+    final isActive = count > 0;
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+      decoration: BoxDecoration(
+        color: isActive
+            ? theme.accent.withValues(alpha: 0.15)
+            : theme.textMuted.withValues(alpha: 0.1),
+        borderRadius: BorderRadius.circular(6),
+      ),
+      child: Text(
+        '$count enabled',
+        style: TextStyle(
+          color: isActive ? theme.accent : theme.textMuted,
+          fontSize: 11,
+          fontWeight: FontWeight.w600,
+        ),
+      ),
+    );
+  }
+
+  Widget _buildToolToggleRow({
+    required OpenCodeTheme theme,
+    required String tool,
+    required bool enabled,
+    required ValueChanged<bool> onChanged,
+  }) {
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 2),
+      child: Row(
+        children: [
+          Expanded(
+            child: Text(
+              tool,
+              style: TextStyle(
+                color: enabled ? theme.text : theme.textMuted,
+                fontSize: 13,
+                fontWeight: FontWeight.w500,
+              ),
+            ),
+          ),
+          Transform.scale(
+            scale: 0.8,
+            child: Switch.adaptive(
+              value: enabled,
+              onChanged: onChanged,
+              activeThumbColor: theme.accent,
+              activeTrackColor: theme.accent.withValues(alpha: 0.3),
+              inactiveThumbColor: theme.textMuted.withValues(alpha: 0.6),
+              inactiveTrackColor: theme.textMuted.withValues(alpha: 0.2),
+            ),
+          ),
+        ],
+      ),
     );
   }
 

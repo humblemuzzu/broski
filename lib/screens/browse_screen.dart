@@ -994,10 +994,11 @@ class _FileTile extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final theme = OpenCodeTheme.of(context);
+    final themeData = Theme.of(context);
     return Container(
       margin: const EdgeInsets.only(bottom: 8),
       decoration: BoxDecoration(
-        color: theme.backgroundPanel,
+        color: themeData.colorScheme.surface.withValues(alpha: 0.5),
         borderRadius: BorderRadius.circular(12),
         border: Border.all(color: theme.borderSubtle),
       ),
@@ -1164,10 +1165,11 @@ class _FileResultTile extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final theme = OpenCodeTheme.of(context);
+    final themeData = Theme.of(context);
     return Container(
       margin: const EdgeInsets.only(bottom: 8),
       decoration: BoxDecoration(
-        color: theme.backgroundPanel,
+        color: themeData.colorScheme.surface.withValues(alpha: 0.5),
         borderRadius: BorderRadius.circular(12),
         border: Border.all(color: theme.borderSubtle),
       ),
@@ -1211,10 +1213,11 @@ class _TextResultTile extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final theme = OpenCodeTheme.of(context);
+    final themeData = Theme.of(context);
     return Container(
       margin: const EdgeInsets.only(bottom: 8),
       decoration: BoxDecoration(
-        color: theme.backgroundPanel,
+        color: themeData.colorScheme.surface.withValues(alpha: 0.5),
         borderRadius: BorderRadius.circular(12),
         border: Border.all(color: theme.borderSubtle),
       ),
@@ -1272,10 +1275,11 @@ class _SymbolResultTile extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final theme = OpenCodeTheme.of(context);
+    final themeData = Theme.of(context);
     return Container(
       margin: const EdgeInsets.only(bottom: 8),
       decoration: BoxDecoration(
-        color: theme.backgroundPanel,
+        color: themeData.colorScheme.surface.withValues(alpha: 0.5),
         borderRadius: BorderRadius.circular(12),
         border: Border.all(color: theme.borderSubtle),
       ),

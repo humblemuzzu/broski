@@ -446,7 +446,7 @@ class _ActiveConnectionCardState extends State<_ActiveConnectionCard> {
         duration: const Duration(milliseconds: 200),
         padding: const EdgeInsets.all(20),
         decoration: BoxDecoration(
-          color: ocTheme.backgroundPanel,
+          color: theme.colorScheme.surface.withValues(alpha: 0.5),
           borderRadius: BorderRadius.circular(20),
           border: Border.all(color: ocTheme.borderSubtle),
         ),
@@ -665,10 +665,11 @@ class _SettingsCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final ocTheme = OpenCodeTheme.of(context);
+    final themeData = Theme.of(context);
 
     return Container(
       decoration: BoxDecoration(
-        color: ocTheme.backgroundPanel,
+        color: themeData.colorScheme.surface.withValues(alpha: 0.5),
         borderRadius: BorderRadius.circular(16),
         border: Border.all(color: ocTheme.borderSubtle),
       ),

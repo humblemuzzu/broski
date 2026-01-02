@@ -2317,27 +2317,31 @@ const broskiDarkTheme = OpenCodeTheme(
   warning: Color(0xFFD4A574), // Warm bronze - warnings
   success: Color(0xFF7A9E7A), // Muted sage - success (not bright green)
   info: Color(0xFF8A9EB5), // Steel blue-gray - info states
-  // Text colors - Silver hierarchy
-  text: Color(0xFFE4E4E6), // Primary text - bright silver
-  textMuted: Color(0xFF8A8A90), // Secondary text - mid silver
+  // Text colors - Silver hierarchy (BRIGHTER for readability)
+  text: Color(0xFFF0F0F2), // Primary text - bright white-silver
+  textMuted: Color(
+    0xFFA0A0A8,
+  ), // Secondary text - lighter silver (more readable)
   selectedListItemText: Color(0xFF181D2B), // Text on silver buttons - deep navy
   // Backgrounds - Deep navy scale (rgb(24,29,43) = #181D2B for main)
   background: Color(0xFF181D2B), // Main app background - dark navy
-  backgroundPanel: Color(0xFF1E2332), // Panel navy - cards, modals
-  backgroundElement: Color(0xFF242938), // Element navy - inputs, code blocks
-  backgroundMenu: Color(0xFF222730), // Menu navy - dropdowns
-  // Extended background scale - Navy depth progression
-  bgDeep: Color(0xFF12161F), // Abyss - modal overlays (darker than main)
-  bgRaised: Color(0xFF1A1F2D), // Raised navy - content areas
-  bgHover: Color(0xFF222836), // Hover state
-  bgActive: Color(0xFF282E3C), // Active/pressed
-  bgHighlight: Color(0xFF2E3442), // Selected items
-  bgOverlay: Color(0xFF343A48), // Tooltips, popovers
-  bgContrast: Color(0xFF3A4050), // High contrast elements
-  // Borders - Subtle, low contrast
-  border: Color(0xFF2E3442), // Standard border - dark navy
-  borderActive: Color(0xFF4A5060), // Active/focused - silver hint
-  borderSubtle: Color(0xFF242A38), // Subtle dividers
+  backgroundPanel: Color(
+    0xFF2C2F3C,
+  ), // Panel navy - cards (rgb(44,47,60) - YOUR exact color)
+  backgroundElement: Color(0xFF323542), // Element navy - inputs, code blocks
+  backgroundMenu: Color(0xFF2E3140), // Menu navy - dropdowns
+  // Extended background scale - Navy depth progression (MORE contrast)
+  bgDeep: Color(0xFF10141C), // Abyss - modal overlays (darker than main)
+  bgRaised: Color(0xFF1C222E), // Raised navy - content areas
+  bgHover: Color(0xFF283040), // Hover state (more visible)
+  bgActive: Color(0xFF303848), // Active/pressed
+  bgHighlight: Color(0xFF384050), // Selected items
+  bgOverlay: Color(0xFF404858), // Tooltips, popovers
+  bgContrast: Color(0xFF485060), // High contrast elements
+  // Borders - More visible
+  border: Color(0xFF3A4252), // Standard border - visible
+  borderActive: Color(0xFF5A6272), // Active/focused - silver hint
+  borderSubtle: Color(0xFF2E3644), // Subtle dividers
   // Tool colors - MUTED monochromatic with subtle differentiation
   // These are desaturated so they don't clash with the premium aesthetic
   toolThinking: Color(0xFF8A9EB5), // Steel blue-gray - cognitive
@@ -2348,44 +2352,44 @@ const broskiDarkTheme = OpenCodeTheme(
   toolSearch: Color(0xFF8A98B5), // Blue-gray - search
   toolTodo: Color(0xFFB8A080), // Warm gray - tasks
   toolSubtask: Color(0xFF80A0A0), // Teal-gray - subtasks
-  // Diff colors - Subtle, professional
-  diffAdded: Color(0xFF7A9E7A), // Sage green
-  diffRemoved: Color(0xFFCF6679), // Muted rose
-  diffContext: Color(0xFF6A6A70), // Silver gray
-  diffHunkHeader: Color(0xFF8A8A90), // Mid silver
-  diffHighlightAdded: Color(0xFF8AB88A), // Brighter sage
-  diffHighlightRemoved: Color(0xFFE07A8A), // Brighter rose
-  diffAddedBg: Color(0xFF1A2420), // Dark sage tint
-  diffRemovedBg: Color(0xFF241A1E), // Dark rose tint
-  diffContextBg: Color(0xFF1E2332), // Panel navy
-  diffLineNumber: Color(0xFF2E3442), // Border color
-  diffAddedLineNumberBg: Color(0xFF161E1A), // Darker sage
-  diffRemovedLineNumberBg: Color(0xFF1E1618), // Darker rose
-  // Markdown - Silver-based hierarchy
-  markdownText: Color(0xFFE4E4E6), // Primary silver
-  markdownHeading: Color(0xFFD0D0D4), // Platinum
-  markdownLink: Color(0xFFB8B8BC), // Secondary silver
-  markdownLinkText: Color(0xFF8A9EB5), // Steel blue
-  markdownCode: Color(0xFF88A0A8), // Slate teal
-  markdownBlockQuote: Color(0xFF8A8A90), // Muted silver
-  markdownEmph: Color(0xFFC4A882), // Bronze
-  markdownStrong: Color(0xFFD0D0D4), // Platinum
-  markdownHorizontalRule: Color(0xFF2E3442), // Border
-  markdownListItem: Color(0xFFB8B8BC), // Secondary silver
-  markdownListEnumeration: Color(0xFF8A9EB5), // Steel blue
-  markdownImage: Color(0xFFD0D0D4), // Platinum
-  markdownImageText: Color(0xFF8A8A90), // Muted
-  markdownCodeBlock: Color(0xFFE4E4E6), // Primary silver
-  // Syntax highlighting - Monochromatic with subtle variation
-  syntaxComment: Color(0xFF606070), // Dark silver - comments fade
-  syntaxKeyword: Color(0xFFB8B8BC), // Secondary silver
-  syntaxFunction: Color(0xFFD0D0D4), // Platinum - functions stand out
-  syntaxVariable: Color(0xFF8A9EB5), // Steel blue
-  syntaxString: Color(0xFF88A0A8), // Slate teal
-  syntaxNumber: Color(0xFFC4A882), // Bronze
-  syntaxType: Color(0xFFA0A0A8), // Cool silver
-  syntaxOperator: Color(0xFF8A8A90), // Muted
-  syntaxPunctuation: Color(0xFFE4E4E6), // Primary silver
+  // Diff colors - VISIBLE, clear differentiation
+  diffAdded: Color(0xFF7ECE7E), // Bright green - visible
+  diffRemoved: Color(0xFFE86A7A), // Bright red-pink - visible
+  diffContext: Color(0xFF8A8A94), // Silver gray
+  diffHunkHeader: Color(0xFFA0A0A8), // Mid silver
+  diffHighlightAdded: Color(0xFF90E090), // Bright green highlight
+  diffHighlightRemoved: Color(0xFFFF8090), // Bright red highlight
+  diffAddedBg: Color(0xFF1A2E20), // Green tint bg - MORE visible
+  diffRemovedBg: Color(0xFF2E1A20), // Red tint bg - MORE visible
+  diffContextBg: Color(0xFF2C2F3C), // Panel navy
+  diffLineNumber: Color(0xFF3A4252), // Border color
+  diffAddedLineNumberBg: Color(0xFF162418), // Darker sage
+  diffRemovedLineNumberBg: Color(0xFF241618), // Darker rose
+  // Markdown - Silver-based hierarchy (BRIGHTER)
+  markdownText: Color(0xFFF0F0F2), // Primary white-silver
+  markdownHeading: Color(0xFFE0E0E4), // Bright platinum
+  markdownLink: Color(0xFFC8C8CC), // Bright secondary silver
+  markdownLinkText: Color(0xFFA0B0C8), // Steel blue brighter
+  markdownCode: Color(0xFFA0B8C0), // Slate teal brighter
+  markdownBlockQuote: Color(0xFFA0A0A8), // Muted silver brighter
+  markdownEmph: Color(0xFFD4B892), // Bronze brighter
+  markdownStrong: Color(0xFFE0E0E4), // Platinum bright
+  markdownHorizontalRule: Color(0xFF3A4252), // Border
+  markdownListItem: Color(0xFFC8C8CC), // Secondary silver
+  markdownListEnumeration: Color(0xFFA0B0C8), // Steel blue
+  markdownImage: Color(0xFFE0E0E4), // Platinum
+  markdownImageText: Color(0xFFA0A0A8), // Muted
+  markdownCodeBlock: Color(0xFFF0F0F2), // Primary white-silver
+  // Syntax highlighting - Monochromatic with better visibility
+  syntaxComment: Color(0xFF707080), // Comments - visible but muted
+  syntaxKeyword: Color(0xFFC8C8CC), // Secondary silver - brighter
+  syntaxFunction: Color(0xFFE0E0E4), // Platinum - functions stand out
+  syntaxVariable: Color(0xFFA0B0C8), // Steel blue - brighter
+  syntaxString: Color(0xFFA0B8C0), // Slate teal - brighter
+  syntaxNumber: Color(0xFFD4B892), // Bronze - brighter
+  syntaxType: Color(0xFFB0B0B8), // Cool silver - brighter
+  syntaxOperator: Color(0xFFA0A0A8), // Muted - brighter
+  syntaxPunctuation: Color(0xFFF0F0F2), // Primary white-silver
 );
 
 // ═══════════════════════════════════════════════════════════════════════════════
