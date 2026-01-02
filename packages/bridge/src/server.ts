@@ -1382,6 +1382,39 @@ export function createBridgeServer(options: BridgeServerOptions): BridgeServer {
           const allowedTools = message.allowedTools || cfg.allowedTools
           const disallowedTools = message.disallowedTools || cfg.disallowedTools
           const toolCallsById = new Map<string, { tool: string; input: Record<string, unknown> }>()
+          let sentBusyStatus = false
+
+          const sendSessionBusy = (sessionId: string) => {
+            if (!sessionId || sentBusyStatus) return
+            sentBusyStatus = true
+            send(ws, {
+              type: 'sdk_event',
+              data: {
+                payload: {
+                  type: 'session.status',
+                  properties: {
+                    sessionID: sessionId,
+                    status: { type: 'busy' },
+                  },
+                },
+              },
+            })
+          }
+
+          const sendSessionIdle = (sessionId: string) => {
+            if (!sessionId) return
+            send(ws, {
+              type: 'sdk_event',
+              data: {
+                payload: {
+                  type: 'session.idle',
+                  properties: {
+                    sessionID: sessionId,
+                  },
+                },
+              },
+            })
+          }
 
           const available = await claudeCode.checkClaudeCodeAvailable()
           if (!available) {
@@ -1402,8 +1435,20 @@ export function createBridgeServer(options: BridgeServerOptions): BridgeServer {
             `[Claude Code] tools: allowed=${allowedTools.length} disallowed=${disallowedTools.length}`,
           )
 
-          claudeCode.queryClaudeCode(
+          const prompt = await claudeCode.preparePromptWithAttachments(
             message.prompt,
+            cwd,
+            message.fileAttachments,
+          )
+
+          // If we're resuming an existing session, mark it busy immediately.
+          // For new sessions, we'll mark busy once we receive session-created.
+          if (message.sessionId) {
+            sendSessionBusy(message.sessionId)
+          }
+
+          claudeCode.queryClaudeCode(
+            prompt,
             {
               cwd,
               sessionId: message.sessionId,
@@ -1419,6 +1464,7 @@ export function createBridgeServer(options: BridgeServerOptions): BridgeServer {
               if ((streamMsg as any)?.type === 'session-created' && typeof (streamMsg as any)?.sessionId === 'string') {
                 actualSessionId = (streamMsg as any).sessionId
                 log(`[Claude Code] session created: ${actualSessionId}`)
+                sendSessionBusy(actualSessionId)
               }
 
               // Track tool calls quickly (needed for later tool-result indexing).
@@ -1481,10 +1527,12 @@ export function createBridgeServer(options: BridgeServerOptions): BridgeServer {
               }
             },
             (completedSessionId) => {
-              log(`Claude Code session ${completedSessionId} completed`)
+              const sid = completedSessionId || actualSessionId || message.sessionId || ''
+              log(`Claude Code session ${sid} completed`)
+              sendSessionIdle(sid)
               // TODO(artifacts): Re-enable when feature is ready
               if (ARTIFACTS_ENABLED) {
-                artifactsEnrichment?.queueArtifactsEnrichmentForSession(completedSessionId)
+                if (sid) artifactsEnrichment?.queueArtifactsEnrichmentForSession(sid)
               }
             },
             (error) => {
@@ -1494,6 +1542,8 @@ export function createBridgeServer(options: BridgeServerOptions): BridgeServer {
                 data: { type: 'error', message: error.message, code: 'cc_error' },
                 sessionId: actualSessionId || message.sessionId || 'unknown',
               })
+              const sid = actualSessionId || message.sessionId || ''
+              sendSessionIdle(sid)
             },
             async (req) => {
               const sid = req.sessionId || actualSessionId

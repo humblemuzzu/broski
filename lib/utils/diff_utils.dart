@@ -77,7 +77,12 @@ class UnifiedDiff {
 
       if (rawLine.isEmpty) {
         result.add(
-          DiffLine(kind: DiffLineKind.context, text: rawLine, oldLine: oldLine, newLine: newLine),
+          DiffLine(
+            kind: DiffLineKind.context,
+            text: rawLine,
+            oldLine: oldLine,
+            newLine: newLine,
+          ),
         );
         oldLine++;
         newLine++;
@@ -140,8 +145,9 @@ class UnifiedDiff {
 
   static _HunkHeader? _parseHunkHeader(String header) {
     // Format: @@ -oldStart,oldLen +newStart,newLen @@
-    final match = RegExp(r'^@@\s+-([0-9]+)(?:,([0-9]+))?\s+\+([0-9]+)(?:,([0-9]+))?\s+@@')
-        .firstMatch(header);
+    final match = RegExp(
+      r'^@@\s+-([0-9]+)(?:,([0-9]+))?\s+\+([0-9]+)(?:,([0-9]+))?\s+@@',
+    ).firstMatch(header);
     if (match == null) return null;
     return _HunkHeader(
       oldStart: int.parse(match.group(1)!),
@@ -325,8 +331,7 @@ List<_Op> _myers(List<String> a, List<String> b) {
   for (var d = 0; d <= maxD; d++) {
     trace.add(Map<int, int>.from(v));
     for (var k = -d; k <= d; k += 2) {
-      final down = k == -d ||
-          (k != d && (v[k - 1] ?? 0) < (v[k + 1] ?? 0));
+      final down = k == -d || (k != d && (v[k - 1] ?? 0) < (v[k + 1] ?? 0));
       var x = down ? (v[k + 1] ?? 0) : (v[k - 1] ?? 0) + 1;
       var y = x - k;
 
@@ -387,4 +392,3 @@ List<_Op> _backtrack(
 
   return result.reversed.toList(growable: false);
 }
-

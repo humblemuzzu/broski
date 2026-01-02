@@ -1,5 +1,7 @@
 import { query } from '@anthropic-ai/claude-agent-sdk'
-import { readdir, readFile, stat } from 'node:fs/promises'
+import { mkdir, readdir, readFile, stat, writeFile } from 'node:fs/promises'
+import { randomBytes } from 'node:crypto'
+import { existsSync, readFileSync } from 'node:fs'
 import { join, basename, sep } from 'node:path'
 import { homedir } from 'node:os'
 import type {
@@ -14,10 +16,13 @@ import type {
   ClaudeCodeStreamMessage,
   ClaudeCodeTranscriptMessage,
   ClaudeCodeSubagent,
+  FileAttachment,
 } from '../types'
 
 const CLAUDE_PROJECTS_DIR = join(homedir(), '.claude', 'projects')
 const CLAUDE_SETTINGS_FILE = join(homedir(), '.claude', 'settings.json')
+const BROSKI_DIR = join(homedir(), '.broski')
+const CC_CONFIG_FILE = join(BROSKI_DIR, 'claude-code-config.json')
 
 type ActiveSession = {
   controller: AbortController
@@ -35,7 +40,105 @@ let currentConfig: ClaudeCodeConfig = {
   ],
   disallowedTools: [],
   model: 'sonnet',
-  systemPrompt: null,
+  systemPrompt: { type: 'preset', preset: 'claude_code' },
+}
+
+// Best-effort persisted config load (keeps Claude Code settings stable across bridge restarts).
+try {
+  if (existsSync(CC_CONFIG_FILE)) {
+    const raw = readFileSync(CC_CONFIG_FILE, 'utf-8')
+    const parsed = JSON.parse(raw) as Partial<ClaudeCodeConfig>
+    currentConfig = { ...currentConfig, ...parsed }
+  }
+} catch {
+  // ignore (use defaults)
+}
+
+async function persistConfig(): Promise<void> {
+  try {
+    await mkdir(BROSKI_DIR, { recursive: true })
+    await writeFile(CC_CONFIG_FILE, JSON.stringify(currentConfig, null, 2), 'utf-8')
+  } catch (err) {
+    console.warn('[Claude Code] Failed to persist config:', err)
+  }
+}
+
+function _sanitizeFilename(name: string): string {
+  const base = basename(name || 'attachment')
+  return base.replaceAll(/[^a-zA-Z0-9._-]/g, '_')
+}
+
+function _extForMime(mimeType?: string | null): string {
+  const mt = (mimeType || '').toLowerCase()
+  if (mt === 'image/png') return '.png'
+  if (mt === 'image/jpeg') return '.jpg'
+  if (mt === 'image/jpg') return '.jpg'
+  if (mt === 'image/webp') return '.webp'
+  if (mt === 'image/gif') return '.gif'
+  if (mt === 'image/bmp') return '.bmp'
+  if (mt === 'image/tiff') return '.tiff'
+  return ''
+}
+
+async function _writeImageAttachmentToDisk(cwd: string, attachment: FileAttachment): Promise<string | null> {
+  const base64Data = attachment.base64Data
+  if (!base64Data) return null
+
+  const attachmentsDir = join(cwd, '.broski', 'cc-attachments')
+  await mkdir(attachmentsDir, { recursive: true })
+
+  const ext = _extForMime(attachment.mimeType) || (_sanitizeFilename(attachment.path).match(/\.[a-zA-Z0-9]+$/)?.[0] ?? '.jpg')
+  const safeName = _sanitizeFilename(attachment.path || 'image')
+  const token = randomBytes(6).toString('hex')
+  const fileName = safeName.includes('.') ? safeName : `${safeName}${ext}`
+  const outPath = join(attachmentsDir, `${Date.now()}_${token}_${fileName}`)
+
+  const bytes = Buffer.from(base64Data, 'base64')
+  await writeFile(outPath, bytes)
+  return outPath
+}
+
+/**
+ * Claude Code SDK doesn't have a first-class "attachments" parameter like OpenCode.
+ * To support Broski's attachment UX, we:
+ * - Pass file paths as explicit references in the prompt (Claude can Read them)
+ * - Persist mobile-picked images to disk under the session cwd and reference them
+ */
+export async function preparePromptWithAttachments(
+  prompt: string,
+  cwd: string,
+  fileAttachments?: FileAttachment[],
+): Promise<string> {
+  if (!fileAttachments || fileAttachments.length === 0) return prompt
+
+  const lines: string[] = []
+
+  for (const a of fileAttachments) {
+    if (a.base64Data) {
+      const savedPath = await _writeImageAttachmentToDisk(cwd, a)
+      if (savedPath) {
+        lines.push(`- Image: @${savedPath}`)
+      }
+      continue
+    }
+
+    if (!a.path) continue
+    const prefix = a.isDirectory ? 'Directory' : 'File'
+    const ref = a.path.startsWith('@') ? a.path : `@${a.path}`
+    lines.push(`- ${prefix}: ${ref}`)
+  }
+
+  if (lines.length === 0) return prompt
+
+  return [
+    prompt,
+    '',
+    '---',
+    'Attached context (via Broski):',
+    ...lines,
+    '',
+    'If relevant, use the Read tool on the @paths above.',
+  ].join('\n')
 }
 
 export type ClaudeCodeQueryOptions = {
@@ -818,6 +921,32 @@ export async function listCommands(cwd?: string): Promise<ClaudeCodeCommand[]> {
     }
   }
 
+  // Also include commands exposed by enabled plugins (so "/" autocomplete finds them).
+  try {
+    const pluginsModule = await import('../plugins')
+    const plugins = await pluginsModule.discoverPlugins(cwd)
+    for (const plugin of plugins) {
+      if (plugin.status !== 'enabled') continue
+      const pluginCommands = Array.isArray(plugin.commands) ? plugin.commands : []
+      if (pluginCommands.length === 0) continue
+
+      for (const name of pluginCommands) {
+        // Prefer explicit .claude/commands definitions if present.
+        if (commands.some((c) => c.name === name)) continue
+
+        const filePath = join(plugin.path, 'commands', `${name}.md`)
+        try {
+          const content = await readFile(filePath, 'utf-8')
+          commands.push(parseCommandFile(name, content))
+        } catch {
+          commands.push({ name })
+        }
+      }
+    }
+  } catch {
+    // ignore (plugins optional)
+  }
+
   return commands
 }
 
@@ -853,6 +982,10 @@ export function getConfig(): ClaudeCodeConfig {
 
 export function setConfig(config: Partial<ClaudeCodeConfig>): ClaudeCodeConfig {
   currentConfig = { ...currentConfig, ...config }
+  // Fire-and-forget persistence so callers can stay synchronous.
+  queueMicrotask(() => {
+    persistConfig().catch(() => {})
+  })
   return { ...currentConfig }
 }
 
@@ -923,6 +1056,10 @@ export async function queryClaudeCode(
     // Note: agents must include the Task tool in allowedTools for subagent invocation to work
     const agents = options.agents || (currentConfig.subagents?.length ? convertSubagentsToRecord(currentConfig.subagents) : undefined)
     if (agents && Object.keys(agents).length > 0) {
+      // Ensure Task tool stays available when subagents are configured (SDK uses Task for invocation).
+      if (Array.isArray(sdkOptions.allowedTools) && !sdkOptions.allowedTools.includes('Task')) {
+        sdkOptions.allowedTools = [...sdkOptions.allowedTools, 'Task']
+      }
       sdkOptions.agents = agents
     }
 

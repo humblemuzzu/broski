@@ -53,18 +53,25 @@ export async function routeQuery(
       )
 
     case 'claude-code':
-      return claudeCode.queryClaudeCode(
-        prompt,
-        {
+      {
+        const finalPrompt = await claudeCode.preparePromptWithAttachments(
+          prompt,
           cwd,
-          sessionId,
-          model,
-          permissionMode: 'default',
-        },
-        onMessage,
-        onComplete,
-        onError,
-      )
+          fileAttachments as any,
+        )
+        return claudeCode.queryClaudeCode(
+          finalPrompt,
+          {
+            cwd,
+            sessionId,
+            model,
+            permissionMode: 'default',
+          },
+          onMessage,
+          onComplete,
+          onError,
+        )
+      }
 
     default:
       return onError(new Error(`Unknown agent: ${agentType}`))

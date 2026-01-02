@@ -34,6 +34,191 @@ class _SessionsScreenState extends ConsumerState<SessionsScreen> {
     await ref.read(sessionsListProvider.future);
   }
 
+  void _showSessionsTitleFiltersSheet(BuildContext context) {
+    final ocTheme = OpenCodeTheme.of(context);
+    final controller = TextEditingController();
+
+    showModalBottomSheet<void>(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (ctx) {
+        final height = MediaQuery.of(ctx).size.height * 0.75;
+        return SafeArea(
+          child: Container(
+            height: height,
+            decoration: BoxDecoration(
+              color: ocTheme.backgroundPanel,
+              borderRadius: const BorderRadius.vertical(
+                top: Radius.circular(20),
+              ),
+            ),
+            child: Consumer(
+              builder: (context, ref, _) {
+                final filters = ref.watch(sessionsTitleExcludeFiltersProvider);
+                final notifier = ref.read(
+                  sessionsTitleExcludeFiltersProvider.notifier,
+                );
+
+                return Padding(
+                  padding: const EdgeInsets.fromLTRB(20, 16, 20, 16),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Row(
+                        children: [
+                          Expanded(
+                            child: Text(
+                              'Title filters',
+                              style: TextStyle(
+                                color: ocTheme.text,
+                                fontSize: 18,
+                                fontWeight: FontWeight.w700,
+                              ),
+                            ),
+                          ),
+                          IconButton(
+                            onPressed: () => Navigator.pop(ctx),
+                            icon: Icon(
+                              Icons.close_rounded,
+                              color: ocTheme.textMuted,
+                            ),
+                            tooltip: 'Close',
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 6),
+                      Text(
+                        'Hide sessions whose titles match any filter. Use `/regex/` for regex, otherwise it’s a case-insensitive substring match.',
+                        style: TextStyle(
+                          color: ocTheme.textMuted,
+                          fontSize: 13,
+                        ),
+                      ),
+                      const SizedBox(height: 12),
+                      Row(
+                        children: [
+                          Expanded(
+                            child: TextField(
+                              controller: controller,
+                              decoration: InputDecoration(
+                                hintText: 'e.g. test, tmp, /wip.*/',
+                                hintStyle: TextStyle(color: ocTheme.textMuted),
+                                filled: true,
+                                fillColor: ocTheme.backgroundElement,
+                                border: OutlineInputBorder(
+                                  borderRadius: BorderRadius.circular(12),
+                                  borderSide: BorderSide(
+                                    color: ocTheme.borderSubtle,
+                                  ),
+                                ),
+                                enabledBorder: OutlineInputBorder(
+                                  borderRadius: BorderRadius.circular(12),
+                                  borderSide: BorderSide(
+                                    color: ocTheme.borderSubtle,
+                                  ),
+                                ),
+                                focusedBorder: OutlineInputBorder(
+                                  borderRadius: BorderRadius.circular(12),
+                                  borderSide: BorderSide(
+                                    color: ocTheme.primary,
+                                  ),
+                                ),
+                                contentPadding: const EdgeInsets.symmetric(
+                                  horizontal: 12,
+                                  vertical: 10,
+                                ),
+                              ),
+                              style: TextStyle(color: ocTheme.text),
+                              textInputAction: TextInputAction.done,
+                              onSubmitted: (value) async {
+                                await notifier.add(value);
+                                controller.clear();
+                              },
+                            ),
+                          ),
+                          const SizedBox(width: 10),
+                          ElevatedButton(
+                            onPressed: () async {
+                              await notifier.add(controller.text);
+                              controller.clear();
+                            },
+                            style: ElevatedButton.styleFrom(
+                              backgroundColor: ocTheme.primary,
+                              foregroundColor: Colors.white,
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 16,
+                                vertical: 12,
+                              ),
+                              shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(12),
+                              ),
+                            ),
+                            child: const Text('Add'),
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 12),
+                      if (filters.isNotEmpty)
+                        Align(
+                          alignment: Alignment.centerRight,
+                          child: TextButton(
+                            onPressed: () => notifier.clear(),
+                            child: Text(
+                              'Clear all',
+                              style: TextStyle(color: ocTheme.error),
+                            ),
+                          ),
+                        ),
+                      Expanded(
+                        child: filters.isEmpty
+                            ? Center(
+                                child: Text(
+                                  'No filters yet',
+                                  style: TextStyle(color: ocTheme.textMuted),
+                                ),
+                              )
+                            : ListView.separated(
+                                itemCount: filters.length,
+                                separatorBuilder: (_, __) =>
+                                    Divider(color: ocTheme.borderSubtle),
+                                itemBuilder: (context, index) {
+                                  final f = filters[index];
+                                  return ListTile(
+                                    contentPadding: EdgeInsets.zero,
+                                    leading: Icon(
+                                      f.startsWith('/') && f.endsWith('/')
+                                          ? Icons.code_rounded
+                                          : Icons.text_fields_rounded,
+                                      color: ocTheme.textMuted,
+                                    ),
+                                    title: Text(
+                                      f,
+                                      style: TextStyle(color: ocTheme.text),
+                                    ),
+                                    trailing: IconButton(
+                                      onPressed: () => notifier.removeAt(index),
+                                      icon: Icon(
+                                        Icons.delete_outline_rounded,
+                                        color: ocTheme.error,
+                                      ),
+                                      tooltip: 'Remove',
+                                    ),
+                                  );
+                                },
+                              ),
+                      ),
+                    ],
+                  ),
+                );
+              },
+            ),
+          ),
+        );
+      },
+    ).whenComplete(controller.dispose);
+  }
+
   @override
   void initState() {
     super.initState();
@@ -84,6 +269,9 @@ class _SessionsScreenState extends ConsumerState<SessionsScreen> {
                       (sum, g) => sum + g.children.length,
                     );
                     final showBgTasks = ref.watch(showBackgroundTasksProvider);
+                    final titleFilterCount = ref
+                        .watch(sessionsTitleExcludeFiltersProvider)
+                        .length;
 
                     return _ModernHeader(
                       connection: connection,
@@ -99,6 +287,9 @@ class _SessionsScreenState extends ConsumerState<SessionsScreen> {
                         ref.read(sessionsRefreshTickProvider.notifier).state++;
                       },
                       onRefresh: _refresh,
+                      titleFilterCount: titleFilterCount,
+                      onTitleFiltersTap: () =>
+                          _showSessionsTitleFiltersSheet(context),
                       showBackgroundTasks: showBgTasks,
                       onToggleBackgroundTasks: () {
                         ref.read(showBackgroundTasksProvider.notifier).state =
@@ -651,6 +842,8 @@ class _ModernHeader extends StatelessWidget {
     required this.projects,
     required this.onFilterChanged,
     required this.onRefresh,
+    required this.titleFilterCount,
+    required this.onTitleFiltersTap,
     required this.showBackgroundTasks,
     required this.onToggleBackgroundTasks,
     required this.backgroundTaskCount,
@@ -661,6 +854,8 @@ class _ModernHeader extends StatelessWidget {
   final AsyncValue<List<ProjectSummary>> projects;
   final ValueChanged<String?> onFilterChanged;
   final VoidCallback onRefresh;
+  final int titleFilterCount;
+  final VoidCallback onTitleFiltersTap;
   final bool showBackgroundTasks;
   final VoidCallback onToggleBackgroundTasks;
   final int backgroundTaskCount;
@@ -747,6 +942,11 @@ class _ModernHeader extends StatelessWidget {
                   projects: projects,
                   onSelected: onFilterChanged,
                 ),
+              ),
+              const SizedBox(width: 8),
+              _TitleFiltersChip(
+                count: titleFilterCount,
+                onTap: onTitleFiltersTap,
               ),
               const SizedBox(width: 8),
               // Background tasks toggle
@@ -879,6 +1079,54 @@ class _FilterChipButton extends StatelessWidget {
             ),
             const SizedBox(width: 6),
             Icon(Icons.expand_more_rounded, size: 18, color: ocTheme.textMuted),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _TitleFiltersChip extends StatelessWidget {
+  const _TitleFiltersChip({required this.count, required this.onTap});
+
+  final int count;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final ocTheme = OpenCodeTheme.of(context);
+
+    final hasFilters = count > 0;
+    final color = hasFilters ? ocTheme.warning : ocTheme.textMuted;
+
+    return InkWell(
+      onTap: onTap,
+      borderRadius: BorderRadius.circular(999),
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 200),
+        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+        decoration: BoxDecoration(
+          color: hasFilters
+              ? ocTheme.warning.withValues(alpha: 0.15)
+              : ocTheme.backgroundPanel,
+          borderRadius: BorderRadius.circular(999),
+          border: Border.all(
+            color: hasFilters ? ocTheme.warning : ocTheme.borderSubtle,
+          ),
+        ),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(Icons.filter_alt_rounded, size: 14, color: color),
+            const SizedBox(width: 6),
+            Text(
+              hasFilters ? 'Hide $count' : 'Title filters',
+              style: TextStyle(
+                color: hasFilters ? ocTheme.warning : ocTheme.text,
+                fontSize: 12,
+                fontWeight: FontWeight.w600,
+              ),
+            ),
           ],
         ),
       ),
@@ -2245,6 +2493,175 @@ class _SkeletonBox extends StatelessWidget {
 // Claude Code Sessions View
 // ============================================================================
 
+class _CCActiveSessionsSection extends ConsumerWidget {
+  const _CCActiveSessionsSection({this.onSessionTap});
+
+  final void Function(ClaudeCodeSession session)? onSessionTap;
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final sessionStatuses = ref.watch(globalSessionStatusProvider);
+    final sessionsAsync = ref.watch(ccSessionsProvider);
+    final sessions = sessionsAsync.valueOrNull ?? const <ClaudeCodeSession>[];
+
+    final activeSessions = sessions.where((session) {
+      final status = sessionStatuses[session.id];
+      return status != null && (status.isBusy || status.isRetry);
+    }).toList();
+
+    if (activeSessions.isEmpty) return const SizedBox.shrink();
+
+    final ocTheme = OpenCodeTheme.of(context);
+
+    return Container(
+      margin: const EdgeInsets.fromLTRB(20, 0, 20, 16),
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: ocTheme.backgroundPanel,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: ocTheme.info.withValues(alpha: 0.3)),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Icon(Icons.play_circle_rounded, color: ocTheme.info, size: 20),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      'Running',
+                      style: TextStyle(
+                        color: ocTheme.text,
+                        fontSize: 15,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                    Text(
+                      '${activeSessions.length} session${activeSessions.length > 1 ? 's' : ''} active',
+                      style: TextStyle(color: ocTheme.info, fontSize: 12),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 12),
+          ...activeSessions.map((session) {
+            final status = sessionStatuses[session.id];
+            final isRetry = status?.isRetry ?? false;
+            final statusColor = isRetry ? ocTheme.warning : ocTheme.info;
+            final parts = session.cwd
+                .split('/')
+                .where((p) => p.isNotEmpty)
+                .toList();
+            final projectName = parts.isNotEmpty ? parts.last : null;
+            return Padding(
+              padding: const EdgeInsets.only(bottom: 8),
+              child: GestureDetector(
+                onTap: onSessionTap != null
+                    ? () => onSessionTap!(session)
+                    : null,
+                child: Container(
+                  padding: const EdgeInsets.all(12),
+                  decoration: BoxDecoration(
+                    color: ocTheme.backgroundElement,
+                    borderRadius: BorderRadius.circular(12),
+                    border: Border.all(
+                      color: statusColor.withValues(alpha: 0.3),
+                    ),
+                  ),
+                  child: Row(
+                    children: [
+                      Container(
+                        width: 8,
+                        height: 8,
+                        decoration: BoxDecoration(
+                          color: statusColor,
+                          shape: BoxShape.circle,
+                          boxShadow: [
+                            BoxShadow(
+                              color: statusColor.withValues(alpha: 0.5),
+                              blurRadius: 4,
+                              spreadRadius: 1,
+                            ),
+                          ],
+                        ),
+                      ),
+                      const SizedBox(width: 12),
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              session.displayTitle,
+                              style: TextStyle(
+                                color: ocTheme.text,
+                                fontSize: 13,
+                                fontWeight: FontWeight.w500,
+                              ),
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                            ),
+                            const SizedBox(height: 2),
+                            Row(
+                              children: [
+                                if (projectName != null)
+                                  Text(
+                                    projectName,
+                                    style: TextStyle(
+                                      color: ocTheme.textMuted,
+                                      fontSize: 11,
+                                    ),
+                                  ),
+                                if (isRetry) ...[
+                                  const SizedBox(width: 8),
+                                  Container(
+                                    padding: const EdgeInsets.symmetric(
+                                      horizontal: 6,
+                                      vertical: 2,
+                                    ),
+                                    decoration: BoxDecoration(
+                                      color: ocTheme.warning.withValues(
+                                        alpha: 0.15,
+                                      ),
+                                      borderRadius: BorderRadius.circular(4),
+                                    ),
+                                    child: Text(
+                                      'Retrying',
+                                      style: TextStyle(
+                                        color: ocTheme.warning,
+                                        fontSize: 9,
+                                        fontWeight: FontWeight.w600,
+                                      ),
+                                    ),
+                                  ),
+                                ],
+                              ],
+                            ),
+                          ],
+                        ),
+                      ),
+                      Icon(
+                        Icons.chevron_right_rounded,
+                        color: ocTheme.textMuted.withValues(alpha: 0.5),
+                        size: 18,
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            );
+          }),
+        ],
+      ),
+    );
+  }
+}
+
 class _ClaudeCodeSessionsView extends ConsumerStatefulWidget {
   const _ClaudeCodeSessionsView({required this.onRefresh});
 
@@ -2262,13 +2679,201 @@ class _ClaudeCodeSessionsViewState
     super.initState();
     // Load sessions on init
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      ref.read(ccSessionsProvider.notifier).load();
+      final cwd = ref.read(ccSessionsFilterCwdProvider);
+      ref.read(ccSessionsProvider.notifier).load(cwd: cwd);
     });
   }
 
   Future<void> _refresh() async {
-    await ref.read(ccSessionsProvider.notifier).refresh();
+    final cwd = ref.read(ccSessionsFilterCwdProvider);
+    await ref.read(ccSessionsProvider.notifier).refresh(cwd: cwd);
+    ref.invalidate(ccProjectsForSessionsProvider);
     await widget.onRefresh();
+  }
+
+  void _showTitleFiltersSheet(BuildContext context) {
+    final ocTheme = OpenCodeTheme.of(context);
+    final controller = TextEditingController();
+
+    showModalBottomSheet<void>(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (ctx) {
+        final height = MediaQuery.of(ctx).size.height * 0.75;
+        return SafeArea(
+          child: Container(
+            height: height,
+            decoration: BoxDecoration(
+              color: ocTheme.backgroundPanel,
+              borderRadius: const BorderRadius.vertical(
+                top: Radius.circular(20),
+              ),
+            ),
+            child: Consumer(
+              builder: (context, ref, _) {
+                final filters = ref.watch(sessionsTitleExcludeFiltersProvider);
+                final notifier = ref.read(
+                  sessionsTitleExcludeFiltersProvider.notifier,
+                );
+
+                return Padding(
+                  padding: const EdgeInsets.fromLTRB(20, 16, 20, 16),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Row(
+                        children: [
+                          Expanded(
+                            child: Text(
+                              'Title filters',
+                              style: TextStyle(
+                                color: ocTheme.text,
+                                fontSize: 18,
+                                fontWeight: FontWeight.w700,
+                              ),
+                            ),
+                          ),
+                          IconButton(
+                            onPressed: () => Navigator.pop(ctx),
+                            icon: Icon(
+                              Icons.close_rounded,
+                              color: ocTheme.textMuted,
+                            ),
+                            tooltip: 'Close',
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 6),
+                      Text(
+                        'Hide sessions whose titles match any filter. Use `/regex/` for regex, otherwise it’s a case-insensitive substring match.',
+                        style: TextStyle(
+                          color: ocTheme.textMuted,
+                          fontSize: 13,
+                        ),
+                      ),
+                      const SizedBox(height: 12),
+                      Row(
+                        children: [
+                          Expanded(
+                            child: TextField(
+                              controller: controller,
+                              decoration: InputDecoration(
+                                hintText: 'e.g. test, tmp, /wip.*/',
+                                hintStyle: TextStyle(color: ocTheme.textMuted),
+                                filled: true,
+                                fillColor: ocTheme.backgroundElement,
+                                border: OutlineInputBorder(
+                                  borderRadius: BorderRadius.circular(12),
+                                  borderSide: BorderSide(
+                                    color: ocTheme.borderSubtle,
+                                  ),
+                                ),
+                                enabledBorder: OutlineInputBorder(
+                                  borderRadius: BorderRadius.circular(12),
+                                  borderSide: BorderSide(
+                                    color: ocTheme.borderSubtle,
+                                  ),
+                                ),
+                                focusedBorder: OutlineInputBorder(
+                                  borderRadius: BorderRadius.circular(12),
+                                  borderSide: BorderSide(
+                                    color: ocTheme.primary,
+                                  ),
+                                ),
+                                contentPadding: const EdgeInsets.symmetric(
+                                  horizontal: 12,
+                                  vertical: 10,
+                                ),
+                              ),
+                              style: TextStyle(color: ocTheme.text),
+                              textInputAction: TextInputAction.done,
+                              onSubmitted: (value) async {
+                                await notifier.add(value);
+                                controller.clear();
+                              },
+                            ),
+                          ),
+                          const SizedBox(width: 10),
+                          ElevatedButton(
+                            onPressed: () async {
+                              await notifier.add(controller.text);
+                              controller.clear();
+                            },
+                            style: ElevatedButton.styleFrom(
+                              backgroundColor: ocTheme.primary,
+                              foregroundColor: Colors.white,
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 16,
+                                vertical: 12,
+                              ),
+                              shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(12),
+                              ),
+                            ),
+                            child: const Text('Add'),
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 12),
+                      if (filters.isNotEmpty)
+                        Align(
+                          alignment: Alignment.centerRight,
+                          child: TextButton(
+                            onPressed: () => notifier.clear(),
+                            child: Text(
+                              'Clear all',
+                              style: TextStyle(color: ocTheme.error),
+                            ),
+                          ),
+                        ),
+                      Expanded(
+                        child: filters.isEmpty
+                            ? Center(
+                                child: Text(
+                                  'No filters yet',
+                                  style: TextStyle(color: ocTheme.textMuted),
+                                ),
+                              )
+                            : ListView.separated(
+                                itemCount: filters.length,
+                                separatorBuilder: (_, __) =>
+                                    Divider(color: ocTheme.borderSubtle),
+                                itemBuilder: (context, index) {
+                                  final f = filters[index];
+                                  return ListTile(
+                                    contentPadding: EdgeInsets.zero,
+                                    leading: Icon(
+                                      f.startsWith('/') && f.endsWith('/')
+                                          ? Icons.code_rounded
+                                          : Icons.text_fields_rounded,
+                                      color: ocTheme.textMuted,
+                                    ),
+                                    title: Text(
+                                      f,
+                                      style: TextStyle(color: ocTheme.text),
+                                    ),
+                                    trailing: IconButton(
+                                      onPressed: () => notifier.removeAt(index),
+                                      icon: Icon(
+                                        Icons.delete_outline_rounded,
+                                        color: ocTheme.error,
+                                      ),
+                                      tooltip: 'Remove',
+                                    ),
+                                  );
+                                },
+                              ),
+                      ),
+                    ],
+                  ),
+                );
+              },
+            ),
+          ),
+        );
+      },
+    ).whenComplete(controller.dispose);
   }
 
   Future<void> _deleteSession(ClaudeCodeSession session) async {
@@ -2425,9 +3030,19 @@ class _ClaudeCodeSessionsViewState
   @override
   Widget build(BuildContext context) {
     final sessionsAsync = ref.watch(ccSessionsProvider);
+    final filterCwd = ref.watch(ccSessionsFilterCwdProvider);
+    final projectsAsync = ref.watch(ccProjectsForSessionsProvider);
     final ocTheme = OpenCodeTheme.of(context);
     final highlights = ref.watch(highlightsProvider);
     final highlightColor = highlights.color;
+    final titleFilterCount = ref
+        .watch(sessionsTitleExcludeFiltersProvider)
+        .length;
+    final filterLabel = _filterLabel(
+      selectedPath: filterCwd,
+      projects: projectsAsync,
+    );
+    final theme = Theme.of(context);
 
     return Scaffold(
       backgroundColor: Colors.transparent,
@@ -2439,6 +3054,10 @@ class _ClaudeCodeSessionsViewState
           child: CustomScrollView(
             physics: const AlwaysScrollableScrollPhysics(),
             slivers: [
+              // Active sessions (busy/retry) - parity with OpenCode
+              SliverToBoxAdapter(
+                child: _CCActiveSessionsSection(onSessionTap: _openSession),
+              ),
               // Header
               SliverToBoxAdapter(
                 child: Padding(
@@ -2507,6 +3126,36 @@ class _ClaudeCodeSessionsViewState
                           fontWeight: FontWeight.w500,
                         ),
                       ),
+                      const SizedBox(height: 14),
+                      Row(
+                        children: [
+                          _FilterChipButton(
+                            label: filterLabel,
+                            onTap: () => _showProjectFilter(
+                              context: context,
+                              theme: theme,
+                              selectedPath: filterCwd,
+                              projects: projectsAsync,
+                              onSelected: (path) {
+                                ref
+                                        .read(
+                                          ccSessionsFilterCwdProvider.notifier,
+                                        )
+                                        .state =
+                                    path;
+                                ref
+                                    .read(ccSessionsProvider.notifier)
+                                    .load(cwd: path);
+                              },
+                            ),
+                          ),
+                          const SizedBox(width: 8),
+                          _TitleFiltersChip(
+                            count: titleFilterCount,
+                            onTap: () => _showTitleFiltersSheet(context),
+                          ),
+                        ],
+                      ),
                     ],
                   ),
                 ),
@@ -2559,8 +3208,21 @@ class _ClaudeCodeSessionsViewState
                   }
 
                   // Sort by updatedAt descending
-                  final sorted = sessions.toList()
-                    ..sort((a, b) => b.updatedAt.compareTo(a.updatedAt));
+                  final titleFilters = ref.watch(
+                    sessionsTitleExcludeFiltersProvider,
+                  );
+                  final sorted =
+                      sessions
+                          .where(
+                            (s) => titleFilters.isEmpty
+                                ? true
+                                : !sessionTitleMatchesExcludeFilters(
+                                    s.displayTitle,
+                                    titleFilters,
+                                  ),
+                          )
+                          .toList()
+                        ..sort((a, b) => b.updatedAt.compareTo(a.updatedAt));
 
                   // Separate highlighted and regular sessions
                   final highlightedSessions = sorted

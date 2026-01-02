@@ -3,10 +3,53 @@ import 'dart:async';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../models/claude_code.dart';
+import '../models/project.dart';
 import '../services/bridge_service.dart';
 import '../services/storage_service.dart';
 import 'connection_provider.dart';
 import 'service_providers.dart';
+
+/// `null` means "all projects" for Claude Code sessions.
+final ccSessionsFilterCwdProvider = StateProvider<String?>((ref) => null);
+
+/// Project list for Claude Code sessions screen.
+/// Online: uses `cc_list_projects` (derived from ~/.claude/projects).
+/// Offline: derives projects from cached CC sessions.
+final ccProjectsForSessionsProvider = FutureProvider<List<ProjectSummary>>((
+  ref,
+) async {
+  final bridge = ref.watch(bridgeServiceProvider);
+  final storage = ref.watch(storageServiceProvider);
+  final connection = ref.read(connectionProvider);
+
+  Future<List<ProjectSummary>> fromCachedSessions() async {
+    final cached = await storage.getCachedCCSessions();
+    final byPath = <String, ProjectSummary>{};
+    for (final s in cached) {
+      final path = s.cwd;
+      if (path.isEmpty) continue;
+      final parts = path.split('/').where((p) => p.isNotEmpty).toList();
+      final name = parts.isEmpty ? path : parts.last;
+      byPath[path] = ProjectSummary(id: path, name: name, path: path);
+    }
+    final projects = byPath.values.toList();
+    projects.sort(
+      (a, b) => a.name.toLowerCase().compareTo(b.name.toLowerCase()),
+    );
+    return projects;
+  }
+
+  if (connection.isOfflineMode) {
+    return await fromCachedSessions();
+  }
+
+  try {
+    final projects = await bridge.ccListProjects();
+    return projects;
+  } catch (_) {
+    return await fromCachedSessions();
+  }
+});
 
 final ccSessionsProvider =
     StateNotifierProvider<
@@ -148,6 +191,7 @@ class CCConfigNotifier extends StateNotifier<AsyncValue<ClaudeCodeConfig>> {
           permissionMode: ClaudeCodePermissionMode.defaultMode,
           allowedTools: const [],
           disallowedTools: const [],
+          systemPrompt: const ClaudeCodeSystemPrompt(preset: 'claude_code'),
           subagents: cachedSubagents,
         ),
       );
@@ -171,6 +215,7 @@ class CCConfigNotifier extends StateNotifier<AsyncValue<ClaudeCodeConfig>> {
             permissionMode: ClaudeCodePermissionMode.defaultMode,
             allowedTools: const [],
             disallowedTools: const [],
+            systemPrompt: const ClaudeCodeSystemPrompt(preset: 'claude_code'),
             subagents: cachedSubagents,
           ),
         );

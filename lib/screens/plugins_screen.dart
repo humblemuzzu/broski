@@ -4,6 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../models/claude_code.dart';
 import '../providers/claude_code_provider.dart';
+import '../widgets/claude_code_help.dart';
 
 class PluginsScreen extends ConsumerStatefulWidget {
   const PluginsScreen({super.key});
@@ -33,6 +34,14 @@ class _PluginsScreenState extends ConsumerState<PluginsScreen> {
         backgroundColor: theme.colorScheme.surface,
         title: const Text('Plugins'),
         actions: [
+          IconButton(
+            icon: const Icon(Icons.help_outline_rounded),
+            onPressed: () => showClaudeCodeHelpSheet(
+              context,
+              topic: ClaudeCodeHelpTopic.plugins,
+            ),
+            tooltip: 'Help',
+          ),
           IconButton(
             icon: const Icon(Icons.refresh_rounded),
             onPressed: () => ref.read(ccPluginsProvider.notifier).reload(),

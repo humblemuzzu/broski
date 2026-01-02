@@ -4,6 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../models/claude_code.dart';
 import '../providers/claude_code_provider.dart';
 import '../theme/opencode_theme.dart';
+import '../widgets/claude_code_help.dart';
 
 /// Screen for managing Claude Code custom subagents.
 /// Subagents are separate agent instances that can be spawned to handle focused subtasks.
@@ -38,6 +39,14 @@ class _SubagentsScreenState extends ConsumerState<SubagentsScreen> {
         title: Text('Subagents', style: TextStyle(color: oc.text)),
         iconTheme: IconThemeData(color: oc.text),
         actions: [
+          IconButton(
+            icon: const Icon(Icons.help_outline_rounded),
+            tooltip: 'Help',
+            onPressed: () => showClaudeCodeHelpSheet(
+              context,
+              topic: ClaudeCodeHelpTopic.subagents,
+            ),
+          ),
           IconButton(
             icon: const Icon(Icons.add),
             tooltip: 'Add Subagent',

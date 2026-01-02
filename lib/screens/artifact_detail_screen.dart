@@ -244,8 +244,7 @@ class _ArtifactDetailScreenState extends ConsumerState<ArtifactDetailScreen> {
     final nextTags = {
       for (final t in existing) t.trim(),
       cleaned,
-    }.where((t) => t.isNotEmpty).toList()
-      ..sort();
+    }.where((t) => t.isNotEmpty).toList()..sort();
 
     final bridge = ref.read(bridgeServiceProvider);
     final ok = await bridge.updateArtifact(id: artifact.id, userTags: nextTags);
@@ -270,7 +269,10 @@ class _ArtifactDetailScreenState extends ConsumerState<ArtifactDetailScreen> {
 
     try {
       if (artifact.backend == 'claude-code') {
-        final session = await bridge.ccGetSession(artifact.sessionId, cwd: artifact.projectPath);
+        final session = await bridge.ccGetSession(
+          artifact.sessionId,
+          cwd: artifact.projectPath,
+        );
         if (!mounted) return;
         Navigator.push(
           context,
@@ -344,8 +346,12 @@ class _HeaderCard extends StatelessWidget {
               ),
               const SizedBox(width: 10),
               _Pill(
-                label: artifact.backend == 'opencode' ? 'OpenCode' : 'Claude Code',
-                color: artifact.backend == 'opencode' ? ocTheme.info : ocTheme.primary,
+                label: artifact.backend == 'opencode'
+                    ? 'OpenCode'
+                    : 'Claude Code',
+                color: artifact.backend == 'opencode'
+                    ? ocTheme.info
+                    : ocTheme.primary,
               ),
             ],
           ),
@@ -459,18 +465,32 @@ class _TagsSection extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final ocTheme = OpenCodeTheme.of(context);
-    final smart = (artifact.smartTags ?? const []).where((t) => t.trim().isNotEmpty).toList();
-    final user = (artifact.userTags ?? const []).where((t) => t.trim().isNotEmpty).toList();
+    final smart = (artifact.smartTags ?? const [])
+        .where((t) => t.trim().isNotEmpty)
+        .toList();
+    final user = (artifact.userTags ?? const [])
+        .where((t) => t.trim().isNotEmpty)
+        .toList();
 
-    Widget buildChip(String label, {required Color color, VoidCallback? onDelete}) {
+    Widget buildChip(
+      String label, {
+      required Color color,
+      VoidCallback? onDelete,
+    }) {
       return Container(
         margin: const EdgeInsets.only(right: 8, bottom: 8),
         child: Chip(
           label: Text(label),
-          labelStyle: TextStyle(color: ocTheme.text, fontSize: 12, fontWeight: FontWeight.w600),
+          labelStyle: TextStyle(
+            color: ocTheme.text,
+            fontSize: 12,
+            fontWeight: FontWeight.w600,
+          ),
           backgroundColor: color.withValues(alpha: 0.12),
           side: BorderSide(color: color.withValues(alpha: 0.25)),
-          deleteIcon: onDelete != null ? Icon(Icons.close_rounded, size: 16, color: ocTheme.textMuted) : null,
+          deleteIcon: onDelete != null
+              ? Icon(Icons.close_rounded, size: 16, color: ocTheme.textMuted)
+              : null,
           onDeleted: onDelete,
         ),
       );
@@ -490,7 +510,10 @@ class _TagsSection extends StatelessWidget {
             children: [
               Text(
                 'Tags',
-                style: TextStyle(color: ocTheme.text, fontWeight: FontWeight.w700),
+                style: TextStyle(
+                  color: ocTheme.text,
+                  fontWeight: FontWeight.w700,
+                ),
               ),
               const Spacer(),
               TextButton.icon(
@@ -502,10 +525,7 @@ class _TagsSection extends StatelessWidget {
           ),
           const SizedBox(height: 8),
           if (smart.isEmpty && user.isEmpty)
-            Text(
-              'No tags yet.',
-              style: TextStyle(color: ocTheme.textMuted),
-            )
+            Text('No tags yet.', style: TextStyle(color: ocTheme.textMuted))
           else
             Wrap(
               children: [
@@ -548,7 +568,10 @@ class _ContentSection extends StatelessWidget {
             children: [
               Text(
                 'Content',
-                style: TextStyle(color: ocTheme.text, fontWeight: FontWeight.w700),
+                style: TextStyle(
+                  color: ocTheme.text,
+                  fontWeight: FontWeight.w700,
+                ),
               ),
               const Spacer(),
               IconButton(
@@ -621,7 +644,10 @@ class _NotesSection extends StatelessWidget {
             children: [
               Text(
                 'Notes',
-                style: TextStyle(color: ocTheme.text, fontWeight: FontWeight.w700),
+                style: TextStyle(
+                  color: ocTheme.text,
+                  fontWeight: FontWeight.w700,
+                ),
               ),
               const Spacer(),
               TextButton.icon(
@@ -634,7 +660,9 @@ class _NotesSection extends StatelessWidget {
           const SizedBox(height: 8),
           Text(
             notes.isEmpty ? 'No notes yet.' : notes,
-            style: TextStyle(color: notes.isEmpty ? ocTheme.textMuted : ocTheme.text),
+            style: TextStyle(
+              color: notes.isEmpty ? ocTheme.textMuted : ocTheme.text,
+            ),
           ),
         ],
       ),
@@ -687,7 +715,11 @@ class _ErrorState extends StatelessWidget {
             const SizedBox(height: 12),
             Text(
               'Something went wrong',
-              style: TextStyle(color: ocTheme.text, fontSize: 16, fontWeight: FontWeight.w700),
+              style: TextStyle(
+                color: ocTheme.text,
+                fontSize: 16,
+                fontWeight: FontWeight.w700,
+              ),
             ),
             const SizedBox(height: 8),
             Text(

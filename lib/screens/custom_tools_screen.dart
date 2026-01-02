@@ -4,6 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../models/claude_code.dart';
 import '../providers/claude_code_provider.dart';
 import 'custom_tool_editor_screen.dart';
+import '../widgets/claude_code_help.dart';
 
 class CustomToolsScreen extends ConsumerStatefulWidget {
   const CustomToolsScreen({super.key});
@@ -33,6 +34,14 @@ class _CustomToolsScreenState extends ConsumerState<CustomToolsScreen> {
         backgroundColor: theme.colorScheme.surface,
         title: const Text('Custom Tools'),
         actions: [
+          IconButton(
+            icon: const Icon(Icons.help_outline_rounded),
+            onPressed: () => showClaudeCodeHelpSheet(
+              context,
+              topic: ClaudeCodeHelpTopic.customTools,
+            ),
+            tooltip: 'Help',
+          ),
           IconButton(
             icon: const Icon(Icons.refresh_rounded),
             onPressed: () => ref.read(ccCustomToolsProvider.notifier).refresh(),

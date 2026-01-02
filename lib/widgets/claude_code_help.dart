@@ -1,0 +1,191 @@
+import 'package:flutter/material.dart';
+
+import '../theme/opencode_theme.dart';
+
+enum ClaudeCodeHelpTopic { toolsOverview, subagents, customTools, plugins }
+
+void showClaudeCodeHelpSheet(
+  BuildContext context, {
+  required ClaudeCodeHelpTopic topic,
+}) {
+  final theme = OpenCodeTheme.of(context);
+
+  String title;
+  List<Widget> body;
+
+  switch (topic) {
+    case ClaudeCodeHelpTopic.toolsOverview:
+      title = 'Claude Code power features';
+      body = [
+        _p(
+          theme,
+          'Subagents: specialized helpers Claude can delegate to (via the Task tool).',
+        ),
+        _p(
+          theme,
+          'Custom tools: your own MCP tools (HTTP or scripts) exposed as `mcp__broski-custom-tools__<name>`.',
+        ),
+        _p(
+          theme,
+          'Plugins: Claude Code plugins that add commands, skills, hooks, and MCP servers.',
+        ),
+        const SizedBox(height: 8),
+        _p(theme, 'Quick access:'),
+        _bullet(theme, 'Type `@<subagent>` to target a subagent'),
+        _bullet(theme, 'Type `@tool:` to insert a custom tool name'),
+        _bullet(theme, 'Type `/` to browse available slash commands'),
+      ];
+      break;
+    case ClaudeCodeHelpTopic.subagents:
+      title = 'Subagents';
+      body = [
+        _p(
+          theme,
+          'Subagents are specialized agents Claude can invoke via the Task tool for focused subtasks.',
+        ),
+        _bullet(theme, 'Create/edit subagents in this screen'),
+        _bullet(
+          theme,
+          'Select an active subagent from Chat → menu → Claude Code → Tools → Subagents',
+        ),
+        _bullet(theme, 'Or type `@<subagent>` in the prompt to target one'),
+        const SizedBox(height: 8),
+        _p(
+          theme,
+          'Tip: use clear descriptions like “Use for frontend UI polish” so Claude routes tasks correctly.',
+        ),
+      ];
+      break;
+    case ClaudeCodeHelpTopic.customTools:
+      title = 'Custom tools';
+      body = [
+        _p(
+          theme,
+          'Custom tools are MCP tools Claude Code can call while solving your request.',
+        ),
+        _bullet(theme, 'Create a tool (HTTP or script) and enable it'),
+        _bullet(
+          theme,
+          'In chat, type `@tool:` to insert a tool name into your prompt',
+        ),
+        _bullet(
+          theme,
+          'Tool names look like `mcp__broski-custom-tools__<ToolName>`',
+        ),
+        const SizedBox(height: 8),
+        _p(
+          theme,
+          'Example prompt: “Use `mcp__broski-custom-tools__jiraSearch` to find relevant tickets.”',
+        ),
+      ];
+      break;
+    case ClaudeCodeHelpTopic.plugins:
+      title = 'Plugins';
+      body = [
+        _p(
+          theme,
+          'Plugins add Claude Code commands/skills/hooks. They’re discovered from `~/.claude/plugins/` and any custom paths you add here.',
+        ),
+        _bullet(
+          theme,
+          'Add a plugin path (must contain `.claude-plugin/plugin.json`)',
+        ),
+        _bullet(theme, 'Enable/disable plugins, then Reload to refresh'),
+        _bullet(theme, 'Use `/` in chat to access plugin slash commands'),
+      ];
+      break;
+  }
+
+  showModalBottomSheet<void>(
+    context: context,
+    isScrollControlled: true,
+    backgroundColor: Colors.transparent,
+    builder: (ctx) {
+      final height = MediaQuery.of(ctx).size.height * 0.7;
+      return SafeArea(
+        child: Container(
+          height: height,
+          decoration: BoxDecoration(
+            color: theme.backgroundPanel,
+            borderRadius: const BorderRadius.vertical(top: Radius.circular(20)),
+          ),
+          child: Padding(
+            padding: const EdgeInsets.fromLTRB(20, 16, 20, 20),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
+                  children: [
+                    Expanded(
+                      child: Text(
+                        title,
+                        style: TextStyle(
+                          color: theme.text,
+                          fontSize: 18,
+                          fontWeight: FontWeight.w700,
+                        ),
+                      ),
+                    ),
+                    IconButton(
+                      onPressed: () => Navigator.pop(ctx),
+                      icon: Icon(Icons.close_rounded, color: theme.textMuted),
+                      tooltip: 'Close',
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 8),
+                Expanded(
+                  child: SingleChildScrollView(
+                    child: DefaultTextStyle(
+                      style: TextStyle(color: theme.text, fontSize: 14),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: body,
+                      ),
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+      );
+    },
+  );
+}
+
+Widget _p(OpenCodeTheme theme, String text) {
+  return Padding(
+    padding: const EdgeInsets.only(bottom: 10),
+    child: Text(text, style: TextStyle(color: theme.textMuted, height: 1.35)),
+  );
+}
+
+Widget _bullet(OpenCodeTheme theme, String text) {
+  return Padding(
+    padding: const EdgeInsets.only(bottom: 8),
+    child: Row(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Padding(
+          padding: const EdgeInsets.only(top: 6),
+          child: Container(
+            width: 4,
+            height: 4,
+            decoration: BoxDecoration(
+              color: theme.textMuted,
+              shape: BoxShape.circle,
+            ),
+          ),
+        ),
+        const SizedBox(width: 10),
+        Expanded(
+          child: Text(
+            text,
+            style: TextStyle(color: theme.textMuted, height: 1.35),
+          ),
+        ),
+      ],
+    ),
+  );
+}

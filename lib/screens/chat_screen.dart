@@ -39,6 +39,7 @@ import '../widgets/thinking_card.dart';
 import '../widgets/permission_prompt.dart';
 import '../widgets/session_sidebar.dart';
 import '../widgets/tool_call.dart';
+import '../widgets/claude_code_help.dart';
 import 'subagents_screen.dart';
 import 'custom_tools_screen.dart';
 import 'plugins_screen.dart';
@@ -177,6 +178,10 @@ class _ChatScreenState extends ConsumerState<ChatScreen>
   bool _showAgentAutocomplete = false;
   String _agentQuery = '';
 
+  // Claude Code: Custom tool @ insertion (type "@tool:")
+  bool _showCustomToolAutocomplete = false;
+  String _customToolQuery = '';
+
   // Focus node for input bar - needed to restore focus after autocomplete appears
   final FocusNode _inputFocusNode = FocusNode();
 
@@ -190,6 +195,7 @@ class _ChatScreenState extends ConsumerState<ChatScreen>
   // FIX: Store listener subscriptions for proper cleanup
   ProviderSubscription<BridgeConnectionState>? _connectionSubscription;
   ProviderSubscription<ChatSessionState>? _chatSubscription;
+  ProviderSubscription<AsyncValue<ClaudeCodeConfig>>? _ccConfigSubscription;
 
   @override
   void initState() {
@@ -248,6 +254,31 @@ class _ChatScreenState extends ConsumerState<ChatScreen>
     } else {
       // Preload Claude Code config so the tools sheet is instant.
       ref.read(ccConfigProvider.notifier).load();
+      // Preload power feature data for @/menu UX.
+      ref.read(ccCustomToolsProvider.notifier).load();
+      ref.read(ccPluginsProvider.notifier).load(cwd: widget.effectivePath);
+
+      // Keep subagents synced into the @agent autocomplete list.
+      _ccConfigSubscription = ref.listenManual(ccConfigProvider, (
+        previous,
+        next,
+      ) {
+        final cfg = next.valueOrNull;
+        if (cfg == null || !mounted) return;
+        final subagentAgents = cfg.subagents
+            .where((s) => s.name.isNotEmpty)
+            .map(
+              (s) => Agent(
+                name: s.name,
+                description: s.description,
+                mode: AgentMode.subagent,
+              ),
+            )
+            .toList();
+        setState(() {
+          _agents = subagentAgents;
+        });
+      });
     }
   }
 
@@ -637,23 +668,14 @@ class _ChatScreenState extends ConsumerState<ChatScreen>
       final chatState = ref.read(chatSessionProvider);
       final tokenUsage = chatState.ccTokenUsage;
 
-      // Build modified files from session diffs
-      final modifiedFiles = chatState.sessionDiffs
-          .map(
-            (diff) => ModifiedFile(
-              file: diff.file,
-              additions: diff.additions,
-              deletions: diff.deletions,
-            ),
-          )
-          .toList();
-
       final context = SessionContext.fromClaudeCode(
         inputTokens: tokenUsage?.inputTokens ?? 0,
         outputTokens: tokenUsage?.outputTokens ?? 0,
         cacheReadTokens: tokenUsage?.cacheReadTokens ?? 0,
         totalCostUsd: tokenUsage?.totalCostUsd,
-        modifiedFiles: modifiedFiles,
+        // Avoid client-side "made up" file summaries for Claude Code.
+        // Only show what the SDK reports directly (usage/cost).
+        modifiedFiles: const [],
       );
 
       // Cache CC context for offline
@@ -1393,6 +1415,7 @@ class _ChatScreenState extends ConsumerState<ChatScreen>
         _showCommandAutocomplete = true;
         _showFileAutocomplete = false;
         _showAgentAutocomplete = false;
+        _showCustomToolAutocomplete = false;
         _commandFilter = filter;
         _agentQuery = '';
         fileSearch.clear();
@@ -1401,6 +1424,20 @@ class _ChatScreenState extends ConsumerState<ChatScreen>
     } else if (atMatch != null) {
       final query = atMatch.group(1) ?? '';
       final lowerQuery = query.toLowerCase();
+
+      // Claude Code: "@tool:" opens custom tools autocomplete
+      if (widget.isClaudeCode && lowerQuery.startsWith('tool:')) {
+        _showCommandAutocomplete = false;
+        _showFileAutocomplete = false;
+        _showAgentAutocomplete = false;
+        _showCustomToolAutocomplete = true;
+        _customToolQuery = query.length > 5 ? query.substring(5) : '';
+        _commandFilter = '';
+        _agentQuery = '';
+        fileSearch.clear();
+        _setStateAndRestoreFocus(hadFocus);
+        return;
+      }
 
       // Check if this matches any agent name (prioritize agents over files)
       // Only show agent autocomplete if:
@@ -1422,6 +1459,7 @@ class _ChatScreenState extends ConsumerState<ChatScreen>
         _showCommandAutocomplete = false;
         _showFileAutocomplete = false;
         _showAgentAutocomplete = true;
+        _showCustomToolAutocomplete = false;
         _agentQuery = query;
         _commandFilter = '';
         fileSearch.clear();
@@ -1431,6 +1469,7 @@ class _ChatScreenState extends ConsumerState<ChatScreen>
         _showCommandAutocomplete = false;
         _showFileAutocomplete = true;
         _showAgentAutocomplete = false;
+        _showCustomToolAutocomplete = false;
         _agentQuery = '';
         _commandFilter = '';
         // Trigger file search AFTER updating state flags
@@ -1444,17 +1483,33 @@ class _ChatScreenState extends ConsumerState<ChatScreen>
       final wasShowing =
           _showCommandAutocomplete ||
           _showFileAutocomplete ||
-          _showAgentAutocomplete;
+          _showAgentAutocomplete ||
+          _showCustomToolAutocomplete;
       if (wasShowing) {
         _showCommandAutocomplete = false;
         _showFileAutocomplete = false;
         _showAgentAutocomplete = false;
+        _showCustomToolAutocomplete = false;
         _commandFilter = '';
         _agentQuery = '';
+        _customToolQuery = '';
         fileSearch.clear();
       }
       _setStateAndRestoreFocus(hadFocus);
     }
+  }
+
+  void _handleCustomToolSelection(ClaudeCodeCustomTool tool) {
+    final text = _controller.text;
+    final mcpName = tool.mcpToolName;
+    final newText = text.replaceFirst(RegExp(r'@\S*$'), '$mcpName ');
+    _controller.text = newText;
+    _controller.selection = TextSelection.collapsed(offset: newText.length);
+
+    setState(() {
+      _showCustomToolAutocomplete = false;
+      _customToolQuery = '';
+    });
   }
 
   /// Call setState and restore focus if it was previously focused.
@@ -1485,13 +1540,7 @@ class _ChatScreenState extends ConsumerState<ChatScreen>
   }
 
   void _handleFileSelection(FileAttachment attachment) {
-    // For Claude Code, just insert the @path as text (SDK handles file references)
-    if (widget.isClaudeCode) {
-      _handleFileSelectionAsText(attachment);
-      return;
-    }
-
-    // For OpenCode, add as file attachment
+    // Add as file attachment (OpenCode + Claude Code)
     if (_attachedFiles.contains(attachment)) return;
 
     final text = _controller.text;
@@ -1501,20 +1550,6 @@ class _ChatScreenState extends ConsumerState<ChatScreen>
 
     setState(() {
       _attachedFiles.add(attachment);
-      _showFileAutocomplete = false;
-    });
-    ref.read(fileSearchProvider.notifier).clear();
-  }
-
-  /// For Claude Code: Insert file path as @path text instead of attachment
-  void _handleFileSelectionAsText(FileAttachment attachment) {
-    final text = _controller.text;
-    // Replace @query with @path (keep the @ and add a space)
-    final newText = text.replaceFirst(RegExp(r'@\S*$'), '@${attachment.path} ');
-    _controller.text = newText;
-    _controller.selection = TextSelection.collapsed(offset: newText.length);
-
-    setState(() {
       _showFileAutocomplete = false;
     });
     ref.read(fileSearchProvider.notifier).clear();
@@ -1531,8 +1566,11 @@ class _ChatScreenState extends ConsumerState<ChatScreen>
     setState(() {
       _showAgentAutocomplete = false;
       _agentQuery = '';
-      // Also set as the selected agent for this message
-      _selectedAgent = agent.name;
+      // OpenCode: set selected agent for this message.
+      // Claude Code: keep selection explicit in the prompt (@subagent).
+      if (!widget.isClaudeCode) {
+        _selectedAgent = agent.name;
+      }
     });
   }
 
@@ -1702,6 +1740,29 @@ class _ChatScreenState extends ConsumerState<ChatScreen>
                               ],
                             ),
                           ),
+                          Material(
+                            color: Colors.transparent,
+                            child: InkWell(
+                              onTap: () => showClaudeCodeHelpSheet(
+                                context,
+                                topic: ClaudeCodeHelpTopic.toolsOverview,
+                              ),
+                              borderRadius: BorderRadius.circular(20),
+                              child: Container(
+                                padding: const EdgeInsets.all(8),
+                                decoration: BoxDecoration(
+                                  color: theme.textMuted.withValues(alpha: 0.1),
+                                  shape: BoxShape.circle,
+                                ),
+                                child: Icon(
+                                  Icons.help_outline_rounded,
+                                  color: theme.textMuted,
+                                  size: 20,
+                                ),
+                              ),
+                            ),
+                          ),
+                          const SizedBox(width: 6),
                           Material(
                             color: Colors.transparent,
                             child: InkWell(
@@ -2466,24 +2527,18 @@ class _ChatScreenState extends ConsumerState<ChatScreen>
       isScrollControlled: true,
       backgroundColor: Colors.transparent,
       builder: (_) {
-        final screenHeight = MediaQuery.of(context).size.height;
-        final maxSheetHeight = screenHeight * 0.85;
-
-        return Container(
-          constraints: BoxConstraints(maxHeight: maxSheetHeight),
-          decoration: BoxDecoration(
-            color: theme.backgroundPanel,
-            borderRadius: const BorderRadius.vertical(top: Radius.circular(20)),
-            boxShadow: [
-              BoxShadow(
-                color: Colors.black.withValues(alpha: 0.3),
-                blurRadius: 20,
-                offset: const Offset(0, -4),
+        return SafeArea(
+          child: Container(
+            decoration: BoxDecoration(
+              color: theme.backgroundPanel,
+              borderRadius: const BorderRadius.vertical(
+                top: Radius.circular(18),
               ),
-            ],
-          ),
-          child: SafeArea(
-            top: false,
+              border: Border.all(
+                color: theme.borderSubtle.withValues(alpha: 0.2),
+              ),
+            ),
+            padding: const EdgeInsets.fromLTRB(16, 16, 16, 20),
             child: Consumer(
               builder: (context, ref, _) {
                 final cwd = ref.watch(chatSessionProvider).ccCwd;
@@ -2491,193 +2546,117 @@ class _ChatScreenState extends ConsumerState<ChatScreen>
 
                 return Column(
                   mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    // Drag handle
-                    Container(
-                      margin: const EdgeInsets.only(top: 12, bottom: 8),
-                      width: 40,
-                      height: 4,
-                      decoration: BoxDecoration(
-                        color: theme.textMuted.withValues(alpha: 0.3),
-                        borderRadius: BorderRadius.circular(2),
-                      ),
-                    ),
-
-                    // Header with close button
-                    Padding(
-                      padding: const EdgeInsets.fromLTRB(20, 8, 12, 0),
-                      child: Row(
-                        children: [
-                          Container(
-                            padding: const EdgeInsets.all(8),
-                            decoration: BoxDecoration(
-                              color: theme.accent.withValues(alpha: 0.15),
-                              borderRadius: BorderRadius.circular(10),
+                    Row(
+                      children: [
+                        Icon(
+                          Icons.auto_awesome_rounded,
+                          color: theme.accent,
+                          size: 18,
+                        ),
+                        const SizedBox(width: 10),
+                        Expanded(
+                          child: Text(
+                            'Skills',
+                            style: TextStyle(
+                              color: theme.text,
+                              fontSize: 16,
+                              fontWeight: FontWeight.w700,
                             ),
-                            child: Icon(
-                              Icons.auto_awesome_rounded,
-                              color: theme.accent,
-                              size: 20,
-                            ),
-                          ),
-                          const SizedBox(width: 12),
-                          Expanded(
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                Text(
-                                  'Skills',
-                                  style: TextStyle(
-                                    color: theme.text,
-                                    fontSize: 17,
-                                    fontWeight: FontWeight.w700,
-                                  ),
-                                ),
-                                const SizedBox(height: 2),
-                                Text(
-                                  'Specialized knowledge & workflows',
-                                  style: TextStyle(
-                                    color: theme.textMuted,
-                                    fontSize: 12,
-                                  ),
-                                ),
-                              ],
-                            ),
-                          ),
-                          Material(
-                            color: Colors.transparent,
-                            child: InkWell(
-                              onTap: () => Navigator.pop(context),
-                              borderRadius: BorderRadius.circular(20),
-                              child: Container(
-                                padding: const EdgeInsets.all(8),
-                                decoration: BoxDecoration(
-                                  color: theme.textMuted.withValues(alpha: 0.1),
-                                  shape: BoxShape.circle,
-                                ),
-                                child: Icon(
-                                  Icons.close_rounded,
-                                  color: theme.textMuted,
-                                  size: 20,
-                                ),
-                              ),
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-
-                    const SizedBox(height: 16),
-                    Divider(
-                      color: theme.borderSubtle.withValues(alpha: 0.5),
-                      height: 1,
-                    ),
-
-                    // Skills content
-                    Flexible(
-                      child: skillsAsync.when(
-                        data: (skills) {
-                          if (skills.isEmpty) {
-                            return Padding(
-                              padding: const EdgeInsets.all(32),
-                              child: Column(
-                                mainAxisSize: MainAxisSize.min,
-                                children: [
-                                  Icon(
-                                    Icons.school_outlined,
-                                    size: 48,
-                                    color: theme.textMuted.withValues(
-                                      alpha: 0.5,
-                                    ),
-                                  ),
-                                  const SizedBox(height: 16),
-                                  Text(
-                                    'No skills found',
-                                    style: TextStyle(
-                                      color: theme.textMuted,
-                                      fontSize: 15,
-                                      fontWeight: FontWeight.w500,
-                                    ),
-                                  ),
-                                  const SizedBox(height: 4),
-                                  Text(
-                                    'Skills provide specialized workflows and knowledge',
-                                    style: TextStyle(
-                                      color: theme.textMuted.withValues(
-                                        alpha: 0.7,
-                                      ),
-                                      fontSize: 13,
-                                    ),
-                                    textAlign: TextAlign.center,
-                                  ),
-                                ],
-                              ),
-                            );
-                          }
-                          return ListView.separated(
-                            padding: const EdgeInsets.fromLTRB(20, 16, 20, 24),
-                            shrinkWrap: true,
-                            itemCount: skills.length,
-                            separatorBuilder: (_, __) =>
-                                const SizedBox(height: 8),
-                            itemBuilder: (context, index) {
-                              final s = skills[index];
-                              return _buildSkillCard(theme, s);
-                            },
-                          );
-                        },
-                        loading: () => Padding(
-                          padding: const EdgeInsets.all(32),
-                          child: Column(
-                            mainAxisSize: MainAxisSize.min,
-                            children: [
-                              CircularProgressIndicator(
-                                color: theme.accent,
-                                strokeWidth: 2,
-                              ),
-                              const SizedBox(height: 16),
-                              Text(
-                                'Loading skills...',
-                                style: TextStyle(
-                                  color: theme.textMuted,
-                                  fontSize: 13,
-                                ),
-                              ),
-                            ],
                           ),
                         ),
-                        error: (e, _) => Padding(
-                          padding: const EdgeInsets.all(32),
-                          child: Column(
-                            mainAxisSize: MainAxisSize.min,
-                            children: [
-                              Icon(
-                                Icons.error_outline_rounded,
-                                size: 48,
-                                color: theme.error.withValues(alpha: 0.7),
-                              ),
-                              const SizedBox(height: 16),
-                              Text(
-                                'Failed to load skills',
-                                style: TextStyle(
-                                  color: theme.text,
-                                  fontSize: 15,
-                                  fontWeight: FontWeight.w500,
-                                ),
-                              ),
-                              const SizedBox(height: 4),
-                              Text(
-                                '$e',
-                                style: TextStyle(
-                                  color: theme.error,
-                                  fontSize: 12,
-                                ),
-                                textAlign: TextAlign.center,
-                                maxLines: 2,
-                                overflow: TextOverflow.ellipsis,
-                              ),
-                            ],
+                        IconButton(
+                          onPressed: () => Navigator.pop(context),
+                          icon: Icon(
+                            Icons.close_rounded,
+                            color: theme.textMuted,
                           ),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 8),
+                    skillsAsync.when(
+                      data: (skills) {
+                        if (skills.isEmpty) {
+                          return Padding(
+                            padding: const EdgeInsets.only(top: 8),
+                            child: Text(
+                              'No skills found.',
+                              style: TextStyle(
+                                color: theme.textMuted,
+                                fontSize: 13,
+                              ),
+                            ),
+                          );
+                        }
+                        return Flexible(
+                          child: ListView.builder(
+                            shrinkWrap: true,
+                            itemCount: skills.length,
+                            itemBuilder: (context, index) {
+                              final s = skills[index];
+                              return ListTile(
+                                dense: true,
+                                contentPadding: EdgeInsets.zero,
+                                title: Text(
+                                  s.name,
+                                  style: TextStyle(
+                                    color: theme.text,
+                                    fontSize: 13,
+                                  ),
+                                ),
+                                subtitle: s.description == null
+                                    ? null
+                                    : Text(
+                                        s.description!,
+                                        style: TextStyle(
+                                          color: theme.textMuted,
+                                          fontSize: 12,
+                                        ),
+                                      ),
+                                trailing: s.autoInvoke
+                                    ? Container(
+                                        padding: const EdgeInsets.symmetric(
+                                          horizontal: 8,
+                                          vertical: 4,
+                                        ),
+                                        decoration: BoxDecoration(
+                                          color: theme.success.withValues(
+                                            alpha: 0.15,
+                                          ),
+                                          borderRadius: BorderRadius.circular(
+                                            8,
+                                          ),
+                                        ),
+                                        child: Text(
+                                          'Auto',
+                                          style: TextStyle(
+                                            color: theme.success,
+                                            fontSize: 11,
+                                            fontWeight: FontWeight.w600,
+                                          ),
+                                        ),
+                                      )
+                                    : null,
+                              );
+                            },
+                          ),
+                        );
+                      },
+                      loading: () => Padding(
+                        padding: const EdgeInsets.only(top: 16),
+                        child: Center(
+                          child: CircularProgressIndicator(
+                            color: theme.primary,
+                          ),
+                        ),
+                      ),
+                      error: (e, _) => Padding(
+                        padding: const EdgeInsets.only(top: 8),
+                        child: Text(
+                          '$e',
+                          style: TextStyle(color: theme.error, fontSize: 13),
                         ),
                       ),
                     ),
@@ -2689,112 +2668,6 @@ class _ChatScreenState extends ConsumerState<ChatScreen>
         );
       },
     );
-  }
-
-  Widget _buildSkillCard(OpenCodeTheme theme, ClaudeCodeSkill skill) {
-    return Container(
-      padding: const EdgeInsets.all(14),
-      decoration: BoxDecoration(
-        color: theme.background.withValues(alpha: 0.5),
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: theme.borderSubtle.withValues(alpha: 0.3)),
-      ),
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Container(
-            padding: const EdgeInsets.all(8),
-            decoration: BoxDecoration(
-              color: theme.info.withValues(alpha: 0.12),
-              borderRadius: BorderRadius.circular(8),
-            ),
-            child: Icon(_getSkillIcon(skill.name), size: 18, color: theme.info),
-          ),
-          const SizedBox(width: 12),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Row(
-                  children: [
-                    Expanded(
-                      child: Text(
-                        skill.name,
-                        style: TextStyle(
-                          color: theme.text,
-                          fontSize: 14,
-                          fontWeight: FontWeight.w600,
-                        ),
-                      ),
-                    ),
-                    if (skill.autoInvoke)
-                      Container(
-                        padding: const EdgeInsets.symmetric(
-                          horizontal: 8,
-                          vertical: 3,
-                        ),
-                        decoration: BoxDecoration(
-                          color: theme.success.withValues(alpha: 0.15),
-                          borderRadius: BorderRadius.circular(6),
-                        ),
-                        child: Text(
-                          'Auto',
-                          style: TextStyle(
-                            color: theme.success,
-                            fontSize: 10,
-                            fontWeight: FontWeight.w600,
-                          ),
-                        ),
-                      ),
-                  ],
-                ),
-                if (skill.description != null) ...[
-                  const SizedBox(height: 4),
-                  Text(
-                    skill.description!,
-                    style: TextStyle(
-                      color: theme.textMuted,
-                      fontSize: 12,
-                      height: 1.4,
-                    ),
-                    maxLines: 2,
-                    overflow: TextOverflow.ellipsis,
-                  ),
-                ],
-              ],
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  IconData _getSkillIcon(String name) {
-    final lower = name.toLowerCase();
-    if (lower.contains('search') || lower.contains('find')) {
-      return Icons.search_rounded;
-    } else if (lower.contains('git') || lower.contains('commit')) {
-      return Icons.commit_rounded;
-    } else if (lower.contains('test')) {
-      return Icons.bug_report_rounded;
-    } else if (lower.contains('doc') || lower.contains('research')) {
-      return Icons.description_rounded;
-    } else if (lower.contains('debug') || lower.contains('hook')) {
-      return Icons.code_rounded;
-    } else if (lower.contains('check') || lower.contains('quality')) {
-      return Icons.check_circle_outline_rounded;
-    } else if (lower.contains('plan') || lower.contains('create')) {
-      return Icons.architecture_rounded;
-    } else if (lower.contains('explore') || lower.contains('repo')) {
-      return Icons.folder_open_rounded;
-    } else if (lower.contains('analyze') || lower.contains('brain')) {
-      return Icons.psychology_rounded;
-    } else if (lower.contains('pr') || lower.contains('describe')) {
-      return Icons.rate_review_rounded;
-    } else if (lower.contains('develop')) {
-      return Icons.developer_mode_rounded;
-    }
-    return Icons.auto_awesome_rounded;
   }
 
   void _showClaudeCodeHooksSheet() {
@@ -4330,6 +4203,7 @@ class _ChatScreenState extends ConsumerState<ChatScreen>
     // FIX: Cancel listener subscriptions to prevent callbacks after dispose
     _connectionSubscription?.close();
     _chatSubscription?.close();
+    _ccConfigSubscription?.close();
     ref.read(bridgeServiceProvider).setView(projectPath: 'global');
     _controller.dispose();
     _scrollController.dispose();
@@ -4400,10 +4274,7 @@ class _ChatScreenState extends ConsumerState<ChatScreen>
         children: [
           // Custom background from appearance settings
           const AppBackground(screenId: AppScreen.chat),
-          // Disable SafeArea top/bottom to reclaim space - header/input handle their own
           SafeArea(
-            top: false,
-            bottom: false,
             child: Column(
               children: [
                 // Chat messages with smooth auto-hiding scrollbar
@@ -4432,7 +4303,7 @@ class _ChatScreenState extends ConsumerState<ChatScreen>
                           controller: _scrollController,
                           // PERF: Pre-render 500px above/below viewport for smoother scrolling
                           cacheExtent: 500,
-                          padding: const EdgeInsets.fromLTRB(20, 15, 20, 80),
+                          padding: const EdgeInsets.fromLTRB(20, 20, 20, 90),
                           // Add 1 for loading indicator at top when loading more
                           itemCount:
                               messages.length +
@@ -4527,6 +4398,21 @@ class _ChatScreenState extends ConsumerState<ChatScreen>
             ),
           ),
 
+          // Claude Code: Custom tool autocomplete popup (type "@tool:")
+          Positioned(
+            left: 16,
+            right: 16,
+            bottom: 70,
+            child: Visibility(
+              visible: _showCustomToolAutocomplete,
+              maintainState: true,
+              child: _CustomToolAutocomplete(
+                query: _customToolQuery,
+                onSelect: _handleCustomToolSelection,
+              ),
+            ),
+          ),
+
           // Agent @ mention autocomplete popup (kept mounted to avoid focus loss)
           Positioned(
             left: 16,
@@ -4578,9 +4464,7 @@ class _ChatScreenState extends ConsumerState<ChatScreen>
               onMenu: widget.isClaudeCode
                   ? (value) => _handleClaudeCodeMenuAction(value)
                   : (value) => _handleMenuActionWithMessages(value, messages),
-              onOpenSidebar: widget.isClaudeCode
-                  ? null
-                  : () => Scaffold.of(context).openEndDrawer(),
+              onOpenSidebar: () => Scaffold.of(context).openEndDrawer(),
               currentAgent: _selectedAgent,
               agents: widget.isClaudeCode ? [] : _agents,
               onAgentChanged: widget.isClaudeCode
@@ -4605,15 +4489,16 @@ class _ChatScreenState extends ConsumerState<ChatScreen>
             ),
           ),
 
-          // Floating indicator for other running sessions (OpenCode only)
-          if (!widget.isClaudeCode)
-            FloatingActiveIndicator(
-              currentSessionId: widget.session.id,
-              onTap: () {
-                // Navigate back to see the sessions list
-                Navigator.pop(context);
-              },
-            ),
+          // Floating indicator for other running sessions (OpenCode + Claude Code)
+          FloatingActiveIndicator(
+            currentSessionId: widget.effectiveSessionId.isNotEmpty
+                ? widget.effectiveSessionId
+                : null,
+            onTap: () {
+              // Navigate back to see the sessions list
+              Navigator.pop(context);
+            },
+          ),
         ],
       ),
     );
@@ -4673,16 +4558,12 @@ class _ChatScreenState extends ConsumerState<ChatScreen>
         onModelTap: widget.isClaudeCode
             ? null
             : () => _showModelSelector(context),
-        attachedFiles: widget.isClaudeCode ? const [] : _attachedFiles,
-        onRemoveAttachment: widget.isClaudeCode ? null : _removeAttachedFile,
+        attachedFiles: _attachedFiles,
+        onRemoveAttachment: _removeAttachedFile,
         showFileAutocomplete: _showFileAutocomplete,
         onFileSelect: _handleFileSelection,
-        onAttachTap: widget.isClaudeCode
-            ? () => _showClaudeCodeToolsSheet()
-            : () => _showAttachmentOptions(context),
-        attachIcon: widget.isClaudeCode
-            ? Icons.tune_rounded
-            : Icons.add_rounded,
+        onAttachTap: () => _showAttachmentOptions(context),
+        attachIcon: Icons.add_rounded,
         isClaudeCode: widget.isClaudeCode,
         ccPermissionMode: ccConfig?.permissionMode ?? ccInit?.permissionMode,
         ccModel:
@@ -4708,16 +4589,12 @@ class _ChatScreenState extends ConsumerState<ChatScreen>
         isBusy: isBusy,
         canSend: canSend,
         isOfflineMode: connection.isOfflineMode,
-        attachedFiles: widget.isClaudeCode ? const [] : _attachedFiles,
-        onRemoveAttachment: widget.isClaudeCode ? null : _removeAttachedFile,
+        attachedFiles: _attachedFiles,
+        onRemoveAttachment: _removeAttachedFile,
         showFileAutocomplete: _showFileAutocomplete,
         onFileSelect: _handleFileSelection,
-        onAttachTap: widget.isClaudeCode
-            ? () => _showClaudeCodeToolsSheet()
-            : () => _showAttachmentOptions(context),
-        attachIcon: widget.isClaudeCode
-            ? Icons.tune_rounded
-            : Icons.add_rounded,
+        onAttachTap: () => _showAttachmentOptions(context),
+        attachIcon: Icons.add_rounded,
       );
     }
 
@@ -5357,8 +5234,26 @@ class _ChatScreenState extends ConsumerState<ChatScreen>
           chatState.ccInit?.model ??
           widget.ccSession?.model ??
           widget.ccDraftModel;
+      final activeSubagent = messageAgent ?? ccConfig?.activeSubagent;
 
-      chat.appendUserMessage(text);
+      // Build display message with file attachments (same UX as OpenCode)
+      String displayText = text;
+      if (hasAttachments) {
+        final attachmentLabels = <String>[];
+        int imageCount = 0;
+        for (final f in _attachedFiles) {
+          if (f.isImage) {
+            imageCount++;
+            attachmentLabels.add('[Image $imageCount]');
+          } else {
+            attachmentLabels.add(f.displayPath);
+          }
+        }
+        if (attachmentLabels.isNotEmpty) {
+          displayText = '$text\n${attachmentLabels.join(' ')}';
+        }
+      }
+      chat.appendUserMessage(displayText);
       chat.setCCStreaming(true);
       bridge.ccChat(
         sessionId: chatState.ccSessionId,
@@ -5368,7 +5263,8 @@ class _ChatScreenState extends ConsumerState<ChatScreen>
         permissionMode: ccConfig?.permissionMode,
         allowedTools: ccConfig?.allowedTools,
         disallowedTools: ccConfig?.disallowedTools,
-        activeSubagent: ccConfig?.activeSubagent,
+        activeSubagent: activeSubagent,
+        fileAttachments: hasAttachments ? _attachedFiles : null,
       );
       _controller.clear();
       setState(() => _attachedFiles.clear());
@@ -5572,9 +5468,9 @@ class _FloatingHeader extends StatelessWidget {
       duration: const Duration(milliseconds: 200),
       padding: EdgeInsets.fromLTRB(
         12,
-        MediaQuery.of(context).padding.top + 0,
+        MediaQuery.of(context).padding.top + 3,
         12,
-        isStreaming ? 0 : 2,
+        isStreaming ? 1 : 5,
       ),
       child: AnimatedOpacity(
         duration: const Duration(milliseconds: 200),
@@ -6296,7 +6192,7 @@ class _FloatingInputBar extends ConsumerWidget {
           color: Colors.transparent,
           child: SafeArea(
             top: false,
-            minimum: EdgeInsets.zero,
+            minimum: const EdgeInsets.only(bottom: 3),
             child: Column(
               mainAxisSize: MainAxisSize.min,
               children: [
@@ -6626,7 +6522,7 @@ class _CliStyleInputBarState extends State<_CliStyleInputBar> {
           color: Colors.transparent,
           child: SafeArea(
             top: false,
-            minimum: EdgeInsets.zero,
+            minimum: const EdgeInsets.only(bottom: 3),
             child: Column(
               mainAxisSize: MainAxisSize.min,
               children: [
@@ -7412,6 +7308,163 @@ class _CommandAutocomplete extends StatelessWidget {
           ],
         ),
       ),
+    );
+  }
+}
+
+class _CustomToolAutocomplete extends ConsumerWidget {
+  const _CustomToolAutocomplete({required this.query, required this.onSelect});
+
+  final String query;
+  final void Function(ClaudeCodeCustomTool tool) onSelect;
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final theme = OpenCodeTheme.of(context);
+    final toolsAsync = ref.watch(ccCustomToolsProvider);
+
+    final kCard = theme.backgroundPanel;
+    final kBorder = theme.borderSubtle;
+    final kText = theme.text;
+    final kMuted = theme.textMuted;
+
+    return toolsAsync.when(
+      loading: () => Container(
+        padding: const EdgeInsets.all(16),
+        decoration: BoxDecoration(
+          color: kCard,
+          borderRadius: BorderRadius.circular(16),
+          border: Border.all(color: kBorder),
+        ),
+        child: Row(
+          children: [
+            SizedBox(
+              width: 14,
+              height: 14,
+              child: CircularProgressIndicator(strokeWidth: 2, color: kMuted),
+            ),
+            const SizedBox(width: 10),
+            Text('Loading tools…', style: TextStyle(color: kMuted)),
+          ],
+        ),
+      ),
+      error: (e, _) => Container(
+        padding: const EdgeInsets.all(16),
+        decoration: BoxDecoration(
+          color: kCard,
+          borderRadius: BorderRadius.circular(16),
+          border: Border.all(color: kBorder),
+        ),
+        child: Text(
+          'Failed to load tools: $e',
+          style: TextStyle(color: theme.error),
+        ),
+      ),
+      data: (tools) {
+        final enabled = tools.where((t) => t.enabled).toList();
+        final q = query.trim().toLowerCase();
+        final filtered = q.isEmpty
+            ? enabled
+            : enabled
+                  .where(
+                    (t) =>
+                        t.name.toLowerCase().contains(q) ||
+                        t.description.toLowerCase().contains(q),
+                  )
+                  .toList();
+
+        if (filtered.isEmpty) {
+          return Container(
+            padding: const EdgeInsets.all(16),
+            decoration: BoxDecoration(
+              color: kCard,
+              borderRadius: BorderRadius.circular(16),
+              border: Border.all(color: kBorder),
+            ),
+            child: Text('No matching tools', style: TextStyle(color: kMuted)),
+          );
+        }
+
+        return Container(
+          constraints: const BoxConstraints(maxHeight: 280),
+          decoration: BoxDecoration(
+            color: kCard,
+            borderRadius: BorderRadius.circular(16),
+            border: Border.all(color: kBorder),
+            boxShadow: [
+              BoxShadow(
+                color: Colors.black.withValues(alpha: 0.3),
+                blurRadius: 16,
+                offset: const Offset(0, 4),
+              ),
+            ],
+          ),
+          child: ClipRRect(
+            borderRadius: BorderRadius.circular(16),
+            child: ListView.builder(
+              padding: const EdgeInsets.symmetric(vertical: 8),
+              itemCount: filtered.length,
+              itemBuilder: (context, index) {
+                final tool = filtered[index];
+                return InkWell(
+                  onTap: () => onSelect(tool),
+                  child: Padding(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 16,
+                      vertical: 10,
+                    ),
+                    child: Row(
+                      children: [
+                        Container(
+                          width: 32,
+                          height: 32,
+                          decoration: BoxDecoration(
+                            color: theme.warning.withValues(alpha: 0.15),
+                            borderRadius: BorderRadius.circular(8),
+                          ),
+                          child: Icon(
+                            Icons.build_rounded,
+                            size: 16,
+                            color: theme.warning,
+                          ),
+                        ),
+                        const SizedBox(width: 12),
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                tool.name,
+                                style: TextStyle(
+                                  fontSize: 14,
+                                  fontWeight: FontWeight.w600,
+                                  color: kText,
+                                ),
+                              ),
+                              const SizedBox(height: 2),
+                              Text(
+                                tool.mcpToolName,
+                                style: TextStyle(fontSize: 11, color: kMuted),
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                              ),
+                            ],
+                          ),
+                        ),
+                        Icon(
+                          Icons.chevron_right_rounded,
+                          color: kMuted.withValues(alpha: 0.7),
+                          size: 18,
+                        ),
+                      ],
+                    ),
+                  ),
+                );
+              },
+            ),
+          ),
+        );
+      },
     );
   }
 }

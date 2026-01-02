@@ -520,7 +520,10 @@ class _ToolCallCardState extends State<ToolCallCard> {
                   language: language,
                   theme: atomOneDarkTheme,
                   padding: EdgeInsets.zero,
-                  textStyle: GoogleFonts.jetBrainsMono(fontSize: 11, height: 1.5),
+                  textStyle: GoogleFonts.jetBrainsMono(
+                    fontSize: 11,
+                    height: 1.5,
+                  ),
                 )
               : Text(
                   preview,

@@ -25,6 +25,8 @@ class StorageService {
   static const _notificationsEnabledKey = 'broski_notifications_enabled';
   static const _deviceIdKey = 'broski_device_id';
   static const _selectedAgentTypeKey = 'broski_selected_agent_type';
+  static const _sessionsTitleExcludeFiltersKey =
+      'broski_sessions_title_exclude_filters';
 
   // Highlight keys
   static const _highlightedProjectsKey = 'broski_highlighted_projects';
@@ -166,6 +168,38 @@ class StorageService {
 
   Future<void> saveLastBrowsePath(String path) async {
     await _storage.write(key: _lastBrowsePathKey, value: path);
+  }
+
+  // ============================================================
+  // Sessions Screen Preferences
+  // ============================================================
+
+  Future<List<String>> getSessionsTitleExcludeFilters() async {
+    final raw = await _storage.read(key: _sessionsTitleExcludeFiltersKey);
+    if (raw == null) return const [];
+    try {
+      final decoded = jsonDecode(raw);
+      if (decoded is List) {
+        return decoded
+            .map((e) => '$e')
+            .where((s) => s.trim().isNotEmpty)
+            .toList();
+      }
+      return const [];
+    } catch (_) {
+      return const [];
+    }
+  }
+
+  Future<void> setSessionsTitleExcludeFilters(List<String> filters) async {
+    final normalized = filters
+        .map((f) => f.trim())
+        .where((f) => f.isNotEmpty)
+        .toList();
+    await _storage.write(
+      key: _sessionsTitleExcludeFiltersKey,
+      value: jsonEncode(normalized),
+    );
   }
 
   // ============================================================

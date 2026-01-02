@@ -4,7 +4,8 @@ import '../models/artifacts_settings.dart';
 import '../services/bridge_service.dart';
 import 'service_providers.dart';
 
-class ArtifactsConfigNotifier extends StateNotifier<AsyncValue<ArtifactsConfig>> {
+class ArtifactsConfigNotifier
+    extends StateNotifier<AsyncValue<ArtifactsConfig>> {
   ArtifactsConfigNotifier(this._bridge) : super(const AsyncValue.loading()) {
     load();
   }
@@ -51,15 +52,14 @@ class ArtifactsConfigNotifier extends StateNotifier<AsyncValue<ArtifactsConfig>>
 }
 
 final artifactsConfigProvider =
-    StateNotifierProvider<ArtifactsConfigNotifier, AsyncValue<ArtifactsConfig>>((
-      ref,
-    ) {
-      final bridge = ref.watch(bridgeServiceProvider);
-      return ArtifactsConfigNotifier(bridge);
-    });
+    StateNotifierProvider<ArtifactsConfigNotifier, AsyncValue<ArtifactsConfig>>(
+      (ref) {
+        final bridge = ref.watch(bridgeServiceProvider);
+        return ArtifactsConfigNotifier(bridge);
+      },
+    );
 
 final artifactsStatsProvider = FutureProvider<ArtifactsStats>((ref) async {
   final bridge = ref.watch(bridgeServiceProvider);
   return await bridge.getArtifactsStats();
 });
-

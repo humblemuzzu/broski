@@ -21,7 +21,8 @@ class ArtifactsEnrichmentConfig {
       followSelectedAgent: json['followSelectedAgent'] as bool? ?? true,
       enabled: json['enabled'] as bool? ?? false,
       batchSize: (json['batchSize'] as num?)?.toInt() ?? 5,
-      maxCharsPerArtifact: (json['maxCharsPerArtifact'] as num?)?.toInt() ?? 6000,
+      maxCharsPerArtifact:
+          (json['maxCharsPerArtifact'] as num?)?.toInt() ?? 6000,
       hiddenCwd: json['hiddenCwd'] as String? ?? '/tmp/broski-enrichment',
     );
   }

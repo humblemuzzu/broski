@@ -38,185 +38,188 @@ class ArtifactsSettingsScreen extends ConsumerWidget {
       ),
       body: cfgAsync.when(
         data: (cfg) {
-          final effectiveProvider =
-              agentType == AgentType.claudeCode ? 'claude-code' : 'opencode';
+          final effectiveProvider = agentType == AgentType.claudeCode
+              ? 'claude-code'
+              : 'opencode';
           return ListView(
             padding: const EdgeInsets.fromLTRB(16, 8, 16, 24),
             children: [
-            _SectionTitle(title: 'Indexing'),
-            _Card(
-              child: SwitchListTile(
-                value: cfg.indexingEnabled,
-                onChanged: (v) => ref
-                    .read(artifactsConfigProvider.notifier)
-                    .update(cfg.copyWith(indexingEnabled: v)),
-                title: const Text('Enable indexing'),
-                subtitle: const Text(
-                  'When enabled, file writes/edits during chat are captured into the artifact index.',
+              _SectionTitle(title: 'Indexing'),
+              _Card(
+                child: SwitchListTile(
+                  value: cfg.indexingEnabled,
+                  onChanged: (v) => ref
+                      .read(artifactsConfigProvider.notifier)
+                      .update(cfg.copyWith(indexingEnabled: v)),
+                  title: const Text('Enable indexing'),
+                  subtitle: const Text(
+                    'When enabled, file writes/edits during chat are captured into the artifact index.',
+                  ),
                 ),
               ),
-            ),
-            const SizedBox(height: 14),
-            _SectionTitle(title: 'AI Enrichment'),
-            _Card(
-              child: Column(
-                children: [
-                  SwitchListTile(
-                    value: cfg.enrichment.enabled,
-                    onChanged: (v) => ref
-                        .read(artifactsConfigProvider.notifier)
-                        .update(cfg.copyWithEnrichment(enabled: v)),
-                    title: const Text('Enable summaries & smart tags'),
-                    subtitle: const Text(
-                      'Uses your local providers. Can consume API credits depending on the chosen provider.',
+              const SizedBox(height: 14),
+              _SectionTitle(title: 'AI Enrichment'),
+              _Card(
+                child: Column(
+                  children: [
+                    SwitchListTile(
+                      value: cfg.enrichment.enabled,
+                      onChanged: (v) => ref
+                          .read(artifactsConfigProvider.notifier)
+                          .update(cfg.copyWithEnrichment(enabled: v)),
+                      title: const Text('Enable summaries & smart tags'),
+                      subtitle: const Text(
+                        'Uses your local providers. Can consume API credits depending on the chosen provider.',
+                      ),
                     ),
-                  ),
-                  const Divider(height: 1),
-                  SwitchListTile(
-                    value: cfg.enrichment.followSelectedAgent,
-                    onChanged: (v) => ref
-                        .read(artifactsConfigProvider.notifier)
-                        .update(cfg.copyWithEnrichment(followSelectedAgent: v)),
-                    title: const Text('Follow selected AI backend'),
-                    subtitle: Text(
-                      cfg.enrichment.followSelectedAgent
-                          ? 'Auto: ${_providerLabel(effectiveProvider)}'
-                          : 'Manual selection (choose a provider below)',
+                    const Divider(height: 1),
+                    SwitchListTile(
+                      value: cfg.enrichment.followSelectedAgent,
+                      onChanged: (v) => ref
+                          .read(artifactsConfigProvider.notifier)
+                          .update(
+                            cfg.copyWithEnrichment(followSelectedAgent: v),
+                          ),
+                      title: const Text('Follow selected AI backend'),
+                      subtitle: Text(
+                        cfg.enrichment.followSelectedAgent
+                            ? 'Auto: ${_providerLabel(effectiveProvider)}'
+                            : 'Manual selection (choose a provider below)',
+                      ),
                     ),
-                  ),
-                  const Divider(height: 1),
-                  ListTile(
-                    title: const Text('Provider'),
-                    subtitle: Text(
-                      cfg.enrichment.followSelectedAgent
-                          ? 'Auto: ${_providerLabel(effectiveProvider)}'
-                          : _providerLabel(cfg.enrichment.provider),
+                    const Divider(height: 1),
+                    ListTile(
+                      title: const Text('Provider'),
+                      subtitle: Text(
+                        cfg.enrichment.followSelectedAgent
+                            ? 'Auto: ${_providerLabel(effectiveProvider)}'
+                            : _providerLabel(cfg.enrichment.provider),
+                      ),
+                      trailing: const Icon(Icons.chevron_right_rounded),
+                      onTap: cfg.enrichment.followSelectedAgent
+                          ? null
+                          : () => _pickProvider(context, ref, cfg),
                     ),
-                    trailing: const Icon(Icons.chevron_right_rounded),
-                    onTap: cfg.enrichment.followSelectedAgent
-                        ? null
-                        : () => _pickProvider(context, ref, cfg),
-                  ),
-                  const Divider(height: 1),
-                  ListTile(
-                    title: const Text('Batch size'),
-                    subtitle: Text(
-                      '${cfg.enrichment.batchSize} artifacts per run',
+                    const Divider(height: 1),
+                    ListTile(
+                      title: const Text('Batch size'),
+                      subtitle: Text(
+                        '${cfg.enrichment.batchSize} artifacts per run',
+                      ),
+                      trailing: const Icon(Icons.chevron_right_rounded),
+                      onTap: () => _pickBatchSize(context, ref, cfg),
                     ),
-                    trailing: const Icon(Icons.chevron_right_rounded),
-                    onTap: () => _pickBatchSize(context, ref, cfg),
-                  ),
-                  const Divider(height: 1),
-                  ListTile(
-                    title: const Text('Enrich now'),
-                    subtitle: const Text(
-                      'Process the newest unenriched artifacts in the background.',
-                    ),
-                    trailing: const Icon(Icons.auto_awesome_rounded),
-                    onTap:
-                        !cfg.enrichment.enabled ||
-                            (!cfg.enrichment.followSelectedAgent &&
-                                cfg.enrichment.provider == 'off')
-                        ? null
-                        : () async {
-                            final ok = await ref
-                                .read(artifactsConfigProvider.notifier)
-                                .enrichNow();
-                            if (!context.mounted) return;
-                            ScaffoldMessenger.of(context).showSnackBar(
-                              SnackBar(
-                                content: Text(
-                                  ok
-                                      ? 'Enrichment started'
-                                      : 'Could not start enrichment',
+                    const Divider(height: 1),
+                    ListTile(
+                      title: const Text('Enrich now'),
+                      subtitle: const Text(
+                        'Process the newest unenriched artifacts in the background.',
+                      ),
+                      trailing: const Icon(Icons.auto_awesome_rounded),
+                      onTap:
+                          !cfg.enrichment.enabled ||
+                              (!cfg.enrichment.followSelectedAgent &&
+                                  cfg.enrichment.provider == 'off')
+                          ? null
+                          : () async {
+                              final ok = await ref
+                                  .read(artifactsConfigProvider.notifier)
+                                  .enrichNow();
+                              if (!context.mounted) return;
+                              ScaffoldMessenger.of(context).showSnackBar(
+                                SnackBar(
+                                  content: Text(
+                                    ok
+                                        ? 'Enrichment started'
+                                        : 'Could not start enrichment',
+                                  ),
+                                  behavior: SnackBarBehavior.floating,
+                                  backgroundColor: ocTheme.backgroundPanel,
                                 ),
-                                behavior: SnackBarBehavior.floating,
-                                backgroundColor: ocTheme.backgroundPanel,
-                              ),
-                            );
-                            ref.read(artifactsProvider.notifier).refresh();
-                          },
-                  ),
-                ],
+                              );
+                              ref.read(artifactsProvider.notifier).refresh();
+                            },
+                    ),
+                  ],
+                ),
               ),
-            ),
-            const SizedBox(height: 14),
-            _SectionTitle(title: 'Stats'),
-            _Card(
-              child: statsAsync.when(
-                data: (stats) => Padding(
-                  padding: const EdgeInsets.all(14),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      _StatRow(
-                        label: 'Total',
-                        value: '${stats.totalArtifacts}',
-                      ),
-                      const SizedBox(height: 8),
-                      _StatRow(
-                        label: 'Starred',
-                        value: '${stats.starredArtifacts}',
-                      ),
-                      const SizedBox(height: 8),
-                      _StatRow(
-                        label: 'OpenCode',
-                        value: '${stats.backends['opencode'] ?? 0}',
-                      ),
-                      const SizedBox(height: 8),
-                      _StatRow(
-                        label: 'Claude Code',
-                        value: '${stats.backends['claude-code'] ?? 0}',
-                      ),
-                      const SizedBox(height: 12),
-                      _StatRow(
-                        label: 'DB size',
-                        value: _bytes(stats.dbSizeBytes),
-                      ),
-                      const SizedBox(height: 8),
-                      Text(
-                        stats.dbPath,
-                        style: TextStyle(
-                          color: ocTheme.textMuted,
-                          fontSize: 11,
+              const SizedBox(height: 14),
+              _SectionTitle(title: 'Stats'),
+              _Card(
+                child: statsAsync.when(
+                  data: (stats) => Padding(
+                    padding: const EdgeInsets.all(14),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        _StatRow(
+                          label: 'Total',
+                          value: '${stats.totalArtifacts}',
                         ),
-                        maxLines: 2,
-                        overflow: TextOverflow.ellipsis,
-                      ),
-                    ],
+                        const SizedBox(height: 8),
+                        _StatRow(
+                          label: 'Starred',
+                          value: '${stats.starredArtifacts}',
+                        ),
+                        const SizedBox(height: 8),
+                        _StatRow(
+                          label: 'OpenCode',
+                          value: '${stats.backends['opencode'] ?? 0}',
+                        ),
+                        const SizedBox(height: 8),
+                        _StatRow(
+                          label: 'Claude Code',
+                          value: '${stats.backends['claude-code'] ?? 0}',
+                        ),
+                        const SizedBox(height: 12),
+                        _StatRow(
+                          label: 'DB size',
+                          value: _bytes(stats.dbSizeBytes),
+                        ),
+                        const SizedBox(height: 8),
+                        Text(
+                          stats.dbPath,
+                          style: TextStyle(
+                            color: ocTheme.textMuted,
+                            fontSize: 11,
+                          ),
+                          maxLines: 2,
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                      ],
+                    ),
                   ),
-                ),
-                loading: () => const Padding(
-                  padding: EdgeInsets.all(16),
-                  child: Center(child: CircularProgressIndicator()),
-                ),
-                error: (e, _) => Padding(
-                  padding: const EdgeInsets.all(16),
-                  child: Text(
-                    'Failed to load stats: $e',
-                    style: TextStyle(color: ocTheme.textMuted),
+                  loading: () => const Padding(
+                    padding: EdgeInsets.all(16),
+                    child: Center(child: CircularProgressIndicator()),
+                  ),
+                  error: (e, _) => Padding(
+                    padding: const EdgeInsets.all(16),
+                    child: Text(
+                      'Failed to load stats: $e',
+                      style: TextStyle(color: ocTheme.textMuted),
+                    ),
                   ),
                 ),
               ),
-            ),
-            const SizedBox(height: 14),
-            _SectionTitle(title: 'Danger Zone'),
-            _Card(
-              child: ListTile(
-                leading: Icon(
-                  Icons.delete_outline_rounded,
-                  color: ocTheme.error,
+              const SizedBox(height: 14),
+              _SectionTitle(title: 'Danger Zone'),
+              _Card(
+                child: ListTile(
+                  leading: Icon(
+                    Icons.delete_outline_rounded,
+                    color: ocTheme.error,
+                  ),
+                  title: Text(
+                    'Clear index',
+                    style: TextStyle(color: ocTheme.error),
+                  ),
+                  subtitle: const Text(
+                    'Deletes all artifacts from the local database.',
+                  ),
+                  onTap: () => _confirmClear(context, ref),
                 ),
-                title: Text(
-                  'Clear index',
-                  style: TextStyle(color: ocTheme.error),
-                ),
-                subtitle: const Text(
-                  'Deletes all artifacts from the local database.',
-                ),
-                onTap: () => _confirmClear(context, ref),
               ),
-            ),
             ],
           );
         },
@@ -395,7 +398,8 @@ extension on ArtifactsConfig {
     return copyWith(
       enrichment: ArtifactsEnrichmentConfig(
         provider: provider ?? enrichment.provider,
-        followSelectedAgent: followSelectedAgent ?? enrichment.followSelectedAgent,
+        followSelectedAgent:
+            followSelectedAgent ?? enrichment.followSelectedAgent,
         enabled: enabled ?? enrichment.enabled,
         batchSize: batchSize ?? enrichment.batchSize,
         maxCharsPerArtifact:

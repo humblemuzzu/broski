@@ -1835,6 +1835,7 @@ class BridgeService {
     List<String>? disallowedTools,
     int? maxThinkingTokens,
     String? activeSubagent,
+    List<FileAttachment>? fileAttachments,
   }) {
     final guardKey = 'cc_chat:${sessionId ?? 'new'}:${prompt.hashCode}';
     if (!_guardFireAndForget(guardKey, cooldown: const Duration(seconds: 2))) {
@@ -1852,6 +1853,8 @@ class BridgeService {
       if (disallowedTools != null) 'disallowedTools': disallowedTools,
       if (maxThinkingTokens != null) 'maxThinkingTokens': maxThinkingTokens,
       if (activeSubagent != null) 'activeSubagent': activeSubagent,
+      if (fileAttachments != null)
+        'fileAttachments': fileAttachments.map((a) => a.toJson()).toList(),
     });
   }
 

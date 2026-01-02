@@ -60,7 +60,9 @@ class _ArtifactsScreenState extends ConsumerState<ArtifactsScreen> {
             tooltip: 'Settings',
             onPressed: () => Navigator.push(
               context,
-              MaterialPageRoute(builder: (_) => const ArtifactsSettingsScreen()),
+              MaterialPageRoute(
+                builder: (_) => const ArtifactsSettingsScreen(),
+              ),
             ),
             icon: const Icon(Icons.settings_rounded),
           ),
@@ -79,7 +81,8 @@ class _ArtifactsScreenState extends ConsumerState<ArtifactsScreen> {
               children: [
                 _SearchField(
                   controller: _controller,
-                  onChanged: (q) => ref.read(artifactsProvider.notifier).setQuery(q),
+                  onChanged: (q) =>
+                      ref.read(artifactsProvider.notifier).setQuery(q),
                   onClear: () {
                     _controller.clear();
                     ref.read(artifactsProvider.notifier).setQuery('');
@@ -91,11 +94,14 @@ class _ArtifactsScreenState extends ConsumerState<ArtifactsScreen> {
                   projectPath: state.filters.projectPath,
                   starredOnly: state.filters.starred,
                   isSearching: state.isSearching,
-                  onSelectBackend: (backend) => ref.read(artifactsProvider.notifier).setBackend(backend),
+                  onSelectBackend: (backend) =>
+                      ref.read(artifactsProvider.notifier).setBackend(backend),
                   onSelectProject: () => _pickProject(context),
                   onToggleStarred: () => ref
                       .read(artifactsProvider.notifier)
-                      .setStarredOnly(state.filters.starred == true ? null : true),
+                      .setStarredOnly(
+                        state.filters.starred == true ? null : true,
+                      ),
                 ),
                 const SizedBox(height: 10),
                 SizedBox(
@@ -112,7 +118,9 @@ class _ArtifactsScreenState extends ConsumerState<ArtifactsScreen> {
                             ),
                           )
                         : const Icon(Icons.auto_awesome_rounded),
-                    label: Text(_askingAi ? 'Preparing…' : 'Ask AI about results'),
+                    label: Text(
+                      _askingAi ? 'Preparing…' : 'Ask AI about results',
+                    ),
                   ),
                 ),
               ],
@@ -126,11 +134,13 @@ class _ArtifactsScreenState extends ConsumerState<ArtifactsScreen> {
                 : state.error != null
                 ? _ErrorState(
                     message: state.error!,
-                    onRetry: () => ref.read(artifactsProvider.notifier).refresh(),
+                    onRetry: () =>
+                        ref.read(artifactsProvider.notifier).refresh(),
                   )
                 : state.results.isEmpty
                 ? _EmptyState(
-                    hasFilter: state.query.trim().isNotEmpty ||
+                    hasFilter:
+                        state.query.trim().isNotEmpty ||
                         state.filters.backend != null ||
                         state.filters.projectPath != null ||
                         state.filters.starred == true,
@@ -146,10 +156,13 @@ class _ArtifactsScreenState extends ConsumerState<ArtifactsScreen> {
                         onTap: () => Navigator.push(
                           context,
                           MaterialPageRoute(
-                            builder: (_) => ArtifactDetailScreen(artifactId: item.id),
+                            builder: (_) =>
+                                ArtifactDetailScreen(artifactId: item.id),
                           ),
                         ),
-                        onStar: () => ref.read(artifactsProvider.notifier).toggleStar(item),
+                        onStar: () => ref
+                            .read(artifactsProvider.notifier)
+                            .toggleStar(item),
                       );
                     },
                   ),
@@ -170,20 +183,25 @@ class _ArtifactsScreenState extends ConsumerState<ArtifactsScreen> {
       builder: (context) {
         final ocTheme = OpenCodeTheme.of(context);
         final hasCurrentProject =
-            selection.project?.path != null && selection.project!.path.isNotEmpty;
+            selection.project?.path != null &&
+            selection.project!.path.isNotEmpty;
         return ListView(
           shrinkWrap: true,
           children: [
             ListTile(
               title: const Text('All projects'),
-              trailing: current == null ? const Icon(Icons.check_rounded) : null,
+              trailing: current == null
+                  ? const Icon(Icons.check_rounded)
+                  : null,
               onTap: () => Navigator.pop(context, null),
             ),
             if (selection.project?.path != null)
               ListTile(
-                title: Text(selection.project!.name.isNotEmpty
-                    ? selection.project!.name
-                    : selection.project!.path.split('/').last),
+                title: Text(
+                  selection.project!.name.isNotEmpty
+                      ? selection.project!.name
+                      : selection.project!.path.split('/').last,
+                ),
                 subtitle: Text(selection.project!.path),
                 trailing: current == selection.project!.path
                     ? const Icon(Icons.check_rounded)
@@ -209,7 +227,9 @@ class _ArtifactsScreenState extends ConsumerState<ArtifactsScreen> {
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
         content: Text(
-          chosen == null ? 'Showing artifacts from all projects' : 'Filtered to current project',
+          chosen == null
+              ? 'Showing artifacts from all projects'
+              : 'Filtered to current project',
         ),
         behavior: SnackBarBehavior.floating,
         backgroundColor: ocTheme.backgroundPanel,
@@ -232,7 +252,8 @@ class _ArtifactsScreenState extends ConsumerState<ArtifactsScreen> {
       return;
     }
 
-    final inferredProjectPath = state.filters.projectPath ?? _inferSingleProjectPath(state.results);
+    final inferredProjectPath =
+        state.filters.projectPath ?? _inferSingleProjectPath(state.results);
     if (inferredProjectPath == null || inferredProjectPath.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
@@ -281,7 +302,8 @@ class _ArtifactsScreenState extends ConsumerState<ArtifactsScreen> {
       }
 
       final selection = ref.read(selectionProvider);
-      final project = (selection.project != null &&
+      final project =
+          (selection.project != null &&
               selection.project!.path == inferredProjectPath)
           ? selection.project!
           : ProjectSummary(
@@ -532,7 +554,9 @@ class _FiltersRow extends StatelessWidget {
         ),
         const SizedBox(width: 10),
         _ChipIconButton(
-          icon: starredOnly == true ? Icons.star_rounded : Icons.star_border_rounded,
+          icon: starredOnly == true
+              ? Icons.star_rounded
+              : Icons.star_border_rounded,
           color: starredOnly == true ? ocTheme.warning : ocTheme.textMuted,
           onTap: onToggleStarred,
           tooltip: 'Starred only',
@@ -554,7 +578,11 @@ class _FiltersRow extends StatelessWidget {
 }
 
 class _ChipButton extends StatelessWidget {
-  const _ChipButton({required this.label, required this.icon, required this.onTap});
+  const _ChipButton({
+    required this.label,
+    required this.icon,
+    required this.onTap,
+  });
 
   final String label;
   final IconData icon;
@@ -581,7 +609,11 @@ class _ChipButton extends StatelessWidget {
             Flexible(
               child: Text(
                 label,
-                style: TextStyle(color: ocTheme.text, fontSize: 13, fontWeight: FontWeight.w600),
+                style: TextStyle(
+                  color: ocTheme.text,
+                  fontSize: 13,
+                  fontWeight: FontWeight.w600,
+                ),
                 overflow: TextOverflow.ellipsis,
               ),
             ),
@@ -661,10 +693,12 @@ class _ArtifactCard extends ConsumerWidget {
     final backendLabel = item.backend == 'opencode' ? 'OC' : 'CC';
     final summary = (item.summary ?? '').trim();
     final hasSummary = summary.isNotEmpty;
-    final smartTags =
-        (item.smartTags ?? const []).where((t) => t.trim().isNotEmpty).toList();
-    final userTags =
-        (item.userTags ?? const []).where((t) => t.trim().isNotEmpty).toList();
+    final smartTags = (item.smartTags ?? const [])
+        .where((t) => t.trim().isNotEmpty)
+        .toList();
+    final userTags = (item.userTags ?? const [])
+        .where((t) => t.trim().isNotEmpty)
+        .toList();
     final tagChips = <({String tag, bool isSmart})>[
       for (final t in smartTags) (tag: t, isSmart: true),
       for (final t in userTags) (tag: t, isSmart: false),
@@ -699,14 +733,18 @@ class _ArtifactCard extends ConsumerWidget {
                 const SizedBox(width: 10),
                 _Pill(
                   label: backendLabel,
-                  color: item.backend == 'opencode' ? ocTheme.info : ocTheme.primary,
+                  color: item.backend == 'opencode'
+                      ? ocTheme.info
+                      : ocTheme.primary,
                 ),
                 const SizedBox(width: 8),
                 IconButton(
                   visualDensity: VisualDensity.compact,
                   onPressed: onStar,
                   icon: Icon(
-                    item.starred ? Icons.star_rounded : Icons.star_border_rounded,
+                    item.starred
+                        ? Icons.star_rounded
+                        : Icons.star_border_rounded,
                     color: item.starred ? ocTheme.warning : ocTheme.textMuted,
                   ),
                 ),
@@ -721,7 +759,11 @@ class _ArtifactCard extends ConsumerWidget {
               const SizedBox(height: 10),
               Text(
                 summary,
-                style: TextStyle(color: ocTheme.text, fontSize: 13, height: 1.3),
+                style: TextStyle(
+                  color: ocTheme.text,
+                  fontSize: 13,
+                  height: 1.3,
+                ),
                 maxLines: 3,
                 overflow: TextOverflow.ellipsis,
               ),
@@ -751,13 +793,22 @@ class _ArtifactCard extends ConsumerWidget {
                 if (item.additions > 0)
                   Text(
                     '+${item.additions}',
-                    style: TextStyle(color: ocTheme.success, fontWeight: FontWeight.w700, fontSize: 12),
+                    style: TextStyle(
+                      color: ocTheme.success,
+                      fontWeight: FontWeight.w700,
+                      fontSize: 12,
+                    ),
                   ),
-                if (item.additions > 0 && item.deletions > 0) const SizedBox(width: 8),
+                if (item.additions > 0 && item.deletions > 0)
+                  const SizedBox(width: 8),
                 if (item.deletions > 0)
                   Text(
                     '-${item.deletions}',
-                    style: TextStyle(color: ocTheme.error, fontWeight: FontWeight.w700, fontSize: 12),
+                    style: TextStyle(
+                      color: ocTheme.error,
+                      fontWeight: FontWeight.w700,
+                      fontSize: 12,
+                    ),
                   ),
                 const Spacer(),
                 Flexible(
@@ -844,11 +895,19 @@ class _EmptyState extends StatelessWidget {
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            Icon(Icons.inventory_2_outlined, size: 56, color: ocTheme.textMuted),
+            Icon(
+              Icons.inventory_2_outlined,
+              size: 56,
+              color: ocTheme.textMuted,
+            ),
             const SizedBox(height: 12),
             Text(
               hasFilter ? 'No matches' : 'No artifacts yet',
-              style: TextStyle(color: ocTheme.text, fontSize: 16, fontWeight: FontWeight.w700),
+              style: TextStyle(
+                color: ocTheme.text,
+                fontSize: 16,
+                fontWeight: FontWeight.w700,
+              ),
             ),
             const SizedBox(height: 8),
             Text(
@@ -883,7 +942,11 @@ class _ErrorState extends StatelessWidget {
             const SizedBox(height: 12),
             Text(
               'Failed to load artifacts',
-              style: TextStyle(color: ocTheme.text, fontSize: 16, fontWeight: FontWeight.w700),
+              style: TextStyle(
+                color: ocTheme.text,
+                fontSize: 16,
+                fontWeight: FontWeight.w700,
+              ),
             ),
             const SizedBox(height: 8),
             Text(

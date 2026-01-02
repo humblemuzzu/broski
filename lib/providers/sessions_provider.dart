@@ -8,6 +8,7 @@ import '../models/message.dart';
 import '../models/project.dart';
 import '../models/session.dart';
 import '../services/notification_service.dart';
+import '../services/storage_service.dart';
 import 'connection_provider.dart';
 import 'service_providers.dart';
 
@@ -161,23 +162,39 @@ class GlobalSessionStatusNotifier
     String? lastTool,
   }) {
     // Get session info from cache if available
-    _ref.read(storageServiceProvider).getCachedSessions().then((sessions) {
-      final session = sessions.where((s) => s.id == sessionId).firstOrNull;
-      final title = session?.title ?? 'Session';
-      final project = session?.directory.split('/').last ?? 'Project';
+    _ref.read(storageServiceProvider).getCachedSessions().then((
+      sessions,
+    ) async {
+      final ocSession = sessions.where((s) => s.id == sessionId).firstOrNull;
+      if (ocSession != null) {
+        final project = ocSession.directory.split('/').last;
+        NotificationService.instance.showSessionCompleted(
+          sessionId: sessionId,
+          title: ocSession.title,
+          projectName: project,
+          duration: duration,
+          lastTool: lastTool,
+          additions: ocSession.summary?.additions,
+          deletions: ocSession.summary?.deletions,
+        );
+        return;
+      }
 
-      // Get summary stats
-      final additions = session?.summary?.additions;
-      final deletions = session?.summary?.deletions;
+      // Claude Code fallback: use cached CC sessions (no additions/deletions summary)
+      final ccSessions = await _ref
+          .read(storageServiceProvider)
+          .getCachedCCSessions();
+      final ccSession = ccSessions.where((s) => s.id == sessionId).firstOrNull;
+      final title = ccSession?.displayTitle ?? 'Session';
+      final cwd = ccSession?.cwd ?? '';
+      final project = cwd.split('/').where((p) => p.isNotEmpty).lastOrNull;
 
       NotificationService.instance.showSessionCompleted(
         sessionId: sessionId,
         title: title,
-        projectName: project,
+        projectName: project ?? 'Claude Code',
         duration: duration,
         lastTool: lastTool,
-        additions: additions,
-        deletions: deletions,
       );
     });
   }
@@ -352,6 +369,85 @@ void prefetchTopSessions(WidgetRef ref, List<SessionSummary> sessions) {
 /// `null` means "all projects" (aggregate view).
 final sessionsFilterProjectPathProvider = StateProvider<String?>((ref) => null);
 
+// ============================================================
+// Sessions Title Filters (hide sessions by title)
+// ============================================================
+
+bool sessionTitleMatchesExcludeFilters(String title, List<String> filters) {
+  if (filters.isEmpty) return false;
+  final t = title.trim();
+  if (t.isEmpty) return false;
+
+  for (final raw in filters) {
+    final f = raw.trim();
+    if (f.isEmpty) continue;
+
+    // Regex syntax: /pattern/ (case-insensitive)
+    if (f.length >= 3 && f.startsWith('/') && f.endsWith('/')) {
+      final pattern = f.substring(1, f.length - 1);
+      try {
+        final re = RegExp(pattern, caseSensitive: false);
+        if (re.hasMatch(t)) return true;
+      } catch (_) {
+        // Invalid regex -> ignore
+      }
+      continue;
+    }
+
+    // Default: case-insensitive substring match
+    if (t.toLowerCase().contains(f.toLowerCase())) {
+      return true;
+    }
+  }
+
+  return false;
+}
+
+final sessionsTitleExcludeFiltersProvider =
+    StateNotifierProvider<SessionsTitleExcludeFiltersNotifier, List<String>>((
+      ref,
+    ) {
+      final storage = ref.watch(storageServiceProvider);
+      return SessionsTitleExcludeFiltersNotifier(storage)..load();
+    });
+
+class SessionsTitleExcludeFiltersNotifier extends StateNotifier<List<String>> {
+  SessionsTitleExcludeFiltersNotifier(this._storage) : super(const []);
+
+  final StorageService _storage;
+
+  Future<void> load() async {
+    final filters = await _storage.getSessionsTitleExcludeFilters();
+    state = filters;
+  }
+
+  Future<void> setAll(List<String> filters) async {
+    final normalized = filters
+        .map((f) => f.trim())
+        .where((f) => f.isNotEmpty)
+        .toList();
+    state = normalized;
+    await _storage.setSessionsTitleExcludeFilters(normalized);
+  }
+
+  Future<void> add(String filter) async {
+    final f = filter.trim();
+    if (f.isEmpty) return;
+    if (state.contains(f)) return;
+    await setAll([...state, f]);
+  }
+
+  Future<void> removeAt(int index) async {
+    if (index < 0 || index >= state.length) return;
+    final next = [...state]..removeAt(index);
+    await setAll(next);
+  }
+
+  Future<void> clear() async {
+    await setAll(const []);
+  }
+}
+
 /// Toggle to show/hide background task sessions in the list.
 /// When false (default), background tasks are collapsed under parent sessions.
 final showBackgroundTasksProvider = StateProvider<bool>((ref) => false);
@@ -398,6 +494,7 @@ final sessionsRefreshTickProvider = StateProvider<int>((ref) => 0);
 final sessionsListProvider = StreamProvider<List<SessionSummary>>((ref) async* {
   ref.watch(sessionsRefreshTickProvider);
   final filterProjectPath = ref.watch(sessionsFilterProjectPathProvider);
+  final titleFilters = ref.watch(sessionsTitleExcludeFiltersProvider);
   final connection = ref.watch(connectionProvider);
   final storage = ref.watch(storageServiceProvider);
 
@@ -407,8 +504,16 @@ final sessionsListProvider = StreamProvider<List<SessionSummary>>((ref) async* {
     final filtered = filterProjectPath != null
         ? cached.where((s) => s.directory == filterProjectPath).toList()
         : cached;
-    if (filtered.isNotEmpty) {
-      yield filtered;
+    final titleFiltered = titleFilters.isEmpty
+        ? filtered
+        : filtered
+              .where(
+                (s) =>
+                    !sessionTitleMatchesExcludeFilters(s.title, titleFilters),
+              )
+              .toList();
+    if (titleFiltered.isNotEmpty) {
+      yield titleFiltered;
     }
   }
 
@@ -438,7 +543,14 @@ final sessionsListProvider = StreamProvider<List<SessionSummary>>((ref) async* {
       await storage.cacheSessions(fresh);
     }
 
-    yield fresh;
+    yield titleFilters.isEmpty
+        ? fresh
+        : fresh
+              .where(
+                (s) =>
+                    !sessionTitleMatchesExcludeFilters(s.title, titleFilters),
+              )
+              .toList();
   } catch (e) {
     // If fresh fetch fails but we already yielded cached data, that's fine
     // Only rethrow if we have no data to show
