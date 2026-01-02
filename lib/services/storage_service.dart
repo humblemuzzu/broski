@@ -3,11 +3,20 @@ import 'dart:convert';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:uuid/uuid.dart';
 
+import '../models/agent.dart';
+import '../models/claude_code.dart';
+import '../models/command.dart';
 import '../models/connection.dart';
 import '../models/highlight_color.dart';
+import '../models/mcp.dart';
 import '../models/message.dart';
 import '../models/project.dart';
+import '../models/provider.dart';
 import '../models/session.dart';
+import '../models/session_context.dart';
+import '../models/todo.dart';
+import '../models/tool.dart';
+import '../models/vcs.dart';
 
 class StorageService {
   static const _connectionKey = 'broski_connection';
@@ -31,6 +40,23 @@ class StorageService {
   static const _cachedProjectsKey = 'broski_cached_projects';
   static const _cachedSessionsKey = 'broski_cached_sessions';
   static const _cachedMessagesPrefix = 'broski_cached_messages_';
+
+  // Extended offline cache keys
+  static const _cachedSessionContextPrefix = 'broski_cached_context_';
+  static const _cachedTodosPrefix = 'broski_cached_todos_';
+  static const _cachedVcsPrefix = 'broski_cached_vcs_';
+  static const _cachedAgentsKey = 'broski_cached_agents';
+  static const _cachedCommandsKey = 'broski_cached_commands';
+  static const _cachedToolsKey = 'broski_cached_tools';
+  static const _cachedMcpServersKey = 'broski_cached_mcp_servers';
+  static const _cachedProvidersKey = 'broski_cached_providers';
+  static const _cachedProviderAuthKey = 'broski_cached_provider_auth';
+  static const _cachedPtySessionsKey = 'broski_cached_pty_sessions';
+  static const _cachedCCSessionsKey = 'broski_cached_cc_sessions';
+  static const _cachedCCMessagesPrefix = 'broski_cached_cc_messages_';
+  static const _cachedSubagentsKey = 'broski_cached_subagents';
+  static const _cachedCustomToolsKey = 'broski_cached_custom_tools';
+  static const _cachedPluginsKey = 'broski_cached_plugins';
 
   final FlutterSecureStorage _storage = const FlutterSecureStorage();
 
@@ -281,6 +307,645 @@ class StorageService {
     final sessions = await _storage.read(key: _cachedSessionsKey);
     return (projects != null && projects.isNotEmpty) ||
         (sessions != null && sessions.isNotEmpty);
+  }
+
+  // ============================================================
+  // Session Context Cache (tokens, LSP, modified files)
+  // ============================================================
+
+  /// Cache session context for a specific session
+  Future<void> cacheSessionContext(
+    String sessionId,
+    SessionContext context,
+  ) async {
+    final key = '$_cachedSessionContextPrefix$sessionId';
+    _memoryCache[key] = context;
+    _updateCacheTimestamp(key);
+
+    final json = jsonEncode(_sessionContextToJson(context));
+    await _storage.write(key: key, value: json);
+  }
+
+  /// Get cached session context
+  Future<SessionContext?> getCachedSessionContext(String sessionId) async {
+    final key = '$_cachedSessionContextPrefix$sessionId';
+
+    // L1
+    final memCached = _memoryCache[key];
+    if (memCached != null && memCached is SessionContext) {
+      return memCached;
+    }
+
+    // L2
+    final raw = await _storage.read(key: key);
+    if (raw == null) return null;
+    try {
+      final data = jsonDecode(raw) as Map<String, dynamic>;
+      final context = SessionContext.fromJson(data);
+      _memoryCache[key] = context;
+      return context;
+    } catch (_) {
+      return null;
+    }
+  }
+
+  Map<String, dynamic> _sessionContextToJson(SessionContext c) {
+    return {
+      'tokens': {
+        'input': c.tokens.input,
+        'output': c.tokens.output,
+        'total': c.tokens.total,
+        'contextWindow': c.tokens.contextWindow,
+      },
+      'cost': c.cost,
+      'lsp': c.lsp.map((l) => _lspServerToJson(l)).toList(),
+      'modifiedFiles': c.modifiedFiles
+          .map((f) => _modifiedFileToJson(f))
+          .toList(),
+    };
+  }
+
+  Map<String, dynamic> _lspServerToJson(LspServer l) {
+    return {
+      'id': l.id,
+      'name': l.name,
+      'status': l.status.name,
+      'language': l.language,
+      'root': l.root,
+    };
+  }
+
+  Map<String, dynamic> _modifiedFileToJson(ModifiedFile f) {
+    return {'file': f.file, 'additions': f.additions, 'deletions': f.deletions};
+  }
+
+  // ============================================================
+  // Todos/Plan Cache
+  // ============================================================
+
+  /// Cache todos for a session
+  Future<void> cacheSessionTodos(String sessionId, List<Todo> todos) async {
+    final key = '$_cachedTodosPrefix$sessionId';
+    _memoryCache[key] = todos;
+    _updateCacheTimestamp(key);
+
+    final json = jsonEncode(todos.map((t) => t.toJson()).toList());
+    await _storage.write(key: key, value: json);
+  }
+
+  /// Get cached todos for a session
+  Future<List<Todo>> getCachedSessionTodos(String sessionId) async {
+    final key = '$_cachedTodosPrefix$sessionId';
+
+    final memCached = _memoryCache[key];
+    if (memCached != null && memCached is List<Todo>) {
+      return memCached;
+    }
+
+    final raw = await _storage.read(key: key);
+    if (raw == null) return [];
+    try {
+      final List<dynamic> list = jsonDecode(raw);
+      final todos = list
+          .map((item) => Todo.fromJson(item as Map<String, dynamic>))
+          .toList();
+      _memoryCache[key] = todos;
+      return todos;
+    } catch (_) {
+      return [];
+    }
+  }
+
+  // ============================================================
+  // VCS/Git Info Cache
+  // ============================================================
+
+  /// Cache VCS info for a session
+  Future<void> cacheSessionVcs(String sessionId, VcsInfo vcs) async {
+    final key = '$_cachedVcsPrefix$sessionId';
+    _memoryCache[key] = vcs;
+    _updateCacheTimestamp(key);
+
+    final json = jsonEncode(vcs.toJson());
+    await _storage.write(key: key, value: json);
+  }
+
+  /// Get cached VCS info for a session
+  Future<VcsInfo?> getCachedSessionVcs(String sessionId) async {
+    final key = '$_cachedVcsPrefix$sessionId';
+
+    final memCached = _memoryCache[key];
+    if (memCached != null && memCached is VcsInfo) {
+      return memCached;
+    }
+
+    final raw = await _storage.read(key: key);
+    if (raw == null) return null;
+    try {
+      final data = jsonDecode(raw) as Map<String, dynamic>;
+      final vcs = VcsInfo.fromJson(data);
+      _memoryCache[key] = vcs;
+      return vcs;
+    } catch (_) {
+      return null;
+    }
+  }
+
+  // ============================================================
+  // Agents Cache
+  // ============================================================
+
+  /// Cache agents list
+  Future<void> cacheAgents(List<Agent> agents) async {
+    _memoryCache[_cachedAgentsKey] = agents;
+    _updateCacheTimestamp(_cachedAgentsKey);
+
+    final json = jsonEncode(agents.map((a) => a.toJson()).toList());
+    await _storage.write(key: _cachedAgentsKey, value: json);
+  }
+
+  /// Get cached agents
+  Future<List<Agent>> getCachedAgents() async {
+    final memCached = _memoryCache[_cachedAgentsKey];
+    if (memCached != null && memCached is List<Agent>) {
+      return memCached;
+    }
+
+    final raw = await _storage.read(key: _cachedAgentsKey);
+    if (raw == null) return [];
+    try {
+      final List<dynamic> list = jsonDecode(raw);
+      final agents = list
+          .map((item) => Agent.fromJson(item as Map<String, dynamic>))
+          .toList();
+      _memoryCache[_cachedAgentsKey] = agents;
+      return agents;
+    } catch (_) {
+      return [];
+    }
+  }
+
+  // ============================================================
+  // Commands Cache
+  // ============================================================
+
+  /// Cache slash commands list
+  Future<void> cacheCommands(List<SlashCommand> commands) async {
+    _memoryCache[_cachedCommandsKey] = commands;
+    _updateCacheTimestamp(_cachedCommandsKey);
+
+    final json = jsonEncode(commands.map((c) => c.toJson()).toList());
+    await _storage.write(key: _cachedCommandsKey, value: json);
+  }
+
+  /// Get cached commands
+  Future<List<SlashCommand>> getCachedCommands() async {
+    final memCached = _memoryCache[_cachedCommandsKey];
+    if (memCached != null && memCached is List<SlashCommand>) {
+      return memCached;
+    }
+
+    final raw = await _storage.read(key: _cachedCommandsKey);
+    if (raw == null) return [];
+    try {
+      final List<dynamic> list = jsonDecode(raw);
+      final commands = list
+          .map((item) => SlashCommand.fromJson(item as Map<String, dynamic>))
+          .toList();
+      _memoryCache[_cachedCommandsKey] = commands;
+      return commands;
+    } catch (_) {
+      return [];
+    }
+  }
+
+  // ============================================================
+  // Tools Cache
+  // ============================================================
+
+  /// Cache tools list
+  Future<void> cacheTools(List<ToolInfo> tools) async {
+    _memoryCache[_cachedToolsKey] = tools;
+    _updateCacheTimestamp(_cachedToolsKey);
+
+    final json = jsonEncode(tools.map((t) => _toolInfoToJson(t)).toList());
+    await _storage.write(key: _cachedToolsKey, value: json);
+  }
+
+  /// Get cached tools
+  Future<List<ToolInfo>> getCachedTools() async {
+    final memCached = _memoryCache[_cachedToolsKey];
+    if (memCached != null && memCached is List<ToolInfo>) {
+      return memCached;
+    }
+
+    final raw = await _storage.read(key: _cachedToolsKey);
+    if (raw == null) return [];
+    try {
+      final List<dynamic> list = jsonDecode(raw);
+      final tools = list
+          .map((item) => ToolInfo.fromJson(item as Map<String, dynamic>))
+          .toList();
+      _memoryCache[_cachedToolsKey] = tools;
+      return tools;
+    } catch (_) {
+      return [];
+    }
+  }
+
+  Map<String, dynamic> _toolInfoToJson(ToolInfo t) {
+    return {
+      'id': t.id,
+      'name': t.name,
+      'description': t.description,
+      'enabled': t.enabled,
+    };
+  }
+
+  // ============================================================
+  // MCP Servers Cache
+  // ============================================================
+
+  /// Cache MCP servers status
+  Future<void> cacheMcpServers(Map<String, McpServerStatus> servers) async {
+    _memoryCache[_cachedMcpServersKey] = servers;
+    _updateCacheTimestamp(_cachedMcpServersKey);
+
+    final jsonMap = <String, dynamic>{};
+    for (final entry in servers.entries) {
+      jsonMap[entry.key] = _mcpServerToJson(entry.value);
+    }
+    await _storage.write(key: _cachedMcpServersKey, value: jsonEncode(jsonMap));
+  }
+
+  /// Get cached MCP servers
+  Future<Map<String, McpServerStatus>> getCachedMcpServers() async {
+    final memCached = _memoryCache[_cachedMcpServersKey];
+    if (memCached != null && memCached is Map<String, McpServerStatus>) {
+      return memCached;
+    }
+
+    final raw = await _storage.read(key: _cachedMcpServersKey);
+    if (raw == null) return {};
+    try {
+      final Map<String, dynamic> jsonMap = jsonDecode(raw);
+      final servers = <String, McpServerStatus>{};
+      for (final entry in jsonMap.entries) {
+        servers[entry.key] = McpServerStatus.fromJson(
+          entry.value as Map<String, dynamic>,
+        );
+      }
+      _memoryCache[_cachedMcpServersKey] = servers;
+      return servers;
+    } catch (_) {
+      return {};
+    }
+  }
+
+  Map<String, dynamic> _mcpServerToJson(McpServerStatus s) {
+    return {
+      'name': s.name,
+      'status': s.status.name,
+      'error': s.error,
+      'tools': s.tools,
+      'resources': s.resources,
+    };
+  }
+
+  // ============================================================
+  // Providers Cache
+  // ============================================================
+
+  /// Cache provider info
+  Future<void> cacheProviders(ProviderInfo info) async {
+    _memoryCache[_cachedProvidersKey] = info;
+    _updateCacheTimestamp(_cachedProvidersKey);
+
+    final json = jsonEncode(_providerInfoToJson(info));
+    await _storage.write(key: _cachedProvidersKey, value: json);
+  }
+
+  /// Get cached providers
+  Future<ProviderInfo?> getCachedProviders() async {
+    final memCached = _memoryCache[_cachedProvidersKey];
+    if (memCached != null && memCached is ProviderInfo) {
+      return memCached;
+    }
+
+    final raw = await _storage.read(key: _cachedProvidersKey);
+    if (raw == null) return null;
+    try {
+      final data = jsonDecode(raw) as Map<String, dynamic>;
+      final info = ProviderInfo.fromJson(data);
+      _memoryCache[_cachedProvidersKey] = info;
+      return info;
+    } catch (_) {
+      return null;
+    }
+  }
+
+  /// Cache provider auth methods
+  Future<void> cacheProviderAuth(
+    Map<String, List<ProviderAuthMethod>> authMethods,
+  ) async {
+    _memoryCache[_cachedProviderAuthKey] = authMethods;
+    _updateCacheTimestamp(_cachedProviderAuthKey);
+
+    final jsonMap = <String, dynamic>{};
+    for (final entry in authMethods.entries) {
+      jsonMap[entry.key] = entry.value
+          .map((m) => _providerAuthToJson(m))
+          .toList();
+    }
+    await _storage.write(
+      key: _cachedProviderAuthKey,
+      value: jsonEncode(jsonMap),
+    );
+  }
+
+  /// Get cached provider auth methods
+  Future<Map<String, List<ProviderAuthMethod>>> getCachedProviderAuth() async {
+    final memCached = _memoryCache[_cachedProviderAuthKey];
+    if (memCached != null &&
+        memCached is Map<String, List<ProviderAuthMethod>>) {
+      return memCached;
+    }
+
+    final raw = await _storage.read(key: _cachedProviderAuthKey);
+    if (raw == null) return {};
+    try {
+      final Map<String, dynamic> jsonMap = jsonDecode(raw);
+      final result = <String, List<ProviderAuthMethod>>{};
+      for (final entry in jsonMap.entries) {
+        final list = (entry.value as List<dynamic>)
+            .map(
+              (item) =>
+                  ProviderAuthMethod.fromJson(item as Map<String, dynamic>),
+            )
+            .toList();
+        result[entry.key] = list;
+      }
+      _memoryCache[_cachedProviderAuthKey] = result;
+      return result;
+    } catch (_) {
+      return {};
+    }
+  }
+
+  Map<String, dynamic> _providerInfoToJson(ProviderInfo info) {
+    return {
+      'all': info.all.map((p) => _providerDetailsToJson(p)).toList(),
+      'default': info.defaults,
+      'connected': info.connected,
+    };
+  }
+
+  Map<String, dynamic> _providerDetailsToJson(ProviderDetails p) {
+    final modelsMap = <String, dynamic>{};
+    for (final entry in p.models.entries) {
+      modelsMap[entry.key] = _modelInfoToJson(entry.value);
+    }
+    return {'id': p.id, 'name': p.name, 'models': modelsMap};
+  }
+
+  Map<String, dynamic> _modelInfoToJson(ModelInfo m) {
+    return {
+      'name': m.name,
+      'contextWindow': m.contextWindow,
+      'pricing': {'input': m.inputPricing, 'output': m.outputPricing},
+    };
+  }
+
+  Map<String, dynamic> _providerAuthToJson(ProviderAuthMethod m) {
+    return {
+      'type': m.type == ProviderAuthType.oauth ? 'oauth' : 'api',
+      'name': m.name,
+      'description': m.description,
+      'url': m.url,
+    };
+  }
+
+  // ============================================================
+  // PTY Sessions Cache
+  // ============================================================
+
+  /// Cache PTY sessions list
+  Future<void> cachePtySessions(List<Map<String, dynamic>> sessions) async {
+    _memoryCache[_cachedPtySessionsKey] = sessions;
+    _updateCacheTimestamp(_cachedPtySessionsKey);
+
+    await _storage.write(
+      key: _cachedPtySessionsKey,
+      value: jsonEncode(sessions),
+    );
+  }
+
+  /// Get cached PTY sessions
+  Future<List<Map<String, dynamic>>> getCachedPtySessions() async {
+    final memCached = _memoryCache[_cachedPtySessionsKey];
+    if (memCached != null && memCached is List<Map<String, dynamic>>) {
+      return memCached;
+    }
+
+    final raw = await _storage.read(key: _cachedPtySessionsKey);
+    if (raw == null) return [];
+    try {
+      final List<dynamic> list = jsonDecode(raw);
+      final sessions = list.cast<Map<String, dynamic>>();
+      _memoryCache[_cachedPtySessionsKey] = sessions;
+      return sessions;
+    } catch (_) {
+      return [];
+    }
+  }
+
+  // ============================================================
+  // Claude Code Sessions Cache
+  // ============================================================
+
+  /// Cache Claude Code sessions list
+  Future<void> cacheCCSessions(List<ClaudeCodeSession> sessions) async {
+    _memoryCache[_cachedCCSessionsKey] = sessions;
+    _updateCacheTimestamp(_cachedCCSessionsKey);
+
+    final json = jsonEncode(sessions.map((s) => s.toJson()).toList());
+    await _storage.write(key: _cachedCCSessionsKey, value: json);
+  }
+
+  /// Get cached Claude Code sessions
+  Future<List<ClaudeCodeSession>> getCachedCCSessions() async {
+    final memCached = _memoryCache[_cachedCCSessionsKey];
+    if (memCached != null && memCached is List<ClaudeCodeSession>) {
+      return memCached;
+    }
+
+    final raw = await _storage.read(key: _cachedCCSessionsKey);
+    if (raw == null) return [];
+    try {
+      final List<dynamic> list = jsonDecode(raw);
+      final sessions = list
+          .map(
+            (item) => ClaudeCodeSession.fromJson(item as Map<String, dynamic>),
+          )
+          .toList();
+      _memoryCache[_cachedCCSessionsKey] = sessions;
+      return sessions;
+    } catch (_) {
+      return [];
+    }
+  }
+
+  /// Cache Claude Code messages for a session
+  Future<void> cacheCCSessionMessages(
+    String sessionId,
+    List<ChatMessage> messages,
+  ) async {
+    final key = '$_cachedCCMessagesPrefix$sessionId';
+
+    // Prune to last N messages
+    final prunedMessages = messages.length > _maxCachedMessagesPerSession
+        ? messages.sublist(messages.length - _maxCachedMessagesPerSession)
+        : messages;
+
+    _memoryCache[key] = prunedMessages;
+    _updateCacheTimestamp(key);
+
+    final json = jsonEncode(
+      prunedMessages.map((m) => _messageToJson(m)).toList(),
+    );
+    await _storage.write(key: key, value: json);
+  }
+
+  /// Get cached Claude Code messages for a session
+  Future<List<ChatMessage>> getCachedCCMessages(String sessionId) async {
+    final key = '$_cachedCCMessagesPrefix$sessionId';
+
+    final memCached = _memoryCache[key];
+    if (memCached != null && memCached is List<ChatMessage>) {
+      return memCached;
+    }
+
+    final raw = await _storage.read(key: key);
+    if (raw == null) return [];
+    try {
+      final List<dynamic> list = jsonDecode(raw);
+      final messages = list
+          .map((item) => _messageFromJson(item as Map<String, dynamic>))
+          .toList();
+      _memoryCache[key] = messages;
+      return messages;
+    } catch (_) {
+      return [];
+    }
+  }
+
+  // ============================================================
+  // Subagents Cache
+  // ============================================================
+
+  /// Cache subagents config
+  Future<void> cacheSubagents(List<ClaudeCodeSubagent> subagents) async {
+    _memoryCache[_cachedSubagentsKey] = subagents;
+    _updateCacheTimestamp(_cachedSubagentsKey);
+
+    final json = jsonEncode(subagents.map((s) => s.toJson()).toList());
+    await _storage.write(key: _cachedSubagentsKey, value: json);
+  }
+
+  /// Get cached subagents
+  Future<List<ClaudeCodeSubagent>> getCachedSubagents() async {
+    final memCached = _memoryCache[_cachedSubagentsKey];
+    if (memCached != null && memCached is List<ClaudeCodeSubagent>) {
+      return memCached;
+    }
+
+    final raw = await _storage.read(key: _cachedSubagentsKey);
+    if (raw == null) return [];
+    try {
+      final List<dynamic> list = jsonDecode(raw);
+      final subagents = list
+          .map(
+            (item) => ClaudeCodeSubagent.fromJson(item as Map<String, dynamic>),
+          )
+          .toList();
+      _memoryCache[_cachedSubagentsKey] = subagents;
+      return subagents;
+    } catch (_) {
+      return [];
+    }
+  }
+
+  // ============================================================
+  // Custom Tools Cache
+  // ============================================================
+
+  /// Cache custom tools config
+  Future<void> cacheCustomTools(List<ClaudeCodeCustomTool> tools) async {
+    _memoryCache[_cachedCustomToolsKey] = tools;
+    _updateCacheTimestamp(_cachedCustomToolsKey);
+
+    final json = jsonEncode(tools.map((t) => t.toJson()).toList());
+    await _storage.write(key: _cachedCustomToolsKey, value: json);
+  }
+
+  /// Get cached custom tools
+  Future<List<ClaudeCodeCustomTool>> getCachedCustomTools() async {
+    final memCached = _memoryCache[_cachedCustomToolsKey];
+    if (memCached != null && memCached is List<ClaudeCodeCustomTool>) {
+      return memCached;
+    }
+
+    final raw = await _storage.read(key: _cachedCustomToolsKey);
+    if (raw == null) return [];
+    try {
+      final List<dynamic> list = jsonDecode(raw);
+      final tools = list
+          .map(
+            (item) =>
+                ClaudeCodeCustomTool.fromJson(item as Map<String, dynamic>),
+          )
+          .toList();
+      _memoryCache[_cachedCustomToolsKey] = tools;
+      return tools;
+    } catch (_) {
+      return [];
+    }
+  }
+
+  // ============================================================
+  // Plugins Cache
+  // ============================================================
+
+  /// Cache plugins list
+  Future<void> cachePlugins(List<ClaudeCodePlugin> plugins) async {
+    _memoryCache[_cachedPluginsKey] = plugins;
+    _updateCacheTimestamp(_cachedPluginsKey);
+
+    final json = jsonEncode(plugins.map((p) => p.toJson()).toList());
+    await _storage.write(key: _cachedPluginsKey, value: json);
+  }
+
+  /// Get cached plugins
+  Future<List<ClaudeCodePlugin>> getCachedPlugins() async {
+    final memCached = _memoryCache[_cachedPluginsKey];
+    if (memCached != null && memCached is List<ClaudeCodePlugin>) {
+      return memCached;
+    }
+
+    final raw = await _storage.read(key: _cachedPluginsKey);
+    if (raw == null) return [];
+    try {
+      final List<dynamic> list = jsonDecode(raw);
+      final plugins = list
+          .map(
+            (item) => ClaudeCodePlugin.fromJson(item as Map<String, dynamic>),
+          )
+          .toList();
+      _memoryCache[_cachedPluginsKey] = plugins;
+      return plugins;
+    } catch (_) {
+      return [];
+    }
   }
 
   // ============================================================

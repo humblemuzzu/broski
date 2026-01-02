@@ -237,33 +237,6 @@ class _ProjectsScreenState extends ConsumerState<ProjectsScreen> {
                     ),
                   ],
 
-                  // Recent Sessions section (if we have projects)
-                  if (agentType == AgentType.opencode &&
-                      regularProjects.isNotEmpty) ...[
-                    SliverToBoxAdapter(
-                      child: Padding(
-                        padding: const EdgeInsets.fromLTRB(20, 24, 20, 12),
-                        child: Text(
-                          'RECENT SESSIONS',
-                          style: TextStyle(
-                            color: ocTheme.textMuted,
-                            fontSize: 12,
-                            fontWeight: FontWeight.w700,
-                            letterSpacing: 0.5,
-                          ),
-                        ),
-                      ),
-                    ),
-                    SliverToBoxAdapter(
-                      child: _RecentSessions(
-                        projects: regularProjects.take(2).toList(),
-                        onProjectTap: (project) =>
-                            _openProject(context, project),
-                        onProjectLongPress: _toggleHighlight,
-                      ),
-                    ),
-                  ],
-
                   // All Repositories section
                   if (regularProjects.isNotEmpty) ...[
                     SliverToBoxAdapter(
@@ -482,43 +455,45 @@ class _ModernHeader extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
+          // Logo row with add button on right
           Row(
+            crossAxisAlignment: CrossAxisAlignment.center,
             children: [
-              Expanded(
-                child: Text(
-                  'Projects',
-                  style: TextStyle(
-                    color: theme.colorScheme.onSurface,
-                    fontSize: 32,
-                    fontWeight: FontWeight.w700,
-                  ),
-                ),
+              // Broski logo - transparent bg version
+              Image.asset(
+                'docs/assets/Untitled design (1).png',
+                height: 112,
+                filterQuality: FilterQuality.high,
               ),
-              // Add project button
+              const Spacer(),
+              // Add project button - nudged up 9px to align with logo text
               if (onAddProject != null)
-                GestureDetector(
-                  onTap: onAddProject,
-                  child: Container(
-                    padding: const EdgeInsets.all(10),
-                    decoration: BoxDecoration(
-                      color: theme.colorScheme.surface,
-                      borderRadius: BorderRadius.circular(12),
-                      border: Border.all(
-                        color: theme.colorScheme.onSurface.withValues(
-                          alpha: 0.15,
+                Padding(
+                  padding: const EdgeInsets.only(bottom: 9),
+                  child: GestureDetector(
+                    onTap: onAddProject,
+                    child: Container(
+                      padding: const EdgeInsets.all(10),
+                      decoration: BoxDecoration(
+                        color: theme.colorScheme.surface,
+                        borderRadius: BorderRadius.circular(12),
+                        border: Border.all(
+                          color: theme.colorScheme.onSurface.withValues(
+                            alpha: 0.15,
+                          ),
                         ),
                       ),
-                    ),
-                    child: Icon(
-                      Icons.create_new_folder_rounded,
-                      color: theme.colorScheme.onSurface,
-                      size: 24,
+                      child: Icon(
+                        Icons.create_new_folder_rounded,
+                        color: theme.colorScheme.onSurface,
+                        size: 24,
+                      ),
                     ),
                   ),
                 ),
             ],
           ),
-          const SizedBox(height: 8),
+          const SizedBox(height: 12),
           Text(
             'Select a repo to start vibe coding',
             style: TextStyle(
@@ -730,163 +705,6 @@ class _HighlightedProjectCard extends StatelessWidget {
               ),
             ),
           ],
-        ),
-      ),
-    );
-  }
-}
-
-// Recent sessions with rich cards
-class _RecentSessions extends StatelessWidget {
-  const _RecentSessions({
-    required this.projects,
-    required this.onProjectTap,
-    this.onProjectLongPress,
-  });
-
-  final List<ProjectSummary> projects;
-  final void Function(ProjectSummary) onProjectTap;
-  final void Function(ProjectSummary)? onProjectLongPress;
-
-  @override
-  Widget build(BuildContext context) {
-    return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 20),
-      child: Column(
-        children: projects.map((project) {
-          return Padding(
-            padding: const EdgeInsets.only(bottom: 12),
-            child: _SessionCard(
-              project: project,
-              onTap: () => onProjectTap(project),
-              onLongPress: onProjectLongPress != null
-                  ? () => onProjectLongPress!(project)
-                  : null,
-            ),
-          );
-        }).toList(),
-      ),
-    );
-  }
-}
-
-// Rich session card
-class _SessionCard extends StatelessWidget {
-  const _SessionCard({
-    required this.project,
-    required this.onTap,
-    this.onLongPress,
-  });
-
-  final ProjectSummary project;
-  final VoidCallback onTap;
-  final VoidCallback? onLongPress;
-
-  IconData _getProjectIcon() {
-    return Icons.shopping_bag_rounded;
-  }
-
-  Color _getIconColor(OpenCodeTheme theme) {
-    final hash = project.name.hashCode;
-    final colors = [theme.primary, theme.info, theme.warning, theme.success];
-    return colors[hash.abs() % colors.length];
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    final ocTheme = OpenCodeTheme.of(context);
-    final iconColor = _getIconColor(ocTheme);
-
-    return GestureDetector(
-      onTap: onTap,
-      onLongPress: onLongPress,
-      child: Container(
-        padding: const EdgeInsets.all(16),
-        decoration: BoxDecoration(
-          color: theme.colorScheme.surface,
-          borderRadius: BorderRadius.circular(16),
-          border: Border.all(
-            color: theme.colorScheme.onSurface.withValues(alpha: 0.1),
-          ),
-        ),
-        child: Row(
-          children: [
-            // Icon with colored background
-            Container(
-              padding: const EdgeInsets.all(12),
-              decoration: BoxDecoration(
-                color: iconColor.withValues(alpha: 0.15),
-                borderRadius: BorderRadius.circular(12),
-              ),
-              child: Icon(_getProjectIcon(), color: iconColor, size: 24),
-            ),
-            const SizedBox(width: 16),
-            // Project info
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    project.name,
-                    style: TextStyle(
-                      color: ocTheme.text,
-                      fontSize: 16,
-                      fontWeight: FontWeight.w600,
-                    ),
-                  ),
-                  const SizedBox(height: 4),
-                  Text(
-                    '~/${project.path.split('/').last}',
-                    style: TextStyle(color: ocTheme.textMuted, fontSize: 13),
-                    overflow: TextOverflow.ellipsis,
-                  ),
-                  const SizedBox(height: 10),
-                  // Tags
-                  Wrap(
-                    spacing: 6,
-                    children: const [
-                      _TechBadge(label: 'Flutter'),
-                      _TechBadge(label: 'Dart'),
-                    ],
-                  ),
-                ],
-              ),
-            ),
-            // Chevron
-            Icon(
-              Icons.chevron_right_rounded,
-              color: ocTheme.textMuted,
-              size: 24,
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-}
-
-// Tech badge
-class _TechBadge extends StatelessWidget {
-  const _TechBadge({required this.label});
-
-  final String label;
-
-  @override
-  Widget build(BuildContext context) {
-    final ocTheme = OpenCodeTheme.of(context);
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-      decoration: BoxDecoration(
-        color: ocTheme.textMuted.withValues(alpha: 0.15),
-        borderRadius: BorderRadius.circular(6),
-      ),
-      child: Text(
-        label,
-        style: TextStyle(
-          color: ocTheme.textMuted,
-          fontSize: 11,
-          fontWeight: FontWeight.w600,
         ),
       ),
     );

@@ -4,6 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../providers/connection_provider.dart';
 import '../providers/service_providers.dart';
 import '../providers/selection_provider.dart';
+import '../services/storage_service.dart';
 import '../theme/opencode_theme.dart';
 import '../widgets/connection_indicator.dart';
 import 'terminal_view_screen.dart';
@@ -36,12 +37,36 @@ class _TerminalScreenState extends ConsumerState<TerminalScreen> {
       _error = null;
     });
 
+    final storage = StorageService();
+    final connection = ref.read(connectionProvider);
+
+    // If offline, use cached data
+    if (connection.isOfflineMode) {
+      final cached = await storage.getCachedPtySessions();
+      if (mounted) {
+        setState(() {
+          _ptySessions = cached;
+          _isLoading = false;
+          if (cached.isEmpty) {
+            _error = 'No cached terminal sessions available offline';
+          }
+        });
+      }
+      return;
+    }
+
     try {
       final bridge = ref.read(bridgeServiceProvider);
       final selection = ref.read(selectionProvider);
       final sessions = await bridge.listPty(
         projectPath: selection.project?.path,
       );
+
+      // Cache for offline use
+      if (sessions.isNotEmpty) {
+        await storage.cachePtySessions(sessions);
+      }
+
       if (mounted) {
         setState(() {
           _ptySessions = sessions;
@@ -49,11 +74,20 @@ class _TerminalScreenState extends ConsumerState<TerminalScreen> {
         });
       }
     } catch (e) {
+      // On error, try to use cached data
+      final cached = await storage.getCachedPtySessions();
       if (mounted) {
-        setState(() {
-          _error = e.toString();
-          _isLoading = false;
-        });
+        if (cached.isNotEmpty) {
+          setState(() {
+            _ptySessions = cached;
+            _isLoading = false;
+          });
+        } else {
+          setState(() {
+            _error = e.toString();
+            _isLoading = false;
+          });
+        }
       }
     }
   }

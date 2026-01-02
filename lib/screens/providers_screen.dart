@@ -2,8 +2,10 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../models/provider.dart';
+import '../providers/connection_provider.dart';
 import '../providers/service_providers.dart';
 import '../providers/selection_provider.dart';
+import '../services/storage_service.dart';
 import '../theme/opencode_theme.dart';
 
 class ProvidersScreen extends ConsumerStatefulWidget {
@@ -32,6 +34,27 @@ class _ProvidersScreenState extends ConsumerState<ProvidersScreen> {
       _error = null;
     });
 
+    final storage = StorageService();
+    final connection = ref.read(connectionProvider);
+
+    // If offline, use cached data
+    if (connection.isOfflineMode) {
+      final cachedProviders = await storage.getCachedProviders();
+      final cachedAuth = await storage.getCachedProviderAuth();
+      if (mounted) {
+        setState(() {
+          _providerInfo = cachedProviders;
+          _authMethods = cachedAuth.isNotEmpty ? cachedAuth : null;
+          _currentModel = null; // Can't get current model offline
+          _isLoading = false;
+          if (cachedProviders == null) {
+            _error = 'No cached providers available offline';
+          }
+        });
+      }
+      return;
+    }
+
     try {
       final bridge = ref.read(bridgeServiceProvider);
       final selection = ref.read(selectionProvider);
@@ -42,21 +65,42 @@ class _ProvidersScreenState extends ConsumerState<ProvidersScreen> {
         bridge.getConfig(),
       ]);
 
+      final providerInfo = results[0] as ProviderInfo;
+      final authMethods = results[1] as Map<String, List<ProviderAuthMethod>>;
+
+      // Cache for offline use
+      await storage.cacheProviders(providerInfo);
+      if (authMethods.isNotEmpty) {
+        await storage.cacheProviderAuth(authMethods);
+      }
+
       if (mounted) {
         setState(() {
-          _providerInfo = results[0] as ProviderInfo;
-          _authMethods = results[1] as Map<String, List<ProviderAuthMethod>>;
+          _providerInfo = providerInfo;
+          _authMethods = authMethods;
           final config = results[2] as Map<String, dynamic>;
           _currentModel = config['model'] as String?;
           _isLoading = false;
         });
       }
     } catch (e) {
+      // On error, try to use cached data
+      final cachedProviders = await storage.getCachedProviders();
+      final cachedAuth = await storage.getCachedProviderAuth();
       if (mounted) {
-        setState(() {
-          _error = e.toString();
-          _isLoading = false;
-        });
+        if (cachedProviders != null) {
+          setState(() {
+            _providerInfo = cachedProviders;
+            _authMethods = cachedAuth.isNotEmpty ? cachedAuth : null;
+            _currentModel = null;
+            _isLoading = false;
+          });
+        } else {
+          setState(() {
+            _error = e.toString();
+            _isLoading = false;
+          });
+        }
       }
     }
   }

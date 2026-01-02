@@ -3,9 +3,11 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../models/tool.dart';
 import '../models/vcs.dart';
+import '../providers/connection_provider.dart';
 import '../providers/service_providers.dart';
 import '../providers/selection_provider.dart';
 import '../providers/tool_settings_provider.dart';
+import '../services/storage_service.dart';
 import '../theme/opencode_theme.dart';
 
 /// Feature 17: Tool List Screen
@@ -34,6 +36,25 @@ class _ToolsScreenState extends ConsumerState<ToolsScreen> {
       _isLoading = true;
       _error = null;
     });
+
+    final storage = StorageService();
+    final connection = ref.read(connectionProvider);
+
+    // If offline, use cached data
+    if (connection.isOfflineMode) {
+      final cachedTools = await storage.getCachedTools();
+      if (mounted) {
+        setState(() {
+          _tools = cachedTools.isNotEmpty ? cachedTools : null;
+          _formatters = []; // Formatters not cached (runtime state)
+          _isLoading = false;
+          if (cachedTools.isEmpty) {
+            _error = 'No cached tools available offline';
+          }
+        });
+      }
+      return;
+    }
 
     try {
       final bridge = ref.read(bridgeServiceProvider);
@@ -93,6 +114,11 @@ class _ToolsScreenState extends ConsumerState<ToolsScreen> {
         projectPath: selection.project?.path,
       );
 
+      // Cache for offline use
+      if (tools.isNotEmpty) {
+        await storage.cacheTools(tools);
+      }
+
       if (mounted) {
         setState(() {
           _tools = tools;
@@ -101,11 +127,21 @@ class _ToolsScreenState extends ConsumerState<ToolsScreen> {
         });
       }
     } catch (e) {
+      // On error, try to use cached data
+      final cachedTools = await storage.getCachedTools();
       if (mounted) {
-        setState(() {
-          _error = e.toString();
-          _isLoading = false;
-        });
+        if (cachedTools.isNotEmpty) {
+          setState(() {
+            _tools = cachedTools;
+            _formatters = [];
+            _isLoading = false;
+          });
+        } else {
+          setState(() {
+            _error = e.toString();
+            _isLoading = false;
+          });
+        }
       }
     }
   }

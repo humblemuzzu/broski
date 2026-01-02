@@ -4,6 +4,8 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../models/claude_code.dart';
 import '../services/bridge_service.dart';
+import '../services/storage_service.dart';
+import 'connection_provider.dart';
 import 'service_providers.dart';
 
 final ccSessionsProvider =
@@ -12,31 +14,71 @@ final ccSessionsProvider =
       AsyncValue<List<ClaudeCodeSession>>
     >((ref) {
       final bridge = ref.watch(bridgeServiceProvider);
-      return CCSessionsNotifier(bridge);
+      final storage = ref.watch(storageServiceProvider);
+      // Use ref.read() to avoid rebuilding provider on every connection state change
+      final connection = ref.read(connectionProvider);
+      return CCSessionsNotifier(bridge, storage, connection);
     });
 
 class CCSessionsNotifier
     extends StateNotifier<AsyncValue<List<ClaudeCodeSession>>> {
-  CCSessionsNotifier(this._bridge) : super(const AsyncValue.loading());
+  CCSessionsNotifier(this._bridge, this._storage, this._connection)
+    : super(const AsyncValue.loading());
 
   final BridgeService _bridge;
+  final StorageService _storage;
+  final BridgeConnectionState _connection;
 
   Future<void> load({String? cwd}) async {
+    // Offline mode - use cached sessions
+    if (_connection.isOfflineMode) {
+      final cached = await _storage.getCachedCCSessions();
+      state = AsyncValue.data(cached);
+      return;
+    }
+
     state = const AsyncValue.loading();
     try {
       final sessions = await _bridge.ccListSessions(cwd: cwd);
+      // Cache for offline use
+      if (sessions.isNotEmpty) {
+        await _storage.cacheCCSessions(sessions);
+      }
       state = AsyncValue.data(sessions);
     } catch (e, st) {
-      state = AsyncValue.error(e, st);
+      // On error, try cached data
+      final cached = await _storage.getCachedCCSessions();
+      if (cached.isNotEmpty) {
+        state = AsyncValue.data(cached);
+      } else {
+        state = AsyncValue.error(e, st);
+      }
     }
   }
 
   Future<void> refresh({String? cwd}) async {
+    // Offline mode - just use cached
+    if (_connection.isOfflineMode) {
+      final cached = await _storage.getCachedCCSessions();
+      state = AsyncValue.data(cached);
+      return;
+    }
+
     try {
       final sessions = await _bridge.ccListSessions(cwd: cwd);
+      // Cache for offline use
+      if (sessions.isNotEmpty) {
+        await _storage.cacheCCSessions(sessions);
+      }
       state = AsyncValue.data(sessions);
     } catch (e, st) {
-      state = AsyncValue.error(e, st);
+      // On error, keep current data or use cached
+      final cached = await _storage.getCachedCCSessions();
+      if (cached.isNotEmpty && !state.hasValue) {
+        state = AsyncValue.data(cached);
+      } else if (!state.hasValue) {
+        state = AsyncValue.error(e, st);
+      }
     }
   }
 
@@ -82,21 +124,59 @@ final ccConfigProvider =
       ref,
     ) {
       final bridge = ref.watch(bridgeServiceProvider);
-      return CCConfigNotifier(bridge);
+      final storage = ref.watch(storageServiceProvider);
+      // Use ref.read() to avoid rebuilding provider on every connection state change
+      final connection = ref.read(connectionProvider);
+      return CCConfigNotifier(bridge, storage, connection);
     });
 
 class CCConfigNotifier extends StateNotifier<AsyncValue<ClaudeCodeConfig>> {
-  CCConfigNotifier(this._bridge) : super(const AsyncValue.loading());
+  CCConfigNotifier(this._bridge, this._storage, this._connection)
+    : super(const AsyncValue.loading());
 
   final BridgeService _bridge;
+  final StorageService _storage;
+  final BridgeConnectionState _connection;
 
   Future<void> load() async {
+    // Offline mode - use cached subagents
+    if (_connection.isOfflineMode) {
+      final cachedSubagents = await _storage.getCachedSubagents();
+      // Return a default config with cached subagents
+      state = AsyncValue.data(
+        ClaudeCodeConfig(
+          permissionMode: ClaudeCodePermissionMode.defaultMode,
+          allowedTools: const [],
+          disallowedTools: const [],
+          subagents: cachedSubagents,
+        ),
+      );
+      return;
+    }
+
     state = const AsyncValue.loading();
     try {
       final config = await _bridge.ccGetConfig();
+      // Cache subagents for offline use
+      if (config.subagents.isNotEmpty) {
+        await _storage.cacheSubagents(config.subagents);
+      }
       state = AsyncValue.data(config);
     } catch (e, st) {
-      state = AsyncValue.error(e, st);
+      // Try cached subagents on error
+      final cachedSubagents = await _storage.getCachedSubagents();
+      if (cachedSubagents.isNotEmpty) {
+        state = AsyncValue.data(
+          ClaudeCodeConfig(
+            permissionMode: ClaudeCodePermissionMode.defaultMode,
+            allowedTools: const [],
+            disallowedTools: const [],
+            subagents: cachedSubagents,
+          ),
+        );
+      } else {
+        state = AsyncValue.error(e, st);
+      }
     }
   }
 
@@ -357,33 +437,70 @@ final ccCustomToolsProvider =
       AsyncValue<List<ClaudeCodeCustomTool>>
     >((ref) {
       final bridge = ref.watch(bridgeServiceProvider);
-      return CCCustomToolsNotifier(bridge);
+      final storage = ref.watch(storageServiceProvider);
+      // Use ref.read() to avoid rebuilding provider on every connection state change
+      final connection = ref.read(connectionProvider);
+      return CCCustomToolsNotifier(bridge, storage, connection);
     });
 
 class CCCustomToolsNotifier
     extends StateNotifier<AsyncValue<List<ClaudeCodeCustomTool>>> {
-  CCCustomToolsNotifier(this._bridge) : super(const AsyncValue.loading());
+  CCCustomToolsNotifier(this._bridge, this._storage, this._connection)
+    : super(const AsyncValue.loading());
 
   final BridgeService _bridge;
+  final StorageService _storage;
+  final BridgeConnectionState _connection;
 
   /// Load all custom tools
   Future<void> load() async {
+    // Offline mode - use cached
+    if (_connection.isOfflineMode) {
+      final cached = await _storage.getCachedCustomTools();
+      state = AsyncValue.data(cached);
+      return;
+    }
+
     state = const AsyncValue.loading();
     try {
       final tools = await _bridge.ccListCustomTools();
+      // Cache for offline
+      if (tools.isNotEmpty) {
+        await _storage.cacheCustomTools(tools);
+      }
       state = AsyncValue.data(tools);
     } catch (e, st) {
-      state = AsyncValue.error(e, st);
+      // Try cached on error
+      final cached = await _storage.getCachedCustomTools();
+      if (cached.isNotEmpty) {
+        state = AsyncValue.data(cached);
+      } else {
+        state = AsyncValue.error(e, st);
+      }
     }
   }
 
   /// Refresh the custom tools list
   Future<void> refresh() async {
+    if (_connection.isOfflineMode) {
+      final cached = await _storage.getCachedCustomTools();
+      state = AsyncValue.data(cached);
+      return;
+    }
+
     try {
       final tools = await _bridge.ccListCustomTools();
+      if (tools.isNotEmpty) {
+        await _storage.cacheCustomTools(tools);
+      }
       state = AsyncValue.data(tools);
     } catch (e, st) {
-      state = AsyncValue.error(e, st);
+      final cached = await _storage.getCachedCustomTools();
+      if (cached.isNotEmpty && !state.hasValue) {
+        state = AsyncValue.data(cached);
+      } else if (!state.hasValue) {
+        state = AsyncValue.error(e, st);
+      }
     }
   }
 
@@ -472,30 +589,62 @@ final ccPluginsProvider =
       AsyncValue<List<ClaudeCodePlugin>>
     >((ref) {
       final bridge = ref.watch(bridgeServiceProvider);
-      return CCPluginsNotifier(bridge);
+      final storage = ref.watch(storageServiceProvider);
+      // Use ref.read() to avoid rebuilding provider on every connection state change
+      final connection = ref.read(connectionProvider);
+      return CCPluginsNotifier(bridge, storage, connection);
     });
 
 class CCPluginsNotifier
     extends StateNotifier<AsyncValue<List<ClaudeCodePlugin>>> {
-  CCPluginsNotifier(this._bridge) : super(const AsyncValue.loading());
+  CCPluginsNotifier(this._bridge, this._storage, this._connection)
+    : super(const AsyncValue.loading());
 
   final BridgeService _bridge;
+  final StorageService _storage;
+  final BridgeConnectionState _connection;
 
   /// Load all plugins
   Future<void> load({String? cwd}) async {
+    // Offline mode - use cached
+    if (_connection.isOfflineMode) {
+      final cached = await _storage.getCachedPlugins();
+      state = AsyncValue.data(cached);
+      return;
+    }
+
     state = const AsyncValue.loading();
     try {
       final plugins = await _bridge.ccListPlugins(cwd: cwd);
+      // Cache for offline
+      if (plugins.isNotEmpty) {
+        await _storage.cachePlugins(plugins);
+      }
       state = AsyncValue.data(plugins);
     } catch (e, st) {
-      state = AsyncValue.error(e, st);
+      // Try cached on error
+      final cached = await _storage.getCachedPlugins();
+      if (cached.isNotEmpty) {
+        state = AsyncValue.data(cached);
+      } else {
+        state = AsyncValue.error(e, st);
+      }
     }
   }
 
   /// Refresh the plugin list
   Future<void> refresh({String? cwd}) async {
+    if (_connection.isOfflineMode) {
+      final cached = await _storage.getCachedPlugins();
+      state = AsyncValue.data(cached);
+      return;
+    }
+
     try {
       final plugins = await _bridge.ccListPlugins(cwd: cwd);
+      if (plugins.isNotEmpty) {
+        await _storage.cachePlugins(plugins);
+      }
       state = AsyncValue.data(plugins);
     } catch (e, st) {
       state = AsyncValue.error(e, st);

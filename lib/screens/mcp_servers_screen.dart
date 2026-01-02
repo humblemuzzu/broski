@@ -5,6 +5,7 @@ import '../models/mcp.dart';
 import '../providers/connection_provider.dart';
 import '../providers/service_providers.dart';
 import '../providers/selection_provider.dart';
+import '../services/storage_service.dart';
 import '../theme/opencode_theme.dart';
 import '../widgets/connection_indicator.dart';
 
@@ -36,12 +37,36 @@ class _McpServersScreenState extends ConsumerState<McpServersScreen> {
       _error = null;
     });
 
+    final storage = StorageService();
+    final connection = ref.read(connectionProvider);
+
+    // If offline, use cached data
+    if (connection.isOfflineMode) {
+      final cached = await storage.getCachedMcpServers();
+      if (mounted) {
+        setState(() {
+          _servers = cached;
+          _isLoading = false;
+          if (cached.isEmpty) {
+            _error = 'No cached MCP servers available offline';
+          }
+        });
+      }
+      return;
+    }
+
     try {
       final bridge = ref.read(bridgeServiceProvider);
       final selection = ref.read(selectionProvider);
       final servers = await bridge.getMcpStatus(
         projectPath: selection.project?.path,
       );
+
+      // Cache for offline use
+      if (servers.isNotEmpty) {
+        await storage.cacheMcpServers(servers);
+      }
+
       if (mounted) {
         setState(() {
           _servers = servers;
@@ -49,11 +74,20 @@ class _McpServersScreenState extends ConsumerState<McpServersScreen> {
         });
       }
     } catch (e) {
+      // On error, try to use cached data
+      final cached = await storage.getCachedMcpServers();
       if (mounted) {
-        setState(() {
-          _error = e.toString();
-          _isLoading = false;
-        });
+        if (cached.isNotEmpty) {
+          setState(() {
+            _servers = cached;
+            _isLoading = false;
+          });
+        } else {
+          setState(() {
+            _error = e.toString();
+            _isLoading = false;
+          });
+        }
       }
     }
   }

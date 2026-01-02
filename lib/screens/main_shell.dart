@@ -132,52 +132,36 @@ class _OfflineBanner extends StatelessWidget {
   Widget build(BuildContext context) {
     final ocTheme = OpenCodeTheme.of(context);
 
+    // Subtle, minimal offline indicator - not intrusive
     return SafeArea(
       bottom: false,
-      child: Container(
-        margin: const EdgeInsets.fromLTRB(16, 8, 16, 0),
-        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
-        decoration: BoxDecoration(
-          color: ocTheme.warning.withValues(alpha: 0.15),
-          borderRadius: BorderRadius.circular(12),
-          border: Border.all(color: ocTheme.warning.withValues(alpha: 0.3)),
-        ),
-        child: Row(
-          children: [
-            Icon(Icons.cloud_off_rounded, color: ocTheme.warning, size: 18),
-            const SizedBox(width: 10),
-            Expanded(
-              child: Text(
-                'Offline Mode - Viewing cached data',
+      child: GestureDetector(
+        onTap: onExit,
+        child: Container(
+          margin: const EdgeInsets.fromLTRB(16, 4, 16, 0),
+          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+          decoration: BoxDecoration(
+            color: ocTheme.backgroundPanel.withValues(alpha: 0.9),
+            borderRadius: BorderRadius.circular(20),
+            border: Border.all(color: ocTheme.textMuted.withValues(alpha: 0.2)),
+          ),
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Icon(Icons.cloud_off_rounded, color: ocTheme.textMuted, size: 14),
+              const SizedBox(width: 6),
+              Text(
+                'Offline',
                 style: TextStyle(
-                  color: ocTheme.warning,
-                  fontSize: 13,
-                  fontWeight: FontWeight.w600,
+                  color: ocTheme.textMuted,
+                  fontSize: 12,
+                  fontWeight: FontWeight.w500,
                 ),
               ),
-            ),
-            GestureDetector(
-              onTap: onExit,
-              child: Container(
-                padding: const EdgeInsets.symmetric(
-                  horizontal: 10,
-                  vertical: 4,
-                ),
-                decoration: BoxDecoration(
-                  color: ocTheme.warning,
-                  borderRadius: BorderRadius.circular(8),
-                ),
-                child: const Text(
-                  'Reconnect',
-                  style: TextStyle(
-                    color: Colors.white,
-                    fontSize: 12,
-                    fontWeight: FontWeight.w600,
-                  ),
-                ),
-              ),
-            ),
-          ],
+              const SizedBox(width: 8),
+              Icon(Icons.refresh_rounded, color: ocTheme.textMuted, size: 14),
+            ],
+          ),
         ),
       ),
     );

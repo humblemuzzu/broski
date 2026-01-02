@@ -292,16 +292,39 @@ class _ChatScreenState extends ConsumerState<ChatScreen>
         title: widget.ccSession?.displayTitle ?? widget.ccDraftTitle,
       );
 
-      // If this is an existing Claude Code session, hydrate transcript from host.
+      // If this is an existing Claude Code session, hydrate transcript
       final sessionId = widget.ccSession?.id;
       if (sessionId != null && sessionId.isNotEmpty) {
-        try {
-          final items = await ref
-              .read(bridgeServiceProvider)
-              .ccGetSessionMessages(sessionId, cwd: cwd);
-          chat.hydrateClaudeCodeTranscript(items);
-        } catch (_) {
-          // Best-effort: leave empty; streaming still works.
+        // Offline mode - use cached CC messages
+        if (connection.isOfflineMode) {
+          final cachedMessages = await storage.getCachedCCMessages(sessionId);
+          if (cachedMessages.isNotEmpty) {
+            chat.hydrate(cachedMessages.map((m) => _messageToRaw(m)).toList());
+          }
+        } else {
+          try {
+            final items = await ref
+                .read(bridgeServiceProvider)
+                .ccGetSessionMessages(sessionId, cwd: cwd);
+            chat.hydrateClaudeCodeTranscript(items);
+
+            // Cache CC messages for offline use
+            final chatState = ref.read(chatSessionProvider);
+            if (chatState.messages.isNotEmpty) {
+              await storage.cacheCCSessionMessages(
+                sessionId,
+                chatState.messages,
+              );
+            }
+          } catch (_) {
+            // On error, try cached messages
+            final cachedMessages = await storage.getCachedCCMessages(sessionId);
+            if (cachedMessages.isNotEmpty) {
+              chat.hydrate(
+                cachedMessages.map((m) => _messageToRaw(m)).toList(),
+              );
+            }
+          }
         }
       }
 
@@ -382,6 +405,8 @@ class _ChatScreenState extends ConsumerState<ChatScreen>
   // Feature 2 & 3: Load available commands and agents
   Future<void> _loadCommandsAndAgents() async {
     final bridge = ref.read(bridgeServiceProvider);
+    final storage = ref.read(storageServiceProvider);
+    final connection = ref.read(connectionProvider);
 
     // Claude Code mode - load CC commands
     if (widget.isClaudeCode) {
@@ -389,12 +414,32 @@ class _ChatScreenState extends ConsumerState<ChatScreen>
       return;
     }
 
-    // OpenCode mode
+    // OpenCode mode - offline support
+    if (connection.isOfflineMode) {
+      final cachedCommands = await storage.getCachedCommands();
+      final cachedAgents = await storage.getCachedAgents();
+      if (mounted) {
+        setState(() {
+          _commands = cachedCommands.isNotEmpty ? cachedCommands : [];
+          _agents = cachedAgents.isNotEmpty ? cachedAgents : kDefaultAgents;
+        });
+      }
+      return;
+    }
+
     try {
       final commands = await bridge.listCommands(
         projectPath: widget.project.path,
       );
       final agents = await bridge.listAgents(projectPath: widget.project.path);
+
+      // Cache for offline use
+      if (commands.isNotEmpty) {
+        await storage.cacheCommands(commands);
+      }
+      if (agents.isNotEmpty) {
+        await storage.cacheAgents(agents);
+      }
 
       // Built-in OpenCode commands (matching TUI)
       final builtInCommands = [
@@ -584,6 +629,9 @@ class _ChatScreenState extends ConsumerState<ChatScreen>
     if (_loadingContext) return;
     setState(() => _loadingContext = true);
 
+    final storage = ref.read(storageServiceProvider);
+    final connection = ref.read(connectionProvider);
+
     // Claude Code mode - build context from stream state
     if (widget.isClaudeCode) {
       final chatState = ref.read(chatSessionProvider);
@@ -600,16 +648,44 @@ class _ChatScreenState extends ConsumerState<ChatScreen>
           )
           .toList();
 
+      final context = SessionContext.fromClaudeCode(
+        inputTokens: tokenUsage?.inputTokens ?? 0,
+        outputTokens: tokenUsage?.outputTokens ?? 0,
+        cacheReadTokens: tokenUsage?.cacheReadTokens ?? 0,
+        totalCostUsd: tokenUsage?.totalCostUsd,
+        modifiedFiles: modifiedFiles,
+      );
+
+      // Cache CC context for offline
+      final sessionId = chatState.ccSessionId ?? widget.ccSession?.id ?? '';
+      if (sessionId.isNotEmpty) {
+        await storage.cacheSessionContext(sessionId, context);
+      }
+
       setState(() {
-        _sessionContext = SessionContext.fromClaudeCode(
-          inputTokens: tokenUsage?.inputTokens ?? 0,
-          outputTokens: tokenUsage?.outputTokens ?? 0,
-          cacheReadTokens: tokenUsage?.cacheReadTokens ?? 0,
-          totalCostUsd: tokenUsage?.totalCostUsd,
-          modifiedFiles: modifiedFiles,
-        );
+        _sessionContext = context;
         _loadingContext = false;
       });
+      return;
+    }
+
+    // OpenCode offline mode - use cached data
+    if (connection.isOfflineMode) {
+      final cachedContext = await storage.getCachedSessionContext(
+        widget.session.id,
+      );
+      final cachedTodos = await storage.getCachedSessionTodos(
+        widget.session.id,
+      );
+      if (mounted) {
+        setState(() {
+          _sessionContext = cachedContext ?? SessionContext.empty();
+          _loadingContext = false;
+        });
+        if (cachedTodos.isNotEmpty) {
+          ref.read(chatSessionProvider.notifier).setTodos(cachedTodos);
+        }
+      }
       return;
     }
 
@@ -627,17 +703,35 @@ class _ChatScreenState extends ConsumerState<ChatScreen>
       );
       final contextData = await contextFuture;
       final todosData = await todosFuture;
+
+      final context = SessionContext.fromJson(contextData);
+
+      // Cache for offline use
+      await storage.cacheSessionContext(widget.session.id, context);
+      if (todosData.isNotEmpty) {
+        await storage.cacheSessionTodos(widget.session.id, todosData);
+      }
+
       if (mounted) {
         setState(() {
-          _sessionContext = SessionContext.fromJson(contextData);
+          _sessionContext = context;
           _loadingContext = false;
         });
         // Update todos in provider
         ref.read(chatSessionProvider.notifier).setTodos(todosData);
       }
     } catch (e) {
+      // On error, try cached data
+      final cachedContext = await storage.getCachedSessionContext(
+        widget.session.id,
+      );
       if (mounted) {
-        setState(() => _loadingContext = false);
+        setState(() {
+          if (cachedContext != null) {
+            _sessionContext = cachedContext;
+          }
+          _loadingContext = false;
+        });
       }
     }
   }
@@ -648,15 +742,38 @@ class _ChatScreenState extends ConsumerState<ChatScreen>
 
   // Feature 10: Load VCS/Git info
   Future<void> _loadVcsInfo() async {
+    final storage = ref.read(storageServiceProvider);
+    final connection = ref.read(connectionProvider);
+
+    // Offline mode - use cached VCS info
+    if (connection.isOfflineMode) {
+      final cachedVcs = await storage.getCachedSessionVcs(widget.session.id);
+      if (mounted && cachedVcs != null) {
+        setState(() => _vcsInfo = cachedVcs);
+        ref.read(chatSessionProvider.notifier).setVcsInfo(cachedVcs);
+      }
+      return;
+    }
+
     try {
       final bridge = ref.read(bridgeServiceProvider);
       final vcsInfo = await bridge.getVcsInfo(projectPath: widget.project.path);
       if (mounted) {
         setState(() => _vcsInfo = vcsInfo);
         ref.read(chatSessionProvider.notifier).setVcsInfo(vcsInfo);
+
+        // Cache for offline use
+        if (vcsInfo.isAvailable) {
+          await storage.cacheSessionVcs(widget.session.id, vcsInfo);
+        }
       }
     } catch (e) {
-      // VCS info not available
+      // On error, try cached data
+      final cachedVcs = await storage.getCachedSessionVcs(widget.session.id);
+      if (mounted && cachedVcs != null) {
+        setState(() => _vcsInfo = cachedVcs);
+        ref.read(chatSessionProvider.notifier).setVcsInfo(cachedVcs);
+      }
     }
   }
 
