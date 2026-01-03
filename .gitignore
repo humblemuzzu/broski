@@ -104,7 +104,7 @@ pnpm-lock.yaml
 
 # Reference codebases (not part of the app)
 reference/
-docs/
+docs/mvp/chats/
 logs.md
 critical-g-*.md
 optimization.md
