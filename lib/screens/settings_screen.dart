@@ -174,9 +174,11 @@ class SettingsScreen extends ConsumerWidget {
                                 borderRadius: BorderRadius.circular(6),
                               ),
                               child: Text(
-                                currentAgent == AgentType.opencode
-                                    ? 'OC'
-                                    : 'CC',
+                                switch (currentAgent) {
+                                  AgentType.opencode => 'OC',
+                                  AgentType.claudeCode => 'CC',
+                                  AgentType.codex => 'CX',
+                                },
                                 style: TextStyle(
                                   color: theme.colorScheme.primary,
                                   fontSize: 11,

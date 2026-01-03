@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:convert';
 import 'dart:ui';
 
 import 'package:flutter/material.dart';
@@ -9,6 +10,7 @@ import 'package:url_launcher/url_launcher.dart';
 
 import '../models/agent.dart';
 import '../models/claude_code.dart';
+import '../models/codex.dart';
 import '../models/command.dart';
 import '../models/file_attachment.dart';
 import '../models/message.dart';
@@ -19,6 +21,7 @@ import '../models/vcs.dart';
 import '../providers/chat_provider.dart';
 import '../providers/claude_code_provider.dart';
 import '../providers/connection_provider.dart';
+import '../providers/codex_settings_provider.dart';
 import '../providers/file_search_provider.dart';
 import '../providers/input_style_provider.dart';
 import '../providers/prompt_accent_provider.dart';
@@ -64,7 +67,12 @@ class ChatScreen extends ConsumerStatefulWidget {
        ccDraftCwd = null,
        ccDraftTitle = null,
        ccDraftModel = null,
-       isClaudeCode = false;
+       cxThread = null,
+       cxDraftCwd = null,
+       cxDraftTitle = null,
+       cxDraftModel = null,
+       isClaudeCode = false,
+       isCodex = false;
 
   /// Named constructor for Claude Code sessions
   const ChatScreen.claudeCode({
@@ -82,7 +90,12 @@ class ChatScreen extends ConsumerStatefulWidget {
        ccDraftCwd = null,
        ccDraftTitle = null,
        ccDraftModel = null,
-       isClaudeCode = true;
+       cxThread = null,
+       cxDraftCwd = null,
+       cxDraftTitle = null,
+       cxDraftModel = null,
+       isClaudeCode = true,
+       isCodex = false;
 
   /// Named constructor for a new Claude Code chat (session ID assigned on first turn)
   const ChatScreen.claudeCodeDraft({
@@ -103,7 +116,61 @@ class ChatScreen extends ConsumerStatefulWidget {
        ccDraftCwd = cwd,
        ccDraftTitle = title,
        ccDraftModel = model,
-       isClaudeCode = true;
+       cxThread = null,
+       cxDraftCwd = null,
+       cxDraftTitle = null,
+       cxDraftModel = null,
+       isClaudeCode = true,
+       isCodex = false;
+
+  /// Named constructor for Codex threads
+  const ChatScreen.codex({
+    super.key,
+    required this.cxThread,
+    this.initialPrompt,
+  }) : project = const ProjectSummary(id: '', name: '', path: ''),
+       session = const SessionSummary(
+         id: '',
+         title: '',
+         projectID: '',
+         directory: '',
+         time: SessionTime(created: 0, updated: 0),
+       ),
+       ccSession = null,
+       ccDraftCwd = null,
+       ccDraftTitle = null,
+       ccDraftModel = null,
+       cxDraftCwd = null,
+       cxDraftTitle = null,
+       cxDraftModel = null,
+       isClaudeCode = false,
+       isCodex = true;
+
+  /// Named constructor for a new Codex chat (thread ID assigned on first turn)
+  const ChatScreen.codexDraft({
+    super.key,
+    required String cwd,
+    String? title,
+    String? model,
+    this.initialPrompt,
+  }) : project = const ProjectSummary(id: '', name: '', path: ''),
+       session = const SessionSummary(
+         id: '',
+         title: '',
+         projectID: '',
+         directory: '',
+         time: SessionTime(created: 0, updated: 0),
+       ),
+       ccSession = null,
+       ccDraftCwd = null,
+       ccDraftTitle = null,
+       ccDraftModel = null,
+       cxThread = null,
+       cxDraftCwd = cwd,
+       cxDraftTitle = title,
+       cxDraftModel = model,
+       isClaudeCode = false,
+       isCodex = true;
 
   final ProjectSummary project;
   final SessionSummary session;
@@ -111,20 +178,35 @@ class ChatScreen extends ConsumerStatefulWidget {
   final String? ccDraftCwd;
   final String? ccDraftTitle;
   final String? ccDraftModel;
+  final CodexThread? cxThread;
+  final String? cxDraftCwd;
+  final String? cxDraftTitle;
+  final String? cxDraftModel;
   final bool isClaudeCode;
+  final bool isCodex;
   final String? initialPrompt;
 
+  bool get isOpenCode => !isClaudeCode && !isCodex;
+
   /// Get the effective session ID
-  String get effectiveSessionId =>
-      isClaudeCode ? (ccSession?.id ?? '') : session.id;
+  String get effectiveSessionId => isClaudeCode
+      ? (ccSession?.id ?? '')
+      : isCodex
+      ? (cxThread?.id ?? '')
+      : session.id;
 
   /// Get the effective project path
-  String get effectivePath =>
-      isClaudeCode ? (ccSession?.cwd ?? ccDraftCwd ?? '') : project.path;
+  String get effectivePath => isClaudeCode
+      ? (ccSession?.cwd ?? ccDraftCwd ?? '')
+      : isCodex
+      ? (cxThread?.cwd ?? cxDraftCwd ?? '')
+      : project.path;
 
   /// Get the effective title
   String get effectiveTitle => isClaudeCode
       ? (ccSession?.displayTitle ?? ccDraftTitle ?? 'Claude Code')
+      : isCodex
+      ? (cxThread?.displayTitle ?? cxDraftTitle ?? 'Codex')
       : session.title;
 
   /// Get project name from path
@@ -203,7 +285,7 @@ class _ChatScreenState extends ConsumerState<ChatScreen>
     final bridge = ref.read(bridgeServiceProvider);
 
     // Set up view routing (OpenCode only - CC doesn't need this)
-    if (!widget.isClaudeCode) {
+    if (widget.isOpenCode) {
       bridge.setView(
         projectPath: widget.project.path,
         sessionId: widget.session.id,
@@ -221,7 +303,7 @@ class _ChatScreenState extends ConsumerState<ChatScreen>
         // Re-assert view routing and re-sync session state after network flips.
         if (_resyncingAfterReconnect) return;
         _resyncingAfterReconnect = true;
-        if (!widget.isClaudeCode) {
+        if (widget.isOpenCode) {
           bridge.setView(
             projectPath: widget.project.path,
             sessionId: widget.session.id,
@@ -249,9 +331,9 @@ class _ChatScreenState extends ConsumerState<ChatScreen>
     // Load commands for both modes (different implementations)
     _loadCommandsAndAgents();
 
-    if (!widget.isClaudeCode) {
+    if (widget.isOpenCode) {
       _loadVcsInfo();
-    } else {
+    } else if (widget.isClaudeCode) {
       // Preload Claude Code config so the tools sheet is instant.
       ref.read(ccConfigProvider.notifier).load();
       // Preload power feature data for @/menu UX.
@@ -364,6 +446,50 @@ class _ChatScreenState extends ConsumerState<ChatScreen>
       return;
     }
 
+    // Codex mode - set up thread in provider (thread ID may be assigned on first turn)
+    if (widget.isCodex) {
+      final cwd = widget.cxThread?.cwd ?? widget.cxDraftCwd ?? '';
+      final threadId = widget.cxThread?.id ?? '';
+      chat.setCodexThread(
+        threadId: threadId,
+        cwd: cwd,
+        model: widget.cxThread?.modelProvider ?? widget.cxDraftModel,
+      );
+
+      if (threadId.isNotEmpty) {
+        if (connection.isOfflineMode) {
+          final cached = await storage.getCachedCodexMessages(threadId);
+          if (cached.isNotEmpty) {
+            chat.hydrate(cached.map((m) => _messageToRaw(m)).toList());
+          }
+        } else {
+          try {
+            final items = await ref
+                .read(bridgeServiceProvider)
+                .cxGetThreadMessages(threadId);
+            chat.hydrateCodexTranscript(items);
+
+            final chatState = ref.read(chatSessionProvider);
+            if (chatState.messages.isNotEmpty) {
+              await storage.cacheCodexThreadMessages(
+                threadId,
+                chatState.messages,
+              );
+            }
+          } catch (_) {
+            final cached = await storage.getCachedCodexMessages(threadId);
+            if (cached.isNotEmpty) {
+              chat.hydrate(cached.map((m) => _messageToRaw(m)).toList());
+            }
+          }
+        }
+      }
+
+      _scrollToBottom(animate: false);
+      setState(() => _hasLoadedAllMessages = true);
+      return;
+    }
+
     // OpenCode mode - set up OC session in provider
     chat.setSession(widget.session, projectPath: widget.project.path);
 
@@ -442,6 +568,94 @@ class _ChatScreenState extends ConsumerState<ChatScreen>
     // Claude Code mode - load CC commands
     if (widget.isClaudeCode) {
       await _loadClaudeCodeCommands();
+      return;
+    }
+
+    // Codex mode - built-in commands (app-server features)
+    // Full parity with Codex CLI slash commands
+    if (widget.isCodex) {
+      if (!mounted) return;
+      setState(() {
+        _agents = const [];
+        _commands = const [
+          // Core commands
+          SlashCommand(
+            name: 'model',
+            description: 'Change model',
+            builtin: true,
+          ),
+          SlashCommand(
+            name: 'approvals',
+            description:
+                'Set approval policy (untrusted/on-failure/on-request/never)',
+            builtin: true,
+          ),
+          SlashCommand(
+            name: 'status',
+            description: 'Show thread status, tokens, settings',
+            builtin: true,
+          ),
+          // Reasoning commands
+          SlashCommand(
+            name: 'reasoning',
+            description: 'Set reasoning effort (minimal/low/medium/high/xhigh)',
+            builtin: true,
+          ),
+          SlashCommand(
+            name: 'reasoningsummary',
+            description: 'Set reasoning summary (auto/concise/detailed/none)',
+            builtin: true,
+          ),
+          // Feature toggles
+          SlashCommand(
+            name: 'websearch',
+            description: 'Toggle web search (on/off)',
+            builtin: true,
+          ),
+          SlashCommand(
+            name: 'skills',
+            description: 'Toggle skills discovery (on/off)',
+            builtin: true,
+          ),
+          // Session commands
+          SlashCommand(
+            name: 'compact',
+            description: 'Summarize/compact thread context',
+            builtin: true,
+          ),
+          SlashCommand(
+            name: 'diff',
+            description: 'Show file changes diff',
+            builtin: true,
+          ),
+          SlashCommand(
+            name: 'undo',
+            description: 'Undo last file changes',
+            builtin: true,
+          ),
+          SlashCommand(
+            name: 'review',
+            description: 'Start code review of uncommitted changes',
+            builtin: true,
+          ),
+          // Project commands
+          SlashCommand(
+            name: 'agents',
+            description: 'Edit AGENTS.md project instructions',
+            builtin: true,
+          ),
+          SlashCommand(
+            name: 'init',
+            description: 'Create AGENTS.md with template',
+            builtin: true,
+          ),
+          SlashCommand(
+            name: 'mcp',
+            description: 'List MCP server status',
+            builtin: true,
+          ),
+        ];
+      });
       return;
     }
 
@@ -682,6 +896,37 @@ class _ChatScreenState extends ConsumerState<ChatScreen>
       final sessionId = chatState.ccSessionId ?? widget.ccSession?.id ?? '';
       if (sessionId.isNotEmpty) {
         await storage.cacheSessionContext(sessionId, context);
+      }
+
+      setState(() {
+        _sessionContext = context;
+        _loadingContext = false;
+      });
+      return;
+    }
+
+    // Codex mode - build context from stream token usage
+    if (widget.isCodex) {
+      final chatState = ref.read(chatSessionProvider);
+      final tokenUsage = chatState.cxTokenUsage;
+
+      final total = tokenUsage?.total;
+      final contextWindow = tokenUsage?.modelContextWindow ?? 200000;
+      final context = SessionContext(
+        tokens: TokenUsage(
+          input: total?.inputTokens ?? 0,
+          output: total?.outputTokens ?? 0,
+          total: total?.totalTokens ?? 0,
+          contextWindow: contextWindow,
+        ),
+        cost: 0.0,
+        lsp: const [],
+        modifiedFiles: const [],
+      );
+
+      final threadId = chatState.cxThreadId ?? widget.cxThread?.id ?? '';
+      if (threadId.isNotEmpty) {
+        await storage.cacheSessionContext(threadId, context);
       }
 
       setState(() {
@@ -1568,7 +1813,7 @@ class _ChatScreenState extends ConsumerState<ChatScreen>
       _agentQuery = '';
       // OpenCode: set selected agent for this message.
       // Claude Code: keep selection explicit in the prompt (@subagent).
-      if (!widget.isClaudeCode) {
+      if (widget.isOpenCode) {
         _selectedAgent = agent.name;
       }
     });
@@ -2919,6 +3164,1514 @@ class _ChatScreenState extends ConsumerState<ChatScreen>
         _forkSession();
         break;
     }
+  }
+
+  void _handleCodexMenuAction(String value) {
+    switch (value) {
+      case 'cx_model':
+        _showCodexModelSheet();
+        break;
+      case 'cx_settings':
+        _showCodexSettingsSheet();
+        break;
+      case 'cx_skills':
+        _showCodexSkillsSheet();
+        break;
+      case 'cx_mcp':
+        _showCodexMcpSheet();
+        break;
+      case 'cx_auth':
+        _showCodexAuthSheet();
+        break;
+      case 'cx_agents':
+        _showCodexAgentsSheet();
+        break;
+      case 'cx_config':
+        _showCodexConfigSheet();
+        break;
+      case 'cx_review':
+        _startCodexReview();
+        break;
+      case 'cx_feedback':
+        _showCodexFeedbackSheet();
+        break;
+    }
+  }
+
+  void _showCodexAgentsSheet() {
+    final theme = OpenCodeTheme.of(context);
+    final chatState = ref.read(chatSessionProvider);
+    final cwd = chatState.cxCwd ?? widget.cxThread?.cwd ?? widget.cxDraftCwd;
+    if (cwd == null || cwd.isEmpty) return;
+
+    final controller = TextEditingController();
+    bool loaded = false;
+    bool exists = false;
+    String? path;
+
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (_) {
+        return StatefulBuilder(
+          builder: (context, setSheetState) {
+            Future<void> load() async {
+              if (loaded) return;
+              loaded = true;
+              final bridge = ref.read(bridgeServiceProvider);
+              final res = await bridge.cxReadAgentsMd(cwd);
+              exists = res['exists'] == true;
+              path = res['path']?.toString();
+              controller.text = (res['content'] ?? '').toString();
+              setSheetState(() {});
+            }
+
+            void insertTemplate() {
+              controller.text =
+                  '''
+# AGENTS.md
+
+<INSTRUCTIONS>
+Describe project-specific guidance for Codex here.
+
+- Goal:
+- Constraints:
+- Style:
+- Commands to run:
+</INSTRUCTIONS>
+'''
+                      .trim();
+              setSheetState(() {});
+            }
+
+            unawaited(load());
+
+            return SafeArea(
+              child: Padding(
+                padding: EdgeInsets.only(
+                  bottom: MediaQuery.of(context).viewInsets.bottom,
+                ),
+                child: Container(
+                  height: MediaQuery.of(context).size.height * 0.75,
+                  decoration: BoxDecoration(
+                    color: theme.backgroundPanel,
+                    borderRadius: const BorderRadius.vertical(
+                      top: Radius.circular(18),
+                    ),
+                    border: Border.all(
+                      color: theme.borderSubtle.withValues(alpha: 0.2),
+                    ),
+                  ),
+                  padding: const EdgeInsets.fromLTRB(16, 16, 16, 20),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Row(
+                        children: [
+                          Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text(
+                                  'AGENTS.md',
+                                  style: TextStyle(
+                                    color: theme.text,
+                                    fontSize: 16,
+                                    fontWeight: FontWeight.w700,
+                                  ),
+                                ),
+                                const SizedBox(height: 2),
+                                Text(
+                                  path ?? cwd,
+                                  maxLines: 1,
+                                  overflow: TextOverflow.ellipsis,
+                                  style: TextStyle(
+                                    color: theme.textMuted,
+                                    fontSize: 11,
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                          IconButton(
+                            onPressed: () => Navigator.pop(context),
+                            icon: Icon(
+                              Icons.close_rounded,
+                              color: theme.textMuted,
+                            ),
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 8),
+                      if (!exists)
+                        Padding(
+                          padding: const EdgeInsets.only(bottom: 8),
+                          child: Row(
+                            children: [
+                              Icon(
+                                Icons.info_outline,
+                                size: 16,
+                                color: theme.textMuted,
+                              ),
+                              const SizedBox(width: 8),
+                              Expanded(
+                                child: Text(
+                                  'No AGENTS.md found. Create one to guide Codex for this project.',
+                                  style: TextStyle(
+                                    color: theme.textMuted,
+                                    fontSize: 12,
+                                  ),
+                                ),
+                              ),
+                              TextButton(
+                                onPressed: insertTemplate,
+                                child: const Text('Insert template'),
+                              ),
+                            ],
+                          ),
+                        ),
+                      Expanded(
+                        child: TextField(
+                          controller: controller,
+                          expands: true,
+                          maxLines: null,
+                          minLines: null,
+                          style: TextStyle(
+                            fontFamily: 'monospace',
+                            fontSize: 12,
+                            color: theme.text,
+                          ),
+                          decoration: InputDecoration(
+                            hintText: 'Project instructions for Codex…',
+                            filled: true,
+                            fillColor: theme.background,
+                            border: OutlineInputBorder(
+                              borderRadius: BorderRadius.circular(12),
+                              borderSide: BorderSide(
+                                color: theme.borderSubtle.withValues(
+                                  alpha: 0.35,
+                                ),
+                              ),
+                            ),
+                          ),
+                        ),
+                      ),
+                      const SizedBox(height: 12),
+                      Row(
+                        children: [
+                          Expanded(
+                            child: ElevatedButton(
+                              onPressed: () async {
+                                final ok = await ref
+                                    .read(bridgeServiceProvider)
+                                    .cxWriteAgentsMd(
+                                      cwd: cwd,
+                                      content: controller.text,
+                                    );
+                                if (!context.mounted) return;
+                                final messenger = ScaffoldMessenger.of(context);
+                                messenger.showSnackBar(
+                                  SnackBar(
+                                    content: Text(
+                                      ok ? 'Saved AGENTS.md' : 'Save failed',
+                                    ),
+                                    backgroundColor: ok
+                                        ? theme.backgroundPanel
+                                        : theme.error,
+                                  ),
+                                );
+                                Navigator.pop(context);
+                              },
+                              child: const Text('Save'),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            );
+          },
+        );
+      },
+    ).whenComplete(controller.dispose);
+  }
+
+  void _showCodexAuthSheet() {
+    final theme = OpenCodeTheme.of(context);
+    final apiKeyController = TextEditingController();
+    String? loginId;
+    String? authUrl;
+
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (_) {
+        return StatefulBuilder(
+          builder: (context, setSheetState) {
+            Future<void> startChatgptLogin() async {
+              final bridge = ref.read(bridgeServiceProvider);
+              final res = await bridge.cxLoginStartChatgpt();
+              loginId = res['loginId']?.toString();
+              authUrl = res['authUrl']?.toString();
+              setSheetState(() {});
+            }
+
+            Future<void> cancelLogin() async {
+              final id = loginId;
+              if (id == null || id.isEmpty) return;
+              final bridge = ref.read(bridgeServiceProvider);
+              await bridge.cxLoginCancel(id);
+              setSheetState(() {
+                loginId = null;
+                authUrl = null;
+              });
+            }
+
+            return SafeArea(
+              child: Padding(
+                padding: EdgeInsets.only(
+                  bottom: MediaQuery.of(context).viewInsets.bottom,
+                ),
+                child: Container(
+                  decoration: BoxDecoration(
+                    color: theme.backgroundPanel,
+                    borderRadius: const BorderRadius.vertical(
+                      top: Radius.circular(18),
+                    ),
+                    border: Border.all(
+                      color: theme.borderSubtle.withValues(alpha: 0.2),
+                    ),
+                  ),
+                  padding: const EdgeInsets.fromLTRB(16, 16, 16, 20),
+                  child: SingleChildScrollView(
+                    child: Column(
+                      mainAxisSize: MainAxisSize.min,
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Row(
+                          children: [
+                            Expanded(
+                              child: Text(
+                                'Codex auth',
+                                style: TextStyle(
+                                  color: theme.text,
+                                  fontSize: 16,
+                                  fontWeight: FontWeight.w700,
+                                ),
+                              ),
+                            ),
+                            IconButton(
+                              onPressed: () => Navigator.pop(context),
+                              icon: Icon(
+                                Icons.close_rounded,
+                                color: theme.textMuted,
+                              ),
+                            ),
+                          ],
+                        ),
+                        const SizedBox(height: 8),
+                        FutureBuilder<Map<String, dynamic>>(
+                          future: ref
+                              .read(bridgeServiceProvider)
+                              .cxAccountRead(),
+                          builder: (context, snapshot) {
+                            final loading =
+                                snapshot.connectionState ==
+                                ConnectionState.waiting;
+                            if (loading) {
+                              return const Padding(
+                                padding: EdgeInsets.symmetric(vertical: 16),
+                                child: Center(
+                                  child: CircularProgressIndicator(),
+                                ),
+                              );
+                            }
+                            if (snapshot.hasError) {
+                              return Text(
+                                'Failed to read account: ${snapshot.error}',
+                                style: TextStyle(
+                                  color: theme.textMuted,
+                                  fontSize: 12,
+                                ),
+                              );
+                            }
+                            final account = snapshot.data?['account'];
+                            final requires =
+                                snapshot.data?['requiresOpenaiAuth'] == true;
+                            return Container(
+                              padding: const EdgeInsets.all(12),
+                              decoration: BoxDecoration(
+                                color: theme.background,
+                                borderRadius: BorderRadius.circular(12),
+                                border: Border.all(
+                                  color: theme.borderSubtle.withValues(
+                                    alpha: 0.25,
+                                  ),
+                                ),
+                              ),
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Text(
+                                    'Status',
+                                    style: TextStyle(
+                                      color: theme.textMuted,
+                                      fontSize: 12,
+                                      fontWeight: FontWeight.w600,
+                                    ),
+                                  ),
+                                  const SizedBox(height: 6),
+                                  Text(
+                                    account == null
+                                        ? (requires
+                                              ? 'Not logged in (OpenAI auth required)'
+                                              : 'Not logged in (auth not required)')
+                                        : 'Logged in: ${account['type'] ?? account['authMode'] ?? ''}',
+                                    style: TextStyle(
+                                      color: theme.text,
+                                      fontSize: 13,
+                                      fontWeight: FontWeight.w600,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            );
+                          },
+                        ),
+                        const SizedBox(height: 12),
+                        FutureBuilder<Map<String, dynamic>>(
+                          future: ref
+                              .read(bridgeServiceProvider)
+                              .cxRateLimitsRead(),
+                          builder: (context, snapshot) {
+                            if (snapshot.connectionState ==
+                                ConnectionState.waiting) {
+                              return const SizedBox.shrink();
+                            }
+                            if (snapshot.hasError) {
+                              return const SizedBox.shrink();
+                            }
+                            final limits = snapshot.data?['rateLimits'];
+                            if (limits is! Map) return const SizedBox.shrink();
+                            final primary = limits['primary'];
+                            if (primary is! Map) return const SizedBox.shrink();
+                            return Padding(
+                              padding: const EdgeInsets.only(bottom: 12),
+                              child: Text(
+                                'Rate limits: ${primary['usedPercent'] ?? 0}% used, resets at ${primary['resetsAt'] ?? ''}',
+                                style: TextStyle(
+                                  color: theme.textMuted,
+                                  fontSize: 12,
+                                ),
+                              ),
+                            );
+                          },
+                        ),
+                        const SizedBox(height: 6),
+                        Row(
+                          children: [
+                            Expanded(
+                              child: ElevatedButton(
+                                onPressed: startChatgptLogin,
+                                child: const Text('Login (ChatGPT)'),
+                              ),
+                            ),
+                            const SizedBox(width: 10),
+                            Expanded(
+                              child: OutlinedButton(
+                                onPressed: () async {
+                                  await ref
+                                      .read(bridgeServiceProvider)
+                                      .cxLogout();
+                                  if (!context.mounted) return;
+                                  Navigator.pop(context);
+                                },
+                                child: const Text('Logout'),
+                              ),
+                            ),
+                          ],
+                        ),
+                        const SizedBox(height: 12),
+                        TextField(
+                          controller: apiKeyController,
+                          obscureText: true,
+                          decoration: const InputDecoration(
+                            labelText: 'API key (optional)',
+                            hintText: 'sk-...',
+                          ),
+                        ),
+                        const SizedBox(height: 8),
+                        Row(
+                          children: [
+                            Expanded(
+                              child: OutlinedButton(
+                                onPressed: () async {
+                                  final key = apiKeyController.text.trim();
+                                  if (key.isEmpty) return;
+                                  await ref
+                                      .read(bridgeServiceProvider)
+                                      .cxLoginStartApiKey(key);
+                                  if (!context.mounted) return;
+                                  Navigator.pop(context);
+                                },
+                                child: const Text('Login (API key)'),
+                              ),
+                            ),
+                            const SizedBox(width: 10),
+                            Expanded(
+                              child: TextButton(
+                                onPressed: cancelLogin,
+                                child: const Text('Cancel login'),
+                              ),
+                            ),
+                          ],
+                        ),
+                        if (authUrl != null && authUrl!.isNotEmpty) ...[
+                          const SizedBox(height: 12),
+                          Text(
+                            'ChatGPT login URL (open on the host machine running Broski Bridge):',
+                            style: TextStyle(
+                              color: theme.textMuted,
+                              fontSize: 12,
+                            ),
+                          ),
+                          const SizedBox(height: 6),
+                          SelectableText(
+                            authUrl!,
+                            style: TextStyle(
+                              fontFamily: 'monospace',
+                              color: theme.text,
+                              fontSize: 11,
+                            ),
+                          ),
+                          const SizedBox(height: 6),
+                          Row(
+                            children: [
+                              TextButton(
+                                onPressed: () async {
+                                  final uri = Uri.tryParse(authUrl!);
+                                  if (uri == null) return;
+                                  await launchUrl(
+                                    uri,
+                                    mode: LaunchMode.externalApplication,
+                                  );
+                                },
+                                child: const Text('Open'),
+                              ),
+                              const SizedBox(width: 8),
+                              TextButton(
+                                onPressed: () async {
+                                  await Clipboard.setData(
+                                    ClipboardData(text: authUrl!),
+                                  );
+                                },
+                                child: const Text('Copy'),
+                              ),
+                            ],
+                          ),
+                        ],
+                      ],
+                    ),
+                  ),
+                ),
+              ),
+            );
+          },
+        );
+      },
+    ).whenComplete(apiKeyController.dispose);
+  }
+
+  void _showCodexFeedbackSheet() {
+    final theme = OpenCodeTheme.of(context);
+    final reasonController = TextEditingController();
+    String classification = 'bug';
+    bool includeLogs = false;
+
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (_) {
+        return StatefulBuilder(
+          builder: (context, setSheetState) {
+            return SafeArea(
+              child: Padding(
+                padding: EdgeInsets.only(
+                  bottom: MediaQuery.of(context).viewInsets.bottom,
+                ),
+                child: Container(
+                  decoration: BoxDecoration(
+                    color: theme.backgroundPanel,
+                    borderRadius: const BorderRadius.vertical(
+                      top: Radius.circular(18),
+                    ),
+                    border: Border.all(
+                      color: theme.borderSubtle.withValues(alpha: 0.2),
+                    ),
+                  ),
+                  padding: const EdgeInsets.fromLTRB(16, 16, 16, 20),
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Row(
+                        children: [
+                          Expanded(
+                            child: Text(
+                              'Send feedback',
+                              style: TextStyle(
+                                color: theme.text,
+                                fontSize: 16,
+                                fontWeight: FontWeight.w700,
+                              ),
+                            ),
+                          ),
+                          IconButton(
+                            onPressed: () => Navigator.pop(context),
+                            icon: Icon(
+                              Icons.close_rounded,
+                              color: theme.textMuted,
+                            ),
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 8),
+                      DropdownButtonFormField<String>(
+                        value: classification,
+                        items: const [
+                          DropdownMenuItem(value: 'bug', child: Text('Bug')),
+                          DropdownMenuItem(
+                            value: 'feature',
+                            child: Text('Feature request'),
+                          ),
+                          DropdownMenuItem(
+                            value: 'bad_output',
+                            child: Text('Bad output'),
+                          ),
+                          DropdownMenuItem(
+                            value: 'other',
+                            child: Text('Other'),
+                          ),
+                        ],
+                        onChanged: (v) =>
+                            setSheetState(() => classification = v ?? 'bug'),
+                        decoration: const InputDecoration(
+                          labelText: 'Classification',
+                        ),
+                      ),
+                      const SizedBox(height: 8),
+                      TextField(
+                        controller: reasonController,
+                        maxLines: 3,
+                        decoration: const InputDecoration(
+                          labelText: 'Reason (optional)',
+                        ),
+                      ),
+                      const SizedBox(height: 8),
+                      SwitchListTile(
+                        value: includeLogs,
+                        onChanged: (v) => setSheetState(() => includeLogs = v),
+                        dense: true,
+                        contentPadding: EdgeInsets.zero,
+                        title: Text(
+                          'Include logs',
+                          style: TextStyle(
+                            color: theme.text,
+                            fontSize: 13,
+                            fontWeight: FontWeight.w600,
+                          ),
+                        ),
+                        subtitle: Text(
+                          'Attach Codex logs from the host machine',
+                          style: TextStyle(
+                            color: theme.textMuted,
+                            fontSize: 12,
+                          ),
+                        ),
+                        activeColor: theme.primary,
+                      ),
+                      const SizedBox(height: 12),
+                      Row(
+                        children: [
+                          Expanded(
+                            child: ElevatedButton(
+                              onPressed: () async {
+                                final bridge = ref.read(bridgeServiceProvider);
+                                final chatState = ref.read(chatSessionProvider);
+                                final res = await bridge.cxFeedbackUpload(
+                                  classification: classification,
+                                  reason: reasonController.text.trim().isEmpty
+                                      ? null
+                                      : reasonController.text.trim(),
+                                  threadId: chatState.cxThreadId,
+                                  includeLogs: includeLogs,
+                                );
+                                final threadId =
+                                    res['threadId']?.toString() ?? '';
+                                if (!context.mounted) return;
+                                Navigator.pop(context);
+                                if (threadId.isEmpty) return;
+                                final thread = await bridge.cxResumeThread(
+                                  threadId,
+                                );
+                                if (!mounted) return;
+                                Navigator.push(
+                                  context,
+                                  MaterialPageRoute(
+                                    builder: (_) =>
+                                        ChatScreen.codex(cxThread: thread),
+                                  ),
+                                );
+                              },
+                              child: const Text('Submit'),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            );
+          },
+        );
+      },
+    ).whenComplete(reasonController.dispose);
+  }
+
+  void _showCodexSettingsSheet() {
+    final theme = OpenCodeTheme.of(context);
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (_) {
+        return SafeArea(
+          child: Container(
+            decoration: BoxDecoration(
+              color: theme.backgroundPanel,
+              borderRadius: const BorderRadius.vertical(
+                top: Radius.circular(18),
+              ),
+              border: Border.all(
+                color: theme.borderSubtle.withValues(alpha: 0.2),
+              ),
+            ),
+            padding: const EdgeInsets.fromLTRB(16, 16, 16, 20),
+            child: Consumer(
+              builder: (context, ref, _) {
+                final settings = ref.watch(codexSettingsProvider);
+                final notifier = ref.read(codexSettingsProvider.notifier);
+
+                Widget chipGroup<T>({
+                  required String label,
+                  required List<T> values,
+                  required T selected,
+                  required String Function(T) display,
+                  required void Function(T) onSelected,
+                }) {
+                  return Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        label,
+                        style: TextStyle(
+                          color: theme.textMuted,
+                          fontSize: 12,
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
+                      const SizedBox(height: 8),
+                      Wrap(
+                        spacing: 8,
+                        runSpacing: 8,
+                        children: values.map((v) {
+                          final isSelected = v == selected;
+                          return ChoiceChip(
+                            label: Text(display(v)),
+                            selected: isSelected,
+                            onSelected: (_) => onSelected(v),
+                            labelStyle: TextStyle(
+                              color: isSelected ? theme.background : theme.text,
+                              fontSize: 12,
+                              fontWeight: FontWeight.w600,
+                            ),
+                            selectedColor: theme.primary,
+                            backgroundColor: theme.background,
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(10),
+                              side: BorderSide(
+                                color: theme.borderSubtle.withValues(
+                                  alpha: 0.3,
+                                ),
+                              ),
+                            ),
+                          );
+                        }).toList(),
+                      ),
+                    ],
+                  );
+                }
+
+                return SingleChildScrollView(
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Row(
+                        children: [
+                          Expanded(
+                            child: Text(
+                              'Codex settings',
+                              style: TextStyle(
+                                color: theme.text,
+                                fontSize: 16,
+                                fontWeight: FontWeight.w700,
+                              ),
+                            ),
+                          ),
+                          IconButton(
+                            onPressed: () => Navigator.pop(context),
+                            icon: Icon(
+                              Icons.close_rounded,
+                              color: theme.textMuted,
+                            ),
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 8),
+                      chipGroup<CodexApprovalPolicy>(
+                        label: 'Approvals',
+                        values: CodexApprovalPolicy.values,
+                        selected: settings.approvalPolicy,
+                        display: (v) => v.wireValue,
+                        onSelected: notifier.setApprovalPolicy,
+                      ),
+                      const SizedBox(height: 16),
+                      chipGroup<CodexSandboxMode>(
+                        label: 'Sandbox',
+                        values: CodexSandboxMode.values,
+                        selected: settings.sandboxMode,
+                        display: (v) => v.threadWireValue,
+                        onSelected: notifier.setSandboxMode,
+                      ),
+                      const SizedBox(height: 12),
+                      if (settings.sandboxMode ==
+                          CodexSandboxMode.workspaceWrite)
+                        SwitchListTile(
+                          value: settings.networkAccessEnabled,
+                          onChanged: notifier.setNetworkAccessEnabled,
+                          dense: true,
+                          contentPadding: EdgeInsets.zero,
+                          title: Text(
+                            'Network access',
+                            style: TextStyle(
+                              color: theme.text,
+                              fontSize: 13,
+                              fontWeight: FontWeight.w600,
+                            ),
+                          ),
+                          subtitle: Text(
+                            'Allow network in Codex sandbox',
+                            style: TextStyle(
+                              color: theme.textMuted,
+                              fontSize: 12,
+                            ),
+                          ),
+                          activeColor: theme.primary,
+                        ),
+                      const SizedBox(height: 12),
+                      chipGroup<CodexReasoningEffort>(
+                        label: 'Reasoning effort',
+                        values: CodexReasoningEffort.values,
+                        selected: settings.reasoningEffort,
+                        display: (v) => v.wireValue,
+                        onSelected: notifier.setReasoningEffort,
+                      ),
+                      const SizedBox(height: 16),
+                      chipGroup<CodexReasoningSummary>(
+                        label: 'Reasoning summary',
+                        values: CodexReasoningSummary.values,
+                        selected: settings.reasoningSummary,
+                        display: (v) => v.wireValue,
+                        onSelected: notifier.setReasoningSummary,
+                      ),
+                      const SizedBox(height: 12),
+                      SwitchListTile(
+                        value: settings.webSearchEnabled,
+                        onChanged: notifier.setWebSearchEnabled,
+                        dense: true,
+                        contentPadding: EdgeInsets.zero,
+                        title: Text(
+                          'Web search',
+                          style: TextStyle(
+                            color: theme.text,
+                            fontSize: 13,
+                            fontWeight: FontWeight.w600,
+                          ),
+                        ),
+                        subtitle: Text(
+                          'Enable web search requests (opt-in)',
+                          style: TextStyle(
+                            color: theme.textMuted,
+                            fontSize: 12,
+                          ),
+                        ),
+                        activeColor: theme.primary,
+                      ),
+                      SwitchListTile(
+                        value: settings.skillsEnabled,
+                        onChanged: notifier.setSkillsEnabled,
+                        dense: true,
+                        contentPadding: EdgeInsets.zero,
+                        title: Text(
+                          'Skills discovery',
+                          style: TextStyle(
+                            color: theme.text,
+                            fontSize: 13,
+                            fontWeight: FontWeight.w600,
+                          ),
+                        ),
+                        subtitle: Text(
+                          'Allow Codex to discover skills from disk',
+                          style: TextStyle(
+                            color: theme.textMuted,
+                            fontSize: 12,
+                          ),
+                        ),
+                        activeColor: theme.primary,
+                      ),
+                    ],
+                  ),
+                );
+              },
+            ),
+          ),
+        );
+      },
+    );
+  }
+
+  void _showCodexSkillsSheet() {
+    final theme = OpenCodeTheme.of(context);
+    final chatState = ref.read(chatSessionProvider);
+    final cwd = chatState.cxCwd ?? widget.cxThread?.cwd ?? widget.cxDraftCwd;
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (_) {
+        return SafeArea(
+          child: Container(
+            decoration: BoxDecoration(
+              color: theme.backgroundPanel,
+              borderRadius: const BorderRadius.vertical(
+                top: Radius.circular(18),
+              ),
+              border: Border.all(
+                color: theme.borderSubtle.withValues(alpha: 0.2),
+              ),
+            ),
+            padding: const EdgeInsets.fromLTRB(16, 16, 16, 20),
+            child: FutureBuilder<List<Map<String, dynamic>>>(
+              future: ref.read(bridgeServiceProvider).cxListSkills(cwd: cwd),
+              builder: (context, snapshot) {
+                final loading =
+                    snapshot.connectionState == ConnectionState.waiting;
+                final data = snapshot.data ?? const <Map<String, dynamic>>[];
+
+                return Column(
+                  mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Row(
+                      children: [
+                        Expanded(
+                          child: Text(
+                            'Codex skills',
+                            style: TextStyle(
+                              color: theme.text,
+                              fontSize: 16,
+                              fontWeight: FontWeight.w700,
+                            ),
+                          ),
+                        ),
+                        IconButton(
+                          onPressed: () => Navigator.pop(context),
+                          icon: Icon(
+                            Icons.close_rounded,
+                            color: theme.textMuted,
+                          ),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 8),
+                    if (loading)
+                      const Padding(
+                        padding: EdgeInsets.symmetric(vertical: 24),
+                        child: Center(child: CircularProgressIndicator()),
+                      )
+                    else if (snapshot.hasError)
+                      Padding(
+                        padding: const EdgeInsets.symmetric(vertical: 16),
+                        child: Text(
+                          'Failed to load skills: ${snapshot.error}',
+                          style: TextStyle(
+                            color: theme.textMuted,
+                            fontSize: 12,
+                          ),
+                        ),
+                      )
+                    else if (data.isEmpty)
+                      Padding(
+                        padding: const EdgeInsets.symmetric(vertical: 16),
+                        child: Text(
+                          'No skills found for this project.',
+                          style: TextStyle(
+                            color: theme.textMuted,
+                            fontSize: 13,
+                          ),
+                        ),
+                      )
+                    else
+                      Flexible(
+                        child: ListView.builder(
+                          shrinkWrap: true,
+                          itemCount: data.length,
+                          itemBuilder: (context, index) {
+                            final entry = data[index];
+                            final cwdLabel = (entry['cwd'] ?? '').toString();
+                            final skills =
+                                (entry['skills'] as List<dynamic>? ?? const [])
+                                    .whereType<Map<String, dynamic>>()
+                                    .toList();
+                            final errors =
+                                (entry['errors'] as List<dynamic>? ?? const [])
+                                    .whereType<Map<String, dynamic>>()
+                                    .toList();
+
+                            return Padding(
+                              padding: const EdgeInsets.only(bottom: 12),
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  if (cwdLabel.isNotEmpty)
+                                    Text(
+                                      cwdLabel,
+                                      style: TextStyle(
+                                        color: theme.textMuted,
+                                        fontSize: 12,
+                                        fontWeight: FontWeight.w600,
+                                      ),
+                                    ),
+                                  const SizedBox(height: 8),
+                                  for (final s in skills)
+                                    ListTile(
+                                      dense: true,
+                                      contentPadding: EdgeInsets.zero,
+                                      leading: Icon(
+                                        Icons.auto_awesome_rounded,
+                                        size: 18,
+                                        color: theme.primary,
+                                      ),
+                                      title: Text(
+                                        (s['name'] ?? 'skill').toString(),
+                                        style: TextStyle(
+                                          color: theme.text,
+                                          fontSize: 13,
+                                          fontWeight: FontWeight.w600,
+                                        ),
+                                      ),
+                                      subtitle: Text(
+                                        (s['description'] ??
+                                                s['shortDescription'] ??
+                                                '')
+                                            .toString(),
+                                        maxLines: 2,
+                                        overflow: TextOverflow.ellipsis,
+                                        style: TextStyle(
+                                          color: theme.textMuted,
+                                          fontSize: 12,
+                                        ),
+                                      ),
+                                      trailing: Text(
+                                        (s['scope'] ?? '').toString(),
+                                        style: TextStyle(
+                                          color: theme.textMuted,
+                                          fontSize: 11,
+                                        ),
+                                      ),
+                                    ),
+                                  for (final e in errors)
+                                    Padding(
+                                      padding: const EdgeInsets.only(top: 6),
+                                      child: Text(
+                                        'Error: ${(e['message'] ?? '').toString()}',
+                                        style: TextStyle(
+                                          color: theme.error,
+                                          fontSize: 12,
+                                        ),
+                                      ),
+                                    ),
+                                ],
+                              ),
+                            );
+                          },
+                        ),
+                      ),
+                  ],
+                );
+              },
+            ),
+          ),
+        );
+      },
+    );
+  }
+
+  void _showCodexMcpSheet() {
+    final theme = OpenCodeTheme.of(context);
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (_) {
+        return SafeArea(
+          child: Container(
+            decoration: BoxDecoration(
+              color: theme.backgroundPanel,
+              borderRadius: const BorderRadius.vertical(
+                top: Radius.circular(18),
+              ),
+              border: Border.all(
+                color: theme.borderSubtle.withValues(alpha: 0.2),
+              ),
+            ),
+            padding: const EdgeInsets.fromLTRB(16, 16, 16, 20),
+            child: FutureBuilder<List<Map<String, dynamic>>>(
+              future: ref.read(bridgeServiceProvider).cxListMcpServerStatus(),
+              builder: (context, snapshot) {
+                final loading =
+                    snapshot.connectionState == ConnectionState.waiting;
+                final servers = snapshot.data ?? const <Map<String, dynamic>>[];
+
+                return Column(
+                  mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Row(
+                      children: [
+                        Expanded(
+                          child: Text(
+                            'MCP servers',
+                            style: TextStyle(
+                              color: theme.text,
+                              fontSize: 16,
+                              fontWeight: FontWeight.w700,
+                            ),
+                          ),
+                        ),
+                        IconButton(
+                          onPressed: () => Navigator.pop(context),
+                          icon: Icon(
+                            Icons.close_rounded,
+                            color: theme.textMuted,
+                          ),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 8),
+                    if (loading)
+                      const Padding(
+                        padding: EdgeInsets.symmetric(vertical: 24),
+                        child: Center(child: CircularProgressIndicator()),
+                      )
+                    else if (snapshot.hasError)
+                      Padding(
+                        padding: const EdgeInsets.symmetric(vertical: 16),
+                        child: Text(
+                          'Failed to load MCP servers: ${snapshot.error}',
+                          style: TextStyle(
+                            color: theme.textMuted,
+                            fontSize: 12,
+                          ),
+                        ),
+                      )
+                    else if (servers.isEmpty)
+                      Padding(
+                        padding: const EdgeInsets.symmetric(vertical: 16),
+                        child: Text(
+                          'No MCP servers configured.',
+                          style: TextStyle(
+                            color: theme.textMuted,
+                            fontSize: 13,
+                          ),
+                        ),
+                      )
+                    else
+                      Flexible(
+                        child: ListView.separated(
+                          shrinkWrap: true,
+                          itemCount: servers.length,
+                          separatorBuilder: (_, __) => Divider(
+                            color: theme.borderSubtle.withValues(alpha: 0.35),
+                          ),
+                          itemBuilder: (context, index) {
+                            final s = servers[index];
+                            final name = (s['name'] ?? '').toString();
+                            final auth = (s['authStatus'] ?? '').toString();
+                            final tools = (s['tools'] is Map)
+                                ? (s['tools'] as Map).length
+                                : (s['tools'] as List?)?.length ?? 0;
+                            final resources =
+                                (s['resources'] as List?)?.length ?? 0;
+                            final templates =
+                                (s['resourceTemplates'] as List?)?.length ?? 0;
+
+                            final needsLogin =
+                                auth.toLowerCase().contains('not') ||
+                                auth.toLowerCase().contains('oauth');
+
+                            return ListTile(
+                              contentPadding: EdgeInsets.zero,
+                              leading: Icon(
+                                Icons.hub_rounded,
+                                color: theme.accent,
+                                size: 18,
+                              ),
+                              title: Text(
+                                name.isEmpty ? 'server' : name,
+                                style: TextStyle(
+                                  color: theme.text,
+                                  fontSize: 13,
+                                  fontWeight: FontWeight.w600,
+                                ),
+                              ),
+                              subtitle: Text(
+                                '$auth • $tools tools • $resources resources • $templates templates',
+                                style: TextStyle(
+                                  color: theme.textMuted,
+                                  fontSize: 12,
+                                ),
+                              ),
+                              trailing: needsLogin
+                                  ? TextButton(
+                                      onPressed: name.isEmpty
+                                          ? null
+                                          : () async {
+                                              final bridge = ref.read(
+                                                bridgeServiceProvider,
+                                              );
+                                              final url = await bridge
+                                                  .cxMcpOauthLogin(name: name);
+                                              if (url == null || url.isEmpty)
+                                                return;
+                                              final uri = Uri.tryParse(url);
+                                              if (uri == null) return;
+                                              await launchUrl(
+                                                uri,
+                                                mode: LaunchMode
+                                                    .externalApplication,
+                                              );
+                                            },
+                                      child: const Text('Login'),
+                                    )
+                                  : null,
+                            );
+                          },
+                        ),
+                      ),
+                  ],
+                );
+              },
+            ),
+          ),
+        );
+      },
+    );
+  }
+
+  void _showCodexConfigSheet() {
+    final theme = OpenCodeTheme.of(context);
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (_) {
+        return SafeArea(
+          child: Container(
+            decoration: BoxDecoration(
+              color: theme.backgroundPanel,
+              borderRadius: const BorderRadius.vertical(
+                top: Radius.circular(18),
+              ),
+              border: Border.all(
+                color: theme.borderSubtle.withValues(alpha: 0.2),
+              ),
+            ),
+            padding: const EdgeInsets.fromLTRB(16, 16, 16, 20),
+            child: FutureBuilder<Map<String, dynamic>>(
+              future: ref.read(bridgeServiceProvider).cxReadConfig(),
+              builder: (context, snapshot) {
+                final loading =
+                    snapshot.connectionState == ConnectionState.waiting;
+                final config = snapshot.data ?? const <String, dynamic>{};
+                final configJson = const JsonEncoder.withIndent(
+                  '  ',
+                ).convert(config);
+
+                return Column(
+                  mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Row(
+                      children: [
+                        Expanded(
+                          child: Text(
+                            'Codex config',
+                            style: TextStyle(
+                              color: theme.text,
+                              fontSize: 16,
+                              fontWeight: FontWeight.w700,
+                            ),
+                          ),
+                        ),
+                        IconButton(
+                          onPressed: () => Navigator.pop(context),
+                          icon: Icon(
+                            Icons.close_rounded,
+                            color: theme.textMuted,
+                          ),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 8),
+                    if (loading)
+                      const Padding(
+                        padding: EdgeInsets.symmetric(vertical: 24),
+                        child: Center(child: CircularProgressIndicator()),
+                      )
+                    else if (snapshot.hasError)
+                      Padding(
+                        padding: const EdgeInsets.symmetric(vertical: 16),
+                        child: Text(
+                          'Failed to read config: ${snapshot.error}',
+                          style: TextStyle(
+                            color: theme.textMuted,
+                            fontSize: 12,
+                          ),
+                        ),
+                      )
+                    else
+                      Flexible(
+                        child: SingleChildScrollView(
+                          child: SelectableText(
+                            configJson,
+                            style: TextStyle(
+                              fontFamily: 'monospace',
+                              color: theme.textMuted,
+                              fontSize: 11,
+                            ),
+                          ),
+                        ),
+                      ),
+                  ],
+                );
+              },
+            ),
+          ),
+        );
+      },
+    );
+  }
+
+  Future<void> _startCodexReview() async {
+    final chatState = ref.read(chatSessionProvider);
+    final cwd = chatState.cxCwd ?? widget.cxThread?.cwd ?? widget.cxDraftCwd;
+    if (cwd == null || cwd.isEmpty) return;
+    final settings = ref.read(codexSettingsProvider);
+
+    final sandboxPolicy = switch (settings.sandboxMode) {
+      CodexSandboxMode.readOnly => const <String, dynamic>{'type': 'readOnly'},
+      CodexSandboxMode.dangerFullAccess => const <String, dynamic>{
+        'type': 'dangerFullAccess',
+      },
+      CodexSandboxMode.workspaceWrite => <String, dynamic>{
+        'type': 'workspaceWrite',
+        'writableRoots': [cwd],
+        'networkAccess': settings.networkAccessEnabled,
+      },
+    };
+
+    final config = <String, dynamic>{
+      'features.web_search_request': settings.webSearchEnabled,
+      'features.skills': settings.skillsEnabled,
+      'model_reasoning_effort': settings.reasoningEffort.wireValue,
+      'model_reasoning_summary': settings.reasoningSummary.wireValue,
+      if (settings.sandboxMode == CodexSandboxMode.workspaceWrite)
+        'sandbox_workspace_write.network_access': settings.networkAccessEnabled,
+    };
+
+    ref.read(chatSessionProvider.notifier).appendUserMessage('/review');
+    ref.read(chatSessionProvider.notifier).setCodexStreaming(true);
+
+    await ref
+        .read(bridgeServiceProvider)
+        .cxStartReview(
+          threadId: chatState.cxThreadId,
+          cwd: cwd,
+          delivery: 'inline',
+          target: const {'type': 'uncommittedChanges'},
+          model: chatState.cxModel,
+          approvalPolicy: settings.approvalPolicy.wireValue,
+          sandbox: settings.sandboxMode.threadWireValue,
+          sandboxPolicy: sandboxPolicy,
+          config: config,
+        );
+  }
+
+  void _showCodexModelSheet() {
+    final theme = OpenCodeTheme.of(context);
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (_) {
+        return SafeArea(
+          child: Container(
+            decoration: BoxDecoration(
+              color: theme.backgroundPanel,
+              borderRadius: const BorderRadius.vertical(
+                top: Radius.circular(18),
+              ),
+              border: Border.all(
+                color: theme.borderSubtle.withValues(alpha: 0.2),
+              ),
+            ),
+            padding: const EdgeInsets.fromLTRB(16, 16, 16, 20),
+            child: FutureBuilder<List<Map<String, dynamic>>>(
+              future: ref.read(bridgeServiceProvider).cxListModels(),
+              builder: (context, snapshot) {
+                final models = snapshot.data ?? const <Map<String, dynamic>>[];
+                final loading =
+                    snapshot.connectionState == ConnectionState.waiting;
+                final chatState = ref.read(chatSessionProvider);
+                final current = chatState.cxModel;
+
+                return Column(
+                  mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Row(
+                      children: [
+                        Expanded(
+                          child: Text(
+                            'Codex model',
+                            style: TextStyle(
+                              color: theme.text,
+                              fontSize: 16,
+                              fontWeight: FontWeight.w700,
+                            ),
+                          ),
+                        ),
+                        IconButton(
+                          onPressed: () => Navigator.pop(context),
+                          icon: Icon(
+                            Icons.close_rounded,
+                            color: theme.textMuted,
+                          ),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 8),
+                    if (loading)
+                      const Padding(
+                        padding: EdgeInsets.symmetric(vertical: 24),
+                        child: Center(child: CircularProgressIndicator()),
+                      )
+                    else if (snapshot.hasError)
+                      Padding(
+                        padding: const EdgeInsets.symmetric(vertical: 16),
+                        child: Text(
+                          'Failed to load models: ${snapshot.error}',
+                          style: TextStyle(
+                            color: theme.textMuted,
+                            fontSize: 12,
+                          ),
+                        ),
+                      )
+                    else
+                      Flexible(
+                        child: ListView.separated(
+                          shrinkWrap: true,
+                          itemCount: models.length,
+                          separatorBuilder: (_, __) => Divider(
+                            color: theme.borderSubtle.withValues(alpha: 0.35),
+                          ),
+                          itemBuilder: (context, index) {
+                            final m = models[index];
+                            final model = (m['model'] ?? m['id'] ?? '')
+                                .toString();
+                            final display =
+                                (m['displayName'] ?? m['display_name'] ?? model)
+                                    .toString();
+                            final desc = (m['description'] ?? '').toString();
+                            final isDefault =
+                                m['isDefault'] == true ||
+                                m['is_default'] == true;
+                            final selected =
+                                current == model ||
+                                (current == null && isDefault);
+
+                            return ListTile(
+                              contentPadding: EdgeInsets.zero,
+                              onTap: () {
+                                ref
+                                    .read(chatSessionProvider.notifier)
+                                    .setCodexModel(model);
+                                Navigator.pop(context);
+                              },
+                              leading: Icon(
+                                selected
+                                    ? Icons.check_circle_rounded
+                                    : Icons.circle_outlined,
+                                color: selected
+                                    ? theme.primary
+                                    : theme.textMuted,
+                              ),
+                              title: Text(
+                                display,
+                                style: TextStyle(
+                                  color: theme.text,
+                                  fontWeight: FontWeight.w600,
+                                ),
+                              ),
+                              subtitle: Text(
+                                desc.isEmpty ? model : '$model\n$desc',
+                                maxLines: 2,
+                                overflow: TextOverflow.ellipsis,
+                                style: TextStyle(
+                                  color: theme.textMuted,
+                                  fontSize: 12,
+                                ),
+                              ),
+                            );
+                          },
+                        ),
+                      ),
+                  ],
+                );
+              },
+            ),
+          ),
+        );
+      },
+    );
   }
 
   Future<String?> _promptCustomClaudeModel() async {
@@ -4453,39 +6206,52 @@ class _ChatScreenState extends ConsumerState<ChatScreen>
             child: _FloatingHeader(
               projectName: widget.projectName,
               isConnected: connection.isConnected,
-              currentModel: widget.isClaudeCode
-                  ? null
-                  : ref.watch(selectionProvider).model,
+              currentModel: widget.isOpenCode
+                  ? ref.watch(selectionProvider).model
+                  : null,
               rttMs: connection.rttMs,
               onBack: () => Navigator.of(context).pop(),
-              onModelTap: widget.isClaudeCode
-                  ? null
-                  : () => _showModelSelector(context),
+              onModelTap: widget.isOpenCode
+                  ? () => _showModelSelector(context)
+                  : null,
               onMenu: widget.isClaudeCode
                   ? (value) => _handleClaudeCodeMenuAction(value)
-                  : (value) => _handleMenuActionWithMessages(value, messages),
+                  : widget.isCodex
+                  ? (value) => _handleCodexMenuAction(value)
+                  : widget.isOpenCode
+                  ? (value) => _handleMenuActionWithMessages(value, messages)
+                  : null,
               onOpenSidebar: () => Scaffold.of(context).openEndDrawer(),
               currentAgent: _selectedAgent,
-              agents: widget.isClaudeCode ? [] : _agents,
-              onAgentChanged: widget.isClaudeCode
-                  ? null
-                  : (agent) => setState(() => _selectedAgent = agent),
+              agents: widget.isOpenCode ? _agents : [],
+              onAgentChanged: widget.isOpenCode
+                  ? (agent) => setState(() => _selectedAgent = agent)
+                  : null,
               vcsInfo: _vcsInfo,
-              isSessionShared: widget.isClaudeCode
-                  ? false
-                  : widget.session.isShared,
+              isSessionShared: widget.isOpenCode
+                  ? widget.session.isShared
+                  : false,
               isCompacting: isCompacting,
               sessionStatus: sessionStatus,
               isStreaming: widget.isClaudeCode
                   ? ccIsStreaming
+                  : widget.isCodex
+                  ? ref.watch(
+                      chatSessionProvider.select((s) => s.cxIsStreaming),
+                    )
                   : _hasStreamingMessage(messages),
               isClaudeCode: widget.isClaudeCode,
-              ccModel:
-                  ref.watch(ccConfigProvider).valueOrNull?.model ??
-                  ccModel ??
-                  ccInit?.model ??
-                  widget.ccSession?.model ??
-                  widget.ccDraftModel,
+              isCodex: widget.isCodex,
+              ccModel: widget.isClaudeCode
+                  ? (ref.watch(ccConfigProvider).valueOrNull?.model ??
+                        ccModel ??
+                        ccInit?.model ??
+                        widget.ccSession?.model ??
+                        widget.ccDraftModel)
+                  : null,
+              codexModel: widget.isCodex
+                  ? ref.watch(chatSessionProvider.select((s) => s.cxModel))
+                  : null,
             ),
           ),
 
@@ -4931,6 +6697,13 @@ class _ChatScreenState extends ConsumerState<ChatScreen>
                   bridge.ccAbort(sid);
                 }
                 ref.read(chatSessionProvider.notifier).setCCStreaming(false);
+              } else if (widget.isCodex) {
+                final chatState = ref.read(chatSessionProvider);
+                final tid = chatState.cxThreadId;
+                if (tid != null && tid.isNotEmpty) {
+                  bridge.cxAbort(threadId: tid);
+                }
+                ref.read(chatSessionProvider.notifier).setCodexStreaming(false);
               } else {
                 bridge.abortSession(widget.session.id);
               }
@@ -5199,6 +6972,8 @@ class _ChatScreenState extends ConsumerState<ChatScreen>
     // Check for streaming state (different for CC vs OC)
     if (widget.isClaudeCode) {
       if (chatState.ccIsStreaming) return;
+    } else if (widget.isCodex) {
+      if (chatState.cxIsStreaming) return;
     } else {
       if (_hasStreamingMessage(chatState.messages)) return;
     }
@@ -5266,6 +7041,427 @@ class _ChatScreenState extends ConsumerState<ChatScreen>
         activeSubagent: activeSubagent,
         fileAttachments: hasAttachments ? _attachedFiles : null,
       );
+      _controller.clear();
+      setState(() => _attachedFiles.clear());
+      _userHasScrolledUp = false;
+      _scrollToBottom();
+      return;
+    }
+
+    // Codex mode
+    if (widget.isCodex) {
+      final cwd = chatState.cxCwd ?? widget.cxThread?.cwd ?? widget.cxDraftCwd;
+      if (cwd == null || cwd.isEmpty) return;
+      final codexSettings = ref.read(codexSettingsProvider);
+
+      // Basic local slash commands (client-side) for Codex draft state
+      if (text.startsWith('/model ')) {
+        final nextModel = text.substring('/model '.length).trim();
+        if (nextModel.isNotEmpty) {
+          chat.appendUserMessage(text);
+          chat.setCodexModel(nextModel);
+          _controller.clear();
+          _userHasScrolledUp = false;
+          _scrollToBottom();
+        }
+        return;
+      }
+
+      if (text.startsWith('/approvals')) {
+        final arg = text.replaceFirst('/approvals', '').trim().toLowerCase();
+        final notifier = ref.read(codexSettingsProvider.notifier);
+        final next = switch (arg) {
+          'untrusted' ||
+          'unless-trusted' ||
+          'unlessTrusted' => CodexApprovalPolicy.unlessTrusted,
+          'on-failure' ||
+          'onfailure' ||
+          'onFailure' => CodexApprovalPolicy.onFailure,
+          'never' => CodexApprovalPolicy.never,
+          'on-request' ||
+          'onrequest' ||
+          'onRequest' ||
+          '' => CodexApprovalPolicy.onRequest,
+          _ => CodexApprovalPolicy.onRequest,
+        };
+        chat.appendUserMessage(text);
+        notifier.setApprovalPolicy(next);
+        _controller.clear();
+        _userHasScrolledUp = false;
+        _scrollToBottom();
+        return;
+      }
+
+      if (text.startsWith('/sandbox')) {
+        final arg = text.replaceFirst('/sandbox', '').trim().toLowerCase();
+        final notifier = ref.read(codexSettingsProvider.notifier);
+        final next = switch (arg) {
+          'read-only' || 'readonly' || 'readOnly' => CodexSandboxMode.readOnly,
+          'workspace-write' ||
+          'workspacewrite' ||
+          'workspaceWrite' => CodexSandboxMode.workspaceWrite,
+          'danger-full-access' ||
+          'dangerfullaccess' ||
+          'dangerFullAccess' => CodexSandboxMode.dangerFullAccess,
+          _ => CodexSandboxMode.readOnly,
+        };
+        chat.appendUserMessage(text);
+        notifier.setSandboxMode(next);
+        _controller.clear();
+        _userHasScrolledUp = false;
+        _scrollToBottom();
+        return;
+      }
+
+      if (text.startsWith('/effort')) {
+        final arg = text.replaceFirst('/effort', '').trim().toLowerCase();
+        final notifier = ref.read(codexSettingsProvider.notifier);
+        final next = switch (arg) {
+          'minimal' => CodexReasoningEffort.minimal,
+          'low' => CodexReasoningEffort.low,
+          'high' => CodexReasoningEffort.high,
+          'xhigh' => CodexReasoningEffort.xhigh,
+          'medium' || '' => CodexReasoningEffort.medium,
+          _ => CodexReasoningEffort.medium,
+        };
+        chat.appendUserMessage(text);
+        notifier.setReasoningEffort(next);
+        _controller.clear();
+        _userHasScrolledUp = false;
+        _scrollToBottom();
+        return;
+      }
+
+      if (text.startsWith('/summary')) {
+        final arg = text.replaceFirst('/summary', '').trim().toLowerCase();
+        final notifier = ref.read(codexSettingsProvider.notifier);
+        final next = switch (arg) {
+          'concise' => CodexReasoningSummary.concise,
+          'detailed' => CodexReasoningSummary.detailed,
+          'none' => CodexReasoningSummary.none,
+          'auto' || '' => CodexReasoningSummary.auto,
+          _ => CodexReasoningSummary.auto,
+        };
+        chat.appendUserMessage(text);
+        notifier.setReasoningSummary(next);
+        _controller.clear();
+        _userHasScrolledUp = false;
+        _scrollToBottom();
+        return;
+      }
+
+      if (text.startsWith('/websearch')) {
+        final arg = text.replaceFirst('/websearch', '').trim().toLowerCase();
+        final enabled = arg == 'on' || arg == 'true' || arg == '1';
+        chat.appendUserMessage(text);
+        ref.read(codexSettingsProvider.notifier).setWebSearchEnabled(enabled);
+        _controller.clear();
+        _userHasScrolledUp = false;
+        _scrollToBottom();
+        return;
+      }
+
+      if (text.startsWith('/skills')) {
+        final arg = text.replaceFirst('/skills', '').trim().toLowerCase();
+        final enabled = arg == 'on' || arg == 'true' || arg == '1';
+        chat.appendUserMessage(text);
+        ref.read(codexSettingsProvider.notifier).setSkillsEnabled(enabled);
+        _controller.clear();
+        _userHasScrolledUp = false;
+        _scrollToBottom();
+        return;
+      }
+
+      if (text.startsWith('/review')) {
+        _controller.clear();
+        _userHasScrolledUp = false;
+        _scrollToBottom();
+        unawaited(_startCodexReview());
+        return;
+      }
+
+      if (text.startsWith('/diff')) {
+        chat.appendUserMessage(text);
+        final diffs = ref.read(chatSessionProvider).sessionDiffs;
+        if (diffs.isEmpty) {
+          chat.appendLocalAssistantMessage(
+            'No diff reported for this thread yet.',
+          );
+        } else {
+          WidgetsBinding.instance.addPostFrameCallback((_) {
+            if (!mounted) return;
+            _openDiffView(diffs.first);
+          });
+        }
+        _controller.clear();
+        _userHasScrolledUp = false;
+        _scrollToBottom();
+        return;
+      }
+
+      if (text.startsWith('/status')) {
+        chat.appendUserMessage(text);
+        final stateNow = ref.read(chatSessionProvider);
+        final tokenUsage = stateNow.cxTokenUsage?.total;
+        final contextWindow = stateNow.cxTokenUsage?.modelContextWindow;
+        final summary = StringBuffer()
+          ..writeln('Codex status')
+          ..writeln('- Thread: ${stateNow.cxThreadId ?? '(new)'}')
+          ..writeln('- CWD: ${stateNow.cxCwd ?? cwd}')
+          ..writeln('- Model: ${stateNow.cxModel ?? 'default'}')
+          ..writeln('- Approvals: ${codexSettings.approvalPolicy.wireValue}')
+          ..writeln(
+            '- Sandbox: ${codexSettings.sandboxMode.threadWireValue}'
+            '${codexSettings.sandboxMode == CodexSandboxMode.workspaceWrite ? ' (network=${codexSettings.networkAccessEnabled})' : ''}',
+          )
+          ..writeln('- Effort: ${codexSettings.reasoningEffort.wireValue}')
+          ..writeln('- Summary: ${codexSettings.reasoningSummary.wireValue}')
+          ..writeln('- Web search: ${codexSettings.webSearchEnabled}')
+          ..writeln('- Skills: ${codexSettings.skillsEnabled}');
+        if (tokenUsage != null) {
+          summary.writeln(
+            '- Tokens: ${tokenUsage.totalTokens} (in ${tokenUsage.inputTokens}, out ${tokenUsage.outputTokens}, cached ${tokenUsage.cachedInputTokens}, reasoning ${tokenUsage.reasoningOutputTokens})',
+          );
+        }
+        if (contextWindow != null) {
+          summary.writeln('- Context window: $contextWindow');
+        }
+        chat.appendLocalAssistantMessage(summary.toString().trim());
+        _controller.clear();
+        _userHasScrolledUp = false;
+        _scrollToBottom();
+        return;
+      }
+
+      if (text.startsWith('/compact')) {
+        chat.appendUserMessage(text);
+        chat.setCodexStreaming(true);
+        bridge.cxChat(
+          threadId: chatState.cxThreadId,
+          cwd: cwd,
+          prompt:
+              'Compact/summarize this thread so far into a short, reusable memory.\n'
+              'Include: goal, constraints, current progress, key decisions, next steps.\n'
+              'Keep it concise and actionable.',
+          model: chatState.cxModel,
+          effort: codexSettings.reasoningEffort.wireValue,
+          summary: codexSettings.reasoningSummary.wireValue,
+          approvalPolicy: codexSettings.approvalPolicy.wireValue,
+          sandbox: codexSettings.sandboxMode.threadWireValue,
+          sandboxPolicy: switch (codexSettings.sandboxMode) {
+            CodexSandboxMode.readOnly => const <String, dynamic>{
+              'type': 'readOnly',
+            },
+            CodexSandboxMode.dangerFullAccess => const <String, dynamic>{
+              'type': 'dangerFullAccess',
+            },
+            CodexSandboxMode.workspaceWrite => <String, dynamic>{
+              'type': 'workspaceWrite',
+              'writableRoots': [cwd],
+              'networkAccess': codexSettings.networkAccessEnabled,
+            },
+          },
+          config: <String, dynamic>{
+            'features.web_search_request': codexSettings.webSearchEnabled,
+            'features.skills': codexSettings.skillsEnabled,
+            'model_reasoning_effort': codexSettings.reasoningEffort.wireValue,
+            'model_reasoning_summary': codexSettings.reasoningSummary.wireValue,
+            if (codexSettings.sandboxMode == CodexSandboxMode.workspaceWrite)
+              'sandbox_workspace_write.network_access':
+                  codexSettings.networkAccessEnabled,
+          },
+        );
+        _controller.clear();
+        _userHasScrolledUp = false;
+        _scrollToBottom();
+        return;
+      }
+
+      if (text.startsWith('/undo')) {
+        final threadId = chatState.cxThreadId;
+        chat.appendUserMessage(text);
+        _controller.clear();
+        _userHasScrolledUp = false;
+        _scrollToBottom();
+        if (threadId == null || threadId.isEmpty) {
+          chat.appendLocalAssistantMessage('No Codex thread yet to undo.');
+        } else {
+          // Run async undo operation
+          () async {
+            try {
+              final reverted = await ref
+                  .read(bridgeServiceProvider)
+                  .cxUndoFiles(threadId: threadId);
+              if (reverted.isEmpty) {
+                chat.appendLocalAssistantMessage('No file changes to undo.');
+              } else {
+                chat.appendLocalAssistantMessage(
+                  'Reverted ${reverted.length} path(s):\n- ${reverted.join('\n- ')}',
+                );
+              }
+            } catch (e) {
+              chat.appendLocalAssistantMessage('Undo failed: $e');
+            }
+          }();
+        }
+        return;
+      }
+
+      if (text.startsWith('/agents')) {
+        chat.appendUserMessage(text);
+        WidgetsBinding.instance.addPostFrameCallback((_) {
+          if (!mounted) return;
+          _showCodexAgentsSheet();
+        });
+        _controller.clear();
+        _userHasScrolledUp = false;
+        _scrollToBottom();
+        return;
+      }
+
+      // /init - Create AGENTS.md with template (like Claude Code's /init)
+      if (text.startsWith('/init')) {
+        chat.appendUserMessage(text);
+        _controller.clear();
+        _userHasScrolledUp = false;
+        _scrollToBottom();
+        () async {
+          try {
+            final agentsData = await bridge.cxReadAgentsMd(cwd);
+            if (agentsData['exists'] == true) {
+              chat.appendLocalAssistantMessage(
+                'AGENTS.md already exists at ${agentsData['path']}.\n'
+                'Use /agents to edit it.',
+              );
+            } else {
+              // Create with template
+              const template = '''# AGENTS.md
+
+## Project Overview
+Describe your project here.
+
+## Build Commands
+- `flutter run` - Run the app
+- `flutter test` - Run tests
+
+## Code Style
+- Follow existing patterns
+- Use meaningful variable names
+
+## Constraints
+- Don't modify generated files
+- Always run tests before committing
+''';
+              final success = await bridge.cxWriteAgentsMd(
+                cwd: cwd,
+                content: template,
+              );
+              if (success) {
+                chat.appendLocalAssistantMessage(
+                  'Created AGENTS.md at ${agentsData['path']}.\n'
+                  'Use /agents to customize it.',
+                );
+              } else {
+                chat.appendLocalAssistantMessage('Failed to create AGENTS.md.');
+              }
+            }
+          } catch (e) {
+            chat.appendLocalAssistantMessage('Error: $e');
+          }
+        }();
+        return;
+      }
+
+      // /mcp - List MCP server status
+      if (text.startsWith('/mcp')) {
+        chat.appendUserMessage(text);
+        _controller.clear();
+        _userHasScrolledUp = false;
+        _scrollToBottom();
+        () async {
+          try {
+            final servers = await bridge.cxListMcpServerStatus();
+            if (servers.isEmpty) {
+              chat.appendLocalAssistantMessage(
+                'No MCP servers configured.\n'
+                'Add servers to ~/.codex/config.toml under [mcp_servers].',
+              );
+            } else {
+              final buf = StringBuffer('MCP Servers:\n');
+              for (final s in servers) {
+                final name = s['name'] ?? 'unknown';
+                final status = s['status'] ?? 'unknown';
+                final icon = status == 'connected' ? '●' : '○';
+                buf.writeln('$icon $name ($status)');
+              }
+              chat.appendLocalAssistantMessage(buf.toString().trim());
+            }
+          } catch (e) {
+            chat.appendLocalAssistantMessage('Error listing MCP servers: $e');
+          }
+        }();
+        return;
+      }
+
+      // Build display message with file attachments (same UX as OpenCode)
+      String displayText = text;
+      if (hasAttachments) {
+        final attachmentLabels = <String>[];
+        int imageCount = 0;
+        for (final f in _attachedFiles) {
+          if (f.isImage) {
+            imageCount++;
+            attachmentLabels.add('[Image $imageCount]');
+          } else {
+            attachmentLabels.add(f.displayPath);
+          }
+        }
+        if (attachmentLabels.isNotEmpty) {
+          displayText = '$text\n${attachmentLabels.join(' ')}';
+        }
+      }
+
+      chat.appendUserMessage(displayText);
+      chat.setCodexStreaming(true);
+
+      final sandboxPolicy = switch (codexSettings.sandboxMode) {
+        CodexSandboxMode.readOnly => const <String, dynamic>{
+          'type': 'readOnly',
+        },
+        CodexSandboxMode.dangerFullAccess => const <String, dynamic>{
+          'type': 'dangerFullAccess',
+        },
+        CodexSandboxMode.workspaceWrite => <String, dynamic>{
+          'type': 'workspaceWrite',
+          'writableRoots': [cwd],
+          'networkAccess': codexSettings.networkAccessEnabled,
+        },
+      };
+
+      final config = <String, dynamic>{
+        'features.web_search_request': codexSettings.webSearchEnabled,
+        'features.skills': codexSettings.skillsEnabled,
+        'model_reasoning_effort': codexSettings.reasoningEffort.wireValue,
+        'model_reasoning_summary': codexSettings.reasoningSummary.wireValue,
+        if (codexSettings.sandboxMode == CodexSandboxMode.workspaceWrite)
+          'sandbox_workspace_write.network_access':
+              codexSettings.networkAccessEnabled,
+      };
+
+      bridge.cxChat(
+        threadId: chatState.cxThreadId,
+        cwd: cwd,
+        prompt: text,
+        model: chatState.cxModel,
+        effort: codexSettings.reasoningEffort.wireValue,
+        summary: codexSettings.reasoningSummary.wireValue,
+        approvalPolicy: codexSettings.approvalPolicy.wireValue,
+        sandbox: codexSettings.sandboxMode.threadWireValue,
+        sandboxPolicy: sandboxPolicy,
+        config: config,
+        fileAttachments: hasAttachments ? _attachedFiles : null,
+      );
+
       _controller.clear();
       setState(() => _attachedFiles.clear());
       _userHasScrolledUp = false;
@@ -5392,6 +7588,8 @@ class _ChatScreenState extends ConsumerState<ChatScreen>
         toolUseId: request.id,
         response: response,
       );
+    } else if (widget.isCodex) {
+      bridge.cxRespondToPermission(requestId: request.id, response: response);
     } else {
       bridge.respondToPermission(
         sessionId: request.sessionId,
@@ -5426,6 +7624,8 @@ class _FloatingHeader extends StatelessWidget {
     this.isStreaming = false,
     this.isClaudeCode = false,
     this.ccModel,
+    this.isCodex = false,
+    this.codexModel,
   });
 
   final String projectName;
@@ -5447,6 +7647,9 @@ class _FloatingHeader extends StatelessWidget {
   // Claude Code support
   final bool isClaudeCode;
   final String? ccModel;
+  // Codex support
+  final bool isCodex;
+  final String? codexModel;
 
   @override
   Widget build(BuildContext context) {
@@ -5732,7 +7935,167 @@ class _FloatingHeader extends StatelessWidget {
                   ],
                 ),
               )
-            else
+            else if (isCodex)
+              _GlassPill(
+                compact: true,
+                constraints: const BoxConstraints(maxWidth: 32, maxHeight: 32),
+                child: PopupMenuButton<String>(
+                  onSelected: (v) => onMenu?.call(v),
+                  icon: Icon(
+                    Icons.more_horiz_rounded,
+                    color: kOnBackground,
+                    size: 18,
+                  ),
+                  splashRadius: 16,
+                  padding: EdgeInsets.zero,
+                  color: kCard,
+                  constraints: const BoxConstraints(
+                    minWidth: 180,
+                    maxWidth: 240,
+                  ),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                  itemBuilder: (context) => [
+                    PopupMenuItem(
+                      value: 'cx_model',
+                      height: 32,
+                      padding: const EdgeInsets.symmetric(horizontal: 12),
+                      child: Row(
+                        children: [
+                          Icon(
+                            Icons.auto_awesome_rounded,
+                            size: 13,
+                            color: theme.primary,
+                          ),
+                          const SizedBox(width: 8),
+                          Expanded(
+                            child: Text(
+                              'Model: ${codexModel ?? 'default'}',
+                              style: TextStyle(
+                                fontSize: 12,
+                                color: theme.primary,
+                                fontWeight: FontWeight.w500,
+                              ),
+                              overflow: TextOverflow.ellipsis,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                    const PopupMenuDivider(),
+                    const PopupMenuItem(
+                      value: 'cx_settings',
+                      height: 36,
+                      child: Row(
+                        children: [
+                          Icon(Icons.tune_rounded, size: 16),
+                          SizedBox(width: 10),
+                          Text('Settings'),
+                        ],
+                      ),
+                    ),
+                    const PopupMenuItem(
+                      value: 'cx_skills',
+                      height: 36,
+                      child: Row(
+                        children: [
+                          Icon(Icons.auto_awesome_rounded, size: 16),
+                          SizedBox(width: 10),
+                          Text('Skills'),
+                        ],
+                      ),
+                    ),
+                    const PopupMenuItem(
+                      value: 'cx_mcp',
+                      height: 36,
+                      child: Row(
+                        children: [
+                          Icon(Icons.hub_rounded, size: 16),
+                          SizedBox(width: 10),
+                          Text('MCP servers'),
+                        ],
+                      ),
+                    ),
+                    const PopupMenuItem(
+                      value: 'cx_auth',
+                      height: 36,
+                      child: Row(
+                        children: [
+                          Icon(Icons.verified_user_rounded, size: 16),
+                          SizedBox(width: 10),
+                          Text('Auth'),
+                        ],
+                      ),
+                    ),
+                    const PopupMenuItem(
+                      value: 'cx_agents',
+                      height: 36,
+                      child: Row(
+                        children: [
+                          Icon(Icons.description_outlined, size: 16),
+                          SizedBox(width: 10),
+                          Text('AGENTS.md'),
+                        ],
+                      ),
+                    ),
+                    const PopupMenuItem(
+                      value: 'cx_review',
+                      height: 36,
+                      child: Row(
+                        children: [
+                          Icon(Icons.rate_review_rounded, size: 16),
+                          SizedBox(width: 10),
+                          Text('Review'),
+                        ],
+                      ),
+                    ),
+                    const PopupMenuItem(
+                      value: 'cx_config',
+                      height: 36,
+                      child: Row(
+                        children: [
+                          Icon(Icons.toc_rounded, size: 16),
+                          SizedBox(width: 10),
+                          Text('Config'),
+                        ],
+                      ),
+                    ),
+                    const PopupMenuItem(
+                      value: 'cx_feedback',
+                      height: 36,
+                      child: Row(
+                        children: [
+                          Icon(Icons.feedback_outlined, size: 16),
+                          SizedBox(width: 10),
+                          Text('Feedback'),
+                        ],
+                      ),
+                    ),
+                    if (isConnected && rttMs != null)
+                      PopupMenuItem(
+                        enabled: false,
+                        height: 28,
+                        padding: const EdgeInsets.symmetric(horizontal: 12),
+                        child: Row(
+                          children: [
+                            Icon(
+                              Icons.speed_rounded,
+                              size: 13,
+                              color: theme.info,
+                            ),
+                            const SizedBox(width: 8),
+                            Text(
+                              '${rttMs}ms',
+                              style: TextStyle(fontSize: 12, color: kMuted),
+                            ),
+                          ],
+                        ),
+                      ),
+                  ],
+                ),
+              )
+            else if (onMenu != null)
               _GlassPill(
                 compact: true,
                 constraints: const BoxConstraints(maxWidth: 32, maxHeight: 32),

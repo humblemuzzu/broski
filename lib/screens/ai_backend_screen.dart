@@ -6,7 +6,7 @@ import '../providers/agent_type_provider.dart';
 import '../providers/service_providers.dart';
 import '../theme/opencode_theme.dart';
 
-/// Screen for selecting the AI backend (OpenCode vs Claude Code)
+/// Screen for selecting the AI backend (OpenCode vs Claude Code vs Codex)
 class AIBackendScreen extends ConsumerWidget {
   const AIBackendScreen({super.key});
 
@@ -104,6 +104,24 @@ class AIBackendScreen extends ConsumerWidget {
               'Advanced reasoning',
             ],
             onTap: () => _selectAgent(ref, AgentType.claudeCode),
+          ),
+
+          const SizedBox(height: 16),
+
+          // Codex Option
+          _AgentCard(
+            agentType: AgentType.codex,
+            isSelected: currentAgent == AgentType.codex,
+            icon: Icons.terminal_rounded,
+            title: 'Codex',
+            subtitle: 'OpenAI Codex app-server',
+            features: const [
+              'Codex CLI + app-server',
+              'Plans, diffs, approvals',
+              'MCP + web search (opt-in)',
+              'Runs locally on this machine',
+            ],
+            onTap: () => _selectAgent(ref, AgentType.codex),
           ),
 
           const SizedBox(height: 32),

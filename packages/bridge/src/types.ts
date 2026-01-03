@@ -39,7 +39,7 @@ export type Agent = {
 }
 
 // Agent type for multi-agent support
-export type AgentType = 'opencode' | 'claude-code'
+export type AgentType = 'opencode' | 'claude-code' | 'codex'
 
 // Device information for multi-device support
 export type DeviceInfo = {
@@ -161,6 +161,32 @@ export type ClientMessage =
   | { type: 'cc_get_config'; cwd?: string }
   | { type: 'cc_set_config'; config: Partial<ClaudeCodeConfig>; cwd?: string }
   | { type: 'cc_get_active_sessions' }
+  // Codex (OpenAI Codex app-server) messages
+  | { type: 'cx_list_projects' }
+  | { type: 'cx_list_threads'; cwd?: string; cursor?: string | null; limit?: number | null }
+  | { type: 'cx_start_thread'; cwd?: string; model?: string; approvalPolicy?: string; sandbox?: string }
+  | { type: 'cx_resume_thread'; threadId: string }
+  | { type: 'cx_archive_thread'; threadId: string }
+  | { type: 'cx_get_thread_messages'; threadId: string }
+  | { type: 'cx_chat'; threadId?: string; prompt: string; cwd?: string; model?: string; effort?: string; summary?: string; approvalPolicy?: string; sandbox?: string; sandboxPolicy?: any; config?: Record<string, any>; baseInstructions?: string; developerInstructions?: string; fileAttachments?: FileAttachment[] }
+  | { type: 'cx_abort'; threadId: string; turnId?: string }
+  | { type: 'cx_permission_response'; requestId: string; response: PermissionResponse }
+  | { type: 'cx_model_list' }
+  | { type: 'cx_skills_list'; cwd?: string; forceReload?: boolean }
+  | { type: 'cx_config_read' }
+  | { type: 'cx_config_value_write'; keyPath: string; value: any; mergeStrategy?: string }
+  | { type: 'cx_mcp_status_list'; cursor?: string | null; limit?: number | null }
+  | { type: 'cx_mcp_oauth_login'; name: string; scopes?: string[]; timeoutSecs?: number }
+  | { type: 'cx_review_start'; threadId?: string; cwd?: string; delivery?: 'inline' | 'detached'; target?: any; model?: string; approvalPolicy?: string; sandbox?: string; sandboxPolicy?: any; config?: Record<string, any> }
+  | { type: 'cx_account_read'; refreshToken?: boolean }
+  | { type: 'cx_login_start'; loginType: 'chatgpt' | 'apiKey'; apiKey?: string }
+  | { type: 'cx_login_cancel'; loginId: string }
+  | { type: 'cx_logout' }
+  | { type: 'cx_rate_limits_read' }
+  | { type: 'cx_feedback_upload'; classification: string; reason?: string | null; threadId?: string | null; includeLogs?: boolean }
+  | { type: 'cx_undo_files'; threadId: string; count?: number }
+  | { type: 'cx_agents_read'; cwd: string }
+  | { type: 'cx_agents_write'; cwd: string; content: string }
   // Claude Code File Checkpointing (Undo/Revert)
   | { type: 'cc_rewind_checkpoint'; sessionId: string; checkpointUuid: string; cwd: string }
   // Claude Code Custom Tools
@@ -357,6 +383,31 @@ export type ServerMessage =
   | { type: 'cc_config'; data: ClaudeCodeConfig; requestId?: string }
   | { type: 'cc_config_updated'; data: ClaudeCodeConfig; requestId?: string }
   | { type: 'cc_stream'; data: ClaudeCodeStreamMessage; sessionId: string }
+  // Codex (OpenAI Codex app-server)
+  | { type: 'cx_global'; data: { method: string; params?: any }; requestId?: string }
+  | { type: 'cx_projects'; data: ProjectSummary[]; requestId?: string }
+  | { type: 'cx_threads'; data: CodexThread[]; nextCursor?: string | null; requestId?: string }
+  | { type: 'cx_models'; data: any; nextCursor?: string | null; requestId?: string }
+  | { type: 'cx_thread'; data: CodexThread; requestId?: string }
+  | { type: 'cx_thread_created'; data: CodexThread; requestId?: string }
+  | { type: 'cx_thread_archived'; data: boolean; threadId: string; requestId?: string }
+  | { type: 'cx_thread_messages'; data: CodexTranscriptMessage[]; threadId: string; requestId?: string }
+  | { type: 'cx_skills'; data: any; requestId?: string }
+  | { type: 'cx_config'; data: any; requestId?: string }
+  | { type: 'cx_config_written'; data: any; requestId?: string }
+  | { type: 'cx_mcp_status'; data: any; nextCursor?: string | null; requestId?: string }
+  | { type: 'cx_mcp_oauth'; data: any; requestId?: string }
+  | { type: 'cx_review_started'; data: { threadId: string; reviewThreadId: string; turnId: string }; requestId?: string }
+  | { type: 'cx_account'; data: any; requestId?: string }
+  | { type: 'cx_login_started'; data: any; requestId?: string }
+  | { type: 'cx_login_canceled'; data: any; requestId?: string }
+  | { type: 'cx_logged_out'; data: any; requestId?: string }
+  | { type: 'cx_rate_limits'; data: any; requestId?: string }
+  | { type: 'cx_feedback_uploaded'; data: any; requestId?: string }
+  | { type: 'cx_undo_result'; data: { ok: boolean; revertedPaths: string[]; error?: string }; requestId?: string }
+  | { type: 'cx_agents'; data: { exists: boolean; path: string; content: string }; requestId?: string }
+  | { type: 'cx_agents_written'; data: { ok: boolean; path: string }; requestId?: string }
+  | { type: 'cx_stream'; data: CodexStreamMessage; threadId: string }
   // Claude Code Custom Tools
   | { type: 'cc_custom_tools'; data: ClaudeCodeCustomTool[]; requestId?: string }
   | { type: 'cc_custom_tool'; data: ClaudeCodeCustomTool | null; requestId?: string }
@@ -725,6 +776,54 @@ export type ClaudeCodeTranscriptMessage = {
   toolCalls?: ClaudeCodeTranscriptToolCall[]
   diffs?: ClaudeCodeTranscriptDiff[]
 }
+
+// ============================================================================
+// CODEX (OpenAI Codex app-server) TYPES
+// ============================================================================
+
+export type CodexThread = {
+  id: string
+  preview: string
+  modelProvider?: string
+  createdAt: number // Unix timestamp seconds
+  cwd: string
+  cliVersion?: string
+  source?: string
+  gitInfo?: { branch?: string } | null
+}
+
+export type CodexTranscriptToolCall = {
+  itemId: string
+  type: 'commandExecution' | 'fileChange' | 'mcpToolCall' | 'webSearch' | 'imageView' | 'review'
+  name: string
+  status: 'running' | 'completed' | 'failed' | 'declined'
+  input?: any
+  output?: string
+  metadata?: Record<string, unknown>
+}
+
+export type CodexTranscriptDiff = {
+  file: string
+  diff: string
+  additions: number
+  deletions: number
+  itemId?: string
+}
+
+export type CodexTranscriptMessage = {
+  id: string
+  role: 'user' | 'assistant' | 'system'
+  createdAt: number
+  text: string
+  thinking?: string
+  toolCalls?: CodexTranscriptToolCall[]
+  diffs?: CodexTranscriptDiff[]
+}
+
+export type CodexStreamMessage =
+  | { type: 'notification'; method: string; params: any }
+  | { type: 'request'; requestId: string; method: string; params: any }
+  | { type: 'error'; message: string; code?: string }
 
 // Feature 21: File Attachment (for @ tagging in prompt and image attachments)
 export type FileAttachment = {

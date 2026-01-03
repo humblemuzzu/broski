@@ -5,6 +5,7 @@ import 'package:uuid/uuid.dart';
 
 import '../models/agent.dart';
 import '../models/claude_code.dart';
+import '../models/codex.dart';
 import '../models/command.dart';
 import '../models/connection.dart';
 import '../models/highlight_color.dart';
@@ -35,6 +36,7 @@ class StorageService {
 
   // Prompt accent key
   static const _promptAccentColorKey = 'broski_prompt_accent_color';
+  static const _codexSettingsKey = 'broski_codex_settings';
 
   static const _uuid = Uuid();
 
@@ -56,6 +58,9 @@ class StorageService {
   static const _cachedPtySessionsKey = 'broski_cached_pty_sessions';
   static const _cachedCCSessionsKey = 'broski_cached_cc_sessions';
   static const _cachedCCMessagesPrefix = 'broski_cached_cc_messages_';
+  static const _cachedCodexProjectsKey = 'broski_cached_codex_projects';
+  static const _cachedCodexThreadsKey = 'broski_cached_codex_threads';
+  static const _cachedCodexMessagesPrefix = 'broski_cached_codex_messages_';
   static const _cachedSubagentsKey = 'broski_cached_subagents';
   static const _cachedCustomToolsKey = 'broski_cached_custom_tools';
   static const _cachedPluginsKey = 'broski_cached_plugins';
@@ -108,6 +113,31 @@ class StorageService {
 
   Future<void> saveConnection(ConnectionInfo info) async {
     await _storage.write(key: _connectionKey, value: jsonEncode(info.toJson()));
+  }
+
+  // ============================================================
+  // Codex Settings (app-side defaults; applied programmatically)
+  // ============================================================
+
+  Future<void> saveCodexSettings(CodexSettings settings) async {
+    await _storage.write(key: _codexSettingsKey, value: jsonEncode(settings));
+  }
+
+  Future<CodexSettings?> loadCodexSettings() async {
+    final raw = await _storage.read(key: _codexSettingsKey);
+    if (raw == null) return null;
+    try {
+      final decoded = jsonDecode(raw);
+      if (decoded is Map<String, dynamic>) {
+        return CodexSettings.fromJson(decoded);
+      }
+      if (decoded is Map) {
+        return CodexSettings.fromJson(decoded.cast<String, dynamic>());
+      }
+      return null;
+    } catch (_) {
+      return null;
+    }
   }
 
   Future<ConnectionInfo?> loadConnection() async {
@@ -243,6 +273,36 @@ class StorageService {
     }
   }
 
+  /// Cache Codex projects (derived from Codex thread cwd values)
+  Future<void> cacheCodexProjects(List<ProjectSummary> projects) async {
+    _memoryCache[_cachedCodexProjectsKey] = projects;
+    _updateCacheTimestamp(_cachedCodexProjectsKey);
+
+    final json = jsonEncode(projects.map((p) => _projectToJson(p)).toList());
+    await _storage.write(key: _cachedCodexProjectsKey, value: json);
+  }
+
+  /// Load cached Codex projects
+  Future<List<ProjectSummary>> getCachedCodexProjects() async {
+    final memCached = _memoryCache[_cachedCodexProjectsKey];
+    if (memCached != null && memCached is List<ProjectSummary>) {
+      return memCached;
+    }
+
+    final raw = await _storage.read(key: _cachedCodexProjectsKey);
+    if (raw == null) return [];
+    try {
+      final List<dynamic> list = jsonDecode(raw);
+      final projects = list
+          .map((item) => ProjectSummary.fromJson(item as Map<String, dynamic>))
+          .toList();
+      _memoryCache[_cachedCodexProjectsKey] = projects;
+      return projects;
+    } catch (_) {
+      return [];
+    }
+  }
+
   /// Cache sessions for offline viewing
   /// Uses L1 (memory) + L2 (secure storage) tiered caching
   Future<void> cacheSessions(List<SessionSummary> sessions) async {
@@ -339,8 +399,12 @@ class StorageService {
   Future<bool> hasCachedData() async {
     final projects = await _storage.read(key: _cachedProjectsKey);
     final sessions = await _storage.read(key: _cachedSessionsKey);
+    final codexProjects = await _storage.read(key: _cachedCodexProjectsKey);
+    final codexThreads = await _storage.read(key: _cachedCodexThreadsKey);
     return (projects != null && projects.isNotEmpty) ||
-        (sessions != null && sessions.isNotEmpty);
+        (sessions != null && sessions.isNotEmpty) ||
+        (codexProjects != null && codexProjects.isNotEmpty) ||
+        (codexThreads != null && codexThreads.isNotEmpty);
   }
 
   // ============================================================
@@ -853,6 +917,79 @@ class StorageService {
   /// Get cached Claude Code messages for a session
   Future<List<ChatMessage>> getCachedCCMessages(String sessionId) async {
     final key = '$_cachedCCMessagesPrefix$sessionId';
+
+    final memCached = _memoryCache[key];
+    if (memCached != null && memCached is List<ChatMessage>) {
+      return memCached;
+    }
+
+    final raw = await _storage.read(key: key);
+    if (raw == null) return [];
+    try {
+      final List<dynamic> list = jsonDecode(raw);
+      final messages = list
+          .map((item) => _messageFromJson(item as Map<String, dynamic>))
+          .toList();
+      _memoryCache[key] = messages;
+      return messages;
+    } catch (_) {
+      return [];
+    }
+  }
+
+  // ============================================================
+  // Codex Threads Cache
+  // ============================================================
+
+  Future<void> cacheCodexThreads(List<CodexThread> threads) async {
+    _memoryCache[_cachedCodexThreadsKey] = threads;
+    _updateCacheTimestamp(_cachedCodexThreadsKey);
+
+    final json = jsonEncode(threads.map((t) => t.toJson()).toList());
+    await _storage.write(key: _cachedCodexThreadsKey, value: json);
+  }
+
+  Future<List<CodexThread>> getCachedCodexThreads() async {
+    final memCached = _memoryCache[_cachedCodexThreadsKey];
+    if (memCached != null && memCached is List<CodexThread>) {
+      return memCached;
+    }
+
+    final raw = await _storage.read(key: _cachedCodexThreadsKey);
+    if (raw == null) return [];
+    try {
+      final List<dynamic> list = jsonDecode(raw);
+      final threads = list
+          .map((item) => CodexThread.fromJson(item as Map<String, dynamic>))
+          .toList();
+      _memoryCache[_cachedCodexThreadsKey] = threads;
+      return threads;
+    } catch (_) {
+      return [];
+    }
+  }
+
+  Future<void> cacheCodexThreadMessages(
+    String threadId,
+    List<ChatMessage> messages,
+  ) async {
+    final key = '$_cachedCodexMessagesPrefix$threadId';
+
+    final prunedMessages = messages.length > _maxCachedMessagesPerSession
+        ? messages.sublist(messages.length - _maxCachedMessagesPerSession)
+        : messages;
+
+    _memoryCache[key] = prunedMessages;
+    _updateCacheTimestamp(key);
+
+    final json = jsonEncode(
+      prunedMessages.map((m) => _messageToJson(m)).toList(),
+    );
+    await _storage.write(key: key, value: json);
+  }
+
+  Future<List<ChatMessage>> getCachedCodexMessages(String threadId) async {
+    final key = '$_cachedCodexMessagesPrefix$threadId';
 
     final memCached = _memoryCache[key];
     if (memCached != null && memCached is List<ChatMessage>) {

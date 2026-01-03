@@ -1,12 +1,13 @@
 import type { ServerWebSocket } from 'bun'
-import { mkdir, readdir, readFile, realpath, writeFile } from 'node:fs/promises'
+import { mkdir, readdir, readFile, realpath, rm, stat, writeFile } from 'node:fs/promises'
 import { homedir } from 'node:os'
-import { dirname, resolve, sep } from 'node:path'
+import { basename, dirname, resolve, sep } from 'node:path'
 import { randomBytes, timingSafeEqual } from 'node:crypto'
 import type { OpenCodeConnector } from './connectors/opencode'
-import type { AgentType, ClientMessage, DeviceInfo, FileAttachment, ServerMessage } from './types'
+import type { AgentType, ClientMessage, CodexStreamMessage, CodexThread, CodexTranscriptMessage, DeviceInfo, FileAttachment, PermissionResponse, ServerMessage } from './types'
 import * as claudeCode from './connectors/claude-code'
 import * as fileSearch from './file-search'
+import { CodexAppServerClient, checkCodexAvailable } from './connectors/codex'
 
 const TOKEN_FILE = resolve(homedir(), '.broski', 'token')
 const DEBUG_ARTIFACTS = process.env.BROSKI_DEBUG_ARTIFACTS === '1'
@@ -57,6 +58,187 @@ function structuredPatchToUnifiedDiff(filePath: string, patches: unknown): strin
 
 function safeString(value: unknown): string {
   return typeof value === 'string' ? value : ''
+}
+
+function _countDiffAddsDels(diff: string): { adds: number; dels: number } {
+  let adds = 0
+  let dels = 0
+  for (const line of diff.split('\n')) {
+    if (line.startsWith('+++') || line.startsWith('---')) continue
+    if (line.startsWith('+')) adds++
+    else if (line.startsWith('-')) dels++
+  }
+  return { adds, dels }
+}
+
+function mapCodexThread(thread: any): CodexThread {
+  const gitInfo = thread?.gitInfo && typeof thread.gitInfo === 'object'
+    ? { branch: safeString(thread.gitInfo.branch) || undefined }
+    : null
+  return {
+    id: safeString(thread?.id),
+    preview: safeString(thread?.preview),
+    modelProvider: safeString(thread?.modelProvider) || undefined,
+    createdAt: Number(thread?.createdAt ?? 0) || 0,
+    cwd: safeString(thread?.cwd),
+    cliVersion: safeString(thread?.cliVersion) || undefined,
+    source: safeString(thread?.source) || undefined,
+    gitInfo,
+  }
+}
+
+function buildCodexTranscript(thread: any): CodexTranscriptMessage[] {
+  const baseSec = Number(thread?.createdAt ?? 0) || Math.floor(Date.now() / 1000)
+  const turns = Array.isArray(thread?.turns) ? thread.turns : []
+  const out: CodexTranscriptMessage[] = []
+  let seq = 0
+  let lastAssistant: CodexTranscriptMessage | null = null
+
+  const push = (msg: CodexTranscriptMessage) => {
+    out.push(msg)
+    seq++
+    if (msg.role === 'assistant') lastAssistant = msg
+  }
+
+  const ensureAssistant = (): CodexTranscriptMessage => {
+    if (lastAssistant) return lastAssistant
+    const msg: CodexTranscriptMessage = {
+      id: `assistant_${baseSec}_${seq}`,
+      role: 'assistant',
+      createdAt: baseSec + seq,
+      text: '',
+      toolCalls: [],
+      diffs: [],
+    }
+    push(msg)
+    return msg
+  }
+
+  for (const turn of turns) {
+    const items = Array.isArray(turn?.items) ? turn.items : []
+    for (const item of items) {
+      const type = safeString(item?.type)
+      const id = safeString(item?.id) || `item_${baseSec}_${seq}`
+
+      if (type === 'userMessage') {
+        const content = Array.isArray(item?.content) ? item.content : []
+        const textParts: string[] = []
+        for (const c of content) {
+          if (safeString(c?.type) === 'text') {
+            textParts.push(safeString(c?.text))
+          }
+        }
+        push({
+          id,
+          role: 'user',
+          createdAt: baseSec + seq,
+          text: textParts.filter(Boolean).join('\n\n'),
+        })
+        continue
+      }
+
+      if (type === 'agentMessage') {
+        push({
+          id,
+          role: 'assistant',
+          createdAt: baseSec + seq,
+          text: safeString(item?.text),
+          toolCalls: [],
+          diffs: [],
+        })
+        continue
+      }
+
+      if (type === 'reasoning') {
+        const summary = Array.isArray(item?.summary) ? item.summary.map(safeString).join('\n') : ''
+        const content = Array.isArray(item?.content) ? item.content.map(safeString).join('\n') : ''
+        const thinking = [summary, content].filter((s) => s.trim().length > 0).join('\n')
+        const a = ensureAssistant()
+        a.thinking = `${(a.thinking ?? '').trim()}\n${thinking}`.trim()
+        continue
+      }
+
+      const a = ensureAssistant()
+      a.toolCalls = a.toolCalls ?? []
+      a.diffs = a.diffs ?? []
+
+      if (type === 'commandExecution') {
+        a.toolCalls.push({
+          itemId: id,
+          type: 'commandExecution',
+          name: 'Bash',
+          status: safeString(item?.status).toLowerCase() === 'completed'
+            ? 'completed'
+            : safeString(item?.status).toLowerCase() === 'failed'
+              ? 'failed'
+              : safeString(item?.status).toLowerCase() === 'declined'
+                ? 'declined'
+                : 'running',
+          input: { command: safeString(item?.command), cwd: safeString(item?.cwd) },
+          output: safeString(item?.aggregatedOutput) || undefined,
+        })
+        continue
+      }
+
+      if (type === 'fileChange') {
+        const changes = Array.isArray(item?.changes) ? item.changes : []
+        let unified = ''
+        for (const ch of changes) {
+          const d = safeString(ch?.diff)
+          if (d) unified += `${d.trimEnd()}\n`
+          const file = safeString(ch?.path)
+          if (file && d) {
+            const { adds, dels } = _countDiffAddsDels(d)
+            a.diffs.push({ file, diff: d, additions: adds, deletions: dels, itemId: id })
+          }
+        }
+        a.toolCalls.push({
+          itemId: id,
+          type: 'fileChange',
+          name: 'ApplyPatch',
+          status: safeString(item?.status).toLowerCase() === 'completed'
+            ? 'completed'
+            : safeString(item?.status).toLowerCase() === 'failed'
+              ? 'failed'
+              : safeString(item?.status).toLowerCase() === 'declined'
+                ? 'declined'
+                : 'running',
+          input: { changes },
+          output: unified.trim().length > 0 ? unified.trimEnd() : undefined,
+        })
+        continue
+      }
+
+      if (type === 'mcpToolCall') {
+        a.toolCalls.push({
+          itemId: id,
+          type: 'mcpToolCall',
+          name: `${safeString(item?.server)}.${safeString(item?.tool)}`.replaceAll(/^\./, ''),
+          status: safeString(item?.status).toLowerCase() === 'completed'
+            ? 'completed'
+            : safeString(item?.status).toLowerCase() === 'failed'
+              ? 'failed'
+              : 'running',
+          input: item?.arguments,
+          output: item?.result ? JSON.stringify(item.result) : item?.error ? JSON.stringify(item.error) : undefined,
+        })
+        continue
+      }
+
+      if (type === 'webSearch') {
+        a.toolCalls.push({
+          itemId: id,
+          type: 'webSearch',
+          name: 'WebSearch',
+          status: 'completed',
+          input: { query: safeString(item?.query) },
+        })
+        continue
+      }
+    }
+  }
+
+  return out
 }
 
 // Security: Generate a random auth token
@@ -308,6 +490,17 @@ export function createBridgeServer(options: BridgeServerOptions): BridgeServer {
     string,
     { resolve: (response: 'once' | 'always' | 'reject') => void; timer: Timer }
   >()
+  const cxApprovalWaiters = new Map<
+    string,
+    { resolve: (response: PermissionResponse) => void; timer: Timer }
+  >()
+  const cxThreadOwners = new Map<string, ServerWebSocket<unknown>>()
+  const cxActiveTurns = new Map<string, string>()
+  const cxItemCache = new Map<string, any>() // key: `${threadId}:${turnId}:${itemId}` -> item
+  const cxThreadCwds = new Map<string, string>() // threadId -> absolute cwd
+  const cxFileChangeSnapshots = new Map<string, string>() // `${threadId}:${turnId}:${itemId}` -> manifestPath
+  const cxUndoStackByThread = new Map<string, string[]>() // threadId -> snapshot keys (LIFO)
+  let codexClient: CodexAppServerClient | null = null
   const { opencode, version, logger } = options
   
   let currentAgent: AgentType = options.currentAgent || 'opencode'
@@ -352,6 +545,298 @@ export function createBridgeServer(options: BridgeServerOptions): BridgeServer {
     for (const ws of sockets) {
       ws.send(payload)
     }
+  }
+
+  const ensureUndoStack = (threadId: string) => {
+    const existing = cxUndoStackByThread.get(threadId)
+    if (existing) return existing
+    const created: string[] = []
+    cxUndoStackByThread.set(threadId, created)
+    return created
+  }
+
+  const safeResolveInCwd = (cwd: string, relativePath: string): string => {
+    const abs = resolve(cwd, relativePath)
+    const normalizedCwd = cwd.endsWith(sep) ? cwd : `${cwd}${sep}`
+    if (abs === cwd || abs.startsWith(normalizedCwd)) return abs
+    return resolve(cwd, relativePath.replace(/^\/*/, ''))
+  }
+
+  type FileSnapshotEntry = {
+    path: string
+    kind: 'add' | 'delete' | 'update'
+    movePath?: string | null
+    existed: boolean
+    contentFile?: string | null
+    targetExisted?: boolean
+    targetContentFile?: string | null
+  }
+
+  const snapshotCodexFileChange = async (
+    threadId: string,
+    turnId: string,
+    itemId: string,
+    item: any,
+  ): Promise<void> => {
+    const cwd = cxThreadCwds.get(threadId)
+    if (!cwd) return
+    const changes = Array.isArray(item?.changes) ? item.changes : []
+    if (changes.length === 0) return
+
+    const baseDir = resolve(cwd, '.broski', 'codex-undo', threadId, turnId, itemId)
+    const filesDir = resolve(baseDir, 'files')
+    await mkdir(filesDir, { recursive: true })
+
+    const entries: FileSnapshotEntry[] = []
+    let idx = 0
+
+    for (const c of changes) {
+      const relPath = safeString(c?.path)
+      const kindObj = c?.kind
+      const kindType = safeString(kindObj?.type).toLowerCase()
+      const kind: FileSnapshotEntry['kind'] =
+        kindType === 'add' ? 'add' : kindType === 'delete' ? 'delete' : 'update'
+      const movePathRaw = safeString(kindObj?.movePath)
+      const movePath = movePathRaw ? movePathRaw : null
+
+      const absPath = safeResolveInCwd(cwd, relPath)
+      let existed = false
+      let contentFile: string | null = null
+      try {
+        await stat(absPath)
+        existed = true
+        const buf = await readFile(absPath)
+        const name = `orig_${idx}.bin`
+        await writeFile(resolve(filesDir, name), buf)
+        contentFile = name
+      } catch {
+        existed = false
+      }
+
+      let targetExisted: boolean | undefined
+      let targetContentFile: string | null = null
+      if (movePath) {
+        const targetAbs = safeResolveInCwd(cwd, movePath)
+        try {
+          await stat(targetAbs)
+          targetExisted = true
+          const buf = await readFile(targetAbs)
+          const name = `target_${idx}.bin`
+          await writeFile(resolve(filesDir, name), buf)
+          targetContentFile = name
+        } catch {
+          targetExisted = false
+        }
+      }
+
+      entries.push({
+        path: relPath,
+        kind,
+        movePath,
+        existed,
+        contentFile,
+        ...(movePath ? { targetExisted, targetContentFile } : {}),
+      })
+      idx++
+    }
+
+    const manifest = {
+      threadId,
+      turnId,
+      itemId,
+      cwd,
+      createdAt: Math.floor(Date.now() / 1000),
+      entries,
+    }
+    const manifestPath = resolve(baseDir, 'manifest.json')
+    await writeFile(manifestPath, JSON.stringify(manifest, null, 2), 'utf8')
+
+    const key = `${threadId}:${turnId}:${itemId}`
+    cxFileChangeSnapshots.set(key, manifestPath)
+  }
+
+  const applyCodexUndo = async (threadId: string, key: string): Promise<string[]> => {
+    const manifestPath = cxFileChangeSnapshots.get(key)
+    if (!manifestPath) return []
+    const raw = await readFile(manifestPath, 'utf8')
+    const parsed = JSON.parse(raw) as { cwd: string; entries: FileSnapshotEntry[] }
+    const cwd = parsed.cwd
+    const reverted: string[] = []
+    const filesDir = resolve(dirname(manifestPath), 'files')
+
+    const restoreFile = async (
+      rel: string,
+      existed: boolean,
+      contentFile?: string | null,
+    ) => {
+      const abs = safeResolveInCwd(cwd, rel)
+      if (!existed) {
+        await rm(abs, { force: true })
+        reverted.push(rel)
+        return
+      }
+      if (!contentFile) return
+      const buf = await readFile(resolve(filesDir, contentFile))
+      await mkdir(dirname(abs), { recursive: true })
+      await writeFile(abs, buf)
+      reverted.push(rel)
+    }
+
+    for (const e of parsed.entries) {
+      if (e.kind === 'update' && e.movePath) {
+        await restoreFile(e.movePath, e.targetExisted === true, e.targetContentFile)
+        await restoreFile(e.path, e.existed, e.contentFile)
+      } else {
+        await restoreFile(e.path, e.existed, e.contentFile)
+      }
+    }
+
+    const stack = ensureUndoStack(threadId)
+    const idx = stack.lastIndexOf(key)
+    if (idx >= 0) stack.splice(idx, 1)
+    cxFileChangeSnapshots.delete(key)
+    return reverted
+  }
+
+  const ensureCodexClient = async () => {
+    if (!codexClient) {
+      codexClient = new CodexAppServerClient()
+      codexClient.setHandlers({
+        onNotification: (n) => {
+          const params: any = n.params ?? {}
+          const threadId = safeString(params.threadId ?? params.thread_id ?? params.threadID)
+          const turnId = safeString(params.turnId ?? params.turn_id ?? params.turnID)
+
+          if (n.method === 'thread/started') {
+            const thread = params.thread
+            const id = safeString(thread?.id)
+            const cwd = safeString(thread?.cwd)
+            if (id && cwd) cxThreadCwds.set(id, resolve(cwd))
+          }
+
+          // Cache items for approval requests
+          if (n.method === 'item/started' || n.method === 'item/completed') {
+            const item = params.item
+            const itemId = safeString(item?.id)
+            if (threadId && turnId && itemId) {
+              cxItemCache.set(`${threadId}:${turnId}:${itemId}`, item)
+              if (safeString(item?.type) === 'fileChange' && n.method === 'item/started') {
+                void snapshotCodexFileChange(threadId, turnId, itemId, item).catch(() => {})
+              }
+              if (safeString(item?.type) === 'fileChange' && n.method === 'item/completed') {
+                const status = safeString(item?.status).toLowerCase()
+                const key = `${threadId}:${turnId}:${itemId}`
+                if (status.includes('completed') && cxFileChangeSnapshots.has(key)) {
+                  ensureUndoStack(threadId).push(key)
+                } else {
+                  cxFileChangeSnapshots.delete(key)
+                }
+              }
+            }
+          }
+
+          // Track latest running turn for abort
+          if (n.method === 'turn/started') {
+            const tid = safeString(params.turn?.id)
+            if (threadId && tid) cxActiveTurns.set(threadId, tid)
+          }
+          if (n.method === 'turn/completed') {
+            const tid = safeString(params.turn?.id)
+            if (threadId && tid && cxActiveTurns.get(threadId) === tid) {
+              cxActiveTurns.delete(threadId)
+            }
+          }
+
+          const owner = threadId ? cxThreadOwners.get(threadId) : null
+          if (!owner) {
+            // Some notifications are global (no threadId): auth, rate limits, MCP oauth completion, etc.
+            if (!threadId) {
+              for (const ws of sockets) {
+                send(ws, { type: 'cx_global', data: { method: n.method, params } })
+              }
+            }
+            return
+          }
+
+          send(owner, {
+            type: 'cx_stream',
+            threadId,
+            data: { type: 'notification', method: n.method, params },
+          })
+
+          // Send busy/idle events for background indicators/notifications
+          if (n.method === 'turn/started' && threadId) {
+            send(owner, {
+              type: 'sdk_event',
+              data: {
+                payload: {
+                  type: 'session.status',
+                  properties: { sessionID: threadId, status: { type: 'busy' } },
+                },
+              },
+            })
+          }
+          if (n.method === 'turn/completed' && threadId) {
+            send(owner, {
+              type: 'sdk_event',
+              data: {
+                payload: {
+                  type: 'session.idle',
+                  properties: { sessionID: threadId },
+                },
+              },
+            })
+          }
+        },
+        onServerRequest: async (r) => {
+          const params: any = r.params ?? {}
+          const threadId = safeString(params.threadId ?? params.thread_id ?? params.threadID)
+          const turnId = safeString(params.turnId ?? params.turn_id ?? params.turnID)
+          const itemId = safeString(params.itemId ?? params.item_id ?? params.itemID)
+          const owner = threadId ? cxThreadOwners.get(threadId) : null
+
+          if (!owner) {
+            return { decision: 'Decline' }
+          }
+
+          const cached = threadId && turnId && itemId
+            ? cxItemCache.get(`${threadId}:${turnId}:${itemId}`)
+            : null
+
+          send(owner, {
+            type: 'cx_stream',
+            threadId,
+            data: {
+              type: 'request',
+              requestId: String(r.id),
+              method: r.method,
+              params: { ...params, cachedItem: cached },
+            } satisfies CodexStreamMessage,
+          })
+
+          const response = await new Promise<PermissionResponse>((resolve) => {
+            const key = String(r.id)
+            const timer = setTimeout(() => {
+              cxApprovalWaiters.delete(key)
+              resolve('reject')
+            }, 120_000)
+            cxApprovalWaiters.set(key, { resolve, timer })
+          })
+
+          const decision =
+            response === 'always'
+              ? 'AcceptForSession'
+              : response === 'once'
+                ? 'Accept'
+                : 'Decline'
+
+          return { decision }
+        },
+      })
+    }
+
+    await codexClient.start()
+    return codexClient
   }
 
   const getDeviceInfo = (ws: ServerWebSocket<unknown>): DeviceInfo | null => {
@@ -1293,8 +1778,467 @@ export function createBridgeServer(options: BridgeServerOptions): BridgeServer {
           const disposed = await opencode.disposeInstance(message.projectPath)
           reply({ type: 'instance_disposed', data: disposed })
           break
+      }
+      case 'cx_list_projects': {
+        console.log('[cx_list_projects] Starting...')
+        const client = await ensureCodexClient()
+        console.log('[cx_list_projects] Got Codex client')
+        const byPath = new Map<string, { path: string; name: string; lastOpened: number }>()
+
+        let cursor: string | null = null
+        let pageCount = 0
+        for (;;) {
+          pageCount++
+          console.log(`[cx_list_projects] Fetching page ${pageCount}, cursor: ${cursor}`)
+          const result: any = await client.request('thread/list', {
+            cursor,
+            limit: 200,
+            modelProviders: null,
+          })
+          console.log(`[cx_list_projects] Got page ${pageCount}, items: ${result?.data?.length ?? 0}`)
+          const data = Array.isArray(result?.data) ? result.data : []
+          for (const t of data) {
+            const cwdRaw = safeString(t?.cwd)
+            if (!cwdRaw) continue
+            const path = resolve(cwdRaw)
+            const lastOpened = Number(t?.createdAt ?? 0) || 0
+            const existing = byPath.get(path)
+            if (!existing || lastOpened > existing.lastOpened) {
+              byPath.set(path, {
+                path,
+                name: basename(path) || path,
+                lastOpened,
+              })
+            }
+          }
+          cursor = (result?.nextCursor ?? null) as string | null
+          if (!cursor) break
         }
-        case 'set_agent': {
+
+        const projects = Array.from(byPath.values())
+          .sort((a, b) => (b.lastOpened ?? 0) - (a.lastOpened ?? 0))
+          .map((p) => ({
+            id: p.path,
+            name: p.name,
+            path: p.path,
+            lastOpened: p.lastOpened,
+          }))
+
+        console.log(`[cx_list_projects] Done, found ${projects.length} projects`)
+        reply({ type: 'cx_projects', data: projects })
+        break
+      }
+      case 'cx_list_threads': {
+        console.log('[cx_list_threads] Starting...')
+        const client = await ensureCodexClient()
+        console.log('[cx_list_threads] Got Codex client')
+        const result: any = await client.request('thread/list', {
+          cursor: message.cursor ?? null,
+          limit: message.limit ?? 200,
+          modelProviders: null,
+        })
+        console.log(`[cx_list_threads] Got result, items: ${result?.data?.length ?? 0}`)
+        const data = Array.isArray(result?.data) ? result.data : []
+        const threadsAll = data.map(mapCodexThread)
+        const cwd = message.cwd ? resolve(message.cwd) : null
+        const threads = cwd ? threadsAll.filter((t) => resolve(t.cwd) === cwd) : threadsAll
+        console.log(`[cx_list_threads] Done, filtered to ${threads.length} threads`)
+        reply({ type: 'cx_threads', data: threads, nextCursor: result?.nextCursor ?? null })
+        break
+      }
+      case 'cx_start_thread': {
+        const client = await ensureCodexClient()
+        const result: any = await client.request('thread/start', {
+          cwd: message.cwd ?? null,
+          model: message.model ?? null,
+          approvalPolicy: message.approvalPolicy ?? null,
+          sandbox: message.sandbox ?? null,
+        })
+        const thread = mapCodexThread(result?.thread)
+        if (thread.id && thread.cwd) cxThreadCwds.set(thread.id, resolve(thread.cwd))
+        reply({ type: 'cx_thread_created', data: thread })
+        break
+      }
+      case 'cx_resume_thread': {
+        const client = await ensureCodexClient()
+        const result: any = await client.request('thread/resume', {
+          threadId: message.threadId,
+        })
+        const thread = mapCodexThread(result?.thread)
+        if (thread.id && thread.cwd) cxThreadCwds.set(thread.id, resolve(thread.cwd))
+        reply({ type: 'cx_thread', data: thread })
+        break
+      }
+      case 'cx_archive_thread': {
+        const client = await ensureCodexClient()
+        await client.request('thread/archive', { threadId: message.threadId })
+        reply({ type: 'cx_thread_archived', data: true, threadId: message.threadId })
+        break
+      }
+      case 'cx_get_thread_messages': {
+        const client = await ensureCodexClient()
+        const result: any = await client.request('thread/resume', {
+          threadId: message.threadId,
+        })
+        const transcript = buildCodexTranscript(result?.thread)
+        reply({
+          type: 'cx_thread_messages',
+          data: transcript,
+          threadId: message.threadId,
+        })
+        break
+      }
+      case 'cx_model_list': {
+        const client = await ensureCodexClient()
+        const result: any = await client.request('model/list', {
+          cursor: null,
+          limit: 200,
+        })
+        reply({
+          type: 'cx_models',
+          data: result?.data ?? [],
+          nextCursor: result?.nextCursor ?? null,
+        })
+        break
+      }
+      case 'cx_skills_list': {
+        const client = await ensureCodexClient()
+        const cwds = message.cwd ? [message.cwd] : []
+        const result: any = await client.request('skills/list', {
+          cwds,
+          forceReload: message.forceReload === true,
+        })
+        reply({ type: 'cx_skills', data: result?.data ?? [] })
+        break
+      }
+      case 'cx_config_read': {
+        const client = await ensureCodexClient()
+        const result: any = await client.request('config/read', {
+          includeLayers: false,
+        })
+        reply({ type: 'cx_config', data: result ?? {} })
+        break
+      }
+      case 'cx_config_value_write': {
+        const client = await ensureCodexClient()
+        const mergeStrategyRaw = safeString(message.mergeStrategy)
+        const mergeStrategy =
+          mergeStrategyRaw.toLowerCase() === 'upsert'
+            ? 'Upsert'
+            : mergeStrategyRaw.toLowerCase() === 'replace'
+              ? 'Replace'
+              : 'Replace'
+        const result: any = await client.request('config/value/write', {
+          keyPath: message.keyPath,
+          value: message.value,
+          mergeStrategy,
+          filePath: null,
+          expectedVersion: null,
+        })
+        reply({ type: 'cx_config_written', data: result ?? {} })
+        break
+      }
+      case 'cx_mcp_status_list': {
+        const client = await ensureCodexClient()
+        const result: any = await client.request('mcpServerStatus/list', {
+          cursor: message.cursor ?? null,
+          limit: message.limit ?? 200,
+        })
+        reply({
+          type: 'cx_mcp_status',
+          data: result?.data ?? [],
+          nextCursor: result?.nextCursor ?? null,
+        })
+        break
+      }
+      case 'cx_mcp_oauth_login': {
+        const client = await ensureCodexClient()
+        const result: any = await client.request('mcpServer/oauth/login', {
+          name: message.name,
+          scopes: message.scopes ?? null,
+          timeoutSecs: message.timeoutSecs ?? null,
+        })
+        reply({ type: 'cx_mcp_oauth', data: result ?? {} })
+        break
+      }
+      case 'cx_review_start': {
+        const client = await ensureCodexClient()
+        const cwd = message.cwd ?? process.cwd()
+
+        let threadId = message.threadId
+        if (!threadId) {
+          const startRes: any = await client.request('thread/start', {
+            cwd,
+            model: message.model ?? null,
+            approvalPolicy: message.approvalPolicy ?? null,
+            sandbox: message.sandbox ?? null,
+            config: message.config ?? null,
+          })
+          threadId = safeString(startRes?.thread?.id)
+          if (threadId) {
+            reply({ type: 'cx_thread_created', data: mapCodexThread(startRes.thread) })
+            cxThreadCwds.set(threadId, resolve(cwd))
+          }
+        } else {
+          await client.request('thread/resume', {
+            threadId,
+            model: message.model ?? null,
+            cwd,
+            approvalPolicy: message.approvalPolicy ?? null,
+            sandbox: message.sandbox ?? null,
+            config: message.config ?? null,
+          })
+        }
+
+        if (!threadId) {
+          reply({ type: 'error', message: 'Failed to create/resume Codex thread for review' })
+          break
+        }
+
+        cxThreadOwners.set(threadId, ws)
+
+        const target = message.target ?? { type: 'uncommittedChanges' }
+        const delivery = message.delivery ?? 'inline'
+        const res: any = await client.request('review/start', {
+          threadId,
+          target,
+          delivery,
+        })
+        const reviewThreadId = safeString(res?.reviewThreadId ?? res?.review_thread_id) || threadId
+        const turnId = safeString(res?.turn?.id)
+        if (reviewThreadId) cxThreadOwners.set(reviewThreadId, ws)
+        if (turnId && reviewThreadId) cxActiveTurns.set(reviewThreadId, turnId)
+        reply({
+          type: 'cx_review_started',
+          data: { threadId, reviewThreadId, turnId },
+        })
+        break
+      }
+      case 'cx_account_read': {
+        const client = await ensureCodexClient()
+        const result: any = await client.request('account/read', {
+          refreshToken: message.refreshToken === true,
+        })
+        reply({ type: 'cx_account', data: result ?? {} })
+        break
+      }
+      case 'cx_login_start': {
+        const client = await ensureCodexClient()
+        const loginType = message.loginType
+        const params =
+          loginType === 'apiKey'
+            ? { type: 'apiKey', apiKey: message.apiKey ?? '' }
+            : { type: 'chatgpt' }
+        const result: any = await client.request('account/login/start', params)
+        reply({ type: 'cx_login_started', data: result ?? {} })
+        break
+      }
+      case 'cx_login_cancel': {
+        const client = await ensureCodexClient()
+        const result: any = await client.request('account/login/cancel', {
+          loginId: message.loginId,
+        })
+        reply({ type: 'cx_login_canceled', data: result ?? {} })
+        break
+      }
+      case 'cx_logout': {
+        const client = await ensureCodexClient()
+        const result: any = await client.request('account/logout')
+        reply({ type: 'cx_logged_out', data: result ?? {} })
+        break
+      }
+      case 'cx_rate_limits_read': {
+        const client = await ensureCodexClient()
+        const result: any = await client.request('account/rateLimits/read')
+        reply({ type: 'cx_rate_limits', data: result ?? {} })
+        break
+      }
+      case 'cx_feedback_upload': {
+        const client = await ensureCodexClient()
+        const result: any = await client.request('feedback/upload', {
+          classification: message.classification,
+          reason: message.reason ?? null,
+          threadId: message.threadId ?? null,
+          includeLogs: message.includeLogs === true,
+        })
+        reply({ type: 'cx_feedback_uploaded', data: result ?? {} })
+        break
+      }
+      case 'cx_undo_files': {
+        const threadId = safeString(message.threadId)
+        if (!threadId) {
+          reply({
+            type: 'cx_undo_result',
+            data: { ok: false, revertedPaths: [], error: 'Missing threadId' },
+          })
+          break
+        }
+        const stack = ensureUndoStack(threadId)
+        const count = Math.max(1, Number(message.count ?? 1) || 1)
+        if (stack.length === 0) {
+          reply({ type: 'cx_undo_result', data: { ok: true, revertedPaths: [] } })
+          break
+        }
+        const keys = stack.slice(-count)
+        const revertedAll: string[] = []
+        try {
+          for (const key of keys.reverse()) {
+            const reverted = await applyCodexUndo(threadId, key)
+            revertedAll.push(...reverted)
+          }
+          reply({ type: 'cx_undo_result', data: { ok: true, revertedPaths: revertedAll } })
+        } catch (err: any) {
+          reply({
+            type: 'cx_undo_result',
+            data: {
+              ok: false,
+              revertedPaths: revertedAll,
+              error: err?.message ?? String(err),
+            },
+          })
+        }
+        break
+      }
+      case 'cx_agents_read': {
+        const cwd = resolve(message.cwd)
+        const agentsPath = resolve(cwd, 'AGENTS.md')
+        try {
+          const content = await readFile(agentsPath, 'utf8')
+          reply({
+            type: 'cx_agents',
+            data: { exists: true, path: agentsPath, content },
+          })
+        } catch {
+          reply({
+            type: 'cx_agents',
+            data: { exists: false, path: agentsPath, content: '' },
+          })
+        }
+        break
+      }
+      case 'cx_agents_write': {
+        const cwd = resolve(message.cwd)
+        const agentsPath = resolve(cwd, 'AGENTS.md')
+        try {
+          await writeFile(agentsPath, message.content ?? '', 'utf8')
+          reply({
+            type: 'cx_agents_written',
+            data: { ok: true, path: agentsPath },
+          })
+        } catch {
+          reply({
+            type: 'cx_agents_written',
+            data: { ok: false, path: agentsPath },
+          })
+        }
+        break
+      }
+      case 'cx_chat': {
+        const client = await ensureCodexClient()
+        const cwd = message.cwd ?? process.cwd()
+
+        let threadId = message.threadId
+        if (!threadId) {
+          const startRes: any = await client.request('thread/start', {
+            cwd,
+            model: message.model ?? null,
+            approvalPolicy: message.approvalPolicy ?? null,
+            sandbox: message.sandbox ?? null,
+            config: message.config ?? null,
+            baseInstructions: message.baseInstructions ?? null,
+            developerInstructions: message.developerInstructions ?? null,
+          })
+          threadId = safeString(startRes?.thread?.id)
+          if (threadId) {
+            reply({ type: 'cx_thread_created', data: mapCodexThread(startRes.thread) })
+          }
+        } else {
+          // Ensure we are subscribed to events for this thread.
+          await client.request('thread/resume', {
+            threadId,
+            model: message.model ?? null,
+            cwd,
+            approvalPolicy: message.approvalPolicy ?? null,
+            sandbox: message.sandbox ?? null,
+            config: message.config ?? null,
+            baseInstructions: message.baseInstructions ?? null,
+            developerInstructions: message.developerInstructions ?? null,
+          })
+        }
+
+          if (!threadId) {
+            send(ws, {
+              type: 'cx_stream',
+              threadId: 'unknown',
+              data: { type: 'error', message: 'Failed to create/resume Codex thread' },
+            })
+            break
+          }
+
+          cxThreadOwners.set(threadId, ws)
+          cxThreadCwds.set(threadId, resolve(cwd))
+
+        // Prepare input (text + optional local images written to disk).
+        const input: Array<any> = [{ type: 'text', text: message.prompt }]
+        if (message.fileAttachments && message.fileAttachments.length > 0) {
+          const attachmentsDir = resolve(cwd, '.broski', 'codex-attachments')
+          await mkdir(attachmentsDir, { recursive: true })
+          for (const a of message.fileAttachments) {
+            if (a.base64Data && a.mimeType) {
+              const token = randomBytes(6).toString('hex')
+              const ext = a.mimeType.includes('png')
+                ? '.png'
+                : a.mimeType.includes('webp')
+                  ? '.webp'
+                  : '.jpg'
+              const fileName = `${Date.now()}_${token}${ext}`
+              const outPath = resolve(attachmentsDir, fileName)
+              await writeFile(outPath, Buffer.from(a.base64Data, 'base64'))
+              input.push({ type: 'localImage', path: outPath })
+            } else if (a.path) {
+              // File/directory references via prompt hint
+              const ref = a.path.startsWith('@') ? a.path : `@${a.path}`
+              input[0].text = `${input[0].text}\n\nAttached context (via Broski):\n- ${a.isDirectory ? 'Directory' : 'File'}: ${ref}`
+            }
+          }
+        }
+
+        const turnRes: any = await client.request('turn/start', {
+          threadId,
+          input,
+          cwd,
+          model: message.model ?? null,
+          effort: message.effort ?? null,
+          summary: message.summary ?? null,
+          approvalPolicy: message.approvalPolicy ?? null,
+          sandboxPolicy: message.sandboxPolicy ?? null,
+        })
+
+        const turnId = safeString(turnRes?.turn?.id)
+        if (turnId) cxActiveTurns.set(threadId, turnId)
+        break
+      }
+      case 'cx_abort': {
+        const client = await ensureCodexClient()
+        const turnId = message.turnId ?? cxActiveTurns.get(message.threadId)
+        if (turnId) {
+          await client.request('turn/interrupt', {
+            threadId: message.threadId,
+            turnId,
+          })
+        }
+        break
+      }
+      case 'cx_permission_response': {
+        const waiter = cxApprovalWaiters.get(message.requestId)
+        if (waiter) {
+          clearTimeout(waiter.timer)
+          cxApprovalWaiters.delete(message.requestId)
+          waiter.resolve(message.response)
+        }
+        break
+      }
+      case 'set_agent': {
           currentAgent = message.agent
           log(`Agent switched to: ${currentAgent}`)
           if (currentAgent === 'claude-code') {
@@ -1311,11 +2255,16 @@ export function createBridgeServer(options: BridgeServerOptions): BridgeServer {
               )
             }
           }
+          if (currentAgent === 'codex') {
+            const available = await checkCodexAvailable()
+            log(`[Codex] ${available ? 'OK' : 'MISSING'} (requires 'codex' in PATH)`)
+          }
           break
         }
         case 'get_agents_status': {
           const opencodeRunning = await opencode.isRunning()
           const claudeCodeAvailable = await claudeCode.checkClaudeCodeAvailable()
+          const codexAvailable = await checkCodexAvailable()
           reply({
             type: 'agents_status',
             data: {
@@ -1326,6 +2275,10 @@ export function createBridgeServer(options: BridgeServerOptions): BridgeServer {
               'claude-code': {
                 available: claudeCodeAvailable,
                 authMethod: claudeCodeAvailable ? 'api-key' : undefined,
+              },
+              codex: {
+                available: codexAvailable,
+                authMethod: codexAvailable ? 'cli' : undefined,
               },
             },
           })

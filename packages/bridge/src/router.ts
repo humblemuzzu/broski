@@ -1,6 +1,7 @@
 import type { AgentType, AgentStatusInfo } from './types'
 import * as opencode from './connectors/opencode'
 import * as claudeCode from './connectors/claude-code'
+import { checkCodexAvailable } from './connectors/codex'
 
 export type QueryOptions = {
   agentType: AgentType
@@ -16,6 +17,7 @@ export type QueryOptions = {
 export async function getAgentStatus(): Promise<Record<AgentType, AgentStatusInfo>> {
   const opencodeAvailable = await opencode.checkAvailable()
   const claudeCodeAvailable = await claudeCode.checkClaudeCodeAvailable()
+  const codexAvailable = await checkCodexAvailable()
 
   return {
     opencode: {
@@ -25,6 +27,10 @@ export async function getAgentStatus(): Promise<Record<AgentType, AgentStatusInf
     'claude-code': {
       available: claudeCodeAvailable,
       authMethod: claudeCodeAvailable ? 'api-key' : 'none',
+    },
+    codex: {
+      available: codexAvailable,
+      authMethod: codexAvailable ? 'cli' : 'none',
     },
   }
 }
@@ -84,6 +90,9 @@ export async function abortQuery(agent: AgentType, sessionId: string): Promise<v
       return opencode.abortSession(sessionId)
     case 'claude-code':
       return claudeCode.abortClaudeCode(sessionId)
+    case 'codex':
+      // Codex abort is implemented via turn/interrupt in the bridge server, not here.
+      return
     default:
       throw new Error(`Unknown agent: ${agent}`)
   }

@@ -7,6 +7,7 @@ import '../models/agent_type.dart';
 import '../models/artifact.dart';
 import '../models/artifacts_settings.dart';
 import '../models/claude_code.dart';
+import '../models/codex.dart';
 import '../models/command.dart';
 import '../models/device.dart';
 import '../models/file_attachment.dart';
@@ -1882,6 +1883,505 @@ class BridgeService {
       });
 
   // ============================================================
+  // Codex (OpenAI Codex app-server)
+  // ============================================================
+
+  Stream<CodexStreamMessage> get codexStreamMessages =>
+      _socket.messages.where((m) => m['type'] == 'cx_stream').map((m) {
+        final data = m['data'] as Map<String, dynamic>? ?? {};
+        return CodexStreamMessage.fromJson(data);
+      });
+
+  Stream<Map<String, dynamic>> get codexGlobalMessages =>
+      _socket.messages.where((m) => m['type'] == 'cx_global').map((m) {
+        final data = m['data'];
+        if (data is Map<String, dynamic>) return data;
+        if (data is Map) return data.cast<String, dynamic>();
+        return const <String, dynamic>{};
+      });
+
+  Future<Map<String, dynamic>> cxAccountRead({
+    bool refreshToken = false,
+  }) async {
+    final requestId = _generateRequestId();
+    _socket.send({
+      'type': 'cx_account_read',
+      'requestId': requestId,
+      if (refreshToken) 'refreshToken': true,
+    });
+    final response = await _waitFor('cx_account', requestId: requestId);
+    final data = response['data'];
+    if (data is Map<String, dynamic>) return data;
+    if (data is Map) return data.cast<String, dynamic>();
+    return const {};
+  }
+
+  Future<Map<String, dynamic>> cxLoginStartChatgpt() async {
+    final requestId = _generateRequestId();
+    _socket.send({
+      'type': 'cx_login_start',
+      'requestId': requestId,
+      'loginType': 'chatgpt',
+    });
+    final response = await _waitFor('cx_login_started', requestId: requestId);
+    final data = response['data'];
+    if (data is Map<String, dynamic>) return data;
+    if (data is Map) return data.cast<String, dynamic>();
+    return const {};
+  }
+
+  Future<Map<String, dynamic>> cxLoginStartApiKey(String apiKey) async {
+    final requestId = _generateRequestId();
+    _socket.send({
+      'type': 'cx_login_start',
+      'requestId': requestId,
+      'loginType': 'apiKey',
+      'apiKey': apiKey,
+    });
+    final response = await _waitFor('cx_login_started', requestId: requestId);
+    final data = response['data'];
+    if (data is Map<String, dynamic>) return data;
+    if (data is Map) return data.cast<String, dynamic>();
+    return const {};
+  }
+
+  Future<Map<String, dynamic>> cxLoginCancel(String loginId) async {
+    final requestId = _generateRequestId();
+    _socket.send({
+      'type': 'cx_login_cancel',
+      'requestId': requestId,
+      'loginId': loginId,
+    });
+    final response = await _waitFor('cx_login_canceled', requestId: requestId);
+    final data = response['data'];
+    if (data is Map<String, dynamic>) return data;
+    if (data is Map) return data.cast<String, dynamic>();
+    return const {};
+  }
+
+  Future<Map<String, dynamic>> cxLogout() async {
+    final requestId = _generateRequestId();
+    _socket.send({'type': 'cx_logout', 'requestId': requestId});
+    final response = await _waitFor('cx_logged_out', requestId: requestId);
+    final data = response['data'];
+    if (data is Map<String, dynamic>) return data;
+    if (data is Map) return data.cast<String, dynamic>();
+    return const {};
+  }
+
+  Future<Map<String, dynamic>> cxRateLimitsRead() async {
+    final requestId = _generateRequestId();
+    _socket.send({'type': 'cx_rate_limits_read', 'requestId': requestId});
+    final response = await _waitFor('cx_rate_limits', requestId: requestId);
+    final data = response['data'];
+    if (data is Map<String, dynamic>) return data;
+    if (data is Map) return data.cast<String, dynamic>();
+    return const {};
+  }
+
+  Future<Map<String, dynamic>> cxFeedbackUpload({
+    required String classification,
+    String? reason,
+    String? threadId,
+    bool includeLogs = false,
+  }) async {
+    final requestId = _generateRequestId();
+    _socket.send({
+      'type': 'cx_feedback_upload',
+      'requestId': requestId,
+      'classification': classification,
+      'reason': reason,
+      'threadId': threadId,
+      'includeLogs': includeLogs,
+    });
+    final response = await _waitFor(
+      'cx_feedback_uploaded',
+      requestId: requestId,
+    );
+    final data = response['data'];
+    if (data is Map<String, dynamic>) return data;
+    if (data is Map) return data.cast<String, dynamic>();
+    return const {};
+  }
+
+  Future<List<String>> cxUndoFiles({
+    required String threadId,
+    int count = 1,
+  }) async {
+    final requestId = _generateRequestId();
+    _socket.send({
+      'type': 'cx_undo_files',
+      'requestId': requestId,
+      'threadId': threadId,
+      if (count != 1) 'count': count,
+    });
+    final response = await _waitFor(
+      'cx_undo_result',
+      requestId: requestId,
+      timeoutSeconds: _codexTimeoutSeconds,
+    );
+    final data = response['data'] as Map<String, dynamic>? ?? const {};
+    if (data['ok'] == true) {
+      final reverted = data['revertedPaths'] as List<dynamic>? ?? const [];
+      return reverted.map((e) => e.toString()).toList();
+    }
+    final err = data['error']?.toString() ?? 'Undo failed';
+    throw Exception(err);
+  }
+
+  Future<Map<String, dynamic>> cxReadAgentsMd(String cwd) async {
+    final requestId = _generateRequestId();
+    _socket.send({
+      'type': 'cx_agents_read',
+      'requestId': requestId,
+      'cwd': cwd,
+    });
+    final response = await _waitFor(
+      'cx_agents',
+      requestId: requestId,
+      timeoutSeconds: _codexTimeoutSeconds,
+    );
+    final data = response['data'];
+    if (data is Map<String, dynamic>) return data;
+    if (data is Map) return data.cast<String, dynamic>();
+    return const {};
+  }
+
+  Future<bool> cxWriteAgentsMd({
+    required String cwd,
+    required String content,
+  }) async {
+    final requestId = _generateRequestId();
+    _socket.send({
+      'type': 'cx_agents_write',
+      'requestId': requestId,
+      'cwd': cwd,
+      'content': content,
+    });
+    final response = await _waitFor(
+      'cx_agents_written',
+      requestId: requestId,
+      timeoutSeconds: _codexTimeoutSeconds,
+    );
+    final data = response['data'] as Map<String, dynamic>? ?? const {};
+    return data['ok'] == true;
+  }
+
+  /// Codex operations require longer timeouts because they spawn `codex app-server`
+  /// subprocess on first use, which can take several seconds to initialize.
+  static const int _codexTimeoutSeconds = 60;
+
+  Future<List<ProjectSummary>> cxListProjects() async {
+    final requestId = _generateRequestId();
+    _socket.send({'type': 'cx_list_projects', 'requestId': requestId});
+    final response = await _waitFor(
+      'cx_projects',
+      requestId: requestId,
+      timeoutSeconds: _codexTimeoutSeconds,
+    );
+    final data = response['data'] as List<dynamic>? ?? [];
+    return data
+        .whereType<Map<String, dynamic>>()
+        .map(ProjectSummary.fromJson)
+        .toList();
+  }
+
+  Future<List<CodexThread>> cxListThreads({String? cwd}) async {
+    final requestId = _generateRequestId();
+    _socket.send({
+      'type': 'cx_list_threads',
+      'requestId': requestId,
+      if (cwd != null) 'cwd': cwd,
+      'cursor': null,
+      'limit': 200,
+    });
+    final response = await _waitFor(
+      'cx_threads',
+      requestId: requestId,
+      timeoutSeconds: _codexTimeoutSeconds,
+    );
+    final data = response['data'] as List<dynamic>? ?? [];
+    return data
+        .whereType<Map<String, dynamic>>()
+        .map(CodexThread.fromJson)
+        .toList();
+  }
+
+  Future<CodexThread> cxStartThread({
+    required String cwd,
+    String? model,
+    String? approvalPolicy,
+    String? sandbox,
+  }) async {
+    final requestId = _generateRequestId();
+    _socket.send({
+      'type': 'cx_start_thread',
+      'requestId': requestId,
+      'cwd': cwd,
+      if (model != null) 'model': model,
+      if (approvalPolicy != null) 'approvalPolicy': approvalPolicy,
+      if (sandbox != null) 'sandbox': sandbox,
+    });
+    final response = await _waitFor(
+      'cx_thread_created',
+      requestId: requestId,
+      timeoutSeconds: _codexTimeoutSeconds,
+    );
+    final data = response['data'] as Map<String, dynamic>? ?? const {};
+    return CodexThread.fromJson(data);
+  }
+
+  Future<CodexThread> cxResumeThread(String threadId) async {
+    final requestId = _generateRequestId();
+    _socket.send({
+      'type': 'cx_resume_thread',
+      'requestId': requestId,
+      'threadId': threadId,
+    });
+    final response = await _waitFor(
+      'cx_thread',
+      requestId: requestId,
+      timeoutSeconds: _codexTimeoutSeconds,
+    );
+    final data = response['data'] as Map<String, dynamic>? ?? const {};
+    return CodexThread.fromJson(data);
+  }
+
+  Future<List<CodexTranscriptMessage>> cxGetThreadMessages(
+    String threadId,
+  ) async {
+    final requestId = _generateRequestId();
+    _socket.send({
+      'type': 'cx_get_thread_messages',
+      'requestId': requestId,
+      'threadId': threadId,
+    });
+    final response = await _waitFor(
+      'cx_thread_messages',
+      requestId: requestId,
+      timeoutSeconds: _codexTimeoutSeconds,
+    );
+    final data = response['data'] as List<dynamic>? ?? [];
+    return data
+        .whereType<Map<String, dynamic>>()
+        .map(CodexTranscriptMessage.fromJson)
+        .toList();
+  }
+
+  Future<List<Map<String, dynamic>>> cxListModels() async {
+    final requestId = _generateRequestId();
+    _socket.send({'type': 'cx_model_list', 'requestId': requestId});
+    final response = await _waitFor(
+      'cx_models',
+      requestId: requestId,
+      timeoutSeconds: _codexTimeoutSeconds,
+    );
+    final data = response['data'] as List<dynamic>? ?? [];
+    return data.whereType<Map<String, dynamic>>().toList();
+  }
+
+  Future<bool> cxArchiveThread(String threadId) async {
+    final requestId = _generateRequestId();
+    _socket.send({
+      'type': 'cx_archive_thread',
+      'requestId': requestId,
+      'threadId': threadId,
+    });
+    final response = await _waitFor(
+      'cx_thread_archived',
+      requestId: requestId,
+      timeoutSeconds: _codexTimeoutSeconds,
+    );
+    return response['data'] == true;
+  }
+
+  Future<List<Map<String, dynamic>>> cxListSkills({
+    String? cwd,
+    bool forceReload = false,
+  }) async {
+    final requestId = _generateRequestId();
+    _socket.send({
+      'type': 'cx_skills_list',
+      'requestId': requestId,
+      if (cwd != null) 'cwd': cwd,
+      if (forceReload) 'forceReload': true,
+    });
+    final response = await _waitFor(
+      'cx_skills',
+      requestId: requestId,
+      timeoutSeconds: _codexTimeoutSeconds,
+    );
+    final data = response['data'] as List<dynamic>? ?? [];
+    return data.whereType<Map<String, dynamic>>().toList();
+  }
+
+  Future<Map<String, dynamic>> cxReadConfig() async {
+    final requestId = _generateRequestId();
+    _socket.send({'type': 'cx_config_read', 'requestId': requestId});
+    final response = await _waitFor(
+      'cx_config',
+      requestId: requestId,
+      timeoutSeconds: _codexTimeoutSeconds,
+    );
+    final data = response['data'];
+    if (data is Map<String, dynamic>) return data;
+    if (data is Map) return data.cast<String, dynamic>();
+    return const {};
+  }
+
+  Future<Map<String, dynamic>> cxWriteConfigValue({
+    required String keyPath,
+    required dynamic value,
+    String mergeStrategy = 'Replace',
+  }) async {
+    final requestId = _generateRequestId();
+    _socket.send({
+      'type': 'cx_config_value_write',
+      'requestId': requestId,
+      'keyPath': keyPath,
+      'value': value,
+      'mergeStrategy': mergeStrategy,
+    });
+    final response = await _waitFor(
+      'cx_config_written',
+      requestId: requestId,
+      timeoutSeconds: _codexTimeoutSeconds,
+    );
+    final data = response['data'];
+    if (data is Map<String, dynamic>) return data;
+    if (data is Map) return data.cast<String, dynamic>();
+    return const {};
+  }
+
+  Future<List<Map<String, dynamic>>> cxListMcpServerStatus({
+    String? cursor,
+    int limit = 200,
+  }) async {
+    final requestId = _generateRequestId();
+    _socket.send({
+      'type': 'cx_mcp_status_list',
+      'requestId': requestId,
+      'cursor': cursor,
+      'limit': limit,
+    });
+    final response = await _waitFor(
+      'cx_mcp_status',
+      requestId: requestId,
+      timeoutSeconds: _codexTimeoutSeconds,
+    );
+    final data = response['data'] as List<dynamic>? ?? [];
+    return data.whereType<Map<String, dynamic>>().toList();
+  }
+
+  Future<String?> cxMcpOauthLogin({
+    required String name,
+    List<String>? scopes,
+    int? timeoutSecs,
+  }) async {
+    final requestId = _generateRequestId();
+    _socket.send({
+      'type': 'cx_mcp_oauth_login',
+      'requestId': requestId,
+      'name': name,
+      if (scopes != null) 'scopes': scopes,
+      if (timeoutSecs != null) 'timeoutSecs': timeoutSecs,
+    });
+    // OAuth login can take longer as user may need to interact with browser
+    final response = await _waitFor(
+      'cx_mcp_oauth',
+      requestId: requestId,
+      timeoutSeconds: _codexTimeoutSeconds * 2, // 120s for OAuth
+    );
+    final data = response['data'] as Map<String, dynamic>? ?? const {};
+    return data['authorizationUrl'] as String?;
+  }
+
+  Future<Map<String, dynamic>> cxStartReview({
+    String? threadId,
+    String? cwd,
+    String delivery = 'inline',
+    Map<String, dynamic>? target,
+    String? model,
+    String? approvalPolicy,
+    String? sandbox,
+    Map<String, dynamic>? sandboxPolicy,
+    Map<String, dynamic>? config,
+  }) async {
+    final requestId = _generateRequestId();
+    _socket.send({
+      'type': 'cx_review_start',
+      'requestId': requestId,
+      if (threadId != null) 'threadId': threadId,
+      if (cwd != null) 'cwd': cwd,
+      'delivery': delivery,
+      if (target != null) 'target': target,
+      if (model != null) 'model': model,
+      if (approvalPolicy != null) 'approvalPolicy': approvalPolicy,
+      if (sandbox != null) 'sandbox': sandbox,
+      if (sandboxPolicy != null) 'sandboxPolicy': sandboxPolicy,
+      if (config != null) 'config': config,
+    });
+    final response = await _waitFor(
+      'cx_review_started',
+      requestId: requestId,
+      timeoutSeconds: _codexTimeoutSeconds,
+    );
+    final data = response['data'];
+    if (data is Map<String, dynamic>) return data;
+    if (data is Map) return data.cast<String, dynamic>();
+    return const {};
+  }
+
+  void cxChat({
+    String? threadId,
+    required String cwd,
+    required String prompt,
+    String? model,
+    String? effort,
+    String? summary,
+    String? approvalPolicy,
+    String? sandbox,
+    Map<String, dynamic>? sandboxPolicy,
+    Map<String, dynamic>? config,
+    List<FileAttachment>? fileAttachments,
+  }) {
+    _socket.send({
+      'type': 'cx_chat',
+      if (threadId != null) 'threadId': threadId,
+      'cwd': cwd,
+      'prompt': prompt,
+      if (model != null) 'model': model,
+      if (effort != null) 'effort': effort,
+      if (summary != null) 'summary': summary,
+      if (approvalPolicy != null) 'approvalPolicy': approvalPolicy,
+      if (sandbox != null) 'sandbox': sandbox,
+      if (sandboxPolicy != null) 'sandboxPolicy': sandboxPolicy,
+      if (config != null) 'config': config,
+      if (fileAttachments != null)
+        'fileAttachments': fileAttachments.map((a) => a.toJson()).toList(),
+    });
+  }
+
+  void cxAbort({required String threadId, String? turnId}) {
+    _socket.send({
+      'type': 'cx_abort',
+      'threadId': threadId,
+      if (turnId != null) 'turnId': turnId,
+    });
+  }
+
+  void cxRespondToPermission({
+    required String requestId,
+    required String response,
+  }) {
+    _socket.send({
+      'type': 'cx_permission_response',
+      'requestId': requestId,
+      'response': response,
+    });
+  }
+
+  // ============================================================
   // Claude Code - Skills, Hooks, Commands
   // ============================================================
 
@@ -2175,7 +2675,18 @@ class BridgeService {
   // Private helpers
   // ============================================================
 
-  Future<Map<String, dynamic>> _waitFor(String type, {String? requestId}) {
+  /// Wait for a bridge response of the given [type].
+  ///
+  /// [timeoutSeconds] defaults to 10 for most operations, but Codex operations
+  /// that require spawning the app-server subprocess should use longer timeouts.
+  Future<Map<String, dynamic>> _waitFor(
+    String type, {
+    String? requestId,
+    int timeoutSeconds = 10,
+  }) {
+    final timeout = Duration(seconds: timeoutSeconds);
+    final cacheMaxAge = timeoutSeconds * 1000; // ms
+
     if (requestId == null || requestId.isEmpty) {
       return _socket.messages
           .firstWhere((message) {
@@ -2183,7 +2694,7 @@ class BridgeService {
             return msgType == type || msgType == 'error';
           })
           .timeout(
-            const Duration(seconds: 10),
+            timeout,
             onTimeout: () =>
                 throw TimeoutException('Bridge response timeout: $type'),
           )
@@ -2199,7 +2710,7 @@ class BridgeService {
     final nowMs = DateTime.now().millisecondsSinceEpoch;
     final cached = _earlyResponsesByRequestId.remove(requestId);
     final cachedAt = _earlyResponseAtMs.remove(requestId);
-    if (cached != null && cachedAt != null && nowMs - cachedAt <= 10_000) {
+    if (cached != null && cachedAt != null && nowMs - cachedAt <= cacheMaxAge) {
       final msgType = cached['type'] as String?;
       if (msgType == 'error') {
         final errorMsg = cached['message'] as String? ?? 'Unknown error';
@@ -2220,7 +2731,7 @@ class BridgeService {
     final completer = Completer<Map<String, dynamic>>();
     _pendingByRequestId[requestId] = completer;
 
-    final timer = Timer(const Duration(seconds: 10), () {
+    final timer = Timer(timeout, () {
       _pendingByRequestId.remove(requestId);
       if (!completer.isCompleted) {
         completer.completeError(

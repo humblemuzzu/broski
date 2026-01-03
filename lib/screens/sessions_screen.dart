@@ -3,12 +3,14 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../models/agent_type.dart';
 import '../models/claude_code.dart';
+import '../models/codex.dart';
 import '../models/highlight_color.dart';
 import '../models/project.dart';
 import '../models/session.dart';
 import '../providers/agent_type_provider.dart';
 import '../providers/chat_provider.dart';
 import '../providers/claude_code_provider.dart';
+import '../providers/codex_provider.dart';
 import '../providers/connection_provider.dart';
 import '../providers/highlights_provider.dart';
 import '../providers/sessions_provider.dart';
@@ -234,6 +236,9 @@ class _SessionsScreenState extends ConsumerState<SessionsScreen> {
 
     if (agentType == AgentType.claudeCode) {
       return _ClaudeCodeSessionsView(onRefresh: _refresh);
+    }
+    if (agentType == AgentType.codex) {
+      return _CodexThreadsView(onRefresh: _refresh);
     }
 
     final connection = ref.watch(connectionProvider);
@@ -2670,6 +2675,222 @@ class _ClaudeCodeSessionsView extends ConsumerStatefulWidget {
   @override
   ConsumerState<_ClaudeCodeSessionsView> createState() =>
       _ClaudeCodeSessionsViewState();
+}
+
+class _CodexThreadsView extends ConsumerStatefulWidget {
+  const _CodexThreadsView({required this.onRefresh});
+
+  final Future<void> Function() onRefresh;
+
+  @override
+  ConsumerState<_CodexThreadsView> createState() => _CodexThreadsViewState();
+}
+
+class _CodexThreadsViewState extends ConsumerState<_CodexThreadsView> {
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      final cwd = ref.read(codexThreadsFilterCwdProvider);
+      ref.read(codexThreadsProvider.notifier).load(cwd: cwd);
+    });
+  }
+
+  Future<void> _refresh() async {
+    final cwd = ref.read(codexThreadsFilterCwdProvider);
+    await ref.read(codexThreadsProvider.notifier).refresh(cwd: cwd);
+    await widget.onRefresh();
+  }
+
+  void _openThread(CodexThread thread) {
+    Navigator.push(
+      context,
+      MaterialPageRoute(builder: (_) => ChatScreen.codex(cxThread: thread)),
+    );
+  }
+
+  Future<void> _archiveThread(CodexThread thread) async {
+    final confirm = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        backgroundColor: Theme.of(context).colorScheme.surface,
+        title: const Text('Archive Thread?'),
+        content: Text(
+          'Archive "${thread.displayTitle}"? This hides it from the list.',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context, false),
+            child: const Text('Cancel'),
+          ),
+          TextButton(
+            onPressed: () => Navigator.pop(context, true),
+            child: Text(
+              'Archive',
+              style: TextStyle(color: OpenCodeTheme.of(context).error),
+            ),
+          ),
+        ],
+      ),
+    );
+    if (confirm != true) return;
+
+    final ok = await ref
+        .read(codexThreadsProvider.notifier)
+        .archiveThread(thread.id);
+    if (!mounted) return;
+
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(ok ? 'Thread archived' : 'Failed to archive thread'),
+        backgroundColor: ok
+            ? OpenCodeTheme.of(context).backgroundPanel
+            : OpenCodeTheme.of(context).error,
+      ),
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final ocTheme = OpenCodeTheme.of(context);
+    final threadsAsync = ref.watch(codexThreadsProvider);
+    final highlights = ref.watch(highlightsProvider);
+
+    return Scaffold(
+      backgroundColor: Colors.transparent,
+      body: SafeArea(
+        child: RefreshIndicator(
+          onRefresh: _refresh,
+          color: Theme.of(context).colorScheme.primary,
+          backgroundColor: Theme.of(context).colorScheme.surface,
+          child: threadsAsync.when(
+            loading: () => const Center(child: CircularProgressIndicator()),
+            error: (error, _) => ListView(
+              physics: const AlwaysScrollableScrollPhysics(),
+              children: [
+                const SizedBox(height: 120),
+                Center(
+                  child: Text(
+                    'Failed to load Codex threads',
+                    style: TextStyle(color: ocTheme.textMuted),
+                  ),
+                ),
+                const SizedBox(height: 12),
+                Center(
+                  child: Text(
+                    '$error',
+                    style: TextStyle(color: ocTheme.textMuted, fontSize: 12),
+                    textAlign: TextAlign.center,
+                  ),
+                ),
+              ],
+            ),
+            data: (threads) {
+              if (threads.isEmpty) {
+                return ListView(
+                  physics: const AlwaysScrollableScrollPhysics(),
+                  children: [
+                    const SizedBox(height: 120),
+                    Center(
+                      child: Text(
+                        'No Codex threads yet',
+                        style: TextStyle(color: ocTheme.textMuted),
+                      ),
+                    ),
+                    const SizedBox(height: 8),
+                    Center(
+                      child: Text(
+                        'Start a Codex chat from Projects',
+                        style: TextStyle(
+                          color: ocTheme.textMuted,
+                          fontSize: 12,
+                        ),
+                      ),
+                    ),
+                  ],
+                );
+              }
+
+              return ListView.separated(
+                physics: const AlwaysScrollableScrollPhysics(),
+                padding: const EdgeInsets.fromLTRB(16, 12, 16, 120),
+                itemCount: threads.length,
+                separatorBuilder: (_, __) =>
+                    Divider(color: ocTheme.borderSubtle, height: 1),
+                itemBuilder: (context, index) {
+                  final t = threads[index];
+                  final isHighlighted = highlights.isSessionHighlighted(t.id);
+                  return ListTile(
+                    contentPadding: EdgeInsets.zero,
+                    onTap: () => _openThread(t),
+                    title: Row(
+                      children: [
+                        if (isHighlighted)
+                          Padding(
+                            padding: const EdgeInsets.only(right: 8),
+                            child: Container(
+                              width: 10,
+                              height: 10,
+                              decoration: BoxDecoration(
+                                color: highlights.color.forBrightness(
+                                  Theme.of(context).brightness,
+                                  themePrimary: ocTheme.primary,
+                                ),
+                                shape: BoxShape.circle,
+                              ),
+                            ),
+                          ),
+                        Expanded(
+                          child: Text(
+                            t.displayTitle,
+                            style: TextStyle(
+                              color: ocTheme.text,
+                              fontWeight: FontWeight.w600,
+                            ),
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                        ),
+                      ],
+                    ),
+                    subtitle: Text(
+                      t.cwd,
+                      style: TextStyle(color: ocTheme.textMuted, fontSize: 12),
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                    trailing: PopupMenuButton<String>(
+                      onSelected: (value) {
+                        if (value == 'highlight') {
+                          ref
+                              .read(highlightsProvider.notifier)
+                              .toggleSession(t.id);
+                        } else if (value == 'archive') {
+                          _archiveThread(t);
+                        }
+                      },
+                      itemBuilder: (_) => [
+                        PopupMenuItem(
+                          value: 'highlight',
+                          child: Text(
+                            isHighlighted ? 'Unhighlight' : 'Highlight',
+                          ),
+                        ),
+                        const PopupMenuItem(
+                          value: 'archive',
+                          child: Text('Archive'),
+                        ),
+                      ],
+                    ),
+                  );
+                },
+              );
+            },
+          ),
+        ),
+      ),
+    );
+  }
 }
 
 class _ClaudeCodeSessionsViewState

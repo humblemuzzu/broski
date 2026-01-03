@@ -5,6 +5,7 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../models/claude_code.dart';
+import '../models/codex.dart';
 import '../models/message.dart';
 import '../models/session.dart';
 import '../models/todo.dart';
@@ -32,6 +33,13 @@ class ChatSessionState {
     this.ccInit,
     this.ccTokenUsage,
     this.ccIsStreaming = false,
+    // Codex support
+    this.isCodex = false,
+    this.cxThreadId,
+    this.cxCwd,
+    this.cxModel,
+    this.cxTokenUsage,
+    this.cxIsStreaming = false,
     // FIX: Track content length incrementally instead of recalculating every frame
     this.contentLength = 0,
   });
@@ -56,14 +64,30 @@ class ChatSessionState {
   final CCTokenUsage? ccTokenUsage;
   final bool ccIsStreaming;
 
+  // Codex support
+  final bool isCodex;
+  final String? cxThreadId;
+  final String? cxCwd;
+  final String? cxModel;
+  final CodexThreadTokenUsage? cxTokenUsage;
+  final bool cxIsStreaming;
+
   // FIX: Pre-computed content length for efficient auto-scroll detection
   final int contentLength;
 
   /// Get the effective session ID (works for both OC and CC)
-  String? get effectiveSessionId => isClaudeCode ? ccSessionId : session?.id;
+  String? get effectiveSessionId => isClaudeCode
+      ? ccSessionId
+      : isCodex
+      ? cxThreadId
+      : session?.id;
 
   /// Get the effective project path (works for both OC and CC)
-  String? get effectivePath => isClaudeCode ? ccCwd : projectPath;
+  String? get effectivePath => isClaudeCode
+      ? ccCwd
+      : isCodex
+      ? cxCwd
+      : projectPath;
 
   ChatSessionState copyWith({
     SessionSummary? session,
@@ -82,6 +106,12 @@ class ChatSessionState {
     CCSessionInit? ccInit,
     CCTokenUsage? ccTokenUsage,
     bool? ccIsStreaming,
+    bool? isCodex,
+    String? cxThreadId,
+    String? cxCwd,
+    String? cxModel,
+    CodexThreadTokenUsage? cxTokenUsage,
+    bool? cxIsStreaming,
     int? contentLength,
   }) {
     return ChatSessionState(
@@ -101,6 +131,12 @@ class ChatSessionState {
       ccInit: ccInit ?? this.ccInit,
       ccTokenUsage: ccTokenUsage ?? this.ccTokenUsage,
       ccIsStreaming: ccIsStreaming ?? this.ccIsStreaming,
+      isCodex: isCodex ?? this.isCodex,
+      cxThreadId: cxThreadId ?? this.cxThreadId,
+      cxCwd: cxCwd ?? this.cxCwd,
+      cxModel: cxModel ?? this.cxModel,
+      cxTokenUsage: cxTokenUsage ?? this.cxTokenUsage,
+      cxIsStreaming: cxIsStreaming ?? this.cxIsStreaming,
       contentLength: contentLength ?? this.contentLength,
     );
   }
@@ -110,6 +146,9 @@ class ChatSessionNotifier extends StateNotifier<ChatSessionState> {
   ChatSessionNotifier(this._bridge) : super(const ChatSessionState()) {
     _subscription = _bridge.sdkEvents.listen(_enqueueSdkEvent);
     _ccSubscription = _bridge.ccStreamMessages.listen(_handleCCStreamMessage);
+    _cxSubscription = _bridge.codexStreamMessages.listen(
+      _handleCodexStreamMessage,
+    );
   }
 
   final BridgeService _bridge;
@@ -117,6 +156,7 @@ class ChatSessionNotifier extends StateNotifier<ChatSessionState> {
   final List<String> _order = [];
   StreamSubscription<Map<String, dynamic>>? _subscription;
   StreamSubscription<ClaudeCodeStreamMessage>? _ccSubscription;
+  StreamSubscription<CodexStreamMessage>? _cxSubscription;
 
   final List<Map<String, dynamic>> _pendingEvents = [];
   Timer? _flushTimer;
@@ -146,6 +186,17 @@ class ChatSessionNotifier extends StateNotifier<ChatSessionState> {
   int _ccPartSequence = 0;
   // Track the current text part index (-1 if last part was not text)
   int _ccCurrentTextPartIndex = -1;
+
+  // Codex streaming state (ordered parts)
+  String _cxCurrentAssistantMessageId = '';
+  final StringBuffer _cxAssistantTextBuffer = StringBuffer();
+  final Map<String, ToolCall> _cxPendingToolCallsById = {};
+  String _cxThinkingPartId = '';
+  final StringBuffer _cxThinkingBuffer = StringBuffer();
+  Timer? _cxUpdateTimer;
+  final List<MessagePart> _cxOrderedParts = [];
+  int _cxPartSequence = 0;
+  int _cxCurrentTextPartIndex = -1;
 
   void _ensureCCHasRenderableTextPart({required bool isStreaming}) {
     final text = _ccAssistantTextBuffer.toString();
@@ -201,6 +252,7 @@ class ChatSessionNotifier extends StateNotifier<ChatSessionState> {
     _textDebounceTimer = null;
     _lspStatusFetched = false;
     _resetCCState();
+    _resetCodexState();
     state = ChatSessionState(
       session: session,
       projectPath: projectPath,
@@ -209,6 +261,7 @@ class ChatSessionNotifier extends StateNotifier<ChatSessionState> {
       sessionDiffs: const [],
       todos: const [],
       isClaudeCode: false,
+      isCodex: false,
     );
   }
 
@@ -231,6 +284,7 @@ class ChatSessionNotifier extends StateNotifier<ChatSessionState> {
     _textDebounceTimer = null;
     _lspStatusFetched = false;
     _resetCCState();
+    _resetCodexState();
     state = ChatSessionState(
       session: null,
       projectPath: cwd,
@@ -239,6 +293,7 @@ class ChatSessionNotifier extends StateNotifier<ChatSessionState> {
       sessionDiffs: const [],
       todos: const [],
       isClaudeCode: true,
+      isCodex: false,
       ccSessionId: sessionId.isEmpty ? null : sessionId,
       ccCwd: cwd,
       ccModel: model,
@@ -248,6 +303,45 @@ class ChatSessionNotifier extends StateNotifier<ChatSessionState> {
   void setCCModel(String? model) {
     if (!state.isClaudeCode) return;
     state = state.copyWith(ccModel: model);
+  }
+
+  void setCodexThread({
+    required String threadId,
+    required String cwd,
+    String? model,
+  }) {
+    _sessionVersion++;
+    _messages.clear();
+    _order.clear();
+    _pendingEvents.clear();
+    _pendingTextBuffers.clear();
+    _flushTimer?.cancel();
+    _flushTimer = null;
+    _textDebounceTimer?.cancel();
+    _textDebounceTimer = null;
+    _lspStatusFetched = false;
+    _resetCCState();
+    _resetCodexState();
+    state = ChatSessionState(
+      session: null,
+      projectPath: cwd,
+      messages: const [],
+      permissions: const [],
+      sessionDiffs: const [],
+      todos: const [],
+      isClaudeCode: false,
+      isCodex: true,
+      cxThreadId: threadId.isEmpty ? null : threadId,
+      cxCwd: cwd,
+      cxModel: model,
+      cxTokenUsage: null,
+      cxIsStreaming: false,
+    );
+  }
+
+  void setCodexModel(String? model) {
+    if (!state.isCodex) return;
+    state = state.copyWith(cxModel: model);
   }
 
   void _resetCCState() {
@@ -262,6 +356,19 @@ class ChatSessionNotifier extends StateNotifier<ChatSessionState> {
     _ccOrderedParts.clear();
     _ccPartSequence = 0;
     _ccCurrentTextPartIndex = -1;
+  }
+
+  void _resetCodexState() {
+    _cxCurrentAssistantMessageId = '';
+    _cxAssistantTextBuffer.clear();
+    _cxPendingToolCallsById.clear();
+    _cxThinkingPartId = '';
+    _cxThinkingBuffer.clear();
+    _cxUpdateTimer?.cancel();
+    _cxUpdateTimer = null;
+    _cxOrderedParts.clear();
+    _cxPartSequence = 0;
+    _cxCurrentTextPartIndex = -1;
   }
 
   void _scheduleCCAssistantUpdate({required bool isStreaming}) {
@@ -456,6 +563,98 @@ class ChatSessionNotifier extends StateNotifier<ChatSessionState> {
     }
   }
 
+  /// Hydrate chat with Codex transcript messages from the bridge.
+  void hydrateCodexTranscript(List<CodexTranscriptMessage> items) {
+    _messages.clear();
+    _order.clear();
+    _resetCodexState();
+
+    state = state.copyWith(
+      messages: const [],
+      permissions: const [],
+      sessionDiffs: const [],
+      cxIsStreaming: false,
+    );
+
+    _suppressEmit = true;
+    _pendingEmitMessages = false;
+
+    try {
+      for (final item in items) {
+        final id = item.id;
+        if (id.isEmpty) continue;
+
+        final role = switch (item.role) {
+          'user' => MessageRole.user,
+          'system' => MessageRole.system,
+          _ => MessageRole.assistant,
+        };
+
+        final createdAt = DateTime.fromMillisecondsSinceEpoch(
+          item.createdAt * 1000,
+        );
+
+        final reasoningParts = <ReasoningPart>[];
+        if ((item.thinking ?? '').trim().isNotEmpty) {
+          reasoningParts.add(
+            ReasoningPart(
+              id: 'cx-thinking-$id',
+              messageId: id,
+              text: item.thinking ?? '',
+              isStreaming: false,
+            ),
+          );
+        }
+
+        final tools = <ToolCall>[
+          for (final t in item.toolCalls)
+            ToolCall(
+              callId: t.itemId,
+              partId: t.itemId,
+              name: t.name,
+              status: t.status,
+              title: t.name,
+              input: t.input ?? const <String, dynamic>{},
+              output: t.output,
+              metadata: t.metadata ?? const <String, dynamic>{},
+            ),
+        ];
+
+        final diffs = <DiffEntry>[
+          for (final d in item.diffs)
+            DiffEntry(
+              file: d.file,
+              before: '',
+              after: '',
+              additions: d.additions,
+              deletions: d.deletions,
+              diff: d.diff,
+              partId: d.itemId,
+            ),
+        ];
+
+        final message = ChatMessage(
+          id: id,
+          sessionId: state.cxThreadId ?? '',
+          role: role,
+          createdAt: createdAt,
+          text: item.text,
+          toolCalls: tools,
+          diffs: diffs,
+          reasoningParts: reasoningParts,
+          isStreaming: false,
+        );
+
+        _addMessage(message);
+      }
+    } finally {
+      _suppressEmit = false;
+      if (_pendingEmitMessages) {
+        _emitMessages();
+      }
+    }
+  }
+
   void hydrate(List<dynamic> rawMessages) {
     _messages.clear();
     _order.clear();
@@ -577,6 +776,20 @@ class ChatSessionNotifier extends StateNotifier<ChatSessionState> {
       return;
     }
 
+    // Codex mode
+    if (state.isCodex) {
+      final threadId = state.cxThreadId ?? '';
+      final message = ChatMessage(
+        id: 'local-${DateTime.now().microsecondsSinceEpoch}',
+        sessionId: threadId,
+        role: MessageRole.user,
+        createdAt: DateTime.now(),
+        text: content,
+      );
+      _addMessage(message);
+      return;
+    }
+
     // OpenCode mode
     final session = state.session;
     if (session == null) return;
@@ -585,6 +798,23 @@ class ChatSessionNotifier extends StateNotifier<ChatSessionState> {
       id: 'local-${DateTime.now().microsecondsSinceEpoch}',
       sessionId: session.id,
       role: MessageRole.user,
+      createdAt: DateTime.now(),
+      text: content,
+    );
+    _addMessage(message);
+  }
+
+  void appendLocalAssistantMessage(String content) {
+    final sessionId = state.isClaudeCode
+        ? (state.ccSessionId ?? '')
+        : state.isCodex
+        ? (state.cxThreadId ?? '')
+        : (state.session?.id ?? '');
+    if (sessionId.isEmpty) return;
+    final message = ChatMessage(
+      id: 'local-assistant-${DateTime.now().microsecondsSinceEpoch}',
+      sessionId: sessionId,
+      role: MessageRole.assistant,
       createdAt: DateTime.now(),
       text: content,
     );
@@ -1532,13 +1762,412 @@ class ChatSessionNotifier extends StateNotifier<ChatSessionState> {
     state = state.copyWith(ccIsStreaming: isStreaming);
   }
 
+  // ============================================================
+  // Codex Stream Message Handling
+  // ============================================================
+
+  (int, int) _countUnifiedDiffAddsDels(String diff) {
+    var adds = 0;
+    var dels = 0;
+    for (final line in diff.split('\n')) {
+      if (line.startsWith('+++') || line.startsWith('---')) continue;
+      if (line.startsWith('+')) adds++;
+      if (line.startsWith('-')) dels++;
+    }
+    return (adds, dels);
+  }
+
+  void _handleCodexStreamMessage(CodexStreamMessage message) {
+    if (!state.isCodex) return;
+
+    if (message is CodexErrorMessage) {
+      state = state.copyWith(cxIsStreaming: false);
+      final errorMsg = ChatMessage(
+        id: 'cx-error-${DateTime.now().microsecondsSinceEpoch}',
+        sessionId: state.cxThreadId ?? '',
+        role: MessageRole.system,
+        createdAt: DateTime.now(),
+        text: message.message,
+        error: message.code,
+      );
+      _addMessage(errorMsg);
+      return;
+    }
+
+    if (message is CodexRequestMessage) {
+      final params = message.params;
+      final threadId = (params['threadId'] ?? params['thread_id'])?.toString();
+      if (threadId != null &&
+          threadId.isNotEmpty &&
+          state.cxThreadId != null &&
+          state.cxThreadId != threadId) {
+        return;
+      }
+
+      if (message.method == 'item/commandExecution/requestApproval' ||
+          message.method == 'item/fileChange/requestApproval') {
+        final cachedItem = params['cachedItem'];
+        final metadata = <String, dynamic>{
+          'threadId': threadId,
+          'turnId': (params['turnId'] ?? params['turn_id'])?.toString(),
+          'itemId': (params['itemId'] ?? params['item_id'])?.toString(),
+          'method': message.method,
+        };
+
+        String? command;
+        if (cachedItem is Map<String, dynamic>) {
+          final itemType = cachedItem['type'] as String?;
+          if (itemType == 'commandExecution') {
+            command = cachedItem['command'] as String?;
+          } else if (itemType == 'fileChange') {
+            final changes = cachedItem['changes'];
+            if (changes is List && changes.isNotEmpty) {
+              final first = changes.first;
+              if (first is Map<String, dynamic>) {
+                metadata['filePath'] = first['path'];
+                metadata['diff'] = first['diff'];
+              }
+            }
+          }
+        }
+
+        final title = message.method == 'item/commandExecution/requestApproval'
+            ? 'Allow command execution?'
+            : 'Allow file changes?';
+
+        final request = PermissionRequest(
+          id: message.requestId,
+          sessionId: threadId ?? (state.cxThreadId ?? ''),
+          title: title,
+          command: command,
+          metadata: metadata,
+        );
+
+        state = state.copyWith(permissions: [request, ...state.permissions]);
+      }
+
+      return;
+    }
+
+    if (message is! CodexNotificationMessage) return;
+
+    final method = message.method;
+    final params = message.params;
+    final threadId = (params['threadId'] ?? params['thread_id'])?.toString();
+    if (threadId != null &&
+        threadId.isNotEmpty &&
+        state.cxThreadId != null &&
+        state.cxThreadId != threadId) {
+      return;
+    }
+
+    if (method == 'thread/started') {
+      final thread = params['thread'];
+      if (thread is Map<String, dynamic>) {
+        final id = thread['id']?.toString() ?? '';
+        final cwd = thread['cwd']?.toString() ?? state.cxCwd;
+        if (id.isNotEmpty &&
+            (state.cxThreadId == null || state.cxThreadId!.isEmpty)) {
+          state = state.copyWith(cxThreadId: id, cxCwd: cwd);
+        }
+      }
+      return;
+    }
+
+    if (method == 'turn/started') {
+      state = state.copyWith(cxIsStreaming: true);
+      return;
+    }
+
+    if (method == 'turn/completed') {
+      state = state.copyWith(cxIsStreaming: false);
+      return;
+    }
+
+    if (method == 'thread/tokenUsage/updated') {
+      final tokenUsage = params['tokenUsage'];
+      if (tokenUsage is Map<String, dynamic>) {
+        state = state.copyWith(cxTokenUsage: CodexThreadTokenUsage.fromJson(tokenUsage));
+      }
+      return;
+    }
+
+    if (method == 'turn/plan/updated') {
+      final plan = params['plan'];
+      if (plan is List) {
+        final todos = <Todo>[];
+        for (var i = 0; i < plan.length; i++) {
+          final entry = plan[i];
+          if (entry is! Map<String, dynamic>) continue;
+          final step = entry['step']?.toString() ?? '';
+          final status = entry['status']?.toString() ?? 'pending';
+          final mappedStatus = status == 'inProgress'
+              ? 'in_progress'
+              : status == 'completed'
+              ? 'completed'
+              : 'pending';
+          todos.add(
+            Todo(
+              id: 'cx-plan-$i',
+              content: step,
+              status: TodoStatus.fromString(mappedStatus),
+              priority: TodoPriority.medium,
+            ),
+          );
+        }
+        state = state.copyWith(todos: todos);
+      }
+      return;
+    }
+
+    if (method == 'turn/diff/updated') {
+      final diff = params['diff']?.toString() ?? '';
+      if (diff.trim().isEmpty) return;
+      final (adds, dels) = _countUnifiedDiffAddsDels(diff);
+      state = state.copyWith(
+        sessionDiffs: [
+          DiffEntry(
+            file: 'Changes',
+            before: '',
+            after: '',
+            additions: adds,
+            deletions: dels,
+            diff: diff,
+          ),
+        ],
+      );
+      return;
+    }
+
+    if (method == 'item/agentMessage/delta') {
+      final itemId = (params['itemId'] ?? params['item_id'])?.toString() ?? '';
+      final delta = params['delta']?.toString() ?? '';
+      if (itemId.isEmpty || delta.isEmpty) return;
+
+      if (_cxCurrentAssistantMessageId != itemId) {
+        _cxCurrentAssistantMessageId = itemId;
+        _cxAssistantTextBuffer.clear();
+        _cxPendingToolCallsById.clear();
+        _cxOrderedParts.clear();
+        _cxPartSequence = 0;
+        _cxCurrentTextPartIndex = -1;
+      }
+
+      _cxAssistantTextBuffer.write(delta);
+
+      if (_cxCurrentTextPartIndex >= 0 &&
+          _cxCurrentTextPartIndex < _cxOrderedParts.length) {
+        final existing = _cxOrderedParts[_cxCurrentTextPartIndex] as TextPart;
+        _cxOrderedParts[_cxCurrentTextPartIndex] = existing.copyWith(
+          text: existing.text + delta,
+          isStreaming: true,
+        );
+      } else {
+        _cxCurrentTextPartIndex = _cxOrderedParts.length;
+        _cxOrderedParts.add(
+          TextPart(sequence: _cxPartSequence++, text: delta, isStreaming: true),
+        );
+      }
+
+      _cxScheduleAssistantUpdate(isStreaming: true);
+      return;
+    }
+
+    if (method == 'item/reasoning/summaryTextDelta' ||
+        method == 'item/reasoning/textDelta') {
+      final itemId = (params['itemId'] ?? params['item_id'])?.toString() ?? '';
+      final delta = params['delta']?.toString() ?? '';
+      if (itemId.isEmpty || delta.isEmpty) return;
+      _cxThinkingPartId = itemId;
+      _cxThinkingBuffer.write(delta);
+      _cxScheduleAssistantUpdate(isStreaming: true);
+      return;
+    }
+
+    if (method == 'item/started' || method == 'item/completed') {
+      final item = params['item'];
+      if (item is! Map<String, dynamic>) return;
+      final type = item['type']?.toString() ?? '';
+      final itemId = item['id']?.toString() ?? '';
+      if (itemId.isEmpty) return;
+
+      if (type == 'commandExecution' ||
+          type == 'fileChange' ||
+          type == 'mcpToolCall' ||
+          type == 'webSearch' ||
+          type == 'enteredReviewMode' ||
+          type == 'exitedReviewMode') {
+        final toolName = switch (type) {
+          'commandExecution' => 'Bash',
+          'fileChange' => 'ApplyPatch',
+          'mcpToolCall' =>
+            '${item['server'] ?? ''}.${item['tool'] ?? ''}'.replaceFirst(
+              '.',
+              '',
+            ),
+          'enteredReviewMode' || 'exitedReviewMode' => 'Review',
+          _ => 'WebSearch',
+        };
+
+        final statusRaw = item['status']?.toString().toLowerCase() ?? '';
+        final status = statusRaw.contains('completed')
+            ? 'completed'
+            : statusRaw.contains('failed')
+            ? 'failed'
+            : statusRaw.contains('declined')
+            ? 'declined'
+            : 'running';
+
+        final toolCall = ToolCall(
+          callId: itemId,
+          partId: itemId,
+          name: toolName,
+          status: status,
+          title: toolName,
+          input: item,
+          output: (type == 'exitedReviewMode'
+                  ? item['review']?.toString()
+                  : item['aggregatedOutput']?.toString()) ??
+              item['review']?.toString(),
+          metadata: const <String, dynamic>{},
+        );
+
+        _cxPendingToolCallsById[itemId] = toolCall;
+        _cxOrderedParts.add(
+          ToolPart(sequence: _cxPartSequence++, callId: itemId),
+        );
+        _cxScheduleAssistantUpdate(isStreaming: state.cxIsStreaming);
+
+        if (type == 'fileChange') {
+          final changes = item['changes'];
+          if (changes is List) {
+            final diffs = <DiffEntry>[];
+            for (final c in changes) {
+              if (c is! Map<String, dynamic>) continue;
+              final file = c['path']?.toString() ?? '';
+              final diff = c['diff']?.toString() ?? '';
+              if (file.isEmpty || diff.trim().isEmpty) continue;
+              final (adds, dels) = _countUnifiedDiffAddsDels(diff);
+              diffs.add(
+                DiffEntry(
+                  file: file,
+                  before: '',
+                  after: '',
+                  additions: adds,
+                  deletions: dels,
+                  diff: diff,
+                  partId: itemId,
+                ),
+              );
+            }
+            if (diffs.isNotEmpty) {
+              state = state.copyWith(
+                sessionDiffs: [...state.sessionDiffs, ...diffs],
+              );
+            }
+          }
+        }
+      }
+
+      return;
+    }
+
+    if (method == 'item/commandExecution/outputDelta') {
+      final itemId = (params['itemId'] ?? params['item_id'])?.toString() ?? '';
+      final delta = params['delta']?.toString() ?? '';
+      if (itemId.isEmpty || delta.isEmpty) return;
+      final existing = _cxPendingToolCallsById[itemId];
+      if (existing == null) return;
+      _cxPendingToolCallsById[itemId] = existing.copyWith(
+        output: '${existing.output ?? ''}$delta',
+      );
+      _cxScheduleAssistantUpdate(isStreaming: true);
+      return;
+    }
+  }
+
+  void _cxScheduleAssistantUpdate({required bool isStreaming}) {
+    if (_cxUpdateTimer != null) return;
+    _cxUpdateTimer = Timer(const Duration(milliseconds: 24), () {
+      _cxUpdateTimer = null;
+      _updateCodexAssistantMessage(isStreaming: isStreaming);
+    });
+  }
+
+  void _updateCodexAssistantMessage({required bool isStreaming}) {
+    final msgId = _cxCurrentAssistantMessageId.isNotEmpty
+        ? _cxCurrentAssistantMessageId
+        : 'cx-assistant';
+    final text = _cxAssistantTextBuffer.toString();
+
+    final reasoningParts = <ReasoningPart>[];
+    if (_cxThinkingBuffer.toString().trim().isNotEmpty) {
+      reasoningParts.add(
+        ReasoningPart(
+          id: _cxThinkingPartId.isNotEmpty ? _cxThinkingPartId : 'cx-thinking',
+          messageId: msgId,
+          text: _cxThinkingBuffer.toString(),
+          isStreaming: isStreaming,
+        ),
+      );
+    }
+
+    final orderedParts = <MessagePart>[];
+    for (int i = 0; i < _cxOrderedParts.length; i++) {
+      final part = _cxOrderedParts[i];
+      if (part is TextPart) {
+        final isLastTextPart = i == _cxCurrentTextPartIndex;
+        orderedParts.add(
+          part.copyWith(isStreaming: isLastTextPart && isStreaming),
+        );
+      } else {
+        orderedParts.add(part);
+      }
+    }
+
+    if (_cxCurrentTextPartIndex >= 0 &&
+        _cxCurrentTextPartIndex < _cxOrderedParts.length) {
+      // ok, already has a text part
+    } else if (text.trim().isNotEmpty) {
+      orderedParts.add(
+        TextPart(
+          sequence: _cxPartSequence++,
+          text: text,
+          isStreaming: isStreaming,
+        ),
+      );
+    }
+
+    final message = ChatMessage(
+      id: msgId,
+      sessionId: state.cxThreadId ?? '',
+      role: MessageRole.assistant,
+      createdAt: DateTime.now(),
+      text: text,
+      toolCalls: List<ToolCall>.unmodifiable(_cxPendingToolCallsById.values),
+      diffs: state.sessionDiffs,
+      reasoningParts: reasoningParts,
+      parts: List<MessagePart>.unmodifiable(orderedParts),
+      isStreaming: isStreaming,
+    );
+
+    _updateMessage(msgId, message);
+  }
+
+  /// Set Codex streaming state (called when sending a message)
+  void setCodexStreaming(bool isStreaming) {
+    state = state.copyWith(cxIsStreaming: isStreaming);
+  }
+
   @override
   void dispose() {
     _subscription?.cancel();
     _ccSubscription?.cancel();
+    _cxSubscription?.cancel();
     _flushTimer?.cancel();
     _textDebounceTimer?.cancel();
     _ccUpdateTimer?.cancel();
+    _cxUpdateTimer?.cancel();
     super.dispose();
   }
 }

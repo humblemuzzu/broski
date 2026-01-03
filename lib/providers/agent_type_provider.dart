@@ -32,6 +32,7 @@ class AgentTypeNotifier extends StateNotifier<AgentType> {
 
   bool get isOpenCode => state == AgentType.opencode;
   bool get isClaudeCode => state == AgentType.claudeCode;
+  bool get isCodex => state == AgentType.codex;
 }
 
 final agentsStatusProvider = FutureProvider<AgentsStatus?>((ref) async {

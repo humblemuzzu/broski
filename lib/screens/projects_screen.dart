@@ -56,20 +56,27 @@ class _ProjectsScreenState extends ConsumerState<ProjectsScreen> {
     final storage = ref.read(storageServiceProvider);
 
     // In offline mode, return cached projects
-    if (connection.isOfflineMode && agentType == AgentType.opencode) {
-      return storage.getCachedProjects();
+    if (connection.isOfflineMode) {
+      if (agentType == AgentType.opencode) return storage.getCachedProjects();
+      if (agentType == AgentType.codex) return storage.getCachedCodexProjects();
     }
 
     // Try live data first, fallback to cache on failure
     try {
       final bridge = ref.read(bridgeServiceProvider);
-      final projects = agentType == AgentType.claudeCode
-          ? await bridge.ccListProjects()
-          : await bridge.listProjects();
+      final projects = switch (agentType) {
+        AgentType.claudeCode => await bridge.ccListProjects(),
+        AgentType.codex => await bridge.cxListProjects(),
+        _ => await bridge.listProjects(),
+      };
 
       // Cache for offline use
-      if (projects.isNotEmpty && agentType == AgentType.opencode) {
-        await storage.cacheProjects(projects);
+      if (projects.isNotEmpty) {
+        if (agentType == AgentType.opencode) {
+          await storage.cacheProjects(projects);
+        } else if (agentType == AgentType.codex) {
+          await storage.cacheCodexProjects(projects);
+        }
       }
 
       return projects;
@@ -77,10 +84,11 @@ class _ProjectsScreenState extends ConsumerState<ProjectsScreen> {
       // On any error (timeout, connection issues), try cached data
       if (agentType == AgentType.opencode) {
         final cached = await storage.getCachedProjects();
-        if (cached.isNotEmpty) {
-          // Return cached data silently - user can pull to refresh
-          return cached;
-        }
+        if (cached.isNotEmpty) return cached;
+      }
+      if (agentType == AgentType.codex) {
+        final cached = await storage.getCachedCodexProjects();
+        if (cached.isNotEmpty) return cached;
       }
       // No cached data available, rethrow to show error
       rethrow;
@@ -321,6 +329,10 @@ class _ProjectsScreenState extends ConsumerState<ProjectsScreen> {
       await _openClaudeProject(context, project);
       return;
     }
+    if (currentAgentType == AgentType.codex) {
+      await _openCodexProject(context, project);
+      return;
+    }
     final connection = ref.read(connectionProvider);
     final selection = ref.read(selectionProvider.notifier);
     final chat = ref.read(chatSessionProvider.notifier);
@@ -394,6 +406,22 @@ class _ProjectsScreenState extends ConsumerState<ProjectsScreen> {
       MaterialPageRoute(
         builder: (_) =>
             ChatScreen.claudeCodeDraft(cwd: project.path, title: project.name),
+      ),
+    );
+  }
+
+  Future<void> _openCodexProject(
+    BuildContext context,
+    ProjectSummary project,
+  ) async {
+    ref.read(selectionProvider.notifier).selectProject(project);
+
+    if (!mounted) return;
+    Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (_) =>
+            ChatScreen.codexDraft(cwd: project.path, title: project.name),
       ),
     );
   }
