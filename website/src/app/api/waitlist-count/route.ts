@@ -20,12 +20,11 @@ export async function GET() {
       });
     }
 
-    // If no Google Script URL, return mock data for development
+    // If no Google Script URL, return 0 (real count comes from Google Sheets)
     if (!GOOGLE_SCRIPT_URL) {
-      const mockCount = 127; // Mock count for dev
       return NextResponse.json({
         success: true,
-        count: mockCount,
+        count: 0,
         cached: false,
         dev: true,
       });

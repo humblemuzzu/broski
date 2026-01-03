@@ -44,7 +44,7 @@ export function WaitlistProgress({
   };
 
   return (
-    <div className="w-full max-w-xl mx-auto space-y-3">
+    <div className="w-full max-w-xl mx-auto space-y-3 px-2 sm:px-0">
       {/* Progress Bar */}
       <div className="relative h-2 bg-muted/30 rounded-full overflow-hidden">
         <div
@@ -61,7 +61,7 @@ export function WaitlistProgress({
       </div>
 
       {/* Count Display */}
-      <div className="flex items-center justify-center gap-2 text-sm">
+      <div className="flex items-center justify-center gap-1.5 sm:gap-2 text-xs sm:text-sm">
         <span className="font-semibold text-foreground tabular-nums">
           {isLoading ? "..." : formatNumber(count)}
         </span>

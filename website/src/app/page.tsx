@@ -5,6 +5,7 @@ import Image from "next/image";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { WaitlistProgress } from "@/components/waitlist-progress";
+import { ThemeSwitcher } from "@/components/theme-switcher";
 
 export default function Home() {
   const [email, setEmail] = useState("");
@@ -48,18 +49,21 @@ export default function Home() {
   };
 
   return (
-    <main className="min-h-screen flex flex-col">
+    <main className="min-h-screen flex flex-col bg-background">
+      {/* Theme Switcher */}
+      <ThemeSwitcher />
+      
       {/* Hero Section */}
-      <section className="flex-1 flex flex-col items-center justify-center px-6 py-20 md:py-32">
-        <div className="max-w-3xl mx-auto text-center space-y-8">
+      <section className="flex-1 flex flex-col items-center justify-center px-4 sm:px-6 py-12 sm:py-20 md:py-32">
+        <div className="w-full max-w-3xl mx-auto text-center space-y-6 sm:space-y-8">
           {/* Logo */}
           <div className="animate-fade-in">
             <Image
               src="/broski-logo.png"
               alt="Broski"
-              width={200}
-              height={60}
-              className="mx-auto opacity-90"
+              width={220}
+              height={72}
+              className="mx-auto"
               priority
             />
           </div>
@@ -70,14 +74,14 @@ export default function Home() {
           </p>
 
           {/* Main Headline */}
-          <h1 className="text-4xl md:text-6xl font-semibold tracking-tight leading-tight animate-fade-in-delay-2">
+          <h1 className="text-3xl sm:text-4xl md:text-6xl font-semibold tracking-tight leading-tight animate-fade-in-delay-2">
             Vibe code from anywhere.
             <br />
             <span className="text-primary">An IDE in your pocket.</span>
           </h1>
 
           {/* Subheadline */}
-          <p className="text-lg md:text-xl text-muted-foreground max-w-xl mx-auto animate-fade-in-delay-3">
+          <p className="text-base sm:text-lg md:text-xl text-muted-foreground max-w-xl mx-auto px-2 animate-fade-in-delay-3">
             The mobile-first interface for Claude Code, OpenCode, and beyond. 
             Ship code while away from your desk.
           </p>
@@ -85,20 +89,20 @@ export default function Home() {
           {/* Email Form */}
           <form
             onSubmit={handleSubmit}
-            className="flex flex-col sm:flex-row gap-3 max-w-md mx-auto mt-8 animate-fade-in-delay-3"
+            className="flex flex-col gap-3 w-full max-w-md mx-auto mt-6 sm:mt-8 animate-fade-in-delay-3"
           >
             <Input
               type="email"
               placeholder="Enter your email"
               value={email}
               onChange={(e) => setEmail(e.target.value)}
-              className="flex-1 h-12 bg-card border-border/50 placeholder:text-muted-foreground/60 focus-visible:ring-primary/50"
+              className="w-full h-14 sm:h-12 text-base bg-card border-border/50 placeholder:text-muted-foreground/60 focus-visible:ring-primary/50"
               disabled={status === "loading"}
             />
             <Button
               type="submit"
               size="lg"
-              className="h-12 px-8 font-medium transition-all hover:scale-[1.02] active:scale-[0.98]"
+              className="w-full h-14 sm:h-12 px-8 font-medium transition-all hover:scale-[1.02] active:scale-[0.98]"
               disabled={status === "loading"}
             >
               {status === "loading" ? (
@@ -161,13 +165,13 @@ export default function Home() {
       </section>
 
       {/* Features Section */}
-      <section className="py-20 px-6 border-t border-border/30">
+      <section className="py-12 sm:py-20 px-4 sm:px-6 border-t border-border/30">
         <div className="max-w-5xl mx-auto">
-          <h2 className="text-center text-2xl md:text-3xl font-semibold mb-16">
+          <h2 className="text-center text-xl sm:text-2xl md:text-3xl font-semibold mb-10 sm:mb-16">
             Everything you need, <span className="text-primary">nothing you don&apos;t</span>
           </h2>
 
-          <div className="grid md:grid-cols-3 gap-8 md:gap-12">
+          <div className="grid sm:grid-cols-2 md:grid-cols-3 gap-6 sm:gap-8 md:gap-12">
             {/* Feature 1 */}
             <div className="space-y-4 text-center md:text-left">
               <div className="w-12 h-12 rounded-xl bg-primary/10 flex items-center justify-center mx-auto md:mx-0">
@@ -244,7 +248,7 @@ export default function Home() {
       </section>
 
       {/* Footer */}
-      <footer className="py-8 px-6 border-t border-border/30">
+      <footer className="py-6 sm:py-8 px-4 sm:px-6 border-t border-border/30">
         <div className="max-w-5xl mx-auto flex flex-col md:flex-row items-center justify-between gap-4">
           <div className="flex items-center gap-2 text-muted-foreground text-sm">
             <Image

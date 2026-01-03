@@ -46,11 +46,14 @@
   --radius-4xl: calc(var(--radius) + 16px);
 }
 
-/* Broski Dark Theme - Matching Flutter App */
+/* ═══════════════════════════════════════════════════════════════════════════════
+   OPENCODE THEME (Default) - Black/Warm Peach
+   Original aesthetic matching Flutter opencodeDarkTheme
+   ═══════════════════════════════════════════════════════════════════════════════ */
 :root {
   --radius: 0.75rem;
   
-  /* Dark theme by default - Broski aesthetic */
+  /* Dark theme by default - OpenCode aesthetic */
   --background: #0a0a0a;
   --foreground: #eeeeee;
   
@@ -96,7 +99,60 @@
   --sidebar-ring: #fab283;
 }
 
-/* Light theme override - not primary for Broski */
+/* ═══════════════════════════════════════════════════════════════════════════════
+   BROSKI THEME - Premium Navy/Silver
+   Matching Flutter broskiDarkTheme - architectural, monochromatic
+   ═══════════════════════════════════════════════════════════════════════════════ */
+.theme-broski {
+  /* Broski Premium Navy/Silver aesthetic */
+  --background: #181D2B;
+  --foreground: #F0F0F2;
+  
+  --card: #2C2F3C;
+  --card-foreground: #F0F0F2;
+  
+  --popover: #2E3140;
+  --popover-foreground: #F0F0F2;
+  
+  /* Primary: Platinum Silver */
+  --primary: #D0D0D4;
+  --primary-foreground: #181D2B;
+  
+  /* Secondary: Muted Silver */
+  --secondary: #B8B8BC;
+  --secondary-foreground: #181D2B;
+  
+  --muted: #323542;
+  --muted-foreground: #A0A0A8;
+  
+  /* Accent: Bright Silver */
+  --accent: #E8E8EA;
+  --accent-foreground: #181D2B;
+  
+  --destructive: #CF6679;
+  
+  --border: #3A4252;
+  --input: #323542;
+  --ring: #D0D0D4;
+  
+  /* Chart colors - silver/monochromatic palette */
+  --chart-1: #D0D0D4;
+  --chart-2: #8A9EB5;
+  --chart-3: #7A9E7A;
+  --chart-4: #A0B0C8;
+  --chart-5: #D4A574;
+  
+  --sidebar: #1C222E;
+  --sidebar-foreground: #F0F0F2;
+  --sidebar-primary: #D0D0D4;
+  --sidebar-primary-foreground: #181D2B;
+  --sidebar-accent: #283040;
+  --sidebar-accent-foreground: #F0F0F2;
+  --sidebar-border: #3A4252;
+  --sidebar-ring: #D0D0D4;
+}
+
+/* Light theme override */
 .light {
   --background: #fafaf9;
   --foreground: #1c1c1e;
@@ -130,8 +186,11 @@
   * {
     @apply border-border outline-ring/50;
   }
+  html {
+    @apply bg-background;
+  }
   body {
-    @apply bg-background text-foreground;
+    @apply bg-background text-foreground min-h-screen;
   }
 }
 
@@ -145,9 +204,17 @@ html {
   background-color: rgba(250, 178, 131, 0.3);
 }
 
+.theme-broski ::selection {
+  background-color: rgba(208, 208, 212, 0.3);
+}
+
 /* Subtle glow effect for primary elements */
 .glow-primary {
   box-shadow: 0 0 20px rgba(250, 178, 131, 0.15);
+}
+
+.theme-broski .glow-primary {
+  box-shadow: 0 0 20px rgba(208, 208, 212, 0.15);
 }
 
 /* Fade in animation */
@@ -179,4 +246,17 @@ html {
 .animate-fade-in-delay-3 {
   animation: fade-in 0.6s ease-out 0.3s forwards;
   opacity: 0;
+}
+
+/* Mobile-first responsive adjustments */
+@media (max-width: 640px) {
+  .mobile-full-width {
+    width: 100%;
+    max-width: 100%;
+  }
+  
+  .mobile-padding {
+    padding-left: 1rem;
+    padding-right: 1rem;
+  }
 }

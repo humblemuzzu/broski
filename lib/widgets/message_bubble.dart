@@ -155,9 +155,11 @@ class MessageBubble extends StatelessWidget {
                     ),
 
                   // Message text with markdown - full width, no box
-                  // Only show placeholder if no text AND no reasoning content
-                  // (reasoning is shown via ThinkingCard, not here)
-                  if (message.text.isEmpty && !message.hasReasoning)
+                  // Show placeholder only while streaming; avoid persisting empty
+                  // bubbles (e.g., tool-only messages) after completion.
+                  if (message.text.isEmpty &&
+                      !message.hasReasoning &&
+                      message.isStreaming)
                     Opacity(
                       opacity: 0.5,
                       child: Text(

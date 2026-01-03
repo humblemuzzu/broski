@@ -6387,12 +6387,13 @@ Describe project-specific guidance for Codex here.
             ..._buildOrderedParts(message)
           else ...[
             // Feature 6: Pass fork callback to message bubble
-            MessageBubble(
-              message: message,
-              onForkFromHere: message.role == MessageRole.assistant
-                  ? (messageId) => _forkSession(messageId: messageId)
-                  : null,
-            ),
+            if (message.text.trim().isNotEmpty || message.isStreaming)
+              MessageBubble(
+                message: message,
+                onForkFromHere: message.role == MessageRole.assistant
+                    ? (messageId) => _forkSession(messageId: messageId)
+                    : null,
+              ),
 
             // Tool calls with Feature 7: Undo callback
             // For Claude Code, undo rewinds to the latest checkpoint (session-wide).
