@@ -4,6 +4,7 @@ import 'dart:developer' as developer;
 import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../models/agent_type.dart';
 import '../models/message.dart';
 import '../models/project.dart';
 import '../models/session.dart';
@@ -412,20 +413,26 @@ bool sessionTitleMatchesExcludeFilters(String title, List<String> filters) {
 }
 
 final sessionsTitleExcludeFiltersProvider =
-    StateNotifierProvider<SessionsTitleExcludeFiltersNotifier, List<String>>((
-      ref,
-    ) {
+    StateNotifierProvider.family<
+      SessionsTitleExcludeFiltersNotifier,
+      List<String>,
+      AgentType
+    >((ref, agentType) {
       final storage = ref.watch(storageServiceProvider);
-      return SessionsTitleExcludeFiltersNotifier(storage)..load();
+      return SessionsTitleExcludeFiltersNotifier(storage, agentType)..load();
     });
 
 class SessionsTitleExcludeFiltersNotifier extends StateNotifier<List<String>> {
-  SessionsTitleExcludeFiltersNotifier(this._storage) : super(const []);
+  SessionsTitleExcludeFiltersNotifier(this._storage, this._agentType)
+    : super(const []);
 
   final StorageService _storage;
+  final AgentType _agentType;
 
   Future<void> load() async {
-    final filters = await _storage.getSessionsTitleExcludeFilters();
+    final filters = await _storage.getSessionsTitleExcludeFiltersForAgent(
+      _agentType,
+    );
     state = filters;
   }
 
@@ -435,7 +442,10 @@ class SessionsTitleExcludeFiltersNotifier extends StateNotifier<List<String>> {
         .where((f) => f.isNotEmpty)
         .toList();
     state = normalized;
-    await _storage.setSessionsTitleExcludeFilters(normalized);
+    await _storage.setSessionsTitleExcludeFiltersForAgent(
+      _agentType,
+      normalized,
+    );
   }
 
   Future<void> add(String filter) async {
@@ -502,7 +512,9 @@ final sessionsRefreshTickProvider = StateProvider<int>((ref) => 0);
 final sessionsListProvider = StreamProvider<List<SessionSummary>>((ref) async* {
   ref.watch(sessionsRefreshTickProvider);
   final filterProjectPath = ref.watch(sessionsFilterProjectPathProvider);
-  final titleFilters = ref.watch(sessionsTitleExcludeFiltersProvider);
+  final titleFilters = ref.watch(
+    sessionsTitleExcludeFiltersProvider(AgentType.opencode),
+  );
   final connection = ref.watch(connectionProvider);
   final storage = ref.watch(storageServiceProvider);
 

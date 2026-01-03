@@ -57,9 +57,13 @@ class _SessionsScreenState extends ConsumerState<SessionsScreen> {
             ),
             child: Consumer(
               builder: (context, ref, _) {
-                final filters = ref.watch(sessionsTitleExcludeFiltersProvider);
+                final filters = ref.watch(
+                  sessionsTitleExcludeFiltersProvider(AgentType.opencode),
+                );
                 final notifier = ref.read(
-                  sessionsTitleExcludeFiltersProvider.notifier,
+                  sessionsTitleExcludeFiltersProvider(
+                    AgentType.opencode,
+                  ).notifier,
                 );
 
                 return Padding(
@@ -275,7 +279,7 @@ class _SessionsScreenState extends ConsumerState<SessionsScreen> {
                     );
                     final showBgTasks = ref.watch(showBackgroundTasksProvider);
                     final titleFilterCount = ref
-                        .watch(sessionsTitleExcludeFiltersProvider)
+                        .watch(sessionsTitleExcludeFiltersProvider(agentType))
                         .length;
 
                     return _ModernHeader(
@@ -2699,6 +2703,7 @@ class _CodexThreadsViewState extends ConsumerState<_CodexThreadsView> {
   Future<void> _refresh() async {
     final cwd = ref.read(codexThreadsFilterCwdProvider);
     await ref.read(codexThreadsProvider.notifier).refresh(cwd: cwd);
+    ref.invalidate(codexProjectsForThreadsProvider);
     await widget.onRefresh();
   }
 
@@ -2706,6 +2711,252 @@ class _CodexThreadsViewState extends ConsumerState<_CodexThreadsView> {
     Navigator.push(
       context,
       MaterialPageRoute(builder: (_) => ChatScreen.codex(cxThread: thread)),
+    );
+  }
+
+  void _showTitleFiltersSheet(BuildContext context) {
+    final ocTheme = OpenCodeTheme.of(context);
+    final controller = TextEditingController();
+
+    showModalBottomSheet<void>(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (ctx) {
+        final height = MediaQuery.of(ctx).size.height * 0.75;
+        return SafeArea(
+          child: Container(
+            height: height,
+            decoration: BoxDecoration(
+              color: ocTheme.backgroundPanel,
+              borderRadius: const BorderRadius.vertical(
+                top: Radius.circular(20),
+              ),
+            ),
+            child: Consumer(
+              builder: (context, ref, _) {
+                final filters = ref.watch(
+                  sessionsTitleExcludeFiltersProvider(AgentType.codex),
+                );
+                final notifier = ref.read(
+                  sessionsTitleExcludeFiltersProvider(AgentType.codex).notifier,
+                );
+
+                return Padding(
+                  padding: const EdgeInsets.fromLTRB(20, 16, 20, 16),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Row(
+                        children: [
+                          Expanded(
+                            child: Text(
+                              'Title filters',
+                              style: TextStyle(
+                                color: ocTheme.text,
+                                fontSize: 18,
+                                fontWeight: FontWeight.w700,
+                              ),
+                            ),
+                          ),
+                          IconButton(
+                            onPressed: () => Navigator.pop(ctx),
+                            icon: Icon(
+                              Icons.close_rounded,
+                              color: ocTheme.textMuted,
+                            ),
+                            tooltip: 'Close',
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 6),
+                      Text(
+                        'Hide threads whose titles match any filter. Use `/regex/` for regex, otherwise it’s a case-insensitive substring match.',
+                        style: TextStyle(
+                          color: ocTheme.textMuted,
+                          fontSize: 13,
+                        ),
+                      ),
+                      const SizedBox(height: 12),
+                      Row(
+                        children: [
+                          Expanded(
+                            child: TextField(
+                              controller: controller,
+                              decoration: InputDecoration(
+                                hintText: 'e.g. tmp, /wip.*/',
+                                hintStyle: TextStyle(color: ocTheme.textMuted),
+                                filled: true,
+                                fillColor: ocTheme.backgroundElement,
+                                border: OutlineInputBorder(
+                                  borderRadius: BorderRadius.circular(12),
+                                  borderSide: BorderSide(
+                                    color: ocTheme.borderSubtle,
+                                  ),
+                                ),
+                                enabledBorder: OutlineInputBorder(
+                                  borderRadius: BorderRadius.circular(12),
+                                  borderSide: BorderSide(
+                                    color: ocTheme.borderSubtle,
+                                  ),
+                                ),
+                                focusedBorder: OutlineInputBorder(
+                                  borderRadius: BorderRadius.circular(12),
+                                  borderSide: BorderSide(
+                                    color: ocTheme.primary,
+                                  ),
+                                ),
+                                contentPadding: const EdgeInsets.symmetric(
+                                  horizontal: 12,
+                                  vertical: 10,
+                                ),
+                              ),
+                              style: TextStyle(color: ocTheme.text),
+                              textInputAction: TextInputAction.done,
+                              onSubmitted: (value) async {
+                                await notifier.add(value);
+                                controller.clear();
+                              },
+                            ),
+                          ),
+                          const SizedBox(width: 10),
+                          ElevatedButton(
+                            onPressed: () async {
+                              await notifier.add(controller.text);
+                              controller.clear();
+                            },
+                            style: ElevatedButton.styleFrom(
+                              backgroundColor: ocTheme.primary,
+                              foregroundColor: Colors.white,
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 16,
+                                vertical: 12,
+                              ),
+                              shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(12),
+                              ),
+                            ),
+                            child: const Text('Add'),
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 12),
+                      if (filters.isNotEmpty)
+                        Align(
+                          alignment: Alignment.centerRight,
+                          child: TextButton(
+                            onPressed: () => notifier.clear(),
+                            child: Text(
+                              'Clear all',
+                              style: TextStyle(color: ocTheme.error),
+                            ),
+                          ),
+                        ),
+                      Expanded(
+                        child: filters.isEmpty
+                            ? Center(
+                                child: Text(
+                                  'No filters yet',
+                                  style: TextStyle(color: ocTheme.textMuted),
+                                ),
+                              )
+                            : ListView.separated(
+                                itemCount: filters.length,
+                                separatorBuilder: (_, __) =>
+                                    Divider(color: ocTheme.borderSubtle),
+                                itemBuilder: (context, index) {
+                                  final f = filters[index];
+                                  return ListTile(
+                                    contentPadding: EdgeInsets.zero,
+                                    leading: Icon(
+                                      f.startsWith('/') && f.endsWith('/')
+                                          ? Icons.code_rounded
+                                          : Icons.text_fields_rounded,
+                                      color: ocTheme.textMuted,
+                                    ),
+                                    title: Text(
+                                      f,
+                                      style: TextStyle(color: ocTheme.text),
+                                    ),
+                                    trailing: IconButton(
+                                      onPressed: () => notifier.removeAt(index),
+                                      icon: Icon(
+                                        Icons.delete_outline_rounded,
+                                        color: ocTheme.error,
+                                      ),
+                                      tooltip: 'Remove',
+                                    ),
+                                  );
+                                },
+                              ),
+                      ),
+                    ],
+                  ),
+                );
+              },
+            ),
+          ),
+        );
+      },
+    ).whenComplete(controller.dispose);
+  }
+
+  void _showThreadOptions(CodexThread thread) {
+    final ocTheme = OpenCodeTheme.of(context);
+    final highlights = ref.read(highlightsProvider);
+    final isHighlighted = highlights.isSessionHighlighted(thread.id);
+
+    showModalBottomSheet<void>(
+      context: context,
+      backgroundColor: ocTheme.backgroundPanel,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(16)),
+      ),
+      builder: (ctx) {
+        return SafeArea(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              const SizedBox(height: 8),
+              Container(
+                width: 36,
+                height: 4,
+                decoration: BoxDecoration(
+                  color: ocTheme.textMuted.withValues(alpha: 0.3),
+                  borderRadius: BorderRadius.circular(2),
+                ),
+              ),
+              const SizedBox(height: 12),
+              ListTile(
+                leading: Icon(
+                  isHighlighted ? Icons.star_rounded : Icons.star_border_rounded,
+                  color: ocTheme.text,
+                ),
+                title: Text(
+                  isHighlighted ? 'Unhighlight' : 'Highlight',
+                  style: TextStyle(color: ocTheme.text),
+                ),
+                onTap: () {
+                  ref.read(highlightsProvider.notifier).toggleSession(thread.id);
+                  Navigator.pop(ctx);
+                },
+              ),
+              ListTile(
+                leading: Icon(Icons.archive_outlined, color: ocTheme.error),
+                title: Text(
+                  'Archive',
+                  style: TextStyle(color: ocTheme.error),
+                ),
+                onTap: () async {
+                  Navigator.pop(ctx);
+                  await _archiveThread(thread);
+                },
+              ),
+              const SizedBox(height: 12),
+            ],
+          ),
+        );
+      },
     );
   }
 
@@ -2753,141 +3004,518 @@ class _CodexThreadsViewState extends ConsumerState<_CodexThreadsView> {
   @override
   Widget build(BuildContext context) {
     final ocTheme = OpenCodeTheme.of(context);
+    final theme = Theme.of(context);
     final threadsAsync = ref.watch(codexThreadsProvider);
     final highlights = ref.watch(highlightsProvider);
+    final filterCwd = ref.watch(codexThreadsFilterCwdProvider);
+    final projectsAsync = ref.watch(codexProjectsForThreadsProvider);
+    final titleFilterCount = ref.watch(
+      sessionsTitleExcludeFiltersProvider(AgentType.codex),
+    ).length;
+
+    final filterLabel = filterCwd == null
+        ? 'All projects'
+        : (filterCwd.split('/').where((p) => p.isNotEmpty).toList().isEmpty
+              ? filterCwd
+              : filterCwd.split('/').where((p) => p.isNotEmpty).toList().last);
 
     return Scaffold(
       backgroundColor: Colors.transparent,
       body: SafeArea(
         child: RefreshIndicator(
           onRefresh: _refresh,
-          color: Theme.of(context).colorScheme.primary,
-          backgroundColor: Theme.of(context).colorScheme.surface,
-          child: threadsAsync.when(
-            loading: () => const Center(child: CircularProgressIndicator()),
-            error: (error, _) => ListView(
-              physics: const AlwaysScrollableScrollPhysics(),
-              children: [
-                const SizedBox(height: 120),
-                Center(
-                  child: Text(
-                    'Failed to load Codex threads',
-                    style: TextStyle(color: ocTheme.textMuted),
+          color: theme.colorScheme.primary,
+          backgroundColor: theme.colorScheme.surface,
+          child: CustomScrollView(
+            physics: const AlwaysScrollableScrollPhysics(),
+            slivers: [
+              SliverToBoxAdapter(
+                child: Padding(
+                  padding: const EdgeInsets.fromLTRB(20, 18, 20, 14),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Row(
+                        children: [
+                          Container(
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 10,
+                              vertical: 6,
+                            ),
+                            decoration: BoxDecoration(
+                              color: ocTheme.primary.withValues(alpha: 0.12),
+                              borderRadius: BorderRadius.circular(12),
+                            ),
+                            child: Row(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                Icon(
+                                  Icons.auto_awesome_rounded,
+                                  size: 14,
+                                  color: ocTheme.primary,
+                                ),
+                                const SizedBox(width: 6),
+                                Text(
+                                  'Codex',
+                                  style: TextStyle(
+                                    color: ocTheme.primary,
+                                    fontSize: 12,
+                                    fontWeight: FontWeight.w600,
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 8),
+                      Text(
+                        'Codex threads from app-server',
+                        style: TextStyle(
+                          color: ocTheme.textMuted,
+                          fontSize: 15,
+                          fontWeight: FontWeight.w500,
+                        ),
+                      ),
+                      const SizedBox(height: 14),
+                      Row(
+                        children: [
+                          _FilterChipButton(
+                            label: filterLabel,
+                            onTap: () => _showProjectFilter(
+                              context: context,
+                              theme: theme,
+                              selectedPath: filterCwd,
+                              projects: projectsAsync,
+                              onSelected: (path) {
+                                ref
+                                        .read(
+                                          codexThreadsFilterCwdProvider
+                                              .notifier,
+                                        )
+                                        .state =
+                                    path;
+                                ref
+                                    .read(codexThreadsProvider.notifier)
+                                    .load(cwd: path);
+                              },
+                            ),
+                          ),
+                          const SizedBox(width: 8),
+                          _TitleFiltersChip(
+                            count: titleFilterCount,
+                            onTap: () => _showTitleFiltersSheet(context),
+                          ),
+                        ],
+                      ),
+                    ],
                   ),
                 ),
-                const SizedBox(height: 12),
-                Center(
-                  child: Text(
-                    '$error',
-                    style: TextStyle(color: ocTheme.textMuted, fontSize: 12),
-                    textAlign: TextAlign.center,
+              ),
+              ...threadsAsync.when(
+                loading: () => [
+                  SliverToBoxAdapter(child: _DelayedSkeletonList()),
+                ],
+                error: (error, _) => [
+                  SliverFillRemaining(
+                    child: Center(
+                      child: Column(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          Icon(
+                            Icons.error_outline_rounded,
+                            color: ocTheme.error,
+                            size: 48,
+                          ),
+                          const SizedBox(height: 16),
+                          Text(
+                            'Failed to load threads',
+                            style: TextStyle(
+                              color: ocTheme.text,
+                              fontSize: 16,
+                              fontWeight: FontWeight.w600,
+                            ),
+                          ),
+                          const SizedBox(height: 8),
+                          Padding(
+                            padding: const EdgeInsets.symmetric(horizontal: 24),
+                            child: Text(
+                              '$error',
+                              style: TextStyle(
+                                color: ocTheme.textMuted,
+                                fontSize: 14,
+                              ),
+                              textAlign: TextAlign.center,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                ],
+                data: (threads) {
+                  final titleFilters = ref.watch(
+                    sessionsTitleExcludeFiltersProvider(AgentType.codex),
+                  );
+                  final filtered =
+                      threads
+                          .where(
+                            (t) => titleFilters.isEmpty
+                                ? true
+                                : !sessionTitleMatchesExcludeFilters(
+                                    t.displayTitle,
+                                    titleFilters,
+                                  ),
+                          )
+                          .toList()
+                        ..sort((a, b) => b.createdAt.compareTo(a.createdAt));
+
+                  if (filtered.isEmpty) {
+                    return [SliverFillRemaining(child: _CodexEmptyState())];
+                  }
+
+                  final highlightedThreads = filtered
+                      .where((t) => highlights.isSessionHighlighted(t.id))
+                      .toList();
+                  final regularThreads = filtered
+                      .where((t) => !highlights.isSessionHighlighted(t.id))
+                      .toList();
+
+                  return [
+                    if (highlightedThreads.isNotEmpty)
+                      SliverToBoxAdapter(
+                        child: _CodexHighlightedThreadsSection(
+                          threads: highlightedThreads,
+                          highlightColor: highlights.color,
+                          onTap: _openThread,
+                          onLongPress: _showThreadOptions,
+                        ),
+                      ),
+                    SliverPadding(
+                      padding: const EdgeInsets.fromLTRB(20, 0, 20, 100),
+                      sliver: SliverList(
+                        delegate: SliverChildBuilderDelegate((context, index) {
+                          final t = regularThreads[index];
+                          final isHighlighted = highlights.isSessionHighlighted(
+                            t.id,
+                          );
+                          return Padding(
+                            padding: const EdgeInsets.only(bottom: 12),
+                            child: _CodexThreadCard(
+                              thread: t,
+                              isHighlighted: isHighlighted,
+                              highlightColor: highlights.color,
+                              onTap: () => _openThread(t),
+                              onLongPress: () => _showThreadOptions(t),
+                            ),
+                          );
+                        }, childCount: regularThreads.length),
+                      ),
+                    ),
+                  ];
+                },
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+/// Section showing highlighted Codex threads at the top
+class _CodexHighlightedThreadsSection extends StatelessWidget {
+  const _CodexHighlightedThreadsSection({
+    required this.threads,
+    required this.highlightColor,
+    required this.onTap,
+    required this.onLongPress,
+  });
+
+  final List<CodexThread> threads;
+  final HighlightColor highlightColor;
+  final void Function(CodexThread) onTap;
+  final void Function(CodexThread) onLongPress;
+
+  @override
+  Widget build(BuildContext context) {
+    final ocTheme = OpenCodeTheme.of(context);
+    final color = highlightColor.forBrightness(
+      Theme.of(context).brightness,
+      themePrimary: ocTheme.primary,
+    );
+
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(20, 0, 20, 16),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Icon(Icons.star_rounded, color: color, size: 18),
+              const SizedBox(width: 8),
+              Text(
+                'Highlighted',
+                style: TextStyle(
+                  color: ocTheme.text,
+                  fontSize: 15,
+                  fontWeight: FontWeight.w700,
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 12),
+          ...threads.map(
+            (t) => Padding(
+              padding: const EdgeInsets.only(bottom: 10),
+              child: _CodexThreadCard(
+                thread: t,
+                isHighlighted: true,
+                highlightColor: highlightColor,
+                onTap: () => onTap(t),
+                onLongPress: () => onLongPress(t),
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _CodexThreadCard extends StatelessWidget {
+  const _CodexThreadCard({
+    required this.thread,
+    required this.isHighlighted,
+    required this.highlightColor,
+    required this.onTap,
+    this.onLongPress,
+  });
+
+  final CodexThread thread;
+  final bool isHighlighted;
+  final HighlightColor highlightColor;
+  final VoidCallback onTap;
+  final VoidCallback? onLongPress;
+
+  String _getProjectName() {
+    final parts = thread.cwd.split('/').where((p) => p.isNotEmpty).toList();
+    return parts.isEmpty ? 'Unknown' : parts.last;
+  }
+
+  String _formatDate(DateTime date) {
+    final now = DateTime.now();
+    final diff = now.difference(date);
+
+    if (diff.inMinutes < 1) {
+      return 'Just now';
+    } else if (diff.inMinutes < 60) {
+      return '${diff.inMinutes}m ago';
+    } else if (diff.inHours < 24) {
+      return '${diff.inHours}h ago';
+    } else if (diff.inDays < 7) {
+      return '${diff.inDays}d ago';
+    } else {
+      return '${date.day}/${date.month}/${date.year}';
+    }
+  }
+
+  String _getAvatarLetter() {
+    final title = thread.displayTitle;
+    if (title.isEmpty) return '?';
+    final match = RegExp(r'[a-zA-Z0-9]').firstMatch(title);
+    return match != null
+        ? match.group(0)!.toUpperCase()
+        : title[0].toUpperCase();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final ocTheme = OpenCodeTheme.of(context);
+    final highlight = highlightColor.forBrightness(
+      Theme.of(context).brightness,
+      themePrimary: ocTheme.primary,
+    );
+
+    return GestureDetector(
+      onTap: onTap,
+      onLongPress: onLongPress,
+      child: Container(
+        height: 80,
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+        decoration: BoxDecoration(
+          color: ocTheme.backgroundPanel,
+          borderRadius: BorderRadius.circular(14),
+          border: Border.all(color: ocTheme.borderSubtle),
+        ),
+        child: Row(
+          children: [
+            Stack(
+              clipBehavior: Clip.none,
+              children: [
+                Container(
+                  width: 44,
+                  height: 44,
+                  decoration: BoxDecoration(
+                    borderRadius: BorderRadius.circular(12),
+                    color: ocTheme.backgroundElement,
+                    border: Border.all(color: ocTheme.borderSubtle, width: 1),
+                  ),
+                  child: Center(
+                    child: Text(
+                      _getAvatarLetter(),
+                      style: TextStyle(
+                        color: ocTheme.textMuted,
+                        fontSize: 18,
+                        fontWeight: FontWeight.w600,
+                        letterSpacing: -0.5,
+                      ),
+                    ),
+                  ),
+                ),
+                Positioned(
+                  bottom: -2,
+                  left: -2,
+                  child: Container(
+                    width: 12,
+                    height: 12,
+                    decoration: BoxDecoration(
+                      shape: BoxShape.circle,
+                      color: ocTheme.textMuted.withValues(alpha: 0.4),
+                      border: Border.all(
+                        color: ocTheme.backgroundPanel,
+                        width: 2,
+                      ),
+                    ),
                   ),
                 ),
               ],
             ),
-            data: (threads) {
-              if (threads.isEmpty) {
-                return ListView(
-                  physics: const AlwaysScrollableScrollPhysics(),
-                  children: [
-                    const SizedBox(height: 120),
-                    Center(
-                      child: Text(
-                        'No Codex threads yet',
-                        style: TextStyle(color: ocTheme.textMuted),
-                      ),
-                    ),
-                    const SizedBox(height: 8),
-                    Center(
-                      child: Text(
-                        'Start a Codex chat from Projects',
-                        style: TextStyle(
-                          color: ocTheme.textMuted,
-                          fontSize: 12,
-                        ),
-                      ),
-                    ),
-                  ],
-                );
-              }
-
-              return ListView.separated(
-                physics: const AlwaysScrollableScrollPhysics(),
-                padding: const EdgeInsets.fromLTRB(16, 12, 16, 120),
-                itemCount: threads.length,
-                separatorBuilder: (_, __) =>
-                    Divider(color: ocTheme.borderSubtle, height: 1),
-                itemBuilder: (context, index) {
-                  final t = threads[index];
-                  final isHighlighted = highlights.isSessionHighlighted(t.id);
-                  return ListTile(
-                    contentPadding: EdgeInsets.zero,
-                    onTap: () => _openThread(t),
-                    title: Row(
-                      children: [
-                        if (isHighlighted)
-                          Padding(
-                            padding: const EdgeInsets.only(right: 8),
-                            child: Container(
-                              width: 10,
-                              height: 10,
-                              decoration: BoxDecoration(
-                                color: highlights.color.forBrightness(
-                                  Theme.of(context).brightness,
-                                  themePrimary: ocTheme.primary,
-                                ),
-                                shape: BoxShape.circle,
-                              ),
+            const SizedBox(width: 16),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  Row(
+                    children: [
+                      if (isHighlighted)
+                        Padding(
+                          padding: const EdgeInsets.only(right: 8),
+                          child: Container(
+                            width: 10,
+                            height: 10,
+                            decoration: BoxDecoration(
+                              color: highlight,
+                              shape: BoxShape.circle,
                             ),
                           ),
-                        Expanded(
+                        ),
+                      Flexible(
+                        child: Text(
+                          thread.displayTitle,
+                          style: TextStyle(
+                            color: ocTheme.text,
+                            fontSize: 15,
+                            fontWeight: FontWeight.w600,
+                            height: 1.4,
+                            letterSpacing: -0.2,
+                          ),
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                      ),
+                      if (thread.modelProvider != null) ...[
+                        const SizedBox(width: 6),
+                        Container(
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 6,
+                            vertical: 2,
+                          ),
+                          decoration: BoxDecoration(
+                            color: ocTheme.info.withValues(alpha: 0.15),
+                            borderRadius: BorderRadius.circular(4),
+                          ),
                           child: Text(
-                            t.displayTitle,
+                            thread.modelProvider!,
                             style: TextStyle(
-                              color: ocTheme.text,
+                              color: ocTheme.info,
+                              fontSize: 10,
                               fontWeight: FontWeight.w600,
                             ),
-                            maxLines: 1,
-                            overflow: TextOverflow.ellipsis,
                           ),
                         ),
                       ],
+                    ],
+                  ),
+                  const SizedBox(height: 6),
+                  Text(
+                    '${_getProjectName()} · ${_formatDate(thread.createdAtDateTime)}',
+                    style: TextStyle(
+                      color: ocTheme.textMuted,
+                      fontSize: 13,
+                      height: 1.4,
+                      letterSpacing: -0.1,
                     ),
-                    subtitle: Text(
-                      t.cwd,
-                      style: TextStyle(color: ocTheme.textMuted, fontSize: 12),
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                    ),
-                    trailing: PopupMenuButton<String>(
-                      onSelected: (value) {
-                        if (value == 'highlight') {
-                          ref
-                              .read(highlightsProvider.notifier)
-                              .toggleSession(t.id);
-                        } else if (value == 'archive') {
-                          _archiveThread(t);
-                        }
-                      },
-                      itemBuilder: (_) => [
-                        PopupMenuItem(
-                          value: 'highlight',
-                          child: Text(
-                            isHighlighted ? 'Unhighlight' : 'Highlight',
-                          ),
-                        ),
-                        const PopupMenuItem(
-                          value: 'archive',
-                          child: Text('Archive'),
-                        ),
-                      ],
-                    ),
-                  );
-                },
-              );
-            },
-          ),
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                ],
+              ),
+            ),
+            const SizedBox(width: 8),
+            Icon(
+              Icons.chevron_right_rounded,
+              color: ocTheme.textMuted.withValues(alpha: 0.4),
+              size: 20,
+            ),
+          ],
         ),
+      ),
+    );
+  }
+}
+
+class _CodexEmptyState extends StatelessWidget {
+  @override
+  Widget build(BuildContext context) {
+    final ocTheme = OpenCodeTheme.of(context);
+
+    return Center(
+      child: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          Container(
+            padding: const EdgeInsets.all(24),
+            decoration: BoxDecoration(
+              color: ocTheme.primary.withValues(alpha: 0.1),
+              shape: BoxShape.circle,
+            ),
+            child: Icon(
+              Icons.auto_awesome_rounded,
+              size: 48,
+              color: ocTheme.primary,
+            ),
+          ),
+          const SizedBox(height: 24),
+          Text(
+            'No Codex threads',
+            style: TextStyle(
+              color: ocTheme.text,
+              fontSize: 20,
+              fontWeight: FontWeight.w600,
+            ),
+          ),
+          const SizedBox(height: 8),
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 40),
+            child: Text(
+              'Threads will appear here when you use Codex',
+              style: TextStyle(color: ocTheme.textMuted, fontSize: 14),
+              textAlign: TextAlign.center,
+            ),
+          ),
+        ],
       ),
     );
   }
@@ -2933,9 +3561,13 @@ class _ClaudeCodeSessionsViewState
             ),
             child: Consumer(
               builder: (context, ref, _) {
-                final filters = ref.watch(sessionsTitleExcludeFiltersProvider);
+                final filters = ref.watch(
+                  sessionsTitleExcludeFiltersProvider(AgentType.claudeCode),
+                );
                 final notifier = ref.read(
-                  sessionsTitleExcludeFiltersProvider.notifier,
+                  sessionsTitleExcludeFiltersProvider(
+                    AgentType.claudeCode,
+                  ).notifier,
                 );
 
                 return Padding(
@@ -3257,7 +3889,7 @@ class _ClaudeCodeSessionsViewState
     final highlights = ref.watch(highlightsProvider);
     final highlightColor = highlights.color;
     final titleFilterCount = ref
-        .watch(sessionsTitleExcludeFiltersProvider)
+        .watch(sessionsTitleExcludeFiltersProvider(AgentType.claudeCode))
         .length;
     final filterLabel = _filterLabel(
       selectedPath: filterCwd,
@@ -3430,7 +4062,7 @@ class _ClaudeCodeSessionsViewState
 
                   // Sort by updatedAt descending
                   final titleFilters = ref.watch(
-                    sessionsTitleExcludeFiltersProvider,
+                    sessionsTitleExcludeFiltersProvider(AgentType.claudeCode),
                   );
                   final sorted =
                       sessions
