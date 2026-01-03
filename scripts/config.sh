@@ -7,7 +7,7 @@
 # ============================================================================
 # CHANGE THIS WHEN YOUR DOMAIN IS LIVE
 # ============================================================================
-BROSKI_DOMAIN="broskiapp.dev"
+BROSKI_DOMAIN="broskiapp.com"
 BROSKI_INSTALL_URL="https://${BROSKI_DOMAIN}/install"
 BROSKI_HELP_URL="https://${BROSKI_DOMAIN}/help"
 BROSKI_DOCS_URL="https://${BROSKI_DOMAIN}/docs"

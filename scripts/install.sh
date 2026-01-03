@@ -3,7 +3,7 @@ set -e
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 source "${SCRIPT_DIR}/config.sh" 2>/dev/null || {
-  BROSKI_DOMAIN="broskiapp.dev"
+  BROSKI_DOMAIN="broskiapp.com"
   BROSKI_HELP_URL="https://${BROSKI_DOMAIN}/help"
   TAILSCALE_MAC_APPSTORE="macappstore://apps.apple.com/app/tailscale/id1475387142"
   TAILSCALE_IOS_URL="https://apps.apple.com/app/tailscale/id1470499037"

@@ -8,7 +8,7 @@ import '../theme/opencode_theme.dart';
 class SetupGuideScreen extends ConsumerWidget {
   const SetupGuideScreen({super.key});
 
-  static const _installCommand = 'curl -fsSL broskiapp.dev/install | bash';
+  static const _installCommand = 'curl -fsSL broskiapp.com/install | bash';
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
