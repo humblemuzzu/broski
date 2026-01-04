@@ -3,6 +3,12 @@ import { NextRequest, NextResponse } from "next/server";
 // Google Apps Script Web App URL - set this in your environment
 const GOOGLE_SCRIPT_URL = process.env.GOOGLE_SCRIPT_URL;
 
+// Validate email format properly
+const isValidEmail = (email: string): boolean => {
+  const emailRegex = /^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$/;
+  return emailRegex.test(email);
+};
+
 // Get geolocation from IP using free ip-api.com service
 async function getGeoLocation(ip: string): Promise<{ country: string; city: string }> {
   try {
@@ -69,10 +75,10 @@ export async function POST(request: NextRequest) {
   try {
     const { email } = await request.json();
 
-    // Validate email
-    if (!email || !email.includes("@")) {
+    // Validate email format properly (prevents spam like "a@b" or "test@test")
+    if (!email || !isValidEmail(email)) {
       return NextResponse.json(
-        { success: false, error: "Invalid email address" },
+        { success: false, error: "Please enter a valid email address" },
         { status: 400 }
       );
     }

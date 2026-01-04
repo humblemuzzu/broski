@@ -2,10 +2,46 @@
 
 import { useState } from "react";
 import Image from "next/image";
+import confetti from "canvas-confetti";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { WaitlistProgress } from "@/components/waitlist-progress";
 import { ThemeSwitcher } from "@/components/theme-switcher";
+
+// Email validation regex - checks for proper format
+const isValidEmail = (email: string): boolean => {
+  const emailRegex = /^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$/;
+  return emailRegex.test(email);
+};
+
+// Fire confetti celebration
+const fireConfetti = () => {
+  const duration = 3000;
+  const end = Date.now() + duration;
+
+  const colors = ["#fab283", "#56b6c2", "#7fd88f", "#ffffff"];
+
+  (function frame() {
+    confetti({
+      particleCount: 3,
+      angle: 60,
+      spread: 55,
+      origin: { x: 0 },
+      colors: colors,
+    });
+    confetti({
+      particleCount: 3,
+      angle: 120,
+      spread: 55,
+      origin: { x: 1 },
+      colors: colors,
+    });
+
+    if (Date.now() < end) {
+      requestAnimationFrame(frame);
+    }
+  })();
+};
 
 export default function Home() {
   const [email, setEmail] = useState("");
@@ -15,7 +51,8 @@ export default function Home() {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     
-    if (!email || !email.includes("@")) {
+    // Validate email format properly
+    if (!email || !isValidEmail(email)) {
       setStatus("error");
       setMessage("Please enter a valid email address");
       return;
@@ -38,6 +75,8 @@ export default function Home() {
         setStatus("success");
         setMessage("You're on the list! We'll be in touch soon.");
         setEmail("");
+        // Fire confetti celebration!
+        fireConfetti();
       } else {
         setStatus("error");
         setMessage(data.error || "Something went wrong. Please try again.");
@@ -150,7 +189,7 @@ export default function Home() {
           {message && (
             <p
               className={`text-sm ${
-                status === "success" ? "text-[#7fd88f]" : "text-destructive"
+                status === "success" ? "text-foreground" : "text-destructive"
               }`}
             >
               {message}
