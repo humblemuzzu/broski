@@ -611,34 +611,44 @@ class CCCheckpointCreated extends ClaudeCodeStreamMessage {
 
 class CCAssistantMessage extends ClaudeCodeStreamMessage {
   final String content;
+  final String? messageId;
 
-  const CCAssistantMessage({required this.content});
+  const CCAssistantMessage({required this.content, this.messageId});
 
   factory CCAssistantMessage.fromJson(Map<String, dynamic> json) {
-    return CCAssistantMessage(content: json['content'] as String? ?? '');
+    return CCAssistantMessage(
+      content: json['content'] as String? ?? '',
+      messageId: json['messageId'] as String?,
+    );
   }
 }
 
 class CCAssistantMessageDelta extends ClaudeCodeStreamMessage {
   final String content;
+  final String? messageId;
 
-  const CCAssistantMessageDelta({required this.content});
+  const CCAssistantMessageDelta({required this.content, this.messageId});
 
   factory CCAssistantMessageDelta.fromJson(Map<String, dynamic> json) {
-    return CCAssistantMessageDelta(content: json['content'] as String? ?? '');
+    return CCAssistantMessageDelta(
+      content: json['content'] as String? ?? '',
+      messageId: json['messageId'] as String?,
+    );
   }
 }
 
 class CCThinkingDelta extends ClaudeCodeStreamMessage {
   final String content;
   final String? partId;
+  final String? messageId;
 
-  const CCThinkingDelta({required this.content, this.partId});
+  const CCThinkingDelta({required this.content, this.partId, this.messageId});
 
   factory CCThinkingDelta.fromJson(Map<String, dynamic> json) {
     return CCThinkingDelta(
       content: json['content'] as String? ?? '',
       partId: json['partId'] as String?,
+      messageId: json['messageId'] as String?,
     );
   }
 }
@@ -648,12 +658,14 @@ class CCToolCall extends ClaudeCodeStreamMessage {
   final dynamic input;
   final String? toolUseId;
   final String status;
+  final String? messageId;
 
   const CCToolCall({
     required this.tool,
     this.input,
     this.toolUseId,
     required this.status,
+    this.messageId,
   });
 
   factory CCToolCall.fromJson(Map<String, dynamic> json) {
@@ -662,6 +674,7 @@ class CCToolCall extends ClaudeCodeStreamMessage {
       input: json['input'],
       toolUseId: json['toolUseId'] as String?,
       status: json['status'] as String? ?? 'running',
+      messageId: json['messageId'] as String?,
     );
   }
 }
@@ -670,14 +683,21 @@ class CCToolResult extends ClaudeCodeStreamMessage {
   final String? toolUseId;
   final dynamic result;
   final dynamic toolUseResult;
+  final String? messageId;
 
-  const CCToolResult({this.toolUseId, this.result, this.toolUseResult});
+  const CCToolResult({
+    this.toolUseId,
+    this.result,
+    this.toolUseResult,
+    this.messageId,
+  });
 
   factory CCToolResult.fromJson(Map<String, dynamic> json) {
     return CCToolResult(
       toolUseId: json['toolUseId'] as String?,
       result: json['result'],
       toolUseResult: json['toolUseResult'],
+      messageId: json['messageId'] as String?,
     );
   }
 }
@@ -697,11 +717,15 @@ class CCSubagentInvocation extends ClaudeCodeStreamMessage {
   /// Description of what the subagent is doing
   final String? description;
 
+  /// Identifier tying this invocation to an assistant turn/message.
+  final String? messageId;
+
   const CCSubagentInvocation({
     required this.subagentName,
     this.toolUseId,
     this.prompt,
     this.description,
+    this.messageId,
   });
 
   factory CCSubagentInvocation.fromJson(Map<String, dynamic> json) {
@@ -710,6 +734,7 @@ class CCSubagentInvocation extends ClaudeCodeStreamMessage {
       toolUseId: json['toolUseId'] as String?,
       prompt: json['prompt'] as String?,
       description: json['description'] as String?,
+      messageId: json['messageId'] as String?,
     );
   }
 }
@@ -720,6 +745,7 @@ class CCTokenUsage extends ClaudeCodeStreamMessage {
   final int? cacheReadTokens;
   final int? cacheCreationTokens;
   final double? totalCostUsd;
+  final String? messageId;
 
   const CCTokenUsage({
     this.inputTokens,
@@ -727,6 +753,7 @@ class CCTokenUsage extends ClaudeCodeStreamMessage {
     this.cacheReadTokens,
     this.cacheCreationTokens,
     this.totalCostUsd,
+    this.messageId,
   });
 
   factory CCTokenUsage.fromJson(Map<String, dynamic> json) {
@@ -737,6 +764,7 @@ class CCTokenUsage extends ClaudeCodeStreamMessage {
       cacheReadTokens: usage['cacheReadTokens'] as int?,
       cacheCreationTokens: usage['cacheCreationTokens'] as int?,
       totalCostUsd: (json['totalCostUsd'] as num?)?.toDouble(),
+      messageId: json['messageId'] as String?,
     );
   }
 

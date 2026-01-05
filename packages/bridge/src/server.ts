@@ -1,5 +1,6 @@
 import type { ServerWebSocket } from 'bun'
-import { mkdir, readdir, readFile, realpath, rm, stat, writeFile } from 'node:fs/promises'
+import { mkdir, open, readdir, readFile, realpath, rm, stat, writeFile } from 'node:fs/promises'
+import { watch as fsWatch, type FSWatcher } from 'node:fs'
 import { homedir } from 'node:os'
 import { basename, dirname, resolve, sep } from 'node:path'
 import { randomBytes, timingSafeEqual } from 'node:crypto'
@@ -491,6 +492,8 @@ export function createBridgeServer(options: BridgeServerOptions): BridgeServer {
   const recentChatMessageIds = new Map<string, number>() // key: `${sessionId}:${messageId}` -> tsMs
   const ptyConnections = new Map<string, WebSocket>()
   const sessionWatchers = new Map<string, Set<ServerWebSocket<unknown>>>()
+  const ccExternalTails = new Map<string, { stop: () => void }>() // sessionId -> tailer
+  const cxExternalTails = new Map<string, { stop: () => void }>() // threadId -> tailer
   const ccPermissionWaiters = new Map<
     string,
     { resolve: (response: 'once' | 'always' | 'reject') => void; timer: Timer }
@@ -877,6 +880,558 @@ export function createBridgeServer(options: BridgeServerOptions): BridgeServer {
     return `${agent}:${sessionId}`
   }
 
+  const parseSessionKey = (key: string): { agent: AgentType; id: string } | null => {
+    const idx = key.indexOf(':')
+    if (idx <= 0) return null
+    const agent = key.slice(0, idx) as AgentType
+    const id = key.slice(idx + 1)
+    if (!id) return null
+    return { agent, id }
+  }
+
+  const stopCcExternalTail = (sessionId: string) => {
+    const existing = ccExternalTails.get(sessionId)
+    if (!existing) return
+    try {
+      existing.stop()
+    } catch {
+      // ignore
+    }
+    ccExternalTails.delete(sessionId)
+  }
+
+  const stopCxExternalTail = (threadId: string) => {
+    const existing = cxExternalTails.get(threadId)
+    if (!existing) return
+    try {
+      existing.stop()
+    } catch {
+      // ignore
+    }
+    cxExternalTails.delete(threadId)
+  }
+
+  const startClaudeCodeExternalTail = (sessionId: string): { stop: () => void } => {
+    let stopped = false
+    let filePath: string | null = null
+    let fileHandle: any | null = null
+    let offset = 0
+    let buffer = ''
+    let watcher: FSWatcher | null = null
+    let pollTimer: Timer | null = null
+    let pumping = false
+    let lastMtimeMs = 0
+    const lastTextByMessageId = new Map<string, string>()
+
+    const extractText = (content: unknown): string => {
+      if (typeof content === 'string') return content
+      if (!Array.isArray(content)) return ''
+      const parts: string[] = []
+      for (const block of content) {
+        if (!block || typeof block !== 'object') continue
+        if ((block as any).type === 'text' && typeof (block as any).text === 'string') {
+          parts.push((block as any).text)
+        }
+      }
+      return parts.join('')
+    }
+
+    const bootstrapBaseline = async (path: string) => {
+      try {
+        const st = await stat(path)
+        const end = Number(st.size ?? 0)
+        if (!Number.isFinite(end) || end <= 0) return
+        const maxBytes = 200_000
+        const start = Math.max(0, end - maxBytes)
+        const fh = await open(path, 'r')
+        try {
+          const len = end - start
+          const buf = Buffer.alloc(len)
+          const res = await fh.read(buf, 0, len, start)
+          const txt = buf.subarray(0, res.bytesRead).toString('utf-8')
+          const lines = txt.split('\n').filter(Boolean)
+          for (let i = lines.length - 1; i >= 0; i--) {
+            const line = lines[i]
+            let parsed: any
+            try {
+              parsed = JSON.parse(line)
+            } catch {
+              continue
+            }
+            if (parsed?.type !== 'assistant' || parsed?.isMeta === true) continue
+            const msgId = typeof parsed?.uuid === 'string'
+              ? parsed.uuid
+              : (typeof parsed?.message?.id === 'string' ? parsed.message.id : '')
+            if (!msgId) continue
+            const text = extractText(parsed?.message?.content)
+            lastTextByMessageId.set(msgId, text)
+            break
+          }
+        } finally {
+          await fh.close().catch(() => {})
+        }
+      } catch {
+        // ignore
+      }
+    }
+
+    const extractUsage = (parsed: any): { inputTokens?: number; outputTokens?: number; cacheReadTokens?: number } => {
+      const usage = parsed?.message?.usage
+      if (!usage || typeof usage !== 'object') return {}
+      const inputTokens = Number((usage as any).input_tokens ?? NaN)
+      const outputTokens = Number((usage as any).output_tokens ?? NaN)
+      const cacheReadTokens = Number((usage as any).cache_read_input_tokens ?? NaN)
+      return {
+        ...(Number.isFinite(inputTokens) ? { inputTokens } : {}),
+        ...(Number.isFinite(outputTokens) ? { outputTokens } : {}),
+        ...(Number.isFinite(cacheReadTokens) ? { cacheReadTokens } : {}),
+      }
+    }
+
+    const isCompletedAssistantRecord = (parsed: any): boolean => {
+      if (parsed?.type !== 'assistant') return false
+      const msg = parsed?.message
+      if (!msg || typeof msg !== 'object') return false
+      // Claude Code persists final assistant blocks with usage/stop_reason filled.
+      if (msg.usage && typeof msg.usage === 'object') return true
+      if (msg.stop_reason != null) return true
+      return false
+    }
+
+    const applyAssistantTextUpdate = (msgId: string, text: string, parsed?: any) => {
+      if (!msgId) return
+      const prev = lastTextByMessageId.get(msgId) ?? ''
+      if (!text || text === prev) {
+        // Still send completion if we learned this record is complete (e.g., usage filled later).
+        if (parsed && isCompletedAssistantRecord(parsed)) {
+          emitCcStream(sessionId, { type: 'token-usage', usage: extractUsage(parsed), messageId: msgId })
+        }
+        return
+      }
+
+      if (prev && text.startsWith(prev)) {
+        const delta = text.slice(prev.length)
+        if (delta) {
+          emitCcStream(sessionId, { type: 'assistant-message-delta', content: delta, messageId: msgId })
+        }
+      } else {
+        // Non-append update (file rewrites or truncated context): replace with full text.
+        emitCcStream(sessionId, { type: 'assistant-message', content: text, messageId: msgId })
+      }
+
+      lastTextByMessageId.set(msgId, text)
+
+      if (parsed && isCompletedAssistantRecord(parsed)) {
+        emitCcStream(sessionId, { type: 'token-usage', usage: extractUsage(parsed), messageId: msgId })
+      }
+    }
+
+    const readLatestAssistantFromTail = async (path: string): Promise<{ msgId: string; text: string; parsed: any } | null> => {
+      try {
+        const st = await stat(path)
+        const end = Number(st.size ?? 0)
+        if (!Number.isFinite(end) || end <= 0) return null
+        const maxBytes = 400_000
+        const start = Math.max(0, end - maxBytes)
+        const fh = await open(path, 'r')
+        try {
+          const len = end - start
+          const buf = Buffer.alloc(len)
+          const res = await fh.read(buf, 0, len, start)
+          const txt = buf.subarray(0, res.bytesRead).toString('utf-8')
+          const lines = txt.split('\n').filter(Boolean)
+          for (let i = lines.length - 1; i >= 0; i--) {
+            const line = lines[i].trim()
+            if (!line) continue
+            let parsed: any
+            try {
+              parsed = JSON.parse(line)
+            } catch {
+              continue
+            }
+            if (parsed?.type !== 'assistant' || parsed?.isMeta === true) continue
+            const msgId = typeof parsed?.uuid === 'string'
+              ? parsed.uuid
+              : (typeof parsed?.message?.id === 'string' ? parsed.message.id : '')
+            if (!msgId) continue
+            const text = extractText(parsed?.message?.content)
+            return { msgId, text, parsed }
+          }
+        } finally {
+          await fh.close().catch(() => {})
+        }
+      } catch {
+        // ignore
+      }
+      return null
+    }
+
+    const ensureFile = async () => {
+      if (filePath) return true
+      const resolved = await claudeCode.resolveSessionFilePath(sessionId)
+      if (!resolved) return false
+      filePath = resolved
+      try {
+        const st = await stat(filePath)
+        offset = Number(st.size ?? 0)
+        lastMtimeMs = st.mtime.getTime()
+      } catch {
+        offset = 0
+      }
+      await bootstrapBaseline(filePath)
+      return true
+    }
+
+    const closeHandle = async () => {
+      if (!fileHandle) return
+      try {
+        await fileHandle.close()
+      } catch {
+        // ignore
+      }
+      fileHandle = null
+    }
+
+    const pump = async () => {
+      if (stopped || pumping) return
+      pumping = true
+      try {
+        const ok = await ensureFile()
+        if (!ok || !filePath) return
+
+        const st = await stat(filePath).catch(() => null)
+        const size = Number(st?.size ?? 0)
+        const mtimeMs = st?.mtime?.getTime?.() ?? 0
+        if (!Number.isFinite(size)) return
+        if (size < offset) {
+          offset = 0
+          buffer = ''
+          lastTextByMessageId.clear()
+        }
+        if (size === offset) {
+          // Some Claude Code versions update transcripts in-place without appending bytes.
+          // If mtime changed, re-read tail and diff the latest assistant message.
+          if (mtimeMs > lastMtimeMs && filePath) {
+            const latest = await readLatestAssistantFromTail(filePath)
+            if (latest) {
+              applyAssistantTextUpdate(latest.msgId, latest.text, latest.parsed)
+            }
+          }
+          lastMtimeMs = Math.max(lastMtimeMs, mtimeMs)
+          return
+        }
+        lastMtimeMs = Math.max(lastMtimeMs, mtimeMs)
+
+        if (!fileHandle) {
+          fileHandle = await open(filePath, 'r')
+        }
+
+        const toRead = size - offset
+        const buf = Buffer.alloc(toRead)
+        const res = await fileHandle.read(buf, 0, toRead, offset)
+        offset += res.bytesRead
+
+        const chunk = buf.subarray(0, res.bytesRead).toString('utf-8')
+        if (!chunk) return
+        buffer += chunk
+        const lines = buffer.split('\n')
+        buffer = lines.pop() ?? ''
+
+        for (const line of lines) {
+          const trimmed = line.trim()
+          if (!trimmed) continue
+          let parsed: any
+          try {
+            parsed = JSON.parse(trimmed)
+          } catch {
+            continue
+          }
+
+          if (parsed?.type !== 'assistant' || parsed?.isMeta === true) continue
+          const msgId = typeof parsed?.uuid === 'string'
+            ? parsed.uuid
+            : (typeof parsed?.message?.id === 'string' ? parsed.message.id : '')
+          if (!msgId) continue
+          const text = extractText(parsed?.message?.content)
+          applyAssistantTextUpdate(msgId, text, parsed)
+        }
+      } catch (err) {
+        // If the file was rotated/deleted, reset and retry.
+        await closeHandle()
+        filePath = null
+      } finally {
+        pumping = false
+      }
+    }
+
+    const start = () => {
+      // Watch + poll fallback for robustness (fs.watch can be flaky).
+      pollTimer = setInterval(() => {
+        void pump()
+      }, 500)
+
+      void ensureFile().then((ok) => {
+        if (!ok || !filePath || stopped) return
+        try {
+          watcher = fsWatch(filePath, { persistent: false }, () => {
+            void pump()
+          })
+        } catch {
+          // ignore (polling will handle)
+        }
+      })
+    }
+
+    start()
+
+    return {
+      stop: () => {
+        stopped = true
+        if (pollTimer) {
+          clearInterval(pollTimer)
+          pollTimer = null
+        }
+        if (watcher) {
+          try {
+            watcher.close()
+          } catch {
+            // ignore
+          }
+          watcher = null
+        }
+        void closeHandle()
+      },
+    }
+  }
+
+  const resolveCodexExternalSessionFile = async (threadId: string): Promise<string | null> => {
+    const baseDir = resolve(homedir(), '.codex', 'sessions')
+    const id = threadId.trim()
+    if (!id) return null
+
+    // Fast path: exact stem match
+    const direct = resolve(baseDir, `${id}.jsonl`)
+    try {
+      const st = await stat(direct)
+      if (st.isFile()) return direct
+    } catch {
+      // ignore
+    }
+
+    // Common case: filenames include the thread/session id as a suffix.
+    const pattern = `**/*${id}*.jsonl`
+    let best: { path: string; mtimeMs: number } | null = null
+    try {
+      const glob = new Bun.Glob(pattern)
+      for await (const rel of glob.scan({ cwd: baseDir, onlyFiles: true })) {
+        const abs = resolve(baseDir, rel)
+        const st = await stat(abs).catch(() => null)
+        if (!st?.isFile()) continue
+        const mtimeMs = st.mtime.getTime()
+        if (!best || mtimeMs > best.mtimeMs) best = { path: abs, mtimeMs }
+      }
+    } catch {
+      // ignore
+    }
+
+    return best?.path ?? null
+  }
+
+  const startCodexExternalTail = (threadId: string): { stop: () => void } => {
+    let stopped = false
+    let filePath: string | null = null
+    let fileHandle: any | null = null
+    let offset = 0
+    let buffer = ''
+    let watcher: FSWatcher | null = null
+    let pollTimer: Timer | null = null
+    let pumping = false
+    let turnInProgress = false
+
+    const closeHandle = async () => {
+      if (!fileHandle) return
+      try {
+        await fileHandle.close()
+      } catch {
+        // ignore
+      }
+      fileHandle = null
+    }
+
+    const ensureFile = async () => {
+      if (filePath) return true
+      const resolved = await resolveCodexExternalSessionFile(threadId)
+      if (!resolved) return false
+      filePath = resolved
+      try {
+        const st = await stat(filePath)
+        offset = Number(st.size ?? 0)
+      } catch {
+        offset = 0
+      }
+      return true
+    }
+
+    const emit = (method: string, params: Record<string, unknown>) => {
+      emitCxStream(threadId, { type: 'notification', method, params: { threadId, ...params } })
+    }
+
+    const pump = async () => {
+      if (stopped || pumping) return
+      pumping = true
+      try {
+        const ok = await ensureFile()
+        if (!ok || !filePath) return
+
+        const st = await stat(filePath).catch(() => null)
+        const size = Number(st?.size ?? 0)
+        if (!Number.isFinite(size)) return
+        if (size < offset) {
+          offset = 0
+          buffer = ''
+        }
+        if (size === offset) return
+
+        if (!fileHandle) {
+          fileHandle = await open(filePath, 'r')
+        }
+
+        const toRead = size - offset
+        const buf = Buffer.alloc(toRead)
+        const res = await fileHandle.read(buf, 0, toRead, offset)
+        offset += res.bytesRead
+
+        const chunk = buf.subarray(0, res.bytesRead).toString('utf-8')
+        if (!chunk) return
+        buffer += chunk
+        const lines = buffer.split('\n')
+        buffer = lines.pop() ?? ''
+
+        for (const line of lines) {
+          const trimmed = line.trim()
+          if (!trimmed) continue
+          let parsed: any
+          try {
+            parsed = JSON.parse(trimmed)
+          } catch {
+            continue
+          }
+
+          const outerType = parsed?.type as string | undefined
+          const payload = parsed?.payload ?? null
+
+          if (outerType === 'event_msg' && payload?.type === 'user_message') {
+            if (!turnInProgress) {
+              turnInProgress = true
+              emit('turn/started', {})
+            }
+            continue
+          }
+
+          if (outerType === 'event_msg' && payload?.type === 'agent_reasoning' && typeof payload?.text === 'string') {
+            const delta = payload.text
+            if (delta) {
+              emit('item/reasoning/textDelta', {
+                itemId: `cx-ext-thinking-${threadId}`,
+                delta,
+              })
+            }
+            continue
+          }
+
+          if (outerType === 'event_msg' && payload?.type === 'agent_message') {
+            const text = typeof payload?.message === 'string'
+              ? payload.message
+              : (typeof payload?.text === 'string' ? payload.text : '')
+            if (text) {
+              const ts = typeof parsed?.timestamp === 'string' ? parsed.timestamp : `${Date.now()}`
+              const itemId = `cx-ext-msg-${ts.replaceAll(/[^a-zA-Z0-9]/g, '_')}`
+              emit('item/agentMessage/delta', { itemId, delta: text })
+              if (turnInProgress) {
+                turnInProgress = false
+                emit('turn/completed', {})
+              }
+            }
+            continue
+          }
+        }
+      } catch {
+        await closeHandle()
+        filePath = null
+      } finally {
+        pumping = false
+      }
+    }
+
+    pollTimer = setInterval(() => {
+      void pump()
+    }, 500)
+
+    void ensureFile().then((ok) => {
+      if (!ok || !filePath || stopped) return
+      try {
+        watcher = fsWatch(filePath, { persistent: false }, () => {
+          void pump()
+        })
+      } catch {
+        // ignore (polling will handle)
+      }
+    })
+
+    return {
+      stop: () => {
+        stopped = true
+        if (pollTimer) {
+          clearInterval(pollTimer)
+          pollTimer = null
+        }
+        if (watcher) {
+          try {
+            watcher.close()
+          } catch {
+            // ignore
+          }
+          watcher = null
+        }
+        void closeHandle()
+      },
+    }
+  }
+
+  const syncExternalTailForKey = (key: string | null) => {
+    if (!key) return
+    const parsed = parseSessionKey(key)
+    if (!parsed) return
+    const { agent, id } = parsed
+    const watchers = sessionWatchers.get(key)
+    const watcherCount = watchers?.size ?? 0
+
+    if (agent === 'claude-code') {
+      const owner = ccSessionOwners.get(id) ?? null
+      const shouldRun = watcherCount > 0 && !owner
+      if (shouldRun) {
+        if (!ccExternalTails.has(id)) {
+          ccExternalTails.set(id, startClaudeCodeExternalTail(id))
+        }
+      } else {
+        stopCcExternalTail(id)
+      }
+      return
+    }
+
+    if (agent === 'codex') {
+      const owner = cxThreadOwners.get(id) ?? null
+      const shouldRun = watcherCount > 0 && !owner
+      if (shouldRun) {
+        if (!cxExternalTails.has(id)) {
+          cxExternalTails.set(id, startCodexExternalTail(id))
+        }
+      } else {
+        stopCxExternalTail(id)
+      }
+    }
+  }
+
   const updateSessionWatchers = (
     ws: ServerWebSocket<unknown>,
     prevKey: string | null,
@@ -888,6 +1443,7 @@ export function createBridgeServer(options: BridgeServerOptions): BridgeServer {
         prevSet.delete(ws)
         if (prevSet.size === 0) sessionWatchers.delete(prevKey)
       }
+      syncExternalTailForKey(prevKey)
     }
     if (nextKey) {
       let nextSet = sessionWatchers.get(nextKey)
@@ -896,6 +1452,7 @@ export function createBridgeServer(options: BridgeServerOptions): BridgeServer {
         sessionWatchers.set(nextKey, nextSet)
       }
       nextSet.add(ws)
+      syncExternalTailForKey(nextKey)
     }
   }
 
@@ -1275,6 +1832,25 @@ export function createBridgeServer(options: BridgeServerOptions): BridgeServer {
         const disconnectedDeviceName = ctx?.deviceName
         const prevKey = makeSessionKey(ctx?.viewAgent, ctx?.sessionId)
         updateSessionWatchers(ws, prevKey, null)
+
+        // If this socket owned any CC/Codex sessions, release ownership so watchers can fall back
+        // to external tailing (or another owner) correctly.
+        const releasedKeys: Array<{ agent: AgentType; id: string }> = []
+        for (const [sid, owner] of ccSessionOwners.entries()) {
+          if (owner === ws) {
+            ccSessionOwners.delete(sid)
+            releasedKeys.push({ agent: 'claude-code', id: sid })
+          }
+        }
+        for (const [tid, owner] of cxThreadOwners.entries()) {
+          if (owner === ws) {
+            cxThreadOwners.delete(tid)
+            releasedKeys.push({ agent: 'codex', id: tid })
+          }
+        }
+        for (const k of releasedKeys) {
+          syncExternalTailForKey(makeSessionKey(k.agent, k.id))
+        }
         
         sockets.delete(ws)
         contexts.delete(ws)
@@ -2479,6 +3055,8 @@ export function createBridgeServer(options: BridgeServerOptions): BridgeServer {
           const permissionMode = message.permissionMode || cfg.permissionMode
           const allowedTools = message.allowedTools || cfg.allowedTools
           const disallowedTools = message.disallowedTools || cfg.disallowedTools
+          // Stable per-turn identifier so watchers on other devices can keep CC turns separated.
+          const ccMessageId = `cc-msg-${randomBytes(8).toString('hex')}`
           const toolCallsById = new Map<string, { tool: string; input: Record<string, unknown> }>()
           let sentBusyStatus = false
 
@@ -2568,6 +3146,21 @@ export function createBridgeServer(options: BridgeServerOptions): BridgeServer {
               activeSubagent: message.activeSubagent,
             },
             (streamMsg) => {
+              const streamMsgWithId = (() => {
+                const t = (streamMsg as any)?.type
+                if (
+                  t === 'assistant-message' ||
+                  t === 'assistant-message-delta' ||
+                  t === 'thinking-delta' ||
+                  t === 'tool-call' ||
+                  t === 'tool-result' ||
+                  t === 'subagent-invocation' ||
+                  t === 'token-usage'
+                ) {
+                  return { ...(streamMsg as any), messageId: ccMessageId }
+                }
+                return streamMsg
+              })()
               if ((streamMsg as any)?.type === 'session-created' && typeof (streamMsg as any)?.sessionId === 'string') {
                 actualSessionId = (streamMsg as any).sessionId
                 ccSessionOwners.set(actualSessionId, ws)
@@ -2577,10 +3170,10 @@ export function createBridgeServer(options: BridgeServerOptions): BridgeServer {
 
               // Track tool calls quickly (needed for later tool-result indexing).
               try {
-                if ((streamMsg as any)?.type === 'tool-call') {
-                  const toolUseId = safeString((streamMsg as any)?.toolUseId)
-                  const tool = safeString((streamMsg as any)?.tool)
-                  const inputRaw = (streamMsg as any)?.input
+                if ((streamMsgWithId as any)?.type === 'tool-call') {
+                  const toolUseId = safeString((streamMsgWithId as any)?.toolUseId)
+                  const tool = safeString((streamMsgWithId as any)?.tool)
+                  const inputRaw = (streamMsgWithId as any)?.input
                   const input = (inputRaw && typeof inputRaw === 'object') ? (inputRaw as Record<string, unknown>) : {}
                   if (toolUseId) toolCallsById.set(toolUseId, { tool, input })
                 }
@@ -2589,9 +3182,9 @@ export function createBridgeServer(options: BridgeServerOptions): BridgeServer {
               }
 
               if (actualSessionId) {
-                emitCcStream(actualSessionId, streamMsg, ws)
+                emitCcStream(actualSessionId, streamMsgWithId, ws)
               } else {
-                send(ws, { type: 'cc_stream', data: streamMsg, sessionId: 'unknown' })
+                send(ws, { type: 'cc_stream', data: streamMsgWithId, sessionId: 'unknown' })
               }
 
               // Artifact indexing (Claude Code): keep streaming hot path fast.
@@ -2600,9 +3193,9 @@ export function createBridgeServer(options: BridgeServerOptions): BridgeServer {
               if (ARTIFACTS_ENABLED) {
                 queueMicrotask(() => {
                   try {
-                    if ((streamMsg as any)?.type !== 'tool-result') return
-                    const toolUseId = safeString((streamMsg as any)?.toolUseId)
-                    const toolUseResult = (streamMsg as any)?.toolUseResult
+                    if ((streamMsgWithId as any)?.type !== 'tool-result') return
+                    const toolUseId = safeString((streamMsgWithId as any)?.toolUseId)
+                    const toolUseResult = (streamMsgWithId as any)?.toolUseResult
                     const toolCall = toolUseId ? toolCallsById.get(toolUseId) : null
                     const tool = toolCall?.tool ?? ''
                     const filePath = safeString(toolUseResult?.filePath)
@@ -2642,6 +3235,10 @@ export function createBridgeServer(options: BridgeServerOptions): BridgeServer {
               const sid = completedSessionId || actualSessionId || message.sessionId || ''
               log(`Claude Code session ${sid} completed`)
               sendSessionIdle(sid)
+              if (sid && ccSessionOwners.get(sid) === ws) {
+                ccSessionOwners.delete(sid)
+                syncExternalTailForKey(makeSessionKey('claude-code', sid))
+              }
               // TODO(artifacts): Re-enable when feature is ready
               if (ARTIFACTS_ENABLED) {
                 if (sid) artifactsEnrichment?.queueArtifactsEnrichmentForSession(sid)
@@ -2660,6 +3257,10 @@ export function createBridgeServer(options: BridgeServerOptions): BridgeServer {
                 })
               }
               sendSessionIdle(sid)
+              if (sid && ccSessionOwners.get(sid) === ws) {
+                ccSessionOwners.delete(sid)
+                syncExternalTailForKey(makeSessionKey('claude-code', sid))
+              }
             },
             async (req) => {
               const sid = req.sessionId || actualSessionId

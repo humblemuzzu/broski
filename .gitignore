@@ -126,7 +126,7 @@ config.json
 .claude/rules/
 .claude/scripts/
 .claude/settings.json
-thoughts/
+# thoughts/
 
 # Node.js build artifacts
 **/dist/

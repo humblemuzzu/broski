@@ -1797,6 +1797,14 @@ class ChatSessionNotifier extends StateNotifier<ChatSessionState> {
     // Only process if in Claude Code mode
     if (!state.isClaudeCode) return;
 
+    void ensureTurnId(String? messageId) {
+      final id = messageId ?? '';
+      if (id.isEmpty) return;
+      if (_ccCurrentAssistantMessageId == id) return;
+      _resetCCState();
+      _ccCurrentAssistantMessageId = id;
+    }
+
     if (message is CCSessionCreated) {
       // Session started - update model if provided
       final prevSessionId = state.ccSessionId ?? '';
@@ -1853,6 +1861,7 @@ class ChatSessionNotifier extends StateNotifier<ChatSessionState> {
     }
 
     if (message is CCAssistantMessageDelta) {
+      ensureTurnId(message.messageId);
       // Streaming delta - accumulate text AND track in ordered parts
       _ccAssistantTextBuffer.write(message.content);
 
@@ -1883,6 +1892,7 @@ class ChatSessionNotifier extends StateNotifier<ChatSessionState> {
     }
 
     if (message is CCAssistantMessage) {
+      ensureTurnId(message.messageId);
       // Complete assistant message (if server sends full message)
       _ccAssistantTextBuffer.clear();
       _ccAssistantTextBuffer.write(message.content);
@@ -1892,6 +1902,7 @@ class ChatSessionNotifier extends StateNotifier<ChatSessionState> {
     }
 
     if (message is CCThinkingDelta) {
+      ensureTurnId(message.messageId);
       if (_ccThinkingPartId.isEmpty) {
         _ccThinkingPartId =
             message.partId ??
@@ -1903,6 +1914,7 @@ class ChatSessionNotifier extends StateNotifier<ChatSessionState> {
     }
 
     if (message is CCToolCall) {
+      ensureTurnId(message.messageId);
       // Check for TodoWrite tool - update todos state
       if (message.tool == 'TodoWrite') {
         _handleCCTodoWrite(message.input);
@@ -1950,6 +1962,7 @@ class ChatSessionNotifier extends StateNotifier<ChatSessionState> {
     }
 
     if (message is CCToolResult) {
+      ensureTurnId(message.messageId);
       // Tool completed - update tool status
       final toolUseId = message.toolUseId;
       if (toolUseId == null || toolUseId.isEmpty) return;
@@ -1967,6 +1980,7 @@ class ChatSessionNotifier extends StateNotifier<ChatSessionState> {
     }
 
     if (message is CCTokenUsage) {
+      ensureTurnId(message.messageId);
       // End of turn - finalize assistant message
       state = state.copyWith(ccTokenUsage: message, ccIsStreaming: false);
       _ensureCCHasRenderableTextPart(isStreaming: false);

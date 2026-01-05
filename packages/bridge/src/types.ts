@@ -781,13 +781,13 @@ export type ClaudeCodeStreamMessage =
   | { type: 'session-init'; sessionId: string; model: string; permissionMode: ClaudeCodePermissionMode; tools: string[]; slashCommands: string[]; skills: string[]; mcpServers: Array<{ name: string; status: string }>; plugins: Array<{ name: string; path: string }>; apiKeySource?: string; claudeCodeVersion?: string }
   | { type: 'permission-request'; sessionId: string; toolUseId: string; tool: string; input: Record<string, unknown>; decisionReason?: string; blockedPath?: string; hasSuggestions?: boolean }
   | { type: 'checkpoint-created'; sessionId: string; checkpointUuid: string; timestamp: number }
-  | { type: 'assistant-message'; content: string }
-  | { type: 'assistant-message-delta'; content: string }
-  | { type: 'thinking-delta'; content: string; partId?: string }
-  | { type: 'tool-call'; tool: string; input: any; toolUseId?: string; status: 'running' | 'completed' | 'failed' }
-  | { type: 'tool-result'; toolUseId?: string; result: any; toolUseResult?: any }
-  | { type: 'subagent-invocation'; subagentName: string; toolUseId?: string; prompt?: string; description?: string }
-  | { type: 'token-usage'; usage: { inputTokens?: number; outputTokens?: number; cacheReadTokens?: number } }
+  | { type: 'assistant-message'; content: string; messageId?: string }
+  | { type: 'assistant-message-delta'; content: string; messageId?: string }
+  | { type: 'thinking-delta'; content: string; partId?: string; messageId?: string }
+  | { type: 'tool-call'; tool: string; input: any; toolUseId?: string; status: 'running' | 'completed' | 'failed'; messageId?: string }
+  | { type: 'tool-result'; toolUseId?: string; result: any; toolUseResult?: any; messageId?: string }
+  | { type: 'subagent-invocation'; subagentName: string; toolUseId?: string; prompt?: string; description?: string; messageId?: string }
+  | { type: 'token-usage'; usage: { inputTokens?: number; outputTokens?: number; cacheReadTokens?: number }; messageId?: string }
   | { type: 'error'; message: string; code?: string }
 
 export type ClaudeCodeTranscriptToolCall = {

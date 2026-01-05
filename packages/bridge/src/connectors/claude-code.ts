@@ -418,6 +418,11 @@ async function findSessionFile(sessionId: string, cwd?: string): Promise<string 
   return null
 }
 
+// Exposed for bridge-side real-time mirroring (tailing the Claude Code JSONL session file).
+export async function resolveSessionFilePath(sessionId: string, cwd?: string): Promise<string | null> {
+  return await findSessionFile(sessionId, cwd)
+}
+
 export async function listProjects(): Promise<ProjectSummary[]> {
   try {
     const entries = await readdir(CLAUDE_PROJECTS_DIR, { withFileTypes: true })
