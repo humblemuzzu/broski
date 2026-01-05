@@ -46,14 +46,20 @@ class _MainShellState extends ConsumerState<MainShell> {
   void initState() {
     super.initState();
     // Main tabs don't need per-session traffic; keep it global-only for bandwidth.
-    ref.read(bridgeServiceProvider).setView(projectPath: 'global');
+    ref.read(bridgeServiceProvider).setView(
+      projectPath: 'global',
+      agent: 'opencode',
+    );
 
     // If the socket connects after initState (common on cold start), apply view routing then too.
     ref.listen(connectionProvider, (previous, next) {
       final wasConnected = previous?.status == ConnectionStatus.connected;
       final isConnected = next.status == ConnectionStatus.connected;
       if (!wasConnected && isConnected) {
-        ref.read(bridgeServiceProvider).setView(projectPath: 'global');
+        ref.read(bridgeServiceProvider).setView(
+          projectPath: 'global',
+          agent: 'opencode',
+        );
       }
     });
   }
@@ -107,7 +113,10 @@ class _MainShellState extends ConsumerState<MainShell> {
     final onTap = (int value) {
       setState(() => _index = value);
       if (!connection.isOfflineMode) {
-        ref.read(bridgeServiceProvider).setView(projectPath: 'global');
+        ref.read(bridgeServiceProvider).setView(
+          projectPath: 'global',
+          agent: 'opencode',
+        );
       }
       if (value == 2) {
         ref.read(sessionsRefreshTickProvider.notifier).state++;

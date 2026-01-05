@@ -177,8 +177,16 @@ class ToolReference {
 
   factory ToolReference.fromJson(Map<String, dynamic> json) {
     return ToolReference(
-      messageId: json['messageID'] as String? ?? '',
-      callId: json['callID'] as String? ?? '',
+      messageId:
+          (json['messageID'] as String?) ??
+          (json['messageId'] as String?) ??
+          (json['message_id'] as String?) ??
+          '',
+      callId:
+          (json['callID'] as String?) ??
+          (json['callId'] as String?) ??
+          (json['call_id'] as String?) ??
+          '',
     );
   }
 }
@@ -348,7 +356,11 @@ class ReasoningPart {
     final time = json['time'] as Map<String, dynamic>?;
     return ReasoningPart(
       id: json['id'] as String? ?? '',
-      messageId: json['messageID'] as String? ?? '',
+      messageId:
+          (json['messageID'] as String?) ??
+          (json['messageId'] as String?) ??
+          (json['message_id'] as String?) ??
+          '',
       text: json['text'] as String? ?? '',
       startTime: time?['start'] as int?,
       endTime: time?['end'] as int?,
@@ -401,7 +413,11 @@ class SubtaskNotification {
       id: json['id'] as String? ?? '',
       description: json['description'] as String? ?? 'Background task',
       agent: json['agent'] as String? ?? 'subagent',
-      sessionId: json['sessionID'] as String? ?? '',
+      sessionId:
+          (json['sessionID'] as String?) ??
+          (json['sessionId'] as String?) ??
+          (json['session_id'] as String?) ??
+          '',
       prompt: json['prompt'] as String?,
       command: json['command'] as String?,
     );

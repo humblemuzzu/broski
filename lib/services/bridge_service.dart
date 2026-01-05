@@ -394,11 +394,12 @@ class BridgeService {
     return response['data'] as bool? ?? false;
   }
 
-  void setView({String? projectPath, String? sessionId}) {
+  void setView({String? projectPath, String? sessionId, String? agent}) {
     _socket.send({
       'type': 'set_view',
       if (projectPath != null) 'projectPath': projectPath,
       if (sessionId != null) 'sessionId': sessionId,
+      if (agent != null) 'agent': agent,
     });
   }
 
@@ -412,8 +413,9 @@ class BridgeService {
     // return the same future instead of creating another session
     final permKey = permission == null
         ? 'none'
-        : permission.map((r) => '${r.permission}:${r.pattern}:${r.action.name}')
-            .join('|');
+        : permission
+              .map((r) => '${r.permission}:${r.pattern}:${r.action.name}')
+              .join('|');
     final dedupeKey = 'create_session:${projectPath ?? 'global'}:$permKey';
     return _deduplicatedRequest(
       dedupeKey,
@@ -509,6 +511,7 @@ class BridgeService {
   void sendChat({
     required String sessionId,
     required String content,
+    String? messageId,
     String? projectPath,
     String? providerID,
     String? modelID,
@@ -529,6 +532,7 @@ class BridgeService {
       'type': 'chat',
       'sessionId': sessionId,
       'content': content,
+      if (messageId != null) 'messageId': messageId,
       if (projectPath != null) 'projectPath': projectPath,
       if (providerID != null && modelID != null)
         'model': {'providerID': providerID, 'modelID': modelID},

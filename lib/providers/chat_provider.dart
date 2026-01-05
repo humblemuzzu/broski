@@ -154,6 +154,9 @@ class ChatSessionNotifier extends StateNotifier<ChatSessionState> {
   final BridgeService _bridge;
   final Map<String, ChatMessage> _messages = {};
   final List<String> _order = [];
+  final Map<String, MessageRole> _rolesByMessageId = {};
+  final Map<String, String> _pendingLocalUserTextByMessageId = {};
+  final Set<String> _localAuthoredUserMessageIds = {};
   StreamSubscription<Map<String, dynamic>>? _subscription;
   StreamSubscription<ClaudeCodeStreamMessage>? _ccSubscription;
   StreamSubscription<CodexStreamMessage>? _cxSubscription;
@@ -167,6 +170,104 @@ class ChatSessionNotifier extends StateNotifier<ChatSessionState> {
   final Map<String, StringBuffer> _pendingTextBuffers = {};
   int _lastRttMs = 0;
   bool _lspStatusFetched = false;
+
+  String _normalizeUserText(String text) {
+    return text.trim().replaceAll(RegExp(r'\s+'), ' ');
+  }
+
+  bool _isTextMatch(String a, String b) {
+    if (a.isEmpty || b.isEmpty) return false;
+    if (a == b) return true;
+    return a.startsWith(b) || b.startsWith(a);
+  }
+
+  String? _findPendingLocalUserMessageId({
+    required String sessionId,
+    required String candidateText,
+  }) {
+    final normalizedCandidate = _normalizeUserText(candidateText);
+    if (normalizedCandidate.isEmpty) return null;
+
+    String? matchId;
+    for (final entry in _pendingLocalUserTextByMessageId.entries) {
+      final localId = entry.key;
+      final localMsg = _messages[localId];
+      if (localMsg == null) continue;
+      if (localMsg.sessionId != sessionId) continue;
+      if (localMsg.role != MessageRole.user) continue;
+      if (!localId.startsWith('local-')) continue;
+      if (_isTextMatch(entry.value, normalizedCandidate)) {
+        matchId = localId; // keep last match (most recent insertion order)
+      }
+    }
+    return matchId;
+  }
+
+  ChatMessage _copyWithRole(ChatMessage message, MessageRole role) {
+    return ChatMessage(
+      id: message.id,
+      sessionId: message.sessionId,
+      role: role,
+      createdAt: message.createdAt,
+      text: message.text,
+      toolCalls: message.toolCalls,
+      diffs: message.diffs,
+      subtaskNotifications: message.subtaskNotifications,
+      reasoningParts: message.reasoningParts,
+      parts: message.parts,
+      isStreaming: message.isStreaming,
+      error: message.error,
+    );
+  }
+
+  void _reconcileLocalUserMessage({
+    required String localMessageId,
+    required String serverMessageId,
+    required String sessionId,
+  }) {
+    final localMsg = _messages[localMessageId];
+    if (localMsg == null) return;
+
+    final localIndex = _order.indexOf(localMessageId);
+    _messages.remove(localMessageId);
+    if (localIndex >= 0) {
+      _order.removeAt(localIndex);
+    }
+    _pendingLocalUserTextByMessageId.remove(localMessageId);
+
+    final existingServer = _messages[serverMessageId];
+    if (existingServer == null) {
+      _messages[serverMessageId] = ChatMessage(
+        id: serverMessageId,
+        sessionId: sessionId,
+        role: MessageRole.user,
+        createdAt: localMsg.createdAt,
+        text: localMsg.text,
+        toolCalls: localMsg.toolCalls,
+        diffs: localMsg.diffs,
+        subtaskNotifications: localMsg.subtaskNotifications,
+        reasoningParts: localMsg.reasoningParts,
+        parts: localMsg.parts,
+        isStreaming: false,
+        error: localMsg.error,
+      );
+    }
+
+    final existingIndex = _order.indexOf(serverMessageId);
+    if (existingIndex >= 0) {
+      _order.removeAt(existingIndex);
+    }
+    final insertIndex = localIndex >= 0
+        ? localIndex.clamp(0, _order.length).toInt()
+        : _order.length;
+    _order.insert(insertIndex, serverMessageId);
+
+    if (_suppressEmit) {
+      _pendingEmitMessages = true;
+    } else {
+      _emitMessages();
+    }
+  }
 
   // FIX: Track session switch to prevent race conditions
   // Events captured before session switch should be discarded
@@ -244,6 +345,9 @@ class ChatSessionNotifier extends StateNotifier<ChatSessionState> {
     _sessionVersion++;
     _messages.clear();
     _order.clear();
+    _rolesByMessageId.clear();
+    _pendingLocalUserTextByMessageId.clear();
+    _localAuthoredUserMessageIds.clear();
     _pendingEvents.clear(); // FIX: Clear pending events for old session
     _pendingTextBuffers.clear(); // FIX: Clear text buffers for old session
     _flushTimer?.cancel();
@@ -276,6 +380,9 @@ class ChatSessionNotifier extends StateNotifier<ChatSessionState> {
     _sessionVersion++;
     _messages.clear();
     _order.clear();
+    _rolesByMessageId.clear();
+    _pendingLocalUserTextByMessageId.clear();
+    _localAuthoredUserMessageIds.clear();
     _pendingEvents.clear(); // FIX: Clear pending events for old session
     _pendingTextBuffers.clear(); // FIX: Clear text buffers for old session
     _flushTimer?.cancel();
@@ -298,6 +405,9 @@ class ChatSessionNotifier extends StateNotifier<ChatSessionState> {
       ccCwd: cwd,
       ccModel: model,
     );
+    if (sessionId.isNotEmpty) {
+      _bridge.setView(sessionId: sessionId, agent: 'claude-code');
+    }
   }
 
   void setCCModel(String? model) {
@@ -313,6 +423,9 @@ class ChatSessionNotifier extends StateNotifier<ChatSessionState> {
     _sessionVersion++;
     _messages.clear();
     _order.clear();
+    _rolesByMessageId.clear();
+    _pendingLocalUserTextByMessageId.clear();
+    _localAuthoredUserMessageIds.clear();
     _pendingEvents.clear();
     _pendingTextBuffers.clear();
     _flushTimer?.cancel();
@@ -337,6 +450,9 @@ class ChatSessionNotifier extends StateNotifier<ChatSessionState> {
       cxTokenUsage: null,
       cxIsStreaming: false,
     );
+    if (threadId.isNotEmpty) {
+      _bridge.setView(sessionId: threadId, agent: 'codex');
+    }
   }
 
   void setCodexModel(String? model) {
@@ -669,7 +785,8 @@ class ChatSessionNotifier extends StateNotifier<ChatSessionState> {
       final info = map['info'] as Map<String, dynamic>? ?? const {};
       final parts = map['parts'] as List<dynamic>? ?? const [];
       final messageId = info['id'] as String? ?? '';
-      final sessionId = info['sessionID'] as String? ?? '';
+      final sessionId =
+          info['sessionID'] as String? ?? info['sessionId'] as String? ?? '';
       final role = info['role'] as String? ?? 'assistant';
       final created =
           info['time']?['created'] as int? ??
@@ -697,7 +814,11 @@ class ChatSessionNotifier extends StateNotifier<ChatSessionState> {
         }
         if (partType == 'tool') {
           final partId = part['id'] as String? ?? '';
-          final callId = part['callID'] as String? ?? '';
+          final callId =
+              part['callID'] as String? ??
+              part['callId'] as String? ??
+              part['call_id'] as String? ??
+              '';
           final toolName = part['tool'] as String? ?? 'tool';
           final stateInfo = part['state'] as Map<String, dynamic>? ?? const {};
           final status = stateInfo['status'] as String? ?? 'completed';
@@ -761,47 +882,59 @@ class ChatSessionNotifier extends StateNotifier<ChatSessionState> {
     }
   }
 
-  void appendUserMessage(String content) {
+  String appendUserMessage(String content, {String? messageId}) {
     // Handle Claude Code mode
     if (state.isClaudeCode) {
       final sessionId = state.ccSessionId ?? '';
+      final id = messageId ?? 'local-${DateTime.now().microsecondsSinceEpoch}';
       final message = ChatMessage(
-        id: 'local-${DateTime.now().microsecondsSinceEpoch}',
+        id: id,
         sessionId: sessionId,
         role: MessageRole.user,
         createdAt: DateTime.now(),
         text: content,
       );
       _addMessage(message);
-      return;
+      return id;
     }
 
     // Codex mode
     if (state.isCodex) {
       final threadId = state.cxThreadId ?? '';
+      final id = messageId ?? 'local-${DateTime.now().microsecondsSinceEpoch}';
       final message = ChatMessage(
-        id: 'local-${DateTime.now().microsecondsSinceEpoch}',
+        id: id,
         sessionId: threadId,
         role: MessageRole.user,
         createdAt: DateTime.now(),
         text: content,
       );
       _addMessage(message);
-      return;
+      return id;
     }
 
     // OpenCode mode
     final session = state.session;
-    if (session == null) return;
+    if (session == null) return '';
 
+    final id = messageId ?? 'local-${DateTime.now().microsecondsSinceEpoch}';
     final message = ChatMessage(
-      id: 'local-${DateTime.now().microsecondsSinceEpoch}',
+      id: id,
       sessionId: session.id,
       role: MessageRole.user,
       createdAt: DateTime.now(),
       text: content,
     );
     _addMessage(message);
+    if (messageId != null && messageId.isNotEmpty) {
+      _localAuthoredUserMessageIds.add(messageId);
+    } else {
+      final normalized = _normalizeUserText(content);
+      if (normalized.isNotEmpty) {
+        _pendingLocalUserTextByMessageId[id] = normalized;
+      }
+    }
+    return id;
   }
 
   void appendLocalAssistantMessage(String content) {
@@ -862,17 +995,46 @@ class ChatSessionNotifier extends StateNotifier<ChatSessionState> {
   }
 
   void _handleSdkEvent(Map<String, dynamic> event) {
-    // Filter by directory/project path first
-    final eventDirectory = event['directory'] as String?;
-    if (eventDirectory != null && state.projectPath != null) {
-      if (eventDirectory != state.projectPath) {
-        return;
-      }
-    }
-
     final payload = event['payload'] as Map<String, dynamic>? ?? const {};
     final type = payload['type'] as String?;
     if (type == null) return;
+
+    String extractSessionIdFromSdkPayload(Map<String, dynamic> payload) {
+      final properties = payload['properties'] as Map<String, dynamic>? ?? const {};
+      final info = properties['info'] as Map<String, dynamic>?;
+      final part = properties['part'] as Map<String, dynamic>?;
+      return (info?['sessionID'] as String?) ??
+          (info?['sessionId'] as String?) ??
+          (properties['sessionID'] as String?) ??
+          (properties['sessionId'] as String?) ??
+          (part?['sessionID'] as String?) ??
+          (part?['sessionId'] as String?) ??
+          '';
+    }
+
+    // Filter by directory/project path, but let sessionId matching win.
+    // This prevents missing live updates when directory identifiers differ across clients.
+    final currentOpenCodeSessionId = state.session?.id ?? '';
+    final sid = extractSessionIdFromSdkPayload(payload);
+    final shouldBypassDirectoryFilter =
+        currentOpenCodeSessionId.isNotEmpty &&
+        sid.isNotEmpty &&
+        sid == currentOpenCodeSessionId;
+
+    if (!shouldBypassDirectoryFilter) {
+      final eventDirectory = event['directory'] as String?;
+      if (eventDirectory != null && state.projectPath != null) {
+        final normalizedEventDir =
+            eventDirectory.replaceAll(RegExp(r'/+$'), '');
+        final normalizedStateDir = state.projectPath!.replaceAll(
+          RegExp(r'/+$'),
+          '',
+        );
+        if (normalizedEventDir != normalizedStateDir) {
+          return;
+        }
+      }
+    }
 
     switch (type) {
       case 'message.updated':
@@ -882,6 +1044,7 @@ class ChatSessionNotifier extends StateNotifier<ChatSessionState> {
         _handleMessagePartUpdated(payload);
         break;
       case 'permission.updated':
+      case 'permission.asked':
         _handlePermissionUpdated(payload);
         break;
       case 'permission.replied':
@@ -925,29 +1088,74 @@ class ChatSessionNotifier extends StateNotifier<ChatSessionState> {
         payload['properties'] as Map<String, dynamic>? ?? const {};
     final info = properties['info'] as Map<String, dynamic>?;
     if (info == null) return;
-    final sessionId = info['sessionID'] as String? ?? '';
+    final sessionId =
+        info['sessionID'] as String? ?? info['sessionId'] as String? ?? '';
     if (state.session?.id != sessionId) return;
 
     final messageId = info['id'] as String? ?? '';
-    final role = info['role'] as String? ?? 'assistant';
+    if (messageId.isEmpty) return;
+    final roleRaw = info['role'] as String? ?? 'assistant';
+    final role = roleRaw == 'user'
+        ? MessageRole.user
+        : roleRaw == 'system'
+        ? MessageRole.system
+        : MessageRole.assistant;
     final created =
         info['time']?['created'] as int? ??
         DateTime.now().millisecondsSinceEpoch;
 
-    // Skip user messages - we already added them locally in appendUserMessage()
-    if (role == 'user') {
+    _rolesByMessageId[messageId] = role;
+
+    final existing = _messages[messageId];
+    if (existing == null) {
+      _addMessage(
+        ChatMessage(
+          id: messageId,
+          sessionId: sessionId,
+          role: role,
+          createdAt: DateTime.fromMillisecondsSinceEpoch(created),
+          text: '',
+        ),
+      );
       return;
     }
 
-    if (!_messages.containsKey(messageId)) {
-      final message = ChatMessage(
-        id: messageId,
+    if (existing.role != role) {
+      final updated = _copyWithRole(existing, role);
+      _updateMessage(messageId, updated);
+
+      // If parts arrived before message.updated, we may already have the user text.
+      // Use it to reconcile optimistic local user messages.
+      if (role == MessageRole.user && !messageId.startsWith('local-')) {
+        final localId = _findPendingLocalUserMessageId(
+          sessionId: sessionId,
+          candidateText: updated.text,
+        );
+        if (localId != null) {
+          _reconcileLocalUserMessage(
+            localMessageId: localId,
+            serverMessageId: messageId,
+            sessionId: sessionId,
+          );
+        }
+      }
+      return;
+    }
+
+    if (role == MessageRole.user &&
+        !messageId.startsWith('local-') &&
+        existing.text.isNotEmpty) {
+      final localId = _findPendingLocalUserMessageId(
         sessionId: sessionId,
-        role: role == 'user' ? MessageRole.user : MessageRole.assistant,
-        createdAt: DateTime.fromMillisecondsSinceEpoch(created),
-        text: '',
+        candidateText: existing.text,
       );
-      _addMessage(message);
+      if (localId != null) {
+        _reconcileLocalUserMessage(
+          localMessageId: localId,
+          serverMessageId: messageId,
+          sessionId: sessionId,
+        );
+      }
     }
   }
 
@@ -955,47 +1163,34 @@ class ChatSessionNotifier extends StateNotifier<ChatSessionState> {
     final properties =
         payload['properties'] as Map<String, dynamic>? ?? const {};
     final part = properties['part'] as Map<String, dynamic>? ?? const {};
-    final sessionId = part['sessionID'] as String? ?? '';
+    final sessionId =
+        part['sessionID'] as String? ?? part['sessionId'] as String? ?? '';
     if (state.session?.id != sessionId) return;
 
-    final messageId = part['messageID'] as String? ?? '';
+    final messageId =
+        part['messageID'] as String? ??
+        part['messageId'] as String? ??
+        part['message_id'] as String? ??
+        '';
     if (messageId.isEmpty) return;
 
-    // Skip part updates for user messages - we already have them locally
-    // User messages have local-* IDs or we should skip server-echoed user messages
-    final existingMessage = _messages[messageId];
-    if (existingMessage != null && existingMessage.role == MessageRole.user) {
-      return;
+    var message = _messages[messageId];
+    final knownRole = _rolesByMessageId[messageId];
+    final resolvedRole = knownRole ?? message?.role ?? MessageRole.assistant;
+    if (message == null) {
+      message = ChatMessage(
+        id: messageId,
+        sessionId: sessionId,
+        role: resolvedRole,
+        createdAt: DateTime.now(),
+        text: '',
+      );
+    } else if (message.role != resolvedRole) {
+      message = _copyWithRole(message, resolvedRole);
+      _messages[messageId] = message;
     }
 
-    // If we don't have this message yet, only create if it's NOT a user message
-    // Check if any local user message contains similar text (to avoid duplicates)
-    // Use startsWith to handle cases where local message has attachments appended
     final partType = part['type'] as String? ?? '';
-    if (partType == 'text' && existingMessage == null) {
-      final partText = part['text'] as String? ?? '';
-      final isUserEcho = _messages.values.any((msg) {
-        if (msg.role != MessageRole.user) return false;
-        final msgText = msg.text.trim();
-        final serverText = partText.trim();
-        return msgText == serverText ||
-            msgText.startsWith(serverText) ||
-            serverText.startsWith(msgText);
-      });
-      if (isUserEcho) {
-        return;
-      }
-    }
-
-    final message =
-        existingMessage ??
-        ChatMessage(
-          id: messageId,
-          sessionId: sessionId,
-          role: MessageRole.assistant,
-          createdAt: DateTime.now(),
-          text: '',
-        );
 
     if (partType == 'text') {
       final isSynthetic = part['synthetic'] as bool? ?? false;
@@ -1004,23 +1199,69 @@ class ChatSessionNotifier extends StateNotifier<ChatSessionState> {
         return;
       }
 
+      // If this device authored the user message with a stable message ID, keep
+      // the locally-rendered text (may include UI-only decorations like
+      // attachment labels) and avoid overwriting it with server echoes.
+      final current = _messages[messageId] ?? message;
+      if (resolvedRole == MessageRole.user &&
+          _localAuthoredUserMessageIds.contains(messageId) &&
+          current.text.isNotEmpty) {
+        return;
+      }
+
       final delta = properties['delta'] as String?;
       final text = part['text'] as String? ?? '';
+      final partTime = part['time'] as Map<String, dynamic>?;
+      final isComplete = (partTime?['end'] as int?) != null;
+      final shouldShowStreaming =
+          resolvedRole == MessageRole.assistant && !isComplete;
 
-      if (delta != null && _lastRttMs > 50) {
+      if (resolvedRole == MessageRole.user) {
+        final candidate = text.isNotEmpty ? text : (delta ?? '');
+        final localId = _findPendingLocalUserMessageId(
+          sessionId: sessionId,
+          candidateText: candidate,
+        );
+        if (localId != null) {
+          _reconcileLocalUserMessage(
+            localMessageId: localId,
+            serverMessageId: messageId,
+            sessionId: sessionId,
+          );
+        }
+      }
+
+      // Re-read after potential reconciliation.
+      final currentAfter = _messages[messageId] ?? message;
+
+      // If we have a full snapshot, prefer it (helps late-joiners catch up).
+      if (delta != null && currentAfter.text.isEmpty && text.isNotEmpty) {
+        _updateMessage(
+          messageId,
+          currentAfter.copyWith(text: text, isStreaming: shouldShowStreaming),
+        );
+        return;
+      }
+
+      if (resolvedRole == MessageRole.assistant &&
+          delta != null &&
+          _lastRttMs > 50) {
         _pendingTextBuffers.putIfAbsent(messageId, () => StringBuffer());
         _pendingTextBuffers[messageId]!.write(delta);
 
         _textDebounceTimer?.cancel();
         _textDebounceTimer = Timer(
-          Duration(milliseconds: _lastRttMs.clamp(30, 100)),
-          () => _flushPendingText(messageId, message),
+          Duration(milliseconds: _lastRttMs.clamp(30, 100).toInt()),
+          () => _flushPendingText(messageId, currentAfter),
         );
       } else {
-        final updated = delta != null ? message.text + delta : text;
+        final updated = delta != null ? currentAfter.text + delta : text;
         _updateMessage(
           messageId,
-          message.copyWith(text: updated, isStreaming: delta != null),
+          currentAfter.copyWith(
+            text: updated,
+            isStreaming: delta != null ? true : shouldShowStreaming,
+          ),
         );
       }
       return;
@@ -1028,7 +1269,11 @@ class ChatSessionNotifier extends StateNotifier<ChatSessionState> {
 
     if (partType == 'tool') {
       final partId = part['id'] as String? ?? '';
-      final callId = part['callID'] as String? ?? '';
+      final callId =
+          part['callID'] as String? ??
+          part['callId'] as String? ??
+          part['call_id'] as String? ??
+          '';
       final toolName = part['tool'] as String? ?? 'tool';
       final stateInfo = part['state'] as Map<String, dynamic>? ?? const {};
       final status = stateInfo['status'] as String? ?? 'pending';
@@ -1157,7 +1402,10 @@ class ChatSessionNotifier extends StateNotifier<ChatSessionState> {
   void _handlePermissionUpdated(Map<String, dynamic> payload) {
     final permission =
         payload['properties'] as Map<String, dynamic>? ?? const {};
-    final sessionId = permission['sessionID'] as String? ?? '';
+    final sessionId =
+        permission['sessionID'] as String? ??
+        permission['sessionId'] as String? ??
+        '';
     if (state.session?.id != sessionId) return;
 
     // Parse tool reference if present (SDK v1.1.1+)
@@ -1194,12 +1442,16 @@ class ChatSessionNotifier extends StateNotifier<ChatSessionState> {
   void _handlePermissionReplied(Map<String, dynamic> payload) {
     final properties =
         payload['properties'] as Map<String, dynamic>? ?? const {};
-    final permissionId = properties['permissionID'] as String? ?? '';
-    if (permissionId.isEmpty) return;
+    final requestId =
+        properties['permissionID'] as String? ??
+        properties['requestID'] as String? ??
+        properties['requestId'] as String? ??
+        '';
+    if (requestId.isEmpty) return;
 
     state = state.copyWith(
       permissions: state.permissions
-          .where((item) => item.id != permissionId)
+          .where((item) => item.id != requestId)
           .toList(),
     );
   }
@@ -1207,7 +1459,10 @@ class ChatSessionNotifier extends StateNotifier<ChatSessionState> {
   void _handleSessionDiff(Map<String, dynamic> payload) {
     final properties =
         payload['properties'] as Map<String, dynamic>? ?? const {};
-    final sessionId = properties['sessionID'] as String? ?? '';
+    final sessionId =
+        properties['sessionID'] as String? ??
+        properties['sessionId'] as String? ??
+        '';
     if (state.session?.id != sessionId) return;
 
     final diffs = (properties['diff'] as List<dynamic>? ?? [])
@@ -1308,7 +1563,10 @@ class ChatSessionNotifier extends StateNotifier<ChatSessionState> {
   void _handleSessionError(Map<String, dynamic> payload) {
     final properties =
         payload['properties'] as Map<String, dynamic>? ?? const {};
-    final sessionId = properties['sessionID'] as String? ?? '';
+    final sessionId =
+        properties['sessionID'] as String? ??
+        properties['sessionId'] as String? ??
+        '';
     if (state.session?.id != sessionId) return;
 
     final error = properties['error'] as Map<String, dynamic>? ?? const {};
@@ -1340,7 +1598,10 @@ class ChatSessionNotifier extends StateNotifier<ChatSessionState> {
   void _handleTodoUpdated(Map<String, dynamic> payload) {
     final properties =
         payload['properties'] as Map<String, dynamic>? ?? const {};
-    final sessionId = properties['sessionID'] as String? ?? '';
+    final sessionId =
+        properties['sessionID'] as String? ??
+        properties['sessionId'] as String? ??
+        '';
     if (state.session?.id != sessionId) return;
 
     final todosJson = properties['todos'] as List<dynamic>? ?? [];
@@ -1361,7 +1622,10 @@ class ChatSessionNotifier extends StateNotifier<ChatSessionState> {
   void _handleSessionCompacted(Map<String, dynamic> payload) {
     final properties =
         payload['properties'] as Map<String, dynamic>? ?? const {};
-    final sessionId = properties['sessionID'] as String? ?? '';
+    final sessionId =
+        properties['sessionID'] as String? ??
+        properties['sessionId'] as String? ??
+        '';
     if (state.session?.id != sessionId) return;
 
     developer.log('Session compacted: $sessionId', name: 'ChatProvider');
@@ -1392,7 +1656,10 @@ class ChatSessionNotifier extends StateNotifier<ChatSessionState> {
   void _handleSessionStatus(Map<String, dynamic> payload) {
     final properties =
         payload['properties'] as Map<String, dynamic>? ?? const {};
-    final sessionId = properties['sessionID'] as String? ?? '';
+    final sessionId =
+        properties['sessionID'] as String? ??
+        properties['sessionId'] as String? ??
+        '';
     if (state.session?.id != sessionId) return;
 
     final statusData =
@@ -1409,7 +1676,10 @@ class ChatSessionNotifier extends StateNotifier<ChatSessionState> {
   void _handleSessionIdle(Map<String, dynamic> payload) {
     final properties =
         payload['properties'] as Map<String, dynamic>? ?? const {};
-    final sessionId = properties['sessionID'] as String? ?? '';
+    final sessionId =
+        properties['sessionID'] as String? ??
+        properties['sessionId'] as String? ??
+        '';
     if (state.session?.id != sessionId) return;
 
     state = state.copyWith(sessionStatus: const SessionStatus.idle());
@@ -1529,6 +1799,7 @@ class ChatSessionNotifier extends StateNotifier<ChatSessionState> {
 
     if (message is CCSessionCreated) {
       // Session started - update model if provided
+      final prevSessionId = state.ccSessionId ?? '';
       state = state.copyWith(
         ccSessionId: message.sessionId.isNotEmpty
             ? message.sessionId
@@ -1536,10 +1807,16 @@ class ChatSessionNotifier extends StateNotifier<ChatSessionState> {
         ccModel: message.model ?? state.ccModel,
         ccIsStreaming: true,
       );
+      final nextSessionId =
+          message.sessionId.isNotEmpty ? message.sessionId : prevSessionId;
+      if (nextSessionId.isNotEmpty && nextSessionId != prevSessionId) {
+        _bridge.setView(sessionId: nextSessionId, agent: 'claude-code');
+      }
       return;
     }
 
     if (message is CCSessionInit) {
+      final prevSessionId = state.ccSessionId ?? '';
       state = state.copyWith(
         ccSessionId: message.sessionId.isNotEmpty
             ? message.sessionId
@@ -1548,6 +1825,11 @@ class ChatSessionNotifier extends StateNotifier<ChatSessionState> {
         ccInit: message,
         ccIsStreaming: true,
       );
+      final nextSessionId =
+          message.sessionId.isNotEmpty ? message.sessionId : prevSessionId;
+      if (nextSessionId.isNotEmpty && nextSessionId != prevSessionId) {
+        _bridge.setView(sessionId: nextSessionId, agent: 'claude-code');
+      }
       return;
     }
 
@@ -1889,6 +2171,7 @@ class ChatSessionNotifier extends StateNotifier<ChatSessionState> {
         if (id.isNotEmpty &&
             (state.cxThreadId == null || state.cxThreadId!.isEmpty)) {
           state = state.copyWith(cxThreadId: id, cxCwd: cwd);
+          _bridge.setView(sessionId: id, agent: 'codex');
         }
       }
       return;

@@ -447,6 +447,7 @@ export type BridgeServer = {
 type ConnectionContext = {
   projectPath?: string
   sessionId?: string
+  viewAgent?: AgentType
   lastPongAt: number
   lastRttMs: number
   pendingPing?: { id: string; sentAt: number }
@@ -470,6 +471,7 @@ const BATCH_THRESHOLDS = {
 
 const MESSAGE_PRIORITIES: Record<string, 'immediate' | 'high' | 'normal' | 'low'> = {
   'permission.updated': 'immediate',
+  'permission.asked': 'immediate',
   'permission.replied': 'immediate',
   'session.error': 'immediate',
   'session.idle': 'high',
@@ -485,7 +487,10 @@ export function createBridgeServer(options: BridgeServerOptions): BridgeServer {
   const sockets = new Set<ServerWebSocket<unknown>>()
   const contexts = new Map<ServerWebSocket<unknown>, ConnectionContext>()
   const clientQueues = new Map<ServerWebSocket<unknown>, ClientQueue>()
+  // Dedupe chat prompts (prevents resend storms on flaky networks).
+  const recentChatMessageIds = new Map<string, number>() // key: `${sessionId}:${messageId}` -> tsMs
   const ptyConnections = new Map<string, WebSocket>()
+  const sessionWatchers = new Map<string, Set<ServerWebSocket<unknown>>>()
   const ccPermissionWaiters = new Map<
     string,
     { resolve: (response: 'once' | 'always' | 'reject') => void; timer: Timer }
@@ -494,6 +499,7 @@ export function createBridgeServer(options: BridgeServerOptions): BridgeServer {
     string,
     { resolve: (response: PermissionResponse) => void; timer: Timer }
   >()
+  const ccSessionOwners = new Map<string, ServerWebSocket<unknown>>()
   const cxThreadOwners = new Map<string, ServerWebSocket<unknown>>()
   const cxActiveTurns = new Map<string, string>()
   const cxItemCache = new Map<string, any>() // key: `${threadId}:${turnId}:${itemId}` -> item
@@ -748,24 +754,18 @@ export function createBridgeServer(options: BridgeServerOptions): BridgeServer {
           }
 
           const owner = threadId ? cxThreadOwners.get(threadId) : null
-          if (!owner) {
+          if (!threadId) {
             // Some notifications are global (no threadId): auth, rate limits, MCP oauth completion, etc.
-            if (!threadId) {
-              for (const ws of sockets) {
-                send(ws, { type: 'cx_global', data: { method: n.method, params } })
-              }
+            for (const ws of sockets) {
+              send(ws, { type: 'cx_global', data: { method: n.method, params } })
             }
             return
           }
 
-          send(owner, {
-            type: 'cx_stream',
-            threadId,
-            data: { type: 'notification', method: n.method, params },
-          })
+          emitCxStream(threadId, { type: 'notification', method: n.method, params }, owner)
 
           // Send busy/idle events for background indicators/notifications
-          if (n.method === 'turn/started' && threadId) {
+          if (owner && n.method === 'turn/started' && threadId) {
             send(owner, {
               type: 'sdk_event',
               data: {
@@ -776,7 +776,7 @@ export function createBridgeServer(options: BridgeServerOptions): BridgeServer {
               },
             })
           }
-          if (n.method === 'turn/completed' && threadId) {
+          if (owner && n.method === 'turn/completed' && threadId) {
             send(owner, {
               type: 'sdk_event',
               data: {
@@ -872,6 +872,74 @@ export function createBridgeServer(options: BridgeServerOptions): BridgeServer {
     return null
   }
 
+  const makeSessionKey = (agent: AgentType | undefined, sessionId: string | undefined): string | null => {
+    if (!agent || !sessionId) return null
+    return `${agent}:${sessionId}`
+  }
+
+  const updateSessionWatchers = (
+    ws: ServerWebSocket<unknown>,
+    prevKey: string | null,
+    nextKey: string | null,
+  ) => {
+    if (prevKey) {
+      const prevSet = sessionWatchers.get(prevKey)
+      if (prevSet) {
+        prevSet.delete(ws)
+        if (prevSet.size === 0) sessionWatchers.delete(prevKey)
+      }
+    }
+    if (nextKey) {
+      let nextSet = sessionWatchers.get(nextKey)
+      if (!nextSet) {
+        nextSet = new Set()
+        sessionWatchers.set(nextKey, nextSet)
+      }
+      nextSet.add(ws)
+    }
+  }
+
+  const broadcastToSessionWatchers = (
+    agent: AgentType,
+    sessionId: string,
+    message: ServerMessage,
+    owner?: ServerWebSocket<unknown> | null,
+  ) => {
+    const key = makeSessionKey(agent, sessionId)
+    if (!key) return
+    const watchers = sessionWatchers.get(key)
+    if (!watchers) return
+    for (const ws of watchers) {
+      if (owner && ws === owner) continue
+      send(ws, message)
+    }
+  }
+
+  const emitCcStream = (
+    sessionId: string,
+    streamMsg: unknown,
+    owner?: ServerWebSocket<unknown> | null,
+  ) => {
+    const payload: ServerMessage = { type: 'cc_stream', data: streamMsg, sessionId }
+    const resolvedOwner = owner ?? ccSessionOwners.get(sessionId) ?? null
+    if (resolvedOwner) {
+      send(resolvedOwner, payload)
+    }
+    broadcastToSessionWatchers('claude-code', sessionId, payload, resolvedOwner)
+  }
+
+  const emitCxStream = (
+    threadId: string,
+    streamMsg: CodexStreamMessage,
+    owner?: ServerWebSocket<unknown> | null,
+  ) => {
+    const payload: ServerMessage = { type: 'cx_stream', data: streamMsg, threadId }
+    if (owner) {
+      send(owner, payload)
+    }
+    broadcastToSessionWatchers('codex', threadId, payload, owner)
+  }
+
   let eventCount = 0
   let eventCountResetTimer: Timer | null = null
 
@@ -879,10 +947,13 @@ export function createBridgeServer(options: BridgeServerOptions): BridgeServer {
     const payload = event?.payload ?? null
     const properties = payload?.properties ?? null
     const info = properties?.info ?? null
+    const part = properties?.part ?? null
     const sessionId =
       (typeof info?.sessionID === 'string' && info.sessionID) ||
       (typeof properties?.sessionID === 'string' && properties.sessionID) ||
-      (typeof properties?.sessionId === 'string' && properties.sessionId)
+      (typeof properties?.sessionId === 'string' && properties.sessionId) ||
+      (typeof part?.sessionID === 'string' && part.sessionID) ||
+      (typeof part?.sessionId === 'string' && part.sessionId)
     return sessionId ? String(sessionId) : null
   }
 
@@ -918,19 +989,27 @@ export function createBridgeServer(options: BridgeServerOptions): BridgeServer {
     }
 
     const e = event as any
-    const directory = (typeof e?.directory === 'string' ? e.directory : null) ?? 'global'
+    const directoryRaw = (typeof e?.directory === 'string' ? e.directory : null) ?? 'global'
+    const normalizeDirectory = (dir: string) => dir.replace(/\/+$/, '')
+    const directory = directoryRaw === 'global' ? 'global' : normalizeDirectory(directoryRaw)
+    const projectPath = ctx.projectPath && ctx.projectPath !== 'global'
+      ? normalizeDirectory(ctx.projectPath)
+      : ctx.projectPath
 
     if (ctx.projectPath === 'global') {
-      if (directory !== 'global') return false
-    } else if (ctx.projectPath && directory !== 'global' && directory !== ctx.projectPath) {
-      return false
+      // Global view = receive ALL events (enables multi-device real-time sync)
+      return true
     }
 
     if (ctx.sessionId) {
       const sid = extractSessionId(event)
-      if (sid && sid !== ctx.sessionId) {
-        return false
-      }
+      // If the event is scoped to a session, prioritize session routing over directory routing.
+      // This keeps cross-device streaming working even if directory strings differ (e.g. symlinks).
+      if (sid) return sid === ctx.sessionId
+    }
+
+    if (projectPath && directory !== 'global' && directory !== projectPath) {
+      return false
     }
 
     return true
@@ -1194,6 +1273,8 @@ export function createBridgeServer(options: BridgeServerOptions): BridgeServer {
         const ctx = contexts.get(ws)
         const disconnectedDeviceId = ctx?.deviceId
         const disconnectedDeviceName = ctx?.deviceName
+        const prevKey = makeSessionKey(ctx?.viewAgent, ctx?.sessionId)
+        updateSessionWatchers(ws, prevKey, null)
         
         sockets.delete(ws)
         contexts.delete(ws)
@@ -1279,11 +1360,22 @@ export function createBridgeServer(options: BridgeServerOptions): BridgeServer {
       }
       case 'set_view': {
           const existing = contexts.get(ws) ?? { lastPongAt: Date.now(), lastRttMs: 0 }
+          const prevKey = makeSessionKey(existing.viewAgent, existing.sessionId)
+          const nextAgent =
+            message.agent ??
+            existing.viewAgent ??
+            (message.projectPath || message.sessionId ? 'opencode' : undefined)
+          const nextSessionId = message.sessionId || undefined
+
           contexts.set(ws, {
             ...existing,
             projectPath: message.projectPath || undefined,
-            sessionId: message.sessionId || undefined,
+            sessionId: nextSessionId,
+            viewAgent: nextAgent,
           })
+
+          const nextKey = makeSessionKey(nextAgent, nextSessionId)
+          updateSessionWatchers(ws, prevKey, nextKey)
           void sendStatus(ws)
           break
         }
@@ -1361,10 +1453,29 @@ export function createBridgeServer(options: BridgeServerOptions): BridgeServer {
           break
         }
         case 'chat': {
+          const msgId = safeString((message as any).messageId)
+          if (msgId) {
+            const key = `${message.sessionId}:${msgId}`
+            const now = Date.now()
+            const previous = recentChatMessageIds.get(key)
+            if (previous && now - previous < 120_000) {
+              // Duplicate send of the same message (likely retry) — ignore.
+              break
+            }
+            recentChatMessageIds.set(key, now)
+            // Best-effort cleanup to keep memory bounded.
+            if (recentChatMessageIds.size > 10_000) {
+              const cutoff = now - 300_000
+              for (const [k, t] of recentChatMessageIds) {
+                if (t < cutoff) recentChatMessageIds.delete(k)
+              }
+            }
+          }
           await opencode.sendPrompt(
             message.sessionId,
             message.content,
             message.projectPath,
+            message.messageId,
             message.model,
             message.agent,
             message.disabledTools,
@@ -2371,6 +2482,10 @@ export function createBridgeServer(options: BridgeServerOptions): BridgeServer {
           const toolCallsById = new Map<string, { tool: string; input: Record<string, unknown> }>()
           let sentBusyStatus = false
 
+          if (message.sessionId) {
+            ccSessionOwners.set(message.sessionId, ws)
+          }
+
           const sendSessionBusy = (sessionId: string) => {
             if (!sessionId || sentBusyStatus) return
             sentBusyStatus = true
@@ -2407,11 +2522,16 @@ export function createBridgeServer(options: BridgeServerOptions): BridgeServer {
           if (!available) {
             const err = 'Claude Code auth not configured (set ANTHROPIC_API_KEY or run `claude login`).'
             log(`[Claude Code] ${err}`)
-            send(ws, {
-              type: 'cc_stream',
-              data: { type: 'error', message: err, code: 'cc_auth_missing' },
-              sessionId: actualSessionId || 'unknown',
-            })
+            const sid = actualSessionId || message.sessionId || ''
+            if (sid) {
+              emitCcStream(sid, { type: 'error', message: err, code: 'cc_auth_missing' }, ws)
+            } else {
+              send(ws, {
+                type: 'cc_stream',
+                data: { type: 'error', message: err, code: 'cc_auth_missing' },
+                sessionId: 'unknown',
+              })
+            }
             break
           }
 
@@ -2450,6 +2570,7 @@ export function createBridgeServer(options: BridgeServerOptions): BridgeServer {
             (streamMsg) => {
               if ((streamMsg as any)?.type === 'session-created' && typeof (streamMsg as any)?.sessionId === 'string') {
                 actualSessionId = (streamMsg as any).sessionId
+                ccSessionOwners.set(actualSessionId, ws)
                 log(`[Claude Code] session created: ${actualSessionId}`)
                 sendSessionBusy(actualSessionId)
               }
@@ -2467,7 +2588,11 @@ export function createBridgeServer(options: BridgeServerOptions): BridgeServer {
                 console.warn('[Artifacts] Failed to track Claude Code tool call:', err)
               }
 
-              send(ws, { type: 'cc_stream', data: streamMsg, sessionId: actualSessionId })
+              if (actualSessionId) {
+                emitCcStream(actualSessionId, streamMsg, ws)
+              } else {
+                send(ws, { type: 'cc_stream', data: streamMsg, sessionId: 'unknown' })
+              }
 
               // Artifact indexing (Claude Code): keep streaming hot path fast.
               // Queue heavier work after sending the stream message.
@@ -2524,17 +2649,22 @@ export function createBridgeServer(options: BridgeServerOptions): BridgeServer {
             },
             (error) => {
               log(`[Claude Code] error: ${error.message}`)
-              send(ws, {
-                type: 'cc_stream',
-                data: { type: 'error', message: error.message, code: 'cc_error' },
-                sessionId: actualSessionId || message.sessionId || 'unknown',
-              })
               const sid = actualSessionId || message.sessionId || ''
+              if (sid) {
+                emitCcStream(sid, { type: 'error', message: error.message, code: 'cc_error' }, ws)
+              } else {
+                send(ws, {
+                  type: 'cc_stream',
+                  data: { type: 'error', message: error.message, code: 'cc_error' },
+                  sessionId: 'unknown',
+                })
+              }
               sendSessionIdle(sid)
             },
             async (req) => {
               const sid = req.sessionId || actualSessionId
               if (sid) actualSessionId = sid
+              if (sid) ccSessionOwners.set(sid, ws)
 
               // Ask the requesting socket for approval (mobile UI shows prompt)
               send(ws, {

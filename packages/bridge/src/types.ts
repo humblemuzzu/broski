@@ -65,7 +65,7 @@ export type DeviceInfo = {
 
 export type ClientMessage =
   | { type: 'batch'; messages: Array<ClientMessage & { requestId?: string }>; count?: number; timestamp?: number }
-  | { type: 'set_view'; projectPath?: string; sessionId?: string }
+  | { type: 'set_view'; projectPath?: string; sessionId?: string; agent?: AgentType }
   | { type: 'set_agent'; agent: AgentType }
   | { type: 'restart_opencode' }
   | { type: 'pong'; id: string; sentAt: number }
@@ -83,7 +83,7 @@ export type ClientMessage =
   | { type: 'create_session'; projectPath?: string; title?: string; permission?: PermissionRuleset }
   | { type: 'get_session'; sessionId: string; projectPath?: string }
   | { type: 'get_session_messages'; sessionId: string; projectPath?: string; limit?: number }
-  | { type: 'chat'; sessionId: string; content: string; projectPath?: string; model?: { providerID: string; modelID: string }; agent?: string; disabledTools?: string[]; fileAttachments?: FileAttachment[] }
+  | { type: 'chat'; sessionId: string; content: string; projectPath?: string; messageId?: string; model?: { providerID: string; modelID: string }; agent?: string; disabledTools?: string[]; fileAttachments?: FileAttachment[] }
   | { type: 'abort'; sessionId: string; projectPath?: string }
   | { type: 'diff'; sessionId: string; projectPath?: string; messageId?: string }
   | { type: 'browse'; path: string; projectPath?: string }

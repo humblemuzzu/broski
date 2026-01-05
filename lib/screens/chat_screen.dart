@@ -49,6 +49,7 @@ import '../widgets/claude_code_help.dart';
 import 'subagents_screen.dart';
 import 'custom_tools_screen.dart';
 import 'plugins_screen.dart';
+import '../utils/opencode_id.dart';
 import '../widgets/app_background.dart';
 import '../providers/appearance_provider.dart';
 import 'diff_view_screen.dart';
@@ -225,6 +226,10 @@ class ChatScreen extends ConsumerStatefulWidget {
 
 class _ChatScreenState extends ConsumerState<ChatScreen>
     with SingleTickerProviderStateMixin {
+  String _newClientMessageId() {
+    return OpenCodeId.newMessageId();
+  }
+
   final TextEditingController _controller = TextEditingController();
   final ScrollController _scrollController = ScrollController();
   final HapticsService _haptics = HapticsService();
@@ -292,6 +297,7 @@ class _ChatScreenState extends ConsumerState<ChatScreen>
       bridge.setView(
         projectPath: widget.project.path,
         sessionId: widget.session.id,
+        agent: 'opencode',
       );
     }
 
@@ -310,6 +316,7 @@ class _ChatScreenState extends ConsumerState<ChatScreen>
           bridge.setView(
             projectPath: widget.project.path,
             sessionId: widget.session.id,
+            agent: 'opencode',
           );
         }
         _hydrateSession().whenComplete(() {
@@ -7519,7 +7526,8 @@ Describe your project here.
           displayText = '$text\n${attachmentLabels.join(' ')}';
         }
       }
-      chat.appendUserMessage(displayText);
+      final clientMessageId = _newClientMessageId();
+      chat.appendUserMessage(displayText, messageId: clientMessageId);
 
       // Get disabled tools from settings
       final toolSettings = ref.read(toolSettingsProvider);
@@ -7528,6 +7536,7 @@ Describe your project here.
       bridge.sendChat(
         sessionId: widget.session.id,
         content: text,
+        messageId: clientMessageId,
         projectPath: widget.project.path,
         providerID: selectedModel?.providerID,
         modelID: selectedModel?.modelID,
@@ -8774,7 +8783,8 @@ class _FloatingInputMenuSheet extends ConsumerStatefulWidget {
       _FloatingInputMenuSheetState();
 }
 
-class _FloatingInputMenuSheetState extends ConsumerState<_FloatingInputMenuSheet> {
+class _FloatingInputMenuSheetState
+    extends ConsumerState<_FloatingInputMenuSheet> {
   @override
   Widget build(BuildContext context) {
     final rulesState = ref.watch(permissionRulesProvider);
@@ -8970,7 +8980,9 @@ class _FloatingInputMenuSheetState extends ConsumerState<_FloatingInputMenuSheet
                 final isSelected = preset == selectedPreset;
                 return GestureDetector(
                   onTap: () {
-                    ref.read(permissionRulesProvider.notifier).setPreset(preset);
+                    ref
+                        .read(permissionRulesProvider.notifier)
+                        .setPreset(preset);
                   },
                   child: Container(
                     padding: const EdgeInsets.symmetric(
@@ -9028,9 +9040,9 @@ class _FloatingInputMenuSheetState extends ConsumerState<_FloatingInputMenuSheet
                 builder: (context) => PermissionRulesSheet(
                   initialRules: rulesState.effectiveRuleset,
                   onApply: (rules) {
-                    ref.read(permissionRulesProvider.notifier).setCustomRules(
-                      rules,
-                    );
+                    ref
+                        .read(permissionRulesProvider.notifier)
+                        .setCustomRules(rules);
                   },
                 ),
               );
@@ -9607,7 +9619,8 @@ class _AgentAndPermissionSheet extends ConsumerStatefulWidget {
       _AgentAndPermissionSheetState();
 }
 
-class _AgentAndPermissionSheetState extends ConsumerState<_AgentAndPermissionSheet> {
+class _AgentAndPermissionSheetState
+    extends ConsumerState<_AgentAndPermissionSheet> {
   @override
   Widget build(BuildContext context) {
     final rulesState = ref.watch(permissionRulesProvider);
@@ -9731,9 +9744,9 @@ class _AgentAndPermissionSheetState extends ConsumerState<_AgentAndPermissionShe
                     isSelected: preset == selectedPreset,
                     theme: widget.theme,
                     onTap: () {
-                      ref.read(permissionRulesProvider.notifier).setPreset(
-                        preset,
-                      );
+                      ref
+                          .read(permissionRulesProvider.notifier)
+                          .setPreset(preset);
                     },
                   ),
                 )
@@ -9752,9 +9765,9 @@ class _AgentAndPermissionSheetState extends ConsumerState<_AgentAndPermissionShe
                 builder: (context) => PermissionRulesSheet(
                   initialRules: rulesState.effectiveRuleset,
                   onApply: (rules) {
-                    ref.read(permissionRulesProvider.notifier).setCustomRules(
-                      rules,
-                    );
+                    ref
+                        .read(permissionRulesProvider.notifier)
+                        .setCustomRules(rules);
                   },
                 ),
               );

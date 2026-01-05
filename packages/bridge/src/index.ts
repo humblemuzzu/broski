@@ -7,6 +7,7 @@ import { createBridgeServer, loadOrCreateAuthToken } from './server'
 import { parseCli, printHelp, promptForChoice } from './cli'
 import { runDoctor } from './doctor'
 import { runSetupTailscale } from './setup-tailscale'
+import { spawnSync } from 'node:child_process'
 
 type ManagedOpenCodeServer = {
   url: string
@@ -53,36 +54,49 @@ async function discoverRunningOpencodeInstances(portsToScan: number[], verbose: 
 
   const instances: OpenCodeInstance[] = []
 
-  const checks = portsToScan.map(async (port) => {
-    try {
-      const url = `http://localhost:${port}`
-      const response = await fetch(`${url}/project`, { signal: AbortSignal.timeout(750) })
-      if (response.ok) {
-        const projects = (await response.json()) as OpenCodeInstance['projects']
+  // Limit concurrency to avoid flooding the system with hundreds of parallel
+  // connection attempts (common when scanning large port ranges).
+  const queue = portsToScan.slice()
+  const concurrency = 32
+  await Promise.all(
+    Array.from({ length: concurrency }, async () => {
+      for (;;) {
+        const port = queue.shift()
+        if (port == null) return
+        try {
+          // Use 127.0.0.1 (not localhost) to avoid IPv6-only localhost resolution issues.
+          const url = `http://127.0.0.1:${port}`
+          // /path is cheap and stable across OpenCode versions; it validates that the port is an OpenCode server.
+          const ready = await fetch(`${url}/path`, { signal: AbortSignal.timeout(750) })
+          if (!ready.ok) continue
 
-        // Find most recent activity across all projects
-        let lastActivity = 0
-        for (const project of projects) {
-          const updated = project.time?.updated ?? project.time?.created ?? 0
-          if (updated > lastActivity) {
-            lastActivity = updated
+          let projects: OpenCodeInstance['projects'] = []
+          try {
+            // Best-effort: older/newer versions may not expose this endpoint.
+            const response = await fetch(`${url}/project`, { signal: AbortSignal.timeout(750) })
+            if (response.ok) {
+              projects = (await response.json()) as OpenCodeInstance['projects']
+            }
+          } catch {
+            // ignore
           }
+
+          // Find most recent activity across all projects
+          let lastActivity = 0
+          for (const project of projects) {
+            const updated = project.time?.updated ?? project.time?.created ?? 0
+            if (updated > lastActivity) {
+              lastActivity = updated
+            }
+          }
+
+          instances.push({ port, url, projects, lastActivity })
+        } catch {
+          // Port not responding or not OpenCode
         }
-
-        return { port, url, projects, lastActivity }
       }
-    } catch {
-      // Port not responding or not OpenCode
-    }
-    return null
-  })
-
-  const results = await Promise.all(checks)
-  for (const result of results) {
-    if (result) {
-      instances.push(result)
-    }
-  }
+    }),
+  )
 
   // Sort by last activity (most recent first)
   instances.sort((a, b) => b.lastActivity - a.lastActivity)
@@ -97,7 +111,8 @@ type OpencodeBootstrap = {
 // Global server reference for shutdown
 let opencodeServer: OpenCodeServer | null = null
 let bridgeServer: ReturnType<typeof createBridgeServer> | null = null
-let eventStreamController: AbortController | null = null
+let primaryEventStreamController: AbortController | null = null
+const extraEventStreamControllers: AbortController[] = []
 let healthTimer: Timer | null = null
 let opencodeConnector: OpenCodeConnector | null = null
 let restartInFlight = false
@@ -105,6 +120,27 @@ let managedHostname = '127.0.0.1'
 let managedPort = 0
 let verboseMode = false
 let funnelPort: number | null = null
+
+function normalizeBaseUrl(url: string): string {
+  return url.replace(/\/+$/, '')
+}
+
+async function subscribeOpenCodeStream(
+  opencode: OpenCodeConnector,
+  label: string,
+  verbose: boolean,
+): Promise<AbortController> {
+  const controller = await opencode.startEventStream((event) => {
+    if (verbose) {
+      console.log('[SDK Event]', JSON.stringify(event))
+    }
+    bridgeServer?.enqueueSdkEvent(event)
+  })
+  if (verbose) {
+    console.log(`✓ Subscribed to OpenCode events (${label}): ${opencode.url}`)
+  }
+  return controller
+}
 
 // Graceful shutdown handler
 async function shutdown(signal: string) {
@@ -115,10 +151,15 @@ async function shutdown(signal: string) {
     healthTimer = null
   }
 
-  if (eventStreamController) {
-    console.log('Stopping OpenCode event stream...')
-    eventStreamController.abort()
-    eventStreamController = null
+  if (primaryEventStreamController || extraEventStreamControllers.length > 0) {
+    console.log('Stopping OpenCode event streams...')
+    if (primaryEventStreamController) {
+      primaryEventStreamController.abort()
+      primaryEventStreamController = null
+    }
+    while (extraEventStreamControllers.length > 0) {
+      extraEventStreamControllers.pop()?.abort()
+    }
   }
 
   if (funnelPort !== null) {
@@ -154,9 +195,9 @@ async function restartManagedOpenCode(): Promise<boolean> {
   try {
     console.log('Restarting managed OpenCode...')
 
-    if (eventStreamController) {
-      eventStreamController.abort()
-      eventStreamController = null
+    if (primaryEventStreamController) {
+      primaryEventStreamController.abort()
+      primaryEventStreamController = null
     }
 
     try {
@@ -170,12 +211,11 @@ async function restartManagedOpenCode(): Promise<boolean> {
 
     opencodeConnector.updateBaseUrl(opencodeServer.url)
 
-    eventStreamController = await opencodeConnector.startEventStream((event) => {
-      if (verboseMode) {
-        console.log('[SDK Event]', JSON.stringify(event))
-      }
-      bridgeServer?.enqueueSdkEvent(event)
-    })
+    primaryEventStreamController = await subscribeOpenCodeStream(
+      opencodeConnector,
+      'primary',
+      verboseMode,
+    )
 
     bridgeServer?.broadcast({ type: 'status', data: { opencodeRunning: true } })
     console.log('✓ OpenCode restarted')
@@ -257,8 +297,33 @@ function defaultAttachPorts(): number[] {
   return ports
 }
 
+function discoverListeningPortsFromLsof(verbose: boolean): number[] {
+  try {
+    const res = spawnSync('lsof', ['-nP', '-iTCP', '-sTCP:LISTEN'], { encoding: 'utf8' })
+    const out = `${res.stdout ?? ''}\n${res.stderr ?? ''}`
+    if (!out.trim()) return []
+
+    const ports = new Set<number>()
+    for (const line of out.split('\n')) {
+      const m = line.match(/TCP\s+.*?:(\d+)\s+\(LISTEN\)/)
+      if (!m) continue
+      const port = Number(m[1])
+      if (!Number.isFinite(port) || port <= 0 || port > 65535) continue
+      ports.add(port)
+    }
+    return Array.from(ports)
+  } catch (err) {
+    if (verbose) {
+      console.warn('lsof scan failed (continuing without it):', err)
+    }
+    return []
+  }
+}
+
 async function bootstrapAttachOpenCode(verbose: boolean): Promise<OpencodeBootstrap> {
-  const instances = await discoverRunningOpencodeInstances(defaultAttachPorts(), verbose)
+  const lsofPorts = discoverListeningPortsFromLsof(verbose)
+  const ports = Array.from(new Set([...defaultAttachPorts(), ...lsofPorts]))
+  const instances = await discoverRunningOpencodeInstances(ports, verbose)
   if (instances.length === 0) {
     console.log('No running OpenCode servers found.')
     console.log('  Start one: `opencode serve`')
@@ -284,6 +349,13 @@ async function bootstrapAttachOpenCode(verbose: boolean): Promise<OpencodeBootst
   const inst = instances[selected]
   console.log(`✓ Using OpenCode at ${inst.url}`)
   return { server: { url: inst.url, managed: false } }
+}
+
+async function discoverLocalOpencodeUrls(verbose: boolean): Promise<string[]> {
+  const ports = discoverListeningPortsFromLsof(verbose)
+  if (ports.length === 0) return []
+  const instances = await discoverRunningOpencodeInstances(ports, false)
+  return instances.map((i) => i.url)
 }
 
 async function main() {
@@ -436,13 +508,30 @@ async function main() {
     }
   }
 
-  // Subscribe to OpenCode events and forward to clients
-  eventStreamController = await opencode.startEventStream((event) => {
-    if (cli.verbose) {
-      console.log('[SDK Event]', JSON.stringify(event))
+  // Subscribe to OpenCode events and forward to clients.
+  // Also subscribe to any other local OpenCode servers so a TUI using a
+  // different instance still drives real-time updates in the app.
+  primaryEventStreamController = await subscribeOpenCodeStream(opencode, 'primary', cli.verbose)
+
+  try {
+    const primaryUrl = normalizeBaseUrl(opencode.url)
+    const extraUrls = (await discoverLocalOpencodeUrls(cli.verbose))
+      .map(normalizeBaseUrl)
+      .filter((u) => u !== primaryUrl)
+
+    const seen = new Set<string>()
+    for (const u of extraUrls) {
+      if (seen.has(u)) continue
+      seen.add(u)
+      const extra = new OpenCodeConnector({ baseUrl: u })
+      const ctrl = await subscribeOpenCodeStream(extra, 'extra', cli.verbose)
+      extraEventStreamControllers.push(ctrl)
     }
-    bridgeServer?.enqueueSdkEvent(event)
-  })
+  } catch (err) {
+    if (cli.verbose) {
+      console.warn('⚠️  Failed to subscribe to extra local OpenCode servers:', err)
+    }
+  }
 
   // Managed mode: keep OpenCode alive. If it dies, restart it (bridge URL stays the same).
   if (opencodeServer && 'close' in opencodeServer) {

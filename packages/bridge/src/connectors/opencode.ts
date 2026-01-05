@@ -189,6 +189,7 @@ export class OpenCodeConnector {
     sessionId: string,
     content: string,
     directory?: string,
+    messageId?: string,
     model?: { providerID: string; modelID: string },
     agent?: string,
     disabledTools?: string[],
@@ -249,6 +250,7 @@ export class OpenCodeConnector {
       {
         sessionID: sessionId,
         directory,
+        ...(messageId ? { messageID: messageId } : {}),
         ...(model ? { model } : {}),
         ...(agent ? { agent } : {}),
         ...(tools ? { tools } : {}),

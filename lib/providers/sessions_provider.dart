@@ -74,7 +74,10 @@ class GlobalSessionStatusNotifier
 
   void _handleSessionStatus(Map<String, dynamic> payload) {
     final properties = payload['properties'] as Map<String, dynamic>? ?? {};
-    final sessionId = properties['sessionID'] as String? ?? '';
+    final sessionId =
+        properties['sessionID'] as String? ??
+        properties['sessionId'] as String? ??
+        '';
     if (sessionId.isEmpty) return;
 
     final statusData = properties['status'] as Map<String, dynamic>? ?? {};
@@ -99,10 +102,12 @@ class GlobalSessionStatusNotifier
 
   void _handleToolUpdate(Map<String, dynamic> payload) {
     final properties = payload['properties'] as Map<String, dynamic>? ?? {};
+    final info = properties['info'] as Map<String, dynamic>?;
     final sessionId =
         properties['sessionID'] as String? ??
-        (properties['info'] as Map<String, dynamic>?)?['sessionID']
-            as String? ??
+        properties['sessionId'] as String? ??
+        (info?['sessionID'] as String?) ??
+        (info?['sessionId'] as String?) ??
         '';
     if (sessionId.isEmpty) return;
 
@@ -117,7 +122,10 @@ class GlobalSessionStatusNotifier
 
   void _handleSessionIdle(Map<String, dynamic> payload) {
     final properties = payload['properties'] as Map<String, dynamic>? ?? {};
-    final sessionId = properties['sessionID'] as String? ?? '';
+    final sessionId =
+        properties['sessionID'] as String? ??
+        properties['sessionId'] as String? ??
+        '';
     if (sessionId.isEmpty) return;
 
     // Check if session was busy before (for notification)
