@@ -1,7 +1,7 @@
 import 'dart:async';
 import 'dart:convert';
 
-import 'package:flutter/foundation.dart';
+import 'package:flutter/foundation.dart' show compute, debugPrint;
 import 'package:web_socket_channel/web_socket_channel.dart';
 
 enum ConnectionStatus { disconnected, connecting, connected }
@@ -122,15 +122,18 @@ class WebSocketService {
 
     // Wait for the connection to be ready
     try {
+      debugPrint('[WebSocket] Waiting for connection ready...');
       await _channel!.ready;
 
       // FIX: Check if this connection attempt is still valid
       if (_connectionId != thisConnectionId) {
         // A newer connection attempt superseded us, abort
+        debugPrint('[WebSocket] Connection superseded, aborting');
         _channel?.sink.close();
         return;
       }
 
+      debugPrint('[WebSocket] Connection ready, status: connected');
       _setStatus(ConnectionStatus.connected);
       _isReconnecting = false;
       _startHeartbeat();
@@ -138,6 +141,7 @@ class WebSocketService {
       // FIX: Flush any queued messages from during reconnection
       _flushReconnectQueue();
     } catch (e) {
+      debugPrint('[WebSocket] Connection failed: $e');
       if (_connectionId != thisConnectionId) return; // Superseded
       _channel = null;
       _isReconnecting = false;

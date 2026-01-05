@@ -1,4 +1,4 @@
-import { createOpencode, type OpencodeClient } from '@opencode-ai/sdk'
+import { createOpencode, type OpencodeClient } from '@opencode-ai/sdk/v2'
 import { displayBanner, displayQRCode } from './qr'
 import { getLocalIP, getHotspotIP, getTailscaleIP, getTailscaleMagicDNS, isTailscaleConnected } from './network'
 import { enableFunnel, disableFunnel } from './funnel'

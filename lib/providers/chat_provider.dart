@@ -1160,10 +1160,30 @@ class ChatSessionNotifier extends StateNotifier<ChatSessionState> {
     final sessionId = permission['sessionID'] as String? ?? '';
     if (state.session?.id != sessionId) return;
 
+    // Parse tool reference if present (SDK v1.1.1+)
+    final toolData = permission['tool'] as Map<String, dynamic>?;
+    final tool = toolData != null ? ToolReference.fromJson(toolData) : null;
+
+    // Parse patterns arrays (SDK v1.1.1+)
+    final patterns =
+        (permission['patterns'] as List<dynamic>?)
+            ?.map((e) => e as String)
+            .toList() ??
+        const [];
+    final always =
+        (permission['always'] as List<dynamic>?)
+            ?.map((e) => e as String)
+            .toList() ??
+        const [];
+
     final request = PermissionRequest(
       id: permission['id'] as String? ?? '',
       sessionId: sessionId,
       title: permission['title'] as String? ?? 'Permission required',
+      permission: permission['permission'] as String?,
+      patterns: patterns,
+      always: always,
+      tool: tool,
       command: permission['metadata']?['command'] as String?,
       metadata: permission['metadata'] as Map<String, dynamic>? ?? const {},
     );
@@ -1887,7 +1907,9 @@ class ChatSessionNotifier extends StateNotifier<ChatSessionState> {
     if (method == 'thread/tokenUsage/updated') {
       final tokenUsage = params['tokenUsage'];
       if (tokenUsage is Map<String, dynamic>) {
-        state = state.copyWith(cxTokenUsage: CodexThreadTokenUsage.fromJson(tokenUsage));
+        state = state.copyWith(
+          cxTokenUsage: CodexThreadTokenUsage.fromJson(tokenUsage),
+        );
       }
       return;
     }
@@ -2025,7 +2047,8 @@ class ChatSessionNotifier extends StateNotifier<ChatSessionState> {
           status: status,
           title: toolName,
           input: item,
-          output: (type == 'exitedReviewMode'
+          output:
+              (type == 'exitedReviewMode'
                   ? item['review']?.toString()
                   : item['aggregatedOutput']?.toString()) ??
               item['review']?.toString(),

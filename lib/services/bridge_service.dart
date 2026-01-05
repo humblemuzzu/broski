@@ -14,6 +14,7 @@ import '../models/file_attachment.dart';
 import '../models/file_binary_content.dart';
 import '../models/file_content.dart';
 import '../models/mcp.dart';
+import '../models/permission_rule.dart';
 import '../models/project.dart';
 import '../models/provider.dart';
 import '../models/search_result.dart';
@@ -22,6 +23,7 @@ import '../models/todo.dart';
 import '../models/subscription_usage.dart';
 import '../models/tool.dart';
 import '../models/vcs.dart';
+import '../models/worktree.dart';
 import 'websocket_service.dart';
 
 class BridgeService {
@@ -401,19 +403,32 @@ class BridgeService {
   }
 
   /// Create a new session (protected against duplicate calls)
-  Future<SessionSummary> createSession({String? projectPath, String? title}) {
+  Future<SessionSummary> createSession({
+    String? projectPath,
+    String? title,
+    PermissionRuleset? permission,
+  }) {
     // Dedupe by project path - if already creating a session for this project,
     // return the same future instead of creating another session
-    final dedupeKey = 'create_session:${projectPath ?? 'global'}';
+    final permKey = permission == null
+        ? 'none'
+        : permission.map((r) => '${r.permission}:${r.pattern}:${r.action.name}')
+            .join('|');
+    final dedupeKey = 'create_session:${projectPath ?? 'global'}:$permKey';
     return _deduplicatedRequest(
       dedupeKey,
-      () => _createSessionInternal(projectPath: projectPath, title: title),
+      () => _createSessionInternal(
+        projectPath: projectPath,
+        title: title,
+        permission: permission,
+      ),
     );
   }
 
   Future<SessionSummary> _createSessionInternal({
     String? projectPath,
     String? title,
+    PermissionRuleset? permission,
   }) async {
     final requestId = _generateRequestId();
     _socket.send({
@@ -421,6 +436,8 @@ class BridgeService {
       'requestId': requestId,
       if (projectPath != null) 'projectPath': projectPath,
       if (title != null) 'title': title,
+      if (permission != null)
+        'permission': permission.map((r) => r.toJson()).toList(),
     });
     final response = await _waitFor('session_created', requestId: requestId);
     return SessionSummary.fromJson(response['data'] as Map<String, dynamic>);
@@ -562,10 +579,15 @@ class BridgeService {
   }
 
   /// Respond to a permission request (protected against duplicate responses)
+  ///
+  /// [permissionId] - The request ID (requestID in SDK v1.1.1+)
+  /// [response] - "once", "always", or "reject"
+  /// [message] - Optional feedback message (useful when rejecting)
   void respondToPermission({
     required String sessionId,
     required String permissionId,
     required String response,
+    String? message,
     String? projectPath,
   }) {
     // Guard against duplicate permission responses - each permission should only
@@ -581,6 +603,7 @@ class BridgeService {
       'sessionId': sessionId,
       'permissionId': permissionId,
       'response': response,
+      if (message != null && message.isNotEmpty) 'message': message,
       if (projectPath != null) 'projectPath': projectPath,
     });
   }
@@ -1416,6 +1439,79 @@ class BridgeService {
       if (projectPath != null) 'projectPath': projectPath,
     });
     final response = await _waitFor('mcp_disconnected', requestId: requestId);
+    return response['data'] as bool? ?? false;
+  }
+
+  /// Get MCP resources from all connected servers (SDK v1.1.1+)
+  Future<Map<String, McpResource>> getMcpResources({
+    String? projectPath,
+  }) async {
+    final requestId = _generateRequestId();
+    _socket.send({
+      'type': 'get_mcp_resources',
+      'requestId': requestId,
+      if (projectPath != null) 'projectPath': projectPath,
+    });
+    final response = await _waitFor('mcp_resources', requestId: requestId);
+    final data = response['data'] as Map<String, dynamic>? ?? {};
+    final result = <String, McpResource>{};
+    for (final entry in data.entries) {
+      result[entry.key] = McpResource.fromJson(
+        entry.value as Map<String, dynamic>,
+      );
+    }
+    return result;
+  }
+
+  // ============================================================
+  // Feature 23: Git Worktrees (SDK v1.1.1+ experimental)
+  // ============================================================
+
+  /// List all worktrees for a project
+  Future<List<Worktree>> listWorktrees({String? projectPath}) async {
+    final requestId = _generateRequestId();
+    _socket.send({
+      'type': 'list_worktrees',
+      'requestId': requestId,
+      if (projectPath != null) 'projectPath': projectPath,
+    });
+    final response = await _waitFor('worktrees', requestId: requestId);
+    final data = response['data'] as List<dynamic>? ?? [];
+    return data
+        .map((item) => Worktree.fromJson(item as Map<String, dynamic>))
+        .toList();
+  }
+
+  /// Create a new worktree
+  Future<Worktree?> createWorktree({
+    String? name,
+    String? startCommand,
+    String? projectPath,
+  }) async {
+    final requestId = _generateRequestId();
+    _socket.send({
+      'type': 'create_worktree',
+      'requestId': requestId,
+      if (name != null) 'name': name,
+      if (startCommand != null) 'startCommand': startCommand,
+      if (projectPath != null) 'projectPath': projectPath,
+    });
+    final response = await _waitFor('worktree_created', requestId: requestId);
+    final data = response['data'] as Map<String, dynamic>?;
+    if (data == null) return null;
+    return Worktree.fromJson(data);
+  }
+
+  /// Delete a worktree
+  Future<bool> deleteWorktree(String name, {String? projectPath}) async {
+    final requestId = _generateRequestId();
+    _socket.send({
+      'type': 'delete_worktree',
+      'name': name,
+      'requestId': requestId,
+      if (projectPath != null) 'projectPath': projectPath,
+    });
+    final response = await _waitFor('worktree_deleted', requestId: requestId);
     return response['data'] as bool? ?? false;
   }
 

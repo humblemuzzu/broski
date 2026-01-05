@@ -12,6 +12,7 @@ import '../models/connection.dart';
 import '../models/highlight_color.dart';
 import '../models/mcp.dart';
 import '../models/message.dart';
+import '../models/permission_rule.dart';
 import '../models/project.dart';
 import '../models/provider.dart';
 import '../models/session.dart';
@@ -40,6 +41,7 @@ class StorageService {
   // Prompt accent key
   static const _promptAccentColorKey = 'broski_prompt_accent_color';
   static const _codexSettingsKey = 'broski_codex_settings';
+  static const _permissionRulesKey = 'broski_permission_rules';
 
   static const _uuid = Uuid();
 
@@ -116,6 +118,43 @@ class StorageService {
 
   Future<void> saveConnection(ConnectionInfo info) async {
     await _storage.write(key: _connectionKey, value: jsonEncode(info.toJson()));
+  }
+
+  // ============================================================
+  // Phase 4: Session Permission Presets (OpenCode)
+  // ============================================================
+
+  Future<void> savePermissionRules({
+    required PermissionPreset preset,
+    required PermissionRuleset customRules,
+  }) async {
+    final payload = <String, dynamic>{
+      'preset': preset.name,
+      'customRules': customRules.map((r) => r.toJson()).toList(),
+    };
+    await _storage.write(key: _permissionRulesKey, value: jsonEncode(payload));
+  }
+
+  Future<({PermissionPreset preset, PermissionRuleset customRules})?>
+  loadPermissionRules() async {
+    final raw = await _storage.read(key: _permissionRulesKey);
+    if (raw == null || raw.isEmpty) return null;
+    try {
+      final json = jsonDecode(raw) as Map<String, dynamic>;
+      final presetName = json['preset'] as String? ?? 'askEverything';
+      final preset = PermissionPreset.values.firstWhere(
+        (p) => p.name == presetName,
+        orElse: () => PermissionPreset.askEverything,
+      );
+      final custom = (json['customRules'] as List<dynamic>?)
+              ?.whereType<Map<String, dynamic>>()
+              .map(PermissionRule.fromJson)
+              .toList() ??
+          <PermissionRule>[];
+      return (preset: preset, customRules: custom);
+    } catch (_) {
+      return null;
+    }
   }
 
   // ============================================================

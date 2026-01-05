@@ -57,6 +57,25 @@ class _ConnectionLostScreenState extends ConsumerState<ConnectionLostScreen> {
                 style: theme.textTheme.bodySmall,
                 textAlign: TextAlign.center,
               ),
+              if (connection.error != null) ...[
+                const SizedBox(height: 8),
+                Container(
+                  padding: const EdgeInsets.all(8),
+                  decoration: BoxDecoration(
+                    color: ocTheme.error.withValues(alpha: 0.1),
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                  child: Text(
+                    'Error: ${connection.error}',
+                    style: theme.textTheme.bodySmall?.copyWith(
+                      color: ocTheme.error,
+                      fontFamily: 'monospace',
+                      fontSize: 11,
+                    ),
+                    textAlign: TextAlign.center,
+                  ),
+                ),
+              ],
               const SizedBox(height: 24),
               ElevatedButton(
                 onPressed: connection.connection == null

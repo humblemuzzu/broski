@@ -14,6 +14,7 @@ import '../models/codex.dart';
 import '../models/command.dart';
 import '../models/file_attachment.dart';
 import '../models/message.dart';
+import '../models/permission_rule.dart';
 import '../models/project.dart';
 import '../models/session.dart';
 import '../models/session_context.dart';
@@ -24,6 +25,7 @@ import '../providers/connection_provider.dart';
 import '../providers/codex_settings_provider.dart';
 import '../providers/file_search_provider.dart';
 import '../providers/input_style_provider.dart';
+import '../providers/permission_rules_provider.dart';
 import '../providers/prompt_accent_provider.dart';
 import '../providers/selection_provider.dart';
 import '../models/prompt_accent_color.dart';
@@ -40,6 +42,7 @@ import '../widgets/message_bubble.dart';
 import '../widgets/subtask_notification_card.dart';
 import '../widgets/thinking_card.dart';
 import '../widgets/permission_prompt.dart';
+import '../widgets/permission_rules_sheet.dart';
 import '../widgets/session_sidebar.dart';
 import '../widgets/tool_call.dart';
 import '../widgets/claude_code_help.dart';
@@ -6361,6 +6364,11 @@ Describe project-specific guidance for Codex here.
         onFileSelect: _handleFileSelection,
         onAttachTap: () => _showAttachmentOptions(context),
         attachIcon: Icons.add_rounded,
+        agents: widget.isClaudeCode ? const [] : _agents,
+        currentAgent: widget.isClaudeCode ? null : _selectedAgent,
+        onAgentChanged: widget.isClaudeCode
+            ? null
+            : (agent) => setState(() => _selectedAgent = agent),
       );
     }
 
@@ -7574,13 +7582,20 @@ Describe your project here.
             request: request,
             onApprove: () => _respondToPermission(request, 'once'),
             onDeny: () => _respondToPermission(request, 'reject'),
+            onAlwaysAllow: () => _respondToPermission(request, 'always'),
+            onDenyWithMessage: (message) =>
+                _respondToPermission(request, 'reject', message: message),
           );
         },
       ).whenComplete(() => _activePermissionId = null);
     });
   }
 
-  void _respondToPermission(PermissionRequest request, String response) {
+  void _respondToPermission(
+    PermissionRequest request,
+    String response, {
+    String? message,
+  }) {
     final bridge = ref.read(bridgeServiceProvider);
     final chat = ref.read(chatSessionProvider.notifier);
     if (widget.isClaudeCode) {
@@ -7596,6 +7611,7 @@ Describe your project here.
         sessionId: request.sessionId,
         permissionId: request.id,
         response: response,
+        message: message,
         projectPath: widget.project.path,
       );
     }
@@ -8521,6 +8537,9 @@ class _FloatingInputBar extends ConsumerWidget {
     this.onFileSelect,
     this.onAttachTap,
     this.attachIcon = Icons.add_rounded,
+    this.agents = const [],
+    this.currentAgent,
+    this.onAgentChanged,
   });
 
   final TextEditingController controller;
@@ -8535,6 +8554,26 @@ class _FloatingInputBar extends ConsumerWidget {
   final void Function(FileAttachment)? onFileSelect;
   final VoidCallback? onAttachTap;
   final IconData attachIcon;
+  final List<Agent> agents;
+  final String? currentAgent;
+  final void Function(String?)? onAgentChanged;
+
+  void _showFloatingInputMenu(BuildContext context, OpenCodeTheme theme) {
+    final primaryAgents = agents.where((a) => a.isPrimary).toList();
+
+    showModalBottomSheet(
+      context: context,
+      backgroundColor: Colors.transparent,
+      isScrollControlled: true,
+      builder: (context) => _FloatingInputMenuSheet(
+        theme: theme,
+        agents: primaryAgents,
+        currentAgent: currentAgent,
+        onAgentChanged: onAgentChanged,
+        onAttachTap: onAttachTap,
+      ),
+    );
+  }
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -8595,9 +8634,11 @@ class _FloatingInputBar extends ConsumerWidget {
                   child: Row(
                     crossAxisAlignment: CrossAxisAlignment.center,
                     children: [
-                      // Plus button - shows attachment options
+                      // Menu button - shows agent/permission options when agents available, otherwise attach options
                       GestureDetector(
-                        onTap: onAttachTap,
+                        onTap: agents.isNotEmpty
+                            ? () => _showFloatingInputMenu(context, theme)
+                            : onAttachTap,
                         child: Container(
                           height: 42,
                           width: 42,
@@ -8609,7 +8650,9 @@ class _FloatingInputBar extends ConsumerWidget {
                           ),
                           child: Center(
                             child: Icon(
-                              attachIcon,
+                              agents.isNotEmpty
+                                  ? Icons.tune_rounded
+                                  : attachIcon,
                               color: kOnBackground,
                               size: 22,
                             ),
@@ -8704,6 +8747,345 @@ class _FloatingInputBar extends ConsumerWidget {
               ],
             ),
           ),
+        ),
+      ),
+    );
+  }
+}
+
+/// Bottom sheet menu for floating input bar with agent selection and quick actions
+class _FloatingInputMenuSheet extends ConsumerStatefulWidget {
+  const _FloatingInputMenuSheet({
+    required this.theme,
+    required this.agents,
+    this.currentAgent,
+    this.onAgentChanged,
+    this.onAttachTap,
+  });
+
+  final OpenCodeTheme theme;
+  final List<Agent> agents;
+  final String? currentAgent;
+  final void Function(String?)? onAgentChanged;
+  final VoidCallback? onAttachTap;
+
+  @override
+  ConsumerState<_FloatingInputMenuSheet> createState() =>
+      _FloatingInputMenuSheetState();
+}
+
+class _FloatingInputMenuSheetState extends ConsumerState<_FloatingInputMenuSheet> {
+  @override
+  Widget build(BuildContext context) {
+    final rulesState = ref.watch(permissionRulesProvider);
+    final selectedPreset = rulesState.preset;
+
+    return Container(
+      padding: const EdgeInsets.all(20),
+      decoration: BoxDecoration(
+        color: widget.theme.backgroundPanel,
+        borderRadius: const BorderRadius.vertical(top: Radius.circular(20)),
+      ),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          // Handle bar
+          Center(
+            child: Container(
+              width: 40,
+              height: 4,
+              decoration: BoxDecoration(
+                color: widget.theme.borderSubtle,
+                borderRadius: BorderRadius.circular(2),
+              ),
+            ),
+          ),
+          const SizedBox(height: 16),
+
+          // Quick actions row
+          Row(
+            children: [
+              Icon(
+                Icons.flash_on_rounded,
+                color: widget.theme.textMuted,
+                size: 16,
+              ),
+              const SizedBox(width: 8),
+              Text(
+                'Quick Actions',
+                style: TextStyle(
+                  fontSize: 14,
+                  fontWeight: FontWeight.w600,
+                  color: widget.theme.textMuted,
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 12),
+          Wrap(
+            spacing: 8,
+            runSpacing: 8,
+            children: [
+              _QuickActionChip(
+                icon: Icons.attach_file_rounded,
+                label: 'Attach File',
+                theme: widget.theme,
+                onTap: () {
+                  Navigator.pop(context);
+                  widget.onAttachTap?.call();
+                },
+              ),
+              _QuickActionChip(
+                icon: Icons.camera_alt_outlined,
+                label: 'Take Photo',
+                theme: widget.theme,
+                onTap: () {
+                  Navigator.pop(context);
+                  // TODO: Trigger camera
+                },
+              ),
+            ],
+          ),
+          const SizedBox(height: 16),
+
+          // Agent section
+          if (widget.agents.isNotEmpty) ...[
+            Divider(color: widget.theme.borderSubtle),
+            const SizedBox(height: 16),
+            Row(
+              children: [
+                Icon(
+                  Icons.smart_toy_outlined,
+                  color: widget.theme.textMuted,
+                  size: 16,
+                ),
+                const SizedBox(width: 8),
+                Text(
+                  'Agent',
+                  style: TextStyle(
+                    fontSize: 14,
+                    fontWeight: FontWeight.w600,
+                    color: widget.theme.textMuted,
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 12),
+            SizedBox(
+              height: 36,
+              child: ListView.separated(
+                scrollDirection: Axis.horizontal,
+                itemCount: widget.agents.length,
+                separatorBuilder: (_, __) => const SizedBox(width: 8),
+                itemBuilder: (context, index) {
+                  final agent = widget.agents[index];
+                  final isSelected = agent.name == widget.currentAgent;
+                  return GestureDetector(
+                    onTap: () {
+                      widget.onAgentChanged?.call(agent.name);
+                      Navigator.pop(context);
+                    },
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 12,
+                        vertical: 8,
+                      ),
+                      decoration: BoxDecoration(
+                        color: isSelected
+                            ? agent.displayColor.withValues(alpha: 0.15)
+                            : widget.theme.backgroundElement,
+                        borderRadius: BorderRadius.circular(18),
+                        border: Border.all(
+                          color: isSelected
+                              ? agent.displayColor
+                              : widget.theme.borderSubtle,
+                        ),
+                      ),
+                      child: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Container(
+                            width: 8,
+                            height: 8,
+                            decoration: BoxDecoration(
+                              color: agent.displayColor,
+                              shape: BoxShape.circle,
+                            ),
+                          ),
+                          const SizedBox(width: 6),
+                          Text(
+                            agent.displayName,
+                            style: TextStyle(
+                              color: isSelected
+                                  ? agent.displayColor
+                                  : widget.theme.text,
+                              fontSize: 12,
+                              fontWeight: FontWeight.w500,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  );
+                },
+              ),
+            ),
+            const SizedBox(height: 16),
+          ],
+
+          // Permission preset section
+          Divider(color: widget.theme.borderSubtle),
+          const SizedBox(height: 16),
+          Row(
+            children: [
+              Icon(
+                Icons.security_outlined,
+                color: widget.theme.textMuted,
+                size: 16,
+              ),
+              const SizedBox(width: 8),
+              Text(
+                'Permission Preset',
+                style: TextStyle(
+                  fontSize: 14,
+                  fontWeight: FontWeight.w600,
+                  color: widget.theme.textMuted,
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 12),
+          SizedBox(
+            height: 56,
+            child: ListView.separated(
+              scrollDirection: Axis.horizontal,
+              itemCount: PermissionPreset.values.length - 1, // Exclude custom
+              separatorBuilder: (_, __) => const SizedBox(width: 8),
+              itemBuilder: (context, index) {
+                final preset = PermissionPreset.values[index];
+                if (preset == PermissionPreset.custom) {
+                  return const SizedBox.shrink();
+                }
+                final isSelected = preset == selectedPreset;
+                return GestureDetector(
+                  onTap: () {
+                    ref.read(permissionRulesProvider.notifier).setPreset(preset);
+                  },
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 12,
+                      vertical: 8,
+                    ),
+                    decoration: BoxDecoration(
+                      color: isSelected
+                          ? widget.theme.accent.withValues(alpha: 0.15)
+                          : widget.theme.backgroundElement,
+                      borderRadius: BorderRadius.circular(12),
+                      border: Border.all(
+                        color: isSelected
+                            ? widget.theme.accent
+                            : widget.theme.borderSubtle,
+                      ),
+                    ),
+                    child: Column(
+                      mainAxisSize: MainAxisSize.min,
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          preset.displayName,
+                          style: TextStyle(
+                            color: isSelected
+                                ? widget.theme.accent
+                                : widget.theme.text,
+                            fontSize: 11,
+                            fontWeight: FontWeight.w600,
+                          ),
+                        ),
+                        const SizedBox(height: 2),
+                        Text(
+                          preset.description,
+                          style: TextStyle(
+                            color: widget.theme.textMuted,
+                            fontSize: 9,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                );
+              },
+            ),
+          ),
+          const SizedBox(height: 8),
+          TextButton.icon(
+            onPressed: () {
+              Navigator.pop(context);
+              showModalBottomSheet(
+                context: context,
+                isScrollControlled: true,
+                backgroundColor: Colors.transparent,
+                builder: (context) => PermissionRulesSheet(
+                  initialRules: rulesState.effectiveRuleset,
+                  onApply: (rules) {
+                    ref.read(permissionRulesProvider.notifier).setCustomRules(
+                      rules,
+                    );
+                  },
+                ),
+              );
+            },
+            icon: Icon(Icons.tune, size: 16, color: widget.theme.accent),
+            label: Text(
+              'Custom rules...',
+              style: TextStyle(color: widget.theme.accent, fontSize: 13),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _QuickActionChip extends StatelessWidget {
+  const _QuickActionChip({
+    required this.icon,
+    required this.label,
+    required this.theme,
+    required this.onTap,
+  });
+
+  final IconData icon;
+  final String label;
+  final OpenCodeTheme theme;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    return InkWell(
+      onTap: onTap,
+      borderRadius: BorderRadius.circular(20),
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+        decoration: BoxDecoration(
+          color: theme.backgroundElement,
+          borderRadius: BorderRadius.circular(20),
+          border: Border.all(color: theme.borderSubtle),
+        ),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(icon, size: 16, color: theme.text),
+            const SizedBox(width: 6),
+            Text(
+              label,
+              style: TextStyle(
+                color: theme.text,
+                fontSize: 12,
+                fontWeight: FontWeight.w500,
+              ),
+            ),
+          ],
         ),
       ),
     );
@@ -9195,26 +9577,87 @@ class _CliStyleInputBarState extends State<_CliStyleInputBar> {
     showModalBottomSheet(
       context: context,
       backgroundColor: Colors.transparent,
-      builder: (context) => Container(
-        padding: const EdgeInsets.all(20),
-        decoration: BoxDecoration(
-          color: theme.backgroundPanel,
-          borderRadius: const BorderRadius.vertical(top: Radius.circular(20)),
-        ),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text(
-              'Select Agent',
-              style: TextStyle(
-                fontSize: 16,
-                fontWeight: FontWeight.w600,
-                color: theme.text,
+      isScrollControlled: true,
+      builder: (context) => _AgentAndPermissionSheet(
+        theme: theme,
+        agents: primaryAgents,
+        currentAgent: widget.currentAgent,
+        onAgentChanged: widget.onAgentChanged,
+      ),
+    );
+  }
+}
+
+/// Bottom sheet for selecting agent and viewing permission presets
+class _AgentAndPermissionSheet extends ConsumerStatefulWidget {
+  const _AgentAndPermissionSheet({
+    required this.theme,
+    required this.agents,
+    this.currentAgent,
+    this.onAgentChanged,
+  });
+
+  final OpenCodeTheme theme;
+  final List<Agent> agents;
+  final String? currentAgent;
+  final void Function(String?)? onAgentChanged;
+
+  @override
+  ConsumerState<_AgentAndPermissionSheet> createState() =>
+      _AgentAndPermissionSheetState();
+}
+
+class _AgentAndPermissionSheetState extends ConsumerState<_AgentAndPermissionSheet> {
+  @override
+  Widget build(BuildContext context) {
+    final rulesState = ref.watch(permissionRulesProvider);
+    final selectedPreset = rulesState.preset;
+
+    return Container(
+      padding: const EdgeInsets.all(20),
+      decoration: BoxDecoration(
+        color: widget.theme.backgroundPanel,
+        borderRadius: const BorderRadius.vertical(top: Radius.circular(20)),
+      ),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          // Handle bar
+          Center(
+            child: Container(
+              width: 40,
+              height: 4,
+              decoration: BoxDecoration(
+                color: widget.theme.borderSubtle,
+                borderRadius: BorderRadius.circular(2),
               ),
             ),
+          ),
+          const SizedBox(height: 16),
+
+          // Agent section
+          if (widget.agents.isNotEmpty) ...[
+            Row(
+              children: [
+                Icon(
+                  Icons.smart_toy_outlined,
+                  color: widget.theme.textMuted,
+                  size: 16,
+                ),
+                const SizedBox(width: 8),
+                Text(
+                  'Agent',
+                  style: TextStyle(
+                    fontSize: 14,
+                    fontWeight: FontWeight.w600,
+                    color: widget.theme.textMuted,
+                  ),
+                ),
+              ],
+            ),
             const SizedBox(height: 12),
-            for (final agent in primaryAgents)
+            for (final agent in widget.agents)
               ListTile(
                 contentPadding: EdgeInsets.zero,
                 dense: true,
@@ -9229,7 +9672,7 @@ class _CliStyleInputBarState extends State<_CliStyleInputBar> {
                 title: Text(
                   agent.displayName,
                   style: TextStyle(
-                    color: theme.text,
+                    color: widget.theme.text,
                     fontSize: 14,
                     fontWeight: agent.name == widget.currentAgent
                         ? FontWeight.w600
@@ -9238,17 +9681,142 @@ class _CliStyleInputBarState extends State<_CliStyleInputBar> {
                 ),
                 subtitle: Text(
                   agent.shortDescription,
-                  style: TextStyle(color: theme.textMuted, fontSize: 11),
+                  style: TextStyle(color: widget.theme.textMuted, fontSize: 11),
                 ),
                 trailing: agent.name == widget.currentAgent
-                    ? Icon(Icons.check_rounded, color: theme.success, size: 18)
+                    ? Icon(
+                        Icons.check_rounded,
+                        color: widget.theme.success,
+                        size: 18,
+                      )
                     : null,
                 onTap: () {
                   widget.onAgentChanged?.call(agent.name);
                   Navigator.pop(context);
                 },
               ),
-            const SizedBox(height: 8),
+            const SizedBox(height: 16),
+            Divider(color: widget.theme.borderSubtle),
+            const SizedBox(height: 16),
+          ],
+
+          // Permission preset section
+          Row(
+            children: [
+              Icon(
+                Icons.security_outlined,
+                color: widget.theme.textMuted,
+                size: 16,
+              ),
+              const SizedBox(width: 8),
+              Text(
+                'Permission Preset',
+                style: TextStyle(
+                  fontSize: 14,
+                  fontWeight: FontWeight.w600,
+                  color: widget.theme.textMuted,
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 12),
+          Wrap(
+            spacing: 8,
+            runSpacing: 8,
+            children: PermissionPreset.values
+                .where((p) => p != PermissionPreset.custom)
+                .map(
+                  (preset) => _PermissionPresetChip(
+                    preset: preset,
+                    isSelected: preset == selectedPreset,
+                    theme: widget.theme,
+                    onTap: () {
+                      ref.read(permissionRulesProvider.notifier).setPreset(
+                        preset,
+                      );
+                    },
+                  ),
+                )
+                .toList(),
+          ),
+          const SizedBox(height: 8),
+
+          // Custom rules button
+          TextButton.icon(
+            onPressed: () {
+              Navigator.pop(context);
+              showModalBottomSheet(
+                context: context,
+                isScrollControlled: true,
+                backgroundColor: Colors.transparent,
+                builder: (context) => PermissionRulesSheet(
+                  initialRules: rulesState.effectiveRuleset,
+                  onApply: (rules) {
+                    ref.read(permissionRulesProvider.notifier).setCustomRules(
+                      rules,
+                    );
+                  },
+                ),
+              );
+            },
+            icon: Icon(Icons.tune, size: 16, color: widget.theme.accent),
+            label: Text(
+              'Custom Rules...',
+              style: TextStyle(color: widget.theme.accent, fontSize: 13),
+            ),
+          ),
+          const SizedBox(height: 8),
+        ],
+      ),
+    );
+  }
+}
+
+class _PermissionPresetChip extends StatelessWidget {
+  const _PermissionPresetChip({
+    required this.preset,
+    required this.isSelected,
+    required this.theme,
+    required this.onTap,
+  });
+
+  final PermissionPreset preset;
+  final bool isSelected;
+  final OpenCodeTheme theme;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    return InkWell(
+      onTap: onTap,
+      borderRadius: BorderRadius.circular(20),
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+        decoration: BoxDecoration(
+          color: isSelected
+              ? theme.accent.withValues(alpha: 0.15)
+              : theme.backgroundElement,
+          borderRadius: BorderRadius.circular(20),
+          border: Border.all(
+            color: isSelected ? theme.accent : theme.borderSubtle,
+          ),
+        ),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              preset.displayName,
+              style: TextStyle(
+                color: isSelected ? theme.accent : theme.text,
+                fontSize: 12,
+                fontWeight: FontWeight.w600,
+              ),
+            ),
+            Text(
+              preset.description,
+              style: TextStyle(color: theme.textMuted, fontSize: 10),
+            ),
           ],
         ),
       ),

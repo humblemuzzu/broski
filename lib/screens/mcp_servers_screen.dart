@@ -12,7 +12,8 @@ import '../widgets/connection_indicator.dart';
 /// MCP (Model Context Protocol) Servers Management Screen
 ///
 /// Allows users to view, connect, and disconnect MCP servers that provide
-/// additional tools and resources to the AI.
+/// additional tools and resources to the AI. Now includes a Resources tab
+/// to browse MCP resources (SDK v1.1.1+).
 class McpServersScreen extends ConsumerStatefulWidget {
   const McpServersScreen({super.key});
 
@@ -20,15 +21,37 @@ class McpServersScreen extends ConsumerStatefulWidget {
   ConsumerState<McpServersScreen> createState() => _McpServersScreenState();
 }
 
-class _McpServersScreenState extends ConsumerState<McpServersScreen> {
+class _McpServersScreenState extends ConsumerState<McpServersScreen>
+    with SingleTickerProviderStateMixin {
+  late TabController _tabController;
   Map<String, McpServerStatus> _servers = {};
+  Map<String, McpResource> _resources = {};
   bool _isLoading = true;
+  bool _isLoadingResources = false;
   String? _error;
+  String? _resourcesError;
 
   @override
   void initState() {
     super.initState();
+    _tabController = TabController(length: 2, vsync: this);
+    _tabController.addListener(_onTabChanged);
     _loadServers();
+  }
+
+  @override
+  void dispose() {
+    _tabController.removeListener(_onTabChanged);
+    _tabController.dispose();
+    super.dispose();
+  }
+
+  void _onTabChanged() {
+    if (_tabController.index == 1 &&
+        _resources.isEmpty &&
+        !_isLoadingResources) {
+      _loadResources();
+    }
   }
 
   Future<void> _loadServers() async {
@@ -88,6 +111,48 @@ class _McpServersScreenState extends ConsumerState<McpServersScreen> {
             _isLoading = false;
           });
         }
+      }
+    }
+  }
+
+  Future<void> _loadResources() async {
+    setState(() {
+      _isLoadingResources = true;
+      _resourcesError = null;
+    });
+
+    final connection = ref.read(connectionProvider);
+
+    // Resources not available offline
+    if (connection.isOfflineMode) {
+      if (mounted) {
+        setState(() {
+          _isLoadingResources = false;
+          _resourcesError = 'Resources not available offline';
+        });
+      }
+      return;
+    }
+
+    try {
+      final bridge = ref.read(bridgeServiceProvider);
+      final selection = ref.read(selectionProvider);
+      final resources = await bridge.getMcpResources(
+        projectPath: selection.project?.path,
+      );
+
+      if (mounted) {
+        setState(() {
+          _resources = resources;
+          _isLoadingResources = false;
+        });
+      }
+    } catch (e) {
+      if (mounted) {
+        setState(() {
+          _resourcesError = e.toString();
+          _isLoadingResources = false;
+        });
       }
     }
   }
@@ -177,17 +242,33 @@ class _McpServersScreenState extends ConsumerState<McpServersScreen> {
         backgroundColor: theme.background,
         elevation: 0,
         title: Text(
-          'MCP Servers',
+          'MCP',
           style: TextStyle(
             fontSize: 18,
             fontWeight: FontWeight.w600,
             color: theme.text,
           ),
         ),
+        bottom: TabBar(
+          controller: _tabController,
+          labelColor: theme.primary,
+          unselectedLabelColor: theme.textMuted,
+          indicatorColor: theme.primary,
+          tabs: const [
+            Tab(text: 'Servers', icon: Icon(Icons.extension, size: 18)),
+            Tab(text: 'Resources', icon: Icon(Icons.folder_outlined, size: 18)),
+          ],
+        ),
         actions: [
           IconButton(
             icon: Icon(Icons.refresh, color: theme.text),
-            onPressed: _loadServers,
+            onPressed: () {
+              if (_tabController.index == 0) {
+                _loadServers();
+              } else {
+                _loadResources();
+              }
+            },
           ),
           Padding(
             padding: const EdgeInsets.symmetric(horizontal: 8),
@@ -201,11 +282,14 @@ class _McpServersScreenState extends ConsumerState<McpServersScreen> {
           ),
         ],
       ),
-      body: _buildBody(theme),
+      body: TabBarView(
+        controller: _tabController,
+        children: [_buildServersTab(theme), _buildResourcesTab(theme)],
+      ),
     );
   }
 
-  Widget _buildBody(OpenCodeTheme theme) {
+  Widget _buildServersTab(OpenCodeTheme theme) {
     if (_isLoading) {
       return Center(child: CircularProgressIndicator(color: theme.primary));
     }
@@ -308,6 +392,208 @@ class _McpServersScreenState extends ConsumerState<McpServersScreen> {
         },
       ),
     );
+  }
+
+  Widget _buildResourcesTab(OpenCodeTheme theme) {
+    if (_isLoadingResources) {
+      return Center(child: CircularProgressIndicator(color: theme.primary));
+    }
+
+    if (_resourcesError != null) {
+      return Center(
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Icon(Icons.error_outline, size: 48, color: theme.error),
+            const SizedBox(height: 16),
+            Text(
+              'Failed to load MCP resources',
+              style: TextStyle(color: theme.text, fontSize: 16),
+            ),
+            const SizedBox(height: 8),
+            Text(
+              _resourcesError!,
+              style: TextStyle(color: theme.textMuted, fontSize: 14),
+              textAlign: TextAlign.center,
+            ),
+            const SizedBox(height: 20),
+            ElevatedButton(
+              onPressed: _loadResources,
+              style: ElevatedButton.styleFrom(
+                backgroundColor: theme.primary,
+                foregroundColor: Colors.white,
+              ),
+              child: const Text('Retry'),
+            ),
+          ],
+        ),
+      );
+    }
+
+    if (_resources.isEmpty) {
+      return Center(
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Icon(Icons.folder_off_outlined, size: 64, color: theme.textMuted),
+            const SizedBox(height: 20),
+            Text(
+              'No MCP Resources',
+              style: TextStyle(
+                color: theme.text,
+                fontSize: 18,
+                fontWeight: FontWeight.w600,
+              ),
+            ),
+            const SizedBox(height: 8),
+            Text(
+              'Resources will appear here when\nMCP servers provide them',
+              style: TextStyle(color: theme.textMuted, fontSize: 14),
+              textAlign: TextAlign.center,
+            ),
+            const SizedBox(height: 24),
+            OutlinedButton.icon(
+              onPressed: _loadResources,
+              icon: const Icon(Icons.refresh, size: 20),
+              label: const Text('Refresh'),
+              style: OutlinedButton.styleFrom(
+                foregroundColor: theme.text,
+                side: BorderSide(color: theme.borderSubtle),
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 24,
+                  vertical: 12,
+                ),
+              ),
+            ),
+          ],
+        ),
+      );
+    }
+
+    // Group resources by client (MCP server)
+    final resourcesByClient = <String, List<MapEntry<String, McpResource>>>{};
+    for (final entry in _resources.entries) {
+      final client = entry.value.client;
+      resourcesByClient.putIfAbsent(client, () => []).add(entry);
+    }
+
+    return RefreshIndicator(
+      onRefresh: _loadResources,
+      color: theme.primary,
+      child: ListView.builder(
+        padding: const EdgeInsets.all(16),
+        itemCount: resourcesByClient.length,
+        itemBuilder: (context, index) {
+          final clientEntry = resourcesByClient.entries.elementAt(index);
+          return _McpResourceGroup(
+            clientName: clientEntry.key,
+            resources: clientEntry.value,
+            onResourceTap: (resource) => _showResourceDetails(resource),
+          );
+        },
+      ),
+    );
+  }
+
+  void _showResourceDetails(McpResource resource) {
+    final theme = OpenCodeTheme.of(context);
+    showModalBottomSheet(
+      context: context,
+      backgroundColor: theme.backgroundPanel,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+      ),
+      builder: (context) {
+        final sheetTheme = OpenCodeTheme.of(context);
+        return Container(
+          padding: const EdgeInsets.all(24),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
+                children: [
+                  Container(
+                    padding: const EdgeInsets.all(12),
+                    decoration: BoxDecoration(
+                      color: sheetTheme.primary.withValues(alpha: 0.15),
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                    child: Icon(
+                      _getResourceIcon(resource.mimeType),
+                      color: sheetTheme.primary,
+                      size: 24,
+                    ),
+                  ),
+                  const SizedBox(width: 16),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          resource.name,
+                          style: TextStyle(
+                            fontSize: 18,
+                            fontWeight: FontWeight.w600,
+                            color: sheetTheme.text,
+                          ),
+                        ),
+                        const SizedBox(height: 4),
+                        Text(
+                          'from ${resource.client}',
+                          style: TextStyle(
+                            color: sheetTheme.textMuted,
+                            fontSize: 14,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 20),
+
+              // URI
+              _DetailRow(label: 'URI', value: resource.uri),
+
+              // MIME Type
+              if (resource.mimeType != null)
+                _DetailRow(label: 'Type', value: resource.mimeType!),
+
+              // Description
+              if (resource.description != null &&
+                  resource.description!.isNotEmpty) ...[
+                const SizedBox(height: 12),
+                Text(
+                  'Description',
+                  style: TextStyle(
+                    fontSize: 14,
+                    fontWeight: FontWeight.w600,
+                    color: sheetTheme.textMuted,
+                  ),
+                ),
+                const SizedBox(height: 8),
+                Text(
+                  resource.description!,
+                  style: TextStyle(color: sheetTheme.text, fontSize: 14),
+                ),
+              ],
+
+              const SizedBox(height: 20),
+            ],
+          ),
+        );
+      },
+    );
+  }
+
+  IconData _getResourceIcon(String? mimeType) {
+    if (mimeType == null) return Icons.folder_outlined;
+    if (mimeType.startsWith('text/')) return Icons.description_outlined;
+    if (mimeType.startsWith('image/')) return Icons.image_outlined;
+    if (mimeType.startsWith('application/json')) return Icons.data_object;
+    if (mimeType.contains('directory')) return Icons.folder_outlined;
+    return Icons.insert_drive_file_outlined;
   }
 
   void _showServerDetails(String name, McpServerStatus status) {
@@ -717,6 +1003,182 @@ class _CapabilityChip extends StatelessWidget {
               fontSize: 12,
               color: theme.primary,
               fontWeight: FontWeight.w500,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+/// Widget to display a group of MCP resources from a single server
+class _McpResourceGroup extends StatelessWidget {
+  const _McpResourceGroup({
+    required this.clientName,
+    required this.resources,
+    required this.onResourceTap,
+  });
+
+  final String clientName;
+  final List<MapEntry<String, McpResource>> resources;
+  final void Function(McpResource) onResourceTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = OpenCodeTheme.of(context);
+    return Container(
+      margin: const EdgeInsets.only(bottom: 16),
+      decoration: BoxDecoration(
+        color: theme.backgroundPanel,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: theme.borderSubtle),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          // Header
+          Padding(
+            padding: const EdgeInsets.all(16),
+            child: Row(
+              children: [
+                Icon(Icons.extension, color: theme.primary, size: 20),
+                const SizedBox(width: 8),
+                Text(
+                  clientName,
+                  style: TextStyle(
+                    fontSize: 14,
+                    fontWeight: FontWeight.w600,
+                    color: theme.text,
+                  ),
+                ),
+                const SizedBox(width: 8),
+                Container(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 8,
+                    vertical: 2,
+                  ),
+                  decoration: BoxDecoration(
+                    color: theme.primary.withValues(alpha: 0.1),
+                    borderRadius: BorderRadius.circular(10),
+                  ),
+                  child: Text(
+                    '${resources.length}',
+                    style: TextStyle(
+                      fontSize: 12,
+                      color: theme.primary,
+                      fontWeight: FontWeight.w500,
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+          const Divider(height: 1),
+          // Resources
+          ...resources.map(
+            (entry) => _McpResourceTile(
+              resource: entry.value,
+              onTap: () => onResourceTap(entry.value),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+/// Widget to display a single MCP resource
+class _McpResourceTile extends StatelessWidget {
+  const _McpResourceTile({required this.resource, required this.onTap});
+
+  final McpResource resource;
+  final VoidCallback onTap;
+
+  IconData _getIcon() {
+    final mimeType = resource.mimeType;
+    if (mimeType == null) return Icons.folder_outlined;
+    if (mimeType.startsWith('text/')) return Icons.description_outlined;
+    if (mimeType.startsWith('image/')) return Icons.image_outlined;
+    if (mimeType.startsWith('application/json')) return Icons.data_object;
+    if (mimeType.contains('directory')) return Icons.folder_outlined;
+    return Icons.insert_drive_file_outlined;
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = OpenCodeTheme.of(context);
+    return Material(
+      color: Colors.transparent,
+      child: InkWell(
+        onTap: onTap,
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+          child: Row(
+            children: [
+              Icon(_getIcon(), color: theme.textMuted, size: 20),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      resource.name,
+                      style: TextStyle(
+                        fontSize: 14,
+                        fontWeight: FontWeight.w500,
+                        color: theme.text,
+                      ),
+                    ),
+                    if (resource.description != null &&
+                        resource.description!.isNotEmpty)
+                      Text(
+                        resource.description!,
+                        style: TextStyle(fontSize: 12, color: theme.textMuted),
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                  ],
+                ),
+              ),
+              Icon(Icons.chevron_right, color: theme.textMuted, size: 20),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+/// Widget to display a detail row in the resource details sheet
+class _DetailRow extends StatelessWidget {
+  const _DetailRow({required this.label, required this.value});
+
+  final String label;
+  final String value;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = OpenCodeTheme.of(context);
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 8),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          SizedBox(
+            width: 60,
+            child: Text(
+              label,
+              style: TextStyle(
+                fontSize: 13,
+                color: theme.textMuted,
+                fontWeight: FontWeight.w500,
+              ),
+            ),
+          ),
+          Expanded(
+            child: Text(
+              value,
+              style: TextStyle(fontSize: 13, color: theme.text),
             ),
           ),
         ],

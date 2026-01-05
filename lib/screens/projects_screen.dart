@@ -1,13 +1,16 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../models/agent_type.dart';
 import '../models/highlight_color.dart';
 import '../models/project.dart';
+import '../models/worktree.dart';
 import '../providers/agent_type_provider.dart';
 import '../providers/chat_provider.dart';
 import '../providers/connection_provider.dart';
 import '../providers/highlights_provider.dart';
+import '../providers/permission_rules_provider.dart';
 import '../providers/selection_provider.dart';
 import '../providers/service_providers.dart';
 import '../theme/opencode_theme.dart';
@@ -21,10 +24,20 @@ class ProjectsScreen extends ConsumerStatefulWidget {
   ConsumerState<ProjectsScreen> createState() => _ProjectsScreenState();
 }
 
+/// State provider for expanded projects (showing worktrees)
+final _expandedProjectsProvider = StateProvider.autoDispose<Set<String>>(
+  (ref) => {},
+);
+
+/// Cache provider for loaded worktrees per project path
+final _projectWorktreesProvider =
+    StateProvider.autoDispose<Map<String, List<Worktree>>>((ref) => {});
+
 class _ProjectsScreenState extends ConsumerState<ProjectsScreen> {
   late Future<List<ProjectSummary>> _projectsFuture;
   late AgentType _agentType;
   late final ProviderSubscription<AgentType> _agentTypeSub;
+  String? _creatingWorktreeForPath;
 
   @override
   void initState() {
@@ -106,11 +119,420 @@ class _ProjectsScreenState extends ConsumerState<ProjectsScreen> {
     ref.read(highlightsProvider.notifier).toggleProject(project.id);
   }
 
+  /// Toggle expansion state for a project to show/hide worktrees
+  Future<void> _toggleProjectExpansion(ProjectSummary project) async {
+    final expanded = ref.read(_expandedProjectsProvider);
+    final isExpanded = expanded.contains(project.path);
+
+    if (isExpanded) {
+      // Collapse
+      ref.read(_expandedProjectsProvider.notifier).state = {...expanded}
+        ..remove(project.path);
+    } else {
+      // Expand and load worktrees if not cached
+      ref.read(_expandedProjectsProvider.notifier).state = {
+        ...expanded,
+        project.path,
+      };
+
+      // Load worktrees if not already cached
+      final worktreesCache = ref.read(_projectWorktreesProvider);
+      if (!worktreesCache.containsKey(project.path)) {
+        await _loadWorktreesFor(project);
+      }
+    }
+  }
+
+  /// Load worktrees for a project
+  Future<void> _loadWorktreesFor(ProjectSummary project) async {
+    final bridge = ref.read(bridgeServiceProvider);
+    try {
+      final worktrees = await bridge.listWorktrees(projectPath: project.path);
+      if (mounted) {
+        ref.read(_projectWorktreesProvider.notifier).state = {
+          ...ref.read(_projectWorktreesProvider),
+          project.path: worktrees,
+        };
+      }
+    } catch (e) {
+      // On error, store empty list to prevent repeated attempts
+      if (mounted) {
+        ref.read(_projectWorktreesProvider.notifier).state = {
+          ...ref.read(_projectWorktreesProvider),
+          project.path: <Worktree>[],
+        };
+      }
+    }
+  }
+
+  /// Open a session in a specific worktree
+  Future<void> _openWorktreeSession(
+    BuildContext context,
+    ProjectSummary project,
+    Worktree worktree,
+  ) async {
+    final bridge = ref.read(bridgeServiceProvider);
+    final chat = ref.read(chatSessionProvider.notifier);
+    final permissionRules = ref.read(permissionRulesProvider).effectiveRuleset;
+
+    try {
+      final session = await bridge.createSession(
+        projectPath: worktree.directory,
+        title: 'Mobile session',
+        permission: permissionRules,
+      );
+
+      final worktreeProject = ProjectSummary(
+        id: project.id,
+        name: worktree.displayName,
+        path: worktree.directory,
+      );
+
+      chat.setSession(session, projectPath: worktree.directory);
+
+      if (!mounted) return;
+      Navigator.push(
+        context,
+        MaterialPageRoute(
+          builder: (_) =>
+              ChatScreen(project: worktreeProject, session: session),
+        ),
+      );
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Failed to create session: $e'),
+          backgroundColor: Theme.of(context).colorScheme.error,
+        ),
+      );
+    }
+  }
+
+  Future<void> _showCreateWorktreeSheet(ProjectSummary project) async {
+    final ocTheme = OpenCodeTheme.of(context);
+    final nameController = TextEditingController();
+    final cmdController = TextEditingController();
+
+    String? currentBranch;
+    try {
+      final bridge = ref.read(bridgeServiceProvider);
+      final vcs = await bridge.getVcsInfo(projectPath: project.path);
+      currentBranch = vcs.branch;
+    } catch (_) {
+      currentBranch = null;
+    }
+
+    if (!mounted) return;
+    await showModalBottomSheet<void>(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (ctx) {
+        final height = MediaQuery.of(ctx).size.height * 0.6;
+        return SafeArea(
+          child: Container(
+            height: height,
+            padding: EdgeInsets.only(
+              left: 20,
+              right: 20,
+              top: 16,
+              bottom: MediaQuery.of(ctx).viewInsets.bottom + 16,
+            ),
+            decoration: BoxDecoration(
+              color: ocTheme.backgroundPanel,
+              borderRadius: const BorderRadius.vertical(
+                top: Radius.circular(20),
+              ),
+            ),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
+                  children: [
+                    Expanded(
+                      child: Text(
+                        'New Worktree',
+                        style: TextStyle(
+                          color: ocTheme.text,
+                          fontSize: 18,
+                          fontWeight: FontWeight.w700,
+                        ),
+                      ),
+                    ),
+                    IconButton(
+                      onPressed: () => Navigator.pop(ctx),
+                      icon: Icon(Icons.close_rounded, color: ocTheme.textMuted),
+                      tooltip: 'Close',
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 8),
+                Text(
+                  'Creates a new sandbox worktree from the current branch.',
+                  style: TextStyle(color: ocTheme.textMuted, fontSize: 13),
+                ),
+                const SizedBox(height: 12),
+                TextField(
+                  controller: nameController,
+                  decoration: InputDecoration(
+                    labelText: 'Name',
+                    hintText: 'e.g. feature-dark-mode',
+                    filled: true,
+                    fillColor: ocTheme.backgroundElement,
+                    border: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(12),
+                      borderSide: BorderSide(color: ocTheme.borderSubtle),
+                    ),
+                  ),
+                ),
+                const SizedBox(height: 12),
+                TextField(
+                  controller: cmdController,
+                  decoration: InputDecoration(
+                    labelText: 'Start command (optional)',
+                    hintText: 'e.g. pnpm install',
+                    filled: true,
+                    fillColor: ocTheme.backgroundElement,
+                    border: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(12),
+                      borderSide: BorderSide(color: ocTheme.borderSubtle),
+                    ),
+                  ),
+                ),
+                const SizedBox(height: 12),
+                Row(
+                  children: [
+                    Icon(
+                      Icons.call_split_rounded,
+                      size: 18,
+                      color: ocTheme.textMuted,
+                    ),
+                    const SizedBox(width: 8),
+                    Text(
+                      'Base branch:',
+                      style: TextStyle(color: ocTheme.textMuted, fontSize: 13),
+                    ),
+                    const SizedBox(width: 8),
+                    Text(
+                      currentBranch ?? '(unknown)',
+                      style: TextStyle(
+                        color: ocTheme.text,
+                        fontSize: 13,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                  ],
+                ),
+                const Spacer(),
+                SizedBox(
+                  width: double.infinity,
+                  child: ElevatedButton(
+                    onPressed: () async {
+                      final name = nameController.text.trim();
+                      final cmd = cmdController.text.trim();
+                      Navigator.pop(ctx);
+                      await _createWorktree(
+                        project,
+                        name: name.isEmpty ? null : name,
+                        startCommand: cmd.isEmpty ? null : cmd,
+                      );
+                    },
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: ocTheme.primary,
+                      foregroundColor: ocTheme.background,
+                      padding: const EdgeInsets.symmetric(vertical: 14),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                    ),
+                    child: const Text('Create'),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        );
+      },
+    );
+  }
+
+  Future<void> _createWorktree(
+    ProjectSummary project, {
+    required String? name,
+    required String? startCommand,
+  }) async {
+    setState(() => _creatingWorktreeForPath = project.path);
+    try {
+      final bridge = ref.read(bridgeServiceProvider);
+      final created = await bridge.createWorktree(
+        name: name,
+        startCommand: startCommand,
+        projectPath: project.path,
+      );
+
+      if (created != null && mounted) {
+        final current = ref.read(_projectWorktreesProvider)[project.path] ?? [];
+        final updated = [...current];
+        if (!updated.contains(created)) updated.add(created);
+        ref.read(_projectWorktreesProvider.notifier).state = {
+          ...ref.read(_projectWorktreesProvider),
+          project.path: updated,
+        };
+        ref.read(_expandedProjectsProvider.notifier).state = {
+          ...ref.read(_expandedProjectsProvider),
+          project.path,
+        };
+      }
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Failed to create worktree: $e'),
+          backgroundColor: Theme.of(context).colorScheme.error,
+        ),
+      );
+    } finally {
+      if (mounted) setState(() => _creatingWorktreeForPath = null);
+    }
+  }
+
+  Future<void> _deleteWorktree(ProjectSummary project, Worktree worktree) async {
+    try {
+      final bridge = ref.read(bridgeServiceProvider);
+      final ok = await bridge.deleteWorktree(
+        worktree.directory,
+        projectPath: project.path,
+      );
+
+      if (!mounted) return;
+      if (!ok) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: const Text('Failed to delete worktree'),
+            backgroundColor: Theme.of(context).colorScheme.error,
+          ),
+        );
+        return;
+      }
+
+      final current = ref.read(_projectWorktreesProvider)[project.path] ?? [];
+      ref.read(_projectWorktreesProvider.notifier).state = {
+        ...ref.read(_projectWorktreesProvider),
+        project.path:
+            current.where((w) => w.directory != worktree.directory).toList(),
+      };
+
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: const Text('Worktree deleted'),
+          backgroundColor: OpenCodeTheme.of(context).backgroundPanel,
+        ),
+      );
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Failed to delete worktree: $e'),
+          backgroundColor: Theme.of(context).colorScheme.error,
+        ),
+      );
+    }
+  }
+
+  Future<void> _showWorktreeOptions(
+    ProjectSummary project,
+    Worktree worktree,
+  ) async {
+    final ocTheme = OpenCodeTheme.of(context);
+    if (!mounted) return;
+
+    await showModalBottomSheet<void>(
+      context: context,
+      backgroundColor: Colors.transparent,
+      builder: (ctx) {
+        return SafeArea(
+          child: Container(
+            padding: const EdgeInsets.fromLTRB(20, 16, 20, 20),
+            decoration: BoxDecoration(
+              color: ocTheme.backgroundPanel,
+              borderRadius: const BorderRadius.vertical(
+                top: Radius.circular(20),
+              ),
+            ),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  worktree.displayName,
+                  style: TextStyle(
+                    color: ocTheme.text,
+                    fontSize: 16,
+                    fontWeight: FontWeight.w700,
+                  ),
+                ),
+                const SizedBox(height: 12),
+                ListTile(
+                  contentPadding: EdgeInsets.zero,
+                  leading: Icon(
+                    Icons.open_in_new_rounded,
+                    color: ocTheme.textMuted,
+                  ),
+                  title: Text('Open', style: TextStyle(color: ocTheme.text)),
+                  onTap: () {
+                    Navigator.pop(ctx);
+                    _openWorktreeSession(context, project, worktree);
+                  },
+                ),
+                ListTile(
+                  contentPadding: EdgeInsets.zero,
+                  leading: Icon(Icons.copy_rounded, color: ocTheme.textMuted),
+                  title: Text(
+                    'Copy path',
+                    style: TextStyle(color: ocTheme.text),
+                  ),
+                  onTap: () async {
+                    await Clipboard.setData(
+                      ClipboardData(text: worktree.directory),
+                    );
+                    if (!mounted) return;
+                    Navigator.pop(ctx);
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      SnackBar(
+                        content: const Text('Path copied'),
+                        backgroundColor: ocTheme.backgroundPanel,
+                      ),
+                    );
+                  },
+                ),
+                ListTile(
+                  contentPadding: EdgeInsets.zero,
+                  leading: Icon(
+                    Icons.delete_outline_rounded,
+                    color: ocTheme.error,
+                  ),
+                  title: Text('Delete', style: TextStyle(color: ocTheme.error)),
+                  onTap: () async {
+                    Navigator.pop(ctx);
+                    await _deleteWorktree(project, worktree);
+                  },
+                ),
+              ],
+            ),
+          ),
+        );
+      },
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final agentType = ref.watch(agentTypeProvider);
     final connection = ref.watch(connectionProvider);
     final highlights = ref.watch(highlightsProvider);
+    final expandedProjects = ref.watch(_expandedProjectsProvider);
+    final projectWorktrees = ref.watch(_projectWorktreesProvider);
     final theme = Theme.of(context);
     final ocTheme = OpenCodeTheme.of(context);
 
@@ -268,10 +690,37 @@ class _ProjectsScreenState extends ConsumerState<ProjectsScreen> {
                       sliver: SliverList(
                         delegate: SliverChildBuilderDelegate((context, index) {
                           final project = regularProjects[index];
-                          return _RepositoryListItem(
+                          final isExpanded = expandedProjects.contains(
+                            project.path,
+                          );
+                          final worktrees = projectWorktrees[project.path];
+                          final isLoading = isExpanded && worktrees == null;
+
+                          return _ExpandableProjectItem(
                             project: project,
+                            isExpanded: isExpanded,
+                            isLoading: isLoading,
+                            worktrees: worktrees ?? [],
                             onTap: () => _openProject(context, project),
                             onLongPress: () => _toggleHighlight(project),
+                            onToggleExpand: agentType == AgentType.opencode
+                                ? () => _toggleProjectExpansion(project)
+                                : null,
+                            onWorktreeTap: (worktree) => _openWorktreeSession(
+                              context,
+                              project,
+                              worktree,
+                            ),
+                            onWorktreeLongPress: (worktree) =>
+                                _showWorktreeOptions(project, worktree),
+                            onWorktreeDelete: (worktree) =>
+                                _deleteWorktree(project, worktree),
+                            onCreateWorktree: agentType == AgentType.opencode &&
+                                    !connection.isOfflineMode
+                                ? () => _showCreateWorktreeSheet(project)
+                                : null,
+                            isCreatingWorktree:
+                                _creatingWorktreeForPath == project.path,
                           );
                         }, childCount: regularProjects.length),
                       ),
@@ -377,9 +826,11 @@ class _ProjectsScreenState extends ConsumerState<ProjectsScreen> {
     }
 
     final bridge = ref.read(bridgeServiceProvider);
+    final permissionRules = ref.read(permissionRulesProvider).effectiveRuleset;
     final session = await bridge.createSession(
       projectPath: project.path,
       title: 'Mobile session',
+      permission: permissionRules,
     );
 
     selection.selectSession(session);
@@ -739,62 +1190,268 @@ class _HighlightedProjectCard extends StatelessWidget {
   }
 }
 
-// Simple repository list item
-class _RepositoryListItem extends StatelessWidget {
-  const _RepositoryListItem({
+/// Expandable project item showing worktrees when expanded
+class _ExpandableProjectItem extends StatelessWidget {
+  const _ExpandableProjectItem({
     required this.project,
+    required this.isExpanded,
+    required this.isLoading,
+    required this.worktrees,
     required this.onTap,
     this.onLongPress,
+    this.onToggleExpand,
+    this.onWorktreeTap,
+    this.onWorktreeLongPress,
+    this.onWorktreeDelete,
+    this.onCreateWorktree,
+    this.isCreatingWorktree = false,
   });
 
   final ProjectSummary project;
+  final bool isExpanded;
+  final bool isLoading;
+  final List<Worktree> worktrees;
   final VoidCallback onTap;
   final VoidCallback? onLongPress;
+  final VoidCallback? onToggleExpand;
+  final void Function(Worktree)? onWorktreeTap;
+  final void Function(Worktree)? onWorktreeLongPress;
+  final void Function(Worktree)? onWorktreeDelete;
+  final VoidCallback? onCreateWorktree;
+  final bool isCreatingWorktree;
 
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final ocTheme = OpenCodeTheme.of(context);
+    final hasWorktrees = worktrees.isNotEmpty;
+    final showExpander = onToggleExpand != null;
 
     return Padding(
       padding: const EdgeInsets.only(bottom: 8),
-      child: GestureDetector(
-        onTap: onTap,
-        onLongPress: onLongPress,
-        child: Container(
-          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
-          decoration: BoxDecoration(
-            color: theme.colorScheme.surface.withValues(alpha: 0.5),
-            borderRadius: BorderRadius.circular(12),
-          ),
-          child: Row(
-            children: [
-              Icon(
-                Icons.account_tree_rounded,
-                color: ocTheme.textMuted,
-                size: 20,
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          // Main project row
+          GestureDetector(
+            onTap: onTap,
+            onLongPress: onLongPress,
+            child: Container(
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+              decoration: BoxDecoration(
+                color: theme.colorScheme.surface.withValues(alpha: 0.5),
+                borderRadius: isExpanded && hasWorktrees
+                    ? const BorderRadius.vertical(top: Radius.circular(12))
+                    : BorderRadius.circular(12),
               ),
-              const SizedBox(width: 12),
-              Expanded(
-                child: Text(
-                  project.name,
-                  style: TextStyle(
-                    color: ocTheme.text,
-                    fontSize: 15,
-                    fontWeight: FontWeight.w600,
+              child: Row(
+                children: [
+                  Icon(
+                    Icons.account_tree_rounded,
+                    color: ocTheme.textMuted,
+                    size: 20,
                   ),
-                ),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: Text(
+                      project.name,
+                      style: TextStyle(
+                        color: ocTheme.text,
+                        fontSize: 15,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                  ),
+                  // Expand/collapse button (only for OpenCode)
+                  if (showExpander) ...[
+                    if (onCreateWorktree != null)
+                      Padding(
+                        padding: const EdgeInsets.only(right: 4),
+                        child: IconButton(
+                          icon: isCreatingWorktree
+                              ? SizedBox(
+                                  width: 18,
+                                  height: 18,
+                                  child: CircularProgressIndicator(
+                                    strokeWidth: 2,
+                                    color: ocTheme.textMuted,
+                                  ),
+                                )
+                              : Icon(
+                                  Icons.more_vert_rounded,
+                                  color: ocTheme.textMuted,
+                                  size: 20,
+                                ),
+                          onPressed: isCreatingWorktree ? null : onCreateWorktree,
+                          tooltip: 'New worktree',
+                        ),
+                      ),
+                    GestureDetector(
+                      onTap: onToggleExpand,
+                      behavior: HitTestBehavior.opaque,
+                      child: Padding(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 8,
+                          vertical: 4,
+                        ),
+                        child: isLoading
+                            ? SizedBox(
+                                width: 16,
+                                height: 16,
+                                child: CircularProgressIndicator(
+                                  strokeWidth: 2,
+                                  color: ocTheme.textMuted,
+                                ),
+                              )
+                            : Icon(
+                                isExpanded
+                                    ? Icons.expand_less_rounded
+                                    : Icons.expand_more_rounded,
+                                color: ocTheme.textMuted,
+                                size: 20,
+                              ),
+                      ),
+                    ),
+                    const SizedBox(width: 4),
+                  ],
+                  Text(
+                    'Open',
+                    style: TextStyle(
+                      color: ocTheme.primary,
+                      fontSize: 14,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                ],
               ),
-              Text(
-                'Open',
-                style: TextStyle(
-                  color: ocTheme.primary,
-                  fontSize: 14,
-                  fontWeight: FontWeight.w600,
-                ),
-              ),
-            ],
+            ),
           ),
+          // Worktrees (if expanded)
+          if (isExpanded && hasWorktrees)
+            Container(
+              decoration: BoxDecoration(
+                color: theme.colorScheme.surface.withValues(alpha: 0.3),
+                borderRadius: const BorderRadius.vertical(
+                  bottom: Radius.circular(12),
+                ),
+              ),
+              child: Column(
+                children: worktrees.map((worktree) {
+                  final child = _WorktreeListItem(
+                    worktree: worktree,
+                    onTap: () => onWorktreeTap?.call(worktree),
+                    onLongPress: () => onWorktreeLongPress?.call(worktree),
+                  );
+                  if (onWorktreeDelete == null) return child;
+
+                  return Dismissible(
+                    key: ValueKey(worktree.directory),
+                    direction: DismissDirection.endToStart,
+                    confirmDismiss: (_) async {
+                      return await showDialog<bool>(
+                            context: context,
+                            builder: (ctx) => AlertDialog(
+                              title: const Text('Delete worktree?'),
+                              content: Text(
+                                'Delete "${worktree.displayName}"? This removes the worktree directory.',
+                              ),
+                              actions: [
+                                TextButton(
+                                  onPressed: () => Navigator.pop(ctx, false),
+                                  child: const Text('Cancel'),
+                                ),
+                                TextButton(
+                                  onPressed: () => Navigator.pop(ctx, true),
+                                  child: Text(
+                                    'Delete',
+                                    style: TextStyle(color: ocTheme.error),
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ) ??
+                          false;
+                    },
+                    onDismissed: (_) => onWorktreeDelete?.call(worktree),
+                    background: Container(
+                      alignment: Alignment.centerRight,
+                      padding: const EdgeInsets.only(right: 20),
+                      color: ocTheme.error.withValues(alpha: 0.2),
+                      child: Icon(
+                        Icons.delete_outline_rounded,
+                        color: ocTheme.error,
+                      ),
+                    ),
+                    child: child,
+                  );
+                }).toList(),
+              ),
+            ),
+        ],
+      ),
+    );
+  }
+}
+
+/// Worktree list item (shown under expanded project)
+class _WorktreeListItem extends StatelessWidget {
+  const _WorktreeListItem({
+    required this.worktree,
+    required this.onTap,
+    this.onLongPress,
+  });
+
+  final Worktree worktree;
+  final VoidCallback onTap;
+  final VoidCallback? onLongPress;
+
+  @override
+  Widget build(BuildContext context) {
+    final ocTheme = OpenCodeTheme.of(context);
+
+    return GestureDetector(
+      onTap: onTap,
+      onLongPress: onLongPress,
+      behavior: HitTestBehavior.opaque,
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+        child: Row(
+          children: [
+            const SizedBox(width: 8), // Indent
+            Icon(
+              Icons.alt_route_rounded,
+              color: ocTheme.primary.withValues(alpha: 0.7),
+              size: 16,
+            ),
+            const SizedBox(width: 12),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    worktree.displayName,
+                    style: TextStyle(
+                      color: ocTheme.text,
+                      fontSize: 14,
+                      fontWeight: FontWeight.w500,
+                    ),
+                  ),
+                  if (worktree.branch.isNotEmpty)
+                    Text(
+                      worktree.branch,
+                      style: TextStyle(color: ocTheme.textMuted, fontSize: 11),
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                ],
+              ),
+            ),
+            Icon(
+              Icons.chevron_right_rounded,
+              color: ocTheme.textMuted,
+              size: 18,
+            ),
+          ],
         ),
       ),
     );

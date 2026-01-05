@@ -6,26 +6,106 @@ import '../screens/diff_view_screen.dart';
 import '../theme/opencode_theme.dart';
 import '../utils/diff_utils.dart';
 
-class PermissionPrompt extends StatelessWidget {
+class PermissionPrompt extends StatefulWidget {
   const PermissionPrompt({
     super.key,
     required this.request,
     required this.onApprove,
     required this.onDeny,
+    required this.onAlwaysAllow,
+    this.onDenyWithMessage,
   });
 
   final PermissionRequest request;
   final VoidCallback onApprove;
   final VoidCallback onDeny;
+  final VoidCallback onAlwaysAllow;
+
+  /// Called when user wants to deny with a feedback message
+  final void Function(String message)? onDenyWithMessage;
+
+  @override
+  State<PermissionPrompt> createState() => _PermissionPromptState();
+}
+
+class _PermissionPromptState extends State<PermissionPrompt> {
+  bool _showRejectFeedback = false;
+  final _feedbackController = TextEditingController();
+  final _feedbackFocusNode = FocusNode();
+
+  @override
+  void dispose() {
+    _feedbackController.dispose();
+    _feedbackFocusNode.dispose();
+    super.dispose();
+  }
+
+  IconData _getPermissionIcon() {
+    switch (widget.request.permission) {
+      case 'edit':
+        return Icons.edit_note_rounded;
+      case 'bash':
+        return Icons.terminal_rounded;
+      case 'read':
+        return Icons.visibility_rounded;
+      case 'write':
+        return Icons.save_rounded;
+      default:
+        return Icons.security_rounded;
+    }
+  }
+
+  Color _getPermissionColor(OpenCodeTheme theme) {
+    switch (widget.request.permission) {
+      case 'edit':
+        return theme.warning;
+      case 'bash':
+        return theme.error;
+      case 'read':
+        return theme.success;
+      case 'write':
+        return theme.warning;
+      default:
+        return theme.accent;
+    }
+  }
+
+  void _handleRejectTap() {
+    setState(() {
+      _showRejectFeedback = true;
+    });
+    // Focus the text field after expansion animation
+    Future.delayed(const Duration(milliseconds: 200), () {
+      _feedbackFocusNode.requestFocus();
+    });
+  }
+
+  void _handleCancelReject() {
+    setState(() {
+      _showRejectFeedback = false;
+      _feedbackController.clear();
+    });
+  }
+
+  void _handleConfirmReject() {
+    final message = _feedbackController.text.trim();
+    if (message.isNotEmpty && widget.onDenyWithMessage != null) {
+      widget.onDenyWithMessage!(message);
+    } else {
+      widget.onDeny();
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
     final theme = OpenCodeTheme.of(context);
-    final diffText = request.metadata['diff'] as String?;
+    final diffText = widget.request.metadata['diff'] as String?;
     final filePath =
-        request.metadata['filePath'] as String? ??
-        request.metadata['filepath'] as String? ??
-        request.metadata['path'] as String?;
+        widget.request.metadata['filePath'] as String? ??
+        widget.request.metadata['filepath'] as String? ??
+        widget.request.metadata['path'] as String?;
+
+    final permissionColor = _getPermissionColor(theme);
 
     return Container(
       padding: const EdgeInsets.all(20),
@@ -37,21 +117,74 @@ class PermissionPrompt extends StatelessWidget {
         mainAxisSize: MainAxisSize.min,
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text(
-            'Permission required',
-            style: Theme.of(context).textTheme.titleMedium,
+          // Header with permission type icon
+          Row(
+            children: [
+              Container(
+                padding: const EdgeInsets.all(8),
+                decoration: BoxDecoration(
+                  color: permissionColor.withValues(alpha: 0.15),
+                  borderRadius: BorderRadius.circular(10),
+                ),
+                child: Icon(
+                  _getPermissionIcon(),
+                  color: permissionColor,
+                  size: 20,
+                ),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Text(
+                  widget.request.displayTitle,
+                  style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+              ),
+            ],
           ),
-          const SizedBox(height: 8),
-          Text(request.title, style: Theme.of(context).textTheme.bodyMedium),
-          if (request.command != null) ...[
-            const SizedBox(height: 12),
-            Text(
-              request.command!,
-              style: Theme.of(context).textTheme.bodySmall,
+          const SizedBox(height: 12),
+
+          // Show patterns if available (SDK v1.1.1+)
+          if (widget.request.patterns.isNotEmpty) ...[
+            _PatternsSection(
+              patterns: widget.request.patterns,
+              theme: theme,
+              label: widget.request.isBatchRequest ? 'Files affected' : null,
             ),
+            const SizedBox(height: 12),
+          ] else if (widget.request.title.isNotEmpty &&
+              widget.request.title != widget.request.displayTitle) ...[
+            Text(
+              widget.request.title,
+              style: Theme.of(context).textTheme.bodyMedium,
+            ),
+            const SizedBox(height: 8),
           ],
+
+          // Legacy command display
+          if (widget.request.command != null) ...[
+            Container(
+              width: double.infinity,
+              padding: const EdgeInsets.all(12),
+              decoration: BoxDecoration(
+                color: theme.backgroundElement,
+                borderRadius: BorderRadius.circular(10),
+                border: Border.all(color: theme.borderSubtle),
+              ),
+              child: Text(
+                widget.request.command!,
+                style: GoogleFonts.jetBrainsMono(
+                  fontSize: 12,
+                  color: theme.text,
+                ),
+              ),
+            ),
+            const SizedBox(height: 12),
+          ],
+
+          // Show diff preview if available
           if (diffText != null && diffText.trim().isNotEmpty) ...[
-            const SizedBox(height: 16),
             Text(
               'Proposed changes',
               style: TextStyle(
@@ -62,26 +195,302 @@ class PermissionPrompt extends StatelessWidget {
             ),
             const SizedBox(height: 10),
             _PermissionDiffPreview(diffText: diffText, filePath: filePath),
+            const SizedBox(height: 12),
           ],
-          const SizedBox(height: 16),
-          Row(
-            children: [
-              Expanded(
-                child: OutlinedButton(
-                  onPressed: onDeny,
-                  style: OutlinedButton.styleFrom(foregroundColor: theme.error),
-                  child: const Text('Deny'),
+
+          // Show "always allow" preview if available (SDK v1.1.1+)
+          if (widget.request.always.isNotEmpty) ...[
+            _AlwaysAllowPreview(always: widget.request.always, theme: theme),
+            const SizedBox(height: 12),
+          ],
+
+          const SizedBox(height: 8),
+
+          // Expandable rejection feedback field (Phase 3)
+          AnimatedCrossFade(
+            firstChild: const SizedBox.shrink(),
+            secondChild: _RejectFeedbackSection(
+              controller: _feedbackController,
+              focusNode: _feedbackFocusNode,
+              theme: theme,
+              onCancel: _handleCancelReject,
+              onConfirm: _handleConfirmReject,
+            ),
+            crossFadeState: _showRejectFeedback
+                ? CrossFadeState.showSecond
+                : CrossFadeState.showFirst,
+            duration: const Duration(milliseconds: 200),
+          ),
+
+          // Action buttons: Reject | Once | Always (hidden when showing feedback)
+          if (!_showRejectFeedback)
+            Row(
+              children: [
+                Expanded(
+                  child: OutlinedButton(
+                    onPressed: _handleRejectTap,
+                    style: OutlinedButton.styleFrom(
+                      foregroundColor: theme.error,
+                      side: BorderSide(
+                        color: theme.error.withValues(alpha: 0.5),
+                      ),
+                    ),
+                    child: const Text('Reject'),
+                  ),
+                ),
+                const SizedBox(width: 10),
+                Expanded(
+                  child: OutlinedButton(
+                    onPressed: widget.onApprove,
+                    style: OutlinedButton.styleFrom(
+                      foregroundColor: theme.accent,
+                      side: BorderSide(
+                        color: theme.accent.withValues(alpha: 0.5),
+                      ),
+                    ),
+                    child: const Text('Once'),
+                  ),
+                ),
+                const SizedBox(width: 10),
+                Expanded(
+                  child: ElevatedButton(
+                    onPressed: widget.onAlwaysAllow,
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: theme.accent,
+                      foregroundColor: Colors.white,
+                    ),
+                    child: const Text('Always'),
+                  ),
+                ),
+              ],
+            ),
+        ],
+      ),
+    );
+  }
+}
+
+/// Expandable rejection feedback section
+class _RejectFeedbackSection extends StatelessWidget {
+  const _RejectFeedbackSection({
+    required this.controller,
+    required this.focusNode,
+    required this.theme,
+    required this.onCancel,
+    required this.onConfirm,
+  });
+
+  final TextEditingController controller;
+  final FocusNode focusNode;
+  final OpenCodeTheme theme;
+  final VoidCallback onCancel;
+  final VoidCallback onConfirm;
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          'Tell the AI why? (optional)',
+          style: TextStyle(
+            color: theme.textMuted,
+            fontSize: 12,
+            fontWeight: FontWeight.w500,
+          ),
+        ),
+        const SizedBox(height: 8),
+        TextField(
+          controller: controller,
+          focusNode: focusNode,
+          maxLines: 2,
+          style: TextStyle(color: theme.text, fontSize: 14),
+          decoration: InputDecoration(
+            hintText: 'e.g., "Use a different approach..." ',
+            hintStyle: TextStyle(color: theme.textMuted, fontSize: 14),
+            filled: true,
+            fillColor: theme.backgroundElement,
+            border: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(10),
+              borderSide: BorderSide(color: theme.borderSubtle),
+            ),
+            enabledBorder: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(10),
+              borderSide: BorderSide(color: theme.borderSubtle),
+            ),
+            focusedBorder: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(10),
+              borderSide: BorderSide(color: theme.error),
+            ),
+            contentPadding: const EdgeInsets.symmetric(
+              horizontal: 12,
+              vertical: 12,
+            ),
+          ),
+        ),
+        const SizedBox(height: 12),
+        Row(
+          children: [
+            Expanded(
+              child: OutlinedButton(
+                onPressed: onCancel,
+                style: OutlinedButton.styleFrom(
+                  foregroundColor: theme.textMuted,
+                  side: BorderSide(color: theme.borderSubtle),
+                ),
+                child: const Text('Cancel'),
+              ),
+            ),
+            const SizedBox(width: 12),
+            Expanded(
+              child: ElevatedButton(
+                onPressed: onConfirm,
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: theme.error,
+                  foregroundColor: Colors.white,
+                ),
+                child: const Text('Send Rejection'),
+              ),
+            ),
+          ],
+        ),
+        const SizedBox(height: 8),
+      ],
+    );
+  }
+}
+
+/// Shows the file patterns affected by this permission request
+class _PatternsSection extends StatelessWidget {
+  const _PatternsSection({
+    required this.patterns,
+    required this.theme,
+    this.label,
+  });
+
+  final List<String> patterns;
+  final OpenCodeTheme theme;
+  final String? label;
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        if (label != null)
+          Padding(
+            padding: const EdgeInsets.only(bottom: 6),
+            child: Text(
+              label!,
+              style: TextStyle(
+                color: theme.textMuted,
+                fontSize: 12,
+                fontWeight: FontWeight.w500,
+              ),
+            ),
+          ),
+        Wrap(
+          spacing: 6,
+          runSpacing: 6,
+          children: patterns.map((pattern) {
+            return Container(
+              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+              decoration: BoxDecoration(
+                color: theme.backgroundElement,
+                borderRadius: BorderRadius.circular(8),
+                border: Border.all(color: theme.borderSubtle),
+              ),
+              child: Text(
+                pattern,
+                style: GoogleFonts.jetBrainsMono(
+                  fontSize: 12,
+                  color: theme.text,
                 ),
               ),
-              const SizedBox(width: 12),
-              Expanded(
-                child: ElevatedButton(
-                  onPressed: onApprove,
-                  child: const Text('Approve'),
+            );
+          }).toList(),
+        ),
+      ],
+    );
+  }
+}
+
+/// Shows what "Always Allow" will permit
+class _AlwaysAllowPreview extends StatelessWidget {
+  const _AlwaysAllowPreview({required this.always, required this.theme});
+
+  final List<String> always;
+  final OpenCodeTheme theme;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: theme.success.withValues(alpha: 0.08),
+        borderRadius: BorderRadius.circular(10),
+        border: Border.all(color: theme.success.withValues(alpha: 0.3)),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Icon(
+                Icons.check_circle_outline_rounded,
+                size: 14,
+                color: theme.success,
+              ),
+              const SizedBox(width: 6),
+              Text(
+                '"Always" will also allow:',
+                style: TextStyle(
+                  color: theme.success,
+                  fontSize: 12,
+                  fontWeight: FontWeight.w500,
                 ),
               ),
             ],
           ),
+          const SizedBox(height: 8),
+          ...always
+              .take(5)
+              .map(
+                (pattern) => Padding(
+                  padding: const EdgeInsets.only(bottom: 4),
+                  child: Row(
+                    children: [
+                      Text(
+                        '\u2022 ',
+                        style: TextStyle(color: theme.textMuted, fontSize: 12),
+                      ),
+                      Expanded(
+                        child: Text(
+                          pattern,
+                          style: GoogleFonts.jetBrainsMono(
+                            fontSize: 11,
+                            color: theme.text,
+                          ),
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+          if (always.length > 5)
+            Padding(
+              padding: const EdgeInsets.only(top: 4),
+              child: Text(
+                '...and ${always.length - 5} more',
+                style: TextStyle(
+                  color: theme.textMuted,
+                  fontSize: 11,
+                  fontStyle: FontStyle.italic,
+                ),
+              ),
+            ),
         ],
       ),
     );

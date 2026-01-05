@@ -168,20 +168,94 @@ class ToolCall {
   }
 }
 
+/// Tool reference for permission requests (SDK v1.1.1+)
+class ToolReference {
+  const ToolReference({required this.messageId, required this.callId});
+
+  final String messageId;
+  final String callId;
+
+  factory ToolReference.fromJson(Map<String, dynamic> json) {
+    return ToolReference(
+      messageId: json['messageID'] as String? ?? '',
+      callId: json['callID'] as String? ?? '',
+    );
+  }
+}
+
 class PermissionRequest {
   const PermissionRequest({
     required this.id,
     required this.sessionId,
     required this.title,
+    this.permission,
+    this.patterns = const [],
+    this.always = const [],
+    this.tool,
     this.command,
     this.metadata = const {},
   });
 
+  /// Permission request ID (requestId in new SDK)
   final String id;
   final String sessionId;
+
+  /// Human-readable title (generated from permission type)
   final String title;
+
+  /// Permission type: "edit", "bash", "read", etc. (SDK v1.1.1+)
+  final String? permission;
+
+  /// File patterns this request covers (SDK v1.1.1+)
+  final List<String> patterns;
+
+  /// Patterns that "always allow" would approve (SDK v1.1.1+)
+  final List<String> always;
+
+  /// Tool context if permission is for a specific tool call (SDK v1.1.1+)
+  final ToolReference? tool;
+
+  /// Legacy: command text (for backward compatibility)
   final String? command;
+
+  /// Additional metadata
   final Map<String, dynamic> metadata;
+
+  /// Generate display title from permission type
+  String get displayTitle {
+    if (title.isNotEmpty) return title;
+    switch (permission) {
+      case 'edit':
+        return 'Edit Request';
+      case 'bash':
+        return 'Run Command';
+      case 'read':
+        return 'Read File';
+      case 'write':
+        return 'Write File';
+      default:
+        return 'Permission Required';
+    }
+  }
+
+  /// Check if this is a batch request (multiple patterns)
+  bool get isBatchRequest => patterns.length > 1;
+
+  /// Get icon name for permission type
+  String get iconName {
+    switch (permission) {
+      case 'edit':
+        return 'edit';
+      case 'bash':
+        return 'terminal';
+      case 'read':
+        return 'visibility';
+      case 'write':
+        return 'save';
+      default:
+        return 'security';
+    }
+  }
 }
 
 class DiffEntry {

@@ -69,3 +69,49 @@ class McpServerStatus {
   /// Get a count of capabilities
   int get capabilityCount => tools.length + resources.length;
 }
+
+/// MCP Resource (SDK v1.1.1+ experimental feature)
+/// Represents a resource provided by an MCP server
+class McpResource {
+  final String name;
+  final String uri;
+  final String? description;
+  final String? mimeType;
+  final String client; // Which MCP server provides this resource
+
+  const McpResource({
+    required this.name,
+    required this.uri,
+    this.description,
+    this.mimeType,
+    required this.client,
+  });
+
+  factory McpResource.fromJson(Map<String, dynamic> json) {
+    return McpResource(
+      name: json['name'] as String? ?? '',
+      uri: json['uri'] as String? ?? '',
+      description: json['description'] as String?,
+      mimeType: json['mimeType'] as String?,
+      client: json['client'] as String? ?? '',
+    );
+  }
+
+  Map<String, dynamic> toJson() => {
+    'name': name,
+    'uri': uri,
+    if (description != null) 'description': description,
+    if (mimeType != null) 'mimeType': mimeType,
+    'client': client,
+  };
+
+  /// Get icon based on mimeType
+  String get iconName {
+    if (mimeType == null) return 'folder_outlined';
+    if (mimeType!.startsWith('text/')) return 'description_outlined';
+    if (mimeType!.startsWith('image/')) return 'image_outlined';
+    if (mimeType!.startsWith('application/json')) return 'data_object';
+    if (mimeType!.contains('directory')) return 'folder_outlined';
+    return 'insert_drive_file_outlined';
+  }
+}

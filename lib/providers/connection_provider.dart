@@ -2,6 +2,7 @@ import 'dart:async';
 import 'dart:io';
 import 'dart:math';
 
+import 'package:flutter/foundation.dart' show debugPrint;
 import 'package:flutter/widgets.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
@@ -183,7 +184,17 @@ class ConnectionNotifier extends StateNotifier<BridgeConnectionState>
   Future<void> _loadSavedConnection() async {
     final saved = await _storage.loadConnection();
     if (saved != null) {
+      debugPrint('[Connection] Loading saved connection:');
+      debugPrint('  - localIP: ${saved.localIP}');
+      debugPrint('  - tailscaleIP: ${saved.tailscaleIP}');
+      debugPrint('  - port: ${saved.port}');
+      debugPrint('  - hasAuthToken: ${saved.authToken != null}');
+      debugPrint(
+        '  - tokenPrefix: ${saved.authToken?.substring(0, 4) ?? "null"}...',
+      );
       await connect(saved);
+    } else {
+      debugPrint('[Connection] No saved connection found');
     }
   }
 
@@ -369,6 +380,10 @@ class ConnectionNotifier extends StateNotifier<BridgeConnectionState>
     Object? lastError;
 
     for (final ep in endpoints) {
+      // Debug: Log connection attempt (strip token for security)
+      final debugUri = ep.uri.replace(queryParameters: {'token': '***'});
+      debugPrint('[Connection] Trying ${ep.type.name}: $debugUri');
+
       try {
         await _socket
             .connect(ep.uri)
@@ -376,6 +391,7 @@ class ConnectionNotifier extends StateNotifier<BridgeConnectionState>
               const Duration(seconds: 3),
               onTimeout: () => throw TimeoutException('Connection timeout'),
             );
+        debugPrint('[Connection] SUCCESS: Connected via ${ep.type.name}');
         return _ConnectionResult(
           type: ep.type,
           uri: ep.uri,
@@ -383,6 +399,7 @@ class ConnectionNotifier extends StateNotifier<BridgeConnectionState>
           success: true,
         );
       } catch (e) {
+        debugPrint('[Connection] FAILED ${ep.type.name}: $e');
         lastError = e;
       }
     }

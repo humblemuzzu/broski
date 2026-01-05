@@ -7,12 +7,14 @@ import '../models/codex.dart';
 import '../models/highlight_color.dart';
 import '../models/project.dart';
 import '../models/session.dart';
+import '../models/worktree.dart';
 import '../providers/agent_type_provider.dart';
 import '../providers/chat_provider.dart';
 import '../providers/claude_code_provider.dart';
 import '../providers/codex_provider.dart';
 import '../providers/connection_provider.dart';
 import '../providers/highlights_provider.dart';
+import '../providers/permission_rules_provider.dart';
 import '../providers/sessions_provider.dart';
 import '../providers/service_providers.dart';
 import '../theme/opencode_theme.dart';
@@ -296,6 +298,9 @@ class _SessionsScreenState extends ConsumerState<SessionsScreen> {
                         ref.read(sessionsRefreshTickProvider.notifier).state++;
                       },
                       onRefresh: _refresh,
+                      onNewSession: connection.isOfflineMode
+                          ? null
+                          : () => _showNewSessionSheet(context),
                       titleFilterCount: titleFilterCount,
                       onTitleFiltersTap: () =>
                           _showSessionsTitleFiltersSheet(context),
@@ -523,6 +528,7 @@ class _SessionsScreenState extends ConsumerState<SessionsScreen> {
           ),
         ),
       ),
+      floatingActionButton: null,
     );
   }
 
@@ -690,6 +696,72 @@ class _SessionsScreenState extends ConsumerState<SessionsScreen> {
     );
   }
 
+  /// Show bottom sheet to create a new session with project/worktree selection
+  void _showNewSessionSheet(BuildContext context) {
+    final projectsAsync = ref.read(projectsForSessionsProvider);
+
+    showModalBottomSheet<void>(
+      context: context,
+      backgroundColor: Colors.transparent,
+      isScrollControlled: true,
+      builder: (ctx) => _NewSessionSheet(
+        projects: projectsAsync.valueOrNull ?? [],
+        onCreateSession: (project, worktree) async {
+          Navigator.pop(ctx);
+          await _createNewSession(project, worktree);
+        },
+      ),
+    );
+  }
+
+  /// Create a new session for the given project and optional worktree
+  Future<void> _createNewSession(
+    ProjectSummary project,
+    Worktree? worktree,
+  ) async {
+    final bridge = ref.read(bridgeServiceProvider);
+    final chat = ref.read(chatSessionProvider.notifier);
+    final permissionRules = ref.read(permissionRulesProvider).effectiveRuleset;
+
+    final projectPath = worktree?.directory ?? project.path;
+
+    try {
+      final session = await bridge.createSession(
+        projectPath: projectPath,
+        title: 'Mobile session',
+        permission: permissionRules,
+      );
+
+      chat.setSession(session, projectPath: projectPath);
+
+      if (!mounted) return;
+      await Navigator.push(
+        context,
+        MaterialPageRoute(
+          builder: (_) => ChatScreen(
+            project: ProjectSummary(
+              id: project.id,
+              name: worktree?.displayName ?? project.name,
+              path: projectPath,
+            ),
+            session: session,
+          ),
+        ),
+      );
+      if (!mounted) return;
+      _refresh();
+    } catch (e) {
+      if (!mounted) return;
+      final ocTheme = OpenCodeTheme.of(context);
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Failed to create session: $e'),
+          backgroundColor: ocTheme.error,
+        ),
+      );
+    }
+  }
+
   // Feature 5: Rename session
   Future<void> _showRenameDialog(SessionSummary session) async {
     final controller = TextEditingController(text: session.title);
@@ -843,6 +915,456 @@ List<_SessionRowItem> _buildGroupedListItems({
   return items;
 }
 
+/// Bottom sheet for creating a new session with project/worktree selection
+class _NewSessionSheet extends ConsumerStatefulWidget {
+  const _NewSessionSheet({
+    required this.projects,
+    required this.onCreateSession,
+  });
+
+  final List<ProjectSummary> projects;
+  final Future<void> Function(ProjectSummary project, Worktree? worktree)
+  onCreateSession;
+
+  @override
+  ConsumerState<_NewSessionSheet> createState() => _NewSessionSheetState();
+}
+
+class _NewSessionSheetState extends ConsumerState<_NewSessionSheet> {
+  ProjectSummary? _selectedProject;
+  Worktree? _selectedWorktree;
+  List<Worktree>? _worktrees;
+  bool _loadingWorktrees = false;
+  bool _creating = false;
+
+  @override
+  void initState() {
+    super.initState();
+    // Auto-select first project if only one
+    if (widget.projects.length == 1) {
+      _selectedProject = widget.projects.first;
+      _loadWorktrees(_selectedProject!);
+    }
+  }
+
+  Future<void> _loadWorktrees(ProjectSummary project) async {
+    setState(() {
+      _loadingWorktrees = true;
+      _worktrees = null;
+      _selectedWorktree = null;
+    });
+
+    try {
+      final bridge = ref.read(bridgeServiceProvider);
+      final worktrees = await bridge.listWorktrees(projectPath: project.path);
+      if (mounted) {
+        setState(() {
+          _worktrees = worktrees;
+          _loadingWorktrees = false;
+        });
+      }
+    } catch (e) {
+      if (mounted) {
+        setState(() {
+          _worktrees = [];
+          _loadingWorktrees = false;
+        });
+      }
+    }
+  }
+
+  void _selectProject(ProjectSummary project) {
+    setState(() {
+      _selectedProject = project;
+      _selectedWorktree = null;
+    });
+    _loadWorktrees(project);
+  }
+
+  Future<void> _createSession() async {
+    if (_selectedProject == null || _creating) return;
+
+    setState(() => _creating = true);
+    try {
+      await widget.onCreateSession(_selectedProject!, _selectedWorktree);
+    } finally {
+      if (mounted) {
+        setState(() => _creating = false);
+      }
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final ocTheme = OpenCodeTheme.of(context);
+    final height = MediaQuery.of(context).size.height * 0.65;
+
+    return Container(
+      height: height,
+      decoration: BoxDecoration(
+        color: ocTheme.backgroundPanel,
+        borderRadius: const BorderRadius.vertical(top: Radius.circular(20)),
+      ),
+      child: Column(
+        children: [
+          // Handle
+          Center(
+            child: Container(
+              margin: const EdgeInsets.only(top: 12, bottom: 8),
+              width: 40,
+              height: 4,
+              decoration: BoxDecoration(
+                color: ocTheme.border,
+                borderRadius: BorderRadius.circular(2),
+              ),
+            ),
+          ),
+          // Title
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 8),
+            child: Row(
+              children: [
+                Icon(
+                  Icons.add_circle_outline_rounded,
+                  color: ocTheme.primary,
+                  size: 24,
+                ),
+                const SizedBox(width: 12),
+                Text(
+                  'New Session',
+                  style: TextStyle(
+                    color: ocTheme.text,
+                    fontSize: 18,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+              ],
+            ),
+          ),
+          const Divider(height: 1),
+          // Content
+          Expanded(
+            child: widget.projects.isEmpty
+                ? Center(
+                    child: Column(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        Icon(
+                          Icons.folder_off_rounded,
+                          color: ocTheme.textMuted,
+                          size: 48,
+                        ),
+                        const SizedBox(height: 16),
+                        Text(
+                          'No projects found',
+                          style: TextStyle(
+                            color: ocTheme.textMuted,
+                            fontSize: 16,
+                          ),
+                        ),
+                      ],
+                    ),
+                  )
+                : ListView(
+                    padding: const EdgeInsets.all(16),
+                    children: [
+                      // Project selection
+                      Text(
+                        'Select Project',
+                        style: TextStyle(
+                          color: ocTheme.textMuted,
+                          fontSize: 12,
+                          fontWeight: FontWeight.w500,
+                        ),
+                      ),
+                      const SizedBox(height: 8),
+                      ...widget.projects.map((project) {
+                        final isSelected = _selectedProject?.id == project.id;
+                        return _ProjectSelectionTile(
+                          project: project,
+                          isSelected: isSelected,
+                          onTap: () => _selectProject(project),
+                        );
+                      }),
+                      // Worktrees section (if project selected)
+                      if (_selectedProject != null) ...[
+                        const SizedBox(height: 20),
+                        Text(
+                          'Select Worktree (Optional)',
+                          style: TextStyle(
+                            color: ocTheme.textMuted,
+                            fontSize: 12,
+                            fontWeight: FontWeight.w500,
+                          ),
+                        ),
+                        const SizedBox(height: 8),
+                        if (_loadingWorktrees)
+                          const Center(
+                            child: Padding(
+                              padding: EdgeInsets.all(20),
+                              child: CircularProgressIndicator.adaptive(),
+                            ),
+                          )
+                        else if (_worktrees == null || _worktrees!.isEmpty)
+                          Container(
+                            padding: const EdgeInsets.all(16),
+                            decoration: BoxDecoration(
+                              color: ocTheme.background,
+                              borderRadius: BorderRadius.circular(12),
+                              border: Border.all(color: ocTheme.border),
+                            ),
+                            child: Row(
+                              children: [
+                                Icon(
+                                  Icons.info_outline_rounded,
+                                  color: ocTheme.textMuted,
+                                  size: 20,
+                                ),
+                                const SizedBox(width: 12),
+                                Expanded(
+                                  child: Text(
+                                    'No worktrees found. Session will use main project.',
+                                    style: TextStyle(
+                                      color: ocTheme.textMuted,
+                                      fontSize: 14,
+                                    ),
+                                  ),
+                                ),
+                              ],
+                            ),
+                          )
+                        else ...[
+                          // Main project option
+                          _WorktreeSelectionTile(
+                            name: 'Main Project',
+                            path: _selectedProject!.path,
+                            isMain: true,
+                            isSelected: _selectedWorktree == null,
+                            onTap: () =>
+                                setState(() => _selectedWorktree = null),
+                          ),
+                          // Worktrees
+                          ..._worktrees!.map((worktree) {
+                            final isSelected =
+                                _selectedWorktree?.directory ==
+                                worktree.directory;
+                            return _WorktreeSelectionTile(
+                              name: worktree.displayName,
+                              path: worktree.directory,
+                              isMain: false,
+                              isSelected: isSelected,
+                              onTap: () =>
+                                  setState(() => _selectedWorktree = worktree),
+                            );
+                          }),
+                        ],
+                      ],
+                    ],
+                  ),
+          ),
+          // Create button
+          SafeArea(
+            child: Padding(
+              padding: const EdgeInsets.all(16),
+              child: SizedBox(
+                width: double.infinity,
+                child: ElevatedButton(
+                  onPressed: _selectedProject == null || _creating
+                      ? null
+                      : _createSession,
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: theme.colorScheme.primary,
+                    foregroundColor: theme.colorScheme.onPrimary,
+                    disabledBackgroundColor: ocTheme.border,
+                    padding: const EdgeInsets.symmetric(vertical: 16),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                  ),
+                  child: _creating
+                      ? const SizedBox(
+                          width: 20,
+                          height: 20,
+                          child: CircularProgressIndicator.adaptive(
+                            strokeWidth: 2,
+                          ),
+                        )
+                      : const Text(
+                          'Create Session',
+                          style: TextStyle(
+                            fontSize: 16,
+                            fontWeight: FontWeight.w600,
+                          ),
+                        ),
+                ),
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _ProjectSelectionTile extends StatelessWidget {
+  const _ProjectSelectionTile({
+    required this.project,
+    required this.isSelected,
+    required this.onTap,
+  });
+
+  final ProjectSummary project;
+  final bool isSelected;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final ocTheme = OpenCodeTheme.of(context);
+
+    return GestureDetector(
+      onTap: onTap,
+      child: Container(
+        margin: const EdgeInsets.only(bottom: 8),
+        padding: const EdgeInsets.all(12),
+        decoration: BoxDecoration(
+          color: isSelected
+              ? ocTheme.primary.withValues(alpha: 0.1)
+              : ocTheme.background,
+          borderRadius: BorderRadius.circular(12),
+          border: Border.all(
+            color: isSelected ? ocTheme.primary : ocTheme.border,
+            width: isSelected ? 2 : 1,
+          ),
+        ),
+        child: Row(
+          children: [
+            Container(
+              padding: const EdgeInsets.all(8),
+              decoration: BoxDecoration(
+                color: isSelected
+                    ? ocTheme.primary.withValues(alpha: 0.2)
+                    : ocTheme.border.withValues(alpha: 0.3),
+                borderRadius: BorderRadius.circular(8),
+              ),
+              child: Icon(
+                Icons.folder_rounded,
+                color: isSelected ? ocTheme.primary : ocTheme.textMuted,
+                size: 20,
+              ),
+            ),
+            const SizedBox(width: 12),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    project.name,
+                    style: TextStyle(
+                      color: ocTheme.text,
+                      fontSize: 15,
+                      fontWeight: FontWeight.w500,
+                    ),
+                  ),
+                  const SizedBox(height: 2),
+                  Text(
+                    project.path,
+                    style: TextStyle(color: ocTheme.textMuted, fontSize: 12),
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                ],
+              ),
+            ),
+            if (isSelected)
+              Icon(
+                Icons.check_circle_rounded,
+                color: ocTheme.primary,
+                size: 22,
+              ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _WorktreeSelectionTile extends StatelessWidget {
+  const _WorktreeSelectionTile({
+    required this.name,
+    required this.path,
+    required this.isMain,
+    required this.isSelected,
+    required this.onTap,
+  });
+
+  final String name;
+  final String path;
+  final bool isMain;
+  final bool isSelected;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final ocTheme = OpenCodeTheme.of(context);
+
+    return GestureDetector(
+      onTap: onTap,
+      child: Container(
+        margin: const EdgeInsets.only(bottom: 8),
+        padding: const EdgeInsets.all(12),
+        decoration: BoxDecoration(
+          color: isSelected
+              ? ocTheme.primary.withValues(alpha: 0.1)
+              : ocTheme.background,
+          borderRadius: BorderRadius.circular(12),
+          border: Border.all(
+            color: isSelected ? ocTheme.primary : ocTheme.border,
+            width: isSelected ? 2 : 1,
+          ),
+        ),
+        child: Row(
+          children: [
+            Icon(
+              isMain ? Icons.home_rounded : Icons.account_tree_rounded,
+              color: isSelected ? ocTheme.primary : ocTheme.textMuted,
+              size: 20,
+            ),
+            const SizedBox(width: 12),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    name,
+                    style: TextStyle(
+                      color: ocTheme.text,
+                      fontSize: 14,
+                      fontWeight: FontWeight.w500,
+                    ),
+                  ),
+                  Text(
+                    path,
+                    style: TextStyle(color: ocTheme.textMuted, fontSize: 11),
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                ],
+              ),
+            ),
+            if (isSelected)
+              Icon(
+                Icons.check_circle_rounded,
+                color: ocTheme.primary,
+                size: 20,
+              ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
 // Modern header
 class _ModernHeader extends StatelessWidget {
   const _ModernHeader({
@@ -851,6 +1373,7 @@ class _ModernHeader extends StatelessWidget {
     required this.projects,
     required this.onFilterChanged,
     required this.onRefresh,
+    this.onNewSession,
     required this.titleFilterCount,
     required this.onTitleFiltersTap,
     required this.showBackgroundTasks,
@@ -863,6 +1386,7 @@ class _ModernHeader extends StatelessWidget {
   final AsyncValue<List<ProjectSummary>> projects;
   final ValueChanged<String?> onFilterChanged;
   final VoidCallback onRefresh;
+  final VoidCallback? onNewSession;
   final int titleFilterCount;
   final VoidCallback onTitleFiltersTap;
   final bool showBackgroundTasks;
@@ -895,6 +1419,12 @@ class _ModernHeader extends StatelessWidget {
                   ),
                 ),
               ),
+              if (onNewSession != null)
+                IconButton(
+                  onPressed: onNewSession,
+                  icon: Icon(Icons.add_rounded, color: ocTheme.textMuted),
+                  tooltip: 'New session',
+                ),
               IconButton(
                 onPressed: onRefresh,
                 icon: Icon(Icons.refresh_rounded, color: ocTheme.textMuted),
@@ -2929,7 +3459,9 @@ class _CodexThreadsViewState extends ConsumerState<_CodexThreadsView> {
               const SizedBox(height: 12),
               ListTile(
                 leading: Icon(
-                  isHighlighted ? Icons.star_rounded : Icons.star_border_rounded,
+                  isHighlighted
+                      ? Icons.star_rounded
+                      : Icons.star_border_rounded,
                   color: ocTheme.text,
                 ),
                 title: Text(
@@ -2937,16 +3469,15 @@ class _CodexThreadsViewState extends ConsumerState<_CodexThreadsView> {
                   style: TextStyle(color: ocTheme.text),
                 ),
                 onTap: () {
-                  ref.read(highlightsProvider.notifier).toggleSession(thread.id);
+                  ref
+                      .read(highlightsProvider.notifier)
+                      .toggleSession(thread.id);
                   Navigator.pop(ctx);
                 },
               ),
               ListTile(
                 leading: Icon(Icons.archive_outlined, color: ocTheme.error),
-                title: Text(
-                  'Archive',
-                  style: TextStyle(color: ocTheme.error),
-                ),
+                title: Text('Archive', style: TextStyle(color: ocTheme.error)),
                 onTap: () async {
                   Navigator.pop(ctx);
                   await _archiveThread(thread);
@@ -3009,9 +3540,9 @@ class _CodexThreadsViewState extends ConsumerState<_CodexThreadsView> {
     final highlights = ref.watch(highlightsProvider);
     final filterCwd = ref.watch(codexThreadsFilterCwdProvider);
     final projectsAsync = ref.watch(codexProjectsForThreadsProvider);
-    final titleFilterCount = ref.watch(
-      sessionsTitleExcludeFiltersProvider(AgentType.codex),
-    ).length;
+    final titleFilterCount = ref
+        .watch(sessionsTitleExcludeFiltersProvider(AgentType.codex))
+        .length;
 
     final filterLabel = filterCwd == null
         ? 'All projects'
@@ -3902,8 +4433,8 @@ class _ClaudeCodeSessionsViewState
       body: SafeArea(
         child: RefreshIndicator(
           onRefresh: _refresh,
-          color: ocTheme.primary,
-          backgroundColor: ocTheme.backgroundPanel,
+          color: theme.colorScheme.primary,
+          backgroundColor: theme.colorScheme.surface,
           child: CustomScrollView(
             physics: const AlwaysScrollableScrollPhysics(),
             slivers: [

@@ -4,9 +4,9 @@ import {
   type OpencodeClient,
   type Project,
   type Session,
-} from '@opencode-ai/sdk'
+} from '@opencode-ai/sdk/v2'
 import { homedir } from 'os'
-import type { Agent, Command, FileContent, FileStatusInfo, FormatterInfo, LspServerStatus, McpServerStatus, PermissionResponse, ProviderAuthMethod, ProviderInfo, ProjectSummary, PtySession, SessionContextInfo, SessionStatusInfo, SessionSummary, SymbolResult, TextSearchResult, Todo, ToolInfo, VcsInfo } from './types'
+import type { Agent, Command, FileContent, FileStatusInfo, FormatterInfo, LspServerStatus, McpResource, McpServerStatus, PermissionResponse, PermissionRuleset, ProviderAuthMethod, ProviderInfo, ProjectSummary, PtySession, SessionContextInfo, SessionStatusInfo, SessionSummary, SymbolResult, TextSearchResult, Todo, ToolInfo, VcsInfo, Worktree } from './types'
 
 const DEFAULT_BASE_URL = 'http://localhost:4096'
 
@@ -30,7 +30,6 @@ export class OpenCodeConnector {
       options.client ??
       createOpencodeClient({
         baseUrl: this.baseUrl,
-        responseStyle: 'data',
       })
   }
 
@@ -39,7 +38,6 @@ export class OpenCodeConnector {
     this.baseUrl = newBaseUrl
     this.client = createOpencodeClient({
       baseUrl: newBaseUrl,
-      responseStyle: 'data',
     })
   }
 
@@ -73,7 +71,11 @@ export class OpenCodeConnector {
   }
 
   async listProjects(): Promise<ProjectSummary[]> {
-    const projects = (await this.client.project.list({ responseStyle: 'data' })) ?? []
+    // v2 SDK: first arg is parameters, second arg is options
+    const projects = (await this.client.project.list(
+      {},
+      { responseStyle: 'data' },
+    )) ?? []
     return projects.map((project) => this.mapProject(project))
   }
 
@@ -100,11 +102,12 @@ export class OpenCodeConnector {
 
   private async _listSessionsInternal(directory?: string): Promise<SessionSummary[]> {
     if (directory != null && directory.length > 0) {
+      // v2 SDK: first arg is parameters, second arg is options
       const sessions =
-        (await this.client.session.list({
-          responseStyle: 'data',
-          query: { directory },
-        })) ?? []
+        (await this.client.session.list(
+          { directory },
+          { responseStyle: 'data' },
+        )) ?? []
       return sessions.map((session) => this.mapSession(session))
     }
 
@@ -119,11 +122,12 @@ export class OpenCodeConnector {
           const project = queue.shift()
           if (!project) break
           try {
+            // v2 SDK: first arg is parameters, second arg is options
             const sessions =
-              (await this.client.session.list({
-                responseStyle: 'data',
-                query: { directory: project.path },
-              })) ?? []
+              (await this.client.session.list(
+                { directory: project.path },
+                { responseStyle: 'data' },
+              )) ?? []
             for (const session of sessions) {
               const mapped = this.mapSession(session)
               if ((mapped.time as any)?.archived) continue
@@ -142,33 +146,43 @@ export class OpenCodeConnector {
     })
   }
 
-  async createSession(directory?: string, title?: string): Promise<SessionSummary> {
-    const session = await this.client.session.create({
-      responseStyle: 'data',
-      body: title ? { title } : undefined,
-      query: directory ? { directory } : undefined,
-    })
+  async createSession(
+    directory?: string,
+    title?: string,
+    permission?: PermissionRuleset,
+  ): Promise<SessionSummary> {
+    const body: Record<string, unknown> = {}
+    if (title && title.length > 0) body.title = title
+    if (permission && permission.length > 0) body.permission = permission
+
+    // v2 SDK: first arg is parameters, second arg is options
+    const session = await this.client.session.create(
+      {
+        directory,
+        ...(Object.keys(body).length > 0 ? body : {}),
+      },
+      { responseStyle: 'data' },
+    )
     return this.mapSession(session)
   }
 
   async getSession(sessionId: string, directory?: string): Promise<SessionSummary> {
-    const session = await this.client.session.get({
-      responseStyle: 'data',
-      path: { id: sessionId },
-      query: directory ? { directory } : undefined,
-    })
+    // v2 SDK: first arg is parameters, second arg is options
+    // Note: v2 SDK uses sessionID (capital ID), not id
+    const session = await this.client.session.get(
+      { sessionID: sessionId, directory },
+      { responseStyle: 'data' },
+    )
     return this.mapSession(session)
   }
 
   async getSessionMessages(sessionId: string, directory?: string, limit?: number) {
-    return this.client.session.messages({
-      responseStyle: 'data',
-      path: { id: sessionId },
-      query: {
-        ...(directory ? { directory } : {}),
-        ...(limit ? { limit } : {}),
-      },
-    })
+    // v2 SDK: first arg is parameters, second arg is options
+    // Note: v2 SDK uses sessionID (capital ID), not id
+    return this.client.session.messages(
+      { sessionID: sessionId, directory, limit },
+      { responseStyle: 'data' },
+    )
   }
 
   async sendPrompt(
@@ -229,17 +243,19 @@ export class OpenCodeConnector {
       }
     }
     
-    return this.client.session.prompt({
-      responseStyle: 'data',
-      path: { id: sessionId },
-      query: directory ? { directory } : undefined,
-      body: {
+    // v2 SDK: first arg is parameters, second arg is options
+    // Note: v2 SDK uses sessionID (capital ID), not id
+    return this.client.session.prompt(
+      {
+        sessionID: sessionId,
+        directory,
         ...(model ? { model } : {}),
         ...(agent ? { agent } : {}),
         ...(tools ? { tools } : {}),
         parts,
       },
-    })
+      { responseStyle: 'data' },
+    )
   }
 
   /**
@@ -304,36 +320,37 @@ export class OpenCodeConnector {
       }
     }
 
-    return this.client.session.promptAsync({
-      responseStyle: 'data',
-      path: { id: sessionId },
-      query: directory ? { directory } : undefined,
-      body: {
+    // v2 SDK: first arg is parameters, second arg is options
+    // Note: v2 SDK uses sessionID (capital ID), not id
+    return this.client.session.promptAsync(
+      {
+        sessionID: sessionId,
+        directory,
         ...(model ? { model } : {}),
         ...(agent ? { agent } : {}),
         ...(tools ? { tools } : {}),
         parts,
       },
-    })
+      { responseStyle: 'data' },
+    )
   }
 
   async abortSession(sessionId: string, directory?: string): Promise<boolean> {
-    return this.client.session.abort({
-      responseStyle: 'data',
-      path: { id: sessionId },
-      query: directory ? { directory } : undefined,
-    })
+    // v2 SDK: first arg is parameters, second arg is options
+    // Note: v2 SDK uses sessionID (capital ID), not id
+    return this.client.session.abort(
+      { sessionID: sessionId, directory },
+      { responseStyle: 'data' },
+    )
   }
 
   async getSessionDiff(sessionId: string, directory?: string, messageId?: string) {
-    return this.client.session.diff({
-      responseStyle: 'data',
-      path: { id: sessionId },
-      query: {
-        ...(directory ? { directory } : {}),
-        ...(messageId ? { messageID: messageId } : {}),
-      },
-    })
+    // v2 SDK: first arg is parameters, second arg is options
+    // Note: v2 SDK uses sessionID (capital ID), not id
+    return this.client.session.diff(
+      { sessionID: sessionId, directory, messageID: messageId },
+      { responseStyle: 'data' },
+    )
   }
 
   async listFiles(path: string, directory?: string) {
@@ -342,52 +359,59 @@ export class OpenCodeConnector {
       ? path.replace(/^~/, homedir())
       : path
     
-    return this.client.file.list({
-      responseStyle: 'data',
-      query: {
-        path: resolvedPath,
-        ...(directory ? { directory } : {}),
-      },
-    })
+    // v2 SDK: first arg is parameters, second arg is options
+    return this.client.file.list(
+      { path: resolvedPath, directory },
+      { responseStyle: 'data' },
+    )
   }
 
   async listProviders() {
-    return this.client.config.providers({ responseStyle: 'data' })
+    // v2 SDK: first arg is parameters, second arg is options
+    return this.client.config.providers({}, { responseStyle: 'data' })
   }
 
   async getConfig() {
-    return this.client.config.get({ responseStyle: 'data' })
+    // v2 SDK: first arg is parameters, second arg is options
+    return this.client.config.get({}, { responseStyle: 'data' })
   }
 
   async updateModel(model: string) {
-    return this.client.config.update({
-      responseStyle: 'data',
-      body: {
-        model,
-      },
-    })
+    // v2 SDK: first arg is parameters, second arg is options
+    return this.client.config.update(
+      { model },
+      { responseStyle: 'data' },
+    )
   }
 
   async respondToPermission(
-    sessionId: string,
-    permissionId: string,
+    requestId: string,
     response: PermissionResponse,
+    message?: string,
     directory?: string,
   ): Promise<boolean> {
-    return this.client.postSessionIdPermissionsPermissionId({
-      responseStyle: 'data',
-      path: { id: sessionId, permissionID: permissionId },
-      query: directory ? { directory } : undefined,
-      body: { response },
-    })
+    // Use the new permission.reply() API (replaces deprecated postSessionIdPermissionsPermissionId)
+    // v2 SDK takes parameters as first arg and options as second arg
+    return this.client.permission.reply(
+      {
+        requestID: requestId,
+        directory,
+        reply: response,
+        message,
+      },
+      {
+        responseStyle: 'data',
+      },
+    )
   }
 
   async startEventStream(onEvent: (event: GlobalEvent) => void): Promise<AbortController> {
     const controller = new AbortController()
-    const { stream } = await this.client.global.event({
-      signal: controller.signal,
-      responseStyle: 'data',
-    })
+    // v2 SDK: first arg is parameters, second arg is options
+    const { stream } = await this.client.global.event(
+      {},
+      { signal: controller.signal, responseStyle: 'data' },
+    )
 
     void (async () => {
       try {
@@ -404,10 +428,11 @@ export class OpenCodeConnector {
 
   async getLspStatus(directory?: string): Promise<LspServerStatus[]> {
     try {
-      const response = await this.client.lsp.list({
-        responseStyle: 'data',
-        query: directory ? { directory } : undefined,
-      })
+      // v2 SDK: first arg is parameters, second arg is options
+      const response = await this.client.lsp.list(
+        { directory },
+        { responseStyle: 'data' },
+      )
       
       // Map SDK LSP status to our type
       const lspServers = response ?? []
@@ -477,11 +502,12 @@ export class OpenCodeConnector {
   // Feature 1: Todo/Plan Management
   async getTodos(sessionId: string, directory?: string): Promise<Todo[]> {
     try {
-      const todos = await this.client.session.todo({
-        responseStyle: 'data',
-        path: { id: sessionId },
-        query: directory ? { directory } : undefined,
-      })
+      // v2 SDK: first arg is parameters, second arg is options
+      // Note: v2 SDK uses sessionID (capital ID), not id
+      const todos = await this.client.session.todo(
+        { sessionID: sessionId, directory },
+        { responseStyle: 'data' },
+      )
       return (todos ?? []).map((todo: any) => ({
         id: todo.id ?? '',
         content: todo.content ?? '',
@@ -497,10 +523,11 @@ export class OpenCodeConnector {
   // Feature 2: Slash Commands
   async listCommands(directory?: string): Promise<Command[]> {
     try {
-      const commands = await this.client.command.list({
-        responseStyle: 'data',
-        query: directory ? { directory } : undefined,
-      })
+      // v2 SDK: first arg is parameters, second arg is options
+      const commands = await this.client.command.list(
+        { directory },
+        { responseStyle: 'data' },
+      )
       return (commands ?? []).map((cmd: any) => ({
         name: cmd.name ?? '',
         description: cmd.description,
@@ -520,26 +547,29 @@ export class OpenCodeConnector {
     agent?: string,
     model?: string,
   ): Promise<unknown> {
-    return this.client.session.command({
-      responseStyle: 'data',
-      path: { id: sessionId },
-      query: directory ? { directory } : undefined,
-      body: {
+    // v2 SDK: first arg is parameters, second arg is options
+    // Note: v2 SDK uses sessionID (capital ID), not id
+    return this.client.session.command(
+      {
+        sessionID: sessionId,
+        directory,
         command,
         arguments: args,
         ...(agent ? { agent } : {}),
         ...(model ? { model } : {}),
       },
-    })
+      { responseStyle: 'data' },
+    )
   }
 
   // Feature 3: Agent Switching
   async listAgents(directory?: string): Promise<Agent[]> {
     try {
-      const agents = await this.client.app.agents({
-        responseStyle: 'data',
-        query: directory ? { directory } : undefined,
-      })
+      // v2 SDK: first arg is parameters, second arg is options
+      const agents = await this.client.app.agents(
+        { directory },
+        { responseStyle: 'data' },
+      )
       return (agents ?? []).map((agent: any) => ({
         name: agent.name ?? '',
         description: agent.description,
@@ -555,11 +585,12 @@ export class OpenCodeConnector {
   // Feature 4: Session Delete
   async deleteSession(sessionId: string, directory?: string): Promise<boolean> {
     try {
-      await this.client.session.delete({
-        responseStyle: 'data',
-        path: { id: sessionId },
-        query: directory ? { directory } : undefined,
-      })
+      // v2 SDK: first arg is parameters, second arg is options
+      // Note: v2 SDK uses sessionID (capital ID), not id
+      await this.client.session.delete(
+        { sessionID: sessionId, directory },
+        { responseStyle: 'data' },
+      )
       return true
     } catch {
       return false
@@ -573,26 +604,32 @@ export class OpenCodeConnector {
     archived?: boolean,
     directory?: string,
   ): Promise<SessionSummary> {
-    const session = await this.client.session.update({
-      responseStyle: 'data',
-      path: { id: sessionId },
-      query: directory ? { directory } : undefined,
-      body: {
+    // v2 SDK: first arg is parameters, second arg is options
+    // Note: v2 SDK uses sessionID (capital ID), not id
+    const session = await this.client.session.update(
+      {
+        sessionID: sessionId,
+        directory,
         ...(title ? { title } : {}),
         ...(archived !== undefined ? { time: { archived: archived ? Date.now() : undefined } } : {}),
       },
-    })
+      { responseStyle: 'data' },
+    )
     return this.mapSession(session)
   }
 
   // Feature 6: Session Fork
   async forkSession(sessionId: string, messageId?: string, directory?: string): Promise<SessionSummary> {
-    const session = await this.client.session.fork({
-      responseStyle: 'data',
-      path: { id: sessionId },
-      query: directory ? { directory } : undefined,
-      body: messageId ? { messageID: messageId } : undefined,
-    })
+    // v2 SDK: first arg is parameters, second arg is options
+    // Note: v2 SDK uses sessionID (capital ID), not id
+    const session = await this.client.session.fork(
+      {
+        sessionID: sessionId,
+        directory,
+        ...(messageId ? { messageID: messageId } : {}),
+      },
+      { responseStyle: 'data' },
+    )
     return this.mapSession(session)
   }
 
@@ -603,43 +640,48 @@ export class OpenCodeConnector {
     partId?: string,
     directory?: string,
   ): Promise<SessionSummary> {
-    const session = await this.client.session.revert({
-      responseStyle: 'data',
-      path: { id: sessionId },
-      query: directory ? { directory } : undefined,
-      body: {
+    // v2 SDK: first arg is parameters, second arg is options
+    // Note: v2 SDK uses sessionID (capital ID), not id
+    const session = await this.client.session.revert(
+      {
+        sessionID: sessionId,
+        directory,
         messageID: messageId,
         ...(partId ? { partID: partId } : {}),
       },
-    })
+      { responseStyle: 'data' },
+    )
     return this.mapSession(session)
   }
 
   async unrevertSession(sessionId: string, directory?: string): Promise<SessionSummary> {
-    const session = await this.client.session.unrevert({
-      responseStyle: 'data',
-      path: { id: sessionId },
-      query: directory ? { directory } : undefined,
-    })
+    // v2 SDK: first arg is parameters, second arg is options
+    // Note: v2 SDK uses sessionID (capital ID), not id
+    const session = await this.client.session.unrevert(
+      { sessionID: sessionId, directory },
+      { responseStyle: 'data' },
+    )
     return this.mapSession(session)
   }
 
   // Feature 8: Session Share
   async shareSession(sessionId: string, directory?: string): Promise<SessionSummary> {
-    const session = await this.client.session.share({
-      responseStyle: 'data',
-      path: { id: sessionId },
-      query: directory ? { directory } : undefined,
-    })
+    // v2 SDK: first arg is parameters, second arg is options
+    // Note: v2 SDK uses sessionID (capital ID), not id
+    const session = await this.client.session.share(
+      { sessionID: sessionId, directory },
+      { responseStyle: 'data' },
+    )
     return this.mapSession(session)
   }
 
   async unshareSession(sessionId: string, directory?: string): Promise<SessionSummary> {
-    const session = await this.client.session.unshare({
-      responseStyle: 'data',
-      path: { id: sessionId },
-      query: directory ? { directory } : undefined,
-    })
+    // v2 SDK: first arg is parameters, second arg is options
+    // Note: v2 SDK uses sessionID (capital ID), not id
+    const session = await this.client.session.unshare(
+      { sessionID: sessionId, directory },
+      { responseStyle: 'data' },
+    )
     return this.mapSession(session)
   }
 
@@ -651,15 +693,12 @@ export class OpenCodeConnector {
     directory?: string,
   ): Promise<boolean> {
     try {
-      await this.client.session.summarize({
-        responseStyle: 'data',
-        path: { id: sessionId },
-        query: directory ? { directory } : undefined,
-        body: {
-          providerID,
-          modelID,
-        },
-      })
+      // v2 SDK: first arg is parameters, second arg is options
+      // Note: v2 SDK uses sessionID (capital ID), not id
+      await this.client.session.summarize(
+        { sessionID: sessionId, directory, providerID, modelID },
+        { responseStyle: 'data' },
+      )
       return true
     } catch {
       return false
@@ -669,10 +708,11 @@ export class OpenCodeConnector {
   // Feature 10: Git/VCS Information
   async getVcsInfo(directory?: string): Promise<VcsInfo> {
     try {
-      const vcs = await this.client.vcs.get({
-        responseStyle: 'data',
-        query: directory ? { directory } : undefined,
-      })
+      // v2 SDK: first arg is parameters, second arg is options
+      const vcs = await this.client.vcs.get(
+        { directory },
+        { responseStyle: 'data' },
+      )
       return {
         branch: vcs?.branch,
       }
@@ -685,13 +725,11 @@ export class OpenCodeConnector {
   // Feature 11: File Content Read
   async readFile(path: string, directory?: string): Promise<FileContent> {
     try {
-      const result = await this.client.file.read({
-        responseStyle: 'data',
-        query: {
-          path,
-          ...(directory ? { directory } : {}),
-        },
-      })
+      // v2 SDK: first arg is parameters, second arg is options
+      const result = await this.client.file.read(
+        { path, directory },
+        { responseStyle: 'data' },
+      )
       return {
         content: result?.content ?? '',
         mime: result?.mime ?? 'text/plain',
@@ -704,13 +742,11 @@ export class OpenCodeConnector {
   // Feature 12: File Search - Find files by name
   async findFiles(query: string, directory?: string): Promise<string[]> {
     try {
-      const result = await this.client.find.files({
-        responseStyle: 'data',
-        query: {
-          query,
-          ...(directory ? { directory } : {}),
-        },
-      })
+      // v2 SDK: first arg is parameters, second arg is options
+      const result = await this.client.find.files(
+        { query, directory },
+        { responseStyle: 'data' },
+      )
       return result ?? []
     } catch {
       return []
@@ -720,14 +756,11 @@ export class OpenCodeConnector {
   // Feature 12b: File Search - Find files AND directories (for @ autocomplete)
   async searchFilesAndDirs(query: string, directory?: string, limit: number = 20): Promise<string[]> {
     try {
-      const result = await this.client.find.files({
-        responseStyle: 'data',
-        query: {
-          query,
-          dirs: 'true',
-          ...(directory ? { directory } : {}),
-        },
-      })
+      // v2 SDK: first arg is parameters, second arg is options
+      const result = await this.client.find.files(
+        { query, dirs: 'true', directory },
+        { responseStyle: 'data' },
+      )
       return (result ?? []).slice(0, limit)
     } catch {
       return []
@@ -737,14 +770,11 @@ export class OpenCodeConnector {
   // Feature 12: File Search - Find text in files (ripgrep)
   async findText(pattern: string, include?: string, directory?: string): Promise<TextSearchResult[]> {
     try {
-      const result = await this.client.find.text({
-        responseStyle: 'data',
-        query: {
-          pattern,
-          ...(include ? { include } : {}),
-          ...(directory ? { directory } : {}),
-        },
-      })
+      // v2 SDK: first arg is parameters, second arg is options
+      const result = await this.client.find.text(
+        { pattern, include, directory },
+        { responseStyle: 'data' },
+      )
       return (result ?? []).map((item: any) => ({
         path: item.path?.text ?? item.path ?? '',
         lineNumber: item.line_number ?? item.lineNumber ?? 0,
@@ -763,13 +793,11 @@ export class OpenCodeConnector {
   // Feature 12: File Search - Find symbols (LSP)
   async findSymbols(query: string, directory?: string): Promise<SymbolResult[]> {
     try {
-      const result = await this.client.find.symbols({
-        responseStyle: 'data',
-        query: {
-          query,
-          ...(directory ? { directory } : {}),
-        },
-      })
+      // v2 SDK: first arg is parameters, second arg is options
+      const result = await this.client.find.symbols(
+        { query, directory },
+        { responseStyle: 'data' },
+      )
       return (result ?? []).map((item: any) => ({
         name: item.name ?? '',
         kind: item.kind ?? 'unknown',
@@ -785,10 +813,11 @@ export class OpenCodeConnector {
   // Feature 13: Session Status
   async getSessionStatus(directory?: string): Promise<Record<string, SessionStatusInfo>> {
     try {
-      const result = await this.client.session.status({
-        responseStyle: 'data',
-        query: directory ? { directory } : undefined,
-      })
+      // v2 SDK: first arg is parameters, second arg is options
+      const result = await this.client.session.status(
+        { directory },
+        { responseStyle: 'data' },
+      )
       const mapped: Record<string, SessionStatusInfo> = {}
       for (const [sessionId, status] of Object.entries(result ?? {})) {
         const s = status as any
@@ -816,10 +845,11 @@ export class OpenCodeConnector {
     try {
       // Use instance directory if none provided
       const dir = directory ?? await this.getInstanceDirectory()
-      const result = await this.client.pty.list({
-        responseStyle: 'data',
-        query: dir ? { directory: dir } : undefined,
-      })
+      // v2 SDK: first arg is parameters, second arg is options
+      const result = await this.client.pty.list(
+        { directory: dir },
+        { responseStyle: 'data' },
+      )
       return (result ?? []).map((pty: any) => this.mapPtySession(pty))
     } catch (error) {
       console.error('[PTY] listPty failed:', error)
@@ -838,16 +868,17 @@ export class OpenCodeConnector {
     try {
       // Use instance directory if none provided
       const dir = directory ?? await this.getInstanceDirectory()
-      const result = await this.client.pty.create({
-        responseStyle: 'data',
-        query: dir ? { directory: dir } : undefined,
-        body: {
+      // v2 SDK: first arg is parameters, second arg is options
+      const result = await this.client.pty.create(
+        {
+          directory: dir,
           ...(command ? { command } : {}),
           ...(args ? { args } : {}),
           ...(cwd ? { cwd } : {}),
           ...(title ? { title } : {}),
         },
-      })
+        { responseStyle: 'data' },
+      )
       return result ? this.mapPtySession(result) : null
     } catch (error) {
       console.error('[PTY] createPty failed:', error)
@@ -860,12 +891,12 @@ export class OpenCodeConnector {
     try {
       // Use instance directory if none provided
       const dir = directory ?? await this.getInstanceDirectory()
-      // SDK uses 'id' in path template (/pty/{id})
-      const result = await this.client.pty.get({
-        responseStyle: 'data',
-        path: { id: ptyId },
-        query: dir ? { directory: dir } : undefined,
-      })
+      // v2 SDK: first arg is parameters, second arg is options
+      // Note: v2 SDK uses ptyID (capital ID), not id
+      const result = await this.client.pty.get(
+        { ptyID: ptyId, directory: dir },
+        { responseStyle: 'data' },
+      )
       return result ? this.mapPtySession(result) : null
     } catch (error) {
       console.error('[PTY] getPty failed:', error)
@@ -884,16 +915,17 @@ export class OpenCodeConnector {
     try {
       // Use instance directory if none provided
       const dir = directory ?? await this.getInstanceDirectory()
-      // SDK uses 'id' in path template (/pty/{id})
-      const result = await this.client.pty.update({
-        responseStyle: 'data',
-        path: { id: ptyId },
-        query: dir ? { directory: dir } : undefined,
-        body: {
+      // v2 SDK: first arg is parameters, second arg is options
+      // Note: v2 SDK uses ptyID (capital ID), not id
+      const result = await this.client.pty.update(
+        {
+          ptyID: ptyId,
+          directory: dir,
           ...(title ? { title } : {}),
           ...(rows && cols ? { size: { rows, cols } } : {}),
         },
-      })
+        { responseStyle: 'data' },
+      )
       return result ? this.mapPtySession(result) : null
     } catch (error) {
       console.error('[PTY] updatePty failed:', error)
@@ -906,12 +938,12 @@ export class OpenCodeConnector {
     try {
       // Use instance directory if none provided
       const dir = directory ?? await this.getInstanceDirectory()
-      // SDK uses 'id' in path template (/pty/{id}), not 'ptyID'
-      await this.client.pty.remove({
-        responseStyle: 'data',
-        path: { id: ptyId },
-        query: dir ? { directory: dir } : undefined,
-      })
+      // v2 SDK: first arg is parameters, second arg is options
+      // Note: v2 SDK uses ptyID (capital ID), not id
+      await this.client.pty.remove(
+        { ptyID: ptyId, directory: dir },
+        { responseStyle: 'data' },
+      )
       return true
     } catch (error: any) {
       console.error('[PTY] deletePty failed:', error?.message || error)
@@ -926,10 +958,11 @@ export class OpenCodeConnector {
   // Feature 15: MCP Server Management - Status
   async getMcpStatus(directory?: string): Promise<Record<string, McpServerStatus>> {
     try {
-      const result = await this.client.mcp.status({
-        responseStyle: 'data',
-        query: directory ? { directory } : undefined,
-      })
+      // v2 SDK: first arg is parameters, second arg is options
+      const result = await this.client.mcp.status(
+        { directory },
+        { responseStyle: 'data' },
+      )
       const mapped: Record<string, McpServerStatus> = {}
       for (const [name, status] of Object.entries(result ?? {})) {
         const s = status as any
@@ -950,11 +983,11 @@ export class OpenCodeConnector {
   // Feature 15: MCP Server Management - Connect
   async connectMcp(name: string, directory?: string): Promise<boolean> {
     try {
-      await this.client.mcp.connect({
-        responseStyle: 'data',
-        path: { name },
-        query: directory ? { directory } : undefined,
-      })
+      // v2 SDK: first arg is parameters, second arg is options
+      await this.client.mcp.connect(
+        { name, directory },
+        { responseStyle: 'data' },
+      )
       return true
     } catch {
       return false
@@ -964,12 +997,160 @@ export class OpenCodeConnector {
   // Feature 15: MCP Server Management - Disconnect
   async disconnectMcp(name: string, directory?: string): Promise<boolean> {
     try {
-      await this.client.mcp.disconnect({
-        responseStyle: 'data',
-        path: { name },
-        query: directory ? { directory } : undefined,
-      })
+      // v2 SDK: first arg is parameters, second arg is options
+      await this.client.mcp.disconnect(
+        { name, directory },
+        { responseStyle: 'data' },
+      )
       return true
+    } catch {
+      return false
+    }
+  }
+
+  // Feature 15b: MCP Resources (SDK v1.1.1+ experimental)
+  async getMcpResources(directory?: string): Promise<Record<string, McpResource>> {
+    try {
+      // v2 SDK: first arg is parameters, second arg is options
+      const result = await this.client.experimental.resource.list(
+        { directory },
+        { responseStyle: 'data' },
+      )
+      // Map the result to our McpResource type
+      const mapped: Record<string, McpResource> = {}
+      for (const [key, resource] of Object.entries(result ?? {})) {
+        const r = resource as any
+        mapped[key] = {
+          name: r.name ?? '',
+          uri: r.uri ?? '',
+          description: r.description,
+          mimeType: r.mimeType,
+          client: r.client ?? '',
+        }
+      }
+      return mapped
+    } catch (error) {
+      console.error('[getMcpResources] Error:', error)
+      return {}
+    }
+  }
+
+  // Feature 23: Git Worktrees (SDK v1.1.1+ experimental)
+  async listWorktrees(directory?: string): Promise<Worktree[]> {
+    try {
+      // The SDK returns an array of directory strings, not full Worktree objects
+      // We need to parse them or return basic info
+      // v2 SDK: first arg is parameters, second arg is options
+      const result = await this.client.worktree.list(
+        { directory },
+        { responseStyle: 'data' },
+      )
+      // The SDK experimental endpoint returns string[] of directories
+      // Enrich with branch info by querying VCS for each directory.
+      const dirs = result ?? []
+      const concurrency = 6
+      const queue = dirs.slice()
+      const out: Worktree[] = []
+
+      await Promise.all(
+        Array.from({ length: Math.max(1, concurrency) }, async () => {
+          for (;;) {
+            const dir = queue.shift()
+            if (!dir) break
+            let branch = ''
+            try {
+              // v2 SDK pattern
+              const vcs = await this.client.vcs.get(
+                { directory: dir },
+                { responseStyle: 'data' },
+              )
+              branch = (vcs as any)?.branch ?? ''
+            } catch {
+              branch = ''
+            }
+            out.push({
+              name: dir.split('/').pop() ?? dir,
+              branch,
+              directory: dir,
+            })
+          }
+        }),
+      )
+
+      return out.sort((a, b) => a.directory.localeCompare(b.directory))
+    } catch (error) {
+      console.error('[listWorktrees] Error:', error)
+      return []
+    }
+  }
+
+  async createWorktree(
+    name?: string,
+    startCommand?: string,
+    directory?: string,
+  ): Promise<Worktree | null> {
+    try {
+      // v2 SDK: first arg is parameters, second arg is options
+      const result = await this.client.worktree.create(
+        {
+          directory,
+          worktreeCreateInput: {
+            name,
+            startCommand,
+          },
+        },
+        {
+          responseStyle: 'data',
+        },
+      )
+      if (!result) return null
+
+      // IMPORTANT: The OpenCode SDK creates the git worktree but does NOT
+      // register it in the project's sandboxes array. We need to "touch" the
+      // new worktree directory with any API call to trigger Instance.provide()
+      // -> Project.fromDirectory() -> sandboxes.push(). This makes the worktree
+      // show up in listWorktrees() after app restart.
+      if (result.directory) {
+        try {
+          // Any API call with the new directory will register it
+          await this.client.vcs.get(
+            { directory: result.directory },
+            { responseStyle: 'data' },
+          )
+          console.log('[createWorktree] Registered sandbox:', result.directory)
+        } catch {
+          // Non-fatal: worktree was still created, just may not persist in list
+          console.warn('[createWorktree] Failed to register sandbox, worktree may not persist in list')
+        }
+      }
+
+      return {
+        name: result.name ?? '',
+        branch: result.branch ?? '',
+        directory: result.directory ?? '',
+      }
+    } catch (error) {
+      console.error('[createWorktree] Error:', error)
+      return null
+    }
+  }
+
+  async deleteWorktree(worktreeDirectory: string, directory?: string): Promise<boolean> {
+    try {
+      if (!directory || directory.length === 0) return false
+
+      // OpenCode currently has no API endpoint for deleting a worktree.
+      // We perform a local git worktree removal on the host running the bridge.
+      const target = worktreeDirectory.startsWith('/')
+        ? worktreeDirectory
+        : `${directory.replace(/\/+$/, '')}/${worktreeDirectory}`
+
+      const proc = Bun.spawnSync({
+        cmd: ['git', '-C', directory, 'worktree', 'remove', '--force', target],
+        stdout: 'pipe',
+        stderr: 'pipe',
+      })
+      return proc.exitCode === 0
     } catch {
       return false
     }
@@ -978,10 +1159,11 @@ export class OpenCodeConnector {
   // Feature 16: Full Provider Management - List all providers
   async listAllProviders(directory?: string): Promise<ProviderInfo> {
     try {
-      const result = await this.client.provider.list({
-        responseStyle: 'data',
-        query: directory ? { directory } : undefined,
-      })
+      // v2 SDK: first arg is parameters, second arg is options
+      const result = await this.client.provider.list(
+        { directory },
+        { responseStyle: 'data' },
+      )
       return {
         all: (result?.all ?? []).map((p: any) => ({
           id: p.id ?? '',
@@ -999,10 +1181,11 @@ export class OpenCodeConnector {
   // Feature 16: Full Provider Management - Get auth methods
   async getProviderAuth(directory?: string): Promise<Record<string, ProviderAuthMethod[]>> {
     try {
-      const result = await this.client.provider.auth({
-        responseStyle: 'data',
-        query: directory ? { directory } : undefined,
-      })
+      // v2 SDK: first arg is parameters, second arg is options
+      const result = await this.client.provider.auth(
+        { directory },
+        { responseStyle: 'data' },
+      )
       const mapped: Record<string, ProviderAuthMethod[]> = {}
       for (const [providerId, methods] of Object.entries(result ?? {})) {
         mapped[providerId] = (methods as any[]).map((m: any) => ({
@@ -1021,15 +1204,11 @@ export class OpenCodeConnector {
   // Feature 16: Full Provider Management - Set API key
   async setApiKey(providerID: string, key: string, directory?: string): Promise<boolean> {
     try {
-      await this.client.auth.set({
-        responseStyle: 'data',
-        path: { provider: providerID },
-        query: directory ? { directory } : undefined,
-        body: {
-          type: 'api',
-          key,
-        },
-      })
+      // v2 SDK: first arg is parameters, second arg is options
+      await this.client.auth.set(
+        { provider: providerID, directory, type: 'api', key },
+        { responseStyle: 'data' },
+      )
       return true
     } catch {
       return false
@@ -1039,10 +1218,11 @@ export class OpenCodeConnector {
   // Feature 17: Tool List - Get tool IDs
   async listToolIds(directory?: string): Promise<string[]> {
     try {
-      const result = await this.client.tool.ids({
-        responseStyle: 'data',
-        query: directory ? { directory } : undefined,
-      })
+      // v2 SDK: first arg is parameters, second arg is options
+      const result = await this.client.tool.ids(
+        { directory },
+        { responseStyle: 'data' },
+      )
       return result ?? []
     } catch (error) {
       console.error('[listToolIds] Error:', error)
@@ -1053,14 +1233,11 @@ export class OpenCodeConnector {
   // Feature 17: Tool List - Get tools with details
   async listTools(provider: string, model: string, directory?: string): Promise<ToolInfo[]> {
     try {
-      const result = await this.client.tool.list({
-        responseStyle: 'data',
-        query: {
-          provider,
-          model,
-          ...(directory ? { directory } : {}),
-        },
-      })
+      // v2 SDK: first arg is parameters, second arg is options
+      const result = await this.client.tool.list(
+        { provider, model, directory },
+        { responseStyle: 'data' },
+      )
       return (result ?? []).map((tool: any) => ({
         id: tool.id ?? tool.name ?? '',
         name: tool.name ?? tool.id ?? '',
@@ -1075,10 +1252,11 @@ export class OpenCodeConnector {
   // Feature 18: File Status (Git)
   async getFileStatus(directory?: string): Promise<FileStatusInfo[]> {
     try {
-      const result = await this.client.file.status({
-        responseStyle: 'data',
-        query: directory ? { directory } : undefined,
-      })
+      // v2 SDK: first arg is parameters, second arg is options
+      const result = await this.client.file.status(
+        { directory },
+        { responseStyle: 'data' },
+      )
       return (result ?? []).map((f: any) => ({
         path: f.path ?? '',
         status: f.status ?? 'modified',
@@ -1092,10 +1270,11 @@ export class OpenCodeConnector {
   // Feature 19: Formatter Status
   async getFormatterStatus(directory?: string): Promise<FormatterInfo[]> {
     try {
-      const result = await this.client.formatter.status({
-        responseStyle: 'data',
-        query: directory ? { directory } : undefined,
-      })
+      // v2 SDK: first arg is parameters, second arg is options
+      const result = await this.client.formatter.status(
+        { directory },
+        { responseStyle: 'data' },
+      )
       return (result ?? []).map((f: any) => ({
         id: f.id ?? '',
         name: f.name ?? f.id ?? '',
@@ -1118,16 +1297,12 @@ export class OpenCodeConnector {
     directory?: string,
   ): Promise<boolean> {
     try {
-      await this.client.session.init({
-        responseStyle: 'data',
-        path: { id: sessionId },
-        query: directory ? { directory } : undefined,
-        body: {
-          providerID,
-          modelID,
-          messageID,
-        },
-      })
+      // v2 SDK: first arg is parameters, second arg is options
+      // Note: v2 SDK uses sessionID (capital ID), not id
+      await this.client.session.init(
+        { sessionID: sessionId, directory, providerID, modelID, messageID },
+        { responseStyle: 'data' },
+      )
       return true
     } catch {
       return false

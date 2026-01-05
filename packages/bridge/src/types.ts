@@ -10,6 +10,17 @@ import type {
 
 export type PermissionResponse = 'once' | 'always' | 'reject'
 
+// Session permission rules (OpenCode SDK v1.1.1+)
+export type PermissionAction = 'allow' | 'deny' | 'ask'
+
+export type PermissionRule = {
+  permission: string
+  pattern: string
+  action: PermissionAction
+}
+
+export type PermissionRuleset = Array<PermissionRule>
+
 // Todo item from OpenCode SDK
 export type Todo = {
   id: string
@@ -69,14 +80,14 @@ export type ClientMessage =
   | { type: 'list_providers' }
   | { type: 'get_config' }
   | { type: 'set_model'; model: string }
-  | { type: 'create_session'; projectPath?: string; title?: string }
+  | { type: 'create_session'; projectPath?: string; title?: string; permission?: PermissionRuleset }
   | { type: 'get_session'; sessionId: string; projectPath?: string }
   | { type: 'get_session_messages'; sessionId: string; projectPath?: string; limit?: number }
   | { type: 'chat'; sessionId: string; content: string; projectPath?: string; model?: { providerID: string; modelID: string }; agent?: string; disabledTools?: string[]; fileAttachments?: FileAttachment[] }
   | { type: 'abort'; sessionId: string; projectPath?: string }
   | { type: 'diff'; sessionId: string; projectPath?: string; messageId?: string }
   | { type: 'browse'; path: string; projectPath?: string }
-  | { type: 'permission_response'; sessionId: string; permissionId: string; response: PermissionResponse; projectPath?: string }
+  | { type: 'permission_response'; sessionId: string; permissionId: string; response: PermissionResponse; message?: string; projectPath?: string }
   | { type: 'get_lsp_status'; projectPath?: string }
   | { type: 'get_session_context'; sessionId: string; projectPath?: string }
   // Feature 1: Todo/Plan Management
@@ -128,6 +139,11 @@ export type ClientMessage =
   | { type: 'get_mcp_status'; projectPath?: string }
   | { type: 'connect_mcp'; name: string; projectPath?: string }
   | { type: 'disconnect_mcp'; name: string; projectPath?: string }
+  | { type: 'get_mcp_resources'; projectPath?: string }
+  // Feature 23: Git Worktrees (SDK v1.1.1+ experimental)
+  | { type: 'list_worktrees'; projectPath?: string }
+  | { type: 'create_worktree'; name?: string; startCommand?: string; projectPath?: string }
+  | { type: 'delete_worktree'; name: string; projectPath?: string }
   // Feature 16: Full Provider Management
   | { type: 'list_all_providers'; projectPath?: string }
   | { type: 'get_provider_auth'; projectPath?: string }
@@ -355,6 +371,11 @@ export type ServerMessage =
   | { type: 'mcp_status'; data: Record<string, McpServerStatus>; requestId?: string }
   | { type: 'mcp_connected'; data: boolean; name: string; requestId?: string }
   | { type: 'mcp_disconnected'; data: boolean; name: string; requestId?: string }
+  | { type: 'mcp_resources'; data: Record<string, McpResource>; requestId?: string }
+  // Feature 23: Git Worktrees
+  | { type: 'worktrees'; data: Worktree[]; requestId?: string }
+  | { type: 'worktree_created'; data: Worktree; requestId?: string }
+  | { type: 'worktree_deleted'; data: boolean; name: string; requestId?: string }
   // Feature 16: Full Provider Management
   | { type: 'all_providers'; data: ProviderInfo; requestId?: string }
   | { type: 'provider_auth'; data: Record<string, ProviderAuthMethod[]>; requestId?: string }
@@ -503,6 +524,27 @@ export type McpServerStatus = {
   error?: string
   tools?: string[]
   resources?: string[]
+}
+
+// MCP Resource (SDK v1.1.1+ experimental feature)
+export type McpResource = {
+  name: string
+  uri: string
+  description?: string
+  mimeType?: string
+  client: string  // Which MCP server provides this resource
+}
+
+// Git Worktree (SDK v1.1.1+ experimental feature)
+export type Worktree = {
+  name: string
+  branch: string
+  directory: string
+}
+
+export type WorktreeCreateInput = {
+  name?: string
+  startCommand?: string
 }
 
 // Feature 16: Provider Info

@@ -1338,7 +1338,11 @@ export function createBridgeServer(options: BridgeServerOptions): BridgeServer {
           break
         }
         case 'create_session': {
-          const session = await opencode.createSession(message.projectPath, message.title)
+          const session = await opencode.createSession(
+            message.projectPath,
+            message.title,
+            message.permission,
+          )
           reply({ type: 'session_created', data: session })
           break
         }
@@ -1388,10 +1392,11 @@ export function createBridgeServer(options: BridgeServerOptions): BridgeServer {
           break
         }
         case 'permission_response': {
+          // Use the new permission.reply() API - permissionId is now requestId
           await opencode.respondToPermission(
-            message.sessionId,
-            message.permissionId,
+            message.permissionId,  // This is the requestID in the new API
             message.response,
+            message.message,  // Optional rejection feedback message
             message.projectPath,
           )
           break
@@ -1721,6 +1726,35 @@ export function createBridgeServer(options: BridgeServerOptions): BridgeServer {
         case 'disconnect_mcp': {
           const disconnected = await opencode.disconnectMcp(message.name, message.projectPath)
           reply({ type: 'mcp_disconnected', data: disconnected, name: message.name })
+          break
+        }
+        case 'get_mcp_resources': {
+          const resources = await opencode.getMcpResources(message.projectPath)
+          reply({ type: 'mcp_resources', data: resources })
+          break
+        }
+        // Feature 23: Git Worktrees (SDK v1.1.1+ experimental)
+        case 'list_worktrees': {
+          const worktrees = await opencode.listWorktrees(message.projectPath)
+          reply({ type: 'worktrees', data: worktrees })
+          break
+        }
+        case 'create_worktree': {
+          const worktree = await opencode.createWorktree(
+            message.name,
+            message.startCommand,
+            message.projectPath,
+          )
+          if (worktree) {
+            reply({ type: 'worktree_created', data: worktree })
+          } else {
+            reply({ type: 'error', message: 'Failed to create worktree' })
+          }
+          break
+        }
+        case 'delete_worktree': {
+          const deleted = await opencode.deleteWorktree(message.name, message.projectPath)
+          reply({ type: 'worktree_deleted', data: deleted, name: message.name })
           break
         }
         // Feature 16: Full Provider Management
