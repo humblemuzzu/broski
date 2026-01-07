@@ -4564,14 +4564,40 @@ Describe project-specific guidance for Codex here.
               ),
             ),
             padding: const EdgeInsets.fromLTRB(16, 16, 16, 20),
-            child: FutureBuilder<List<Map<String, dynamic>>>(
-              future: ref.read(bridgeServiceProvider).cxListModels(),
-              builder: (context, snapshot) {
-                final models = snapshot.data ?? const <Map<String, dynamic>>[];
-                final loading =
-                    snapshot.connectionState == ConnectionState.waiting;
-                final chatState = ref.read(chatSessionProvider);
-                final current = chatState.cxModel;
+            child: Consumer(
+              builder: (context, ref, _) {
+                final chatState = ref.watch(chatSessionProvider);
+                final current = chatState.cxModel ?? 'gpt-5.2-codex';
+
+                Widget modelTile(String model, String label, String desc) {
+                  final selected = current == model;
+                  return ListTile(
+                    dense: true,
+                    contentPadding: EdgeInsets.zero,
+                    leading: Icon(
+                      selected
+                          ? Icons.radio_button_checked_rounded
+                          : Icons.radio_button_off_rounded,
+                      size: 18,
+                      color: selected ? theme.primary : theme.textMuted,
+                    ),
+                    title: Text(
+                      label,
+                      style: TextStyle(color: theme.text, fontSize: 13),
+                    ),
+                    subtitle: Text(
+                      desc,
+                      style: TextStyle(color: theme.textMuted, fontSize: 12),
+                    ),
+                    onTap: () {
+                      ref
+                          .read(chatSessionProvider.notifier)
+                          .setCodexModel(model);
+                      if (!mounted) return;
+                      Navigator.pop(context);
+                    },
+                  );
+                }
 
                 return Column(
                   mainAxisSize: MainAxisSize.min,
@@ -4579,6 +4605,12 @@ Describe project-specific guidance for Codex here.
                   children: [
                     Row(
                       children: [
+                        Icon(
+                          Icons.auto_awesome_rounded,
+                          color: theme.primary,
+                          size: 18,
+                        ),
+                        const SizedBox(width: 10),
                         Expanded(
                           child: Text(
                             'Codex model',
@@ -4598,82 +4630,33 @@ Describe project-specific guidance for Codex here.
                         ),
                       ],
                     ),
-                    const SizedBox(height: 8),
-                    if (loading)
-                      const Padding(
-                        padding: EdgeInsets.symmetric(vertical: 24),
-                        child: Center(child: CircularProgressIndicator()),
-                      )
-                    else if (snapshot.hasError)
-                      Padding(
-                        padding: const EdgeInsets.symmetric(vertical: 16),
-                        child: Text(
-                          'Failed to load models: ${snapshot.error}',
-                          style: TextStyle(
-                            color: theme.textMuted,
-                            fontSize: 12,
-                          ),
-                        ),
-                      )
-                    else
-                      Flexible(
-                        child: ListView.separated(
-                          shrinkWrap: true,
-                          itemCount: models.length,
-                          separatorBuilder: (_, __) => Divider(
-                            color: theme.borderSubtle.withValues(alpha: 0.35),
-                          ),
-                          itemBuilder: (context, index) {
-                            final m = models[index];
-                            final model = (m['model'] ?? m['id'] ?? '')
-                                .toString();
-                            final display =
-                                (m['displayName'] ?? m['display_name'] ?? model)
-                                    .toString();
-                            final desc = (m['description'] ?? '').toString();
-                            final isDefault =
-                                m['isDefault'] == true ||
-                                m['is_default'] == true;
-                            final selected =
-                                current == model ||
-                                (current == null && isDefault);
-
-                            return ListTile(
-                              contentPadding: EdgeInsets.zero,
-                              onTap: () {
-                                ref
-                                    .read(chatSessionProvider.notifier)
-                                    .setCodexModel(model);
-                                Navigator.pop(context);
-                              },
-                              leading: Icon(
-                                selected
-                                    ? Icons.check_circle_rounded
-                                    : Icons.circle_outlined,
-                                color: selected
-                                    ? theme.primary
-                                    : theme.textMuted,
-                              ),
-                              title: Text(
-                                display,
-                                style: TextStyle(
-                                  color: theme.text,
-                                  fontWeight: FontWeight.w600,
-                                ),
-                              ),
-                              subtitle: Text(
-                                desc.isEmpty ? model : '$model\n$desc',
-                                maxLines: 2,
-                                overflow: TextOverflow.ellipsis,
-                                style: TextStyle(
-                                  color: theme.textMuted,
-                                  fontSize: 12,
-                                ),
-                              ),
-                            );
-                          },
-                        ),
-                      ),
+                    const SizedBox(height: 6),
+                    Text(
+                      'Select the model used for Codex turns.',
+                      style: TextStyle(color: theme.textMuted, fontSize: 13),
+                    ),
+                    const SizedBox(height: 14),
+                    // Codex SDK models (from model_presets.rs - show_in_picker: true)
+                    modelTile(
+                      'gpt-5.2-codex',
+                      'gpt-5.2-codex',
+                      'Latest frontier agentic coding model',
+                    ),
+                    modelTile(
+                      'gpt-5.1-codex-max',
+                      'gpt-5.1-codex-max',
+                      'Codex-optimized flagship for deep and fast reasoning',
+                    ),
+                    modelTile(
+                      'gpt-5.1-codex-mini',
+                      'gpt-5.1-codex-mini',
+                      'Optimized for codex. Cheaper, faster, less capable',
+                    ),
+                    modelTile(
+                      'gpt-5.2',
+                      'gpt-5.2',
+                      'Latest frontier model with improvements across knowledge, reasoning and coding',
+                    ),
                   ],
                 );
               },
@@ -6354,6 +6337,12 @@ Describe project-specific guidance for Codex here.
         onCCPermissionModeTap: widget.isClaudeCode
             ? () => _showClaudeCodePermissionModeSelector(context)
             : null,
+        // Codex specific
+        isCodex: widget.isCodex,
+        codexModel: widget.isCodex
+            ? ref.watch(chatSessionProvider.select((s) => s.cxModel))
+            : null,
+        onCodexModelTap: widget.isCodex ? () => _showCodexModelSheet() : null,
         customAccentColor: customAccent,
       );
     } else {
@@ -7680,7 +7669,6 @@ class _FloatingHeader extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final theme = OpenCodeTheme.of(context);
-    final kCard = theme.backgroundPanel;
     final kMuted = theme.textMuted;
     final kOnBackground = theme.text;
 
@@ -7820,307 +7808,49 @@ class _FloatingHeader extends StatelessWidget {
             const SizedBox(width: 8),
 
             // Menu button (contains all secondary options)
-            // For Claude Code: simplified menu
-            if (isClaudeCode)
+            // For Claude Code: bottom sheet menu
+            if (isClaudeCode && onMenu != null)
               _GlassPill(
                 compact: true,
                 constraints: const BoxConstraints(maxWidth: 32, maxHeight: 32),
-                child: PopupMenuButton<String>(
-                  onSelected: (v) => onMenu?.call(v),
-                  icon: Icon(
+                child: GestureDetector(
+                  onTap: () => _showClaudeCodeActionsSheet(
+                    context,
+                    theme: theme,
+                    isConnected: isConnected,
+                    rttMs: rttMs,
+                    ccModel: ccModel,
+                    onMenu: onMenu!,
+                  ),
+                  child: Icon(
                     Icons.more_horiz_rounded,
                     color: kOnBackground,
                     size: 18,
                   ),
-                  splashRadius: 16,
-                  padding: EdgeInsets.zero,
-                  color: kCard,
-                  constraints: const BoxConstraints(
-                    minWidth: 180,
-                    maxWidth: 220,
-                  ),
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(12),
-                  ),
-                  itemBuilder: (context) => [
-                    // CC Model picker
-                    PopupMenuItem(
-                      value: 'cc_model',
-                      height: 32,
-                      padding: const EdgeInsets.symmetric(horizontal: 12),
-                      child: Row(
-                        children: [
-                          Icon(
-                            Icons.auto_awesome_rounded,
-                            size: 13,
-                            color: theme.accent,
-                          ),
-                          const SizedBox(width: 8),
-                          Expanded(
-                            child: Text(
-                              'Model: ${ccModel ?? 'Claude'}',
-                              style: TextStyle(
-                                fontSize: 12,
-                                color: theme.accent,
-                                fontWeight: FontWeight.w500,
-                              ),
-                              overflow: TextOverflow.ellipsis,
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                    const PopupMenuDivider(),
-                    const PopupMenuItem(
-                      value: 'cc_tools',
-                      height: 36,
-                      child: Row(
-                        children: [
-                          Icon(Icons.tune_rounded, size: 16),
-                          SizedBox(width: 10),
-                          Text('Tools & permissions'),
-                        ],
-                      ),
-                    ),
-                    const PopupMenuItem(
-                      value: 'cc_commands',
-                      height: 36,
-                      child: Row(
-                        children: [
-                          Icon(Icons.bolt_rounded, size: 16),
-                          SizedBox(width: 10),
-                          Text('Commands'),
-                        ],
-                      ),
-                    ),
-                    const PopupMenuItem(
-                      value: 'cc_skills',
-                      height: 36,
-                      child: Row(
-                        children: [
-                          Icon(Icons.auto_awesome_rounded, size: 16),
-                          SizedBox(width: 10),
-                          Text('Skills'),
-                        ],
-                      ),
-                    ),
-                    const PopupMenuItem(
-                      value: 'cc_hooks',
-                      height: 36,
-                      child: Row(
-                        children: [
-                          Icon(Icons.link_rounded, size: 16),
-                          SizedBox(width: 10),
-                          Text('Hooks'),
-                        ],
-                      ),
-                    ),
-                    const PopupMenuItem(
-                      value: 'cc_mcp',
-                      height: 36,
-                      child: Row(
-                        children: [
-                          Icon(Icons.hub_rounded, size: 16),
-                          SizedBox(width: 10),
-                          Text('MCP servers'),
-                        ],
-                      ),
-                    ),
-                    const PopupMenuDivider(),
-                    const PopupMenuItem(
-                      value: 'cc_fork',
-                      height: 36,
-                      child: Row(
-                        children: [
-                          Icon(Icons.call_split_rounded, size: 16),
-                          SizedBox(width: 10),
-                          Text('Fork session'),
-                        ],
-                      ),
-                    ),
-                    if (isConnected && rttMs != null)
-                      PopupMenuItem(
-                        enabled: false,
-                        height: 28,
-                        padding: const EdgeInsets.symmetric(horizontal: 12),
-                        child: Row(
-                          children: [
-                            Icon(
-                              Icons.speed_rounded,
-                              size: 13,
-                              color: theme.info,
-                            ),
-                            const SizedBox(width: 8),
-                            Text(
-                              '${rttMs}ms',
-                              style: TextStyle(fontSize: 12, color: kMuted),
-                            ),
-                          ],
-                        ),
-                      ),
-                  ],
                 ),
               )
-            else if (isCodex)
+            // For Codex: bottom sheet menu
+            else if (isCodex && onMenu != null)
               _GlassPill(
                 compact: true,
                 constraints: const BoxConstraints(maxWidth: 32, maxHeight: 32),
-                child: PopupMenuButton<String>(
-                  onSelected: (v) => onMenu?.call(v),
-                  icon: Icon(
+                child: GestureDetector(
+                  onTap: () => _showCodexActionsSheet(
+                    context,
+                    theme: theme,
+                    isConnected: isConnected,
+                    rttMs: rttMs,
+                    codexModel: codexModel,
+                    onMenu: onMenu!,
+                  ),
+                  child: Icon(
                     Icons.more_horiz_rounded,
                     color: kOnBackground,
                     size: 18,
                   ),
-                  splashRadius: 16,
-                  padding: EdgeInsets.zero,
-                  color: kCard,
-                  constraints: const BoxConstraints(
-                    minWidth: 180,
-                    maxWidth: 240,
-                  ),
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(12),
-                  ),
-                  itemBuilder: (context) => [
-                    PopupMenuItem(
-                      value: 'cx_model',
-                      height: 32,
-                      padding: const EdgeInsets.symmetric(horizontal: 12),
-                      child: Row(
-                        children: [
-                          Icon(
-                            Icons.auto_awesome_rounded,
-                            size: 13,
-                            color: theme.primary,
-                          ),
-                          const SizedBox(width: 8),
-                          Expanded(
-                            child: Text(
-                              'Model: ${codexModel ?? 'default'}',
-                              style: TextStyle(
-                                fontSize: 12,
-                                color: theme.primary,
-                                fontWeight: FontWeight.w500,
-                              ),
-                              overflow: TextOverflow.ellipsis,
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                    const PopupMenuDivider(),
-                    const PopupMenuItem(
-                      value: 'cx_settings',
-                      height: 36,
-                      child: Row(
-                        children: [
-                          Icon(Icons.tune_rounded, size: 16),
-                          SizedBox(width: 10),
-                          Text('Settings'),
-                        ],
-                      ),
-                    ),
-                    const PopupMenuItem(
-                      value: 'cx_skills',
-                      height: 36,
-                      child: Row(
-                        children: [
-                          Icon(Icons.auto_awesome_rounded, size: 16),
-                          SizedBox(width: 10),
-                          Text('Skills'),
-                        ],
-                      ),
-                    ),
-                    const PopupMenuItem(
-                      value: 'cx_mcp',
-                      height: 36,
-                      child: Row(
-                        children: [
-                          Icon(Icons.hub_rounded, size: 16),
-                          SizedBox(width: 10),
-                          Text('MCP servers'),
-                        ],
-                      ),
-                    ),
-                    const PopupMenuItem(
-                      value: 'cx_auth',
-                      height: 36,
-                      child: Row(
-                        children: [
-                          Icon(Icons.verified_user_rounded, size: 16),
-                          SizedBox(width: 10),
-                          Text('Auth'),
-                        ],
-                      ),
-                    ),
-                    const PopupMenuItem(
-                      value: 'cx_agents',
-                      height: 36,
-                      child: Row(
-                        children: [
-                          Icon(Icons.description_outlined, size: 16),
-                          SizedBox(width: 10),
-                          Text('AGENTS.md'),
-                        ],
-                      ),
-                    ),
-                    const PopupMenuItem(
-                      value: 'cx_review',
-                      height: 36,
-                      child: Row(
-                        children: [
-                          Icon(Icons.rate_review_rounded, size: 16),
-                          SizedBox(width: 10),
-                          Text('Review'),
-                        ],
-                      ),
-                    ),
-                    const PopupMenuItem(
-                      value: 'cx_config',
-                      height: 36,
-                      child: Row(
-                        children: [
-                          Icon(Icons.toc_rounded, size: 16),
-                          SizedBox(width: 10),
-                          Text('Config'),
-                        ],
-                      ),
-                    ),
-                    const PopupMenuItem(
-                      value: 'cx_feedback',
-                      height: 36,
-                      child: Row(
-                        children: [
-                          Icon(Icons.feedback_outlined, size: 16),
-                          SizedBox(width: 10),
-                          Text('Feedback'),
-                        ],
-                      ),
-                    ),
-                    if (isConnected && rttMs != null)
-                      PopupMenuItem(
-                        enabled: false,
-                        height: 28,
-                        padding: const EdgeInsets.symmetric(horizontal: 12),
-                        child: Row(
-                          children: [
-                            Icon(
-                              Icons.speed_rounded,
-                              size: 13,
-                              color: theme.info,
-                            ),
-                            const SizedBox(width: 8),
-                            Text(
-                              '${rttMs}ms',
-                              style: TextStyle(fontSize: 12, color: kMuted),
-                            ),
-                          ],
-                        ),
-                      ),
-                  ],
                 ),
               )
+            // For OpenCode: bottom sheet menu
             else if (onMenu != null)
               _GlassPill(
                 compact: true,
@@ -8217,18 +7947,6 @@ class _FloatingHeader extends StatelessWidget {
     );
   }
 
-  String _getModelName(SelectedModel? model) {
-    if (model == null) return 'Auto';
-    final parts = model.modelID.split('-');
-    if (parts.contains('opus')) return 'Opus';
-    if (parts.contains('sonnet')) return 'Sonnet';
-    if (parts.contains('haiku')) return 'Haiku';
-    if (parts.contains('gpt')) return 'GPT';
-    return model.modelID.length > 8
-        ? model.modelID.substring(0, 8)
-        : model.modelID;
-  }
-
   void _showSessionActionsSheet(
     BuildContext context, {
     required OpenCodeTheme theme,
@@ -8256,6 +7974,56 @@ class _FloatingHeader extends StatelessWidget {
         isSessionShared: isSessionShared,
         isCompacting: isCompacting,
         onOpenSidebar: onOpenSidebar,
+        onAction: (action) {
+          Navigator.pop(ctx);
+          onMenu(action);
+        },
+      ),
+    );
+  }
+
+  void _showClaudeCodeActionsSheet(
+    BuildContext context, {
+    required OpenCodeTheme theme,
+    required bool isConnected,
+    required int? rttMs,
+    required String? ccModel,
+    required void Function(String) onMenu,
+  }) {
+    showModalBottomSheet(
+      context: context,
+      backgroundColor: Colors.transparent,
+      isScrollControlled: true,
+      builder: (ctx) => _ClaudeCodeActionsSheet(
+        theme: theme,
+        isConnected: isConnected,
+        rttMs: rttMs,
+        ccModel: ccModel,
+        onAction: (action) {
+          Navigator.pop(ctx);
+          onMenu(action);
+        },
+      ),
+    );
+  }
+
+  void _showCodexActionsSheet(
+    BuildContext context, {
+    required OpenCodeTheme theme,
+    required bool isConnected,
+    required int? rttMs,
+    required String? codexModel,
+    required void Function(String) onMenu,
+  }) {
+    showModalBottomSheet(
+      context: context,
+      backgroundColor: Colors.transparent,
+      isScrollControlled: true,
+      builder: (ctx) => _CodexActionsSheet(
+        theme: theme,
+        isConnected: isConnected,
+        rttMs: rttMs,
+        codexModel: codexModel,
         onAction: (action) {
           Navigator.pop(ctx);
           onMenu(action);
@@ -8693,6 +8461,500 @@ class _ActionRow extends StatelessWidget {
               ),
             ),
             Icon(Icons.chevron_right_rounded, size: 20, color: theme.textMuted),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+/// Claude Code actions bottom sheet
+class _ClaudeCodeActionsSheet extends StatelessWidget {
+  const _ClaudeCodeActionsSheet({
+    required this.theme,
+    required this.isConnected,
+    required this.rttMs,
+    required this.ccModel,
+    required this.onAction,
+  });
+
+  final OpenCodeTheme theme;
+  final bool isConnected;
+  final int? rttMs;
+  final String? ccModel;
+  final void Function(String) onAction;
+
+  String _getModelName(String? model) {
+    if (model == null || model.isEmpty) return 'Claude';
+    final m = model.toLowerCase();
+    if (m.contains('opus')) return 'Opus';
+    if (m.contains('sonnet')) return 'Sonnet';
+    if (m.contains('haiku')) return 'Haiku';
+    return model.length > 12 ? '${model.substring(0, 12)}...' : model;
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      decoration: BoxDecoration(
+        color: theme.background,
+        borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
+      ),
+      child: SafeArea(
+        top: false,
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            // Handle bar
+            Padding(
+              padding: const EdgeInsets.only(top: 12, bottom: 8),
+              child: Container(
+                width: 36,
+                height: 4,
+                decoration: BoxDecoration(
+                  color: theme.borderSubtle,
+                  borderRadius: BorderRadius.circular(2),
+                ),
+              ),
+            ),
+
+            // Status bar (latency, model)
+            Padding(
+              padding: const EdgeInsets.fromLTRB(20, 8, 20, 16),
+              child: Row(
+                children: [
+                  // Latency
+                  if (isConnected && rttMs != null) ...[
+                    Container(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 10,
+                        vertical: 6,
+                      ),
+                      decoration: BoxDecoration(
+                        color: theme.info.withValues(alpha: 0.1),
+                        borderRadius: BorderRadius.circular(8),
+                      ),
+                      child: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Icon(
+                            Icons.speed_rounded,
+                            size: 14,
+                            color: theme.info,
+                          ),
+                          const SizedBox(width: 6),
+                          Text(
+                            '${rttMs}ms',
+                            style: TextStyle(
+                              fontSize: 12,
+                              color: theme.info,
+                              fontWeight: FontWeight.w500,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ],
+
+                  const Spacer(),
+
+                  // Model selector (onAction handles Navigator.pop)
+                  GestureDetector(
+                    onTap: () => onAction('cc_model'),
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 12,
+                        vertical: 6,
+                      ),
+                      decoration: BoxDecoration(
+                        color: theme.accent.withValues(alpha: 0.1),
+                        borderRadius: BorderRadius.circular(8),
+                      ),
+                      child: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Icon(
+                            Icons.auto_awesome_rounded,
+                            size: 14,
+                            color: theme.accent,
+                          ),
+                          const SizedBox(width: 6),
+                          Text(
+                            _getModelName(ccModel),
+                            style: TextStyle(
+                              fontSize: 12,
+                              color: theme.accent,
+                              fontWeight: FontWeight.w600,
+                            ),
+                          ),
+                          const SizedBox(width: 4),
+                          Icon(
+                            Icons.chevron_right_rounded,
+                            size: 16,
+                            color: theme.accent,
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+
+            // Divider
+            Divider(color: theme.borderSubtle, height: 1),
+
+            // Actions
+            Padding(
+              padding: const EdgeInsets.all(20),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  // Configuration section
+                  Text(
+                    'CONFIGURATION',
+                    style: TextStyle(
+                      fontSize: 11,
+                      fontWeight: FontWeight.w600,
+                      color: theme.textMuted,
+                      letterSpacing: 0.5,
+                    ),
+                  ),
+                  const SizedBox(height: 12),
+                  Row(
+                    children: [
+                      _ActionTile(
+                        icon: Icons.tune_rounded,
+                        label: 'Tools',
+                        theme: theme,
+                        onTap: () => onAction('cc_tools'),
+                      ),
+                      const SizedBox(width: 10),
+                      _ActionTile(
+                        icon: Icons.bolt_rounded,
+                        label: 'Commands',
+                        theme: theme,
+                        onTap: () => onAction('cc_commands'),
+                      ),
+                      const SizedBox(width: 10),
+                      _ActionTile(
+                        icon: Icons.auto_awesome_rounded,
+                        label: 'Skills',
+                        theme: theme,
+                        onTap: () => onAction('cc_skills'),
+                      ),
+                      const SizedBox(width: 10),
+                      _ActionTile(
+                        icon: Icons.link_rounded,
+                        label: 'Hooks',
+                        theme: theme,
+                        onTap: () => onAction('cc_hooks'),
+                      ),
+                    ],
+                  ),
+
+                  const SizedBox(height: 20),
+
+                  // Integration section
+                  Text(
+                    'INTEGRATION',
+                    style: TextStyle(
+                      fontSize: 11,
+                      fontWeight: FontWeight.w600,
+                      color: theme.textMuted,
+                      letterSpacing: 0.5,
+                    ),
+                  ),
+                  const SizedBox(height: 12),
+                  _ActionRow(
+                    icon: Icons.hub_rounded,
+                    label: 'MCP Servers',
+                    subtitle: 'Configure Model Context Protocol servers',
+                    theme: theme,
+                    onTap: () => onAction('cc_mcp'),
+                  ),
+
+                  const SizedBox(height: 20),
+
+                  // Session section
+                  Text(
+                    'SESSION',
+                    style: TextStyle(
+                      fontSize: 11,
+                      fontWeight: FontWeight.w600,
+                      color: theme.textMuted,
+                      letterSpacing: 0.5,
+                    ),
+                  ),
+                  const SizedBox(height: 12),
+                  _ActionRow(
+                    icon: Icons.call_split_rounded,
+                    label: 'Fork Session',
+                    subtitle: 'Create a new branch from current conversation',
+                    theme: theme,
+                    onTap: () => onAction('cc_fork'),
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+/// Codex actions bottom sheet
+class _CodexActionsSheet extends StatelessWidget {
+  const _CodexActionsSheet({
+    required this.theme,
+    required this.isConnected,
+    required this.rttMs,
+    required this.codexModel,
+    required this.onAction,
+  });
+
+  final OpenCodeTheme theme;
+  final bool isConnected;
+  final int? rttMs;
+  final String? codexModel;
+  final void Function(String) onAction;
+
+  String _getModelName(String? model) {
+    if (model == null || model.isEmpty) return 'Default';
+    final m = model.toLowerCase();
+    if (m.contains('o1')) return 'o1';
+    if (m.contains('o3')) return 'o3';
+    if (m.contains('gpt-4')) return 'GPT-4';
+    return model.length > 12 ? '${model.substring(0, 12)}...' : model;
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      decoration: BoxDecoration(
+        color: theme.background,
+        borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
+      ),
+      child: SafeArea(
+        top: false,
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            // Handle bar
+            Padding(
+              padding: const EdgeInsets.only(top: 12, bottom: 8),
+              child: Container(
+                width: 36,
+                height: 4,
+                decoration: BoxDecoration(
+                  color: theme.borderSubtle,
+                  borderRadius: BorderRadius.circular(2),
+                ),
+              ),
+            ),
+
+            // Status bar (latency, model)
+            Padding(
+              padding: const EdgeInsets.fromLTRB(20, 8, 20, 16),
+              child: Row(
+                children: [
+                  // Latency
+                  if (isConnected && rttMs != null) ...[
+                    Container(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 10,
+                        vertical: 6,
+                      ),
+                      decoration: BoxDecoration(
+                        color: theme.info.withValues(alpha: 0.1),
+                        borderRadius: BorderRadius.circular(8),
+                      ),
+                      child: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Icon(
+                            Icons.speed_rounded,
+                            size: 14,
+                            color: theme.info,
+                          ),
+                          const SizedBox(width: 6),
+                          Text(
+                            '${rttMs}ms',
+                            style: TextStyle(
+                              fontSize: 12,
+                              color: theme.info,
+                              fontWeight: FontWeight.w500,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ],
+
+                  const Spacer(),
+
+                  // Model selector (onAction handles Navigator.pop)
+                  GestureDetector(
+                    onTap: () => onAction('cx_model'),
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 12,
+                        vertical: 6,
+                      ),
+                      decoration: BoxDecoration(
+                        color: theme.primary.withValues(alpha: 0.1),
+                        borderRadius: BorderRadius.circular(8),
+                      ),
+                      child: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Icon(
+                            Icons.auto_awesome_rounded,
+                            size: 14,
+                            color: theme.primary,
+                          ),
+                          const SizedBox(width: 6),
+                          Text(
+                            _getModelName(codexModel),
+                            style: TextStyle(
+                              fontSize: 12,
+                              color: theme.primary,
+                              fontWeight: FontWeight.w600,
+                            ),
+                          ),
+                          const SizedBox(width: 4),
+                          Icon(
+                            Icons.chevron_right_rounded,
+                            size: 16,
+                            color: theme.primary,
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+
+            // Divider
+            Divider(color: theme.borderSubtle, height: 1),
+
+            // Actions
+            Padding(
+              padding: const EdgeInsets.all(20),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  // Configuration section
+                  Text(
+                    'CONFIGURATION',
+                    style: TextStyle(
+                      fontSize: 11,
+                      fontWeight: FontWeight.w600,
+                      color: theme.textMuted,
+                      letterSpacing: 0.5,
+                    ),
+                  ),
+                  const SizedBox(height: 12),
+                  Row(
+                    children: [
+                      _ActionTile(
+                        icon: Icons.tune_rounded,
+                        label: 'Settings',
+                        theme: theme,
+                        onTap: () => onAction('cx_settings'),
+                      ),
+                      const SizedBox(width: 10),
+                      _ActionTile(
+                        icon: Icons.auto_awesome_rounded,
+                        label: 'Skills',
+                        theme: theme,
+                        onTap: () => onAction('cx_skills'),
+                      ),
+                      const SizedBox(width: 10),
+                      _ActionTile(
+                        icon: Icons.hub_rounded,
+                        label: 'MCP',
+                        theme: theme,
+                        onTap: () => onAction('cx_mcp'),
+                      ),
+                      const SizedBox(width: 10),
+                      _ActionTile(
+                        icon: Icons.verified_user_rounded,
+                        label: 'Auth',
+                        theme: theme,
+                        onTap: () => onAction('cx_auth'),
+                      ),
+                    ],
+                  ),
+
+                  const SizedBox(height: 20),
+
+                  // Project section
+                  Text(
+                    'PROJECT',
+                    style: TextStyle(
+                      fontSize: 11,
+                      fontWeight: FontWeight.w600,
+                      color: theme.textMuted,
+                      letterSpacing: 0.5,
+                    ),
+                  ),
+                  const SizedBox(height: 12),
+                  _ActionRow(
+                    icon: Icons.description_outlined,
+                    label: 'AGENTS.md',
+                    subtitle: 'Edit project agent instructions',
+                    theme: theme,
+                    onTap: () => onAction('cx_agents'),
+                  ),
+                  const SizedBox(height: 8),
+                  _ActionRow(
+                    icon: Icons.toc_rounded,
+                    label: 'Config',
+                    subtitle: 'View and edit Codex configuration',
+                    theme: theme,
+                    onTap: () => onAction('cx_config'),
+                  ),
+
+                  const SizedBox(height: 20),
+
+                  // Actions section
+                  Text(
+                    'ACTIONS',
+                    style: TextStyle(
+                      fontSize: 11,
+                      fontWeight: FontWeight.w600,
+                      color: theme.textMuted,
+                      letterSpacing: 0.5,
+                    ),
+                  ),
+                  const SizedBox(height: 12),
+                  Row(
+                    children: [
+                      Expanded(
+                        child: _ActionRow(
+                          icon: Icons.rate_review_rounded,
+                          label: 'Review',
+                          subtitle: 'Review pending changes',
+                          theme: theme,
+                          onTap: () => onAction('cx_review'),
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 8),
+                  _ActionRow(
+                    icon: Icons.feedback_outlined,
+                    label: 'Feedback',
+                    subtitle: 'Send feedback to Codex team',
+                    theme: theme,
+                    onTap: () => onAction('cx_feedback'),
+                  ),
+                ],
+              ),
+            ),
           ],
         ),
       ),
@@ -9346,6 +9608,10 @@ class _CliStyleInputBar extends StatefulWidget {
     this.ccModel,
     this.onCCModelTap,
     this.onCCPermissionModeTap,
+    // Codex specific props
+    this.isCodex = false,
+    this.codexModel,
+    this.onCodexModelTap,
     // Custom accent color (null = use agent/permission mode color)
     this.customAccentColor,
   });
@@ -9373,6 +9639,10 @@ class _CliStyleInputBar extends StatefulWidget {
   final String? ccModel;
   final VoidCallback? onCCModelTap;
   final VoidCallback? onCCPermissionModeTap;
+  // Codex specific props
+  final bool isCodex;
+  final String? codexModel;
+  final VoidCallback? onCodexModelTap;
   // Custom accent color (null = use agent/permission mode color)
   final Color? customAccentColor;
 
@@ -9450,6 +9720,14 @@ class _CliStyleInputBarState extends State<_CliStyleInputBar> {
     // Return just the model part if it's a full model ID
     final parts = model.split('/');
     return parts.last;
+  }
+
+  /// Get Codex model display name from model string
+  String _getCodexModelDisplayName(String? model) {
+    if (model == null || model.isEmpty) return 'gpt-5.2-codex';
+    // Keep it short for display
+    if (model.length > 16) return '${model.substring(0, 14)}...';
+    return model;
   }
 
   /// Get color for permission mode
@@ -9683,9 +9961,9 @@ class _CliStyleInputBarState extends State<_CliStyleInputBar> {
                                       ),
                                     ),
 
-                                    // For Claude Code: CC model selector (tappable)
-                                    // For OpenCode: OC model selector (tappable)
+                                    // Model selector (tappable) - different per backend
                                     if (widget.isClaudeCode) ...[
+                                      // Claude Code model selector
                                       GestureDetector(
                                         onTap: widget.onCCModelTap,
                                         child: Text(
@@ -9699,7 +9977,23 @@ class _CliStyleInputBarState extends State<_CliStyleInputBar> {
                                           ),
                                         ),
                                       ),
+                                    ] else if (widget.isCodex) ...[
+                                      // Codex model selector
+                                      GestureDetector(
+                                        onTap: widget.onCodexModelTap,
+                                        child: Text(
+                                          _getCodexModelDisplayName(
+                                            widget.codexModel,
+                                          ),
+                                          style: TextStyle(
+                                            color: theme.text,
+                                            fontSize: 13,
+                                            fontWeight: FontWeight.w500,
+                                          ),
+                                        ),
+                                      ),
                                     ] else ...[
+                                      // OpenCode model selector
                                       GestureDetector(
                                         onTap: widget.onModelTap,
                                         child: Text(
