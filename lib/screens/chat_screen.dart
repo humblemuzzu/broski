@@ -9496,7 +9496,7 @@ class _CliStyleInputBarState extends State<_CliStyleInputBar> {
           color: Colors.transparent,
           child: SafeArea(
             top: false,
-            minimum: const EdgeInsets.only(bottom: 3),
+            bottom: false, // Let the bar touch the screen bottom
             child: Column(
               mainAxisSize: MainAxisSize.min,
               children: [
@@ -9517,18 +9517,27 @@ class _CliStyleInputBarState extends State<_CliStyleInputBar> {
                 // Main CLI input container
                 Container(
                   key: const ValueKey('cli-input-container'),
-                  margin: const EdgeInsets.only(left: 8, right: 0),
-                  // Light greyish background like OpenCode CLI - rgb(40,40,40)
-                  decoration: const BoxDecoration(color: Color(0xFF282828)),
+                  margin: EdgeInsets.zero, // Touch screen edges
+                  // Use theme background for proper theming
+                  decoration: BoxDecoration(
+                    color: theme.backgroundElement,
+                    borderRadius: const BorderRadius.only(
+                      topLeft: Radius.circular(20),
+                      topRight: Radius.circular(20),
+                    ),
+                  ),
                   child: IntrinsicHeight(
                     child: Row(
                       crossAxisAlignment: CrossAxisAlignment.stretch,
                       children: [
-                        // Glowing accent line on the left - fills full height
+                        // Glowing accent line on the left - fills full height with rounded top
                         Container(
-                          width: 3,
+                          width: 4,
                           decoration: BoxDecoration(
                             color: agentColor,
+                            borderRadius: const BorderRadius.only(
+                              topLeft: Radius.circular(20),
+                            ),
                             boxShadow: [
                               BoxShadow(
                                 color: agentColor.withValues(alpha: 0.6),
@@ -9615,11 +9624,11 @@ class _CliStyleInputBarState extends State<_CliStyleInputBar> {
 
                               // Bottom info row - like OpenCode CLI
                               Padding(
-                                padding: const EdgeInsets.fromLTRB(
+                                padding: EdgeInsets.fromLTRB(
                                   16,
                                   0,
                                   12,
-                                  10,
+                                  MediaQuery.of(context).padding.bottom + 12,
                                 ),
                                 child: Row(
                                   children: [
