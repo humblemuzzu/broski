@@ -19,6 +19,16 @@ import 'terminal_screen.dart';
 import 'tools_screen.dart';
 import 'custom_tools_screen.dart';
 import 'plugins_screen.dart';
+import 'skills_screen.dart';
+import 'hooks_screen.dart';
+import 'opencode_plugins_screen.dart';
+import 'claude_code_mcp_screen.dart';
+import 'codex_mcp_screen.dart';
+import 'claude_code_commands_screen.dart';
+import 'opencode_agents_screen.dart';
+import 'opencode_commands_screen.dart';
+import 'permission_rules_screen.dart';
+import 'codex_agents_screen.dart';
 // TODO(artifacts): Re-enable when feature is ready
 // import 'artifacts_screen.dart';
 
@@ -257,6 +267,56 @@ class SettingsScreen extends ConsumerWidget {
                         ),
                         _Divider(),
                         _SettingsTile(
+                          title: 'Skills',
+                          subtitle: 'SKILL.md management',
+                          icon: Icons.auto_fix_high_rounded,
+                          onTap: () => Navigator.push(
+                            context,
+                            MaterialPageRoute(
+                              builder: (_) => const SkillsScreen(
+                                backend: AgentType.opencode,
+                              ),
+                            ),
+                          ),
+                        ),
+                        _Divider(),
+                        _SettingsTile(
+                          title: 'Commands',
+                          subtitle: '.opencode/command/*.md',
+                          icon: Icons.code_rounded,
+                          onTap: () => Navigator.push(
+                            context,
+                            MaterialPageRoute(
+                              builder: (_) => const OpenCodeCommandsScreen(),
+                            ),
+                          ),
+                        ),
+                        _Divider(),
+                        _SettingsTile(
+                          title: 'Agents',
+                          subtitle: '.opencode/agent/*.md',
+                          icon: Icons.smart_toy_outlined,
+                          onTap: () => Navigator.push(
+                            context,
+                            MaterialPageRoute(
+                              builder: (_) => const OpenCodeAgentsScreen(),
+                            ),
+                          ),
+                        ),
+                        _Divider(),
+                        _SettingsTile(
+                          title: 'Plugins',
+                          subtitle: '.opencode/plugin hooks',
+                          icon: Icons.extension_rounded,
+                          onTap: () => Navigator.push(
+                            context,
+                            MaterialPageRoute(
+                              builder: (_) => const OpenCodePluginsScreen(),
+                            ),
+                          ),
+                        ),
+                        _Divider(),
+                        _SettingsTile(
                           title: 'MCP Servers',
                           subtitle: 'Model Context Protocol',
                           icon: Icons.dns_rounded,
@@ -279,6 +339,18 @@ class SettingsScreen extends ConsumerWidget {
                             ),
                           ),
                         ),
+                        _Divider(),
+                        _SettingsTile(
+                          title: 'Permission Rules',
+                          subtitle: 'Default session permissions',
+                          icon: Icons.security_rounded,
+                          onTap: () => Navigator.push(
+                            context,
+                            MaterialPageRoute(
+                              builder: (_) => const PermissionRulesScreen(),
+                            ),
+                          ),
+                        ),
                       ],
                     ),
                   ),
@@ -296,6 +368,56 @@ class SettingsScreen extends ConsumerWidget {
                   child: _SettingsCard(
                     child: Column(
                       children: [
+                        _SettingsTile(
+                          title: 'Skills',
+                          subtitle: 'SKILL.md management',
+                          icon: Icons.auto_fix_high_rounded,
+                          onTap: () => Navigator.push(
+                            context,
+                            MaterialPageRoute(
+                              builder: (_) => const SkillsScreen(
+                                backend: AgentType.claudeCode,
+                              ),
+                            ),
+                          ),
+                        ),
+                        _Divider(),
+                        _SettingsTile(
+                          title: 'Commands',
+                          subtitle: '.claude/commands/*.md',
+                          icon: Icons.code_rounded,
+                          onTap: () => Navigator.push(
+                            context,
+                            MaterialPageRoute(
+                              builder: (_) => const ClaudeCodeCommandsScreen(),
+                            ),
+                          ),
+                        ),
+                        _Divider(),
+                        _SettingsTile(
+                          title: 'Hooks',
+                          subtitle: 'hooks.json management',
+                          icon: Icons.bolt_rounded,
+                          onTap: () => Navigator.push(
+                            context,
+                            MaterialPageRoute(
+                              builder: (_) => const HooksScreen(),
+                            ),
+                          ),
+                        ),
+                        _Divider(),
+                        _SettingsTile(
+                          title: 'MCP',
+                          subtitle: '.mcp.json configuration',
+                          icon: Icons.dns_rounded,
+                          onTap: () => Navigator.push(
+                            context,
+                            MaterialPageRoute(
+                              builder: (_) => const ClaudeCodeMcpScreen(),
+                            ),
+                          ),
+                        ),
+                        _Divider(),
                         _SettingsTile(
                           title: 'Subagents',
                           subtitle: 'Custom subagent definitions',
@@ -328,6 +450,59 @@ class SettingsScreen extends ConsumerWidget {
                             context,
                             MaterialPageRoute(
                               builder: (_) => const PluginsScreen(),
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+              ),
+              const SliverToBoxAdapter(child: SizedBox(height: 28)),
+            ],
+
+            // CODEX Section (only when Codex is selected)
+            if (currentAgent == AgentType.codex) ...[
+              SliverToBoxAdapter(child: _SectionHeader(title: 'Codex')),
+              SliverToBoxAdapter(
+                child: Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 20),
+                  child: _SettingsCard(
+                    child: Column(
+                      children: [
+                        _SettingsTile(
+                          title: 'Skills',
+                          subtitle: 'SKILL.md management',
+                          icon: Icons.auto_fix_high_rounded,
+                          onTap: () => Navigator.push(
+                            context,
+                            MaterialPageRoute(
+                              builder: (_) =>
+                                  const SkillsScreen(backend: AgentType.codex),
+                            ),
+                          ),
+                        ),
+                        _Divider(),
+                        _SettingsTile(
+                          title: 'Agents',
+                          subtitle: 'AGENTS.md',
+                          icon: Icons.smart_toy_outlined,
+                          onTap: () => Navigator.push(
+                            context,
+                            MaterialPageRoute(
+                              builder: (_) => const CodexAgentsScreen(),
+                            ),
+                          ),
+                        ),
+                        _Divider(),
+                        _SettingsTile(
+                          title: 'MCP',
+                          subtitle: 'Servers and config',
+                          icon: Icons.dns_rounded,
+                          onTap: () => Navigator.push(
+                            context,
+                            MaterialPageRoute(
+                              builder: (_) => const CodexMcpScreen(),
                             ),
                           ),
                         ),

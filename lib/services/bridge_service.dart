@@ -14,7 +14,10 @@ import '../models/file_attachment.dart';
 import '../models/file_binary_content.dart';
 import '../models/file_content.dart';
 import '../models/mcp.dart';
+import '../models/opencode_plugin_file.dart';
+import '../models/opencode_markdown_file.dart';
 import '../models/permission_rule.dart';
+import '../models/skill.dart';
 import '../models/project.dart';
 import '../models/provider.dart';
 import '../models/search_result.dart';
@@ -261,16 +264,40 @@ class BridgeService {
     return response['data'] as Map<String, dynamic>? ?? const {};
   }
 
-  Future<Map<String, dynamic>> getConfig() async {
+  Future<Map<String, dynamic>> getConfig({String? projectPath}) async {
     final requestId = _generateRequestId();
-    _socket.send({'type': 'get_config', 'requestId': requestId});
+    _socket.send({
+      'type': 'get_config',
+      'requestId': requestId,
+      if (projectPath != null) 'projectPath': projectPath,
+    });
     final response = await _waitFor('config', requestId: requestId);
     return response['data'] as Map<String, dynamic>? ?? const {};
   }
 
-  Future<Map<String, dynamic>> setModel(String model) async {
+  Future<Map<String, dynamic>> setConfig(
+    Map<String, dynamic> config, {
+    String? projectPath,
+  }) async {
     final requestId = _generateRequestId();
-    _socket.send({'type': 'set_model', 'model': model, 'requestId': requestId});
+    _socket.send({
+      'type': 'set_config',
+      'requestId': requestId,
+      'config': config,
+      if (projectPath != null) 'projectPath': projectPath,
+    });
+    final response = await _waitFor('config', requestId: requestId);
+    return response['data'] as Map<String, dynamic>? ?? const {};
+  }
+
+  Future<Map<String, dynamic>> setModel(String model, {String? projectPath}) async {
+    final requestId = _generateRequestId();
+    _socket.send({
+      'type': 'set_model',
+      'model': model,
+      'requestId': requestId,
+      if (projectPath != null) 'projectPath': projectPath,
+    });
     final response = await _waitFor('config', requestId: requestId);
     return response['data'] as Map<String, dynamic>? ?? const {};
   }
@@ -675,6 +702,312 @@ class BridgeService {
     return data
         .map((item) => SlashCommand.fromJson(item as Map<String, dynamic>))
         .toList();
+  }
+
+  // ============================================================
+  // OpenCode - Skills (filesystem-backed)
+  // ============================================================
+
+  Future<List<Skill>> ocListSkills({String? cwd}) async {
+    final requestId = _generateRequestId();
+    _socket.send({
+      'type': 'oc_list_skills',
+      'requestId': requestId,
+      if (cwd != null) 'cwd': cwd,
+    });
+    final response = await _waitFor('oc_skills', requestId: requestId);
+    final data = response['data'] as List<dynamic>? ?? [];
+    return data
+        .whereType<Map<String, dynamic>>()
+        .map(
+          (m) => Skill(
+            backend: AgentType.opencode,
+            name: m['name'] as String? ?? '',
+            description: m['description'] as String?,
+            source: SkillSource.fromWire(m['source'] as String?),
+            path: m['path'] as String? ?? '',
+          ),
+        )
+        .toList();
+  }
+
+  Future<Skill?> ocGetSkill({
+    required String name,
+    required SkillSource source,
+    String? cwd,
+  }) async {
+    final requestId = _generateRequestId();
+    _socket.send({
+      'type': 'oc_get_skill',
+      'requestId': requestId,
+      'name': name,
+      'source': source.wireValue,
+      if (cwd != null) 'cwd': cwd,
+    });
+    final response = await _waitFor('oc_skill', requestId: requestId);
+    final data = response['data'] as Map<String, dynamic>? ?? {};
+    return Skill(
+      backend: AgentType.opencode,
+      name: data['name'] as String? ?? name,
+      description: null,
+      source: SkillSource.fromWire(data['source'] as String?),
+      path: data['path'] as String? ?? '',
+      content: data['content'] as String? ?? '',
+    );
+  }
+
+  Future<bool> ocSaveSkill({
+    required String name,
+    required SkillSource source,
+    required String content,
+    String? cwd,
+  }) async {
+    final requestId = _generateRequestId();
+    _socket.send({
+      'type': 'oc_save_skill',
+      'requestId': requestId,
+      'name': name,
+      'source': source.wireValue,
+      'content': content,
+      if (cwd != null) 'cwd': cwd,
+    });
+    final response = await _waitFor('oc_skill_saved', requestId: requestId);
+    final data = response['data'] as Map<String, dynamic>? ?? {};
+    return data['ok'] == true;
+  }
+
+  Future<bool> ocDeleteSkill({
+    required String name,
+    required SkillSource source,
+    String? cwd,
+  }) async {
+    final requestId = _generateRequestId();
+    _socket.send({
+      'type': 'oc_delete_skill',
+      'requestId': requestId,
+      'name': name,
+      'source': source.wireValue,
+      if (cwd != null) 'cwd': cwd,
+    });
+    final response = await _waitFor('oc_skill_deleted', requestId: requestId);
+    final data = response['data'] as Map<String, dynamic>? ?? {};
+    return data['ok'] == true;
+  }
+
+  Future<List<OpenCodePluginFile>> ocListPluginFiles({String? cwd}) async {
+    final requestId = _generateRequestId();
+    _socket.send({
+      'type': 'oc_list_plugin_files',
+      'requestId': requestId,
+      if (cwd != null) 'cwd': cwd,
+    });
+    final response = await _waitFor('oc_plugin_files', requestId: requestId);
+    final data = response['data'] as List<dynamic>? ?? [];
+    return data
+        .whereType<Map<String, dynamic>>()
+        .map(OpenCodePluginFile.fromJson)
+        .toList();
+  }
+
+  Future<Map<String, dynamic>?> ocGetPluginFile({
+    required String name,
+    required SkillSource source,
+    String? cwd,
+  }) async {
+    final requestId = _generateRequestId();
+    _socket.send({
+      'type': 'oc_get_plugin_file',
+      'requestId': requestId,
+      'name': name,
+      'source': source.wireValue,
+      if (cwd != null) 'cwd': cwd,
+    });
+    final response = await _waitFor('oc_plugin_file', requestId: requestId);
+    return response['data'] as Map<String, dynamic>?;
+  }
+
+  Future<bool> ocSavePluginFile({
+    required String name,
+    required SkillSource source,
+    required String content,
+    String? cwd,
+  }) async {
+    final requestId = _generateRequestId();
+    _socket.send({
+      'type': 'oc_save_plugin_file',
+      'requestId': requestId,
+      'name': name,
+      'source': source.wireValue,
+      'content': content,
+      if (cwd != null) 'cwd': cwd,
+    });
+    final response = await _waitFor('oc_plugin_file_saved', requestId: requestId);
+    final data = response['data'] as Map<String, dynamic>? ?? {};
+    return data['ok'] == true;
+  }
+
+  Future<bool> ocDeletePluginFile({
+    required String name,
+    required SkillSource source,
+    String? cwd,
+  }) async {
+    final requestId = _generateRequestId();
+    _socket.send({
+      'type': 'oc_delete_plugin_file',
+      'requestId': requestId,
+      'name': name,
+      'source': source.wireValue,
+      if (cwd != null) 'cwd': cwd,
+    });
+    final response = await _waitFor('oc_plugin_file_deleted', requestId: requestId);
+    final data = response['data'] as Map<String, dynamic>? ?? {};
+    return data['ok'] == true;
+  }
+
+  // ============================================================
+  // OpenCode - Custom Commands / Agents (filesystem-backed)
+  // ============================================================
+
+  Future<List<OpenCodeMarkdownFile>> ocListCommandFiles({String? cwd}) async {
+    final requestId = _generateRequestId();
+    _socket.send({
+      'type': 'oc_list_command_files',
+      'requestId': requestId,
+      if (cwd != null) 'cwd': cwd,
+    });
+    final response = await _waitFor('oc_command_files', requestId: requestId);
+    final data = response['data'] as List<dynamic>? ?? [];
+    return data
+        .whereType<Map<String, dynamic>>()
+        .map(OpenCodeMarkdownFile.fromJson)
+        .toList();
+  }
+
+  Future<({String path, String content})> ocGetCommandFile({
+    required String name,
+    required SkillSource source,
+    String? cwd,
+  }) async {
+    final requestId = _generateRequestId();
+    _socket.send({
+      'type': 'oc_get_command_file',
+      'requestId': requestId,
+      'name': name,
+      'source': source.wireValue,
+      if (cwd != null) 'cwd': cwd,
+    });
+    final response = await _waitFor('oc_command_file', requestId: requestId);
+    final data = response['data'] as Map<String, dynamic>? ?? {};
+    return (path: data['path'] as String? ?? '', content: data['content'] as String? ?? '');
+  }
+
+  Future<bool> ocSaveCommandFile({
+    required String name,
+    required SkillSource source,
+    required String content,
+    String? cwd,
+  }) async {
+    final requestId = _generateRequestId();
+    _socket.send({
+      'type': 'oc_save_command_file',
+      'requestId': requestId,
+      'name': name,
+      'source': source.wireValue,
+      'content': content,
+      if (cwd != null) 'cwd': cwd,
+    });
+    final response = await _waitFor('oc_command_file_saved', requestId: requestId);
+    final data = response['data'] as Map<String, dynamic>? ?? {};
+    return data['ok'] == true;
+  }
+
+  Future<bool> ocDeleteCommandFile({
+    required String name,
+    required SkillSource source,
+    String? cwd,
+  }) async {
+    final requestId = _generateRequestId();
+    _socket.send({
+      'type': 'oc_delete_command_file',
+      'requestId': requestId,
+      'name': name,
+      'source': source.wireValue,
+      if (cwd != null) 'cwd': cwd,
+    });
+    final response = await _waitFor('oc_command_file_deleted', requestId: requestId);
+    final data = response['data'] as Map<String, dynamic>? ?? {};
+    return data['ok'] == true;
+  }
+
+  Future<List<OpenCodeMarkdownFile>> ocListAgentFiles({String? cwd}) async {
+    final requestId = _generateRequestId();
+    _socket.send({
+      'type': 'oc_list_agent_files',
+      'requestId': requestId,
+      if (cwd != null) 'cwd': cwd,
+    });
+    final response = await _waitFor('oc_agent_files', requestId: requestId);
+    final data = response['data'] as List<dynamic>? ?? [];
+    return data
+        .whereType<Map<String, dynamic>>()
+        .map(OpenCodeMarkdownFile.fromJson)
+        .toList();
+  }
+
+  Future<({String path, String content})> ocGetAgentFile({
+    required String name,
+    required SkillSource source,
+    String? cwd,
+  }) async {
+    final requestId = _generateRequestId();
+    _socket.send({
+      'type': 'oc_get_agent_file',
+      'requestId': requestId,
+      'name': name,
+      'source': source.wireValue,
+      if (cwd != null) 'cwd': cwd,
+    });
+    final response = await _waitFor('oc_agent_file', requestId: requestId);
+    final data = response['data'] as Map<String, dynamic>? ?? {};
+    return (path: data['path'] as String? ?? '', content: data['content'] as String? ?? '');
+  }
+
+  Future<bool> ocSaveAgentFile({
+    required String name,
+    required SkillSource source,
+    required String content,
+    String? cwd,
+  }) async {
+    final requestId = _generateRequestId();
+    _socket.send({
+      'type': 'oc_save_agent_file',
+      'requestId': requestId,
+      'name': name,
+      'source': source.wireValue,
+      'content': content,
+      if (cwd != null) 'cwd': cwd,
+    });
+    final response = await _waitFor('oc_agent_file_saved', requestId: requestId);
+    final data = response['data'] as Map<String, dynamic>? ?? {};
+    return data['ok'] == true;
+  }
+
+  Future<bool> ocDeleteAgentFile({
+    required String name,
+    required SkillSource source,
+    String? cwd,
+  }) async {
+    final requestId = _generateRequestId();
+    _socket.send({
+      'type': 'oc_delete_agent_file',
+      'requestId': requestId,
+      'name': name,
+      'source': source.wireValue,
+      if (cwd != null) 'cwd': cwd,
+    });
+    final response = await _waitFor('oc_agent_file_deleted', requestId: requestId);
+    final data = response['data'] as Map<String, dynamic>? ?? {};
+    return data['ok'] == true;
   }
 
   /// Execute a slash command (protected against duplicate executions)
@@ -2315,6 +2648,97 @@ class BridgeService {
     return data.whereType<Map<String, dynamic>>().toList();
   }
 
+  String _codexScopeFromSkillSource(SkillSource source) {
+    switch (source) {
+      case SkillSource.project:
+        return 'Repo';
+      case SkillSource.user:
+        return 'User';
+      case SkillSource.admin:
+        return 'Admin';
+      case SkillSource.plugin:
+        return 'System';
+      case SkillSource.system:
+        return 'System';
+    }
+  }
+
+  Future<Skill?> cxGetSkill({
+    required String name,
+    required SkillSource source,
+    String? cwd,
+  }) async {
+    final requestId = _generateRequestId();
+    _socket.send({
+      'type': 'cx_get_skill',
+      'requestId': requestId,
+      'name': name,
+      'scope': _codexScopeFromSkillSource(source),
+      if (cwd != null) 'cwd': cwd,
+    });
+    final response = await _waitFor(
+      'cx_skill',
+      requestId: requestId,
+      timeoutSeconds: _codexTimeoutSeconds,
+    );
+    final data = response['data'] as Map<String, dynamic>? ?? {};
+    return Skill(
+      backend: AgentType.codex,
+      name: data['name'] as String? ?? name,
+      description: null,
+      source: source,
+      path: data['path'] as String? ?? '',
+      content: data['content'] as String? ?? '',
+      extra: {'scope': data['scope']},
+    );
+  }
+
+  Future<bool> cxSaveSkill({
+    required String name,
+    required SkillSource source,
+    required String content,
+    String? cwd,
+  }) async {
+    final requestId = _generateRequestId();
+    _socket.send({
+      'type': 'cx_save_skill',
+      'requestId': requestId,
+      'name': name,
+      'scope': _codexScopeFromSkillSource(source),
+      'content': content,
+      if (cwd != null) 'cwd': cwd,
+    });
+    final response = await _waitFor(
+      'cx_skill_saved',
+      requestId: requestId,
+      timeoutSeconds: _codexTimeoutSeconds,
+    );
+    final data = response['data'] as Map<String, dynamic>? ?? {};
+    return data['ok'] == true;
+  }
+
+  Future<bool> cxDeleteSkill({
+    required String name,
+    required SkillSource source,
+    String? cwd,
+  }) async {
+    final requestId = _generateRequestId();
+    _socket.send({
+      'type': 'cx_delete_skill',
+      'requestId': requestId,
+      'name': name,
+      'scope': _codexScopeFromSkillSource(source),
+      if (cwd != null) 'cwd': cwd,
+    });
+    final response = await _waitFor(
+      'cx_skill_deleted',
+      requestId: requestId,
+      timeoutSeconds: _codexTimeoutSeconds,
+    );
+    final data = response['data'] as Map<String, dynamic>? ?? {};
+    return data['ok'] == true;
+  }
+
   Future<Map<String, dynamic>> cxReadConfig() async {
     final requestId = _generateRequestId();
     _socket.send({'type': 'cx_config_read', 'requestId': requestId});
@@ -2499,6 +2923,187 @@ class BridgeService {
         .toList();
   }
 
+  Future<Skill?> ccGetSkill({
+    required ClaudeCodeSkill skill,
+    String? cwd,
+  }) async {
+    final requestId = _generateRequestId();
+    _socket.send({
+      'type': 'cc_get_skill',
+      'requestId': requestId,
+      'name': skill.name,
+      'source': skill.source ?? 'project',
+      if (cwd != null) 'cwd': cwd,
+      if (skill.path != null) 'path': skill.path,
+    });
+    final response = await _waitFor('cc_skill', requestId: requestId);
+    final data = response['data'] as Map<String, dynamic>? ?? {};
+    return Skill(
+      backend: AgentType.claudeCode,
+      name: data['name'] as String? ?? skill.name,
+      description: skill.description,
+      source: SkillSource.fromWire(data['source'] as String?),
+      path: data['path'] as String? ?? (skill.path ?? ''),
+      content: data['content'] as String? ?? '',
+      extra: {
+        'autoInvoke': skill.autoInvoke,
+        if (skill.tags != null) 'tags': skill.tags,
+      },
+    );
+  }
+
+  Future<bool> ccSaveSkill({
+    required String name,
+    required SkillSource source,
+    required String content,
+    String? cwd,
+  }) async {
+    final requestId = _generateRequestId();
+    _socket.send({
+      'type': 'cc_save_skill',
+      'requestId': requestId,
+      'name': name,
+      'source': source.wireValue,
+      'content': content,
+      if (cwd != null) 'cwd': cwd,
+    });
+    final response = await _waitFor('cc_skill_saved', requestId: requestId);
+    final data = response['data'] as Map<String, dynamic>? ?? {};
+    return data['ok'] == true;
+  }
+
+  Future<bool> ccDeleteSkill({
+    required String name,
+    required SkillSource source,
+    String? cwd,
+  }) async {
+    final requestId = _generateRequestId();
+    _socket.send({
+      'type': 'cc_delete_skill',
+      'requestId': requestId,
+      'name': name,
+      'source': source.wireValue,
+      if (cwd != null) 'cwd': cwd,
+    });
+    final response = await _waitFor('cc_skill_deleted', requestId: requestId);
+    final data = response['data'] as Map<String, dynamic>? ?? {};
+    return data['ok'] == true;
+  }
+
+  // ============================================================
+  // Universal Skills API (OpenCode / Claude Code / Codex)
+  // ============================================================
+
+  Future<List<Skill>> listSkills({
+    required AgentType backend,
+    String? cwd,
+    bool forceReload = false,
+  }) async {
+    switch (backend) {
+      case AgentType.opencode:
+        return ocListSkills(cwd: cwd);
+      case AgentType.claudeCode:
+        final skills = await ccListSkills(cwd: cwd);
+        return skills
+            .map(
+              (s) => Skill(
+                backend: AgentType.claudeCode,
+                name: s.name,
+                description: s.description,
+                source: SkillSource.fromWire(s.source),
+                path: s.path ?? '',
+                extra: {
+                  'autoInvoke': s.autoInvoke,
+                  if (s.tags != null) 'tags': s.tags,
+                },
+              ),
+            )
+            .toList();
+      case AgentType.codex:
+        final raw = await cxListSkills(cwd: cwd, forceReload: forceReload);
+        return raw.map((m) {
+          final scope = m['scope'] as String?;
+          final source = switch (scope) {
+            'Repo' => SkillSource.project,
+            'User' => SkillSource.user,
+            'Admin' => SkillSource.admin,
+            _ => SkillSource.system,
+          };
+          return Skill(
+            backend: AgentType.codex,
+            name: m['name'] as String? ?? '',
+            description: m['description'] as String?,
+            source: source,
+            path: m['path'] as String? ?? '',
+            extra: {
+              'scope': scope,
+              if (m['shortDescription'] != null)
+                'short_description': m['shortDescription'],
+            },
+          );
+        }).toList();
+    }
+  }
+
+  Future<Skill?> getSkill({
+    required Skill skill,
+    String? cwd,
+  }) async {
+    switch (skill.backend) {
+      case AgentType.opencode:
+        return ocGetSkill(name: skill.name, source: skill.source, cwd: cwd);
+      case AgentType.claudeCode:
+        final tags = (skill.extra?['tags'] as List?)?.cast<String>();
+        final autoInvoke = skill.extra?['autoInvoke'] == true;
+        return ccGetSkill(
+          skill: ClaudeCodeSkill(
+            name: skill.name,
+            description: skill.description,
+            autoInvoke: autoInvoke,
+            tags: tags,
+            source: skill.source.wireValue,
+            path: skill.path.isEmpty ? null : skill.path,
+          ),
+          cwd: cwd,
+        );
+      case AgentType.codex:
+        return cxGetSkill(name: skill.name, source: skill.source, cwd: cwd);
+    }
+  }
+
+  Future<bool> saveSkill({
+    required AgentType backend,
+    required String name,
+    required SkillSource source,
+    required String content,
+    String? cwd,
+  }) async {
+    switch (backend) {
+      case AgentType.opencode:
+        return ocSaveSkill(name: name, source: source, content: content, cwd: cwd);
+      case AgentType.claudeCode:
+        return ccSaveSkill(name: name, source: source, content: content, cwd: cwd);
+      case AgentType.codex:
+        return cxSaveSkill(name: name, source: source, content: content, cwd: cwd);
+    }
+  }
+
+  Future<bool> deleteSkill({
+    required AgentType backend,
+    required String name,
+    required SkillSource source,
+    String? cwd,
+  }) async {
+    switch (backend) {
+      case AgentType.opencode:
+        return ocDeleteSkill(name: name, source: source, cwd: cwd);
+      case AgentType.claudeCode:
+        return ccDeleteSkill(name: name, source: source, cwd: cwd);
+      case AgentType.codex:
+        return cxDeleteSkill(name: name, source: source, cwd: cwd);
+    }
+  }
+
   Future<List<ClaudeCodeHook>> ccListHooks({String? cwd}) async {
     final requestId = _generateRequestId();
     _socket.send({
@@ -2513,6 +3118,65 @@ class BridgeService {
         .toList();
   }
 
+  Future<String> ccReadHooksFile({
+    required SkillSource source,
+    String? cwd,
+  }) async {
+    final requestId = _generateRequestId();
+    _socket.send({
+      'type': 'cc_hooks_file_read',
+      'requestId': requestId,
+      'source': source.wireValue,
+      if (cwd != null) 'cwd': cwd,
+    });
+    final response = await _waitFor('cc_hooks_file', requestId: requestId);
+    final data = response['data'] as Map<String, dynamic>? ?? {};
+    return data['content'] as String? ?? '{"hooks":{}}';
+  }
+
+  Future<bool> ccWriteHooksFile({
+    required SkillSource source,
+    required String content,
+    String? cwd,
+  }) async {
+    final requestId = _generateRequestId();
+    _socket.send({
+      'type': 'cc_hooks_file_write',
+      'requestId': requestId,
+      'source': source.wireValue,
+      'content': content,
+      if (cwd != null) 'cwd': cwd,
+    });
+    final response = await _waitFor('cc_hooks_file_written', requestId: requestId);
+    final data = response['data'] as Map<String, dynamic>? ?? {};
+    return data['ok'] == true;
+  }
+
+  Future<String> ccReadMcpFile({required String cwd}) async {
+    final requestId = _generateRequestId();
+    _socket.send({
+      'type': 'cc_mcp_file_read',
+      'requestId': requestId,
+      'cwd': cwd,
+    });
+    final response = await _waitFor('cc_mcp_file', requestId: requestId);
+    final data = response['data'] as Map<String, dynamic>? ?? {};
+    return data['content'] as String? ?? '{"mcpServers":{}}';
+  }
+
+  Future<bool> ccWriteMcpFile({required String cwd, required String content}) async {
+    final requestId = _generateRequestId();
+    _socket.send({
+      'type': 'cc_mcp_file_write',
+      'requestId': requestId,
+      'cwd': cwd,
+      'content': content,
+    });
+    final response = await _waitFor('cc_mcp_file_written', requestId: requestId);
+    final data = response['data'] as Map<String, dynamic>? ?? {};
+    return data['ok'] == true;
+  }
+
   Future<List<ClaudeCodeCommand>> ccListCommands({String? cwd}) async {
     final requestId = _generateRequestId();
     _socket.send({
@@ -2525,6 +3189,68 @@ class BridgeService {
     return data
         .map((item) => ClaudeCodeCommand.fromJson(item as Map<String, dynamic>))
         .toList();
+  }
+
+  Future<({bool ok, String path, String content})> ccGetCommandFile({
+    required String name,
+    required SkillSource source,
+    String? cwd,
+    String? path,
+  }) async {
+    final requestId = _generateRequestId();
+    _socket.send({
+      'type': 'cc_get_command',
+      'requestId': requestId,
+      'name': name,
+      'source': source.wireValue,
+      if (cwd != null) 'cwd': cwd,
+      if (path != null) 'path': path,
+    });
+    final response = await _waitFor('cc_command_file', requestId: requestId);
+    final data = response['data'] as Map<String, dynamic>? ?? {};
+    return (
+      ok: data['ok'] == true,
+      path: data['path'] as String? ?? '',
+      content: data['content'] as String? ?? '',
+    );
+  }
+
+  Future<bool> ccSaveCommandFile({
+    required String name,
+    required SkillSource source,
+    required String content,
+    String? cwd,
+  }) async {
+    final requestId = _generateRequestId();
+    _socket.send({
+      'type': 'cc_save_command',
+      'requestId': requestId,
+      'name': name,
+      'source': source.wireValue,
+      'content': content,
+      if (cwd != null) 'cwd': cwd,
+    });
+    final response = await _waitFor('cc_command_saved', requestId: requestId);
+    final data = response['data'] as Map<String, dynamic>? ?? {};
+    return data['ok'] == true;
+  }
+
+  Future<bool> ccDeleteCommandFile({
+    required String name,
+    required SkillSource source,
+    String? cwd,
+  }) async {
+    final requestId = _generateRequestId();
+    _socket.send({
+      'type': 'cc_delete_command',
+      'requestId': requestId,
+      'name': name,
+      'source': source.wireValue,
+      if (cwd != null) 'cwd': cwd,
+    });
+    final response = await _waitFor('cc_command_deleted', requestId: requestId);
+    final data = response['data'] as Map<String, dynamic>? ?? {};
+    return data['ok'] == true;
   }
 
   Future<List<Map<String, dynamic>>> ccGetActiveSessions() async {

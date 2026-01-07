@@ -8125,279 +8125,25 @@ class _FloatingHeader extends StatelessWidget {
               _GlassPill(
                 compact: true,
                 constraints: const BoxConstraints(maxWidth: 32, maxHeight: 32),
-                child: PopupMenuButton<String>(
-                  icon: Icon(
+                child: GestureDetector(
+                  onTap: () => _showSessionActionsSheet(
+                    context,
+                    theme: theme,
+                    vcsInfo: vcsInfo,
+                    isConnected: isConnected,
+                    rttMs: rttMs,
+                    currentModel: currentModel,
+                    onModelTap: onModelTap,
+                    isSessionShared: isSessionShared,
+                    isCompacting: isCompacting,
+                    onMenu: onMenu!,
+                    onOpenSidebar: onOpenSidebar,
+                  ),
+                  child: Icon(
                     Icons.more_horiz_rounded,
                     color: kOnBackground,
                     size: 18,
                   ),
-                  splashRadius: 16,
-                  padding: EdgeInsets.zero,
-                  color: kCard,
-                  constraints: const BoxConstraints(
-                    minWidth: 180,
-                    maxWidth: 220,
-                  ),
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(12),
-                  ),
-                  onSelected: onMenu,
-                  itemBuilder: (context) => [
-                    // Info section (non-clickable) - compact
-                    if (vcsInfo != null && vcsInfo!.isAvailable)
-                      PopupMenuItem(
-                        enabled: false,
-                        height: 28,
-                        padding: const EdgeInsets.symmetric(horizontal: 12),
-                        child: Row(
-                          children: [
-                            Icon(
-                              Icons.call_split_rounded,
-                              size: 13,
-                              color: theme.success,
-                            ),
-                            const SizedBox(width: 8),
-                            Text(
-                              vcsInfo!.branch ?? 'unknown',
-                              style: TextStyle(fontSize: 12, color: kMuted),
-                            ),
-                          ],
-                        ),
-                      ),
-                    if (isConnected && rttMs != null)
-                      PopupMenuItem(
-                        enabled: false,
-                        height: 28,
-                        padding: const EdgeInsets.symmetric(horizontal: 12),
-                        child: Row(
-                          children: [
-                            Icon(
-                              Icons.speed_rounded,
-                              size: 13,
-                              color: theme.info,
-                            ),
-                            const SizedBox(width: 8),
-                            Text(
-                              '${rttMs}ms',
-                              style: TextStyle(fontSize: 12, color: kMuted),
-                            ),
-                          ],
-                        ),
-                      ),
-                    // Model selector - tappable
-                    PopupMenuItem(
-                      height: 32,
-                      padding: const EdgeInsets.symmetric(horizontal: 12),
-                      onTap: onModelTap,
-                      child: Row(
-                        children: [
-                          Icon(
-                            Icons.auto_awesome_rounded,
-                            size: 13,
-                            color: theme.primary,
-                          ),
-                          const SizedBox(width: 8),
-                          Text(
-                            _getModelName(currentModel),
-                            style: TextStyle(
-                              fontSize: 12,
-                              color: theme.primary,
-                              fontWeight: FontWeight.w500,
-                            ),
-                          ),
-                          const Spacer(),
-                          Icon(
-                            Icons.chevron_right_rounded,
-                            size: 14,
-                            color: kMuted,
-                          ),
-                        ],
-                      ),
-                    ),
-                    const PopupMenuDivider(height: 8),
-                    // Sidebar
-                    PopupMenuItem(
-                      value: 'sidebar',
-                      height: 36,
-                      padding: const EdgeInsets.symmetric(horizontal: 12),
-                      child: Row(
-                        children: [
-                          Icon(
-                            Icons.menu_open_rounded,
-                            size: 15,
-                            color: kOnBackground,
-                          ),
-                          const SizedBox(width: 10),
-                          Text(
-                            'Session Info',
-                            style: TextStyle(
-                              fontSize: 13,
-                              color: kOnBackground,
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                    PopupMenuItem(
-                      value: 'new_session',
-                      height: 36,
-                      padding: const EdgeInsets.symmetric(horizontal: 12),
-                      child: Row(
-                        children: [
-                          Icon(
-                            Icons.add_rounded,
-                            size: 15,
-                            color: kOnBackground,
-                          ),
-                          const SizedBox(width: 10),
-                          Text(
-                            'New Session',
-                            style: TextStyle(
-                              fontSize: 13,
-                              color: kOnBackground,
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                    PopupMenuItem(
-                      value: 'fork',
-                      height: 36,
-                      padding: const EdgeInsets.symmetric(horizontal: 12),
-                      child: Row(
-                        children: [
-                          Icon(
-                            Icons.call_split_rounded,
-                            size: 15,
-                            color: kOnBackground,
-                          ),
-                          const SizedBox(width: 10),
-                          Text(
-                            'Fork',
-                            style: TextStyle(
-                              fontSize: 13,
-                              color: kOnBackground,
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                    PopupMenuItem(
-                      value: isSessionShared ? 'unshare' : 'share',
-                      height: 36,
-                      padding: const EdgeInsets.symmetric(horizontal: 12),
-                      child: Row(
-                        children: [
-                          Icon(
-                            isSessionShared ? Icons.link_off : Icons.share,
-                            size: 15,
-                            color: kOnBackground,
-                          ),
-                          const SizedBox(width: 10),
-                          Text(
-                            isSessionShared ? 'Unshare' : 'Share',
-                            style: TextStyle(
-                              fontSize: 13,
-                              color: kOnBackground,
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                    PopupMenuItem(
-                      value: 'compact',
-                      height: 36,
-                      padding: const EdgeInsets.symmetric(horizontal: 12),
-                      enabled: !isCompacting,
-                      child: Row(
-                        children: [
-                          Icon(
-                            Icons.compress_rounded,
-                            size: 15,
-                            color: isCompacting ? kMuted : kOnBackground,
-                          ),
-                          const SizedBox(width: 10),
-                          Text(
-                            isCompacting ? 'Compacting...' : 'Compact',
-                            style: TextStyle(
-                              fontSize: 13,
-                              color: isCompacting ? kMuted : kOnBackground,
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                    PopupMenuItem(
-                      value: 'init',
-                      height: 36,
-                      padding: const EdgeInsets.symmetric(horizontal: 12),
-                      child: Row(
-                        children: [
-                          Icon(
-                            Icons.auto_fix_high_rounded,
-                            size: 18,
-                            color: theme.success,
-                          ),
-                          const SizedBox(width: 12),
-                          Text(
-                            'Initialize Project',
-                            style: TextStyle(color: theme.success),
-                          ),
-                        ],
-                      ),
-                    ),
-                    const PopupMenuDivider(),
-                    PopupMenuItem(
-                      value: 'undo',
-                      child: Row(
-                        children: [
-                          Icon(
-                            Icons.undo_rounded,
-                            size: 18,
-                            color: theme.warning,
-                          ),
-                          const SizedBox(width: 12),
-                          Text(
-                            'Undo Last Changes',
-                            style: TextStyle(color: theme.warning),
-                          ),
-                        ],
-                      ),
-                    ),
-                    const PopupMenuDivider(),
-                    PopupMenuItem(
-                      value: 'clear_instance',
-                      child: Row(
-                        children: [
-                          Icon(
-                            Icons.cleaning_services_outlined,
-                            size: 18,
-                            color: theme.warning,
-                          ),
-                          const SizedBox(width: 12),
-                          Expanded(
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              mainAxisSize: MainAxisSize.min,
-                              children: [
-                                Text(
-                                  'Clear Instance',
-                                  style: TextStyle(color: theme.text),
-                                ),
-                                Text(
-                                  'Reset project context',
-                                  style: TextStyle(
-                                    fontSize: 11,
-                                    color: theme.textMuted,
-                                  ),
-                                ),
-                              ],
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                  ],
                 ),
               ),
           ],
@@ -8481,6 +8227,476 @@ class _FloatingHeader extends StatelessWidget {
     return model.modelID.length > 8
         ? model.modelID.substring(0, 8)
         : model.modelID;
+  }
+
+  void _showSessionActionsSheet(
+    BuildContext context, {
+    required OpenCodeTheme theme,
+    required VcsInfo? vcsInfo,
+    required bool isConnected,
+    required int? rttMs,
+    required SelectedModel? currentModel,
+    required VoidCallback? onModelTap,
+    required bool isSessionShared,
+    required bool isCompacting,
+    required void Function(String) onMenu,
+    VoidCallback? onOpenSidebar,
+  }) {
+    showModalBottomSheet(
+      context: context,
+      backgroundColor: Colors.transparent,
+      isScrollControlled: true,
+      builder: (ctx) => _SessionActionsSheet(
+        theme: theme,
+        vcsInfo: vcsInfo,
+        isConnected: isConnected,
+        rttMs: rttMs,
+        currentModel: currentModel,
+        onModelTap: onModelTap,
+        isSessionShared: isSessionShared,
+        isCompacting: isCompacting,
+        onOpenSidebar: onOpenSidebar,
+        onAction: (action) {
+          Navigator.pop(ctx);
+          onMenu(action);
+        },
+      ),
+    );
+  }
+}
+
+/// Clean session actions bottom sheet
+class _SessionActionsSheet extends StatelessWidget {
+  const _SessionActionsSheet({
+    required this.theme,
+    required this.vcsInfo,
+    required this.isConnected,
+    required this.rttMs,
+    required this.currentModel,
+    required this.onModelTap,
+    required this.isSessionShared,
+    required this.isCompacting,
+    required this.onAction,
+    this.onOpenSidebar,
+  });
+
+  final OpenCodeTheme theme;
+  final VcsInfo? vcsInfo;
+  final bool isConnected;
+  final int? rttMs;
+  final SelectedModel? currentModel;
+  final VoidCallback? onModelTap;
+  final bool isSessionShared;
+  final bool isCompacting;
+  final void Function(String) onAction;
+  final VoidCallback? onOpenSidebar;
+
+  String _getModelName(SelectedModel? model) {
+    if (model == null) return 'Auto';
+    final parts = model.modelID.split('-');
+    if (parts.contains('opus')) return 'Opus';
+    if (parts.contains('sonnet')) return 'Sonnet';
+    if (parts.contains('haiku')) return 'Haiku';
+    if (parts.contains('gpt')) return 'GPT';
+    return model.modelID.length > 8
+        ? model.modelID.substring(0, 8)
+        : model.modelID;
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      decoration: BoxDecoration(
+        color: theme.background,
+        borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
+      ),
+      child: SafeArea(
+        top: false,
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            // Handle bar
+            Padding(
+              padding: const EdgeInsets.only(top: 12, bottom: 8),
+              child: Container(
+                width: 36,
+                height: 4,
+                decoration: BoxDecoration(
+                  color: theme.borderSubtle,
+                  borderRadius: BorderRadius.circular(2),
+                ),
+              ),
+            ),
+
+            // Status bar (branch, latency, model)
+            Padding(
+              padding: const EdgeInsets.fromLTRB(20, 8, 20, 16),
+              child: Row(
+                children: [
+                  // Branch info
+                  if (vcsInfo != null && vcsInfo!.isAvailable) ...[
+                    Container(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 10,
+                        vertical: 6,
+                      ),
+                      decoration: BoxDecoration(
+                        color: theme.success.withValues(alpha: 0.1),
+                        borderRadius: BorderRadius.circular(8),
+                      ),
+                      child: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Icon(
+                            Icons.call_split_rounded,
+                            size: 14,
+                            color: theme.success,
+                          ),
+                          const SizedBox(width: 6),
+                          Text(
+                            vcsInfo!.branch ?? 'main',
+                            style: TextStyle(
+                              fontSize: 12,
+                              color: theme.success,
+                              fontWeight: FontWeight.w500,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                    const SizedBox(width: 8),
+                  ],
+
+                  // Latency
+                  if (isConnected && rttMs != null) ...[
+                    Container(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 10,
+                        vertical: 6,
+                      ),
+                      decoration: BoxDecoration(
+                        color: theme.info.withValues(alpha: 0.1),
+                        borderRadius: BorderRadius.circular(8),
+                      ),
+                      child: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Icon(
+                            Icons.speed_rounded,
+                            size: 14,
+                            color: theme.info,
+                          ),
+                          const SizedBox(width: 6),
+                          Text(
+                            '${rttMs}ms',
+                            style: TextStyle(
+                              fontSize: 12,
+                              color: theme.info,
+                              fontWeight: FontWeight.w500,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                    const SizedBox(width: 8),
+                  ],
+
+                  const Spacer(),
+
+                  // Model selector
+                  GestureDetector(
+                    onTap: () {
+                      Navigator.pop(context);
+                      onModelTap?.call();
+                    },
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 12,
+                        vertical: 6,
+                      ),
+                      decoration: BoxDecoration(
+                        color: theme.primary.withValues(alpha: 0.1),
+                        borderRadius: BorderRadius.circular(8),
+                      ),
+                      child: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Icon(
+                            Icons.auto_awesome_rounded,
+                            size: 14,
+                            color: theme.primary,
+                          ),
+                          const SizedBox(width: 6),
+                          Text(
+                            _getModelName(currentModel),
+                            style: TextStyle(
+                              fontSize: 12,
+                              color: theme.primary,
+                              fontWeight: FontWeight.w600,
+                            ),
+                          ),
+                          const SizedBox(width: 4),
+                          Icon(
+                            Icons.chevron_right_rounded,
+                            size: 16,
+                            color: theme.primary,
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+
+            // Divider
+            Divider(color: theme.borderSubtle, height: 1),
+
+            // Session actions
+            Padding(
+              padding: const EdgeInsets.all(20),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  // Session section
+                  Text(
+                    'SESSION',
+                    style: TextStyle(
+                      fontSize: 11,
+                      fontWeight: FontWeight.w600,
+                      color: theme.textMuted,
+                      letterSpacing: 0.5,
+                    ),
+                  ),
+                  const SizedBox(height: 12),
+                  Row(
+                    children: [
+                      _ActionTile(
+                        icon: Icons.info_outline_rounded,
+                        label: 'Info',
+                        theme: theme,
+                        onTap: () {
+                          Navigator.pop(context);
+                          // Delay to allow bottom sheet to close first
+                          Future.delayed(
+                            const Duration(milliseconds: 150),
+                            () => onOpenSidebar?.call(),
+                          );
+                        },
+                      ),
+                      const SizedBox(width: 10),
+                      _ActionTile(
+                        icon: Icons.add_rounded,
+                        label: 'New',
+                        theme: theme,
+                        onTap: () => onAction('new_session'),
+                      ),
+                      const SizedBox(width: 10),
+                      _ActionTile(
+                        icon: Icons.call_split_rounded,
+                        label: 'Fork',
+                        theme: theme,
+                        onTap: () => onAction('fork'),
+                      ),
+                      const SizedBox(width: 10),
+                      _ActionTile(
+                        icon: isSessionShared
+                            ? Icons.link_off
+                            : Icons.share_rounded,
+                        label: isSessionShared ? 'Unshare' : 'Share',
+                        theme: theme,
+                        onTap: () =>
+                            onAction(isSessionShared ? 'unshare' : 'share'),
+                      ),
+                    ],
+                  ),
+
+                  const SizedBox(height: 20),
+
+                  // Tools section
+                  Text(
+                    'TOOLS',
+                    style: TextStyle(
+                      fontSize: 11,
+                      fontWeight: FontWeight.w600,
+                      color: theme.textMuted,
+                      letterSpacing: 0.5,
+                    ),
+                  ),
+                  const SizedBox(height: 12),
+                  _ActionRow(
+                    icon: Icons.compress_rounded,
+                    label: isCompacting ? 'Compacting...' : 'Compact',
+                    subtitle: 'Summarize context to free space',
+                    theme: theme,
+                    enabled: !isCompacting,
+                    onTap: () => onAction('compact'),
+                  ),
+                  const SizedBox(height: 8),
+                  _ActionRow(
+                    icon: Icons.auto_fix_high_rounded,
+                    label: 'Initialize Project',
+                    subtitle: 'Create AGENTS.md for this project',
+                    theme: theme,
+                    color: theme.success,
+                    onTap: () => onAction('init'),
+                  ),
+
+                  const SizedBox(height: 20),
+
+                  // Danger zone
+                  Text(
+                    'DANGER ZONE',
+                    style: TextStyle(
+                      fontSize: 11,
+                      fontWeight: FontWeight.w600,
+                      color: theme.error.withValues(alpha: 0.7),
+                      letterSpacing: 0.5,
+                    ),
+                  ),
+                  const SizedBox(height: 12),
+                  _ActionRow(
+                    icon: Icons.undo_rounded,
+                    label: 'Undo Last Changes',
+                    subtitle: 'Revert recent file modifications',
+                    theme: theme,
+                    color: theme.warning,
+                    onTap: () => onAction('undo'),
+                  ),
+                  const SizedBox(height: 8),
+                  _ActionRow(
+                    icon: Icons.cleaning_services_outlined,
+                    label: 'Clear Instance',
+                    subtitle: 'Reset project context completely',
+                    theme: theme,
+                    color: theme.warning,
+                    onTap: () => onAction('clear_instance'),
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+/// Square action tile for grid layout
+class _ActionTile extends StatelessWidget {
+  const _ActionTile({
+    required this.icon,
+    required this.label,
+    required this.theme,
+    required this.onTap,
+  });
+
+  final IconData icon;
+  final String label;
+  final OpenCodeTheme theme;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    return Expanded(
+      child: GestureDetector(
+        onTap: onTap,
+        child: Container(
+          padding: const EdgeInsets.symmetric(vertical: 14),
+          decoration: BoxDecoration(
+            color: theme.backgroundPanel,
+            borderRadius: BorderRadius.circular(12),
+            border: Border.all(color: theme.borderSubtle),
+          ),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Icon(icon, size: 22, color: theme.text),
+              const SizedBox(height: 6),
+              Text(
+                label,
+                style: TextStyle(
+                  fontSize: 12,
+                  color: theme.text,
+                  fontWeight: FontWeight.w500,
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+/// Row action item for list layout
+class _ActionRow extends StatelessWidget {
+  const _ActionRow({
+    required this.icon,
+    required this.label,
+    required this.subtitle,
+    required this.theme,
+    required this.onTap,
+    this.color,
+    this.enabled = true,
+  });
+
+  final IconData icon;
+  final String label;
+  final String subtitle;
+  final OpenCodeTheme theme;
+  final VoidCallback onTap;
+  final Color? color;
+  final bool enabled;
+
+  @override
+  Widget build(BuildContext context) {
+    final effectiveColor = enabled ? (color ?? theme.text) : theme.textMuted;
+
+    return GestureDetector(
+      onTap: enabled ? onTap : null,
+      child: Container(
+        padding: const EdgeInsets.all(14),
+        decoration: BoxDecoration(
+          color: theme.backgroundPanel,
+          borderRadius: BorderRadius.circular(12),
+          border: Border.all(color: theme.borderSubtle),
+        ),
+        child: Row(
+          children: [
+            Container(
+              padding: const EdgeInsets.all(8),
+              decoration: BoxDecoration(
+                color: effectiveColor.withValues(alpha: 0.1),
+                borderRadius: BorderRadius.circular(8),
+              ),
+              child: Icon(icon, size: 18, color: effectiveColor),
+            ),
+            const SizedBox(width: 14),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    label,
+                    style: TextStyle(
+                      fontSize: 14,
+                      color: effectiveColor,
+                      fontWeight: FontWeight.w500,
+                    ),
+                  ),
+                  Text(
+                    subtitle,
+                    style: TextStyle(fontSize: 12, color: theme.textMuted),
+                  ),
+                ],
+              ),
+            ),
+            Icon(Icons.chevron_right_rounded, size: 20, color: theme.textMuted),
+          ],
+        ),
+      ),
+    );
   }
 }
 
@@ -8991,12 +9207,12 @@ class _FloatingInputMenuSheetState
                     ),
                     decoration: BoxDecoration(
                       color: isSelected
-                          ? widget.theme.accent.withValues(alpha: 0.15)
+                          ? widget.theme.primary.withValues(alpha: 0.15)
                           : widget.theme.backgroundElement,
                       borderRadius: BorderRadius.circular(12),
                       border: Border.all(
                         color: isSelected
-                            ? widget.theme.accent
+                            ? widget.theme.primary
                             : widget.theme.borderSubtle,
                       ),
                     ),
@@ -9008,7 +9224,7 @@ class _FloatingInputMenuSheetState
                           preset.displayName,
                           style: TextStyle(
                             color: isSelected
-                                ? widget.theme.accent
+                                ? widget.theme.primary
                                 : widget.theme.text,
                             fontSize: 11,
                             fontWeight: FontWeight.w600,
@@ -9047,10 +9263,10 @@ class _FloatingInputMenuSheetState
                 ),
               );
             },
-            icon: Icon(Icons.tune, size: 16, color: widget.theme.accent),
+            icon: Icon(Icons.tune, size: 16, color: widget.theme.primary),
             label: Text(
-              'Custom rules...',
-              style: TextStyle(color: widget.theme.accent, fontSize: 13),
+              'Custom Rules...',
+              style: TextStyle(color: widget.theme.primary, fontSize: 13),
             ),
           ),
         ],
@@ -9626,167 +9842,365 @@ class _AgentAndPermissionSheetState
     final rulesState = ref.watch(permissionRulesProvider);
     final selectedPreset = rulesState.preset;
 
+    // Separate primary (Build/Plan) from secondary agents
+    final primaryAgents = widget.agents
+        .where((a) => a.name == 'build' || a.name == 'plan')
+        .toList();
+    final secondaryAgents = widget.agents
+        .where((a) => a.name != 'build' && a.name != 'plan')
+        .toList();
+
     return Container(
-      padding: const EdgeInsets.all(20),
       decoration: BoxDecoration(
-        color: widget.theme.backgroundPanel,
-        borderRadius: const BorderRadius.vertical(top: Radius.circular(20)),
+        color: widget.theme.background,
+        borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
       ),
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          // Handle bar
-          Center(
-            child: Container(
-              width: 40,
-              height: 4,
-              decoration: BoxDecoration(
-                color: widget.theme.borderSubtle,
-                borderRadius: BorderRadius.circular(2),
+      child: SafeArea(
+        top: false,
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            // Handle bar
+            Padding(
+              padding: const EdgeInsets.only(top: 12, bottom: 8),
+              child: Container(
+                width: 36,
+                height: 4,
+                decoration: BoxDecoration(
+                  color: widget.theme.borderSubtle,
+                  borderRadius: BorderRadius.circular(2),
+                ),
               ),
             ),
-          ),
-          const SizedBox(height: 16),
 
-          // Agent section
-          if (widget.agents.isNotEmpty) ...[
-            Row(
-              children: [
-                Icon(
-                  Icons.smart_toy_outlined,
-                  color: widget.theme.textMuted,
-                  size: 16,
-                ),
-                const SizedBox(width: 8),
-                Text(
-                  'Agent',
-                  style: TextStyle(
-                    fontSize: 14,
-                    fontWeight: FontWeight.w600,
-                    color: widget.theme.textMuted,
-                  ),
-                ),
-              ],
-            ),
-            const SizedBox(height: 12),
-            for (final agent in widget.agents)
-              ListTile(
-                contentPadding: EdgeInsets.zero,
-                dense: true,
-                leading: Container(
-                  width: 8,
-                  height: 8,
-                  decoration: BoxDecoration(
-                    color: agent.displayColor,
-                    shape: BoxShape.circle,
-                  ),
-                ),
-                title: Text(
-                  agent.displayName,
-                  style: TextStyle(
-                    color: widget.theme.text,
-                    fontSize: 14,
-                    fontWeight: agent.name == widget.currentAgent
-                        ? FontWeight.w600
-                        : FontWeight.w400,
-                  ),
-                ),
-                subtitle: Text(
-                  agent.shortDescription,
-                  style: TextStyle(color: widget.theme.textMuted, fontSize: 11),
-                ),
-                trailing: agent.name == widget.currentAgent
-                    ? Icon(
-                        Icons.check_rounded,
-                        color: widget.theme.success,
+            // Content with proper padding
+            Padding(
+              padding: const EdgeInsets.fromLTRB(20, 8, 20, 24),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  // Agent section
+                  if (widget.agents.isNotEmpty) ...[
+                    // Section header
+                    Row(
+                      children: [
+                        Icon(
+                          Icons.smart_toy_outlined,
+                          color: widget.theme.textMuted,
+                          size: 18,
+                        ),
+                        const SizedBox(width: 8),
+                        Text(
+                          'Agent',
+                          style: TextStyle(
+                            fontSize: 13,
+                            fontWeight: FontWeight.w600,
+                            color: widget.theme.textMuted,
+                            letterSpacing: 0.5,
+                          ),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 16),
+
+                    // Primary agents as prominent cards in a row
+                    if (primaryAgents.isNotEmpty) ...[
+                      Row(
+                        children: primaryAgents.map((agent) {
+                          final isSelected = agent.name == widget.currentAgent;
+                          return Expanded(
+                            child: Padding(
+                              padding: EdgeInsets.only(
+                                right: agent == primaryAgents.last ? 0 : 10,
+                              ),
+                              child: _AgentCard(
+                                agent: agent,
+                                isSelected: isSelected,
+                                theme: widget.theme,
+                                onTap: () {
+                                  widget.onAgentChanged?.call(agent.name);
+                                  Navigator.pop(context);
+                                },
+                              ),
+                            ),
+                          );
+                        }).toList(),
+                      ),
+                      const SizedBox(height: 12),
+                    ],
+
+                    // Secondary agents as smaller list
+                    if (secondaryAgents.isNotEmpty) ...[
+                      Container(
+                        decoration: BoxDecoration(
+                          color: widget.theme.backgroundPanel,
+                          borderRadius: BorderRadius.circular(12),
+                          border: Border.all(color: widget.theme.borderSubtle),
+                        ),
+                        child: Column(
+                          children: secondaryAgents.asMap().entries.map((
+                            entry,
+                          ) {
+                            final index = entry.key;
+                            final agent = entry.value;
+                            final isSelected =
+                                agent.name == widget.currentAgent;
+                            final isLast = index == secondaryAgents.length - 1;
+                            return Column(
+                              children: [
+                                InkWell(
+                                  onTap: () {
+                                    widget.onAgentChanged?.call(agent.name);
+                                    Navigator.pop(context);
+                                  },
+                                  borderRadius: BorderRadius.vertical(
+                                    top: index == 0
+                                        ? const Radius.circular(12)
+                                        : Radius.zero,
+                                    bottom: isLast
+                                        ? const Radius.circular(12)
+                                        : Radius.zero,
+                                  ),
+                                  child: Padding(
+                                    padding: const EdgeInsets.symmetric(
+                                      horizontal: 14,
+                                      vertical: 12,
+                                    ),
+                                    child: Row(
+                                      children: [
+                                        Container(
+                                          width: 8,
+                                          height: 8,
+                                          decoration: BoxDecoration(
+                                            color: agent.displayColor,
+                                            shape: BoxShape.circle,
+                                          ),
+                                        ),
+                                        const SizedBox(width: 12),
+                                        Expanded(
+                                          child: Column(
+                                            crossAxisAlignment:
+                                                CrossAxisAlignment.start,
+                                            children: [
+                                              Text(
+                                                agent.displayName,
+                                                style: TextStyle(
+                                                  color: widget.theme.text,
+                                                  fontSize: 14,
+                                                  fontWeight: isSelected
+                                                      ? FontWeight.w600
+                                                      : FontWeight.w500,
+                                                ),
+                                              ),
+                                              Text(
+                                                agent.shortDescription,
+                                                style: TextStyle(
+                                                  color: widget.theme.textMuted,
+                                                  fontSize: 12,
+                                                ),
+                                              ),
+                                            ],
+                                          ),
+                                        ),
+                                        if (isSelected)
+                                          Icon(
+                                            Icons.check_rounded,
+                                            color: widget.theme.primary,
+                                            size: 18,
+                                          ),
+                                      ],
+                                    ),
+                                  ),
+                                ),
+                                if (!isLast)
+                                  Divider(
+                                    height: 1,
+                                    indent: 34,
+                                    color: widget.theme.borderSubtle,
+                                  ),
+                              ],
+                            );
+                          }).toList(),
+                        ),
+                      ),
+                    ],
+
+                    const SizedBox(height: 24),
+                  ],
+
+                  // Permission preset section
+                  Row(
+                    children: [
+                      Icon(
+                        Icons.shield_outlined,
+                        color: widget.theme.textMuted,
                         size: 18,
-                      )
-                    : null,
-                onTap: () {
-                  widget.onAgentChanged?.call(agent.name);
-                  Navigator.pop(context);
-                },
-              ),
-            const SizedBox(height: 16),
-            Divider(color: widget.theme.borderSubtle),
-            const SizedBox(height: 16),
-          ],
-
-          // Permission preset section
-          Row(
-            children: [
-              Icon(
-                Icons.security_outlined,
-                color: widget.theme.textMuted,
-                size: 16,
-              ),
-              const SizedBox(width: 8),
-              Text(
-                'Permission Preset',
-                style: TextStyle(
-                  fontSize: 14,
-                  fontWeight: FontWeight.w600,
-                  color: widget.theme.textMuted,
-                ),
-              ),
-            ],
-          ),
-          const SizedBox(height: 12),
-          Wrap(
-            spacing: 8,
-            runSpacing: 8,
-            children: PermissionPreset.values
-                .where((p) => p != PermissionPreset.custom)
-                .map(
-                  (preset) => _PermissionPresetChip(
-                    preset: preset,
-                    isSelected: preset == selectedPreset,
-                    theme: widget.theme,
-                    onTap: () {
-                      ref
-                          .read(permissionRulesProvider.notifier)
-                          .setPreset(preset);
-                    },
+                      ),
+                      const SizedBox(width: 8),
+                      Text(
+                        'Permissions',
+                        style: TextStyle(
+                          fontSize: 13,
+                          fontWeight: FontWeight.w600,
+                          color: widget.theme.textMuted,
+                          letterSpacing: 0.5,
+                        ),
+                      ),
+                      const Spacer(),
+                      // Custom rules button inline
+                      GestureDetector(
+                        onTap: () {
+                          Navigator.pop(context);
+                          showModalBottomSheet(
+                            context: context,
+                            isScrollControlled: true,
+                            backgroundColor: Colors.transparent,
+                            builder: (context) => PermissionRulesSheet(
+                              initialRules: rulesState.effectiveRuleset,
+                              onApply: (rules) {
+                                ref
+                                    .read(permissionRulesProvider.notifier)
+                                    .setCustomRules(rules);
+                              },
+                            ),
+                          );
+                        },
+                        child: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Icon(
+                              Icons.tune_rounded,
+                              size: 14,
+                              color: widget.theme.primary,
+                            ),
+                            const SizedBox(width: 4),
+                            Text(
+                              'Custom',
+                              style: TextStyle(
+                                color: widget.theme.primary,
+                                fontSize: 12,
+                                fontWeight: FontWeight.w500,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ],
                   ),
-                )
-                .toList(),
-          ),
-          const SizedBox(height: 8),
+                  const SizedBox(height: 14),
 
-          // Custom rules button
-          TextButton.icon(
-            onPressed: () {
-              Navigator.pop(context);
-              showModalBottomSheet(
-                context: context,
-                isScrollControlled: true,
-                backgroundColor: Colors.transparent,
-                builder: (context) => PermissionRulesSheet(
-                  initialRules: rulesState.effectiveRuleset,
-                  onApply: (rules) {
-                    ref
-                        .read(permissionRulesProvider.notifier)
-                        .setCustomRules(rules);
-                  },
-                ),
-              );
-            },
-            icon: Icon(Icons.tune, size: 16, color: widget.theme.accent),
-            label: Text(
-              'Custom Rules...',
-              style: TextStyle(color: widget.theme.accent, fontSize: 13),
+                  // Permission presets as 2x2 grid
+                  GridView.count(
+                    shrinkWrap: true,
+                    physics: const NeverScrollableScrollPhysics(),
+                    crossAxisCount: 2,
+                    mainAxisSpacing: 10,
+                    crossAxisSpacing: 10,
+                    childAspectRatio: 2.4,
+                    children: PermissionPreset.values
+                        .where((p) => p != PermissionPreset.custom)
+                        .map(
+                          (preset) => _PermissionPresetCard(
+                            preset: preset,
+                            isSelected: preset == selectedPreset,
+                            theme: widget.theme,
+                            onTap: () {
+                              ref
+                                  .read(permissionRulesProvider.notifier)
+                                  .setPreset(preset);
+                            },
+                          ),
+                        )
+                        .toList(),
+                  ),
+                ],
+              ),
             ),
-          ),
-          const SizedBox(height: 8),
-        ],
+          ],
+        ),
       ),
     );
   }
 }
 
-class _PermissionPresetChip extends StatelessWidget {
-  const _PermissionPresetChip({
+/// Card for primary agents (Build/Plan)
+class _AgentCard extends StatelessWidget {
+  const _AgentCard({
+    required this.agent,
+    required this.isSelected,
+    required this.theme,
+    required this.onTap,
+  });
+
+  final Agent agent;
+  final bool isSelected;
+  final OpenCodeTheme theme;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    return GestureDetector(
+      onTap: onTap,
+      child: Container(
+        padding: const EdgeInsets.all(14),
+        decoration: BoxDecoration(
+          color: isSelected
+              ? agent.displayColor.withValues(alpha: 0.12)
+              : theme.backgroundPanel,
+          borderRadius: BorderRadius.circular(14),
+          border: Border.all(
+            color: isSelected ? agent.displayColor : theme.borderSubtle,
+            width: isSelected ? 1.5 : 1,
+          ),
+        ),
+        child: Row(
+          children: [
+            Container(
+              width: 10,
+              height: 10,
+              decoration: BoxDecoration(
+                color: agent.displayColor,
+                shape: BoxShape.circle,
+              ),
+            ),
+            const SizedBox(width: 10),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    agent.displayName,
+                    style: TextStyle(
+                      color: theme.text,
+                      fontSize: 15,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                  Text(
+                    agent.shortDescription,
+                    style: TextStyle(color: theme.textMuted, fontSize: 11),
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                ],
+              ),
+            ),
+            if (isSelected)
+              Icon(
+                Icons.check_circle_rounded,
+                color: agent.displayColor,
+                size: 20,
+              ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+/// Compact permission preset card for grid
+class _PermissionPresetCard extends StatelessWidget {
+  const _PermissionPresetCard({
     required this.preset,
     required this.isSelected,
     required this.theme,
@@ -9800,35 +10214,39 @@ class _PermissionPresetChip extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return InkWell(
+    return GestureDetector(
       onTap: onTap,
-      borderRadius: BorderRadius.circular(20),
       child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
         decoration: BoxDecoration(
           color: isSelected
-              ? theme.accent.withValues(alpha: 0.15)
-              : theme.backgroundElement,
-          borderRadius: BorderRadius.circular(20),
+              ? theme.primary.withValues(alpha: 0.1)
+              : theme.backgroundPanel,
+          borderRadius: BorderRadius.circular(12),
           border: Border.all(
-            color: isSelected ? theme.accent : theme.borderSubtle,
+            color: isSelected ? theme.primary : theme.borderSubtle,
           ),
         ),
         child: Column(
-          mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.start,
+          mainAxisAlignment: MainAxisAlignment.center,
           children: [
             Text(
               preset.displayName,
               style: TextStyle(
-                color: isSelected ? theme.accent : theme.text,
-                fontSize: 12,
+                color: isSelected ? theme.primary : theme.text,
+                fontSize: 13,
                 fontWeight: FontWeight.w600,
               ),
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
             ),
+            const SizedBox(height: 2),
             Text(
               preset.description,
               style: TextStyle(color: theme.textMuted, fontSize: 10),
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
             ),
           ],
         ),

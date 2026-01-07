@@ -8,6 +8,7 @@ import '../providers/selection_provider.dart';
 import '../services/storage_service.dart';
 import '../theme/opencode_theme.dart';
 import '../widgets/connection_indicator.dart';
+import 'opencode_mcp_config_screen.dart';
 
 /// MCP (Model Context Protocol) Servers Management Screen
 ///
@@ -260,6 +261,14 @@ class _McpServersScreenState extends ConsumerState<McpServersScreen>
           ],
         ),
         actions: [
+          IconButton(
+            icon: Icon(Icons.settings_rounded, color: theme.text),
+            tooltip: 'Edit MCP config',
+            onPressed: () => Navigator.push(
+              context,
+              MaterialPageRoute(builder: (_) => const OpenCodeMcpConfigScreen()),
+            ),
+          ),
           IconButton(
             icon: Icon(Icons.refresh, color: theme.text),
             onPressed: () {

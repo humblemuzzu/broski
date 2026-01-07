@@ -102,12 +102,16 @@ class ClaudeCodeSkill {
   final String? description;
   final bool autoInvoke;
   final List<String>? tags;
+  final String? source;
+  final String? path;
 
   const ClaudeCodeSkill({
     required this.name,
     this.description,
     required this.autoInvoke,
     this.tags,
+    this.source,
+    this.path,
   });
 
   factory ClaudeCodeSkill.fromJson(Map<String, dynamic> json) {
@@ -116,6 +120,8 @@ class ClaudeCodeSkill {
       description: json['description'] as String?,
       autoInvoke: json['autoInvoke'] as bool? ?? false,
       tags: (json['tags'] as List<dynamic>?)?.cast<String>(),
+      source: json['source'] as String?,
+      path: json['path'] as String?,
     );
   }
 
@@ -125,6 +131,8 @@ class ClaudeCodeSkill {
       if (description != null) 'description': description,
       'autoInvoke': autoInvoke,
       if (tags != null) 'tags': tags,
+      if (source != null) 'source': source,
+      if (path != null) 'path': path,
     };
   }
 }
@@ -135,6 +143,9 @@ class ClaudeCodeHook {
   final String? matcher;
   final bool enabled;
   final String? description;
+  final List<dynamic>? hooks;
+  final String? source;
+  final String? path;
 
   const ClaudeCodeHook({
     required this.id,
@@ -142,6 +153,9 @@ class ClaudeCodeHook {
     this.matcher,
     required this.enabled,
     this.description,
+    this.hooks,
+    this.source,
+    this.path,
   });
 
   factory ClaudeCodeHook.fromJson(Map<String, dynamic> json) {
@@ -151,6 +165,9 @@ class ClaudeCodeHook {
       matcher: json['matcher'] as String?,
       enabled: json['enabled'] as bool? ?? true,
       description: json['description'] as String?,
+      hooks: json['hooks'] as List<dynamic>?,
+      source: json['source'] as String?,
+      path: json['path'] as String?,
     );
   }
 
@@ -161,6 +178,9 @@ class ClaudeCodeHook {
       if (matcher != null) 'matcher': matcher,
       'enabled': enabled,
       if (description != null) 'description': description,
+      if (hooks != null) 'hooks': hooks,
+      if (source != null) 'source': source,
+      if (path != null) 'path': path,
     };
   }
 }
@@ -171,6 +191,8 @@ class ClaudeCodeCommand {
   final String? agent;
   final String? model;
   final bool subtask;
+  final String? source;
+  final String? path;
 
   const ClaudeCodeCommand({
     required this.name,
@@ -178,6 +200,8 @@ class ClaudeCodeCommand {
     this.agent,
     this.model,
     this.subtask = false,
+    this.source,
+    this.path,
   });
 
   factory ClaudeCodeCommand.fromJson(Map<String, dynamic> json) {
@@ -187,6 +211,8 @@ class ClaudeCodeCommand {
       agent: json['agent'] as String?,
       model: json['model'] as String?,
       subtask: json['subtask'] as bool? ?? false,
+      source: json['source'] as String?,
+      path: json['path'] as String?,
     );
   }
 
@@ -197,6 +223,8 @@ class ClaudeCodeCommand {
       if (agent != null) 'agent': agent,
       if (model != null) 'model': model,
       'subtask': subtask,
+      if (source != null) 'source': source,
+      if (path != null) 'path': path,
     };
   }
 

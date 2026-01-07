@@ -78,7 +78,8 @@ export type ClientMessage =
   | { type: 'list_projects' }
   | { type: 'list_sessions'; projectPath?: string }
   | { type: 'list_providers' }
-  | { type: 'get_config' }
+  | { type: 'get_config'; projectPath?: string }
+  | { type: 'set_config'; config: Record<string, any>; projectPath?: string }
   | { type: 'set_model'; model: string }
   | { type: 'create_session'; projectPath?: string; title?: string; permission?: PermissionRuleset }
   | { type: 'get_session'; sessionId: string; projectPath?: string }
@@ -160,6 +161,24 @@ export type ClientMessage =
   // Feature 22: Instance Disposal (Clear project context)
   | { type: 'dispose_instance'; projectPath?: string }
   | { type: 'get_agents_status' }
+  // Skills (filesystem-backed)
+  | { type: 'oc_list_skills'; cwd?: string }
+  | { type: 'oc_get_skill'; name: string; source: 'project' | 'user'; cwd?: string }
+  | { type: 'oc_save_skill'; name: string; source: 'project' | 'user'; content: string; cwd?: string }
+  | { type: 'oc_delete_skill'; name: string; source: 'project' | 'user'; cwd?: string }
+  | { type: 'oc_list_plugin_files'; cwd?: string }
+  | { type: 'oc_get_plugin_file'; name: string; source: 'project' | 'user'; cwd?: string }
+  | { type: 'oc_save_plugin_file'; name: string; source: 'project' | 'user'; content: string; cwd?: string }
+  | { type: 'oc_delete_plugin_file'; name: string; source: 'project' | 'user'; cwd?: string }
+  // OpenCode custom markdown files (filesystem-backed)
+  | { type: 'oc_list_command_files'; cwd?: string }
+  | { type: 'oc_get_command_file'; name: string; source: 'project' | 'user'; cwd?: string }
+  | { type: 'oc_save_command_file'; name: string; source: 'project' | 'user'; content: string; cwd?: string }
+  | { type: 'oc_delete_command_file'; name: string; source: 'project' | 'user'; cwd?: string }
+  | { type: 'oc_list_agent_files'; cwd?: string }
+  | { type: 'oc_get_agent_file'; name: string; source: 'project' | 'user'; cwd?: string }
+  | { type: 'oc_save_agent_file'; name: string; source: 'project' | 'user'; content: string; cwd?: string }
+  | { type: 'oc_delete_agent_file'; name: string; source: 'project' | 'user'; cwd?: string }
   // Claude Code-specific messages
   | { type: 'cc_list_projects' }
   | { type: 'cc_list_sessions'; cwd?: string }
@@ -172,8 +191,18 @@ export type ClientMessage =
   | { type: 'cc_abort'; sessionId: string }
   | { type: 'cc_permission_response'; sessionId: string; toolUseId: string; response: PermissionResponse }
   | { type: 'cc_list_skills'; cwd?: string }
+  | { type: 'cc_get_skill'; name: string; source: 'project' | 'user' | 'plugin'; cwd?: string; path?: string }
+  | { type: 'cc_save_skill'; name: string; source: 'project' | 'user'; content: string; cwd?: string }
+  | { type: 'cc_delete_skill'; name: string; source: 'project' | 'user'; cwd?: string }
   | { type: 'cc_list_hooks'; cwd?: string }
+  | { type: 'cc_hooks_file_read'; source: 'project' | 'user'; cwd?: string }
+  | { type: 'cc_hooks_file_write'; source: 'project' | 'user'; content: string; cwd?: string }
+  | { type: 'cc_mcp_file_read'; cwd: string }
+  | { type: 'cc_mcp_file_write'; cwd: string; content: string }
   | { type: 'cc_list_commands'; cwd?: string }
+  | { type: 'cc_get_command'; name: string; source: 'project' | 'user' | 'plugin'; cwd?: string; path?: string }
+  | { type: 'cc_save_command'; name: string; source: 'project' | 'user'; content: string; cwd?: string }
+  | { type: 'cc_delete_command'; name: string; source: 'project' | 'user'; cwd?: string }
   | { type: 'cc_get_config'; cwd?: string }
   | { type: 'cc_set_config'; config: Partial<ClaudeCodeConfig>; cwd?: string }
   | { type: 'cc_get_active_sessions' }
@@ -189,6 +218,9 @@ export type ClientMessage =
   | { type: 'cx_permission_response'; requestId: string; response: PermissionResponse }
   | { type: 'cx_model_list' }
   | { type: 'cx_skills_list'; cwd?: string; forceReload?: boolean }
+  | { type: 'cx_get_skill'; name: string; scope: 'Repo' | 'User' | 'System' | 'Admin'; cwd?: string }
+  | { type: 'cx_save_skill'; name: string; scope: 'Repo' | 'User'; content: string; cwd?: string }
+  | { type: 'cx_delete_skill'; name: string; scope: 'Repo' | 'User'; cwd?: string }
   | { type: 'cx_config_read' }
   | { type: 'cx_config_value_write'; keyPath: string; value: any; mergeStrategy?: string }
   | { type: 'cx_mcp_status_list'; cursor?: string | null; limit?: number | null }
@@ -329,6 +361,23 @@ export type ServerMessage =
   | { type: 'command_executed'; data: unknown; sessionId: string; requestId?: string }
   // Feature 3: Agent Switching
   | { type: 'agents'; data: Agent[]; requestId?: string }
+  // Skills (filesystem-backed)
+  | { type: 'oc_skills'; data: Array<{ name: string; description?: string; path: string; source: 'project' | 'user'; editable: boolean }>; requestId?: string }
+  | { type: 'oc_skill'; data: { name: string; path: string; source: 'project' | 'user'; content: string }; requestId?: string }
+  | { type: 'oc_skill_saved'; data: { ok: boolean; path?: string }; requestId?: string }
+  | { type: 'oc_skill_deleted'; data: { ok: boolean }; requestId?: string }
+  | { type: 'oc_plugin_files'; data: Array<{ name: string; path: string; source: 'project' | 'user' }>; requestId?: string }
+  | { type: 'oc_plugin_file'; data: { name: string; path: string; source: 'project' | 'user'; content: string }; requestId?: string }
+  | { type: 'oc_plugin_file_saved'; data: { ok: boolean; path?: string }; requestId?: string }
+  | { type: 'oc_plugin_file_deleted'; data: { ok: boolean }; requestId?: string }
+  | { type: 'oc_command_files'; data: Array<{ name: string; path: string; source: 'project' | 'user'; description?: string }>; requestId?: string }
+  | { type: 'oc_command_file'; data: { name: string; path: string; source: 'project' | 'user'; content: string }; requestId?: string }
+  | { type: 'oc_command_file_saved'; data: { ok: boolean; path?: string }; requestId?: string }
+  | { type: 'oc_command_file_deleted'; data: { ok: boolean }; requestId?: string }
+  | { type: 'oc_agent_files'; data: Array<{ name: string; path: string; source: 'project' | 'user'; description?: string }>; requestId?: string }
+  | { type: 'oc_agent_file'; data: { name: string; path: string; source: 'project' | 'user'; content: string }; requestId?: string }
+  | { type: 'oc_agent_file_saved'; data: { ok: boolean; path?: string }; requestId?: string }
+  | { type: 'oc_agent_file_deleted'; data: { ok: boolean }; requestId?: string }
   // Feature 4: Session Delete
   | { type: 'session_deleted'; data: boolean; sessionId: string; requestId?: string }
   // Feature 5: Session Update (Rename)
@@ -399,8 +448,18 @@ export type ServerMessage =
   | { type: 'cc_session_forked'; data: ClaudeCodeSession | null; requestId?: string }
   | { type: 'cc_session_messages'; data: ClaudeCodeTranscriptMessage[]; sessionId: string; requestId?: string }
   | { type: 'cc_skills'; data: ClaudeCodeSkill[]; requestId?: string }
+  | { type: 'cc_skill'; data: { name: string; path: string; source: 'project' | 'user' | 'plugin'; content: string }; requestId?: string }
+  | { type: 'cc_skill_saved'; data: { ok: boolean; path?: string }; requestId?: string }
+  | { type: 'cc_skill_deleted'; data: { ok: boolean }; requestId?: string }
   | { type: 'cc_hooks'; data: ClaudeCodeHook[]; requestId?: string }
+  | { type: 'cc_hooks_file'; data: { ok: boolean; source: 'project' | 'user'; path: string; content: string }; requestId?: string }
+  | { type: 'cc_hooks_file_written'; data: { ok: boolean; source: 'project' | 'user'; path: string }; requestId?: string }
+  | { type: 'cc_mcp_file'; data: { ok: boolean; path: string; content: string }; requestId?: string }
+  | { type: 'cc_mcp_file_written'; data: { ok: boolean; path: string }; requestId?: string }
   | { type: 'cc_commands'; data: ClaudeCodeCommand[]; requestId?: string }
+  | { type: 'cc_command_file'; data: { ok: boolean; name: string; source: 'project' | 'user' | 'plugin'; path: string; content: string }; requestId?: string }
+  | { type: 'cc_command_saved'; data: { ok: boolean; name: string; source: 'project' | 'user'; path?: string }; requestId?: string }
+  | { type: 'cc_command_deleted'; data: { ok: boolean; name: string; source: 'project' | 'user' }; requestId?: string }
   | { type: 'cc_config'; data: ClaudeCodeConfig; requestId?: string }
   | { type: 'cc_config_updated'; data: ClaudeCodeConfig; requestId?: string }
   | { type: 'cc_stream'; data: ClaudeCodeStreamMessage; sessionId: string }
@@ -414,6 +473,9 @@ export type ServerMessage =
   | { type: 'cx_thread_archived'; data: boolean; threadId: string; requestId?: string }
   | { type: 'cx_thread_messages'; data: CodexTranscriptMessage[]; threadId: string; requestId?: string }
   | { type: 'cx_skills'; data: any; requestId?: string }
+  | { type: 'cx_skill'; data: { name: string; path: string; scope: 'Repo' | 'User' | 'System' | 'Admin'; content: string }; requestId?: string }
+  | { type: 'cx_skill_saved'; data: { ok: boolean; path?: string }; requestId?: string }
+  | { type: 'cx_skill_deleted'; data: { ok: boolean }; requestId?: string }
   | { type: 'cx_config'; data: any; requestId?: string }
   | { type: 'cx_config_written'; data: any; requestId?: string }
   | { type: 'cx_mcp_status'; data: any; nextCursor?: string | null; requestId?: string }
@@ -619,16 +681,24 @@ export type ClaudeCodeSkill = {
   autoInvoke: boolean
   tags?: string[]
   license?: string
+  source?: 'project' | 'user' | 'plugin'
+  path?: string
 }
 
 // Claude Code Hook Event Types
 export type ClaudeCodeHookEvent = 
   | 'PreToolUse'
   | 'PostToolUse'
+  | 'PostToolUseFailure'
+  | 'Notification'
   | 'SessionStart'
+  | 'SessionEnd'
   | 'Stop'
   | 'PermissionRequest'
   | 'UserPromptSubmit'
+  | 'SubagentStart'
+  | 'SubagentStop'
+  | 'PreCompact'
 
 // Claude Code Hook Configuration
 export type ClaudeCodeHook = {
@@ -637,6 +707,9 @@ export type ClaudeCodeHook = {
   matcher?: string  // Tool name pattern (e.g., 'Bash', 'Write|Edit')
   enabled: boolean
   description?: string
+  hooks?: any[]
+  source?: 'project' | 'user' | 'plugin'
+  path?: string
 }
 
 // Claude Code Session (different from OpenCode session)
@@ -657,6 +730,8 @@ export type ClaudeCodeCommand = {
   agent?: string
   model?: string
   subtask?: boolean
+  source?: 'project' | 'user' | 'plugin'
+  path?: string
 }
 
 // Claude Code Permission Mode

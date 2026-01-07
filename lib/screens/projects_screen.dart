@@ -397,7 +397,10 @@ class _ProjectsScreenState extends ConsumerState<ProjectsScreen> {
     }
   }
 
-  Future<void> _deleteWorktree(ProjectSummary project, Worktree worktree) async {
+  Future<void> _deleteWorktree(
+    ProjectSummary project,
+    Worktree worktree,
+  ) async {
     try {
       final bridge = ref.read(bridgeServiceProvider);
       final ok = await bridge.deleteWorktree(
@@ -419,8 +422,9 @@ class _ProjectsScreenState extends ConsumerState<ProjectsScreen> {
       final current = ref.read(_projectWorktreesProvider)[project.path] ?? [];
       ref.read(_projectWorktreesProvider.notifier).state = {
         ...ref.read(_projectWorktreesProvider),
-        project.path:
-            current.where((w) => w.directory != worktree.directory).toList(),
+        project.path: current
+            .where((w) => w.directory != worktree.directory)
+            .toList(),
       };
 
       ScaffoldMessenger.of(context).showSnackBar(
@@ -715,7 +719,8 @@ class _ProjectsScreenState extends ConsumerState<ProjectsScreen> {
                                 _showWorktreeOptions(project, worktree),
                             onWorktreeDelete: (worktree) =>
                                 _deleteWorktree(project, worktree),
-                            onCreateWorktree: agentType == AgentType.opencode &&
+                            onCreateWorktree:
+                                agentType == AgentType.opencode &&
                                     !connection.isOfflineMode
                                 ? () => _showCreateWorktreeSheet(project)
                                 : null,
@@ -1222,7 +1227,6 @@ class _ExpandableProjectItem extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final theme = Theme.of(context);
     final ocTheme = OpenCodeTheme.of(context);
     final hasWorktrees = worktrees.isNotEmpty;
     final showExpander = onToggleExpand != null;
@@ -1239,10 +1243,14 @@ class _ExpandableProjectItem extends StatelessWidget {
             child: Container(
               padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
               decoration: BoxDecoration(
-                color: theme.colorScheme.surface.withValues(alpha: 0.5),
+                color: ocTheme.backgroundPanel,
                 borderRadius: isExpanded && hasWorktrees
                     ? const BorderRadius.vertical(top: Radius.circular(12))
                     : BorderRadius.circular(12),
+                border: Border.all(
+                  color: ocTheme.borderSubtle.withValues(alpha: 0.5),
+                  width: 1,
+                ),
               ),
               child: Row(
                 children: [
@@ -1282,7 +1290,9 @@ class _ExpandableProjectItem extends StatelessWidget {
                                   color: ocTheme.textMuted,
                                   size: 20,
                                 ),
-                          onPressed: isCreatingWorktree ? null : onCreateWorktree,
+                          onPressed: isCreatingWorktree
+                              ? null
+                              : onCreateWorktree,
                           tooltip: 'New worktree',
                         ),
                       ),
@@ -1330,9 +1340,23 @@ class _ExpandableProjectItem extends StatelessWidget {
           if (isExpanded && hasWorktrees)
             Container(
               decoration: BoxDecoration(
-                color: theme.colorScheme.surface.withValues(alpha: 0.3),
+                color: ocTheme.backgroundPanel.withValues(alpha: 0.6),
                 borderRadius: const BorderRadius.vertical(
                   bottom: Radius.circular(12),
+                ),
+                border: Border(
+                  left: BorderSide(
+                    color: ocTheme.borderSubtle.withValues(alpha: 0.5),
+                    width: 1,
+                  ),
+                  right: BorderSide(
+                    color: ocTheme.borderSubtle.withValues(alpha: 0.5),
+                    width: 1,
+                  ),
+                  bottom: BorderSide(
+                    color: ocTheme.borderSubtle.withValues(alpha: 0.5),
+                    width: 1,
+                  ),
                 ),
               ),
               child: Column(

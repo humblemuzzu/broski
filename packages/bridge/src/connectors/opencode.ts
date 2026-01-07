@@ -373,17 +373,31 @@ export class OpenCodeConnector {
     return this.client.config.providers({}, { responseStyle: 'data' })
   }
 
-  async getConfig() {
-    // v2 SDK: first arg is parameters, second arg is options
-    return this.client.config.get({}, { responseStyle: 'data' })
+  async getConfig(directory?: string) {
+    return this.getConfigForDirectory(directory)
   }
 
-  async updateModel(model: string) {
+  async getConfigForDirectory(directory?: string) {
     // v2 SDK: first arg is parameters, second arg is options
-    return this.client.config.update(
-      { model },
+    return this.client.config.get(
+      directory ? { directory } : {},
       { responseStyle: 'data' },
     )
+  }
+
+  async updateConfig(config: Record<string, unknown>, directory?: string) {
+    // v2 SDK: config.update({ directory?, config? })
+    return this.client.config.update(
+      {
+        ...(directory && directory.length > 0 ? { directory } : {}),
+        config: config as any,
+      },
+      { responseStyle: 'data' },
+    )
+  }
+
+  async updateModel(model: string, directory?: string) {
+    return this.updateConfig({ model }, directory)
   }
 
   async respondToPermission(

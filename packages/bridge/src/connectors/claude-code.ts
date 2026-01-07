@@ -805,6 +805,7 @@ export async function listSkills(cwd?: string): Promise<ClaudeCodeSkill[]> {
   searchDirs.push(join(homedir(), '.claude', 'skills'))
 
   for (const dir of searchDirs) {
+    const source: 'project' | 'user' = dir.startsWith(homedir()) ? 'user' : 'project'
     try {
       const entries = await readdir(dir, { withFileTypes: true })
       for (const entry of entries) {
@@ -815,18 +816,47 @@ export async function listSkills(cwd?: string): Promise<ClaudeCodeSkill[]> {
           const content = await readFile(skillPath, 'utf-8')
           const skill = parseSkillFile(entry.name, content)
           if (skill) {
-            skills.push(skill)
+            skills.push({ ...skill, source, path: skillPath })
           }
         } catch {
           skills.push({
             name: entry.name,
             autoInvoke: false,
+            source,
+            path: skillPath,
           })
         }
       }
     } catch {
       continue
     }
+  }
+
+  // Also include skills exposed by enabled plugins.
+  try {
+    const pluginsModule = await import('../plugins')
+    const plugins = await pluginsModule.discoverPlugins(cwd)
+    for (const plugin of plugins) {
+      if (plugin.status !== 'enabled') continue
+      const pluginSkills = Array.isArray(plugin.skills) ? plugin.skills : []
+      if (pluginSkills.length === 0) continue
+
+      for (const name of pluginSkills) {
+        // Prefer explicit .claude/skills definitions if present.
+        if (skills.some((s) => s.name === name)) continue
+
+        const skillPath = join(plugin.path, 'skills', name, 'SKILL.md')
+        try {
+          const content = await readFile(skillPath, 'utf-8')
+          const skill = parseSkillFile(name, content)
+          skills.push({ ...skill, source: 'plugin', path: skillPath })
+        } catch {
+          skills.push({ name, autoInvoke: false, source: 'plugin', path: skillPath })
+        }
+      }
+    }
+  } catch {
+    // ignore (plugins optional)
   }
 
   return skills
@@ -867,29 +897,63 @@ export async function listHooks(cwd?: string): Promise<ClaudeCodeHook[]> {
 
   searchDirs.push(join(homedir(), '.claude', 'hooks'))
 
+  const parseHooksJson = (hooksJsonPath: string, source: 'project' | 'user' | 'plugin', content: string) => {
+    const parsed = JSON.parse(content) as { hooks?: Record<string, any[]>; description?: string }
+    if (!parsed.hooks) return
+    let idx = 0
+    for (const [event, matchers] of Object.entries(parsed.hooks)) {
+      if (!Array.isArray(matchers)) continue
+      for (const entry of matchers) {
+        const matcherValue =
+          typeof entry?.matcher === 'string'
+            ? entry.matcher
+            : typeof entry?.matcher?.matcher === 'string'
+              ? entry.matcher.matcher
+              : undefined
+        const enabled = typeof entry?.enabled === 'boolean' ? entry.enabled : true
+        const hooksArr = Array.isArray(entry?.hooks) ? entry.hooks : undefined
+        const description = typeof entry?.description === 'string' ? entry.description : undefined
+        hooks.push({
+          id: `${source}:${hooksJsonPath}:${event}:${idx++}`,
+          event: event as any,
+          matcher: matcherValue,
+          enabled,
+          description,
+          hooks: hooksArr,
+          source,
+          path: hooksJsonPath,
+        })
+      }
+    }
+  }
+
   for (const dir of searchDirs) {
+    const source: 'project' | 'user' = dir.startsWith(homedir()) ? 'user' : 'project'
     try {
       const hooksJsonPath = join(dir, 'hooks.json')
       const content = await readFile(hooksJsonPath, 'utf-8')
-      const parsed = JSON.parse(content) as { hooks?: Record<string, any[]> }
-
-      if (parsed.hooks) {
-        let hookIndex = 0
-        for (const [event, matchers] of Object.entries(parsed.hooks)) {
-          for (const matcher of matchers) {
-            hooks.push({
-              id: `${event}-${hookIndex++}`,
-              event: event as any,
-              matcher: matcher.matcher,
-              enabled: true,
-              description: matcher.description,
-            })
-          }
-        }
-      }
+      parseHooksJson(hooksJsonPath, source, content)
     } catch {
       continue
     }
+  }
+
+  // Also include hooks exposed by enabled plugins.
+  try {
+    const pluginsModule = await import('../plugins')
+    const plugins = await pluginsModule.discoverPlugins(cwd)
+    for (const plugin of plugins) {
+      if (plugin.status !== 'enabled') continue
+      const hooksJsonPath = join(plugin.path, 'hooks', 'hooks.json')
+      try {
+        const content = await readFile(hooksJsonPath, 'utf-8')
+        parseHooksJson(hooksJsonPath, 'plugin', content)
+      } catch {
+        // ignore missing hooks
+      }
+    }
+  } catch {
+    // ignore (plugins optional)
   }
 
   return hooks
@@ -906,6 +970,7 @@ export async function listCommands(cwd?: string): Promise<ClaudeCodeCommand[]> {
   searchDirs.push(join(homedir(), '.claude', 'commands'))
 
   for (const dir of searchDirs) {
+    const source: 'project' | 'user' = dir.startsWith(homedir()) ? 'user' : 'project'
     try {
       const entries = await readdir(dir)
       for (const entry of entries) {
@@ -917,9 +982,9 @@ export async function listCommands(cwd?: string): Promise<ClaudeCodeCommand[]> {
         try {
           const content = await readFile(filePath, 'utf-8')
           const cmd = parseCommandFile(name, content)
-          commands.push(cmd)
+          commands.push({ ...cmd, source, path: filePath })
         } catch {
-          commands.push({ name })
+          commands.push({ name, source, path: filePath })
         }
       }
     } catch {
@@ -943,9 +1008,9 @@ export async function listCommands(cwd?: string): Promise<ClaudeCodeCommand[]> {
         const filePath = join(plugin.path, 'commands', `${name}.md`)
         try {
           const content = await readFile(filePath, 'utf-8')
-          commands.push(parseCommandFile(name, content))
+          commands.push({ ...parseCommandFile(name, content), source: 'plugin', path: filePath })
         } catch {
-          commands.push({ name })
+          commands.push({ name, source: 'plugin', path: filePath })
         }
       }
     }

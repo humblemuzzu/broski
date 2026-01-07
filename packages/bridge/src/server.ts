@@ -61,6 +61,13 @@ function safeString(value: unknown): string {
   return typeof value === 'string' ? value : ''
 }
 
+function isSafeClaudeCommandName(name: string): boolean {
+  const trimmed = (name || '').trim()
+  if (trimmed.length < 1 || trimmed.length > 128) return false
+  if (trimmed.includes('/') || trimmed.includes('\\')) return false
+  return trimmed === basename(trimmed)
+}
+
 function _countDiffAddsDels(diff: string): { adds: number; dels: number } {
   let adds = 0
   let dels = 0
@@ -1995,13 +2002,18 @@ export function createBridgeServer(options: BridgeServerOptions): BridgeServer {
           break
         }
         case 'get_config': {
-          const config = await opencode.getConfig()
+          const config = await opencode.getConfig(message.projectPath)
+          reply({ type: 'config', data: config })
+          break
+        }
+        case 'set_config': {
+          const config = await opencode.updateConfig(message.config, message.projectPath)
           reply({ type: 'config', data: config })
           break
         }
         case 'set_model': {
-          await opencode.updateModel(message.model)
-          const config = await opencode.getConfig()
+          await opencode.updateModel(message.model, message.projectPath)
+          const config = await opencode.getConfig(message.projectPath)
           reply({ type: 'config', data: config })
           break
         }
@@ -2632,6 +2644,66 @@ export function createBridgeServer(options: BridgeServerOptions): BridgeServer {
         reply({ type: 'cx_skills', data: result?.data ?? [] })
         break
       }
+      case 'cx_get_skill': {
+        const skillFiles = await import('./skills')
+        if (!skillFiles.validateSkillName(message.name)) {
+          reply({ type: 'error', message: 'Invalid skill name' })
+          break
+        }
+        const path = skillFiles.getCodexSkillFilePath({
+          name: message.name,
+          scope: message.scope,
+          cwd: message.cwd,
+        })
+        try {
+          const content = await skillFiles.readSkillFile(path)
+          reply({
+            type: 'cx_skill',
+            data: { name: message.name, path, scope: message.scope, content },
+          })
+        } catch {
+          reply({ type: 'error', message: 'Skill not found' })
+        }
+        break
+      }
+      case 'cx_save_skill': {
+        const skillFiles = await import('./skills')
+        if (!skillFiles.validateSkillName(message.name)) {
+          reply({ type: 'cx_skill_saved', data: { ok: false } })
+          break
+        }
+        const path = skillFiles.getCodexSkillFilePath({
+          name: message.name,
+          scope: message.scope,
+          cwd: message.cwd,
+        })
+        try {
+          await skillFiles.writeSkillFile(path, message.content)
+          reply({ type: 'cx_skill_saved', data: { ok: true, path } })
+        } catch {
+          reply({ type: 'cx_skill_saved', data: { ok: false } })
+        }
+        break
+      }
+      case 'cx_delete_skill': {
+        const skillFiles = await import('./skills')
+        if (!skillFiles.validateSkillName(message.name)) {
+          reply({ type: 'cx_skill_deleted', data: { ok: false } })
+          break
+        }
+        const path = skillFiles.getCodexSkillFilePath({
+          name: message.name,
+          scope: message.scope,
+          cwd: message.cwd,
+        })
+        try {
+          await skillFiles.deleteSkillByPath(path)
+          reply({ type: 'cx_skill_deleted', data: { ok: true } })
+        } catch {
+          reply({ type: 'cx_skill_deleted', data: { ok: false } })
+        }
+        break
+      }
       case 'cx_config_read': {
         const client = await ensureCodexClient()
         const result: any = await client.request('config/read', {
@@ -3005,6 +3077,240 @@ export function createBridgeServer(options: BridgeServerOptions): BridgeServer {
           })
           break
         }
+        case 'oc_list_skills': {
+          const skillFiles = await import('./skills')
+          const data = await skillFiles.listOpenCodeSkills(message.cwd)
+          reply({ type: 'oc_skills', data })
+          break
+        }
+        case 'oc_get_skill': {
+          const skillFiles = await import('./skills')
+          if (!skillFiles.validateSkillName(message.name)) {
+            reply({ type: 'error', message: 'Invalid skill name' })
+            break
+          }
+          const path = skillFiles.getOpenCodeSkillFilePath({
+            name: message.name,
+            source: message.source,
+            cwd: message.cwd,
+          })
+          try {
+            const content = await skillFiles.readSkillFile(path)
+            reply({
+              type: 'oc_skill',
+              data: { name: message.name, path, source: message.source, content },
+            })
+          } catch {
+            reply({ type: 'error', message: 'Skill not found' })
+          }
+          break
+        }
+        case 'oc_save_skill': {
+          const skillFiles = await import('./skills')
+          if (!skillFiles.validateSkillName(message.name)) {
+            reply({ type: 'oc_skill_saved', data: { ok: false } })
+            break
+          }
+          const path = skillFiles.getOpenCodeSkillFilePath({
+            name: message.name,
+            source: message.source,
+            cwd: message.cwd,
+          })
+          try {
+            await skillFiles.writeSkillFile(path, message.content)
+            reply({ type: 'oc_skill_saved', data: { ok: true, path } })
+          } catch {
+            reply({ type: 'oc_skill_saved', data: { ok: false } })
+          }
+          break
+        }
+        case 'oc_delete_skill': {
+          const skillFiles = await import('./skills')
+          if (!skillFiles.validateSkillName(message.name)) {
+            reply({ type: 'oc_skill_deleted', data: { ok: false } })
+            break
+          }
+          const path = skillFiles.getOpenCodeSkillFilePath({
+            name: message.name,
+            source: message.source,
+            cwd: message.cwd,
+          })
+          try {
+            await skillFiles.deleteSkillByPath(path)
+            reply({ type: 'oc_skill_deleted', data: { ok: true } })
+          } catch {
+            reply({ type: 'oc_skill_deleted', data: { ok: false } })
+          }
+          break
+        }
+        case 'oc_list_plugin_files': {
+          const plugins = await import('./opencode-plugins')
+          const data = await plugins.listPluginFiles(message.cwd)
+          reply({ type: 'oc_plugin_files', data })
+          break
+        }
+        case 'oc_get_plugin_file': {
+          const plugins = await import('./opencode-plugins')
+          if (!plugins.validatePluginFilename(message.name)) {
+            reply({ type: 'error', message: 'Invalid plugin filename' })
+            break
+          }
+          const path = plugins.getPluginFilePath({
+            name: message.name,
+            source: message.source,
+            cwd: message.cwd,
+          })
+          try {
+            const content = await plugins.readPluginFile(path)
+            reply({
+              type: 'oc_plugin_file',
+              data: { name: message.name, path, source: message.source, content },
+            })
+          } catch {
+            reply({ type: 'error', message: 'Plugin file not found' })
+          }
+          break
+        }
+        case 'oc_save_plugin_file': {
+          const plugins = await import('./opencode-plugins')
+          if (!plugins.validatePluginFilename(message.name)) {
+            reply({ type: 'oc_plugin_file_saved', data: { ok: false } })
+            break
+          }
+          const path = plugins.getPluginFilePath({
+            name: message.name,
+            source: message.source,
+            cwd: message.cwd,
+          })
+          try {
+            await plugins.writePluginFile(path, message.content)
+            reply({ type: 'oc_plugin_file_saved', data: { ok: true, path } })
+          } catch {
+            reply({ type: 'oc_plugin_file_saved', data: { ok: false } })
+          }
+          break
+        }
+        case 'oc_delete_plugin_file': {
+          const plugins = await import('./opencode-plugins')
+          if (!plugins.validatePluginFilename(message.name)) {
+            reply({ type: 'oc_plugin_file_deleted', data: { ok: false } })
+            break
+          }
+          const path = plugins.getPluginFilePath({
+            name: message.name,
+            source: message.source,
+            cwd: message.cwd,
+          })
+          try {
+            await plugins.deletePluginFile(path)
+            reply({ type: 'oc_plugin_file_deleted', data: { ok: true } })
+          } catch {
+            reply({ type: 'oc_plugin_file_deleted', data: { ok: false } })
+          }
+          break
+        }
+        case 'oc_list_command_files': {
+          const files = await import('./opencode-custom')
+          const data = await files.listCommandFiles(message.cwd)
+          reply({ type: 'oc_command_files', data })
+          break
+        }
+        case 'oc_get_command_file': {
+          const files = await import('./opencode-custom')
+          if (!files.validateName(message.name)) {
+            reply({ type: 'error', message: 'Invalid command name' })
+            break
+          }
+          const path = files.commandFilePath({ name: message.name, source: message.source, cwd: message.cwd })
+          try {
+            const content = await files.readMarkdownFile(path)
+            reply({ type: 'oc_command_file', data: { name: message.name, path, source: message.source, content } })
+          } catch {
+            reply({ type: 'error', message: 'Command file not found' })
+          }
+          break
+        }
+        case 'oc_save_command_file': {
+          const files = await import('./opencode-custom')
+          if (!files.validateName(message.name)) {
+            reply({ type: 'oc_command_file_saved', data: { ok: false } })
+            break
+          }
+          const path = files.commandFilePath({ name: message.name, source: message.source, cwd: message.cwd })
+          try {
+            await files.writeMarkdownFile(path, message.content)
+            reply({ type: 'oc_command_file_saved', data: { ok: true, path } })
+          } catch {
+            reply({ type: 'oc_command_file_saved', data: { ok: false } })
+          }
+          break
+        }
+        case 'oc_delete_command_file': {
+          const files = await import('./opencode-custom')
+          if (!files.validateName(message.name)) {
+            reply({ type: 'oc_command_file_deleted', data: { ok: false } })
+            break
+          }
+          const path = files.commandFilePath({ name: message.name, source: message.source, cwd: message.cwd })
+          try {
+            await files.deleteMarkdownFile(path)
+            reply({ type: 'oc_command_file_deleted', data: { ok: true } })
+          } catch {
+            reply({ type: 'oc_command_file_deleted', data: { ok: false } })
+          }
+          break
+        }
+        case 'oc_list_agent_files': {
+          const files = await import('./opencode-custom')
+          const data = await files.listAgentFiles(message.cwd)
+          reply({ type: 'oc_agent_files', data })
+          break
+        }
+        case 'oc_get_agent_file': {
+          const files = await import('./opencode-custom')
+          if (!files.validateName(message.name)) {
+            reply({ type: 'error', message: 'Invalid agent name' })
+            break
+          }
+          const path = files.agentFilePath({ name: message.name, source: message.source, cwd: message.cwd })
+          try {
+            const content = await files.readMarkdownFile(path)
+            reply({ type: 'oc_agent_file', data: { name: message.name, path, source: message.source, content } })
+          } catch {
+            reply({ type: 'error', message: 'Agent file not found' })
+          }
+          break
+        }
+        case 'oc_save_agent_file': {
+          const files = await import('./opencode-custom')
+          if (!files.validateName(message.name)) {
+            reply({ type: 'oc_agent_file_saved', data: { ok: false } })
+            break
+          }
+          const path = files.agentFilePath({ name: message.name, source: message.source, cwd: message.cwd })
+          try {
+            await files.writeMarkdownFile(path, message.content)
+            reply({ type: 'oc_agent_file_saved', data: { ok: true, path } })
+          } catch {
+            reply({ type: 'oc_agent_file_saved', data: { ok: false } })
+          }
+          break
+        }
+        case 'oc_delete_agent_file': {
+          const files = await import('./opencode-custom')
+          if (!files.validateName(message.name)) {
+            reply({ type: 'oc_agent_file_deleted', data: { ok: false } })
+            break
+          }
+          const path = files.agentFilePath({ name: message.name, source: message.source, cwd: message.cwd })
+          try {
+            await files.deleteMarkdownFile(path)
+            reply({ type: 'oc_agent_file_deleted', data: { ok: true } })
+          } catch {
+            reply({ type: 'oc_agent_file_deleted', data: { ok: false } })
+          }
+          break
+        }
         case 'cc_list_projects': {
           const projects = await claudeCode.listProjects()
           reply({ type: 'cc_projects', data: projects })
@@ -3321,14 +3627,277 @@ export function createBridgeServer(options: BridgeServerOptions): BridgeServer {
           reply({ type: 'cc_skills', data: skills })
           break
         }
+        case 'cc_get_skill': {
+          const skillFiles = await import('./skills')
+          if (!skillFiles.validateSkillName(message.name)) {
+            reply({ type: 'error', message: 'Invalid skill name' })
+            break
+          }
+
+          let skillPath: string | null = null
+          if (message.source === 'plugin') {
+            const requestedPath = safeString(message.path)
+            if (!requestedPath) {
+              reply({ type: 'error', message: 'Missing skill path' })
+              break
+            }
+            try {
+              const pluginsModule = await import('./plugins')
+              const plugins = await pluginsModule.discoverPlugins(message.cwd)
+              const resolved = resolve(requestedPath)
+              const allowed = plugins.some((p) => resolved.startsWith(resolve(p.path) + sep))
+              if (!allowed) {
+                reply({ type: 'error', message: 'Skill path not allowed' })
+                break
+              }
+              skillPath = resolved
+            } catch {
+              reply({ type: 'error', message: 'Failed to resolve plugin skill' })
+              break
+            }
+          } else {
+            skillPath = skillFiles.getClaudeCodeSkillFilePath({
+              name: message.name,
+              source: message.source,
+              cwd: message.cwd,
+            })
+          }
+
+          try {
+            const content = await skillFiles.readSkillFile(skillPath)
+            reply({
+              type: 'cc_skill',
+              data: { name: message.name, path: skillPath, source: message.source, content },
+            })
+          } catch {
+            reply({ type: 'error', message: 'Skill not found' })
+          }
+          break
+        }
+        case 'cc_save_skill': {
+          const skillFiles = await import('./skills')
+          if (!skillFiles.validateSkillName(message.name)) {
+            reply({ type: 'cc_skill_saved', data: { ok: false } })
+            break
+          }
+          const path = skillFiles.getClaudeCodeSkillFilePath({
+            name: message.name,
+            source: message.source,
+            cwd: message.cwd,
+          })
+          try {
+            await skillFiles.writeSkillFile(path, message.content)
+            reply({ type: 'cc_skill_saved', data: { ok: true, path } })
+          } catch {
+            reply({ type: 'cc_skill_saved', data: { ok: false } })
+          }
+          break
+        }
+        case 'cc_delete_skill': {
+          const skillFiles = await import('./skills')
+          if (!skillFiles.validateSkillName(message.name)) {
+            reply({ type: 'cc_skill_deleted', data: { ok: false } })
+            break
+          }
+          const path = skillFiles.getClaudeCodeSkillFilePath({
+            name: message.name,
+            source: message.source,
+            cwd: message.cwd,
+          })
+          try {
+            await skillFiles.deleteSkillByPath(path)
+            reply({ type: 'cc_skill_deleted', data: { ok: true } })
+          } catch {
+            reply({ type: 'cc_skill_deleted', data: { ok: false } })
+          }
+          break
+        }
         case 'cc_list_hooks': {
           const hooks = await claudeCode.listHooks(message.cwd)
           reply({ type: 'cc_hooks', data: hooks })
           break
         }
+        case 'cc_hooks_file_read': {
+          const src = message.source
+          const cwd = message.cwd || process.cwd()
+          const hooksPath =
+            src === 'project'
+              ? join(cwd, '.claude', 'hooks', 'hooks.json')
+              : join(homedir(), '.claude', 'hooks', 'hooks.json')
+          try {
+            const content = await readFile(hooksPath, 'utf-8')
+            reply({ type: 'cc_hooks_file', data: { ok: true, source: src, path: hooksPath, content } })
+          } catch {
+            reply({ type: 'cc_hooks_file', data: { ok: true, source: src, path: hooksPath, content: '{"hooks":{}}' } })
+          }
+          break
+        }
+        case 'cc_hooks_file_write': {
+          const src = message.source
+          const cwd = message.cwd || process.cwd()
+          const hooksPath =
+            src === 'project'
+              ? join(cwd, '.claude', 'hooks', 'hooks.json')
+              : join(homedir(), '.claude', 'hooks', 'hooks.json')
+          try {
+            await mkdir(resolve(hooksPath, '..'), { recursive: true })
+            await writeFile(hooksPath, message.content, 'utf-8')
+            reply({ type: 'cc_hooks_file_written', data: { ok: true, source: src, path: hooksPath } })
+          } catch {
+            reply({ type: 'cc_hooks_file_written', data: { ok: false, source: src, path: hooksPath } })
+          }
+          break
+        }
+        case 'cc_mcp_file_read': {
+          const cwd = message.cwd || process.cwd()
+          const mcpPath = join(cwd, '.mcp.json')
+          try {
+            const content = await readFile(mcpPath, 'utf-8')
+            reply({ type: 'cc_mcp_file', data: { ok: true, path: mcpPath, content } })
+          } catch {
+            reply({ type: 'cc_mcp_file', data: { ok: true, path: mcpPath, content: '{"mcpServers":{}}' } })
+          }
+          break
+        }
+        case 'cc_mcp_file_write': {
+          const cwd = message.cwd || process.cwd()
+          const mcpPath = join(cwd, '.mcp.json')
+          try {
+            await writeFile(mcpPath, message.content, 'utf-8')
+            reply({ type: 'cc_mcp_file_written', data: { ok: true, path: mcpPath } })
+          } catch {
+            reply({ type: 'cc_mcp_file_written', data: { ok: false, path: mcpPath } })
+          }
+          break
+        }
         case 'cc_list_commands': {
           const commands = await claudeCode.listCommands(message.cwd)
           reply({ type: 'cc_commands', data: commands })
+          break
+        }
+        case 'cc_get_command': {
+          const name = safeString(message.name)
+          const source = message.source
+          const cwd = message.cwd || process.cwd()
+
+          if (!isSafeClaudeCommandName(name)) {
+            reply({
+              type: 'cc_command_file',
+              data: { ok: false, name, source, path: '', content: '' },
+            })
+            break
+          }
+
+          let cmdPath = ''
+          if (source === 'plugin') {
+            const requestedPath = safeString(message.path)
+            if (!requestedPath) {
+              reply({
+                type: 'cc_command_file',
+                data: { ok: false, name, source, path: '', content: '' },
+              })
+              break
+            }
+            try {
+              const pluginsModule = await import('./plugins')
+              const plugins = await pluginsModule.discoverPlugins(message.cwd)
+              const resolved = resolve(requestedPath)
+              const allowed = plugins.some((p) => resolved.startsWith(resolve(p.path) + sep))
+              if (!allowed) {
+                reply({
+                  type: 'cc_command_file',
+                  data: { ok: false, name, source, path: '', content: '' },
+                })
+                break
+              }
+              cmdPath = resolved
+            } catch {
+              reply({
+                type: 'cc_command_file',
+                data: { ok: false, name, source, path: '', content: '' },
+              })
+              break
+            }
+          } else {
+            cmdPath =
+              source === 'project'
+                ? join(cwd, '.claude', 'commands', `${name}.md`)
+                : join(homedir(), '.claude', 'commands', `${name}.md`)
+          }
+
+          try {
+            const content = await readFile(cmdPath, 'utf-8')
+            reply({
+              type: 'cc_command_file',
+              data: { ok: true, name, source, path: cmdPath, content },
+            })
+          } catch {
+            const defaultContent = [
+              '---',
+              `description: ${name}`,
+              '---',
+              '',
+            ].join('\n')
+            reply({
+              type: 'cc_command_file',
+              data: { ok: false, name, source, path: cmdPath, content: defaultContent },
+            })
+          }
+          break
+        }
+        case 'cc_save_command': {
+          const name = safeString(message.name)
+          const source = message.source
+          const cwd = message.cwd || process.cwd()
+
+          if (source !== 'project' && source !== 'user') {
+            reply({ type: 'cc_command_saved', data: { ok: false, name, source } })
+            break
+          }
+          if (!isSafeClaudeCommandName(name)) {
+            reply({ type: 'cc_command_saved', data: { ok: false, name, source } })
+            break
+          }
+
+          const cmdPath =
+            source === 'project'
+              ? join(cwd, '.claude', 'commands', `${name}.md`)
+              : join(homedir(), '.claude', 'commands', `${name}.md`)
+
+          try {
+            await mkdir(resolve(cmdPath, '..'), { recursive: true })
+            await writeFile(cmdPath, message.content, 'utf-8')
+            reply({ type: 'cc_command_saved', data: { ok: true, name, source, path: cmdPath } })
+          } catch {
+            reply({ type: 'cc_command_saved', data: { ok: false, name, source, path: cmdPath } })
+          }
+          break
+        }
+        case 'cc_delete_command': {
+          const name = safeString(message.name)
+          const source = message.source
+          const cwd = message.cwd || process.cwd()
+
+          if (source !== 'project' && source !== 'user') {
+            reply({ type: 'cc_command_deleted', data: { ok: false, name, source } })
+            break
+          }
+          if (!isSafeClaudeCommandName(name)) {
+            reply({ type: 'cc_command_deleted', data: { ok: false, name, source } })
+            break
+          }
+
+          const cmdPath =
+            source === 'project'
+              ? join(cwd, '.claude', 'commands', `${name}.md`)
+              : join(homedir(), '.claude', 'commands', `${name}.md`)
+
+          try {
+            await rm(cmdPath, { force: true })
+            reply({ type: 'cc_command_deleted', data: { ok: true, name, source } })
+          } catch {
+            reply({ type: 'cc_command_deleted', data: { ok: false, name, source } })
+          }
           break
         }
         case 'cc_get_active_sessions': {

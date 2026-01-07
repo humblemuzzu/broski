@@ -1,0 +1,796 @@
+import 'package:flutter/material.dart';
+import 'package:flutter_markdown/flutter_markdown.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+
+import '../models/agent_type.dart';
+import '../models/skill.dart';
+import '../providers/selection_provider.dart';
+import '../providers/service_providers.dart';
+import '../theme/opencode_theme.dart';
+
+class SkillsScreen extends ConsumerStatefulWidget {
+  const SkillsScreen({required this.backend, super.key});
+
+  final AgentType backend;
+
+  @override
+  ConsumerState<SkillsScreen> createState() => _SkillsScreenState();
+}
+
+class _SkillsScreenState extends ConsumerState<SkillsScreen> {
+  List<Skill> _skills = const [];
+  bool _isLoading = true;
+  String? _error;
+
+  @override
+  void initState() {
+    super.initState();
+    _load();
+  }
+
+  Future<void> _load({bool forceReload = false}) async {
+    setState(() {
+      _isLoading = true;
+      _error = null;
+    });
+
+    final selection = ref.read(selectionProvider);
+    final cwd = selection.project?.path;
+
+    try {
+      final bridge = ref.read(bridgeServiceProvider);
+      final skills = await bridge.listSkills(
+        backend: widget.backend,
+        cwd: cwd,
+        forceReload: forceReload,
+      );
+      if (!mounted) return;
+      setState(() {
+        _skills = skills;
+        _isLoading = false;
+      });
+    } catch (e) {
+      if (!mounted) return;
+      setState(() {
+        _error = e.toString();
+        _isLoading = false;
+      });
+    }
+  }
+
+  Future<void> _openSkill(Skill summary) async {
+    final selection = ref.read(selectionProvider);
+    final cwd = selection.project?.path;
+    final bridge = ref.read(bridgeServiceProvider);
+
+    try {
+      final loaded = await bridge.getSkill(skill: summary, cwd: cwd);
+      if (!mounted || loaded == null) return;
+      if (!mounted) return;
+      await Navigator.push<void>(
+        context,
+        MaterialPageRoute(
+          builder: (_) => SkillEditorScreen(
+            backend: widget.backend,
+            cwd: cwd,
+            existing: loaded,
+          ),
+        ),
+      );
+      await _load();
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Failed to load skill: $e')),
+      );
+    }
+  }
+
+  Future<void> _createSkill() async {
+    final selection = ref.read(selectionProvider);
+    final cwd = selection.project?.path;
+
+    final sources = <SkillSource>[
+      if (cwd != null) SkillSource.project,
+      SkillSource.user,
+    ];
+
+    final source = await showModalBottomSheet<SkillSource>(
+      context: context,
+      backgroundColor: Theme.of(context).colorScheme.surface,
+      builder: (context) => SafeArea(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            ListTile(
+              title: const Text('Create Skill'),
+              subtitle: Text(widget.backend.displayName),
+              trailing: IconButton(
+                icon: const Icon(Icons.close_rounded),
+                onPressed: () => Navigator.pop(context),
+              ),
+            ),
+            const Divider(height: 1),
+            for (final s in sources)
+              ListTile(
+                leading: Icon(
+                  s == SkillSource.project
+                      ? Icons.folder_outlined
+                      : Icons.person_outline_rounded,
+                ),
+                title: Text('${s.displayName} skill'),
+                subtitle: Text(
+                  s == SkillSource.project
+                      ? 'Saved in this repo'
+                      : 'Available across projects',
+                ),
+                onTap: () => Navigator.pop(context, s),
+              ),
+            const SizedBox(height: 8),
+          ],
+        ),
+      ),
+    );
+
+    if (source == null || !mounted) return;
+
+    await Navigator.push<void>(
+      context,
+      MaterialPageRoute(
+        builder: (_) => SkillEditorScreen(
+          backend: widget.backend,
+          cwd: cwd,
+          createSource: source,
+        ),
+      ),
+    );
+
+    await _load();
+  }
+
+  Future<void> _deleteSkill(Skill skill) async {
+    final selection = ref.read(selectionProvider);
+    final cwd = selection.project?.path;
+
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('Delete Skill'),
+        content: Text('Delete "${skill.name}" from ${skill.source.displayName}?'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, false),
+            child: const Text('Cancel'),
+          ),
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, true),
+            style: TextButton.styleFrom(foregroundColor: Colors.red),
+            child: const Text('Delete'),
+          ),
+        ],
+      ),
+    );
+
+    if (confirmed != true || !mounted) return;
+
+    try {
+      final bridge = ref.read(bridgeServiceProvider);
+      final ok = await bridge.deleteSkill(
+        backend: widget.backend,
+        name: skill.name,
+        source: skill.source,
+        cwd: cwd,
+      );
+      if (!mounted) return;
+      if (!ok) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Failed to delete skill')),
+        );
+      }
+      await _load();
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Failed to delete skill: $e')),
+      );
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final oc = theme.extension<OpenCodeTheme>()!;
+
+    final grouped = <SkillSource, List<Skill>>{};
+    for (final s in _skills) {
+      grouped.putIfAbsent(s.source, () => []).add(s);
+    }
+
+    List<SkillSource> orderedSources = [
+      SkillSource.project,
+      SkillSource.user,
+      SkillSource.plugin,
+      SkillSource.system,
+      SkillSource.admin,
+    ];
+    orderedSources = orderedSources.where(grouped.containsKey).toList();
+
+    return Scaffold(
+      backgroundColor: oc.background,
+      appBar: AppBar(
+        backgroundColor: oc.background,
+        elevation: 0,
+        title: Text('Skills', style: TextStyle(color: oc.text)),
+        iconTheme: IconThemeData(color: oc.text),
+        actions: [
+          IconButton(
+            icon: const Icon(Icons.refresh_rounded),
+            onPressed: () => _load(forceReload: widget.backend == AgentType.codex),
+            tooltip: 'Refresh',
+          ),
+          IconButton(
+            icon: const Icon(Icons.add_rounded),
+            onPressed: _createSkill,
+            tooltip: 'Create Skill',
+          ),
+        ],
+      ),
+      body: _isLoading
+          ? const Center(child: CircularProgressIndicator())
+          : _error != null
+          ? Center(
+              child: Padding(
+                padding: const EdgeInsets.all(24),
+                child: Column(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    Icon(Icons.error_outline_rounded, color: oc.error, size: 48),
+                    const SizedBox(height: 12),
+                    Text(
+                      'Failed to load skills',
+                      style: TextStyle(color: oc.text, fontSize: 16),
+                    ),
+                    const SizedBox(height: 8),
+                    Text(
+                      _error!,
+                      textAlign: TextAlign.center,
+                      style: TextStyle(color: oc.textMuted, fontSize: 12),
+                    ),
+                    const SizedBox(height: 16),
+                    ElevatedButton.icon(
+                      onPressed: _load,
+                      icon: const Icon(Icons.refresh_rounded),
+                      label: const Text('Retry'),
+                    ),
+                  ],
+                ),
+              ),
+            )
+          : _skills.isEmpty
+          ? Center(
+              child: Padding(
+                padding: const EdgeInsets.all(24),
+                child: Column(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    Icon(Icons.extension_rounded, color: oc.textMuted, size: 56),
+                    const SizedBox(height: 12),
+                    Text('No skills found', style: TextStyle(color: oc.text)),
+                    const SizedBox(height: 8),
+                    Text(
+                      'Create a SKILL.md to teach the agent repeatable workflows.',
+                      textAlign: TextAlign.center,
+                      style: TextStyle(color: oc.textMuted),
+                    ),
+                    const SizedBox(height: 16),
+                    ElevatedButton.icon(
+                      onPressed: _createSkill,
+                      icon: const Icon(Icons.add_rounded),
+                      label: const Text('Create Skill'),
+                    ),
+                  ],
+                ),
+              ),
+            )
+          : ListView(
+              padding: const EdgeInsets.fromLTRB(16, 8, 16, 16),
+              children: [
+                _BackendHeader(backend: widget.backend),
+                const SizedBox(height: 12),
+                for (final source in orderedSources) ...[
+                  _SectionHeader(title: source.displayName),
+                  const SizedBox(height: 6),
+                  ...grouped[source]!.map((skill) {
+                    final editable = skill.source.isEditable;
+                    return Card(
+                      color: oc.backgroundElement,
+                      margin: const EdgeInsets.only(bottom: 10),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(12),
+                        side: BorderSide(color: oc.border),
+                      ),
+                      child: ListTile(
+                        onTap: () => _openSkill(skill),
+                        title: Text(
+                          skill.name,
+                          style: TextStyle(
+                            color: oc.text,
+                            fontWeight: FontWeight.w600,
+                          ),
+                        ),
+                        subtitle: Text(
+                          skill.description?.trim().isNotEmpty == true
+                              ? skill.description!.trim()
+                              : 'No description',
+                          maxLines: 2,
+                          overflow: TextOverflow.ellipsis,
+                          style: TextStyle(color: oc.textMuted),
+                        ),
+                        trailing: PopupMenuButton<String>(
+                          onSelected: (value) {
+                            if (value == 'open') _openSkill(skill);
+                            if (value == 'delete') _deleteSkill(skill);
+                          },
+                          itemBuilder: (context) => [
+                            const PopupMenuItem(
+                              value: 'open',
+                              child: Text('Open'),
+                            ),
+                            if (editable)
+                              const PopupMenuItem(
+                                value: 'delete',
+                                child: Text('Delete'),
+                              ),
+                          ],
+                        ),
+                      ),
+                    );
+                  }),
+                ],
+              ],
+            ),
+    );
+  }
+}
+
+class SkillEditorScreen extends ConsumerStatefulWidget {
+  const SkillEditorScreen({
+    required this.backend,
+    required this.cwd,
+    this.existing,
+    this.createSource,
+    super.key,
+  });
+
+  final AgentType backend;
+  final String? cwd;
+  final Skill? existing;
+  final SkillSource? createSource;
+
+  @override
+  ConsumerState<SkillEditorScreen> createState() => _SkillEditorScreenState();
+}
+
+class _SkillEditorScreenState extends ConsumerState<SkillEditorScreen>
+    with SingleTickerProviderStateMixin {
+  late final TabController _tabs;
+  late final TextEditingController _name;
+  late final TextEditingController _content;
+  bool _isSaving = false;
+  String? _loadError;
+
+  bool get _isCreate => widget.existing == null;
+
+  @override
+  void initState() {
+    super.initState();
+    _tabs = TabController(length: 2, vsync: this);
+    _name = TextEditingController(text: widget.existing?.name ?? '');
+    _content = TextEditingController(text: widget.existing?.content ?? '');
+    if (_isCreate) {
+      _content.text = _template(
+        name: _name.text.trim().isEmpty ? 'my-skill' : _name.text.trim(),
+        description: 'Describe when to use this skill',
+      );
+    } else if ((widget.existing?.content ?? '').isEmpty) {
+      _loadExisting();
+    }
+  }
+
+  @override
+  void dispose() {
+    _tabs.dispose();
+    _name.dispose();
+    _content.dispose();
+    super.dispose();
+  }
+
+  String _template({required String name, required String description}) {
+    return '''---
+name: $name
+description: $description
+---
+
+# $name
+
+## When to use
+- …
+
+## How to use
+- …
+''';
+  }
+
+  String _stripFrontmatter(String raw) {
+    final match =
+        RegExp(r'^---\n[\s\S]*?\n---\n?', multiLine: false).firstMatch(raw);
+    if (match == null) return raw;
+    return raw.substring(match.end);
+  }
+
+  Future<void> _loadExisting() async {
+    setState(() => _loadError = null);
+    try {
+      final selection = ref.read(selectionProvider);
+      final cwd = widget.cwd ?? selection.project?.path;
+      final bridge = ref.read(bridgeServiceProvider);
+      final loaded = await bridge.getSkill(skill: widget.existing!, cwd: cwd);
+      if (!mounted || loaded == null) return;
+      setState(() => _content.text = loaded.content ?? '');
+    } catch (e) {
+      if (!mounted) return;
+      setState(() => _loadError = e.toString());
+    }
+  }
+
+  Future<void> _save() async {
+    final theme = OpenCodeTheme.of(context);
+    final selection = ref.read(selectionProvider);
+    final cwd = widget.cwd ?? selection.project?.path;
+
+    final name = _isCreate ? _name.text.trim() : widget.existing!.name;
+    if (name.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Skill name is required')),
+      );
+      return;
+    }
+    final nameOk = RegExp(r'^[a-z0-9]+(-[a-z0-9]+)*$').hasMatch(name) &&
+        name.length <= 64;
+    if (!nameOk) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text(
+            'Invalid skill name (use lowercase a-z, 0-9, hyphens)',
+          ),
+        ),
+      );
+      return;
+    }
+
+    final source = _isCreate ? widget.createSource : widget.existing!.source;
+    if (source == null) return;
+    if (!source.isEditable) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('This skill is read-only')),
+      );
+      return;
+    }
+    if (source == SkillSource.project && cwd == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Select a project to create repo skills')),
+      );
+      return;
+    }
+
+    if (_isCreate) {
+      final raw = _content.text;
+      final fm = RegExp(r'^---\n([\s\S]*?)\n---', multiLine: false)
+          .firstMatch(raw)
+          ?.group(1);
+      final fmName = fm != null
+          ? RegExp(r'(?m)^name:\s*(.+?)\s*$').firstMatch(fm)?.group(1)?.trim()
+          : null;
+
+      if (fmName != null && fmName != name) {
+        final fix = await showDialog<bool>(
+          context: context,
+          builder: (ctx) => AlertDialog(
+            title: const Text('Fix SKILL.md name?'),
+            content: Text(
+              'Frontmatter name is "$fmName", but the folder will be "$name".\n\nUpdate the frontmatter to match?',
+            ),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.pop(ctx, false),
+                child: const Text('Keep'),
+              ),
+              ElevatedButton(
+                onPressed: () => Navigator.pop(ctx, true),
+                child: const Text('Update'),
+              ),
+            ],
+          ),
+        );
+        if (fix == true) {
+          final updated = raw.replaceFirst(
+            RegExp(r'(?m)^name:\s*.+?\s*$'),
+            'name: $name',
+          );
+          _content.text = updated;
+        }
+      }
+    }
+
+    setState(() => _isSaving = true);
+    try {
+      final bridge = ref.read(bridgeServiceProvider);
+      final ok = await bridge.saveSkill(
+        backend: widget.backend,
+        name: name,
+        source: source,
+        content: _content.text,
+        cwd: cwd,
+      );
+      if (!mounted) return;
+      if (ok) {
+        Navigator.pop(context);
+      } else {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Failed to save "$name"'), backgroundColor: theme.error),
+        );
+      }
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Failed to save: $e'), backgroundColor: theme.error),
+      );
+    } finally {
+      if (mounted) setState(() => _isSaving = false);
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final oc = theme.extension<OpenCodeTheme>()!;
+
+    final existing = widget.existing;
+    final source = existing?.source ?? widget.createSource;
+    final readOnly = existing != null && !existing.source.isEditable;
+
+    return Scaffold(
+      backgroundColor: oc.background,
+      appBar: AppBar(
+        backgroundColor: oc.background,
+        elevation: 0,
+        title: Text(
+          _isCreate ? 'Create Skill' : existing!.name,
+          style: TextStyle(color: oc.text),
+        ),
+        iconTheme: IconThemeData(color: oc.text),
+        actions: [
+          if (!_isSaving)
+            TextButton(
+              onPressed: readOnly ? null : _save,
+              child: Text(
+                'Save',
+                style: TextStyle(
+                  color: readOnly ? oc.textMuted : oc.primary,
+                  fontWeight: FontWeight.w700,
+                ),
+              ),
+            )
+          else
+            Padding(
+              padding: const EdgeInsets.only(right: 12),
+              child: SizedBox(
+                width: 20,
+                height: 20,
+                child: CircularProgressIndicator(strokeWidth: 2, color: oc.primary),
+              ),
+            ),
+        ],
+        bottom: TabBar(
+          controller: _tabs,
+          labelColor: oc.primary,
+          unselectedLabelColor: oc.textMuted,
+          indicatorColor: oc.primary,
+          tabs: const [
+            Tab(text: 'Edit'),
+            Tab(text: 'Preview'),
+          ],
+        ),
+      ),
+      body: Column(
+        children: [
+          if (_loadError != null)
+            Padding(
+              padding: const EdgeInsets.all(12),
+              child: Text(_loadError!, style: TextStyle(color: oc.error)),
+            ),
+          if (_isCreate)
+            Padding(
+              padding: const EdgeInsets.fromLTRB(16, 12, 16, 0),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text('Name', style: TextStyle(color: oc.textMuted, fontSize: 12)),
+                  const SizedBox(height: 6),
+                  TextField(
+                    controller: _name,
+                    decoration: const InputDecoration(
+                      hintText: 'e.g. api-docs, code-reviewer',
+                    ),
+                  ),
+                  const SizedBox(height: 10),
+                  if (source != null)
+                    Text(
+                      'Location: ${source.displayName}${readOnly ? ' (read-only)' : ''}',
+                      style: TextStyle(color: oc.textMuted, fontSize: 12),
+                    ),
+                ],
+              ),
+            )
+          else
+            Padding(
+              padding: const EdgeInsets.fromLTRB(16, 12, 16, 0),
+              child: Row(
+                children: [
+                  _Chip(label: widget.backend.displayName),
+                  const SizedBox(width: 8),
+                  if (source != null) _Chip(label: source.displayName),
+                  if (readOnly) ...[
+                    const SizedBox(width: 8),
+                    _Chip(label: 'Read-only', tone: ChipTone.warn),
+                  ],
+                ],
+              ),
+            ),
+          const SizedBox(height: 12),
+          Expanded(
+            child: TabBarView(
+              controller: _tabs,
+              children: [
+                Padding(
+                  padding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
+                  child: TextField(
+                    controller: _content,
+                    maxLines: null,
+                    expands: true,
+                    readOnly: readOnly,
+                    style: const TextStyle(fontFamily: 'monospace', fontSize: 13),
+                    decoration: InputDecoration(
+                      hintText: 'SKILL.md content',
+                      filled: true,
+                      fillColor: oc.backgroundElement,
+                      border: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(12),
+                        borderSide: BorderSide(color: oc.border),
+                      ),
+                    ),
+                  ),
+                ),
+                Container(
+                  padding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
+                  color: oc.background,
+                  child: Markdown(
+                    data: _stripFrontmatter(_content.text),
+                    selectable: true,
+                    styleSheet: MarkdownStyleSheet.fromTheme(theme).copyWith(
+                      p: theme.textTheme.bodyMedium?.copyWith(color: oc.text),
+                      h1: theme.textTheme.headlineSmall?.copyWith(color: oc.text),
+                      h2: theme.textTheme.titleLarge?.copyWith(color: oc.text),
+                      h3: theme.textTheme.titleMedium?.copyWith(color: oc.text),
+                      code: theme.textTheme.bodyMedium?.copyWith(
+                        fontFamily: 'monospace',
+                        color: oc.text,
+                        backgroundColor: oc.backgroundElement,
+                      ),
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+enum ChipTone { normal, warn }
+
+class _Chip extends StatelessWidget {
+  const _Chip({required this.label, this.tone = ChipTone.normal});
+
+  final String label;
+  final ChipTone tone;
+
+  @override
+  Widget build(BuildContext context) {
+    final oc = Theme.of(context).extension<OpenCodeTheme>()!;
+    final color = tone == ChipTone.warn ? oc.warning : oc.primary;
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+      decoration: BoxDecoration(
+        color: color.withValues(alpha: 0.14),
+        borderRadius: BorderRadius.circular(999),
+        border: Border.all(color: color.withValues(alpha: 0.25)),
+      ),
+      child: Text(
+        label,
+        style: TextStyle(
+          color: color,
+          fontSize: 11,
+          fontWeight: FontWeight.w700,
+        ),
+      ),
+    );
+  }
+}
+
+class _BackendHeader extends StatelessWidget {
+  const _BackendHeader({required this.backend});
+
+  final AgentType backend;
+
+  @override
+  Widget build(BuildContext context) {
+    final oc = Theme.of(context).extension<OpenCodeTheme>()!;
+    return Container(
+      padding: const EdgeInsets.all(14),
+      decoration: BoxDecoration(
+        color: oc.backgroundPanel,
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(color: oc.borderSubtle),
+      ),
+      child: Row(
+        children: [
+          Icon(Icons.auto_fix_high_rounded, color: oc.primary, size: 18),
+          const SizedBox(width: 10),
+          Expanded(
+            child: Text(
+              '${backend.displayName} skills',
+              style: TextStyle(
+                color: oc.text,
+                fontWeight: FontWeight.w700,
+              ),
+            ),
+          ),
+          Text(
+            'SKILL.md',
+            style: TextStyle(
+              color: oc.textMuted,
+              fontSize: 12,
+              fontWeight: FontWeight.w600,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _SectionHeader extends StatelessWidget {
+  const _SectionHeader({required this.title});
+
+  final String title;
+
+  @override
+  Widget build(BuildContext context) {
+    final oc = Theme.of(context).extension<OpenCodeTheme>()!;
+    return Padding(
+      padding: const EdgeInsets.only(top: 4, bottom: 2),
+      child: Text(
+        title.toUpperCase(),
+        style: TextStyle(
+          color: oc.textMuted,
+          fontSize: 11,
+          fontWeight: FontWeight.w700,
+          letterSpacing: 0.8,
+        ),
+      ),
+    );
+  }
+}
