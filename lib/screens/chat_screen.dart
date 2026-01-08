@@ -51,6 +51,7 @@ import 'custom_tools_screen.dart';
 import 'plugins_screen.dart';
 import '../utils/opencode_id.dart';
 import '../widgets/app_background.dart';
+import '../widgets/opencode_branding.dart';
 import '../providers/appearance_provider.dart';
 import 'diff_view_screen.dart';
 
@@ -6031,88 +6032,109 @@ Describe project-specific guidance for Codex here.
                     behavior: HitTestBehavior.translucent,
                     onTap: _dismissKeyboardIfFocused,
                     onPanDown: (_) => _dismissKeyboardIfFocused(),
-                    child: ScrollbarTheme(
-                      data: ScrollbarThemeData(
-                        thumbColor: WidgetStateProperty.all(
-                          theme.textMuted.withValues(alpha: 0.3),
-                        ),
-                        trackColor: WidgetStateProperty.all(Colors.transparent),
-                        radius: const Radius.circular(4),
-                        thickness: WidgetStateProperty.all(6),
-                        minThumbLength: 48,
-                        interactive: true,
-                      ),
-                      child: Scrollbar(
-                        controller: _scrollController,
-                        thumbVisibility: false, // Auto-hide when not scrolling
-                        child: ListView.builder(
-                          controller: _scrollController,
-                          // PERF: Pre-render 500px above/below viewport for smoother scrolling
-                          cacheExtent: 500,
-                          padding: const EdgeInsets.fromLTRB(20, 20, 20, 90),
-                          // Add 1 for loading indicator at top when loading more
-                          itemCount:
-                              messages.length +
-                              (_loadingMoreMessages ? 1 : 0) +
-                              (!_hasLoadedAllMessages && messages.isNotEmpty
-                                  ? 1
-                                  : 0),
-                          itemBuilder: (context, index) {
-                            // Show "load more" indicator at top
-                            if (!_hasLoadedAllMessages &&
-                                messages.isNotEmpty &&
-                                index == 0) {
-                              if (_loadingMoreMessages) {
-                                return const Padding(
-                                  padding: EdgeInsets.symmetric(vertical: 16),
-                                  child: Center(
-                                    child: SizedBox(
-                                      width: 20,
-                                      height: 20,
-                                      child: CircularProgressIndicator(
-                                        strokeWidth: 2,
+                    child: Stack(
+                      children: [
+                        // OpenCode branding - shown centered when empty
+                        if (widget.isOpenCode && messages.isEmpty)
+                          const Center(
+                            child: OpenCodeBranding(width: 280, opacity: 1.0),
+                          ),
+                        // Message list
+                        ScrollbarTheme(
+                          data: ScrollbarThemeData(
+                            thumbColor: WidgetStateProperty.all(
+                              theme.textMuted.withValues(alpha: 0.3),
+                            ),
+                            trackColor: WidgetStateProperty.all(
+                              Colors.transparent,
+                            ),
+                            radius: const Radius.circular(4),
+                            thickness: WidgetStateProperty.all(6),
+                            minThumbLength: 48,
+                            interactive: true,
+                          ),
+                          child: Scrollbar(
+                            controller: _scrollController,
+                            thumbVisibility:
+                                false, // Auto-hide when not scrolling
+                            child: ListView.builder(
+                              controller: _scrollController,
+                              // PERF: Pre-render 500px above/below viewport for smoother scrolling
+                              cacheExtent: 500,
+                              padding: const EdgeInsets.fromLTRB(
+                                20,
+                                20,
+                                20,
+                                90,
+                              ),
+                              // Add 1 for loading indicator at top when loading more
+                              itemCount:
+                                  messages.length +
+                                  (_loadingMoreMessages ? 1 : 0) +
+                                  (!_hasLoadedAllMessages && messages.isNotEmpty
+                                      ? 1
+                                      : 0),
+                              itemBuilder: (context, index) {
+                                // Show "load more" indicator at top
+                                if (!_hasLoadedAllMessages &&
+                                    messages.isNotEmpty &&
+                                    index == 0) {
+                                  if (_loadingMoreMessages) {
+                                    return const Padding(
+                                      padding: EdgeInsets.symmetric(
+                                        vertical: 16,
+                                      ),
+                                      child: Center(
+                                        child: SizedBox(
+                                          width: 20,
+                                          height: 20,
+                                          child: CircularProgressIndicator(
+                                            strokeWidth: 2,
+                                          ),
+                                        ),
+                                      ),
+                                    );
+                                  }
+                                  // Show "scroll up for more" hint
+                                  return Padding(
+                                    padding: const EdgeInsets.symmetric(
+                                      vertical: 12,
+                                    ),
+                                    child: Center(
+                                      child: Text(
+                                        '↑ Scroll up to load earlier messages',
+                                        style: TextStyle(
+                                          color: theme.textMuted,
+                                          fontSize: 12,
+                                        ),
                                       ),
                                     ),
-                                  ),
+                                  );
+                                }
+
+                                // Adjust index for the loading indicator
+                                final messageIndex =
+                                    (!_hasLoadedAllMessages &&
+                                        messages.isNotEmpty)
+                                    ? index - 1
+                                    : index;
+
+                                if (messageIndex < 0 ||
+                                    messageIndex >= messages.length) {
+                                  return const SizedBox.shrink();
+                                }
+
+                                final message = messages[messageIndex];
+                                // PERF: ValueKey helps Flutter track widget identity across rebuilds
+                                return KeyedSubtree(
+                                  key: ValueKey(message.id),
+                                  child: _buildMessageGroup(message),
                                 );
-                              }
-                              // Show "scroll up for more" hint
-                              return Padding(
-                                padding: const EdgeInsets.symmetric(
-                                  vertical: 12,
-                                ),
-                                child: Center(
-                                  child: Text(
-                                    '↑ Scroll up to load earlier messages',
-                                    style: TextStyle(
-                                      color: theme.textMuted,
-                                      fontSize: 12,
-                                    ),
-                                  ),
-                                ),
-                              );
-                            }
-
-                            // Adjust index for the loading indicator
-                            final messageIndex =
-                                (!_hasLoadedAllMessages && messages.isNotEmpty)
-                                ? index - 1
-                                : index;
-
-                            if (messageIndex < 0 ||
-                                messageIndex >= messages.length) {
-                              return const SizedBox.shrink();
-                            }
-
-                            final message = messages[messageIndex];
-                            // PERF: ValueKey helps Flutter track widget identity across rebuilds
-                            return KeyedSubtree(
-                              key: ValueKey(message.id),
-                              child: _buildMessageGroup(message),
-                            );
-                          },
+                              },
+                            ),
+                          ),
                         ),
-                      ),
+                      ],
                     ),
                   ),
                 ),
