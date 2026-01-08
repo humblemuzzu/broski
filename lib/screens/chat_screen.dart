@@ -10673,8 +10673,33 @@ class _ModelSelectorSheetState extends ConsumerState<_ModelSelectorSheet> {
             );
           }
 
-          final providers =
+          final rawProviders =
               _providersData?['providers'] as List<dynamic>? ?? [];
+
+          // Sort providers: Anthropic first, then alphabetically
+          final providers = List<dynamic>.from(rawProviders)
+            ..sort((a, b) {
+              final aId = (a as Map<String, dynamic>)['id'] as String? ?? '';
+              final bId = (b as Map<String, dynamic>)['id'] as String? ?? '';
+
+              // Priority order: anthropic first
+              const priorityOrder = ['anthropic', 'openai', 'google'];
+              final aPriority = priorityOrder.indexOf(aId.toLowerCase());
+              final bPriority = priorityOrder.indexOf(bId.toLowerCase());
+
+              // If both have priority, sort by priority order
+              if (aPriority >= 0 && bPriority >= 0) {
+                return aPriority.compareTo(bPriority);
+              }
+              // If only a has priority, a comes first
+              if (aPriority >= 0) return -1;
+              // If only b has priority, b comes first
+              if (bPriority >= 0) return 1;
+              // Otherwise sort alphabetically by name
+              final aName = (a)['name'] as String? ?? aId;
+              final bName = (b)['name'] as String? ?? bId;
+              return aName.toLowerCase().compareTo(bName.toLowerCase());
+            });
 
           return ListView(
             controller: scrollController,
