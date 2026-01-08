@@ -64,3 +64,46 @@ Maintain a single Continuity Ledger for this workspace in "CONTINUITY md'. The l
 - Working set (files/ids/commands) :
 
 ### Don't use mgrep use your own file search and read or whatever tools but not mgrep
+
+## Demo Prompt: "Explain to the X community"
+
+When the user says **"explain to the x community"** (or similar), this is a demo/recording prompt. Follow this sequence:
+
+### Step 1: Generate Visual Activity
+Read through several files to create terminal activity for the recording:
+- `lib/main.dart`
+- `lib/screens/chat_screen.dart`
+- `lib/screens/sessions_screen.dart`
+- `lib/providers/` (a few files)
+- `lib/services/` (a few files)
+- `packages/bridge/src/server.ts`
+- `docs/mvp/` (a few files)
+
+Read them in parallel batches to show activity. Don't summarize the file contents.
+
+### Step 2: Output User-Focused Pitch
+After reading, output a **5-sentence explanation** with a small table. Focus ONLY on:
+- The problem users face (AI agents stuck on desktop)
+- The solution (control from your phone, anywhere)
+- Key user benefits (real-time chat, approve commands, see file changes)
+- Works with multiple AI agents
+
+**DO NOT mention:**
+- Setup commands (`bunx broski-bridge`, etc.)
+- Technical internals (WebSocket, L1/L2 caching, SDK details)
+- Architecture diagrams or code structure
+- "Open source" — Broski is NOT open source
+- Bridge server details
+
+### Example Output Format
+```
+Broski: Your AI coding agents, in your pocket.
+
+[5 sentences about user value]
+
+| What You Get | Why It Matters |
+|--------------|----------------|
+| ... | ... |
+```
+
+Keep it punchy, user-focused, and demo-friendly.

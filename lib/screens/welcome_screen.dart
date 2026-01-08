@@ -3,93 +3,152 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../providers/onboarding_provider.dart';
 import '../theme/opencode_theme.dart';
+import '../widgets/onboarding_widgets.dart';
 
-class WelcomeScreen extends ConsumerWidget {
+class WelcomeScreen extends ConsumerStatefulWidget {
   const WelcomeScreen({super.key});
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    final ocTheme = OpenCodeTheme.of(context);
+  ConsumerState<WelcomeScreen> createState() => _WelcomeScreenState();
+}
+
+class _WelcomeScreenState extends ConsumerState<WelcomeScreen>
+    with SingleTickerProviderStateMixin {
+  late AnimationController _animController;
+  late Animation<double> _fadeAnimation;
+  late Animation<Offset> _slideAnimation;
+
+  @override
+  void initState() {
+    super.initState();
+    _animController = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 800),
+    );
+
+    _fadeAnimation = CurvedAnimation(
+      parent: _animController,
+      curve: const Interval(0.0, 0.6, curve: Curves.easeOut),
+    );
+
+    _slideAnimation =
+        Tween<Offset>(begin: const Offset(0, 0.1), end: Offset.zero).animate(
+          CurvedAnimation(
+            parent: _animController,
+            curve: const Interval(0.0, 0.6, curve: Curves.easeOutCubic),
+          ),
+        );
+
+    _animController.forward();
+  }
+
+  @override
+  void dispose() {
+    _animController.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = OpenCodeTheme.of(context);
 
     return Scaffold(
-      backgroundColor: ocTheme.background,
+      backgroundColor: theme.background,
       body: SafeArea(
         child: Padding(
           padding: const EdgeInsets.all(24),
           child: Column(
             children: [
-              const Spacer(flex: 2),
-              _buildLogo(ocTheme),
-              const SizedBox(height: 32),
-              Text(
-                'Broski',
-                style: Theme.of(context).textTheme.displaySmall?.copyWith(
-                  fontWeight: FontWeight.bold,
-                  color: ocTheme.text,
+              const Spacer(flex: 1),
+              // Hero section
+              FadeTransition(
+                opacity: _fadeAnimation,
+                child: SlideTransition(
+                  position: _slideAnimation,
+                  child: Column(
+                    children: [
+                      _buildLogo(theme),
+                      const SizedBox(height: 28),
+                      Text(
+                        'Broski',
+                        style: TextStyle(
+                          fontSize: 36,
+                          fontWeight: FontWeight.bold,
+                          color: theme.text,
+                          letterSpacing: -0.5,
+                        ),
+                      ),
+                      const SizedBox(height: 12),
+                      Text(
+                        'Control AI coding agents\nfrom your phone',
+                        textAlign: TextAlign.center,
+                        style: TextStyle(
+                          fontSize: 18,
+                          color: theme.textMuted,
+                          height: 1.4,
+                        ),
+                      ),
+                    ],
+                  ),
                 ),
               ),
-              const SizedBox(height: 12),
-              Text(
-                'Code from your phone.\nYour Mac does the work.',
-                textAlign: TextAlign.center,
-                style: Theme.of(context).textTheme.bodyLarge?.copyWith(
-                  color: ocTheme.textMuted,
-                  height: 1.5,
-                ),
-              ),
-              const Spacer(flex: 3),
-              _buildFeatureRow(
-                ocTheme,
-                Icons.phone_iphone,
-                'Phone',
-                'Control your AI coding agent',
-              ),
-              const SizedBox(height: 16),
-              _buildFeatureRow(
-                ocTheme,
-                Icons.laptop_mac,
-                'Mac',
-                'Runs OpenCode with full power',
-              ),
-              const SizedBox(height: 16),
-              _buildFeatureRow(
-                ocTheme,
-                Icons.public,
-                'Anywhere',
-                'Same WiFi or across the world',
-              ),
-              const Spacer(flex: 2),
-              SizedBox(
-                width: double.infinity,
-                height: 56,
-                child: ElevatedButton(
-                  onPressed: () {
-                    ref.read(onboardingProvider.notifier).setHasMacSetup(false);
-                  },
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: ocTheme.primary,
-                    foregroundColor: Colors.white,
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(12),
+              const Spacer(flex: 1),
+              // Features
+              FadeTransition(
+                opacity: _fadeAnimation,
+                child: Column(
+                  children: [
+                    OnboardingFeatureRow(
+                      icon: Icons.smartphone_rounded,
+                      title: 'Your Phone',
+                      subtitle: 'Chat, approve, and control remotely',
+                      iconColor: theme.primary,
                     ),
-                  ),
-                  child: const Text(
-                    'Get Started',
-                    style: TextStyle(fontSize: 18, fontWeight: FontWeight.w600),
-                  ),
+                    const SizedBox(height: 12),
+                    OnboardingFeatureRow(
+                      icon: Icons.computer_rounded,
+                      title: 'Your Mac',
+                      subtitle: 'Runs OpenCode, Claude Code, or Codex',
+                      iconColor: theme.info,
+                    ),
+                    const SizedBox(height: 12),
+                    OnboardingFeatureRow(
+                      icon: Icons.wifi_rounded,
+                      title: 'Anywhere',
+                      subtitle: 'Same WiFi or across the world',
+                      iconColor: theme.success,
+                    ),
+                  ],
+                ),
+              ),
+              const Spacer(flex: 1),
+              // Actions
+              FadeTransition(
+                opacity: _fadeAnimation,
+                child: Column(
+                  children: [
+                    OnboardingButton(
+                      label: 'Get Started',
+                      onPressed: () {
+                        ref
+                            .read(onboardingProvider.notifier)
+                            .setHasMacSetup(false);
+                      },
+                    ),
+                    const SizedBox(height: 12),
+                    OnboardingButton(
+                      label: 'I already have the bridge running',
+                      variant: OnboardingButtonVariant.ghost,
+                      onPressed: () {
+                        ref
+                            .read(onboardingProvider.notifier)
+                            .setHasMacSetup(true);
+                      },
+                    ),
+                  ],
                 ),
               ),
               const SizedBox(height: 16),
-              TextButton(
-                onPressed: () {
-                  ref.read(onboardingProvider.notifier).setHasMacSetup(true);
-                },
-                child: Text(
-                  'I already have broski-bridge running',
-                  style: TextStyle(color: ocTheme.textMuted),
-                ),
-              ),
-              const SizedBox(height: 24),
             ],
           ),
         ),
@@ -97,68 +156,33 @@ class WelcomeScreen extends ConsumerWidget {
     );
   }
 
-  Widget _buildLogo(OpenCodeTheme ocTheme) {
+  Widget _buildLogo(OpenCodeTheme theme) {
     return Container(
-      width: 100,
-      height: 100,
+      width: 88,
+      height: 88,
       decoration: BoxDecoration(
-        color: ocTheme.primary.withValues(alpha: 0.1),
+        gradient: LinearGradient(
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+          colors: [
+            theme.primary.withValues(alpha: 0.2),
+            theme.primary.withValues(alpha: 0.08),
+          ],
+        ),
         borderRadius: BorderRadius.circular(24),
         border: Border.all(
-          color: ocTheme.primary.withValues(alpha: 0.3),
-          width: 2,
+          color: theme.primary.withValues(alpha: 0.3),
+          width: 1.5,
         ),
-      ),
-      child: Icon(Icons.code_rounded, size: 48, color: ocTheme.primary),
-    );
-  }
-
-  Widget _buildFeatureRow(
-    OpenCodeTheme ocTheme,
-    IconData icon,
-    String title,
-    String subtitle,
-  ) {
-    return Container(
-      padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        color: ocTheme.backgroundPanel,
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: ocTheme.borderSubtle),
-      ),
-      child: Row(
-        children: [
-          Container(
-            width: 44,
-            height: 44,
-            decoration: BoxDecoration(
-              color: ocTheme.primary.withValues(alpha: 0.1),
-              borderRadius: BorderRadius.circular(10),
-            ),
-            child: Icon(icon, color: ocTheme.primary, size: 24),
-          ),
-          const SizedBox(width: 16),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  title,
-                  style: TextStyle(
-                    color: ocTheme.text,
-                    fontWeight: FontWeight.w600,
-                    fontSize: 16,
-                  ),
-                ),
-                Text(
-                  subtitle,
-                  style: TextStyle(color: ocTheme.textMuted, fontSize: 14),
-                ),
-              ],
-            ),
+        boxShadow: [
+          BoxShadow(
+            color: theme.primary.withValues(alpha: 0.2),
+            blurRadius: 32,
+            spreadRadius: 0,
           ),
         ],
       ),
+      child: Icon(Icons.code_rounded, size: 40, color: theme.primary),
     );
   }
 }

@@ -4,6 +4,7 @@ import 'package:url_launcher/url_launcher.dart';
 
 import '../providers/onboarding_provider.dart';
 import '../theme/opencode_theme.dart';
+import '../widgets/onboarding_widgets.dart';
 
 class TailscaleCheckScreen extends ConsumerWidget {
   const TailscaleCheckScreen({super.key});
@@ -15,173 +16,79 @@ class TailscaleCheckScreen extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final ocTheme = OpenCodeTheme.of(context);
+    final theme = OpenCodeTheme.of(context);
 
-    return Scaffold(
-      backgroundColor: ocTheme.background,
-      appBar: AppBar(
-        backgroundColor: Colors.transparent,
-        leading: IconButton(
-          icon: Icon(Icons.arrow_back, color: ocTheme.text),
-          onPressed: () => ref.read(onboardingProvider.notifier).goBack(),
-        ),
-      ),
-      body: SafeArea(
-        child: Padding(
-          padding: const EdgeInsets.all(24),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(
-                'Remote Access',
-                style: Theme.of(context).textTheme.headlineMedium?.copyWith(
-                  fontWeight: FontWeight.bold,
-                  color: ocTheme.text,
-                ),
-              ),
-              const SizedBox(height: 8),
-              Text(
-                'Tailscale connects your devices securely.',
-                style: TextStyle(color: ocTheme.textMuted, fontSize: 16),
-              ),
-              const SizedBox(height: 32),
-              _buildInfoCard(context, ocTheme),
-              const SizedBox(height: 24),
-              _buildOptionCard(
-                context,
-                ocTheme,
-                icon: Icons.check_circle,
-                iconColor: ocTheme.success,
-                title: 'I have Tailscale installed',
-                subtitle: 'Continue to scan QR code',
-                onTap: () {
-                  ref.read(onboardingProvider.notifier).goToScanner();
-                },
-              ),
-              const SizedBox(height: 16),
-              _buildOptionCard(
-                context,
-                ocTheme,
-                icon: Icons.download,
-                iconColor: ocTheme.primary,
-                title: 'Install Tailscale',
-                subtitle: 'Free, takes 2 minutes',
-                onTap: () => _showInstallOptions(context, ocTheme),
-              ),
-              const SizedBox(height: 16),
-              _buildOptionCard(
-                context,
-                ocTheme,
-                icon: Icons.wifi,
-                iconColor: ocTheme.textMuted,
-                title: 'Use WiFi instead',
-                subtitle: 'Connect to same network as Mac',
-                onTap: () {
-                  ref
-                      .read(onboardingProvider.notifier)
-                      .setConnectionMode(ConnectionMode.sameWifi);
-                },
-              ),
-              const Spacer(),
-              const SizedBox(height: 24),
-            ],
-          ),
-        ),
-      ),
-    );
-  }
-
-  Widget _buildInfoCard(BuildContext context, OpenCodeTheme ocTheme) {
-    return Container(
-      padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        color: ocTheme.info.withValues(alpha: 0.1),
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: ocTheme.info.withValues(alpha: 0.3)),
-      ),
-      child: Row(
+    return OnboardingScaffold(
+      currentStep: 2,
+      totalSteps: 3,
+      onBack: () => ref.read(onboardingProvider.notifier).goBack(),
+      child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Icon(Icons.info_outline, color: ocTheme.info, size: 20),
-          const SizedBox(width: 12),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  'What is Tailscale?',
-                  style: TextStyle(
-                    color: ocTheme.text,
-                    fontWeight: FontWeight.w600,
-                  ),
-                ),
-                const SizedBox(height: 4),
-                Text(
-                  'A free, secure VPN that connects your devices. Made by ex-Google engineers, used by millions.',
-                  style: TextStyle(color: ocTheme.textMuted, fontSize: 13),
-                ),
-              ],
+          const SizedBox(height: 8),
+          Text(
+            'Remote Access',
+            style: TextStyle(
+              fontSize: 28,
+              fontWeight: FontWeight.bold,
+              color: theme.text,
+              letterSpacing: -0.5,
             ),
           ),
+          const SizedBox(height: 8),
+          Text(
+            'Tailscale securely connects your devices anywhere.',
+            style: TextStyle(color: theme.textMuted, fontSize: 16),
+          ),
+          const SizedBox(height: 24),
+          OnboardingInfoCard(
+            icon: Icons.shield_outlined,
+            title: 'What is Tailscale?',
+            content:
+                'A free, secure VPN that connects your devices. Made by ex-Google engineers, trusted by millions. No port forwarding needed.',
+          ),
+          const SizedBox(height: 24),
+          OnboardingOptionCard(
+            icon: Icons.check_circle_outline_rounded,
+            title: 'I have Tailscale installed',
+            subtitle: 'Continue to scan QR code',
+            iconColor: theme.success,
+            onTap: () {
+              ref.read(onboardingProvider.notifier).goToScanner();
+            },
+          ),
+          const SizedBox(height: 12),
+          OnboardingOptionCard(
+            icon: Icons.download_rounded,
+            title: 'Install Tailscale',
+            subtitle: 'Free, takes 2 minutes',
+            iconColor: theme.primary,
+            onTap: () => _showInstallOptions(context, theme),
+          ),
+          const SizedBox(height: 12),
+          OnboardingOptionCard(
+            icon: Icons.wifi_rounded,
+            title: 'Use WiFi instead',
+            subtitle: 'Connect on the same network',
+            iconColor: theme.textMuted,
+            onTap: () {
+              ref
+                  .read(onboardingProvider.notifier)
+                  .setConnectionMode(ConnectionMode.sameWifi);
+            },
+          ),
+          const Spacer(),
         ],
       ),
     );
   }
 
-  Widget _buildOptionCard(
-    BuildContext context,
-    OpenCodeTheme ocTheme, {
-    required IconData icon,
-    required Color iconColor,
-    required String title,
-    required String subtitle,
-    required VoidCallback onTap,
-  }) {
-    return GestureDetector(
-      onTap: onTap,
-      child: Container(
-        padding: const EdgeInsets.all(16),
-        decoration: BoxDecoration(
-          color: ocTheme.backgroundPanel,
-          borderRadius: BorderRadius.circular(12),
-          border: Border.all(color: ocTheme.borderSubtle),
-        ),
-        child: Row(
-          children: [
-            Icon(icon, color: iconColor, size: 28),
-            const SizedBox(width: 16),
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    title,
-                    style: TextStyle(
-                      color: ocTheme.text,
-                      fontWeight: FontWeight.w600,
-                      fontSize: 16,
-                    ),
-                  ),
-                  Text(
-                    subtitle,
-                    style: TextStyle(color: ocTheme.textMuted, fontSize: 14),
-                  ),
-                ],
-              ),
-            ),
-            Icon(Icons.chevron_right, color: ocTheme.textMuted),
-          ],
-        ),
-      ),
-    );
-  }
-
-  void _showInstallOptions(BuildContext context, OpenCodeTheme ocTheme) {
+  void _showInstallOptions(BuildContext context, OpenCodeTheme theme) {
     showModalBottomSheet(
       context: context,
-      backgroundColor: ocTheme.backgroundPanel,
+      backgroundColor: theme.backgroundPanel,
       shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+        borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
       ),
       builder: (context) {
         return SafeArea(
@@ -191,62 +98,51 @@ class TailscaleCheckScreen extends ConsumerWidget {
               mainAxisSize: MainAxisSize.min,
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
+                Center(
+                  child: Container(
+                    width: 40,
+                    height: 4,
+                    decoration: BoxDecoration(
+                      color: theme.borderSubtle,
+                      borderRadius: BorderRadius.circular(2),
+                    ),
+                  ),
+                ),
+                const SizedBox(height: 24),
                 Text(
                   'Install Tailscale',
                   style: TextStyle(
-                    color: ocTheme.text,
-                    fontSize: 20,
+                    color: theme.text,
+                    fontSize: 22,
                     fontWeight: FontWeight.bold,
                   ),
                 ),
                 const SizedBox(height: 8),
                 Text(
-                  'Use the same account on your phone and Mac.',
-                  style: TextStyle(color: ocTheme.textMuted),
+                  'Install on both your phone and Mac, then sign in with the same account.',
+                  style: TextStyle(color: theme.textMuted),
                 ),
                 const SizedBox(height: 24),
-                _buildInstallButton(
-                  context,
-                  ocTheme,
-                  icon: Icons.phone_iphone,
+                _InstallButton(
+                  theme: theme,
+                  icon: Icons.phone_iphone_rounded,
                   title: 'iPhone / iPad',
                   url: _tailscaleIosUrl,
                 ),
                 const SizedBox(height: 12),
-                _buildInstallButton(
-                  context,
-                  ocTheme,
-                  icon: Icons.android,
+                _InstallButton(
+                  theme: theme,
+                  icon: Icons.android_rounded,
                   title: 'Android',
                   url: _tailscaleAndroidUrl,
                 ),
                 const SizedBox(height: 24),
-                Container(
-                  padding: const EdgeInsets.all(12),
-                  decoration: BoxDecoration(
-                    color: ocTheme.warning.withValues(alpha: 0.1),
-                    borderRadius: BorderRadius.circular(8),
-                  ),
-                  child: Row(
-                    children: [
-                      Icon(
-                        Icons.warning_amber,
-                        color: ocTheme.warning,
-                        size: 20,
-                      ),
-                      const SizedBox(width: 12),
-                      Expanded(
-                        child: Text(
-                          'Log in with the SAME account you used on your Mac!',
-                          style: TextStyle(
-                            color: ocTheme.text,
-                            fontSize: 13,
-                            fontWeight: FontWeight.w500,
-                          ),
-                        ),
-                      ),
-                    ],
-                  ),
+                OnboardingInfoCard(
+                  icon: Icons.warning_amber_rounded,
+                  title: 'Important',
+                  content:
+                      'Sign in to Tailscale with the SAME account on both devices. This is what connects them securely.',
+                  color: theme.warning,
                 ),
                 const SizedBox(height: 16),
               ],
@@ -256,30 +152,54 @@ class TailscaleCheckScreen extends ConsumerWidget {
       },
     );
   }
+}
 
-  Widget _buildInstallButton(
-    BuildContext context,
-    OpenCodeTheme ocTheme, {
-    required IconData icon,
-    required String title,
-    required String url,
-  }) {
-    return SizedBox(
-      width: double.infinity,
-      child: OutlinedButton.icon(
-        onPressed: () async {
-          final uri = Uri.parse(url);
-          if (await canLaunchUrl(uri)) {
-            await launchUrl(uri, mode: LaunchMode.externalApplication);
-          }
-        },
-        icon: Icon(icon),
-        label: Text(title),
-        style: OutlinedButton.styleFrom(
-          padding: const EdgeInsets.symmetric(vertical: 16),
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(12),
-          ),
+class _InstallButton extends StatelessWidget {
+  const _InstallButton({
+    required this.theme,
+    required this.icon,
+    required this.title,
+    required this.url,
+  });
+
+  final OpenCodeTheme theme;
+  final IconData icon;
+  final String title;
+  final String url;
+
+  @override
+  Widget build(BuildContext context) {
+    return GestureDetector(
+      onTap: () async {
+        final uri = Uri.parse(url);
+        if (await canLaunchUrl(uri)) {
+          await launchUrl(uri, mode: LaunchMode.externalApplication);
+        }
+      },
+      child: Container(
+        width: double.infinity,
+        padding: const EdgeInsets.symmetric(vertical: 16, horizontal: 20),
+        decoration: BoxDecoration(
+          color: theme.backgroundElement,
+          borderRadius: BorderRadius.circular(14),
+          border: Border.all(color: theme.borderSubtle),
+        ),
+        child: Row(
+          children: [
+            Icon(icon, color: theme.text, size: 24),
+            const SizedBox(width: 14),
+            Expanded(
+              child: Text(
+                title,
+                style: TextStyle(
+                  color: theme.text,
+                  fontSize: 16,
+                  fontWeight: FontWeight.w500,
+                ),
+              ),
+            ),
+            Icon(Icons.open_in_new_rounded, color: theme.textMuted, size: 20),
+          ],
         ),
       ),
     );
