@@ -58,8 +58,8 @@ export class CodexAppServerClient {
   constructor(options: CodexAppServerOptions = {}) {
     this.codexPath = options.codexPath ?? 'codex'
     this.clientInfo = options.clientInfo ?? {
-      name: 'broski-bridge',
-      title: 'Broski Bridge',
+      name: 'broski',
+      title: 'Broski',
       version: '0.1.0',
     }
     this.onNotification = options.onNotification

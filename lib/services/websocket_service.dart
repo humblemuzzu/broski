@@ -51,6 +51,13 @@ class WebSocketService {
   static const _pongTimeout = Duration(seconds: 10);
   bool _waitingForPong = false;
 
+  // Server tick detection (bridge sends tick every 30s)
+  // If we don't receive a tick in 2x the interval, connection is stale
+  Timer? _tickWatchdogTimer;
+  DateTime? _lastTickReceived;
+  static const _expectedTickInterval = Duration(seconds: 30);
+  static const _tickTimeoutMultiplier = 2.5; // 75 seconds without tick = dead
+
   // Incoming message decode queue (keeps ordering while allowing background
   // JSON parsing for large payloads).
   final List<String> _rawQueue = [];
@@ -366,6 +373,7 @@ class WebSocketService {
     _stopHeartbeat();
     _waitingForPong = false;
     _lastPongReceived = DateTime.now();
+    _lastTickReceived = DateTime.now();
 
     _pingTimer = Timer.periodic(_pingInterval, (_) {
       if (_channel == null || _status != ConnectionStatus.connected) return;
@@ -389,6 +397,38 @@ class WebSocketService {
       _pongTimeoutTimer?.cancel();
       _pongTimeoutTimer = Timer(_pongTimeout, _handlePongTimeout);
     });
+
+    // Start tick watchdog - checks if we've received server ticks
+    _startTickWatchdog();
+  }
+
+  /// Start the tick watchdog timer.
+  /// Server sends "tick" every 30s. If we don't receive one in 2.5x that time,
+  /// the connection is considered stale (e.g., Mac woke up but bridge restarted).
+  void _startTickWatchdog() {
+    _tickWatchdogTimer?.cancel();
+    final checkInterval = Duration(
+      milliseconds: (_expectedTickInterval.inMilliseconds * 0.5).round(),
+    );
+
+    _tickWatchdogTimer = Timer.periodic(checkInterval, (_) {
+      if (_channel == null || _status != ConnectionStatus.connected) return;
+      if (_lastTickReceived == null) return;
+
+      final timeSinceTick = DateTime.now().difference(_lastTickReceived!);
+      final timeoutThreshold = Duration(
+        milliseconds:
+            (_expectedTickInterval.inMilliseconds * _tickTimeoutMultiplier)
+                .round(),
+      );
+
+      if (timeSinceTick > timeoutThreshold) {
+        debugPrint(
+          '[WebSocket] Tick timeout: ${timeSinceTick.inSeconds}s since last tick (threshold: ${timeoutThreshold.inSeconds}s)',
+        );
+        _handleTickTimeout();
+      }
+    });
   }
 
   void _stopHeartbeat() {
@@ -396,11 +436,25 @@ class WebSocketService {
     _pingTimer = null;
     _pongTimeoutTimer?.cancel();
     _pongTimeoutTimer = null;
+    _tickWatchdogTimer?.cancel();
+    _tickWatchdogTimer = null;
     _waitingForPong = false;
   }
 
   void _handlePongTimeout() {
+    debugPrint('[WebSocket] Pong timeout - forcing disconnect');
     // Connection is dead, force disconnect
+    _stopHeartbeat();
+    _channel?.sink.close();
+    _channel = null;
+    _setStatus(ConnectionStatus.disconnected);
+  }
+
+  void _handleTickTimeout() {
+    debugPrint(
+      '[WebSocket] Server tick timeout - connection stale, forcing disconnect',
+    );
+    // Server stopped sending ticks - bridge probably restarted or Mac woke up
     _stopHeartbeat();
     _channel?.sink.close();
     _channel = null;
@@ -412,6 +466,11 @@ class WebSocketService {
     _waitingForPong = false;
     _lastPongReceived = DateTime.now();
     _pongTimeoutTimer?.cancel();
+  }
+
+  /// Call this when a server tick is received.
+  void _onTickReceived() {
+    _lastTickReceived = DateTime.now();
   }
 
   static Map<String, dynamic> _decodeJsonMap(String raw) {
@@ -457,6 +516,16 @@ class WebSocketService {
 
         // Handle response to our client ping
         if (data['type'] == 'client_pong') {
+          _onPongReceived();
+          continue;
+        }
+
+        // Handle server tick (liveness signal from bridge)
+        // Bridge sends tick every 30s - if we receive it, connection is healthy.
+        // Tick timeout is handled by _tickWatchdogTimer.
+        if (data['type'] == 'tick') {
+          _onTickReceived();
+          // Also counts as pong (any server message proves liveness)
           _onPongReceived();
           continue;
         }

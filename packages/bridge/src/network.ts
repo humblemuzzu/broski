@@ -1,10 +1,30 @@
 import { networkInterfaces } from 'os'
-import { $ } from 'bun'
+import { spawnSync } from 'node:child_process'
 
 // Tailscale CLI path varies by platform
 const TAILSCALE_CLI = process.platform === 'darwin'
   ? '/Applications/Tailscale.app/Contents/MacOS/Tailscale'
   : 'tailscale'
+
+// Timeout for shell commands (5 seconds)
+const COMMAND_TIMEOUT_MS = 5000
+
+// Run a command with timeout, returns stdout or null on failure
+function runWithTimeout(cmd: string, args: string[]): string | null {
+  try {
+    const result = spawnSync(cmd, args, {
+      encoding: 'utf-8',
+      timeout: COMMAND_TIMEOUT_MS,
+      stdio: ['pipe', 'pipe', 'pipe'],
+    })
+    if (result.status === 0 && result.stdout) {
+      return result.stdout.trim()
+    }
+    return null
+  } catch {
+    return null
+  }
+}
 
 export function getLocalIP(): string | null {
   const interfaces = networkInterfaces()
@@ -28,38 +48,29 @@ export function getLocalIP(): string | null {
 }
 
 export async function getTailscaleIP(): Promise<string | null> {
-  try {
-    const result = await $`${TAILSCALE_CLI} ip -4 2>/dev/null`.quiet()
-    const ip = result.text().trim()
-    if (ip.startsWith('100.')) return ip
-    return null
-  } catch {
-    return null
-  }
+  const output = runWithTimeout(TAILSCALE_CLI, ['ip', '-4'])
+  if (output && output.startsWith('100.')) return output
+  return null
 }
 
 export async function isTailscaleConnected(): Promise<boolean> {
-  try {
-    const result = await $`${TAILSCALE_CLI} status 2>/dev/null`.quiet()
-    return !result.text().includes('Tailscale is stopped')
-  } catch {
-    return false
-  }
+  const output = runWithTimeout(TAILSCALE_CLI, ['status'])
+  if (!output) return false
+  return !output.includes('Tailscale is stopped')
 }
 
 export async function getTailscaleMagicDNS(): Promise<string | null> {
+  const output = runWithTimeout(TAILSCALE_CLI, ['status', '--json'])
+  if (!output) return null
+  
   try {
-    // Get the current hostname from Tailscale status JSON
-    const result = await $`${TAILSCALE_CLI} status --json 2>/dev/null`.quiet()
-    const status = JSON.parse(result.text())
-
+    const status = JSON.parse(output)
     // The current device's MagicDNS name
     const self = status.Self
     if (self && self.DNSName) {
       // DNSName includes trailing dot, remove it
       return self.DNSName.replace(/\.$/, '')
     }
-
     return null
   } catch {
     return null
@@ -67,17 +78,17 @@ export async function getTailscaleMagicDNS(): Promise<string | null> {
 }
 
 export async function getTailnetName(): Promise<string | null> {
+  const output = runWithTimeout(TAILSCALE_CLI, ['status', '--json'])
+  if (!output) return null
+  
   try {
-    const result = await $`${TAILSCALE_CLI} status --json 2>/dev/null`.quiet()
-    const status = JSON.parse(result.text())
-
+    const status = JSON.parse(output)
     // Get tailnet name from MagicDNSSuffix
     // e.g., "tailnet-name.ts.net" → "tailnet-name"
     const suffix = status.MagicDNSSuffix
     if (suffix) {
       return suffix.replace(/\.ts\.net\.?$/, '')
     }
-
     return null
   } catch {
     return null

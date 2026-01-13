@@ -4,6 +4,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 enum OnboardingStep {
   welcome,
   macSetup,
+  travelMode,
   networkCheck,
   tailscaleCheck,
   scanner,
@@ -16,6 +17,7 @@ class OnboardingState {
     this.currentStep = OnboardingStep.welcome,
     this.isLoading = true,
     this.hasMacSetup = false,
+    this.wantsTravelMode = false,
     this.connectionMode = ConnectionMode.unknown,
   });
 
@@ -23,6 +25,7 @@ class OnboardingState {
   final OnboardingStep currentStep;
   final bool isLoading;
   final bool hasMacSetup;
+  final bool wantsTravelMode;
   final ConnectionMode connectionMode;
 
   OnboardingState copyWith({
@@ -30,6 +33,7 @@ class OnboardingState {
     OnboardingStep? currentStep,
     bool? isLoading,
     bool? hasMacSetup,
+    bool? wantsTravelMode,
     ConnectionMode? connectionMode,
   }) {
     return OnboardingState(
@@ -38,6 +42,7 @@ class OnboardingState {
       currentStep: currentStep ?? this.currentStep,
       isLoading: isLoading ?? this.isLoading,
       hasMacSetup: hasMacSetup ?? this.hasMacSetup,
+      wantsTravelMode: wantsTravelMode ?? this.wantsTravelMode,
       connectionMode: connectionMode ?? this.connectionMode,
     );
   }
@@ -70,9 +75,14 @@ class OnboardingNotifier extends StateNotifier<OnboardingState> {
   void setHasMacSetup(bool value) {
     state = state.copyWith(
       hasMacSetup: value,
-      currentStep: value
-          ? OnboardingStep.networkCheck
-          : OnboardingStep.macSetup,
+      currentStep: value ? OnboardingStep.travelMode : OnboardingStep.macSetup,
+    );
+  }
+
+  void setTravelMode(bool wantsTravel) {
+    state = state.copyWith(
+      wantsTravelMode: wantsTravel,
+      currentStep: OnboardingStep.networkCheck,
     );
   }
 
@@ -98,8 +108,11 @@ class OnboardingNotifier extends StateNotifier<OnboardingState> {
       case OnboardingStep.macSetup:
         state = state.copyWith(currentStep: OnboardingStep.welcome);
         break;
+      case OnboardingStep.travelMode:
+        state = state.copyWith(currentStep: OnboardingStep.macSetup);
+        break;
       case OnboardingStep.networkCheck:
-        state = state.copyWith(currentStep: OnboardingStep.welcome);
+        state = state.copyWith(currentStep: OnboardingStep.travelMode);
         break;
       case OnboardingStep.tailscaleCheck:
         state = state.copyWith(currentStep: OnboardingStep.networkCheck);

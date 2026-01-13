@@ -7,7 +7,16 @@ import { createBridgeServer, loadOrCreateAuthToken } from './server'
 import { parseCli, printHelp, promptForChoice } from './cli'
 import { runDoctor } from './doctor'
 import { runSetupTailscale } from './setup-tailscale'
-import { spawnSync } from 'node:child_process'
+import { spawnSync, spawn, type ChildProcess } from 'node:child_process'
+import { homedir } from 'node:os'
+import { mkdir, writeFile, unlink, readFile, stat } from 'node:fs/promises'
+import { resolve, dirname } from 'node:path'
+
+// Daemon (Always On mode) configuration
+const LAUNCH_AGENT_LABEL = 'com.broski.bridge'
+const LAUNCH_AGENT_PATH = resolve(homedir(), 'Library/LaunchAgents', `${LAUNCH_AGENT_LABEL}.plist`)
+const BROSKI_LOG_DIR = resolve(homedir(), '.broski', 'logs')
+const BROSKI_PID_FILE = resolve(homedir(), '.broski', 'bridge.pid')
 
 type ManagedOpenCodeServer = {
   url: string
@@ -30,6 +39,371 @@ type OpenCodeInstance = {
 
 async function sleep(ms: number): Promise<void> {
   await new Promise((resolve) => setTimeout(resolve, ms))
+}
+
+// ============================================================================
+// Daemon Management (Always On Mode)
+// ============================================================================
+
+async function getBunPath(): Promise<string> {
+  // Try to find bun in common locations
+  const bunLocations = [
+    Bun.which('bun'),
+    '/usr/local/bin/bun',
+    resolve(homedir(), '.bun/bin/bun'),
+    '/opt/homebrew/bin/bun',
+  ]
+  
+  for (const loc of bunLocations) {
+    if (!loc) continue
+    try {
+      const s = await stat(loc)
+      if (s.isFile()) return loc
+    } catch {
+      // continue
+    }
+  }
+  
+  return 'bun' // fallback
+}
+
+async function getBridgeScriptPath(): Promise<string> {
+  // Get the path to the current script
+  const scriptUrl = import.meta.url
+  if (scriptUrl.startsWith('file://')) {
+    return scriptUrl.replace('file://', '')
+  }
+  return resolve(dirname(new URL(import.meta.url).pathname), 'index.ts')
+}
+
+function generateLaunchAgentPlist(bunPath: string, scriptPath: string, args: string[] = [], travelMode: boolean = false): string {
+  // In Travel Mode, wrap the entire command with caffeinate
+  // This prevents Mac sleep AND keeps WiFi alive with lid closed
+  let programArgs: string[]
+  if (travelMode) {
+    // -dimsu: all flags for maximum "stay awake" behavior
+    // -d: prevent display sleep (helps keep WiFi on some Macs)
+    // -i: prevent idle sleep
+    // -m: prevent disk sleep
+    // -s: prevent system sleep
+    // -u: declare user is active
+    programArgs = ['/usr/bin/caffeinate', '-dimsu', bunPath, scriptPath, '--daemon', ...args]
+  } else {
+    programArgs = [bunPath, scriptPath, '--daemon', ...args]
+  }
+  
+  const programArgsXml = programArgs
+    .map(arg => `        <string>${arg}</string>`)
+    .join('\n')
+
+  // Enhanced LaunchAgent configuration for robust "Always On" mode:
+  // - KeepAlive with NetworkState: Only runs when network is available (prevents crash loops when offline)
+  // - KeepAlive with SuccessfulExit=false: Restarts on crash but not on clean exit
+  // - ThrottleInterval: Prevents rapid restart loops (10 second minimum between restarts)
+  return `<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+    <key>Label</key>
+    <string>${LAUNCH_AGENT_LABEL}</string>
+    <key>ProgramArguments</key>
+    <array>
+${programArgsXml}
+    </array>
+    <key>RunAtLoad</key>
+    <true/>
+    <key>KeepAlive</key>
+    <dict>
+        <key>SuccessfulExit</key>
+        <false/>
+        <key>NetworkState</key>
+        <true/>
+    </dict>
+    <key>ThrottleInterval</key>
+    <integer>10</integer>
+    <key>StandardOutPath</key>
+    <string>${BROSKI_LOG_DIR}/bridge.log</string>
+    <key>StandardErrorPath</key>
+    <string>${BROSKI_LOG_DIR}/bridge.error.log</string>
+    <key>WorkingDirectory</key>
+    <string>${homedir()}</string>
+    <key>EnvironmentVariables</key>
+    <dict>
+        <key>PATH</key>
+        <string>/usr/local/bin:/usr/bin:/bin:/opt/homebrew/bin:${dirname(bunPath)}:${homedir()}/.opencode/bin:${homedir()}/.local/bin:${homedir()}/.npm-global/bin</string>
+        <key>HOME</key>
+        <string>${homedir()}</string>
+    </dict>
+</dict>
+</plist>`
+}
+
+async function runInstall(travelMode: boolean = false): Promise<void> {
+  const modeLabel = travelMode ? 'Travel Mode' : 'Always On mode'
+  console.log(`Installing Broski as background service (${modeLabel})...\n`)
+
+  // Check if already installed
+  try {
+    await stat(LAUNCH_AGENT_PATH)
+    console.log('⚠️  Broski is already installed as a background service.')
+    console.log('   Run `broski uninstall` first if you want to reinstall.')
+    console.log('   Run `broski status` to check if it\'s running.')
+    return
+  } catch {
+    // Not installed, continue
+  }
+
+  // Create log directory
+  await mkdir(BROSKI_LOG_DIR, { recursive: true })
+  console.log(`✓ Created log directory: ${BROSKI_LOG_DIR}`)
+
+  // Get paths
+  const bunPath = await getBunPath()
+  const scriptPath = await getBridgeScriptPath()
+  console.log(`✓ Bun path: ${bunPath}`)
+  console.log(`✓ Bridge script: ${scriptPath}`)
+
+  // Generate and write plist (with caffeinate wrapper in travel mode)
+  const plist = generateLaunchAgentPlist(bunPath, scriptPath, ['--hotspot'], travelMode)
+  await mkdir(dirname(LAUNCH_AGENT_PATH), { recursive: true })
+  await writeFile(LAUNCH_AGENT_PATH, plist, { mode: 0o644 })
+  console.log(`✓ Created LaunchAgent: ${LAUNCH_AGENT_PATH}`)
+  
+  if (travelMode) {
+    console.log('✓ Travel Mode enabled: caffeinate will prevent Mac sleep')
+    
+    // Check if networkoversleep is enabled (important for WiFi on lid close)
+    const pmsetResult = spawnSync('pmset', ['-g'], { encoding: 'utf-8' })
+    if (pmsetResult.stdout && pmsetResult.stdout.includes('networkoversleep') && 
+        pmsetResult.stdout.includes('networkoversleep     0')) {
+      console.log('')
+      console.log('⚠️  For best results, enable network-over-sleep:')
+      console.log('   sudo pmset -a networkoversleep 1')
+      console.log('   (This keeps WiFi alive when the lid is closed)')
+    }
+  }
+
+  // Load the LaunchAgent
+  const loadResult = spawnSync('launchctl', ['load', LAUNCH_AGENT_PATH], { encoding: 'utf-8' })
+  if (loadResult.status !== 0) {
+    console.error(`❌ Failed to load LaunchAgent: ${loadResult.stderr || loadResult.stdout}`)
+    return
+  }
+  console.log('✓ LaunchAgent loaded')
+
+  // Wait a moment for the service to start
+  await sleep(1000)
+
+  // Check if it's running
+  const statusResult = spawnSync('launchctl', ['list', LAUNCH_AGENT_LABEL], { encoding: 'utf-8' })
+  if (statusResult.status === 0 && statusResult.stdout.includes(LAUNCH_AGENT_LABEL)) {
+    console.log('\n✅ Broski bridge installed and running!')
+    console.log('\n   The bridge will now:')
+    console.log('   • Start automatically when you log in')
+    console.log('   • Stay running in the background')
+    console.log('   • Restart automatically if it crashes')
+    if (travelMode) {
+      console.log('   • Keep your Mac awake even with lid closed (Travel Mode)')
+      console.log('\n   Perfect for travel - close your Mac lid and use Broski from your phone!')
+    } else {
+      console.log('\n   For travel/lid-close support, reinstall with:')
+      console.log('   broski uninstall && broski install --travel')
+    }
+    console.log('\n   Commands:')
+    console.log('   • broski status    - Check if running')
+    console.log('   • broski stop      - Stop the service')
+    console.log('   • broski uninstall - Remove the service')
+    console.log(`\n   Logs: ${BROSKI_LOG_DIR}/bridge.log`)
+  } else {
+    console.log('\n⚠️  Service installed but may not be running.')
+    console.log('   Check status with: broski status')
+    console.log(`   Check logs: tail -f ${BROSKI_LOG_DIR}/bridge.log`)
+  }
+}
+
+async function runUninstall(): Promise<void> {
+  console.log('Uninstalling Broski background service...\n')
+
+  // Check if installed
+  try {
+    await stat(LAUNCH_AGENT_PATH)
+  } catch {
+    console.log('ℹ️  Broski is not installed as a background service.')
+    return
+  }
+
+  // Unload the LaunchAgent
+  const unloadResult = spawnSync('launchctl', ['unload', LAUNCH_AGENT_PATH], { encoding: 'utf-8' })
+  if (unloadResult.status !== 0) {
+    console.warn(`⚠️  Could not unload LaunchAgent (may not be loaded): ${unloadResult.stderr || ''}`)
+  } else {
+    console.log('✓ LaunchAgent unloaded')
+  }
+
+  // Remove the plist file
+  try {
+    await unlink(LAUNCH_AGENT_PATH)
+    console.log('✓ LaunchAgent file removed')
+  } catch (err) {
+    console.error(`❌ Failed to remove LaunchAgent file: ${err}`)
+    return
+  }
+
+  console.log('\n✅ Broski background service uninstalled.')
+  console.log('   The bridge will no longer start automatically.')
+  console.log('   Run `broski` to start it manually when needed.')
+}
+
+async function runStatus(): Promise<void> {
+  console.log('Broski Bridge Status\n')
+
+  // Check if installed
+  let installed = false
+  try {
+    await stat(LAUNCH_AGENT_PATH)
+    installed = true
+  } catch {
+    // Not installed
+  }
+
+  console.log(`Background service: ${installed ? '✓ Installed' : '✗ Not installed'}`)
+
+  if (installed) {
+    // Check if running via launchctl
+    const listResult = spawnSync('launchctl', ['list', LAUNCH_AGENT_LABEL], { encoding: 'utf-8' })
+    const isRunning = listResult.status === 0 && listResult.stdout.includes(LAUNCH_AGENT_LABEL)
+    
+    // Parse PID from launchctl output
+    let pid: string | null = null
+    if (isRunning && listResult.stdout) {
+      const match = listResult.stdout.match(/^(\d+)\s+/)
+      if (match) pid = match[1]
+    }
+
+    console.log(`Service status:     ${isRunning ? '✓ Running' : '✗ Not running'}`)
+    if (pid && pid !== '-') {
+      console.log(`Process ID:         ${pid}`)
+    }
+  }
+
+  // Check for any broski process
+  const psResult = spawnSync('pgrep', ['-f', 'broski.*index.ts'], { encoding: 'utf-8' })
+  const pids = psResult.stdout.trim().split('\n').filter(Boolean)
+  
+  if (pids.length > 0) {
+    console.log(`\nActive processes:   ${pids.length} found`)
+    for (const p of pids) {
+      console.log(`  PID ${p}`)
+    }
+  }
+
+  // Check if port 18274 is in use
+  const lsofResult = spawnSync('lsof', ['-nP', '-iTCP:18274', '-sTCP:LISTEN'], { encoding: 'utf-8' })
+  const portInUse = lsofResult.status === 0 && lsofResult.stdout.includes('LISTEN')
+  
+  console.log(`\nDefault port 18274: ${portInUse ? '✓ In use (bridge is listening)' : '✗ Not in use'}`)
+
+  // Show log file location
+  console.log(`\nLog files:          ${BROSKI_LOG_DIR}/`)
+  console.log(`  • bridge.log       - Standard output`)
+  console.log(`  • bridge.error.log - Error output`)
+
+  if (!installed) {
+    console.log('\n💡 Tip: Run `broski install` to enable Always On mode')
+  }
+}
+
+async function runQR(detectHotspot: boolean): Promise<void> {
+  console.log('Generating QR code for phone pairing...\n')
+
+  // Load existing auth token (don't create new one)
+  let authToken: string
+  try {
+    const tokenFile = resolve(homedir(), '.broski', 'token')
+    const existing = await readFile(tokenFile, 'utf-8')
+    authToken = existing.trim()
+    if (authToken.length < 16) {
+      throw new Error('Invalid token')
+    }
+  } catch {
+    console.log('⚠️  No auth token found. Run `broski` or `broski install` first to start the bridge.')
+    return
+  }
+
+  // Check if bridge is actually running
+  const port = 18274 // Default port
+  const lsofResult = spawnSync('lsof', ['-nP', `-iTCP:${port}`, '-sTCP:LISTEN'], { encoding: 'utf-8' })
+  const bridgeRunning = lsofResult.status === 0 && lsofResult.stdout.includes('LISTEN')
+
+  if (!bridgeRunning) {
+    console.log('⚠️  Bridge is not running on port 18274.')
+    console.log('   Start it with `broski` or `broski install` first.')
+    console.log('')
+  }
+
+  // Detect network
+  const localIP = getLocalIP()
+  const tailscaleIP = await getTailscaleIP()
+  const magicDNS = await getTailscaleMagicDNS()
+  const hotspotIP = detectHotspot ? getHotspotIP() : null
+
+  // Get version
+  const packageJson = await Bun.file(new URL('../package.json', import.meta.url)).json()
+  const version = packageJson.version ?? '0.1.0'
+
+  displayQRCode({
+    localIP,
+    tailscaleIP,
+    magicDNS,
+    funnelURL: null,
+    hotspotIP,
+    port,
+    version,
+    authToken,
+  })
+
+  if (bridgeRunning) {
+    console.log('✓ Bridge is running. Scan the QR code with the Broski app.')
+  }
+}
+
+async function runStop(): Promise<void> {
+  console.log('Stopping Broski bridge...\n')
+
+  // Check if installed as service
+  let installed = false
+  try {
+    await stat(LAUNCH_AGENT_PATH)
+    installed = true
+  } catch {
+    // Not installed as service
+  }
+
+  if (installed) {
+    // Stop via launchctl (it will auto-restart due to KeepAlive, so we unload temporarily)
+    const stopResult = spawnSync('launchctl', ['stop', LAUNCH_AGENT_LABEL], { encoding: 'utf-8' })
+    if (stopResult.status === 0) {
+      console.log('✓ Sent stop signal to background service')
+      console.log('\n⚠️  Note: The service will restart automatically (KeepAlive is enabled).')
+      console.log('   To stop permanently, run: broski uninstall')
+      return
+    }
+  }
+
+  // Try to kill any running broski processes
+  const pkillResult = spawnSync('pkill', ['-f', 'broski.*index.ts'], { encoding: 'utf-8' })
+  
+  if (pkillResult.status === 0) {
+    console.log('✓ Stopped running Broski processes')
+  } else {
+    // Check if anything was running
+    const pgrepResult = spawnSync('pgrep', ['-f', 'broski.*index.ts'], { encoding: 'utf-8' })
+    if (pgrepResult.stdout.trim()) {
+      console.log('⚠️  Some processes may still be running')
+    } else {
+      console.log('ℹ️  No running Broski bridge found')
+    }
+  }
 }
 
 async function waitForOpencodeReady(url: string, timeoutMs: number): Promise<boolean> {
@@ -120,9 +494,61 @@ let managedHostname = '127.0.0.1'
 let managedPort = 0
 let verboseMode = false
 let funnelPort: number | null = null
+let caffeinateProcess: ChildProcess | null = null
 
 function normalizeBaseUrl(url: string): string {
   return url.replace(/\/+$/, '')
+}
+
+// ============================================================================
+// Travel Mode: Prevent Mac sleep with lid closed using caffeinate
+// ============================================================================
+
+function startCaffeinate(verbose: boolean): ChildProcess | null {
+  try {
+    // caffeinate flags for maximum "stay awake" on lid close:
+    // -d: prevent display sleep (keeps WiFi alive on some Macs)
+    // -i: prevent idle sleep
+    // -m: prevent disk sleep
+    // -s: prevent system sleep
+    // -u: declare user is active (resets idle timer)
+    // All flags combined needed because macOS can drop WiFi on lid close
+    const proc = spawn('caffeinate', ['-dimsu'], {
+      stdio: 'ignore',
+      detached: false, // Keep attached so it dies with us
+    })
+
+    proc.on('error', (err) => {
+      console.error('caffeinate error:', err.message)
+    })
+
+    proc.on('exit', (code) => {
+      if (verbose && code !== null && code !== 0) {
+        console.log(`caffeinate exited with code ${code}`)
+      }
+      caffeinateProcess = null
+    })
+
+    if (verbose) {
+      console.log(`✓ caffeinate started (PID: ${proc.pid}) - Mac will stay awake with lid closed`)
+    }
+
+    return proc
+  } catch (err) {
+    console.error('Failed to start caffeinate:', err)
+    return null
+  }
+}
+
+function stopCaffeinate(): void {
+  if (caffeinateProcess) {
+    try {
+      caffeinateProcess.kill('SIGTERM')
+      caffeinateProcess = null
+    } catch {
+      // ignore
+    }
+  }
 }
 
 async function subscribeOpenCodeStream(
@@ -180,6 +606,11 @@ async function shutdown(signal: string) {
     opencodeServer = null
   } else if (opencodeServer) {
     console.log('OpenCode server is external - leaving it running')
+  }
+
+  if (caffeinateProcess) {
+    console.log('Stopping caffeinate (allowing Mac sleep)...')
+    stopCaffeinate()
   }
 
   console.log('Shutdown complete. Goodbye!')
@@ -327,7 +758,7 @@ async function bootstrapAttachOpenCode(verbose: boolean): Promise<OpencodeBootst
   if (instances.length === 0) {
     console.log('No running OpenCode servers found.')
     console.log('  Start one: `opencode serve`')
-    console.log('  Or attach explicitly: `broski-bridge --opencode-url http://127.0.0.1:4096`')
+    console.log('  Or attach explicitly: `broski --opencode-url http://127.0.0.1:4096`')
     throw new Error('No running OpenCode servers found')
   }
 
@@ -375,6 +806,31 @@ async function main() {
     return
   }
 
+  if (cli.subCommand === 'install') {
+    await runInstall(cli.travel)
+    return
+  }
+
+  if (cli.subCommand === 'uninstall') {
+    await runUninstall()
+    return
+  }
+
+  if (cli.subCommand === 'status') {
+    await runStatus()
+    return
+  }
+
+  if (cli.subCommand === 'stop') {
+    await runStop()
+    return
+  }
+
+  if (cli.subCommand === 'qr') {
+    await runQR(cli.detectHotspot)
+    return
+  }
+
   process.on('SIGINT', () => void shutdown('SIGINT'))
   process.on('SIGTERM', () => void shutdown('SIGTERM'))
   process.on('SIGTSTP', () => void shutdown('SIGTSTP'))
@@ -386,6 +842,19 @@ async function main() {
   const version = packageJson.version ?? '0.1.0'
 
   displayBanner()
+
+  // Travel Mode: Start caffeinate to prevent Mac sleep with lid closed
+  if (cli.travel && !cli.daemon) {
+    // For interactive mode, we spawn caffeinate ourselves
+    // For daemon mode, caffeinate is part of the LaunchAgent plist
+    console.log('Travel Mode: Enabling lid-close protection...')
+    caffeinateProcess = startCaffeinate(cli.verbose)
+    if (caffeinateProcess) {
+      console.log('✓ Travel Mode active - you can close your Mac lid!')
+    } else {
+      console.log('⚠️  Could not enable Travel Mode (caffeinate failed)')
+    }
+  }
 
   const port = cli.bridgePort
 
@@ -411,11 +880,17 @@ async function main() {
   })
   opencodeConnector = opencode
 
+  if (cli.daemon) console.log('[daemon] Detecting network...')
   const localIP = getLocalIP()
+  if (cli.daemon) console.log(`[daemon] localIP: ${localIP}`)
   const tailscaleIP = await getTailscaleIP()
+  if (cli.daemon) console.log(`[daemon] tailscaleIP: ${tailscaleIP}`)
   const magicDNS = await getTailscaleMagicDNS()
+  if (cli.daemon) console.log(`[daemon] magicDNS: ${magicDNS}`)
   const tailscaleConnected = await isTailscaleConnected()
+  if (cli.daemon) console.log(`[daemon] tailscaleConnected: ${tailscaleConnected}`)
   const hotspotIP = cli.detectHotspot ? getHotspotIP() : null
+  if (cli.daemon) console.log(`[daemon] hotspotIP: ${hotspotIP}`)
 
   if (cli.detectHotspot) {
     if (hotspotIP) {
@@ -433,6 +908,7 @@ async function main() {
     }
   }
 
+  if (cli.daemon) console.log('[daemon] Loading auth token...')
   // Load persistent auth token (same token survives bridge restarts)
   const authToken = await loadOrCreateAuthToken(cli.newToken)
   if (cli.newToken) {
@@ -441,6 +917,7 @@ async function main() {
     console.log('✓ Auth token loaded (persistent across restarts)')
   }
 
+  if (cli.daemon) console.log('[daemon] Creating bridge server...')
   // Create bridge server
   try {
     bridgeServer = createBridgeServer({
@@ -454,7 +931,7 @@ async function main() {
   } catch (error: any) {
     if (error?.code === 'EADDRINUSE') {
       console.error(`\n❌ Bridge port ${port} is already in use.`)
-      console.error('This usually means another broski-bridge process is still running.')
+      console.error('This usually means another broski process is still running.')
       console.error('If you stopped it with Ctrl+Z, it was suspended (not terminated) and will keep the port open.')
       console.error('Fix options:')
       console.error('  - If it is a suspended job: return to that terminal, run `fg`, then press Ctrl+C.')

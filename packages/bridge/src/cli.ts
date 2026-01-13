@@ -2,7 +2,7 @@ import { stdin as input, stdout as output } from 'node:process'
 import readline from 'node:readline/promises'
 
 export type OpencodeMode = 'managed' | 'manual' | 'attach'
-export type SubCommand = 'serve' | 'doctor' | 'setup-tailscale' | null
+export type SubCommand = 'serve' | 'doctor' | 'setup-tailscale' | 'install' | 'uninstall' | 'status' | 'stop' | 'qr' | null
 
 export type CliOptions = {
   subCommand: SubCommand
@@ -16,6 +16,8 @@ export type CliOptions = {
   enableFunnel: boolean
   newToken: boolean
   detectHotspot: boolean
+  daemon: boolean
+  travel: boolean
 }
 
 const DEFAULT_BRIDGE_PORT = 18274
@@ -40,19 +42,36 @@ export function parseCli(argv: string[], env: NodeJS.ProcessEnv): CliOptions {
   let enableFunnel = env.BROSKI_ENABLE_FUNNEL === '1'
   let newToken = false
   let detectHotspot = false
+  let daemon = false
+  let travel: boolean | null = null // null = use default (true for install, false for serve)
+  let noTravel = false
 
   const firstArg = args[0]
-  if (firstArg === 'doctor') {
+  if (firstArg === 'travel') {
+    subCommand = 'serve'
+    travel = true
+    detectHotspot = true // Travel mode implies hotspot detection
+  } else if (firstArg === 'doctor') {
     subCommand = 'doctor'
   } else if (firstArg === 'setup-tailscale') {
     subCommand = 'setup-tailscale'
+  } else if (firstArg === 'install') {
+    subCommand = 'install'
+  } else if (firstArg === 'uninstall') {
+    subCommand = 'uninstall'
+  } else if (firstArg === 'status') {
+    subCommand = 'status'
+  } else if (firstArg === 'stop') {
+    subCommand = 'stop'
+  } else if (firstArg === 'qr') {
+    subCommand = 'qr'
   } else if (firstArg === 'serve' || !firstArg?.startsWith('-')) {
     subCommand = 'serve'
   }
 
   for (let i = 0; i < args.length; i++) {
     const arg = args[i]
-    if (arg === 'doctor' || arg === 'setup-tailscale' || arg === 'serve') {
+    if (arg === 'doctor' || arg === 'setup-tailscale' || arg === 'serve' || arg === 'install' || arg === 'uninstall' || arg === 'status' || arg === 'stop' || arg === 'qr' || arg === 'travel') {
       continue
     }
     if (arg === '--help' || arg === '-h') {
@@ -107,6 +126,30 @@ export function parseCli(argv: string[], env: NodeJS.ProcessEnv): CliOptions {
       detectHotspot = true
       continue
     }
+    if (arg === '--daemon') {
+      daemon = true
+      continue
+    }
+    if (arg === '--travel') {
+      travel = true
+      detectHotspot = true // Travel mode implies hotspot detection
+      continue
+    }
+    if (arg === '--no-travel') {
+      noTravel = true
+      continue
+    }
+  }
+
+  // Resolve travel mode: --no-travel wins, then explicit --travel
+  // Default is OFF - user must explicitly enable with --travel or `broski travel`
+  let resolvedTravel: boolean
+  if (noTravel) {
+    resolvedTravel = false
+  } else if (travel === true) {
+    resolvedTravel = true
+  } else {
+    resolvedTravel = false // Default OFF for everything
   }
 
   if (opencodeUrl) {
@@ -125,26 +168,36 @@ export function parseCli(argv: string[], env: NodeJS.ProcessEnv): CliOptions {
     enableFunnel,
     newToken,
     detectHotspot,
+    daemon,
+    travel: resolvedTravel,
   }
 }
 
 export function printHelp(): void {
   console.log(`
 Usage:
-  broski-bridge [command] [options]
+  broski [command] [options]
 
 Commands:
   (default)         Start the bridge server
+  travel            Start in Travel Mode (keeps Mac awake with lid closed)
+  install           Install as background service (runs on login)
+  uninstall         Remove background service
+  status            Show if bridge is running
+  stop              Stop the background service
+  qr                Show QR code to connect your phone
   doctor            Check system requirements and diagnose issues
   setup-tailscale   Install and configure Tailscale for remote access
 
- Options:
+Options:
   --help, -h                Show help
   --verbose, -v             Verbose logging (SDK events + debug)
   --port, --bridge-port N   Bridge WebSocket port (default: 18274; use 0 for random free port)
   --funnel                  Enable Tailscale Funnel for public HTTPS access (no VPN needed on phone)
   --new-token               Generate a new auth token (invalidates existing QR codes)
   --hotspot, --detect-hotspot Detect and prioritize hotspot IP for remote access via mobile hotspot
+  --travel                  Enable Travel Mode (keeps Mac awake with lid closed)
+  --no-travel               Disable Travel Mode (saves battery, Mac sleeps on lid close)
 
 OpenCode:
   --managed                 Force managed mode (default)
@@ -155,10 +208,19 @@ OpenCode:
   --opencode-port N         Port for managed OpenCode server (default: 0 for random)
 
 Examples:
-  broski-bridge                  Start the bridge
-  broski-bridge doctor           Check if everything is set up correctly
-  broski-bridge setup-tailscale  Set up Tailscale for remote access
-  broski-bridge --verbose        Start with debug logging
+  broski                         Start the bridge
+  broski travel                  Start in Travel Mode (close lid & keep working!)
+  broski install                 Install as background service (Always On mode)
+  broski install --travel        Install with Travel Mode (lid-close safe daemon)
+  broski qr                      Show QR code to pair your phone
+  broski qr --hotspot            Show QR code with hotspot IP (travel mode)
+  broski status                  Check if bridge is running
+  broski stop                    Stop the background service
+  broski uninstall               Remove background service
+  broski doctor                  Check if everything is set up correctly
+  broski setup-tailscale         Set up Tailscale for remote access
+  broski --verbose               Start with debug logging
+  broski --hotspot               Prioritize hotspot IP (for mobile tethering)
 `.trim())
 }
 

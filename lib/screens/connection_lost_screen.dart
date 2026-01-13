@@ -40,6 +40,9 @@ class _ConnectionLostScreenState extends ConsumerState<ConnectionLostScreen> {
     final theme = Theme.of(context);
     final ocTheme = OpenCodeTheme.of(context);
 
+    // Show reconnecting state with animated indicator
+    final isReconnecting = connection.isReconnecting;
+
     return Scaffold(
       backgroundColor: ocTheme.background,
       body: SafeArea(
@@ -48,16 +51,53 @@ class _ConnectionLostScreenState extends ConsumerState<ConnectionLostScreen> {
           child: Column(
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
-              Icon(Icons.wifi_off, size: 48, color: ocTheme.error),
+              // Animated icon based on state
+              if (isReconnecting) ...[
+                SizedBox(
+                  width: 48,
+                  height: 48,
+                  child: CircularProgressIndicator(
+                    strokeWidth: 3,
+                    valueColor: AlwaysStoppedAnimation(ocTheme.primary),
+                  ),
+                ),
+              ] else ...[
+                Icon(Icons.wifi_off, size: 48, color: ocTheme.error),
+              ],
               const SizedBox(height: 16),
-              Text('Connection lost', style: theme.textTheme.titleLarge),
+              Text(
+                isReconnecting ? 'Reconnecting...' : 'Connection lost',
+                style: theme.textTheme.titleLarge,
+              ),
               const SizedBox(height: 8),
               Text(
-                'Unable to reach your Mac. Make sure broski-bridge is running and you are on the same network or Tailscale.',
+                isReconnecting
+                    ? 'Attempting to reconnect to your Mac. This happens automatically when the connection is restored.'
+                    : 'Unable to reach your Mac. Make sure broski is running and you are on the same network or Tailscale.',
                 style: theme.textTheme.bodySmall,
                 textAlign: TextAlign.center,
               ),
-              if (connection.error != null) ...[
+              if (isReconnecting) ...[
+                const SizedBox(height: 8),
+                Container(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 12,
+                    vertical: 6,
+                  ),
+                  decoration: BoxDecoration(
+                    color: ocTheme.primary.withValues(alpha: 0.1),
+                    borderRadius: BorderRadius.circular(16),
+                  ),
+                  child: Text(
+                    'Auto-reconnecting with exponential backoff',
+                    style: theme.textTheme.bodySmall?.copyWith(
+                      color: ocTheme.primary,
+                      fontSize: 11,
+                    ),
+                  ),
+                ),
+              ],
+              if (connection.error != null && !isReconnecting) ...[
                 const SizedBox(height: 8),
                 Container(
                   padding: const EdgeInsets.all(8),
@@ -78,12 +118,14 @@ class _ConnectionLostScreenState extends ConsumerState<ConnectionLostScreen> {
               ],
               const SizedBox(height: 24),
               ElevatedButton(
-                onPressed: connection.connection == null
+                onPressed: connection.connection == null || isReconnecting
                     ? null
                     : () => ref
                           .read(connectionProvider.notifier)
                           .connect(connection.connection!),
-                child: const Text('Retry connection'),
+                child: Text(
+                  isReconnecting ? 'Reconnecting...' : 'Retry connection',
+                ),
               ),
               const SizedBox(height: 12),
               OutlinedButton(

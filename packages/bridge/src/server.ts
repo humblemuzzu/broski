@@ -1728,6 +1728,11 @@ export function createBridgeServer(options: BridgeServerOptions): BridgeServer {
 
   const HEARTBEAT_INTERVAL_MS = 20000
   const HEARTBEAT_DEAD_AFTER_MS = 90000
+  
+  // Tick heartbeat: Sent every 30 seconds to all clients.
+  // Clients use this to detect stale connections (if no tick in 2x interval = dead).
+  // This is separate from ping/pong (which measures RTT).
+  const TICK_INTERVAL_MS = 30000
 
   const heartbeatTimer = setInterval(() => {
     const now = Date.now()
@@ -1755,6 +1760,21 @@ export function createBridgeServer(options: BridgeServerOptions): BridgeServer {
       send(ws, { type: 'ping', data: ping })
     }
   }, HEARTBEAT_INTERVAL_MS)
+  
+  // Tick timer: Simple liveness signal to all connected clients.
+  // Clients should expect a tick every TICK_INTERVAL_MS. If 2x interval passes
+  // without a tick, the client should consider the connection dead and reconnect.
+  const tickTimer = setInterval(() => {
+    const now = Date.now()
+    const tickPayload = { type: 'tick', timestamp: now, interval: TICK_INTERVAL_MS }
+    for (const ws of sockets) {
+      try {
+        ws.send(JSON.stringify(tickPayload))
+      } catch {
+        // Client might have disconnected, ignore
+      }
+    }
+  }, TICK_INTERVAL_MS)
 
   const handleHttp = async (request: Request): Promise<Response> => {
     const url = new URL(request.url)

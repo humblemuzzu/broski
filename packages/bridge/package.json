@@ -1,7 +1,7 @@
 {
-  "name": "broski-bridge",
+  "name": "broski",
   "version": "0.1.0",
-  "description": "Bridge server connecting Broski mobile app to OpenCode AI coding agent",
+  "description": "Bridge server connecting Broski mobile app to AI coding agents (OpenCode, Claude Code, Codex)",
   "author": "humblemuzzu <broskiappp@gmail.com>",
   "license": "MIT",
   "repository": {
@@ -27,7 +27,8 @@
   "type": "module",
   "main": "./src/index.ts",
   "bin": {
-    "broski-bridge": "./bin/broski-bridge.ts"
+    "broski": "./bin/broski.ts",
+    "broski-bridge": "./bin/broski.ts"
   },
   "files": [
     "bin",

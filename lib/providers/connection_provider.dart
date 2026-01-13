@@ -15,6 +15,22 @@ import '../services/storage_service.dart';
 import '../services/websocket_service.dart';
 import 'service_providers.dart';
 
+/// Event emitted when connection state changes significantly.
+/// Providers can listen to this to invalidate/refresh their data.
+enum ConnectionEvent {
+  /// Successfully connected (initial or after reconnect)
+  connected,
+
+  /// Disconnected (may trigger reconnection)
+  disconnected,
+
+  /// Reconnected after being disconnected - providers should refresh data
+  reconnected,
+
+  /// Connection failed - might switch to offline mode
+  failed,
+}
+
 class BridgeConnectionState {
   const BridgeConnectionState({
     this.connection,
@@ -28,6 +44,7 @@ class BridgeConnectionState {
     this.connectedHost,
     this.thisDevice,
     this.connectedDevices = const [],
+    this.lastEvent,
   });
 
   final ConnectionInfo? connection;
@@ -45,6 +62,9 @@ class BridgeConnectionState {
   /// When true, the app operates in read-only mode using cached data.
   /// User can browse projects, sessions, and messages but cannot send new messages.
   final bool isOfflineMode;
+
+  /// Last connection event (for providers to react to reconnection)
+  final ConnectionEvent? lastEvent;
 
   bool get isConnected => status == ConnectionStatus.connected;
   bool get isConnecting => status == ConnectionStatus.connecting;
@@ -79,6 +99,7 @@ class BridgeConnectionState {
     String? connectedHost,
     DeviceInfo? thisDevice,
     List<DeviceInfo>? connectedDevices,
+    ConnectionEvent? lastEvent,
   }) {
     return BridgeConnectionState(
       connection: clearConnection ? null : (connection ?? this.connection),
@@ -92,6 +113,7 @@ class BridgeConnectionState {
       connectedHost: connectedHost ?? this.connectedHost,
       thisDevice: thisDevice ?? this.thisDevice,
       connectedDevices: connectedDevices ?? this.connectedDevices,
+      lastEvent: lastEvent ?? this.lastEvent,
     );
   }
 
@@ -101,6 +123,60 @@ class BridgeConnectionState {
         .where((d) => d.deviceId != thisDevice!.deviceId)
         .length;
   }
+}
+
+/// Claudis-style exponential backoff policy for robust reconnection.
+/// Based on production-proven patterns from Claudis and Happy projects.
+class ReconnectPolicy {
+  const ReconnectPolicy({
+    required this.initialMs,
+    required this.maxMs,
+    required this.factor,
+    required this.jitter,
+    required this.maxAttempts,
+  });
+
+  /// Starting delay in milliseconds
+  final int initialMs;
+
+  /// Maximum delay cap in milliseconds
+  final int maxMs;
+
+  /// Exponential backoff multiplier (e.g., 1.8 means 80% increase each attempt)
+  final double factor;
+
+  /// Jitter factor (0.25 = +/- 25% randomization to prevent thundering herd)
+  final double jitter;
+
+  /// Maximum number of reconnection attempts (0 = infinite)
+  final int maxAttempts;
+
+  /// Default policy: matches Claudis (2s initial, 30s max, 1.8 factor, 25% jitter, 12 attempts)
+  static const defaultPolicy = ReconnectPolicy(
+    initialMs: 2000,
+    maxMs: 30000,
+    factor: 1.8,
+    jitter: 0.25,
+    maxAttempts: 12,
+  );
+
+  /// Aggressive policy for quick recovery after short disconnects
+  static const aggressive = ReconnectPolicy(
+    initialMs: 500,
+    maxMs: 5000,
+    factor: 1.5,
+    jitter: 0.2,
+    maxAttempts: 20,
+  );
+
+  /// Conservative policy for unreliable networks
+  static const conservative = ReconnectPolicy(
+    initialMs: 3000,
+    maxMs: 60000,
+    factor: 2.0,
+    jitter: 0.3,
+    maxAttempts: 10,
+  );
 }
 
 enum ReconnectionStrategy {
@@ -134,6 +210,19 @@ class _ConnectionResult {
   });
 }
 
+/// Compute backoff delay using exponential backoff with jitter.
+/// This is the Claudis algorithm for robust reconnection.
+int computeBackoff(ReconnectPolicy policy, int attempt, Random random) {
+  // Calculate base delay with exponential growth
+  final base = policy.initialMs * pow(policy.factor, max(attempt - 1, 0));
+
+  // Add jitter (randomization) to prevent thundering herd
+  final jitterAmount = base * policy.jitter * random.nextDouble();
+
+  // Return clamped value
+  return min(policy.maxMs, (base + jitterAmount).round());
+}
+
 class ConnectionNotifier extends StateNotifier<BridgeConnectionState>
     with WidgetsBindingObserver {
   ConnectionNotifier(
@@ -164,6 +253,9 @@ class ConnectionNotifier extends StateNotifier<BridgeConnectionState>
   int _failureStreak = 0;
   bool _isConnecting = false;
   final _random = Random();
+
+  // Current reconnection policy (can be adjusted based on conditions)
+  ReconnectPolicy _currentPolicy = ReconnectPolicy.defaultPolicy;
 
   DateTime? _lastSuccessfulConnection;
   ConnectionType? _lastSuccessfulType;
@@ -274,6 +366,10 @@ class ConnectionNotifier extends StateNotifier<BridgeConnectionState>
       }
 
       await _storage.saveConnection(info);
+
+      // Determine if this is a reconnection (we had previous attempts)
+      final wasReconnecting = _reconnectAttempts > 0;
+
       _reconnectAttempts = 0;
       _failureStreak = 0;
 
@@ -283,11 +379,21 @@ class ConnectionNotifier extends StateNotifier<BridgeConnectionState>
       // Update WebSocket service with connection info for batching
       _socket.updateConnectionType(_connectionTypeToString(result.type));
 
+      // Emit appropriate connection event for providers to react
+      final connectionEvent = wasReconnecting
+          ? ConnectionEvent.reconnected
+          : ConnectionEvent.connected;
+
+      debugPrint(
+        '[Connection] Connected via ${result.type.name}, event: ${connectionEvent.name}',
+      );
+
       state = state.copyWith(
         isReconnecting: false,
         error: null,
         connectionType: result.type,
         connectedHost: result.host,
+        lastEvent: connectionEvent,
       );
 
       await _registerThisDevice();
@@ -296,6 +402,7 @@ class ConnectionNotifier extends StateNotifier<BridgeConnectionState>
       state = state.copyWith(
         status: ConnectionStatus.disconnected,
         error: '$error',
+        lastEvent: ConnectionEvent.failed,
       );
       _scheduleSmartReconnect();
     } finally {
@@ -581,10 +688,23 @@ class ConnectionNotifier extends StateNotifier<BridgeConnectionState>
     if (status == ConnectionStatus.disconnected &&
         state.connection != null &&
         !_isConnecting) {
+      debugPrint(
+        '[Connection] Disconnected unexpectedly, scheduling reconnect',
+      );
       _scheduleReconnect();
     }
 
-    state = state.copyWith(status: status);
+    // Emit appropriate event
+    ConnectionEvent? event;
+    if (status == ConnectionStatus.disconnected &&
+        state.status != ConnectionStatus.disconnected) {
+      event = ConnectionEvent.disconnected;
+    } else if (status == ConnectionStatus.connected &&
+        state.status != ConnectionStatus.connected) {
+      event = ConnectionEvent.connected;
+    }
+
+    state = state.copyWith(status: status, lastEvent: event);
   }
 
   void _handleMessage(Map<String, dynamic> message) {
@@ -696,19 +816,37 @@ class ConnectionNotifier extends StateNotifier<BridgeConnectionState>
   }
 
   /// Smart reconnection that adapts strategy based on failure patterns.
-  /// Uses last successful connection type and adjusts delays based on streak.
+  /// Uses Claudis-style exponential backoff with jitter for robust reconnection.
   void _scheduleSmartReconnect() {
     if (state.connection == null) return;
     if (_reconnectTimer?.isActive ?? false) return;
 
-    final strategy = _determineReconnectionStrategy();
+    // Select reconnection policy based on conditions
+    _currentPolicy = _selectReconnectPolicy();
     _reconnectAttempts += 1;
+
+    // Check if we've exceeded max attempts
+    if (_currentPolicy.maxAttempts > 0 &&
+        _reconnectAttempts >= _currentPolicy.maxAttempts) {
+      debugPrint(
+        '[Connection] Max reconnection attempts reached (${_currentPolicy.maxAttempts})',
+      );
+      state = state.copyWith(
+        isReconnecting: false,
+        error:
+            'Unable to reconnect after ${_currentPolicy.maxAttempts} attempts',
+      );
+      return;
+    }
 
     state = state.copyWith(isReconnecting: true);
 
-    // Add jitter to prevent thundering herd
-    final jitterMs = (_random.nextDouble() * 500).round();
-    final delayMs = strategy.delay.inMilliseconds + jitterMs;
+    // Compute backoff delay with jitter (Claudis algorithm)
+    final delayMs = computeBackoff(_currentPolicy, _reconnectAttempts, _random);
+
+    debugPrint(
+      '[Connection] Scheduling reconnect attempt $_reconnectAttempts in ${delayMs}ms',
+    );
 
     _reconnectTimer = Timer(Duration(milliseconds: delayMs), () {
       final connection = state.connection;
@@ -717,6 +855,28 @@ class ConnectionNotifier extends StateNotifier<BridgeConnectionState>
         connect(connection, preferredType: _lastSuccessfulType);
       }
     });
+  }
+
+  /// Select the appropriate reconnection policy based on current conditions.
+  ReconnectPolicy _selectReconnectPolicy() {
+    // If we had a recent success (within 30s), use aggressive recovery
+    if (_lastSuccessfulConnection != null) {
+      final timeSinceSuccess = DateTime.now().difference(
+        _lastSuccessfulConnection!,
+      );
+      if (timeSinceSuccess.inSeconds < 30 && _failureStreak < 3) {
+        return ReconnectPolicy.aggressive;
+      }
+    }
+
+    // Based on failure streak
+    if (_failureStreak < 3) {
+      return ReconnectPolicy.aggressive;
+    } else if (_failureStreak < 6) {
+      return ReconnectPolicy.defaultPolicy;
+    } else {
+      return ReconnectPolicy.conservative;
+    }
   }
 
   ReconnectionStrategy _determineReconnectionStrategy() {

@@ -17,7 +17,7 @@
 
 [![Stars](https://img.shields.io/github/stars/humblemuzzu/broski?style=flat)](https://github.com/humblemuzzu/broski/stargazers)
 [![License](https://img.shields.io/github/license/humblemuzzu/broski?style=flat)](LICENSE)
-[![npm](https://img.shields.io/npm/v/broski-bridge?style=flat&label=bridge)](https://www.npmjs.com/package/broski-bridge)
+[![npm](https://img.shields.io/npm/v/broski?style=flat&label=bridge)](https://www.npmjs.com/package/broski)
 ![Flutter](https://img.shields.io/badge/Flutter-02569B?style=flat&logo=flutter&logoColor=white)
 ![Bun](https://img.shields.io/badge/Bun-000000?style=flat&logo=bun&logoColor=white)
 ![OpenCode](https://img.shields.io/badge/OpenCode-fab283?style=flat)
@@ -113,11 +113,23 @@ L1/L2 tiered caching means you can browse sessions and history without a connect
 
 ```bash
 # One-liner (recommended)
-bunx broski-bridge
+bunx broski
 
 # Or install globally
-bun add -g broski-bridge
-broski-bridge
+bun add -g broski
+broski
+```
+
+### Travel Mode
+
+Keep the bridge running with your Mac lid closed - perfect for working on the go:
+
+```bash
+broski travel               # Start with lid-close protection
+broski install --travel     # Install as daemon with Travel Mode
+broski status               # Check if it's running
+broski stop                 # Stop the service
+broski uninstall            # Remove the service
 ```
 
 ### 2. Connect from your phone
@@ -235,10 +247,10 @@ That's it.
 
 ```bash
 # Run directly (no install)
-bunx broski-bridge
+bunx broski
 
 # Or install globally
-bun add -g broski-bridge
+bun add -g broski
 
 # Or from source
 git clone https://github.com/humblemuzzu/broski.git
@@ -264,18 +276,26 @@ flutter build apk
 
 ```bash
 # Basic usage
-broski-bridge                           # Start (auto-detects available agents)
-broski-bridge --attach                  # Choose from running OpenCode instances
-broski-bridge --opencode-url <url>      # Connect to specific OpenCode URL
+broski                                  # Start (auto-detects available agents)
+broski --attach                         # Choose from running OpenCode instances
+broski --opencode-url <url>             # Connect to specific OpenCode URL
+broski --hotspot                        # Prioritize hotspot IP (travel mode)
+
+# Travel Mode (lid-close protection)
+broski travel                           # Start with caffeinate (keeps Mac awake)
+broski install --travel                 # Install daemon with Travel Mode
+broski status                           # Check if running
+broski stop                             # Stop the service
+broski uninstall                        # Remove background service
 
 # Network options
-broski-bridge --funnel                  # Enable Tailscale Funnel (public HTTPS)
-broski-bridge --port <port>             # Custom port (default: 18274)
+broski --funnel                         # Enable Tailscale Funnel (public HTTPS)
+broski --port <port>                    # Custom port (default: 18274)
 
 # Diagnostics
-broski-bridge doctor                    # Diagnose environment (all agents)
-broski-bridge setup-tailscale           # Interactive Tailscale setup
-broski-bridge --verbose                 # Debug logging
+broski doctor                           # Diagnose environment (all agents)
+broski setup-tailscale                  # Interactive Tailscale setup
+broski --verbose                        # Debug logging
 ```
 
 The bridge auto-detects which AI agents are available:
@@ -415,10 +435,13 @@ which opencode
 lsof -nP -iTCP:18274 -sTCP:LISTEN
 
 # Use different port
-broski-bridge --port 8080
+broski --port 8080
 
 # Run diagnostics
-broski-bridge doctor
+broski doctor
+
+# Check Always On status
+broski status
 ```
 
 ### Can't connect from phone

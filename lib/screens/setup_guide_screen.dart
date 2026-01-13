@@ -234,16 +234,11 @@ class _SetupGuideScreenState extends ConsumerState<SetupGuideScreen> {
                   _buildManualStep(
                     theme,
                     '3',
-                    'Install Broski Bridge',
-                    'bun install -g broski-bridge',
+                    'Install Broski',
+                    'bun install -g broski',
                   ),
                   const SizedBox(height: 16),
-                  _buildManualStep(
-                    theme,
-                    '4',
-                    'Start the Bridge',
-                    'broski-bridge',
-                  ),
+                  _buildManualStep(theme, '4', 'Start the Bridge', 'broski'),
                   const SizedBox(height: 32),
                   OnboardingInfoCard(
                     icon: Icons.warning_amber_rounded,
