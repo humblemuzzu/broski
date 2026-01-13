@@ -11,7 +11,6 @@ import 'network_check_screen.dart';
 import 'scan_screen.dart';
 import 'setup_guide_screen.dart';
 import 'tailscale_check_screen.dart';
-import 'travel_mode_screen.dart';
 import 'welcome_screen.dart';
 
 class RootScreen extends ConsumerWidget {
@@ -128,8 +127,6 @@ class _OnboardingFlow extends StatelessWidget {
         return const WelcomeScreen(key: ValueKey('welcome'));
       case OnboardingStep.macSetup:
         return const SetupGuideScreen(key: ValueKey('setup'));
-      case OnboardingStep.travelMode:
-        return const TravelModeScreen(key: ValueKey('travel'));
       case OnboardingStep.networkCheck:
         return const NetworkCheckScreen(key: ValueKey('network'));
       case OnboardingStep.tailscaleCheck:

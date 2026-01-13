@@ -27,16 +27,13 @@ broski
 # Done! Start coding from anywhere.
 ```
 
-## Travel Mode
+## Background Service
 
-Keep the bridge running with your Mac lid closed - no external apps needed:
+Keep the bridge running in the background:
 
 ```bash
-# Start with lid-close protection (interactive)
-broski travel
-
-# Or install as daemon with Travel Mode
-broski install --travel
+# Install as background service
+broski install
 
 # Check if it's running
 broski status
@@ -48,12 +45,7 @@ broski stop
 broski uninstall
 ```
 
-With Travel Mode:
-- Uses macOS `caffeinate` to prevent sleep even with lid closed
-- Bridge starts automatically when you log in (daemon mode)
-- Auto-restarts if it crashes
-- Perfect for working on the go via phone hotspot
-- No external apps like Amphetamine required!
+**Using with Mac lid closed?** Install [Amphetamine](https://apps.apple.com/app/amphetamine/id937984704) (free on App Store) and uncheck "Allow system sleep when display is closed". This keeps your Mac awake and connected even with the lid closed - perfect for coding on the go!
 
 ## Usage
 
@@ -103,7 +95,7 @@ broski setup-tailscale
 └─────────────┘         └─────────────┘         └─────────────┘
 ```
 
-**Travel Mode** (Mac lid closed, on phone hotspot):
+**Lid Closed Mode** (Mac in bag, phone hotspot + Amphetamine):
 ```
 ┌─────────────┐         ┌─────────────┐
 │   iPhone    │◄──WiFi──│    Mac      │

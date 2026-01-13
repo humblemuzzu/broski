@@ -120,17 +120,18 @@ bun add -g broski
 broski
 ```
 
-### Travel Mode
+### Background Service
 
-Keep the bridge running with your Mac lid closed - perfect for working on the go:
+Keep the bridge running in the background:
 
 ```bash
-broski travel               # Start with lid-close protection
-broski install --travel     # Install as daemon with Travel Mode
+broski install              # Install as background service
 broski status               # Check if it's running
 broski stop                 # Stop the service
 broski uninstall            # Remove the service
 ```
+
+**Want to use with Mac lid closed?** Install [Amphetamine](https://apps.apple.com/app/amphetamine/id937984704) (free) and uncheck "Allow system sleep when display is closed".
 
 ### 2. Connect from your phone
 
@@ -279,11 +280,10 @@ flutter build apk
 broski                                  # Start (auto-detects available agents)
 broski --attach                         # Choose from running OpenCode instances
 broski --opencode-url <url>             # Connect to specific OpenCode URL
-broski --hotspot                        # Prioritize hotspot IP (travel mode)
+broski --hotspot                        # Prioritize hotspot IP
 
-# Travel Mode (lid-close protection)
-broski travel                           # Start with caffeinate (keeps Mac awake)
-broski install --travel                 # Install daemon with Travel Mode
+# Background service
+broski install                          # Install as background service
 broski status                           # Check if running
 broski stop                             # Stop the service
 broski uninstall                        # Remove background service

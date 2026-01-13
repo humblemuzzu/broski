@@ -7,7 +7,7 @@ import { createBridgeServer, loadOrCreateAuthToken } from './server'
 import { parseCli, printHelp, promptForChoice } from './cli'
 import { runDoctor } from './doctor'
 import { runSetupTailscale } from './setup-tailscale'
-import { spawnSync, spawn, type ChildProcess } from 'node:child_process'
+import { spawnSync } from 'node:child_process'
 import { homedir } from 'node:os'
 import { mkdir, writeFile, unlink, readFile, stat } from 'node:fs/promises'
 import { resolve, dirname } from 'node:path'
@@ -76,22 +76,8 @@ async function getBridgeScriptPath(): Promise<string> {
   return resolve(dirname(new URL(import.meta.url).pathname), 'index.ts')
 }
 
-function generateLaunchAgentPlist(bunPath: string, scriptPath: string, args: string[] = [], travelMode: boolean = false): string {
-  // In Travel Mode, wrap the entire command with caffeinate
-  // This prevents Mac sleep AND keeps WiFi alive with lid closed
-  let programArgs: string[]
-  if (travelMode) {
-    // -dimsu: all flags for maximum "stay awake" behavior
-    // -d: prevent display sleep (helps keep WiFi on some Macs)
-    // -i: prevent idle sleep
-    // -m: prevent disk sleep
-    // -s: prevent system sleep
-    // -u: declare user is active
-    programArgs = ['/usr/bin/caffeinate', '-dimsu', bunPath, scriptPath, '--daemon', ...args]
-  } else {
-    programArgs = [bunPath, scriptPath, '--daemon', ...args]
-  }
-  
+function generateLaunchAgentPlist(bunPath: string, scriptPath: string, args: string[] = []): string {
+  const programArgs = [bunPath, scriptPath, '--daemon', ...args]
   const programArgsXml = programArgs
     .map(arg => `        <string>${arg}</string>`)
     .join('\n')
@@ -138,9 +124,8 @@ ${programArgsXml}
 </plist>`
 }
 
-async function runInstall(travelMode: boolean = false): Promise<void> {
-  const modeLabel = travelMode ? 'Travel Mode' : 'Always On mode'
-  console.log(`Installing Broski as background service (${modeLabel})...\n`)
+async function runInstall(): Promise<void> {
+  console.log('Installing Broski as background service...\n')
 
   // Check if already installed
   try {
@@ -163,25 +148,11 @@ async function runInstall(travelMode: boolean = false): Promise<void> {
   console.log(`✓ Bun path: ${bunPath}`)
   console.log(`✓ Bridge script: ${scriptPath}`)
 
-  // Generate and write plist (with caffeinate wrapper in travel mode)
-  const plist = generateLaunchAgentPlist(bunPath, scriptPath, ['--hotspot'], travelMode)
+  // Generate and write plist
+  const plist = generateLaunchAgentPlist(bunPath, scriptPath, ['--hotspot'])
   await mkdir(dirname(LAUNCH_AGENT_PATH), { recursive: true })
   await writeFile(LAUNCH_AGENT_PATH, plist, { mode: 0o644 })
   console.log(`✓ Created LaunchAgent: ${LAUNCH_AGENT_PATH}`)
-  
-  if (travelMode) {
-    console.log('✓ Travel Mode enabled: caffeinate will prevent Mac sleep')
-    
-    // Check if networkoversleep is enabled (important for WiFi on lid close)
-    const pmsetResult = spawnSync('pmset', ['-g'], { encoding: 'utf-8' })
-    if (pmsetResult.stdout && pmsetResult.stdout.includes('networkoversleep') && 
-        pmsetResult.stdout.includes('networkoversleep     0')) {
-      console.log('')
-      console.log('⚠️  For best results, enable network-over-sleep:')
-      console.log('   sudo pmset -a networkoversleep 1')
-      console.log('   (This keeps WiFi alive when the lid is closed)')
-    }
-  }
 
   // Load the LaunchAgent
   const loadResult = spawnSync('launchctl', ['load', LAUNCH_AGENT_PATH], { encoding: 'utf-8' })
@@ -202,18 +173,14 @@ async function runInstall(travelMode: boolean = false): Promise<void> {
     console.log('   • Start automatically when you log in')
     console.log('   • Stay running in the background')
     console.log('   • Restart automatically if it crashes')
-    if (travelMode) {
-      console.log('   • Keep your Mac awake even with lid closed (Travel Mode)')
-      console.log('\n   Perfect for travel - close your Mac lid and use Broski from your phone!')
-    } else {
-      console.log('\n   For travel/lid-close support, reinstall with:')
-      console.log('   broski uninstall && broski install --travel')
-    }
     console.log('\n   Commands:')
     console.log('   • broski status    - Check if running')
     console.log('   • broski stop      - Stop the service')
     console.log('   • broski uninstall - Remove the service')
     console.log(`\n   Logs: ${BROSKI_LOG_DIR}/bridge.log`)
+    console.log('\n   💡 Want to use Broski with your Mac lid closed?')
+    console.log('      Install Amphetamine (free on App Store) and disable')
+    console.log('      "Allow system sleep when display is closed"')
   } else {
     console.log('\n⚠️  Service installed but may not be running.')
     console.log('   Check status with: broski status')
@@ -494,61 +461,9 @@ let managedHostname = '127.0.0.1'
 let managedPort = 0
 let verboseMode = false
 let funnelPort: number | null = null
-let caffeinateProcess: ChildProcess | null = null
 
 function normalizeBaseUrl(url: string): string {
   return url.replace(/\/+$/, '')
-}
-
-// ============================================================================
-// Travel Mode: Prevent Mac sleep with lid closed using caffeinate
-// ============================================================================
-
-function startCaffeinate(verbose: boolean): ChildProcess | null {
-  try {
-    // caffeinate flags for maximum "stay awake" on lid close:
-    // -d: prevent display sleep (keeps WiFi alive on some Macs)
-    // -i: prevent idle sleep
-    // -m: prevent disk sleep
-    // -s: prevent system sleep
-    // -u: declare user is active (resets idle timer)
-    // All flags combined needed because macOS can drop WiFi on lid close
-    const proc = spawn('caffeinate', ['-dimsu'], {
-      stdio: 'ignore',
-      detached: false, // Keep attached so it dies with us
-    })
-
-    proc.on('error', (err) => {
-      console.error('caffeinate error:', err.message)
-    })
-
-    proc.on('exit', (code) => {
-      if (verbose && code !== null && code !== 0) {
-        console.log(`caffeinate exited with code ${code}`)
-      }
-      caffeinateProcess = null
-    })
-
-    if (verbose) {
-      console.log(`✓ caffeinate started (PID: ${proc.pid}) - Mac will stay awake with lid closed`)
-    }
-
-    return proc
-  } catch (err) {
-    console.error('Failed to start caffeinate:', err)
-    return null
-  }
-}
-
-function stopCaffeinate(): void {
-  if (caffeinateProcess) {
-    try {
-      caffeinateProcess.kill('SIGTERM')
-      caffeinateProcess = null
-    } catch {
-      // ignore
-    }
-  }
 }
 
 async function subscribeOpenCodeStream(
@@ -606,11 +521,6 @@ async function shutdown(signal: string) {
     opencodeServer = null
   } else if (opencodeServer) {
     console.log('OpenCode server is external - leaving it running')
-  }
-
-  if (caffeinateProcess) {
-    console.log('Stopping caffeinate (allowing Mac sleep)...')
-    stopCaffeinate()
   }
 
   console.log('Shutdown complete. Goodbye!')
@@ -807,7 +717,7 @@ async function main() {
   }
 
   if (cli.subCommand === 'install') {
-    await runInstall(cli.travel)
+    await runInstall()
     return
   }
 
@@ -842,19 +752,6 @@ async function main() {
   const version = packageJson.version ?? '0.1.0'
 
   displayBanner()
-
-  // Travel Mode: Start caffeinate to prevent Mac sleep with lid closed
-  if (cli.travel && !cli.daemon) {
-    // For interactive mode, we spawn caffeinate ourselves
-    // For daemon mode, caffeinate is part of the LaunchAgent plist
-    console.log('Travel Mode: Enabling lid-close protection...')
-    caffeinateProcess = startCaffeinate(cli.verbose)
-    if (caffeinateProcess) {
-      console.log('✓ Travel Mode active - you can close your Mac lid!')
-    } else {
-      console.log('⚠️  Could not enable Travel Mode (caffeinate failed)')
-    }
-  }
 
   const port = cli.bridgePort
 

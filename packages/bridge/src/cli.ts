@@ -17,7 +17,6 @@ export type CliOptions = {
   newToken: boolean
   detectHotspot: boolean
   daemon: boolean
-  travel: boolean
 }
 
 const DEFAULT_BRIDGE_PORT = 18274
@@ -43,15 +42,9 @@ export function parseCli(argv: string[], env: NodeJS.ProcessEnv): CliOptions {
   let newToken = false
   let detectHotspot = false
   let daemon = false
-  let travel: boolean | null = null // null = use default (true for install, false for serve)
-  let noTravel = false
 
   const firstArg = args[0]
-  if (firstArg === 'travel') {
-    subCommand = 'serve'
-    travel = true
-    detectHotspot = true // Travel mode implies hotspot detection
-  } else if (firstArg === 'doctor') {
+  if (firstArg === 'doctor') {
     subCommand = 'doctor'
   } else if (firstArg === 'setup-tailscale') {
     subCommand = 'setup-tailscale'
@@ -71,7 +64,7 @@ export function parseCli(argv: string[], env: NodeJS.ProcessEnv): CliOptions {
 
   for (let i = 0; i < args.length; i++) {
     const arg = args[i]
-    if (arg === 'doctor' || arg === 'setup-tailscale' || arg === 'serve' || arg === 'install' || arg === 'uninstall' || arg === 'status' || arg === 'stop' || arg === 'qr' || arg === 'travel') {
+    if (arg === 'doctor' || arg === 'setup-tailscale' || arg === 'serve' || arg === 'install' || arg === 'uninstall' || arg === 'status' || arg === 'stop' || arg === 'qr') {
       continue
     }
     if (arg === '--help' || arg === '-h') {
@@ -130,26 +123,6 @@ export function parseCli(argv: string[], env: NodeJS.ProcessEnv): CliOptions {
       daemon = true
       continue
     }
-    if (arg === '--travel') {
-      travel = true
-      detectHotspot = true // Travel mode implies hotspot detection
-      continue
-    }
-    if (arg === '--no-travel') {
-      noTravel = true
-      continue
-    }
-  }
-
-  // Resolve travel mode: --no-travel wins, then explicit --travel
-  // Default is OFF - user must explicitly enable with --travel or `broski travel`
-  let resolvedTravel: boolean
-  if (noTravel) {
-    resolvedTravel = false
-  } else if (travel === true) {
-    resolvedTravel = true
-  } else {
-    resolvedTravel = false // Default OFF for everything
   }
 
   if (opencodeUrl) {
@@ -169,7 +142,6 @@ export function parseCli(argv: string[], env: NodeJS.ProcessEnv): CliOptions {
     newToken,
     detectHotspot,
     daemon,
-    travel: resolvedTravel,
   }
 }
 
@@ -180,7 +152,6 @@ Usage:
 
 Commands:
   (default)         Start the bridge server
-  travel            Start in Travel Mode (keeps Mac awake with lid closed)
   install           Install as background service (runs on login)
   uninstall         Remove background service
   status            Show if bridge is running
@@ -196,8 +167,6 @@ Options:
   --funnel                  Enable Tailscale Funnel for public HTTPS access (no VPN needed on phone)
   --new-token               Generate a new auth token (invalidates existing QR codes)
   --hotspot, --detect-hotspot Detect and prioritize hotspot IP for remote access via mobile hotspot
-  --travel                  Enable Travel Mode (keeps Mac awake with lid closed)
-  --no-travel               Disable Travel Mode (saves battery, Mac sleeps on lid close)
 
 OpenCode:
   --managed                 Force managed mode (default)
@@ -209,11 +178,9 @@ OpenCode:
 
 Examples:
   broski                         Start the bridge
-  broski travel                  Start in Travel Mode (close lid & keep working!)
-  broski install                 Install as background service (Always On mode)
-  broski install --travel        Install with Travel Mode (lid-close safe daemon)
+  broski install                 Install as background service
   broski qr                      Show QR code to pair your phone
-  broski qr --hotspot            Show QR code with hotspot IP (travel mode)
+  broski qr --hotspot            Show QR code with hotspot IP
   broski status                  Check if bridge is running
   broski stop                    Stop the background service
   broski uninstall               Remove background service
