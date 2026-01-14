@@ -270,15 +270,29 @@ export async function discoverPlugins(cwd?: string, forceRefresh = false): Promi
   await loadPluginConfig()
 
   const allPlugins: ClaudeCodePlugin[] = []
-  const seenNames = new Set<string>()
+  const indexByName = new Map<string, number>()
+  const priorityByName = new Map<string, number>()
+
+  const addOrReplace = (plugin: ClaudeCodePlugin, priority: number) => {
+    const existingIdx = indexByName.get(plugin.name)
+    if (existingIdx == null) {
+      indexByName.set(plugin.name, allPlugins.length)
+      priorityByName.set(plugin.name, priority)
+      allPlugins.push(plugin)
+      return
+    }
+
+    const existingPriority = priorityByName.get(plugin.name) ?? 0
+    if (priority <= existingPriority) return
+
+    allPlugins[existingIdx] = plugin
+    priorityByName.set(plugin.name, priority)
+  }
 
   // 1. Global plugins (~/.claude/plugins/)
   const globalPlugins = await scanPluginDirectory(GLOBAL_PLUGINS_DIR)
   for (const plugin of globalPlugins) {
-    if (!seenNames.has(plugin.name)) {
-      seenNames.add(plugin.name)
-      allPlugins.push(plugin)
-    }
+    addOrReplace(plugin, 0)
   }
 
   // 2. Project plugins ({cwd}/.claude/plugins/)
@@ -286,10 +300,7 @@ export async function discoverPlugins(cwd?: string, forceRefresh = false): Promi
     const projectPluginsDir = join(cwd, '.claude', 'plugins')
     const projectPlugins = await scanPluginDirectory(projectPluginsDir)
     for (const plugin of projectPlugins) {
-      if (!seenNames.has(plugin.name)) {
-        seenNames.add(plugin.name)
-        allPlugins.push(plugin)
-      }
+      addOrReplace(plugin, 1)
     }
   }
 
@@ -297,10 +308,7 @@ export async function discoverPlugins(cwd?: string, forceRefresh = false): Promi
   for (const customPath of pluginConfig.customPaths) {
     const resolvedPath = resolve(customPath)
     const plugin = await discoverPlugin(resolvedPath)
-    if (plugin && !seenNames.has(plugin.name)) {
-      seenNames.add(plugin.name)
-      allPlugins.push(plugin)
-    }
+    if (plugin) addOrReplace(plugin, 2)
   }
 
   // Update cache

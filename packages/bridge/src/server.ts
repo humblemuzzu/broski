@@ -2,13 +2,14 @@ import type { ServerWebSocket } from 'bun'
 import { mkdir, open, readdir, readFile, realpath, rm, stat, writeFile } from 'node:fs/promises'
 import { watch as fsWatch, type FSWatcher } from 'node:fs'
 import { homedir } from 'node:os'
-import { basename, dirname, resolve, sep } from 'node:path'
+import { basename, dirname, join, resolve, sep } from 'node:path'
 import { randomBytes, timingSafeEqual } from 'node:crypto'
 import type { OpenCodeConnector } from './connectors/opencode'
 import type { AgentType, ClientMessage, CodexStreamMessage, CodexThread, CodexTranscriptMessage, DeviceInfo, FileAttachment, PermissionResponse, ServerMessage } from './types'
 import * as claudeCode from './connectors/claude-code'
 import * as fileSearch from './file-search'
 import { CodexAppServerClient, checkCodexAvailable } from './connectors/codex'
+import { headTailTruncate } from './utils'
 
 const TOKEN_FILE = resolve(homedir(), '.broski', 'token')
 const DEBUG_ARTIFACTS = process.env.BROSKI_DEBUG_ARTIFACTS === '1'
@@ -171,6 +172,10 @@ function buildCodexTranscript(thread: any): CodexTranscriptMessage[] {
       a.diffs = a.diffs ?? []
 
       if (type === 'commandExecution') {
+        // Apply head-tail truncation to preserve important start/end of long outputs
+        const rawOutput = safeString(item?.aggregatedOutput)
+        const truncated = rawOutput ? headTailTruncate(rawOutput, 50, 30) : null
+        
         a.toolCalls.push({
           itemId: id,
           type: 'commandExecution',
@@ -183,7 +188,7 @@ function buildCodexTranscript(thread: any): CodexTranscriptMessage[] {
                 ? 'declined'
                 : 'running',
           input: { command: safeString(item?.command), cwd: safeString(item?.cwd) },
-          output: safeString(item?.aggregatedOutput) || undefined,
+          output: truncated?.text || undefined,
         })
         continue
       }
@@ -296,32 +301,24 @@ const SECURITY_ALLOWED_BASE_PATHS = [
   '/var/tmp',
 ]
 
-async function isPathAllowed(requestedPath: string): Promise<boolean> {
-  try {
-    const expandedPath = requestedPath.startsWith('~')
-      ? requestedPath.replace(/^~/, homedir())
-      : resolve(requestedPath)
-    
-    const realPath = await realpath(expandedPath).catch(() => null)
-    if (!realPath) return false
-    
-    return SECURITY_ALLOWED_BASE_PATHS.some(base => 
-      realPath === base || realPath.startsWith(base + sep)
-    )
-  } catch {
-    return false
-  }
+function isSecureBasePath(realPath: string): boolean {
+  return SECURITY_ALLOWED_BASE_PATHS.some((base) => realPath === base || realPath.startsWith(base + sep))
 }
 
 async function getSecurePath(requestedPath: string): Promise<string | null> {
-  const expandedPath = requestedPath.startsWith('~')
-    ? requestedPath.replace(/^~/, homedir())
-    : resolve(requestedPath)
-  
-  const allowed = await isPathAllowed(expandedPath)
-  if (!allowed) return null
-  
-  return expandedPath
+  try {
+    const expandedPath = requestedPath.startsWith('~')
+      ? requestedPath.replace(/^~/, homedir())
+      : requestedPath
+
+    const abs = resolve(expandedPath)
+    const rp = await realpath(abs).catch(() => null)
+    if (!rp) return null
+
+    return isSecureBasePath(rp) ? rp : null
+  } catch {
+    return null
+  }
 }
 
 async function listFilesDirectly(
@@ -481,6 +478,9 @@ const MESSAGE_PRIORITIES: Record<string, 'immediate' | 'high' | 'normal' | 'low'
   'permission.updated': 'immediate',
   'permission.asked': 'immediate',
   'permission.replied': 'immediate',
+  'question.asked': 'immediate',
+  'question.replied': 'immediate',
+  'question.rejected': 'immediate',
   'session.error': 'immediate',
   'session.idle': 'high',
   'message.part.updated': 'high',
@@ -505,9 +505,10 @@ export function createBridgeServer(options: BridgeServerOptions): BridgeServer {
     string,
     { resolve: (response: 'once' | 'always' | 'reject') => void; timer: Timer }
   >()
+  type CodexApprovalReply = { response: PermissionResponse; execpolicyAmendment?: any }
   const cxApprovalWaiters = new Map<
     string,
-    { resolve: (response: PermissionResponse) => void; timer: Timer }
+    { resolve: (response: CodexApprovalReply) => void; timer: Timer }
   >()
   const ccSessionOwners = new Map<string, ServerWebSocket<unknown>>()
   const cxThreadOwners = new Map<string, ServerWebSocket<unknown>>()
@@ -516,6 +517,38 @@ export function createBridgeServer(options: BridgeServerOptions): BridgeServer {
   const cxThreadCwds = new Map<string, string>() // threadId -> absolute cwd
   const cxFileChangeSnapshots = new Map<string, string>() // `${threadId}:${turnId}:${itemId}` -> manifestPath
   const cxUndoStackByThread = new Map<string, string[]>() // threadId -> snapshot keys (LIFO)
+  
+  // Codex session-scoped approval cache: remembers "accept for session" decisions
+  // Key format: `${threadId}:${method}:${argsHash}` -> 'approved'
+  const cxApprovalCache = new Map<string, 'approved'>()
+
+  /** Generate a stable cache key for approval caching */
+  const makeCxApprovalKey = (threadId: string, method: string, params: any): string => {
+    // Extract the command/tool-specific parts for the cache key
+    let argsForKey: string
+    if (method === 'item/commandExecution/requestApproval') {
+      // For command approvals, use the command string
+      argsForKey = safeString(params?.command ?? params?.item?.command ?? '')
+    } else if (method === 'item/fileChange/requestApproval') {
+      // For file change approvals, use the file paths
+      const changes = Array.isArray(params?.changes) ? params.changes : []
+      argsForKey = changes.map((c: any) => safeString(c?.path)).sort().join('|')
+    } else {
+      // For other approvals, use stringified params
+      try {
+        argsForKey = JSON.stringify(params, Object.keys(params ?? {}).sort())
+      } catch {
+        argsForKey = ''
+      }
+    }
+    // Create a simple hash for the key
+    let hash = 0
+    for (let i = 0; i < argsForKey.length; i++) {
+      hash = ((hash << 5) - hash + argsForKey.charCodeAt(i)) | 0
+    }
+    return `${threadId}:${method}:${hash}`
+  }
+  
   let codexClient: CodexAppServerClient | null = null
   const { opencode, version, logger } = options
   
@@ -523,6 +556,42 @@ export function createBridgeServer(options: BridgeServerOptions): BridgeServer {
   const lastGitBranchByProject = new Map<string, string>()
   
   const authToken = options.authToken || generateAuthToken()
+
+  // Claude Code filesystem watchers (skills/plugins/hook/command updates).
+  const ccFsWatchers = new Map<string, { watcher: FSWatcher; debounce: Timer | null; kind: 'skills' | 'plugins' | 'hooks' | 'commands' | 'mcp'; cwd?: string }>()
+  const ensureClaudeWatchDir = (
+    dir: string,
+    kind: 'skills' | 'plugins' | 'hooks' | 'commands' | 'mcp',
+    cwd?: string,
+    recursive = true,
+  ) => {
+    if (!dir || ccFsWatchers.has(dir)) return
+
+    try {
+      const watcher = fsWatch(dir, { persistent: false, recursive }, (_eventType, filename) => {
+        const existing = ccFsWatchers.get(dir)
+        if (!existing) return
+        if (existing.debounce) clearTimeout(existing.debounce)
+        existing.debounce = setTimeout(() => {
+          existing.debounce = null
+          broadcast({
+            type: 'cc_fs_changed',
+            data: {
+              kind,
+              dir,
+              ...(cwd ? { cwd } : {}),
+              ...(filename ? { file: String(filename) } : {}),
+            },
+          })
+        }, 150)
+      })
+
+      ccFsWatchers.set(dir, { watcher, debounce: null, kind, cwd })
+    } catch {
+      // Ignore watch failures (dir missing or unsupported)
+    }
+  }
+
 
   // Load artifacts config (async, best-effort) - only if enabled
   // TODO(artifacts): Re-enable when feature is ready
@@ -562,6 +631,9 @@ export function createBridgeServer(options: BridgeServerOptions): BridgeServer {
       ws.send(payload)
     }
   }
+
+  // Watch user-scope Claude Code skills (best-effort).
+  ensureClaudeWatchDir(join(homedir(), '.claude', 'skills'), 'skills')
 
   const ensureUndoStack = (threadId: string) => {
     const existing = cxUndoStackByThread.get(threadId)
@@ -806,7 +878,14 @@ export function createBridgeServer(options: BridgeServerOptions): BridgeServer {
           const owner = threadId ? cxThreadOwners.get(threadId) : null
 
           if (!owner) {
-            return { decision: 'Decline' }
+            return { decision: 'decline' }
+          }
+
+          // Check approval cache for "accept for session" decisions
+          const approvalCacheKey = makeCxApprovalKey(threadId, r.method, params)
+          if (cxApprovalCache.has(approvalCacheKey)) {
+            // Already approved for this session, skip prompting
+            return { decision: 'acceptForSession' }
           }
 
           const cached = threadId && turnId && itemId
@@ -824,21 +903,37 @@ export function createBridgeServer(options: BridgeServerOptions): BridgeServer {
             } satisfies CodexStreamMessage,
           })
 
-          const response = await new Promise<PermissionResponse>((resolve) => {
+          const response = await new Promise<CodexApprovalReply>((resolve) => {
             const key = String(r.id)
             const timer = setTimeout(() => {
               cxApprovalWaiters.delete(key)
-              resolve('reject')
+              resolve({ response: 'reject' })
             }, 120_000)
             cxApprovalWaiters.set(key, { resolve, timer })
           })
 
+          const isCommand = r.method === 'item/commandExecution/requestApproval'
+          if (isCommand && response.response === 'execpolicy' && response.execpolicyAmendment) {
+            return {
+              decision: {
+                acceptWithExecpolicyAmendment: {
+                  execpolicyAmendment: response.execpolicyAmendment,
+                },
+              },
+            }
+          }
+
           const decision =
-            response === 'always'
-              ? 'AcceptForSession'
-              : response === 'once'
-                ? 'Accept'
-                : 'Decline'
+            response.response === 'always'
+              ? 'acceptForSession'
+              : response.response === 'once'
+                ? 'accept'
+                : 'decline'
+
+          // Cache "accept for session" decisions to avoid re-prompting
+          if (decision === 'acceptForSession') {
+            cxApprovalCache.set(approvalCacheKey, 'approved')
+          }
 
           return { decision }
         },
@@ -1553,8 +1648,16 @@ export function createBridgeServer(options: BridgeServerOptions): BridgeServer {
     }
 
     const e = event as any
+    const safeDecode = (s: string) => {
+      try {
+        return decodeURIComponent(s)
+      } catch {
+        return s
+      }
+    }
+
+    const normalizeDirectory = (dir: string) => safeDecode(dir).replace(/\/+$/, '')
     const directoryRaw = (typeof e?.directory === 'string' ? e.directory : null) ?? 'global'
-    const normalizeDirectory = (dir: string) => dir.replace(/\/+$/, '')
     const directory = directoryRaw === 'global' ? 'global' : normalizeDirectory(directoryRaw)
     const projectPath = ctx.projectPath && ctx.projectPath !== 'global'
       ? normalizeDirectory(ctx.projectPath)
@@ -1873,6 +1976,12 @@ export function createBridgeServer(options: BridgeServerOptions): BridgeServer {
           if (owner === ws) {
             cxThreadOwners.delete(tid)
             releasedKeys.push({ agent: 'codex', id: tid })
+            // Clear approval cache for this thread
+            for (const key of cxApprovalCache.keys()) {
+              if (key.startsWith(`${tid}:`)) {
+                cxApprovalCache.delete(key)
+              }
+            }
           }
         }
         for (const k of releasedKeys) {
@@ -1969,6 +2078,19 @@ export function createBridgeServer(options: BridgeServerOptions): BridgeServer {
             existing.viewAgent ??
             (message.projectPath || message.sessionId ? 'opencode' : undefined)
           const nextSessionId = message.sessionId || undefined
+
+          if (nextAgent === 'claude-code') {
+            const cwd = message.projectPath && message.projectPath !== 'global'
+              ? message.projectPath
+              : undefined
+            if (cwd) {
+              ensureClaudeWatchDir(join(cwd, '.claude', 'skills'), 'skills', cwd)
+              ensureClaudeWatchDir(join(cwd, '.claude', 'plugins'), 'plugins', cwd)
+              ensureClaudeWatchDir(join(cwd, '.claude', 'commands'), 'commands', cwd)
+              ensureClaudeWatchDir(join(cwd, '.claude', 'hooks'), 'hooks', cwd)
+              ensureClaudeWatchDir(join(cwd, '.mcp.json'), 'mcp', cwd, false)
+            }
+          }
 
           contexts.set(ws, {
             ...existing,
@@ -2774,6 +2896,13 @@ export function createBridgeServer(options: BridgeServerOptions): BridgeServer {
         reply({ type: 'cx_mcp_oauth', data: result ?? {} })
         break
       }
+      // Codex MCP Hot Reload (SDK feature) - reloads MCP server config without restarting
+      case 'cx_mcp_reload': {
+        const client = await ensureCodexClient()
+        const result: any = await client.request('config/mcpServer/reload', {})
+        reply({ type: 'cx_mcp_reloaded', data: result ?? {} })
+        break
+      }
       case 'cx_review_start': {
         const client = await ensureCodexClient()
         const cwd = message.cwd ?? process.cwd()
@@ -3042,12 +3171,48 @@ export function createBridgeServer(options: BridgeServerOptions): BridgeServer {
         }
         break
       }
+      case 'cx_thread_fork': {
+        const client = await ensureCodexClient()
+        const result: any = await client.request('thread/fork', {
+          threadId: message.threadId,
+        })
+        const thread = result?.thread
+        if (thread) {
+          const id = safeString(thread?.id)
+          if (id) {
+            cxThreadOwners.set(id, ws)
+            const cwd = safeString(thread?.cwd)
+            if (cwd) cxThreadCwds.set(id, resolve(cwd))
+          }
+          reply({ type: 'cx_thread_forked', data: mapCodexThread(thread) })
+        } else {
+          reply({ type: 'error', message: 'Fork failed' })
+        }
+        break
+      }
+      case 'cx_thread_rollback': {
+        const client = await ensureCodexClient()
+        const result: any = await client.request('thread/rollback', {
+          threadId: message.threadId,
+          numTurns: message.numTurns,
+        })
+        const thread = result?.thread
+        if (thread) {
+          reply({ type: 'cx_thread_rolled_back', data: mapCodexThread(thread) })
+        } else {
+          reply({ type: 'error', message: 'Rollback failed' })
+        }
+        break
+      }
       case 'cx_permission_response': {
         const waiter = cxApprovalWaiters.get(message.requestId)
         if (waiter) {
           clearTimeout(waiter.timer)
           cxApprovalWaiters.delete(message.requestId)
-          waiter.resolve(message.response)
+          waiter.resolve({
+            response: message.response,
+            execpolicyAmendment: (message as any).execpolicyAmendment,
+          })
         }
         break
       }
@@ -3055,6 +3220,15 @@ export function createBridgeServer(options: BridgeServerOptions): BridgeServer {
           currentAgent = message.agent
           log(`Agent switched to: ${currentAgent}`)
           if (currentAgent === 'claude-code') {
+            const ctx = contexts.get(ws)
+            const cwd = ctx?.projectPath && ctx.projectPath !== 'global' ? ctx.projectPath : undefined
+            if (cwd) {
+              ensureClaudeWatchDir(join(cwd, '.claude', 'skills'), 'skills', cwd)
+              ensureClaudeWatchDir(join(cwd, '.claude', 'plugins'), 'plugins', cwd)
+              ensureClaudeWatchDir(join(cwd, '.claude', 'commands'), 'commands', cwd)
+              ensureClaudeWatchDir(join(cwd, '.claude', 'hooks'), 'hooks', cwd)
+              ensureClaudeWatchDir(join(cwd, '.mcp.json'), 'mcp', cwd, false)
+            }
             const envKey = !!process.env.ANTHROPIC_API_KEY
             const available = await claudeCode.checkClaudeCodeAvailable()
             log(
@@ -3095,6 +3269,16 @@ export function createBridgeServer(options: BridgeServerOptions): BridgeServer {
               },
             },
           })
+          break
+        }
+        case 'oc_question_reply': {
+          const ok = await opencode.replyToQuestion(message.questionId, message.answers)
+          reply({ type: 'oc_question_replied', data: ok })
+          break
+        }
+        case 'oc_question_reject': {
+          const ok = await opencode.rejectQuestion(message.questionId)
+          reply({ type: 'oc_question_rejected', data: ok })
           break
         }
         case 'oc_list_skills': {
@@ -3376,7 +3560,7 @@ export function createBridgeServer(options: BridgeServerOptions): BridgeServer {
         case 'cc_chat': {
           const cwd = message.cwd || process.cwd()
           let actualSessionId = message.sessionId ?? ''
-          const cfg = claudeCode.getConfig()
+          const cfg = await claudeCode.getConfig(cwd)
           const model = message.model || cfg.model || 'sonnet'
           const permissionMode = message.permissionMode || cfg.permissionMode
           const allowedTools = message.allowedTools || cfg.allowedTools
@@ -3926,12 +4110,12 @@ export function createBridgeServer(options: BridgeServerOptions): BridgeServer {
           break
         }
         case 'cc_get_config': {
-          const config = claudeCode.getConfig()
+          const config = await claudeCode.getConfig(message.cwd)
           reply({ type: 'cc_config', data: config })
           break
         }
         case 'cc_set_config': {
-          const config = claudeCode.setConfig(message.config)
+          const config = await claudeCode.setConfig(message.config, message.cwd)
           reply({ type: 'cc_config_updated', data: config })
           break
         }
@@ -4202,6 +4386,31 @@ export function createBridgeServer(options: BridgeServerOptions): BridgeServer {
     enqueueSdkEvent,
     stop: (force = true) => {
       clearInterval(heartbeatTimer)
+      for (const t of ccExternalTails.values()) {
+        try {
+          t.stop()
+        } catch {
+          // ignore
+        }
+      }
+      ccExternalTails.clear()
+      for (const t of cxExternalTails.values()) {
+        try {
+          t.stop()
+        } catch {
+          // ignore
+        }
+      }
+      cxExternalTails.clear()
+      for (const w of ccFsWatchers.values()) {
+        if (w.debounce) clearTimeout(w.debounce)
+        try {
+          w.watcher.close()
+        } catch {
+          // ignore
+        }
+      }
+      ccFsWatchers.clear()
       server.stop(force)
     },
     connections: () => sockets.size,

@@ -421,6 +421,38 @@ export class OpenCodeConnector {
     )
   }
 
+  async replyToQuestion(requestId: string, answers: string[][]): Promise<boolean> {
+    try {
+      const url = new URL(`/question/${encodeURIComponent(requestId)}/reply`, this.baseUrl)
+      const res = await fetch(url.toString(), {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({ answers }),
+        signal: AbortSignal.timeout(10_000),
+      })
+      if (!res.ok) return false
+      const data = await res.json().catch(() => null)
+      return data === true
+    } catch {
+      return false
+    }
+  }
+
+  async rejectQuestion(requestId: string): Promise<boolean> {
+    try {
+      const url = new URL(`/question/${encodeURIComponent(requestId)}/reject`, this.baseUrl)
+      const res = await fetch(url.toString(), {
+        method: 'POST',
+        signal: AbortSignal.timeout(10_000),
+      })
+      if (!res.ok) return false
+      const data = await res.json().catch(() => null)
+      return data === true
+    } catch {
+      return false
+    }
+  }
+
   async startEventStream(onEvent: (event: GlobalEvent) => void): Promise<AbortController> {
     const controller = new AbortController()
     // v2 SDK: first arg is parameters, second arg is options

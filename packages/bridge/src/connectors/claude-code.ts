@@ -42,6 +42,9 @@ let currentConfig: ClaudeCodeConfig = {
   disallowedTools: [],
   model: 'sonnet',
   systemPrompt: { type: 'preset', preset: 'claude_code' },
+  // Defaults: Claude Code itself defaults to respecting .gitignore in file pickers.
+  // Leave language/releaseChannel unset unless the user configures them.
+  respectGitignore: true,
 }
 
 // Best-effort persisted config load (keeps Claude Code settings stable across bridge restarts).
@@ -62,6 +65,50 @@ async function persistConfig(): Promise<void> {
   } catch (err) {
     console.warn('[Claude Code] Failed to persist config:', err)
   }
+}
+
+async function readProjectSettings(cwd: string): Promise<Record<string, any>> {
+  const settingsPath = join(cwd, '.claude', 'settings.json')
+  try {
+    const raw = await readFile(settingsPath, 'utf-8')
+    const parsed = JSON.parse(raw)
+    return parsed && typeof parsed === 'object' ? parsed as Record<string, any> : {}
+  } catch {
+    return {}
+  }
+}
+
+async function writeProjectSettings(cwd: string, next: Record<string, any>): Promise<void> {
+  const settingsPath = join(cwd, '.claude', 'settings.json')
+  await mkdir(join(cwd, '.claude'), { recursive: true })
+  await writeFile(settingsPath, JSON.stringify(next, null, 2), 'utf-8')
+}
+
+function applyProjectSettingsPatch(
+  settings: Record<string, any>,
+  patch: Pick<ClaudeCodeConfig, 'language' | 'releaseChannel' | 'respectGitignore'>,
+): Record<string, any> {
+  const next = { ...settings }
+
+  if ('language' in patch) {
+    const v = patch.language
+    if (typeof v === 'string' && v.trim().length > 0) next.language = v.trim()
+    else delete next.language
+  }
+
+  if ('releaseChannel' in patch) {
+    const v = patch.releaseChannel
+    if (v === 'stable' || v === 'latest') next.releaseChannel = v
+    else delete next.releaseChannel
+  }
+
+  if ('respectGitignore' in patch) {
+    const v = patch.respectGitignore
+    if (typeof v === 'boolean') next.respectGitignore = v
+    else delete next.respectGitignore
+  }
+
+  return next
 }
 
 function _sanitizeFilename(name: string): string {
@@ -1047,17 +1094,53 @@ function parseCommandFile(name: string, content: string): ClaudeCodeCommand {
   return { name, description, agent, model, subtask }
 }
 
-export function getConfig(): ClaudeCodeConfig {
-  return { ...currentConfig }
+export async function getConfig(cwd?: string): Promise<ClaudeCodeConfig> {
+  const cfg: ClaudeCodeConfig = { ...currentConfig }
+
+  if (cwd) {
+    const settings = await readProjectSettings(cwd)
+    if (typeof settings.language === 'string' && settings.language.trim().length > 0) {
+      cfg.language = settings.language.trim()
+    }
+    if (typeof settings.releaseChannel === 'string' && (settings.releaseChannel === 'stable' || settings.releaseChannel === 'latest')) {
+      cfg.releaseChannel = settings.releaseChannel
+    }
+    if (typeof settings.respectGitignore === 'boolean') {
+      cfg.respectGitignore = settings.respectGitignore
+    }
+  }
+
+  return cfg
 }
 
-export function setConfig(config: Partial<ClaudeCodeConfig>): ClaudeCodeConfig {
+export async function setConfig(config: Partial<ClaudeCodeConfig>, cwd?: string): Promise<ClaudeCodeConfig> {
   currentConfig = { ...currentConfig, ...config }
-  // Fire-and-forget persistence so callers can stay synchronous.
+
+  // Persist our app-level defaults (allowedTools, systemPrompt, etc).
+  // Fire-and-forget so the caller isn't blocked on IO.
   queueMicrotask(() => {
     persistConfig().catch(() => {})
   })
-  return { ...currentConfig }
+
+  // Also apply project-scoped settings when a cwd is provided.
+  if (cwd) {
+    const touchesProjectSettings =
+      'language' in config ||
+      'releaseChannel' in config ||
+      'respectGitignore' in config
+
+    if (touchesProjectSettings) {
+      const settings = await readProjectSettings(cwd)
+      const nextSettings = applyProjectSettingsPatch(settings, {
+        language: config.language,
+        releaseChannel: config.releaseChannel,
+        respectGitignore: config.respectGitignore,
+      })
+      await writeProjectSettings(cwd, nextSettings)
+    }
+  }
+
+  return await getConfig(cwd)
 }
 
 /**

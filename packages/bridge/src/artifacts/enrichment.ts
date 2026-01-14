@@ -264,7 +264,7 @@ async function enrichWithClaudeCode(items: Candidate[], maxCharsPerArtifact: num
   const available = await cc.checkClaudeCodeAvailable()
   if (!available) return []
 
-  const cfg = cc.getConfig()
+  const cfg = await cc.getConfig(hiddenCwd)
   const prompt = buildPrompt(items, maxCharsPerArtifact)
 
   const schema = {

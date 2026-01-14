@@ -8,7 +8,7 @@ import type {
   ArtifactsStats,
 } from './artifacts/types'
 
-export type PermissionResponse = 'once' | 'always' | 'reject'
+export type PermissionResponse = 'once' | 'always' | 'reject' | 'execpolicy'
 
 // Session permission rules (OpenCode SDK v1.1.1+)
 export type PermissionAction = 'allow' | 'deny' | 'ask'
@@ -179,6 +179,9 @@ export type ClientMessage =
   | { type: 'oc_get_agent_file'; name: string; source: 'project' | 'user'; cwd?: string }
   | { type: 'oc_save_agent_file'; name: string; source: 'project' | 'user'; content: string; cwd?: string }
   | { type: 'oc_delete_agent_file'; name: string; source: 'project' | 'user'; cwd?: string }
+  // OpenCode Question Tool
+  | { type: 'oc_question_reply'; questionId: string; answers: string[][] }
+  | { type: 'oc_question_reject'; questionId: string }
   // Claude Code-specific messages
   | { type: 'cc_list_projects' }
   | { type: 'cc_list_sessions'; cwd?: string }
@@ -215,7 +218,9 @@ export type ClientMessage =
   | { type: 'cx_get_thread_messages'; threadId: string }
   | { type: 'cx_chat'; threadId?: string; prompt: string; cwd?: string; model?: string; effort?: string; summary?: string; approvalPolicy?: string; sandbox?: string; sandboxPolicy?: any; config?: Record<string, any>; baseInstructions?: string; developerInstructions?: string; fileAttachments?: FileAttachment[] }
   | { type: 'cx_abort'; threadId: string; turnId?: string }
-  | { type: 'cx_permission_response'; requestId: string; response: PermissionResponse }
+  | { type: 'cx_permission_response'; requestId: string; response: PermissionResponse; execpolicyAmendment?: any }
+  | { type: 'cx_thread_fork'; threadId: string }
+  | { type: 'cx_thread_rollback'; threadId: string; numTurns: number }
   | { type: 'cx_model_list' }
   | { type: 'cx_skills_list'; cwd?: string; forceReload?: boolean }
   | { type: 'cx_get_skill'; name: string; scope: 'Repo' | 'User' | 'System' | 'Admin'; cwd?: string }
@@ -361,6 +366,8 @@ export type ServerMessage =
   | { type: 'command_executed'; data: unknown; sessionId: string; requestId?: string }
   // Feature 3: Agent Switching
   | { type: 'agents'; data: Agent[]; requestId?: string }
+  | { type: 'oc_question_replied'; data: boolean; requestId?: string }
+  | { type: 'oc_question_rejected'; data: boolean; requestId?: string }
   // Skills (filesystem-backed)
   | { type: 'oc_skills'; data: Array<{ name: string; description?: string; path: string; source: 'project' | 'user'; editable: boolean }>; requestId?: string }
   | { type: 'oc_skill'; data: { name: string; path: string; source: 'project' | 'user'; content: string }; requestId?: string }
@@ -462,6 +469,7 @@ export type ServerMessage =
   | { type: 'cc_command_deleted'; data: { ok: boolean; name: string; source: 'project' | 'user' }; requestId?: string }
   | { type: 'cc_config'; data: ClaudeCodeConfig; requestId?: string }
   | { type: 'cc_config_updated'; data: ClaudeCodeConfig; requestId?: string }
+  | { type: 'cc_fs_changed'; data: { kind: 'skills' | 'plugins' | 'hooks' | 'commands' | 'mcp'; dir: string; cwd?: string; file?: string }; requestId?: string }
   | { type: 'cc_stream'; data: ClaudeCodeStreamMessage; sessionId: string }
   // Codex (OpenAI Codex app-server)
   | { type: 'cx_global'; data: { method: string; params?: any }; requestId?: string }
@@ -470,6 +478,8 @@ export type ServerMessage =
   | { type: 'cx_models'; data: any; nextCursor?: string | null; requestId?: string }
   | { type: 'cx_thread'; data: CodexThread; requestId?: string }
   | { type: 'cx_thread_created'; data: CodexThread; requestId?: string }
+  | { type: 'cx_thread_forked'; data: CodexThread; requestId?: string }
+  | { type: 'cx_thread_rolled_back'; data: CodexThread; requestId?: string }
   | { type: 'cx_thread_archived'; data: boolean; threadId: string; requestId?: string }
   | { type: 'cx_thread_messages'; data: CodexTranscriptMessage[]; threadId: string; requestId?: string }
   | { type: 'cx_skills'; data: any; requestId?: string }
@@ -846,6 +856,10 @@ export type ClaudeCodeConfig = {
   disallowedTools: string[]
   model?: string
   systemPrompt?: ClaudeCodeSystemPrompt
+  // Project/user settings (persisted in Claude Code settings.json)
+  language?: string
+  releaseChannel?: 'stable' | 'latest'
+  respectGitignore?: boolean
   subagents?: ClaudeCodeSubagent[]           // Custom subagent definitions
   activeSubagent?: string                     // Currently selected subagent name
 }
