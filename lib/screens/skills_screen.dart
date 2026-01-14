@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_markdown/flutter_markdown.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -21,11 +23,40 @@ class _SkillsScreenState extends ConsumerState<SkillsScreen> {
   List<Skill> _skills = const [];
   bool _isLoading = true;
   String? _error;
+  StreamSubscription<Map<String, dynamic>>? _fsSub;
 
   @override
   void initState() {
     super.initState();
+    if (widget.backend == AgentType.claudeCode) {
+      final bridge = ref.read(bridgeServiceProvider);
+      _fsSub = bridge.messages.listen((msg) {
+        if (!mounted) return;
+        if (msg['type'] != 'cc_fs_changed') return;
+        final data = msg['data'];
+        if (data is! Map) return;
+        if (data['kind'] != 'skills') return;
+
+        final selection = ref.read(selectionProvider);
+        final cwd = selection.project?.path;
+        final eventCwd = data['cwd']?.toString();
+        if (eventCwd != null && eventCwd.isNotEmpty && cwd != eventCwd) {
+          return;
+        }
+
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Skills updated')),
+        );
+        _load(forceReload: true);
+      });
+    }
     _load();
+  }
+
+  @override
+  void dispose() {
+    _fsSub?.cancel();
+    super.dispose();
   }
 
   Future<void> _load({bool forceReload = false}) async {

@@ -290,7 +290,10 @@ class BridgeService {
     return response['data'] as Map<String, dynamic>? ?? const {};
   }
 
-  Future<Map<String, dynamic>> setModel(String model, {String? projectPath}) async {
+  Future<Map<String, dynamic>> setModel(
+    String model, {
+    String? projectPath,
+  }) async {
     final requestId = _generateRequestId();
     _socket.send({
       'type': 'set_model',
@@ -639,6 +642,42 @@ class BridgeService {
     });
   }
 
+  // ============================================================
+  // OpenCode - Question Tool
+  // ============================================================
+
+  Future<bool> ocReplyToQuestion({
+    required String requestId,
+    required List<List<String>> answers,
+  }) async {
+    final wireRequestId = _generateRequestId();
+    _socket.send({
+      'type': 'oc_question_reply',
+      'requestId': wireRequestId,
+      'questionId': requestId,
+      'answers': answers,
+    });
+    final response = await _waitFor(
+      'oc_question_replied',
+      requestId: wireRequestId,
+    );
+    return response['data'] == true;
+  }
+
+  Future<bool> ocRejectQuestion({required String requestId}) async {
+    final wireRequestId = _generateRequestId();
+    _socket.send({
+      'type': 'oc_question_reject',
+      'requestId': wireRequestId,
+      'questionId': requestId,
+    });
+    final response = await _waitFor(
+      'oc_question_rejected',
+      requestId: wireRequestId,
+    );
+    return response['data'] == true;
+  }
+
   Future<List<dynamic>> getLspStatus({String? projectPath}) async {
     final requestId = _generateRequestId();
     _socket.send({
@@ -841,7 +880,10 @@ class BridgeService {
       'content': content,
       if (cwd != null) 'cwd': cwd,
     });
-    final response = await _waitFor('oc_plugin_file_saved', requestId: requestId);
+    final response = await _waitFor(
+      'oc_plugin_file_saved',
+      requestId: requestId,
+    );
     final data = response['data'] as Map<String, dynamic>? ?? {};
     return data['ok'] == true;
   }
@@ -859,7 +901,10 @@ class BridgeService {
       'source': source.wireValue,
       if (cwd != null) 'cwd': cwd,
     });
-    final response = await _waitFor('oc_plugin_file_deleted', requestId: requestId);
+    final response = await _waitFor(
+      'oc_plugin_file_deleted',
+      requestId: requestId,
+    );
     final data = response['data'] as Map<String, dynamic>? ?? {};
     return data['ok'] == true;
   }
@@ -898,7 +943,10 @@ class BridgeService {
     });
     final response = await _waitFor('oc_command_file', requestId: requestId);
     final data = response['data'] as Map<String, dynamic>? ?? {};
-    return (path: data['path'] as String? ?? '', content: data['content'] as String? ?? '');
+    return (
+      path: data['path'] as String? ?? '',
+      content: data['content'] as String? ?? '',
+    );
   }
 
   Future<bool> ocSaveCommandFile({
@@ -916,7 +964,10 @@ class BridgeService {
       'content': content,
       if (cwd != null) 'cwd': cwd,
     });
-    final response = await _waitFor('oc_command_file_saved', requestId: requestId);
+    final response = await _waitFor(
+      'oc_command_file_saved',
+      requestId: requestId,
+    );
     final data = response['data'] as Map<String, dynamic>? ?? {};
     return data['ok'] == true;
   }
@@ -934,7 +985,10 @@ class BridgeService {
       'source': source.wireValue,
       if (cwd != null) 'cwd': cwd,
     });
-    final response = await _waitFor('oc_command_file_deleted', requestId: requestId);
+    final response = await _waitFor(
+      'oc_command_file_deleted',
+      requestId: requestId,
+    );
     final data = response['data'] as Map<String, dynamic>? ?? {};
     return data['ok'] == true;
   }
@@ -969,7 +1023,10 @@ class BridgeService {
     });
     final response = await _waitFor('oc_agent_file', requestId: requestId);
     final data = response['data'] as Map<String, dynamic>? ?? {};
-    return (path: data['path'] as String? ?? '', content: data['content'] as String? ?? '');
+    return (
+      path: data['path'] as String? ?? '',
+      content: data['content'] as String? ?? '',
+    );
   }
 
   Future<bool> ocSaveAgentFile({
@@ -987,7 +1044,10 @@ class BridgeService {
       'content': content,
       if (cwd != null) 'cwd': cwd,
     });
-    final response = await _waitFor('oc_agent_file_saved', requestId: requestId);
+    final response = await _waitFor(
+      'oc_agent_file_saved',
+      requestId: requestId,
+    );
     final data = response['data'] as Map<String, dynamic>? ?? {};
     return data['ok'] == true;
   }
@@ -1005,7 +1065,10 @@ class BridgeService {
       'source': source.wireValue,
       if (cwd != null) 'cwd': cwd,
     });
-    final response = await _waitFor('oc_agent_file_deleted', requestId: requestId);
+    final response = await _waitFor(
+      'oc_agent_file_deleted',
+      requestId: requestId,
+    );
     final data = response['data'] as Map<String, dynamic>? ?? {};
     return data['ok'] == true;
   }
@@ -2437,6 +2500,42 @@ class BridgeService {
     return const {};
   }
 
+  Future<CodexThread> cxThreadRollback({
+    required String threadId,
+    required int numTurns,
+  }) async {
+    final requestId = _generateRequestId();
+    _socket.send({
+      'type': 'cx_thread_rollback',
+      'requestId': requestId,
+      'threadId': threadId,
+      'numTurns': numTurns,
+    });
+    final response = await _waitFor(
+      'cx_thread_rolled_back',
+      requestId: requestId,
+      timeoutSeconds: _codexTimeoutSeconds,
+    );
+    final data = response['data'] as Map<String, dynamic>? ?? const {};
+    return CodexThread.fromJson(data);
+  }
+
+  Future<CodexThread> cxThreadFork({required String threadId}) async {
+    final requestId = _generateRequestId();
+    _socket.send({
+      'type': 'cx_thread_fork',
+      'requestId': requestId,
+      'threadId': threadId,
+    });
+    final response = await _waitFor(
+      'cx_thread_forked',
+      requestId: requestId,
+      timeoutSeconds: _codexTimeoutSeconds,
+    );
+    final data = response['data'] as Map<String, dynamic>? ?? const {};
+    return CodexThread.fromJson(data);
+  }
+
   Future<List<String>> cxUndoFiles({
     required String threadId,
     int count = 1,
@@ -2820,6 +2919,18 @@ class BridgeService {
     return data['authorizationUrl'] as String?;
   }
 
+  /// Hot reload MCP server config (Codex SDK feature)
+  /// Reloads MCP config from disk and queues refresh for loaded threads.
+  Future<void> cxMcpReload() async {
+    final requestId = _generateRequestId();
+    _socket.send({'type': 'cx_mcp_reload', 'requestId': requestId});
+    await _waitFor(
+      'cx_mcp_reloaded',
+      requestId: requestId,
+      timeoutSeconds: _codexTimeoutSeconds,
+    );
+  }
+
   Future<Map<String, dynamic>> cxStartReview({
     String? threadId,
     String? cwd,
@@ -2897,11 +3008,14 @@ class BridgeService {
   void cxRespondToPermission({
     required String requestId,
     required String response,
+    Object? execpolicyAmendment,
   }) {
     _socket.send({
       'type': 'cx_permission_response',
       'requestId': requestId,
       'response': response,
+      if (execpolicyAmendment != null)
+        'execpolicyAmendment': execpolicyAmendment,
     });
   }
 
@@ -3045,10 +3159,7 @@ class BridgeService {
     }
   }
 
-  Future<Skill?> getSkill({
-    required Skill skill,
-    String? cwd,
-  }) async {
+  Future<Skill?> getSkill({required Skill skill, String? cwd}) async {
     switch (skill.backend) {
       case AgentType.opencode:
         return ocGetSkill(name: skill.name, source: skill.source, cwd: cwd);
@@ -3080,11 +3191,26 @@ class BridgeService {
   }) async {
     switch (backend) {
       case AgentType.opencode:
-        return ocSaveSkill(name: name, source: source, content: content, cwd: cwd);
+        return ocSaveSkill(
+          name: name,
+          source: source,
+          content: content,
+          cwd: cwd,
+        );
       case AgentType.claudeCode:
-        return ccSaveSkill(name: name, source: source, content: content, cwd: cwd);
+        return ccSaveSkill(
+          name: name,
+          source: source,
+          content: content,
+          cwd: cwd,
+        );
       case AgentType.codex:
-        return cxSaveSkill(name: name, source: source, content: content, cwd: cwd);
+        return cxSaveSkill(
+          name: name,
+          source: source,
+          content: content,
+          cwd: cwd,
+        );
     }
   }
 
@@ -3147,7 +3273,10 @@ class BridgeService {
       'content': content,
       if (cwd != null) 'cwd': cwd,
     });
-    final response = await _waitFor('cc_hooks_file_written', requestId: requestId);
+    final response = await _waitFor(
+      'cc_hooks_file_written',
+      requestId: requestId,
+    );
     final data = response['data'] as Map<String, dynamic>? ?? {};
     return data['ok'] == true;
   }
@@ -3164,7 +3293,10 @@ class BridgeService {
     return data['content'] as String? ?? '{"mcpServers":{}}';
   }
 
-  Future<bool> ccWriteMcpFile({required String cwd, required String content}) async {
+  Future<bool> ccWriteMcpFile({
+    required String cwd,
+    required String content,
+  }) async {
     final requestId = _generateRequestId();
     _socket.send({
       'type': 'cc_mcp_file_write',
@@ -3172,7 +3304,10 @@ class BridgeService {
       'cwd': cwd,
       'content': content,
     });
-    final response = await _waitFor('cc_mcp_file_written', requestId: requestId);
+    final response = await _waitFor(
+      'cc_mcp_file_written',
+      requestId: requestId,
+    );
     final data = response['data'] as Map<String, dynamic>? ?? {};
     return data['ok'] == true;
   }
@@ -3265,19 +3400,27 @@ class BridgeService {
   // Claude Code - Config
   // ============================================================
 
-  Future<ClaudeCodeConfig> ccGetConfig() async {
+  Future<ClaudeCodeConfig> ccGetConfig({String? cwd}) async {
     final requestId = _generateRequestId();
-    _socket.send({'type': 'cc_get_config', 'requestId': requestId});
+    _socket.send({
+      'type': 'cc_get_config',
+      if (cwd != null) 'cwd': cwd,
+      'requestId': requestId,
+    });
     final response = await _waitFor('cc_config', requestId: requestId);
     final data = response['data'] as Map<String, dynamic>? ?? {};
     return ClaudeCodeConfig.fromJson(data);
   }
 
-  Future<ClaudeCodeConfig> ccSetConfig(ClaudeCodeConfig config) async {
+  Future<ClaudeCodeConfig> ccSetConfig(
+    ClaudeCodeConfig config, {
+    String? cwd,
+  }) async {
     final requestId = _generateRequestId();
     _socket.send({
       'type': 'cc_set_config',
       'config': config.toJson(),
+      if (cwd != null) 'cwd': cwd,
       'requestId': requestId,
     });
     final response = await _waitFor('cc_config_updated', requestId: requestId);

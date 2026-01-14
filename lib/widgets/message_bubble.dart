@@ -6,12 +6,18 @@ import '../models/message.dart';
 import '../theme/opencode_theme.dart';
 
 class MessageBubble extends StatelessWidget {
-  const MessageBubble({super.key, required this.message, this.onForkFromHere});
+  const MessageBubble({
+    super.key,
+    required this.message,
+    this.onForkFromHere,
+    this.onRollback,
+  });
 
   final ChatMessage message;
 
   /// Feature 6: Callback for forking from this message
   final void Function(String messageId)? onForkFromHere;
+  final VoidCallback? onRollback;
 
   @override
   Widget build(BuildContext context) {
@@ -119,9 +125,10 @@ class MessageBubble extends StatelessWidget {
   }
 
   Widget _buildAssistantMessage(BuildContext context, OpenCodeTheme theme) {
-    // Feature 6: Long press to fork from this message
+    // Feature 6/CodeX: Long press actions
     return GestureDetector(
-      onLongPress: onForkFromHere != null && message.id.isNotEmpty
+      onLongPress: (onForkFromHere != null || onRollback != null) &&
+              message.id.isNotEmpty
           ? () => _showForkMenu(context, theme)
           : null,
       child: Container(
@@ -273,24 +280,46 @@ class MessageBubble extends StatelessWidget {
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            ListTile(
-              leading: Icon(Icons.call_split_rounded, color: theme.primary),
-              title: Text(
-                'Fork from here',
-                style: TextStyle(
-                  color: theme.text,
-                  fontWeight: FontWeight.w500,
+            if (onForkFromHere != null)
+              ListTile(
+                leading: Icon(Icons.call_split_rounded, color: theme.primary),
+                title: Text(
+                  'Fork from here',
+                  style: TextStyle(
+                    color: theme.text,
+                    fontWeight: FontWeight.w500,
+                  ),
                 ),
+                subtitle: Text(
+                  'Create a new session branch from this point',
+                  style: TextStyle(color: theme.textMuted, fontSize: 12),
+                ),
+                onTap: () {
+                  Navigator.pop(context);
+                  onForkFromHere?.call(message.id);
+                },
               ),
-              subtitle: Text(
-                'Create a new session branch from this point',
-                style: TextStyle(color: theme.textMuted, fontSize: 12),
+            if (onRollback != null) ...[
+              if (onForkFromHere != null) const Divider(height: 1),
+              ListTile(
+                leading: Icon(Icons.history_rounded, color: theme.warning),
+                title: Text(
+                  'Rollback…',
+                  style: TextStyle(
+                    color: theme.text,
+                    fontWeight: FontWeight.w500,
+                  ),
+                ),
+                subtitle: Text(
+                  'Drop recent turns from this thread',
+                  style: TextStyle(color: theme.textMuted, fontSize: 12),
+                ),
+                onTap: () {
+                  Navigator.pop(context);
+                  onRollback?.call();
+                },
               ),
-              onTap: () {
-                Navigator.pop(context);
-                onForkFromHere?.call(message.id);
-              },
-            ),
+            ],
             const SizedBox(height: 8),
             TextButton(
               onPressed: () => Navigator.pop(context),

@@ -391,6 +391,9 @@ class ClaudeCodeConfig {
   final List<String> disallowedTools;
   final String? model;
   final ClaudeCodeSystemPrompt? systemPrompt;
+  final String? language;
+  final String? releaseChannel; // 'stable' | 'latest'
+  final bool? respectGitignore;
   final List<ClaudeCodeSubagent> subagents;
   final String? activeSubagent;
 
@@ -400,6 +403,9 @@ class ClaudeCodeConfig {
     required this.disallowedTools,
     this.model,
     this.systemPrompt,
+    this.language,
+    this.releaseChannel,
+    this.respectGitignore,
     this.subagents = const [],
     this.activeSubagent,
   });
@@ -418,6 +424,9 @@ class ClaudeCodeConfig {
       systemPrompt: json['systemPrompt'] != null
           ? ClaudeCodeSystemPrompt.fromJson(json['systemPrompt'])
           : null,
+      language: json['language'] as String?,
+      releaseChannel: json['releaseChannel'] as String?,
+      respectGitignore: json['respectGitignore'] as bool?,
       subagents:
           (json['subagents'] as List<dynamic>?)
               ?.map(
@@ -436,6 +445,9 @@ class ClaudeCodeConfig {
       'disallowedTools': disallowedTools,
       if (model != null) 'model': model,
       if (systemPrompt != null) 'systemPrompt': systemPrompt!.toJson(),
+      if (language != null) 'language': language,
+      if (releaseChannel != null) 'releaseChannel': releaseChannel,
+      if (respectGitignore != null) 'respectGitignore': respectGitignore,
       if (subagents.isNotEmpty)
         'subagents': subagents.map((e) => e.toJson()).toList(),
       if (activeSubagent != null) 'activeSubagent': activeSubagent,
@@ -448,6 +460,9 @@ class ClaudeCodeConfig {
     List<String>? disallowedTools,
     String? model,
     ClaudeCodeSystemPrompt? systemPrompt,
+    String? language,
+    String? releaseChannel,
+    bool? respectGitignore,
     List<ClaudeCodeSubagent>? subagents,
     String? activeSubagent,
   }) {
@@ -457,6 +472,9 @@ class ClaudeCodeConfig {
       disallowedTools: disallowedTools ?? this.disallowedTools,
       model: model ?? this.model,
       systemPrompt: systemPrompt ?? this.systemPrompt,
+      language: language ?? this.language,
+      releaseChannel: releaseChannel ?? this.releaseChannel,
+      respectGitignore: respectGitignore ?? this.respectGitignore,
       subagents: subagents ?? this.subagents,
       activeSubagent: activeSubagent ?? this.activeSubagent,
     );
@@ -774,6 +792,8 @@ class CCTokenUsage extends ClaudeCodeStreamMessage {
   final int? cacheCreationTokens;
   final double? totalCostUsd;
   final String? messageId;
+  // Context window tracking (SDK v2.1.6+)
+  final int? contextWindow;
 
   const CCTokenUsage({
     this.inputTokens,
@@ -782,6 +802,7 @@ class CCTokenUsage extends ClaudeCodeStreamMessage {
     this.cacheCreationTokens,
     this.totalCostUsd,
     this.messageId,
+    this.contextWindow,
   });
 
   factory CCTokenUsage.fromJson(Map<String, dynamic> json) {
@@ -793,12 +814,27 @@ class CCTokenUsage extends ClaudeCodeStreamMessage {
       cacheCreationTokens: usage['cacheCreationTokens'] as int?,
       totalCostUsd: (json['totalCostUsd'] as num?)?.toDouble(),
       messageId: json['messageId'] as String?,
+      contextWindow:
+          usage['contextWindow'] as int? ?? json['contextWindow'] as int?,
     );
   }
 
   /// Total tokens used (input + output + cache)
   int get totalTokens =>
       (inputTokens ?? 0) + (outputTokens ?? 0) + (cacheReadTokens ?? 0);
+
+  /// Effective context window (defaults to Claude 3.5 Sonnet's 200k)
+  int get effectiveContextWindow => contextWindow ?? 200000;
+
+  /// Context window used percentage (0-100)
+  /// Based on input tokens as per SDK v2.1.6 `context_window.used_percentage`
+  double get usedPercentage {
+    if (inputTokens == null || inputTokens == 0) return 0.0;
+    return ((inputTokens! / effectiveContextWindow) * 100).clamp(0.0, 100.0);
+  }
+
+  /// Context window remaining percentage (0-100)
+  double get remainingPercentage => 100.0 - usedPercentage;
 }
 
 class CCError extends ClaudeCodeStreamMessage {

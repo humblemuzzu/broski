@@ -212,6 +212,41 @@ class _PermissionRulesSheetState extends State<PermissionRulesSheet> {
 
           const SizedBox(height: 10),
 
+          // Wildcard pattern examples
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 20),
+            child: Container(
+              padding: const EdgeInsets.all(10),
+              decoration: BoxDecoration(
+                color: theme.info.withValues(alpha: 0.08),
+                borderRadius: BorderRadius.circular(8),
+                border: Border.all(color: theme.info.withValues(alpha: 0.2)),
+              ),
+              child: Row(
+                children: [
+                  Icon(
+                    Icons.lightbulb_outline_rounded,
+                    size: 14,
+                    color: theme.info,
+                  ),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: Text(
+                      'Pattern examples: *, src/*, Bash(npm *), Bash(git commit *)',
+                      style: TextStyle(
+                        color: theme.info,
+                        fontSize: 11,
+                        height: 1.3,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+
+          const SizedBox(height: 12),
+
           // Rules list
           Expanded(
             child: ListView.builder(

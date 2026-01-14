@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:convert';
 
 import 'package:flutter/material.dart';
@@ -19,13 +20,39 @@ class _ClaudeCodeMcpScreenState extends ConsumerState<ClaudeCodeMcpScreen> {
   bool _dirty = false;
   String? _error;
   Map<String, dynamic> _root = const {};
+  StreamSubscription<Map<String, dynamic>>? _fsSub;
 
   String? get _cwd => ref.read(selectionProvider).project?.path;
 
   @override
   void initState() {
     super.initState();
+    final bridge = ref.read(bridgeServiceProvider);
+    _fsSub = bridge.messages.listen((msg) {
+      if (!mounted) return;
+      if (msg['type'] != 'cc_fs_changed') return;
+      final data = msg['data'];
+      if (data is! Map) return;
+      if (data['kind'] != 'mcp') return;
+      final cwd = _cwd;
+      final eventCwd = data['cwd']?.toString();
+      if (cwd == null || cwd.isEmpty) return;
+      if (eventCwd != null && eventCwd.isNotEmpty && cwd != eventCwd) return;
+      if (_dirty) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('.mcp.json changed externally')),
+        );
+        return;
+      }
+      _load();
+    });
     _load();
+  }
+
+  @override
+  void dispose() {
+    _fsSub?.cancel();
+    super.dispose();
   }
 
   Future<void> _load() async {
@@ -374,4 +401,3 @@ class _McpServerEditorScreenState extends State<_McpServerEditorScreen> {
     );
   }
 }
-

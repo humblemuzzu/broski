@@ -14,6 +14,7 @@ import '../models/codex.dart';
 import '../models/command.dart';
 import '../models/file_attachment.dart';
 import '../models/message.dart';
+import '../models/question.dart';
 import '../models/permission_rule.dart';
 import '../models/project.dart';
 import '../models/session.dart';
@@ -37,21 +38,26 @@ import '../services/websocket_service.dart';
 import '../theme/opencode_theme.dart';
 import '../widgets/background_session_widgets.dart';
 import '../widgets/diff_viewer.dart';
+import '../widgets/export_session_sheet.dart';
 import '../widgets/file_tagging.dart';
 import '../widgets/message_bubble.dart';
 import '../widgets/subtask_notification_card.dart';
 import '../widgets/thinking_card.dart';
 import '../widgets/permission_prompt.dart';
 import '../widgets/permission_rules_sheet.dart';
+import '../widgets/question_prompt_sheet.dart';
+import '../widgets/rollback_sheet.dart';
 import '../widgets/session_sidebar.dart';
 import '../widgets/tool_call.dart';
 import '../widgets/claude_code_help.dart';
 import 'subagents_screen.dart';
 import 'custom_tools_screen.dart';
 import 'plugins_screen.dart';
+import 'sessions_screen.dart';
 import '../utils/opencode_id.dart';
 import '../widgets/app_background.dart';
 import '../widgets/opencode_branding.dart';
+import '../widgets/provider_icon.dart';
 import '../providers/appearance_provider.dart';
 import 'diff_view_screen.dart';
 
@@ -235,6 +241,7 @@ class _ChatScreenState extends ConsumerState<ChatScreen>
   final ScrollController _scrollController = ScrollController();
   final HapticsService _haptics = HapticsService();
   String? _activePermissionId;
+  String? _activeQuestionId;
 
   // Auto-scroll state: tracks if user has intentionally scrolled up
   // When true, we don't auto-scroll (respect user's intent to view history)
@@ -898,6 +905,8 @@ class _ChatScreenState extends ConsumerState<ChatScreen>
         outputTokens: tokenUsage?.outputTokens ?? 0,
         cacheReadTokens: tokenUsage?.cacheReadTokens ?? 0,
         totalCostUsd: tokenUsage?.totalCostUsd,
+        // SDK v2.1.6+: Use context window from token usage if available
+        contextWindow: tokenUsage?.effectiveContextWindow ?? 200000,
         // Avoid client-side "made up" file summaries for Claude Code.
         // Only show what the SDK reports directly (usage/cost).
         modifiedFiles: const [],
@@ -1060,9 +1069,24 @@ class _ChatScreenState extends ConsumerState<ChatScreen>
     final theme = OpenCodeTheme.of(context);
     try {
       final bridge = ref.read(bridgeServiceProvider);
+      final chatState = ref.read(chatSessionProvider);
+
+      String? initialPrompt;
+      if (messageId != null && messageId.isNotEmpty) {
+        final idx = chatState.messages.indexWhere((m) => m.id == messageId);
+        if (idx >= 0) {
+          for (var i = idx; i >= 0; i--) {
+            final m = chatState.messages[i];
+            if (m.role == MessageRole.user && m.text.trim().isNotEmpty) {
+              initialPrompt = m.text.trim();
+              break;
+            }
+          }
+          initialPrompt ??= chatState.messages[idx].text.trim();
+        }
+      }
 
       if (widget.isClaudeCode) {
-        final chatState = ref.read(chatSessionProvider);
         final sessionId = chatState.ccSessionId ?? widget.ccSession?.id;
         if (sessionId == null || sessionId.isEmpty) {
           ScaffoldMessenger.of(context).showSnackBar(
@@ -1102,7 +1126,46 @@ class _ChatScreenState extends ConsumerState<ChatScreen>
                 Navigator.pushReplacement(
                   context,
                   MaterialPageRoute(
-                    builder: (_) => ChatScreen.claudeCode(ccSession: forkedCC),
+                    builder: (_) => ChatScreen.claudeCode(
+                      ccSession: forkedCC,
+                      initialPrompt: initialPrompt,
+                    ),
+                  ),
+                );
+              },
+            ),
+          ),
+        );
+      } else if (widget.isCodex) {
+        final threadId = chatState.cxThreadId ?? widget.cxThread?.id;
+        if (threadId == null || threadId.isEmpty) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: const Text('Cannot fork: no active thread'),
+              backgroundColor: theme.error,
+            ),
+          );
+          return;
+        }
+
+        final forked = await bridge.cxThreadFork(threadId: threadId);
+        if (!mounted) return;
+
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Thread forked: ${forked.preview}'),
+            backgroundColor: theme.backgroundPanel,
+            action: SnackBarAction(
+              label: 'Open',
+              textColor: theme.primary,
+              onPressed: () {
+                Navigator.pushReplacement(
+                  context,
+                  MaterialPageRoute(
+                    builder: (_) => ChatScreen.codex(
+                      cxThread: forked,
+                      initialPrompt: initialPrompt,
+                    ),
                   ),
                 );
               },
@@ -1131,6 +1194,7 @@ class _ChatScreenState extends ConsumerState<ChatScreen>
                     builder: (_) => ChatScreen(
                       project: widget.project,
                       session: forkedSession,
+                      initialPrompt: initialPrompt,
                     ),
                   ),
                 );
@@ -4407,6 +4471,59 @@ Describe project-specific guidance for Codex here.
     );
   }
 
+  void _showCodexRollbackSheet() {
+    final theme = OpenCodeTheme.of(context);
+    final chatState = ref.read(chatSessionProvider);
+    final threadId = chatState.cxThreadId;
+    if (threadId == null || threadId.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: const Text('No Codex thread to rollback.'),
+          backgroundColor: theme.backgroundPanel,
+        ),
+      );
+      return;
+    }
+
+    final turns = chatState.messages
+        .where((m) => m.role == MessageRole.user)
+        .length;
+    final maxTurns = turns <= 0 ? 1 : turns;
+
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (_) {
+        return RollbackSheet(
+          maxTurns: maxTurns,
+          onRollback: (numTurns) async {
+            final bridge = ref.read(bridgeServiceProvider);
+            await bridge.cxThreadRollback(
+              threadId: threadId,
+              numTurns: numTurns,
+            );
+            final items = await bridge.cxGetThreadMessages(threadId);
+            ref
+                .read(chatSessionProvider.notifier)
+                .hydrateCodexTranscript(items);
+            if (mounted) {
+              ScaffoldMessenger.of(context).showSnackBar(
+                SnackBar(
+                  content: Text(
+                    'Rolled back $numTurns turn${numTurns == 1 ? '' : 's'}',
+                  ),
+                  backgroundColor: theme.backgroundPanel,
+                ),
+              );
+              Navigator.pop(context);
+            }
+          },
+        );
+      },
+    );
+  }
+
   void _showCodexConfigSheet() {
     final theme = OpenCodeTheme.of(context);
     showModalBottomSheet(
@@ -5199,7 +5316,9 @@ Describe project-specific guidance for Codex here.
         case 'new':
         case 'clear':
           if (mounted) {
-            Navigator.of(context).pushNamed('/create_session');
+            Navigator.of(
+              context,
+            ).push(MaterialPageRoute(builder: (_) => const SessionsScreen()));
           }
           break;
 
@@ -5207,7 +5326,9 @@ Describe project-specific guidance for Codex here.
         case 'resume':
         case 'continue':
           if (mounted) {
-            Navigator.of(context).pushNamed('/sessions');
+            Navigator.of(
+              context,
+            ).push(MaterialPageRoute(builder: (_) => const SessionsScreen()));
           }
           break;
 
@@ -5575,6 +5696,29 @@ Describe project-specific guidance for Codex here.
                 _shareTranscript();
               },
             ),
+            ListTile(
+              leading: Icon(Icons.tune_rounded, color: theme.primary),
+              title: Text(
+                'Export options…',
+                style: TextStyle(color: theme.text),
+              ),
+              subtitle: Text(
+                'Choose format, include tools, and more',
+                style: TextStyle(color: theme.textMuted),
+              ),
+              onTap: () {
+                Navigator.pop(context);
+                showModalBottomSheet(
+                  context: context,
+                  isScrollControlled: true,
+                  backgroundColor: Colors.transparent,
+                  builder: (_) => ExportSessionSheet(
+                    title: widget.effectiveTitle,
+                    messages: chatState.messages,
+                  ),
+                );
+              },
+            ),
           ],
         ),
       ),
@@ -5803,6 +5947,21 @@ Describe project-specific guidance for Codex here.
                             projectPath: widget.project.path,
                           );
                           if (mounted) {
+                            String? initialPrompt;
+                            final idx = chatState.messages.indexWhere(
+                              (m) => m.id == msg.id,
+                            );
+                            if (idx >= 0) {
+                              for (var i = idx; i >= 0; i--) {
+                                final m = chatState.messages[i];
+                                if (m.role == MessageRole.user &&
+                                    m.text.trim().isNotEmpty) {
+                                  initialPrompt = m.text.trim();
+                                  break;
+                                }
+                              }
+                              initialPrompt ??= msg.text.trim();
+                            }
                             ScaffoldMessenger.of(context).showSnackBar(
                               SnackBar(
                                 content: Text(
@@ -5812,12 +5971,15 @@ Describe project-specific guidance for Codex here.
                                   label: 'Open',
                                   onPressed: () {
                                     // Navigate to the forked session
-                                    Navigator.of(context).pushReplacementNamed(
-                                      '/chat',
-                                      arguments: {
-                                        'session': forkedSession,
-                                        'project': widget.project,
-                                      },
+                                    Navigator.pushReplacement(
+                                      context,
+                                      MaterialPageRoute(
+                                        builder: (_) => ChatScreen(
+                                          project: widget.project,
+                                          session: forkedSession,
+                                          initialPrompt: initialPrompt,
+                                        ),
+                                      ),
                                     );
                                   },
                                 ),
@@ -5968,6 +6130,9 @@ Describe project-specific guidance for Codex here.
     final permissions = ref.watch(
       chatSessionProvider.select((s) => s.permissions),
     );
+    final pendingQuestion = ref.watch(
+      chatSessionProvider.select((s) => s.pendingQuestion),
+    );
     final todos = ref.watch(chatSessionProvider.select((s) => s.todos));
     final sessionDiffs = ref.watch(
       chatSessionProvider.select((s) => s.sessionDiffs),
@@ -5990,6 +6155,7 @@ Describe project-specific guidance for Codex here.
     final connection = ref.watch(connectionProvider);
 
     _maybeShowPermissionPromptFromList(permissions);
+    _maybeShowQuestionPrompt(pendingQuestion);
 
     return Scaffold(
       backgroundColor: theme.background,
@@ -6366,6 +6532,20 @@ Describe project-specific guidance for Codex here.
             : null,
         onCodexModelTap: widget.isCodex ? () => _showCodexModelSheet() : null,
         customAccentColor: customAccent,
+        // OpenCode Plan Mode (SDK v1.1.18+)
+        isOpenCode: widget.isOpenCode,
+        ocPlanMode: widget.isOpenCode
+            ? ref.watch(chatSessionProvider.select((s) => s.ocAgentMode)) ==
+                  'plan'
+            : false,
+        onPlanModeToggle: widget.isOpenCode
+            ? () {
+                final current = ref.read(chatSessionProvider).ocAgentMode;
+                ref
+                    .read(chatSessionProvider.notifier)
+                    .setOCAgentMode(current == 'plan' ? 'build' : 'plan');
+              }
+            : null,
       );
     } else {
       inputBar = _FloatingInputBar(
@@ -6387,6 +6567,20 @@ Describe project-specific guidance for Codex here.
         onAgentChanged: widget.isClaudeCode
             ? null
             : (agent) => setState(() => _selectedAgent = agent),
+        // OpenCode Plan Mode (SDK v1.1.18+)
+        isOpenCode: widget.isOpenCode,
+        ocPlanMode: widget.isOpenCode
+            ? ref.watch(chatSessionProvider.select((s) => s.ocAgentMode)) ==
+                  'plan'
+            : false,
+        onPlanModeToggle: widget.isOpenCode
+            ? () {
+                final current = ref.read(chatSessionProvider).ocAgentMode;
+                ref
+                    .read(chatSessionProvider.notifier)
+                    .setOCAgentMode(current == 'plan' ? 'build' : 'plan');
+              }
+            : null,
       );
     }
 
@@ -6419,6 +6613,7 @@ Describe project-specific guidance for Codex here.
                 onForkFromHere: message.role == MessageRole.assistant
                     ? (messageId) => _forkSession(messageId: messageId)
                     : null,
+                onRollback: widget.isCodex ? _showCodexRollbackSheet : null,
               ),
 
             // Tool calls with Feature 7: Undo callback
@@ -6493,6 +6688,7 @@ Describe project-specific guidance for Codex here.
                   onForkFromHere: message.role == MessageRole.assistant
                       ? (messageId) => _forkSession(messageId: message.id)
                       : null,
+                  onRollback: widget.isCodex ? _showCodexRollbackSheet : null,
                 ),
               ),
             );
@@ -6524,6 +6720,7 @@ Describe project-specific guidance for Codex here.
             onForkFromHere: message.role == MessageRole.assistant
                 ? (messageId) => _forkSession(messageId: message.id)
                 : null,
+            onRollback: widget.isCodex ? _showCodexRollbackSheet : null,
           ),
         );
       }
@@ -7026,6 +7223,15 @@ Describe project-specific guidance for Codex here.
       }
     }
 
+    // OpenCode Plan Mode: Use plan agent when in plan mode (unless overridden)
+    // SDK v1.1.18+: plan_enter/plan_exit tools toggle between "plan" and "build" agents
+    if (widget.isOpenCode && messageAgent == null) {
+      final agentMode = chatState.ocAgentMode;
+      if (agentMode == 'plan') {
+        messageAgent = 'plan';
+      }
+    }
+
     // Claude Code mode
     if (widget.isClaudeCode) {
       final ccConfig = ref.read(ccConfigProvider).valueOrNull;
@@ -7334,6 +7540,18 @@ Describe project-specific guidance for Codex here.
         return;
       }
 
+      if (text.startsWith('/rollback')) {
+        chat.appendUserMessage(text);
+        WidgetsBinding.instance.addPostFrameCallback((_) {
+          if (!mounted) return;
+          _showCodexRollbackSheet();
+        });
+        _controller.clear();
+        _userHasScrolledUp = false;
+        _scrollToBottom();
+        return;
+      }
+
       if (text.startsWith('/agents')) {
         chat.appendUserMessage(text);
         WidgetsBinding.instance.addPostFrameCallback((_) {
@@ -7598,11 +7816,38 @@ Describe your project here.
         isScrollControlled: true,
         backgroundColor: Colors.transparent,
         builder: (_) {
+          final isCodex = widget.isCodex;
+          final alwaysLabel = isCodex ? 'Session' : 'Always';
+          VoidCallback? onExecpolicy;
+          String? execpolicyLabel;
+          if (isCodex) {
+            final method = request.metadata['method'] as String?;
+            final proposed = request.metadata['proposedExecpolicyAmendment'];
+            if (method == 'item/commandExecution/requestApproval' &&
+                proposed is List) {
+              final prefix = proposed
+                  .whereType<String>()
+                  .take(3)
+                  .toList()
+                  .join(' ');
+              if (prefix.isNotEmpty) {
+                execpolicyLabel = 'Always allow "$prefix…"';
+                onExecpolicy = () => _respondToPermission(
+                  request,
+                  'execpolicy',
+                  execpolicyAmendment: proposed,
+                );
+              }
+            }
+          }
           return PermissionPrompt(
             request: request,
             onApprove: () => _respondToPermission(request, 'once'),
             onDeny: () => _respondToPermission(request, 'reject'),
             onAlwaysAllow: () => _respondToPermission(request, 'always'),
+            approveAlwaysLabel: alwaysLabel,
+            onApproveWithExecpolicy: onExecpolicy,
+            approveWithExecpolicyLabel: execpolicyLabel,
             onDenyWithMessage: (message) =>
                 _respondToPermission(request, 'reject', message: message),
           );
@@ -7611,10 +7856,55 @@ Describe your project here.
     });
   }
 
+  void _maybeShowQuestionPrompt(QuestionRequest? request) {
+    if (!widget.isOpenCode) return;
+    if (request == null || request.id.isEmpty) {
+      _activeQuestionId = null;
+      return;
+    }
+    if (_activeQuestionId == request.id) return;
+
+    _activeQuestionId = request.id;
+    _haptics.mediumImpact();
+
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+      showModalBottomSheet(
+        context: context,
+        isScrollControlled: true,
+        backgroundColor: Colors.transparent,
+        builder: (_) {
+          return QuestionPromptSheet(
+            request: request,
+            onReply: (answers) async {
+              try {
+                await ref
+                    .read(chatSessionProvider.notifier)
+                    .replyToPendingQuestion(answers);
+              } finally {
+                if (mounted) Navigator.pop(context);
+              }
+            },
+            onReject: () async {
+              try {
+                await ref
+                    .read(chatSessionProvider.notifier)
+                    .rejectPendingQuestion();
+              } finally {
+                if (mounted) Navigator.pop(context);
+              }
+            },
+          );
+        },
+      ).whenComplete(() => _activeQuestionId = null);
+    });
+  }
+
   void _respondToPermission(
     PermissionRequest request,
     String response, {
     String? message,
+    Object? execpolicyAmendment,
   }) {
     final bridge = ref.read(bridgeServiceProvider);
     final chat = ref.read(chatSessionProvider.notifier);
@@ -7625,7 +7915,11 @@ Describe your project here.
         response: response,
       );
     } else if (widget.isCodex) {
-      bridge.cxRespondToPermission(requestId: request.id, response: response);
+      bridge.cxRespondToPermission(
+        requestId: request.id,
+        response: response,
+        execpolicyAmendment: execpolicyAmendment,
+      );
     } else {
       bridge.respondToPermission(
         sessionId: request.sessionId,
@@ -9049,6 +9343,10 @@ class _FloatingInputBar extends ConsumerWidget {
     this.agents = const [],
     this.currentAgent,
     this.onAgentChanged,
+    // OpenCode Plan Mode (SDK v1.1.18+)
+    this.isOpenCode = false,
+    this.ocPlanMode = false,
+    this.onPlanModeToggle,
   });
 
   final TextEditingController controller;
@@ -9066,6 +9364,10 @@ class _FloatingInputBar extends ConsumerWidget {
   final List<Agent> agents;
   final String? currentAgent;
   final void Function(String?)? onAgentChanged;
+  // OpenCode Plan Mode (SDK v1.1.18+)
+  final bool isOpenCode;
+  final bool ocPlanMode;
+  final VoidCallback? onPlanModeToggle;
 
   void _showFloatingInputMenu(BuildContext context, OpenCodeTheme theme) {
     final primaryAgents = agents.where((a) => a.isPrimary).toList();
@@ -9168,6 +9470,48 @@ class _FloatingInputBar extends ConsumerWidget {
                           ),
                         ),
                       ),
+                      // OpenCode Plan Mode toggle chip (SDK v1.1.18+)
+                      if (isOpenCode && onPlanModeToggle != null)
+                        GestureDetector(
+                          onTap: onPlanModeToggle,
+                          child: Container(
+                            height: 32,
+                            margin: const EdgeInsets.only(right: 8),
+                            padding: const EdgeInsets.symmetric(horizontal: 10),
+                            decoration: BoxDecoration(
+                              color: ocPlanMode
+                                  ? theme.warning.withValues(alpha: 0.15)
+                                  : kCard,
+                              borderRadius: BorderRadius.circular(16),
+                              border: Border.all(
+                                color: ocPlanMode
+                                    ? theme.warning.withValues(alpha: 0.4)
+                                    : fade(kMuted, 0.2),
+                              ),
+                            ),
+                            child: Row(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                Icon(
+                                  ocPlanMode
+                                      ? Icons.lightbulb_outline_rounded
+                                      : Icons.build_rounded,
+                                  size: 14,
+                                  color: ocPlanMode ? theme.warning : kMuted,
+                                ),
+                                const SizedBox(width: 4),
+                                Text(
+                                  ocPlanMode ? 'Plan' : 'Build',
+                                  style: TextStyle(
+                                    color: ocPlanMode ? theme.warning : kMuted,
+                                    fontSize: 12,
+                                    fontWeight: FontWeight.w500,
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                        ),
                       // Prompt bar container
                       Expanded(
                         child: Container(
@@ -9636,6 +9980,10 @@ class _CliStyleInputBar extends StatefulWidget {
     this.onCodexModelTap,
     // Custom accent color (null = use agent/permission mode color)
     this.customAccentColor,
+    // OpenCode Plan Mode (SDK v1.1.18+)
+    this.isOpenCode = false,
+    this.ocPlanMode = false,
+    this.onPlanModeToggle,
   });
 
   final TextEditingController controller;
@@ -9667,6 +10015,10 @@ class _CliStyleInputBar extends StatefulWidget {
   final VoidCallback? onCodexModelTap;
   // Custom accent color (null = use agent/permission mode color)
   final Color? customAccentColor;
+  // OpenCode Plan Mode (SDK v1.1.18+)
+  final bool isOpenCode;
+  final bool ocPlanMode; // true = "plan" mode, false = "build" mode
+  final VoidCallback? onPlanModeToggle;
 
   @override
   State<_CliStyleInputBar> createState() => _CliStyleInputBarState();
@@ -9962,6 +10314,66 @@ class _CliStyleInputBarState extends State<_CliStyleInputBar> {
                                             color: agentColor,
                                             fontSize: 13,
                                             fontWeight: FontWeight.w600,
+                                          ),
+                                        ),
+                                      ),
+                                    ],
+
+                                    // OpenCode Plan Mode toggle chip (SDK v1.1.18+)
+                                    if (widget.isOpenCode &&
+                                        widget.onPlanModeToggle != null) ...[
+                                      const SizedBox(width: 8),
+                                      GestureDetector(
+                                        onTap: widget.onPlanModeToggle,
+                                        child: Container(
+                                          padding: const EdgeInsets.symmetric(
+                                            horizontal: 8,
+                                            vertical: 3,
+                                          ),
+                                          decoration: BoxDecoration(
+                                            color: widget.ocPlanMode
+                                                ? theme.warning.withValues(
+                                                    alpha: 0.15,
+                                                  )
+                                                : theme.backgroundPanel,
+                                            borderRadius: BorderRadius.circular(
+                                              12,
+                                            ),
+                                            border: Border.all(
+                                              color: widget.ocPlanMode
+                                                  ? theme.warning.withValues(
+                                                      alpha: 0.4,
+                                                    )
+                                                  : theme.borderSubtle,
+                                            ),
+                                          ),
+                                          child: Row(
+                                            mainAxisSize: MainAxisSize.min,
+                                            children: [
+                                              Icon(
+                                                widget.ocPlanMode
+                                                    ? Icons
+                                                          .lightbulb_outline_rounded
+                                                    : Icons.build_rounded,
+                                                size: 12,
+                                                color: widget.ocPlanMode
+                                                    ? theme.warning
+                                                    : theme.textMuted,
+                                              ),
+                                              const SizedBox(width: 4),
+                                              Text(
+                                                widget.ocPlanMode
+                                                    ? 'Plan'
+                                                    : 'Build',
+                                                style: TextStyle(
+                                                  color: widget.ocPlanMode
+                                                      ? theme.warning
+                                                      : theme.textMuted,
+                                                  fontSize: 11,
+                                                  fontWeight: FontWeight.w500,
+                                                ),
+                                              ),
+                                            ],
                                           ),
                                         ),
                                       ),
@@ -10751,13 +11163,20 @@ class _ModelSelectorSheetState extends ConsumerState<_ModelSelectorSheet> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Text(
-          name,
-          style: TextStyle(
-            fontSize: 16,
-            fontWeight: FontWeight.w600,
-            color: kOnBackground,
-          ),
+        // Provider header with icon (SDK v1.1.18 provider-icon)
+        Row(
+          children: [
+            ProviderIcon(providerId: id, size: 22),
+            const SizedBox(width: 8),
+            Text(
+              name,
+              style: TextStyle(
+                fontSize: 16,
+                fontWeight: FontWeight.w600,
+                color: kOnBackground,
+              ),
+            ),
+          ],
         ),
         const SizedBox(height: 8),
         for (final entry in models.entries)

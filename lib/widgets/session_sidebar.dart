@@ -64,6 +64,14 @@ class SessionSidebar extends StatelessWidget {
                   if (isClaudeCode) ...[
                     _buildClaudeCodeInfoSection(context, theme),
                     const SizedBox(height: 20),
+                    if ((ccInit?.mcpServers ?? const []).isNotEmpty) ...[
+                      _buildClaudeCodeMcpSection(context, theme),
+                      const SizedBox(height: 20),
+                    ],
+                    if ((ccInit?.skills ?? const []).isNotEmpty) ...[
+                      _buildClaudeCodeSkillsSection(context, theme),
+                      const SizedBox(height: 20),
+                    ],
                     _buildPlanSection(context, theme),
                     const SizedBox(height: 20),
                   ] else ...[
@@ -315,6 +323,70 @@ class SessionSidebar extends StatelessWidget {
             ],
           ),
         ),
+      ],
+    );
+  }
+
+  Widget _buildClaudeCodeMcpSection(BuildContext context, OpenCodeTheme theme) {
+    final init = ccInit;
+    final servers = init?.mcpServers ?? const <Map<String, dynamic>>[];
+    return _SidebarSection(
+      theme: theme,
+      title: 'MCP Servers',
+      icon: Icons.dns_outlined,
+      children: [
+        for (final s in servers.take(12))
+          _McpServerRow(
+            name: (s['name'] ?? '').toString(),
+            status: (s['status'] ?? '').toString(),
+          ),
+        if (servers.length > 12)
+          Padding(
+            padding: const EdgeInsets.only(top: 6),
+            child: Text(
+              '+${servers.length - 12} more',
+              style: TextStyle(color: theme.textMuted, fontSize: 12),
+            ),
+          ),
+      ],
+    );
+  }
+
+  Widget _buildClaudeCodeSkillsSection(BuildContext context, OpenCodeTheme theme) {
+    final init = ccInit;
+    final skills = init?.skills ?? const <String>[];
+    return _SidebarSection(
+      theme: theme,
+      title: 'Skills',
+      icon: Icons.auto_awesome_outlined,
+      children: [
+        Wrap(
+          spacing: 6,
+          runSpacing: 6,
+          children: [
+            for (final s in skills.take(16))
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                decoration: BoxDecoration(
+                  color: theme.backgroundElement,
+                  borderRadius: BorderRadius.circular(999),
+                  border: Border.all(color: theme.borderSubtle),
+                ),
+                child: Text(
+                  s,
+                  style: TextStyle(color: theme.text, fontSize: 12),
+                ),
+              ),
+          ],
+        ),
+        if (skills.length > 16)
+          Padding(
+            padding: const EdgeInsets.only(top: 8),
+            child: Text(
+              '+${skills.length - 16} more',
+              style: TextStyle(color: theme.textMuted, fontSize: 12),
+            ),
+          ),
       ],
     );
   }
@@ -740,6 +812,56 @@ class _InfoRow extends StatelessWidget {
               color: theme.text,
               fontWeight: FontWeight.w500,
             ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _McpServerRow extends StatelessWidget {
+  const _McpServerRow({required this.name, required this.status});
+
+  final String name;
+  final String status;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = OpenCodeTheme.of(context);
+    final st = status.toLowerCase();
+    final color = st.contains('connected') || st == 'ok'
+        ? theme.success
+        : st.contains('needs_auth') || st.contains('auth')
+        ? theme.warning
+        : st.contains('registration') || st.contains('failed')
+        ? theme.error
+        : theme.textMuted;
+
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 8),
+      child: Row(
+        children: [
+          Container(
+            width: 8,
+            height: 8,
+            decoration: BoxDecoration(
+              color: color,
+              shape: BoxShape.circle,
+            ),
+          ),
+          const SizedBox(width: 10),
+          Expanded(
+            child: Text(
+              name.isEmpty ? 'server' : name,
+              style: TextStyle(color: theme.text, fontSize: 13),
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+            ),
+          ),
+          const SizedBox(width: 10),
+          Text(
+            status.isEmpty ? 'unknown' : status,
+            style: TextStyle(color: theme.textMuted, fontSize: 12),
           ),
         ],
       ),

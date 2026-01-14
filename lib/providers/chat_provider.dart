@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:convert';
 import 'dart:developer' as developer;
 
 import 'package:flutter/foundation.dart';
@@ -7,6 +8,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../models/claude_code.dart';
 import '../models/codex.dart';
 import '../models/message.dart';
+import '../models/question.dart';
 import '../models/session.dart';
 import '../models/todo.dart';
 import '../models/vcs.dart';
@@ -40,8 +42,13 @@ class ChatSessionState {
     this.cxModel,
     this.cxTokenUsage,
     this.cxIsStreaming = false,
+    this.pendingQuestion,
     // FIX: Track content length incrementally instead of recalculating every frame
     this.contentLength = 0,
+    // OpenCode Plan Mode (SDK v1.1.18+)
+    // "build" = default mode for making changes
+    // "plan" = research/planning mode (restricted file edits)
+    this.ocAgentMode = 'build',
   });
 
   final SessionSummary? session;
@@ -72,8 +79,16 @@ class ChatSessionState {
   final CodexThreadTokenUsage? cxTokenUsage;
   final bool cxIsStreaming;
 
+  // OpenCode Question tool support
+  final QuestionRequest? pendingQuestion;
+
   // FIX: Pre-computed content length for efficient auto-scroll detection
   final int contentLength;
+
+  // OpenCode Plan Mode (SDK v1.1.18+)
+  // "build" = default mode for making changes
+  // "plan" = research/planning mode (restricted file edits)
+  final String ocAgentMode;
 
   /// Get the effective session ID (works for both OC and CC)
   String? get effectiveSessionId => isClaudeCode
@@ -112,7 +127,9 @@ class ChatSessionState {
     String? cxModel,
     CodexThreadTokenUsage? cxTokenUsage,
     bool? cxIsStreaming,
+    QuestionRequest? pendingQuestion,
     int? contentLength,
+    String? ocAgentMode,
   }) {
     return ChatSessionState(
       session: session ?? this.session,
@@ -137,7 +154,9 @@ class ChatSessionState {
       cxModel: cxModel ?? this.cxModel,
       cxTokenUsage: cxTokenUsage ?? this.cxTokenUsage,
       cxIsStreaming: cxIsStreaming ?? this.cxIsStreaming,
+      pendingQuestion: pendingQuestion ?? this.pendingQuestion,
       contentLength: contentLength ?? this.contentLength,
+      ocAgentMode: ocAgentMode ?? this.ocAgentMode,
     );
   }
 }
@@ -149,6 +168,7 @@ class ChatSessionNotifier extends StateNotifier<ChatSessionState> {
     _cxSubscription = _bridge.codexStreamMessages.listen(
       _handleCodexStreamMessage,
     );
+    _rawSubscription = _bridge.messages.listen(_handleRawBridgeMessage);
   }
 
   final BridgeService _bridge;
@@ -160,6 +180,9 @@ class ChatSessionNotifier extends StateNotifier<ChatSessionState> {
   StreamSubscription<Map<String, dynamic>>? _subscription;
   StreamSubscription<ClaudeCodeStreamMessage>? _ccSubscription;
   StreamSubscription<CodexStreamMessage>? _cxSubscription;
+  StreamSubscription<Map<String, dynamic>>? _rawSubscription;
+
+  final Map<String, int> _lastCcFsNoticeAtMs = {};
 
   final List<Map<String, dynamic>> _pendingEvents = [];
   Timer? _flushTimer;
@@ -170,6 +193,20 @@ class ChatSessionNotifier extends StateNotifier<ChatSessionState> {
   final Map<String, StringBuffer> _pendingTextBuffers = {};
   int _lastRttMs = 0;
   bool _lspStatusFetched = false;
+
+  Future<void> replyToPendingQuestion(List<List<String>> answers) async {
+    final req = state.pendingQuestion;
+    if (req == null || req.id.isEmpty) return;
+    await _bridge.ocReplyToQuestion(requestId: req.id, answers: answers);
+    state = state.copyWith(pendingQuestion: null);
+  }
+
+  Future<void> rejectPendingQuestion() async {
+    final req = state.pendingQuestion;
+    if (req == null || req.id.isEmpty) return;
+    await _bridge.ocRejectQuestion(requestId: req.id);
+    state = state.copyWith(pendingQuestion: null);
+  }
 
   String _normalizeUserText(String text) {
     return text.trim().replaceAll(RegExp(r'\s+'), ' ');
@@ -413,6 +450,14 @@ class ChatSessionNotifier extends StateNotifier<ChatSessionState> {
   void setCCModel(String? model) {
     if (!state.isClaudeCode) return;
     state = state.copyWith(ccModel: model);
+  }
+
+  /// Set OpenCode agent mode ("build" or "plan")
+  /// Used for manual toggling from UI or when plan_enter/plan_exit tools complete
+  void setOCAgentMode(String mode) {
+    if (state.isClaudeCode || state.isCodex) return;
+    final validMode = (mode == 'plan') ? 'plan' : 'build';
+    state = state.copyWith(ocAgentMode: validMode);
   }
 
   void setCodexThread({
@@ -1000,7 +1045,8 @@ class ChatSessionNotifier extends StateNotifier<ChatSessionState> {
     if (type == null) return;
 
     String extractSessionIdFromSdkPayload(Map<String, dynamic> payload) {
-      final properties = payload['properties'] as Map<String, dynamic>? ?? const {};
+      final properties =
+          payload['properties'] as Map<String, dynamic>? ?? const {};
       final info = properties['info'] as Map<String, dynamic>?;
       final part = properties['part'] as Map<String, dynamic>?;
       return (info?['sessionID'] as String?) ??
@@ -1024,8 +1070,10 @@ class ChatSessionNotifier extends StateNotifier<ChatSessionState> {
     if (!shouldBypassDirectoryFilter) {
       final eventDirectory = event['directory'] as String?;
       if (eventDirectory != null && state.projectPath != null) {
-        final normalizedEventDir =
-            eventDirectory.replaceAll(RegExp(r'/+$'), '');
+        final normalizedEventDir = eventDirectory.replaceAll(
+          RegExp(r'/+$'),
+          '',
+        );
         final normalizedStateDir = state.projectPath!.replaceAll(
           RegExp(r'/+$'),
           '',
@@ -1049,6 +1097,15 @@ class ChatSessionNotifier extends StateNotifier<ChatSessionState> {
         break;
       case 'permission.replied':
         _handlePermissionReplied(payload);
+        break;
+      case 'question.asked':
+        _handleQuestionAsked(payload);
+        break;
+      case 'question.replied':
+        _handleQuestionReplied(payload);
+        break;
+      case 'question.rejected':
+        _handleQuestionRejected(payload);
         break;
       case 'session.diff':
         _handleSessionDiff(payload);
@@ -1325,6 +1382,16 @@ class ChatSessionNotifier extends StateNotifier<ChatSessionState> {
         _lspStatusFetched = true;
         _fetchLspStatus();
       }
+
+      // OpenCode Plan Mode: Detect plan_enter/plan_exit tool completion
+      // When these tools complete, update the agent mode state
+      if (status == 'completed') {
+        if (toolName == 'plan_enter') {
+          state = state.copyWith(ocAgentMode: 'plan');
+        } else if (toolName == 'plan_exit') {
+          state = state.copyWith(ocAgentMode: 'build');
+        }
+      }
     }
 
     // Handle subtask parts (background task notifications)
@@ -1454,6 +1521,47 @@ class ChatSessionNotifier extends StateNotifier<ChatSessionState> {
           .where((item) => item.id != requestId)
           .toList(),
     );
+  }
+
+  void _handleQuestionAsked(Map<String, dynamic> payload) {
+    final properties =
+        payload['properties'] as Map<String, dynamic>? ?? const {};
+    final sessionId =
+        (properties['sessionID'] as String?) ??
+        (properties['sessionId'] as String?) ??
+        '';
+    if (sessionId.isEmpty || state.session?.id != sessionId) return;
+    final request = QuestionRequest.fromJson(properties);
+    if (request.id.isEmpty) return;
+    state = state.copyWith(pendingQuestion: request);
+  }
+
+  void _handleQuestionReplied(Map<String, dynamic> payload) {
+    final properties =
+        payload['properties'] as Map<String, dynamic>? ?? const {};
+    final requestId =
+        (properties['requestID'] as String?) ??
+        (properties['requestId'] as String?) ??
+        '';
+    if (requestId.isEmpty) return;
+    final pending = state.pendingQuestion;
+    if (pending != null && pending.id == requestId) {
+      state = state.copyWith(pendingQuestion: null);
+    }
+  }
+
+  void _handleQuestionRejected(Map<String, dynamic> payload) {
+    final properties =
+        payload['properties'] as Map<String, dynamic>? ?? const {};
+    final requestId =
+        (properties['requestID'] as String?) ??
+        (properties['requestId'] as String?) ??
+        '';
+    if (requestId.isEmpty) return;
+    final pending = state.pendingQuestion;
+    if (pending != null && pending.id == requestId) {
+      state = state.copyWith(pendingQuestion: null);
+    }
   }
 
   void _handleSessionDiff(Map<String, dynamic> payload) {
@@ -1815,8 +1923,9 @@ class ChatSessionNotifier extends StateNotifier<ChatSessionState> {
         ccModel: message.model ?? state.ccModel,
         ccIsStreaming: true,
       );
-      final nextSessionId =
-          message.sessionId.isNotEmpty ? message.sessionId : prevSessionId;
+      final nextSessionId = message.sessionId.isNotEmpty
+          ? message.sessionId
+          : prevSessionId;
       if (nextSessionId.isNotEmpty && nextSessionId != prevSessionId) {
         _bridge.setView(sessionId: nextSessionId, agent: 'claude-code');
       }
@@ -1833,8 +1942,9 @@ class ChatSessionNotifier extends StateNotifier<ChatSessionState> {
         ccInit: message,
         ccIsStreaming: true,
       );
-      final nextSessionId =
-          message.sessionId.isNotEmpty ? message.sessionId : prevSessionId;
+      final nextSessionId = message.sessionId.isNotEmpty
+          ? message.sessionId
+          : prevSessionId;
       if (nextSessionId.isNotEmpty && nextSessionId != prevSessionId) {
         _bridge.setView(sessionId: nextSessionId, agent: 'claude-code');
       }
@@ -2078,6 +2188,53 @@ class ChatSessionNotifier extends StateNotifier<ChatSessionState> {
     state = state.copyWith(ccIsStreaming: isStreaming);
   }
 
+  void _handleRawBridgeMessage(Map<String, dynamic> msg) {
+    if (!state.isClaudeCode) return;
+    if (msg['type'] != 'cc_fs_changed') return;
+    final data = msg['data'];
+    if (data is! Map) return;
+
+    final kind = data['kind']?.toString() ?? '';
+    if (kind.isEmpty) return;
+
+    final cwd = data['cwd']?.toString();
+    final activeCwd = state.ccCwd ?? '';
+    if (cwd != null &&
+        cwd.isNotEmpty &&
+        activeCwd.isNotEmpty &&
+        cwd != activeCwd) {
+      return;
+    }
+
+    final now = DateTime.now().millisecondsSinceEpoch;
+    final key = '$kind:${cwd ?? ''}';
+    final last = _lastCcFsNoticeAtMs[key] ?? 0;
+    if (now - last < 1500) return;
+    _lastCcFsNoticeAtMs[key] = now;
+
+    final file = data['file']?.toString();
+    final suffix = (file != null && file.isNotEmpty) ? ': $file' : '';
+    final text = switch (kind) {
+      'mcp' =>
+        'MCP config changed$suffix. New tools apply on next session start.',
+      'skills' => 'Skills changed$suffix. Refresh the Skills screen if needed.',
+      'plugins' =>
+        'Plugins changed$suffix. New capabilities apply on next session start.',
+      'commands' => 'Commands changed$suffix.',
+      'hooks' => 'Hooks changed$suffix.',
+      _ => 'Claude Code files changed$suffix.',
+    };
+
+    final sys = ChatMessage(
+      id: 'cc-fs-$kind-$now',
+      sessionId: state.ccSessionId ?? '',
+      role: MessageRole.system,
+      createdAt: DateTime.now(),
+      text: text,
+    );
+    _addMessage(sys);
+  }
+
   // ============================================================
   // Codex Stream Message Handling
   // ============================================================
@@ -2129,6 +2286,16 @@ class ChatSessionNotifier extends StateNotifier<ChatSessionState> {
           'itemId': (params['itemId'] ?? params['item_id'])?.toString(),
           'method': message.method,
         };
+        final proposed =
+            params['proposedExecpolicyAmendment'] ??
+            params['proposed_execpolicy_amendment'];
+        if (proposed != null) {
+          metadata['proposedExecpolicyAmendment'] = proposed;
+        }
+        final reason = params['reason'];
+        if (reason != null) {
+          metadata['reason'] = reason;
+        }
 
         String? command;
         if (cachedItem is Map<String, dynamic>) {
@@ -2174,6 +2341,102 @@ class ChatSessionNotifier extends StateNotifier<ChatSessionState> {
         threadId.isNotEmpty &&
         state.cxThreadId != null &&
         state.cxThreadId != threadId) {
+      return;
+    }
+
+    if (method == 'rawResponseItem/completed') {
+      final item = params['item'];
+      if (item is Map) {
+        final type = item['type']?.toString() ?? '';
+        final callId =
+            (item['call_id'] ?? item['callId'] ?? item['id'])?.toString() ?? '';
+
+        String? toolName;
+        Object? toolInputValue;
+        Map<String, dynamic>? toolInput;
+        String? toolOutput;
+        var status = 'completed';
+
+        Object? tryParseJsonString(String? raw) {
+          if (raw == null) return null;
+          final trimmed = raw.trim();
+          if (trimmed.isEmpty) return null;
+          try {
+            return jsonDecode(trimmed);
+          } catch (_) {
+            return trimmed;
+          }
+        }
+
+        if (type == 'function_call') {
+          toolName = item['name']?.toString();
+          toolInputValue = tryParseJsonString(item['arguments']?.toString());
+          status = 'running';
+        } else if (type == 'function_call_output') {
+          toolOutput = item['output'] is String
+              ? item['output']?.toString()
+              : jsonEncode(item['output']);
+          status = 'completed';
+        } else if (type == 'custom_tool_call') {
+          toolName = item['name']?.toString();
+          toolInputValue = tryParseJsonString(item['input']?.toString());
+          status = 'running';
+        } else if (type == 'custom_tool_call_output') {
+          toolOutput = item['output']?.toString();
+          status = 'completed';
+        }
+
+        if (toolInputValue is Map) {
+          toolInput = toolInputValue.cast<String, dynamic>();
+        } else if (toolInputValue != null) {
+          toolInput = {'value': toolInputValue};
+        }
+
+        if (callId.isNotEmpty &&
+            (toolName != null ||
+                toolOutput != null ||
+                _cxPendingToolCallsById.containsKey(callId))) {
+          final existing = _cxPendingToolCallsById[callId];
+
+          if (existing != null) {
+            _cxPendingToolCallsById[callId] = existing.copyWith(
+              input: toolInput ?? existing.input,
+              output: toolOutput ?? existing.output,
+              status: status,
+            );
+          } else if (toolName != null) {
+            _cxPendingToolCallsById[callId] = ToolCall(
+              callId: callId,
+              partId: callId,
+              name: toolName,
+              title: toolName,
+              status: status,
+              input: toolInput ?? item.cast<String, dynamic>(),
+              output: toolOutput,
+              metadata: const <String, dynamic>{'source': 'rawResponseItem'},
+            );
+            _cxOrderedParts.add(
+              ToolPart(sequence: _cxPartSequence++, callId: callId),
+            );
+          } else if (toolOutput != null) {
+            _cxPendingToolCallsById[callId] = ToolCall(
+              callId: callId,
+              partId: callId,
+              name: 'Tool',
+              title: 'Tool',
+              status: 'completed',
+              input: item.cast<String, dynamic>(),
+              output: toolOutput,
+              metadata: const <String, dynamic>{'source': 'rawResponseItem'},
+            );
+            _cxOrderedParts.add(
+              ToolPart(sequence: _cxPartSequence++, callId: callId),
+            );
+          }
+
+          _cxScheduleAssistantUpdate(isStreaming: state.cxIsStreaming);
+        }
+      }
       return;
     }
 
@@ -2484,6 +2747,7 @@ class ChatSessionNotifier extends StateNotifier<ChatSessionState> {
     _subscription?.cancel();
     _ccSubscription?.cancel();
     _cxSubscription?.cancel();
+    _rawSubscription?.cancel();
     _flushTimer?.cancel();
     _textDebounceTimer?.cancel();
     _ccUpdateTimer?.cancel();

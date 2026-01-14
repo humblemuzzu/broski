@@ -25,6 +25,7 @@ import 'opencode_plugins_screen.dart';
 import 'claude_code_mcp_screen.dart';
 import 'codex_mcp_screen.dart';
 import 'claude_code_commands_screen.dart';
+import 'claude_code_settings_screen.dart';
 import 'opencode_agents_screen.dart';
 import 'opencode_commands_screen.dart';
 import 'permission_rules_screen.dart';
@@ -368,6 +369,18 @@ class SettingsScreen extends ConsumerWidget {
                   child: _SettingsCard(
                     child: Column(
                       children: [
+                        _SettingsTile(
+                          title: 'Settings',
+                          subtitle: 'Language, gitignore, channel',
+                          icon: Icons.tune_rounded,
+                          onTap: () => Navigator.push(
+                            context,
+                            MaterialPageRoute(
+                              builder: (_) => const ClaudeCodeSettingsScreen(),
+                            ),
+                          ),
+                        ),
+                        _Divider(),
                         _SettingsTile(
                           title: 'Skills',
                           subtitle: 'SKILL.md management',

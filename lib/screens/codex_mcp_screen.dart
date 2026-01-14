@@ -100,6 +100,31 @@ class _CodexMcpScreenState extends ConsumerState<CodexMcpScreen>
     }
   }
 
+  /// Hot reload MCP server config (Codex SDK feature)
+  Future<void> _hotReload() async {
+    final oc = OpenCodeTheme.of(context);
+    try {
+      final bridge = ref.read(bridgeServiceProvider);
+      await bridge.cxMcpReload();
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: const Text('MCP config reloaded'),
+          backgroundColor: oc.success,
+        ),
+      );
+      await _load(); // Refresh status after reload
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Failed to reload: $e'),
+          backgroundColor: oc.error,
+        ),
+      );
+    }
+  }
+
   Future<void> _addServer() async {
     final nameController = TextEditingController();
     final name = await showDialog<String>(
@@ -227,10 +252,16 @@ class _CodexMcpScreenState extends ConsumerState<CodexMcpScreen>
         title: Text('MCP', style: TextStyle(color: oc.text)),
         iconTheme: IconThemeData(color: oc.text),
         actions: [
+          // Hot Reload button (Codex SDK feature)
+          IconButton(
+            icon: const Icon(Icons.bolt_rounded),
+            onPressed: _dirty ? null : _hotReload,
+            tooltip: 'Hot Reload',
+          ),
           IconButton(
             icon: const Icon(Icons.refresh_rounded),
             onPressed: _dirty ? null : _load,
-            tooltip: 'Reload',
+            tooltip: 'Refresh Status',
           ),
           IconButton(
             icon: const Icon(Icons.add_rounded),

@@ -13,6 +13,10 @@ class PermissionPrompt extends StatefulWidget {
     required this.onApprove,
     required this.onDeny,
     required this.onAlwaysAllow,
+    this.approveOnceLabel = 'Once',
+    this.approveAlwaysLabel = 'Always',
+    this.onApproveWithExecpolicy,
+    this.approveWithExecpolicyLabel,
     this.onDenyWithMessage,
   });
 
@@ -20,6 +24,10 @@ class PermissionPrompt extends StatefulWidget {
   final VoidCallback onApprove;
   final VoidCallback onDeny;
   final VoidCallback onAlwaysAllow;
+  final String approveOnceLabel;
+  final String approveAlwaysLabel;
+  final VoidCallback? onApproveWithExecpolicy;
+  final String? approveWithExecpolicyLabel;
 
   /// Called when user wants to deny with a feedback message
   final void Function(String message)? onDenyWithMessage;
@@ -224,44 +232,67 @@ class _PermissionPromptState extends State<PermissionPrompt> {
 
           // Action buttons: Reject | Once | Always (hidden when showing feedback)
           if (!_showRejectFeedback)
-            Row(
+            Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
-                Expanded(
-                  child: OutlinedButton(
-                    onPressed: _handleRejectTap,
-                    style: OutlinedButton.styleFrom(
-                      foregroundColor: theme.error,
-                      side: BorderSide(
-                        color: theme.error.withValues(alpha: 0.5),
+                Row(
+                  children: [
+                    Expanded(
+                      child: OutlinedButton(
+                        onPressed: _handleRejectTap,
+                        style: OutlinedButton.styleFrom(
+                          foregroundColor: theme.error,
+                          side: BorderSide(
+                            color: theme.error.withValues(alpha: 0.5),
+                          ),
+                        ),
+                        child: const Text('Reject'),
                       ),
                     ),
-                    child: const Text('Reject'),
-                  ),
-                ),
-                const SizedBox(width: 10),
-                Expanded(
-                  child: OutlinedButton(
-                    onPressed: widget.onApprove,
-                    style: OutlinedButton.styleFrom(
-                      foregroundColor: theme.accent,
-                      side: BorderSide(
-                        color: theme.accent.withValues(alpha: 0.5),
+                    const SizedBox(width: 10),
+                    Expanded(
+                      child: OutlinedButton(
+                        onPressed: widget.onApprove,
+                        style: OutlinedButton.styleFrom(
+                          foregroundColor: theme.accent,
+                          side: BorderSide(
+                            color: theme.accent.withValues(alpha: 0.5),
+                          ),
+                        ),
+                        child: Text(widget.approveOnceLabel),
                       ),
                     ),
-                    child: const Text('Once'),
-                  ),
-                ),
-                const SizedBox(width: 10),
-                Expanded(
-                  child: ElevatedButton(
-                    onPressed: widget.onAlwaysAllow,
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: theme.accent,
-                      foregroundColor: Colors.white,
+                    const SizedBox(width: 10),
+                    Expanded(
+                      child: ElevatedButton(
+                        onPressed: widget.onAlwaysAllow,
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: theme.accent,
+                          foregroundColor: Colors.white,
+                        ),
+                        child: Text(widget.approveAlwaysLabel),
+                      ),
                     ),
-                    child: const Text('Always'),
-                  ),
+                  ],
                 ),
+                if (widget.onApproveWithExecpolicy != null) ...[
+                  const SizedBox(height: 10),
+                  OutlinedButton.icon(
+                    onPressed: widget.onApproveWithExecpolicy,
+                    icon: const Icon(Icons.auto_fix_high_rounded, size: 18),
+                    label: Text(
+                      widget.approveWithExecpolicyLabel ??
+                          'Always allow this command prefix',
+                    ),
+                    style: OutlinedButton.styleFrom(
+                      foregroundColor: theme.info,
+                      side: BorderSide(
+                        color: theme.info.withValues(alpha: 0.4),
+                      ),
+                      padding: const EdgeInsets.symmetric(vertical: 12),
+                    ),
+                  ),
+                ],
               ],
             ),
         ],

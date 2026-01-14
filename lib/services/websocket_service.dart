@@ -67,6 +67,9 @@ class WebSocketService {
   static const _immediateTypes = {
     'permission_response',
     'cc_permission_response',
+    'cx_permission_response',
+    'oc_question_reply',
+    'oc_question_reject',
     'abort',
     'cc_abort',
     'pong',

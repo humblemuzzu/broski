@@ -1,3 +1,5 @@
+import 'dart:convert';
+
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_highlight/flutter_highlight.dart';
@@ -5,8 +7,11 @@ import 'package:flutter_highlight/themes/atom-one-dark.dart';
 import 'package:google_fonts/google_fonts.dart';
 
 import '../models/message.dart';
+import '../screens/text_file_viewer_screen.dart';
 import '../theme/opencode_theme.dart';
 import '../theme/tool_style.dart';
+import 'file_viewers/unified_file_viewer.dart';
+import 'truncated_output.dart';
 
 class ToolCallCard extends StatefulWidget {
   const ToolCallCard({
@@ -32,6 +37,10 @@ class _ToolCallCardState extends State<ToolCallCard> {
   bool _isExpanded = false;
   bool _showAllCode = false;
   bool _showAllOutput = false;
+  static final _fullOutputPathRe = RegExp(
+    r'Full output saved to:\\s*(.+)$',
+    multiLine: true,
+  );
 
   /// Check if this is an edit tool with diff content
   bool get _isEditWithDiff {
@@ -565,10 +574,31 @@ class _ToolCallCardState extends State<ToolCallCard> {
   }
 
   Widget _buildOutput(String output, OpenCodeTheme theme) {
+    final truncMatch = _fullOutputPathRe.firstMatch(output);
+    final resourceWidget = _tryBuildMcpResourceOutput(output, theme);
     final lines = output.split('\n');
     final shown = _showAllOutput ? lines : lines.take(5).toList();
     final preview = shown.join('\n');
     final hasMore = lines.length > shown.length;
+
+    if (resourceWidget != null) {
+      return Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const SizedBox(height: 8),
+          Text(
+            'Output',
+            style: TextStyle(
+              fontSize: 11,
+              fontWeight: FontWeight.w600,
+              color: theme.textMuted.withValues(alpha: 0.7),
+            ),
+          ),
+          const SizedBox(height: 6),
+          resourceWidget,
+        ],
+      );
+    }
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -583,22 +613,37 @@ class _ToolCallCardState extends State<ToolCallCard> {
           ),
         ),
         const SizedBox(height: 6),
-        Container(
-          padding: const EdgeInsets.all(12),
-          decoration: BoxDecoration(
-            color: theme.backgroundElement,
-            borderRadius: BorderRadius.circular(10),
-            border: Border.all(color: theme.borderSubtle),
-          ),
-          child: Text(
-            preview,
-            style: GoogleFonts.jetBrainsMono(
-              fontSize: 11,
-              color: theme.text,
-              height: 1.5,
+        if (truncMatch != null)
+          TruncatedOutput(
+            output: output,
+            onOpenFile: (path) {
+              Navigator.of(context).push(
+                MaterialPageRoute(
+                  builder: (_) => TextFileViewerScreen(
+                    path: path,
+                    title: 'Full output',
+                  ),
+                ),
+              );
+            },
+          )
+        else
+          Container(
+            padding: const EdgeInsets.all(12),
+            decoration: BoxDecoration(
+              color: theme.backgroundElement,
+              borderRadius: BorderRadius.circular(10),
+              border: Border.all(color: theme.borderSubtle),
+            ),
+            child: Text(
+              preview,
+              style: GoogleFonts.jetBrainsMono(
+                fontSize: 11,
+                color: theme.text,
+                height: 1.5,
+              ),
             ),
           ),
-        ),
         if (hasMore || _showAllOutput)
           Padding(
             padding: const EdgeInsets.only(top: 6),
@@ -622,6 +667,117 @@ class _ToolCallCardState extends State<ToolCallCard> {
                     ),
                   ),
                 ),
+              ),
+            ),
+          ),
+      ],
+    );
+  }
+
+  Widget? _tryBuildMcpResourceOutput(String output, OpenCodeTheme theme) {
+    // OpenCode MCP can return `{"type":"resource","resource":{...}}` which we
+    // render as text + an attachment card (image/file).
+    dynamic decoded;
+    try {
+      decoded = jsonDecode(output);
+    } catch (_) {
+      return null;
+    }
+    if (decoded is! Map) return null;
+    if (decoded['type'] != 'resource') return null;
+    final resource = decoded['resource'];
+    if (resource is! Map) return null;
+
+    final text = resource['text']?.toString();
+    final blob = resource['blob']?.toString();
+    final mimeType = resource['mimeType']?.toString();
+    final uri = resource['uri']?.toString() ?? 'resource';
+
+    Uint8List? bytes;
+    if (blob != null && blob.isNotEmpty) {
+      try {
+        bytes = base64Decode(blob);
+      } catch (_) {
+        bytes = null;
+      }
+    }
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        if (text != null && text.trim().isNotEmpty) ...[
+          Container(
+            width: double.infinity,
+            padding: const EdgeInsets.all(12),
+            decoration: BoxDecoration(
+              color: theme.backgroundElement,
+              borderRadius: BorderRadius.circular(10),
+              border: Border.all(color: theme.borderSubtle),
+            ),
+            child: Text(
+              text.trimRight(),
+              style: GoogleFonts.jetBrainsMono(
+                fontSize: 11,
+                color: theme.text,
+                height: 1.5,
+              ),
+            ),
+          ),
+          const SizedBox(height: 8),
+        ],
+        if (bytes != null)
+          InkWell(
+            onTap: () {
+              Navigator.of(context).push(
+                MaterialPageRoute(
+                  builder: (_) => Scaffold(
+                    backgroundColor: theme.background,
+                    appBar: AppBar(
+                      backgroundColor: theme.background,
+                      foregroundColor: theme.text,
+                      title: Text(
+                        uri,
+                        style: TextStyle(color: theme.text),
+                      ),
+                    ),
+                    body: UnifiedFileViewer(
+                      filePath: uri,
+                      textContent: text,
+                      binaryData: bytes,
+                      mimeType: mimeType,
+                    ),
+                  ),
+                ),
+              );
+            },
+            borderRadius: BorderRadius.circular(12),
+            child: Container(
+              width: double.infinity,
+              padding: const EdgeInsets.all(12),
+              decoration: BoxDecoration(
+                color: theme.backgroundElement,
+                borderRadius: BorderRadius.circular(12),
+                border: Border.all(color: theme.borderSubtle),
+              ),
+              child: Row(
+                children: [
+                  Icon(
+                    (mimeType ?? '').startsWith('image/')
+                        ? Icons.image_outlined
+                        : Icons.attach_file_rounded,
+                    color: theme.info,
+                    size: 18,
+                  ),
+                  const SizedBox(width: 10),
+                  Expanded(
+                    child: Text(
+                      uri,
+                      style: TextStyle(color: theme.text, fontSize: 12),
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                  ),
+                  Icon(Icons.open_in_new_rounded, color: theme.textMuted, size: 18),
+                ],
               ),
             ),
           ),
