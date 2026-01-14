@@ -40,6 +40,7 @@ class BridgeConnectionState {
     this.isReconnecting = false,
     this.rttMs,
     this.isOfflineMode = false,
+    this.isDemoMode = false,
     this.connectionType = ConnectionType.unknown,
     this.connectedHost,
     this.thisDevice,
@@ -62,6 +63,10 @@ class BridgeConnectionState {
   /// When true, the app operates in read-only mode using cached data.
   /// User can browse projects, sessions, and messages but cannot send new messages.
   final bool isOfflineMode;
+
+  /// When true, the app shows demo/sample data for App Store review.
+  /// This allows reviewers to see the app's functionality without a bridge connection.
+  final bool isDemoMode;
 
   /// Last connection event (for providers to react to reconnection)
   final ConnectionEvent? lastEvent;
@@ -95,6 +100,7 @@ class BridgeConnectionState {
     bool? isReconnecting,
     int? rttMs,
     bool? isOfflineMode,
+    bool? isDemoMode,
     ConnectionType? connectionType,
     String? connectedHost,
     DeviceInfo? thisDevice,
@@ -109,6 +115,7 @@ class BridgeConnectionState {
       isReconnecting: isReconnecting ?? this.isReconnecting,
       rttMs: rttMs ?? this.rttMs,
       isOfflineMode: isOfflineMode ?? this.isOfflineMode,
+      isDemoMode: isDemoMode ?? this.isDemoMode,
       connectionType: connectionType ?? this.connectionType,
       connectedHost: connectedHost ?? this.connectedHost,
       thisDevice: thisDevice ?? this.thisDevice,
@@ -676,6 +683,24 @@ class ConnectionNotifier extends StateNotifier<BridgeConnectionState>
   /// Exit offline mode
   void exitOfflineMode() {
     state = state.copyWith(isOfflineMode: false);
+    // Try to reconnect if we have a saved connection
+    final connection = state.connection;
+    if (connection != null) {
+      connect(connection);
+    }
+  }
+
+  /// Enter demo mode - shows sample data for App Store review
+  /// Demo mode uses pre-built sample sessions and messages to demonstrate
+  /// the app's functionality without requiring a bridge connection.
+  void enterDemoMode() {
+    _reconnectTimer?.cancel();
+    state = state.copyWith(isDemoMode: true, isOfflineMode: true);
+  }
+
+  /// Exit demo mode
+  void exitDemoMode() {
+    state = state.copyWith(isDemoMode: false, isOfflineMode: false);
     // Try to reconnect if we have a saved connection
     final connection = state.connection;
     if (connection != null) {

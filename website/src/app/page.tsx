@@ -298,9 +298,20 @@ export default function Home() {
               className="opacity-60"
             />
           </div>
-          <p className="text-xs text-muted-foreground/60">
-            Built for developers, by developers
-          </p>
+          <div className="flex items-center gap-6 text-sm text-muted-foreground">
+            <a href="/docs" className="hover:text-foreground transition-colors">
+              Docs
+            </a>
+            <a href="/legal/privacy" className="hover:text-foreground transition-colors">
+              Privacy
+            </a>
+            <a href="/legal/terms" className="hover:text-foreground transition-colors">
+              Terms
+            </a>
+            <a href="mailto:broskiappp@gmail.com" className="hover:text-foreground transition-colors">
+              Support
+            </a>
+          </div>
         </div>
       </footer>
     </main>

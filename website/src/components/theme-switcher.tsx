@@ -2,7 +2,13 @@
 
 import { useState, useEffect } from "react";
 
-type Theme = "opencode" | "broski";
+type Theme = "opencode" | "broski" | "light";
+
+const themeConfig: Record<Theme, { next: Theme }> = {
+  opencode: { next: "broski" },
+  broski: { next: "light" },
+  light: { next: "opencode" },
+};
 
 export function ThemeSwitcher() {
   const [theme, setTheme] = useState<Theme>("opencode");
@@ -10,9 +16,8 @@ export function ThemeSwitcher() {
 
   useEffect(() => {
     setMounted(true);
-    // Check for saved preference
     const saved = localStorage.getItem("broski-theme") as Theme | null;
-    if (saved && (saved === "opencode" || saved === "broski")) {
+    if (saved && (saved === "opencode" || saved === "broski" || saved === "light")) {
       setTheme(saved);
       applyTheme(saved);
     }
@@ -20,52 +25,52 @@ export function ThemeSwitcher() {
 
   const applyTheme = (newTheme: Theme) => {
     const html = document.documentElement;
+    html.classList.remove("theme-broski", "theme-light");
     if (newTheme === "broski") {
       html.classList.add("theme-broski");
-    } else {
-      html.classList.remove("theme-broski");
+    } else if (newTheme === "light") {
+      html.classList.add("theme-light");
     }
   };
 
-  const toggleTheme = () => {
-    const newTheme = theme === "opencode" ? "broski" : "opencode";
-    setTheme(newTheme);
-    applyTheme(newTheme);
-    localStorage.setItem("broski-theme", newTheme);
+  const cycleTheme = () => {
+    const nextTheme = themeConfig[theme].next;
+    setTheme(nextTheme);
+    applyTheme(nextTheme);
+    localStorage.setItem("broski-theme", nextTheme);
   };
 
   if (!mounted) return null;
 
+  // Small icon buttons like Agentset
   return (
-    <button
-      onClick={toggleTheme}
-      className="fixed top-4 right-4 z-50 flex items-center gap-2 px-3 py-2 rounded-full bg-card border border-border/50 text-sm font-medium text-foreground hover:bg-muted transition-colors"
-      title={`Switch to ${theme === "opencode" ? "Broski" : "OpenCode"} theme`}
-    >
-      {theme === "opencode" ? (
-        <>
-          <span className="w-3 h-3 rounded-full bg-[#fab283]" />
-          <span className="hidden sm:inline">OpenCode</span>
-        </>
-      ) : (
-        <>
-          <span className="w-3 h-3 rounded-full bg-[#D0D0D4]" />
-          <span className="hidden sm:inline">Broski</span>
-        </>
-      )}
-      <svg
-        className="w-4 h-4 opacity-60"
-        fill="none"
-        viewBox="0 0 24 24"
-        stroke="currentColor"
+    <div className="flex items-center gap-1">
+      <button
+        onClick={cycleTheme}
+        className="p-1.5 rounded-md text-muted-foreground hover:text-foreground hover:bg-muted/50 transition-colors"
+        title="Toggle theme"
       >
-        <path
-          strokeLinecap="round"
-          strokeLinejoin="round"
-          strokeWidth={2}
-          d="M7 21a4 4 0 01-4-4V5a2 2 0 012-2h4a2 2 0 012 2v12a4 4 0 01-4 4zm0 0h12a2 2 0 002-2v-4a2 2 0 00-2-2h-2.343M11 7.343l1.657-1.657a2 2 0 012.828 0l2.829 2.829a2 2 0 010 2.828l-8.486 8.485M7 17h.01"
-        />
-      </svg>
-    </button>
+        {theme === "light" ? (
+          // Sun icon for light mode
+          <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+            <path strokeLinecap="round" strokeLinejoin="round" d="M12 3v1m0 16v1m9-9h-1M4 12H3m15.364 6.364l-.707-.707M6.343 6.343l-.707-.707m12.728 0l-.707.707M6.343 17.657l-.707.707M16 12a4 4 0 11-8 0 4 4 0 018 0z" />
+          </svg>
+        ) : (
+          // Moon icon for dark modes
+          <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+            <path strokeLinecap="round" strokeLinejoin="round" d="M20.354 15.354A9 9 0 018.646 3.646 9.003 9.003 0 0012 21a9.003 9.003 0 008.354-5.646z" />
+          </svg>
+        )}
+      </button>
+      <button
+        onClick={cycleTheme}
+        className="p-1.5 rounded-md text-muted-foreground hover:text-foreground hover:bg-muted/50 transition-colors"
+        title="Color scheme"
+      >
+        <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+          <path strokeLinecap="round" strokeLinejoin="round" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+        </svg>
+      </button>
+    </div>
   );
 }

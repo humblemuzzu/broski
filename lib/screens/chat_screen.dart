@@ -511,6 +511,14 @@ class _ChatScreenState extends ConsumerState<ChatScreen>
     // OpenCode mode - set up OC session in provider
     chat.setSession(widget.session, projectPath: widget.project.path);
 
+    // Demo mode - use sample messages from DemoDataService
+    if (connection.isDemoMode) {
+      chat.hydrateDemoMessages(widget.session.id);
+      setState(() => _hasLoadedAllMessages = true);
+      _scrollToBottom(animate: false);
+      return;
+    }
+
     // In offline mode, load from cache (all messages)
     if (connection.isOfflineMode) {
       final cachedMessages = await storage.getCachedMessages(widget.session.id);

@@ -1,10 +1,12 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:url_launcher/url_launcher.dart';
 
 import '../models/agent_type.dart';
 import '../providers/agent_type_provider.dart';
 import '../providers/connection_provider.dart';
 import '../providers/onboarding_provider.dart';
+import '../providers/service_providers.dart';
 import '../providers/theme_provider.dart';
 import '../theme/opencode_theme.dart';
 import '../widgets/connection_quality_indicator.dart';
@@ -549,6 +551,72 @@ class SettingsScreen extends ConsumerWidget {
             ),
             const SliverToBoxAdapter(child: SizedBox(height: 28)),
 
+            // SUPPORT Section
+            SliverToBoxAdapter(child: _SectionHeader(title: 'Support')),
+            SliverToBoxAdapter(
+              child: Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 20),
+                child: _SettingsCard(
+                  child: Column(
+                    children: [
+                      _SettingsTile(
+                        title: 'Setup Guide',
+                        subtitle: 'How to connect your Mac',
+                        icon: Icons.menu_book_rounded,
+                        onTap: () => launchUrl(
+                          Uri.parse('https://broskiapp.com/docs/setup'),
+                          mode: LaunchMode.externalApplication,
+                        ),
+                      ),
+                      _Divider(),
+                      _SettingsTile(
+                        title: 'Contact Support',
+                        subtitle: 'broskiappp@gmail.com',
+                        icon: Icons.help_outline_rounded,
+                        onTap: () =>
+                            launchUrl(Uri.parse('mailto:broskiappp@gmail.com')),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            ),
+            const SliverToBoxAdapter(child: SizedBox(height: 28)),
+
+            // LEGAL Section
+            SliverToBoxAdapter(child: _SectionHeader(title: 'Legal')),
+            SliverToBoxAdapter(
+              child: Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 20),
+                child: _SettingsCard(
+                  child: Column(
+                    children: [
+                      _SettingsTile(
+                        title: 'Privacy Policy',
+                        subtitle: 'How we handle your data',
+                        icon: Icons.privacy_tip_outlined,
+                        onTap: () => launchUrl(
+                          Uri.parse('https://broskiapp.com/legal/privacy'),
+                          mode: LaunchMode.externalApplication,
+                        ),
+                      ),
+                      _Divider(),
+                      _SettingsTile(
+                        title: 'Terms of Service',
+                        subtitle: 'Usage terms and conditions',
+                        icon: Icons.description_outlined,
+                        onTap: () => launchUrl(
+                          Uri.parse('https://broskiapp.com/legal/terms'),
+                          mode: LaunchMode.externalApplication,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            ),
+            const SliverToBoxAdapter(child: SizedBox(height: 28)),
+
             // ABOUT Section
             SliverToBoxAdapter(child: _SectionHeader(title: 'About')),
             SliverToBoxAdapter(
@@ -562,6 +630,13 @@ class SettingsScreen extends ConsumerWidget {
                         subtitle: 'First-launch experience',
                         icon: Icons.replay_rounded,
                         onTap: () => _replayOnboarding(context, ref),
+                      ),
+                      _Divider(),
+                      _SettingsTile(
+                        title: 'Clear Cache',
+                        subtitle: 'Delete all cached data',
+                        icon: Icons.delete_outline_rounded,
+                        onTap: () => _showClearCacheDialog(context, ref),
                       ),
                       _Divider(),
                       _InfoTile(
@@ -603,6 +678,40 @@ class SettingsScreen extends ConsumerWidget {
               ref.read(connectionProvider.notifier).clearConnection();
             },
             child: const Text('Replay'),
+          ),
+        ],
+      ),
+    );
+  }
+
+  void _showClearCacheDialog(BuildContext context, WidgetRef ref) {
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Clear Cache?'),
+        content: const Text(
+          'This will delete all cached sessions, messages, and offline data. Your connection settings will be preserved.',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('Cancel'),
+          ),
+          ElevatedButton(
+            style: ElevatedButton.styleFrom(
+              backgroundColor: Theme.of(context).colorScheme.error,
+            ),
+            onPressed: () async {
+              Navigator.pop(context);
+              final storage = ref.read(storageServiceProvider);
+              await storage.clearCache();
+              if (context.mounted) {
+                ScaffoldMessenger.of(context).showSnackBar(
+                  const SnackBar(content: Text('Cache cleared successfully')),
+                );
+              }
+            },
+            child: const Text('Clear'),
           ),
         ],
       ),

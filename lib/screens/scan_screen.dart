@@ -195,18 +195,27 @@ class _ScanScreenState extends ConsumerState<ScanScreen>
                     ],
                   ),
                   const SizedBox(height: 12),
+                  // Show "Try Demo" for first-time users, "Browse Offline" if they have cached data
                   OnboardingButton(
-                    label: _hasCachedData ? 'Browse Offline' : 'Preview App',
+                    label: _hasCachedData ? 'Browse Offline' : 'Try Demo',
                     variant: OnboardingButtonVariant.ghost,
                     icon: _hasCachedData
                         ? Icons.cloud_off_rounded
-                        : Icons.visibility_rounded,
+                        : Icons.play_circle_outline_rounded,
                     onPressed: _checkingCache
                         ? null
                         : () {
-                            ref
-                                .read(connectionProvider.notifier)
-                                .enterOfflineMode();
+                            if (_hasCachedData) {
+                              // Has cached data - enter offline mode to browse it
+                              ref
+                                  .read(connectionProvider.notifier)
+                                  .enterOfflineMode();
+                            } else {
+                              // No cached data - enter demo mode with sample data
+                              ref
+                                  .read(connectionProvider.notifier)
+                                  .enterDemoMode();
+                            }
                           },
                   ),
                 ],
