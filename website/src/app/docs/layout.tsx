@@ -1,27 +1,60 @@
+"use client";
+
+import { useState } from "react";
 import Link from "next/link";
-import { DocsSidebar } from "@/components/docs/docs-sidebar";
-import { TableOfContents } from "@/components/docs/table-of-contents";
+import Image from "next/image";
+import { DocsSidebar, MobileSidebar } from "@/components/docs/docs-sidebar";
+import { TableOfContents, MobileTableOfContents } from "@/components/docs/table-of-contents";
 import { CopyPageButton } from "@/components/docs/copy-page-button";
 import { Breadcrumbs } from "@/components/docs/breadcrumbs";
+import { ThemeSwitcher } from "@/components/theme-switcher";
 
 export default function DocsLayout({
   children,
 }: {
   children: React.ReactNode;
 }) {
+  const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+
   return (
     <main className="min-h-screen bg-background">
+      {/* Mobile Sidebar Drawer */}
+      <MobileSidebar isOpen={mobileMenuOpen} onClose={() => setMobileMenuOpen(false)} />
+
       {/* Full-width flex container */}
       <div className="flex min-h-screen">
-        {/* Left Sidebar - flush to left edge */}
+        {/* Left Sidebar - Desktop only */}
         <DocsSidebar />
 
         {/* Right side: header + content */}
         <div className="flex-1 flex flex-col min-w-0">
-          {/* Header - nav links */}
+          {/* Header */}
           <header className="border-b border-border sticky top-0 bg-background/95 backdrop-blur-sm z-40">
-            <div className="px-8 py-3 flex items-center justify-between">
-              <nav className="flex items-center gap-6 text-sm">
+            <div className="px-4 md:px-8 py-3 flex items-center justify-between">
+              {/* Mobile: Hamburger + Logo */}
+              <div className="flex items-center gap-3 md:hidden">
+                <button
+                  onClick={() => setMobileMenuOpen(true)}
+                  className="flex items-center justify-center w-10 h-10 -ml-2 rounded-lg hover:bg-muted/50 transition-colors"
+                  aria-label="Open menu"
+                >
+                  <svg className="w-5 h-5 text-foreground" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 12h16M4 18h16" />
+                  </svg>
+                </button>
+                <Link href="/" className="flex items-center">
+                  <Image
+                    src="/broski-logo.png"
+                    alt="Broski"
+                    width={80}
+                    height={25}
+                    priority
+                  />
+                </Link>
+              </div>
+
+              {/* Desktop: Nav links */}
+              <nav className="hidden md:flex items-center gap-6 text-sm">
                 <Link href="/docs" className="font-medium text-foreground">
                   Documentation
                 </Link>
@@ -35,19 +68,29 @@ export default function DocsLayout({
                   AI Backends
                 </Link>
               </nav>
+
+              {/* Mobile: Theme switcher */}
+              <div className="md:hidden">
+                <ThemeSwitcher />
+              </div>
             </div>
           </header>
 
           {/* Content area - centered with max width */}
           <div className="flex-1 flex justify-center">
             <div className="flex w-full max-w-5xl">
-              {/* Main Content - centered */}
-              <div className="flex-1 px-12 py-10 min-w-0">
+              {/* Main Content - responsive padding */}
+              <div className="flex-1 px-4 sm:px-6 md:px-8 lg:px-12 py-6 md:py-10 min-w-0">
                 {/* Breadcrumbs + Copy Button */}
-                <div className="flex items-start justify-between mb-2">
+                <div className="flex items-start justify-between mb-2 gap-4">
                   <Breadcrumbs />
-                  <CopyPageButton />
+                  <div className="hidden sm:block">
+                    <CopyPageButton />
+                  </div>
                 </div>
+                
+                {/* Mobile TOC - shows on screens smaller than xl */}
+                <MobileTableOfContents />
                 
                 {/* Content */}
                 <div className="max-w-2xl">
@@ -55,9 +98,9 @@ export default function DocsLayout({
                 </div>
 
                 {/* Footer */}
-                <footer className="mt-16 pt-8 border-t border-border max-w-2xl">
+                <footer className="mt-12 md:mt-16 pt-6 md:pt-8 border-t border-border max-w-2xl">
                   <div className="flex flex-col md:flex-row items-center justify-between gap-4 text-sm text-muted-foreground">
-                    <div className="flex items-center gap-6">
+                    <div className="flex flex-wrap items-center justify-center gap-4 md:gap-6">
                       <Link href="/legal/privacy" className="hover:text-foreground transition-colors">
                         Privacy Policy
                       </Link>
@@ -75,7 +118,7 @@ export default function DocsLayout({
                 </footer>
               </div>
 
-              {/* Table of Contents - right side */}
+              {/* Table of Contents - desktop only (xl screens) */}
               <TableOfContents />
             </div>
           </div>

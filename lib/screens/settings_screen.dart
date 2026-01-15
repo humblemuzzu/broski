@@ -4,6 +4,7 @@ import 'package:url_launcher/url_launcher.dart';
 
 import '../models/agent_type.dart';
 import '../providers/agent_type_provider.dart';
+import '../providers/app_info_provider.dart';
 import '../providers/connection_provider.dart';
 import '../providers/onboarding_provider.dart';
 import '../providers/service_providers.dart';
@@ -43,6 +44,7 @@ class SettingsScreen extends ConsumerWidget {
     final connection = ref.watch(connectionProvider);
     final currentThemeInfo = ref.watch(currentThemeInfoProvider);
     final currentAgent = ref.watch(agentTypeProvider);
+    final appVersion = ref.watch(appVersionProvider);
     final theme = Theme.of(context);
 
     return Scaffold(
@@ -610,6 +612,18 @@ class SettingsScreen extends ConsumerWidget {
                           mode: LaunchMode.externalApplication,
                         ),
                       ),
+                      _Divider(),
+                      _SettingsTile(
+                        title: 'EULA',
+                        subtitle: 'End User License Agreement',
+                        icon: Icons.gavel_rounded,
+                        onTap: () => launchUrl(
+                          Uri.parse(
+                            'https://www.apple.com/legal/internet-services/itunes/dev/stdeula/',
+                          ),
+                          mode: LaunchMode.externalApplication,
+                        ),
+                      ),
                     ],
                   ),
                 ),
@@ -641,7 +655,7 @@ class SettingsScreen extends ConsumerWidget {
                       _Divider(),
                       _InfoTile(
                         title: 'Version',
-                        value: '1.0.0',
+                        value: appVersion,
                         icon: Icons.info_outline_rounded,
                       ),
                     ],

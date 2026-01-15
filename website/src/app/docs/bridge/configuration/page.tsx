@@ -1,5 +1,5 @@
 import type { Metadata } from "next";
-import { CodeBlock } from "@/components/docs/code-block";
+import { CodeBlock, Callout, SimpleTable } from "@/components/docs";
 
 export const metadata: Metadata = {
   title: "Configuration - Broski",
@@ -14,53 +14,39 @@ export default function ConfigurationPage() {
         Complete reference for all CLI options, environment variables, and configuration files.
       </p>
 
+      {/* Configuration Precedence */}
+      <section className="mb-12">
+        <h2 id="precedence" className="text-2xl font-semibold mb-4">Configuration Precedence</h2>
+        <p className="text-muted-foreground mb-4">
+          When the same setting is available in multiple places, the following order applies (highest to lowest):
+        </p>
+        <ol className="list-decimal list-inside space-y-2 text-sm mb-4">
+          <li><strong>CLI arguments</strong> - Always take precedence</li>
+          <li><strong>Environment variables</strong> - Override config files</li>
+          <li><strong>Configuration files</strong> - Override defaults</li>
+          <li><strong>Default values</strong> - Built-in fallbacks</li>
+        </ol>
+        <CodeBlock language="bash">{`# CLI overrides env var
+BROSKI_PORT=8080 bunx broski --port 9090
+# Result: Port 9090 is used`}</CodeBlock>
+      </section>
+
       {/* Quick Reference */}
       <section className="mb-12">
         <h2 id="quick-reference" className="text-2xl font-semibold mb-4">Quick Reference</h2>
-        <div className="overflow-x-auto">
-          <table className="w-full text-sm border border-border rounded-lg">
-            <thead className="bg-muted/30">
-              <tr>
-                <th className="text-left p-3 border-b border-border">Setting</th>
-                <th className="text-left p-3 border-b border-border">CLI Flag</th>
-                <th className="text-left p-3 border-b border-border">Env Variable</th>
-                <th className="text-left p-3 border-b border-border">Default</th>
-              </tr>
-            </thead>
-            <tbody>
-              <tr>
-                <td className="p-3 border-b border-border/50">Bridge Port</td>
-                <td className="p-3 border-b border-border/50 font-mono text-xs">--port</td>
-                <td className="p-3 border-b border-border/50 font-mono text-xs">BROSKI_PORT</td>
-                <td className="p-3 border-b border-border/50">18274</td>
-              </tr>
-              <tr>
-                <td className="p-3 border-b border-border/50">Verbose Mode</td>
-                <td className="p-3 border-b border-border/50 font-mono text-xs">--verbose, -v</td>
-                <td className="p-3 border-b border-border/50 font-mono text-xs">BROSKI_VERBOSE=1</td>
-                <td className="p-3 border-b border-border/50">false</td>
-              </tr>
-              <tr>
-                <td className="p-3 border-b border-border/50">Tailscale Funnel</td>
-                <td className="p-3 border-b border-border/50 font-mono text-xs">--funnel</td>
-                <td className="p-3 border-b border-border/50 font-mono text-xs">BROSKI_ENABLE_FUNNEL=1</td>
-                <td className="p-3 border-b border-border/50">false</td>
-              </tr>
-              <tr>
-                <td className="p-3 border-b border-border/50">New Token</td>
-                <td className="p-3 border-b border-border/50 font-mono text-xs">--new-token</td>
-                <td className="p-3 border-b border-border/50">-</td>
-                <td className="p-3 border-b border-border/50">false</td>
-              </tr>
-              <tr>
-                <td className="p-3">OpenCode URL</td>
-                <td className="p-3 font-mono text-xs">--opencode-url</td>
-                <td className="p-3 font-mono text-xs">OPENCODE_BASE_URL</td>
-                <td className="p-3">-</td>
-              </tr>
-            </tbody>
-          </table>
-        </div>
+        <SimpleTable
+          headers={["Setting", "CLI Flag", "Env Variable", "Default"]}
+          rows={[
+            ["Bridge Port", "--port", "BROSKI_PORT", "18274"],
+            ["Verbose Mode", "--verbose, -v", "BROSKI_VERBOSE=1", "false"],
+            ["Tailscale Funnel", "--funnel", "BROSKI_ENABLE_FUNNEL=1", "false"],
+            ["New Token", "--new-token", "-", "false"],
+            ["Detect Hotspot", "--hotspot", "-", "false"],
+            ["OpenCode URL", "--opencode-url", "OPENCODE_BASE_URL", "-"],
+            ["OpenCode Hostname", "--opencode-hostname", "BROSKI_OPENCODE_HOSTNAME", "127.0.0.1"],
+            ["OpenCode Port", "--opencode-port", "BROSKI_OPENCODE_PORT", "0 (random)"],
+          ]}
+        />
       </section>
 
       {/* CLI Options */}
@@ -77,6 +63,20 @@ export default function ConfigurationPage() {
           </div>
 
           <div className="border border-border rounded-lg p-4">
+            <h4 className="font-mono font-medium mb-2">broski install</h4>
+            <p className="text-muted-foreground text-sm mb-3">Install as a background service that runs on login.</p>
+            <CodeBlock language="bash">{`bunx broski install`}</CodeBlock>
+            <p className="text-sm text-muted-foreground mt-3">Creates a LaunchAgent (macOS) or systemd service (Linux).</p>
+          </div>
+
+          <div className="border border-border rounded-lg p-4">
+            <h4 className="font-mono font-medium mb-2">broski qr</h4>
+            <p className="text-muted-foreground text-sm mb-3">Show the QR code to pair your phone (works with background service).</p>
+            <CodeBlock language="bash">{`bunx broski qr
+bunx broski qr --hotspot  # Prioritize hotspot IP`}</CodeBlock>
+          </div>
+
+          <div className="border border-border rounded-lg p-4">
             <h4 className="font-mono font-medium mb-2">broski doctor</h4>
             <p className="text-muted-foreground text-sm mb-3">Check system requirements and diagnose issues.</p>
             <CodeBlock language="bash">{`bunx broski doctor`}</CodeBlock>
@@ -87,6 +87,14 @@ export default function ConfigurationPage() {
             <h4 className="font-mono font-medium mb-2">broski setup-tailscale</h4>
             <p className="text-muted-foreground text-sm mb-3">Interactive wizard to install and configure Tailscale for remote access.</p>
             <CodeBlock language="bash">{`bunx broski setup-tailscale`}</CodeBlock>
+          </div>
+
+          <div className="border border-border rounded-lg p-4">
+            <h4 className="font-mono font-medium mb-2">broski status / stop / uninstall</h4>
+            <p className="text-muted-foreground text-sm mb-3">Manage the background service.</p>
+            <CodeBlock language="bash">{`bunx broski status     # Check if running
+bunx broski stop       # Stop the service
+bunx broski uninstall  # Remove the service`}</CodeBlock>
           </div>
         </div>
       </section>
@@ -129,6 +137,14 @@ bunx broski --port 0`}</CodeBlock>
 bunx broski --new-token`}</CodeBlock>
             <p className="text-sm text-muted-foreground mt-3">Use if you suspect your token has been compromised. New token is persisted to ~/.broski/token.</p>
           </div>
+
+          <div className="border border-border rounded-lg p-4">
+            <h3 className="font-mono font-medium mb-2">--hotspot</h3>
+            <p className="text-muted-foreground text-sm mb-3">Detect and prioritize hotspot IP for mobile tethering.</p>
+            <CodeBlock language="bash">{`bunx broski --hotspot
+bunx broski qr --hotspot`}</CodeBlock>
+            <p className="text-sm text-muted-foreground mt-3">Useful when your phone is providing internet to your Mac via hotspot and you want to connect Broski over that same connection.</p>
+          </div>
         </div>
       </section>
 
@@ -162,7 +178,7 @@ OPENCODE_BASE_URL=http://localhost:4096 bunx broski`}</CodeBlock>
             <h3 className="font-mono font-medium mb-2">--attach</h3>
             <p className="text-muted-foreground text-sm mb-3">Scan for running OpenCode servers and interactively choose one.</p>
             <CodeBlock language="bash">{`bunx broski --attach`}</CodeBlock>
-            <p className="text-sm text-muted-foreground mt-3">Scans common ports. If multiple found, presents interactive selection menu.</p>
+            <p className="text-sm text-muted-foreground mt-3">Scans common ports (4096, 64864-65119, 49152-49407). If multiple found, presents interactive selection menu.</p>
           </div>
         </div>
       </section>
@@ -175,42 +191,90 @@ OPENCODE_BASE_URL=http://localhost:4096 bunx broski`}</CodeBlock>
           <div className="border border-border rounded-lg p-4">
             <h3 className="font-mono font-medium mb-2">~/.broski/token</h3>
             <p className="text-muted-foreground text-sm mb-3">Persistent authentication token for QR code scanning.</p>
-            <ul className="text-sm space-y-1">
-              <li><span className="text-muted-foreground">Format:</span> Plain text, base64url encoded</li>
-              <li><span className="text-muted-foreground">Permissions:</span> 0600 (owner read/write only)</li>
-              <li><span className="text-muted-foreground">Length:</span> 24 bytes (32 characters encoded)</li>
-            </ul>
+            <SimpleTable
+              headers={["Property", "Value"]}
+              rows={[
+                ["Format", "Plain text, base64url encoded"],
+                ["Permissions", "0600 (owner read/write only)"],
+                ["Length", "24 bytes (32 characters encoded)"],
+                ["Created", "Automatically on first run"],
+              ]}
+            />
+            <Callout type="warning" title="Security">
+              This file contains your auth token. Never share it or commit it to version control.
+              To invalidate: run <code>broski --new-token</code> or delete the file.
+            </Callout>
           </div>
 
           <div className="border border-border rounded-lg p-4">
-            <h3 className="font-mono font-medium mb-2">~/.broski/artifacts-config.json</h3>
-            <p className="text-muted-foreground text-sm mb-3">Artifact indexing and enrichment configuration.</p>
+            <h3 className="font-mono font-medium mb-2">~/.broski/custom-tools.json</h3>
+            <p className="text-muted-foreground text-sm mb-3">Custom tool definitions for Claude Code.</p>
             <CodeBlock language="json">{`{
-  "indexingEnabled": true,
-  "maxContentChars": 250000,
-  "enrichment": {
-    "provider": "off",
-    "enabled": false,
-    "batchSize": 5
-  }
+  "version": 1,
+  "tools": [
+    {
+      "id": "tool_1234567890_abc123",
+      "name": "my_custom_tool",
+      "description": "Description of what the tool does",
+      "parameters": [
+        {
+          "name": "input",
+          "type": "string",
+          "description": "Input parameter",
+          "required": true
+        }
+      ],
+      "handler": "http",
+      "handlerConfig": {
+        "url": "https://api.example.com/endpoint",
+        "method": "POST"
+      },
+      "enabled": true
+    }
+  ]
 }`}</CodeBlock>
+          </div>
+
+          <div className="border border-border rounded-lg p-4">
+            <h3 className="font-mono font-medium mb-2">~/.claude/settings.json</h3>
+            <p className="text-muted-foreground text-sm mb-3">Claude CLI authentication (managed by <code>claude login</code>).</p>
+            <p className="text-sm text-muted-foreground">Broski checks this file if <code>ANTHROPIC_API_KEY</code> is not set.</p>
           </div>
         </div>
       </section>
 
-      {/* Configuration Precedence */}
+      {/* Environment Variables */}
       <section className="mb-12">
-        <h2 id="precedence" className="text-2xl font-semibold mb-4">Configuration Precedence</h2>
-        <p className="text-muted-foreground mb-4">When the same setting is available in multiple places (highest to lowest):</p>
-        <ol className="list-decimal list-inside space-y-2 text-sm">
-          <li><strong>CLI arguments</strong> - Always take precedence</li>
-          <li><strong>Environment variables</strong> - Override config files</li>
-          <li><strong>Configuration files</strong> - Override defaults</li>
-          <li><strong>Default values</strong> - Built-in fallbacks</li>
-        </ol>
-        <CodeBlock language="bash">{`# CLI overrides env var
-BROSKI_PORT=8080 bunx broski --port 9090
-# Result: Port 9090 is used`}</CodeBlock>
+        <h2 id="env-vars" className="text-2xl font-semibold mb-4">Environment Variables</h2>
+        
+        <h3 className="text-lg font-medium mb-3">Bridge Variables</h3>
+        <SimpleTable
+          headers={["Variable", "Type", "Default", "Description"]}
+          rows={[
+            ["BROSKI_PORT", "number", "18274", "Bridge WebSocket port"],
+            ["BROSKI_VERBOSE", "1 or unset", "unset", "Enable debug logging"],
+            ["BROSKI_ENABLE_FUNNEL", "1 or unset", "unset", "Enable Tailscale Funnel"],
+          ]}
+        />
+
+        <h3 className="text-lg font-medium mb-3 mt-6">OpenCode Variables</h3>
+        <SimpleTable
+          headers={["Variable", "Type", "Default", "Description"]}
+          rows={[
+            ["OPENCODE_BASE_URL", "string", "-", "URL of existing OpenCode server"],
+            ["BROSKI_OPENCODE_HOSTNAME", "string", "127.0.0.1", "Hostname for managed OpenCode"],
+            ["BROSKI_OPENCODE_PORT", "number", "0", "Port for managed OpenCode (0 = random)"],
+          ]}
+        />
+
+        <h3 className="text-lg font-medium mb-3 mt-6">AI Provider Variables</h3>
+        <SimpleTable
+          headers={["Variable", "Type", "Description"]}
+          rows={[
+            ["ANTHROPIC_API_KEY", "string", "Anthropic API key for Claude Code"],
+            ["OPENAI_API_KEY", "string", "OpenAI API key for Codex/GPT models"],
+          ]}
+        />
       </section>
 
       {/* Examples */}
@@ -225,8 +289,14 @@ BROSKI_PORT=8080 bunx broski --port 9090
           </div>
 
           <div className="border border-border rounded-lg p-4">
+            <h4 className="font-medium mb-2">Custom Port</h4>
+            <CodeBlock language="bash">{`bunx broski --port 8080`}</CodeBlock>
+          </div>
+
+          <div className="border border-border rounded-lg p-4">
             <h4 className="font-medium mb-2">Tailscale with Funnel</h4>
             <CodeBlock language="bash">{`bunx broski --funnel --verbose`}</CodeBlock>
+            <p className="text-sm text-muted-foreground mt-2">Public HTTPS access with debug logging.</p>
           </div>
 
           <div className="border border-border rounded-lg p-4">
@@ -237,7 +307,49 @@ opencode serve --port 4096
 # Connect Broski
 bunx broski --opencode-url http://localhost:4096`}</CodeBlock>
           </div>
+
+          <div className="border border-border rounded-lg p-4">
+            <h4 className="font-medium mb-2">Claude Code Backend</h4>
+            <CodeBlock language="bash">{`# With API key
+export ANTHROPIC_API_KEY=sk-ant-api03-...
+bunx broski --verbose
+
+# Or with Claude login
+claude login
+bunx broski`}</CodeBlock>
+          </div>
+
+          <div className="border border-border rounded-lg p-4">
+            <h4 className="font-medium mb-2">Mobile Hotspot</h4>
+            <CodeBlock language="bash">{`# When your phone provides internet to your Mac
+bunx broski --hotspot`}</CodeBlock>
+          </div>
+
+          <div className="border border-border rounded-lg p-4">
+            <h4 className="font-medium mb-2">Production Setup with Environment</h4>
+            <CodeBlock language="bash">{`export BROSKI_PORT=18274
+export BROSKI_ENABLE_FUNNEL=1
+export BROSKI_VERBOSE=1
+bunx broski`}</CodeBlock>
+          </div>
         </div>
+      </section>
+
+      {/* Common Mistakes */}
+      <section className="mb-12">
+        <h2 id="common-mistakes" className="text-2xl font-semibold mb-4">Common Configuration Mistakes</h2>
+        
+        <SimpleTable
+          headers={["Issue", "Cause", "Fix"]}
+          rows={[
+            ["Port in use", "Another broski or process running", "Kill process or use --port 0"],
+            ["Connection refused", "Wrong OpenCode URL", "Check URL with curl <url>/path"],
+            ["Auth failed", "Invalid or old token", "Use --new-token to regenerate"],
+            ["Funnel failed", "Not enabled in admin console", "Enable at login.tailscale.com/admin"],
+            ["Claude Code unavailable", "Missing API key", "Set ANTHROPIC_API_KEY or run claude login"],
+            ["QR code not scanning", "Old QR after restart", "Rescan the current QR code"],
+          ]}
+        />
       </section>
 
       {/* Next Steps */}

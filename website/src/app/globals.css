@@ -423,3 +423,90 @@ html {
     padding-right: 1rem;
   }
 }
+
+/* ═══════════════════════════════════════════════════════════════════════════════
+   MOBILE DOCS OPTIMIZATIONS
+   ═══════════════════════════════════════════════════════════════════════════════ */
+
+/* Ensure code blocks don't overflow on mobile */
+.code-block {
+  max-width: 100%;
+}
+
+@media (max-width: 768px) {
+  /* Slightly smaller code text on mobile */
+  .code-block {
+    font-size: 12px;
+  }
+  
+  /* Tables scroll horizontally on mobile */
+  .docs-table-wrapper {
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+  }
+}
+
+/* Mobile sidebar drawer animation */
+@keyframes slide-in-left {
+  from {
+    transform: translateX(-100%);
+  }
+  to {
+    transform: translateX(0);
+  }
+}
+
+@keyframes slide-out-left {
+  from {
+    transform: translateX(0);
+  }
+  to {
+    transform: translateX(-100%);
+  }
+}
+
+/* Backdrop fade */
+@keyframes fade-in-backdrop {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+/* Mobile search full-screen animation */
+@keyframes slide-up {
+  from {
+    transform: translateY(20px);
+    opacity: 0;
+  }
+  to {
+    transform: translateY(0);
+    opacity: 1;
+  }
+}
+
+@media (max-width: 768px) {
+  .search-dialog-enter {
+    animation: slide-up 0.2s ease-out forwards;
+  }
+}
+
+/* Safe area insets for iPhone notch */
+@supports (padding-top: env(safe-area-inset-top)) {
+  .mobile-safe-top {
+    padding-top: env(safe-area-inset-top);
+  }
+  
+  .mobile-safe-bottom {
+    padding-bottom: env(safe-area-inset-bottom);
+  }
+}
+
+/* Improve tap highlight on mobile */
+@media (max-width: 768px) {
+  * {
+    -webkit-tap-highlight-color: transparent;
+  }
+}

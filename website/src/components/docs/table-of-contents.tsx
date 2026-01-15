@@ -9,15 +9,14 @@ interface TOCItem {
   level: number;
 }
 
-export function TableOfContents() {
+// Hook to extract headings
+function useHeadings() {
   const [headings, setHeadings] = useState<TOCItem[]>([]);
   const [activeId, setActiveId] = useState<string>("");
   const pathname = usePathname();
 
   useEffect(() => {
-    // Small delay to ensure page content is rendered
     const timer = setTimeout(() => {
-      // Extract headings from the page
       const article = document.querySelector("article");
       if (!article) return;
 
@@ -37,11 +36,11 @@ export function TableOfContents() {
       });
 
       setHeadings(items);
-      setActiveId(""); // Reset active heading on route change
+      setActiveId("");
     }, 100);
 
     return () => clearTimeout(timer);
-  }, [pathname]); // Re-run when pathname changes
+  }, [pathname]);
 
   useEffect(() => {
     const observer = new IntersectionObserver(
@@ -65,7 +64,104 @@ export function TableOfContents() {
     return () => observer.disconnect();
   }, [headings]);
 
+  return { headings, activeId };
+}
+
+// Mobile TOC - Collapsible dropdown at top of content
+export function MobileTableOfContents() {
+  const { headings, activeId } = useHeadings();
+  const [mobileOpen, setMobileOpen] = useState(false);
+  const pathname = usePathname();
+
+  // Close on route change
+  useEffect(() => {
+    setMobileOpen(false);
+  }, [pathname]);
+
   if (headings.length === 0) return null;
+
+  const handleClick = (id: string) => {
+    document.getElementById(id)?.scrollIntoView({
+      behavior: "smooth",
+    });
+    setMobileOpen(false);
+  };
+
+  return (
+    <div className="xl:hidden mb-6 border border-border rounded-lg bg-card/50">
+      <button
+        onClick={() => setMobileOpen(!mobileOpen)}
+        className="w-full flex items-center justify-between px-4 py-3 text-sm"
+      >
+        <div className="flex items-center gap-2">
+          <svg 
+            className="w-4 h-4 text-muted-foreground" 
+            fill="none" 
+            viewBox="0 0 24 24" 
+            stroke="currentColor"
+          >
+            <path 
+              strokeLinecap="round" 
+              strokeLinejoin="round" 
+              strokeWidth={2} 
+              d="M4 6h16M4 10h16M4 14h16M4 18h16" 
+            />
+          </svg>
+          <span className="font-medium text-foreground">On this page</span>
+        </div>
+        <svg 
+          className={`w-4 h-4 text-muted-foreground transition-transform duration-200 ${mobileOpen ? 'rotate-180' : ''}`}
+          fill="none" 
+          viewBox="0 0 24 24" 
+          stroke="currentColor"
+        >
+          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+        </svg>
+      </button>
+      
+      {/* Collapsible content */}
+      <div className={`overflow-hidden transition-all duration-300 ease-out ${mobileOpen ? 'max-h-[60vh]' : 'max-h-0'}`}>
+        <div className="px-4 pb-4 border-t border-border">
+          <div className="pt-3 space-y-1 max-h-[50vh] overflow-y-auto">
+            {headings.map((heading, index) => {
+              const isActive = activeId === heading.id;
+              const isNested = heading.level === 3;
+              
+              return (
+                <button
+                  key={`${heading.id}-${index}`}
+                  onClick={() => handleClick(heading.id)}
+                  className={`block w-full text-left py-2 px-3 rounded-md transition-colors ${
+                    isNested ? "pl-6" : ""
+                  } ${
+                    isActive
+                      ? "text-foreground bg-primary/10 font-medium"
+                      : "text-muted-foreground hover:text-foreground hover:bg-muted/50"
+                  }`}
+                  style={{ fontSize: isNested ? "13px" : "14px" }}
+                >
+                  {heading.text}
+                </button>
+              );
+            })}
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// Desktop TOC - Right sidebar (only visible on xl screens)
+export function TableOfContents() {
+  const { headings, activeId } = useHeadings();
+
+  if (headings.length === 0) return null;
+
+  const handleClick = (id: string) => {
+    document.getElementById(id)?.scrollIntoView({
+      behavior: "smooth",
+    });
+  };
 
   return (
     <nav className="hidden xl:block w-52 shrink-0 pl-6">
@@ -110,9 +206,7 @@ export function TableOfContents() {
                 style={{ fontSize: isNested ? "12px" : "13px" }}
                 onClick={(e) => {
                   e.preventDefault();
-                  document.getElementById(heading.id)?.scrollIntoView({
-                    behavior: "smooth",
-                  });
+                  handleClick(heading.id);
                 }}
               >
                 {heading.text}

@@ -42,7 +42,7 @@ export default function FAQPage() {
               <strong className="text-foreground">Mobile:</strong> iOS 15+ and Android 8+
             </p>
             <p className="text-muted-foreground">
-              <strong className="text-foreground">Bridge Server:</strong> macOS 12+, Windows 10+, Linux (Ubuntu 20.04+)
+              <strong className="text-foreground">Bridge Server:</strong> macOS 12+, Windows 10+ (WSL2), Linux (Ubuntu 20.04+)
             </p>
           </div>
 
@@ -54,22 +54,34 @@ export default function FAQPage() {
               the bridge server for Broski to work.
             </p>
           </div>
+
+          <div className="border border-border/50 rounded-lg p-5">
+            <h3 className="font-semibold mb-2">How does Broski work?</h3>
+            <p className="text-muted-foreground mb-3">
+              Broski uses a three-part architecture:
+            </p>
+            <ol className="text-muted-foreground space-y-1 list-decimal ml-4">
+              <li><strong className="text-foreground">Phone App</strong> - Displays UI, captures input</li>
+              <li><strong className="text-foreground">Bridge Server</strong> - Runs on your Mac, translates messages</li>
+              <li><strong className="text-foreground">AI Backend</strong> - Does reasoning, executes tools</li>
+            </ol>
+          </div>
         </div>
       </section>
 
       {/* Setup */}
       <section className="mb-12">
-        <h2 id="setup" className="text-2xl font-semibold mb-6">Setup & Installation</h2>
+        <h2 id="setup" className="text-2xl font-semibold mb-6">Setup &amp; Installation</h2>
         
         <div className="space-y-6">
           <div className="border border-border/50 rounded-lg p-5">
             <h3 className="font-semibold mb-2">What do I need to get started?</h3>
             <ul className="text-muted-foreground space-y-2">
-              <li>&#8226; A Mac (or Windows/Linux PC)</li>
+              <li>&#8226; A Mac, Windows PC, or Linux machine</li>
               <li>&#8226; Node.js 18+ or Bun installed</li>
               <li>&#8226; Claude Code, OpenCode, or Codex CLI installed</li>
               <li>&#8226; An AI provider account (Claude, OpenAI, etc.)</li>
-              <li>&#8226; An iPhone or iPad (iOS 15+) or Android device</li>
+              <li>&#8226; An iPhone/iPad (iOS 15+) or Android device (8.0+)</li>
               <li>&#8226; Same WiFi network OR Tailscale for remote access</li>
             </ul>
           </div>
@@ -87,13 +99,34 @@ export default function FAQPage() {
           </div>
 
           <div className="border border-border/50 rounded-lg p-5">
+            <h3 className="font-semibold mb-2">Can I use Broski on multiple computers?</h3>
+            <p className="text-muted-foreground">
+              Yes, but one bridge instance connects to one AI backend at a time. Install the bridge 
+              on each computer, and scan the QR code for whichever computer you want to connect to.
+              Sessions are stored per-computer.
+            </p>
+          </div>
+
+          <div className="border border-border/50 rounded-lg p-5">
             <h3 className="font-semibold mb-2">Why can&apos;t I scan the QR code?</h3>
             <ul className="text-muted-foreground space-y-2">
               <li>&#8226; Make sure your phone and Mac are on the same WiFi network</li>
               <li>&#8226; Check that the bridge is still running in your terminal</li>
               <li>&#8226; Try increasing terminal brightness</li>
               <li>&#8226; Move closer to the screen for better camera focus</li>
+              <li>&#8226; Use &quot;Enter manually&quot; and type the IP address</li>
             </ul>
+          </div>
+
+          <div className="border border-border/50 rounded-lg p-5">
+            <h3 className="font-semibold mb-2">How do I update Broski?</h3>
+            <p className="text-muted-foreground mb-2">
+              <strong className="text-foreground">Bridge:</strong> If using bunx/npx, it automatically uses the latest version. 
+              For global install: <code className="px-1 py-0.5 bg-muted rounded text-sm">bun add -g broski</code>
+            </p>
+            <p className="text-muted-foreground">
+              <strong className="text-foreground">App:</strong> Update from App Store (iOS) or Play Store (Android).
+            </p>
           </div>
         </div>
       </section>
@@ -107,7 +140,24 @@ export default function FAQPage() {
             <h3 className="font-semibold mb-2">Do I need to be on the same WiFi?</h3>
             <p className="text-muted-foreground">
               For local connections, yes. For remote access from anywhere, set up Tailscale 
-              (free) on both your Mac and phone - then you can use Broski from any location.
+              (free) on both your computer and phone - then you can use Broski from any location.
+            </p>
+          </div>
+
+          <div className="border border-border/50 rounded-lg p-5">
+            <h3 className="font-semibold mb-2">Can multiple phones connect to the same bridge?</h3>
+            <p className="text-muted-foreground">
+              Yes! Multiple devices can connect simultaneously. Each phone registers with a unique ID, 
+              and all phones see the same sessions and projects. Messages from any phone go to the same AI.
+            </p>
+          </div>
+
+          <div className="border border-border/50 rounded-lg p-5">
+            <h3 className="font-semibold mb-2">Can I use Broski over cellular data?</h3>
+            <p className="text-muted-foreground">
+              Yes, but you need Tailscale or Funnel for remote access. Local IPs (192.168.x.x) won&apos;t work 
+              on cellular - you need Tailscale IPs (100.x.x.x) or a Funnel URL. Data usage is light 
+              (1-50 KB per message).
             </p>
           </div>
 
@@ -121,22 +171,69 @@ export default function FAQPage() {
           </div>
 
           <div className="border border-border/50 rounded-lg p-5">
+            <h3 className="font-semibold mb-2">What is Funnel?</h3>
+            <p className="text-muted-foreground">
+              Tailscale Funnel exposes your bridge to the internet via a public HTTPS URL. 
+              This lets you connect without installing Tailscale on your phone - just use the URL. 
+              Enable with: <code className="px-1 py-0.5 bg-muted rounded text-sm">broski --funnel</code>
+            </p>
+          </div>
+
+          <div className="border border-border/50 rounded-lg p-5">
             <h3 className="font-semibold mb-2">Why does my connection keep dropping?</h3>
             <ul className="text-muted-foreground space-y-2">
               <li>&#8226; Check your WiFi signal strength</li>
               <li>&#8226; The bridge may have crashed - restart it</li>
-              <li>&#8226; Keep the app in foreground (iOS may kill background apps)</li>
+              <li>&#8226; Keep the app in foreground (mobile OSes kill background apps)</li>
               <li>&#8226; If using Tailscale, verify both devices are connected</li>
+              <li>&#8226; On Android, disable battery optimization for Broski</li>
             </ul>
           </div>
 
           <div className="border border-border/50 rounded-lg p-5">
-            <h3 className="font-semibold mb-2">Is my data secure?</h3>
+            <h3 className="font-semibold mb-2">Why does the connection drop when I leave my house?</h3>
             <p className="text-muted-foreground">
-              Yes. Broski uses peer-to-peer connections - your code never passes through our servers. 
-              All communication stays on your local network or your Tailscale VPN. We don&apos;t 
-              collect any data.
+              Your local IP (192.168.x.x) only works on your home WiFi. When you leave, that IP 
+              becomes unreachable. Set up Tailscale to get a stable IP that works everywhere, or 
+              enable Funnel for a public URL.
             </p>
+          </div>
+
+          <div className="border border-border/50 rounded-lg p-5">
+            <h3 className="font-semibold mb-2">What do the connection bars mean?</h3>
+            <div className="overflow-x-auto">
+              <table className="w-full text-sm text-muted-foreground mt-2">
+                <thead>
+                  <tr className="border-b border-border/50">
+                    <th className="text-left py-2 text-foreground">Bars</th>
+                    <th className="text-left py-2 text-foreground">Quality</th>
+                    <th className="text-left py-2 text-foreground">Latency</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  <tr className="border-b border-border/30">
+                    <td className="py-2">4</td>
+                    <td className="py-2">Excellent</td>
+                    <td className="py-2">&lt; 30ms</td>
+                  </tr>
+                  <tr className="border-b border-border/30">
+                    <td className="py-2">3</td>
+                    <td className="py-2">Good</td>
+                    <td className="py-2">30-100ms</td>
+                  </tr>
+                  <tr className="border-b border-border/30">
+                    <td className="py-2">2</td>
+                    <td className="py-2">Fair</td>
+                    <td className="py-2">100-200ms</td>
+                  </tr>
+                  <tr>
+                    <td className="py-2">1</td>
+                    <td className="py-2">Poor</td>
+                    <td className="py-2">&gt; 200ms</td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
           </div>
         </div>
       </section>
@@ -165,7 +262,7 @@ export default function FAQPage() {
                   </tr>
                   <tr className="border-b border-border/30">
                     <td className="py-2">AI Providers</td>
-                    <td className="py-2">17+ (Claude, GPT, Gemini, etc.)</td>
+                    <td className="py-2">75+ (Claude, GPT, Gemini, etc.)</td>
                     <td className="py-2">Claude only</td>
                   </tr>
                   <tr className="border-b border-border/30">
@@ -184,18 +281,38 @@ export default function FAQPage() {
           </div>
 
           <div className="border border-border/50 rounded-lg p-5">
-            <h3 className="font-semibold mb-2">What is Codex?</h3>
+            <h3 className="font-semibold mb-2">Can I switch between backends?</h3>
             <p className="text-muted-foreground">
-              Codex is OpenAI&apos;s CLI agent. Broski supports it as a third backend option, 
-              allowing you to use GPT models for coding assistance.
+              Yes! Go to Settings &gt; AI Backend in the app to switch between Claude Code, 
+              OpenCode, and Codex. The bridge will reconnect with the selected backend. 
+              Note that sessions are per-backend - they don&apos;t transfer.
             </p>
           </div>
 
           <div className="border border-border/50 rounded-lg p-5">
-            <h3 className="font-semibold mb-2">Can I switch between backends?</h3>
+            <h3 className="font-semibold mb-2">Are my sessions shared between backends?</h3>
             <p className="text-muted-foreground">
-              Yes! Go to Settings &gt; AI Backend in the app to switch between Claude Code, 
-              OpenCode, and Codex. The bridge will reconnect with the selected backend.
+              No - each backend maintains separate session storage. OpenCode sessions are in 
+              <code className="px-1 py-0.5 bg-muted rounded text-sm">~/.opencode/</code>, Claude Code sessions 
+              are stored separately. Switching backends shows different sessions.
+            </p>
+          </div>
+
+          <div className="border border-border/50 rounded-lg p-5">
+            <h3 className="font-semibold mb-2">Can I use local/self-hosted models?</h3>
+            <p className="text-muted-foreground">
+              Yes, if you use OpenCode with Ollama or similar local inference. Install Ollama, 
+              pull a model (<code className="px-1 py-0.5 bg-muted rounded text-sm">ollama pull llama3</code>), 
+              configure OpenCode to use it, and Broski will work with the local model.
+            </p>
+          </div>
+
+          <div className="border border-border/50 rounded-lg p-5">
+            <h3 className="font-semibold mb-2">How do I configure my API key?</h3>
+            <p className="text-muted-foreground">
+              API keys are configured in OpenCode/Claude Code, not in Broski. Set environment variables 
+              like <code className="px-1 py-0.5 bg-muted rounded text-sm">ANTHROPIC_API_KEY</code> or use 
+              <code className="px-1 py-0.5 bg-muted rounded text-sm">claude login</code> for Claude Code.
             </p>
           </div>
         </div>
@@ -215,6 +332,8 @@ export default function FAQPage() {
               <li>&#8226; Switch between projects and sessions</li>
               <li>&#8226; Browse files and search your codebase</li>
               <li>&#8226; View AI thinking and tool execution</li>
+              <li>&#8226; Attach images to your conversations</li>
+              <li>&#8226; Fork, share, and manage sessions</li>
             </ul>
           </div>
 
@@ -234,14 +353,114 @@ export default function FAQPage() {
               them as context for your requests.
             </p>
           </div>
+
+          <div className="border border-border/50 rounded-lg p-5">
+            <h3 className="font-semibold mb-2">What happens to my sessions when I disconnect?</h3>
+            <p className="text-muted-foreground">
+              Sessions persist on your computer - they&apos;re not stored on your phone. When you reconnect, 
+              all sessions reload from your Mac. Any in-progress AI responses will have completed (or failed). 
+              Recent messages are cached for offline viewing.
+            </p>
+          </div>
+
+          <div className="border border-border/50 rounded-lg p-5">
+            <h3 className="font-semibold mb-2">Why do I need to approve permissions?</h3>
+            <p className="text-muted-foreground">
+              Some AI actions are potentially dangerous (running commands, editing files, deleting things). 
+              Broski requires your explicit approval for these actions. This is a safety feature - the AI 
+              can&apos;t do anything destructive without your permission.
+            </p>
+          </div>
+
+          <div className="border border-border/50 rounded-lg p-5">
+            <h3 className="font-semibold mb-2">Can I always allow certain tools?</h3>
+            <p className="text-muted-foreground">
+              Yes! Go to Settings &gt; Tools and toggle &quot;Always Allow&quot; for specific tools. 
+              Read is usually safe to always allow. Edit and Bash are better to approve each time.
+            </p>
+          </div>
+        </div>
+      </section>
+
+      {/* Advanced */}
+      <section className="mb-12">
+        <h2 id="advanced" className="text-2xl font-semibold mb-6">Advanced</h2>
+        
+        <div className="space-y-6">
+          <div className="border border-border/50 rounded-lg p-5">
+            <h3 className="font-semibold mb-2">Can I run the bridge as a background service?</h3>
+            <p className="text-muted-foreground mb-2">
+              Yes! Use launchd (macOS), systemd (Linux), or Task Scheduler (Windows).
+            </p>
+            <p className="text-muted-foreground text-sm">
+              See the <a href="/docs/bridge/background-service" className="text-primary hover:underline">Background Service Guide</a> for instructions.
+            </p>
+          </div>
+
+          <div className="border border-border/50 rounded-lg p-5">
+            <h3 className="font-semibold mb-2">How do I use a custom port?</h3>
+            <CodeBlock language="bash">{`# Use --port flag
+broski --port 8080
+
+# Or set environment variable
+BROSKI_PORT=8080 broski`}</CodeBlock>
+            <p className="text-muted-foreground text-sm mt-2">
+              Note: Changing the port invalidates existing QR codes - scan the new one.
+            </p>
+          </div>
+
+          <div className="border border-border/50 rounded-lg p-5">
+            <h3 className="font-semibold mb-2">Can I configure the bridge with environment variables?</h3>
+            <p className="text-muted-foreground mb-2">
+              Yes! All CLI options have environment variable equivalents:
+            </p>
+            <ul className="text-muted-foreground text-sm space-y-1">
+              <li>&#8226; <code className="px-1 py-0.5 bg-muted rounded">BROSKI_PORT</code> - Port number</li>
+              <li>&#8226; <code className="px-1 py-0.5 bg-muted rounded">BROSKI_VERBOSE</code> - Enable verbose logging</li>
+              <li>&#8226; <code className="px-1 py-0.5 bg-muted rounded">BROSKI_ENABLE_FUNNEL</code> - Enable Tailscale Funnel</li>
+              <li>&#8226; <code className="px-1 py-0.5 bg-muted rounded">OPENCODE_BASE_URL</code> - OpenCode server URL</li>
+            </ul>
+          </div>
+
+          <div className="border border-border/50 rounded-lg p-5">
+            <h3 className="font-semibold mb-2">How do I reset everything and start fresh?</h3>
+            <CodeBlock language="bash">{`# Clear bridge data
+rm -rf ~/.broski
+
+# Clear OpenCode data (deletes all sessions!)
+rm -rf ~/.opencode
+
+# Reinstall bridge
+bun add -g broski`}</CodeBlock>
+            <p className="text-muted-foreground text-sm mt-2">
+              On your phone: Settings &gt; Clear Cache, or uninstall and reinstall the app.
+            </p>
+          </div>
         </div>
       </section>
 
       {/* Privacy */}
       <section className="mb-12">
-        <h2 id="privacy" className="text-2xl font-semibold mb-6">Privacy & Security</h2>
+        <h2 id="privacy" className="text-2xl font-semibold mb-6">Privacy &amp; Security</h2>
         
         <div className="space-y-6">
+          <div className="border border-border/50 rounded-lg p-5">
+            <h3 className="font-semibold mb-2">Does Broski send my code to the cloud?</h3>
+            <p className="text-muted-foreground">
+              Only to your configured AI provider (Claude, OpenAI, etc.), and that&apos;s handled by 
+              OpenCode/Claude Code - not by Broski. Broski itself has no cloud servers and doesn&apos;t 
+              collect any data.
+            </p>
+          </div>
+
+          <div className="border border-border/50 rounded-lg p-5">
+            <h3 className="font-semibold mb-2">Is my connection encrypted?</h3>
+            <p className="text-muted-foreground">
+              Local WiFi: Traffic stays on your network. Tailscale: WireGuard encryption. 
+              Funnel: HTTPS + WireGuard. For sensitive work on untrusted networks, always use Tailscale.
+            </p>
+          </div>
+
           <div className="border border-border/50 rounded-lg p-5">
             <h3 className="font-semibold mb-2">Does Broski collect my data?</h3>
             <p className="text-muted-foreground">
@@ -254,18 +473,91 @@ export default function FAQPage() {
           <div className="border border-border/50 rounded-lg p-5">
             <h3 className="font-semibold mb-2">Where is my data stored?</h3>
             <ul className="text-muted-foreground space-y-2">
-              <li>&#8226; <strong className="text-foreground">Connection credentials:</strong> Encrypted in iOS Keychain</li>
+              <li>&#8226; <strong className="text-foreground">Connection credentials:</strong> Encrypted in iOS Keychain / Android EncryptedSharedPrefs</li>
               <li>&#8226; <strong className="text-foreground">Cached sessions:</strong> On your device only</li>
-              <li>&#8226; <strong className="text-foreground">AI conversations:</strong> On your Mac (handled by AI backend)</li>
+              <li>&#8226; <strong className="text-foreground">AI conversations:</strong> On your computer (handled by AI backend)</li>
             </ul>
+          </div>
+
+          <div className="border border-border/50 rounded-lg p-5">
+            <h3 className="font-semibold mb-2">Can someone else access my bridge?</h3>
+            <p className="text-muted-foreground">
+              Not without your authentication token. The bridge uses a cryptographically secure 24-byte 
+              token embedded in the QR code. Don&apos;t share QR code screenshots. To revoke access: 
+              <code className="px-1 py-0.5 bg-muted rounded text-sm">broski --new-token</code>
+            </p>
           </div>
 
           <div className="border border-border/50 rounded-lg p-5">
             <h3 className="font-semibold mb-2">How do I delete my data?</h3>
             <p className="text-muted-foreground">
               Go to Settings &gt; Clear Cache to delete all cached data from the app. 
-              Uninstalling the app removes all data from your device.
+              Uninstalling the app removes all data from your device. On your computer, 
+              delete <code className="px-1 py-0.5 bg-muted rounded text-sm">~/.broski</code> and <code className="px-1 py-0.5 bg-muted rounded text-sm">~/.opencode</code>.
             </p>
+          </div>
+        </div>
+      </section>
+
+      {/* Troubleshooting */}
+      <section className="mb-12">
+        <h2 id="troubleshooting" className="text-2xl font-semibold mb-6">Troubleshooting</h2>
+        
+        <div className="space-y-6">
+          <div className="border border-border/50 rounded-lg p-5">
+            <h3 className="font-semibold mb-2">The bridge says &quot;Port already in use&quot;</h3>
+            <CodeBlock language="bash">{`# Find what's using the port
+lsof -nP -iTCP:18274 -sTCP:LISTEN
+
+# Kill it
+kill <PID>
+
+# Or use a different port
+broski --port 8080`}</CodeBlock>
+          </div>
+
+          <div className="border border-border/50 rounded-lg p-5">
+            <h3 className="font-semibold mb-2">The app says &quot;Unauthorized&quot;</h3>
+            <p className="text-muted-foreground">
+              The authentication token doesn&apos;t match. This happens if you restarted the bridge 
+              with <code className="px-1 py-0.5 bg-muted rounded text-sm">--new-token</code> or the bridge crashed. 
+              Rescan the QR code from the terminal.
+            </p>
+          </div>
+
+          <div className="border border-border/50 rounded-lg p-5">
+            <h3 className="font-semibold mb-2">The chat is stuck on &quot;busy&quot;</h3>
+            <p className="text-muted-foreground mb-2">
+              The session is stuck. Try:
+            </p>
+            <ol className="text-muted-foreground space-y-1 list-decimal ml-4">
+              <li>Tap the stop button in the chat</li>
+              <li>Pull down to refresh the session list</li>
+              <li>Restart the bridge (Ctrl+C, then <code className="px-1 py-0.5 bg-muted rounded text-sm">broski</code>)</li>
+            </ol>
+          </div>
+
+          <div className="border border-border/50 rounded-lg p-5">
+            <h3 className="font-semibold mb-2">OpenCode won&apos;t start</h3>
+            <CodeBlock language="bash">{`# Check if installed
+which opencode
+
+# If not found, install it
+bun install -g opencode
+
+# Try manual mode
+opencode serve
+# Then in another terminal:
+broski --opencode-url http://localhost:4096`}</CodeBlock>
+          </div>
+
+          <div className="border border-border/50 rounded-lg p-5">
+            <h3 className="font-semibold mb-2">How do I see debug logs?</h3>
+            <CodeBlock language="bash">{`# Verbose mode
+broski --verbose
+
+# Save to file
+broski --verbose 2>&1 | tee bridge.log`}</CodeBlock>
           </div>
         </div>
       </section>
