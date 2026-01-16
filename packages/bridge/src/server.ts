@@ -2253,6 +2253,7 @@ export function createBridgeServer(options: BridgeServerOptions): BridgeServer {
             message.agent,
             message.disabledTools,
             message.fileAttachments,
+            message.variant,
           )
           break
         }

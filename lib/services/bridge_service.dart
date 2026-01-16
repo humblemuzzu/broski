@@ -548,6 +548,7 @@ class BridgeService {
     String? agent,
     List<String>? disabledTools,
     List<FileAttachment>? fileAttachments,
+    String? variant,
   }) {
     // Guard against duplicate sends - use content hash to allow different messages
     // but prevent the exact same message from being sent twice
@@ -571,6 +572,7 @@ class BridgeService {
         'disabledTools': disabledTools,
       if (fileAttachments != null && fileAttachments.isNotEmpty)
         'fileAttachments': fileAttachments.map((f) => f.toJson()).toList(),
+      if (variant != null && variant.isNotEmpty) 'variant': variant,
     });
   }
 

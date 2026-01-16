@@ -42,6 +42,7 @@ class StorageService {
   static const _promptAccentColorKey = 'broski_prompt_accent_color';
   static const _codexSettingsKey = 'broski_codex_settings';
   static const _permissionRulesKey = 'broski_permission_rules';
+  static const _openCodeVariantsKey = 'broski_opencode_variants';
 
   static const _uuid = Uuid();
 
@@ -210,6 +211,31 @@ class StorageService {
       }
       if (decoded is Map) {
         return CodexSettings.fromJson(decoded.cast<String, dynamic>());
+      }
+      return null;
+    } catch (_) {
+      return null;
+    }
+  }
+
+  // ============================================================
+  // OpenCode Variant Settings (thinking levels per model)
+  // ============================================================
+
+  Future<void> saveOpenCodeVariants(Map<String, dynamic> data) async {
+    await _storage.write(key: _openCodeVariantsKey, value: jsonEncode(data));
+  }
+
+  Future<Map<String, dynamic>?> loadOpenCodeVariants() async {
+    final raw = await _storage.read(key: _openCodeVariantsKey);
+    if (raw == null) return null;
+    try {
+      final decoded = jsonDecode(raw);
+      if (decoded is Map<String, dynamic>) {
+        return decoded;
+      }
+      if (decoded is Map) {
+        return decoded.cast<String, dynamic>();
       }
       return null;
     } catch (_) {

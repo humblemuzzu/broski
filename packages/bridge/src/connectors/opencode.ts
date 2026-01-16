@@ -194,6 +194,7 @@ export class OpenCodeConnector {
     agent?: string,
     disabledTools?: string[],
     fileAttachments?: FileAttachment[],
+    variant?: string,
   ) {
     let tools: Record<string, boolean> | undefined
     if (disabledTools && disabledTools.length > 0) {
@@ -254,6 +255,7 @@ export class OpenCodeConnector {
         ...(model ? { model } : {}),
         ...(agent ? { agent } : {}),
         ...(tools ? { tools } : {}),
+        ...(variant ? { variant } : {}),
         parts,
       },
       { responseStyle: 'data' },
@@ -272,6 +274,7 @@ export class OpenCodeConnector {
     agent?: string,
     disabledTools?: string[],
     fileAttachments?: FileAttachment[],
+    variant?: string,
   ) {
     let tools: Record<string, boolean> | undefined
     if (disabledTools && disabledTools.length > 0) {
@@ -331,6 +334,7 @@ export class OpenCodeConnector {
         ...(model ? { model } : {}),
         ...(agent ? { agent } : {}),
         ...(tools ? { tools } : {}),
+        ...(variant ? { variant } : {}),
         parts,
       },
       { responseStyle: 'data' },

@@ -27,6 +27,7 @@ import '../providers/connection_provider.dart';
 import '../providers/codex_settings_provider.dart';
 import '../providers/file_search_provider.dart';
 import '../providers/input_style_provider.dart';
+import '../providers/opencode_variant_provider.dart';
 import '../providers/permission_rules_provider.dart';
 import '../providers/prompt_accent_provider.dart';
 import '../providers/selection_provider.dart';
@@ -824,6 +825,9 @@ class _ChatScreenState extends ConsumerState<ChatScreen>
           _agents = agents.isNotEmpty ? agents : kDefaultAgents;
         });
       }
+
+      // Also load variants for thinking level support (SDK v1.1.23+)
+      _loadOpenCodeVariants();
     } catch (e) {
       // Use defaults if loading fails
       if (mounted) {
@@ -831,6 +835,22 @@ class _ChatScreenState extends ConsumerState<ChatScreen>
           _agents = kDefaultAgents;
         });
       }
+    }
+  }
+
+  /// Load available variants (thinking levels) for OpenCode models.
+  Future<void> _loadOpenCodeVariants() async {
+    if (!widget.isOpenCode) return;
+    final bridge = ref.read(bridgeServiceProvider);
+    try {
+      final providersData = await bridge.listProviders();
+      if (!mounted) return;
+      ref
+          .read(openCodeVariantProvider.notifier)
+          .updateAvailableVariants(providersData);
+    } catch (e) {
+      // Silently fail - variants are optional
+      debugPrint('Failed to load OpenCode variants: $e');
     }
   }
 
@@ -6588,6 +6608,27 @@ Describe project-specific guidance for Codex here.
                     .setOCAgentMode(current == 'plan' ? 'build' : 'plan');
               }
             : null,
+        // OpenCode Variant/Thinking Level (SDK v1.1.23+)
+        currentVariant: widget.isOpenCode
+            ? ref
+                  .watch(openCodeVariantProvider)
+                  .getVariant(ref.watch(selectionProvider).model)
+            : null,
+        availableVariants: widget.isOpenCode
+            ? ref
+                  .watch(openCodeVariantProvider)
+                  .getAvailableVariants(ref.watch(selectionProvider).model)
+            : const [],
+        onVariantTap: widget.isOpenCode
+            ? () {
+                final model = ref.read(selectionProvider).model;
+                if (model != null) {
+                  ref
+                      .read(openCodeVariantProvider.notifier)
+                      .cycleVariant(model);
+                }
+              }
+            : null,
       );
     } else {
       inputBar = _FloatingInputBar(
@@ -6620,7 +6661,28 @@ Describe project-specific guidance for Codex here.
                 final current = ref.read(chatSessionProvider).ocAgentMode;
                 ref
                     .read(chatSessionProvider.notifier)
-                    .setOCAgentMode(current == 'plan' ? 'build' : 'plan');
+                    .setOCAgentMode(current == 'plan' ? 'plan' : 'plan');
+              }
+            : null,
+        // OpenCode Variant/Thinking Level (SDK v1.1.23+)
+        currentVariant: widget.isOpenCode
+            ? ref
+                  .watch(openCodeVariantProvider)
+                  .getVariant(ref.watch(selectionProvider).model)
+            : null,
+        availableVariants: widget.isOpenCode
+            ? ref
+                  .watch(openCodeVariantProvider)
+                  .getAvailableVariants(ref.watch(selectionProvider).model)
+            : const [],
+        onVariantTap: widget.isOpenCode
+            ? () {
+                final model = ref.read(selectionProvider).model;
+                if (model != null) {
+                  ref
+                      .read(openCodeVariantProvider.notifier)
+                      .cycleVariant(model);
+                }
               }
             : null,
       );
@@ -7804,6 +7866,10 @@ Describe your project here.
       final toolSettings = ref.read(toolSettingsProvider);
       final disabledTools = toolSettings.disabledTools.toList();
 
+      // Get variant (thinking level) for OpenCode models
+      final variantState = ref.read(openCodeVariantProvider);
+      final variant = variantState.getVariant(selectedModel);
+
       bridge.sendChat(
         sessionId: widget.session.id,
         content: text,
@@ -7814,6 +7880,7 @@ Describe your project here.
         agent: messageAgent,
         disabledTools: disabledTools.isNotEmpty ? disabledTools : null,
         fileAttachments: hasAttachments ? _attachedFiles : null,
+        variant: variant,
       );
     }
 
@@ -9389,6 +9456,10 @@ class _FloatingInputBar extends ConsumerWidget {
     this.isOpenCode = false,
     this.ocPlanMode = false,
     this.onPlanModeToggle,
+    // OpenCode Variant/Thinking Level (SDK v1.1.23+)
+    this.currentVariant,
+    this.availableVariants = const [],
+    this.onVariantTap,
   });
 
   final TextEditingController controller;
@@ -9410,6 +9481,10 @@ class _FloatingInputBar extends ConsumerWidget {
   final bool isOpenCode;
   final bool ocPlanMode;
   final VoidCallback? onPlanModeToggle;
+  // OpenCode Variant/Thinking Level (SDK v1.1.23+)
+  final String? currentVariant;
+  final List<String> availableVariants;
+  final VoidCallback? onVariantTap;
 
   void _showFloatingInputMenu(BuildContext context, OpenCodeTheme theme) {
     final primaryAgents = agents.where((a) => a.isPrimary).toList();
@@ -9424,6 +9499,11 @@ class _FloatingInputBar extends ConsumerWidget {
         currentAgent: currentAgent,
         onAgentChanged: onAgentChanged,
         onAttachTap: onAttachTap,
+        // Variant props
+        isOpenCode: isOpenCode,
+        currentVariant: currentVariant,
+        availableVariants: availableVariants,
+        onVariantTap: onVariantTap,
       ),
     );
   }
@@ -9614,6 +9694,11 @@ class _FloatingInputMenuSheet extends ConsumerStatefulWidget {
     this.currentAgent,
     this.onAgentChanged,
     this.onAttachTap,
+    // Variant props
+    this.isOpenCode = false,
+    this.currentVariant,
+    this.availableVariants = const [],
+    this.onVariantTap,
   });
 
   final OpenCodeTheme theme;
@@ -9621,6 +9706,11 @@ class _FloatingInputMenuSheet extends ConsumerStatefulWidget {
   final String? currentAgent;
   final void Function(String?)? onAgentChanged;
   final VoidCallback? onAttachTap;
+  // Variant props
+  final bool isOpenCode;
+  final String? currentVariant;
+  final List<String> availableVariants;
+  final VoidCallback? onVariantTap;
 
   @override
   ConsumerState<_FloatingInputMenuSheet> createState() =>
@@ -9870,6 +9960,61 @@ class _FloatingInputMenuSheetState
                     const SizedBox(height: 24),
                   ],
 
+                  // Thinking Level (Variant) section - only for OpenCode with variants
+                  if (widget.isOpenCode &&
+                      widget.availableVariants.isNotEmpty) ...[
+                    Row(
+                      children: [
+                        Icon(
+                          Icons.psychology_outlined,
+                          color: widget.theme.textMuted,
+                          size: 18,
+                        ),
+                        const SizedBox(width: 8),
+                        Text(
+                          'Thinking Level',
+                          style: TextStyle(
+                            fontSize: 13,
+                            fontWeight: FontWeight.w600,
+                            color: widget.theme.textMuted,
+                            letterSpacing: 0.5,
+                          ),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 14),
+                    // Variant chips in a wrap
+                    Wrap(
+                      spacing: 8,
+                      runSpacing: 8,
+                      children: [
+                        // Default option
+                        _VariantChip(
+                          label: 'Default',
+                          isSelected: widget.currentVariant == null,
+                          theme: widget.theme,
+                          onTap: () {
+                            widget.onVariantTap?.call();
+                            Navigator.pop(context);
+                          },
+                        ),
+                        // Available variants
+                        ...widget.availableVariants.map(
+                          (v) => _VariantChip(
+                            label: v[0].toUpperCase() + v.substring(1),
+                            isSelected: widget.currentVariant == v,
+                            theme: widget.theme,
+                            onTap: () {
+                              widget.onVariantTap?.call();
+                              Navigator.pop(context);
+                            },
+                          ),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 24),
+                  ],
+
                   // Permission preset section
                   Row(
                     children: [
@@ -10047,6 +10192,10 @@ class _CliStyleInputBar extends StatefulWidget {
     this.isOpenCode = false,
     this.ocPlanMode = false,
     this.onPlanModeToggle,
+    // OpenCode Variant/Thinking Level (SDK v1.1.23+)
+    this.currentVariant,
+    this.availableVariants = const [],
+    this.onVariantTap,
   });
 
   final TextEditingController controller;
@@ -10082,6 +10231,10 @@ class _CliStyleInputBar extends StatefulWidget {
   final bool isOpenCode;
   final bool ocPlanMode; // true = "plan" mode, false = "build" mode
   final VoidCallback? onPlanModeToggle;
+  // OpenCode Variant/Thinking Level (SDK v1.1.23+)
+  final String? currentVariant;
+  final List<String> availableVariants;
+  final VoidCallback? onVariantTap;
 
   @override
   State<_CliStyleInputBar> createState() => _CliStyleInputBarState();
@@ -10457,6 +10610,41 @@ class _CliStyleInputBarState extends State<_CliStyleInputBar> {
                                               alpha: 0.5,
                                             ),
                                             fontSize: 13,
+                                          ),
+                                        ),
+                                      ],
+
+                                      // Variant/Thinking level selector (only for OpenCode when variants available)
+                                      if (widget.isOpenCode &&
+                                          widget
+                                              .availableVariants
+                                              .isNotEmpty) ...[
+                                        Padding(
+                                          padding: const EdgeInsets.symmetric(
+                                            horizontal: 8,
+                                          ),
+                                          child: Text(
+                                            '·',
+                                            style: TextStyle(
+                                              color: theme.textMuted.withValues(
+                                                alpha: 0.4,
+                                              ),
+                                              fontSize: 13,
+                                            ),
+                                          ),
+                                        ),
+                                        GestureDetector(
+                                          onTap: widget.onVariantTap,
+                                          child: Text(
+                                            widget.currentVariant ?? 'Default',
+                                            style: TextStyle(
+                                              color:
+                                                  widget.currentVariant != null
+                                                  ? theme.primary
+                                                  : theme.textMuted,
+                                              fontSize: 13,
+                                              fontWeight: FontWeight.w500,
+                                            ),
                                           ),
                                         ),
                                       ],
@@ -10995,6 +11183,49 @@ class _PermissionPresetCard extends StatelessWidget {
   }
 }
 
+/// Chip widget for variant/thinking level selection
+class _VariantChip extends StatelessWidget {
+  const _VariantChip({
+    required this.label,
+    required this.isSelected,
+    required this.theme,
+    required this.onTap,
+  });
+
+  final String label;
+  final bool isSelected;
+  final OpenCodeTheme theme;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    return GestureDetector(
+      onTap: onTap,
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+        decoration: BoxDecoration(
+          color: isSelected
+              ? theme.primary.withValues(alpha: 0.15)
+              : theme.backgroundPanel,
+          borderRadius: BorderRadius.circular(20),
+          border: Border.all(
+            color: isSelected ? theme.primary : theme.borderSubtle,
+            width: isSelected ? 1.5 : 1,
+          ),
+        ),
+        child: Text(
+          label,
+          style: TextStyle(
+            color: isSelected ? theme.primary : theme.text,
+            fontSize: 13,
+            fontWeight: isSelected ? FontWeight.w600 : FontWeight.w500,
+          ),
+        ),
+      ),
+    );
+  }
+}
+
 // Model selector bottom sheet
 class _ModelSelectorSheet extends ConsumerStatefulWidget {
   const _ModelSelectorSheet({required this.onModelSelected});
@@ -11033,6 +11264,12 @@ class _ModelSelectorSheetState extends ConsumerState<_ModelSelectorSheet> {
             selection.model?.displayString ?? (results[1])['model'] as String?;
         _loading = false;
       });
+      // Update available variants for OpenCode thinking levels
+      if (_providersData != null) {
+        ref
+            .read(openCodeVariantProvider.notifier)
+            .updateAvailableVariants(_providersData!);
+      }
     } catch (e) {
       if (!mounted) return;
       setState(() {
