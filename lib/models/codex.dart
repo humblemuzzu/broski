@@ -504,3 +504,160 @@ class CodexUnknownMessage extends CodexStreamMessage {
 
   const CodexUnknownMessage(this.type, this.raw);
 }
+
+// ============================================================================
+// CODEX SDK v0.87.0+ NEW TYPES
+// ============================================================================
+
+/// WebSearchMode replaces webSearchEnabled boolean (SDK v0.87.0+)
+enum CodexWebSearchMode {
+  disabled,
+  cached,
+  live;
+
+  String get wireValue => name;
+
+  factory CodexWebSearchMode.fromString(String? v) {
+    switch (v) {
+      case 'cached':
+        return CodexWebSearchMode.cached;
+      case 'live':
+        return CodexWebSearchMode.live;
+      default:
+        return CodexWebSearchMode.disabled;
+    }
+  }
+}
+
+/// Agent status for multi-agent collaboration (SDK v0.87.0+)
+enum CodexCollabAgentStatus {
+  pendingInit,
+  running,
+  completed,
+  errored,
+  shutdown,
+  notFound;
+
+  factory CodexCollabAgentStatus.fromJson(Map<String, dynamic> json) {
+    final type = json['type'] as String? ?? 'pending_init';
+    return switch (type) {
+      'running' => CodexCollabAgentStatus.running,
+      'completed' => CodexCollabAgentStatus.completed,
+      'errored' => CodexCollabAgentStatus.errored,
+      'shutdown' => CodexCollabAgentStatus.shutdown,
+      'not_found' => CodexCollabAgentStatus.notFound,
+      _ => CodexCollabAgentStatus.pendingInit,
+    };
+  }
+
+  factory CodexCollabAgentStatus.fromString(String? s) {
+    return switch (s) {
+      'running' => CodexCollabAgentStatus.running,
+      'completed' => CodexCollabAgentStatus.completed,
+      'errored' => CodexCollabAgentStatus.errored,
+      'shutdown' => CodexCollabAgentStatus.shutdown,
+      'not_found' || 'notFound' => CodexCollabAgentStatus.notFound,
+      _ => CodexCollabAgentStatus.pendingInit,
+    };
+  }
+}
+
+/// Represents a spawned agent node in multi-agent collaboration tree
+class CodexCollabAgentNode {
+  const CodexCollabAgentNode({
+    required this.threadId,
+    this.parentThreadId,
+    required this.status,
+    this.prompt,
+    this.waitingForThreadIds = const [],
+    required this.startedAt,
+    this.completedAt,
+    this.errorMessage,
+  });
+
+  final String threadId;
+  final String? parentThreadId;
+  final CodexCollabAgentStatus status;
+  final String? prompt;
+  final List<String> waitingForThreadIds;
+  final DateTime startedAt;
+  final DateTime? completedAt;
+  final String? errorMessage;
+
+  CodexCollabAgentNode copyWith({
+    CodexCollabAgentStatus? status,
+    List<String>? waitingForThreadIds,
+    DateTime? completedAt,
+    String? errorMessage,
+  }) => CodexCollabAgentNode(
+    threadId: threadId,
+    parentThreadId: parentThreadId,
+    status: status ?? this.status,
+    prompt: prompt,
+    waitingForThreadIds: waitingForThreadIds ?? this.waitingForThreadIds,
+    startedAt: startedAt,
+    completedAt: completedAt ?? this.completedAt,
+    errorMessage: errorMessage ?? this.errorMessage,
+  );
+}
+
+/// Tree structure for tracking multi-agent collaboration
+class CodexCollabAgentTree {
+  CodexCollabAgentTree({required this.rootThreadId});
+
+  final String rootThreadId;
+  final Map<String, CodexCollabAgentNode> _nodes = {};
+
+  void addNode(CodexCollabAgentNode node) => _nodes[node.threadId] = node;
+
+  void updateStatus(
+    String threadId,
+    CodexCollabAgentStatus status, {
+    String? errorMessage,
+  }) {
+    final node = _nodes[threadId];
+    if (node != null) {
+      _nodes[threadId] = node.copyWith(
+        status: status,
+        completedAt:
+            status == CodexCollabAgentStatus.completed ||
+                status == CodexCollabAgentStatus.errored
+            ? DateTime.now()
+            : null,
+        errorMessage: errorMessage,
+      );
+    }
+  }
+
+  void updateWaitingFor(String threadId, List<String> waitingForThreadIds) {
+    final node = _nodes[threadId];
+    if (node != null) {
+      _nodes[threadId] = node.copyWith(
+        waitingForThreadIds: waitingForThreadIds,
+      );
+    }
+  }
+
+  CodexCollabAgentNode? getNode(String threadId) => _nodes[threadId];
+
+  List<CodexCollabAgentNode> getChildren(String threadId) =>
+      _nodes.values.where((n) => n.parentThreadId == threadId).toList();
+
+  List<CodexCollabAgentNode> get allNodes => _nodes.values.toList();
+
+  bool get hasActiveAgents => _nodes.values.any(
+    (n) =>
+        n.status == CodexCollabAgentStatus.running ||
+        n.status == CodexCollabAgentStatus.pendingInit,
+  );
+
+  int get totalAgents => _nodes.length;
+
+  int get completedAgents => _nodes.values
+      .where((n) => n.status == CodexCollabAgentStatus.completed)
+      .length;
+
+  int get runningAgents => _nodes.values
+      .where((n) => n.status == CodexCollabAgentStatus.running)
+      .length;
+}

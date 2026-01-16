@@ -856,6 +856,28 @@ export function createBridgeServer(options: BridgeServerOptions): BridgeServer {
             }
           }
 
+          // Multi-Agent Collaboration Events (Codex SDK v0.87.0+)
+          // Map collab notifications to specialized event types for UI rendering
+          if (n.method.startsWith('collab/')) {
+            const collabMethod = n.method.replace('collab/', '').replace('/', '_')
+            const collabData = {
+              callId: safeString(params.call_id ?? params.callId),
+              senderThreadId: safeString(params.sender_thread_id ?? params.senderThreadId ?? threadId),
+              receiverThreadId: safeString(params.receiver_thread_id ?? params.receiverThreadId),
+              receiverThreadIds: Array.isArray(params.receiver_thread_ids ?? params.receiverThreadIds)
+                ? (params.receiver_thread_ids ?? params.receiverThreadIds).map(safeString)
+                : [],
+              newThreadId: safeString(params.new_thread_id ?? params.newThreadId) || undefined,
+              prompt: safeString(params.prompt),
+              status: params.status,
+              statuses: params.statuses,
+            }
+            const senderThread = collabData.senderThreadId || threadId
+            const owner = senderThread ? cxThreadOwners.get(senderThread) : null
+            emitCxStream(senderThread || threadId, { type: `collab_${collabMethod}` as any, data: collabData }, owner)
+            return
+          }
+
           const owner = threadId ? cxThreadOwners.get(threadId) : null
           if (!threadId) {
             // Some notifications are global (no threadId): auth, rate limits, MCP oauth completion, etc.

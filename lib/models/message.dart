@@ -381,6 +381,8 @@ class SubtaskNotification {
     this.command,
     this.duration,
     this.isCompleted = true,
+    this.modelProvider,
+    this.modelId,
   });
 
   /// Part ID
@@ -407,8 +409,15 @@ class SubtaskNotification {
   /// Whether the task completed (vs still running)
   final bool isCompleted;
 
+  /// Model provider used for this subtask (SDK v1.1.23+)
+  final String? modelProvider;
+
+  /// Model ID used for this subtask (SDK v1.1.23+)
+  final String? modelId;
+
   /// Parse from SDK subtask part
   factory SubtaskNotification.fromJson(Map<String, dynamic> json) {
+    final model = json['model'] as Map<String, dynamic>?;
     return SubtaskNotification(
       id: json['id'] as String? ?? '',
       description: json['description'] as String? ?? 'Background task',
@@ -420,6 +429,8 @@ class SubtaskNotification {
           '',
       prompt: json['prompt'] as String?,
       command: json['command'] as String?,
+      modelProvider: model?['providerID'] as String?,
+      modelId: model?['modelID'] as String?,
     );
   }
 }

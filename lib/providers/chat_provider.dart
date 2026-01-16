@@ -16,6 +16,15 @@ import '../services/bridge_service.dart';
 import '../services/demo_data_service.dart';
 import 'service_providers.dart';
 
+/// MCP OAuth pending state (SDK v1.1.23+)
+/// When MCP OAuth browser open fails (headless/remote), we store the URL
+/// for the user to manually open.
+class McpOAuthPending {
+  const McpOAuthPending({required this.serverName, required this.url});
+  final String serverName;
+  final String url;
+}
+
 class ChatSessionState {
   const ChatSessionState({
     this.session,
@@ -43,6 +52,8 @@ class ChatSessionState {
     this.cxModel,
     this.cxTokenUsage,
     this.cxIsStreaming = false,
+    // Codex multi-agent collaboration tree (SDK v0.87.0+)
+    this.cxCollabTree,
     this.pendingQuestion,
     // FIX: Track content length incrementally instead of recalculating every frame
     this.contentLength = 0,
@@ -50,6 +61,8 @@ class ChatSessionState {
     // "build" = default mode for making changes
     // "plan" = research/planning mode (restricted file edits)
     this.ocAgentMode = 'build',
+    // OpenCode MCP OAuth pending (SDK v1.1.23+)
+    this.mcpOAuthPending,
   });
 
   final SessionSummary? session;
@@ -79,6 +92,8 @@ class ChatSessionState {
   final String? cxModel;
   final CodexThreadTokenUsage? cxTokenUsage;
   final bool cxIsStreaming;
+  // Codex multi-agent collaboration tree (SDK v0.87.0+)
+  final CodexCollabAgentTree? cxCollabTree;
 
   // OpenCode Question tool support
   final QuestionRequest? pendingQuestion;
@@ -90,6 +105,10 @@ class ChatSessionState {
   // "build" = default mode for making changes
   // "plan" = research/planning mode (restricted file edits)
   final String ocAgentMode;
+
+  // OpenCode MCP OAuth pending (SDK v1.1.23+)
+  // When MCP OAuth browser open fails in headless mode, URL stored here
+  final McpOAuthPending? mcpOAuthPending;
 
   /// Get the effective session ID (works for both OC and CC)
   String? get effectiveSessionId => isClaudeCode
@@ -128,9 +147,11 @@ class ChatSessionState {
     String? cxModel,
     CodexThreadTokenUsage? cxTokenUsage,
     bool? cxIsStreaming,
+    CodexCollabAgentTree? cxCollabTree,
     QuestionRequest? pendingQuestion,
     int? contentLength,
     String? ocAgentMode,
+    McpOAuthPending? mcpOAuthPending,
   }) {
     return ChatSessionState(
       session: session ?? this.session,
@@ -155,9 +176,11 @@ class ChatSessionState {
       cxModel: cxModel ?? this.cxModel,
       cxTokenUsage: cxTokenUsage ?? this.cxTokenUsage,
       cxIsStreaming: cxIsStreaming ?? this.cxIsStreaming,
+      cxCollabTree: cxCollabTree ?? this.cxCollabTree,
       pendingQuestion: pendingQuestion ?? this.pendingQuestion,
       contentLength: contentLength ?? this.contentLength,
       ocAgentMode: ocAgentMode ?? this.ocAgentMode,
+      mcpOAuthPending: mcpOAuthPending ?? this.mcpOAuthPending,
     );
   }
 }
@@ -1150,11 +1173,42 @@ class ChatSessionNotifier extends StateNotifier<ChatSessionState> {
       case 'session.idle':
         _handleSessionIdle(payload);
         break;
+      // OpenCode SDK v1.1.23+: MCP OAuth browser open failed (remote/headless sessions)
+      case 'mcp.browser.open.failed':
+        _handleMcpBrowserOpenFailed(payload);
+        break;
       default:
         if (kDebugMode) {
           developer.log('Unhandled event type: $type', name: 'ChatProvider');
         }
         break;
+    }
+  }
+
+  /// Handle MCP OAuth browser open failure (SDK v1.1.23+).
+  /// When running OpenCode on a headless server, the browser can't open for OAuth.
+  /// This allows the mobile app to display the URL for manual opening.
+  void _handleMcpBrowserOpenFailed(Map<String, dynamic> payload) {
+    final properties =
+        payload['properties'] as Map<String, dynamic>? ?? const {};
+    final mcpName =
+        properties['mcpName'] as String? ??
+        properties['server'] as String? ??
+        'MCP Server';
+    final url = properties['url'] as String?;
+
+    if (kDebugMode) {
+      developer.log(
+        'MCP OAuth browser open failed for $mcpName${url != null ? ': $url' : ''}',
+        name: 'ChatProvider',
+      );
+    }
+
+    // Store the URL so UI can display it for manual opening
+    if (url != null && url.isNotEmpty) {
+      state = state.copyWith(
+        mcpOAuthPending: McpOAuthPending(serverName: mcpName, url: url),
+      );
     }
   }
 
@@ -2684,6 +2738,163 @@ class ChatSessionNotifier extends StateNotifier<ChatSessionState> {
       );
       _cxScheduleAssistantUpdate(isStreaming: true);
       return;
+    }
+
+    // Multi-Agent Collaboration Events (Codex SDK v0.87.0+)
+    _handleCodexCollabEvent(method, params);
+  }
+
+  /// Handle multi-agent collaboration events (SDK v0.87.0+)
+  void _handleCodexCollabEvent(String method, Map<String, dynamic> params) {
+    // Parse common fields
+    // ignore: unused_local_variable
+    final callId = (params['callId'] ?? params['call_id'])?.toString() ?? '';
+    final senderThreadId =
+        (params['senderThreadId'] ?? params['sender_thread_id'])?.toString() ??
+        state.cxThreadId ??
+        '';
+    final receiverThreadId =
+        (params['receiverThreadId'] ?? params['receiver_thread_id'])
+            ?.toString();
+    final newThreadId = (params['newThreadId'] ?? params['new_thread_id'])
+        ?.toString();
+    final prompt = params['prompt']?.toString();
+
+    // Parse status (can be a map or string)
+    CodexCollabAgentStatus? parseStatus(dynamic statusData) {
+      if (statusData == null) return null;
+      if (statusData is Map<String, dynamic>) {
+        return CodexCollabAgentStatus.fromJson(statusData);
+      } else if (statusData is String) {
+        return CodexCollabAgentStatus.fromString(statusData);
+      }
+      return null;
+    }
+
+    final status = parseStatus(params['status']);
+
+    // Initialize tree if needed
+    CodexCollabAgentTree getOrCreateTree() {
+      return state.cxCollabTree ??
+          CodexCollabAgentTree(rootThreadId: state.cxThreadId ?? '');
+    }
+
+    switch (method) {
+      // collab/agentSpawn/begin
+      case 'collab/agentSpawn/begin':
+      case 'collab_agentSpawn_begin':
+        if (kDebugMode) {
+          developer.log(
+            'Collab: Spawning agent from $senderThreadId',
+            name: 'ChatProvider',
+          );
+        }
+        break;
+
+      // collab/agentSpawn/end
+      case 'collab/agentSpawn/end':
+      case 'collab_agentSpawn_end':
+        if (newThreadId != null && newThreadId.isNotEmpty) {
+          final tree = getOrCreateTree();
+          tree.addNode(
+            CodexCollabAgentNode(
+              threadId: newThreadId,
+              parentThreadId: senderThreadId,
+              status: status ?? CodexCollabAgentStatus.running,
+              prompt: prompt,
+              startedAt: DateTime.now(),
+            ),
+          );
+          state = state.copyWith(cxCollabTree: tree);
+        }
+        break;
+
+      // collab/agentInteraction/begin
+      case 'collab/agentInteraction/begin':
+      case 'collab_agentInteraction_begin':
+        if (kDebugMode) {
+          developer.log(
+            'Collab: Interaction $senderThreadId -> $receiverThreadId',
+            name: 'ChatProvider',
+          );
+        }
+        break;
+
+      // collab/agentInteraction/end
+      case 'collab/agentInteraction/end':
+      case 'collab_agentInteraction_end':
+        if (receiverThreadId != null && status != null) {
+          final tree = state.cxCollabTree;
+          if (tree != null) {
+            tree.updateStatus(receiverThreadId, status);
+            state = state.copyWith(cxCollabTree: tree);
+          }
+        }
+        break;
+
+      // collab/waiting/begin
+      case 'collab/waiting/begin':
+      case 'collab_waiting_begin':
+        final receiverIds =
+            (params['receiverThreadIds'] ?? params['receiver_thread_ids']);
+        if (receiverIds is List) {
+          final tree = state.cxCollabTree;
+          if (tree != null) {
+            tree.updateWaitingFor(
+              senderThreadId,
+              receiverIds.map((e) => e.toString()).toList(),
+            );
+            state = state.copyWith(cxCollabTree: tree);
+          }
+        }
+        break;
+
+      // collab/waiting/end
+      case 'collab/waiting/end':
+      case 'collab_waiting_end':
+        // Update all agent statuses from the statuses map
+        final statuses = params['statuses'];
+        if (statuses is Map) {
+          final tree = state.cxCollabTree;
+          if (tree != null) {
+            for (final entry in statuses.entries) {
+              final tid = entry.key.toString();
+              final st = parseStatus(entry.value);
+              if (st != null) {
+                tree.updateStatus(tid, st);
+              }
+            }
+            tree.updateWaitingFor(senderThreadId, []);
+            state = state.copyWith(cxCollabTree: tree);
+          }
+        }
+        break;
+
+      // collab/close/begin
+      case 'collab/close/begin':
+      case 'collab_close_begin':
+        if (kDebugMode) {
+          developer.log(
+            'Collab: Closing agent $receiverThreadId',
+            name: 'ChatProvider',
+          );
+        }
+        break;
+
+      // collab/close/end
+      case 'collab/close/end':
+      case 'collab_close_end':
+        if (receiverThreadId != null) {
+          final tree = state.cxCollabTree;
+          if (tree != null) {
+            tree.updateStatus(
+              receiverThreadId,
+              status ?? CodexCollabAgentStatus.shutdown,
+            );
+            state = state.copyWith(cxCollabTree: tree);
+          }
+        }
+        break;
     }
   }
 

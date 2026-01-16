@@ -2,6 +2,7 @@ import 'dart:async';
 import 'dart:convert';
 import 'dart:ui';
 
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -49,6 +50,7 @@ import '../widgets/question_prompt_sheet.dart';
 import '../widgets/rollback_sheet.dart';
 import '../widgets/session_sidebar.dart';
 import '../widgets/tool_call.dart';
+import '../widgets/multi_agent_tree.dart';
 import '../widgets/claude_code_help.dart';
 import 'subagents_screen.dart';
 import 'custom_tools_screen.dart';
@@ -6212,6 +6214,38 @@ Describe project-specific guidance for Codex here.
                         if (widget.isOpenCode && messages.isEmpty)
                           const Center(
                             child: OpenCodeBranding(width: 280, opacity: 1.0),
+                          ),
+                        // Codex Multi-Agent Collaboration Tree (SDK v0.87.0+)
+                        if (widget.isCodex)
+                          Consumer(
+                            builder: (context, ref, _) {
+                              final collabTree = ref.watch(
+                                chatSessionProvider.select(
+                                  (s) => s.cxCollabTree,
+                                ),
+                              );
+                              if (collabTree == null ||
+                                  collabTree.totalAgents <= 1) {
+                                return const SizedBox.shrink();
+                              }
+                              return Positioned(
+                                top: 70,
+                                left: 16,
+                                right: 16,
+                                child: MultiAgentTreeWidget(
+                                  tree: collabTree,
+                                  compact: true,
+                                  onAgentTap: (threadId) {
+                                    // TODO: Switch to view that thread's messages
+                                    if (kDebugMode) {
+                                      debugPrint(
+                                        'Tapped on agent thread: $threadId',
+                                      );
+                                    }
+                                  },
+                                ),
+                              );
+                            },
                           ),
                         // Message list
                         ScrollbarTheme(

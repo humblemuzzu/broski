@@ -957,6 +957,93 @@ export type CodexStreamMessage =
   | { type: 'notification'; method: string; params: any }
   | { type: 'request'; requestId: string; method: string; params: any }
   | { type: 'error'; message: string; code?: string }
+  // Multi-Agent Collaboration Events (Codex SDK v0.87.0+)
+  | { type: 'collab_spawn_begin'; data: CodexCollabAgentSpawnBeginEvent }
+  | { type: 'collab_spawn_end'; data: CodexCollabAgentSpawnEndEvent }
+  | { type: 'collab_interaction_begin'; data: CodexCollabAgentInteractionBeginEvent }
+  | { type: 'collab_interaction_end'; data: CodexCollabAgentInteractionEndEvent }
+  | { type: 'collab_waiting_begin'; data: CodexCollabWaitingBeginEvent }
+  | { type: 'collab_waiting_end'; data: CodexCollabWaitingEndEvent }
+  | { type: 'collab_close_begin'; data: CodexCollabCloseBeginEvent }
+  | { type: 'collab_close_end'; data: CodexCollabCloseEndEvent }
+
+// ============================================================================
+// CODEX MULTI-AGENT COLLABORATION TYPES (SDK v0.87.0+)
+// ============================================================================
+
+/** Agent status for multi-agent collaboration */
+export type CodexAgentStatus =
+  | { type: 'pending_init' }
+  | { type: 'running' }
+  | { type: 'completed'; message?: string }
+  | { type: 'errored'; error: string }
+  | { type: 'shutdown' }
+  | { type: 'not_found' }
+
+/** Event: Agent spawn started */
+export type CodexCollabAgentSpawnBeginEvent = {
+  callId: string
+  senderThreadId: string
+  prompt: string
+}
+
+/** Event: Agent spawn completed */
+export type CodexCollabAgentSpawnEndEvent = {
+  callId: string
+  senderThreadId: string
+  newThreadId?: string
+  prompt: string
+  status: CodexAgentStatus
+}
+
+/** Event: Agent-to-agent interaction started */
+export type CodexCollabAgentInteractionBeginEvent = {
+  callId: string
+  senderThreadId: string
+  receiverThreadId: string
+  prompt: string
+}
+
+/** Event: Agent-to-agent interaction completed */
+export type CodexCollabAgentInteractionEndEvent = {
+  callId: string
+  senderThreadId: string
+  receiverThreadId: string
+  prompt: string
+  status: CodexAgentStatus
+}
+
+/** Event: Waiting for multiple agents started */
+export type CodexCollabWaitingBeginEvent = {
+  senderThreadId: string
+  receiverThreadIds: string[]
+  callId: string
+}
+
+/** Event: Waiting for multiple agents completed */
+export type CodexCollabWaitingEndEvent = {
+  senderThreadId: string
+  callId: string
+  statuses: Record<string, CodexAgentStatus>
+}
+
+/** Event: Agent close started */
+export type CodexCollabCloseBeginEvent = {
+  callId: string
+  senderThreadId: string
+  receiverThreadId: string
+}
+
+/** Event: Agent close completed */
+export type CodexCollabCloseEndEvent = {
+  callId: string
+  senderThreadId: string
+  receiverThreadId: string
+  status: CodexAgentStatus
+}
+
+/** WebSearchMode replaces webSearchEnabled boolean (SDK v0.87.0+) */
+export type CodexWebSearchMode = 'disabled' | 'cached' | 'live'
 
 // Feature 21: File Attachment (for @ tagging in prompt and image attachments)
 export type FileAttachment = {
