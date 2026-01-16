@@ -9478,48 +9478,6 @@ class _FloatingInputBar extends ConsumerWidget {
                           ),
                         ),
                       ),
-                      // OpenCode Plan Mode toggle chip (SDK v1.1.18+)
-                      if (isOpenCode && onPlanModeToggle != null)
-                        GestureDetector(
-                          onTap: onPlanModeToggle,
-                          child: Container(
-                            height: 32,
-                            margin: const EdgeInsets.only(right: 8),
-                            padding: const EdgeInsets.symmetric(horizontal: 10),
-                            decoration: BoxDecoration(
-                              color: ocPlanMode
-                                  ? theme.warning.withValues(alpha: 0.15)
-                                  : kCard,
-                              borderRadius: BorderRadius.circular(16),
-                              border: Border.all(
-                                color: ocPlanMode
-                                    ? theme.warning.withValues(alpha: 0.4)
-                                    : fade(kMuted, 0.2),
-                              ),
-                            ),
-                            child: Row(
-                              mainAxisSize: MainAxisSize.min,
-                              children: [
-                                Icon(
-                                  ocPlanMode
-                                      ? Icons.lightbulb_outline_rounded
-                                      : Icons.build_rounded,
-                                  size: 14,
-                                  color: ocPlanMode ? theme.warning : kMuted,
-                                ),
-                                const SizedBox(width: 4),
-                                Text(
-                                  ocPlanMode ? 'Plan' : 'Build',
-                                  style: TextStyle(
-                                    color: ocPlanMode ? theme.warning : kMuted,
-                                    fontSize: 12,
-                                    fontWeight: FontWeight.w500,
-                                  ),
-                                ),
-                              ],
-                            ),
-                          ),
-                        ),
                       // Prompt bar container
                       Expanded(
                         child: Container(
@@ -9642,277 +9600,340 @@ class _FloatingInputMenuSheetState
     final rulesState = ref.watch(permissionRulesProvider);
     final selectedPreset = rulesState.preset;
 
+    // Separate primary (Build/Plan) from secondary agents
+    final primaryAgents = widget.agents
+        .where((a) => a.name == 'build' || a.name == 'plan')
+        .toList();
+    final secondaryAgents = widget.agents
+        .where((a) => a.name != 'build' && a.name != 'plan')
+        .toList();
+
     return Container(
-      padding: const EdgeInsets.all(20),
       decoration: BoxDecoration(
-        color: widget.theme.backgroundPanel,
-        borderRadius: const BorderRadius.vertical(top: Radius.circular(20)),
+        color: widget.theme.background,
+        borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
       ),
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          // Handle bar
-          Center(
-            child: Container(
-              width: 40,
-              height: 4,
-              decoration: BoxDecoration(
-                color: widget.theme.borderSubtle,
-                borderRadius: BorderRadius.circular(2),
+      child: SafeArea(
+        top: false,
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            // Handle bar
+            Padding(
+              padding: const EdgeInsets.only(top: 12, bottom: 8),
+              child: Container(
+                width: 36,
+                height: 4,
+                decoration: BoxDecoration(
+                  color: widget.theme.borderSubtle,
+                  borderRadius: BorderRadius.circular(2),
+                ),
               ),
             ),
-          ),
-          const SizedBox(height: 16),
 
-          // Quick actions row
-          Row(
-            children: [
-              Icon(
-                Icons.flash_on_rounded,
-                color: widget.theme.textMuted,
-                size: 16,
-              ),
-              const SizedBox(width: 8),
-              Text(
-                'Quick Actions',
-                style: TextStyle(
-                  fontSize: 14,
-                  fontWeight: FontWeight.w600,
-                  color: widget.theme.textMuted,
-                ),
-              ),
-            ],
-          ),
-          const SizedBox(height: 12),
-          Wrap(
-            spacing: 8,
-            runSpacing: 8,
-            children: [
-              _QuickActionChip(
-                icon: Icons.attach_file_rounded,
-                label: 'Attach File',
-                theme: widget.theme,
-                onTap: () {
-                  Navigator.pop(context);
-                  widget.onAttachTap?.call();
-                },
-              ),
-              _QuickActionChip(
-                icon: Icons.camera_alt_outlined,
-                label: 'Take Photo',
-                theme: widget.theme,
-                onTap: () {
-                  Navigator.pop(context);
-                  // TODO: Trigger camera
-                },
-              ),
-            ],
-          ),
-          const SizedBox(height: 16),
-
-          // Agent section
-          if (widget.agents.isNotEmpty) ...[
-            Divider(color: widget.theme.borderSubtle),
-            const SizedBox(height: 16),
-            Row(
-              children: [
-                Icon(
-                  Icons.smart_toy_outlined,
-                  color: widget.theme.textMuted,
-                  size: 16,
-                ),
-                const SizedBox(width: 8),
-                Text(
-                  'Agent',
-                  style: TextStyle(
-                    fontSize: 14,
-                    fontWeight: FontWeight.w600,
-                    color: widget.theme.textMuted,
+            // Content with proper padding
+            Padding(
+              padding: const EdgeInsets.fromLTRB(20, 8, 20, 24),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  // Quick Actions section (Attach File, Take Photo)
+                  Row(
+                    children: [
+                      Icon(
+                        Icons.add_circle_outline_rounded,
+                        color: widget.theme.textMuted,
+                        size: 18,
+                      ),
+                      const SizedBox(width: 8),
+                      Text(
+                        'Attach',
+                        style: TextStyle(
+                          fontSize: 13,
+                          fontWeight: FontWeight.w600,
+                          color: widget.theme.textMuted,
+                          letterSpacing: 0.5,
+                        ),
+                      ),
+                    ],
                   ),
-                ),
-              ],
-            ),
-            const SizedBox(height: 12),
-            SizedBox(
-              height: 36,
-              child: ListView.separated(
-                scrollDirection: Axis.horizontal,
-                itemCount: widget.agents.length,
-                separatorBuilder: (_, __) => const SizedBox(width: 8),
-                itemBuilder: (context, index) {
-                  final agent = widget.agents[index];
-                  final isSelected = agent.name == widget.currentAgent;
-                  return GestureDetector(
-                    onTap: () {
-                      widget.onAgentChanged?.call(agent.name);
-                      Navigator.pop(context);
-                    },
-                    child: Container(
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 12,
-                        vertical: 8,
-                      ),
-                      decoration: BoxDecoration(
-                        color: isSelected
-                            ? agent.displayColor.withValues(alpha: 0.15)
-                            : widget.theme.backgroundElement,
-                        borderRadius: BorderRadius.circular(18),
-                        border: Border.all(
-                          color: isSelected
-                              ? agent.displayColor
-                              : widget.theme.borderSubtle,
+                  const SizedBox(height: 14),
+                  Row(
+                    children: [
+                      Expanded(
+                        child: _QuickActionCard(
+                          icon: Icons.attach_file_rounded,
+                          label: 'Attach File',
+                          theme: widget.theme,
+                          onTap: () {
+                            Navigator.pop(context);
+                            widget.onAttachTap?.call();
+                          },
                         ),
                       ),
-                      child: Row(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          Container(
-                            width: 8,
-                            height: 8,
-                            decoration: BoxDecoration(
-                              color: agent.displayColor,
-                              shape: BoxShape.circle,
-                            ),
-                          ),
-                          const SizedBox(width: 6),
-                          Text(
-                            agent.displayName,
-                            style: TextStyle(
-                              color: isSelected
-                                  ? agent.displayColor
-                                  : widget.theme.text,
-                              fontSize: 12,
-                              fontWeight: FontWeight.w500,
-                            ),
-                          ),
-                        ],
+                      const SizedBox(width: 10),
+                      Expanded(
+                        child: _QuickActionCard(
+                          icon: Icons.camera_alt_outlined,
+                          label: 'Take Photo',
+                          theme: widget.theme,
+                          onTap: () {
+                            Navigator.pop(context);
+                            // TODO: Trigger camera
+                          },
+                        ),
                       ),
-                    ),
-                  );
-                },
-              ),
-            ),
-            const SizedBox(height: 16),
-          ],
+                    ],
+                  ),
+                  const SizedBox(height: 24),
 
-          // Permission preset section
-          Divider(color: widget.theme.borderSubtle),
-          const SizedBox(height: 16),
-          Row(
-            children: [
-              Icon(
-                Icons.security_outlined,
-                color: widget.theme.textMuted,
-                size: 16,
-              ),
-              const SizedBox(width: 8),
-              Text(
-                'Permission Preset',
-                style: TextStyle(
-                  fontSize: 14,
-                  fontWeight: FontWeight.w600,
-                  color: widget.theme.textMuted,
-                ),
-              ),
-            ],
-          ),
-          const SizedBox(height: 12),
-          SizedBox(
-            height: 56,
-            child: ListView.separated(
-              scrollDirection: Axis.horizontal,
-              itemCount: PermissionPreset.values.length - 1, // Exclude custom
-              separatorBuilder: (_, __) => const SizedBox(width: 8),
-              itemBuilder: (context, index) {
-                final preset = PermissionPreset.values[index];
-                if (preset == PermissionPreset.custom) {
-                  return const SizedBox.shrink();
-                }
-                final isSelected = preset == selectedPreset;
-                return GestureDetector(
-                  onTap: () {
-                    ref
-                        .read(permissionRulesProvider.notifier)
-                        .setPreset(preset);
-                  },
-                  child: Container(
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 12,
-                      vertical: 8,
-                    ),
-                    decoration: BoxDecoration(
-                      color: isSelected
-                          ? widget.theme.primary.withValues(alpha: 0.15)
-                          : widget.theme.backgroundElement,
-                      borderRadius: BorderRadius.circular(12),
-                      border: Border.all(
-                        color: isSelected
-                            ? widget.theme.primary
-                            : widget.theme.borderSubtle,
-                      ),
-                    ),
-                    child: Column(
-                      mainAxisSize: MainAxisSize.min,
-                      crossAxisAlignment: CrossAxisAlignment.start,
+                  // Agent section
+                  if (widget.agents.isNotEmpty) ...[
+                    // Section header
+                    Row(
                       children: [
-                        Text(
-                          preset.displayName,
-                          style: TextStyle(
-                            color: isSelected
-                                ? widget.theme.primary
-                                : widget.theme.text,
-                            fontSize: 11,
-                            fontWeight: FontWeight.w600,
-                          ),
+                        Icon(
+                          Icons.smart_toy_outlined,
+                          color: widget.theme.textMuted,
+                          size: 18,
                         ),
-                        const SizedBox(height: 2),
+                        const SizedBox(width: 8),
                         Text(
-                          preset.description,
+                          'Agent',
                           style: TextStyle(
+                            fontSize: 13,
+                            fontWeight: FontWeight.w600,
                             color: widget.theme.textMuted,
-                            fontSize: 9,
+                            letterSpacing: 0.5,
                           ),
                         ),
                       ],
                     ),
+                    const SizedBox(height: 16),
+
+                    // Primary agents as prominent cards in a row
+                    if (primaryAgents.isNotEmpty) ...[
+                      Row(
+                        children: primaryAgents.map((agent) {
+                          final isSelected = agent.name == widget.currentAgent;
+                          return Expanded(
+                            child: Padding(
+                              padding: EdgeInsets.only(
+                                right: agent == primaryAgents.last ? 0 : 10,
+                              ),
+                              child: _AgentCard(
+                                agent: agent,
+                                isSelected: isSelected,
+                                theme: widget.theme,
+                                onTap: () {
+                                  widget.onAgentChanged?.call(agent.name);
+                                  Navigator.pop(context);
+                                },
+                              ),
+                            ),
+                          );
+                        }).toList(),
+                      ),
+                      const SizedBox(height: 12),
+                    ],
+
+                    // Secondary agents as smaller list
+                    if (secondaryAgents.isNotEmpty) ...[
+                      Container(
+                        decoration: BoxDecoration(
+                          color: widget.theme.backgroundPanel,
+                          borderRadius: BorderRadius.circular(12),
+                          border: Border.all(color: widget.theme.borderSubtle),
+                        ),
+                        child: Column(
+                          children: secondaryAgents.asMap().entries.map((
+                            entry,
+                          ) {
+                            final index = entry.key;
+                            final agent = entry.value;
+                            final isSelected =
+                                agent.name == widget.currentAgent;
+                            final isLast = index == secondaryAgents.length - 1;
+                            return Column(
+                              children: [
+                                InkWell(
+                                  onTap: () {
+                                    widget.onAgentChanged?.call(agent.name);
+                                    Navigator.pop(context);
+                                  },
+                                  borderRadius: BorderRadius.vertical(
+                                    top: index == 0
+                                        ? const Radius.circular(12)
+                                        : Radius.zero,
+                                    bottom: isLast
+                                        ? const Radius.circular(12)
+                                        : Radius.zero,
+                                  ),
+                                  child: Padding(
+                                    padding: const EdgeInsets.symmetric(
+                                      horizontal: 14,
+                                      vertical: 12,
+                                    ),
+                                    child: Row(
+                                      children: [
+                                        Container(
+                                          width: 8,
+                                          height: 8,
+                                          decoration: BoxDecoration(
+                                            color: agent.displayColor,
+                                            shape: BoxShape.circle,
+                                          ),
+                                        ),
+                                        const SizedBox(width: 12),
+                                        Expanded(
+                                          child: Column(
+                                            crossAxisAlignment:
+                                                CrossAxisAlignment.start,
+                                            children: [
+                                              Text(
+                                                agent.displayName,
+                                                style: TextStyle(
+                                                  color: widget.theme.text,
+                                                  fontSize: 14,
+                                                  fontWeight: isSelected
+                                                      ? FontWeight.w600
+                                                      : FontWeight.w500,
+                                                ),
+                                              ),
+                                              Text(
+                                                agent.shortDescription,
+                                                style: TextStyle(
+                                                  color: widget.theme.textMuted,
+                                                  fontSize: 12,
+                                                ),
+                                              ),
+                                            ],
+                                          ),
+                                        ),
+                                        if (isSelected)
+                                          Icon(
+                                            Icons.check_rounded,
+                                            color: widget.theme.primary,
+                                            size: 18,
+                                          ),
+                                      ],
+                                    ),
+                                  ),
+                                ),
+                                if (!isLast)
+                                  Divider(
+                                    height: 1,
+                                    indent: 34,
+                                    color: widget.theme.borderSubtle,
+                                  ),
+                              ],
+                            );
+                          }).toList(),
+                        ),
+                      ),
+                    ],
+
+                    const SizedBox(height: 24),
+                  ],
+
+                  // Permission preset section
+                  Row(
+                    children: [
+                      Icon(
+                        Icons.shield_outlined,
+                        color: widget.theme.textMuted,
+                        size: 18,
+                      ),
+                      const SizedBox(width: 8),
+                      Text(
+                        'Permissions',
+                        style: TextStyle(
+                          fontSize: 13,
+                          fontWeight: FontWeight.w600,
+                          color: widget.theme.textMuted,
+                          letterSpacing: 0.5,
+                        ),
+                      ),
+                      const Spacer(),
+                      // Custom rules button inline
+                      GestureDetector(
+                        onTap: () {
+                          Navigator.pop(context);
+                          showModalBottomSheet(
+                            context: context,
+                            isScrollControlled: true,
+                            backgroundColor: Colors.transparent,
+                            builder: (context) => PermissionRulesSheet(
+                              initialRules: rulesState.effectiveRuleset,
+                              onApply: (rules) {
+                                ref
+                                    .read(permissionRulesProvider.notifier)
+                                    .setCustomRules(rules);
+                              },
+                            ),
+                          );
+                        },
+                        child: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Icon(
+                              Icons.tune_rounded,
+                              size: 14,
+                              color: widget.theme.primary,
+                            ),
+                            const SizedBox(width: 4),
+                            Text(
+                              'Custom',
+                              style: TextStyle(
+                                color: widget.theme.primary,
+                                fontSize: 12,
+                                fontWeight: FontWeight.w500,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ],
                   ),
-                );
-              },
+                  const SizedBox(height: 14),
+
+                  // Permission presets as 2x2 grid
+                  GridView.count(
+                    shrinkWrap: true,
+                    physics: const NeverScrollableScrollPhysics(),
+                    crossAxisCount: 2,
+                    mainAxisSpacing: 10,
+                    crossAxisSpacing: 10,
+                    childAspectRatio: 2.4,
+                    children: PermissionPreset.values
+                        .where((p) => p != PermissionPreset.custom)
+                        .map(
+                          (preset) => _PermissionPresetCard(
+                            preset: preset,
+                            isSelected: preset == selectedPreset,
+                            theme: widget.theme,
+                            onTap: () {
+                              ref
+                                  .read(permissionRulesProvider.notifier)
+                                  .setPreset(preset);
+                            },
+                          ),
+                        )
+                        .toList(),
+                  ),
+                ],
+              ),
             ),
-          ),
-          const SizedBox(height: 8),
-          TextButton.icon(
-            onPressed: () {
-              Navigator.pop(context);
-              showModalBottomSheet(
-                context: context,
-                isScrollControlled: true,
-                backgroundColor: Colors.transparent,
-                builder: (context) => PermissionRulesSheet(
-                  initialRules: rulesState.effectiveRuleset,
-                  onApply: (rules) {
-                    ref
-                        .read(permissionRulesProvider.notifier)
-                        .setCustomRules(rules);
-                  },
-                ),
-              );
-            },
-            icon: Icon(Icons.tune, size: 16, color: widget.theme.primary),
-            label: Text(
-              'Custom Rules...',
-              style: TextStyle(color: widget.theme.primary, fontSize: 13),
-            ),
-          ),
-        ],
+          ],
+        ),
       ),
     );
   }
 }
 
-class _QuickActionChip extends StatelessWidget {
-  const _QuickActionChip({
+/// Card for quick actions (Attach File, Take Photo) - matches _AgentCard style
+class _QuickActionCard extends StatelessWidget {
+  const _QuickActionCard({
     required this.icon,
     required this.label,
     required this.theme,
@@ -9926,27 +9947,27 @@ class _QuickActionChip extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return InkWell(
+    return GestureDetector(
       onTap: onTap,
-      borderRadius: BorderRadius.circular(20),
       child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+        padding: const EdgeInsets.all(14),
         decoration: BoxDecoration(
-          color: theme.backgroundElement,
-          borderRadius: BorderRadius.circular(20),
+          color: theme.backgroundPanel,
+          borderRadius: BorderRadius.circular(14),
           border: Border.all(color: theme.borderSubtle),
         ),
         child: Row(
-          mainAxisSize: MainAxisSize.min,
           children: [
-            Icon(icon, size: 16, color: theme.text),
-            const SizedBox(width: 6),
-            Text(
-              label,
-              style: TextStyle(
-                color: theme.text,
-                fontSize: 12,
-                fontWeight: FontWeight.w500,
+            Icon(icon, color: theme.primary, size: 20),
+            const SizedBox(width: 10),
+            Expanded(
+              child: Text(
+                label,
+                style: TextStyle(
+                  color: theme.text,
+                  fontSize: 14,
+                  fontWeight: FontWeight.w500,
+                ),
               ),
             ),
           ],
@@ -10322,66 +10343,6 @@ class _CliStyleInputBarState extends State<_CliStyleInputBar> {
                                             color: agentColor,
                                             fontSize: 13,
                                             fontWeight: FontWeight.w600,
-                                          ),
-                                        ),
-                                      ),
-                                    ],
-
-                                    // OpenCode Plan Mode toggle chip (SDK v1.1.18+)
-                                    if (widget.isOpenCode &&
-                                        widget.onPlanModeToggle != null) ...[
-                                      const SizedBox(width: 8),
-                                      GestureDetector(
-                                        onTap: widget.onPlanModeToggle,
-                                        child: Container(
-                                          padding: const EdgeInsets.symmetric(
-                                            horizontal: 8,
-                                            vertical: 3,
-                                          ),
-                                          decoration: BoxDecoration(
-                                            color: widget.ocPlanMode
-                                                ? theme.warning.withValues(
-                                                    alpha: 0.15,
-                                                  )
-                                                : theme.backgroundPanel,
-                                            borderRadius: BorderRadius.circular(
-                                              12,
-                                            ),
-                                            border: Border.all(
-                                              color: widget.ocPlanMode
-                                                  ? theme.warning.withValues(
-                                                      alpha: 0.4,
-                                                    )
-                                                  : theme.borderSubtle,
-                                            ),
-                                          ),
-                                          child: Row(
-                                            mainAxisSize: MainAxisSize.min,
-                                            children: [
-                                              Icon(
-                                                widget.ocPlanMode
-                                                    ? Icons
-                                                          .lightbulb_outline_rounded
-                                                    : Icons.build_rounded,
-                                                size: 12,
-                                                color: widget.ocPlanMode
-                                                    ? theme.warning
-                                                    : theme.textMuted,
-                                              ),
-                                              const SizedBox(width: 4),
-                                              Text(
-                                                widget.ocPlanMode
-                                                    ? 'Plan'
-                                                    : 'Build',
-                                                style: TextStyle(
-                                                  color: widget.ocPlanMode
-                                                      ? theme.warning
-                                                      : theme.textMuted,
-                                                  fontSize: 11,
-                                                  fontWeight: FontWeight.w500,
-                                                ),
-                                              ),
-                                            ],
                                           ),
                                         ),
                                       ),

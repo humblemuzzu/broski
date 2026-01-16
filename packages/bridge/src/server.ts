@@ -522,6 +522,27 @@ export function createBridgeServer(options: BridgeServerOptions): BridgeServer {
   // Key format: `${threadId}:${method}:${argsHash}` -> 'approved'
   const cxApprovalCache = new Map<string, 'approved'>()
 
+  // Codex caching for fast session/project loading (mirrors OpenCode's 5s TTL pattern)
+  // Project cache has longer TTL since projects rarely change
+  const CODEX_THREAD_CACHE_TTL_MS = 5000 // 5 seconds
+  const CODEX_PROJECT_CACHE_TTL_MS = 30000 // 30 seconds
+  type CxThreadCacheEntry = { data: any[]; fetchedAt: number; nextCursor: string | null }
+  type CxProjectCacheEntry = { data: any[]; fetchedAt: number }
+  const cxThreadCache = new Map<string, CxThreadCacheEntry>() // key: cwd or '__all__' -> threads
+  let cxProjectCache: CxProjectCacheEntry | null = null
+  
+  /** Invalidate Codex caches (called on mutations) */
+  const invalidateCodexCaches = (cwd?: string) => {
+    // Always invalidate project cache on any mutation
+    cxProjectCache = null
+    // Invalidate thread caches
+    if (cwd) {
+      cxThreadCache.delete(cwd)
+      cxThreadCache.delete(resolve(cwd))
+    }
+    cxThreadCache.delete('__all__')
+  }
+
   /** Generate a stable cache key for approval caching */
   const makeCxApprovalKey = (threadId: string, method: string, params: any): string => {
     // Extract the command/tool-specific parts for the cache key
@@ -2655,22 +2676,30 @@ export function createBridgeServer(options: BridgeServerOptions): BridgeServer {
           break
       }
       case 'cx_list_projects': {
-        console.log('[cx_list_projects] Starting...')
+        const now = Date.now()
+        const forceRefresh = message.refresh === true
+        
+        // Check cache first (unless explicit refresh requested)
+        if (!forceRefresh && cxProjectCache && (now - cxProjectCache.fetchedAt) < CODEX_PROJECT_CACHE_TTL_MS) {
+          console.log('[cx_list_projects] Cache hit, returning cached data')
+          reply({ type: 'cx_projects', data: cxProjectCache.data })
+          break
+        }
+        
+        // Cache miss or refresh - fetch fresh data
+        console.log(`[cx_list_projects] ${forceRefresh ? 'Refresh requested' : 'Cache miss'}, fetching...`)
         const client = await ensureCodexClient()
-        console.log('[cx_list_projects] Got Codex client')
         const byPath = new Map<string, { path: string; name: string; lastOpened: number }>()
 
         let cursor: string | null = null
         let pageCount = 0
         for (;;) {
           pageCount++
-          console.log(`[cx_list_projects] Fetching page ${pageCount}, cursor: ${cursor}`)
           const result: any = await client.request('thread/list', {
             cursor,
             limit: 200,
             modelProviders: null,
           })
-          console.log(`[cx_list_projects] Got page ${pageCount}, items: ${result?.data?.length ?? 0}`)
           const data = Array.isArray(result?.data) ? result.data : []
           for (const t of data) {
             const cwdRaw = safeString(t?.cwd)
@@ -2699,26 +2728,93 @@ export function createBridgeServer(options: BridgeServerOptions): BridgeServer {
             lastOpened: p.lastOpened,
           }))
 
-        console.log(`[cx_list_projects] Done, found ${projects.length} projects`)
+        // Update cache
+        cxProjectCache = { data: projects, fetchedAt: Date.now() }
+        console.log(`[cx_list_projects] Done, cached ${projects.length} projects`)
         reply({ type: 'cx_projects', data: projects })
         break
       }
       case 'cx_list_threads': {
-        console.log('[cx_list_threads] Starting...')
+        const now = Date.now()
+        const forceRefresh = message.refresh === true
+        const cacheKey = message.cwd ? resolve(message.cwd) : '__all__'
+        
+        // Check cache first (unless explicit refresh or cursor-based pagination)
+        const cached = cxThreadCache.get(cacheKey)
+        if (!forceRefresh && !message.cursor && cached && (now - cached.fetchedAt) < CODEX_THREAD_CACHE_TTL_MS) {
+          console.log(`[cx_list_threads] Cache hit for ${cacheKey}, returning cached data`)
+          reply({ type: 'cx_threads', data: cached.data, nextCursor: cached.nextCursor })
+          break
+        }
+        
+        // Cache miss, refresh, or pagination - fetch fresh data
+        console.log(`[cx_list_threads] ${forceRefresh ? 'Refresh requested' : message.cursor ? 'Pagination' : 'Cache miss'}, fetching...`)
         const client = await ensureCodexClient()
-        console.log('[cx_list_threads] Got Codex client')
         const result: any = await client.request('thread/list', {
           cursor: message.cursor ?? null,
           limit: message.limit ?? 200,
           modelProviders: null,
         })
-        console.log(`[cx_list_threads] Got result, items: ${result?.data?.length ?? 0}`)
         const data = Array.isArray(result?.data) ? result.data : []
         const threadsAll = data.map(mapCodexThread)
         const cwd = message.cwd ? resolve(message.cwd) : null
         const threads = cwd ? threadsAll.filter((t) => resolve(t.cwd) === cwd) : threadsAll
-        console.log(`[cx_list_threads] Done, filtered to ${threads.length} threads`)
-        reply({ type: 'cx_threads', data: threads, nextCursor: result?.nextCursor ?? null })
+        const nextCursor = result?.nextCursor ?? null
+        
+        // Update cache (only for first page, not paginated requests)
+        if (!message.cursor) {
+          cxThreadCache.set(cacheKey, { data: threads, fetchedAt: Date.now(), nextCursor })
+        }
+        console.log(`[cx_list_threads] Done, ${!message.cursor ? 'cached' : 'returning'} ${threads.length} threads`)
+        reply({ type: 'cx_threads', data: threads, nextCursor })
+        break
+      }
+      case 'cx_warmup': {
+        // Pre-spawn Codex app-server and pre-fetch projects/threads in background
+        // Called when user switches to Codex backend for instant loading
+        console.log('[cx_warmup] Starting Codex warmup...')
+        reply({ type: 'cx_warmup_started' })
+        
+        // Fire-and-forget: spawn client and pre-warm caches
+        ;(async () => {
+          try {
+            const client = await ensureCodexClient()
+            console.log('[cx_warmup] Client ready, pre-fetching projects...')
+            
+            // Pre-fetch and cache projects (same logic as cx_list_projects)
+            const byPath = new Map<string, { path: string; name: string; lastOpened: number }>()
+            let cursor: string | null = null
+            for (;;) {
+              const result: any = await client.request('thread/list', {
+                cursor,
+                limit: 200,
+                modelProviders: null,
+              })
+              const data = Array.isArray(result?.data) ? result.data : []
+              for (const t of data) {
+                const cwdRaw = safeString(t?.cwd)
+                if (!cwdRaw) continue
+                const path = resolve(cwdRaw)
+                const lastOpened = Number(t?.createdAt ?? 0) || 0
+                const existing = byPath.get(path)
+                if (!existing || lastOpened > existing.lastOpened) {
+                  byPath.set(path, { path, name: basename(path) || path, lastOpened })
+                }
+              }
+              cursor = (result?.nextCursor ?? null) as string | null
+              if (!cursor) break
+            }
+            
+            const projects = Array.from(byPath.values())
+              .sort((a, b) => (b.lastOpened ?? 0) - (a.lastOpened ?? 0))
+              .map((p) => ({ id: p.path, name: p.name, path: p.path, lastOpened: p.lastOpened }))
+            
+            cxProjectCache = { data: projects, fetchedAt: Date.now() }
+            console.log(`[cx_warmup] Pre-cached ${projects.length} projects`)
+          } catch (e) {
+            console.error('[cx_warmup] Error:', e)
+          }
+        })()
         break
       }
       case 'cx_start_thread': {
@@ -2731,6 +2827,8 @@ export function createBridgeServer(options: BridgeServerOptions): BridgeServer {
         })
         const thread = mapCodexThread(result?.thread)
         if (thread.id && thread.cwd) cxThreadCwds.set(thread.id, resolve(thread.cwd))
+        // Invalidate caches since a new thread was created
+        invalidateCodexCaches(thread.cwd)
         reply({ type: 'cx_thread_created', data: thread })
         break
       }
@@ -2746,7 +2844,11 @@ export function createBridgeServer(options: BridgeServerOptions): BridgeServer {
       }
       case 'cx_archive_thread': {
         const client = await ensureCodexClient()
+        // Get the thread's cwd before archiving (for cache invalidation)
+        const archivedCwd = cxThreadCwds.get(message.threadId)
         await client.request('thread/archive', { threadId: message.threadId })
+        // Invalidate caches since a thread was archived
+        invalidateCodexCaches(archivedCwd)
         reply({ type: 'cx_thread_archived', data: true, threadId: message.threadId })
         break
       }

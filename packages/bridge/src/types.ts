@@ -210,8 +210,9 @@ export type ClientMessage =
   | { type: 'cc_set_config'; config: Partial<ClaudeCodeConfig>; cwd?: string }
   | { type: 'cc_get_active_sessions' }
   // Codex (OpenAI Codex app-server) messages
-  | { type: 'cx_list_projects' }
-  | { type: 'cx_list_threads'; cwd?: string; cursor?: string | null; limit?: number | null }
+  | { type: 'cx_list_projects'; refresh?: boolean }
+  | { type: 'cx_list_threads'; cwd?: string; cursor?: string | null; limit?: number | null; refresh?: boolean }
+  | { type: 'cx_warmup' }
   | { type: 'cx_start_thread'; cwd?: string; model?: string; approvalPolicy?: string; sandbox?: string }
   | { type: 'cx_resume_thread'; threadId: string }
   | { type: 'cx_archive_thread'; threadId: string }
@@ -474,6 +475,7 @@ export type ServerMessage =
   // Codex (OpenAI Codex app-server)
   | { type: 'cx_global'; data: { method: string; params?: any }; requestId?: string }
   | { type: 'cx_projects'; data: ProjectSummary[]; requestId?: string }
+  | { type: 'cx_warmup_started'; requestId?: string }
   | { type: 'cx_threads'; data: CodexThread[]; nextCursor?: string | null; requestId?: string }
   | { type: 'cx_models'; data: any; nextCursor?: string | null; requestId?: string }
   | { type: 'cx_thread'; data: CodexThread; requestId?: string }
