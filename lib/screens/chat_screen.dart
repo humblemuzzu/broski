@@ -28,6 +28,7 @@ import '../providers/codex_settings_provider.dart';
 import '../providers/file_search_provider.dart';
 import '../providers/input_style_provider.dart';
 import '../providers/opencode_variant_provider.dart';
+import '../providers/claude_code_variant_provider.dart';
 import '../providers/permission_rules_provider.dart';
 import '../providers/prompt_accent_provider.dart';
 import '../providers/selection_provider.dart';
@@ -4693,6 +4694,17 @@ Describe project-specific guidance for Codex here.
         );
   }
 
+  /// Cycle through Codex reasoning effort levels
+  void _cycleCodexReasoningEffort() {
+    final current = ref.read(codexSettingsProvider).reasoningEffort;
+    final values = CodexReasoningEffort.values;
+    final currentIndex = values.indexOf(current);
+    final nextIndex = (currentIndex + 1) % values.length;
+    ref
+        .read(codexSettingsProvider.notifier)
+        .setReasoningEffort(values[nextIndex]);
+  }
+
   void _showCodexModelSheet() {
     final theme = OpenCodeTheme.of(context);
     showModalBottomSheet(
@@ -6608,16 +6620,24 @@ Describe project-specific guidance for Codex here.
                     .setOCAgentMode(current == 'plan' ? 'build' : 'plan');
               }
             : null,
-        // OpenCode Variant/Thinking Level (SDK v1.1.23+)
+        // Variant/Thinking Level (OpenCode / Claude Code / Codex)
         currentVariant: widget.isOpenCode
             ? ref
                   .watch(openCodeVariantProvider)
                   .getVariant(ref.watch(selectionProvider).model)
+            : widget.isClaudeCode
+            ? ref.watch(claudeCodeVariantProvider).selectedVariant
+            : widget.isCodex
+            ? ref.watch(codexSettingsProvider).reasoningEffort.wireValue
             : null,
         availableVariants: widget.isOpenCode
             ? ref
                   .watch(openCodeVariantProvider)
                   .getAvailableVariants(ref.watch(selectionProvider).model)
+            : widget.isClaudeCode
+            ? claudeCodeVariants
+            : widget.isCodex
+            ? CodexReasoningEffort.values.map((e) => e.wireValue).toList()
             : const [],
         onVariantTap: widget.isOpenCode
             ? () {
@@ -6628,6 +6648,10 @@ Describe project-specific guidance for Codex here.
                       .cycleVariant(model);
                 }
               }
+            : widget.isClaudeCode
+            ? () => ref.read(claudeCodeVariantProvider.notifier).cycleVariant()
+            : widget.isCodex
+            ? () => _cycleCodexReasoningEffort()
             : null,
       );
     } else {
@@ -6664,16 +6688,24 @@ Describe project-specific guidance for Codex here.
                     .setOCAgentMode(current == 'plan' ? 'plan' : 'plan');
               }
             : null,
-        // OpenCode Variant/Thinking Level (SDK v1.1.23+)
+        // Variant/Thinking Level (OpenCode / Claude Code / Codex)
         currentVariant: widget.isOpenCode
             ? ref
                   .watch(openCodeVariantProvider)
                   .getVariant(ref.watch(selectionProvider).model)
+            : widget.isClaudeCode
+            ? ref.watch(claudeCodeVariantProvider).selectedVariant
+            : widget.isCodex
+            ? ref.watch(codexSettingsProvider).reasoningEffort.wireValue
             : null,
         availableVariants: widget.isOpenCode
             ? ref
                   .watch(openCodeVariantProvider)
                   .getAvailableVariants(ref.watch(selectionProvider).model)
+            : widget.isClaudeCode
+            ? claudeCodeVariants
+            : widget.isCodex
+            ? CodexReasoningEffort.values.map((e) => e.wireValue).toList()
             : const [],
         onVariantTap: widget.isOpenCode
             ? () {
@@ -6684,6 +6716,10 @@ Describe project-specific guidance for Codex here.
                       .cycleVariant(model);
                 }
               }
+            : widget.isClaudeCode
+            ? () => ref.read(claudeCodeVariantProvider.notifier).cycleVariant()
+            : widget.isCodex
+            ? () => _cycleCodexReasoningEffort()
             : null,
       );
     }
@@ -7367,6 +7403,8 @@ Describe project-specific guidance for Codex here.
       }
       chat.appendUserMessage(displayText);
       chat.setCCStreaming(true);
+      // Get Claude Code thinking level variant
+      final ccVariant = ref.read(claudeCodeVariantProvider).selectedVariant;
       bridge.ccChat(
         sessionId: chatState.ccSessionId,
         prompt: text,
@@ -7375,6 +7413,7 @@ Describe project-specific guidance for Codex here.
         permissionMode: ccConfig?.permissionMode,
         allowedTools: ccConfig?.allowedTools,
         disallowedTools: ccConfig?.disallowedTools,
+        variant: ccVariant,
         activeSubagent: activeSubagent,
         fileAttachments: hasAttachments ? _attachedFiles : null,
       );
@@ -9960,9 +9999,8 @@ class _FloatingInputMenuSheetState
                     const SizedBox(height: 24),
                   ],
 
-                  // Thinking Level (Variant) section - only for OpenCode with variants
-                  if (widget.isOpenCode &&
-                      widget.availableVariants.isNotEmpty) ...[
+                  // Thinking Level (Variant) section - for OpenCode, Claude Code, and Codex
+                  if (widget.availableVariants.isNotEmpty) ...[
                     Row(
                       children: [
                         Icon(

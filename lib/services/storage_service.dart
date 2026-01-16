@@ -43,6 +43,7 @@ class StorageService {
   static const _codexSettingsKey = 'broski_codex_settings';
   static const _permissionRulesKey = 'broski_permission_rules';
   static const _openCodeVariantsKey = 'broski_opencode_variants';
+  static const _claudeCodeVariantKey = 'broski_claude_code_variant';
 
   static const _uuid = Uuid();
 
@@ -228,6 +229,31 @@ class StorageService {
 
   Future<Map<String, dynamic>?> loadOpenCodeVariants() async {
     final raw = await _storage.read(key: _openCodeVariantsKey);
+    if (raw == null) return null;
+    try {
+      final decoded = jsonDecode(raw);
+      if (decoded is Map<String, dynamic>) {
+        return decoded;
+      }
+      if (decoded is Map) {
+        return decoded.cast<String, dynamic>();
+      }
+      return null;
+    } catch (_) {
+      return null;
+    }
+  }
+
+  // ============================================================
+  // Claude Code Variant Settings (thinking level)
+  // ============================================================
+
+  Future<void> saveClaudeCodeVariant(Map<String, dynamic> data) async {
+    await _storage.write(key: _claudeCodeVariantKey, value: jsonEncode(data));
+  }
+
+  Future<Map<String, dynamic>?> loadClaudeCodeVariant() async {
+    final raw = await _storage.read(key: _claudeCodeVariantKey);
     if (raw == null) return null;
     try {
       final decoded = jsonDecode(raw);

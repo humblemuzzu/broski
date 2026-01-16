@@ -2333,6 +2333,7 @@ class BridgeService {
     List<String>? allowedTools,
     List<String>? disallowedTools,
     int? maxThinkingTokens,
+    String? variant,
     String? activeSubagent,
     List<FileAttachment>? fileAttachments,
   }) {
@@ -2351,6 +2352,7 @@ class BridgeService {
       if (allowedTools != null) 'allowedTools': allowedTools,
       if (disallowedTools != null) 'disallowedTools': disallowedTools,
       if (maxThinkingTokens != null) 'maxThinkingTokens': maxThinkingTokens,
+      if (variant != null && variant.isNotEmpty) 'variant': variant,
       if (activeSubagent != null) 'activeSubagent': activeSubagent,
       if (fileAttachments != null)
         'fileAttachments': fileAttachments.map((a) => a.toJson()).toList(),

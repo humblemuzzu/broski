@@ -3777,6 +3777,7 @@ export function createBridgeServer(options: BridgeServerOptions): BridgeServer {
               allowedTools,
               disallowedTools,
               maxThinkingTokens: message.maxThinkingTokens,
+              variant: message.variant,
               systemPrompt: message.systemPrompt ?? cfg.systemPrompt,
               activeSubagent: message.activeSubagent,
             },

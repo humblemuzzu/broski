@@ -197,10 +197,37 @@ export type ClaudeCodeQueryOptions = {
   disallowedTools?: string[]
   permissionMode?: ClaudeCodePermissionMode
   maxThinkingTokens?: number | null
+  variant?: string  // Named thinking level (low/medium/high/max) - maps to maxThinkingTokens
   systemPrompt?: string | { type: 'preset'; preset: string; append?: string } | null
   enableFileCheckpointing?: boolean
   agents?: Record<string, ClaudeCodeSubagent>  // Custom subagent definitions
   activeSubagent?: string  // Name of the subagent to use for this query (prepends prompt hint)
+}
+
+/**
+ * Thinking level variants mapped to maxThinkingTokens values.
+ * These provide user-friendly named presets for Claude's extended thinking feature.
+ * Values chosen to match typical reasoning effort levels.
+ */
+const THINKING_VARIANTS: Record<string, number | null> = {
+  'default': null,      // Use SDK default (no override)
+  'low': 4096,          // Quick responses, minimal reasoning
+  'medium': 16384,      // Balanced reasoning
+  'high': 65536,        // Deep reasoning for complex tasks
+  'max': null,          // Use model maximum (SDK default handles this)
+}
+
+/**
+ * Convert a named variant to maxThinkingTokens value.
+ * Returns undefined if variant is not recognized (allowing fallback to explicit maxThinkingTokens).
+ */
+function variantToThinkingTokens(variant?: string): number | null | undefined {
+  if (!variant) return undefined
+  const normalized = variant.toLowerCase()
+  if (normalized in THINKING_VARIANTS) {
+    return THINKING_VARIANTS[normalized]
+  }
+  return undefined
 }
 
 /**
@@ -1334,9 +1361,14 @@ export async function queryClaudeCode(
           claudeCodeVersion: message.claude_code_version,
         })
 
-        if (options.maxThinkingTokens !== undefined && typeof (q as any).setMaxThinkingTokens === 'function') {
+        // Set thinking tokens: prefer explicit maxThinkingTokens, fallback to variant mapping
+        let thinkingTokens = options.maxThinkingTokens
+        if (thinkingTokens === undefined && options.variant) {
+          thinkingTokens = variantToThinkingTokens(options.variant)
+        }
+        if (thinkingTokens !== undefined && typeof (q as any).setMaxThinkingTokens === 'function') {
           try {
-            await (q as any).setMaxThinkingTokens(options.maxThinkingTokens)
+            await (q as any).setMaxThinkingTokens(thinkingTokens)
           } catch {
             // ignore (control requests may not be enabled depending on transport mode)
           }

@@ -190,7 +190,7 @@ export type ClientMessage =
   | { type: 'cc_create_session'; cwd: string; model?: string }
   | { type: 'cc_delete_session'; sessionId: string; cwd?: string }
   | { type: 'cc_fork_session'; sessionId: string; messageId?: string; cwd?: string }
-  | { type: 'cc_chat'; sessionId?: string; prompt: string; cwd?: string; model?: string; permissionMode?: ClaudeCodePermissionMode; allowedTools?: string[]; disallowedTools?: string[]; maxThinkingTokens?: number | null; systemPrompt?: ClaudeCodeSystemPrompt; activeSubagent?: string; fileAttachments?: FileAttachment[] }
+  | { type: 'cc_chat'; sessionId?: string; prompt: string; cwd?: string; model?: string; permissionMode?: ClaudeCodePermissionMode; allowedTools?: string[]; disallowedTools?: string[]; maxThinkingTokens?: number | null; variant?: string; systemPrompt?: ClaudeCodeSystemPrompt; activeSubagent?: string; fileAttachments?: FileAttachment[] }
   | { type: 'cc_abort'; sessionId: string }
   | { type: 'cc_permission_response'; sessionId: string; toolUseId: string; response: PermissionResponse }
   | { type: 'cc_list_skills'; cwd?: string }
