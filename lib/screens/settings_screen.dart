@@ -3,10 +3,12 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:url_launcher/url_launcher.dart';
 
 import '../models/agent_type.dart';
+import '../models/project.dart';
 import '../providers/agent_type_provider.dart';
 import '../providers/app_info_provider.dart';
 import '../providers/connection_provider.dart';
 import '../providers/onboarding_provider.dart';
+import '../providers/selection_provider.dart';
 import '../providers/service_providers.dart';
 import '../providers/theme_provider.dart';
 import '../theme/opencode_theme.dart';
@@ -45,6 +47,7 @@ class SettingsScreen extends ConsumerWidget {
     final currentThemeInfo = ref.watch(currentThemeInfoProvider);
     final currentAgent = ref.watch(agentTypeProvider);
     final appVersion = ref.watch(appVersionProvider);
+    final selection = ref.watch(selectionProvider);
     final theme = Theme.of(context);
 
     return Scaffold(
@@ -111,6 +114,66 @@ class SettingsScreen extends ConsumerWidget {
               ),
               const SliverToBoxAdapter(child: SizedBox(height: 28)),
             ],
+
+            // PROJECT CONTEXT Section
+            SliverToBoxAdapter(child: _SectionHeader(title: 'Project Context')),
+            SliverToBoxAdapter(
+              child: Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 20),
+                child: _SettingsCard(
+                  child: Column(
+                    children: [
+                      _SettingsTile(
+                        title: 'Current project',
+                        subtitle: selection.project == null
+                            ? 'Pick a project for project-scoped power features'
+                            : '${selection.project!.name} • ${selection.project!.path}',
+                        icon: Icons.folder_rounded,
+                        trailing: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            if (selection.project != null)
+                              IconButton(
+                                tooltip: 'Clear project',
+                                onPressed: () => ref
+                                    .read(selectionProvider.notifier)
+                                    .clearProject(),
+                                icon: Icon(
+                                  Icons.close_rounded,
+                                  color: theme.colorScheme.onSurface.withValues(
+                                    alpha: 0.6,
+                                  ),
+                                ),
+                              ),
+                            Icon(
+                              Icons.chevron_right_rounded,
+                              size: 20,
+                              color: theme.colorScheme.onSurface.withValues(
+                                alpha: 0.5,
+                              ),
+                            ),
+                          ],
+                        ),
+                        onTap: () async {
+                          final picked =
+                              await showModalBottomSheet<ProjectSummary>(
+                                context: context,
+                                isScrollControlled: true,
+                                backgroundColor: Colors.transparent,
+                                builder: (_) => const _ProjectPickerSheet(),
+                              );
+                          if (picked == null) return;
+                          ref
+                              .read(selectionProvider.notifier)
+                              .selectProject(picked);
+                        },
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            ),
+            const SliverToBoxAdapter(child: SizedBox(height: 28)),
 
             // APPEARANCE Section
             SliverToBoxAdapter(child: _SectionHeader(title: 'Appearance')),
@@ -728,6 +791,201 @@ class SettingsScreen extends ConsumerWidget {
             child: const Text('Clear'),
           ),
         ],
+      ),
+    );
+  }
+}
+
+class _ProjectPickerSheet extends ConsumerStatefulWidget {
+  const _ProjectPickerSheet();
+
+  @override
+  ConsumerState<_ProjectPickerSheet> createState() =>
+      _ProjectPickerSheetState();
+}
+
+class _ProjectPickerSheetState extends ConsumerState<_ProjectPickerSheet> {
+  final TextEditingController _search = TextEditingController();
+  List<ProjectSummary> _projects = const [];
+  bool _loading = true;
+  String? _error;
+
+  @override
+  void initState() {
+    super.initState();
+    _search.addListener(() {
+      if (mounted) setState(() {});
+    });
+    _load();
+  }
+
+  @override
+  void dispose() {
+    _search.dispose();
+    super.dispose();
+  }
+
+  Future<void> _load() async {
+    setState(() {
+      _loading = true;
+      _error = null;
+    });
+
+    final connection = ref.read(connectionProvider);
+    final storage = ref.read(storageServiceProvider);
+
+    try {
+      List<ProjectSummary> projects;
+      if (connection.isOfflineMode) {
+        projects = await storage.getCachedProjects();
+      } else {
+        final bridge = ref.read(bridgeServiceProvider);
+        projects = await bridge.listProjects();
+        if (projects.isNotEmpty) {
+          await storage.cacheProjects(projects);
+        }
+      }
+
+      projects.sort((a, b) {
+        final aLast = a.lastOpened ?? 0;
+        final bLast = b.lastOpened ?? 0;
+        final c = bLast.compareTo(aLast);
+        if (c != 0) return c;
+        return a.name.compareTo(b.name);
+      });
+
+      if (!mounted) return;
+      setState(() {
+        _projects = projects;
+        _loading = false;
+        if (projects.isEmpty) {
+          _error = connection.isOfflineMode
+              ? 'No cached projects available offline'
+              : 'No projects found';
+        }
+      });
+    } catch (e) {
+      final cached = await storage.getCachedProjects();
+      if (!mounted) return;
+      if (cached.isNotEmpty) {
+        setState(() {
+          _projects = cached;
+          _loading = false;
+        });
+      } else {
+        setState(() {
+          _error = e.toString();
+          _loading = false;
+        });
+      }
+    }
+  }
+
+  List<ProjectSummary> get _filtered {
+    final q = _search.text.trim().toLowerCase();
+    if (q.isEmpty) return _projects;
+    return _projects
+        .where(
+          (p) =>
+              p.name.toLowerCase().contains(q) ||
+              p.path.toLowerCase().contains(q),
+        )
+        .toList(growable: false);
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final height = MediaQuery.of(context).size.height * 0.75;
+    final items = _filtered;
+
+    return SafeArea(
+      child: Container(
+        height: height,
+        decoration: BoxDecoration(
+          color: theme.colorScheme.surface,
+          borderRadius: const BorderRadius.vertical(top: Radius.circular(20)),
+        ),
+        child: Column(
+          children: [
+            Padding(
+              padding: const EdgeInsets.fromLTRB(16, 14, 8, 8),
+              child: Row(
+                children: [
+                  Expanded(
+                    child: Text(
+                      'Select a project',
+                      style: theme.textTheme.titleMedium?.copyWith(
+                        fontWeight: FontWeight.w700,
+                      ),
+                    ),
+                  ),
+                  IconButton(
+                    tooltip: 'Refresh',
+                    onPressed: _loading ? null : _load,
+                    icon: const Icon(Icons.refresh_rounded),
+                  ),
+                  IconButton(
+                    tooltip: 'Close',
+                    onPressed: () => Navigator.pop(context),
+                    icon: const Icon(Icons.close_rounded),
+                  ),
+                ],
+              ),
+            ),
+            Padding(
+              padding: const EdgeInsets.fromLTRB(16, 0, 16, 12),
+              child: TextField(
+                controller: _search,
+                decoration: const InputDecoration(
+                  hintText: 'Search projects',
+                  prefixIcon: Icon(Icons.search_rounded),
+                ),
+              ),
+            ),
+            Expanded(
+              child: _loading
+                  ? const Center(child: CircularProgressIndicator())
+                  : _error != null
+                  ? Center(
+                      child: Padding(
+                        padding: const EdgeInsets.all(16),
+                        child: Text(
+                          _error!,
+                          textAlign: TextAlign.center,
+                          style: TextStyle(color: theme.colorScheme.error),
+                        ),
+                      ),
+                    )
+                  : ListView.separated(
+                      itemCount: items.length,
+                      separatorBuilder: (_, __) => Divider(
+                        height: 1,
+                        color: theme.colorScheme.onSurface.withValues(
+                          alpha: 0.08,
+                        ),
+                      ),
+                      itemBuilder: (context, index) {
+                        final p = items[index];
+                        return ListTile(
+                          leading: const Icon(Icons.folder_outlined),
+                          title: Text(
+                            p.name.isEmpty ? p.path : p.name,
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                          subtitle: Text(
+                            p.path,
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                          onTap: () => Navigator.pop(context, p),
+                        );
+                      },
+                    ),
+            ),
+          ],
+        ),
       ),
     );
   }

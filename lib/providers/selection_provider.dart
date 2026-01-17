@@ -72,6 +72,11 @@ class SelectionNotifier extends StateNotifier<SelectionState> {
   void clear() {
     state = const SelectionState();
   }
+
+  /// Clear project + session, but keep model selection.
+  void clearProject() {
+    state = SelectionState(model: state.model);
+  }
 }
 
 final selectionProvider =

@@ -1,6 +1,5 @@
 import 'dart:async';
 import 'dart:convert';
-import 'dart:ui';
 
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
@@ -10,6 +9,7 @@ import 'package:share_plus/share_plus.dart';
 import 'package:url_launcher/url_launcher.dart';
 
 import '../models/agent.dart';
+import '../models/agent_type.dart';
 import '../models/claude_code.dart';
 import '../models/codex.dart';
 import '../models/command.dart';
@@ -54,6 +54,7 @@ import '../widgets/session_sidebar.dart';
 import '../widgets/tool_call.dart';
 import '../widgets/multi_agent_tree.dart';
 import '../widgets/claude_code_help.dart';
+import '../widgets/project_tools_sheet.dart';
 import 'subagents_screen.dart';
 import 'custom_tools_screen.dart';
 import 'plugins_screen.dart';
@@ -303,6 +304,21 @@ class _ChatScreenState extends ConsumerState<ChatScreen>
   void initState() {
     super.initState();
     final bridge = ref.read(bridgeServiceProvider);
+    final selection = ref.read(selectionProvider.notifier);
+
+    // Keep power-feature screens consistent: always set a project context when
+    // a chat opens (even for Claude/Codex draft/session routes).
+    final initialProject = widget.isOpenCode
+        ? widget.project
+        : ProjectSummary(
+            id: '',
+            name: widget.projectName,
+            path: widget.effectivePath,
+          );
+    selection.selectProject(initialProject);
+    if (widget.isOpenCode && widget.session.id.isNotEmpty) {
+      selection.selectSession(widget.session);
+    }
 
     // Set up view routing (OpenCode only - CC doesn't need this)
     if (widget.isOpenCode) {
@@ -3248,6 +3264,9 @@ class _ChatScreenState extends ConsumerState<ChatScreen>
 
   void _handleClaudeCodeMenuAction(String value) {
     switch (value) {
+      case 'project_tools':
+        _showProjectToolsSheet();
+        break;
       case 'cc_model':
         _showClaudeCodeModelSheet();
         break;
@@ -3274,6 +3293,9 @@ class _ChatScreenState extends ConsumerState<ChatScreen>
 
   void _handleCodexMenuAction(String value) {
     switch (value) {
+      case 'project_tools':
+        _showProjectToolsSheet();
+        break;
       case 'cx_model':
         _showCodexModelSheet();
         break;
@@ -6928,6 +6950,9 @@ Describe project-specific guidance for Codex here.
   void _handleMenuActionWithMessages(String value, List<ChatMessage> messages) {
     final theme = OpenCodeTheme.of(context);
     switch (value) {
+      case 'project_tools':
+        _showProjectToolsSheet();
+        break;
       case 'sidebar':
         Scaffold.of(context).openEndDrawer();
         break;
@@ -6987,6 +7012,35 @@ Describe project-specific guidance for Codex here.
         _clearInstance();
         break;
     }
+  }
+
+  void _showProjectToolsSheet() {
+    final backend = widget.isClaudeCode
+        ? AgentType.claudeCode
+        : widget.isCodex
+        ? AgentType.codex
+        : AgentType.opencode;
+
+    final project = backend == AgentType.opencode
+        ? widget.project
+        : ProjectSummary(
+            id: '',
+            name: widget.projectName,
+            path: widget.effectivePath,
+          );
+
+    // Ensure downstream power-feature screens resolve the correct cwd.
+    ref.read(selectionProvider.notifier).selectProject(project);
+    if (backend == AgentType.opencode && widget.session.id.isNotEmpty) {
+      ref.read(selectionProvider.notifier).selectSession(widget.session);
+    }
+
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (_) => ProjectToolsSheet(backend: backend, project: project),
+    );
   }
 
   Future<void> _clearInstance() async {
@@ -8690,6 +8744,28 @@ class _SessionActionsSheet extends StatelessWidget {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
+                  // Project tools (Option 3 entrypoint)
+                  Text(
+                    'PROJECT',
+                    style: TextStyle(
+                      fontSize: 11,
+                      fontWeight: FontWeight.w600,
+                      color: theme.textMuted,
+                      letterSpacing: 0.5,
+                    ),
+                  ),
+                  const SizedBox(height: 12),
+                  _ActionRow(
+                    icon: Icons.grid_view_rounded,
+                    label: 'Project Tools',
+                    subtitle: 'Skills, commands, agents, MCP, plugins',
+                    theme: theme,
+                    color: theme.accent,
+                    onTap: () => onAction('project_tools'),
+                  ),
+
+                  const SizedBox(height: 20),
+
                   // Session section
                   Text(
                     'SESSION',
@@ -9085,6 +9161,15 @@ class _ClaudeCodeActionsSheet extends StatelessWidget {
                     ),
                   ),
                   const SizedBox(height: 12),
+                  _ActionRow(
+                    icon: Icons.grid_view_rounded,
+                    label: 'Project Tools',
+                    subtitle: 'Manage skills, commands, hooks, MCP, plugins',
+                    theme: theme,
+                    color: theme.accent,
+                    onTap: () => onAction('project_tools'),
+                  ),
+                  const SizedBox(height: 12),
                   Row(
                     children: [
                       _ActionTile(
@@ -9310,6 +9395,16 @@ class _CodexActionsSheet extends StatelessWidget {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
+                  _ActionRow(
+                    icon: Icons.grid_view_rounded,
+                    label: 'Project Tools',
+                    subtitle: 'Skills, agents, MCP, config',
+                    theme: theme,
+                    color: theme.accent,
+                    onTap: () => onAction('project_tools'),
+                  ),
+                  const SizedBox(height: 20),
+
                   // Configuration section
                   Text(
                     'CONFIGURATION',

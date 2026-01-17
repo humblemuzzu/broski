@@ -17,6 +17,7 @@ import '../providers/highlights_provider.dart';
 import '../providers/permission_rules_provider.dart';
 import '../providers/sessions_provider.dart';
 import '../providers/service_providers.dart';
+import '../providers/selection_provider.dart';
 import '../theme/opencode_theme.dart';
 import '../widgets/background_session_widgets.dart';
 import 'chat_screen.dart';
@@ -541,6 +542,8 @@ class _SessionsScreenState extends ConsumerState<SessionsScreen> {
       name: session.directory.split('/').where((item) => item.isNotEmpty).last,
       path: session.directory,
     );
+    ref.read(selectionProvider.notifier).selectProject(project);
+    ref.read(selectionProvider.notifier).selectSession(session);
 
     if (!mounted) return;
     await Navigator.push(
@@ -3238,6 +3241,16 @@ class _CodexThreadsViewState extends ConsumerState<_CodexThreadsView> {
   }
 
   void _openThread(CodexThread thread) {
+    final cwd = thread.cwd;
+    if (cwd.isNotEmpty) {
+      final parts = cwd.split('/').where((p) => p.isNotEmpty).toList();
+      final project = ProjectSummary(
+        id: '',
+        name: parts.isEmpty ? 'Project' : parts.last,
+        path: cwd,
+      );
+      ref.read(selectionProvider.notifier).selectProject(project);
+    }
     Navigator.push(
       context,
       MaterialPageRoute(builder: (_) => ChatScreen.codex(cxThread: thread)),
@@ -4312,6 +4325,16 @@ class _ClaudeCodeSessionsViewState
   }
 
   void _openSession(ClaudeCodeSession session) {
+    final cwd = session.cwd;
+    if (cwd.isNotEmpty) {
+      final parts = cwd.split('/').where((p) => p.isNotEmpty).toList();
+      final project = ProjectSummary(
+        id: '',
+        name: parts.isEmpty ? 'Project' : parts.last,
+        path: cwd,
+      );
+      ref.read(selectionProvider.notifier).selectProject(project);
+    }
     Navigator.push(
       context,
       MaterialPageRoute(

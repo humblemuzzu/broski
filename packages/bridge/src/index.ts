@@ -373,6 +373,99 @@ async function runStop(): Promise<void> {
   }
 }
 
+async function runRestart(): Promise<void> {
+  console.log('Restarting Broski bridge...\n')
+  const DEFAULT_PORT = 18274
+
+  // Check if installed as service
+  let installed = false
+  try {
+    await stat(LAUNCH_AGENT_PATH)
+    installed = true
+  } catch {
+    // Not installed as service
+  }
+
+  if (!installed) {
+    console.log('⚠️  Background service not installed.')
+    console.log('   Run: broski install')
+    return
+  }
+
+  // 1. Unload the service (this stops it and prevents auto-restart)
+  console.log('Stopping service...')
+  spawnSync('launchctl', ['unload', LAUNCH_AGENT_PATH], { encoding: 'utf-8' })
+
+  // 2. Kill ALL broski/bun processes on the port to ensure clean restart
+  for (let i = 0; i < 5; i++) {
+    const lsofResult = spawnSync('lsof', ['-nP', `-iTCP:${DEFAULT_PORT}`, '-sTCP:LISTEN'], { encoding: 'utf-8' })
+    if (!lsofResult.stdout.trim()) break
+    
+    // Force kill any process on the port
+    const lines = lsofResult.stdout.trim().split('\n')
+    for (const line of lines.slice(1)) { // Skip header
+      const parts = line.split(/\s+/)
+      const pid = parts[1]
+      if (pid && /^\d+$/.test(pid)) {
+        spawnSync('kill', ['-9', pid], { encoding: 'utf-8' })
+      }
+    }
+    await sleep(300)
+  }
+
+  // 3. Also kill any orphaned bun processes running our server
+  spawnSync('pkill', ['-9', '-f', 'bun.*broski.*server'], { encoding: 'utf-8' })
+  await sleep(500)
+
+  // 4. Final check - wait for port to be truly free
+  let portFree = false
+  for (let i = 0; i < 6; i++) {
+    const lsofResult = spawnSync('lsof', ['-nP', `-iTCP:${DEFAULT_PORT}`, '-sTCP:LISTEN'], { encoding: 'utf-8' })
+    if (!lsofResult.stdout.trim()) {
+      portFree = true
+      break
+    }
+    await sleep(500)
+  }
+
+  if (!portFree) {
+    console.log('❌ Failed to free port. Try: kill -9 $(lsof -t -i:18274)')
+    return
+  }
+
+  console.log('Starting service...')
+  
+  // 5. Load the service again
+  const loadResult = spawnSync('launchctl', ['load', LAUNCH_AGENT_PATH], { encoding: 'utf-8' })
+  if (loadResult.status !== 0) {
+    console.log('❌ Failed to start service:', loadResult.stderr)
+    return
+  }
+
+  // 6. Wait for it to be ready (up to 15 seconds - OpenCode takes time to start)
+  let ready = false
+  process.stdout.write('Waiting for bridge')
+  for (let i = 0; i < 30; i++) {
+    await sleep(500)
+    process.stdout.write('.')
+    const checkResult = spawnSync('lsof', ['-nP', `-iTCP:${DEFAULT_PORT}`, '-sTCP:LISTEN'], { encoding: 'utf-8' })
+    if (checkResult.stdout.trim()) {
+      ready = true
+      break
+    }
+  }
+  console.log('')
+  
+  // 7. Report status
+  if (ready) {
+    console.log('✓ Bridge restarted successfully')
+    console.log(`✓ Listening on port ${DEFAULT_PORT}`)
+  } else {
+    console.log('⚠️  Service started but port not yet listening')
+    console.log('   Check: tail ~/.broski/logs/bridge.error.log')
+  }
+}
+
 async function waitForOpencodeReady(url: string, timeoutMs: number): Promise<boolean> {
   const deadline = Date.now() + timeoutMs
   while (Date.now() < deadline) {
@@ -733,6 +826,11 @@ async function main() {
 
   if (cli.subCommand === 'stop') {
     await runStop()
+    return
+  }
+
+  if (cli.subCommand === 'restart') {
+    await runRestart()
     return
   }
 

@@ -7,6 +7,7 @@ import { randomBytes, timingSafeEqual } from 'node:crypto'
 import type { OpenCodeConnector } from './connectors/opencode'
 import type { AgentType, ClientMessage, CodexStreamMessage, CodexThread, CodexTranscriptMessage, DeviceInfo, FileAttachment, PermissionResponse, ServerMessage } from './types'
 import * as claudeCode from './connectors/claude-code'
+import * as codexFs from './connectors/codex-fs'
 import * as fileSearch from './file-search'
 import { CodexAppServerClient, checkCodexAvailable } from './connectors/codex'
 import { headTailTruncate } from './utils'
@@ -2187,12 +2188,16 @@ export function createBridgeServer(options: BridgeServerOptions): BridgeServer {
           break
         }
         case 'get_config': {
-          const config = await opencode.getConfig(message.projectPath)
+          // Use instance directory as fallback when no project is specified
+          const projectPath = message.projectPath ?? await opencode.getInstanceDirectory()
+          const config = await opencode.getConfig(projectPath ?? undefined)
           reply({ type: 'config', data: config })
           break
         }
         case 'set_config': {
-          const config = await opencode.updateConfig(message.config, message.projectPath)
+          // Use instance directory as fallback when no project is specified
+          const projectPath = message.projectPath ?? await opencode.getInstanceDirectory()
+          const config = await opencode.updateConfig(message.config, projectPath ?? undefined)
           reply({ type: 'config', data: config })
           break
         }
@@ -2699,6 +2704,8 @@ export function createBridgeServer(options: BridgeServerOptions): BridgeServer {
           break
       }
       case 'cx_list_projects': {
+        // FAST PATH: Read directly from filesystem (no app-server needed!)
+        // Same pattern as Claude Code - instant file I/O instead of subprocess
         const now = Date.now()
         const forceRefresh = message.refresh === true
         
@@ -2709,55 +2716,18 @@ export function createBridgeServer(options: BridgeServerOptions): BridgeServer {
           break
         }
         
-        // Cache miss or refresh - fetch fresh data
-        console.log(`[cx_list_projects] ${forceRefresh ? 'Refresh requested' : 'Cache miss'}, fetching...`)
-        const client = await ensureCodexClient()
-        const byPath = new Map<string, { path: string; name: string; lastOpened: number }>()
-
-        let cursor: string | null = null
-        let pageCount = 0
-        for (;;) {
-          pageCount++
-          const result: any = await client.request('thread/list', {
-            cursor,
-            limit: 200,
-            modelProviders: null,
-          })
-          const data = Array.isArray(result?.data) ? result.data : []
-          for (const t of data) {
-            const cwdRaw = safeString(t?.cwd)
-            if (!cwdRaw) continue
-            const path = resolve(cwdRaw)
-            const lastOpened = Number(t?.createdAt ?? 0) || 0
-            const existing = byPath.get(path)
-            if (!existing || lastOpened > existing.lastOpened) {
-              byPath.set(path, {
-                path,
-                name: basename(path) || path,
-                lastOpened,
-              })
-            }
-          }
-          cursor = (result?.nextCursor ?? null) as string | null
-          if (!cursor) break
-        }
-
-        const projects = Array.from(byPath.values())
-          .sort((a, b) => (b.lastOpened ?? 0) - (a.lastOpened ?? 0))
-          .map((p) => ({
-            id: p.path,
-            name: p.name,
-            path: p.path,
-            lastOpened: p.lastOpened,
-          }))
-
+        console.log(`[cx_list_projects] ${forceRefresh ? 'Refresh requested' : 'Cache miss'}, reading from filesystem...`)
+        const projects = await codexFs.listProjectsFromFs()
+        
         // Update cache
         cxProjectCache = { data: projects, fetchedAt: Date.now() }
-        console.log(`[cx_list_projects] Done, cached ${projects.length} projects`)
+        console.log(`[cx_list_projects] Done, cached ${projects.length} projects (filesystem read)`)
         reply({ type: 'cx_projects', data: projects })
         break
       }
       case 'cx_list_threads': {
+        // FAST PATH: Read directly from filesystem (no app-server needed!)
+        // Same pattern as Claude Code - instant file I/O instead of subprocess
         const now = Date.now()
         const forceRefresh = message.refresh === true
         const cacheKey = message.cwd ? resolve(message.cwd) : '__all__'
@@ -2770,70 +2740,33 @@ export function createBridgeServer(options: BridgeServerOptions): BridgeServer {
           break
         }
         
-        // Cache miss, refresh, or pagination - fetch fresh data
-        console.log(`[cx_list_threads] ${forceRefresh ? 'Refresh requested' : message.cursor ? 'Pagination' : 'Cache miss'}, fetching...`)
-        const client = await ensureCodexClient()
-        const result: any = await client.request('thread/list', {
-          cursor: message.cursor ?? null,
-          limit: message.limit ?? 200,
-          modelProviders: null,
-        })
-        const data = Array.isArray(result?.data) ? result.data : []
-        const threadsAll = data.map(mapCodexThread)
-        const cwd = message.cwd ? resolve(message.cwd) : null
-        const threads = cwd ? threadsAll.filter((t) => resolve(t.cwd) === cwd) : threadsAll
-        const nextCursor = result?.nextCursor ?? null
+        console.log(`[cx_list_threads] ${forceRefresh ? 'Refresh requested' : 'Cache miss'}, reading from filesystem...`)
+        const threads = await codexFs.listThreadsFromFs(message.cwd ?? undefined)
         
-        // Update cache (only for first page, not paginated requests)
-        if (!message.cursor) {
-          cxThreadCache.set(cacheKey, { data: threads, fetchedAt: Date.now(), nextCursor })
-        }
-        console.log(`[cx_list_threads] Done, ${!message.cursor ? 'cached' : 'returning'} ${threads.length} threads`)
-        reply({ type: 'cx_threads', data: threads, nextCursor })
+        // Update cache (filesystem reads don't have pagination)
+        cxThreadCache.set(cacheKey, { data: threads, fetchedAt: Date.now(), nextCursor: null })
+        console.log(`[cx_list_threads] Done, cached ${threads.length} threads (filesystem read)`)
+        reply({ type: 'cx_threads', data: threads, nextCursor: null })
         break
       }
       case 'cx_warmup': {
-        // Pre-spawn Codex app-server and pre-fetch projects/threads in background
-        // Called when user switches to Codex backend for instant loading
-        console.log('[cx_warmup] Starting Codex warmup...')
+        // Pre-populate caches from filesystem for instant loading
+        // No app-server spawn needed for listing - just file I/O
+        console.log('[cx_warmup] Starting Codex warmup (filesystem)...')
         reply({ type: 'cx_warmup_started' })
         
-        // Fire-and-forget: spawn client and pre-warm caches
+        // Fire-and-forget: pre-warm caches from filesystem
         ;(async () => {
           try {
-            const client = await ensureCodexClient()
-            console.log('[cx_warmup] Client ready, pre-fetching projects...')
-            
-            // Pre-fetch and cache projects (same logic as cx_list_projects)
-            const byPath = new Map<string, { path: string; name: string; lastOpened: number }>()
-            let cursor: string | null = null
-            for (;;) {
-              const result: any = await client.request('thread/list', {
-                cursor,
-                limit: 200,
-                modelProviders: null,
-              })
-              const data = Array.isArray(result?.data) ? result.data : []
-              for (const t of data) {
-                const cwdRaw = safeString(t?.cwd)
-                if (!cwdRaw) continue
-                const path = resolve(cwdRaw)
-                const lastOpened = Number(t?.createdAt ?? 0) || 0
-                const existing = byPath.get(path)
-                if (!existing || lastOpened > existing.lastOpened) {
-                  byPath.set(path, { path, name: basename(path) || path, lastOpened })
-                }
-              }
-              cursor = (result?.nextCursor ?? null) as string | null
-              if (!cursor) break
-            }
-            
-            const projects = Array.from(byPath.values())
-              .sort((a, b) => (b.lastOpened ?? 0) - (a.lastOpened ?? 0))
-              .map((p) => ({ id: p.path, name: p.name, path: p.path, lastOpened: p.lastOpened }))
-            
+            // Pre-fetch projects from filesystem
+            const projects = await codexFs.listProjectsFromFs()
             cxProjectCache = { data: projects, fetchedAt: Date.now() }
-            console.log(`[cx_warmup] Pre-cached ${projects.length} projects`)
+            console.log(`[cx_warmup] Pre-cached ${projects.length} projects from filesystem`)
+            
+            // Pre-fetch all threads from filesystem
+            const threads = await codexFs.listThreadsFromFs()
+            cxThreadCache.set('__all__', { data: threads, fetchedAt: Date.now(), nextCursor: null })
+            console.log(`[cx_warmup] Pre-cached ${threads.length} threads from filesystem`)
           } catch (e) {
             console.error('[cx_warmup] Error:', e)
           }
@@ -2876,11 +2809,11 @@ export function createBridgeServer(options: BridgeServerOptions): BridgeServer {
         break
       }
       case 'cx_get_thread_messages': {
-        const client = await ensureCodexClient()
-        const result: any = await client.request('thread/resume', {
-          threadId: message.threadId,
-        })
-        const transcript = buildCodexTranscript(result?.thread)
+        // FAST PATH: Read messages directly from filesystem (no app-server needed!)
+        // Same pattern as listing - instant file I/O instead of slow subprocess
+        console.log(`[cx_get_thread_messages] Reading messages for thread ${message.threadId} from filesystem...`)
+        const transcript = await codexFs.getThreadMessagesFromFs(message.threadId)
+        console.log(`[cx_get_thread_messages] Found ${transcript.length} messages`)
         reply({
           type: 'cx_thread_messages',
           data: transcript,
@@ -3408,7 +3341,9 @@ export function createBridgeServer(options: BridgeServerOptions): BridgeServer {
         }
         case 'oc_list_skills': {
           const skillFiles = await import('./skills')
-          const data = await skillFiles.listOpenCodeSkills(message.cwd)
+          // Use instance directory as fallback when no cwd is specified
+          const cwd = message.cwd ?? await opencode.getInstanceDirectory()
+          const data = await skillFiles.listOpenCodeSkills(cwd ?? undefined)
           reply({ type: 'oc_skills', data })
           break
         }
@@ -3540,7 +3475,9 @@ export function createBridgeServer(options: BridgeServerOptions): BridgeServer {
         }
         case 'oc_list_command_files': {
           const files = await import('./opencode-custom')
-          const data = await files.listCommandFiles(message.cwd)
+          // Use instance directory as fallback when no cwd is specified
+          const cwd = message.cwd ?? await opencode.getInstanceDirectory()
+          const data = await files.listCommandFiles(cwd ?? undefined)
           reply({ type: 'oc_command_files', data })
           break
         }
@@ -3591,7 +3528,9 @@ export function createBridgeServer(options: BridgeServerOptions): BridgeServer {
         }
         case 'oc_list_agent_files': {
           const files = await import('./opencode-custom')
-          const data = await files.listAgentFiles(message.cwd)
+          // Use instance directory as fallback when no cwd is specified
+          const cwd = message.cwd ?? await opencode.getInstanceDirectory()
+          const data = await files.listAgentFiles(cwd ?? undefined)
           reply({ type: 'oc_agent_files', data })
           break
         }

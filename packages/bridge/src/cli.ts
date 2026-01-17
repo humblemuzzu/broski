@@ -2,7 +2,7 @@ import { stdin as input, stdout as output } from 'node:process'
 import readline from 'node:readline/promises'
 
 export type OpencodeMode = 'managed' | 'manual' | 'attach'
-export type SubCommand = 'serve' | 'doctor' | 'setup-tailscale' | 'install' | 'uninstall' | 'status' | 'stop' | 'qr' | null
+export type SubCommand = 'serve' | 'doctor' | 'setup-tailscale' | 'install' | 'uninstall' | 'status' | 'stop' | 'restart' | 'qr' | null
 
 export type CliOptions = {
   subCommand: SubCommand
@@ -56,6 +56,8 @@ export function parseCli(argv: string[], env: NodeJS.ProcessEnv): CliOptions {
     subCommand = 'status'
   } else if (firstArg === 'stop') {
     subCommand = 'stop'
+  } else if (firstArg === 'restart') {
+    subCommand = 'restart'
   } else if (firstArg === 'qr') {
     subCommand = 'qr'
   } else if (firstArg === 'serve' || !firstArg?.startsWith('-')) {
@@ -64,7 +66,7 @@ export function parseCli(argv: string[], env: NodeJS.ProcessEnv): CliOptions {
 
   for (let i = 0; i < args.length; i++) {
     const arg = args[i]
-    if (arg === 'doctor' || arg === 'setup-tailscale' || arg === 'serve' || arg === 'install' || arg === 'uninstall' || arg === 'status' || arg === 'stop' || arg === 'qr') {
+    if (arg === 'doctor' || arg === 'setup-tailscale' || arg === 'serve' || arg === 'install' || arg === 'uninstall' || arg === 'status' || arg === 'stop' || arg === 'restart' || arg === 'qr') {
       continue
     }
     if (arg === '--help' || arg === '-h') {
@@ -156,6 +158,7 @@ Commands:
   uninstall         Remove background service
   status            Show if bridge is running
   stop              Stop the background service
+  restart           Restart the background service (picks up code changes)
   qr                Show QR code to connect your phone
   doctor            Check system requirements and diagnose issues
   setup-tailscale   Install and configure Tailscale for remote access
@@ -183,6 +186,7 @@ Examples:
   broski qr --hotspot            Show QR code with hotspot IP
   broski status                  Check if bridge is running
   broski stop                    Stop the background service
+  broski restart                 Restart the background service
   broski uninstall               Remove background service
   broski doctor                  Check if everything is set up correctly
   broski setup-tailscale         Set up Tailscale for remote access
