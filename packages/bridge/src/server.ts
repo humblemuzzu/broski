@@ -499,6 +499,12 @@ export function createBridgeServer(options: BridgeServerOptions): BridgeServer {
   // Dedupe chat prompts (prevents resend storms on flaky networks).
   const recentChatMessageIds = new Map<string, number>() // key: `${sessionId}:${messageId}` -> tsMs
   const ptyConnections = new Map<string, WebSocket>()
+  const ptyListeners = new Map<string, Set<ServerWebSocket<unknown>>>()
+  const ptyOutputBuffers = new Map<string, { buffer: string; timer: Timer | null }>()
+  const ptyHealth = new Map<
+    string,
+    { lastInputTime: number; lastOutputTime: number; bytesIn: number; bytesOut: number }
+  >()
   const sessionWatchers = new Map<string, Set<ServerWebSocket<unknown>>>()
   const ccExternalTails = new Map<string, { stop: () => void }>() // sessionId -> tailer
   const cxExternalTails = new Map<string, { stop: () => void }>() // threadId -> tailer
@@ -653,6 +659,89 @@ export function createBridgeServer(options: BridgeServerOptions): BridgeServer {
       ws.send(payload)
     }
   }
+
+  const getPtyListeners = (ptyId: string) => {
+    const existing = ptyListeners.get(ptyId)
+    if (existing) return existing
+    const created = new Set<ServerWebSocket<unknown>>()
+    ptyListeners.set(ptyId, created)
+    return created
+  }
+
+  const ensurePtyBuffer = (ptyId: string) => {
+    const existing = ptyOutputBuffers.get(ptyId)
+    if (existing) return existing
+    const created = { buffer: '', timer: null as Timer | null }
+    ptyOutputBuffers.set(ptyId, created)
+    return created
+  }
+
+  const ensurePtyHealth = (ptyId: string) => {
+    const existing = ptyHealth.get(ptyId)
+    if (existing) return existing
+    const now = Date.now()
+    const created = { lastInputTime: now, lastOutputTime: now, bytesIn: 0, bytesOut: 0 }
+    ptyHealth.set(ptyId, created)
+    return created
+  }
+
+  const flushPtyOutput = (ptyId: string) => {
+    const state = ptyOutputBuffers.get(ptyId)
+    if (!state || state.buffer.length === 0) {
+      if (state) state.timer = null
+      return
+    }
+
+    const data = state.buffer
+    state.buffer = ''
+    state.timer = null
+
+    const listeners = ptyListeners.get(ptyId)
+    if (!listeners || listeners.size === 0) return
+    for (const client of listeners) {
+      send(client, { type: 'pty_output', ptyId, data })
+    }
+  }
+
+  const closePtyIfNoListeners = (ptyId: string) => {
+    const listeners = ptyListeners.get(ptyId)
+    if (listeners && listeners.size > 0) return
+
+    const buf = ptyOutputBuffers.get(ptyId)
+    if (buf?.timer) clearTimeout(buf.timer)
+    ptyOutputBuffers.delete(ptyId)
+    ptyHealth.delete(ptyId)
+    ptyListeners.delete(ptyId)
+
+    const ptyWs = ptyConnections.get(ptyId)
+    if (ptyWs) {
+      try {
+        ptyWs.close()
+      } catch {}
+      ptyConnections.delete(ptyId)
+    }
+  }
+
+  // Periodic PTY health snapshots (best-effort; cheap + optional UI)
+  setInterval(() => {
+    const now = Date.now()
+    for (const [ptyId, health] of ptyHealth.entries()) {
+      const listeners = ptyListeners.get(ptyId)
+      if (!listeners || listeners.size === 0) continue
+      const isResponsive = now - health.lastOutputTime < 5000
+      for (const client of listeners) {
+        send(client, {
+          type: 'pty_health',
+          ptyId,
+          lastInputTime: health.lastInputTime,
+          lastOutputTime: health.lastOutputTime,
+          bytesIn: health.bytesIn,
+          bytesOut: health.bytesOut,
+          isResponsive,
+        })
+      }
+    }
+  }, 1000)
 
   // Watch user-scope Claude Code skills (best-effort).
   ensureClaudeWatchDir(join(homedir(), '.claude', 'skills'), 'skills')
@@ -2039,6 +2128,14 @@ export function createBridgeServer(options: BridgeServerOptions): BridgeServer {
           clearTimeout(clientQ.timer)
         }
         clientQueues.delete(ws)
+
+        // Remove from any PTY listener sets; close PTYs that have no listeners.
+        for (const [ptyId, listeners] of ptyListeners.entries()) {
+          if (!listeners.delete(ws)) continue
+          if (listeners.size === 0) {
+            closePtyIfNoListeners(ptyId)
+          }
+        }
         log(`Client disconnected (${sockets.size} total)`)
         
         if (disconnectedDeviceId) {
@@ -2546,8 +2643,9 @@ export function createBridgeServer(options: BridgeServerOptions): BridgeServer {
           reply({ type: 'pty_deleted', data: deleted, ptyId: message.ptyId })
           break
         }
-        case 'pty_connect': {
+      case 'pty_connect': {
           const ptyId = message.ptyId
+          getPtyListeners(ptyId).add(ws)
           const existingWs = ptyConnections.get(ptyId)
           if (existingWs) {
             reply({ type: 'pty_connected', ptyId })
@@ -2561,21 +2659,57 @@ export function createBridgeServer(options: BridgeServerOptions): BridgeServer {
             
             ptyWs.addEventListener('open', () => {
               ptyConnections.set(ptyId, ptyWs)
+              ensurePtyHealth(ptyId)
               reply({ type: 'pty_connected', ptyId })
             })
             
             ptyWs.addEventListener('message', (event) => {
               const data = typeof event.data === 'string' ? event.data : event.data.toString()
-              send(ws, { type: 'pty_output', ptyId, data })
+              const health = ensurePtyHealth(ptyId)
+              health.lastOutputTime = Date.now()
+              health.bytesOut += data.length
+
+              const buf = ensurePtyBuffer(ptyId)
+              buf.buffer += data
+
+              // Flush at ~60fps to avoid flooding clients.
+              if (!buf.timer) {
+                buf.timer = setTimeout(() => flushPtyOutput(ptyId), 16)
+              }
+
+              // Safety valve: if output is huge in one burst, flush early.
+              if (buf.buffer.length >= 256 * 1024) {
+                flushPtyOutput(ptyId)
+              }
             })
             
             ptyWs.addEventListener('error', () => {
-              reply({ type: 'error', message: `PTY connection failed` })
+              const listeners = ptyListeners.get(ptyId)
+              if (listeners && listeners.size > 0) {
+                for (const client of listeners) {
+                  send(client, { type: 'pty_error', ptyId, error: 'PTY connection failed' })
+                }
+              } else {
+                send(ws, { type: 'pty_error', ptyId, error: 'PTY connection failed' })
+              }
             })
             
             ptyWs.addEventListener('close', (event) => {
               ptyConnections.delete(ptyId)
-              send(ws, { type: 'pty_exit', ptyId, exitCode: event.code })
+              const buf = ptyOutputBuffers.get(ptyId)
+              if (buf?.timer) clearTimeout(buf.timer)
+              flushPtyOutput(ptyId)
+              ptyOutputBuffers.delete(ptyId)
+
+              ptyHealth.delete(ptyId)
+
+              const listeners = ptyListeners.get(ptyId)
+              if (listeners && listeners.size > 0) {
+                for (const client of listeners) {
+                  send(client, { type: 'pty_exit', ptyId, exitCode: event.code })
+                }
+              }
+              ptyListeners.delete(ptyId)
             })
           } catch (error) {
             reply({ type: 'error', message: `PTY connect failed: ${error}` })
@@ -2583,17 +2717,29 @@ export function createBridgeServer(options: BridgeServerOptions): BridgeServer {
           break
         }
         case 'pty_input': {
+          const data = typeof message.data === 'string' ? message.data : ''
+          if (data.length > 10000) {
+            send(ws, { type: 'pty_error', ptyId: message.ptyId, error: 'Input too large (max 10KB)' })
+            break
+          }
+
+          const health = ensurePtyHealth(message.ptyId)
+          health.lastInputTime = Date.now()
+          health.bytesIn += data.length
+
           const ptyWs = ptyConnections.get(message.ptyId)
           if (ptyWs && ptyWs.readyState === WebSocket.OPEN) {
-            ptyWs.send(message.data)
+            ptyWs.send(data)
+          } else {
+            send(ws, { type: 'pty_error', ptyId: message.ptyId, error: 'PTY is not connected' })
           }
           break
         }
         case 'pty_disconnect': {
-          const ptyWs = ptyConnections.get(message.ptyId)
-          if (ptyWs) {
-            ptyWs.close()
-            ptyConnections.delete(message.ptyId)
+          const listeners = ptyListeners.get(message.ptyId)
+          listeners?.delete(ws)
+          if (listeners && listeners.size === 0) {
+            closePtyIfNoListeners(message.ptyId)
           }
           reply({ type: 'pty_disconnected', ptyId: message.ptyId })
           break

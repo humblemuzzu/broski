@@ -423,6 +423,16 @@ export type ServerMessage =
   | { type: 'pty_connected'; ptyId: string; requestId?: string }
   | { type: 'pty_disconnected'; ptyId: string; requestId?: string }
   | { type: 'pty_output'; ptyId: string; data: string }
+  | { type: 'pty_error'; ptyId: string; error: string }
+  | {
+      type: 'pty_health'
+      ptyId: string
+      lastInputTime: number
+      lastOutputTime: number
+      bytesIn: number
+      bytesOut: number
+      isResponsive: boolean
+    }
   | { type: 'pty_exit'; ptyId: string; exitCode?: number }
   // Feature 15: MCP Server Management
   | { type: 'mcp_status'; data: Record<string, McpServerStatus>; requestId?: string }

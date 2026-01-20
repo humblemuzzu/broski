@@ -1771,7 +1771,11 @@ class BridgeService {
       .map((m) => m['data'] as String? ?? '');
 
   Stream<Map<String, dynamic>> get ptyEvents => _socket.messages.where(
-    (m) => m['type'] == 'pty_output' || m['type'] == 'pty_exit',
+    (m) =>
+        m['type'] == 'pty_output' ||
+        m['type'] == 'pty_exit' ||
+        m['type'] == 'pty_error' ||
+        m['type'] == 'pty_health',
   );
 
   // ============================================================

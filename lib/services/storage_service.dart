@@ -17,6 +17,7 @@ import '../models/project.dart';
 import '../models/provider.dart';
 import '../models/session.dart';
 import '../models/session_context.dart';
+import '../models/terminal_settings.dart';
 import '../models/todo.dart';
 import '../models/tool.dart';
 import '../models/vcs.dart';
@@ -41,6 +42,7 @@ class StorageService {
   // Prompt accent key
   static const _promptAccentColorKey = 'broski_prompt_accent_color';
   static const _codexSettingsKey = 'broski_codex_settings';
+  static const _terminalSettingsKey = 'broski_terminal_settings';
   static const _permissionRulesKey = 'broski_permission_rules';
   static const _openCodeVariantsKey = 'broski_opencode_variants';
   static const _claudeCodeVariantKey = 'broski_claude_code_variant';
@@ -212,6 +214,34 @@ class StorageService {
       }
       if (decoded is Map) {
         return CodexSettings.fromJson(decoded.cast<String, dynamic>());
+      }
+      return null;
+    } catch (_) {
+      return null;
+    }
+  }
+
+  // ============================================================
+  // Terminal Settings (PTY UX)
+  // ============================================================
+
+  Future<void> saveTerminalSettings(TerminalSettings settings) async {
+    await _storage.write(
+      key: _terminalSettingsKey,
+      value: jsonEncode(settings.toJson()),
+    );
+  }
+
+  Future<TerminalSettings?> loadTerminalSettings() async {
+    final raw = await _storage.read(key: _terminalSettingsKey);
+    if (raw == null) return null;
+    try {
+      final decoded = jsonDecode(raw);
+      if (decoded is Map<String, dynamic>) {
+        return TerminalSettings.fromJson(decoded);
+      }
+      if (decoded is Map) {
+        return TerminalSettings.fromJson(decoded.cast<String, dynamic>());
       }
       return null;
     } catch (_) {

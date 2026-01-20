@@ -4,9 +4,16 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:xterm/xterm.dart';
 
+import '../models/terminal_settings.dart';
 import '../providers/selection_provider.dart';
 import '../providers/service_providers.dart';
+import '../providers/terminal_settings_provider.dart';
+import '../screens/terminal_settings_screen.dart';
 import '../theme/opencode_theme.dart';
+import '../utils/input_batcher.dart';
+import '../utils/terminal_output_throttler.dart';
+import '../widgets/terminal_quick_toolbar.dart';
+import '../widgets/terminal_selection_overlay.dart';
 
 class TerminalViewScreen extends ConsumerStatefulWidget {
   const TerminalViewScreen({
@@ -23,23 +30,34 @@ class TerminalViewScreen extends ConsumerStatefulWidget {
 }
 
 class _TerminalViewScreenState extends ConsumerState<TerminalViewScreen> {
-  late final Terminal _terminal;
+  late Terminal _terminal;
   late final TerminalController _terminalController;
+  final _terminalViewKey = GlobalKey<TerminalViewState>();
+  final _terminalFocusNode = FocusNode();
   StreamSubscription? _outputSubscription;
   bool _isConnected = false;
   bool _isConnecting = true;
   String? _error;
 
-  // Input handling
-  final _inputController = TextEditingController();
-  final _inputFocusNode = FocusNode();
-  String _currentInput = '';
+  late InputBatcher _inputBatcher;
+  late TerminalOutputThrottler _outputThrottler;
+
+  Timer? _resizeDebounce;
+  int? _lastSentRows;
+  int? _lastSentCols;
+  Map<String, dynamic>? _lastHealth;
+
+  TerminalSettings? _appliedSettings;
 
   @override
   void initState() {
     super.initState();
-    _terminal = Terminal(maxLines: 10000);
     _terminalController = TerminalController();
+    _inputBatcher = InputBatcher(onFlush: _sendInput);
+    _terminal = Terminal(maxLines: 10000);
+    _terminal.onOutput = (data) => _inputBatcher.add(data);
+    _terminal.onResize = (cols, rows, _, __) => _scheduleResize(rows, cols);
+    _outputThrottler = TerminalOutputThrottler(onFlush: _terminal.write);
     _connectToPty();
   }
 
@@ -47,8 +65,10 @@ class _TerminalViewScreenState extends ConsumerState<TerminalViewScreen> {
   void dispose() {
     _outputSubscription?.cancel();
     _disconnectPty();
-    _inputController.dispose();
-    _inputFocusNode.dispose();
+    _resizeDebounce?.cancel();
+    _inputBatcher.dispose();
+    _outputThrottler.dispose();
+    _terminalFocusNode.dispose();
     super.dispose();
   }
 
@@ -68,13 +88,24 @@ class _TerminalViewScreenState extends ConsumerState<TerminalViewScreen> {
         if (event['type'] == 'pty_output') {
           final data = event['data'] as String? ?? '';
           if (data.isNotEmpty) {
-            _terminal.write(data);
+            _outputThrottler.add(data);
           }
         } else if (event['type'] == 'pty_exit') {
+          _outputThrottler.flush();
           setState(() {
             _isConnected = false;
             _error = 'Terminal session ended (exit code: ${event['exitCode']})';
           });
+        } else if (event['type'] == 'pty_error') {
+          if (!mounted) return;
+          final msg = event['error']?.toString() ?? 'Terminal error';
+          final ocTheme = OpenCodeTheme.of(context);
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(content: Text(msg), backgroundColor: ocTheme.error),
+          );
+        } else if (event['type'] == 'pty_health') {
+          _lastHealth = event;
+          if (mounted) setState(() {});
         }
       });
 
@@ -94,8 +125,8 @@ class _TerminalViewScreenState extends ConsumerState<TerminalViewScreen> {
 
         if (connected) {
           WidgetsBinding.instance.addPostFrameCallback((_) {
-            _inputFocusNode.requestFocus();
-            _sendResize();
+            _terminalFocusNode.requestFocus();
+            _terminalViewKey.currentState?.requestKeyboard();
           });
         }
       }
@@ -120,81 +151,69 @@ class _TerminalViewScreenState extends ConsumerState<TerminalViewScreen> {
     bridge.sendPtyInput(widget.ptyId, data);
   }
 
-  void _handleInputChanged(String value) {
-    // Detect what changed
-    if (value.length > _currentInput.length) {
-      // Characters added - send the new characters
-      final newChars = value.substring(_currentInput.length);
-      _sendInput(newChars);
-    } else if (value.length < _currentInput.length) {
-      // Characters deleted - send backspace for each deleted char
-      final deletedCount = _currentInput.length - value.length;
-      for (int i = 0; i < deletedCount; i++) {
-        _sendInput('\x7f'); // DEL character
-      }
+  void _scheduleResize(int rows, int cols) {
+    if (!_isConnected) return;
+    if (rows <= 0 || cols <= 0) return;
+    if (_lastSentRows == rows && _lastSentCols == cols) return;
+
+    _resizeDebounce?.cancel();
+    _resizeDebounce = Timer(const Duration(milliseconds: 100), () {
+      if (!_isConnected) return;
+      if (_lastSentRows == rows && _lastSentCols == cols) return;
+      _lastSentRows = rows;
+      _lastSentCols = cols;
+      final bridge = ref.read(bridgeServiceProvider);
+      final selection = ref.read(selectionProvider);
+      bridge.resizePty(
+        widget.ptyId,
+        rows,
+        cols,
+        projectPath: selection.project?.path,
+      );
+    });
+  }
+
+  void _applySettings(TerminalSettings settings) {
+    _appliedSettings = settings;
+
+    if (_terminal.maxLines != settings.maxLines) {
+      _outputThrottler.flush();
+      _outputThrottler.dispose();
+      _terminal = Terminal(maxLines: settings.maxLines);
+      _terminal.onOutput = (data) => _inputBatcher.add(data);
+      _terminal.onResize = (cols, rows, _, __) => _scheduleResize(rows, cols);
+      _outputThrottler = TerminalOutputThrottler(
+        onFlush: _terminal.write,
+        batchWindow: Duration(milliseconds: settings.outputBatchMs),
+        enableBinaryDetection: settings.enableBinaryDetection,
+      );
+      if (mounted) setState(() {});
     }
-    _currentInput = value;
-  }
 
-  void _handleInputSubmitted(String value) {
-    // Send enter key
-    _sendInput('\r');
-    // Clear the input field
-    _inputController.clear();
-    _currentInput = '';
-  }
-
-  void _sendResize() {
-    const rows = 24;
-    const cols = 80;
-    final bridge = ref.read(bridgeServiceProvider);
-    final selection = ref.read(selectionProvider);
-    bridge.resizePty(
-      widget.ptyId,
-      rows,
-      cols,
-      projectPath: selection.project?.path,
+    _inputBatcher.batchWindow = Duration(milliseconds: settings.inputBatchMs);
+    _outputThrottler.batchWindow = Duration(
+      milliseconds: settings.outputBatchMs,
     );
-  }
-
-  void _sendSpecialKey(String key) {
-    switch (key) {
-      case 'tab':
-        _sendInput('\t');
-        break;
-      case 'escape':
-        _sendInput('\x1b');
-        break;
-      case 'up':
-        _sendInput('\x1b[A');
-        break;
-      case 'down':
-        _sendInput('\x1b[B');
-        break;
-      case 'left':
-        _sendInput('\x1b[D');
-        break;
-      case 'right':
-        _sendInput('\x1b[C');
-        break;
-      case 'ctrl+c':
-        _sendInput('\x03');
-        break;
-      case 'ctrl+d':
-        _sendInput('\x04');
-        break;
-      case 'ctrl+z':
-        _sendInput('\x1a');
-        break;
-      case 'ctrl+l':
-        _sendInput('\x0c');
-        break;
-    }
+    _outputThrottler.enableBinaryDetection = settings.enableBinaryDetection;
+    _outputThrottler.onBinaryDetected = () {
+      if (!mounted) return;
+      final ocTheme = OpenCodeTheme.of(context);
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: const Text('Binary-looking output detected'),
+          backgroundColor: ocTheme.warning,
+        ),
+      );
+    };
   }
 
   @override
   Widget build(BuildContext context) {
     final ocTheme = OpenCodeTheme.of(context);
+    final terminalSettings = ref.watch(terminalSettingsProvider);
+    if (_appliedSettings != terminalSettings) {
+      _applySettings(terminalSettings);
+    }
 
     return Scaffold(
       backgroundColor: ocTheme.background,
@@ -221,34 +240,47 @@ class _TerminalViewScreenState extends ConsumerState<TerminalViewScreen> {
               ),
             ),
             if (_isConnected)
-              Container(
-                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                decoration: BoxDecoration(
-                  color: ocTheme.success.withValues(alpha: 0.15),
-                  borderRadius: BorderRadius.circular(8),
-                ),
-                child: Row(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    Container(
-                      width: 6,
-                      height: 6,
-                      decoration: BoxDecoration(
-                        color: ocTheme.success,
-                        shape: BoxShape.circle,
-                      ),
+              Builder(
+                builder: (context) {
+                  final isResponsive =
+                      (_lastHealth?['isResponsive'] as bool?) ?? true;
+                  final color = isResponsive
+                      ? ocTheme.success
+                      : ocTheme.warning;
+                  final label = isResponsive ? 'Connected' : 'Stalled';
+                  return Container(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 8,
+                      vertical: 4,
                     ),
-                    const SizedBox(width: 6),
-                    Text(
-                      'Connected',
-                      style: TextStyle(
-                        color: ocTheme.success,
-                        fontSize: 12,
-                        fontWeight: FontWeight.w500,
-                      ),
+                    decoration: BoxDecoration(
+                      color: color.withValues(alpha: 0.15),
+                      borderRadius: BorderRadius.circular(8),
                     ),
-                  ],
-                ),
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Container(
+                          width: 6,
+                          height: 6,
+                          decoration: BoxDecoration(
+                            color: color,
+                            shape: BoxShape.circle,
+                          ),
+                        ),
+                        const SizedBox(width: 6),
+                        Text(
+                          label,
+                          style: TextStyle(
+                            color: color,
+                            fontSize: 12,
+                            fontWeight: FontWeight.w500,
+                          ),
+                        ),
+                      ],
+                    ),
+                  );
+                },
               ),
           ],
         ),
@@ -259,13 +291,24 @@ class _TerminalViewScreenState extends ConsumerState<TerminalViewScreen> {
               onPressed: _connectToPty,
               tooltip: 'Reconnect',
             ),
+          IconButton(
+            icon: Icon(Icons.tune, color: ocTheme.textMuted),
+            onPressed: () {
+              Navigator.of(context).push(
+                MaterialPageRoute(
+                  builder: (_) => const TerminalSettingsScreen(),
+                ),
+              );
+            },
+            tooltip: 'Terminal settings',
+          ),
         ],
       ),
-      body: _buildBody(ocTheme),
+      body: _buildBody(ocTheme, terminalSettings),
     );
   }
 
-  Widget _buildBody(OpenCodeTheme ocTheme) {
+  Widget _buildBody(OpenCodeTheme ocTheme, TerminalSettings settings) {
     if (_isConnecting) {
       return Center(
         child: Column(
@@ -321,147 +364,44 @@ class _TerminalViewScreenState extends ConsumerState<TerminalViewScreen> {
       );
     }
 
+    final bottomOverlayPadding = settings.showQuickToolbar ? 56.0 : 0.0;
+
     return Column(
       children: [
-        // Terminal output display
         Expanded(
           child: Container(
             color: ocTheme.background,
             padding: const EdgeInsets.all(8),
-            child: TerminalView(
-              _terminal,
-              controller: _terminalController,
-              theme: _buildTerminalTheme(ocTheme),
-              textStyle: const TerminalStyle(
-                fontSize: 13,
-                fontFamily: 'JetBrains Mono',
-              ),
-              readOnly: true, // Make it read-only, we handle input separately
-            ),
-          ),
-        ),
-
-        // Special keys bar
-        Container(
-          color: ocTheme.backgroundPanel,
-          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-          child: SingleChildScrollView(
-            scrollDirection: Axis.horizontal,
-            child: Row(
+            child: Stack(
               children: [
-                _SpecialKeyButton(
-                  label: 'Tab',
-                  onTap: () => _sendSpecialKey('tab'),
-                  ocTheme: ocTheme,
+                TerminalView(
+                  key: _terminalViewKey,
+                  _terminal,
+                  controller: _terminalController,
+                  theme: _buildTerminalTheme(ocTheme),
+                  textStyle: TerminalStyle(
+                    fontSize: settings.fontSize,
+                    fontFamily: settings.fontFamily,
+                  ),
+                  focusNode: _terminalFocusNode,
+                  autofocus: true,
+                  keyboardType: TextInputType.text,
+                  deleteDetection: settings.deleteDetection,
+                  hardwareKeyboardOnly: settings.hardwareKeyboardOnly,
+                  readOnly: false,
                 ),
-                _SpecialKeyButton(
-                  label: 'Esc',
-                  onTap: () => _sendSpecialKey('escape'),
-                  ocTheme: ocTheme,
-                ),
-                _SpecialKeyButton(
-                  icon: Icons.arrow_upward,
-                  onTap: () => _sendSpecialKey('up'),
-                  ocTheme: ocTheme,
-                ),
-                _SpecialKeyButton(
-                  icon: Icons.arrow_downward,
-                  onTap: () => _sendSpecialKey('down'),
-                  ocTheme: ocTheme,
-                ),
-                _SpecialKeyButton(
-                  icon: Icons.arrow_back,
-                  onTap: () => _sendSpecialKey('left'),
-                  ocTheme: ocTheme,
-                ),
-                _SpecialKeyButton(
-                  icon: Icons.arrow_forward,
-                  onTap: () => _sendSpecialKey('right'),
-                  ocTheme: ocTheme,
-                ),
-                _SpecialKeyButton(
-                  label: 'Ctrl+C',
-                  onTap: () => _sendSpecialKey('ctrl+c'),
-                  ocTheme: ocTheme,
-                ),
-                _SpecialKeyButton(
-                  label: 'Ctrl+D',
-                  onTap: () => _sendSpecialKey('ctrl+d'),
-                  ocTheme: ocTheme,
-                ),
-                _SpecialKeyButton(
-                  label: 'Ctrl+Z',
-                  onTap: () => _sendSpecialKey('ctrl+z'),
-                  ocTheme: ocTheme,
-                ),
-                _SpecialKeyButton(
-                  label: 'Clear',
-                  onTap: () => _sendSpecialKey('ctrl+l'),
-                  ocTheme: ocTheme,
-                ),
+                if (settings.showSelectionToolbar)
+                  TerminalSelectionOverlay(
+                    terminal: _terminal,
+                    controller: _terminalController,
+                    bottomPadding: bottomOverlayPadding,
+                  ),
               ],
             ),
           ),
         ),
-
-        // Input field
-        Container(
-          color: ocTheme.backgroundPanel,
-          padding: const EdgeInsets.fromLTRB(12, 8, 12, 12),
-          child: SafeArea(
-            top: false,
-            child: Row(
-              children: [
-                Text(
-                  '\$',
-                  style: TextStyle(
-                    color: ocTheme.primary,
-                    fontSize: 16,
-                    fontWeight: FontWeight.bold,
-                    fontFamily: 'JetBrains Mono',
-                  ),
-                ),
-                const SizedBox(width: 8),
-                Expanded(
-                  child: TextField(
-                    controller: _inputController,
-                    focusNode: _inputFocusNode,
-                    onChanged: _handleInputChanged,
-                    onSubmitted: _handleInputSubmitted,
-                    style: TextStyle(
-                      color: ocTheme.text,
-                      fontSize: 14,
-                      fontFamily: 'JetBrains Mono',
-                    ),
-                    decoration: InputDecoration(
-                      hintText: 'Type command...',
-                      hintStyle: TextStyle(color: ocTheme.textMuted),
-                      filled: true,
-                      fillColor: ocTheme.background,
-                      contentPadding: const EdgeInsets.symmetric(
-                        horizontal: 12,
-                        vertical: 10,
-                      ),
-                      border: OutlineInputBorder(
-                        borderRadius: BorderRadius.circular(8),
-                        borderSide: BorderSide.none,
-                      ),
-                    ),
-                    autocorrect: false,
-                    enableSuggestions: false,
-                    textInputAction: TextInputAction.send,
-                  ),
-                ),
-                const SizedBox(width: 8),
-                IconButton(
-                  onPressed: () => _handleInputSubmitted(_inputController.text),
-                  icon: Icon(Icons.send, color: ocTheme.primary),
-                  tooltip: 'Send',
-                ),
-              ],
-            ),
-          ),
-        ),
+        if (settings.showQuickToolbar)
+          TerminalQuickToolbar(terminal: _terminal),
       ],
     );
   }
@@ -491,48 +431,6 @@ class _TerminalViewScreenState extends ConsumerState<TerminalViewScreen> {
       searchHitBackground: ocTheme.warning.withValues(alpha: 0.3),
       searchHitBackgroundCurrent: ocTheme.warning.withValues(alpha: 0.6),
       searchHitForeground: ocTheme.text,
-    );
-  }
-}
-
-class _SpecialKeyButton extends StatelessWidget {
-  const _SpecialKeyButton({
-    this.label,
-    this.icon,
-    required this.onTap,
-    required this.ocTheme,
-  });
-
-  final String? label;
-  final IconData? icon;
-  final VoidCallback onTap;
-  final OpenCodeTheme ocTheme;
-
-  @override
-  Widget build(BuildContext context) {
-    return Padding(
-      padding: const EdgeInsets.only(right: 6),
-      child: Material(
-        color: ocTheme.background,
-        borderRadius: BorderRadius.circular(6),
-        child: InkWell(
-          onTap: onTap,
-          borderRadius: BorderRadius.circular(6),
-          child: Container(
-            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-            child: icon != null
-                ? Icon(icon, size: 16, color: ocTheme.textMuted)
-                : Text(
-                    label!,
-                    style: TextStyle(
-                      color: ocTheme.textMuted,
-                      fontSize: 12,
-                      fontFamily: 'JetBrains Mono',
-                    ),
-                  ),
-          ),
-        ),
-      ),
     );
   }
 }
