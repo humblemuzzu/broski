@@ -8,10 +8,10 @@ import 'connect_screen.dart';
 import 'connection_lost_screen.dart';
 import 'main_shell.dart';
 import 'network_check_screen.dart';
+import 'onboarding_screen.dart';
 import 'scan_screen.dart';
 import 'setup_guide_screen.dart';
 import 'tailscale_check_screen.dart';
-import 'welcome_screen.dart';
 
 class RootScreen extends ConsumerWidget {
   const RootScreen({super.key});
@@ -124,7 +124,8 @@ class _OnboardingFlow extends StatelessWidget {
     // Use ValueKey to help AnimatedSwitcher detect changes
     switch (state.currentStep) {
       case OnboardingStep.welcome:
-        return const WelcomeScreen(key: ValueKey('welcome'));
+        // Premium onboarding flow with splash, intro, and feature demos
+        return const OnboardingScreen(key: ValueKey('onboarding'));
       case OnboardingStep.macSetup:
         return const SetupGuideScreen(key: ValueKey('setup'));
       case OnboardingStep.networkCheck:

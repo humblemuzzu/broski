@@ -710,6 +710,18 @@ class SettingsScreen extends ConsumerWidget {
                       ),
                       _Divider(),
                       _SettingsTile(
+                        title: 'Enter Demo Mode',
+                        subtitle: 'Preview App Store reviewer experience',
+                        icon: Icons.play_circle_outline_rounded,
+                        onTap: () {
+                          ref.read(connectionProvider.notifier).enterDemoMode();
+                          Navigator.of(
+                            context,
+                          ).popUntil((route) => route.isFirst);
+                        },
+                      ),
+                      _Divider(),
+                      _SettingsTile(
                         title: 'Clear Cache',
                         subtitle: 'Delete all cached data',
                         icon: Icons.delete_outline_rounded,
