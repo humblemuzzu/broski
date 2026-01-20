@@ -1,82 +1,129 @@
 import 'dart:async';
 
-typedef TerminalOutputFlush = void Function(String data);
+typedef OutputFlushCallback = void Function(String data);
 
-class TerminalOutputThrottler {
-  TerminalOutputThrottler({
+/// Smart output throttler that provides INSTANT display for normal output
+/// while throttling only high-volume floods (cat bigfile, npm install, etc).
+///
+/// Key insight: Small outputs (command prompts, single lines) should appear
+/// instantly. Only batch when there's a flood that would freeze the UI.
+class SmartOutputThrottler {
+  SmartOutputThrottler({
     required this.onFlush,
-    this.batchWindow = const Duration(milliseconds: 16),
-    this.maxBufferedChars = 256 * 1024,
-    this.enableBinaryDetection = false,
-    this.binarySuspicionThreshold = 0.55,
-    this.onBinaryDetected,
+    this.instantThreshold = 500,
+    this.floodThresholdBytesPerSec = 10000,
+    this.throttleIntervalMs = 16,
+    this.maxBufferSize = 256 * 1024,
   });
 
-  final TerminalOutputFlush onFlush;
-  Duration batchWindow;
+  final OutputFlushCallback onFlush;
 
-  /// Safety valve: if buffered output exceeds this, flush immediately.
-  int maxBufferedChars;
+  /// Output chunks smaller than this are written instantly (bytes)
+  int instantThreshold;
 
-  bool enableBinaryDetection;
-  double binarySuspicionThreshold;
-  void Function()? onBinaryDetected;
+  /// If we receive more than this per second, switch to throttle mode
+  int floodThresholdBytesPerSec;
+
+  /// In throttle mode, flush at this interval (16ms = 60fps)
+  int throttleIntervalMs;
+
+  /// Safety limit - flush if buffer exceeds this
+  int maxBufferSize;
 
   final StringBuffer _buffer = StringBuffer();
-  Timer? _timer;
-  bool _binaryAlerted = false;
+  Timer? _throttleTimer;
 
+  // Flood detection
+  int _bytesThisSecond = 0;
+  DateTime? _secondStart;
+  bool _inFloodMode = false;
+
+  /// Add output - decides whether to write immediately or throttle
   void add(String data) {
     if (data.isEmpty) return;
 
-    if (enableBinaryDetection && !_binaryAlerted && _looksBinary(data)) {
-      _binaryAlerted = true;
-      onBinaryDetected?.call();
-    }
+    _updateFloodDetection(data.length);
 
-    _buffer.write(data);
-
-    if (_buffer.length >= maxBufferedChars) {
-      flush();
+    // Small output + not in flood mode = INSTANT
+    if (data.length < instantThreshold && !_inFloodMode) {
+      // Flush any pending throttled data first
+      if (_buffer.isNotEmpty) {
+        _flushBuffer();
+      }
+      // Write immediately
+      onFlush(data);
       return;
     }
 
-    _timer ??= Timer(batchWindow, flush);
-  }
+    // Large output or flood mode = THROTTLE
+    _buffer.write(data);
 
-  bool _looksBinary(String data) {
-    // Best-effort heuristic: ignore common terminal control bytes and whitespace.
-    var total = 0;
-    var suspicious = 0;
-    for (final unit in data.codeUnits) {
-      total++;
-      final isAllowedControl =
-          unit == 0x0A || // \n
-          unit == 0x0D || // \r
-          unit == 0x09 || // \t
-          unit == 0x1B; // ESC (ANSI)
-      if (isAllowedControl) continue;
-
-      final isPrintableAscii = unit >= 0x20 && unit != 0x7F;
-      if (!isPrintableAscii) suspicious++;
+    // Safety valve
+    if (_buffer.length >= maxBufferSize) {
+      _flushBuffer();
+      return;
     }
-    if (total == 0) return false;
-    return (suspicious / total) >= binarySuspicionThreshold;
+
+    // Schedule throttled flush
+    _scheduleThrottleFlush();
   }
 
-  void flush() {
-    _timer?.cancel();
-    _timer = null;
+  void _updateFloodDetection(int bytes) {
+    final now = DateTime.now();
 
-    if (_buffer.length == 0) return;
-    final payload = _buffer.toString();
+    if (_secondStart == null ||
+        now.difference(_secondStart!).inMilliseconds >= 1000) {
+      // New second - check if last second was a flood
+      _inFloodMode = _bytesThisSecond > floodThresholdBytesPerSec;
+      _bytesThisSecond = bytes;
+      _secondStart = now;
+    } else {
+      _bytesThisSecond += bytes;
+      // Check mid-second if we've exceeded threshold
+      if (_bytesThisSecond > floodThresholdBytesPerSec) {
+        _inFloodMode = true;
+      }
+    }
+
+    // Exit flood mode if we haven't received much data
+    if (_inFloodMode && _bytesThisSecond < floodThresholdBytesPerSec ~/ 4) {
+      _inFloodMode = false;
+    }
+  }
+
+  void _scheduleThrottleFlush() {
+    if (_throttleTimer != null) return; // Already scheduled
+
+    _throttleTimer = Timer(
+      Duration(milliseconds: throttleIntervalMs),
+      _flushBuffer,
+    );
+  }
+
+  void _flushBuffer() {
+    _throttleTimer?.cancel();
+    _throttleTimer = null;
+
+    if (_buffer.isEmpty) return;
+
+    final data = _buffer.toString();
     _buffer.clear();
-    onFlush(payload);
+    onFlush(data);
+  }
+
+  /// Force flush any pending data
+  void flush() {
+    _flushBuffer();
   }
 
   void dispose() {
-    _timer?.cancel();
-    _timer = null;
+    _throttleTimer?.cancel();
+    _throttleTimer = null;
     _buffer.clear();
   }
+
+  /// For debugging
+  bool get isInFloodMode => _inFloodMode;
+  bool get hasPendingData => _buffer.isNotEmpty;
+  int get bytesThisSecond => _bytesThisSecond;
 }

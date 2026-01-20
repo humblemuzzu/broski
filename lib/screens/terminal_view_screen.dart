@@ -10,8 +10,8 @@ import '../providers/service_providers.dart';
 import '../providers/terminal_settings_provider.dart';
 import '../screens/terminal_settings_screen.dart';
 import '../theme/opencode_theme.dart';
-import '../utils/input_batcher.dart';
-import '../utils/terminal_output_throttler.dart';
+import '../utils/input_batcher.dart' show SmartInputBatcher;
+import '../utils/terminal_output_throttler.dart' show SmartOutputThrottler;
 import '../widgets/terminal_quick_toolbar.dart';
 import '../widgets/terminal_selection_overlay.dart';
 
@@ -39,8 +39,8 @@ class _TerminalViewScreenState extends ConsumerState<TerminalViewScreen> {
   bool _isConnecting = true;
   String? _error;
 
-  late InputBatcher _inputBatcher;
-  late TerminalOutputThrottler _outputThrottler;
+  late SmartInputBatcher _inputBatcher;
+  late SmartOutputThrottler _outputThrottler;
 
   Timer? _resizeDebounce;
   int? _lastSentRows;
@@ -54,12 +54,12 @@ class _TerminalViewScreenState extends ConsumerState<TerminalViewScreen> {
   void initState() {
     super.initState();
     _terminalController = TerminalController();
-    _inputBatcher = InputBatcher(onFlush: _sendInput);
+    _inputBatcher = SmartInputBatcher(onFlush: _sendInput);
     _terminal = Terminal(maxLines: 10000);
     _terminal.onOutput = (data) =>
         _inputBatcher.add(_normalizeTerminalInput(data));
     _terminal.onResize = (cols, rows, _, __) => _scheduleResize(rows, cols);
-    _outputThrottler = TerminalOutputThrottler(onFlush: _terminal.write);
+    _outputThrottler = SmartOutputThrottler(onFlush: _terminal.write);
     _connectToPty();
   }
 
@@ -179,6 +179,7 @@ class _TerminalViewScreenState extends ConsumerState<TerminalViewScreen> {
     _appliedSettings = settings;
     _normalizeSmartQuotesEnabled = settings.normalizeSmartQuotes;
 
+    // Recreate terminal if maxLines changed
     if (_terminal.maxLines != settings.maxLines) {
       _outputThrottler.flush();
       _outputThrottler.dispose();
@@ -186,29 +187,15 @@ class _TerminalViewScreenState extends ConsumerState<TerminalViewScreen> {
       _terminal.onOutput = (data) =>
           _inputBatcher.add(_normalizeTerminalInput(data));
       _terminal.onResize = (cols, rows, _, __) => _scheduleResize(rows, cols);
-      _outputThrottler = TerminalOutputThrottler(
-        onFlush: _terminal.write,
-        batchWindow: Duration(milliseconds: settings.outputBatchMs),
-        enableBinaryDetection: settings.enableBinaryDetection,
-      );
+      _outputThrottler = SmartOutputThrottler(onFlush: _terminal.write);
       if (mounted) setState(() {});
     }
 
-    _inputBatcher.batchWindow = Duration(milliseconds: settings.inputBatchMs);
-    _outputThrottler.batchWindow = Duration(
-      milliseconds: settings.outputBatchMs,
-    );
-    _outputThrottler.enableBinaryDetection = settings.enableBinaryDetection;
-    _outputThrottler.onBinaryDetected = () {
-      if (!mounted) return;
-      final ocTheme = OpenCodeTheme.of(context);
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: const Text('Binary-looking output detected'),
-          backgroundColor: ocTheme.warning,
-        ),
-      );
-    };
+    // Smart batchers are self-tuning - no manual config needed!
+    // They automatically:
+    // - Send single keystrokes INSTANTLY
+    // - Batch only during rapid typing or paste
+    // - Throttle output only during floods (cat bigfile, npm install)
   }
 
   String _normalizeTerminalInput(String data) {

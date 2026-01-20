@@ -24,6 +24,32 @@ class TerminalSettingsScreen extends ConsumerWidget {
       body: ListView(
         padding: const EdgeInsets.all(16),
         children: [
+          // Performance info box
+          Container(
+            padding: const EdgeInsets.all(14),
+            decoration: BoxDecoration(
+              color: ocTheme.success.withValues(alpha: 0.1),
+              borderRadius: BorderRadius.circular(12),
+              border: Border.all(color: ocTheme.success.withValues(alpha: 0.3)),
+            ),
+            child: Row(
+              children: [
+                Icon(Icons.bolt, color: ocTheme.success, size: 20),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Text(
+                    'Smart mode active - instant response for typing, auto-throttle for high output',
+                    style: TextStyle(
+                      color: ocTheme.success,
+                      fontSize: 13,
+                      fontWeight: FontWeight.w500,
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(height: 16),
           _Section(
             title: 'Appearance',
             children: [
@@ -31,8 +57,8 @@ class TerminalSettingsScreen extends ConsumerWidget {
                 title: 'Font size',
                 value: settings.fontSize,
                 min: 10,
-                max: 18,
-                divisions: 16,
+                max: 24,
+                divisions: 14,
                 onChanged: (v) => notifier.setFontSize(v),
                 label: settings.fontSize.toStringAsFixed(0),
               ),
@@ -40,82 +66,65 @@ class TerminalSettingsScreen extends ConsumerWidget {
                 title: 'Scrollback lines',
                 value: settings.maxLines.toDouble(),
                 min: 1000,
-                max: 50000,
-                divisions: 49,
+                max: 100000,
+                divisions: 99,
                 onChanged: (v) => notifier.setMaxLines(v.round()),
-                label: settings.maxLines.toString(),
+                label: _formatNumber(settings.maxLines),
               ),
             ],
           ),
           const SizedBox(height: 12),
           _Section(
-            title: 'Controls',
+            title: 'Toolbars',
             children: [
               _SwitchTile(
                 title: 'Quick toolbar',
-                subtitle: 'Shows Esc/Tab/Arrows/Ctrl shortcuts',
+                subtitle: 'Esc, Tab, Arrows, Ctrl+C/D shortcuts',
                 value: settings.showQuickToolbar,
                 onChanged: notifier.setShowQuickToolbar,
               ),
               _SwitchTile(
                 title: 'Selection toolbar',
-                subtitle: 'Shows Copy/Select All when text is selected',
+                subtitle: 'Copy/Select All when text selected',
                 value: settings.showSelectionToolbar,
                 onChanged: notifier.setShowSelectionToolbar,
-              ),
-              _SwitchTile(
-                title: 'Normalize smart quotes',
-                subtitle: 'Replaces “ ” ‘ ’ with " and \' for shells',
-                value: settings.normalizeSmartQuotes,
-                onChanged: notifier.setNormalizeSmartQuotes,
-              ),
-              _SwitchTile(
-                title: 'Hardware keyboard only',
-                subtitle: 'Disables the on-screen keyboard',
-                value: settings.hardwareKeyboardOnly,
-                onChanged: notifier.setHardwareKeyboardOnly,
-              ),
-              _SwitchTile(
-                title: 'Delete detection',
-                subtitle: 'Improves backspace handling on mobile keyboards',
-                value: settings.deleteDetection,
-                onChanged: notifier.setDeleteDetection,
               ),
             ],
           ),
           const SizedBox(height: 12),
           _Section(
-            title: 'Performance',
+            title: 'Input',
             children: [
-              _SliderTile(
-                title: 'Input batching (ms)',
-                value: settings.inputBatchMs.toDouble(),
-                min: 0,
-                max: 50,
-                divisions: 50,
-                onChanged: (v) => notifier.setInputBatchMs(v.round()),
-                label: '${settings.inputBatchMs}ms',
-              ),
-              _SliderTile(
-                title: 'Output throttling (ms)',
-                value: settings.outputBatchMs.toDouble(),
-                min: 0,
-                max: 50,
-                divisions: 50,
-                onChanged: (v) => notifier.setOutputBatchMs(v.round()),
-                label: '${settings.outputBatchMs}ms',
+              _SwitchTile(
+                title: 'Fix smart quotes',
+                subtitle: 'Convert iOS curly quotes to straight quotes',
+                value: settings.normalizeSmartQuotes,
+                onChanged: notifier.setNormalizeSmartQuotes,
               ),
               _SwitchTile(
-                title: 'Binary output detection',
-                subtitle: 'Shows a warning when output looks non-text',
-                value: settings.enableBinaryDetection,
-                onChanged: notifier.setEnableBinaryDetection,
+                title: 'Delete detection',
+                subtitle: 'Better backspace on mobile keyboards',
+                value: settings.deleteDetection,
+                onChanged: notifier.setDeleteDetection,
+              ),
+              _SwitchTile(
+                title: 'Hardware keyboard only',
+                subtitle: 'Disable on-screen keyboard',
+                value: settings.hardwareKeyboardOnly,
+                onChanged: notifier.setHardwareKeyboardOnly,
               ),
             ],
           ),
         ],
       ),
     );
+  }
+
+  String _formatNumber(int n) {
+    if (n >= 1000) {
+      return '${(n / 1000).toStringAsFixed(n % 1000 == 0 ? 0 : 1)}k';
+    }
+    return n.toString();
   }
 }
 
@@ -177,8 +186,13 @@ class _SwitchTile extends StatelessWidget {
       title: Text(title, style: TextStyle(color: ocTheme.text)),
       subtitle: subtitle == null
           ? null
-          : Text(subtitle!, style: TextStyle(color: ocTheme.textMuted)),
-      activeThumbColor: ocTheme.primary,
+          : Text(
+              subtitle!,
+              style: TextStyle(color: ocTheme.textMuted, fontSize: 12),
+            ),
+      activeTrackColor: ocTheme.primary.withValues(alpha: 0.4),
+      activeColor: ocTheme.primary,
+      inactiveTrackColor: ocTheme.borderSubtle,
     );
   }
 }
@@ -215,17 +229,36 @@ class _SliderTile extends StatelessWidget {
               Expanded(
                 child: Text(title, style: TextStyle(color: ocTheme.text)),
               ),
-              Text(label, style: TextStyle(color: ocTheme.textMuted)),
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                decoration: BoxDecoration(
+                  color: ocTheme.primary.withValues(alpha: 0.15),
+                  borderRadius: BorderRadius.circular(6),
+                ),
+                child: Text(
+                  label,
+                  style: TextStyle(
+                    color: ocTheme.primary,
+                    fontSize: 12,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+              ),
             ],
           ),
-          Slider(
-            value: value.clamp(min, max),
-            min: min,
-            max: max,
-            divisions: divisions,
-            onChanged: onChanged,
-            activeColor: ocTheme.primary,
-            inactiveColor: ocTheme.borderSubtle,
+          const SizedBox(height: 4),
+          SliderTheme(
+            data: SliderTheme.of(context).copyWith(
+              trackHeight: 4,
+              thumbShape: const RoundSliderThumbShape(enabledThumbRadius: 8),
+            ),
+            child: Slider(
+              value: value.clamp(min, max),
+              min: min,
+              max: max,
+              divisions: divisions,
+              onChanged: onChanged,
+            ),
           ),
         ],
       ),

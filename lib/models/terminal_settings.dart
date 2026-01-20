@@ -1,28 +1,41 @@
+/// Terminal settings model.
+///
+/// Note: Input/output batching is now handled automatically by SmartInputBatcher
+/// and SmartOutputThrottler - no manual tuning needed!
 class TerminalSettings {
   const TerminalSettings({
-    this.fontSize = 13,
+    this.fontSize = 14,
     this.fontFamily = 'JetBrains Mono',
     this.maxLines = 10000,
     this.showQuickToolbar = true,
     this.showSelectionToolbar = true,
     this.hardwareKeyboardOnly = false,
     this.deleteDetection = true,
-    this.inputBatchMs = 16,
-    this.outputBatchMs = 16,
-    this.enableBinaryDetection = false,
     this.normalizeSmartQuotes = true,
   });
 
+  /// Font size for terminal text (10-24)
   final double fontSize;
+
+  /// Monospace font family
   final String fontFamily;
+
+  /// Max scrollback lines (1000-100000)
   final int maxLines;
+
+  /// Show quick toolbar with Ctrl keys, arrows, etc.
   final bool showQuickToolbar;
+
+  /// Show copy/select toolbar when text selected
   final bool showSelectionToolbar;
+
+  /// Only accept hardware keyboard input (disable on-screen keyboard)
   final bool hardwareKeyboardOnly;
+
+  /// Enable delete key detection for software keyboards
   final bool deleteDetection;
-  final int inputBatchMs;
-  final int outputBatchMs;
-  final bool enableBinaryDetection;
+
+  /// Convert iOS smart quotes to straight quotes for shell compatibility
   final bool normalizeSmartQuotes;
 
   TerminalSettings copyWith({
@@ -33,9 +46,6 @@ class TerminalSettings {
     bool? showSelectionToolbar,
     bool? hardwareKeyboardOnly,
     bool? deleteDetection,
-    int? inputBatchMs,
-    int? outputBatchMs,
-    bool? enableBinaryDetection,
     bool? normalizeSmartQuotes,
   }) {
     return TerminalSettings(
@@ -46,10 +56,6 @@ class TerminalSettings {
       showSelectionToolbar: showSelectionToolbar ?? this.showSelectionToolbar,
       hardwareKeyboardOnly: hardwareKeyboardOnly ?? this.hardwareKeyboardOnly,
       deleteDetection: deleteDetection ?? this.deleteDetection,
-      inputBatchMs: inputBatchMs ?? this.inputBatchMs,
-      outputBatchMs: outputBatchMs ?? this.outputBatchMs,
-      enableBinaryDetection:
-          enableBinaryDetection ?? this.enableBinaryDetection,
       normalizeSmartQuotes: normalizeSmartQuotes ?? this.normalizeSmartQuotes,
     );
   }
@@ -63,9 +69,6 @@ class TerminalSettings {
       'showSelectionToolbar': showSelectionToolbar,
       'hardwareKeyboardOnly': hardwareKeyboardOnly,
       'deleteDetection': deleteDetection,
-      'inputBatchMs': inputBatchMs,
-      'outputBatchMs': outputBatchMs,
-      'enableBinaryDetection': enableBinaryDetection,
       'normalizeSmartQuotes': normalizeSmartQuotes,
     };
   }
@@ -88,16 +91,13 @@ class TerminalSettings {
     }
 
     return TerminalSettings(
-      fontSize: asDouble(json['fontSize'], 13),
+      fontSize: asDouble(json['fontSize'], 14),
       fontFamily: (json['fontFamily'] as String?) ?? 'JetBrains Mono',
       maxLines: asInt(json['maxLines'], 10000),
       showQuickToolbar: asBool(json['showQuickToolbar'], true),
       showSelectionToolbar: asBool(json['showSelectionToolbar'], true),
       hardwareKeyboardOnly: asBool(json['hardwareKeyboardOnly'], false),
       deleteDetection: asBool(json['deleteDetection'], true),
-      inputBatchMs: asInt(json['inputBatchMs'], 16),
-      outputBatchMs: asInt(json['outputBatchMs'], 16),
-      enableBinaryDetection: asBool(json['enableBinaryDetection'], false),
       normalizeSmartQuotes: asBool(json['normalizeSmartQuotes'], true),
     );
   }
@@ -112,9 +112,6 @@ class TerminalSettings {
         other.showSelectionToolbar == showSelectionToolbar &&
         other.hardwareKeyboardOnly == hardwareKeyboardOnly &&
         other.deleteDetection == deleteDetection &&
-        other.inputBatchMs == inputBatchMs &&
-        other.outputBatchMs == outputBatchMs &&
-        other.enableBinaryDetection == enableBinaryDetection &&
         other.normalizeSmartQuotes == normalizeSmartQuotes;
   }
 
@@ -127,9 +124,6 @@ class TerminalSettings {
     showSelectionToolbar,
     hardwareKeyboardOnly,
     deleteDetection,
-    inputBatchMs,
-    outputBatchMs,
-    enableBinaryDetection,
     normalizeSmartQuotes,
   );
 }

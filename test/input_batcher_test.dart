@@ -3,37 +3,87 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:broski/utils/input_batcher.dart';
 
 void main() {
-  testWidgets('batches input and flushes on timer', (tester) async {
+  test('sends first char immediately', () {
     final flushed = <String>[];
-    final batcher = InputBatcher(
-      onFlush: flushed.add,
-      batchWindow: const Duration(milliseconds: 16),
-    );
+    final batcher = SmartInputBatcher(onFlush: flushed.add);
 
     batcher.add('g');
-    batcher.add('i');
-    batcher.add('t');
-    expect(flushed, isEmpty);
-
-    await tester.pump(const Duration(milliseconds: 16));
-    expect(flushed, ['git']);
+    expect(flushed, ['g']); // First char is always immediate
 
     batcher.dispose();
   });
 
-  testWidgets('flushes immediately for enter/tab/ctrl', (tester) async {
+  test('batches paste-like input (multi-char)', () {
     final flushed = <String>[];
-    final batcher = InputBatcher(onFlush: flushed.add);
+    final batcher = SmartInputBatcher(onFlush: flushed.add, pasteThreshold: 3);
 
-    batcher.add('echo ');
-    batcher.add('"hi"');
+    // Multi-char input (>= pasteThreshold) is batched
+    batcher.add('hello');
     expect(flushed, isEmpty);
 
-    batcher.add('\r');
-    expect(flushed, ['echo "hi"\r']);
+    // Force flush
+    batcher.flush();
+    expect(flushed, ['hello']);
 
-    await tester.pump(const Duration(milliseconds: 50));
-    expect(flushed, ['echo "hi"\r']);
+    batcher.dispose();
+  });
+
+  test('flushes immediately for Enter', () {
+    final flushed = <String>[];
+    final batcher = SmartInputBatcher(onFlush: flushed.add);
+
+    // Enter should flush immediately
+    batcher.add('\r');
+    expect(flushed, ['\r']);
+
+    batcher.dispose();
+  });
+
+  test('flushes immediately for Tab', () {
+    final flushed = <String>[];
+    final batcher = SmartInputBatcher(onFlush: flushed.add);
+
+    batcher.add('\t');
+    expect(flushed, ['\t']);
+
+    batcher.dispose();
+  });
+
+  test('flushes immediately for Ctrl+C', () {
+    final flushed = <String>[];
+    final batcher = SmartInputBatcher(onFlush: flushed.add);
+
+    batcher.add('\x03'); // Ctrl+C
+    expect(flushed, ['\x03']);
+
+    batcher.dispose();
+  });
+
+  test('flushes pending buffer before immediate chars', () {
+    final flushed = <String>[];
+    final batcher = SmartInputBatcher(onFlush: flushed.add, pasteThreshold: 3);
+
+    // Add paste-like input (buffered)
+    batcher.add('hello');
+    expect(flushed, isEmpty);
+
+    // Add enter (immediate) - should flush buffer first
+    batcher.add('\r');
+    expect(flushed, ['hello', '\r']);
+
+    batcher.dispose();
+  });
+
+  test('hasPendingData reflects buffer state', () {
+    final batcher = SmartInputBatcher(onFlush: (_) {}, pasteThreshold: 3);
+
+    expect(batcher.hasPendingData, false);
+
+    batcher.add('hello'); // Buffered
+    expect(batcher.hasPendingData, true);
+
+    batcher.flush();
+    expect(batcher.hasPendingData, false);
 
     batcher.dispose();
   });

@@ -50,21 +50,6 @@ class TerminalSettingsNotifier extends StateNotifier<TerminalSettings> {
     await _save();
   }
 
-  Future<void> setInputBatchMs(int value) async {
-    state = state.copyWith(inputBatchMs: value);
-    await _save();
-  }
-
-  Future<void> setOutputBatchMs(int value) async {
-    state = state.copyWith(outputBatchMs: value);
-    await _save();
-  }
-
-  Future<void> setEnableBinaryDetection(bool value) async {
-    state = state.copyWith(enableBinaryDetection: value);
-    await _save();
-  }
-
   Future<void> setNormalizeSmartQuotes(bool value) async {
     state = state.copyWith(normalizeSmartQuotes: value);
     await _save();

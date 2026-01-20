@@ -1,60 +1,118 @@
 import 'dart:async';
 
-typedef InputBatchFlush = void Function(String data);
+typedef InputFlushCallback = void Function(String data);
 
-class InputBatcher {
-  InputBatcher({
+/// Smart input batcher that provides INSTANT response for normal typing
+/// while batching only rapid input (fast typing, pastes).
+///
+/// Key insight: Users notice latency on single keystrokes, but won't notice
+/// 8ms batching when typing at 100+ WPM or pasting.
+class SmartInputBatcher {
+  SmartInputBatcher({
     required this.onFlush,
-    this.batchWindow = const Duration(milliseconds: 16),
-    this.maxChars = 1000,
-    this.immediateFlushChars = const {'\r', '\t', '\x03', '\x04'},
+    this.rapidTypingThresholdMs = 50,
+    this.batchWindowMs = 8,
+    this.pasteThreshold = 3,
+    this.immediateFlushChars = const {'\r', '\t', '\x03', '\x04', '\x1b'},
   });
 
-  final InputBatchFlush onFlush;
-  Duration batchWindow;
-  int maxChars;
+  final InputFlushCallback onFlush;
 
-  /// If the buffer contains any of these chars, flush immediately.
+  /// If two inputs arrive within this time, we're in "rapid mode"
+  int rapidTypingThresholdMs;
+
+  /// How long to batch in rapid mode (lower = more responsive)
+  int batchWindowMs;
+
+  /// If input length >= this, treat as paste (batch it)
+  int pasteThreshold;
+
+  /// These chars always flush immediately (Enter, Tab, Ctrl+C, Ctrl+D, Esc)
   final Set<String> immediateFlushChars;
 
   final StringBuffer _buffer = StringBuffer();
-  Timer? _timer;
+  Timer? _batchTimer;
+  DateTime? _lastInputTime;
+  bool _inRapidMode = false;
 
-  bool get hasBufferedData => _buffer.length > 0;
-
+  /// Add input - decides whether to send immediately or batch
   void add(String data) {
     if (data.isEmpty) return;
 
-    _buffer.write(data);
+    final now = DateTime.now();
+    final timeSinceLast = _lastInputTime != null
+        ? now.difference(_lastInputTime!).inMilliseconds
+        : 1000; // First input = not rapid
+    _lastInputTime = now;
 
-    if (_buffer.length >= maxChars || _shouldFlushImmediately(data)) {
-      flush();
+    // Check if we should flush immediately
+    if (_shouldFlushImmediately(data)) {
+      // Flush any pending buffer first
+      if (_buffer.isNotEmpty) {
+        _flushBuffer();
+      }
+      // Then send this data immediately
+      onFlush(data);
+      _inRapidMode = false;
       return;
     }
 
-    _timer ??= Timer(batchWindow, flush);
+    // Detect rapid typing or paste
+    final isPaste = data.length >= pasteThreshold;
+    final isRapidTyping = timeSinceLast < rapidTypingThresholdMs;
+
+    if (isPaste || isRapidTyping) {
+      // RAPID MODE: Batch for efficiency
+      _inRapidMode = true;
+      _buffer.write(data);
+      _scheduleBatchFlush();
+    } else {
+      // NORMAL MODE: Send immediately for instant feedback
+      _inRapidMode = false;
+      // Flush any pending rapid-mode buffer first
+      if (_buffer.isNotEmpty) {
+        _flushBuffer();
+      }
+      // Send this char immediately
+      onFlush(data);
+    }
   }
 
   bool _shouldFlushImmediately(String data) {
-    for (final ch in immediateFlushChars) {
-      if (data.contains(ch)) return true;
+    for (final char in immediateFlushChars) {
+      if (data.contains(char)) return true;
     }
     return false;
   }
 
-  void flush() {
-    _timer?.cancel();
-    _timer = null;
+  void _scheduleBatchFlush() {
+    _batchTimer?.cancel();
+    _batchTimer = Timer(Duration(milliseconds: batchWindowMs), _flushBuffer);
+  }
 
-    if (_buffer.length == 0) return;
-    final payload = _buffer.toString();
+  void _flushBuffer() {
+    _batchTimer?.cancel();
+    _batchTimer = null;
+
+    if (_buffer.isEmpty) return;
+
+    final data = _buffer.toString();
     _buffer.clear();
-    onFlush(payload);
+    onFlush(data);
+  }
+
+  /// Force flush any pending data
+  void flush() {
+    _flushBuffer();
   }
 
   void dispose() {
-    _timer?.cancel();
-    _timer = null;
+    _batchTimer?.cancel();
+    _batchTimer = null;
     _buffer.clear();
   }
+
+  /// For debugging
+  bool get isInRapidMode => _inRapidMode;
+  bool get hasPendingData => _buffer.isNotEmpty;
 }
