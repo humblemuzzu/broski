@@ -9,6 +9,7 @@ void main() {
       maxLines: 20000,
       showQuickToolbar: false,
       showSelectionToolbar: false,
+      normalizeSmartQuotes: false,
       hardwareKeyboardOnly: true,
       deleteDetection: false,
       inputBatchMs: 8,

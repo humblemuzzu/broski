@@ -64,6 +64,11 @@ class TerminalSettingsNotifier extends StateNotifier<TerminalSettings> {
     state = state.copyWith(enableBinaryDetection: value);
     await _save();
   }
+
+  Future<void> setNormalizeSmartQuotes(bool value) async {
+    state = state.copyWith(normalizeSmartQuotes: value);
+    await _save();
+  }
 }
 
 final terminalSettingsProvider =

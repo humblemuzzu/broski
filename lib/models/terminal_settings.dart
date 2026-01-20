@@ -10,6 +10,7 @@ class TerminalSettings {
     this.inputBatchMs = 16,
     this.outputBatchMs = 16,
     this.enableBinaryDetection = false,
+    this.normalizeSmartQuotes = true,
   });
 
   final double fontSize;
@@ -22,6 +23,7 @@ class TerminalSettings {
   final int inputBatchMs;
   final int outputBatchMs;
   final bool enableBinaryDetection;
+  final bool normalizeSmartQuotes;
 
   TerminalSettings copyWith({
     double? fontSize,
@@ -34,6 +36,7 @@ class TerminalSettings {
     int? inputBatchMs,
     int? outputBatchMs,
     bool? enableBinaryDetection,
+    bool? normalizeSmartQuotes,
   }) {
     return TerminalSettings(
       fontSize: fontSize ?? this.fontSize,
@@ -47,6 +50,7 @@ class TerminalSettings {
       outputBatchMs: outputBatchMs ?? this.outputBatchMs,
       enableBinaryDetection:
           enableBinaryDetection ?? this.enableBinaryDetection,
+      normalizeSmartQuotes: normalizeSmartQuotes ?? this.normalizeSmartQuotes,
     );
   }
 
@@ -62,6 +66,7 @@ class TerminalSettings {
       'inputBatchMs': inputBatchMs,
       'outputBatchMs': outputBatchMs,
       'enableBinaryDetection': enableBinaryDetection,
+      'normalizeSmartQuotes': normalizeSmartQuotes,
     };
   }
 
@@ -93,6 +98,7 @@ class TerminalSettings {
       inputBatchMs: asInt(json['inputBatchMs'], 16),
       outputBatchMs: asInt(json['outputBatchMs'], 16),
       enableBinaryDetection: asBool(json['enableBinaryDetection'], false),
+      normalizeSmartQuotes: asBool(json['normalizeSmartQuotes'], true),
     );
   }
 
@@ -108,7 +114,8 @@ class TerminalSettings {
         other.deleteDetection == deleteDetection &&
         other.inputBatchMs == inputBatchMs &&
         other.outputBatchMs == outputBatchMs &&
-        other.enableBinaryDetection == enableBinaryDetection;
+        other.enableBinaryDetection == enableBinaryDetection &&
+        other.normalizeSmartQuotes == normalizeSmartQuotes;
   }
 
   @override
@@ -123,5 +130,6 @@ class TerminalSettings {
     inputBatchMs,
     outputBatchMs,
     enableBinaryDetection,
+    normalizeSmartQuotes,
   );
 }

@@ -64,6 +64,12 @@ class TerminalSettingsScreen extends ConsumerWidget {
                 onChanged: notifier.setShowSelectionToolbar,
               ),
               _SwitchTile(
+                title: 'Normalize smart quotes',
+                subtitle: 'Replaces “ ” ‘ ’ with " and \' for shells',
+                value: settings.normalizeSmartQuotes,
+                onChanged: notifier.setNormalizeSmartQuotes,
+              ),
+              _SwitchTile(
                 title: 'Hardware keyboard only',
                 subtitle: 'Disables the on-screen keyboard',
                 value: settings.hardwareKeyboardOnly,

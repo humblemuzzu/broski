@@ -48,6 +48,7 @@ class _TerminalViewScreenState extends ConsumerState<TerminalViewScreen> {
   Map<String, dynamic>? _lastHealth;
 
   TerminalSettings? _appliedSettings;
+  bool _normalizeSmartQuotesEnabled = true;
 
   @override
   void initState() {
@@ -55,7 +56,8 @@ class _TerminalViewScreenState extends ConsumerState<TerminalViewScreen> {
     _terminalController = TerminalController();
     _inputBatcher = InputBatcher(onFlush: _sendInput);
     _terminal = Terminal(maxLines: 10000);
-    _terminal.onOutput = (data) => _inputBatcher.add(data);
+    _terminal.onOutput = (data) =>
+        _inputBatcher.add(_normalizeTerminalInput(data));
     _terminal.onResize = (cols, rows, _, __) => _scheduleResize(rows, cols);
     _outputThrottler = TerminalOutputThrottler(onFlush: _terminal.write);
     _connectToPty();
@@ -175,12 +177,14 @@ class _TerminalViewScreenState extends ConsumerState<TerminalViewScreen> {
 
   void _applySettings(TerminalSettings settings) {
     _appliedSettings = settings;
+    _normalizeSmartQuotesEnabled = settings.normalizeSmartQuotes;
 
     if (_terminal.maxLines != settings.maxLines) {
       _outputThrottler.flush();
       _outputThrottler.dispose();
       _terminal = Terminal(maxLines: settings.maxLines);
-      _terminal.onOutput = (data) => _inputBatcher.add(data);
+      _terminal.onOutput = (data) =>
+          _inputBatcher.add(_normalizeTerminalInput(data));
       _terminal.onResize = (cols, rows, _, __) => _scheduleResize(rows, cols);
       _outputThrottler = TerminalOutputThrottler(
         onFlush: _terminal.write,
@@ -205,6 +209,16 @@ class _TerminalViewScreenState extends ConsumerState<TerminalViewScreen> {
         ),
       );
     };
+  }
+
+  String _normalizeTerminalInput(String data) {
+    if (!_normalizeSmartQuotesEnabled || data.isEmpty) return data;
+    // iOS smart punctuation can emit curly quotes which break shells.
+    return data
+        .replaceAll('\u201C', '"')
+        .replaceAll('\u201D', '"')
+        .replaceAll('\u2018', "'")
+        .replaceAll('\u2019', "'");
   }
 
   @override
