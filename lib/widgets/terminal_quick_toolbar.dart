@@ -29,6 +29,10 @@ class TerminalQuickToolbar extends StatelessWidget {
               onTap: () => terminal.keyInput(TerminalKey.tab),
             ),
             _KeyButton(
+              label: 'Enter',
+              onTap: () => terminal.keyInput(TerminalKey.enter),
+            ),
+            _KeyButton(
               icon: Icons.arrow_upward,
               onTap: () => terminal.keyInput(TerminalKey.arrowUp),
             ),
