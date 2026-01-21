@@ -2987,6 +2987,8 @@ class BridgeService {
     Map<String, dynamic>? sandboxPolicy,
     Map<String, dynamic>? config,
     List<FileAttachment>? fileAttachments,
+    String?
+    collaborationMode, // SDK v0.87.0+: 'plan', 'pairprogramming', 'execute'
   }) {
     _socket.send({
       'type': 'cx_chat',
@@ -3002,6 +3004,7 @@ class BridgeService {
       if (config != null) 'config': config,
       if (fileAttachments != null)
         'fileAttachments': fileAttachments.map((a) => a.toJson()).toList(),
+      if (collaborationMode != null) 'collaborationMode': collaborationMode,
     });
   }
 
@@ -3024,6 +3027,20 @@ class BridgeService {
       'response': response,
       if (execpolicyAmendment != null)
         'execpolicyAmendment': execpolicyAmendment,
+    });
+  }
+
+  /// Respond to a Codex request_user_input event (SDK v0.87.0+)
+  ///
+  /// [answers] is a map of question ID to answer object with `selected` and `other` fields.
+  void cxRespondToUserInput({
+    required String requestId,
+    required Map<String, Map<String, dynamic>> answers,
+  }) {
+    _socket.send({
+      'type': 'cx_user_input_response',
+      'requestId': requestId,
+      'answers': answers,
     });
   }
 

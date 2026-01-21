@@ -90,6 +90,7 @@ function mapCodexThread(thread: any): CodexThread {
     preview: safeString(thread?.preview),
     modelProvider: safeString(thread?.modelProvider) || undefined,
     createdAt: Number(thread?.createdAt ?? 0) || 0,
+    updatedAt: Number(thread?.updatedAt ?? thread?.createdAt ?? 0) || 0, // SDK v0.87.0+
     cwd: safeString(thread?.cwd),
     cliVersion: safeString(thread?.cliVersion) || undefined,
     source: safeString(thread?.source) || undefined,
@@ -1044,6 +1045,13 @@ export function createBridgeServer(options: BridgeServerOptions): BridgeServer {
             }, 120_000)
             cxApprovalWaiters.set(key, { resolve, timer })
           })
+
+          // Handle request_user_input (Codex SDK v0.87.0+)
+          // This returns answers in a different format than approval requests
+          const isUserInput = r.method === 'item/tool/requestUserInput'
+          if (isUserInput && (response as any).answers) {
+            return { answers: (response as any).answers }
+          }
 
           const isCommand = r.method === 'item/commandExecution/requestApproval'
           if (isCommand && response.response === 'execpolicy' && response.execpolicyAmendment) {
@@ -3349,6 +3357,18 @@ export function createBridgeServer(options: BridgeServerOptions): BridgeServer {
           }
         }
 
+        // Build collaboration mode object if specified (SDK v0.87.0+)
+        // Format: { mode: "plan"|"pairprogramming"|"execute", model: string, reasoningEffort?: string }
+        let collaborationMode: any = null
+        if (message.collaborationMode) {
+          collaborationMode = {
+            mode: message.collaborationMode,
+            model: message.model ?? 'gpt-4.1', // Fallback model
+            reasoningEffort: message.effort ?? null,
+            developerInstructions: message.developerInstructions ?? null,
+          }
+        }
+
         const turnRes: any = await client.request('turn/start', {
           threadId,
           input,
@@ -3358,6 +3378,7 @@ export function createBridgeServer(options: BridgeServerOptions): BridgeServer {
           summary: message.summary ?? null,
           approvalPolicy: message.approvalPolicy ?? null,
           sandboxPolicy: message.sandboxPolicy ?? null,
+          collaborationMode,
         })
 
         const turnId = safeString(turnRes?.turn?.id)
@@ -3417,6 +3438,16 @@ export function createBridgeServer(options: BridgeServerOptions): BridgeServer {
             response: message.response,
             execpolicyAmendment: (message as any).execpolicyAmendment,
           })
+        }
+        break
+      }
+      case 'cx_user_input_response': {
+        // Codex request_user_input response (SDK v0.87.0+)
+        const waiter = cxApprovalWaiters.get(message.requestId)
+        if (waiter) {
+          clearTimeout(waiter.timer)
+          cxApprovalWaiters.delete(message.requestId)
+          waiter.resolve({ answers: message.answers })
         }
         break
       }

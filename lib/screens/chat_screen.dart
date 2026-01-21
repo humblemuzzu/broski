@@ -247,6 +247,7 @@ class _ChatScreenState extends ConsumerState<ChatScreen>
   final HapticsService _haptics = HapticsService();
   String? _activePermissionId;
   String? _activeQuestionId;
+  String? _activeCxQuestionId; // Codex request_user_input
 
   // Auto-scroll state: tracks if user has intentionally scrolled up
   // When true, we don't auto-scroll (respect user's intent to view history)
@@ -4727,6 +4728,11 @@ Describe project-specific guidance for Codex here.
         .setReasoningEffort(values[nextIndex]);
   }
 
+  /// Cycle through Codex collaboration modes (SDK v0.87.0+)
+  void _cycleCodexCollaborationMode() {
+    ref.read(codexSettingsProvider.notifier).cycleCollaborationMode();
+  }
+
   void _showCodexModelSheet() {
     final theme = OpenCodeTheme.of(context);
     showModalBottomSheet(
@@ -6197,6 +6203,9 @@ Describe project-specific guidance for Codex here.
     final pendingQuestion = ref.watch(
       chatSessionProvider.select((s) => s.pendingQuestion),
     );
+    final cxPendingUserInput = ref.watch(
+      chatSessionProvider.select((s) => s.cxPendingUserInput),
+    );
     final todos = ref.watch(chatSessionProvider.select((s) => s.todos));
     final sessionDiffs = ref.watch(
       chatSessionProvider.select((s) => s.sessionDiffs),
@@ -6220,6 +6229,7 @@ Describe project-specific guidance for Codex here.
 
     _maybeShowPermissionPromptFromList(permissions);
     _maybeShowQuestionPrompt(pendingQuestion);
+    _maybeShowCodexQuestionPrompt(cxPendingUserInput);
 
     return Scaffold(
       backgroundColor: theme.background,
@@ -6627,6 +6637,13 @@ Describe project-specific guidance for Codex here.
             ? ref.watch(chatSessionProvider.select((s) => s.cxModel))
             : null,
         onCodexModelTap: widget.isCodex ? () => _showCodexModelSheet() : null,
+        // Codex Collaboration Mode (SDK v0.87.0+)
+        codexCollabMode: widget.isCodex
+            ? ref.watch(codexSettingsProvider).collaborationMode.wireValue
+            : null,
+        onCodexCollabModeTap: widget.isCodex
+            ? () => _cycleCodexCollaborationMode()
+            : null,
         customAccentColor: customAccent,
         // OpenCode Plan Mode (SDK v1.1.18+)
         isOpenCode: widget.isOpenCode,
@@ -7700,6 +7717,7 @@ Describe project-specific guidance for Codex here.
               'sandbox_workspace_write.network_access':
                   codexSettings.networkAccessEnabled,
           },
+          collaborationMode: codexSettings.collaborationMode.wireValue,
         );
         _controller.clear();
         _userHasScrolledUp = false;
@@ -7902,6 +7920,7 @@ Describe your project here.
         sandboxPolicy: sandboxPolicy,
         config: config,
         fileAttachments: hasAttachments ? _attachedFiles : null,
+        collaborationMode: codexSettings.collaborationMode.wireValue,
       );
 
       _controller.clear();
@@ -8099,6 +8118,65 @@ Describe your project here.
           );
         },
       ).whenComplete(() => _activeQuestionId = null);
+    });
+  }
+
+  void _maybeShowCodexQuestionPrompt(CodexUserInputRequest? request) {
+    if (!widget.isCodex) return;
+    if (request == null || request.requestId.isEmpty) {
+      _activeCxQuestionId = null;
+      return;
+    }
+    if (_activeCxQuestionId == request.requestId) return;
+
+    _activeCxQuestionId = request.requestId;
+    _haptics.mediumImpact();
+
+    // Convert CodexUserInputRequest to QuestionRequest for the existing UI
+    final convertedRequest = QuestionRequest(
+      id: request.requestId,
+      sessionId: request.threadId,
+      questions: request.questions
+          .map(
+            (q) => QuestionInfo(
+              question: q.question,
+              header: q.header,
+              options: q.options
+                  .map(
+                    (o) => QuestionOption(
+                      label: o.label,
+                      description: o.description,
+                    ),
+                  )
+                  .toList(),
+              multiple: false, // Codex questions are single-select by default
+            ),
+          )
+          .toList(),
+    );
+
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+      showModalBottomSheet(
+        context: context,
+        isScrollControlled: true,
+        backgroundColor: Colors.transparent,
+        builder: (_) {
+          return QuestionPromptSheet(
+            request: convertedRequest,
+            onReply: (answers) {
+              ref
+                  .read(chatSessionProvider.notifier)
+                  .replyToCodexUserInput(answers);
+              if (mounted) Navigator.pop(context);
+            },
+            onReject: () {
+              ref.read(chatSessionProvider.notifier).rejectCodexUserInput();
+              if (mounted) Navigator.pop(context);
+            },
+          );
+        },
+      ).whenComplete(() => _activeCxQuestionId = null);
     });
   }
 
@@ -10319,6 +10397,9 @@ class _CliStyleInputBar extends StatefulWidget {
     this.isCodex = false,
     this.codexModel,
     this.onCodexModelTap,
+    // Codex Collaboration Mode (SDK v0.87.0+)
+    this.codexCollabMode,
+    this.onCodexCollabModeTap,
     // Custom accent color (null = use agent/permission mode color)
     this.customAccentColor,
     // OpenCode Plan Mode (SDK v1.1.18+)
@@ -10358,6 +10439,9 @@ class _CliStyleInputBar extends StatefulWidget {
   final bool isCodex;
   final String? codexModel;
   final VoidCallback? onCodexModelTap;
+  // Codex Collaboration Mode (SDK v0.87.0+)
+  final String? codexCollabMode;
+  final VoidCallback? onCodexCollabModeTap;
   // Custom accent color (null = use agent/permission mode color)
   final Color? customAccentColor;
   // OpenCode Plan Mode (SDK v1.1.18+)
@@ -10451,6 +10535,34 @@ class _CliStyleInputBarState extends State<_CliStyleInputBar> {
     // Keep it short for display
     if (model.length > 16) return '${model.substring(0, 14)}...';
     return model;
+  }
+
+  /// Get Codex collaboration mode display name
+  String _getCodexCollabModeDisplay(String? mode) {
+    switch (mode) {
+      case 'plan':
+        return 'Plan';
+      case 'pairprogramming':
+        return 'Pair';
+      case 'execute':
+        return 'Exec';
+      default:
+        return 'Pair';
+    }
+  }
+
+  /// Get color for Codex collaboration mode
+  Color _getCodexCollabModeColor(String? mode, OpenCodeTheme theme) {
+    switch (mode) {
+      case 'plan':
+        return theme.warning; // Planning mode - amber
+      case 'pairprogramming':
+        return theme.primary; // Default interactive - primary
+      case 'execute':
+        return theme.success; // Autonomous execution - green
+      default:
+        return theme.primary;
+    }
   }
 
   /// Get color for permission mode
@@ -10715,6 +10827,67 @@ class _CliStyleInputBarState extends State<_CliStyleInputBar> {
                                           ),
                                         ),
                                       ),
+                                      // Codex Collaboration Mode (SDK v0.87.0+)
+                                      if (widget.codexCollabMode != null) ...[
+                                        Padding(
+                                          padding: const EdgeInsets.symmetric(
+                                            horizontal: 8,
+                                          ),
+                                          child: Text(
+                                            '·',
+                                            style: TextStyle(
+                                              color: theme.textMuted.withValues(
+                                                alpha: 0.4,
+                                              ),
+                                              fontSize: 13,
+                                            ),
+                                          ),
+                                        ),
+                                        GestureDetector(
+                                          onTap: widget.onCodexCollabModeTap,
+                                          child: Text(
+                                            _getCodexCollabModeDisplay(
+                                              widget.codexCollabMode,
+                                            ),
+                                            style: TextStyle(
+                                              color: _getCodexCollabModeColor(
+                                                widget.codexCollabMode,
+                                                theme,
+                                              ),
+                                              fontSize: 13,
+                                              fontWeight: FontWeight.w600,
+                                            ),
+                                          ),
+                                        ),
+                                      ],
+                                      // Codex Reasoning Effort (existing)
+                                      if (widget.currentVariant != null) ...[
+                                        Padding(
+                                          padding: const EdgeInsets.symmetric(
+                                            horizontal: 8,
+                                          ),
+                                          child: Text(
+                                            '·',
+                                            style: TextStyle(
+                                              color: theme.textMuted.withValues(
+                                                alpha: 0.4,
+                                              ),
+                                              fontSize: 13,
+                                            ),
+                                          ),
+                                        ),
+                                        GestureDetector(
+                                          onTap: widget.onVariantTap,
+                                          child: Text(
+                                            widget.currentVariant!,
+                                            style: TextStyle(
+                                              color: theme.primary,
+                                              fontSize: 13,
+                                              fontWeight: FontWeight.w500,
+                                            ),
+                                          ),
+                                        ),
+                                      ],
                                     ] else ...[
                                       // OpenCode model selector
                                       GestureDetector(

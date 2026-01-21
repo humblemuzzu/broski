@@ -54,6 +54,18 @@ class CodexSettingsNotifier extends StateNotifier<CodexSettings> {
     state = state.copyWith(skillsEnabled: enabled);
     await _save();
   }
+
+  Future<void> setCollaborationMode(CodexCollaborationMode mode) async {
+    state = state.copyWith(collaborationMode: mode);
+    await _save();
+  }
+
+  void cycleCollaborationMode() {
+    final modes = CodexCollaborationMode.values;
+    final currentIndex = modes.indexOf(state.collaborationMode);
+    final nextIndex = (currentIndex + 1) % modes.length;
+    setCollaborationMode(modes[nextIndex]);
+  }
 }
 
 final codexSettingsProvider =
@@ -61,4 +73,3 @@ final codexSettingsProvider =
       final storage = ref.watch(storageServiceProvider);
       return CodexSettingsNotifier(storage);
     });
-

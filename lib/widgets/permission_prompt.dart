@@ -15,6 +15,8 @@ class PermissionPrompt extends StatefulWidget {
     required this.onAlwaysAllow,
     this.approveOnceLabel = 'Once',
     this.approveAlwaysLabel = 'Always',
+    this.onApproveForSession,
+    this.approveForSessionLabel = 'Session',
     this.onApproveWithExecpolicy,
     this.approveWithExecpolicyLabel,
     this.onDenyWithMessage,
@@ -26,6 +28,11 @@ class PermissionPrompt extends StatefulWidget {
   final VoidCallback onAlwaysAllow;
   final String approveOnceLabel;
   final String approveAlwaysLabel;
+
+  /// Called when user approves for current session only (SDK feature)
+  final VoidCallback? onApproveForSession;
+  final String approveForSessionLabel;
+
   final VoidCallback? onApproveWithExecpolicy;
   final String? approveWithExecpolicyLabel;
 
@@ -230,11 +237,12 @@ class _PermissionPromptState extends State<PermissionPrompt> {
             duration: const Duration(milliseconds: 200),
           ),
 
-          // Action buttons: Reject | Once | Always (hidden when showing feedback)
+          // Action buttons: Reject | Once | Session | Always (hidden when showing feedback)
           if (!_showRejectFeedback)
             Column(
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
+                // Row 1: Reject | Once
                 Row(
                   children: [
                     Expanded(
@@ -262,7 +270,29 @@ class _PermissionPromptState extends State<PermissionPrompt> {
                         child: Text(widget.approveOnceLabel),
                       ),
                     ),
-                    const SizedBox(width: 10),
+                  ],
+                ),
+                const SizedBox(height: 10),
+                // Row 2: Session | Always
+                Row(
+                  children: [
+                    // Session button - only show if callback provided
+                    if (widget.onApproveForSession != null) ...[
+                      Expanded(
+                        child: OutlinedButton.icon(
+                          onPressed: widget.onApproveForSession,
+                          icon: const Icon(Icons.timer_outlined, size: 16),
+                          label: Text(widget.approveForSessionLabel),
+                          style: OutlinedButton.styleFrom(
+                            foregroundColor: theme.info,
+                            side: BorderSide(
+                              color: theme.info.withValues(alpha: 0.5),
+                            ),
+                          ),
+                        ),
+                      ),
+                      const SizedBox(width: 10),
+                    ],
                     Expanded(
                       child: ElevatedButton(
                         onPressed: widget.onAlwaysAllow,
@@ -275,6 +305,7 @@ class _PermissionPromptState extends State<PermissionPrompt> {
                     ),
                   ],
                 ),
+                // Execpolicy prefix learning button
                 if (widget.onApproveWithExecpolicy != null) ...[
                   const SizedBox(height: 10),
                   OutlinedButton.icon(

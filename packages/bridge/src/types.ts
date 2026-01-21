@@ -217,9 +217,11 @@ export type ClientMessage =
   | { type: 'cx_resume_thread'; threadId: string }
   | { type: 'cx_archive_thread'; threadId: string }
   | { type: 'cx_get_thread_messages'; threadId: string }
-  | { type: 'cx_chat'; threadId?: string; prompt: string; cwd?: string; model?: string; effort?: string; summary?: string; approvalPolicy?: string; sandbox?: string; sandboxPolicy?: any; config?: Record<string, any>; baseInstructions?: string; developerInstructions?: string; fileAttachments?: FileAttachment[] }
+  | { type: 'cx_chat'; threadId?: string; prompt: string; cwd?: string; model?: string; effort?: string; summary?: string; approvalPolicy?: string; sandbox?: string; sandboxPolicy?: any; config?: Record<string, any>; baseInstructions?: string; developerInstructions?: string; fileAttachments?: FileAttachment[]; collaborationMode?: 'plan' | 'pairprogramming' | 'execute' }
   | { type: 'cx_abort'; threadId: string; turnId?: string }
   | { type: 'cx_permission_response'; requestId: string; response: PermissionResponse; execpolicyAmendment?: any }
+  // Codex request_user_input response (SDK v0.87.0+)
+  | { type: 'cx_user_input_response'; requestId: string; answers: Record<string, { selected: string[]; other?: string }> }
   | { type: 'cx_thread_fork'; threadId: string }
   | { type: 'cx_thread_rollback'; threadId: string; numTurns: number }
   | { type: 'cx_model_list' }
@@ -929,6 +931,7 @@ export type CodexThread = {
   preview: string
   modelProvider?: string
   createdAt: number // Unix timestamp seconds
+  updatedAt: number // Unix timestamp seconds (SDK v0.87.0+)
   cwd: string
   cliVersion?: string
   source?: string

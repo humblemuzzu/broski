@@ -54,6 +54,8 @@ class ChatSessionState {
     this.cxIsStreaming = false,
     // Codex multi-agent collaboration tree (SDK v0.87.0+)
     this.cxCollabTree,
+    // Codex request_user_input (SDK v0.87.0+)
+    this.cxPendingUserInput,
     this.pendingQuestion,
     // FIX: Track content length incrementally instead of recalculating every frame
     this.contentLength = 0,
@@ -94,6 +96,8 @@ class ChatSessionState {
   final bool cxIsStreaming;
   // Codex multi-agent collaboration tree (SDK v0.87.0+)
   final CodexCollabAgentTree? cxCollabTree;
+  // Codex request_user_input (SDK v0.87.0+)
+  final CodexUserInputRequest? cxPendingUserInput;
 
   // OpenCode Question tool support
   final QuestionRequest? pendingQuestion;
@@ -148,6 +152,7 @@ class ChatSessionState {
     CodexThreadTokenUsage? cxTokenUsage,
     bool? cxIsStreaming,
     CodexCollabAgentTree? cxCollabTree,
+    CodexUserInputRequest? cxPendingUserInput,
     QuestionRequest? pendingQuestion,
     int? contentLength,
     String? ocAgentMode,
@@ -177,6 +182,7 @@ class ChatSessionState {
       cxTokenUsage: cxTokenUsage ?? this.cxTokenUsage,
       cxIsStreaming: cxIsStreaming ?? this.cxIsStreaming,
       cxCollabTree: cxCollabTree ?? this.cxCollabTree,
+      cxPendingUserInput: cxPendingUserInput ?? this.cxPendingUserInput,
       pendingQuestion: pendingQuestion ?? this.pendingQuestion,
       contentLength: contentLength ?? this.contentLength,
       ocAgentMode: ocAgentMode ?? this.ocAgentMode,
@@ -230,6 +236,73 @@ class ChatSessionNotifier extends StateNotifier<ChatSessionState> {
     if (req == null || req.id.isEmpty) return;
     await _bridge.ocRejectQuestion(requestId: req.id);
     state = state.copyWith(pendingQuestion: null);
+  }
+
+  /// Reply to a Codex request_user_input (SDK v0.87.0+)
+  /// [answers] is indexed by question position, matching the UI's output format
+  void replyToCodexUserInput(List<List<String>> answers) {
+    final req = state.cxPendingUserInput;
+    if (req == null || req.requestId.isEmpty) return;
+
+    // Convert List<List<String>> to Map<questionId, {selected: [...], other?: ...}>
+    final answersMap = <String, Map<String, dynamic>>{};
+    for (var i = 0; i < req.questions.length && i < answers.length; i++) {
+      final questionId = req.questions[i].id;
+      final selected = answers[i].where((s) => s.trim().isNotEmpty).toList();
+      answersMap[questionId] = {'selected': selected};
+    }
+
+    _bridge.cxRespondToUserInput(requestId: req.requestId, answers: answersMap);
+    _clearCxPendingUserInput();
+  }
+
+  /// Dismiss/reject a Codex request_user_input (SDK v0.87.0+)
+  void rejectCodexUserInput() {
+    final req = state.cxPendingUserInput;
+    if (req == null || req.requestId.isEmpty) return;
+
+    // Send empty answers to dismiss
+    final answersMap = <String, Map<String, dynamic>>{};
+    for (final q in req.questions) {
+      answersMap[q.id] = {'selected': <String>[]};
+    }
+
+    _bridge.cxRespondToUserInput(requestId: req.requestId, answers: answersMap);
+    _clearCxPendingUserInput();
+  }
+
+  /// Helper to explicitly clear cxPendingUserInput (copyWith can't set null)
+  void _clearCxPendingUserInput() {
+    state = ChatSessionState(
+      session: state.session,
+      projectPath: state.projectPath,
+      messages: state.messages,
+      permissions: state.permissions,
+      sessionDiffs: state.sessionDiffs,
+      todos: state.todos,
+      vcsInfo: state.vcsInfo,
+      isCompacting: state.isCompacting,
+      sessionStatus: state.sessionStatus,
+      isClaudeCode: state.isClaudeCode,
+      ccSessionId: state.ccSessionId,
+      ccCwd: state.ccCwd,
+      ccModel: state.ccModel,
+      ccInit: state.ccInit,
+      ccTokenUsage: state.ccTokenUsage,
+      ccIsStreaming: state.ccIsStreaming,
+      isCodex: state.isCodex,
+      cxThreadId: state.cxThreadId,
+      cxCwd: state.cxCwd,
+      cxModel: state.cxModel,
+      cxTokenUsage: state.cxTokenUsage,
+      cxIsStreaming: state.cxIsStreaming,
+      cxCollabTree: state.cxCollabTree,
+      cxPendingUserInput: null, // Explicitly cleared
+      pendingQuestion: state.pendingQuestion,
+      contentLength: state.contentLength,
+      ocAgentMode: state.ocAgentMode,
+      mcpOAuthPending: state.mcpOAuthPending,
+    );
   }
 
   String _normalizeUserText(String text) {
@@ -2346,6 +2419,17 @@ class ChatSessionNotifier extends StateNotifier<ChatSessionState> {
           threadId.isNotEmpty &&
           state.cxThreadId != null &&
           state.cxThreadId != threadId) {
+        return;
+      }
+
+      // Handle request_user_input (Codex SDK v0.87.0+)
+      if (message.method == 'item/tool/requestUserInput') {
+        final request = CodexUserInputRequest.fromJson(
+          message.requestId,
+          threadId ?? state.cxThreadId ?? '',
+          params,
+        );
+        state = state.copyWith(cxPendingUserInput: request);
         return;
       }
 

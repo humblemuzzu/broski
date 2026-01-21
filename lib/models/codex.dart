@@ -100,6 +100,7 @@ class CodexSettings {
     this.reasoningSummary = CodexReasoningSummary.auto,
     this.webSearchEnabled = false,
     this.skillsEnabled = false,
+    this.collaborationMode = CodexCollaborationMode.pairProgramming,
   });
 
   final CodexApprovalPolicy approvalPolicy;
@@ -109,6 +110,7 @@ class CodexSettings {
   final CodexReasoningSummary reasoningSummary;
   final bool webSearchEnabled;
   final bool skillsEnabled;
+  final CodexCollaborationMode collaborationMode;
 
   CodexSettings copyWith({
     CodexApprovalPolicy? approvalPolicy,
@@ -118,6 +120,7 @@ class CodexSettings {
     CodexReasoningSummary? reasoningSummary,
     bool? webSearchEnabled,
     bool? skillsEnabled,
+    CodexCollaborationMode? collaborationMode,
   }) {
     return CodexSettings(
       approvalPolicy: approvalPolicy ?? this.approvalPolicy,
@@ -127,6 +130,7 @@ class CodexSettings {
       reasoningSummary: reasoningSummary ?? this.reasoningSummary,
       webSearchEnabled: webSearchEnabled ?? this.webSearchEnabled,
       skillsEnabled: skillsEnabled ?? this.skillsEnabled,
+      collaborationMode: collaborationMode ?? this.collaborationMode,
     );
   }
 
@@ -201,6 +205,9 @@ class CodexSettings {
       reasoningSummary: parseSummary(json['reasoningSummary'] as String?),
       webSearchEnabled: json['webSearchEnabled'] == true,
       skillsEnabled: json['skillsEnabled'] == true,
+      collaborationMode: CodexCollaborationMode.fromString(
+        json['collaborationMode'] as String?,
+      ),
     );
   }
 
@@ -213,6 +220,7 @@ class CodexSettings {
       'reasoningSummary': reasoningSummary.wireValue,
       'webSearchEnabled': webSearchEnabled,
       'skillsEnabled': skillsEnabled,
+      'collaborationMode': collaborationMode.wireValue,
     };
   }
 }
@@ -222,6 +230,7 @@ class CodexThread {
   final String preview;
   final String cwd;
   final int createdAt; // unix seconds
+  final int updatedAt; // unix seconds (SDK v0.87.0+)
   final String? modelProvider;
   final String? cliVersion;
   final String? source;
@@ -232,19 +241,22 @@ class CodexThread {
     required this.preview,
     required this.cwd,
     required this.createdAt,
+    int? updatedAt,
     this.modelProvider,
     this.cliVersion,
     this.source,
     this.gitBranch,
-  });
+  }) : updatedAt = updatedAt ?? createdAt;
 
   factory CodexThread.fromJson(Map<String, dynamic> json) {
     final gitInfo = json['gitInfo'] as Map<String, dynamic>?;
+    final createdAt = json['createdAt'] as int? ?? 0;
     return CodexThread(
       id: json['id'] as String? ?? '',
       preview: json['preview'] as String? ?? '',
       cwd: json['cwd'] as String? ?? '',
-      createdAt: json['createdAt'] as int? ?? 0,
+      createdAt: createdAt,
+      updatedAt: json['updatedAt'] as int? ?? createdAt,
       modelProvider: json['modelProvider'] as String?,
       cliVersion: json['cliVersion'] as String?,
       source: json['source'] as String?,
@@ -258,6 +270,7 @@ class CodexThread {
       'preview': preview,
       'cwd': cwd,
       'createdAt': createdAt,
+      'updatedAt': updatedAt,
       if (modelProvider != null) 'modelProvider': modelProvider,
       if (cliVersion != null) 'cliVersion': cliVersion,
       if (source != null) 'source': source,
@@ -270,6 +283,9 @@ class CodexThread {
 
   DateTime get createdAtDateTime =>
       DateTime.fromMillisecondsSinceEpoch(createdAt * 1000);
+
+  DateTime get updatedAtDateTime =>
+      DateTime.fromMillisecondsSinceEpoch(updatedAt * 1000);
 }
 
 class CodexTranscriptToolCall {
@@ -525,6 +541,67 @@ enum CodexWebSearchMode {
         return CodexWebSearchMode.live;
       default:
         return CodexWebSearchMode.disabled;
+    }
+  }
+}
+
+/// Collaboration mode for Codex sessions (SDK v0.87.0+)
+/// Controls how the agent interacts: research/planning, pair coding, or autonomous execution.
+enum CodexCollaborationMode {
+  /// Research and planning mode - restricted file edits, more discussion
+  plan,
+
+  /// Interactive coding together - balanced between discussion and action (default)
+  pairProgramming,
+
+  /// Autonomous execution - agent completes tasks with minimal interaction
+  execute;
+
+  String get wireValue {
+    switch (this) {
+      case CodexCollaborationMode.plan:
+        return 'plan';
+      case CodexCollaborationMode.pairProgramming:
+        return 'pairprogramming';
+      case CodexCollaborationMode.execute:
+        return 'execute';
+    }
+  }
+
+  String get displayName {
+    switch (this) {
+      case CodexCollaborationMode.plan:
+        return 'Plan';
+      case CodexCollaborationMode.pairProgramming:
+        return 'Pair';
+      case CodexCollaborationMode.execute:
+        return 'Execute';
+    }
+  }
+
+  String get description {
+    switch (this) {
+      case CodexCollaborationMode.plan:
+        return 'Research & planning mode';
+      case CodexCollaborationMode.pairProgramming:
+        return 'Interactive pair coding';
+      case CodexCollaborationMode.execute:
+        return 'Autonomous execution';
+    }
+  }
+
+  factory CodexCollaborationMode.fromString(String? v) {
+    switch (v) {
+      case 'plan':
+        return CodexCollaborationMode.plan;
+      case 'execute':
+      case 'exec':
+        return CodexCollaborationMode.execute;
+      case 'pairprogramming':
+      case 'pair':
+      case 'pp':
+      default:
+        return CodexCollaborationMode.pairProgramming;
     }
   }
 }

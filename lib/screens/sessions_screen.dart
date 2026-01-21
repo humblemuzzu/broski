@@ -1676,6 +1676,48 @@ class _TitleFiltersChip extends StatelessWidget {
   }
 }
 
+/// Sort chip for switching between createdAt and updatedAt sorting
+class _SortChip extends StatelessWidget {
+  const _SortChip({required this.sortBy, required this.onChanged});
+
+  final String sortBy;
+  final ValueChanged<String> onChanged;
+
+  @override
+  Widget build(BuildContext context) {
+    final ocTheme = OpenCodeTheme.of(context);
+    final isUpdatedAt = sortBy == 'updatedAt';
+
+    return InkWell(
+      onTap: () => onChanged(isUpdatedAt ? 'createdAt' : 'updatedAt'),
+      borderRadius: BorderRadius.circular(999),
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+        decoration: BoxDecoration(
+          color: ocTheme.backgroundPanel,
+          borderRadius: BorderRadius.circular(999),
+          border: Border.all(color: ocTheme.borderSubtle),
+        ),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(Icons.sort_rounded, size: 14, color: ocTheme.textMuted),
+            const SizedBox(width: 6),
+            Text(
+              isUpdatedAt ? 'Updated' : 'Created',
+              style: TextStyle(
+                color: ocTheme.text,
+                fontSize: 12,
+                fontWeight: FontWeight.w600,
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
 void _showProjectFilter({
   required BuildContext context,
   required ThemeData theme,
@@ -3224,6 +3266,9 @@ class _CodexThreadsView extends ConsumerStatefulWidget {
 }
 
 class _CodexThreadsViewState extends ConsumerState<_CodexThreadsView> {
+  // Sort order: 'createdAt' (default) or 'updatedAt'
+  String _sortBy = 'createdAt';
+
   @override
   void initState() {
     super.initState();
@@ -3650,6 +3695,13 @@ class _CodexThreadsViewState extends ConsumerState<_CodexThreadsView> {
                             count: titleFilterCount,
                             onTap: () => _showTitleFiltersSheet(context),
                           ),
+                          const SizedBox(width: 8),
+                          _SortChip(
+                            sortBy: _sortBy,
+                            onChanged: (value) {
+                              setState(() => _sortBy = value);
+                            },
+                          ),
                         ],
                       ),
                     ],
@@ -3712,7 +3764,12 @@ class _CodexThreadsViewState extends ConsumerState<_CodexThreadsView> {
                                   ),
                           )
                           .toList()
-                        ..sort((a, b) => b.createdAt.compareTo(a.createdAt));
+                        ..sort((a, b) {
+                          if (_sortBy == 'updatedAt') {
+                            return b.updatedAt.compareTo(a.updatedAt);
+                          }
+                          return b.createdAt.compareTo(a.createdAt);
+                        });
 
                   if (filtered.isEmpty) {
                     return [SliverFillRemaining(child: _CodexEmptyState())];
