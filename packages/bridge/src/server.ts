@@ -1472,6 +1472,7 @@ export function createBridgeServer(options: BridgeServerOptions): BridgeServer {
     let pumping = false
     let lastMtimeMs = 0
     let lastIno = 0
+    let initialSyncDone = false // Skip emitting events until first pump completes (builds baseline)
     const lastTextByMessageId = new Map<string, string>()
     const lastThinkingByMessageId = new Map<string, string>()
     const emittedToolCalls = new Set<string>() // Track emitted tool calls to avoid duplicates
@@ -1557,11 +1558,13 @@ export function createBridgeServer(options: BridgeServerOptions): BridgeServer {
     }
 
     const bootstrapBaseline = async (path: string) => {
+      // Reads ALL existing records to build baseline state for text, thinking, and tool calls.
+      // This prevents re-emitting historical events when the external tail starts.
       try {
         const st = await stat(path)
         const end = Number(st.size ?? 0)
         if (!Number.isFinite(end) || end <= 0) return
-        const maxBytes = 200_000
+        const maxBytes = 400_000 // Increased to capture more history
         const start = Math.max(0, end - maxBytes)
         const fh = await open(path, 'r')
         try {
@@ -1570,22 +1573,50 @@ export function createBridgeServer(options: BridgeServerOptions): BridgeServer {
           const res = await fh.read(buf, 0, len, start)
           const txt = buf.subarray(0, res.bytesRead).toString('utf-8')
           const lines = txt.split('\n').filter(Boolean)
-          for (let i = lines.length - 1; i >= 0; i--) {
-            const line = lines[i]
+          
+          // Process ALL lines (not just the last one) to build complete baseline
+          for (const line of lines) {
             let parsed: any
             try {
               parsed = JSON.parse(line)
             } catch {
               continue
             }
-            if (parsed?.type !== 'assistant' || parsed?.isMeta === true) continue
-            const msgId = typeof parsed?.uuid === 'string'
-              ? parsed.uuid
-              : (typeof parsed?.message?.id === 'string' ? parsed.message.id : '')
-            if (!msgId) continue
-            const text = extractText(parsed?.message?.content)
-            lastTextByMessageId.set(msgId, text)
-            break
+            
+            // Process assistant records for text, thinking, and tool_use
+            if (parsed?.type === 'assistant' && parsed?.isMeta !== true) {
+              const msgId = typeof parsed?.uuid === 'string'
+                ? parsed.uuid
+                : (typeof parsed?.message?.id === 'string' ? parsed.message.id : '')
+              if (!msgId) continue
+              
+              const content = parsed?.message?.content
+              
+              // Track text baseline
+              const text = extractText(content)
+              if (text) {
+                lastTextByMessageId.set(msgId, text)
+              }
+              
+              // Track thinking baseline
+              const thinking = extractThinking(content)
+              if (thinking) {
+                lastThinkingByMessageId.set(msgId, thinking)
+              }
+              
+              // Track emitted tool calls baseline
+              const toolUseBlocks = extractToolUseBlocks(content)
+              for (const tool of toolUseBlocks) {
+                if (tool.id) {
+                  emittedToolCalls.add(`${msgId}:${tool.id}`)
+                }
+              }
+            }
+          }
+          
+          if (DEBUG_RTS) {
+            console.log(`[RTS] CC Bootstrap: Built baseline for session ${sessionId}: ` +
+              `${lastTextByMessageId.size} texts, ${lastThinkingByMessageId.size} thinking, ${emittedToolCalls.size} tool calls`)
           }
         } finally {
           await fh.close().catch(() => {})
@@ -1621,6 +1652,15 @@ export function createBridgeServer(options: BridgeServerOptions): BridgeServer {
     const applyAssistantTextUpdate = (msgId: string, text: string, parsed?: any) => {
       if (!msgId) return
       const prev = lastTextByMessageId.get(msgId) ?? ''
+      
+      // Always update baseline state, even before initialSyncDone
+      if (text && text !== prev) {
+        lastTextByMessageId.set(msgId, text)
+      }
+      
+      // Only emit events AFTER initial sync is done
+      if (!initialSyncDone) return
+      
       if (!text || text === prev) {
         // Still send completion if we learned this record is complete (e.g., usage filled later).
         if (parsed && isCompletedAssistantRecord(parsed)) {
@@ -1639,8 +1679,6 @@ export function createBridgeServer(options: BridgeServerOptions): BridgeServer {
         emitCcStream(sessionId, { type: 'assistant-message', content: text, messageId: msgId })
       }
 
-      lastTextByMessageId.set(msgId, text)
-
       if (parsed && isCompletedAssistantRecord(parsed)) {
         emitCcStream(sessionId, { type: 'token-usage', usage: extractUsage(parsed), messageId: msgId })
       }
@@ -1649,6 +1687,14 @@ export function createBridgeServer(options: BridgeServerOptions): BridgeServer {
     const applyThinkingUpdate = (msgId: string, thinking: string) => {
       if (!msgId || !thinking) return
       const prev = lastThinkingByMessageId.get(msgId) ?? ''
+      
+      // Always update baseline state, even before initialSyncDone
+      if (thinking !== prev) {
+        lastThinkingByMessageId.set(msgId, thinking)
+      }
+      
+      // Only emit events AFTER initial sync is done
+      if (!initialSyncDone) return
       if (thinking === prev) return
       
       if (prev && thinking.startsWith(prev)) {
@@ -1660,8 +1706,6 @@ export function createBridgeServer(options: BridgeServerOptions): BridgeServer {
         // Full thinking content (for initial or non-delta cases)
         emitCcStream(sessionId, { type: 'thinking-delta', content: thinking, messageId: msgId })
       }
-      
-      lastThinkingByMessageId.set(msgId, thinking)
     }
     
     const processToolUseBlocks = (msgId: string, toolUseBlocks: ToolUseBlock[]) => {
@@ -1671,6 +1715,9 @@ export function createBridgeServer(options: BridgeServerOptions): BridgeServer {
         const key = `${msgId}:${tool.id}`
         if (emittedToolCalls.has(key)) continue
         emittedToolCalls.add(key)
+        
+        // Only emit events AFTER initial sync is done
+        if (!initialSyncDone) continue
         
         emitCcStream(sessionId, {
           type: 'tool-call',
@@ -1688,6 +1735,9 @@ export function createBridgeServer(options: BridgeServerOptions): BridgeServer {
     }
     
     const processToolResults = (toolResults: ToolResultBlock[]) => {
+      // Only emit events AFTER initial sync is done
+      if (!initialSyncDone) return
+      
       for (const result of toolResults) {
         if (!result.toolUseId) continue
         
@@ -1747,7 +1797,15 @@ export function createBridgeServer(options: BridgeServerOptions): BridgeServer {
     const ensureFile = async () => {
       if (filePath) return true
       const resolved = await claudeCode.resolveSessionFilePath(sessionId)
-      if (!resolved) return false
+      if (!resolved) {
+        if (DEBUG_RTS) {
+          console.log(`[RTS] CC External: Could not resolve file for session ${sessionId}`)
+        }
+        return false
+      }
+      if (DEBUG_RTS) {
+        console.log(`[RTS] CC External: Resolved file for session ${sessionId}: ${resolved}`)
+      }
       filePath = resolved
       try {
         const st = await stat(filePath)
@@ -1889,13 +1947,43 @@ export function createBridgeServer(options: BridgeServerOptions): BridgeServer {
             }
           }
           
-          // Process user messages (for tool_result)
+          // Process user messages (for tool_result AND user text)
           if (recordType === 'user') {
             const content = parsed?.message?.content
+            
+            // Only emit user messages AFTER initial sync is done
+            if (initialSyncDone) {
+              // Extract and emit user text (the actual user message)
+              const userText = extractText(content)
+              if (userText) {
+                const userMsgId = typeof parsed?.uuid === 'string'
+                  ? parsed.uuid
+                  : `user-${Date.now()}`
+                emitCcStream(sessionId, { 
+                  type: 'user-message', 
+                  content: userText, 
+                  messageId: userMsgId 
+                })
+                if (DEBUG_RTS) {
+                  console.log(`[RTS] CC External: Emitted user-message for session ${sessionId}`)
+                }
+              }
+            }
+            
+            // Extract and emit tool results (processToolResults already has initialSyncDone check)
             const toolResults = extractToolResults(content)
             if (toolResults.length > 0) {
               processToolResults(toolResults)
             }
+          }
+        }
+        
+        // Mark initial sync as done after first successful pump
+        // This ensures we only emit NEW events from this point on
+        if (!initialSyncDone) {
+          initialSyncDone = true
+          if (DEBUG_RTS) {
+            console.log(`[RTS] CC External: Initial sync done for session ${sessionId}, will now emit events`)
           }
         }
       } catch (err) {
@@ -2033,6 +2121,7 @@ export function createBridgeServer(options: BridgeServerOptions): BridgeServer {
     let pumping = false
     let turnInProgress = false
     let lastIno = 0
+    let initialSyncDone = false // Skip emitting events until first pump completes (builds baseline)
     const emittedItems = new Set<string>() // Track emitted items to avoid duplicates
 
     const closeHandle = async () => {
@@ -2048,7 +2137,15 @@ export function createBridgeServer(options: BridgeServerOptions): BridgeServer {
     const ensureFile = async () => {
       if (filePath) return true
       const resolved = await resolveCodexExternalSessionFile(threadId)
-      if (!resolved) return false
+      if (!resolved) {
+        if (DEBUG_RTS) {
+          console.log(`[RTS] CX External: Could not resolve file for thread ${threadId}`)
+        }
+        return false
+      }
+      if (DEBUG_RTS) {
+        console.log(`[RTS] CX External: Resolved file for thread ${threadId}: ${resolved}`)
+      }
       filePath = resolved
       try {
         const st = await stat(filePath)
@@ -2058,10 +2155,64 @@ export function createBridgeServer(options: BridgeServerOptions): BridgeServer {
         offset = 0
         lastIno = 0
       }
+      // Bootstrap baseline from existing records
+      await bootstrapBaseline(resolved)
       return true
     }
 
+    const bootstrapBaseline = async (path: string) => {
+      // Reads ALL existing records to build baseline state (emittedItems)
+      // This prevents re-emitting historical events when the external tail starts.
+      try {
+        const st = await stat(path)
+        const end = Number(st.size ?? 0)
+        if (!Number.isFinite(end) || end <= 0) return
+        const maxBytes = 400_000
+        const start = Math.max(0, end - maxBytes)
+        const fh = await open(path, 'r')
+        try {
+          const len = end - start
+          const buf = Buffer.alloc(len)
+          const res = await fh.read(buf, 0, len, start)
+          const txt = buf.subarray(0, res.bytesRead).toString('utf-8')
+          const lines = txt.split('\n').filter(Boolean)
+          
+          // Process ALL lines to build baseline (track emitted items)
+          for (const line of lines) {
+            let parsed: any
+            try {
+              parsed = JSON.parse(line)
+            } catch {
+              continue
+            }
+            
+            const outerType = parsed?.type as string | undefined
+            const payload = parsed?.payload ?? null
+            
+            // Track response_item records for baseline
+            if (outerType === 'response_item') {
+              const item = payload?.item ?? payload
+              const itemId = safeString(item?.id) || ''
+              if (itemId) {
+                emittedItems.add(itemId)
+              }
+            }
+          }
+          
+          if (DEBUG_RTS) {
+            console.log(`[RTS] CX Bootstrap: Built baseline for thread ${threadId}: ${emittedItems.size} items tracked`)
+          }
+        } finally {
+          await fh.close().catch(() => {})
+        }
+      } catch {
+        // ignore
+      }
+    }
+
     const emit = (method: string, params: Record<string, unknown>) => {
+      // Only emit events AFTER initial sync is done
+      if (!initialSyncDone) return
       emitCxStream(threadId, { type: 'notification', method, params: { threadId, ...params } })
     }
 
@@ -2273,6 +2424,15 @@ export function createBridgeServer(options: BridgeServerOptions): BridgeServer {
             }
           }
         }
+        
+        // Mark initial sync as done after first successful pump
+        // This ensures we only emit NEW events from this point on
+        if (!initialSyncDone) {
+          initialSyncDone = true
+          if (DEBUG_RTS) {
+            console.log(`[RTS] CX External: Initial sync done for thread ${threadId}, will now emit events`)
+          }
+        }
       } catch (err) {
         if (DEBUG_RTS) {
           console.log(`[RTS] CX External: Error in pump for thread ${threadId}:`, err)
@@ -2369,8 +2529,14 @@ export function createBridgeServer(options: BridgeServerOptions): BridgeServer {
     if (agent === 'claude-code') {
       const owner = ccSessionOwners.get(id) ?? null
       const shouldRun = watcherCount > 0 && !owner
+      if (DEBUG_RTS) {
+        console.log(`[RTS] syncExternalTail(CC): id=${id}, watchers=${watcherCount}, owner=${!!owner}, shouldRun=${shouldRun}, alreadyRunning=${ccExternalTails.has(id)}`)
+      }
       if (shouldRun) {
         if (!ccExternalTails.has(id)) {
+          if (DEBUG_RTS) {
+            console.log(`[RTS] Starting Claude Code external tail for session ${id}`)
+          }
           ccExternalTails.set(id, startClaudeCodeExternalTail(id))
         }
       } else {
@@ -2382,8 +2548,14 @@ export function createBridgeServer(options: BridgeServerOptions): BridgeServer {
     if (agent === 'codex') {
       const owner = cxThreadOwners.get(id) ?? null
       const shouldRun = watcherCount > 0 && !owner
+      if (DEBUG_RTS) {
+        console.log(`[RTS] syncExternalTail(CX): id=${id}, watchers=${watcherCount}, owner=${!!owner}, shouldRun=${shouldRun}, alreadyRunning=${cxExternalTails.has(id)}`)
+      }
       if (shouldRun) {
         if (!cxExternalTails.has(id)) {
+          if (DEBUG_RTS) {
+            console.log(`[RTS] Starting Codex external tail for thread ${id}`)
+          }
           cxExternalTails.set(id, startCodexExternalTail(id))
         }
       } else {
@@ -2457,6 +2629,14 @@ export function createBridgeServer(options: BridgeServerOptions): BridgeServer {
   ) => {
     const payload: ServerMessage = { type: 'cc_stream', data: streamMsg, sessionId }
     const resolvedOwner = owner ?? ccSessionOwners.get(sessionId) ?? null
+    const key = makeSessionKey('claude-code', sessionId)
+    const watchers = key ? sessionWatchers.get(key) : null
+    
+    if (DEBUG_RTS) {
+      const msgType = (streamMsg as any)?.type ?? 'unknown'
+      console.log(`[RTS] emitCcStream: session=${sessionId}, msgType=${msgType}, owner=${!!resolvedOwner}, watchers=${watchers?.size ?? 0}`)
+    }
+    
     if (resolvedOwner) {
       send(resolvedOwner, payload)
     }
@@ -2469,6 +2649,14 @@ export function createBridgeServer(options: BridgeServerOptions): BridgeServer {
     owner?: ServerWebSocket<unknown> | null,
   ) => {
     const payload: ServerMessage = { type: 'cx_stream', data: streamMsg, threadId }
+    const key = makeSessionKey('codex', threadId)
+    const watchers = key ? sessionWatchers.get(key) : null
+    
+    if (DEBUG_RTS) {
+      const msgType = (streamMsg as any)?.type ?? (streamMsg as any)?.method ?? 'unknown'
+      console.log(`[RTS] emitCxStream: thread=${threadId}, msgType=${msgType}, owner=${!!owner}, watchers=${watchers?.size ?? 0}`)
+    }
+    
     if (owner) {
       send(owner, payload)
     }
