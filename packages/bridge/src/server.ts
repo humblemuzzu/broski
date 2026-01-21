@@ -14,6 +14,7 @@ import { headTailTruncate } from './utils'
 
 const TOKEN_FILE = resolve(homedir(), '.broski', 'token')
 const DEBUG_ARTIFACTS = process.env.BROSKI_DEBUG_ARTIFACTS === '1'
+const DEBUG_RTS = process.env.BROSKI_DEBUG_RTS === '1' // Real-Time Sync debugging
 
 // Feature flag: Set to true to re-enable artifacts feature
 // TODO(artifacts): Set to true when feature is ready for production
@@ -509,6 +510,8 @@ export function createBridgeServer(options: BridgeServerOptions): BridgeServer {
   const sessionWatchers = new Map<string, Set<ServerWebSocket<unknown>>>()
   const ccExternalTails = new Map<string, { stop: () => void }>() // sessionId -> tailer
   const cxExternalTails = new Map<string, { stop: () => void }>() // threadId -> tailer
+  const ocExternalTails = new Map<string, { stop: () => void }>() // sessionId -> tailer (OpenCode)
+  const ocSessionProjectPaths = new Map<string, string>() // sessionId -> projectPath (for external tail)
   const ccPermissionWaiters = new Map<
     string,
     { resolve: (response: 'once' | 'always' | 'reject') => void; timer: Timer }
@@ -1154,6 +1157,309 @@ export function createBridgeServer(options: BridgeServerOptions): BridgeServer {
     cxExternalTails.delete(threadId)
   }
 
+  const stopOcExternalTail = (sessionId: string) => {
+    const existing = ocExternalTails.get(sessionId)
+    if (!existing) return
+    try {
+      existing.stop()
+    } catch {
+      // ignore
+    }
+    ocExternalTails.delete(sessionId)
+  }
+
+  /**
+   * OpenCode External Tail: Polls session messages to detect changes from external TUI sessions.
+   * When the TUI runs, events don't reach global.event() stream, so we poll the API instead.
+   */
+  const startOpenCodeExternalTail = (sessionId: string, projectPath: string): { stop: () => void } => {
+    let stopped = false
+    let pollTimer: Timer | null = null
+    let initialSyncDone = false // Skip emitting events on first poll (historical messages)
+    const lastTextByPartId = new Map<string, string>()
+    const lastToolStateByPartId = new Map<string, string>()
+    const seenMessageIds = new Set<string>()
+    const seenPartIds = new Set<string>()
+    let lastSessionStatus: 'idle' | 'busy' | 'retry' = 'idle'
+    let lastEmittedStatus: 'idle' | 'busy' = 'idle' // What we last told the app (based on content changes, not API)
+    let idleCount = 0 // Track consecutive idle polls for adaptive polling
+    let lastChangeTime = Date.now() // Track when we last detected content changes
+    let wasEverBusy = false // Track if we've ever seen activity (to avoid false idle on startup)
+
+    const poll = async () => {
+      if (stopped) return
+      try {
+        // Get session status
+        const statusMap = await opencode.getSessionStatus(projectPath).catch(() => ({}))
+        const status = statusMap[sessionId]
+        const newStatus = status?.type ?? 'idle'
+        
+        // Debug: Log raw status response on first few polls or when it changes
+        if (DEBUG_RTS && (idleCount < 3 || newStatus !== lastSessionStatus)) {
+          const sessionIds = Object.keys(statusMap)
+          console.log(`[RTS] OC External: getSessionStatus returned ${sessionIds.length} sessions: ${sessionIds.join(', ') || '(none)'}`)
+          if (status) {
+            console.log(`[RTS] OC External: Session ${sessionId} raw status: ${JSON.stringify(status)}`)
+          } else {
+            console.log(`[RTS] OC External: Session ${sessionId} NOT in status map, defaulting to idle`)
+          }
+        }
+        
+        // Track idle state for adaptive polling
+        if (newStatus === 'idle') {
+          idleCount++
+        } else {
+          idleCount = 0
+        }
+        
+        if (newStatus !== lastSessionStatus) {
+          if (DEBUG_RTS) {
+            console.log(`[RTS] OC External: Session ${sessionId} status changed: ${lastSessionStatus} -> ${newStatus}`)
+          }
+          lastSessionStatus = newStatus
+          
+          // Always emit session status events (important for UI state)
+          enqueueSdkEvent({
+            directory: projectPath,
+            payload: {
+              type: 'session.status',
+              properties: {
+                sessionID: sessionId,
+                status: { type: newStatus },
+              },
+            },
+          })
+        }
+
+        // Get session messages
+        const messages = await opencode.getSessionMessages(sessionId, projectPath).catch(() => null)
+        if (!messages || !Array.isArray(messages)) return
+
+        let hadChanges = false
+
+        for (const msg of messages) {
+          if (!msg?.info?.id) continue
+          const msgId = msg.info.id
+          const isNewMessage = !seenMessageIds.has(msgId)
+          
+          if (isNewMessage) {
+            seenMessageIds.add(msgId)
+            
+            // Only emit events AFTER initial sync
+            if (initialSyncDone) {
+              hadChanges = true
+              if (DEBUG_RTS) {
+                console.log(`[RTS] OC External: New message ${msgId} in session ${sessionId}`)
+              }
+              
+              enqueueSdkEvent({
+                directory: projectPath,
+                payload: {
+                  type: 'message.updated',
+                  properties: {
+                    info: {
+                      ...msg.info,
+                      sessionID: sessionId,
+                    },
+                  },
+                },
+              })
+            }
+          }
+
+          // Check parts for updates
+          const parts = Array.isArray(msg.parts) ? msg.parts : []
+          for (const part of parts) {
+            if (!part?.id) continue
+            const partId = part.id
+            const isNewPart = !seenPartIds.has(partId)
+            
+            // For text parts, check for content changes
+            if (part.type === 'text' && typeof part.text === 'string') {
+              const prevText = lastTextByPartId.get(partId) ?? ''
+              const textChanged = part.text !== prevText
+              
+              if (textChanged) {
+                lastTextByPartId.set(partId, part.text)
+                
+                // Only emit events AFTER initial sync
+                if (initialSyncDone) {
+                  hadChanges = true
+                  // Emit part update with delta if possible
+                  const delta = prevText && part.text.startsWith(prevText) 
+                    ? part.text.slice(prevText.length) 
+                    : undefined
+                  
+                  if (DEBUG_RTS) {
+                    console.log(`[RTS] OC External: Text part ${partId} updated, delta=${delta?.length ?? 'full'}`)
+                  }
+                  
+                  enqueueSdkEvent({
+                    directory: projectPath,
+                    payload: {
+                      type: 'message.part.updated',
+                      properties: {
+                        part: {
+                          ...part,
+                          sessionID: sessionId,
+                          messageID: msgId,
+                        },
+                        delta,
+                      },
+                    },
+                  })
+                }
+              }
+            }
+            
+            // For tool parts, check for state changes
+            if (part.type === 'tool' && part.state) {
+              const stateKey = `${part.state.status}:${JSON.stringify(part.state.output ?? '')}`
+              const prevState = lastToolStateByPartId.get(partId)
+              const stateChanged = stateKey !== prevState
+              
+              if (stateChanged) {
+                lastToolStateByPartId.set(partId, stateKey)
+                
+                // Only emit events AFTER initial sync
+                if (initialSyncDone) {
+                  hadChanges = true
+                  if (DEBUG_RTS) {
+                    console.log(`[RTS] OC External: Tool part ${partId} state changed to ${part.state.status}`)
+                  }
+                  
+                  enqueueSdkEvent({
+                    directory: projectPath,
+                    payload: {
+                      type: 'message.part.updated',
+                      properties: {
+                        part: {
+                          ...part,
+                          sessionID: sessionId,
+                          messageID: msgId,
+                        },
+                      },
+                    },
+                  })
+                }
+              }
+            }
+            
+            // Track new parts
+            if (isNewPart) {
+              seenPartIds.add(partId)
+              
+              // Only emit events AFTER initial sync, and for non-text parts (text handled above)
+              if (initialSyncDone && part.type !== 'text') {
+                hadChanges = true
+                enqueueSdkEvent({
+                  directory: projectPath,
+                  payload: {
+                    type: 'message.part.updated',
+                    properties: {
+                      part: {
+                        ...part,
+                        sessionID: sessionId,
+                        messageID: msgId,
+                      },
+                    },
+                  },
+                })
+              }
+            }
+          }
+        }
+
+        // Mark initial sync as done after first poll
+        if (!initialSyncDone) {
+          initialSyncDone = true
+          if (DEBUG_RTS) {
+            console.log(`[RTS] OC External: Initial sync complete for session ${sessionId}, ${seenMessageIds.size} messages, ${seenPartIds.size} parts`)
+          }
+        }
+
+        // Track when we last had changes for idle detection
+        if (hadChanges) {
+          idleCount = 0
+          lastChangeTime = Date.now()
+          
+          // Mark as busy when we see content changes (since API doesn't report status)
+          if (!wasEverBusy || lastEmittedStatus !== 'busy') {
+            wasEverBusy = true
+            lastEmittedStatus = 'busy'
+            if (DEBUG_RTS) {
+              console.log(`[RTS] OC External: Content changes detected, emitting busy status`)
+            }
+            enqueueSdkEvent({
+              directory: projectPath,
+              payload: {
+                type: 'session.status',
+                properties: {
+                  sessionID: sessionId,
+                  status: { type: 'busy' },
+                },
+              },
+            })
+          }
+        }
+        
+        // Fallback idle detection: if we had changes before but none for 1.5 seconds, emit idle
+        // This is needed because getSessionStatus returns 0 sessions (doesn't track external sessions)
+        const timeSinceLastChange = Date.now() - lastChangeTime
+        if (wasEverBusy && lastEmittedStatus === 'busy' && timeSinceLastChange > 1500 && !hadChanges) {
+          if (DEBUG_RTS) {
+            console.log(`[RTS] OC External: Fallback idle detection - no changes for ${timeSinceLastChange}ms, emitting idle status`)
+          }
+          lastEmittedStatus = 'idle'
+          enqueueSdkEvent({
+            directory: projectPath,
+            payload: {
+              type: 'session.status',
+              properties: {
+                sessionID: sessionId,
+                status: { type: 'idle' },
+              },
+            },
+          })
+        }
+      } catch (err) {
+        if (DEBUG_RTS) {
+          console.log(`[RTS] OC External: Poll error for session ${sessionId}:`, err)
+        }
+      }
+    }
+
+    // Adaptive polling: faster when busy, slower when idle
+    const scheduleNextPoll = () => {
+      if (stopped) return
+      // 150ms when active, up to 2000ms when idle for 10+ consecutive polls
+      const interval = idleCount > 10 ? 2000 : idleCount > 5 ? 1000 : 150
+      pollTimer = setTimeout(() => {
+        void poll().then(scheduleNextPoll)
+      }, interval)
+    }
+
+    // Do initial poll, then start adaptive polling
+    void poll().then(scheduleNextPoll)
+
+    if (DEBUG_RTS) {
+      console.log(`[RTS] OC External: Started polling for session ${sessionId} in ${projectPath}`)
+    }
+
+    return {
+      stop: () => {
+        stopped = true
+        if (pollTimer) {
+          clearTimeout(pollTimer)
+          pollTimer = null
+        }
+        if (DEBUG_RTS) {
+          console.log(`[RTS] OC External: Stopped polling for session ${sessionId}`)
+        }
+      },
+    }
+  }
+
   const startClaudeCodeExternalTail = (sessionId: string): { stop: () => void } => {
     let stopped = false
     let filePath: string | null = null
@@ -1161,10 +1467,14 @@ export function createBridgeServer(options: BridgeServerOptions): BridgeServer {
     let offset = 0
     let buffer = ''
     let watcher: FSWatcher | null = null
+    let dirWatcher: FSWatcher | null = null
     let pollTimer: Timer | null = null
     let pumping = false
     let lastMtimeMs = 0
+    let lastIno = 0
     const lastTextByMessageId = new Map<string, string>()
+    const lastThinkingByMessageId = new Map<string, string>()
+    const emittedToolCalls = new Set<string>() // Track emitted tool calls to avoid duplicates
 
     const extractText = (content: unknown): string => {
       if (typeof content === 'string') return content
@@ -1177,6 +1487,73 @@ export function createBridgeServer(options: BridgeServerOptions): BridgeServer {
         }
       }
       return parts.join('')
+    }
+    
+    const extractThinking = (content: unknown): string => {
+      if (!Array.isArray(content)) return ''
+      const parts: string[] = []
+      for (const block of content) {
+        if (!block || typeof block !== 'object') continue
+        if ((block as any).type === 'thinking' && typeof (block as any).thinking === 'string') {
+          parts.push((block as any).thinking)
+        }
+      }
+      return parts.join('')
+    }
+    
+    type ToolUseBlock = {
+      id: string
+      name: string
+      input: any
+    }
+    
+    const extractToolUseBlocks = (content: unknown): ToolUseBlock[] => {
+      if (!Array.isArray(content)) return []
+      const tools: ToolUseBlock[] = []
+      for (const block of content) {
+        if (!block || typeof block !== 'object') continue
+        if ((block as any).type === 'tool_use') {
+          tools.push({
+            id: safeString((block as any).id),
+            name: safeString((block as any).name),
+            input: (block as any).input,
+          })
+        }
+      }
+      return tools
+    }
+    
+    type ToolResultBlock = {
+      toolUseId: string
+      content: string
+      isError?: boolean
+    }
+    
+    const extractToolResults = (content: unknown): ToolResultBlock[] => {
+      if (!Array.isArray(content)) return []
+      const results: ToolResultBlock[] = []
+      for (const block of content) {
+        if (!block || typeof block !== 'object') continue
+        if ((block as any).type === 'tool_result') {
+          let resultContent = ''
+          const c = (block as any).content
+          if (typeof c === 'string') {
+            resultContent = c
+          } else if (Array.isArray(c)) {
+            for (const part of c) {
+              if (part?.type === 'text' && typeof part?.text === 'string') {
+                resultContent += part.text
+              }
+            }
+          }
+          results.push({
+            toolUseId: safeString((block as any).tool_use_id),
+            content: resultContent,
+            isError: (block as any).is_error === true,
+          })
+        }
+      }
+      return results
     }
 
     const bootstrapBaseline = async (path: string) => {
@@ -1268,6 +1645,64 @@ export function createBridgeServer(options: BridgeServerOptions): BridgeServer {
         emitCcStream(sessionId, { type: 'token-usage', usage: extractUsage(parsed), messageId: msgId })
       }
     }
+    
+    const applyThinkingUpdate = (msgId: string, thinking: string) => {
+      if (!msgId || !thinking) return
+      const prev = lastThinkingByMessageId.get(msgId) ?? ''
+      if (thinking === prev) return
+      
+      if (prev && thinking.startsWith(prev)) {
+        const delta = thinking.slice(prev.length)
+        if (delta) {
+          emitCcStream(sessionId, { type: 'thinking-delta', content: delta, messageId: msgId })
+        }
+      } else {
+        // Full thinking content (for initial or non-delta cases)
+        emitCcStream(sessionId, { type: 'thinking-delta', content: thinking, messageId: msgId })
+      }
+      
+      lastThinkingByMessageId.set(msgId, thinking)
+    }
+    
+    const processToolUseBlocks = (msgId: string, toolUseBlocks: ToolUseBlock[]) => {
+      for (const tool of toolUseBlocks) {
+        if (!tool.id) continue
+        // Avoid duplicate emissions
+        const key = `${msgId}:${tool.id}`
+        if (emittedToolCalls.has(key)) continue
+        emittedToolCalls.add(key)
+        
+        emitCcStream(sessionId, {
+          type: 'tool-call',
+          tool: tool.name,
+          input: tool.input,
+          toolUseId: tool.id,
+          status: 'running',
+          messageId: msgId,
+        })
+        
+        if (DEBUG_RTS) {
+          console.log(`[RTS] CC External: Emitted tool-call ${tool.name} (${tool.id}) for session ${sessionId}`)
+        }
+      }
+    }
+    
+    const processToolResults = (toolResults: ToolResultBlock[]) => {
+      for (const result of toolResults) {
+        if (!result.toolUseId) continue
+        
+        emitCcStream(sessionId, {
+          type: 'tool-result',
+          toolUseId: result.toolUseId,
+          result: result.content,
+          toolUseResult: result.isError ? { error: result.content } : { output: result.content },
+        })
+        
+        if (DEBUG_RTS) {
+          console.log(`[RTS] CC External: Emitted tool-result for ${result.toolUseId} for session ${sessionId}`)
+        }
+      }
+    }
 
     const readLatestAssistantFromTail = async (path: string): Promise<{ msgId: string; text: string; parsed: any } | null> => {
       try {
@@ -1343,14 +1778,50 @@ export function createBridgeServer(options: BridgeServerOptions): BridgeServer {
         if (!ok || !filePath) return
 
         const st = await stat(filePath).catch(() => null)
-        const size = Number(st?.size ?? 0)
-        const mtimeMs = st?.mtime?.getTime?.() ?? 0
+        if (!st) {
+          // File doesn't exist - reset
+          if (offset > 0) {
+            offset = 0
+            buffer = ''
+            lastTextByMessageId.clear()
+            lastThinkingByMessageId.clear()
+            emittedToolCalls.clear()
+          }
+          return
+        }
+        
+        const size = Number(st.size ?? 0)
+        const mtimeMs = st.mtime?.getTime?.() ?? 0
+        const ino = Number(st.ino ?? 0)
+        
         if (!Number.isFinite(size)) return
-        if (size < offset) {
+        
+        // Check for file rotation (inode changed)
+        if (lastIno !== 0 && ino !== lastIno) {
+          if (DEBUG_RTS) {
+            console.log(`[RTS] CC External: File rotated for session ${sessionId}`)
+          }
+          await closeHandle()
           offset = 0
           buffer = ''
           lastTextByMessageId.clear()
+          lastThinkingByMessageId.clear()
+          emittedToolCalls.clear()
         }
+        lastIno = ino
+        
+        // Check for truncation
+        if (size < offset) {
+          if (DEBUG_RTS) {
+            console.log(`[RTS] CC External: File truncated for session ${sessionId}`)
+          }
+          offset = 0
+          buffer = ''
+          lastTextByMessageId.clear()
+          lastThinkingByMessageId.clear()
+          emittedToolCalls.clear()
+        }
+        
         if (size === offset) {
           // Some Claude Code versions update transcripts in-place without appending bytes.
           // If mtime changed, re-read tail and diff the latest assistant message.
@@ -1390,16 +1861,48 @@ export function createBridgeServer(options: BridgeServerOptions): BridgeServer {
             continue
           }
 
-          if (parsed?.type !== 'assistant' || parsed?.isMeta === true) continue
-          const msgId = typeof parsed?.uuid === 'string'
-            ? parsed.uuid
-            : (typeof parsed?.message?.id === 'string' ? parsed.message.id : '')
-          if (!msgId) continue
-          const text = extractText(parsed?.message?.content)
-          applyAssistantTextUpdate(msgId, text, parsed)
+          const recordType = parsed?.type
+          
+          // Process assistant messages (text, thinking, tool_use)
+          if (recordType === 'assistant' && parsed?.isMeta !== true) {
+            const msgId = typeof parsed?.uuid === 'string'
+              ? parsed.uuid
+              : (typeof parsed?.message?.id === 'string' ? parsed.message.id : '')
+            if (!msgId) continue
+            
+            const content = parsed?.message?.content
+            
+            // Extract and emit text
+            const text = extractText(content)
+            applyAssistantTextUpdate(msgId, text, parsed)
+            
+            // Extract and emit thinking
+            const thinking = extractThinking(content)
+            if (thinking) {
+              applyThinkingUpdate(msgId, thinking)
+            }
+            
+            // Extract and emit tool_use blocks
+            const toolUseBlocks = extractToolUseBlocks(content)
+            if (toolUseBlocks.length > 0) {
+              processToolUseBlocks(msgId, toolUseBlocks)
+            }
+          }
+          
+          // Process user messages (for tool_result)
+          if (recordType === 'user') {
+            const content = parsed?.message?.content
+            const toolResults = extractToolResults(content)
+            if (toolResults.length > 0) {
+              processToolResults(toolResults)
+            }
+          }
         }
       } catch (err) {
         // If the file was rotated/deleted, reset and retry.
+        if (DEBUG_RTS) {
+          console.log(`[RTS] CC External: Error in pump for session ${sessionId}:`, err)
+        }
         await closeHandle()
         filePath = null
       } finally {
@@ -1408,21 +1911,51 @@ export function createBridgeServer(options: BridgeServerOptions): BridgeServer {
     }
 
     const start = () => {
-      // Watch + poll fallback for robustness (fs.watch can be flaky).
+      // Poll at 100ms for real-time sync (5x faster than previous 500ms)
       pollTimer = setInterval(() => {
         void pump()
-      }, 500)
+      }, 100)
 
       void ensureFile().then((ok) => {
         if (!ok || !filePath || stopped) return
+        
+        // Watch the file itself
         try {
           watcher = fsWatch(filePath, { persistent: false }, () => {
             void pump()
+          })
+          watcher.on('error', () => {
+            if (watcher) {
+              try { watcher.close() } catch {}
+              watcher = null
+            }
+          })
+        } catch {
+          // ignore (polling will handle)
+        }
+        
+        // Also watch parent directory for more reliable notifications
+        try {
+          const parentDir = dirname(filePath)
+          dirWatcher = fsWatch(parentDir, { persistent: false }, (_, filename) => {
+            if (filename && filePath?.endsWith(filename)) {
+              void pump()
+            }
+          })
+          dirWatcher.on('error', () => {
+            if (dirWatcher) {
+              try { dirWatcher.close() } catch {}
+              dirWatcher = null
+            }
           })
         } catch {
           // ignore (polling will handle)
         }
       })
+      
+      if (DEBUG_RTS) {
+        console.log(`[RTS] CC External: Started tailing session ${sessionId}`)
+      }
     }
 
     start()
@@ -1437,12 +1970,20 @@ export function createBridgeServer(options: BridgeServerOptions): BridgeServer {
         if (watcher) {
           try {
             watcher.close()
-          } catch {
-            // ignore
-          }
+          } catch {}
           watcher = null
         }
+        if (dirWatcher) {
+          try {
+            dirWatcher.close()
+          } catch {}
+          dirWatcher = null
+        }
         void closeHandle()
+        
+        if (DEBUG_RTS) {
+          console.log(`[RTS] CC External: Stopped tailing session ${sessionId}`)
+        }
       },
     }
   }
@@ -1487,9 +2028,12 @@ export function createBridgeServer(options: BridgeServerOptions): BridgeServer {
     let offset = 0
     let buffer = ''
     let watcher: FSWatcher | null = null
+    let dirWatcher: FSWatcher | null = null
     let pollTimer: Timer | null = null
     let pumping = false
     let turnInProgress = false
+    let lastIno = 0
+    const emittedItems = new Set<string>() // Track emitted items to avoid duplicates
 
     const closeHandle = async () => {
       if (!fileHandle) return
@@ -1509,8 +2053,10 @@ export function createBridgeServer(options: BridgeServerOptions): BridgeServer {
       try {
         const st = await stat(filePath)
         offset = Number(st.size ?? 0)
+        lastIno = Number(st.ino ?? 0)
       } catch {
         offset = 0
+        lastIno = 0
       }
       return true
     }
@@ -1527,12 +2073,46 @@ export function createBridgeServer(options: BridgeServerOptions): BridgeServer {
         if (!ok || !filePath) return
 
         const st = await stat(filePath).catch(() => null)
-        const size = Number(st?.size ?? 0)
+        if (!st) {
+          // File doesn't exist - reset
+          if (offset > 0) {
+            offset = 0
+            buffer = ''
+            turnInProgress = false
+            emittedItems.clear()
+          }
+          return
+        }
+        
+        const size = Number(st.size ?? 0)
+        const ino = Number(st.ino ?? 0)
+        
         if (!Number.isFinite(size)) return
-        if (size < offset) {
+        
+        // Check for file rotation (inode changed)
+        if (lastIno !== 0 && ino !== lastIno) {
+          if (DEBUG_RTS) {
+            console.log(`[RTS] CX External: File rotated for thread ${threadId}`)
+          }
+          await closeHandle()
           offset = 0
           buffer = ''
+          turnInProgress = false
+          emittedItems.clear()
         }
+        lastIno = ino
+        
+        // Check for truncation
+        if (size < offset) {
+          if (DEBUG_RTS) {
+            console.log(`[RTS] CX External: File truncated for thread ${threadId}`)
+          }
+          offset = 0
+          buffer = ''
+          turnInProgress = false
+          emittedItems.clear()
+        }
+        
         if (size === offset) return
 
         if (!fileHandle) {
@@ -1563,42 +2143,140 @@ export function createBridgeServer(options: BridgeServerOptions): BridgeServer {
           const outerType = parsed?.type as string | undefined
           const payload = parsed?.payload ?? null
 
-          if (outerType === 'event_msg' && payload?.type === 'user_message') {
-            if (!turnInProgress) {
-              turnInProgress = true
-              emit('turn/started', {})
+          // Handle event_msg records
+          if (outerType === 'event_msg') {
+            const payloadType = payload?.type
+            
+            if (payloadType === 'user_message') {
+              if (!turnInProgress) {
+                turnInProgress = true
+                emit('turn/started', {})
+                if (DEBUG_RTS) {
+                  console.log(`[RTS] CX External: turn/started for thread ${threadId}`)
+                }
+              }
+              continue
             }
-            continue
-          }
 
-          if (outerType === 'event_msg' && payload?.type === 'agent_reasoning' && typeof payload?.text === 'string') {
-            const delta = payload.text
-            if (delta) {
-              emit('item/reasoning/textDelta', {
-                itemId: `cx-ext-thinking-${threadId}`,
-                delta,
-              })
+            if (payloadType === 'agent_reasoning' && typeof payload?.text === 'string') {
+              const delta = payload.text
+              if (delta) {
+                emit('item/reasoning/textDelta', {
+                  itemId: `cx-ext-thinking-${threadId}`,
+                  delta,
+                })
+              }
+              continue
             }
-            continue
-          }
 
-          if (outerType === 'event_msg' && payload?.type === 'agent_message') {
-            const text = typeof payload?.message === 'string'
-              ? payload.message
-              : (typeof payload?.text === 'string' ? payload.text : '')
-            if (text) {
-              const ts = typeof parsed?.timestamp === 'string' ? parsed.timestamp : `${Date.now()}`
-              const itemId = `cx-ext-msg-${ts.replaceAll(/[^a-zA-Z0-9]/g, '_')}`
-              emit('item/agentMessage/delta', { itemId, delta: text })
+            if (payloadType === 'agent_message') {
+              const text = typeof payload?.message === 'string'
+                ? payload.message
+                : (typeof payload?.text === 'string' ? payload.text : '')
+              if (text) {
+                const ts = typeof parsed?.timestamp === 'string' ? parsed.timestamp : `${Date.now()}`
+                const itemId = `cx-ext-msg-${ts.replaceAll(/[^a-zA-Z0-9]/g, '_')}`
+                emit('item/agentMessage/delta', { itemId, delta: text })
+                if (turnInProgress) {
+                  turnInProgress = false
+                  emit('turn/completed', {})
+                  if (DEBUG_RTS) {
+                    console.log(`[RTS] CX External: turn/completed for thread ${threadId}`)
+                  }
+                }
+              }
+              continue
+            }
+            
+            // Handle turn_completed event
+            if (payloadType === 'turn_completed') {
               if (turnInProgress) {
                 turnInProgress = false
-                emit('turn/completed', {})
+                emit('turn/completed', { usage: payload?.usage })
+                if (DEBUG_RTS) {
+                  console.log(`[RTS] CX External: turn/completed (explicit) for thread ${threadId}`)
+                }
               }
+              continue
             }
-            continue
+          }
+          
+          // Handle response_item records (tool calls)
+          if (outerType === 'response_item') {
+            const item = payload?.item ?? payload
+            const itemType = safeString(item?.type)
+            const itemId = safeString(item?.id) || `cx-ext-item-${Date.now()}`
+            
+            // Avoid duplicate emissions
+            if (emittedItems.has(itemId)) continue
+            
+            if (itemType === 'function_call') {
+              emittedItems.add(itemId)
+              const name = safeString(item?.name)
+              let args: any = {}
+              try {
+                args = typeof item?.arguments === 'string' ? JSON.parse(item.arguments) : (item?.arguments ?? {})
+              } catch {}
+              
+              emit('item/started', {
+                item: {
+                  id: itemId,
+                  type: 'commandExecution',
+                  command: args?.command || name,
+                  status: 'running',
+                },
+              })
+              
+              if (DEBUG_RTS) {
+                console.log(`[RTS] CX External: item/started (function_call) ${name} for thread ${threadId}`)
+              }
+              continue
+            }
+            
+            if (itemType === 'function_call_output') {
+              const callId = safeString(item?.call_id)
+              const output = safeString(item?.output)
+              
+              emit('item/completed', {
+                item: {
+                  id: callId || itemId,
+                  type: 'commandExecution',
+                  status: 'completed',
+                  output,
+                },
+              })
+              
+              if (DEBUG_RTS) {
+                console.log(`[RTS] CX External: item/completed (function_call_output) for thread ${threadId}`)
+              }
+              continue
+            }
+            
+            // Handle file change items
+            if (itemType === 'file_change' || itemType === 'fileChange') {
+              emittedItems.add(itemId)
+              const changes = Array.isArray(item?.changes) ? item.changes : []
+              
+              emit('item/started', {
+                item: {
+                  id: itemId,
+                  type: 'fileChange',
+                  changes,
+                  status: 'running',
+                },
+              })
+              
+              if (DEBUG_RTS) {
+                console.log(`[RTS] CX External: item/started (fileChange) for thread ${threadId}`)
+              }
+              continue
+            }
           }
         }
-      } catch {
+      } catch (err) {
+        if (DEBUG_RTS) {
+          console.log(`[RTS] CX External: Error in pump for thread ${threadId}:`, err)
+        }
         await closeHandle()
         filePath = null
       } finally {
@@ -1606,20 +2284,51 @@ export function createBridgeServer(options: BridgeServerOptions): BridgeServer {
       }
     }
 
+    // Poll at 100ms for real-time sync (5x faster than previous 500ms)
     pollTimer = setInterval(() => {
       void pump()
-    }, 500)
+    }, 100)
 
     void ensureFile().then((ok) => {
       if (!ok || !filePath || stopped) return
+      
+      // Watch the file itself
       try {
         watcher = fsWatch(filePath, { persistent: false }, () => {
           void pump()
+        })
+        watcher.on('error', () => {
+          if (watcher) {
+            try { watcher.close() } catch {}
+            watcher = null
+          }
+        })
+      } catch {
+        // ignore (polling will handle)
+      }
+      
+      // Also watch parent directory for more reliable notifications
+      try {
+        const parentDir = dirname(filePath)
+        dirWatcher = fsWatch(parentDir, { persistent: false }, (_, filename) => {
+          if (filename && filePath?.endsWith(filename)) {
+            void pump()
+          }
+        })
+        dirWatcher.on('error', () => {
+          if (dirWatcher) {
+            try { dirWatcher.close() } catch {}
+            dirWatcher = null
+          }
         })
       } catch {
         // ignore (polling will handle)
       }
     })
+    
+    if (DEBUG_RTS) {
+      console.log(`[RTS] CX External: Started tailing thread ${threadId}`)
+    }
 
     return {
       stop: () => {
@@ -1631,12 +2340,20 @@ export function createBridgeServer(options: BridgeServerOptions): BridgeServer {
         if (watcher) {
           try {
             watcher.close()
-          } catch {
-            // ignore
-          }
+          } catch {}
           watcher = null
         }
+        if (dirWatcher) {
+          try {
+            dirWatcher.close()
+          } catch {}
+          dirWatcher = null
+        }
         void closeHandle()
+        
+        if (DEBUG_RTS) {
+          console.log(`[RTS] CX External: Stopped tailing thread ${threadId}`)
+        }
       },
     }
   }
@@ -1671,6 +2388,24 @@ export function createBridgeServer(options: BridgeServerOptions): BridgeServer {
         }
       } else {
         stopCxExternalTail(id)
+      }
+      return
+    }
+
+    if (agent === 'opencode') {
+      // OpenCode external tail: poll session messages API when TUI is running externally
+      // The TUI runs in a Bun Worker and events don't reach global.event() stream
+      const projectPath = ocSessionProjectPaths.get(id)
+      const shouldRun = watcherCount > 0 && projectPath
+      if (shouldRun) {
+        if (!ocExternalTails.has(id)) {
+          ocExternalTails.set(id, startOpenCodeExternalTail(id, projectPath))
+          if (DEBUG_RTS) {
+            console.log(`[RTS] Starting OpenCode external tail for session ${id}`)
+          }
+        }
+      } else {
+        stopOcExternalTail(id)
       }
     }
   }
@@ -1748,12 +2483,23 @@ export function createBridgeServer(options: BridgeServerOptions): BridgeServer {
     const properties = payload?.properties ?? null
     const info = properties?.info ?? null
     const part = properties?.part ?? null
+    
+    // Try all possible sessionId field locations and formats
     const sessionId =
+      // Standard SDK locations
       (typeof info?.sessionID === 'string' && info.sessionID) ||
+      (typeof info?.sessionId === 'string' && info.sessionId) ||
       (typeof properties?.sessionID === 'string' && properties.sessionID) ||
       (typeof properties?.sessionId === 'string' && properties.sessionId) ||
       (typeof part?.sessionID === 'string' && part.sessionID) ||
-      (typeof part?.sessionId === 'string' && part.sessionId)
+      (typeof part?.sessionId === 'string' && part.sessionId) ||
+      // Root level (some events have sessionId at root)
+      (typeof event?.sessionID === 'string' && event.sessionID) ||
+      (typeof event?.sessionId === 'string' && event.sessionId) ||
+      // Payload level (some events have sessionId directly in payload)
+      (typeof payload?.sessionID === 'string' && payload.sessionID) ||
+      (typeof payload?.sessionId === 'string' && payload.sessionId)
+    
     return sessionId ? String(sessionId) : null
   }
 
@@ -1785,6 +2531,9 @@ export function createBridgeServer(options: BridgeServerOptions): BridgeServer {
   const filterEventForSocket = (ws: ServerWebSocket<unknown>, event: unknown): boolean => {
     const ctx = contexts.get(ws)
     if (!ctx || (!ctx.projectPath && !ctx.sessionId)) {
+      if (DEBUG_RTS) {
+        console.log('[RTS] filterEventForSocket: No context, passing through')
+      }
       return true
     }
 
@@ -1806,6 +2555,9 @@ export function createBridgeServer(options: BridgeServerOptions): BridgeServer {
 
     if (ctx.projectPath === 'global') {
       // Global view = receive ALL events (enables multi-device real-time sync)
+      if (DEBUG_RTS) {
+        console.log('[RTS] filterEventForSocket: Global view, passing all events')
+      }
       return true
     }
 
@@ -1813,13 +2565,26 @@ export function createBridgeServer(options: BridgeServerOptions): BridgeServer {
       const sid = extractSessionId(event)
       // If the event is scoped to a session, prioritize session routing over directory routing.
       // This keeps cross-device streaming working even if directory strings differ (e.g. symlinks).
-      if (sid) return sid === ctx.sessionId
+      if (sid) {
+        const match = sid === ctx.sessionId
+        if (DEBUG_RTS) {
+          const eventType = getEventType(event)
+          console.log(`[RTS] filterEventForSocket: Session match check - eventSessionId=${sid}, ctxSessionId=${ctx.sessionId}, match=${match}, eventType=${eventType}`)
+        }
+        return match
+      }
     }
 
     if (projectPath && directory !== 'global' && directory !== projectPath) {
+      if (DEBUG_RTS) {
+        console.log(`[RTS] filterEventForSocket: Directory mismatch - eventDir=${directory}, ctxDir=${projectPath}`)
+      }
       return false
     }
 
+    if (DEBUG_RTS) {
+      console.log('[RTS] filterEventForSocket: Passing through (default)')
+    }
     return true
   }
 
@@ -1864,15 +2629,29 @@ export function createBridgeServer(options: BridgeServerOptions): BridgeServer {
     }
 
     const priority = getEventPriority(event)
+    
+    if (DEBUG_RTS) {
+      const eventType = getEventType(event)
+      const sid = extractSessionId(event)
+      const e = event as any
+      const directory = typeof e?.directory === 'string' ? e.directory : 'global'
+      console.log(`[RTS] enqueueSdkEvent: type=${eventType}, sessionId=${sid || 'none'}, dir=${directory}, priority=${priority}, sockets=${sockets.size}`)
+    }
 
+    let deliveredCount = 0
     for (const ws of sockets) {
       if (!filterEventForSocket(ws, event)) continue
+      deliveredCount++
 
       if (priority === 'immediate' || priority === 'high') {
         send(ws, { type: 'sdk_event', data: event })
       } else {
         enqueueForClient(ws, event)
       }
+    }
+    
+    if (DEBUG_RTS && deliveredCount === 0 && sockets.size > 0) {
+      console.log(`[RTS] enqueueSdkEvent: WARNING - Event not delivered to any socket!`)
     }
 
     // Keep the hot path lean: forward SDK events first, then do any heavier work.
@@ -2228,6 +3007,10 @@ export function createBridgeServer(options: BridgeServerOptions): BridgeServer {
             (message.projectPath || message.sessionId ? 'opencode' : undefined)
           const nextSessionId = message.sessionId || undefined
 
+          if (DEBUG_RTS) {
+            console.log(`[RTS] set_view: agent=${nextAgent}, sessionId=${nextSessionId}, projectPath=${message.projectPath}, prevKey=${prevKey}`)
+          }
+
           if (nextAgent === 'claude-code') {
             const cwd = message.projectPath && message.projectPath !== 'global'
               ? message.projectPath
@@ -2248,8 +3031,22 @@ export function createBridgeServer(options: BridgeServerOptions): BridgeServer {
             viewAgent: nextAgent,
           })
 
+          // Track project path for OpenCode external tails
+          if (nextAgent === 'opencode' && nextSessionId && message.projectPath) {
+            ocSessionProjectPaths.set(nextSessionId, message.projectPath)
+            if (DEBUG_RTS) {
+              console.log(`[RTS] set_view: Stored projectPath for OpenCode session ${nextSessionId}: ${message.projectPath}`)
+            }
+          }
+
           const nextKey = makeSessionKey(nextAgent, nextSessionId)
           updateSessionWatchers(ws, prevKey, nextKey)
+          
+          if (DEBUG_RTS) {
+            const watchers = sessionWatchers.get(nextKey ?? '')
+            console.log(`[RTS] set_view: nextKey=${nextKey}, watchers=${watchers?.size ?? 0}`)
+          }
+          
           void sendStatus(ws)
           break
         }

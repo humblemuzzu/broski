@@ -1924,6 +1924,26 @@ class ChatSessionNotifier extends StateNotifier<ChatSessionState> {
       name: 'ChatProvider',
     );
     state = state.copyWith(sessionStatus: status);
+
+    // When status becomes idle, mark streaming messages as complete
+    // This ensures the UI shows the final rendered markdown instead of "generating"
+    if (status.isIdle) {
+      var changed = false;
+      for (final id in _order) {
+        final msg = _messages[id];
+        if (msg == null) continue;
+        if (!msg.isStreaming) continue;
+        _messages[id] = msg.copyWith(isStreaming: false);
+        changed = true;
+      }
+      if (changed) {
+        if (_suppressEmit) {
+          _pendingEmitMessages = true;
+        } else {
+          _emitMessages();
+        }
+      }
+    }
   }
 
   void _handleSessionIdle(Map<String, dynamic> payload) {

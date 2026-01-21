@@ -323,13 +323,24 @@ class _ChatScreenState extends ConsumerState<ChatScreen>
       selection.selectSession(widget.session);
     }
 
-    // Set up view routing (OpenCode only - CC doesn't need this)
+    // Set up view routing for all backends
+    // This enables real-time cross-device session sync (external session watching)
     if (widget.isOpenCode) {
       bridge.setView(
         projectPath: widget.project.path,
         sessionId: widget.session.id,
         agent: 'opencode',
       );
+    } else if (widget.isClaudeCode) {
+      final sessionId = widget.ccSession?.id ?? '';
+      if (sessionId.isNotEmpty) {
+        bridge.setView(sessionId: sessionId, agent: 'claude-code');
+      }
+    } else if (widget.isCodex) {
+      final threadId = widget.cxThread?.id ?? '';
+      if (threadId.isNotEmpty) {
+        bridge.setView(sessionId: threadId, agent: 'codex');
+      }
     }
 
     // FIX: Use listenManual for proper subscription lifecycle management
@@ -343,13 +354,26 @@ class _ChatScreenState extends ConsumerState<ChatScreen>
         // Re-assert view routing and re-sync session state after network flips.
         if (_resyncingAfterReconnect) return;
         _resyncingAfterReconnect = true;
+
+        // Re-establish view routing for all backends (enables real-time sync)
         if (widget.isOpenCode) {
           bridge.setView(
             projectPath: widget.project.path,
             sessionId: widget.session.id,
             agent: 'opencode',
           );
+        } else if (widget.isClaudeCode) {
+          final sessionId = widget.ccSession?.id ?? '';
+          if (sessionId.isNotEmpty) {
+            bridge.setView(sessionId: sessionId, agent: 'claude-code');
+          }
+        } else if (widget.isCodex) {
+          final threadId = widget.cxThread?.id ?? '';
+          if (threadId.isNotEmpty) {
+            bridge.setView(sessionId: threadId, agent: 'codex');
+          }
         }
+
         _hydrateSession().whenComplete(() {
           _resyncingAfterReconnect = false;
           _maybeSendInitialPrompt();
