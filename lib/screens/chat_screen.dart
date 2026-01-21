@@ -54,6 +54,7 @@ import '../widgets/session_sidebar.dart';
 import '../widgets/tool_call.dart';
 import '../widgets/multi_agent_tree.dart';
 import '../widgets/claude_code_help.dart';
+import '../widgets/power_sheet.dart';
 import '../widgets/project_tools_sheet.dart';
 import 'subagents_screen.dart';
 import 'custom_tools_screen.dart';
@@ -4717,6 +4718,7 @@ Describe project-specific guidance for Codex here.
         );
   }
 
+  // TODO: Remove after QA - legacy method replaced by PowerSheet selection
   /// Cycle through Codex reasoning effort levels
   void _cycleCodexReasoningEffort() {
     final current = ref.read(codexSettingsProvider).reasoningEffort;
@@ -4728,6 +4730,17 @@ Describe project-specific guidance for Codex here.
         .setReasoningEffort(values[nextIndex]);
   }
 
+  /// Set Codex reasoning effort by wireValue string (e.g., 'high', 'xhigh')
+  void _setCodexReasoningEffort(String? wireValue) {
+    if (wireValue == null) return;
+    final effort = CodexReasoningEffort.values.firstWhere(
+      (e) => e.wireValue == wireValue,
+      orElse: () => CodexReasoningEffort.medium,
+    );
+    ref.read(codexSettingsProvider.notifier).setReasoningEffort(effort);
+  }
+
+  // TODO: Remove after QA - legacy method replaced by PowerSheet selection
   /// Cycle through Codex collaboration modes (SDK v0.87.0+)
   void _cycleCodexCollaborationMode() {
     ref.read(codexSettingsProvider.notifier).cycleCollaborationMode();
@@ -4855,6 +4868,7 @@ Describe project-specific guidance for Codex here.
     );
   }
 
+  // TODO: Remove after QA - custom model option removed from Claude Code (only sonnet/opus/haiku)
   Future<String?> _promptCustomClaudeModel() async {
     final controller = TextEditingController();
     final theme = OpenCodeTheme.of(context);
@@ -5002,32 +5016,6 @@ Describe project-specific guidance for Codex here.
                     modelTile('sonnet', 'Sonnet'),
                     modelTile('opus', 'Opus'),
                     modelTile('haiku', 'Haiku'),
-                    const Divider(),
-                    ListTile(
-                      dense: true,
-                      contentPadding: EdgeInsets.zero,
-                      leading: Icon(
-                        Icons.edit_rounded,
-                        size: 18,
-                        color: theme.textMuted,
-                      ),
-                      title: Text(
-                        'Custom…',
-                        style: TextStyle(color: theme.text, fontSize: 13),
-                      ),
-                      subtitle: Text(
-                        current,
-                        style: TextStyle(color: theme.textMuted, fontSize: 12),
-                      ),
-                      onTap: () async {
-                        final custom = await _promptCustomClaudeModel();
-                        final value = custom?.trim();
-                        if (value == null || value.isEmpty) return;
-                        await setModel(value);
-                        if (!mounted) return;
-                        Navigator.pop(context);
-                      },
-                    ),
                   ],
                 );
               },
@@ -6590,6 +6578,22 @@ Describe project-specific guidance for Codex here.
         ? null
         : promptAccent.getColor(theme.primary);
 
+    // Determine backend type for both input bar styles
+    final backend = widget.isClaudeCode
+        ? AgentType.claudeCode
+        : widget.isCodex
+        ? AgentType.codex
+        : AgentType.opencode;
+
+    // Build project for power sheet
+    final powerProject = widget.isOpenCode
+        ? widget.project
+        : ProjectSummary(
+            id: '',
+            name: widget.projectName,
+            path: widget.effectivePath,
+          );
+
     Widget inputBar;
     if (inputStyle == InputBarStyle.cli) {
       inputBar = _CliStyleInputBar(
@@ -6599,67 +6603,72 @@ Describe project-specific guidance for Codex here.
             _sendMessageWithParams(connection, messages, ccIsStreaming),
         isBusy: isBusy,
         canSend: canSend,
+        backend: backend,
+        project: powerProject,
         isOfflineMode: connection.isOfflineMode,
-        currentAgent: widget.isClaudeCode ? null : _selectedAgent,
-        agents: widget.isClaudeCode ? const [] : _agents,
-        onAgentChanged: widget.isClaudeCode
-            ? null
-            : (agent) => setState(() => _selectedAgent = agent),
-        currentModel: widget.isClaudeCode
-            ? null
-            : ref.watch(selectionProvider).model,
+        currentAgent: widget.isOpenCode ? _selectedAgent : null,
+        agents: widget.isOpenCode ? _agents : const [],
+        onAgentChanged: widget.isOpenCode
+            ? (agent) => setState(() => _selectedAgent = agent)
+            : null,
+        currentModel: widget.isOpenCode
+            ? ref.watch(selectionProvider).model
+            : null,
         onModelTap: widget.isClaudeCode
-            ? null
-            : () => _showModelSelector(context),
+            ? () => _showClaudeCodeModelSheet()
+            : widget.isCodex
+            ? () => _showCodexModelSheet()
+            : () => _showModelsDialog(),
         attachedFiles: _attachedFiles,
         onRemoveAttachment: _removeAttachedFile,
         showFileAutocomplete: _showFileAutocomplete,
         onFileSelect: _handleFileSelection,
         onAttachTap: () => _showAttachmentOptions(context),
         attachIcon: Icons.add_rounded,
-        isClaudeCode: widget.isClaudeCode,
-        ccPermissionMode: ccConfig?.permissionMode ?? ccInit?.permissionMode,
-        ccModel:
-            ccConfig?.model ??
-            ccModel ??
-            ccInit?.model ??
-            widget.ccSession?.model ??
-            widget.ccDraftModel,
-        onCCModelTap: widget.isClaudeCode
-            ? () => _showClaudeCodeModelSelector(context)
+        // Claude Code specific
+        ccPermissionMode: widget.isClaudeCode
+            ? (ccConfig?.permissionMode ?? ccInit?.permissionMode)
             : null,
-        onCCPermissionModeTap: widget.isClaudeCode
-            ? () => _showClaudeCodePermissionModeSelector(context)
+        ccModel: widget.isClaudeCode
+            ? (ccConfig?.model ??
+                  ccModel ??
+                  ccInit?.model ??
+                  widget.ccSession?.model ??
+                  widget.ccDraftModel)
+            : null,
+        onCCModelTap: widget.isClaudeCode
+            ? () => _showClaudeCodeModelSheet()
+            : null,
+        onCCPermissionModeChanged: widget.isClaudeCode
+            ? (mode) {
+                final notifier = ref.read(ccConfigProvider.notifier);
+                final existing = ref.read(ccConfigProvider).valueOrNull;
+                notifier.updateConfig(
+                  existing?.copyWith(permissionMode: mode) ??
+                      ClaudeCodeConfig(
+                        permissionMode: mode,
+                        allowedTools: const [],
+                        disallowedTools: const [],
+                      ),
+                );
+              }
             : null,
         // Codex specific
-        isCodex: widget.isCodex,
         codexModel: widget.isCodex
             ? ref.watch(chatSessionProvider.select((s) => s.cxModel))
             : null,
         onCodexModelTap: widget.isCodex ? () => _showCodexModelSheet() : null,
         // Codex Collaboration Mode (SDK v0.87.0+)
         codexCollabMode: widget.isCodex
-            ? ref.watch(codexSettingsProvider).collaborationMode.wireValue
+            ? ref.watch(codexSettingsProvider).collaborationMode
             : null,
-        onCodexCollabModeTap: widget.isCodex
-            ? () => _cycleCodexCollaborationMode()
+        onCodexCollabModeChanged: widget.isCodex
+            ? (mode) => ref
+                  .read(codexSettingsProvider.notifier)
+                  .setCollaborationMode(mode)
             : null,
         customAccentColor: customAccent,
-        // OpenCode Plan Mode (SDK v1.1.18+)
-        isOpenCode: widget.isOpenCode,
-        ocPlanMode: widget.isOpenCode
-            ? ref.watch(chatSessionProvider.select((s) => s.ocAgentMode)) ==
-                  'plan'
-            : false,
-        onPlanModeToggle: widget.isOpenCode
-            ? () {
-                final current = ref.read(chatSessionProvider).ocAgentMode;
-                ref
-                    .read(chatSessionProvider.notifier)
-                    .setOCAgentMode(current == 'plan' ? 'build' : 'plan');
-              }
-            : null,
-        // Variant/Thinking Level (OpenCode / Claude Code / Codex)
+        // Variant/Thinking Level (all backends)
         currentVariant: widget.isOpenCode
             ? ref
                   .watch(openCodeVariantProvider)
@@ -6678,22 +6687,27 @@ Describe project-specific guidance for Codex here.
             : widget.isCodex
             ? CodexReasoningEffort.values.map((e) => e.wireValue).toList()
             : const [],
-        onVariantTap: widget.isOpenCode
-            ? () {
+        onVariantChanged: widget.isOpenCode
+            ? (v) {
                 final model = ref.read(selectionProvider).model;
-                if (model != null) {
+                if (model != null && v != null) {
                   ref
                       .read(openCodeVariantProvider.notifier)
-                      .cycleVariant(model);
+                      .setVariant(model, v);
+                } else if (model != null && v == null) {
+                  ref
+                      .read(openCodeVariantProvider.notifier)
+                      .clearVariant(model);
                 }
               }
             : widget.isClaudeCode
-            ? () => ref.read(claudeCodeVariantProvider.notifier).cycleVariant()
+            ? (v) => ref.read(claudeCodeVariantProvider.notifier).setVariant(v)
             : widget.isCodex
-            ? () => _cycleCodexReasoningEffort()
+            ? (v) => _setCodexReasoningEffort(v)
             : null,
       );
     } else {
+      // FloatingInputBar uses the backend/project declared above
       inputBar = _FloatingInputBar(
         controller: _controller,
         focusNode: _inputFocusNode,
@@ -6701,6 +6715,8 @@ Describe project-specific guidance for Codex here.
             _sendMessageWithParams(connection, messages, ccIsStreaming),
         isBusy: isBusy,
         canSend: canSend,
+        backend: backend,
+        project: powerProject,
         isOfflineMode: connection.isOfflineMode,
         attachedFiles: _attachedFiles,
         onRemoveAttachment: _removeAttachedFile,
@@ -6708,26 +6724,54 @@ Describe project-specific guidance for Codex here.
         onFileSelect: _handleFileSelection,
         onAttachTap: () => _showAttachmentOptions(context),
         attachIcon: Icons.add_rounded,
-        agents: widget.isClaudeCode ? const [] : _agents,
-        currentAgent: widget.isClaudeCode ? null : _selectedAgent,
-        onAgentChanged: widget.isClaudeCode
-            ? null
-            : (agent) => setState(() => _selectedAgent = agent),
-        // OpenCode Plan Mode (SDK v1.1.18+)
-        isOpenCode: widget.isOpenCode,
-        ocPlanMode: widget.isOpenCode
-            ? ref.watch(chatSessionProvider.select((s) => s.ocAgentMode)) ==
-                  'plan'
-            : false,
-        onPlanModeToggle: widget.isOpenCode
-            ? () {
-                final current = ref.read(chatSessionProvider).ocAgentMode;
-                ref
-                    .read(chatSessionProvider.notifier)
-                    .setOCAgentMode(current == 'plan' ? 'plan' : 'plan');
+        // Model selector
+        currentModel: widget.isClaudeCode
+            ? ref.watch(chatSessionProvider.select((s) => s.ccModel))
+            : widget.isCodex
+            ? ref.watch(chatSessionProvider.select((s) => s.cxModel))
+            : ref.watch(selectionProvider).model as String?,
+        onModelTap: widget.isClaudeCode
+            ? () => _showClaudeCodeModelSheet()
+            : widget.isCodex
+            ? () => _showCodexModelSheet()
+            : () => _showModelsDialog(),
+        // OpenCode specific
+        agents: widget.isOpenCode ? _agents : const [],
+        currentAgent: widget.isOpenCode ? _selectedAgent : null,
+        onAgentChanged: widget.isOpenCode
+            ? (agent) => setState(() => _selectedAgent = agent)
+            : null,
+        // Claude Code specific
+        ccPermissionMode: widget.isClaudeCode
+            ? (ref.watch(ccConfigProvider).valueOrNull?.permissionMode ??
+                  ref
+                      .watch(chatSessionProvider.select((s) => s.ccInit))
+                      ?.permissionMode)
+            : null,
+        onCCPermissionModeChanged: widget.isClaudeCode
+            ? (mode) {
+                final notifier = ref.read(ccConfigProvider.notifier);
+                final existing = ref.read(ccConfigProvider).valueOrNull;
+                notifier.updateConfig(
+                  existing?.copyWith(permissionMode: mode) ??
+                      ClaudeCodeConfig(
+                        permissionMode: mode,
+                        allowedTools: const [],
+                        disallowedTools: const [],
+                      ),
+                );
               }
             : null,
-        // Variant/Thinking Level (OpenCode / Claude Code / Codex)
+        // Codex specific
+        codexCollabMode: widget.isCodex
+            ? ref.watch(codexSettingsProvider).collaborationMode
+            : null,
+        onCodexCollabModeChanged: widget.isCodex
+            ? (mode) => ref
+                  .read(codexSettingsProvider.notifier)
+                  .setCollaborationMode(mode)
+            : null,
+        // Variant/Thinking Level (all backends)
         currentVariant: widget.isOpenCode
             ? ref
                   .watch(openCodeVariantProvider)
@@ -6746,19 +6790,23 @@ Describe project-specific guidance for Codex here.
             : widget.isCodex
             ? CodexReasoningEffort.values.map((e) => e.wireValue).toList()
             : const [],
-        onVariantTap: widget.isOpenCode
-            ? () {
+        onVariantChanged: widget.isOpenCode
+            ? (v) {
                 final model = ref.read(selectionProvider).model;
-                if (model != null) {
+                if (model != null && v != null) {
                   ref
                       .read(openCodeVariantProvider.notifier)
-                      .cycleVariant(model);
+                      .setVariant(model, v);
+                } else if (model != null && v == null) {
+                  ref
+                      .read(openCodeVariantProvider.notifier)
+                      .clearVariant(model);
                 }
               }
             : widget.isClaudeCode
-            ? () => ref.read(claudeCodeVariantProvider.notifier).cycleVariant()
+            ? (v) => ref.read(claudeCodeVariantProvider.notifier).setVariant(v)
             : widget.isCodex
-            ? () => _cycleCodexReasoningEffort()
+            ? (v) => _setCodexReasoningEffort(v)
             : null,
       );
     }
@@ -7173,6 +7221,7 @@ Describe project-specific guidance for Codex here.
     );
   }
 
+  // TODO: Remove after QA - legacy method replaced by PowerSheet model selector
   /// Show Claude Code model selector (Auto/Haiku/Sonnet/Opus)
   void _showClaudeCodeModelSelector(BuildContext context) {
     final theme = OpenCodeTheme.of(context);
@@ -7274,6 +7323,7 @@ Describe project-specific guidance for Codex here.
     );
   }
 
+  // TODO: Remove after QA - legacy method replaced by PowerSheet permission selector
   /// Show Claude Code permission mode selector
   void _showClaudeCodePermissionModeSelector(BuildContext context) {
     final theme = OpenCodeTheme.of(context);
@@ -9654,6 +9704,8 @@ class _FloatingInputBar extends ConsumerWidget {
     required this.onSend,
     required this.isBusy,
     required this.canSend,
+    required this.backend,
+    required this.project,
     this.isOfflineMode = false,
     this.attachedFiles = const [],
     this.onRemoveAttachment,
@@ -9661,17 +9713,23 @@ class _FloatingInputBar extends ConsumerWidget {
     this.onFileSelect,
     this.onAttachTap,
     this.attachIcon = Icons.add_rounded,
+    // Model selector
+    this.currentModel,
+    this.onModelTap,
+    // OpenCode specific
     this.agents = const [],
     this.currentAgent,
     this.onAgentChanged,
-    // OpenCode Plan Mode (SDK v1.1.18+)
-    this.isOpenCode = false,
-    this.ocPlanMode = false,
-    this.onPlanModeToggle,
-    // OpenCode Variant/Thinking Level (SDK v1.1.23+)
+    // Claude Code specific
+    this.ccPermissionMode,
+    this.onCCPermissionModeChanged,
+    // Codex specific
+    this.codexCollabMode,
+    this.onCodexCollabModeChanged,
+    // Variant/Thinking Level (all backends)
     this.currentVariant,
     this.availableVariants = const [],
-    this.onVariantTap,
+    this.onVariantChanged,
   });
 
   final TextEditingController controller;
@@ -9679,6 +9737,8 @@ class _FloatingInputBar extends ConsumerWidget {
   final VoidCallback onSend;
   final bool isBusy;
   final bool canSend;
+  final AgentType backend;
+  final ProjectSummary project;
   final bool isOfflineMode;
   final List<FileAttachment> attachedFiles;
   final void Function(FileAttachment)? onRemoveAttachment;
@@ -9686,36 +9746,51 @@ class _FloatingInputBar extends ConsumerWidget {
   final void Function(FileAttachment)? onFileSelect;
   final VoidCallback? onAttachTap;
   final IconData attachIcon;
+  // Model selector
+  final String? currentModel;
+  final VoidCallback? onModelTap;
+  // OpenCode specific
   final List<Agent> agents;
   final String? currentAgent;
   final void Function(String?)? onAgentChanged;
-  // OpenCode Plan Mode (SDK v1.1.18+)
-  final bool isOpenCode;
-  final bool ocPlanMode;
-  final VoidCallback? onPlanModeToggle;
-  // OpenCode Variant/Thinking Level (SDK v1.1.23+)
+  // Claude Code specific
+  final ClaudeCodePermissionMode? ccPermissionMode;
+  final void Function(ClaudeCodePermissionMode)? onCCPermissionModeChanged;
+  // Codex specific
+  final CodexCollaborationMode? codexCollabMode;
+  final void Function(CodexCollaborationMode)? onCodexCollabModeChanged;
+  // Variant/Thinking Level (all backends)
   final String? currentVariant;
   final List<String> availableVariants;
-  final VoidCallback? onVariantTap;
+  final void Function(String?)? onVariantChanged;
 
-  void _showFloatingInputMenu(BuildContext context, OpenCodeTheme theme) {
-    final primaryAgents = agents.where((a) => a.isPrimary).toList();
-
+  void _showPowerSheet(BuildContext context) {
     showModalBottomSheet(
       context: context,
       backgroundColor: Colors.transparent,
       isScrollControlled: true,
-      builder: (context) => _FloatingInputMenuSheet(
-        theme: theme,
-        agents: primaryAgents,
-        currentAgent: currentAgent,
-        onAgentChanged: onAgentChanged,
-        onAttachTap: onAttachTap,
-        // Variant props
-        isOpenCode: isOpenCode,
+      builder: (context) => PowerSheet(
+        backend: backend,
+        project: project,
+        onAttachFile: onAttachTap,
+        onTakePhoto: () {
+          // TODO: Implement camera
+        },
+        currentModel: currentModel,
+        onModelTap: onModelTap,
         currentVariant: currentVariant,
         availableVariants: availableVariants,
-        onVariantTap: onVariantTap,
+        onVariantChanged: onVariantChanged,
+        // OpenCode
+        agents: agents,
+        currentAgent: currentAgent,
+        onAgentChanged: onAgentChanged,
+        // Claude Code
+        ccPermissionMode: ccPermissionMode,
+        onCCPermissionModeChanged: onCCPermissionModeChanged,
+        // Codex
+        codexCollabMode: codexCollabMode,
+        onCodexCollabModeChanged: onCodexCollabModeChanged,
       ),
     );
   }
@@ -9779,11 +9854,9 @@ class _FloatingInputBar extends ConsumerWidget {
                   child: Row(
                     crossAxisAlignment: CrossAxisAlignment.center,
                     children: [
-                      // Menu button - shows agent/permission options when agents available, otherwise attach options
+                      // Menu button - always shows tune icon, opens PowerSheet for all backends
                       GestureDetector(
-                        onTap: agents.isNotEmpty
-                            ? () => _showFloatingInputMenu(context, theme)
-                            : onAttachTap,
+                        onTap: () => _showPowerSheet(context),
                         child: Container(
                           height: 42,
                           width: 42,
@@ -9795,9 +9868,7 @@ class _FloatingInputBar extends ConsumerWidget {
                           ),
                           child: Center(
                             child: Icon(
-                              agents.isNotEmpty
-                                  ? Icons.tune_rounded
-                                  : attachIcon,
+                              Icons.tune_rounded,
                               color: kOnBackground,
                               size: 22,
                             ),
@@ -10375,6 +10446,8 @@ class _CliStyleInputBar extends StatefulWidget {
     required this.onSend,
     required this.isBusy,
     required this.canSend,
+    required this.backend,
+    required this.project,
     this.isOfflineMode = false,
     this.currentAgent,
     this.agents = const [],
@@ -10388,28 +10461,22 @@ class _CliStyleInputBar extends StatefulWidget {
     this.onAttachTap,
     this.attachIcon = Icons.add_rounded,
     // Claude Code specific props
-    this.isClaudeCode = false,
     this.ccPermissionMode,
     this.ccModel,
     this.onCCModelTap,
-    this.onCCPermissionModeTap,
+    this.onCCPermissionModeChanged,
     // Codex specific props
-    this.isCodex = false,
     this.codexModel,
     this.onCodexModelTap,
     // Codex Collaboration Mode (SDK v0.87.0+)
     this.codexCollabMode,
-    this.onCodexCollabModeTap,
+    this.onCodexCollabModeChanged,
     // Custom accent color (null = use agent/permission mode color)
     this.customAccentColor,
-    // OpenCode Plan Mode (SDK v1.1.18+)
-    this.isOpenCode = false,
-    this.ocPlanMode = false,
-    this.onPlanModeToggle,
-    // OpenCode Variant/Thinking Level (SDK v1.1.23+)
+    // Variant/Thinking Level (all backends)
     this.currentVariant,
     this.availableVariants = const [],
-    this.onVariantTap,
+    this.onVariantChanged,
   });
 
   final TextEditingController controller;
@@ -10417,6 +10484,8 @@ class _CliStyleInputBar extends StatefulWidget {
   final VoidCallback onSend;
   final bool isBusy;
   final bool canSend;
+  final AgentType backend;
+  final ProjectSummary project;
   final bool isOfflineMode;
   final String? currentAgent;
   final List<Agent> agents;
@@ -10430,28 +10499,22 @@ class _CliStyleInputBar extends StatefulWidget {
   final VoidCallback? onAttachTap;
   final IconData attachIcon;
   // Claude Code specific props
-  final bool isClaudeCode;
   final ClaudeCodePermissionMode? ccPermissionMode;
   final String? ccModel;
   final VoidCallback? onCCModelTap;
-  final VoidCallback? onCCPermissionModeTap;
+  final void Function(ClaudeCodePermissionMode)? onCCPermissionModeChanged;
   // Codex specific props
-  final bool isCodex;
   final String? codexModel;
   final VoidCallback? onCodexModelTap;
   // Codex Collaboration Mode (SDK v0.87.0+)
-  final String? codexCollabMode;
-  final VoidCallback? onCodexCollabModeTap;
+  final CodexCollaborationMode? codexCollabMode;
+  final void Function(CodexCollaborationMode)? onCodexCollabModeChanged;
   // Custom accent color (null = use agent/permission mode color)
   final Color? customAccentColor;
-  // OpenCode Plan Mode (SDK v1.1.18+)
-  final bool isOpenCode;
-  final bool ocPlanMode; // true = "plan" mode, false = "build" mode
-  final VoidCallback? onPlanModeToggle;
-  // OpenCode Variant/Thinking Level (SDK v1.1.23+)
+  // Variant/Thinking Level (all backends)
   final String? currentVariant;
   final List<String> availableVariants;
-  final VoidCallback? onVariantTap;
+  final void Function(String?)? onVariantChanged;
 
   @override
   State<_CliStyleInputBar> createState() => _CliStyleInputBarState();
@@ -10492,6 +10555,120 @@ class _CliStyleInputBarState extends State<_CliStyleInputBar> {
   void dispose() {
     _placeholderTimer?.cancel(); // FIX: Cancel timer to prevent memory leak
     super.dispose();
+  }
+
+  // TODO: Remove after QA - legacy method replaced by PowerSheet permission selector
+  /// Cycle through Claude Code permission modes
+  void _cyclePermissionMode() {
+    final current =
+        widget.ccPermissionMode ?? ClaudeCodePermissionMode.defaultMode;
+    final modes = ClaudeCodePermissionMode.values;
+    final nextIndex = (modes.indexOf(current) + 1) % modes.length;
+    widget.onCCPermissionModeChanged?.call(modes[nextIndex]);
+  }
+
+  // TODO: Remove after QA - legacy method replaced by PowerSheet collab mode selector
+  /// Cycle through Codex collaboration modes
+  void _cycleCollaborationMode() {
+    final current =
+        widget.codexCollabMode ?? CodexCollaborationMode.pairProgramming;
+    final modes = CodexCollaborationMode.values;
+    final nextIndex = (modes.indexOf(current) + 1) % modes.length;
+    widget.onCodexCollabModeChanged?.call(modes[nextIndex]);
+  }
+
+  /// Cycle through variants/thinking levels
+  void _cycleVariant() {
+    if (widget.availableVariants.isEmpty) return;
+    final current = widget.currentVariant;
+    if (current == null) {
+      widget.onVariantChanged?.call(widget.availableVariants.first);
+    } else {
+      final currentIndex = widget.availableVariants.indexOf(current);
+      final nextIndex = (currentIndex + 1) % widget.availableVariants.length;
+      widget.onVariantChanged?.call(widget.availableVariants[nextIndex]);
+    }
+  }
+
+  /// Show the unified PowerSheet for all backends
+  void _showPowerSheet(BuildContext context) {
+    showModalBottomSheet(
+      context: context,
+      backgroundColor: Colors.transparent,
+      isScrollControlled: true,
+      builder: (context) => PowerSheet(
+        backend: widget.backend,
+        project: widget.project,
+        onAttachFile: widget.onAttachTap,
+        onTakePhoto: () {
+          // TODO: Implement camera
+        },
+        // Model - depends on backend
+        currentModel: widget.backend == AgentType.claudeCode
+            ? widget.ccModel
+            : widget.backend == AgentType.codex
+            ? widget.codexModel
+            : widget.currentModel?.modelID,
+        onModelTap: widget.backend == AgentType.claudeCode
+            ? widget.onCCModelTap
+            : widget.backend == AgentType.codex
+            ? widget.onCodexModelTap
+            : widget.onModelTap,
+        // Thinking level / variants
+        currentVariant: widget.currentVariant,
+        availableVariants: widget.availableVariants,
+        onVariantChanged: widget.onVariantChanged,
+        // OpenCode agents
+        agents: widget.agents,
+        currentAgent: widget.currentAgent,
+        onAgentChanged: widget.onAgentChanged,
+        // Claude Code permission mode
+        ccPermissionMode: widget.ccPermissionMode,
+        onCCPermissionModeChanged: widget.onCCPermissionModeChanged,
+        // Codex collaboration mode
+        codexCollabMode: widget.codexCollabMode,
+        onCodexCollabModeChanged: widget.onCodexCollabModeChanged,
+      ),
+    );
+  }
+
+  /// Format thinking level display for CLI prompt bar
+  String _formatThinkingLevelDisplay(String variant) {
+    final backend = widget.backend;
+    if (backend == AgentType.claudeCode) {
+      switch (variant.toLowerCase()) {
+        case 'low':
+          return 'Low';
+        case 'medium':
+          return 'Med';
+        case 'high':
+          return 'High';
+        case 'max':
+          return 'Max';
+        default:
+          return variant;
+      }
+    } else if (backend == AgentType.codex) {
+      switch (variant.toLowerCase()) {
+        case 'none':
+          return 'None';
+        case 'minimal':
+          return 'Min';
+        case 'low':
+          return 'Low';
+        case 'medium':
+          return 'Med';
+        case 'high':
+          return 'High';
+        case 'xhigh':
+          return 'XHigh';
+        default:
+          return variant;
+      }
+    }
+    // OpenCode: capitalize first letter
+    if (variant.isEmpty) return 'Default';
+    return variant[0].toUpperCase() + variant.substring(1);
   }
 
   String _getModelDisplayName(SelectedModel? model) {
@@ -10538,29 +10715,32 @@ class _CliStyleInputBarState extends State<_CliStyleInputBar> {
   }
 
   /// Get Codex collaboration mode display name
-  String _getCodexCollabModeDisplay(String? mode) {
+  String _getCodexCollabModeDisplay(CodexCollaborationMode? mode) {
     switch (mode) {
-      case 'plan':
+      case CodexCollaborationMode.plan:
         return 'Plan';
-      case 'pairprogramming':
+      case CodexCollaborationMode.pairProgramming:
         return 'Pair';
-      case 'execute':
+      case CodexCollaborationMode.execute:
         return 'Exec';
-      default:
+      case null:
         return 'Pair';
     }
   }
 
   /// Get color for Codex collaboration mode
-  Color _getCodexCollabModeColor(String? mode, OpenCodeTheme theme) {
+  Color _getCodexCollabModeColor(
+    CodexCollaborationMode? mode,
+    OpenCodeTheme theme,
+  ) {
     switch (mode) {
-      case 'plan':
+      case CodexCollaborationMode.plan:
         return theme.warning; // Planning mode - amber
-      case 'pairprogramming':
+      case CodexCollaborationMode.pairProgramming:
         return theme.primary; // Default interactive - primary
-      case 'execute':
+      case CodexCollaborationMode.execute:
         return theme.success; // Autonomous execution - green
-      default:
+      case null:
         return theme.primary;
     }
   }
@@ -10589,10 +10769,13 @@ class _CliStyleInputBarState extends State<_CliStyleInputBar> {
     final theme = OpenCodeTheme.of(context);
     final agent = _getCurrentAgent();
     // Priority: custom accent color > permission mode color (CC) > agent color (OC)
+    final isClaudeCode = widget.backend == AgentType.claudeCode;
+    final isCodex = widget.backend == AgentType.codex;
+    final isOpenCode = widget.backend == AgentType.opencode;
     final Color agentColor;
     if (widget.customAccentColor != null) {
       agentColor = widget.customAccentColor!;
-    } else if (widget.isClaudeCode) {
+    } else if (isClaudeCode) {
       agentColor = _getPermissionModeColor(widget.ccPermissionMode, theme);
     } else {
       agentColor = agent?.displayColor ?? theme.primary;
@@ -10745,40 +10928,32 @@ class _CliStyleInputBarState extends State<_CliStyleInputBar> {
                                 ),
                                 child: Row(
                                   children: [
-                                    // For Claude Code: Permission mode (tappable)
-                                    // For OpenCode: Agent name (tappable)
-                                    if (widget.isClaudeCode) ...[
-                                      GestureDetector(
-                                        onTap: widget.onCCPermissionModeTap,
-                                        child: Text(
-                                          widget
-                                                  .ccPermissionMode
-                                                  ?.displayName ??
-                                              'Default',
-                                          style: TextStyle(
-                                            color: agentColor,
-                                            fontSize: 13,
-                                            fontWeight: FontWeight.w600,
-                                          ),
+                                    // FIRST CHIP: Main mode/agent selector - opens PowerSheet for all backends
+                                    GestureDetector(
+                                      onTap: () => _showPowerSheet(context),
+                                      child: Text(
+                                        isClaudeCode
+                                            ? (widget
+                                                      .ccPermissionMode
+                                                      ?.displayName ??
+                                                  'Default')
+                                            : isCodex
+                                            ? _getCodexCollabModeDisplay(
+                                                widget.codexCollabMode,
+                                              )
+                                            : (agent?.displayName ?? 'Build'),
+                                        style: TextStyle(
+                                          color: isCodex
+                                              ? _getCodexCollabModeColor(
+                                                  widget.codexCollabMode,
+                                                  theme,
+                                                )
+                                              : agentColor,
+                                          fontSize: 13,
+                                          fontWeight: FontWeight.w600,
                                         ),
                                       ),
-                                    ] else ...[
-                                      GestureDetector(
-                                        onTap:
-                                            widget.onAgentChanged != null &&
-                                                widget.agents.isNotEmpty
-                                            ? () => _showAgentPicker(context)
-                                            : null,
-                                        child: Text(
-                                          agent?.displayName ?? 'Build',
-                                          style: TextStyle(
-                                            color: agentColor,
-                                            fontSize: 13,
-                                            fontWeight: FontWeight.w600,
-                                          ),
-                                        ),
-                                      ),
-                                    ],
+                                    ),
 
                                     // Separator dot
                                     Padding(
@@ -10796,9 +10971,8 @@ class _CliStyleInputBarState extends State<_CliStyleInputBar> {
                                       ),
                                     ),
 
-                                    // Model selector (tappable) - different per backend
-                                    if (widget.isClaudeCode) ...[
-                                      // Claude Code model selector
+                                    // SECOND CHIP: Model selector - different per backend
+                                    if (isClaudeCode) ...[
                                       GestureDetector(
                                         onTap: widget.onCCModelTap,
                                         child: Text(
@@ -10812,55 +10986,7 @@ class _CliStyleInputBarState extends State<_CliStyleInputBar> {
                                           ),
                                         ),
                                       ),
-                                    ] else if (widget.isCodex) ...[
-                                      // Codex model selector
-                                      GestureDetector(
-                                        onTap: widget.onCodexModelTap,
-                                        child: Text(
-                                          _getCodexModelDisplayName(
-                                            widget.codexModel,
-                                          ),
-                                          style: TextStyle(
-                                            color: theme.text,
-                                            fontSize: 13,
-                                            fontWeight: FontWeight.w500,
-                                          ),
-                                        ),
-                                      ),
-                                      // Codex Collaboration Mode (SDK v0.87.0+)
-                                      if (widget.codexCollabMode != null) ...[
-                                        Padding(
-                                          padding: const EdgeInsets.symmetric(
-                                            horizontal: 8,
-                                          ),
-                                          child: Text(
-                                            '·',
-                                            style: TextStyle(
-                                              color: theme.textMuted.withValues(
-                                                alpha: 0.4,
-                                              ),
-                                              fontSize: 13,
-                                            ),
-                                          ),
-                                        ),
-                                        GestureDetector(
-                                          onTap: widget.onCodexCollabModeTap,
-                                          child: Text(
-                                            _getCodexCollabModeDisplay(
-                                              widget.codexCollabMode,
-                                            ),
-                                            style: TextStyle(
-                                              color: _getCodexCollabModeColor(
-                                                widget.codexCollabMode,
-                                                theme,
-                                              ),
-                                              fontSize: 13,
-                                              fontWeight: FontWeight.w600,
-                                            ),
-                                          ),
-                                        ),
-                                      ],
-                                      // Codex Reasoning Effort (existing)
+                                      // Claude Code thinking level (if set)
                                       if (widget.currentVariant != null) ...[
                                         Padding(
                                           padding: const EdgeInsets.symmetric(
@@ -10877,9 +11003,58 @@ class _CliStyleInputBarState extends State<_CliStyleInputBar> {
                                           ),
                                         ),
                                         GestureDetector(
-                                          onTap: widget.onVariantTap,
+                                          onTap: () => _showPowerSheet(context),
                                           child: Text(
-                                            widget.currentVariant!,
+                                            _formatThinkingLevelDisplay(
+                                              widget.currentVariant!,
+                                            ),
+                                            style: TextStyle(
+                                              color: theme.primary,
+                                              fontSize: 13,
+                                              fontWeight: FontWeight.w500,
+                                            ),
+                                          ),
+                                        ),
+                                      ],
+                                    ] else if (isCodex) ...[
+                                      // Codex model selector
+                                      GestureDetector(
+                                        onTap: widget.onCodexModelTap,
+                                        child: Text(
+                                          _getCodexModelDisplayName(
+                                            widget.codexModel,
+                                          ),
+                                          style: TextStyle(
+                                            color: theme.text,
+                                            fontSize: 13,
+                                            fontWeight: FontWeight.w500,
+                                          ),
+                                        ),
+                                      ),
+                                      // Codex Reasoning Effort (if not default)
+                                      if (widget.currentVariant != null &&
+                                          widget.currentVariant !=
+                                              'medium') ...[
+                                        Padding(
+                                          padding: const EdgeInsets.symmetric(
+                                            horizontal: 8,
+                                          ),
+                                          child: Text(
+                                            '·',
+                                            style: TextStyle(
+                                              color: theme.textMuted.withValues(
+                                                alpha: 0.4,
+                                              ),
+                                              fontSize: 13,
+                                            ),
+                                          ),
+                                        ),
+                                        GestureDetector(
+                                          onTap: () => _showPowerSheet(context),
+                                          child: Text(
+                                            _formatThinkingLevelDisplay(
+                                              widget.currentVariant!,
+                                            ),
                                             style: TextStyle(
                                               color: theme.primary,
                                               fontSize: 13,
@@ -10921,7 +11096,7 @@ class _CliStyleInputBarState extends State<_CliStyleInputBar> {
                                       ],
 
                                       // Variant/Thinking level selector (only for OpenCode when variants available)
-                                      if (widget.isOpenCode &&
+                                      if (isOpenCode &&
                                           widget
                                               .availableVariants
                                               .isNotEmpty) ...[
@@ -10940,7 +11115,9 @@ class _CliStyleInputBarState extends State<_CliStyleInputBar> {
                                           ),
                                         ),
                                         GestureDetector(
-                                          onTap: widget.onVariantTap,
+                                          onTap: widget.onVariantChanged != null
+                                              ? () => _cycleVariant()
+                                              : null,
                                           child: Text(
                                             widget.currentVariant ?? 'Default',
                                             style: TextStyle(
@@ -11032,6 +11209,7 @@ class _CliStyleInputBarState extends State<_CliStyleInputBar> {
     );
   }
 
+  // TODO: Remove after QA - legacy method replaced by PowerSheet agent selector
   void _showAgentPicker(BuildContext context) {
     final theme = OpenCodeTheme.of(context);
     final primaryAgents = widget.agents.where((a) => a.isPrimary).toList();

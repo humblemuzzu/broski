@@ -619,10 +619,8 @@ class _ToolCallCardState extends State<ToolCallCard> {
             onOpenFile: (path) {
               Navigator.of(context).push(
                 MaterialPageRoute(
-                  builder: (_) => TextFileViewerScreen(
-                    path: path,
-                    title: 'Full output',
-                  ),
+                  builder: (_) =>
+                      TextFileViewerScreen(path: path, title: 'Full output'),
                 ),
               );
             },
@@ -735,10 +733,7 @@ class _ToolCallCardState extends State<ToolCallCard> {
                     appBar: AppBar(
                       backgroundColor: theme.background,
                       foregroundColor: theme.text,
-                      title: Text(
-                        uri,
-                        style: TextStyle(color: theme.text),
-                      ),
+                      title: Text(uri, style: TextStyle(color: theme.text)),
                     ),
                     body: UnifiedFileViewer(
                       filePath: uri,
@@ -776,7 +771,11 @@ class _ToolCallCardState extends State<ToolCallCard> {
                       overflow: TextOverflow.ellipsis,
                     ),
                   ),
-                  Icon(Icons.open_in_new_rounded, color: theme.textMuted, size: 18),
+                  Icon(
+                    Icons.open_in_new_rounded,
+                    color: theme.textMuted,
+                    size: 18,
+                  ),
                 ],
               ),
             ),
@@ -868,6 +867,7 @@ class _ToolCallCardState extends State<ToolCallCard> {
     }
   }
 
+  // TODO: Remove after QA - replaced by _getCompactSummary
   String _getToolSummary(ToolCall tool) {
     switch (tool.name.toLowerCase()) {
       case 'read':

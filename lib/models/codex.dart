@@ -19,6 +19,7 @@ enum CodexApprovalPolicy {
 }
 
 enum CodexReasoningEffort {
+  none,
   minimal,
   low,
   medium,
@@ -27,6 +28,8 @@ enum CodexReasoningEffort {
 
   String get wireValue {
     switch (this) {
+      case CodexReasoningEffort.none:
+        return 'none';
       case CodexReasoningEffort.minimal:
         return 'minimal';
       case CodexReasoningEffort.low:
@@ -37,6 +40,24 @@ enum CodexReasoningEffort {
         return 'high';
       case CodexReasoningEffort.xhigh:
         return 'xhigh';
+    }
+  }
+
+  /// User-friendly display name for UI
+  String get displayName {
+    switch (this) {
+      case CodexReasoningEffort.none:
+        return 'None';
+      case CodexReasoningEffort.minimal:
+        return 'Minimal';
+      case CodexReasoningEffort.low:
+        return 'Low';
+      case CodexReasoningEffort.medium:
+        return 'Medium';
+      case CodexReasoningEffort.high:
+        return 'High';
+      case CodexReasoningEffort.xhigh:
+        return 'Extra High';
     }
   }
 }

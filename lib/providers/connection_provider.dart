@@ -528,6 +528,7 @@ class ConnectionNotifier extends StateNotifier<BridgeConnectionState>
     );
   }
 
+  // TODO: Remove after QA - replaced by parallel connection strategy
   /// Try to connect to a single endpoint with timeout.
   Future<_ConnectionResult> _tryConnectSingle(
     ({ConnectionType type, Uri uri, String host}) endpoint,
@@ -904,6 +905,7 @@ class ConnectionNotifier extends StateNotifier<BridgeConnectionState>
     }
   }
 
+  // TODO: Remove after QA - logic now inline in reconnect method
   ReconnectionStrategy _determineReconnectionStrategy() {
     // If we had a recent success (within 30s), use quick recovery
     if (_lastSuccessfulConnection != null) {
