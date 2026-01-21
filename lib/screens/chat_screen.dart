@@ -56,6 +56,7 @@ import '../widgets/multi_agent_tree.dart';
 import '../widgets/claude_code_help.dart';
 import '../widgets/power_sheet.dart';
 import '../widgets/project_tools_sheet.dart';
+import '../widgets/voice_input_button.dart';
 import 'subagents_screen.dart';
 import 'custom_tools_screen.dart';
 import 'plugins_screen.dart';
@@ -9932,6 +9933,43 @@ class _FloatingInputBar extends ConsumerWidget {
                                 ),
                               ),
                               const SizedBox(width: 8),
+                              // Voice input button
+                              VoiceInputButton(
+                                size: 22,
+                                padding: EdgeInsets.zero,
+                                onTranscription: (text) {
+                                  debugPrint(
+                                    '[ChatScreen/CLI] Voice transcription received: "$text"',
+                                  );
+                                  if (text.isEmpty) return;
+
+                                  // Build new text - append with space if needed
+                                  final current = controller.text;
+                                  final newText = current.isEmpty
+                                      ? text
+                                      : (current.endsWith(' ')
+                                            ? '$current$text'
+                                            : '$current $text');
+
+                                  // Update controller with new value
+                                  controller.value = TextEditingValue(
+                                    text: newText,
+                                    selection: TextSelection.collapsed(
+                                      offset: newText.length,
+                                    ),
+                                  );
+
+                                  debugPrint(
+                                    '[ChatScreen/CLI] Controller updated, new text: "${controller.text}"',
+                                  );
+
+                                  // Focus the text field
+                                  Future.microtask(
+                                    () => focusNode.requestFocus(),
+                                  );
+                                },
+                              ),
+                              const SizedBox(width: 8),
                               // Send button
                               GestureDetector(
                                 onTap: canSend ? onSend : null,
@@ -11150,6 +11188,54 @@ class _CliStyleInputBarState extends State<_CliStyleInputBar> {
                                           ),
                                         ),
                                       ),
+
+                                    // Voice input button
+                                    Consumer(
+                                      builder: (context, ref, _) {
+                                        return VoiceInputButton(
+                                          size: 22,
+                                          padding: const EdgeInsets.only(
+                                            right: 10,
+                                          ),
+                                          onTranscription: (text) {
+                                            debugPrint(
+                                              '[ChatScreen/Floating] Voice transcription received: "$text"',
+                                            );
+                                            if (text.isEmpty) return;
+
+                                            final controller =
+                                                widget.controller;
+
+                                            // Build new text - append with space if needed
+                                            final current = controller.text;
+                                            final newText = current.isEmpty
+                                                ? text
+                                                : (current.endsWith(' ')
+                                                      ? '$current$text'
+                                                      : '$current $text');
+
+                                            // Update controller with new value
+                                            controller.value = TextEditingValue(
+                                              text: newText,
+                                              selection:
+                                                  TextSelection.collapsed(
+                                                    offset: newText.length,
+                                                  ),
+                                            );
+
+                                            debugPrint(
+                                              '[ChatScreen/Floating] Controller updated, new text: "${controller.text}"',
+                                            );
+
+                                            // Focus the text field
+                                            Future.microtask(
+                                              () => widget.focusNode
+                                                  .requestFocus(),
+                                            );
+                                          },
+                                        );
+                                      },
+                                    ),
 
                                     // Send button (minimal)
                                     GestureDetector(

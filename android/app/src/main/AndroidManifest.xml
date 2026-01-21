@@ -3,6 +3,8 @@
     <uses-permission android:name="android.permission.INTERNET" />
     <!-- Photo library access for image attachments -->
     <uses-permission android:name="android.permission.READ_MEDIA_IMAGES" />
+    <!-- Microphone access for voice input (speech-to-text) -->
+    <uses-permission android:name="android.permission.RECORD_AUDIO" />
     <uses-permission android:name="android.permission.READ_EXTERNAL_STORAGE" android:maxSdkVersion="32" />
     <application
         android:label="broski"

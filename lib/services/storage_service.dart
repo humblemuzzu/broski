@@ -17,6 +17,7 @@ import '../models/project.dart';
 import '../models/provider.dart';
 import '../models/session.dart';
 import '../models/session_context.dart';
+import '../models/stt_settings.dart';
 import '../models/terminal_settings.dart';
 import '../models/todo.dart';
 import '../models/tool.dart';
@@ -46,6 +47,11 @@ class StorageService {
   static const _permissionRulesKey = 'broski_permission_rules';
   static const _openCodeVariantsKey = 'broski_opencode_variants';
   static const _claudeCodeVariantKey = 'broski_claude_code_variant';
+
+  // STT (Voice Input) keys
+  static const _sttSettingsKey = 'broski_stt_settings';
+  static const _sttGroqApiKeyKey = 'broski_stt_groq_api_key';
+  static const _sttOpenaiApiKeyKey = 'broski_stt_openai_api_key';
 
   static const _uuid = Uuid();
 
@@ -297,6 +303,60 @@ class StorageService {
     } catch (_) {
       return null;
     }
+  }
+
+  // ============================================================
+  // STT (Voice Input) Settings
+  // ============================================================
+
+  /// Save STT settings (excluding API keys)
+  Future<void> saveSttSettings(SttSettings settings) async {
+    await _storage.write(
+      key: _sttSettingsKey,
+      value: jsonEncode(settings.toJson()),
+    );
+  }
+
+  /// Load STT settings (excluding API keys)
+  Future<SttSettings?> loadSttSettings() async {
+    final raw = await _storage.read(key: _sttSettingsKey);
+    if (raw == null) return null;
+    try {
+      final decoded = jsonDecode(raw);
+      if (decoded is Map<String, dynamic>) {
+        return SttSettings.fromJson(decoded);
+      }
+      if (decoded is Map) {
+        return SttSettings.fromJson(decoded.cast<String, dynamic>());
+      }
+      return null;
+    } catch (_) {
+      return null;
+    }
+  }
+
+  /// Save STT API key for a provider (securely stored)
+  Future<void> saveSttApiKey(SttProvider provider, String apiKey) async {
+    final key = provider == SttProvider.groq
+        ? _sttGroqApiKeyKey
+        : _sttOpenaiApiKeyKey;
+    await _storage.write(key: key, value: apiKey);
+  }
+
+  /// Get STT API key for a provider
+  Future<String?> getSttApiKey(SttProvider provider) async {
+    final key = provider == SttProvider.groq
+        ? _sttGroqApiKeyKey
+        : _sttOpenaiApiKeyKey;
+    return _storage.read(key: key);
+  }
+
+  /// Clear STT API key for a provider
+  Future<void> clearSttApiKey(SttProvider provider) async {
+    final key = provider == SttProvider.groq
+        ? _sttGroqApiKeyKey
+        : _sttOpenaiApiKeyKey;
+    await _storage.delete(key: key);
   }
 
   Future<ConnectionInfo?> loadConnection() async {

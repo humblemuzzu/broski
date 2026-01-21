@@ -56,6 +56,16 @@ dependencies:
   photo_view: ^0.15.0
   csv: ^6.0.0
   flutter_svg: ^2.0.10
+  
+  # Voice input (STT)
+  http: ^1.2.0
+  record: ^5.1.0
+  permission_handler: ^11.3.1
+
+dependency_overrides:
+  record: 5.1.0
+  record_linux: 0.7.1
+  record_platform_interface: 1.1.0
 
 dev_dependencies:
   flutter_test:

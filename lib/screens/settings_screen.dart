@@ -35,6 +35,7 @@ import 'opencode_agents_screen.dart';
 import 'opencode_commands_screen.dart';
 import 'permission_rules_screen.dart';
 import 'codex_agents_screen.dart';
+import 'voice_settings_screen.dart';
 // TODO(artifacts): Re-enable when feature is ready
 // import 'artifacts_screen.dart';
 
@@ -181,44 +182,60 @@ class SettingsScreen extends ConsumerWidget {
               child: Padding(
                 padding: const EdgeInsets.symmetric(horizontal: 20),
                 child: _SettingsCard(
-                  child: _SettingsTile(
-                    title: 'Customization',
-                    subtitle: 'Theme, input bar, navigation',
-                    icon: Icons.palette_rounded,
-                    trailing: Row(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        Container(
-                          width: 14,
-                          height: 14,
-                          decoration: BoxDecoration(
-                            color:
-                                currentThemeInfo?.primaryColor ??
-                                theme.colorScheme.primary,
-                            shape: BoxShape.circle,
-                            border: Border.all(
-                              color: theme.colorScheme.onSurface.withValues(
-                                alpha: 0.2,
+                  child: Column(
+                    children: [
+                      _SettingsTile(
+                        title: 'Customization',
+                        subtitle: 'Theme, input bar, navigation',
+                        icon: Icons.palette_rounded,
+                        trailing: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Container(
+                              width: 14,
+                              height: 14,
+                              decoration: BoxDecoration(
+                                color:
+                                    currentThemeInfo?.primaryColor ??
+                                    theme.colorScheme.primary,
+                                shape: BoxShape.circle,
+                                border: Border.all(
+                                  color: theme.colorScheme.onSurface.withValues(
+                                    alpha: 0.2,
+                                  ),
+                                ),
                               ),
                             ),
+                            const SizedBox(width: 8),
+                            Icon(
+                              Icons.chevron_right_rounded,
+                              size: 20,
+                              color: theme.colorScheme.onSurface.withValues(
+                                alpha: 0.5,
+                              ),
+                            ),
+                          ],
+                        ),
+                        onTap: () => Navigator.push(
+                          context,
+                          MaterialPageRoute(
+                            builder: (_) => const CustomizationScreen(),
                           ),
                         ),
-                        const SizedBox(width: 8),
-                        Icon(
-                          Icons.chevron_right_rounded,
-                          size: 20,
-                          color: theme.colorScheme.onSurface.withValues(
-                            alpha: 0.5,
-                          ),
-                        ),
-                      ],
-                    ),
-                    onTap: () => Navigator.push(
-                      context,
-                      MaterialPageRoute(
-                        builder: (_) => const CustomizationScreen(),
                       ),
-                    ),
+                      _Divider(),
+                      _SettingsTile(
+                        title: 'Voice Input',
+                        subtitle: 'Speech-to-text settings',
+                        icon: Icons.mic_rounded,
+                        onTap: () => Navigator.push(
+                          context,
+                          MaterialPageRoute(
+                            builder: (_) => const VoiceSettingsScreen(),
+                          ),
+                        ),
+                      ),
+                    ],
                   ),
                 ),
               ),
