@@ -1,6 +1,7 @@
 import 'dart:convert';
 
 import 'package:flutter/material.dart';
+import 'package:flutter_markdown/flutter_markdown.dart';
 import 'package:google_fonts/google_fonts.dart';
 
 import '../../models/message.dart';
@@ -315,6 +316,7 @@ class CompactToolCard extends StatelessWidget {
 
   Widget _buildWebFetchContent(OpenCodeTheme theme) {
     final url = tool.input['url'] as String? ?? '';
+    final isLoading = tool.output == null || tool.status == 'running';
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -328,12 +330,78 @@ class CompactToolCard extends StatelessWidget {
         ),
         DetailSection(
           label: 'Content',
-          child: SelectableText(
-            tool.output ?? 'Fetching...',
-            style: GoogleFonts.jetBrainsMono(color: theme.text, fontSize: 12),
-          ),
+          child: isLoading
+              ? Row(
+                  children: [
+                    SizedBox(
+                      width: 14,
+                      height: 14,
+                      child: CircularProgressIndicator(
+                        strokeWidth: 2,
+                        color: theme.info,
+                      ),
+                    ),
+                    const SizedBox(width: 8),
+                    Text(
+                      'Fetching...',
+                      style: TextStyle(color: theme.textMuted),
+                    ),
+                  ],
+                )
+              : MarkdownBody(
+                  data: tool.output!,
+                  selectable: true,
+                  styleSheet: _buildMarkdownStyle(theme),
+                ),
         ),
       ],
+    );
+  }
+
+  /// Build markdown style for content rendering
+  MarkdownStyleSheet _buildMarkdownStyle(OpenCodeTheme theme) {
+    return MarkdownStyleSheet(
+      p: GoogleFonts.inter(fontSize: 14, color: theme.text, height: 1.5),
+      h1: GoogleFonts.inter(
+        fontSize: 18,
+        fontWeight: FontWeight.w600,
+        color: theme.text,
+        height: 1.4,
+      ),
+      h2: GoogleFonts.inter(
+        fontSize: 16,
+        fontWeight: FontWeight.w600,
+        color: theme.text,
+        height: 1.4,
+      ),
+      h3: GoogleFonts.inter(
+        fontSize: 15,
+        fontWeight: FontWeight.w600,
+        color: theme.text,
+        height: 1.4,
+      ),
+      strong: TextStyle(fontWeight: FontWeight.w600, color: theme.text),
+      em: TextStyle(fontStyle: FontStyle.italic, color: theme.textMuted),
+      code: GoogleFonts.jetBrainsMono(
+        fontSize: 12,
+        color: theme.accent,
+        backgroundColor: theme.backgroundElement,
+      ),
+      codeblockDecoration: BoxDecoration(
+        color: theme.backgroundElement,
+        borderRadius: BorderRadius.circular(8),
+        border: Border.all(color: theme.borderSubtle),
+      ),
+      codeblockPadding: const EdgeInsets.all(12),
+      blockquoteDecoration: BoxDecoration(
+        border: Border(left: BorderSide(color: theme.borderSubtle, width: 3)),
+      ),
+      blockquotePadding: const EdgeInsets.only(left: 12),
+      listBullet: TextStyle(color: theme.textMuted),
+      tableHead: TextStyle(fontWeight: FontWeight.w600, color: theme.text),
+      tableBody: TextStyle(color: theme.text),
+      tableBorder: TableBorder.all(color: theme.borderSubtle, width: 1),
+      tableCellsPadding: const EdgeInsets.all(8),
     );
   }
 
