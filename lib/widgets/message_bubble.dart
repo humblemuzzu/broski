@@ -127,7 +127,8 @@ class MessageBubble extends StatelessWidget {
   Widget _buildAssistantMessage(BuildContext context, OpenCodeTheme theme) {
     // Feature 6/CodeX: Long press actions
     return GestureDetector(
-      onLongPress: (onForkFromHere != null || onRollback != null) &&
+      onLongPress:
+          (onForkFromHere != null || onRollback != null) &&
               message.id.isNotEmpty
           ? () => _showForkMenu(context, theme)
           : null,
@@ -232,6 +233,14 @@ class MessageBubble extends StatelessWidget {
         color: theme.markdownHeading,
         height: 1.4,
       ),
+      // Section spacing - creates visual separation like Claude's app
+      h1Padding: const EdgeInsets.only(top: 24, bottom: 12),
+      h2Padding: const EdgeInsets.only(top: 20, bottom: 10),
+      h3Padding: const EdgeInsets.only(top: 16, bottom: 8),
+      // Add subtle divider after headings using bottom border decoration
+      horizontalRuleDecoration: BoxDecoration(
+        border: Border(top: BorderSide(color: theme.dividerSection, width: 1)),
+      ),
       strong: TextStyle(
         fontWeight: FontWeight.w600,
         color: theme.markdownStrong,
@@ -263,6 +272,8 @@ class MessageBubble extends StatelessWidget {
         color: theme.markdownLink,
         decoration: TextDecoration.underline,
       ),
+      // Block spacing between sections
+      blockSpacing: 16,
     );
   }
 

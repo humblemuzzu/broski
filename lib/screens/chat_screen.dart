@@ -45,13 +45,18 @@ import '../widgets/export_session_sheet.dart';
 import '../widgets/file_tagging.dart';
 import '../widgets/message_bubble.dart';
 import '../widgets/subtask_notification_card.dart';
-import '../widgets/thinking_card.dart';
+import '../widgets/chat/compact_thinking_card.dart';
 import '../widgets/permission_prompt.dart';
 import '../widgets/permission_rules_sheet.dart';
 import '../widgets/question_prompt_sheet.dart';
 import '../widgets/rollback_sheet.dart';
 import '../widgets/session_sidebar.dart';
-import '../widgets/tool_call.dart';
+import '../widgets/chat/compact_tool_card.dart';
+import '../widgets/chat/compact_edit_card.dart';
+import '../widgets/chat/compact_write_card.dart';
+import '../widgets/chat/compact_todos_card.dart';
+import '../widgets/chat/compact_agent_card.dart';
+import '../models/todo.dart';
 import '../widgets/multi_agent_tree.dart';
 import '../widgets/claude_code_help.dart';
 import '../widgets/power_sheet.dart';
@@ -6839,6 +6844,82 @@ Describe project-specific guidance for Codex here.
     return inputBar;
   }
 
+  /// Builds the appropriate compact card for a tool call
+  Widget _buildToolCard(ToolCall tool, String messageId) {
+    final toolName = tool.name.toLowerCase().replaceFirst('mcp_', '');
+
+    // Edit/Patch tools -> CompactEditCard
+    if (toolName == 'edit' || toolName == 'patch') {
+      return CompactEditCard(
+        tool: tool,
+        messageId: messageId,
+        onUndo: widget.isClaudeCode
+            ? (_, __) => _ccRewindToCheckpoint()
+            : (msgId, partId) => _revertMessage(msgId, partId: partId),
+      );
+    }
+
+    // Write tool -> CompactWriteCard (new file creation with inline preview)
+    if (toolName == 'write') {
+      return CompactWriteCard(
+        tool: tool,
+        messageId: messageId,
+        onUndo: (msgId, partId) => _revertMessage(msgId, partId: partId),
+      );
+    }
+
+    // Task tool (subagent) -> CompactAgentCard
+    if (toolName == 'task') {
+      return CompactAgentCard(tool: tool, messageId: messageId);
+    }
+
+    // TodoWrite tool -> CompactTodosCard
+    if (toolName == 'todowrite') {
+      final todos = _extractTodosFromTool(tool);
+      if (todos.isNotEmpty) {
+        return CompactTodosCard(todos: todos);
+      }
+    }
+
+    // All other tools -> CompactToolCard
+    return CompactToolCard(
+      tool: tool,
+      messageId: messageId,
+      onUndo: _canUndoTool(toolName)
+          ? (msgId, partId) => _revertMessage(msgId, partId: partId)
+          : null,
+    );
+  }
+
+  /// Extract todos from TodoWrite tool input
+  List<Todo> _extractTodosFromTool(ToolCall tool) {
+    try {
+      final todosRaw = tool.input['todos'];
+      if (todosRaw is! List) return [];
+      return todosRaw
+          .whereType<Map<String, dynamic>>()
+          .map((t) => Todo.fromJson(t))
+          .toList();
+    } catch (e) {
+      return [];
+    }
+  }
+
+  /// Check if a tool can be undone (write operations)
+  bool _canUndoTool(String toolName) {
+    return toolName == 'write';
+  }
+
+  /// Check if a diff came from an edit tool (to avoid duplicate display)
+  bool _isDiffFromEditTool(DiffEntry diff, List<ToolCall> tools) {
+    return tools.any((t) {
+      final name = t.name.toLowerCase().replaceFirst('mcp_', '');
+      if (name != 'edit' && name != 'patch') return false;
+      final toolPath = t.input['filePath'] ?? t.input['path'] ?? '';
+      return toolPath == diff.file;
+    });
+  }
+
   Widget _buildMessageGroup(ChatMessage message) {
     // PERF: RepaintBoundary isolates this message's painting from others.
     // Changes to one message don't trigger repaints of nearby messages.
@@ -6850,7 +6931,7 @@ Describe project-specific guidance for Codex here.
           if (message.hasReasoning)
             Padding(
               padding: const EdgeInsets.only(bottom: 8),
-              child: ThinkingCard(message: message),
+              child: CompactThinkingCard(message: message),
             ),
 
           // Claude Code with ordered parts: Render in arrival order (text-tool-text interleaved)
@@ -6868,43 +6949,36 @@ Describe project-specific guidance for Codex here.
                 onRollback: widget.isCodex ? _showCodexRollbackSheet : null,
               ),
 
-            // Tool calls with Feature 7: Undo callback
-            // For Claude Code, undo rewinds to the latest checkpoint (session-wide).
-            // For OpenCode, undo reverts a specific message/part.
+            // Tool calls - using new compact card components
             for (final tool in message.toolCalls)
               Padding(
                 padding: const EdgeInsets.only(top: 8),
-                child: ToolCallCard(
-                  tool: tool,
+                child: _buildToolCard(tool, message.id),
+              ),
+          ],
+
+          // Diffs - only show standalone diffs that aren't from edit tools
+          // (edit tool diffs are now shown inline in CompactEditCard)
+          for (final diff in message.diffs)
+            if (!_isDiffFromEditTool(diff, message.toolCalls))
+              Padding(
+                padding: const EdgeInsets.only(top: 8),
+                child: DiffViewer(
+                  diff: diff,
                   messageId: message.id,
                   onUndo: widget.isClaudeCode
                       ? (_, __) => _ccRewindToCheckpoint()
                       : (messageId, partId) =>
                             _revertMessage(messageId, partId: partId),
+                  onViewFull: () => _openDiffView(diff, messageId: message.id),
                 ),
               ),
-          ],
-
-          // Diffs with Feature 7: Revert callback (always after parts)
-          for (final diff in message.diffs)
-            Padding(
-              padding: const EdgeInsets.only(top: 8),
-              child: DiffViewer(
-                diff: diff,
-                messageId: message.id,
-                onUndo: widget.isClaudeCode
-                    ? (_, __) => _ccRewindToCheckpoint()
-                    : (messageId, partId) =>
-                          _revertMessage(messageId, partId: partId),
-                onViewFull: () => _openDiffView(diff, messageId: message.id),
-              ),
-            ),
 
           // Subtask notifications (background task completions)
           for (final subtask in message.subtaskNotifications)
             Padding(
               padding: const EdgeInsets.only(top: 8),
-              child: SubtaskNotificationCard(notification: subtask),
+              child: CompactAgentCard.fromNotification(notification: subtask),
             ),
 
           const SizedBox(height: 16),
@@ -6951,11 +7025,7 @@ Describe project-specific guidance for Codex here.
             widgets.add(
               Padding(
                 padding: const EdgeInsets.only(top: 8),
-                child: ToolCallCard(
-                  tool: tool,
-                  messageId: message.id,
-                  onUndo: (_, __) => _ccRewindToCheckpoint(),
-                ),
+                child: _buildToolCard(tool, message.id),
               ),
             );
           }
@@ -6980,11 +7050,7 @@ Describe project-specific guidance for Codex here.
         widgets.add(
           Padding(
             padding: const EdgeInsets.only(top: 8),
-            child: ToolCallCard(
-              tool: tool,
-              messageId: message.id,
-              onUndo: (_, __) => _ccRewindToCheckpoint(),
-            ),
+            child: _buildToolCard(tool, message.id),
           ),
         );
       }

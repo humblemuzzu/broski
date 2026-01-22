@@ -37,6 +37,7 @@ class OpenCodeTheme extends ThemeExtension<OpenCodeTheme> {
     // Extended background scale (10 shades for better readability)
     required this.bgDeep,
     required this.bgRaised,
+    required this.bgSheet,
     required this.bgHover,
     required this.bgActive,
     required this.bgHighlight,
@@ -46,6 +47,8 @@ class OpenCodeTheme extends ThemeExtension<OpenCodeTheme> {
     required this.border,
     required this.borderActive,
     required this.borderSubtle,
+    required this.cardBorderSubtle,
+    required this.dividerSection,
     // Tool-specific accent colors (distinct per tool type)
     required this.toolThinking,
     required this.toolEdit,
@@ -159,6 +162,9 @@ class OpenCodeTheme extends ThemeExtension<OpenCodeTheme> {
   /// Slightly raised from base - message area, content regions
   final Color bgRaised;
 
+  /// Sheet/modal background
+  final Color bgSheet;
+
   /// Hover state background
   final Color bgHover;
 
@@ -186,6 +192,12 @@ class OpenCodeTheme extends ThemeExtension<OpenCodeTheme> {
 
   /// Subtle/divider borders
   final Color borderSubtle;
+
+  /// Very subtle border for compact cards (lower opacity than borderSubtle)
+  final Color cardBorderSubtle;
+
+  /// Subtle divider between markdown sections
+  final Color dividerSection;
 
   // ═══════════════════════════════════════════════════════════════════════════
   // Tool-specific accent colors
@@ -335,6 +347,7 @@ class OpenCodeTheme extends ThemeExtension<OpenCodeTheme> {
     // Extended background scale
     Color? bgDeep,
     Color? bgRaised,
+    Color? bgSheet,
     Color? bgHover,
     Color? bgActive,
     Color? bgHighlight,
@@ -344,6 +357,8 @@ class OpenCodeTheme extends ThemeExtension<OpenCodeTheme> {
     Color? border,
     Color? borderActive,
     Color? borderSubtle,
+    Color? cardBorderSubtle,
+    Color? dividerSection,
     // Tool colors
     Color? toolThinking,
     Color? toolEdit,
@@ -409,6 +424,7 @@ class OpenCodeTheme extends ThemeExtension<OpenCodeTheme> {
       backgroundMenu: backgroundMenu ?? this.backgroundMenu,
       bgDeep: bgDeep ?? this.bgDeep,
       bgRaised: bgRaised ?? this.bgRaised,
+      bgSheet: bgSheet ?? this.bgSheet,
       bgHover: bgHover ?? this.bgHover,
       bgActive: bgActive ?? this.bgActive,
       bgHighlight: bgHighlight ?? this.bgHighlight,
@@ -417,6 +433,8 @@ class OpenCodeTheme extends ThemeExtension<OpenCodeTheme> {
       border: border ?? this.border,
       borderActive: borderActive ?? this.borderActive,
       borderSubtle: borderSubtle ?? this.borderSubtle,
+      cardBorderSubtle: cardBorderSubtle ?? this.cardBorderSubtle,
+      dividerSection: dividerSection ?? this.dividerSection,
       toolThinking: toolThinking ?? this.toolThinking,
       toolEdit: toolEdit ?? this.toolEdit,
       toolRead: toolRead ?? this.toolRead,
@@ -495,6 +513,7 @@ class OpenCodeTheme extends ThemeExtension<OpenCodeTheme> {
       backgroundMenu: Color.lerp(backgroundMenu, other.backgroundMenu, t)!,
       bgDeep: Color.lerp(bgDeep, other.bgDeep, t)!,
       bgRaised: Color.lerp(bgRaised, other.bgRaised, t)!,
+      bgSheet: Color.lerp(bgSheet, other.bgSheet, t)!,
       bgHover: Color.lerp(bgHover, other.bgHover, t)!,
       bgActive: Color.lerp(bgActive, other.bgActive, t)!,
       bgHighlight: Color.lerp(bgHighlight, other.bgHighlight, t)!,
@@ -503,6 +522,12 @@ class OpenCodeTheme extends ThemeExtension<OpenCodeTheme> {
       border: Color.lerp(border, other.border, t)!,
       borderActive: Color.lerp(borderActive, other.borderActive, t)!,
       borderSubtle: Color.lerp(borderSubtle, other.borderSubtle, t)!,
+      cardBorderSubtle: Color.lerp(
+        cardBorderSubtle,
+        other.cardBorderSubtle,
+        t,
+      )!,
+      dividerSection: Color.lerp(dividerSection, other.dividerSection, t)!,
       toolThinking: Color.lerp(toolThinking, other.toolThinking, t)!,
       toolEdit: Color.lerp(toolEdit, other.toolEdit, t)!,
       toolRead: Color.lerp(toolRead, other.toolRead, t)!,

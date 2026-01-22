@@ -53,6 +53,7 @@ const opencodeLightTheme = OpenCodeTheme(
   // Extended background scale for light theme
   bgDeep: Color(0xFFFFFFFF), // Pure white - deepest layer
   bgRaised: Color(0xFFFAFAF9), // Off-white - raised content
+  bgSheet: Color(0xFFFFFFFF), // Sheet/modal background
   bgHover: Color(0xFFF5F5F4), // Hover state
   bgActive: Color(0xFFE5E5E5), // Active/pressed
   bgHighlight: Color(0xFFFEF3C7), // Amber highlight
@@ -62,6 +63,8 @@ const opencodeLightTheme = OpenCodeTheme(
   border: Color(0xFFE5E5E5), // Light gray
   borderActive: Color(0xFFD97706), // Amber when active
   borderSubtle: Color(0xFFF0F0F0), // Very subtle
+  cardBorderSubtle: Color(0x4DF0F0F0), // 30% opacity for light mode
+  dividerSection: Color(0x1A6B7280), // 10% of textMuted
   // Tool-specific colors for light theme (readable, professional)
   toolThinking: Color(0xFF2563EB), // Blue - cognitive
   toolEdit: Color(0xFFD97706), // Amber - modification
@@ -132,6 +135,7 @@ const opencodeDarkTheme = OpenCodeTheme(
   // Extended background scale (10 shades for better readability)
   bgDeep: Color(0xFF050505), // Deepest
   bgRaised: Color(0xFF0f0f0f), // Slightly raised
+  bgSheet: Color(0xFF141414), // Sheet/modal background
   bgHover: Color(0xFF1a1a1a), // Hover
   bgActive: Color(0xFF242424), // Active
   bgHighlight: Color(0xFF2a2a2a), // Highlight
@@ -140,6 +144,8 @@ const opencodeDarkTheme = OpenCodeTheme(
   border: Color(0xFF484848),
   borderActive: Color(0xFF606060),
   borderSubtle: Color(0xFF3c3c3c),
+  cardBorderSubtle: Color(0x663c3c3c), // 40% of borderSubtle
+  dividerSection: Color(0x1F808080), // 12% of textMuted
   // Tool-specific colors (professional, readable - no purple/pink)
   toolThinking: Color(0xFF5c9cf5), // Blue - cognitive
   toolEdit: Color(0xFFf5a742), // Amber - modification
@@ -206,6 +212,7 @@ const tokyonightDarkTheme = OpenCodeTheme(
   backgroundMenu: Color(0xFF222436),
   bgDeep: Color(0xFF16161e),
   bgRaised: Color(0xFF1a1b26),
+  bgSheet: Color(0xFF1e2030),
   bgHover: Color(0xFF1e2030),
   bgActive: Color(0xFF282a3f),
   bgHighlight: Color(0xFF2d3050),
@@ -214,6 +221,8 @@ const tokyonightDarkTheme = OpenCodeTheme(
   border: Color(0xFF737aa2),
   borderActive: Color(0xFF9099b2),
   borderSubtle: Color(0xFF545c7e),
+  cardBorderSubtle: Color(0x66545c7e),
+  dividerSection: Color(0x1F828bb8),
   toolThinking: Color(0xFF82aaff), // Blue
   toolEdit: Color(0xFFff966c), // Orange
   toolRead: Color(0xFF86e1fc), // Cyan
@@ -279,6 +288,7 @@ const draculaDarkTheme = OpenCodeTheme(
   backgroundMenu: Color(0xFF44475a),
   bgDeep: Color(0xFF1e1f29),
   bgRaised: Color(0xFF282a36),
+  bgSheet: Color(0xFF21222c),
   bgHover: Color(0xFF2d303f),
   bgActive: Color(0xFF363949),
   bgHighlight: Color(0xFF3d4050),
@@ -287,6 +297,8 @@ const draculaDarkTheme = OpenCodeTheme(
   border: Color(0xFF44475a),
   borderActive: Color(0xFF8be9fd),
   borderSubtle: Color(0xFF191a21),
+  cardBorderSubtle: Color(0x66191a21),
+  dividerSection: Color(0x1F6272a4),
   toolThinking: Color(0xFF8be9fd), // Cyan
   toolEdit: Color(0xFFffb86c), // Orange
   toolRead: Color(0xFF8be9fd), // Cyan
@@ -352,6 +364,7 @@ const catppuccinDarkTheme = OpenCodeTheme(
   backgroundMenu: Color(0xFF11111b),
   bgDeep: Color(0xFF0c0c14),
   bgRaised: Color(0xFF1e1e2e),
+  bgSheet: Color(0xFF181825),
   bgHover: Color(0xFF24243a),
   bgActive: Color(0xFF2a2a42),
   bgHighlight: Color(0xFF313244),
@@ -360,6 +373,8 @@ const catppuccinDarkTheme = OpenCodeTheme(
   border: Color(0xFF313244),
   borderActive: Color(0xFF45475a),
   borderSubtle: Color(0xFF585b70),
+  cardBorderSubtle: Color(0x66585b70),
+  dividerSection: Color(0x1Fbac2de),
   toolThinking: Color(0xFF89b4fa), // Blue
   toolEdit: Color(0xFFfab387), // Peach/Orange
   toolRead: Color(0xFF89dceb), // Sky
@@ -425,6 +440,7 @@ const nordDarkTheme = OpenCodeTheme(
   backgroundMenu: Color(0xFF434C5E),
   bgDeep: Color(0xFF242933),
   bgRaised: Color(0xFF2E3440),
+  bgSheet: Color(0xFF3B4252),
   bgHover: Color(0xFF353c4a),
   bgActive: Color(0xFF3B4252),
   bgHighlight: Color(0xFF434C5E),
@@ -433,6 +449,8 @@ const nordDarkTheme = OpenCodeTheme(
   border: Color(0xFF434C5E),
   borderActive: Color(0xFF4C566A),
   borderSubtle: Color(0xFF434C5E),
+  cardBorderSubtle: Color(0x66434C5E),
+  dividerSection: Color(0x1F8B95A7),
   toolThinking: Color(0xFF81A1C1), // Blue
   toolEdit: Color(0xFFD08770), // Orange
   toolRead: Color(0xFF88C0D0), // Frost
@@ -498,6 +516,7 @@ const gruvboxDarkTheme = OpenCodeTheme(
   backgroundMenu: Color(0xFF504945),
   bgDeep: Color(0xFF1d2021),
   bgRaised: Color(0xFF282828),
+  bgSheet: Color(0xFF3c3836),
   bgHover: Color(0xFF32302f),
   bgActive: Color(0xFF3c3836),
   bgHighlight: Color(0xFF504945),
@@ -506,6 +525,8 @@ const gruvboxDarkTheme = OpenCodeTheme(
   border: Color(0xFF665c54),
   borderActive: Color(0xFFebdbb2),
   borderSubtle: Color(0xFF504945),
+  cardBorderSubtle: Color(0x66504945),
+  dividerSection: Color(0x1F928374),
   toolThinking: Color(0xFF83a598), // Aqua
   toolEdit: Color(0xFFfe8019), // Orange
   toolRead: Color(0xFF83a598), // Aqua
@@ -571,6 +592,7 @@ const auraDarkTheme = OpenCodeTheme(
   backgroundMenu: Color(0xFF15141b),
   bgDeep: Color(0xFF080808),
   bgRaised: Color(0xFF0f0f0f),
+  bgSheet: Color(0xFF15141b),
   bgHover: Color(0xFF181820),
   bgActive: Color(0xFF1e1e28),
   bgHighlight: Color(0xFF252530),
@@ -579,6 +601,8 @@ const auraDarkTheme = OpenCodeTheme(
   border: Color(0xFF2d2d2d),
   borderActive: Color(0xFF6d6d6d),
   borderSubtle: Color(0xFF2d2d2d),
+  cardBorderSubtle: Color(0x662d2d2d),
+  dividerSection: Color(0x1F6d6d6d),
   toolThinking: Color(0xFF82e0ff), // Blue
   toolEdit: Color(0xFFffca85), // Amber
   toolRead: Color(0xFF61ffca), // Teal
@@ -644,6 +668,7 @@ const monokaiDarkTheme = OpenCodeTheme(
   backgroundMenu: Color(0xFF3e3d32),
   bgDeep: Color(0xFF1a1b16),
   bgRaised: Color(0xFF272822),
+  bgSheet: Color(0xFF1e1f1c),
   bgHover: Color(0xFF2f302a),
   bgActive: Color(0xFF3e3d32),
   bgHighlight: Color(0xFF49483e),
@@ -652,6 +677,8 @@ const monokaiDarkTheme = OpenCodeTheme(
   border: Color(0xFF3e3d32),
   borderActive: Color(0xFF66d9ef),
   borderSubtle: Color(0xFF1e1f1c),
+  cardBorderSubtle: Color(0x661e1f1c),
+  dividerSection: Color(0x1F75715e),
   toolThinking: Color(0xFF66d9ef), // Cyan
   toolEdit: Color(0xFFfd971f), // Orange
   toolRead: Color(0xFF66d9ef), // Cyan
@@ -717,6 +744,7 @@ const flexokiDarkTheme = OpenCodeTheme(
   backgroundMenu: Color(0xFF282726),
   bgDeep: Color(0xFF080808),
   bgRaised: Color(0xFF100F0F),
+  bgSheet: Color(0xFF1C1B1A),
   bgHover: Color(0xFF1C1B1A),
   bgActive: Color(0xFF282726),
   bgHighlight: Color(0xFF343331),
@@ -725,6 +753,8 @@ const flexokiDarkTheme = OpenCodeTheme(
   border: Color(0xFF575653),
   borderActive: Color(0xFF6F6E69),
   borderSubtle: Color(0xFF403E3C),
+  cardBorderSubtle: Color(0x66403E3C),
+  dividerSection: Color(0x1F6F6E69),
   toolThinking: Color(0xFF4385BE), // Blue
   toolEdit: Color(0xFFda702c), // Orange
   toolRead: Color(0xFF3AA99F), // Teal
@@ -790,6 +820,7 @@ const oneDarkTheme = OpenCodeTheme(
   backgroundMenu: Color(0xFF2c313a),
   bgDeep: Color(0xFF1b1d23),
   bgRaised: Color(0xFF282c34),
+  bgSheet: Color(0xFF21252b),
   bgHover: Color(0xFF2c313a),
   bgActive: Color(0xFF3e4451),
   bgHighlight: Color(0xFF4b5263),
@@ -798,6 +829,8 @@ const oneDarkTheme = OpenCodeTheme(
   border: Color(0xFF3e4451),
   borderActive: Color(0xFF61afef),
   borderSubtle: Color(0xFF2c313a),
+  cardBorderSubtle: Color(0x662c313a),
+  dividerSection: Color(0x1F5c6370),
   toolThinking: Color(0xFF61afef), // Blue
   toolEdit: Color(0xFFd19a66), // Orange
   toolRead: Color(0xFF56b6c2), // Cyan
@@ -863,6 +896,7 @@ const solarizedDarkTheme = OpenCodeTheme(
   backgroundMenu: Color(0xFF073642),
   bgDeep: Color(0xFF001f27),
   bgRaised: Color(0xFF002b36),
+  bgSheet: Color(0xFF073642),
   bgHover: Color(0xFF073642),
   bgActive: Color(0xFF094150),
   bgHighlight: Color(0xFF0b5260),
@@ -871,6 +905,8 @@ const solarizedDarkTheme = OpenCodeTheme(
   border: Color(0xFF586e75),
   borderActive: Color(0xFF268bd2),
   borderSubtle: Color(0xFF073642),
+  cardBorderSubtle: Color(0x66073642),
+  dividerSection: Color(0x1F586e75),
   toolThinking: Color(0xFF268bd2), // Blue
   toolEdit: Color(0xFFcb4b16), // Orange
   toolRead: Color(0xFF2aa198), // Cyan
@@ -936,6 +972,7 @@ const githubDarkTheme = OpenCodeTheme(
   backgroundMenu: Color(0xFF21262d),
   bgDeep: Color(0xFF010409),
   bgRaised: Color(0xFF0d1117),
+  bgSheet: Color(0xFF161b22),
   bgHover: Color(0xFF161b22),
   bgActive: Color(0xFF21262d),
   bgHighlight: Color(0xFF30363d),
@@ -944,6 +981,8 @@ const githubDarkTheme = OpenCodeTheme(
   border: Color(0xFF30363d),
   borderActive: Color(0xFF58a6ff),
   borderSubtle: Color(0xFF21262d),
+  cardBorderSubtle: Color(0x6621262d),
+  dividerSection: Color(0x1F8b949e),
   toolThinking: Color(0xFF58a6ff), // Blue
   toolEdit: Color(0xFFf0883e), // Orange
   toolRead: Color(0xFF79c0ff), // Cyan
@@ -1009,6 +1048,7 @@ const matrixDarkTheme = OpenCodeTheme(
   backgroundMenu: Color(0xFF111111),
   bgDeep: Color(0xFF000000),
   bgRaised: Color(0xFF050505),
+  bgSheet: Color(0xFF0a0a0a),
   bgHover: Color(0xFF0a0a0a),
   bgActive: Color(0xFF111111),
   bgHighlight: Color(0xFF1a1a1a),
@@ -1017,6 +1057,8 @@ const matrixDarkTheme = OpenCodeTheme(
   border: Color(0xFF003300),
   borderActive: Color(0xFF2eff6a),
   borderSubtle: Color(0xFF001a00),
+  cardBorderSubtle: Color(0x66001a00),
+  dividerSection: Color(0x1F006600),
   toolThinking: Color(0xFF00ffff), // Cyan
   toolEdit: Color(0xFFffff00), // Yellow
   toolRead: Color(0xFF2eff6a), // Green
@@ -1082,6 +1124,7 @@ const synthwave84DarkTheme = OpenCodeTheme(
   backgroundMenu: Color(0xFF34294f),
   bgDeep: Color(0xFF1a1525),
   bgRaised: Color(0xFF2a2139),
+  bgSheet: Color(0xFF241b2f),
   bgHover: Color(0xFF34294f),
   bgActive: Color(0xFF3e3360),
   bgHighlight: Color(0xFF495495),
@@ -1090,6 +1133,8 @@ const synthwave84DarkTheme = OpenCodeTheme(
   border: Color(0xFF495495),
   borderActive: Color(0xFF36f9f6),
   borderSubtle: Color(0xFF34294f),
+  cardBorderSubtle: Color(0x6634294f),
+  dividerSection: Color(0x1F848bbd),
   toolThinking: Color(0xFF36f9f6), // Cyan
   toolEdit: Color(0xFFfede5d), // Yellow
   toolRead: Color(0xFF36f9f6), // Cyan
@@ -1155,6 +1200,7 @@ const vesperDarkTheme = OpenCodeTheme(
   backgroundMenu: Color(0xFF232323),
   bgDeep: Color(0xFF080808),
   bgRaised: Color(0xFF101010),
+  bgSheet: Color(0xFF181818),
   bgHover: Color(0xFF181818),
   bgActive: Color(0xFF232323),
   bgHighlight: Color(0xFF2e2e2e),
@@ -1163,6 +1209,8 @@ const vesperDarkTheme = OpenCodeTheme(
   border: Color(0xFF333333),
   borderActive: Color(0xFFFFC799),
   borderSubtle: Color(0xFF232323),
+  cardBorderSubtle: Color(0x66232323),
+  dividerSection: Color(0x1F7B7B7B),
   toolThinking: Color(0xFF99D0FF), // Blue
   toolEdit: Color(0xFFFFC799), // Peach
   toolRead: Color(0xFF99FFE4), // Teal
@@ -1228,6 +1276,7 @@ const rosepineDarkTheme = OpenCodeTheme(
   backgroundMenu: Color(0xFF26233a),
   bgDeep: Color(0xFF11101a),
   bgRaised: Color(0xFF191724),
+  bgSheet: Color(0xFF1f1d2e),
   bgHover: Color(0xFF1f1d2e),
   bgActive: Color(0xFF26233a),
   bgHighlight: Color(0xFF312e45),
@@ -1236,6 +1285,8 @@ const rosepineDarkTheme = OpenCodeTheme(
   border: Color(0xFF403d52),
   borderActive: Color(0xFF9ccfd8),
   borderSubtle: Color(0xFF26233a),
+  cardBorderSubtle: Color(0x6626233a),
+  dividerSection: Color(0x1F908caa),
   toolThinking: Color(0xFF9ccfd8), // Foam
   toolEdit: Color(0xFFf6c177), // Gold
   toolRead: Color(0xFF9ccfd8), // Foam
@@ -1301,6 +1352,7 @@ const vercelDarkTheme = OpenCodeTheme(
   backgroundMenu: Color(0xFF1a1a1a),
   bgDeep: Color(0xFF000000),
   bgRaised: Color(0xFF0a0a0a),
+  bgSheet: Color(0xFF111111),
   bgHover: Color(0xFF111111),
   bgActive: Color(0xFF1a1a1a),
   bgHighlight: Color(0xFF262626),
@@ -1309,6 +1361,8 @@ const vercelDarkTheme = OpenCodeTheme(
   border: Color(0xFF333333),
   borderActive: Color(0xFF0070F3),
   borderSubtle: Color(0xFF222222),
+  cardBorderSubtle: Color(0x66222222),
+  dividerSection: Color(0x1F888888),
   toolThinking: Color(0xFF0070F3), // Blue
   toolEdit: Color(0xFFF5A623), // Orange
   toolRead: Color(0xFF00DFD8), // Cyan
@@ -1374,6 +1428,7 @@ const cobalt2DarkTheme = OpenCodeTheme(
   backgroundMenu: Color(0xFF1d3b53),
   bgDeep: Color(0xFF0a1f2e),
   bgRaised: Color(0xFF193549),
+  bgSheet: Color(0xFF122738),
   bgHover: Color(0xFF1d3b53),
   bgActive: Color(0xFF254a68),
   bgHighlight: Color(0xFF2d5a7a),
@@ -1382,6 +1437,8 @@ const cobalt2DarkTheme = OpenCodeTheme(
   border: Color(0xFF0d3a58),
   borderActive: Color(0xFF0088ff),
   borderSubtle: Color(0xFF0d3a58),
+  cardBorderSubtle: Color(0x660d3a58),
+  dividerSection: Color(0x1F0d3a58),
   toolThinking: Color(0xFF0088ff), // Blue
   toolEdit: Color(0xFFff9d00), // Orange
   toolRead: Color(0xFF80ffbb), // Mint
@@ -1447,6 +1504,7 @@ const nightowlDarkTheme = OpenCodeTheme(
   backgroundMenu: Color(0xFF0b2942),
   bgDeep: Color(0xFF000d1a),
   bgRaised: Color(0xFF011627),
+  bgSheet: Color(0xFF0b2942),
   bgHover: Color(0xFF0b2942),
   bgActive: Color(0xFF1d3b53),
   bgHighlight: Color(0xFF234d68),
@@ -1455,6 +1513,8 @@ const nightowlDarkTheme = OpenCodeTheme(
   border: Color(0xFF1d3b53),
   borderActive: Color(0xFF82AAFF),
   borderSubtle: Color(0xFF0b2942),
+  cardBorderSubtle: Color(0x660b2942),
+  dividerSection: Color(0x1F637777),
   toolThinking: Color(0xFF82AAFF), // Blue
   toolEdit: Color(0xFFf78c6c), // Orange
   toolRead: Color(0xFF7fdbca), // Cyan
@@ -1520,6 +1580,7 @@ const palenightDarkTheme = OpenCodeTheme(
   backgroundMenu: Color(0xFF32374d),
   bgDeep: Color(0xFF15171f),
   bgRaised: Color(0xFF292d3e),
+  bgSheet: Color(0xFF1b1e2b),
   bgHover: Color(0xFF32374d),
   bgActive: Color(0xFF3b4158),
   bgHighlight: Color(0xFF444267),
@@ -1528,6 +1589,8 @@ const palenightDarkTheme = OpenCodeTheme(
   border: Color(0xFF444267),
   borderActive: Color(0xFF82aaff),
   borderSubtle: Color(0xFF32374d),
+  cardBorderSubtle: Color(0x6632374d),
+  dividerSection: Color(0x1F676e95),
   toolThinking: Color(0xFF82aaff), // Blue
   toolEdit: Color(0xFFf78c6c), // Orange
   toolRead: Color(0xFF89ddff), // Cyan
@@ -1593,6 +1656,7 @@ const catppuccinFrappeDarkTheme = OpenCodeTheme(
   backgroundMenu: Color(0xFF232634),
   bgDeep: Color(0xFF1e2030),
   bgRaised: Color(0xFF303446),
+  bgSheet: Color(0xFF292c3c),
   bgHover: Color(0xFF363a4f),
   bgActive: Color(0xFF414559),
   bgHighlight: Color(0xFF51576d),
@@ -1601,6 +1665,8 @@ const catppuccinFrappeDarkTheme = OpenCodeTheme(
   border: Color(0xFF414559),
   borderActive: Color(0xFF51576d),
   borderSubtle: Color(0xFF626880),
+  cardBorderSubtle: Color(0x66626880),
+  dividerSection: Color(0x1Fb5bfe2),
   toolThinking: Color(0xFF8da4e2), // Blue
   toolEdit: Color(0xFFef9f76), // Orange/Peach
   toolRead: Color(0xFF81c8be), // Teal
@@ -1666,6 +1732,7 @@ const catppuccinMacchiatoDarkTheme = OpenCodeTheme(
   backgroundMenu: Color(0xFF181926),
   bgDeep: Color(0xFF141620),
   bgRaised: Color(0xFF24273a),
+  bgSheet: Color(0xFF1e2030),
   bgHover: Color(0xFF2a2d42),
   bgActive: Color(0xFF363a4f),
   bgHighlight: Color(0xFF494d64),
@@ -1674,6 +1741,8 @@ const catppuccinMacchiatoDarkTheme = OpenCodeTheme(
   border: Color(0xFF363a4f),
   borderActive: Color(0xFF494d64),
   borderSubtle: Color(0xFF5b6078),
+  cardBorderSubtle: Color(0x665b6078),
+  dividerSection: Color(0x1Fb8c0e0),
   toolThinking: Color(0xFF8aadf4), // Blue
   toolEdit: Color(0xFFf5a97f), // Peach
   toolRead: Color(0xFF8bd5ca), // Teal
@@ -1739,6 +1808,7 @@ const materialDarkTheme = OpenCodeTheme(
   backgroundMenu: Color(0xFF37474f),
   bgDeep: Color(0xFF151c20),
   bgRaised: Color(0xFF263238),
+  bgSheet: Color(0xFF1e272c),
   bgHover: Color(0xFF2e3c42),
   bgActive: Color(0xFF37474f),
   bgHighlight: Color(0xFF455a64),
@@ -1747,6 +1817,8 @@ const materialDarkTheme = OpenCodeTheme(
   border: Color(0xFF37474f),
   borderActive: Color(0xFF82aaff),
   borderSubtle: Color(0xFF1e272c),
+  cardBorderSubtle: Color(0x661e272c),
+  dividerSection: Color(0x1F546e7a),
   toolThinking: Color(0xFF82aaff), // Blue
   toolEdit: Color(0xFFf78c6c), // Orange
   toolRead: Color(0xFF89ddff), // Cyan
@@ -1812,6 +1884,7 @@ const everforestDarkTheme = OpenCodeTheme(
   backgroundMenu: Color(0xFF343f44),
   bgDeep: Color(0xFF232a2e),
   bgRaised: Color(0xFF2d353b),
+  bgSheet: Color(0xFF333c43),
   bgHover: Color(0xFF333c43),
   bgActive: Color(0xFF3d484d),
   bgHighlight: Color(0xFF475258),
@@ -1820,6 +1893,8 @@ const everforestDarkTheme = OpenCodeTheme(
   border: Color(0xFF859289),
   borderActive: Color(0xFF9da9a0),
   borderSubtle: Color(0xFF7a8478),
+  cardBorderSubtle: Color(0x667a8478),
+  dividerSection: Color(0x1F7a8478),
   toolThinking: Color(0xFF7fbbb3), // Blue-green
   toolEdit: Color(0xFFe69875), // Orange
   toolRead: Color(0xFF7fbbb3), // Aqua
@@ -1885,6 +1960,7 @@ const kanagawaDarkTheme = OpenCodeTheme(
   backgroundMenu: Color(0xFF363646),
   bgDeep: Color(0xFF16161D),
   bgRaised: Color(0xFF1F1F28),
+  bgSheet: Color(0xFF2A2A37),
   bgHover: Color(0xFF2A2A37),
   bgActive: Color(0xFF363646),
   bgHighlight: Color(0xFF43435A),
@@ -1893,6 +1969,8 @@ const kanagawaDarkTheme = OpenCodeTheme(
   border: Color(0xFF54546D),
   borderActive: Color(0xFFC38D9D),
   borderSubtle: Color(0xFF363646),
+  cardBorderSubtle: Color(0x66363646),
+  dividerSection: Color(0x1F727169),
   toolThinking: Color(0xFF7E9CD8), // Blue
   toolEdit: Color(0xFFD7A657), // Gold
   toolRead: Color(0xFF7E9CD8), // Blue
@@ -1958,6 +2036,7 @@ const zenburnDarkTheme = OpenCodeTheme(
   backgroundMenu: Color(0xFF5f5f5f),
   bgDeep: Color(0xFF2f2f2f),
   bgRaised: Color(0xFF3f3f3f),
+  bgSheet: Color(0xFF4f4f4f),
   bgHover: Color(0xFF4f4f4f),
   bgActive: Color(0xFF5f5f5f),
   bgHighlight: Color(0xFF6f6f6f),
@@ -1966,6 +2045,8 @@ const zenburnDarkTheme = OpenCodeTheme(
   border: Color(0xFF5f5f5f),
   borderActive: Color(0xFF8cd0d3),
   borderSubtle: Color(0xFF4f4f4f),
+  cardBorderSubtle: Color(0x664f4f4f),
+  dividerSection: Color(0x1F9f9f9f),
   toolThinking: Color(0xFF8cd0d3), // Cyan
   toolEdit: Color(0xFFdfaf8f), // Orange
   toolRead: Color(0xFF93e0e3), // Light cyan
@@ -2031,6 +2112,7 @@ const mercuryDarkTheme = OpenCodeTheme(
   backgroundMenu: Color(0xFF272735),
   bgDeep: Color(0xFF0a0a12),
   bgRaised: Color(0xFF171721),
+  bgSheet: Color(0xFF10101a),
   bgHover: Color(0xFF1e1e2a),
   bgActive: Color(0xFF272735),
   bgHighlight: Color(0xFF323242),
@@ -2039,6 +2121,8 @@ const mercuryDarkTheme = OpenCodeTheme(
   border: Color(0x1Fb4b7c8),
   borderActive: Color(0xFF8da4f5),
   borderSubtle: Color(0x14b4b7c8),
+  cardBorderSubtle: Color(0x0Ab4b7c8),
+  dividerSection: Color(0x1F9d9da8),
   toolThinking: Color(0xFF8da4f5), // Blue
   toolEdit: Color(0xFFfc9b6f), // Orange
   toolRead: Color(0xFF77becf), // Cyan
@@ -2104,6 +2188,7 @@ const cursorDarkTheme = OpenCodeTheme(
   backgroundMenu: Color(0xFF262626),
   bgDeep: Color(0xFF0c0c0c),
   bgRaised: Color(0xFF181818),
+  bgSheet: Color(0xFF141414),
   bgHover: Color(0xFF1e1e1e),
   bgActive: Color(0xFF262626),
   bgHighlight: Color(0xFF303030),
@@ -2112,6 +2197,8 @@ const cursorDarkTheme = OpenCodeTheme(
   border: Color(0x13e4e4e4),
   borderActive: Color(0xFF88c0d0),
   borderSubtle: Color(0xFF0f0f0f),
+  cardBorderSubtle: Color(0x0Ae4e4e4),
+  dividerSection: Color(0x1Fe4e4e4),
   toolThinking: Color(0xFF81a1c1), // Blue
   toolEdit: Color(0xFFf1b467), // Orange
   toolRead: Color(0xFF88c0d0), // Cyan
@@ -2177,6 +2264,7 @@ const ayuDarkTheme = OpenCodeTheme(
   backgroundMenu: Color(0xFF0D1017),
   bgDeep: Color(0xFF05080c),
   bgRaised: Color(0xFF0B0E14),
+  bgSheet: Color(0xFF0F131A),
   bgHover: Color(0xFF0F131A),
   bgActive: Color(0xFF151920),
   bgHighlight: Color(0xFF1c2128),
@@ -2185,6 +2273,8 @@ const ayuDarkTheme = OpenCodeTheme(
   border: Color(0xFF6C7380),
   borderActive: Color(0xFF6C7380),
   borderSubtle: Color(0xFF11151C),
+  cardBorderSubtle: Color(0x6611151C),
+  dividerSection: Color(0x1F565B66),
   toolThinking: Color(0xFF59C2FF), // Blue
   toolEdit: Color(0xFFFFB454), // Orange
   toolRead: Color(0xFF39BAE6), // Cyan
@@ -2250,6 +2340,7 @@ const orngDarkTheme = OpenCodeTheme(
   backgroundMenu: Color(0xFF1e1e1e),
   bgDeep: Color(0xFF050505),
   bgRaised: Color(0xFF0a0a0a),
+  bgSheet: Color(0xFF141414),
   bgHover: Color(0xFF141414),
   bgActive: Color(0xFF1e1e1e),
   bgHighlight: Color(0xFF282828),
@@ -2258,6 +2349,8 @@ const orngDarkTheme = OpenCodeTheme(
   border: Color(0xFFEC5B2B),
   borderActive: Color(0xFFEE7948),
   borderSubtle: Color(0xFF3c3c3c),
+  cardBorderSubtle: Color(0x663c3c3c),
+  dividerSection: Color(0x1F808080),
   toolThinking: Color(0xFF56b6c2), // Cyan
   toolEdit: Color(0xFFEC5B2B), // Orange
   toolRead: Color(0xFF56b6c2), // Cyan
@@ -2333,6 +2426,7 @@ const broskiDarkTheme = OpenCodeTheme(
   // Extended background scale - Navy depth progression (MORE contrast)
   bgDeep: Color(0xFF10141C), // Abyss - modal overlays (darker than main)
   bgRaised: Color(0xFF1C222E), // Raised navy - content areas
+  bgSheet: Color(0xFF2C2F3C), // Sheet/modal - same as panel
   bgHover: Color(0xFF283040), // Hover state (more visible)
   bgActive: Color(0xFF303848), // Active/pressed
   bgHighlight: Color(0xFF384050), // Selected items
@@ -2342,6 +2436,8 @@ const broskiDarkTheme = OpenCodeTheme(
   border: Color(0xFF3A4252), // Standard border - visible
   borderActive: Color(0xFF5A6272), // Active/focused - silver hint
   borderSubtle: Color(0xFF2E3644), // Subtle dividers
+  cardBorderSubtle: Color(0x662E3644), // 40% of borderSubtle
+  dividerSection: Color(0x1FA0A0A8), // 12% of textMuted
   // Tool colors - MUTED monochromatic with subtle differentiation
   // These are desaturated so they don't clash with the premium aesthetic
   toolThinking: Color(0xFF8A9EB5), // Steel blue-gray - cognitive
@@ -2412,6 +2508,7 @@ const lucentOrngDarkTheme = OpenCodeTheme(
   backgroundMenu: Color(0x00000000),
   bgDeep: Color(0x00000000),
   bgRaised: Color(0x00000000),
+  bgSheet: Color(0x00000000),
   bgHover: Color(0x10ffffff),
   bgActive: Color(0x20ffffff),
   bgHighlight: Color(0x30ffffff),
@@ -2420,6 +2517,8 @@ const lucentOrngDarkTheme = OpenCodeTheme(
   border: Color(0xFFEC5B2B),
   borderActive: Color(0xFFEE7948),
   borderSubtle: Color(0xFF3c3c3c),
+  cardBorderSubtle: Color(0x403c3c3c),
+  dividerSection: Color(0x10808080),
   toolThinking: Color(0xFF56b6c2), // Cyan
   toolEdit: Color(0xFFEC5B2B), // Orange
   toolRead: Color(0xFF56b6c2), // Cyan
