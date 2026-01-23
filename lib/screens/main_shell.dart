@@ -46,11 +46,21 @@ class _MainShellState extends ConsumerState<MainShell> {
   void initState() {
     super.initState();
     // Main tabs don't need per-session traffic; keep it global-only for bandwidth.
-    ref
-        .read(bridgeServiceProvider)
-        .setView(projectPath: 'global', agent: 'opencode');
+    // Defer until after first frame so ref is fully available.
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      ref
+          .read(bridgeServiceProvider)
+          .setView(projectPath: 'global', agent: 'opencode');
+    });
+  }
 
-    // If the socket connects after initState (common on cold start), apply view routing then too.
+  @override
+  Widget build(BuildContext context) {
+    final connection = ref.watch(connectionProvider);
+    final navBarStyle = ref.watch(navBarStyleProvider);
+    final theme = Theme.of(context);
+
+    // Listen for connection changes and set global view when connected
     ref.listen(connectionProvider, (previous, next) {
       final wasConnected = previous?.status == ConnectionStatus.connected;
       final isConnected = next.status == ConnectionStatus.connected;
@@ -60,13 +70,6 @@ class _MainShellState extends ConsumerState<MainShell> {
             .setView(projectPath: 'global', agent: 'opencode');
       }
     });
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    final connection = ref.watch(connectionProvider);
-    final navBarStyle = ref.watch(navBarStyleProvider);
-    final theme = Theme.of(context);
 
     return Scaffold(
       backgroundColor: theme.scaffoldBackgroundColor,

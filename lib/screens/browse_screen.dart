@@ -55,18 +55,18 @@ class _BrowseScreenState extends ConsumerState<BrowseScreen>
     _itemsFuture = _loadItems();
     _loadInitialPath();
     _loadFileStatus();
+  }
 
-    ref.listen(selectionProvider, (previous, next) {
-      final nextProjectPath = next.project?.path;
-      if (nextProjectPath == null || nextProjectPath.isEmpty) return;
-      if (_lastSeenProjectPath == nextProjectPath) return;
-      _lastSeenProjectPath = nextProjectPath;
-      if (_userHasNavigated) return;
+  void _handleSelectionChange(SelectionState? previous, SelectionState next) {
+    final nextProjectPath = next.project?.path;
+    if (nextProjectPath == null || nextProjectPath.isEmpty) return;
+    if (_lastSeenProjectPath == nextProjectPath) return;
+    _lastSeenProjectPath = nextProjectPath;
+    if (_userHasNavigated) return;
 
-      // When a project is selected elsewhere (Projects → Chat), keep Browse in sync.
-      // This matches the "tap project, later Browse shows that project" expectation.
-      _setPath(nextProjectPath, persist: false, userInitiated: false);
-    });
+    // When a project is selected elsewhere (Projects → Chat), keep Browse in sync.
+    // This matches the "tap project, later Browse shows that project" expectation.
+    _setPath(nextProjectPath, persist: false, userInitiated: false);
   }
 
   Future<void> _loadInitialPath() async {
@@ -443,6 +443,9 @@ class _BrowseScreenState extends ConsumerState<BrowseScreen>
     final connection = ref.watch(connectionProvider);
     final selection = ref.watch(selectionProvider);
     final selectedProjectPath = selection.project?.path;
+
+    // Listen for selection changes to sync Browse path with selected project
+    ref.listen(selectionProvider, _handleSelectionChange);
 
     // Show file viewer if viewing a file
     if (_viewingFilePath != null) {

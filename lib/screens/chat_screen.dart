@@ -312,41 +312,48 @@ class _ChatScreenState extends ConsumerState<ChatScreen>
   void initState() {
     super.initState();
     final bridge = ref.read(bridgeServiceProvider);
-    final selection = ref.read(selectionProvider.notifier);
 
-    // Keep power-feature screens consistent: always set a project context when
-    // a chat opens (even for Claude/Codex draft/session routes).
-    final initialProject = widget.isOpenCode
-        ? widget.project
-        : ProjectSummary(
-            id: '',
-            name: widget.projectName,
-            path: widget.effectivePath,
-          );
-    selection.selectProject(initialProject);
-    if (widget.isOpenCode && widget.session.id.isNotEmpty) {
-      selection.selectSession(widget.session);
-    }
+    // Defer state modifications to after the first frame to avoid
+    // "Tried to modify a provider while the widget tree was building" error
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
 
-    // Set up view routing for all backends
-    // This enables real-time cross-device session sync (external session watching)
-    if (widget.isOpenCode) {
-      bridge.setView(
-        projectPath: widget.project.path,
-        sessionId: widget.session.id,
-        agent: 'opencode',
-      );
-    } else if (widget.isClaudeCode) {
-      final sessionId = widget.ccSession?.id ?? '';
-      if (sessionId.isNotEmpty) {
-        bridge.setView(sessionId: sessionId, agent: 'claude-code');
+      final selection = ref.read(selectionProvider.notifier);
+
+      // Keep power-feature screens consistent: always set a project context when
+      // a chat opens (even for Claude/Codex draft/session routes).
+      final initialProject = widget.isOpenCode
+          ? widget.project
+          : ProjectSummary(
+              id: '',
+              name: widget.projectName,
+              path: widget.effectivePath,
+            );
+      selection.selectProject(initialProject);
+      if (widget.isOpenCode && widget.session.id.isNotEmpty) {
+        selection.selectSession(widget.session);
       }
-    } else if (widget.isCodex) {
-      final threadId = widget.cxThread?.id ?? '';
-      if (threadId.isNotEmpty) {
-        bridge.setView(sessionId: threadId, agent: 'codex');
+
+      // Set up view routing for all backends
+      // This enables real-time cross-device session sync (external session watching)
+      if (widget.isOpenCode) {
+        bridge.setView(
+          projectPath: widget.project.path,
+          sessionId: widget.session.id,
+          agent: 'opencode',
+        );
+      } else if (widget.isClaudeCode) {
+        final sessionId = widget.ccSession?.id ?? '';
+        if (sessionId.isNotEmpty) {
+          bridge.setView(sessionId: sessionId, agent: 'claude-code');
+        }
+      } else if (widget.isCodex) {
+        final threadId = widget.cxThread?.id ?? '';
+        if (threadId.isNotEmpty) {
+          bridge.setView(sessionId: threadId, agent: 'codex');
+        }
       }
-    }
+    });
 
     // FIX: Use listenManual for proper subscription lifecycle management
     _connectionSubscription = ref.listenManual(connectionProvider, (
@@ -394,7 +401,11 @@ class _ChatScreenState extends ConsumerState<ChatScreen>
       _handleAutoScroll,
     );
 
-    _hydrateSession().whenComplete(_maybeSendInitialPrompt);
+    // Defer _hydrateSession to after first frame - it modifies provider state
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+      _hydrateSession().whenComplete(_maybeSendInitialPrompt);
+    });
     _controller.addListener(_onTextChanged);
     _scrollController.addListener(_onScroll);
 
