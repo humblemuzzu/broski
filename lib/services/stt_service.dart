@@ -2,187 +2,141 @@ import 'dart:convert';
 import 'dart:io';
 
 import 'package:http/http.dart' as http;
+import 'package:http_parser/http_parser.dart';
 
 import '../models/stt_settings.dart';
 
 /// Service for Speech-to-Text transcription using Groq or OpenAI APIs.
-///
-/// Both providers use OpenAI-compatible API format:
-/// POST {baseUrl}/v1/audio/transcriptions
-/// - multipart/form-data with 'file' and 'model' fields
-/// - Authorization: Bearer {apiKey}
 class SttService {
   SttService();
 
   /// Transcribe an audio file to text.
-  ///
-  /// [audioFile] - The audio file to transcribe (mp3, m4a, wav, etc.)
-  /// [settings] - STT settings including provider, model, and API key
-  ///
-  /// Returns [TranscriptionResult] with transcribed text or error.
   Future<TranscriptionResult> transcribe(
     File audioFile,
     SttSettings settings,
   ) async {
-    print('[STT Service] === Starting Transcription ===');
-    print('[STT Service] Provider: ${settings.provider.displayName}');
-    print('[STT Service] Model: ${settings.modelId}');
-    print('[STT Service] File path: ${audioFile.path}');
-
     // Validate configuration
     if (!settings.isConfigured) {
-      print('[STT Service] ERROR: API key not configured');
       return TranscriptionResult.failure(
-        'API key not configured for ${settings.provider.displayName}',
+        'API key not configured. Go to Settings > Voice Input.',
       );
     }
 
-    print(
-      '[STT Service] API key present: ${settings.currentApiKey != null}',
-    );
-    print(
-      '[STT Service] API key length: ${settings.currentApiKey?.length ?? 0}',
-    );
-
     if (!await audioFile.exists()) {
-      print('[STT Service] ERROR: Audio file not found');
       return TranscriptionResult.failure('Audio file not found');
     }
 
     final fileSize = await audioFile.length();
-    print(
-      '[STT Service] File size: $fileSize bytes (${(fileSize / 1024).toStringAsFixed(1)} KB)',
-    );
-
-    if (fileSize < 100) {
-      print('[STT Service] ERROR: Audio file too small (likely empty)');
-      return TranscriptionResult.failure('Audio file is empty or too small');
+    if (fileSize < 1000) {
+      return TranscriptionResult.failure(
+        'Recording too short. Speak longer and try again.',
+      );
     }
 
     if (fileSize > 25 * 1024 * 1024) {
-      print('[STT Service] ERROR: Audio file too large');
-      return TranscriptionResult.failure('Audio file too large (max 25MB)');
+      return TranscriptionResult.failure('Recording too long (max 25MB)');
     }
 
     try {
       final uri = Uri.parse(
         '${settings.provider.baseUrl}/v1/audio/transcriptions',
       );
-      print('[STT Service] Request URL: $uri');
 
       final request = http.MultipartRequest('POST', uri);
-
-      // Set authorization header
       request.headers['Authorization'] = 'Bearer ${settings.currentApiKey}';
 
-      // Add the audio file
-      final multipartFile = await http.MultipartFile.fromPath(
+      // CRITICAL: Specify content-type explicitly for iOS recordings
+      final fileName = audioFile.path.split('/').last;
+      final contentType = _getContentType(fileName);
+
+      final bytes = await audioFile.readAsBytes();
+      final multipartFile = http.MultipartFile.fromBytes(
         'file',
-        audioFile.path,
-      );
-      print(
-        '[STT Service] Multipart file: ${multipartFile.filename}, ${multipartFile.length} bytes',
+        bytes,
+        filename: fileName,
+        contentType: contentType,
       );
       request.files.add(multipartFile);
 
-      // Add model
       request.fields['model'] = settings.modelId;
-
-      // Add optional parameters
       request.fields['response_format'] = 'json';
 
-      if (settings.languageHint != null && settings.languageHint!.isNotEmpty) {
+      if (settings.languageHint?.isNotEmpty == true) {
         request.fields['language'] = settings.languageHint!;
-        print('[STT Service] Language hint: ${settings.languageHint}');
       }
 
-      if (settings.prompt != null && settings.prompt!.isNotEmpty) {
-        request.fields['prompt'] = settings.prompt!;
-      }
-
-      print('[STT Service] Sending request...');
-      final stopwatch = Stopwatch()..start();
-
-      // Send request
       final streamedResponse = await request.send().timeout(
-        const Duration(seconds: 60),
-        onTimeout: () {
-          print('[STT Service] ERROR: Request timed out');
-          throw TimeoutException('Transcription request timed out');
-        },
+        const Duration(seconds: 30),
+        onTimeout: () => throw TimeoutException('Request timed out'),
       );
 
       final response = await http.Response.fromStream(streamedResponse);
-      stopwatch.stop();
-
-      print(
-        '[STT Service] Response received in ${stopwatch.elapsedMilliseconds}ms',
-      );
-      print('[STT Service] Status code: ${response.statusCode}');
-      print(
-        '[STT Service] Response body (first 500 chars): ${response.body.length > 500 ? response.body.substring(0, 500) : response.body}',
-      );
 
       if (response.statusCode == 200) {
         final json = jsonDecode(response.body) as Map<String, dynamic>;
-        final text = json['text'] as String? ?? '';
-        final duration = json['duration'] as num?;
-        final language = json['language'] as String?;
+        final text = (json['text'] as String? ?? '').trim();
 
-        print('[STT Service] SUCCESS!');
-        print('[STT Service] Transcribed text: "$text"');
-        print('[STT Service] Duration: ${duration}s');
-        print('[STT Service] Language: $language');
+        if (text.isEmpty) {
+          return TranscriptionResult.failure(
+            'No speech detected. Speak clearly and try again.',
+          );
+        }
 
         return TranscriptionResult.success(
-          text.trim(),
-          durationSeconds: duration?.toDouble(),
-          language: language,
+          text,
+          durationSeconds: (json['duration'] as num?)?.toDouble(),
+          language: json['language'] as String?,
         );
       } else {
-        // Parse error response
-        String errorMessage;
-        try {
-          final errorJson = jsonDecode(response.body) as Map<String, dynamic>;
-          final error = errorJson['error'];
-          if (error is Map<String, dynamic>) {
-            errorMessage = error['message'] as String? ?? 'Unknown error';
-          } else if (error is String) {
-            errorMessage = error;
-          } else {
-            errorMessage = 'HTTP ${response.statusCode}';
-          }
-        } catch (_) {
-          errorMessage =
-              'HTTP ${response.statusCode}: ${response.reasonPhrase}';
-        }
-
-        // Handle specific error codes
-        if (response.statusCode == 401) {
-          errorMessage = 'Invalid API key';
-        } else if (response.statusCode == 429) {
-          errorMessage = 'Rate limit exceeded. Please wait a moment.';
-        } else if (response.statusCode == 413) {
-          errorMessage = 'Audio file too large';
-        }
-
-        print('[STT Service] ERROR: $errorMessage');
-        return TranscriptionResult.failure(errorMessage);
+        return TranscriptionResult.failure(_parseError(response));
       }
-    } on SocketException catch (e) {
-      print('[STT Service] SocketException: ${e.message}');
-      return TranscriptionResult.failure('Network error: ${e.message}');
+    } on SocketException {
+      return TranscriptionResult.failure(
+        'Network error. Check your connection.',
+      );
     } on TimeoutException {
-      print('[STT Service] TimeoutException');
-      return TranscriptionResult.failure('Request timed out');
-    } on FormatException catch (e) {
-      print('[STT Service] FormatException: ${e.message}');
-      return TranscriptionResult.failure('Invalid response: ${e.message}');
-    } catch (e, stackTrace) {
-      print('[STT Service] Unknown error: $e');
-      print('[STT Service] Stack trace: $stackTrace');
-      return TranscriptionResult.failure('Transcription failed: $e');
+      return TranscriptionResult.failure('Request timed out. Try again.');
+    } catch (e) {
+      return TranscriptionResult.failure('Failed: ${e.toString()}');
     }
+  }
+
+  /// Get content type for audio file
+  MediaType _getContentType(String fileName) {
+    final ext = fileName.toLowerCase().split('.').last;
+    switch (ext) {
+      case 'm4a':
+        return MediaType('audio', 'mp4');
+      case 'mp3':
+        return MediaType('audio', 'mpeg');
+      case 'wav':
+        return MediaType('audio', 'wav');
+      case 'ogg':
+        return MediaType('audio', 'ogg');
+      case 'webm':
+        return MediaType('audio', 'webm');
+      case 'flac':
+        return MediaType('audio', 'flac');
+      default:
+        return MediaType('audio', 'mp4'); // Default to m4a
+    }
+  }
+
+  /// Parse error from response
+  String _parseError(http.Response response) {
+    if (response.statusCode == 401) return 'Invalid API key';
+    if (response.statusCode == 429)
+      return 'Rate limit exceeded. Wait and retry.';
+    if (response.statusCode == 413) return 'Recording too large';
+
+    try {
+      final json = jsonDecode(response.body);
+      final error = json['error'];
+      if (error is Map) return error['message'] ?? 'Unknown error';
+      if (error is String) return error;
+    } catch (_) {}
+
+    return 'Server error (${response.statusCode})';
   }
 
   /// Test if an API key is valid by making a minimal request.

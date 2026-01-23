@@ -1995,7 +1995,7 @@ class _HighlightedSessionsSection extends StatelessWidget {
   }
 }
 
-/// Highlighted session card with accent styling
+/// Highlighted session card with clean minimal design and highlight accent
 class _HighlightedSessionCard extends StatelessWidget {
   const _HighlightedSessionCard({
     required this.session,
@@ -2021,14 +2021,6 @@ class _HighlightedSessionCard extends StatelessWidget {
     return session.directory.split('/').where((item) => item.isNotEmpty).last;
   }
 
-  String _getAvatarLetter() {
-    if (session.title.isEmpty) return '?';
-    final match = RegExp(r'[a-zA-Z0-9]').firstMatch(session.title);
-    return match != null
-        ? match.group(0)!.toUpperCase()
-        : session.title[0].toUpperCase();
-  }
-
   String _formatDate(int timestamp) {
     final date = DateTime.fromMillisecondsSinceEpoch(timestamp * 1000);
     final now = DateTime.now();
@@ -2047,6 +2039,15 @@ class _HighlightedSessionCard extends StatelessWidget {
     }
   }
 
+  /// Get last activity from session diffs
+  String? _getLastActivity() {
+    final diffs = session.summary?.diffs;
+    if (diffs == null || diffs.isEmpty) return null;
+    final lastDiff = diffs.last;
+    final fileName = lastDiff.file.split('/').last;
+    return fileName;
+  }
+
   @override
   Widget build(BuildContext context) {
     final ocTheme = OpenCodeTheme.of(context);
@@ -2058,168 +2059,162 @@ class _HighlightedSessionCard extends StatelessWidget {
       Theme.of(context).brightness,
       themePrimary: ocTheme.primary,
     );
+    final stats = session.summary;
+    final hasStats =
+        stats != null &&
+        (stats.additions > 0 || stats.deletions > 0 || stats.files > 0);
+    final lastActivity = _getLastActivity();
 
     Widget card = GestureDetector(
       onTap: onTap,
       onLongPress: onLongPress,
       child: Container(
-        height: 80,
         decoration: BoxDecoration(
           color: bgColor,
-          borderRadius: BorderRadius.circular(14),
-          border: Border.all(
-            color: isActive
-                ? ocTheme.info.withValues(alpha: 0.5)
-                : highlightColor.borderFor(
-                    Theme.of(context).brightness,
-                    themePrimary: ocTheme.primary,
-                  ),
-          ),
+          borderRadius: BorderRadius.circular(10),
         ),
+        clipBehavior: Clip.antiAlias,
         child: Row(
           children: [
-            // Left accent border
+            // Left accent bar (highlight color)
             Container(
               width: 3,
               decoration: BoxDecoration(
                 color: color,
                 borderRadius: const BorderRadius.only(
-                  topLeft: Radius.circular(14),
-                  bottomLeft: Radius.circular(14),
+                  topLeft: Radius.circular(10),
+                  bottomLeft: Radius.circular(10),
                 ),
               ),
             ),
+            // Main content
             Expanded(
               child: Padding(
-                padding: const EdgeInsets.symmetric(
-                  horizontal: 13,
-                  vertical: 14,
-                ),
-                child: Row(
+                padding: const EdgeInsets.fromLTRB(14, 14, 14, 14),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    // Avatar with status dot
-                    Stack(
-                      clipBehavior: Clip.none,
+                    // Title row with star + time/status
+                    Row(
+                      crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        Container(
-                          width: 44,
-                          height: 44,
-                          decoration: BoxDecoration(
-                            borderRadius: BorderRadius.circular(12),
-                            color: ocTheme.backgroundElement,
-                            border: Border.all(
-                              color: ocTheme.borderSubtle,
-                              width: 1,
-                            ),
-                          ),
-                          child: Center(
-                            child: Text(
-                              _getAvatarLetter(),
-                              style: TextStyle(
-                                color: ocTheme.textMuted,
-                                fontSize: 18,
-                                fontWeight: FontWeight.w600,
-                                letterSpacing: -0.5,
-                              ),
-                            ),
-                          ),
-                        ),
-                        Positioned(
-                          bottom: -2,
-                          left: -2,
-                          child: Container(
-                            width: 12,
-                            height: 12,
-                            decoration: BoxDecoration(
-                              shape: BoxShape.circle,
-                              color: isActive
-                                  ? (status!.isRetry
-                                        ? ocTheme.warning
-                                        : ocTheme.info)
-                                  : ocTheme.textMuted.withValues(alpha: 0.4),
-                              border: Border.all(color: bgColor, width: 2),
-                            ),
-                          ),
-                        ),
-                      ],
-                    ),
-                    const SizedBox(width: 16),
-                    // Session info
-                    Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        mainAxisAlignment: MainAxisAlignment.center,
-                        children: [
-                          Row(
-                            children: [
-                              Flexible(
-                                child: Text(
-                                  session.title,
-                                  style: TextStyle(
-                                    color: ocTheme.text,
-                                    fontSize: 15,
-                                    fontWeight: FontWeight.w600,
-                                    height: 1.4,
-                                    letterSpacing: -0.2,
-                                  ),
-                                  maxLines: 1,
-                                  overflow: TextOverflow.ellipsis,
-                                ),
-                              ),
-                              // Status badge
-                              if (isActive) ...[
-                                const SizedBox(width: 8),
-                                Container(
-                                  padding: const EdgeInsets.symmetric(
-                                    horizontal: 6,
-                                    vertical: 2,
-                                  ),
-                                  decoration: BoxDecoration(
-                                    color:
-                                        (status!.isRetry
-                                                ? ocTheme.warning
-                                                : ocTheme.info)
-                                            .withValues(alpha: 0.15),
-                                    borderRadius: BorderRadius.circular(4),
-                                  ),
-                                  child: Text(
-                                    status!.isRetry ? 'Retry' : 'Active',
-                                    style: TextStyle(
-                                      color: status!.isRetry
-                                          ? ocTheme.warning
-                                          : ocTheme.info,
-                                      fontSize: 10,
-                                      fontWeight: FontWeight.w600,
-                                    ),
-                                  ),
-                                ),
-                              ],
-                            ],
-                          ),
-                          const SizedBox(height: 6),
-                          Text(
-                            '${_getProjectName()} · ${_formatDate(session.time.updated)}',
+                        // Star icon inline
+                        Icon(Icons.star_rounded, size: 16, color: color),
+                        const SizedBox(width: 8),
+                        Expanded(
+                          child: Text(
+                            session.title,
                             style: TextStyle(
-                              color: ocTheme.textMuted,
-                              fontSize: 13,
-                              height: 1.4,
-                              letterSpacing: -0.1,
+                              color: ocTheme.text,
+                              fontSize: 15,
+                              fontWeight: FontWeight.w600,
+                              height: 1.3,
                             ),
-                            maxLines: 1,
+                            maxLines: 2,
                             overflow: TextOverflow.ellipsis,
                           ),
-                        ],
-                      ),
+                        ),
+                        const SizedBox(width: 12),
+                        // Status or time
+                        if (isActive)
+                          Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              SizedBox(
+                                width: 10,
+                                height: 10,
+                                child: CircularProgressIndicator(
+                                  strokeWidth: 1.5,
+                                  valueColor: AlwaysStoppedAnimation<Color>(
+                                    status!.isRetry
+                                        ? ocTheme.warning
+                                        : ocTheme.info,
+                                  ),
+                                ),
+                              ),
+                              const SizedBox(width: 6),
+                              Text(
+                                status!.isRetry ? 'Retry' : 'Working',
+                                style: TextStyle(
+                                  color: status!.isRetry
+                                      ? ocTheme.warning
+                                      : ocTheme.info,
+                                  fontSize: 11,
+                                  fontWeight: FontWeight.w500,
+                                ),
+                              ),
+                            ],
+                          )
+                        else
+                          Text(
+                            _formatDate(session.time.updated),
+                            style: TextStyle(
+                              color: ocTheme.textMuted,
+                              fontSize: 12,
+                            ),
+                          ),
+                      ],
                     ),
-                    const SizedBox(width: 8),
-                    // Star icon
-                    Icon(Icons.star_rounded, color: color, size: 20),
-                    const SizedBox(width: 4),
-                    // Chevron
-                    Icon(
-                      Icons.chevron_right_rounded,
-                      color: ocTheme.textMuted.withValues(alpha: 0.4),
-                      size: 20,
+                    const SizedBox(height: 10),
+                    // Meta row: project + stats
+                    Row(
+                      children: [
+                        // Project name
+                        Text(
+                          _getProjectName(),
+                          style: TextStyle(
+                            color: ocTheme.textMuted,
+                            fontSize: 12,
+                          ),
+                        ),
+                        // Last edited file
+                        if (lastActivity != null) ...[
+                          Text(
+                            ' · ',
+                            style: TextStyle(
+                              color: ocTheme.textMuted.withValues(alpha: 0.5),
+                              fontSize: 12,
+                            ),
+                          ),
+                          Flexible(
+                            child: Text(
+                              lastActivity,
+                              style: TextStyle(
+                                color: ocTheme.textMuted,
+                                fontSize: 12,
+                              ),
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                            ),
+                          ),
+                        ],
+                        const Spacer(),
+                        // Stats badges
+                        if (hasStats) ...[
+                          if (stats.additions > 0)
+                            _StatBadge(
+                              text: '+${stats.additions}',
+                              color: ocTheme.diffAdded,
+                            ),
+                          if (stats.deletions > 0) ...[
+                            const SizedBox(width: 6),
+                            _StatBadge(
+                              text: '-${stats.deletions}',
+                              color: ocTheme.diffRemoved,
+                            ),
+                          ],
+                          if (stats.files > 0) ...[
+                            const SizedBox(width: 6),
+                            Text(
+                              '${stats.files} ${stats.files == 1 ? 'file' : 'files'}',
+                              style: TextStyle(
+                                color: ocTheme.textMuted,
+                                fontSize: 11,
+                              ),
+                            ),
+                          ],
+                        ],
+                      ],
                     ),
                   ],
                 ),
@@ -2240,7 +2235,7 @@ class _HighlightedSessionCard extends StatelessWidget {
           padding: const EdgeInsets.only(right: 20),
           decoration: BoxDecoration(
             color: ocTheme.error,
-            borderRadius: BorderRadius.circular(14),
+            borderRadius: BorderRadius.circular(10),
           ),
           child: const Icon(
             Icons.delete_outline_rounded,
@@ -2260,7 +2255,7 @@ class _HighlightedSessionCard extends StatelessWidget {
   }
 }
 
-// Session card with swipe-to-delete, long-press for options, and status indicator
+// Session card with clean, minimal modern design
 class _SessionCard extends StatelessWidget {
   const _SessionCard({
     required this.session,
@@ -2302,16 +2297,6 @@ class _SessionCard extends StatelessWidget {
     return session.directory.split('/').where((item) => item.isNotEmpty).last;
   }
 
-  // Get first letter of session title for avatar
-  String _getAvatarLetter() {
-    if (session.title.isEmpty) return '?';
-    // Get first alphanumeric character
-    final match = RegExp(r'[a-zA-Z0-9]').firstMatch(session.title);
-    return match != null
-        ? match.group(0)!.toUpperCase()
-        : session.title[0].toUpperCase();
-  }
-
   String _formatDate(int timestamp) {
     final date = DateTime.fromMillisecondsSinceEpoch(timestamp * 1000);
     final now = DateTime.now();
@@ -2330,249 +2315,248 @@ class _SessionCard extends StatelessWidget {
     }
   }
 
+  /// Get last activity from session diffs
+  String? _getLastActivity() {
+    final diffs = session.summary?.diffs;
+    if (diffs == null || diffs.isEmpty) return null;
+    final lastDiff = diffs.last;
+    final fileName = lastDiff.file.split('/').last;
+    return fileName;
+  }
+
   @override
   Widget build(BuildContext context) {
     final ocTheme = OpenCodeTheme.of(context);
+    final stats = session.summary;
+    final hasStats =
+        stats != null &&
+        (stats.additions > 0 || stats.deletions > 0 || stats.files > 0);
+    final lastActivity = _getLastActivity();
 
-    // Base card widget - fixed height for uniformity
+    // Accent color for left bar
+    final accentColor = isActive
+        ? (status!.isRetry ? ocTheme.warning : ocTheme.info)
+        : ocTheme.primary.withValues(alpha: 0.4);
+
     Widget card = GestureDetector(
       onTap: onTap,
-      // Long press for options (highlight, rename)
       onLongPress: onLongPress,
       child: Container(
-        height: 80,
-        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
         decoration: BoxDecoration(
           color: ocTheme.backgroundPanel,
-          borderRadius: BorderRadius.circular(14),
-          border: Border.all(
-            color: isActive
-                ? ocTheme.info.withValues(alpha: 0.5)
-                : ocTheme.borderSubtle,
-          ),
+          borderRadius: BorderRadius.circular(10),
         ),
+        clipBehavior: Clip.antiAlias,
         child: Row(
           children: [
-            // Modern letter avatar with status dot
-            Stack(
-              clipBehavior: Clip.none,
-              children: [
-                Container(
-                  width: 44,
-                  height: 44,
-                  decoration: BoxDecoration(
-                    borderRadius: BorderRadius.circular(12),
-                    color: ocTheme.backgroundElement,
-                    border: Border.all(color: ocTheme.borderSubtle, width: 1),
-                  ),
-                  child: Center(
-                    child: Text(
-                      _getAvatarLetter(),
-                      style: TextStyle(
-                        color: ocTheme.textMuted,
-                        fontSize: 18,
-                        fontWeight: FontWeight.w600,
-                        letterSpacing: -0.5,
-                      ),
-                    ),
-                  ),
+            // Left accent bar
+            Container(
+              width: 3,
+              decoration: BoxDecoration(
+                color: accentColor,
+                borderRadius: const BorderRadius.only(
+                  topLeft: Radius.circular(10),
+                  bottomLeft: Radius.circular(10),
                 ),
-                // Status dot at bottom-left corner
-                Positioned(
-                  bottom: -2,
-                  left: -2,
-                  child: Container(
-                    width: 12,
-                    height: 12,
-                    decoration: BoxDecoration(
-                      shape: BoxShape.circle,
-                      color: isActive
-                          ? (status!.isRetry ? ocTheme.warning : ocTheme.info)
-                          : ocTheme.textMuted.withValues(alpha: 0.4),
-                      border: Border.all(
-                        color: ocTheme.backgroundPanel,
-                        width: 2,
-                      ),
-                    ),
-                  ),
-                ),
-              ],
+              ),
             ),
-            const SizedBox(width: 16),
-            // Session info
+            // Main content
             Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  Row(
-                    children: [
-                      Flexible(
-                        child: Text(
-                          session.title,
-                          style: TextStyle(
-                            color: ocTheme.text,
-                            fontSize: 15,
-                            fontWeight: FontWeight.w600,
-                            height: 1.4,
-                            letterSpacing: -0.2,
+              child: Padding(
+                padding: const EdgeInsets.fromLTRB(14, 14, 14, 14),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    // Title row with time/status
+                    Row(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Expanded(
+                          child: Text(
+                            session.title,
+                            style: TextStyle(
+                              color: ocTheme.text,
+                              fontSize: 15,
+                              fontWeight: FontWeight.w600,
+                              height: 1.3,
+                            ),
+                            maxLines: 2,
+                            overflow: TextOverflow.ellipsis,
                           ),
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
                         ),
-                      ),
-                      // Forked indicator
-                      if (session.isForkedSession) ...[
-                        const SizedBox(width: 6),
-                        Container(
-                          padding: const EdgeInsets.symmetric(
-                            horizontal: 6,
-                            vertical: 2,
-                          ),
-                          decoration: BoxDecoration(
-                            color: ocTheme.accent.withValues(alpha: 0.15),
-                            borderRadius: BorderRadius.circular(4),
-                          ),
-                          child: Row(
+                        const SizedBox(width: 12),
+                        // Status or time
+                        if (isActive)
+                          Row(
                             mainAxisSize: MainAxisSize.min,
                             children: [
-                              Icon(
-                                Icons.fork_right,
-                                size: 10,
-                                color: ocTheme.accent,
+                              SizedBox(
+                                width: 10,
+                                height: 10,
+                                child: CircularProgressIndicator(
+                                  strokeWidth: 1.5,
+                                  valueColor: AlwaysStoppedAnimation<Color>(
+                                    status!.isRetry
+                                        ? ocTheme.warning
+                                        : ocTheme.info,
+                                  ),
+                                ),
                               ),
-                              const SizedBox(width: 3),
+                              const SizedBox(width: 6),
                               Text(
-                                'Forked',
+                                status!.isRetry ? 'Retry' : 'Working',
                                 style: TextStyle(
-                                  color: ocTheme.accent,
-                                  fontSize: 10,
-                                  fontWeight: FontWeight.w600,
+                                  color: status!.isRetry
+                                      ? ocTheme.warning
+                                      : ocTheme.info,
+                                  fontSize: 11,
+                                  fontWeight: FontWeight.w500,
                                 ),
                               ),
                             ],
-                          ),
-                        ),
-                      ],
-                      // Status badge
-                      if (isActive) ...[
-                        const SizedBox(width: 8),
-                        Container(
-                          padding: const EdgeInsets.symmetric(
-                            horizontal: 6,
-                            vertical: 2,
-                          ),
-                          decoration: BoxDecoration(
-                            color:
-                                (status!.isRetry
-                                        ? ocTheme.warning
-                                        : ocTheme.info)
-                                    .withValues(alpha: 0.15),
-                            borderRadius: BorderRadius.circular(4),
-                          ),
-                          child: Text(
-                            status!.isRetry ? 'Retry' : 'Active',
+                          )
+                        else
+                          Text(
+                            _formatDate(session.time.updated),
                             style: TextStyle(
-                              color: status!.isRetry
-                                  ? ocTheme.warning
-                                  : ocTheme.info,
-                              fontSize: 10,
-                              fontWeight: FontWeight.w600,
+                              color: ocTheme.textMuted,
+                              fontSize: 12,
                             ),
                           ),
-                        ),
                       ],
-                    ],
-                  ),
-                  const SizedBox(height: 6),
-                  Text(
-                    '${_getProjectName()} · ${_formatDate(session.time.updated)}',
-                    style: TextStyle(
-                      color: ocTheme.textMuted,
-                      fontSize: 13,
-                      height: 1.4,
-                      letterSpacing: -0.1,
                     ),
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                  ),
-                ],
-              ),
-            ),
-            const SizedBox(width: 8),
-            // Background tasks expand button
-            if (hasChildren)
-              GestureDetector(
-                onTap: onToggleExpand,
-                behavior: HitTestBehavior.opaque,
-                child: Container(
-                  padding: const EdgeInsets.all(4),
-                  child: Row(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      // Badge with count
-                      Container(
-                        padding: const EdgeInsets.symmetric(
-                          horizontal: 6,
-                          vertical: 2,
+                    const SizedBox(height: 10),
+                    // Meta row: project + stats
+                    Row(
+                      children: [
+                        // Project name
+                        Text(
+                          _getProjectName(),
+                          style: TextStyle(
+                            color: ocTheme.textMuted,
+                            fontSize: 12,
+                          ),
                         ),
-                        decoration: BoxDecoration(
-                          color: activeChildCount > 0
-                              ? ocTheme.info.withValues(alpha: 0.15)
-                              : ocTheme.textMuted.withValues(alpha: 0.1),
-                          borderRadius: BorderRadius.circular(4),
-                        ),
+                        // Forked indicator
+                        if (session.isForkedSession) ...[
+                          const SizedBox(width: 8),
+                          Icon(
+                            Icons.fork_right,
+                            size: 12,
+                            color: ocTheme.accent,
+                          ),
+                        ],
+                        // Last edited file
+                        if (lastActivity != null) ...[
+                          Text(
+                            ' · ',
+                            style: TextStyle(
+                              color: ocTheme.textMuted.withValues(alpha: 0.5),
+                              fontSize: 12,
+                            ),
+                          ),
+                          Flexible(
+                            child: Text(
+                              lastActivity,
+                              style: TextStyle(
+                                color: ocTheme.textMuted,
+                                fontSize: 12,
+                              ),
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                            ),
+                          ),
+                        ],
+                        const Spacer(),
+                        // Stats badges
+                        if (hasStats) ...[
+                          if (stats.additions > 0)
+                            _StatBadge(
+                              text: '+${stats.additions}',
+                              color: ocTheme.diffAdded,
+                            ),
+                          if (stats.deletions > 0) ...[
+                            const SizedBox(width: 6),
+                            _StatBadge(
+                              text: '-${stats.deletions}',
+                              color: ocTheme.diffRemoved,
+                            ),
+                          ],
+                          if (stats.files > 0) ...[
+                            const SizedBox(width: 6),
+                            Text(
+                              '${stats.files} ${stats.files == 1 ? 'file' : 'files'}',
+                              style: TextStyle(
+                                color: ocTheme.textMuted,
+                                fontSize: 11,
+                              ),
+                            ),
+                          ],
+                        ],
+                      ],
+                    ),
+                    // Background tasks row
+                    if (hasChildren) ...[
+                      const SizedBox(height: 10),
+                      GestureDetector(
+                        onTap: onToggleExpand,
+                        behavior: HitTestBehavior.opaque,
                         child: Row(
                           mainAxisSize: MainAxisSize.min,
                           children: [
                             Icon(
                               Icons.account_tree_rounded,
-                              size: 10,
+                              size: 12,
                               color: activeChildCount > 0
                                   ? ocTheme.info
                                   : ocTheme.textMuted,
                             ),
-                            const SizedBox(width: 3),
+                            const SizedBox(width: 5),
                             Text(
-                              '$childCount',
+                              '$childCount ${childCount == 1 ? 'task' : 'tasks'}',
                               style: TextStyle(
                                 color: activeChildCount > 0
                                     ? ocTheme.info
                                     : ocTheme.textMuted,
-                                fontSize: 10,
-                                fontWeight: FontWeight.w600,
+                                fontSize: 11,
+                              ),
+                            ),
+                            if (activeChildCount > 0) ...[
+                              Text(
+                                ' · $activeChildCount active',
+                                style: TextStyle(
+                                  color: ocTheme.info,
+                                  fontSize: 11,
+                                  fontWeight: FontWeight.w500,
+                                ),
+                              ),
+                            ],
+                            const SizedBox(width: 4),
+                            AnimatedRotation(
+                              turns: isExpanded ? 0.25 : 0,
+                              duration: const Duration(milliseconds: 200),
+                              child: Icon(
+                                Icons.chevron_right_rounded,
+                                color: activeChildCount > 0
+                                    ? ocTheme.info
+                                    : ocTheme.textMuted,
+                                size: 14,
                               ),
                             ),
                           ],
                         ),
                       ),
-                      const SizedBox(width: 4),
-                      AnimatedRotation(
-                        turns: isExpanded ? 0.25 : 0,
-                        duration: const Duration(milliseconds: 200),
-                        child: Icon(
-                          Icons.chevron_right_rounded,
-                          color: ocTheme.textMuted.withValues(alpha: 0.6),
-                          size: 18,
-                        ),
-                      ),
                     ],
-                  ),
+                  ],
                 ),
-              )
-            else
-              // Chevron (no children)
-              Icon(
-                Icons.chevron_right_rounded,
-                color: ocTheme.textMuted.withValues(alpha: 0.4),
-                size: 20,
               ),
+            ),
           ],
         ),
       ),
     );
 
-    // Feature 4: Wrap with Dismissible for swipe-to-delete (only when online)
+    // Wrap with Dismissible for swipe-to-delete (only when online)
     if (onDelete != null) {
       card = Dismissible(
         key: Key(session.id),
@@ -2582,7 +2566,7 @@ class _SessionCard extends StatelessWidget {
           padding: const EdgeInsets.only(right: 20),
           decoration: BoxDecoration(
             color: ocTheme.error,
-            borderRadius: BorderRadius.circular(16),
+            borderRadius: BorderRadius.circular(10),
           ),
           child: const Icon(
             Icons.delete_outline_rounded,
@@ -2602,7 +2586,44 @@ class _SessionCard extends StatelessWidget {
   }
 }
 
-/// Card for child (background task) sessions - compact design with indent
+/// Small stat badge for session cards (additions, deletions, files)
+class _StatBadge extends StatelessWidget {
+  const _StatBadge({
+    required this.text,
+    required this.color,
+    this.isFile = false,
+  });
+
+  final String text;
+  final Color color;
+  final bool isFile;
+
+  @override
+  Widget build(BuildContext context) {
+    final ocTheme = OpenCodeTheme.of(context);
+
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 2),
+      decoration: BoxDecoration(
+        color: isFile
+            ? ocTheme.backgroundElement.withValues(alpha: 0.6)
+            : color.withValues(alpha: 0.12),
+        borderRadius: BorderRadius.circular(4),
+      ),
+      child: Text(
+        text,
+        style: TextStyle(
+          color: isFile ? ocTheme.textMuted : color,
+          fontSize: 10,
+          fontWeight: FontWeight.w600,
+          fontFamily: 'JetBrains Mono',
+        ),
+      ),
+    );
+  }
+}
+
+/// Card for child (background task) sessions - clean compact design
 class _ChildSessionCard extends StatelessWidget {
   const _ChildSessionCard({
     required this.session,
@@ -2652,130 +2673,144 @@ class _ChildSessionCard extends StatelessWidget {
     final ocTheme = OpenCodeTheme.of(context);
     final agentName = _extractAgentName();
     final cleanTitle = _getCleanTitle();
+    final stats = session.summary;
+    final hasStats =
+        stats != null &&
+        (stats.additions > 0 || stats.deletions > 0 || stats.files > 0);
 
     return GestureDetector(
       onTap: onTap,
       child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
         decoration: BoxDecoration(
-          color: ocTheme.backgroundElement.withValues(alpha: 0.5),
-          borderRadius: BorderRadius.circular(10),
-          border: Border.all(
-            color: isActive
-                ? ocTheme.info.withValues(alpha: 0.4)
-                : ocTheme.borderSubtle.withValues(alpha: 0.5),
-          ),
+          color: ocTheme.backgroundElement.withValues(alpha: 0.4),
+          borderRadius: BorderRadius.circular(8),
         ),
+        clipBehavior: Clip.antiAlias,
         child: Row(
           children: [
-            // Indent line indicator
+            // Left accent bar (info color for tasks)
             Container(
               width: 2,
-              height: 32,
-              margin: const EdgeInsets.only(right: 10),
               decoration: BoxDecoration(
                 color: isActive
-                    ? ocTheme.info.withValues(alpha: 0.6)
-                    : ocTheme.textMuted.withValues(alpha: 0.3),
-                borderRadius: BorderRadius.circular(1),
-              ),
-            ),
-            // Agent icon
-            Container(
-              width: 28,
-              height: 28,
-              decoration: BoxDecoration(
-                color: ocTheme.info.withValues(alpha: 0.15),
-                borderRadius: BorderRadius.circular(6),
-              ),
-              child: Center(
-                child: Icon(
-                  Icons.auto_awesome_rounded,
-                  size: 14,
-                  color: ocTheme.info,
+                    ? ocTheme.info
+                    : ocTheme.info.withValues(alpha: 0.4),
+                borderRadius: const BorderRadius.only(
+                  topLeft: Radius.circular(8),
+                  bottomLeft: Radius.circular(8),
                 ),
               ),
             ),
-            const SizedBox(width: 10),
-            // Session info
+            // Main content
             Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Row(
-                    children: [
-                      if (agentName != null) ...[
-                        Container(
-                          padding: const EdgeInsets.symmetric(
-                            horizontal: 5,
-                            vertical: 1,
+              child: Padding(
+                padding: const EdgeInsets.fromLTRB(10, 10, 10, 10),
+                child: Row(
+                  children: [
+                    // Content
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          // Title with optional agent badge
+                          Row(
+                            children: [
+                              if (agentName != null) ...[
+                                Text(
+                                  '@$agentName',
+                                  style: TextStyle(
+                                    color: ocTheme.info,
+                                    fontSize: 10,
+                                    fontWeight: FontWeight.w600,
+                                  ),
+                                ),
+                                const SizedBox(width: 6),
+                              ],
+                              Expanded(
+                                child: Text(
+                                  cleanTitle,
+                                  style: TextStyle(
+                                    color: ocTheme.text.withValues(alpha: 0.85),
+                                    fontSize: 13,
+                                    fontWeight: FontWeight.w500,
+                                  ),
+                                  maxLines: 1,
+                                  overflow: TextOverflow.ellipsis,
+                                ),
+                              ),
+                            ],
                           ),
-                          decoration: BoxDecoration(
-                            color: ocTheme.info.withValues(alpha: 0.15),
-                            borderRadius: BorderRadius.circular(3),
+                          const SizedBox(height: 4),
+                          // Stats + time row
+                          Row(
+                            children: [
+                              Text(
+                                _formatDate(session.time.updated),
+                                style: TextStyle(
+                                  color: ocTheme.textMuted,
+                                  fontSize: 11,
+                                ),
+                              ),
+                              if (hasStats) ...[
+                                Text(
+                                  ' · ',
+                                  style: TextStyle(
+                                    color: ocTheme.textMuted.withValues(
+                                      alpha: 0.5,
+                                    ),
+                                    fontSize: 11,
+                                  ),
+                                ),
+                                if (stats.additions > 0)
+                                  Text(
+                                    '+${stats.additions}',
+                                    style: TextStyle(
+                                      color: ocTheme.diffAdded,
+                                      fontSize: 11,
+                                      fontWeight: FontWeight.w500,
+                                    ),
+                                  ),
+                                if (stats.additions > 0 && stats.deletions > 0)
+                                  Text(
+                                    ' ',
+                                    style: TextStyle(
+                                      color: ocTheme.textMuted,
+                                      fontSize: 11,
+                                    ),
+                                  ),
+                                if (stats.deletions > 0)
+                                  Text(
+                                    '-${stats.deletions}',
+                                    style: TextStyle(
+                                      color: ocTheme.diffRemoved,
+                                      fontSize: 11,
+                                      fontWeight: FontWeight.w500,
+                                    ),
+                                  ),
+                              ],
+                            ],
                           ),
-                          child: Text(
-                            '@$agentName',
-                            style: TextStyle(
-                              color: ocTheme.info,
-                              fontSize: 9,
-                              fontWeight: FontWeight.w600,
-                            ),
-                          ),
-                        ),
-                        const SizedBox(width: 6),
-                      ],
-                      if (isActive)
-                        Container(
-                          padding: const EdgeInsets.symmetric(
-                            horizontal: 5,
-                            vertical: 1,
-                          ),
-                          decoration: BoxDecoration(
-                            color:
-                                (status!.isRetry
-                                        ? ocTheme.warning
-                                        : ocTheme.info)
-                                    .withValues(alpha: 0.15),
-                            borderRadius: BorderRadius.circular(3),
-                          ),
-                          child: Text(
-                            status!.isRetry ? 'Retry' : 'Running',
-                            style: TextStyle(
-                              color: status!.isRetry
-                                  ? ocTheme.warning
-                                  : ocTheme.info,
-                              fontSize: 9,
-                              fontWeight: FontWeight.w600,
-                            ),
-                          ),
-                        ),
-                    ],
-                  ),
-                  const SizedBox(height: 3),
-                  Text(
-                    cleanTitle,
-                    style: TextStyle(
-                      color: ocTheme.text.withValues(alpha: 0.9),
-                      fontSize: 12,
-                      fontWeight: FontWeight.w500,
+                        ],
+                      ),
                     ),
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                  ),
-                  const SizedBox(height: 2),
-                  Text(
-                    _formatDate(session.time.updated),
-                    style: TextStyle(color: ocTheme.textMuted, fontSize: 10),
-                  ),
-                ],
+                    // Status indicator
+                    if (isActive)
+                      Padding(
+                        padding: const EdgeInsets.only(left: 8),
+                        child: SizedBox(
+                          width: 12,
+                          height: 12,
+                          child: CircularProgressIndicator(
+                            strokeWidth: 1.5,
+                            valueColor: AlwaysStoppedAnimation<Color>(
+                              status!.isRetry ? ocTheme.warning : ocTheme.info,
+                            ),
+                          ),
+                        ),
+                      ),
+                  ],
+                ),
               ),
-            ),
-            // Chevron
-            Icon(
-              Icons.chevron_right_rounded,
-              color: ocTheme.textMuted.withValues(alpha: 0.4),
-              size: 16,
             ),
           ],
         ),

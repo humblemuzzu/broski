@@ -10069,32 +10069,19 @@ class _FloatingInputBar extends ConsumerWidget {
                                 size: 22,
                                 padding: EdgeInsets.zero,
                                 onTranscription: (text) {
-                                  debugPrint(
-                                    '[ChatScreen/CLI] Voice transcription received: "$text"',
-                                  );
                                   if (text.isEmpty) return;
-
-                                  // Build new text - append with space if needed
                                   final current = controller.text;
                                   final newText = current.isEmpty
                                       ? text
                                       : (current.endsWith(' ')
                                             ? '$current$text'
                                             : '$current $text');
-
-                                  // Update controller with new value
                                   controller.value = TextEditingValue(
                                     text: newText,
                                     selection: TextSelection.collapsed(
                                       offset: newText.length,
                                     ),
                                   );
-
-                                  debugPrint(
-                                    '[ChatScreen/CLI] Controller updated, new text: "${controller.text}"',
-                                  );
-
-                                  // Focus the text field
                                   Future.microtask(
                                     () => focusNode.requestFocus(),
                                   );
@@ -11329,36 +11316,21 @@ class _CliStyleInputBarState extends State<_CliStyleInputBar> {
                                             right: 10,
                                           ),
                                           onTranscription: (text) {
-                                            debugPrint(
-                                              '[ChatScreen/Floating] Voice transcription received: "$text"',
-                                            );
                                             if (text.isEmpty) return;
-
-                                            final controller =
-                                                widget.controller;
-
-                                            // Build new text - append with space if needed
-                                            final current = controller.text;
+                                            final ctrl = widget.controller;
+                                            final current = ctrl.text;
                                             final newText = current.isEmpty
                                                 ? text
                                                 : (current.endsWith(' ')
                                                       ? '$current$text'
                                                       : '$current $text');
-
-                                            // Update controller with new value
-                                            controller.value = TextEditingValue(
+                                            ctrl.value = TextEditingValue(
                                               text: newText,
                                               selection:
                                                   TextSelection.collapsed(
                                                     offset: newText.length,
                                                   ),
                                             );
-
-                                            debugPrint(
-                                              '[ChatScreen/Floating] Controller updated, new text: "${controller.text}"',
-                                            );
-
-                                            // Focus the text field
                                             Future.microtask(
                                               () => widget.focusNode
                                                   .requestFocus(),

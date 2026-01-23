@@ -101,24 +101,13 @@ class VoiceInputButton extends ConsumerWidget {
 
     if (state.recordingState == RecordingState.recording ||
         state.recordingState == RecordingState.transcribing) {
-      // Already in progress
       return;
     }
 
-    // Show recording sheet and wait for result
-    print('[VoiceInputButton] Opening recording sheet...');
-
     final transcribedText = await showVoiceRecordingSheet(context);
 
-    print('[VoiceInputButton] Sheet returned: "$transcribedText"');
-
     if (transcribedText != null && transcribedText.isNotEmpty) {
-      print(
-        '[VoiceInputButton] Calling onTranscription callback with: "$transcribedText"',
-      );
       onTranscription(transcribedText);
-    } else {
-      print('[VoiceInputButton] No text returned, skipping callback');
     }
   }
 

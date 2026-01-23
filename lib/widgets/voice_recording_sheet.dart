@@ -52,17 +52,13 @@ class _VoiceRecordingSheetContentState
   }
 
   Future<void> _startRecording() async {
-    print('[Voice] Starting recording...');
-
     final notifier = ref.read(sttProvider.notifier);
     final success = await notifier.startRecording();
 
     if (!mounted) return;
 
     if (success) {
-      print('[Voice] Recording started successfully');
       HapticFeedback.mediumImpact();
-
       _durationTimer = Timer.periodic(const Duration(milliseconds: 100), (_) {
         if (!mounted) return;
         setState(() {
@@ -71,13 +67,10 @@ class _VoiceRecordingSheetContentState
         notifier.updateRecordingDuration(_duration);
       });
     } else {
-      print('[Voice] Failed to start recording');
       final error = ref.read(sttProvider).error;
       setState(() {
         _localError = error ?? 'Failed to start recording';
       });
-
-      // Show error then close
       await Future.delayed(const Duration(seconds: 2));
       if (mounted) {
         Navigator.of(context).pop(null);
@@ -96,42 +89,24 @@ class _VoiceRecordingSheetContentState
     _durationTimer?.cancel();
     HapticFeedback.lightImpact();
 
-    print('[Voice] Stopping recording and transcribing...');
-
     final notifier = ref.read(sttProvider.notifier);
     final result = await notifier.stopAndTranscribe();
 
     if (!mounted) return;
 
-    print(
-      '[Voice] Transcription result: text="${result?.text}", error="${result?.error}"',
-    );
-
     if (result != null && result.isSuccess && result.text.trim().isNotEmpty) {
-      final transcribedText = result.text.trim();
-      print('[Voice] Success! Returning text: "$transcribedText"');
       HapticFeedback.heavyImpact();
-
-      // Return the transcribed text
-      Navigator.of(context).pop(transcribedText);
+      Navigator.of(context).pop(result.text.trim());
     } else {
-      // Show error
-      final errorMsg = result?.error ?? 'Transcription failed';
-      print('[Voice] Failed: $errorMsg');
-
       setState(() {
         _isProcessing = false;
-        _localError = errorMsg;
+        _localError = result?.error ?? 'Transcription failed';
       });
-
       HapticFeedback.heavyImpact();
-
-      // Keep sheet open to show error, user can retry or cancel
     }
   }
 
   Future<void> _cancel() async {
-    print('[Voice] Cancelling...');
     _durationTimer?.cancel();
     HapticFeedback.lightImpact();
 
