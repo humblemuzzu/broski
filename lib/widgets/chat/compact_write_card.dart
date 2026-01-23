@@ -26,9 +26,14 @@ class CompactWriteCard extends StatelessWidget {
   });
 
   /// Get the file path from tool input
+  /// Handles different backend naming conventions:
+  /// - OpenCode: filePath
+  /// - Claude Code: path, file_path
+  /// - Codex: path in item
   String _getFilePath() {
     return tool.input['filePath'] as String? ??
         tool.input['path'] as String? ??
+        tool.input['file_path'] as String? ??
         'Unknown';
   }
 

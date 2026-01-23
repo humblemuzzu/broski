@@ -1,8 +1,11 @@
 import 'dart:async';
 import 'dart:convert';
+import 'dart:io' show HttpClient, X509Certificate;
 
-import 'package:flutter/foundation.dart' show compute, debugPrint;
+import 'package:crypto/crypto.dart';
+import 'package:flutter/foundation.dart' show compute, debugPrint, kIsWeb;
 import 'package:web_socket_channel/web_socket_channel.dart';
+import 'package:web_socket_channel/io.dart';
 
 enum ConnectionStatus { disconnected, connecting, connected }
 
@@ -62,6 +65,9 @@ class WebSocketService {
   // JSON parsing for large payloads).
   final List<String> _rawQueue = [];
   bool _isDecoding = false;
+  // Safety valve: allow large dev payloads, but prevent OOM on malicious peers.
+  // This is intentionally generous for "vibe coding" flows.
+  static const int _maxIncomingMessageBytes = 50 * 1024 * 1024; // 50MB
 
   // Message types that should be sent immediately (bypass batching)
   static const _immediateTypes = {
@@ -106,7 +112,11 @@ class WebSocketService {
     _connectionType = type;
   }
 
-  Future<void> connect(Uri uri) async {
+  Future<void> connect(
+    Uri uri, {
+    String? authToken,
+    String? pinnedCertSha256,
+  }) async {
     if (uri.toString().isEmpty) {
       throw StateError('Invalid connection URI');
     }
@@ -128,7 +138,39 @@ class WebSocketService {
 
     _setStatus(ConnectionStatus.connecting);
     _isReconnecting = true;
-    _channel = WebSocketChannel.connect(uri);
+    if (kIsWeb) {
+      final protocols =
+          authToken != null ? <String>['broski-auth.$authToken'] : null;
+      // Web: no custom headers; use subprotocol for auth (server extracts it).
+      _channel = WebSocketChannel.connect(uri, protocols: protocols);
+    } else {
+      HttpClient? client;
+      if (uri.scheme == 'wss' && pinnedCertSha256 != null) {
+        final normalizedPinned = pinnedCertSha256.replaceAll('=', '');
+        client = HttpClient()
+          ..badCertificateCallback = (
+            X509Certificate cert,
+            String host,
+            int port,
+          ) {
+            final digest = sha256.convert(cert.der).bytes;
+            final fp = base64Url.encode(digest).replaceAll('=', '');
+            return fp == normalizedPinned;
+          };
+      }
+
+      final headers = <String, dynamic>{};
+      if (authToken != null) {
+        headers['Authorization'] = 'Bearer $authToken';
+      }
+
+      _channel = IOWebSocketChannel.connect(
+        uri,
+        headers: headers.isEmpty ? null : headers,
+        protocols: null,
+        customClient: client,
+      );
+    }
 
     // Wait for the connection to be ready
     try {
@@ -168,6 +210,10 @@ class WebSocketService {
         if (event is String) {
           _handleMessage(event);
         } else if (event is List<int>) {
+          if (event.length > _maxIncomingMessageBytes) {
+            debugPrint('[WebSocket] Dropping oversized message: ${event.length} bytes');
+            return;
+          }
           _handleMessage(utf8.decode(event));
         }
       },
@@ -482,6 +528,12 @@ class WebSocketService {
   }
 
   void _handleMessage(String raw) {
+    // Approximate bytes (UTF-16 code units). We keep this cheap; exact byte
+    // counting would allocate (utf8.encode).
+    if (raw.length > _maxIncomingMessageBytes) {
+      debugPrint('[WebSocket] Dropping oversized message: ${raw.length} chars');
+      return;
+    }
     _rawQueue.add(raw);
     if (_isDecoding) return;
     _isDecoding = true;
@@ -536,7 +588,8 @@ class WebSocketService {
         _messageController.add(data);
       }
     } catch (_) {
-      // Ignore malformed payloads.
+      // Malformed payloads should not crash the app; log for visibility.
+      debugPrint('[WebSocket] Dropped malformed payload');
     } finally {
       _isDecoding = false;
     }

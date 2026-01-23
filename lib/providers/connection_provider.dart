@@ -2,7 +2,6 @@ import 'dart:async';
 import 'dart:io';
 import 'dart:math';
 
-import 'package:flutter/foundation.dart' show debugPrint;
 import 'package:flutter/widgets.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
@@ -77,17 +76,18 @@ class BridgeConnectionState {
   String get connectionDescription {
     if (!isConnected) return 'Disconnected';
 
+    final tlsTag = connection?.tlsEnabled == true ? ' • TLS' : '';
     switch (connectionType) {
       case ConnectionType.local:
-        return 'Local • ${rttMs ?? 0}ms';
+        return 'Local • ${rttMs ?? 0}ms$tlsTag';
       case ConnectionType.hotspot:
-        return 'Hotspot • ${rttMs ?? 0}ms';
+        return 'Hotspot • ${rttMs ?? 0}ms$tlsTag';
       case ConnectionType.tailscale:
-        return 'Tailscale • ${rttMs ?? 0}ms';
+        return 'Tailscale • ${rttMs ?? 0}ms$tlsTag';
       case ConnectionType.magicDNS:
-        return 'MagicDNS • ${rttMs ?? 0}ms';
+        return 'MagicDNS • ${rttMs ?? 0}ms$tlsTag';
       case ConnectionType.unknown:
-        return 'Connected • ${rttMs ?? 0}ms';
+        return 'Connected • ${rttMs ?? 0}ms$tlsTag';
     }
   }
 
@@ -288,9 +288,6 @@ class ConnectionNotifier extends StateNotifier<BridgeConnectionState>
       debugPrint('  - tailscaleIP: ${saved.tailscaleIP}');
       debugPrint('  - port: ${saved.port}');
       debugPrint('  - hasAuthToken: ${saved.authToken != null}');
-      debugPrint(
-        '  - tokenPrefix: ${saved.authToken?.substring(0, 4) ?? "null"}...',
-      );
       await connect(saved);
     } else {
       debugPrint('[Connection] No saved connection found');
@@ -364,7 +361,7 @@ class ConnectionNotifier extends StateNotifier<BridgeConnectionState>
       }
 
       // Try all endpoints concurrently (first success wins)
-      final result = await _tryConnectConcurrent(endpoints);
+      final result = await _tryConnectConcurrent(endpoints, info);
 
       if (result == null || !result.success) {
         throw StateError(
@@ -406,50 +403,122 @@ class ConnectionNotifier extends StateNotifier<BridgeConnectionState>
       await _registerThisDevice();
     } catch (error) {
       _failureStreak++;
+      final errString = '$error';
+      final isAuthError = errString.contains('401') ||
+          errString.toLowerCase().contains('unauthorized') ||
+          errString.toLowerCase().contains('forbidden');
+      final isPinError = errString.toLowerCase().contains('handshake') &&
+          errString.toLowerCase().contains('certificate');
       state = state.copyWith(
         status: ConnectionStatus.disconnected,
-        error: '$error',
+        error: isAuthError
+            ? 'Authentication failed. Scan a new QR code.'
+            : (isPinError
+                ? 'Secure connection failed (certificate mismatch). Scan a new QR code.'
+                : errString),
         lastEvent: ConnectionEvent.failed,
       );
-      _scheduleSmartReconnect();
+      if (!isAuthError) {
+        _scheduleSmartReconnect();
+      }
     } finally {
       _isConnecting = false;
     }
   }
 
   /// Build list of endpoints to try, ordered by preference.
-  List<({ConnectionType type, Uri uri, String host})> _buildEndpointsToTry(
+  List<({ConnectionType type, Uri uri, String host, bool isFunnel})>
+  _buildEndpointsToTry(
     ConnectionInfo info,
     ConnectionType? preferredType,
   ) {
-    final endpoints = <({ConnectionType type, Uri uri, String host})>[];
+    final endpoints = <({ConnectionType type, Uri uri, String host, bool isFunnel})>[];
+
+    bool isValidHostname(String host) {
+      if (host.isEmpty || host.length > 253) return false;
+      // Basic sanity: hostname chars only.
+      return RegExp(r'^[a-zA-Z0-9.-]+$').hasMatch(host);
+    }
+
+    ({int a, int b, int c, int d})? parseIpv4(String host) {
+      final parts = host.split('.');
+      if (parts.length != 4) return null;
+      final nums = <int>[];
+      for (final part in parts) {
+        final n = int.tryParse(part);
+        if (n == null || n < 0 || n > 255) return null;
+        nums.add(n);
+      }
+      return (a: nums[0], b: nums[1], c: nums[2], d: nums[3]);
+    }
+
+    bool isPrivateIpv4(String host) {
+      final ip = parseIpv4(host);
+      if (ip == null) return false;
+      // RFC1918 private ranges
+      if (ip.a == 10) return true;
+      if (ip.a == 172 && ip.b >= 16 && ip.b <= 31) return true;
+      if (ip.a == 192 && ip.b == 168) return true;
+      // Common hotspot ranges (still private, but be explicit)
+      if (ip.a == 172 && ip.b == 20 && ip.c == 10) return true; // iPhone hotspot
+      return false;
+    }
+
+    bool isTailscaleIpv4(String host) {
+      final ip = parseIpv4(host);
+      if (ip == null) return false;
+      // Tailscale IPv4s are typically in 100.64.0.0/10; allow any 100.* for simplicity.
+      return ip.a == 100;
+    }
+
+    bool isAllowedTarget(ConnectionType type, String host, {required bool isFunnel}) {
+      if (isFunnel) {
+        // Funnel URL is HTTPS/WSS. Restrict to tailscale domains.
+        if (!isValidHostname(host)) return false;
+        return host.endsWith('.ts.net') || host.endsWith('.tailscale.net');
+      }
+      switch (type) {
+        case ConnectionType.local:
+        case ConnectionType.hotspot:
+          return isPrivateIpv4(host);
+        case ConnectionType.tailscale:
+          return isTailscaleIpv4(host);
+        case ConnectionType.magicDNS:
+          return isValidHostname(host) &&
+              (host.endsWith('.ts.net') || host.endsWith('.tailscale.net'));
+        case ConnectionType.unknown:
+          return isValidHostname(host);
+      }
+    }
 
     void addEndpoint(
       ConnectionType type,
       String? host, {
       bool isSecure = false,
+      bool isFunnel = false,
     }) {
       if (host == null || host.isEmpty) return;
+      if (!isAllowedTarget(type, host, isFunnel: isFunnel)) {
+        debugPrint('[Connection] Skipping disallowed host for ${type.name}: $host');
+        return;
+      }
 
       final scheme = isSecure ? 'wss' : 'ws';
       final baseUri = Uri.parse('$scheme://$host:${info.port}');
-      final uri = info.authToken != null
-          ? baseUri.replace(queryParameters: {'token': info.authToken!})
-          : baseUri;
-      endpoints.add((type: type, uri: uri, host: host));
+      endpoints.add((type: type, uri: baseUri, host: host, isFunnel: isFunnel));
     }
 
     // If preferred type specified, add it first
     if (preferredType != null) {
       switch (preferredType) {
         case ConnectionType.local:
-          addEndpoint(ConnectionType.local, info.localIP);
+          addEndpoint(ConnectionType.local, info.localIP, isSecure: info.tlsEnabled);
         case ConnectionType.hotspot:
-          addEndpoint(ConnectionType.hotspot, info.hotspotIP);
+          addEndpoint(ConnectionType.hotspot, info.hotspotIP, isSecure: info.tlsEnabled);
         case ConnectionType.tailscale:
-          addEndpoint(ConnectionType.tailscale, info.tailscaleIP);
+          addEndpoint(ConnectionType.tailscale, info.tailscaleIP, isSecure: info.tlsEnabled);
         case ConnectionType.magicDNS:
-          addEndpoint(ConnectionType.magicDNS, info.magicDNSHostname);
+          addEndpoint(ConnectionType.magicDNS, info.magicDNSHostname, isSecure: info.tlsEnabled);
         case ConnectionType.unknown:
           break;
       }
@@ -457,29 +526,31 @@ class ConnectionNotifier extends StateNotifier<BridgeConnectionState>
 
     // Add all endpoints (if not already added as preferred)
     if (preferredType != ConnectionType.local && info.localIP != null) {
-      addEndpoint(ConnectionType.local, info.localIP);
+      addEndpoint(ConnectionType.local, info.localIP, isSecure: info.tlsEnabled);
     }
     if (preferredType != ConnectionType.hotspot && info.hotspotIP != null) {
-      addEndpoint(ConnectionType.hotspot, info.hotspotIP);
+      addEndpoint(ConnectionType.hotspot, info.hotspotIP, isSecure: info.tlsEnabled);
     }
     if (preferredType != ConnectionType.tailscale && info.tailscaleIP != null) {
-      addEndpoint(ConnectionType.tailscale, info.tailscaleIP);
+      addEndpoint(ConnectionType.tailscale, info.tailscaleIP, isSecure: info.tlsEnabled);
     }
     if (preferredType != ConnectionType.magicDNS &&
         info.magicDNSHostname != null) {
-      addEndpoint(ConnectionType.magicDNS, info.magicDNSHostname);
+      addEndpoint(
+        ConnectionType.magicDNS,
+        info.magicDNSHostname,
+        isSecure: info.tlsEnabled,
+      );
     }
 
     if (info.funnelURL != null && info.funnelURL!.isNotEmpty) {
       final funnelWss = info.funnelURL!.replaceFirst('https://', 'wss://');
       final baseFunnelUri = Uri.parse(funnelWss);
-      final funnelUri = info.authToken != null
-          ? baseFunnelUri.replace(queryParameters: {'token': info.authToken!})
-          : baseFunnelUri;
       endpoints.add((
         type: ConnectionType.unknown,
-        uri: funnelUri,
-        host: funnelUri.host,
+        uri: baseFunnelUri,
+        host: baseFunnelUri.host,
+        isFunnel: true,
       ));
     }
 
@@ -487,20 +558,28 @@ class ConnectionNotifier extends StateNotifier<BridgeConnectionState>
   }
 
   Future<_ConnectionResult?> _tryConnectConcurrent(
-    List<({ConnectionType type, Uri uri, String host})> endpoints,
+    List<({ConnectionType type, Uri uri, String host, bool isFunnel})> endpoints,
+    ConnectionInfo info,
   ) async {
     if (endpoints.isEmpty) return null;
 
     Object? lastError;
 
     for (final ep in endpoints) {
-      // Debug: Log connection attempt (strip token for security)
-      final debugUri = ep.uri.replace(queryParameters: {'token': '***'});
-      debugPrint('[Connection] Trying ${ep.type.name}: $debugUri');
+      debugPrint('[Connection] Trying ${ep.type.name}: ${ep.uri}');
 
       try {
+        final shouldPin =
+            info.tlsEnabled &&
+            info.certSha256 != null &&
+            info.certSha256!.isNotEmpty &&
+            !ep.isFunnel;
         await _socket
-            .connect(ep.uri)
+            .connect(
+              ep.uri,
+              authToken: info.authToken,
+              pinnedCertSha256: shouldPin ? info.certSha256 : null,
+            )
             .timeout(
               const Duration(seconds: 3),
               onTimeout: () => throw TimeoutException('Connection timeout'),

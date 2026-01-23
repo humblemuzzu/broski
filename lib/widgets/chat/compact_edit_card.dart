@@ -3,7 +3,6 @@ import 'package:google_fonts/google_fonts.dart';
 
 import '../../models/message.dart';
 import '../../theme/opencode_theme.dart';
-import '../../theme/tool_style.dart';
 import 'detail_sheet.dart';
 
 /// A compact card for Edit/Patch operations with inline diff preview.
@@ -27,20 +26,141 @@ class CompactEditCard extends StatelessWidget {
   });
 
   /// Get the file path from tool input
+  /// Handles different backend naming conventions:
+  /// - OpenCode: filePath
+  /// - Claude Code: path, file_path
+  /// - Codex: changes[0].path or path in item
   String _getFilePath() {
-    return tool.input['filePath'] as String? ??
+    // Try standard field names first
+    final filePath =
+        tool.input['filePath'] as String? ??
         tool.input['path'] as String? ??
-        'Unknown';
+        tool.input['file_path'] as String?;
+    if (filePath != null && filePath.isNotEmpty) return filePath;
+
+    // Codex: Check changes array
+    final changes = tool.input['changes'];
+    if (changes is List && changes.isNotEmpty) {
+      final first = changes[0];
+      if (first is Map<String, dynamic>) {
+        final changePath = first['path'] as String?;
+        if (changePath != null && changePath.isNotEmpty) return changePath;
+      }
+    }
+
+    return 'Unknown';
   }
 
-  /// Get old and new strings
-  String get _oldString => tool.input['oldString'] as String? ?? '';
-  String get _newString => tool.input['newString'] as String? ?? '';
+  /// Get old string content (before edit)
+  /// Handles different backend data locations:
+  /// - OpenCode: input.oldString
+  /// - Claude Code: metadata.filediff.before, metadata.toolUseResult.oldString
+  /// - str_replace_editor: input.old_str
+  String get _oldString {
+    // Check input with all possible key variants
+    final fromInput =
+        tool.input['oldString'] as String? ??
+        tool.input['old_str'] as String? ??
+        tool.input['old_string'] as String? ??
+        tool.input['old'] as String? ??
+        tool.input['original'] as String? ??
+        tool.input['originalFile'] as String?;
+    if (fromInput != null && fromInput.isNotEmpty) return fromInput;
+
+    // Claude Code: check metadata.filediff.before
+    final filediff = tool.metadata['filediff'];
+    if (filediff is Map<String, dynamic>) {
+      final before = filediff['before'] as String?;
+      if (before != null && before.isNotEmpty) return before;
+    }
+
+    // Claude Code: check metadata.toolUseResult directly
+    final toolUseResult = tool.metadata['toolUseResult'];
+    if (toolUseResult is Map<String, dynamic>) {
+      final old =
+          toolUseResult['oldString'] as String? ??
+          toolUseResult['old_str'] as String? ??
+          toolUseResult['originalFile'] as String?;
+      if (old != null && old.isNotEmpty) return old;
+    }
+
+    return '';
+  }
+
+  /// Get new string content (after edit)
+  /// Handles different backend data locations:
+  /// - OpenCode: input.newString
+  /// - Claude Code: metadata.filediff.after, metadata.toolUseResult.newString
+  /// - str_replace_editor: input.new_str
+  String get _newString {
+    // Check input with all possible key variants
+    final fromInput =
+        tool.input['newString'] as String? ??
+        tool.input['new_str'] as String? ??
+        tool.input['new_string'] as String? ??
+        tool.input['new'] as String? ??
+        tool.input['replacement'] as String? ??
+        tool.input['content'] as String?;
+    if (fromInput != null && fromInput.isNotEmpty) return fromInput;
+
+    // Claude Code: check metadata.filediff.after
+    final filediff = tool.metadata['filediff'];
+    if (filediff is Map<String, dynamic>) {
+      final after = filediff['after'] as String?;
+      if (after != null && after.isNotEmpty) return after;
+    }
+
+    // Claude Code: check metadata.toolUseResult directly
+    final toolUseResult = tool.metadata['toolUseResult'];
+    if (toolUseResult is Map<String, dynamic>) {
+      final newStr =
+          toolUseResult['newString'] as String? ??
+          toolUseResult['new_str'] as String? ??
+          toolUseResult['content'] as String?;
+      if (newStr != null && newStr.isNotEmpty) return newStr;
+    }
+
+    return '';
+  }
+
+  /// Get unified diff text
+  /// Handles different backend data locations:
+  /// - Codex: input.changes[0].diff or input.aggregatedOutput
+  /// - Claude Code: metadata.diff (from toolUseResult)
+  String? get _unifiedDiff {
+    // Claude Code: check metadata.diff first (most reliable)
+    final metaDiff = tool.metadata['diff'] as String?;
+    if (metaDiff != null && metaDiff.isNotEmpty) return metaDiff;
+
+    // Codex: check changes array with diff
+    final changes = tool.input['changes'];
+    if (changes is List && changes.isNotEmpty) {
+      final first = changes[0];
+      if (first is Map<String, dynamic>) {
+        final diff = first['diff'] as String?;
+        if (diff != null && diff.isNotEmpty) return diff;
+      }
+    }
+
+    // Codex: check aggregatedOutput
+    final aggregated = tool.input['aggregatedOutput'] as String?;
+    if (aggregated != null && aggregated.isNotEmpty) return aggregated;
+
+    return null;
+  }
 
   /// Build preview diff lines (limited to _maxPreviewLines)
+  /// Handles both oldString/newString format and unified diff format
   List<_DiffLine> _buildPreviewLines() {
     final lines = <_DiffLine>[];
 
+    // First check for unified diff (Codex format)
+    final diff = _unifiedDiff;
+    if (diff != null && diff.isNotEmpty) {
+      return _parseUnifiedDiff(diff);
+    }
+
+    // Fall back to oldString/newString format (OpenCode/Claude Code)
     // Add removed lines
     if (_oldString.isNotEmpty) {
       for (final line in _oldString.split('\n')) {
@@ -55,6 +175,29 @@ class CompactEditCard extends StatelessWidget {
       }
     }
 
+    return lines;
+  }
+
+  /// Parse unified diff format into diff lines
+  List<_DiffLine> _parseUnifiedDiff(String diff) {
+    final lines = <_DiffLine>[];
+    for (final line in diff.split('\n')) {
+      // Skip diff headers (---, +++, @@)
+      if (line.startsWith('---') ||
+          line.startsWith('+++') ||
+          line.startsWith('@@') ||
+          line.startsWith('diff ') ||
+          line.startsWith('index ')) {
+        continue;
+      }
+      // Parse added/removed lines
+      if (line.startsWith('+')) {
+        lines.add(_DiffLine(text: line.substring(1), isAdded: true));
+      } else if (line.startsWith('-')) {
+        lines.add(_DiffLine(text: line.substring(1), isAdded: false));
+      }
+      // Skip context lines (no prefix) for cleaner preview
+    }
     return lines;
   }
 
@@ -201,6 +344,7 @@ class CompactEditCard extends StatelessWidget {
             child: _FullDiffContent(
               oldString: _oldString,
               newString: _newString,
+              unifiedDiff: _unifiedDiff,
             ),
           ),
 
@@ -291,39 +435,114 @@ class _InlineDiffLine extends StatelessWidget {
 class _FullDiffContent extends StatelessWidget {
   final String oldString;
   final String newString;
+  final String? unifiedDiff;
 
-  const _FullDiffContent({required this.oldString, required this.newString});
+  const _FullDiffContent({
+    required this.oldString,
+    required this.newString,
+    this.unifiedDiff,
+  });
 
   @override
   Widget build(BuildContext context) {
     final theme = OpenCodeTheme.of(context);
     final diffLines = <Widget>[];
 
-    // Add removed lines
-    if (oldString.isNotEmpty) {
-      for (final line in oldString.split('\n')) {
-        diffLines.add(
-          _buildDiffLine(
-            line: line,
-            prefix: '-',
-            color: theme.diffRemoved,
-            theme: theme,
-          ),
-        );
+    // If we have unified diff, parse and display it
+    if (unifiedDiff != null && unifiedDiff!.isNotEmpty) {
+      for (final line in unifiedDiff!.split('\n')) {
+        // Skip diff headers
+        if (line.startsWith('---') ||
+            line.startsWith('+++') ||
+            line.startsWith('diff ') ||
+            line.startsWith('index ')) {
+          continue;
+        }
+        // Hunk headers get special styling
+        if (line.startsWith('@@')) {
+          diffLines.add(
+            Container(
+              width: double.infinity,
+              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+              color: theme.info.withValues(alpha: 0.1),
+              child: Text(
+                line,
+                style: GoogleFonts.jetBrainsMono(
+                  color: theme.info,
+                  fontSize: 11,
+                ),
+              ),
+            ),
+          );
+          continue;
+        }
+        // Added lines
+        if (line.startsWith('+')) {
+          diffLines.add(
+            _buildDiffLine(
+              line: line.substring(1),
+              prefix: '+',
+              color: theme.diffAdded,
+              theme: theme,
+            ),
+          );
+        }
+        // Removed lines
+        else if (line.startsWith('-')) {
+          diffLines.add(
+            _buildDiffLine(
+              line: line.substring(1),
+              prefix: '-',
+              color: theme.diffRemoved,
+              theme: theme,
+            ),
+          );
+        }
+        // Context lines
+        else if (line.isNotEmpty) {
+          diffLines.add(
+            Container(
+              width: double.infinity,
+              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+              child: Text(
+                '  $line',
+                style: GoogleFonts.jetBrainsMono(
+                  color: theme.textMuted,
+                  fontSize: 12,
+                ),
+              ),
+            ),
+          );
+        }
       }
-    }
+    } else {
+      // Fall back to oldString/newString format
+      // Add removed lines
+      if (oldString.isNotEmpty) {
+        for (final line in oldString.split('\n')) {
+          diffLines.add(
+            _buildDiffLine(
+              line: line,
+              prefix: '-',
+              color: theme.diffRemoved,
+              theme: theme,
+            ),
+          );
+        }
+      }
 
-    // Add added lines
-    if (newString.isNotEmpty) {
-      for (final line in newString.split('\n')) {
-        diffLines.add(
-          _buildDiffLine(
-            line: line,
-            prefix: '+',
-            color: theme.diffAdded,
-            theme: theme,
-          ),
-        );
+      // Add added lines
+      if (newString.isNotEmpty) {
+        for (final line in newString.split('\n')) {
+          diffLines.add(
+            _buildDiffLine(
+              line: line,
+              prefix: '+',
+              color: theme.diffAdded,
+              theme: theme,
+            ),
+          );
+        }
       }
     }
 

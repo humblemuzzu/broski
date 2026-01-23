@@ -6849,12 +6849,18 @@ Describe project-specific guidance for Codex here.
     final toolName = tool.name.toLowerCase().replaceFirst('mcp_', '');
 
     // Edit/Patch tools -> CompactEditCard
-    if (toolName == 'edit' || toolName == 'patch') {
+    // Handle different backend tool names:
+    // - OpenCode: 'edit', 'patch'
+    // - Claude Code: 'str_replace_editor', 'edit'
+    // - Codex: 'applypatch', 'ApplyPatch'
+    if (_isEditTool(toolName)) {
       return CompactEditCard(
         tool: tool,
         messageId: messageId,
         onUndo: widget.isClaudeCode
             ? (_, __) => _ccRewindToCheckpoint()
+            : widget.isCodex
+            ? null // Codex handles undo differently
             : (msgId, partId) => _revertMessage(msgId, partId: partId),
       );
     }
@@ -6910,13 +6916,37 @@ Describe project-specific guidance for Codex here.
     return toolName == 'write';
   }
 
-  /// Check if a diff came from an edit tool (to avoid duplicate display)
+  /// Check if a tool is an edit/patch tool (handles all backend naming conventions)
+  /// - OpenCode: 'edit', 'patch'
+  /// - Claude Code: 'str_replace_editor', 'edit'
+  /// - Codex: 'applypatch', 'ApplyPatch'
+  bool _isEditTool(String toolName) {
+    return toolName == 'edit' ||
+        toolName == 'patch' ||
+        toolName == 'applypatch' ||
+        toolName == 'str_replace_editor' ||
+        toolName == 'str_replace' ||
+        toolName == 'file_editor';
+  }
+
+  /// Check if a tool is a file modification tool (edit, write, patch)
+  /// These tools produce diffs that are shown inline in their compact cards
+  bool _isFileModificationTool(String toolName) {
+    return _isEditTool(toolName) ||
+        toolName == 'write' ||
+        toolName == 'create' ||
+        toolName == 'touch';
+  }
+
+  /// Check if a diff came from a file modification tool (to avoid duplicate display)
+  /// For Claude Code and Codex, file tools and diffs represent the same changes,
+  /// so we hide diffs when file modification tools are present.
   bool _isDiffFromEditTool(DiffEntry diff, List<ToolCall> tools) {
+    // If there are any file modification tools in this message, hide all diffs
+    // The CompactEditCard/CompactWriteCard already show the changes inline
     return tools.any((t) {
       final name = t.name.toLowerCase().replaceFirst('mcp_', '');
-      if (name != 'edit' && name != 'patch') return false;
-      final toolPath = t.input['filePath'] ?? t.input['path'] ?? '';
-      return toolPath == diff.file;
+      return _isFileModificationTool(name);
     });
   }
 

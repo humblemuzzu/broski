@@ -25,6 +25,7 @@ import '../models/vcs.dart';
 
 class StorageService {
   static const _connectionKey = 'broski_connection';
+  static const _connectionAuthTokenKey = 'broski_connection_auth_token';
   static const _disabledToolsKey = 'broski_disabled_tools';
   static const _lastBrowsePathKey = 'broski_last_browse_path';
   static const _notificationsEnabledKey = 'broski_notifications_enabled';
@@ -93,6 +94,7 @@ class StorageService {
 
   // Default TTL: 30 seconds (skip network if cache is fresh)
   static const Duration _defaultCacheTTL = Duration(seconds: 30);
+  static const int _maxMemoryCacheEntries = 300;
 
   /// Clear all in-memory cache (call on logout/disconnect)
   void clearMemoryCache() {
@@ -152,6 +154,16 @@ class StorageService {
   /// Mark cache as updated (set timestamp)
   void _updateCacheTimestamp(String key) {
     _cacheTimestamps[key] = DateTime.now();
+    if (_cacheTimestamps.length <= _maxMemoryCacheEntries) return;
+
+    final entries = _cacheTimestamps.entries.toList()
+      ..sort((a, b) => a.value.compareTo(b.value));
+    final overflow = entries.length - _maxMemoryCacheEntries;
+    for (var i = 0; i < overflow; i++) {
+      final k = entries[i].key;
+      _cacheTimestamps.remove(k);
+      _memoryCache.remove(k);
+    }
   }
 
   /// Check if sessions cache is fresh (can skip network)
@@ -161,7 +173,15 @@ class StorageService {
   bool isProjectsCacheFresh() => isCacheFresh(_cachedProjectsKey);
 
   Future<void> saveConnection(ConnectionInfo info) async {
-    await _storage.write(key: _connectionKey, value: jsonEncode(info.toJson()));
+    final json = info.toJson();
+    final authToken = json['authToken'] as String?;
+    json.remove('authToken');
+    await _storage.write(key: _connectionKey, value: jsonEncode(json));
+    if (authToken != null && authToken.isNotEmpty) {
+      await _storage.write(key: _connectionAuthTokenKey, value: authToken);
+    } else {
+      await _storage.delete(key: _connectionAuthTokenKey);
+    }
   }
 
   // ============================================================
@@ -363,11 +383,28 @@ class StorageService {
     final raw = await _storage.read(key: _connectionKey);
     if (raw == null) return null;
     final data = jsonDecode(raw) as Map<String, dynamic>;
+    final token = await _storage.read(key: _connectionAuthTokenKey);
+    // Back-compat: older versions stored authToken inside the JSON blob.
+    final legacyToken = data['authToken'] as String?;
+    final effectiveToken = (token != null && token.isNotEmpty)
+        ? token
+        : (legacyToken != null && legacyToken.isNotEmpty ? legacyToken : null);
+    if (effectiveToken != null) {
+      data['authToken'] = effectiveToken;
+      // Best-effort migration to separate key.
+      if (token == null || token.isEmpty) {
+        await _storage.write(key: _connectionAuthTokenKey, value: effectiveToken);
+        data.remove('authToken');
+        await _storage.write(key: _connectionKey, value: jsonEncode(data));
+        data['authToken'] = effectiveToken;
+      }
+    }
     return ConnectionInfo.fromJson(data);
   }
 
   Future<void> clearConnection() async {
     await _storage.delete(key: _connectionKey);
+    await _storage.delete(key: _connectionAuthTokenKey);
   }
 
   Future<String> getOrCreateDeviceId() async {

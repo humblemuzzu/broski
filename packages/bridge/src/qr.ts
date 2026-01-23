@@ -9,6 +9,8 @@ export interface ConnectionInfo {
   port: number
   version: string
   authToken: string
+  tlsEnabled?: boolean
+  certSha256?: string | null
 }
 
 export function displayQRCode(info: ConnectionInfo): void {
@@ -21,6 +23,8 @@ export function displayQRCode(info: ConnectionInfo): void {
     p: info.port,
     v: info.version,
     a: info.authToken,
+    s: info.tlsEnabled ? 1 : 0,
+    c: info.certSha256 ?? null,
   })
 
   console.log('\n')
@@ -37,17 +41,18 @@ export function displayQRCode(info: ConnectionInfo): void {
 
   console.log('')
   console.log('  Or connect manually:')
+  const scheme = info.tlsEnabled ? 'wss' : 'ws'
   if (info.localIP) {
-    console.log(`  - Local:     ws://${info.localIP}:${info.port}`)
+    console.log(`  - Local:     ${scheme}://${info.localIP}:${info.port}`)
   }
   if (info.hotspotIP) {
-    console.log(`  - Hotspot:   ws://${info.hotspotIP}:${info.port}`)
+    console.log(`  - Hotspot:   ${scheme}://${info.hotspotIP}:${info.port}`)
   }
   if (info.tailscaleIP) {
-    console.log(`  - Tailscale: ws://${info.tailscaleIP}:${info.port}`)
+    console.log(`  - Tailscale: ${scheme}://${info.tailscaleIP}:${info.port}`)
   }
   if (info.magicDNS) {
-    console.log(`  - MagicDNS:  ws://${info.magicDNS}:${info.port}`)
+    console.log(`  - MagicDNS:  ${scheme}://${info.magicDNS}:${info.port}`)
   }
   if (info.funnelURL) {
     console.log(`  - Public:    ${info.funnelURL}`)

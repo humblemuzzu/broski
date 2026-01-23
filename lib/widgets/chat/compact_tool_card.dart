@@ -49,15 +49,17 @@ class CompactToolCard extends StatelessWidget {
       final path =
           tool.input['path'] as String? ??
           tool.input['filePath'] as String? ??
+          tool.input['file_path'] as String? ??
           '';
       return _extractFilename(path);
     }
 
-    // Write tool: extract filename from path
+    // Write tool: extract filename from path (shouldn't reach here - uses CompactWriteCard)
     if (name.contains('write')) {
       final path =
           tool.input['filePath'] as String? ??
           tool.input['path'] as String? ??
+          tool.input['file_path'] as String? ??
           '';
       return _extractFilename(path);
     }

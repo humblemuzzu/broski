@@ -113,10 +113,13 @@ class ToolStyle {
     }
 
     // Edit/patch patterns
+    // Handles: edit, patch, applypatch, str_replace_editor, file_editor
     if (name.contains('edit') ||
         name.contains('patch') ||
         name.contains('update') ||
-        name.contains('modify')) {
+        name.contains('modify') ||
+        name.contains('str_replace') ||
+        name.contains('replace')) {
       return ToolType.edit;
     }
 

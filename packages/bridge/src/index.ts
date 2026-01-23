@@ -3,7 +3,7 @@ import { displayBanner, displayQRCode } from './qr'
 import { getLocalIP, getHotspotIP, getTailscaleIP, getTailscaleMagicDNS, isTailscaleConnected } from './network'
 import { enableFunnel, disableFunnel } from './funnel'
 import { OpenCodeConnector } from './connectors/opencode'
-import { createBridgeServer, loadOrCreateAuthToken } from './server'
+import { createBridgeServer, loadOrCreateAuthState } from './server'
 import { parseCli, printHelp, promptForChoice } from './cli'
 import { runDoctor } from './doctor'
 import { runSetupTailscale } from './setup-tailscale'
@@ -283,18 +283,45 @@ async function runStatus(): Promise<void> {
 async function runQR(detectHotspot: boolean): Promise<void> {
   console.log('Generating QR code for phone pairing...\n')
 
-  // Load existing auth token (don't create new one)
+  // Load existing auth token from new token.json format (or fallback to legacy)
   let authToken: string
+  let tlsEnabled = false
+  let certSha256: string | null = null
+
   try {
-    const tokenFile = resolve(homedir(), '.broski', 'token')
-    const existing = await readFile(tokenFile, 'utf-8')
-    authToken = existing.trim()
-    if (authToken.length < 16) {
-      throw new Error('Invalid token')
+    // Try new format first (token.json)
+    const tokenJsonFile = resolve(homedir(), '.broski', 'token.json')
+    const raw = await readFile(tokenJsonFile, 'utf-8')
+    const parsed = JSON.parse(raw)
+    authToken = parsed.token?.trim() ?? ''
+    if (!authToken || authToken.length < 16) {
+      throw new Error('Invalid token in token.json')
     }
   } catch {
-    console.log('⚠️  No auth token found. Run `broski` or `broski install` first to start the bridge.')
-    return
+    // Fallback to legacy format
+    try {
+      const tokenFile = resolve(homedir(), '.broski', 'token')
+      const existing = await readFile(tokenFile, 'utf-8')
+      authToken = existing.trim()
+      if (authToken.length < 16) {
+        throw new Error('Invalid token')
+      }
+    } catch {
+      console.log('⚠️  No auth token found. Run `broski` or `broski install` first to start the bridge.')
+      return
+    }
+  }
+
+  // Check for TLS certificate
+  try {
+    const { ensureTlsMaterial, isTlsEnabledByEnv } = await import('./tls')
+    tlsEnabled = isTlsEnabledByEnv()
+    if (tlsEnabled) {
+      const tlsMaterial = await ensureTlsMaterial()
+      certSha256 = tlsMaterial.certSha256
+    }
+  } catch {
+    // TLS not available, continue without it
   }
 
   // Check if bridge is actually running
@@ -327,6 +354,8 @@ async function runQR(detectHotspot: boolean): Promise<void> {
     port,
     version,
     authToken,
+    tlsEnabled,
+    certSha256,
   })
 
   if (bridgeRunning) {
@@ -905,7 +934,7 @@ async function main() {
 
   if (cli.daemon) console.log('[daemon] Loading auth token...')
   // Load persistent auth token (same token survives bridge restarts)
-  const authToken = await loadOrCreateAuthToken(cli.newToken)
+  const auth = await loadOrCreateAuthState(cli.newToken)
   if (cli.newToken) {
     console.log('✓ New auth token generated (old QR codes are now invalid)')
   } else {
@@ -915,11 +944,13 @@ async function main() {
   if (cli.daemon) console.log('[daemon] Creating bridge server...')
   // Create bridge server
   try {
-    bridgeServer = createBridgeServer({
+    const willEnableFunnel = cli.enableFunnel && tailscaleConnected
+    bridgeServer = await createBridgeServer({
       port,
       opencode,
       version,
-      authToken,
+      auth,
+      enableLoopbackInsecureServer: willEnableFunnel,
       restartOpenCode: restartManagedOpenCode,
       logger: (message) => console.log(message),
     })
@@ -970,10 +1001,11 @@ async function main() {
   let funnelURL: string | null = null
   if (cli.enableFunnel && tailscaleConnected) {
     console.log('Enabling Tailscale Funnel...')
-    const result = await enableFunnel(bridgePort)
+    const funnelBackendPort = bridgeServer.funnelBackendPort() ?? bridgePort
+    const result = await enableFunnel(funnelBackendPort)
     if (result.success && result.url) {
       funnelURL = result.url
-      funnelPort = bridgePort
+      funnelPort = funnelBackendPort
       console.log(`✓ Funnel enabled: ${funnelURL}`)
     } else {
       console.log(`⚠️  Funnel setup failed: ${result.error ?? 'unknown error'}`)
@@ -1020,6 +1052,7 @@ async function main() {
     }, 5000)
   }
 
+  const tlsInfo = bridgeServer.tls()
   displayQRCode({
     localIP,
     tailscaleIP,
@@ -1029,6 +1062,8 @@ async function main() {
     port: bridgePort,
     version,
     authToken: bridgeServer.authToken(),
+    tlsEnabled: tlsInfo.enabled,
+    certSha256: tlsInfo.certSha256,
   })
 
   console.log(`\n✓ Bridge listening on port ${bridgePort}`)

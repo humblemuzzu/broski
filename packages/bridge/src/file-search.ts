@@ -119,6 +119,11 @@ export function invalidateCache(cwd?: string): void {
 
 async function isPathAllowed(requestedPath: string): Promise<boolean> {
   try {
+    if (!requestedPath || typeof requestedPath !== 'string') return false
+    if (requestedPath.length > 4096) return false
+    if (requestedPath.includes('\0')) return false
+    if (/[\u0000-\u001F]/.test(requestedPath)) return false
+
     const expandedPath = requestedPath.startsWith('~')
       ? requestedPath.replace(/^~/, homedir())
       : requestedPath
@@ -154,7 +159,8 @@ async function hasRipgrep(): Promise<boolean> {
  * Get files using ripgrep (fast, respects .gitignore)
  */
 async function* scanWithRipgrep(cwd: string): AsyncGenerator<string> {
-  const proc = Bun.spawn(['rg', '--files', '--follow', '--hidden', '--glob=!.git/*'], {
+  // Security: do not follow symlinks (prevents scanning outside the allowed base via symlink escapes).
+  const proc = Bun.spawn(['rg', '--files', '--hidden', '--glob=!.git/*'], {
     cwd,
     stdout: 'pipe',
     stderr: 'ignore',
@@ -365,7 +371,11 @@ function sortByFuzzyScore(items: string[], query: string): string[] {
  * @returns Array of matching file/directory paths (relative to cwd)
  */
 export async function searchFilesAndDirs(options: FileSearchOptions): Promise<FileSearchResult> {
-  const { query, cwd, limit = DEFAULT_LIMIT, includeDirs = true } = options
+  const rawQuery = typeof options.query === 'string' ? options.query : ''
+  const query = rawQuery.length > 256 ? rawQuery.slice(0, 256) : rawQuery
+  const cwd = options.cwd
+  const limit = Math.max(1, Math.min(Number(options.limit ?? DEFAULT_LIMIT), 200))
+  const includeDirs = options.includeDirs !== false
   
   // Security check
   if (!cwd || !(await isPathAllowed(cwd))) {

@@ -10,6 +10,8 @@ class ConnectionInfo {
     this.hotspotIP,
     this.version,
     this.authToken,
+    this.tlsEnabled = false,
+    this.certSha256,
   });
 
   final String? localIP;
@@ -20,6 +22,8 @@ class ConnectionInfo {
   final int port;
   final String? version;
   final String? authToken;
+  final bool tlsEnabled;
+  final String? certSha256;
 
   String get preferredHost => tailscaleIP ?? localIP ?? '';
 
@@ -47,7 +51,8 @@ class ConnectionInfo {
     if (host == null || host.isEmpty) {
       return Uri.parse('');
     }
-    return Uri.parse('ws://$host:$port');
+    final scheme = tlsEnabled ? 'wss' : 'ws';
+    return Uri.parse('$scheme://$host:$port');
   }
 
   Map<String, dynamic> toJson() => {
@@ -59,6 +64,8 @@ class ConnectionInfo {
     'port': port,
     'version': version,
     'authToken': authToken,
+    'tlsEnabled': tlsEnabled,
+    'certSha256': certSha256,
   };
 
   static ConnectionInfo? parseQrPayload(String raw) {
@@ -67,7 +74,7 @@ class ConnectionInfo {
       final port = data['p'] is int
           ? data['p'] as int
           : int.tryParse('${data['p']}');
-      if (port == null) return null;
+      if (port == null || port <= 0 || port > 65535) return null;
       return ConnectionInfo(
         localIP: data['l'] as String?,
         tailscaleIP: data['t'] as String?,
@@ -77,6 +84,8 @@ class ConnectionInfo {
         port: port,
         version: data['v'] as String?,
         authToken: data['a'] as String?,
+        tlsEnabled: data['s'] == 1 || data['s'] == true,
+        certSha256: data['c'] as String?,
       );
     } catch (_) {
       return null;
@@ -88,7 +97,7 @@ class ConnectionInfo {
     final port = json['port'] is int
         ? json['port'] as int
         : int.tryParse('${json['port']}');
-    if (port == null) return null;
+    if (port == null || port <= 0 || port > 65535) return null;
     return ConnectionInfo(
       localIP: json['localIP'] as String?,
       tailscaleIP: json['tailscaleIP'] as String?,
@@ -98,6 +107,8 @@ class ConnectionInfo {
       port: port,
       version: json['version'] as String?,
       authToken: json['authToken'] as String?,
+      tlsEnabled: json['tlsEnabled'] == true,
+      certSha256: json['certSha256'] as String?,
     );
   }
 }
