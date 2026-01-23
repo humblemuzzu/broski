@@ -65,6 +65,10 @@ const opencodeLightTheme = OpenCodeTheme(
   borderSubtle: Color(0xFFF0F0F0), // Very subtle
   cardBorderSubtle: Color(0x4DF0F0F0), // 30% opacity for light mode
   dividerSection: Color(0x1A6B7280), // 10% of textMuted
+  // Card header theming - light mode uses darker header than card body
+  cardHeaderBg: Color(0xFFF0F0EF), // Slightly darker warm gray
+  cardHeaderBorder: Color(0xFFE0E0E0), // Visible border
+  cardHeaderText: Color(0xFF374151), // Dark gray text
   // Tool-specific colors for light theme (readable, professional)
   toolThinking: Color(0xFF2563EB), // Blue - cognitive
   toolEdit: Color(0xFFD97706), // Amber - modification
@@ -146,6 +150,10 @@ const opencodeDarkTheme = OpenCodeTheme(
   borderSubtle: Color(0xFF3c3c3c),
   cardBorderSubtle: Color(0x663c3c3c), // 40% of borderSubtle
   dividerSection: Color(0x1F808080), // 12% of textMuted
+  // Card header theming - distinct from card body
+  cardHeaderBg: Color(0xFF1a1a1a), // 15% lighter than bgRaised (#0f0f0f)
+  cardHeaderBorder: Color(0xFF404040), // Visible warm gray border
+  cardHeaderText: Color(0xFFb0b0b0), // Bright muted text
   // Tool-specific colors (professional, readable - no purple/pink)
   toolThinking: Color(0xFF5c9cf5), // Blue - cognitive
   toolEdit: Color(0xFFf5a742), // Amber - modification
@@ -223,6 +231,10 @@ const tokyonightDarkTheme = OpenCodeTheme(
   borderSubtle: Color(0xFF545c7e),
   cardBorderSubtle: Color(0x66545c7e),
   dividerSection: Color(0x1F828bb8),
+  // Card header theming - blue-tinted step up
+  cardHeaderBg: Color(0xFF282a3f), // Blue-tinted, ~15% lighter
+  cardHeaderBorder: Color(0xFF4a5070), // Blue-gray border
+  cardHeaderText: Color(0xFFa9b8d4), // Soft blue-white
   toolThinking: Color(0xFF82aaff), // Blue
   toolEdit: Color(0xFFff966c), // Orange
   toolRead: Color(0xFF86e1fc), // Cyan
@@ -299,6 +311,10 @@ const draculaDarkTheme = OpenCodeTheme(
   borderSubtle: Color(0xFF191a21),
   cardBorderSubtle: Color(0x66191a21),
   dividerSection: Color(0x1F6272a4),
+  // Card header theming - purple-tinted step up
+  cardHeaderBg: Color(0xFF363949), // Subtle purple tint
+  cardHeaderBorder: Color(0xFF505370), // Purple-gray border
+  cardHeaderText: Color(0xFFc8c8d8), // Soft white
   toolThinking: Color(0xFF8be9fd), // Cyan
   toolEdit: Color(0xFFffb86c), // Orange
   toolRead: Color(0xFF8be9fd), // Cyan
@@ -375,6 +391,10 @@ const catppuccinDarkTheme = OpenCodeTheme(
   borderSubtle: Color(0xFF585b70),
   cardBorderSubtle: Color(0x66585b70),
   dividerSection: Color(0x1Fbac2de),
+  // Card header theming - pastel step up
+  cardHeaderBg: Color(0xFF313244), // Catppuccin surface0
+  cardHeaderBorder: Color(0xFF5b5e78), // Muted border
+  cardHeaderText: Color(0xFFbac2de), // Subtext0
   toolThinking: Color(0xFF89b4fa), // Blue
   toolEdit: Color(0xFFfab387), // Peach/Orange
   toolRead: Color(0xFF89dceb), // Sky
@@ -451,6 +471,10 @@ const nordDarkTheme = OpenCodeTheme(
   borderSubtle: Color(0xFF434C5E),
   cardBorderSubtle: Color(0x66434C5E),
   dividerSection: Color(0x1F8B95A7),
+  // Card header theming - Arctic frost step
+  cardHeaderBg: Color(0xFF434C5E), // Nord polar night 3
+  cardHeaderBorder: Color(0xFF5E6779), // Frost gray border
+  cardHeaderText: Color(0xFFD8DEE9), // Snow storm text
   toolThinking: Color(0xFF81A1C1), // Blue
   toolEdit: Color(0xFFD08770), // Orange
   toolRead: Color(0xFF88C0D0), // Frost
@@ -527,6 +551,10 @@ const gruvboxDarkTheme = OpenCodeTheme(
   borderSubtle: Color(0xFF504945),
   cardBorderSubtle: Color(0x66504945),
   dividerSection: Color(0x1F928374),
+  // Card header theming - warm retro step
+  cardHeaderBg: Color(0xFF3c3836), // Gruvbox bg1
+  cardHeaderBorder: Color(0xFF5c5652), // Warm brown border
+  cardHeaderText: Color(0xFFd5c4a1), // Gruvbox fg2
   toolThinking: Color(0xFF83a598), // Aqua
   toolEdit: Color(0xFFfe8019), // Orange
   toolRead: Color(0xFF83a598), // Aqua
@@ -603,6 +631,10 @@ const auraDarkTheme = OpenCodeTheme(
   borderSubtle: Color(0xFF2d2d2d),
   cardBorderSubtle: Color(0x662d2d2d),
   dividerSection: Color(0x1F6d6d6d),
+  // Card header theming - vibrant contrast
+  cardHeaderBg: Color(0xFF1e1e28), // Darker purple tint
+  cardHeaderBorder: Color(0xFF404050), // Purple-gray border
+  cardHeaderText: Color(0xFFd8d8dc), // Bright text
   toolThinking: Color(0xFF82e0ff), // Blue
   toolEdit: Color(0xFFffca85), // Amber
   toolRead: Color(0xFF61ffca), // Teal
@@ -679,6 +711,10 @@ const monokaiDarkTheme = OpenCodeTheme(
   borderSubtle: Color(0xFF1e1f1c),
   cardBorderSubtle: Color(0x661e1f1c),
   dividerSection: Color(0x1F75715e),
+  // Card header theming - classic code orange tint
+  cardHeaderBg: Color(0xFF3e3d32), // Monokai line highlight
+  cardHeaderBorder: Color(0xFF5a5944), // Warm olive border
+  cardHeaderText: Color(0xFFd8d8d0), // Warm white
   toolThinking: Color(0xFF66d9ef), // Cyan
   toolEdit: Color(0xFFfd971f), // Orange
   toolRead: Color(0xFF66d9ef), // Cyan
@@ -755,6 +791,10 @@ const flexokiDarkTheme = OpenCodeTheme(
   borderSubtle: Color(0xFF403E3C),
   cardBorderSubtle: Color(0x66403E3C),
   dividerSection: Color(0x1F6F6E69),
+  // Card header theming - warm orange accent
+  cardHeaderBg: Color(0xFF282726), // Flexoki bg-2
+  cardHeaderBorder: Color(0xFF4a4845), // Warm gray border
+  cardHeaderText: Color(0xFFB7B5AC), // Flexoki tx-2
   toolThinking: Color(0xFF4385BE), // Blue
   toolEdit: Color(0xFFda702c), // Orange
   toolRead: Color(0xFF3AA99F), // Teal
@@ -831,6 +871,10 @@ const oneDarkTheme = OpenCodeTheme(
   borderSubtle: Color(0xFF2c313a),
   cardBorderSubtle: Color(0x662c313a),
   dividerSection: Color(0x1F5c6370),
+  // Card header theming - Atom inspired blue step
+  cardHeaderBg: Color(0xFF3e4451), // One Dark gutter bg
+  cardHeaderBorder: Color(0xFF555c68), // Blue-gray border
+  cardHeaderText: Color(0xFF98a0b0), // Soft text
   toolThinking: Color(0xFF61afef), // Blue
   toolEdit: Color(0xFFd19a66), // Orange
   toolRead: Color(0xFF56b6c2), // Cyan
@@ -907,6 +951,10 @@ const solarizedDarkTheme = OpenCodeTheme(
   borderSubtle: Color(0xFF073642),
   cardBorderSubtle: Color(0x66073642),
   dividerSection: Color(0x1F586e75),
+  // Card header theming - Solarized base tones
+  cardHeaderBg: Color(0xFF073642), // base02
+  cardHeaderBorder: Color(0xFF2a5058), // Teal-gray border
+  cardHeaderText: Color(0xFF93a1a1), // base1 text
   toolThinking: Color(0xFF268bd2), // Blue
   toolEdit: Color(0xFFcb4b16), // Orange
   toolRead: Color(0xFF2aa198), // Cyan
@@ -983,6 +1031,10 @@ const githubDarkTheme = OpenCodeTheme(
   borderSubtle: Color(0xFF21262d),
   cardBorderSubtle: Color(0x6621262d),
   dividerSection: Color(0x1F8b949e),
+  // Card header theming - GitHub canvas
+  cardHeaderBg: Color(0xFF21262d), // canvas-subtle
+  cardHeaderBorder: Color(0xFF3d444d), // border-muted
+  cardHeaderText: Color(0xFFadb5bd), // fg-muted
   toolThinking: Color(0xFF58a6ff), // Blue
   toolEdit: Color(0xFFf0883e), // Orange
   toolRead: Color(0xFF79c0ff), // Cyan
@@ -1059,6 +1111,10 @@ const matrixDarkTheme = OpenCodeTheme(
   borderSubtle: Color(0xFF001a00),
   cardBorderSubtle: Color(0x66001a00),
   dividerSection: Color(0x1F006600),
+  // Card header theming - green terminal glow
+  cardHeaderBg: Color(0xFF0a150a), // Dark green tint
+  cardHeaderBorder: Color(0xFF0a3a0a), // Green border
+  cardHeaderText: Color(0xFF00cc00), // Matrix green
   toolThinking: Color(0xFF00ffff), // Cyan
   toolEdit: Color(0xFFffff00), // Yellow
   toolRead: Color(0xFF2eff6a), // Green
@@ -1135,6 +1191,10 @@ const synthwave84DarkTheme = OpenCodeTheme(
   borderSubtle: Color(0xFF34294f),
   cardBorderSubtle: Color(0x6634294f),
   dividerSection: Color(0x1F848bbd),
+  // Card header theming - neon retro
+  cardHeaderBg: Color(0xFF3e3360), // Purple glow
+  cardHeaderBorder: Color(0xFF5a4880), // Neon purple border
+  cardHeaderText: Color(0xFFe0e0f0), // Bright text
   toolThinking: Color(0xFF36f9f6), // Cyan
   toolEdit: Color(0xFFfede5d), // Yellow
   toolRead: Color(0xFF36f9f6), // Cyan
@@ -1211,6 +1271,10 @@ const vesperDarkTheme = OpenCodeTheme(
   borderSubtle: Color(0xFF232323),
   cardBorderSubtle: Color(0x66232323),
   dividerSection: Color(0x1F7B7B7B),
+  // Card header theming - warm minimal
+  cardHeaderBg: Color(0xFF1e1e1e), // Slightly lighter
+  cardHeaderBorder: Color(0xFF3a3a3a), // Warm gray border
+  cardHeaderText: Color(0xFFc8c8c8), // Soft white
   toolThinking: Color(0xFF99D0FF), // Blue
   toolEdit: Color(0xFFFFC799), // Peach
   toolRead: Color(0xFF99FFE4), // Teal
@@ -1287,6 +1351,10 @@ const rosepineDarkTheme = OpenCodeTheme(
   borderSubtle: Color(0xFF26233a),
   cardBorderSubtle: Color(0x6626233a),
   dividerSection: Color(0x1F908caa),
+  // Card header theming - elegant soft
+  cardHeaderBg: Color(0xFF26233a), // Rose Pine surface
+  cardHeaderBorder: Color(0xFF44405a), // Muted purple border
+  cardHeaderText: Color(0xFFc4c0d8), // Subtle text
   toolThinking: Color(0xFF9ccfd8), // Foam
   toolEdit: Color(0xFFf6c177), // Gold
   toolRead: Color(0xFF9ccfd8), // Foam
@@ -1363,6 +1431,10 @@ const vercelDarkTheme = OpenCodeTheme(
   borderSubtle: Color(0xFF222222),
   cardBorderSubtle: Color(0x66222222),
   dividerSection: Color(0x1F888888),
+  // Card header theming - clean modern
+  cardHeaderBg: Color(0xFF1a1a1a), // Elevated surface
+  cardHeaderBorder: Color(0xFF3a3a3a), // Subtle border
+  cardHeaderText: Color(0xFFa8a8a8), // Muted white
   toolThinking: Color(0xFF0070F3), // Blue
   toolEdit: Color(0xFFF5A623), // Orange
   toolRead: Color(0xFF00DFD8), // Cyan
@@ -1439,6 +1511,10 @@ const cobalt2DarkTheme = OpenCodeTheme(
   borderSubtle: Color(0xFF0d3a58),
   cardBorderSubtle: Color(0x660d3a58),
   dividerSection: Color(0x1F0d3a58),
+  // Card header theming - high contrast blue
+  cardHeaderBg: Color(0xFF1d3b53), // Cobalt highlight
+  cardHeaderBorder: Color(0xFF2a5575), // Blue border
+  cardHeaderText: Color(0xFFc8d8e8), // Light blue-white
   toolThinking: Color(0xFF0088ff), // Blue
   toolEdit: Color(0xFFff9d00), // Orange
   toolRead: Color(0xFF80ffbb), // Mint
@@ -1515,6 +1591,10 @@ const nightowlDarkTheme = OpenCodeTheme(
   borderSubtle: Color(0xFF0b2942),
   cardBorderSubtle: Color(0x660b2942),
   dividerSection: Color(0x1F637777),
+  // Card header theming - night coding blue
+  cardHeaderBg: Color(0xFF1d3b53), // Night owl highlight
+  cardHeaderBorder: Color(0xFF2a5575), // Blue border
+  cardHeaderText: Color(0xFFb0c8dc), // Soft blue text
   toolThinking: Color(0xFF82AAFF), // Blue
   toolEdit: Color(0xFFf78c6c), // Orange
   toolRead: Color(0xFF7fdbca), // Cyan
@@ -1591,6 +1671,10 @@ const palenightDarkTheme = OpenCodeTheme(
   borderSubtle: Color(0xFF32374d),
   cardBorderSubtle: Color(0x6632374d),
   dividerSection: Color(0x1F676e95),
+  // Card header theming - soft purple
+  cardHeaderBg: Color(0xFF3b4158), // Palenight highlight
+  cardHeaderBorder: Color(0xFF505575), // Purple-gray border
+  cardHeaderText: Color(0xFF9098b5), // Muted text
   toolThinking: Color(0xFF82aaff), // Blue
   toolEdit: Color(0xFFf78c6c), // Orange
   toolRead: Color(0xFF89ddff), // Cyan
@@ -1667,6 +1751,10 @@ const catppuccinFrappeDarkTheme = OpenCodeTheme(
   borderSubtle: Color(0xFF626880),
   cardBorderSubtle: Color(0x66626880),
   dividerSection: Color(0x1Fb5bfe2),
+  // Card header theming - muted pastel
+  cardHeaderBg: Color(0xFF414559), // Frappe surface1
+  cardHeaderBorder: Color(0xFF5a5e75), // Muted border
+  cardHeaderText: Color(0xFFa5adce), // Subtext0
   toolThinking: Color(0xFF8da4e2), // Blue
   toolEdit: Color(0xFFef9f76), // Orange/Peach
   toolRead: Color(0xFF81c8be), // Teal
@@ -1743,6 +1831,10 @@ const catppuccinMacchiatoDarkTheme = OpenCodeTheme(
   borderSubtle: Color(0xFF5b6078),
   cardBorderSubtle: Color(0x665b6078),
   dividerSection: Color(0x1Fb8c0e0),
+  // Card header theming - medium pastel
+  cardHeaderBg: Color(0xFF363a4f), // Macchiato surface1
+  cardHeaderBorder: Color(0xFF505568), // Muted border
+  cardHeaderText: Color(0xFFa5adcb), // Subtext0
   toolThinking: Color(0xFF8aadf4), // Blue
   toolEdit: Color(0xFFf5a97f), // Peach
   toolRead: Color(0xFF8bd5ca), // Teal
@@ -1819,6 +1911,10 @@ const materialDarkTheme = OpenCodeTheme(
   borderSubtle: Color(0xFF1e272c),
   cardBorderSubtle: Color(0x661e272c),
   dividerSection: Color(0x1F546e7a),
+  // Card header theming - Material design
+  cardHeaderBg: Color(0xFF37474f), // Material bg2
+  cardHeaderBorder: Color(0xFF4a5a62), // Blue-gray border
+  cardHeaderText: Color(0xFFb0bec5), // Material muted
   toolThinking: Color(0xFF82aaff), // Blue
   toolEdit: Color(0xFFf78c6c), // Orange
   toolRead: Color(0xFF89ddff), // Cyan
@@ -1895,6 +1991,10 @@ const everforestDarkTheme = OpenCodeTheme(
   borderSubtle: Color(0xFF7a8478),
   cardBorderSubtle: Color(0x667a8478),
   dividerSection: Color(0x1F7a8478),
+  // Card header theming - nature calm
+  cardHeaderBg: Color(0xFF3d484d), // Everforest bg2
+  cardHeaderBorder: Color(0xFF566560), // Green-gray border
+  cardHeaderText: Color(0xFFa7c080), // Green accent text
   toolThinking: Color(0xFF7fbbb3), // Blue-green
   toolEdit: Color(0xFFe69875), // Orange
   toolRead: Color(0xFF7fbbb3), // Aqua
@@ -1971,6 +2071,10 @@ const kanagawaDarkTheme = OpenCodeTheme(
   borderSubtle: Color(0xFF363646),
   cardBorderSubtle: Color(0x66363646),
   dividerSection: Color(0x1F727169),
+  // Card header theming - Japanese aesthetic
+  cardHeaderBg: Color(0xFF363646), // Kanagawa sumiInk3
+  cardHeaderBorder: Color(0xFF4a4a5a), // Ink border
+  cardHeaderText: Color(0xFFC8C093), // Old white
   toolThinking: Color(0xFF7E9CD8), // Blue
   toolEdit: Color(0xFFD7A657), // Gold
   toolRead: Color(0xFF7E9CD8), // Blue
@@ -2047,6 +2151,10 @@ const zenburnDarkTheme = OpenCodeTheme(
   borderSubtle: Color(0xFF4f4f4f),
   cardBorderSubtle: Color(0x664f4f4f),
   dividerSection: Color(0x1F9f9f9f),
+  // Card header theming - low contrast
+  cardHeaderBg: Color(0xFF5f5f5f), // Zenburn bg+1
+  cardHeaderBorder: Color(0xFF707070), // Gray border
+  cardHeaderText: Color(0xFFc0c0b0), // Warm gray text
   toolThinking: Color(0xFF8cd0d3), // Cyan
   toolEdit: Color(0xFFdfaf8f), // Orange
   toolRead: Color(0xFF93e0e3), // Light cyan
@@ -2123,6 +2231,10 @@ const mercuryDarkTheme = OpenCodeTheme(
   borderSubtle: Color(0x14b4b7c8),
   cardBorderSubtle: Color(0x0Ab4b7c8),
   dividerSection: Color(0x1F9d9da8),
+  // Card header theming - clean purple
+  cardHeaderBg: Color(0xFF272735), // Mercury surface
+  cardHeaderBorder: Color(0xFF3a3a4a), // Purple-gray border
+  cardHeaderText: Color(0xFFc8c8d4), // Soft text
   toolThinking: Color(0xFF8da4f5), // Blue
   toolEdit: Color(0xFFfc9b6f), // Orange
   toolRead: Color(0xFF77becf), // Cyan
@@ -2199,6 +2311,10 @@ const cursorDarkTheme = OpenCodeTheme(
   borderSubtle: Color(0xFF0f0f0f),
   cardBorderSubtle: Color(0x0Ae4e4e4),
   dividerSection: Color(0x1Fe4e4e4),
+  // Card header theming - Cursor inspired
+  cardHeaderBg: Color(0xFF262626), // Slightly elevated
+  cardHeaderBorder: Color(0xFF3a3a3a), // Subtle border
+  cardHeaderText: Color(0xFFc0c0c0), // Muted white
   toolThinking: Color(0xFF81a1c1), // Blue
   toolEdit: Color(0xFFf1b467), // Orange
   toolRead: Color(0xFF88c0d0), // Cyan
@@ -2275,6 +2391,10 @@ const ayuDarkTheme = OpenCodeTheme(
   borderSubtle: Color(0xFF11151C),
   cardBorderSubtle: Color(0x6611151C),
   dividerSection: Color(0x1F565B66),
+  // Card header theming - warm minimal
+  cardHeaderBg: Color(0xFF151920), // Ayu elevated
+  cardHeaderBorder: Color(0xFF2a3038), // Warm gray border
+  cardHeaderText: Color(0xFF9098a5), // Muted text
   toolThinking: Color(0xFF59C2FF), // Blue
   toolEdit: Color(0xFFFFB454), // Orange
   toolRead: Color(0xFF39BAE6), // Cyan
@@ -2351,6 +2471,10 @@ const orngDarkTheme = OpenCodeTheme(
   borderSubtle: Color(0xFF3c3c3c),
   cardBorderSubtle: Color(0x663c3c3c),
   dividerSection: Color(0x1F808080),
+  // Card header theming - bold orange accent
+  cardHeaderBg: Color(0xFF1a1a1a), // Slightly elevated
+  cardHeaderBorder: Color(0xFF403030), // Warm border
+  cardHeaderText: Color(0xFFc0b0a0), // Warm muted text
   toolThinking: Color(0xFF56b6c2), // Cyan
   toolEdit: Color(0xFFEC5B2B), // Orange
   toolRead: Color(0xFF56b6c2), // Cyan
@@ -2438,6 +2562,10 @@ const broskiDarkTheme = OpenCodeTheme(
   borderSubtle: Color(0xFF2E3644), // Subtle dividers
   cardBorderSubtle: Color(0x662E3644), // 40% of borderSubtle
   dividerSection: Color(0x1FA0A0A8), // 12% of textMuted
+  // Card header theming - premium navy/silver
+  cardHeaderBg: Color(0xFF283040), // Navy elevated step
+  cardHeaderBorder: Color(0xFF485060), // Navy-silver border
+  cardHeaderText: Color(0xFFD0D0D4), // Platinum text
   // Tool colors - MUTED monochromatic with subtle differentiation
   // These are desaturated so they don't clash with the premium aesthetic
   toolThinking: Color(0xFF8A9EB5), // Steel blue-gray - cognitive
@@ -2519,6 +2647,10 @@ const lucentOrngDarkTheme = OpenCodeTheme(
   borderSubtle: Color(0xFF3c3c3c),
   cardBorderSubtle: Color(0x403c3c3c),
   dividerSection: Color(0x10808080),
+  // Card header theming - transparent orange
+  cardHeaderBg: Color(0x30ffffff), // Semi-transparent white
+  cardHeaderBorder: Color(0x40ffffff), // Visible border
+  cardHeaderText: Color(0xFFd0d0d0), // Light text
   toolThinking: Color(0xFF56b6c2), // Cyan
   toolEdit: Color(0xFFEC5B2B), // Orange
   toolRead: Color(0xFF56b6c2), // Cyan

@@ -43,6 +43,10 @@ class StorageService {
 
   // Prompt accent key
   static const _promptAccentColorKey = 'broski_prompt_accent_color';
+
+  // Card style keys
+  static const _cardHeaderStyleKey = 'broski_card_header_style';
+  static const _cardBorderVisibilityKey = 'broski_card_border_visibility';
   static const _codexSettingsKey = 'broski_codex_settings';
   static const _terminalSettingsKey = 'broski_terminal_settings';
   static const _permissionRulesKey = 'broski_permission_rules';
@@ -393,7 +397,10 @@ class StorageService {
       data['authToken'] = effectiveToken;
       // Best-effort migration to separate key.
       if (token == null || token.isEmpty) {
-        await _storage.write(key: _connectionAuthTokenKey, value: effectiveToken);
+        await _storage.write(
+          key: _connectionAuthTokenKey,
+          value: effectiveToken,
+        );
         data.remove('authToken');
         await _storage.write(key: _connectionKey, value: jsonEncode(data));
         data['authToken'] = effectiveToken;
@@ -1644,5 +1651,29 @@ class StorageService {
   /// Save selected prompt accent color
   Future<void> savePromptAccentColor(String colorName) async {
     await _storage.write(key: _promptAccentColorKey, value: colorName);
+  }
+
+  // ============================================================
+  // Card Style Settings
+  // ============================================================
+
+  /// Get selected card header style
+  Future<String?> getCardHeaderStyle() async {
+    return _storage.read(key: _cardHeaderStyleKey);
+  }
+
+  /// Save selected card header style
+  Future<void> saveCardHeaderStyle(String styleName) async {
+    await _storage.write(key: _cardHeaderStyleKey, value: styleName);
+  }
+
+  /// Get selected card border visibility
+  Future<String?> getCardBorderVisibility() async {
+    return _storage.read(key: _cardBorderVisibilityKey);
+  }
+
+  /// Save selected card border visibility
+  Future<void> saveCardBorderVisibility(String visibilityName) async {
+    await _storage.write(key: _cardBorderVisibilityKey, value: visibilityName);
   }
 }

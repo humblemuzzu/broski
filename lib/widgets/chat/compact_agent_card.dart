@@ -1,8 +1,11 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_markdown/flutter_markdown.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:google_fonts/google_fonts.dart';
 
+import '../../models/card_style.dart';
 import '../../models/message.dart';
+import '../../providers/card_style_provider.dart';
 import '../../theme/opencode_theme.dart';
 import '../../theme/tool_style.dart';
 import 'detail_sheet.dart';
@@ -10,7 +13,7 @@ import 'detail_sheet.dart';
 /// A compact card for Task/subagent tool calls and subtask notifications.
 /// Shows agent name and brief description.
 /// Tapping opens sheet with prompt, tool calls, and output.
-class CompactAgentCard extends StatelessWidget {
+class CompactAgentCard extends ConsumerWidget {
   final ToolCall? _tool;
   final SubtaskNotification? _notification;
   final String? messageId;
@@ -127,76 +130,104 @@ class CompactAgentCard extends StatelessWidget {
   }
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
     final theme = OpenCodeTheme.of(context);
+    final cardStyle = ref.watch(cardStyleProvider);
     final isRunning = _status == 'running';
     final isError = _status == 'error';
     final agentColor = _getAgentColor(theme);
+
+    // Determine colors based on card style settings
+    final Color headerBg;
+    final Color borderColor;
+
+    switch (cardStyle.headerStyle) {
+      case CardHeaderStyle.solid:
+        headerBg = theme.cardHeaderBg;
+      case CardHeaderStyle.tinted:
+        headerBg = agentColor.withValues(alpha: 0.1);
+      case CardHeaderStyle.minimal:
+        headerBg = theme.bgRaised;
+    }
+
+    switch (cardStyle.borderVisibility) {
+      case CardBorderVisibility.subtle:
+        borderColor = theme.cardBorderSubtle;
+      case CardBorderVisibility.visible:
+        borderColor = theme.cardHeaderBorder;
+      case CardBorderVisibility.accent:
+        borderColor = agentColor.withValues(alpha: 0.5);
+    }
 
     return GestureDetector(
       onTap: () => _showDetailSheet(context),
       child: Container(
         margin: const EdgeInsets.symmetric(vertical: 2),
-        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
         decoration: BoxDecoration(
           color: theme.bgRaised,
           borderRadius: BorderRadius.circular(12),
           border: Border.all(
-            color: isRunning
-                ? agentColor.withValues(alpha: 0.4)
-                : theme.cardBorderSubtle,
+            color: isRunning ? agentColor.withValues(alpha: 0.4) : borderColor,
             width: isRunning ? 1.5 : 1,
           ),
         ),
-        child: Row(
-          children: [
-            // Agent icon
-            Icon(
-              _getAgentIcon(),
-              size: 16,
-              color: isError ? theme.error : agentColor,
-            ),
-            const SizedBox(width: 6),
-
-            // Agent type name (bold)
-            Text(
-              _capitalize(_agentType),
-              style: TextStyle(
-                color: theme.text,
-                fontSize: 13,
-                fontWeight: FontWeight.w600,
-              ),
-            ),
-            const SizedBox(width: 8),
-
-            // Description as preview (muted, truncated)
-            Expanded(
-              child: Text(
-                _description.isNotEmpty ? _description : _prompt,
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
-                style: TextStyle(color: theme.textMuted, fontSize: 12),
-              ),
-            ),
-            const SizedBox(width: 8),
-
-            // Running spinner or chevron
-            if (isRunning)
-              SizedBox(
-                width: 14,
-                height: 14,
-                child: CircularProgressIndicator(
-                  strokeWidth: 2,
-                  valueColor: AlwaysStoppedAnimation<Color>(agentColor),
-                ),
-              )
-            else
+        clipBehavior: Clip.antiAlias,
+        child: Container(
+          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+          decoration: BoxDecoration(
+            color: headerBg,
+            borderRadius: BorderRadius.circular(11),
+          ),
+          child: Row(
+            children: [
+              // Agent icon
               Icon(
-                Icons.chevron_right,
-                size: 18,
-                color: theme.textMuted.withValues(alpha: 0.5),
+                _getAgentIcon(),
+                size: 16,
+                color: isError ? theme.error : agentColor,
               ),
-          ],
+              const SizedBox(width: 6),
+
+              // Agent type name (bold)
+              Text(
+                _capitalize(_agentType),
+                style: TextStyle(
+                  color: theme.cardHeaderText,
+                  fontSize: 13,
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
+              const SizedBox(width: 8),
+
+              // Description as preview (muted, truncated)
+              Expanded(
+                child: Text(
+                  _description.isNotEmpty ? _description : _prompt,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: TextStyle(color: theme.textMuted, fontSize: 12),
+                ),
+              ),
+              const SizedBox(width: 8),
+
+              // Running spinner or chevron
+              if (isRunning)
+                SizedBox(
+                  width: 14,
+                  height: 14,
+                  child: CircularProgressIndicator(
+                    strokeWidth: 2,
+                    valueColor: AlwaysStoppedAnimation<Color>(agentColor),
+                  ),
+                )
+              else
+                Icon(
+                  Icons.chevron_right,
+                  size: 18,
+                  color: theme.textMuted.withValues(alpha: 0.5),
+                ),
+            ],
+          ),
         ),
       ),
     );

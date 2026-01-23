@@ -1,25 +1,52 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../models/card_style.dart';
 import '../../models/todo.dart';
+import '../../providers/card_style_provider.dart';
 import '../../theme/opencode_theme.dart';
 import 'detail_sheet.dart';
 
 /// An inline card showing the current todo list.
 /// Displayed in chat flow when todos are updated via TodoWrite.
 /// Tapping opens full todo list in a sheet.
-class CompactTodosCard extends StatelessWidget {
+class CompactTodosCard extends ConsumerWidget {
   final List<Todo> todos;
   final VoidCallback? onTap;
 
   const CompactTodosCard({super.key, required this.todos, this.onTap});
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
     final theme = OpenCodeTheme.of(context);
+    final cardStyle = ref.watch(cardStyleProvider);
     final completed = todos
         .where((t) => t.status == TodoStatus.completed)
         .length;
     final displayTodos = todos.take(5).toList();
+
+    // Determine colors based on card style settings
+    final Color headerBg;
+    final Color borderColor;
+    final toolColor = theme.toolTodo;
+
+    switch (cardStyle.headerStyle) {
+      case CardHeaderStyle.solid:
+        headerBg = theme.cardHeaderBg;
+      case CardHeaderStyle.tinted:
+        headerBg = toolColor.withValues(alpha: 0.1);
+      case CardHeaderStyle.minimal:
+        headerBg = Colors.transparent;
+    }
+
+    switch (cardStyle.borderVisibility) {
+      case CardBorderVisibility.subtle:
+        borderColor = theme.cardBorderSubtle;
+      case CardBorderVisibility.visible:
+        borderColor = theme.cardHeaderBorder;
+      case CardBorderVisibility.accent:
+        borderColor = toolColor.withValues(alpha: 0.5);
+    }
 
     return GestureDetector(
       onTap: () {
@@ -30,75 +57,93 @@ class CompactTodosCard extends StatelessWidget {
         }
       },
       child: Container(
-        padding: const EdgeInsets.all(12),
         decoration: BoxDecoration(
           color: theme.bgRaised,
           borderRadius: BorderRadius.circular(12),
-          border: Border.all(color: theme.cardBorderSubtle),
+          border: Border.all(color: borderColor),
         ),
+        clipBehavior: Clip.antiAlias,
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            // Header row
-            Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              children: [
-                Text(
-                  'Update Todos',
-                  style: TextStyle(
-                    color: theme.text,
-                    fontSize: 13,
-                    fontWeight: FontWeight.w600,
-                  ),
-                ),
-                // Progress badge
-                Container(
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 8,
-                    vertical: 4,
-                  ),
-                  decoration: BoxDecoration(
-                    color: theme.info.withValues(alpha: 0.15),
-                    borderRadius: BorderRadius.circular(8),
-                  ),
-                  child: Text(
-                    '$completed/${todos.length} done',
-                    style: TextStyle(
-                      color: theme.info,
-                      fontSize: 11,
-                      fontWeight: FontWeight.w500,
-                    ),
-                  ),
-                ),
-              ],
-            ),
-
-            const SizedBox(height: 8),
-
-            // Divider
-            Divider(
-              height: 1,
-              color: theme.borderSubtle.withValues(alpha: 0.5),
-            ),
-
-            const SizedBox(height: 8),
-
-            // Todo items
-            ...displayTodos.map((todo) => _buildTodoRow(todo, theme)),
-
-            // "And N more" if truncated
-            if (todos.length > 5)
-              Padding(
-                padding: const EdgeInsets.only(top: 4),
-                child: Text(
-                  '... and ${todos.length - 5} more',
-                  style: TextStyle(
-                    color: theme.textMuted,
-                    fontSize: 11,
-                    fontStyle: FontStyle.italic,
-                  ),
+            // Header row with distinct background
+            Container(
+              padding: const EdgeInsets.all(12),
+              decoration: BoxDecoration(
+                color: headerBg,
+                border: Border(
+                  bottom: BorderSide(color: borderColor, width: 1),
                 ),
               ),
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  Row(
+                    children: [
+                      Icon(
+                        Icons.checklist_rounded,
+                        size: 16,
+                        color: theme.toolTodo,
+                      ),
+                      const SizedBox(width: 6),
+                      Text(
+                        'Update Todos',
+                        style: TextStyle(
+                          color: theme.cardHeaderText,
+                          fontSize: 13,
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
+                    ],
+                  ),
+                  // Progress badge
+                  Container(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 8,
+                      vertical: 4,
+                    ),
+                    decoration: BoxDecoration(
+                      color: theme.info.withValues(alpha: 0.15),
+                      borderRadius: BorderRadius.circular(8),
+                    ),
+                    child: Text(
+                      '$completed/${todos.length} done',
+                      style: TextStyle(
+                        color: theme.info,
+                        fontSize: 11,
+                        fontWeight: FontWeight.w500,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+
+            // Todo items
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 12),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  ...displayTodos.map((todo) => _buildTodoRow(todo, theme)),
+
+                  // "And N more" if truncated
+                  if (todos.length > 5)
+                    Padding(
+                      padding: const EdgeInsets.only(top: 4),
+                      child: Text(
+                        '... and ${todos.length - 5} more',
+                        style: TextStyle(
+                          color: theme.textMuted,
+                          fontSize: 11,
+                          fontStyle: FontStyle.italic,
+                        ),
+                      ),
+                    ),
+                ],
+              ),
+            ),
+            const SizedBox(height: 8),
           ],
         ),
       ),

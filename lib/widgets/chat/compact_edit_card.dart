@@ -1,7 +1,10 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:google_fonts/google_fonts.dart';
 
+import '../../models/card_style.dart';
 import '../../models/message.dart';
+import '../../providers/card_style_provider.dart';
 import '../../theme/opencode_theme.dart';
 import 'detail_sheet.dart';
 
@@ -10,7 +13,7 @@ import 'detail_sheet.dart';
 /// Tapping opens full diff view in a detail sheet.
 ///
 /// Design matches Claude's edit cards with inline red/green diff lines.
-class CompactEditCard extends StatelessWidget {
+class CompactEditCard extends ConsumerWidget {
   final ToolCall tool;
   final String? messageId;
   final void Function(String messageId, String? partId)? onUndo;
@@ -202,14 +205,38 @@ class CompactEditCard extends StatelessWidget {
   }
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
     final theme = OpenCodeTheme.of(context);
+    final cardStyle = ref.watch(cardStyleProvider);
     final isRunning = tool.status == 'running';
     final hasError = tool.status == 'error';
 
     final previewLines = _buildPreviewLines();
     final hasMoreLines = previewLines.length > _maxPreviewLines;
     final displayLines = previewLines.take(_maxPreviewLines).toList();
+
+    // Determine colors based on card style settings
+    final Color headerBg;
+    final Color borderColor;
+    final toolColor = theme.toolEdit;
+
+    switch (cardStyle.headerStyle) {
+      case CardHeaderStyle.solid:
+        headerBg = theme.cardHeaderBg;
+      case CardHeaderStyle.tinted:
+        headerBg = toolColor.withValues(alpha: 0.1);
+      case CardHeaderStyle.minimal:
+        headerBg = Colors.transparent;
+    }
+
+    switch (cardStyle.borderVisibility) {
+      case CardBorderVisibility.subtle:
+        borderColor = theme.cardBorderSubtle;
+      case CardBorderVisibility.visible:
+        borderColor = theme.cardHeaderBorder;
+      case CardBorderVisibility.accent:
+        borderColor = toolColor.withValues(alpha: 0.5);
+    }
 
     return GestureDetector(
       onTap: () => _showDetailSheet(context),
@@ -223,7 +250,7 @@ class CompactEditCard extends StatelessWidget {
                 ? theme.error.withValues(alpha: 0.5)
                 : isRunning
                 ? theme.accent.withValues(alpha: 0.4)
-                : theme.cardBorderSubtle,
+                : borderColor,
             width: isRunning ? 1.5 : 1,
           ),
         ),
@@ -231,20 +258,35 @@ class CompactEditCard extends StatelessWidget {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            // Header row: Edit + file path
-            Padding(
+            // Header row: Edit + file path with distinct background
+            Container(
               padding: const EdgeInsets.fromLTRB(12, 10, 12, 8),
+              decoration: BoxDecoration(
+                color: headerBg,
+                border: Border(
+                  bottom: BorderSide(color: borderColor, width: 1),
+                ),
+                borderRadius: const BorderRadius.vertical(
+                  top: Radius.circular(11),
+                ),
+              ),
               child: Row(
                 children: [
+                  Icon(
+                    Icons.edit_note_rounded,
+                    size: 16,
+                    color: theme.toolEdit,
+                  ),
+                  const SizedBox(width: 6),
                   Text(
                     'Edit',
                     style: TextStyle(
-                      color: theme.textMuted,
+                      color: theme.cardHeaderText,
                       fontSize: 12,
-                      fontWeight: FontWeight.w500,
+                      fontWeight: FontWeight.w600,
                     ),
                   ),
-                  const SizedBox(width: 6),
+                  const SizedBox(width: 8),
                   Expanded(
                     child: Text(
                       _getFilePath(),

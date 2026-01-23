@@ -1,7 +1,10 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:google_fonts/google_fonts.dart';
 
+import '../../models/card_style.dart';
 import '../../models/message.dart';
+import '../../providers/card_style_provider.dart';
 import '../../theme/opencode_theme.dart';
 import 'detail_sheet.dart';
 
@@ -10,7 +13,7 @@ import 'detail_sheet.dart';
 /// Tapping opens full content view in a detail sheet.
 ///
 /// Design matches Claude's style with inline green content lines (all additions).
-class CompactWriteCard extends StatelessWidget {
+class CompactWriteCard extends ConsumerWidget {
   final ToolCall tool;
   final String? messageId;
   final void Function(String messageId, String? partId)? onUndo;
@@ -50,14 +53,38 @@ class CompactWriteCard extends StatelessWidget {
   int get _totalLines => _content.isEmpty ? 0 : _content.split('\n').length;
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
     final theme = OpenCodeTheme.of(context);
+    final cardStyle = ref.watch(cardStyleProvider);
     final isRunning = tool.status == 'running';
     final hasError = tool.status == 'error';
 
     final previewLines = _buildPreviewLines();
     final hasMoreLines = previewLines.length > _maxPreviewLines;
     final displayLines = previewLines.take(_maxPreviewLines).toList();
+
+    // Determine colors based on card style settings
+    final Color headerBg;
+    final Color borderColor;
+    final toolColor = theme.toolWrite;
+
+    switch (cardStyle.headerStyle) {
+      case CardHeaderStyle.solid:
+        headerBg = theme.cardHeaderBg;
+      case CardHeaderStyle.tinted:
+        headerBg = toolColor.withValues(alpha: 0.1);
+      case CardHeaderStyle.minimal:
+        headerBg = Colors.transparent;
+    }
+
+    switch (cardStyle.borderVisibility) {
+      case CardBorderVisibility.subtle:
+        borderColor = theme.cardBorderSubtle;
+      case CardBorderVisibility.visible:
+        borderColor = theme.cardHeaderBorder;
+      case CardBorderVisibility.accent:
+        borderColor = toolColor.withValues(alpha: 0.5);
+    }
 
     return GestureDetector(
       onTap: () => _showDetailSheet(context),
@@ -71,7 +98,7 @@ class CompactWriteCard extends StatelessWidget {
                 ? theme.error.withValues(alpha: 0.5)
                 : isRunning
                 ? theme.accent.withValues(alpha: 0.4)
-                : theme.cardBorderSubtle,
+                : borderColor,
             width: isRunning ? 1.5 : 1,
           ),
         ),
@@ -79,20 +106,35 @@ class CompactWriteCard extends StatelessWidget {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            // Header row: Write + file path + line count badge
-            Padding(
+            // Header row: Write + file path + line count badge with distinct background
+            Container(
               padding: const EdgeInsets.fromLTRB(12, 10, 12, 8),
+              decoration: BoxDecoration(
+                color: headerBg,
+                border: Border(
+                  bottom: BorderSide(color: borderColor, width: 1),
+                ),
+                borderRadius: const BorderRadius.vertical(
+                  top: Radius.circular(11),
+                ),
+              ),
               child: Row(
                 children: [
+                  Icon(
+                    Icons.add_circle_outline_rounded,
+                    size: 16,
+                    color: theme.toolWrite,
+                  ),
+                  const SizedBox(width: 6),
                   Text(
                     'Write',
                     style: TextStyle(
-                      color: theme.textMuted,
+                      color: theme.cardHeaderText,
                       fontSize: 12,
-                      fontWeight: FontWeight.w500,
+                      fontWeight: FontWeight.w600,
                     ),
                   ),
-                  const SizedBox(width: 6),
+                  const SizedBox(width: 8),
                   Expanded(
                     child: Text(
                       _getFilePath(),

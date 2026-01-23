@@ -2,9 +2,12 @@ import 'dart:convert';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_markdown/flutter_markdown.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:google_fonts/google_fonts.dart';
 
+import '../../models/card_style.dart';
 import '../../models/message.dart';
+import '../../providers/card_style_provider.dart';
 import '../../theme/opencode_theme.dart';
 import '../../theme/tool_style.dart';
 import 'detail_sheet.dart';
@@ -14,7 +17,7 @@ import 'detail_sheet.dart';
 ///
 /// Handles: Read, Write, Bash, Shell, Glob, Grep, WebFetch, and other tools.
 /// Does NOT handle: Edit, Patch (use CompactEditCard), Task (use CompactAgentCard)
-class CompactToolCard extends StatelessWidget {
+class CompactToolCard extends ConsumerWidget {
   final ToolCall tool;
   final String? messageId;
   final void Function(String messageId, String? partId)? onUndo;
@@ -431,73 +434,101 @@ class CompactToolCard extends StatelessWidget {
   }
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
     final theme = OpenCodeTheme.of(context);
+    final cardStyle = ref.watch(cardStyleProvider);
     final toolColor = ToolStyle.getColor(context, tool.name);
     final icon = ToolStyle.getIcon(tool.name);
     final isRunning = tool.status == 'running';
     final hasError = tool.status == 'error';
 
+    // Determine colors based on card style settings
+    final Color headerBg;
+    final Color borderColor;
+
+    switch (cardStyle.headerStyle) {
+      case CardHeaderStyle.solid:
+        headerBg = theme.cardHeaderBg;
+      case CardHeaderStyle.tinted:
+        headerBg = toolColor.withValues(alpha: 0.1);
+      case CardHeaderStyle.minimal:
+        headerBg = theme.bgRaised;
+    }
+
+    switch (cardStyle.borderVisibility) {
+      case CardBorderVisibility.subtle:
+        borderColor = theme.cardBorderSubtle;
+      case CardBorderVisibility.visible:
+        borderColor = theme.cardHeaderBorder;
+      case CardBorderVisibility.accent:
+        borderColor = toolColor.withValues(alpha: 0.5);
+    }
+
     return GestureDetector(
       onTap: () => _showDetailSheet(context),
       child: Container(
         margin: const EdgeInsets.symmetric(vertical: 2),
-        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
         decoration: BoxDecoration(
           color: theme.bgRaised,
           borderRadius: BorderRadius.circular(12),
           border: Border.all(
-            color: hasError
-                ? theme.error.withValues(alpha: 0.5)
-                : theme.cardBorderSubtle,
+            color: hasError ? theme.error.withValues(alpha: 0.5) : borderColor,
             width: 1,
           ),
         ),
-        child: Row(
-          children: [
-            // Icon with 6px spacing
-            Icon(icon, size: 16, color: hasError ? theme.error : toolColor),
-            const SizedBox(width: 6),
+        clipBehavior: Clip.antiAlias,
+        child: Container(
+          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+          decoration: BoxDecoration(
+            color: headerBg,
+            borderRadius: BorderRadius.circular(11),
+          ),
+          child: Row(
+            children: [
+              // Icon with 6px spacing
+              Icon(icon, size: 16, color: hasError ? theme.error : toolColor),
+              const SizedBox(width: 6),
 
-            // Tool name (bold)
-            Text(
-              _getDisplayName(),
-              style: TextStyle(
-                color: theme.text,
-                fontSize: 13,
-                fontWeight: FontWeight.w600,
-              ),
-            ),
-            const SizedBox(width: 8),
-
-            // Preview text (muted, truncated, flexible)
-            Expanded(
-              child: Text(
-                _getPreview(),
-                style: TextStyle(color: theme.textMuted, fontSize: 12),
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
-              ),
-            ),
-            const SizedBox(width: 8),
-
-            // Arrow or spinner
-            if (isRunning)
-              SizedBox(
-                width: 14,
-                height: 14,
-                child: CircularProgressIndicator(
-                  strokeWidth: 2,
-                  valueColor: AlwaysStoppedAnimation<Color>(toolColor),
+              // Tool name (bold) - using cardHeaderText
+              Text(
+                _getDisplayName(),
+                style: TextStyle(
+                  color: theme.cardHeaderText,
+                  fontSize: 13,
+                  fontWeight: FontWeight.w600,
                 ),
-              )
-            else
-              Icon(
-                Icons.chevron_right,
-                size: 18,
-                color: theme.textMuted.withValues(alpha: 0.5),
               ),
-          ],
+              const SizedBox(width: 8),
+
+              // Preview text (muted, truncated, flexible)
+              Expanded(
+                child: Text(
+                  _getPreview(),
+                  style: TextStyle(color: theme.textMuted, fontSize: 12),
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                ),
+              ),
+              const SizedBox(width: 8),
+
+              // Arrow or spinner
+              if (isRunning)
+                SizedBox(
+                  width: 14,
+                  height: 14,
+                  child: CircularProgressIndicator(
+                    strokeWidth: 2,
+                    valueColor: AlwaysStoppedAnimation<Color>(toolColor),
+                  ),
+                )
+              else
+                Icon(
+                  Icons.chevron_right,
+                  size: 18,
+                  color: theme.textMuted.withValues(alpha: 0.5),
+                ),
+            ],
+          ),
         ),
       ),
     );

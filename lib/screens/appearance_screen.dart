@@ -3,7 +3,9 @@ import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../models/card_style.dart';
 import '../providers/appearance_provider.dart';
+import '../providers/card_style_provider.dart';
 import '../theme/opencode_theme.dart';
 import '../theme/tool_style.dart';
 
@@ -121,6 +123,13 @@ class AppearanceScreen extends ConsumerWidget {
               ],
             ),
           ),
+
+          const SizedBox(height: 32),
+
+          // Card Header Section
+          _SectionHeader(title: 'Card Headers'),
+          const SizedBox(height: 12),
+          const _CardHeaderStyleSelector(),
 
           const SizedBox(height: 32),
 
@@ -1368,6 +1377,398 @@ class _ScreenToggleChip extends StatelessWidget {
             ),
           ],
         ),
+      ),
+    );
+  }
+}
+
+/// Card header style selector - lets users choose header and border styles
+class _CardHeaderStyleSelector extends ConsumerWidget {
+  const _CardHeaderStyleSelector();
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final theme = Theme.of(context);
+    final cardStyle = ref.watch(cardStyleProvider);
+
+    return _SettingsCard(
+      child: Column(
+        children: [
+          // Header Style Section
+          Padding(
+            padding: const EdgeInsets.all(16),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
+                  children: [
+                    Icon(
+                      Icons.layers_rounded,
+                      size: 16,
+                      color: theme.colorScheme.primary,
+                    ),
+                    const SizedBox(width: 8),
+                    Text(
+                      'Header Style',
+                      style: TextStyle(
+                        color: theme.colorScheme.onSurface,
+                        fontSize: 15,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 12),
+                // Header style options
+                Wrap(
+                  spacing: 8,
+                  runSpacing: 8,
+                  children: CardHeaderStyle.values.map((style) {
+                    final isSelected = cardStyle.headerStyle == style;
+                    return _StyleOptionChip(
+                      label: style.displayName,
+                      description: style.description,
+                      isSelected: isSelected,
+                      onTap: () => ref
+                          .read(cardStyleProvider.notifier)
+                          .setHeaderStyle(style),
+                    );
+                  }).toList(),
+                ),
+              ],
+            ),
+          ),
+          _Divider(),
+          // Border Visibility Section
+          Padding(
+            padding: const EdgeInsets.all(16),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
+                  children: [
+                    Icon(
+                      Icons.border_style_rounded,
+                      size: 16,
+                      color: theme.colorScheme.primary,
+                    ),
+                    const SizedBox(width: 8),
+                    Text(
+                      'Border Style',
+                      style: TextStyle(
+                        color: theme.colorScheme.onSurface,
+                        fontSize: 15,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 12),
+                // Border visibility options
+                Wrap(
+                  spacing: 8,
+                  runSpacing: 8,
+                  children: CardBorderVisibility.values.map((visibility) {
+                    final isSelected = cardStyle.borderVisibility == visibility;
+                    return _StyleOptionChip(
+                      label: visibility.displayName,
+                      description: visibility.description,
+                      isSelected: isSelected,
+                      onTap: () => ref
+                          .read(cardStyleProvider.notifier)
+                          .setBorderVisibility(visibility),
+                    );
+                  }).toList(),
+                ),
+              ],
+            ),
+          ),
+          _Divider(),
+          // Live Preview
+          Padding(
+            padding: const EdgeInsets.all(16),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
+                  children: [
+                    Icon(
+                      Icons.visibility_rounded,
+                      size: 14,
+                      color: theme.colorScheme.onSurface.withValues(alpha: 0.5),
+                    ),
+                    const SizedBox(width: 6),
+                    Text(
+                      'Preview',
+                      style: TextStyle(
+                        color: theme.colorScheme.onSurface.withValues(
+                          alpha: 0.5,
+                        ),
+                        fontSize: 11,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 12),
+                _CardStylePreview(cardStyle: cardStyle),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+/// Option chip for style selection
+class _StyleOptionChip extends StatelessWidget {
+  const _StyleOptionChip({
+    required this.label,
+    required this.description,
+    required this.isSelected,
+    required this.onTap,
+  });
+
+  final String label;
+  final String description;
+  final bool isSelected;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final ocTheme = OpenCodeTheme.of(context);
+
+    return GestureDetector(
+      onTap: onTap,
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 200),
+        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+        decoration: BoxDecoration(
+          color: isSelected
+              ? theme.colorScheme.primary.withValues(alpha: 0.15)
+              : ocTheme.bgRaised,
+          borderRadius: BorderRadius.circular(10),
+          border: Border.all(
+            color: isSelected
+                ? theme.colorScheme.primary
+                : ocTheme.borderSubtle,
+            width: isSelected ? 1.5 : 1,
+          ),
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Text(
+                  label,
+                  style: TextStyle(
+                    color: isSelected
+                        ? theme.colorScheme.primary
+                        : theme.colorScheme.onSurface,
+                    fontSize: 13,
+                    fontWeight: isSelected ? FontWeight.w700 : FontWeight.w600,
+                  ),
+                ),
+                if (isSelected) ...[
+                  const SizedBox(width: 6),
+                  Icon(
+                    Icons.check_circle,
+                    size: 14,
+                    color: theme.colorScheme.primary,
+                  ),
+                ],
+              ],
+            ),
+            const SizedBox(height: 2),
+            Text(
+              description,
+              style: TextStyle(
+                color: theme.colorScheme.onSurface.withValues(alpha: 0.5),
+                fontSize: 10,
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+/// Preview card showing current header/border style
+class _CardStylePreview extends StatelessWidget {
+  const _CardStylePreview({required this.cardStyle});
+
+  final CardStyleSettings cardStyle;
+
+  @override
+  Widget build(BuildContext context) {
+    final ocTheme = OpenCodeTheme.of(context);
+    final theme = Theme.of(context);
+
+    // Determine colors based on style
+    final Color headerBg;
+    final Color borderColor;
+    final toolColor = ocTheme.toolEdit; // Use edit tool color for preview
+
+    switch (cardStyle.headerStyle) {
+      case CardHeaderStyle.solid:
+        headerBg = ocTheme.cardHeaderBg;
+      case CardHeaderStyle.tinted:
+        headerBg = toolColor.withValues(alpha: 0.1);
+      case CardHeaderStyle.minimal:
+        headerBg = Colors.transparent;
+    }
+
+    switch (cardStyle.borderVisibility) {
+      case CardBorderVisibility.subtle:
+        borderColor = ocTheme.cardBorderSubtle;
+      case CardBorderVisibility.visible:
+        borderColor = ocTheme.cardHeaderBorder;
+      case CardBorderVisibility.accent:
+        borderColor = toolColor.withValues(alpha: 0.6);
+    }
+
+    return Container(
+      decoration: BoxDecoration(
+        color: ocTheme.bgRaised,
+        borderRadius: BorderRadius.circular(10),
+        border: Border.all(color: borderColor),
+      ),
+      clipBehavior: Clip.antiAlias,
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          // Header
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+            decoration: BoxDecoration(
+              color: headerBg,
+              border: Border(
+                bottom: BorderSide(color: borderColor, width: 0.5),
+              ),
+            ),
+            child: Row(
+              children: [
+                Icon(Icons.edit_rounded, size: 14, color: toolColor),
+                const SizedBox(width: 8),
+                Text(
+                  'Edit',
+                  style: TextStyle(
+                    color: ocTheme.cardHeaderText,
+                    fontSize: 12,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+                const Spacer(),
+                Container(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 6,
+                    vertical: 2,
+                  ),
+                  decoration: BoxDecoration(
+                    color: ocTheme.diffAdded.withValues(alpha: 0.15),
+                    borderRadius: BorderRadius.circular(4),
+                  ),
+                  child: Text(
+                    '+5',
+                    style: TextStyle(
+                      color: ocTheme.diffAdded,
+                      fontSize: 10,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                ),
+                const SizedBox(width: 4),
+                Container(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 6,
+                    vertical: 2,
+                  ),
+                  decoration: BoxDecoration(
+                    color: ocTheme.diffRemoved.withValues(alpha: 0.15),
+                    borderRadius: BorderRadius.circular(4),
+                  ),
+                  child: Text(
+                    '-2',
+                    style: TextStyle(
+                      color: ocTheme.diffRemoved,
+                      fontSize: 10,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+          // Body
+          Padding(
+            padding: const EdgeInsets.all(12),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  'lib/example.dart',
+                  style: TextStyle(
+                    color: theme.colorScheme.onSurface.withValues(alpha: 0.7),
+                    fontSize: 11,
+                    fontFamily: 'monospace',
+                  ),
+                ),
+                const SizedBox(height: 8),
+                // Diff preview lines
+                _DiffPreviewLine(
+                  text: '- final old = "value";',
+                  isRemoved: true,
+                  addedColor: ocTheme.diffAdded,
+                  removedColor: ocTheme.diffRemoved,
+                ),
+                _DiffPreviewLine(
+                  text: '+ final updated = "new";',
+                  isRemoved: false,
+                  addedColor: ocTheme.diffAdded,
+                  removedColor: ocTheme.diffRemoved,
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _DiffPreviewLine extends StatelessWidget {
+  const _DiffPreviewLine({
+    required this.text,
+    required this.isRemoved,
+    required this.addedColor,
+    required this.removedColor,
+  });
+
+  final String text;
+  final bool isRemoved;
+  final Color addedColor;
+  final Color removedColor;
+
+  @override
+  Widget build(BuildContext context) {
+    final color = isRemoved ? removedColor : addedColor;
+    return Container(
+      margin: const EdgeInsets.only(bottom: 2),
+      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+      decoration: BoxDecoration(
+        color: color.withValues(alpha: 0.1),
+        borderRadius: BorderRadius.circular(4),
+        border: Border(left: BorderSide(color: color, width: 2)),
+      ),
+      child: Text(
+        text,
+        style: TextStyle(color: color, fontSize: 10, fontFamily: 'monospace'),
       ),
     );
   }

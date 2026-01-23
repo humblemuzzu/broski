@@ -49,6 +49,10 @@ class OpenCodeTheme extends ThemeExtension<OpenCodeTheme> {
     required this.borderSubtle,
     required this.cardBorderSubtle,
     required this.dividerSection,
+    // Card header theming (distinct from card body for visibility)
+    required this.cardHeaderBg,
+    required this.cardHeaderBorder,
+    required this.cardHeaderText,
     // Tool-specific accent colors (distinct per tool type)
     required this.toolThinking,
     required this.toolEdit,
@@ -198,6 +202,15 @@ class OpenCodeTheme extends ThemeExtension<OpenCodeTheme> {
 
   /// Subtle divider between markdown sections
   final Color dividerSection;
+
+  /// Distinct header background for tool cards (visible contrast from card body)
+  final Color cardHeaderBg;
+
+  /// Visible border for card headers (more prominent than cardBorderSubtle)
+  final Color cardHeaderBorder;
+
+  /// Header label text color (high contrast)
+  final Color cardHeaderText;
 
   // ═══════════════════════════════════════════════════════════════════════════
   // Tool-specific accent colors
@@ -359,6 +372,10 @@ class OpenCodeTheme extends ThemeExtension<OpenCodeTheme> {
     Color? borderSubtle,
     Color? cardBorderSubtle,
     Color? dividerSection,
+    // Card header colors
+    Color? cardHeaderBg,
+    Color? cardHeaderBorder,
+    Color? cardHeaderText,
     // Tool colors
     Color? toolThinking,
     Color? toolEdit,
@@ -435,6 +452,9 @@ class OpenCodeTheme extends ThemeExtension<OpenCodeTheme> {
       borderSubtle: borderSubtle ?? this.borderSubtle,
       cardBorderSubtle: cardBorderSubtle ?? this.cardBorderSubtle,
       dividerSection: dividerSection ?? this.dividerSection,
+      cardHeaderBg: cardHeaderBg ?? this.cardHeaderBg,
+      cardHeaderBorder: cardHeaderBorder ?? this.cardHeaderBorder,
+      cardHeaderText: cardHeaderText ?? this.cardHeaderText,
       toolThinking: toolThinking ?? this.toolThinking,
       toolEdit: toolEdit ?? this.toolEdit,
       toolRead: toolRead ?? this.toolRead,
@@ -528,6 +548,13 @@ class OpenCodeTheme extends ThemeExtension<OpenCodeTheme> {
         t,
       )!,
       dividerSection: Color.lerp(dividerSection, other.dividerSection, t)!,
+      cardHeaderBg: Color.lerp(cardHeaderBg, other.cardHeaderBg, t)!,
+      cardHeaderBorder: Color.lerp(
+        cardHeaderBorder,
+        other.cardHeaderBorder,
+        t,
+      )!,
+      cardHeaderText: Color.lerp(cardHeaderText, other.cardHeaderText, t)!,
       toolThinking: Color.lerp(toolThinking, other.toolThinking, t)!,
       toolEdit: Color.lerp(toolEdit, other.toolEdit, t)!,
       toolRead: Color.lerp(toolRead, other.toolRead, t)!,
