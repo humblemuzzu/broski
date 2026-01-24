@@ -122,212 +122,280 @@ class _PermissionPromptState extends State<PermissionPrompt> {
 
     final permissionColor = _getPermissionColor(theme);
 
-    return Container(
-      padding: const EdgeInsets.all(20),
-      decoration: BoxDecoration(
-        color: theme.background,
-        borderRadius: const BorderRadius.vertical(top: Radius.circular(20)),
-      ),
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          // Header with permission type icon
-          Row(
+    // Use DraggableScrollableSheet to handle large content that exceeds screen
+    return DraggableScrollableSheet(
+      initialChildSize: 0.5,
+      minChildSize: 0.25,
+      maxChildSize: 0.9,
+      expand: false,
+      builder: (context, scrollController) {
+        return Container(
+          decoration: BoxDecoration(
+            color: theme.background,
+            borderRadius: const BorderRadius.vertical(top: Radius.circular(20)),
+          ),
+          child: Column(
             children: [
-              Container(
-                padding: const EdgeInsets.all(8),
-                decoration: BoxDecoration(
-                  color: permissionColor.withValues(alpha: 0.15),
-                  borderRadius: BorderRadius.circular(10),
-                ),
-                child: Icon(
-                  _getPermissionIcon(),
-                  color: permissionColor,
-                  size: 20,
+              // Drag handle
+              Padding(
+                padding: const EdgeInsets.only(top: 12, bottom: 8),
+                child: Container(
+                  width: 40,
+                  height: 4,
+                  decoration: BoxDecoration(
+                    color: theme.textMuted.withValues(alpha: 0.3),
+                    borderRadius: BorderRadius.circular(2),
+                  ),
                 ),
               ),
-              const SizedBox(width: 12),
+
+              // Scrollable content area
               Expanded(
-                child: Text(
-                  widget.request.displayTitle,
-                  style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                    fontWeight: FontWeight.w600,
+                child: SingleChildScrollView(
+                  controller: scrollController,
+                  padding: const EdgeInsets.fromLTRB(20, 0, 20, 16),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      // Header with permission type icon
+                      Row(
+                        children: [
+                          Container(
+                            padding: const EdgeInsets.all(8),
+                            decoration: BoxDecoration(
+                              color: permissionColor.withValues(alpha: 0.15),
+                              borderRadius: BorderRadius.circular(10),
+                            ),
+                            child: Icon(
+                              _getPermissionIcon(),
+                              color: permissionColor,
+                              size: 20,
+                            ),
+                          ),
+                          const SizedBox(width: 12),
+                          Expanded(
+                            child: Text(
+                              widget.request.displayTitle,
+                              style: Theme.of(context).textTheme.titleMedium
+                                  ?.copyWith(fontWeight: FontWeight.w600),
+                            ),
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 12),
+
+                      // Show patterns if available (SDK v1.1.1+)
+                      if (widget.request.patterns.isNotEmpty) ...[
+                        _PatternsSection(
+                          patterns: widget.request.patterns,
+                          theme: theme,
+                          label: widget.request.isBatchRequest
+                              ? 'Files affected'
+                              : null,
+                        ),
+                        const SizedBox(height: 12),
+                      ] else if (widget.request.title.isNotEmpty &&
+                          widget.request.title !=
+                              widget.request.displayTitle) ...[
+                        Text(
+                          widget.request.title,
+                          style: Theme.of(context).textTheme.bodyMedium,
+                        ),
+                        const SizedBox(height: 8),
+                      ],
+
+                      // Legacy command display
+                      if (widget.request.command != null) ...[
+                        Container(
+                          width: double.infinity,
+                          padding: const EdgeInsets.all(12),
+                          decoration: BoxDecoration(
+                            color: theme.backgroundElement,
+                            borderRadius: BorderRadius.circular(10),
+                            border: Border.all(color: theme.borderSubtle),
+                          ),
+                          child: Text(
+                            widget.request.command!,
+                            style: GoogleFonts.jetBrainsMono(
+                              fontSize: 12,
+                              color: theme.text,
+                            ),
+                          ),
+                        ),
+                        const SizedBox(height: 12),
+                      ],
+
+                      // Show diff preview if available
+                      if (diffText != null && diffText.trim().isNotEmpty) ...[
+                        Text(
+                          'Proposed changes',
+                          style: TextStyle(
+                            color: theme.text,
+                            fontSize: 13,
+                            fontWeight: FontWeight.w600,
+                          ),
+                        ),
+                        const SizedBox(height: 10),
+                        _PermissionDiffPreview(
+                          diffText: diffText,
+                          filePath: filePath,
+                        ),
+                        const SizedBox(height: 12),
+                      ],
+
+                      // Show "always allow" preview if available (SDK v1.1.1+)
+                      if (widget.request.always.isNotEmpty) ...[
+                        _AlwaysAllowPreview(
+                          always: widget.request.always,
+                          theme: theme,
+                        ),
+                        const SizedBox(height: 12),
+                      ],
+                    ],
+                  ),
+                ),
+              ),
+
+              // Divider before pinned buttons
+              Divider(height: 1, color: theme.borderSubtle),
+
+              // Pinned action buttons at bottom (always visible)
+              Container(
+                padding: const EdgeInsets.fromLTRB(20, 16, 20, 20),
+                child: SafeArea(
+                  top: false,
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      // Expandable rejection feedback field (Phase 3)
+                      AnimatedCrossFade(
+                        firstChild: const SizedBox.shrink(),
+                        secondChild: _RejectFeedbackSection(
+                          controller: _feedbackController,
+                          focusNode: _feedbackFocusNode,
+                          theme: theme,
+                          onCancel: _handleCancelReject,
+                          onConfirm: _handleConfirmReject,
+                        ),
+                        crossFadeState: _showRejectFeedback
+                            ? CrossFadeState.showSecond
+                            : CrossFadeState.showFirst,
+                        duration: const Duration(milliseconds: 200),
+                      ),
+
+                      // Action buttons (hidden when showing feedback)
+                      if (!_showRejectFeedback)
+                        Column(
+                          crossAxisAlignment: CrossAxisAlignment.stretch,
+                          children: [
+                            // Row 1: Reject | Once
+                            Row(
+                              children: [
+                                Expanded(
+                                  child: OutlinedButton(
+                                    onPressed: _handleRejectTap,
+                                    style: OutlinedButton.styleFrom(
+                                      foregroundColor: theme.error,
+                                      side: BorderSide(
+                                        color: theme.error.withValues(
+                                          alpha: 0.5,
+                                        ),
+                                      ),
+                                    ),
+                                    child: const Text('Reject'),
+                                  ),
+                                ),
+                                const SizedBox(width: 10),
+                                Expanded(
+                                  child: OutlinedButton(
+                                    onPressed: widget.onApprove,
+                                    style: OutlinedButton.styleFrom(
+                                      foregroundColor: theme.accent,
+                                      side: BorderSide(
+                                        color: theme.accent.withValues(
+                                          alpha: 0.5,
+                                        ),
+                                      ),
+                                    ),
+                                    child: Text(widget.approveOnceLabel),
+                                  ),
+                                ),
+                              ],
+                            ),
+                            const SizedBox(height: 10),
+                            // Row 2: Session | Always
+                            Row(
+                              children: [
+                                // Session button - only show if callback provided
+                                if (widget.onApproveForSession != null) ...[
+                                  Expanded(
+                                    child: OutlinedButton.icon(
+                                      onPressed: widget.onApproveForSession,
+                                      icon: const Icon(
+                                        Icons.timer_outlined,
+                                        size: 16,
+                                      ),
+                                      label: Text(
+                                        widget.approveForSessionLabel,
+                                      ),
+                                      style: OutlinedButton.styleFrom(
+                                        foregroundColor: theme.info,
+                                        side: BorderSide(
+                                          color: theme.info.withValues(
+                                            alpha: 0.5,
+                                          ),
+                                        ),
+                                      ),
+                                    ),
+                                  ),
+                                  const SizedBox(width: 10),
+                                ],
+                                Expanded(
+                                  child: ElevatedButton(
+                                    onPressed: widget.onAlwaysAllow,
+                                    style: ElevatedButton.styleFrom(
+                                      backgroundColor: theme.accent,
+                                      foregroundColor: Colors.white,
+                                    ),
+                                    child: Text(widget.approveAlwaysLabel),
+                                  ),
+                                ),
+                              ],
+                            ),
+                            // Execpolicy prefix learning button
+                            if (widget.onApproveWithExecpolicy != null) ...[
+                              const SizedBox(height: 10),
+                              OutlinedButton.icon(
+                                onPressed: widget.onApproveWithExecpolicy,
+                                icon: const Icon(
+                                  Icons.auto_fix_high_rounded,
+                                  size: 18,
+                                ),
+                                label: Text(
+                                  widget.approveWithExecpolicyLabel ??
+                                      'Always allow this command prefix',
+                                ),
+                                style: OutlinedButton.styleFrom(
+                                  foregroundColor: theme.info,
+                                  side: BorderSide(
+                                    color: theme.info.withValues(alpha: 0.4),
+                                  ),
+                                  padding: const EdgeInsets.symmetric(
+                                    vertical: 12,
+                                  ),
+                                ),
+                              ),
+                            ],
+                          ],
+                        ),
+                    ],
                   ),
                 ),
               ),
             ],
           ),
-          const SizedBox(height: 12),
-
-          // Show patterns if available (SDK v1.1.1+)
-          if (widget.request.patterns.isNotEmpty) ...[
-            _PatternsSection(
-              patterns: widget.request.patterns,
-              theme: theme,
-              label: widget.request.isBatchRequest ? 'Files affected' : null,
-            ),
-            const SizedBox(height: 12),
-          ] else if (widget.request.title.isNotEmpty &&
-              widget.request.title != widget.request.displayTitle) ...[
-            Text(
-              widget.request.title,
-              style: Theme.of(context).textTheme.bodyMedium,
-            ),
-            const SizedBox(height: 8),
-          ],
-
-          // Legacy command display
-          if (widget.request.command != null) ...[
-            Container(
-              width: double.infinity,
-              padding: const EdgeInsets.all(12),
-              decoration: BoxDecoration(
-                color: theme.backgroundElement,
-                borderRadius: BorderRadius.circular(10),
-                border: Border.all(color: theme.borderSubtle),
-              ),
-              child: Text(
-                widget.request.command!,
-                style: GoogleFonts.jetBrainsMono(
-                  fontSize: 12,
-                  color: theme.text,
-                ),
-              ),
-            ),
-            const SizedBox(height: 12),
-          ],
-
-          // Show diff preview if available
-          if (diffText != null && diffText.trim().isNotEmpty) ...[
-            Text(
-              'Proposed changes',
-              style: TextStyle(
-                color: theme.text,
-                fontSize: 13,
-                fontWeight: FontWeight.w600,
-              ),
-            ),
-            const SizedBox(height: 10),
-            _PermissionDiffPreview(diffText: diffText, filePath: filePath),
-            const SizedBox(height: 12),
-          ],
-
-          // Show "always allow" preview if available (SDK v1.1.1+)
-          if (widget.request.always.isNotEmpty) ...[
-            _AlwaysAllowPreview(always: widget.request.always, theme: theme),
-            const SizedBox(height: 12),
-          ],
-
-          const SizedBox(height: 8),
-
-          // Expandable rejection feedback field (Phase 3)
-          AnimatedCrossFade(
-            firstChild: const SizedBox.shrink(),
-            secondChild: _RejectFeedbackSection(
-              controller: _feedbackController,
-              focusNode: _feedbackFocusNode,
-              theme: theme,
-              onCancel: _handleCancelReject,
-              onConfirm: _handleConfirmReject,
-            ),
-            crossFadeState: _showRejectFeedback
-                ? CrossFadeState.showSecond
-                : CrossFadeState.showFirst,
-            duration: const Duration(milliseconds: 200),
-          ),
-
-          // Action buttons: Reject | Once | Session | Always (hidden when showing feedback)
-          if (!_showRejectFeedback)
-            Column(
-              crossAxisAlignment: CrossAxisAlignment.stretch,
-              children: [
-                // Row 1: Reject | Once
-                Row(
-                  children: [
-                    Expanded(
-                      child: OutlinedButton(
-                        onPressed: _handleRejectTap,
-                        style: OutlinedButton.styleFrom(
-                          foregroundColor: theme.error,
-                          side: BorderSide(
-                            color: theme.error.withValues(alpha: 0.5),
-                          ),
-                        ),
-                        child: const Text('Reject'),
-                      ),
-                    ),
-                    const SizedBox(width: 10),
-                    Expanded(
-                      child: OutlinedButton(
-                        onPressed: widget.onApprove,
-                        style: OutlinedButton.styleFrom(
-                          foregroundColor: theme.accent,
-                          side: BorderSide(
-                            color: theme.accent.withValues(alpha: 0.5),
-                          ),
-                        ),
-                        child: Text(widget.approveOnceLabel),
-                      ),
-                    ),
-                  ],
-                ),
-                const SizedBox(height: 10),
-                // Row 2: Session | Always
-                Row(
-                  children: [
-                    // Session button - only show if callback provided
-                    if (widget.onApproveForSession != null) ...[
-                      Expanded(
-                        child: OutlinedButton.icon(
-                          onPressed: widget.onApproveForSession,
-                          icon: const Icon(Icons.timer_outlined, size: 16),
-                          label: Text(widget.approveForSessionLabel),
-                          style: OutlinedButton.styleFrom(
-                            foregroundColor: theme.info,
-                            side: BorderSide(
-                              color: theme.info.withValues(alpha: 0.5),
-                            ),
-                          ),
-                        ),
-                      ),
-                      const SizedBox(width: 10),
-                    ],
-                    Expanded(
-                      child: ElevatedButton(
-                        onPressed: widget.onAlwaysAllow,
-                        style: ElevatedButton.styleFrom(
-                          backgroundColor: theme.accent,
-                          foregroundColor: Colors.white,
-                        ),
-                        child: Text(widget.approveAlwaysLabel),
-                      ),
-                    ),
-                  ],
-                ),
-                // Execpolicy prefix learning button
-                if (widget.onApproveWithExecpolicy != null) ...[
-                  const SizedBox(height: 10),
-                  OutlinedButton.icon(
-                    onPressed: widget.onApproveWithExecpolicy,
-                    icon: const Icon(Icons.auto_fix_high_rounded, size: 18),
-                    label: Text(
-                      widget.approveWithExecpolicyLabel ??
-                          'Always allow this command prefix',
-                    ),
-                    style: OutlinedButton.styleFrom(
-                      foregroundColor: theme.info,
-                      side: BorderSide(
-                        color: theme.info.withValues(alpha: 0.4),
-                      ),
-                      padding: const EdgeInsets.symmetric(vertical: 12),
-                    ),
-                  ),
-                ],
-              ],
-            ),
-        ],
-      ),
+        );
+      },
     );
   }
 }

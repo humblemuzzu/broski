@@ -6248,6 +6248,9 @@ Describe project-specific guidance for Codex here.
     final ccIsStreaming = ref.watch(
       chatSessionProvider.select((s) => s.ccIsStreaming),
     );
+    final cxIsStreaming = ref.watch(
+      chatSessionProvider.select((s) => s.cxIsStreaming),
+    );
     final ccInit = ref.watch(chatSessionProvider.select((s) => s.ccInit));
     final ccModel = ref.watch(chatSessionProvider.select((s) => s.ccModel));
     // Watch these for rebuild triggers (values accessed via ref.read in callbacks)
@@ -6443,8 +6446,12 @@ Describe project-specific guidance for Codex here.
             ),
           ),
 
-          // Stop button when streaming - centered at bottom
-          if (_hasStreamingMessage(messages))
+          // Stop button when AI is processing - centered at bottom
+          // Show for: streaming messages, CC/CX streaming states, or running tools
+          if (_hasStreamingMessage(messages) ||
+              (widget.isClaudeCode && ccIsStreaming) ||
+              (widget.isCodex && cxIsStreaming) ||
+              _hasRunningTools(messages))
             Positioned(
               bottom: 24,
               left: 0,
@@ -6569,17 +6576,6 @@ Describe project-specific guidance for Codex here.
                   ? ref.watch(chatSessionProvider.select((s) => s.cxModel))
                   : null,
             ),
-          ),
-
-          // Floating indicator for other running sessions (OpenCode + Claude Code)
-          FloatingActiveIndicator(
-            currentSessionId: widget.effectiveSessionId.isNotEmpty
-                ? widget.effectiveSessionId
-                : null,
-            onTap: () {
-              // Navigate back to see the sessions list
-              Navigator.pop(context);
-            },
           ),
         ],
       ),
@@ -7304,24 +7300,7 @@ Describe project-specific guidance for Codex here.
           ),
           TextButton(
             onPressed: () {
-              final bridge = ref.read(bridgeServiceProvider);
-              if (widget.isClaudeCode) {
-                final chatState = ref.read(chatSessionProvider);
-                final sid = chatState.ccSessionId;
-                if (sid != null && sid.isNotEmpty) {
-                  bridge.ccAbort(sid);
-                }
-                ref.read(chatSessionProvider.notifier).setCCStreaming(false);
-              } else if (widget.isCodex) {
-                final chatState = ref.read(chatSessionProvider);
-                final tid = chatState.cxThreadId;
-                if (tid != null && tid.isNotEmpty) {
-                  bridge.cxAbort(threadId: tid);
-                }
-                ref.read(chatSessionProvider.notifier).setCodexStreaming(false);
-              } else {
-                bridge.abortSession(widget.session.id);
-              }
+              _stopGeneration();
               Navigator.pop(context);
             },
             child: Text('Stop', style: TextStyle(color: theme.error)),
@@ -7329,6 +7308,34 @@ Describe project-specific guidance for Codex here.
         ],
       ),
     );
+  }
+
+  /// Stop AI generation for all backends
+  /// Sends abort to bridge and clears local streaming states
+  void _stopGeneration() {
+    final bridge = ref.read(bridgeServiceProvider);
+    final notifier = ref.read(chatSessionProvider.notifier);
+
+    if (widget.isClaudeCode) {
+      final chatState = ref.read(chatSessionProvider);
+      final sid = chatState.ccSessionId;
+      if (sid != null && sid.isNotEmpty) {
+        bridge.ccAbort(sid);
+      }
+      notifier.setCCStreaming(false);
+    } else if (widget.isCodex) {
+      final chatState = ref.read(chatSessionProvider);
+      final tid = chatState.cxThreadId;
+      if (tid != null && tid.isNotEmpty) {
+        bridge.cxAbort(threadId: tid);
+      }
+      notifier.setCodexStreaming(false);
+    } else {
+      // OpenCode - send abort and clear all streaming states
+      bridge.abortSession(widget.session.id, projectPath: widget.project.path);
+      // Also mark all streaming messages as complete to unstick the UI
+      notifier.markAllStreamingComplete();
+    }
   }
 
   void _showModelSelector(BuildContext context) {

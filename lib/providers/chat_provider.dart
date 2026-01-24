@@ -2353,6 +2353,27 @@ class ChatSessionNotifier extends StateNotifier<ChatSessionState> {
     state = state.copyWith(ccIsStreaming: isStreaming);
   }
 
+  /// Mark all streaming messages as complete (for abort/unstick scenarios)
+  void markAllStreamingComplete() {
+    var changed = false;
+    for (final id in _order) {
+      final msg = _messages[id];
+      if (msg == null) continue;
+      if (!msg.isStreaming) continue;
+      _messages[id] = msg.copyWith(isStreaming: false);
+      changed = true;
+    }
+    // Also clear any streaming-related state flags
+    state = state.copyWith(sessionStatus: const SessionStatus.idle());
+    if (changed) {
+      if (_suppressEmit) {
+        _pendingEmitMessages = true;
+      } else {
+        _emitMessages();
+      }
+    }
+  }
+
   void _handleRawBridgeMessage(Map<String, dynamic> msg) {
     if (!state.isClaudeCode) return;
     if (msg['type'] != 'cc_fs_changed') return;

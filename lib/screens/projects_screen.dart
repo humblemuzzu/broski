@@ -178,7 +178,6 @@ class _ProjectsScreenState extends ConsumerState<ProjectsScreen> {
     try {
       final session = await bridge.createSession(
         projectPath: worktree.directory,
-        title: 'Mobile session',
         permission: permissionRules,
       );
 
@@ -834,7 +833,6 @@ class _ProjectsScreenState extends ConsumerState<ProjectsScreen> {
     final permissionRules = ref.read(permissionRulesProvider).effectiveRuleset;
     final session = await bridge.createSession(
       projectPath: project.path,
-      title: 'Mobile session',
       permission: permissionRules,
     );
 

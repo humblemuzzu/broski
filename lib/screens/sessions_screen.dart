@@ -616,12 +616,15 @@ class _SessionsScreenState extends ConsumerState<SessionsScreen> {
     ref.read(highlightsProvider.notifier).toggleSession(sessionId);
   }
 
-  // Show options menu (highlight + rename)
+  // Show options menu (highlight + rename + stop)
   Future<void> _showSessionOptions(SessionSummary session) async {
     final highlights = ref.read(highlightsProvider);
     final isHighlighted = highlights.isSessionHighlighted(session.id);
     final ocTheme = OpenCodeTheme.of(context);
     final highlightColor = highlights.color;
+    final sessionStatuses = ref.read(globalSessionStatusProvider);
+    final status = sessionStatuses[session.id];
+    final isRunning = status?.isBusy == true || status?.isRetry == true;
 
     await showModalBottomSheet<void>(
       context: context,
@@ -661,6 +664,29 @@ class _SessionsScreenState extends ConsumerState<SessionsScreen> {
                   ),
                 ),
                 const SizedBox(height: 16),
+                // Stop Session option (shown when running or always for stuck sessions)
+                ListTile(
+                  leading: Icon(
+                    Icons.stop_circle_outlined,
+                    color: isRunning ? ocTheme.error : ocTheme.textMuted,
+                  ),
+                  title: Text(
+                    'Stop Session',
+                    style: TextStyle(
+                      color: isRunning ? ocTheme.error : ocTheme.text,
+                    ),
+                  ),
+                  subtitle: Text(
+                    isRunning
+                        ? 'Session is currently running'
+                        : 'Force stop if stuck',
+                    style: TextStyle(color: ocTheme.textMuted, fontSize: 12),
+                  ),
+                  onTap: () {
+                    Navigator.pop(context);
+                    _stopSession(session);
+                  },
+                ),
                 // Options
                 ListTile(
                   leading: Icon(
@@ -699,6 +725,29 @@ class _SessionsScreenState extends ConsumerState<SessionsScreen> {
     );
   }
 
+  /// Stop/abort a session
+  void _stopSession(SessionSummary session) {
+    final bridge = ref.read(bridgeServiceProvider);
+    final ocTheme = OpenCodeTheme.of(context);
+
+    // Send abort to bridge (directory is the project path)
+    bridge.abortSession(session.id, projectPath: session.directory);
+
+    // Show confirmation
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: const Text('Stop signal sent to session'),
+        backgroundColor: ocTheme.backgroundPanel,
+        behavior: SnackBarBehavior.floating,
+      ),
+    );
+
+    // Refresh session statuses after a short delay
+    Future.delayed(const Duration(milliseconds: 500), () {
+      ref.read(globalSessionStatusProvider.notifier).fetchAllStatuses();
+    });
+  }
+
   /// Show bottom sheet to create a new session with project/worktree selection
   void _showNewSessionSheet(BuildContext context) {
     final projectsAsync = ref.read(projectsForSessionsProvider);
@@ -731,7 +780,6 @@ class _SessionsScreenState extends ConsumerState<SessionsScreen> {
     try {
       final session = await bridge.createSession(
         projectPath: projectPath,
-        title: 'Mobile session',
         permission: permissionRules,
       );
 
@@ -3550,6 +3598,25 @@ class _CodexThreadsViewState extends ConsumerState<_CodexThreadsView> {
                 ),
               ),
               const SizedBox(height: 12),
+              // Stop Thread option
+              ListTile(
+                leading: Icon(
+                  Icons.stop_circle_outlined,
+                  color: ocTheme.textMuted,
+                ),
+                title: Text(
+                  'Stop Thread',
+                  style: TextStyle(color: ocTheme.text),
+                ),
+                subtitle: Text(
+                  'Force stop if stuck',
+                  style: TextStyle(color: ocTheme.textMuted, fontSize: 12),
+                ),
+                onTap: () {
+                  Navigator.pop(ctx);
+                  _stopThread(thread);
+                },
+              ),
               ListTile(
                 leading: Icon(
                   isHighlighted
@@ -3581,6 +3648,24 @@ class _CodexThreadsViewState extends ConsumerState<_CodexThreadsView> {
           ),
         );
       },
+    );
+  }
+
+  /// Stop/abort a Codex thread
+  void _stopThread(CodexThread thread) {
+    final bridge = ref.read(bridgeServiceProvider);
+    final ocTheme = OpenCodeTheme.of(context);
+
+    // Send abort to bridge
+    bridge.cxAbort(threadId: thread.id);
+
+    // Show confirmation
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: const Text('Stop signal sent to thread'),
+        backgroundColor: ocTheme.backgroundPanel,
+        behavior: SnackBarBehavior.floating,
+      ),
     );
   }
 
@@ -3886,27 +3971,31 @@ class _CodexHighlightedThreadsSection extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Row(
-            children: [
-              Icon(Icons.star_rounded, color: color, size: 18),
-              const SizedBox(width: 8),
-              Text(
-                'Highlighted',
-                style: TextStyle(
-                  color: ocTheme.text,
-                  fontSize: 15,
-                  fontWeight: FontWeight.w700,
+          // Section header
+          Padding(
+            padding: const EdgeInsets.fromLTRB(4, 0, 4, 10),
+            child: Row(
+              children: [
+                Icon(Icons.star_rounded, size: 14, color: color),
+                const SizedBox(width: 6),
+                Text(
+                  'HIGHLIGHTED',
+                  style: TextStyle(
+                    color: color,
+                    fontSize: 12,
+                    fontWeight: FontWeight.w700,
+                    letterSpacing: 0.5,
+                  ),
                 ),
-              ),
-            ],
+              ],
+            ),
           ),
-          const SizedBox(height: 12),
+          // Highlighted thread cards
           ...threads.map(
             (t) => Padding(
-              padding: const EdgeInsets.only(bottom: 10),
-              child: _CodexThreadCard(
+              padding: const EdgeInsets.only(bottom: 12),
+              child: _CodexHighlightedThreadCard(
                 thread: t,
-                isHighlighted: true,
                 highlightColor: highlightColor,
                 onTap: () => onTap(t),
                 onLongPress: () => onLongPress(t),
@@ -3919,7 +4008,226 @@ class _CodexHighlightedThreadsSection extends StatelessWidget {
   }
 }
 
-class _CodexThreadCard extends StatelessWidget {
+/// Highlighted Codex thread card with accent styling
+/// Matches OpenCode's _HighlightedSessionCard design
+class _CodexHighlightedThreadCard extends ConsumerWidget {
+  const _CodexHighlightedThreadCard({
+    required this.thread,
+    required this.highlightColor,
+    required this.onTap,
+    this.onLongPress,
+  });
+
+  final CodexThread thread;
+  final HighlightColor highlightColor;
+  final VoidCallback onTap;
+  final VoidCallback? onLongPress;
+
+  String _getProjectName() {
+    final parts = thread.cwd.split('/').where((p) => p.isNotEmpty).toList();
+    return parts.isEmpty ? 'Unknown' : parts.last;
+  }
+
+  String _formatDate(DateTime date) {
+    final now = DateTime.now();
+    final diff = now.difference(date);
+
+    if (diff.inMinutes < 1) {
+      return 'Just now';
+    } else if (diff.inMinutes < 60) {
+      return '${diff.inMinutes}m ago';
+    } else if (diff.inHours < 24) {
+      return '${diff.inHours}h ago';
+    } else if (diff.inDays < 7) {
+      return '${diff.inDays}d ago';
+    } else {
+      return '${date.day}/${date.month}/${date.year}';
+    }
+  }
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final ocTheme = OpenCodeTheme.of(context);
+    final sessionStatuses = ref.watch(globalSessionStatusProvider);
+    final status = sessionStatuses[thread.id];
+    final isActive = status != null && (status.isBusy || status.isRetry);
+
+    final color = highlightColor.forBrightness(
+      Theme.of(context).brightness,
+      themePrimary: ocTheme.primary,
+    );
+    final bgColor = highlightColor.backgroundFor(
+      Theme.of(context).brightness,
+      themePrimary: ocTheme.primary,
+    );
+
+    return GestureDetector(
+      onTap: onTap,
+      onLongPress: onLongPress,
+      child: Container(
+        decoration: BoxDecoration(
+          color: bgColor,
+          borderRadius: BorderRadius.circular(10),
+        ),
+        clipBehavior: Clip.antiAlias,
+        child: Row(
+          children: [
+            // Left accent bar (highlight color)
+            Container(
+              width: 3,
+              decoration: BoxDecoration(
+                color: color,
+                borderRadius: const BorderRadius.only(
+                  topLeft: Radius.circular(10),
+                  bottomLeft: Radius.circular(10),
+                ),
+              ),
+            ),
+            // Main content
+            Expanded(
+              child: Padding(
+                padding: const EdgeInsets.fromLTRB(14, 14, 14, 14),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    // Title row with star + time/status
+                    Row(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        // Star icon inline
+                        Icon(Icons.star_rounded, size: 16, color: color),
+                        const SizedBox(width: 8),
+                        Expanded(
+                          child: Text(
+                            thread.displayTitle,
+                            style: TextStyle(
+                              color: ocTheme.text,
+                              fontSize: 15,
+                              fontWeight: FontWeight.w600,
+                              height: 1.3,
+                            ),
+                            maxLines: 2,
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                        ),
+                        const SizedBox(width: 12),
+                        // Status or time
+                        if (isActive)
+                          Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              SizedBox(
+                                width: 10,
+                                height: 10,
+                                child: CircularProgressIndicator(
+                                  strokeWidth: 1.5,
+                                  valueColor: AlwaysStoppedAnimation<Color>(
+                                    status!.isRetry
+                                        ? ocTheme.warning
+                                        : ocTheme.info,
+                                  ),
+                                ),
+                              ),
+                              const SizedBox(width: 6),
+                              Text(
+                                status.isRetry ? 'Retry' : 'Working',
+                                style: TextStyle(
+                                  color: status.isRetry
+                                      ? ocTheme.warning
+                                      : ocTheme.info,
+                                  fontSize: 11,
+                                  fontWeight: FontWeight.w500,
+                                ),
+                              ),
+                            ],
+                          )
+                        else
+                          Text(
+                            _formatDate(thread.updatedAtDateTime),
+                            style: TextStyle(
+                              color: ocTheme.textMuted,
+                              fontSize: 12,
+                            ),
+                          ),
+                      ],
+                    ),
+                    const SizedBox(height: 10),
+                    // Meta row: agent icon + project + model badge
+                    Row(
+                      children: [
+                        // Codex icon
+                        Icon(
+                          Icons.auto_awesome_rounded,
+                          size: 12,
+                          color: ocTheme.primary,
+                        ),
+                        const SizedBox(width: 6),
+                        // Project name
+                        Text(
+                          _getProjectName(),
+                          style: TextStyle(
+                            color: ocTheme.textMuted,
+                            fontSize: 12,
+                          ),
+                        ),
+                        // Git branch if available
+                        if (thread.gitBranch != null) ...[
+                          Text(
+                            ' · ',
+                            style: TextStyle(
+                              color: ocTheme.textMuted.withValues(alpha: 0.5),
+                              fontSize: 12,
+                            ),
+                          ),
+                          Flexible(
+                            child: Text(
+                              thread.gitBranch!,
+                              style: TextStyle(
+                                color: ocTheme.textMuted,
+                                fontSize: 12,
+                              ),
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                            ),
+                          ),
+                        ],
+                        const Spacer(),
+                        // Model badge if available
+                        if (thread.modelProvider != null)
+                          Container(
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 5,
+                              vertical: 2,
+                            ),
+                            decoration: BoxDecoration(
+                              color: ocTheme.info.withValues(alpha: 0.12),
+                              borderRadius: BorderRadius.circular(4),
+                            ),
+                            child: Text(
+                              thread.modelProvider!,
+                              style: TextStyle(
+                                color: ocTheme.info,
+                                fontSize: 10,
+                                fontWeight: FontWeight.w600,
+                              ),
+                            ),
+                          ),
+                      ],
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+/// Codex thread card
+/// Matches OpenCode's _SessionCard design
+class _CodexThreadCard extends ConsumerWidget {
   const _CodexThreadCard({
     required this.thread,
     required this.isHighlighted,
@@ -3956,154 +4264,171 @@ class _CodexThreadCard extends StatelessWidget {
     }
   }
 
-  String _getAvatarLetter() {
-    final title = thread.displayTitle;
-    if (title.isEmpty) return '?';
-    final match = RegExp(r'[a-zA-Z0-9]').firstMatch(title);
-    return match != null
-        ? match.group(0)!.toUpperCase()
-        : title[0].toUpperCase();
-  }
-
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
     final ocTheme = OpenCodeTheme.of(context);
-    final highlight = highlightColor.forBrightness(
-      Theme.of(context).brightness,
-      themePrimary: ocTheme.primary,
-    );
+    final sessionStatuses = ref.watch(globalSessionStatusProvider);
+    final status = sessionStatuses[thread.id];
+    final isActive = status != null && (status.isBusy || status.isRetry);
+
+    // Accent color for left bar
+    final accentColor = isActive
+        ? (status!.isRetry ? ocTheme.warning : ocTheme.info)
+        : ocTheme.primary.withValues(alpha: 0.4);
 
     return GestureDetector(
       onTap: onTap,
       onLongPress: onLongPress,
       child: Container(
-        height: 80,
-        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
         decoration: BoxDecoration(
           color: ocTheme.backgroundPanel,
-          borderRadius: BorderRadius.circular(14),
-          border: Border.all(color: ocTheme.borderSubtle),
+          borderRadius: BorderRadius.circular(10),
         ),
+        clipBehavior: Clip.antiAlias,
         child: Row(
           children: [
-            Stack(
-              clipBehavior: Clip.none,
-              children: [
-                Container(
-                  width: 44,
-                  height: 44,
-                  decoration: BoxDecoration(
-                    borderRadius: BorderRadius.circular(12),
-                    color: ocTheme.backgroundElement,
-                    border: Border.all(color: ocTheme.borderSubtle, width: 1),
-                  ),
-                  child: Center(
-                    child: Text(
-                      _getAvatarLetter(),
-                      style: TextStyle(
-                        color: ocTheme.textMuted,
-                        fontSize: 18,
-                        fontWeight: FontWeight.w600,
-                        letterSpacing: -0.5,
-                      ),
-                    ),
-                  ),
+            // Left accent bar
+            Container(
+              width: 3,
+              decoration: BoxDecoration(
+                color: accentColor,
+                borderRadius: const BorderRadius.only(
+                  topLeft: Radius.circular(10),
+                  bottomLeft: Radius.circular(10),
                 ),
-                Positioned(
-                  bottom: -2,
-                  left: -2,
-                  child: Container(
-                    width: 12,
-                    height: 12,
-                    decoration: BoxDecoration(
-                      shape: BoxShape.circle,
-                      color: ocTheme.textMuted.withValues(alpha: 0.4),
-                      border: Border.all(
-                        color: ocTheme.backgroundPanel,
-                        width: 2,
-                      ),
-                    ),
-                  ),
-                ),
-              ],
-            ),
-            const SizedBox(width: 16),
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  Row(
-                    children: [
-                      if (isHighlighted)
-                        Padding(
-                          padding: const EdgeInsets.only(right: 8),
-                          child: Container(
-                            width: 10,
-                            height: 10,
-                            decoration: BoxDecoration(
-                              color: highlight,
-                              shape: BoxShape.circle,
-                            ),
-                          ),
-                        ),
-                      Flexible(
-                        child: Text(
-                          thread.displayTitle,
-                          style: TextStyle(
-                            color: ocTheme.text,
-                            fontSize: 15,
-                            fontWeight: FontWeight.w600,
-                            height: 1.4,
-                            letterSpacing: -0.2,
-                          ),
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
-                        ),
-                      ),
-                      if (thread.modelProvider != null) ...[
-                        const SizedBox(width: 6),
-                        Container(
-                          padding: const EdgeInsets.symmetric(
-                            horizontal: 6,
-                            vertical: 2,
-                          ),
-                          decoration: BoxDecoration(
-                            color: ocTheme.info.withValues(alpha: 0.15),
-                            borderRadius: BorderRadius.circular(4),
-                          ),
-                          child: Text(
-                            thread.modelProvider!,
-                            style: TextStyle(
-                              color: ocTheme.info,
-                              fontSize: 10,
-                              fontWeight: FontWeight.w600,
-                            ),
-                          ),
-                        ),
-                      ],
-                    ],
-                  ),
-                  const SizedBox(height: 6),
-                  Text(
-                    '${_getProjectName()} · ${_formatDate(thread.createdAtDateTime)}',
-                    style: TextStyle(
-                      color: ocTheme.textMuted,
-                      fontSize: 13,
-                      height: 1.4,
-                      letterSpacing: -0.1,
-                    ),
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                  ),
-                ],
               ),
             ),
-            const SizedBox(width: 8),
-            Icon(
-              Icons.chevron_right_rounded,
-              color: ocTheme.textMuted.withValues(alpha: 0.4),
-              size: 20,
+            // Main content
+            Expanded(
+              child: Padding(
+                padding: const EdgeInsets.fromLTRB(14, 14, 14, 14),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    // Title row with time/status
+                    Row(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Expanded(
+                          child: Text(
+                            thread.displayTitle,
+                            style: TextStyle(
+                              color: ocTheme.text,
+                              fontSize: 15,
+                              fontWeight: FontWeight.w600,
+                              height: 1.3,
+                            ),
+                            maxLines: 2,
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                        ),
+                        const SizedBox(width: 12),
+                        // Status or time
+                        if (isActive)
+                          Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              SizedBox(
+                                width: 10,
+                                height: 10,
+                                child: CircularProgressIndicator(
+                                  strokeWidth: 1.5,
+                                  valueColor: AlwaysStoppedAnimation<Color>(
+                                    status!.isRetry
+                                        ? ocTheme.warning
+                                        : ocTheme.info,
+                                  ),
+                                ),
+                              ),
+                              const SizedBox(width: 6),
+                              Text(
+                                status.isRetry ? 'Retry' : 'Working',
+                                style: TextStyle(
+                                  color: status.isRetry
+                                      ? ocTheme.warning
+                                      : ocTheme.info,
+                                  fontSize: 11,
+                                  fontWeight: FontWeight.w500,
+                                ),
+                              ),
+                            ],
+                          )
+                        else
+                          Text(
+                            _formatDate(thread.updatedAtDateTime),
+                            style: TextStyle(
+                              color: ocTheme.textMuted,
+                              fontSize: 12,
+                            ),
+                          ),
+                      ],
+                    ),
+                    const SizedBox(height: 10),
+                    // Meta row: agent icon + project + model badge
+                    Row(
+                      children: [
+                        // Codex icon
+                        Icon(
+                          Icons.auto_awesome_rounded,
+                          size: 12,
+                          color: ocTheme.primary,
+                        ),
+                        const SizedBox(width: 6),
+                        // Project name
+                        Text(
+                          _getProjectName(),
+                          style: TextStyle(
+                            color: ocTheme.textMuted,
+                            fontSize: 12,
+                          ),
+                        ),
+                        // Git branch if available
+                        if (thread.gitBranch != null) ...[
+                          Text(
+                            ' · ',
+                            style: TextStyle(
+                              color: ocTheme.textMuted.withValues(alpha: 0.5),
+                              fontSize: 12,
+                            ),
+                          ),
+                          Flexible(
+                            child: Text(
+                              thread.gitBranch!,
+                              style: TextStyle(
+                                color: ocTheme.textMuted,
+                                fontSize: 12,
+                              ),
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                            ),
+                          ),
+                        ],
+                        const Spacer(),
+                        // Model badge if available
+                        if (thread.modelProvider != null)
+                          Container(
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 5,
+                              vertical: 2,
+                            ),
+                            decoration: BoxDecoration(
+                              color: ocTheme.info.withValues(alpha: 0.12),
+                              borderRadius: BorderRadius.circular(4),
+                            ),
+                            child: Text(
+                              thread.modelProvider!,
+                              style: TextStyle(
+                                color: ocTheme.info,
+                                fontSize: 10,
+                                fontWeight: FontWeight.w600,
+                              ),
+                            ),
+                          ),
+                      ],
+                    ),
+                  ],
+                ),
+              ),
             ),
           ],
         ),
@@ -4440,7 +4765,7 @@ class _ClaudeCodeSessionsViewState
     ref.read(highlightsProvider.notifier).toggleSession(sessionId);
   }
 
-  // Show options menu (highlight + delete)
+  // Show options menu (highlight + stop + delete)
   Future<void> _showSessionOptions(ClaudeCodeSession session) async {
     final highlights = ref.read(highlightsProvider);
     final isHighlighted = highlights.isSessionHighlighted(session.id);
@@ -4485,6 +4810,25 @@ class _ClaudeCodeSessionsViewState
                   ),
                 ),
                 const SizedBox(height: 16),
+                // Stop Session option
+                ListTile(
+                  leading: Icon(
+                    Icons.stop_circle_outlined,
+                    color: ocTheme.textMuted,
+                  ),
+                  title: Text(
+                    'Stop Session',
+                    style: TextStyle(color: ocTheme.text),
+                  ),
+                  subtitle: Text(
+                    'Force stop if stuck',
+                    style: TextStyle(color: ocTheme.textMuted, fontSize: 12),
+                  ),
+                  onTap: () {
+                    Navigator.pop(context);
+                    _stopCCSession(session);
+                  },
+                ),
                 // Options
                 ListTile(
                   leading: Icon(
@@ -4523,6 +4867,24 @@ class _ClaudeCodeSessionsViewState
           ),
         );
       },
+    );
+  }
+
+  /// Stop/abort a Claude Code session
+  void _stopCCSession(ClaudeCodeSession session) {
+    final bridge = ref.read(bridgeServiceProvider);
+    final ocTheme = OpenCodeTheme.of(context);
+
+    // Send abort to bridge
+    bridge.ccAbort(session.id);
+
+    // Show confirmation
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: const Text('Stop signal sent to session'),
+        backgroundColor: ocTheme.backgroundPanel,
+        behavior: SnackBarBehavior.floating,
+      ),
     );
   }
 
@@ -4840,7 +5202,8 @@ class _CCHighlightedSessionsSection extends StatelessWidget {
 }
 
 /// Highlighted Claude Code session card with accent styling
-class _CCHighlightedSessionCard extends StatelessWidget {
+/// Matches OpenCode's _HighlightedSessionCard design
+class _CCHighlightedSessionCard extends ConsumerWidget {
   const _CCHighlightedSessionCard({
     required this.session,
     required this.highlightColor,
@@ -4878,18 +5241,13 @@ class _CCHighlightedSessionCard extends StatelessWidget {
     }
   }
 
-  String _getAvatarLetter() {
-    final title = session.displayTitle;
-    if (title.isEmpty) return '?';
-    final match = RegExp(r'[a-zA-Z0-9]').firstMatch(title);
-    return match != null
-        ? match.group(0)!.toUpperCase()
-        : title[0].toUpperCase();
-  }
-
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
     final ocTheme = OpenCodeTheme.of(context);
+    final sessionStatuses = ref.watch(globalSessionStatusProvider);
+    final status = sessionStatuses[session.id];
+    final isActive = status != null && (status.isBusy || status.isRetry);
+
     final color = highlightColor.forBrightness(
       Theme.of(context).brightness,
       themePrimary: ocTheme.primary,
@@ -4903,133 +5261,146 @@ class _CCHighlightedSessionCard extends StatelessWidget {
       onTap: onTap,
       onLongPress: onLongPress,
       child: Container(
-        height: 80,
         decoration: BoxDecoration(
           color: bgColor,
-          borderRadius: BorderRadius.circular(14),
-          border: Border.all(
-            color: highlightColor.borderFor(
-              Theme.of(context).brightness,
-              themePrimary: ocTheme.primary,
-            ),
-          ),
+          borderRadius: BorderRadius.circular(10),
         ),
+        clipBehavior: Clip.antiAlias,
         child: Row(
           children: [
-            // Left accent border
+            // Left accent bar (highlight color)
             Container(
               width: 3,
               decoration: BoxDecoration(
                 color: color,
                 borderRadius: const BorderRadius.only(
-                  topLeft: Radius.circular(14),
-                  bottomLeft: Radius.circular(14),
+                  topLeft: Radius.circular(10),
+                  bottomLeft: Radius.circular(10),
                 ),
               ),
             ),
+            // Main content
             Expanded(
               child: Padding(
-                padding: const EdgeInsets.symmetric(
-                  horizontal: 13,
-                  vertical: 14,
-                ),
-                child: Row(
+                padding: const EdgeInsets.fromLTRB(14, 14, 14, 14),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    // Avatar
-                    Container(
-                      width: 44,
-                      height: 44,
-                      decoration: BoxDecoration(
-                        borderRadius: BorderRadius.circular(12),
-                        color: ocTheme.backgroundElement,
-                        border: Border.all(
-                          color: ocTheme.borderSubtle,
-                          width: 1,
-                        ),
-                      ),
-                      child: Center(
-                        child: Text(
-                          _getAvatarLetter(),
-                          style: TextStyle(
-                            color: ocTheme.textMuted,
-                            fontSize: 18,
-                            fontWeight: FontWeight.w600,
-                            letterSpacing: -0.5,
-                          ),
-                        ),
-                      ),
-                    ),
-                    const SizedBox(width: 16),
-                    // Session info
-                    Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        mainAxisAlignment: MainAxisAlignment.center,
-                        children: [
-                          Row(
-                            children: [
-                              Flexible(
-                                child: Text(
-                                  session.displayTitle,
-                                  style: TextStyle(
-                                    color: ocTheme.text,
-                                    fontSize: 15,
-                                    fontWeight: FontWeight.w600,
-                                    height: 1.4,
-                                    letterSpacing: -0.2,
-                                  ),
-                                  maxLines: 1,
-                                  overflow: TextOverflow.ellipsis,
-                                ),
-                              ),
-                              // Model badge if available
-                              if (session.model != null) ...[
-                                const SizedBox(width: 6),
-                                Container(
-                                  padding: const EdgeInsets.symmetric(
-                                    horizontal: 6,
-                                    vertical: 2,
-                                  ),
-                                  decoration: BoxDecoration(
-                                    color: ocTheme.info.withValues(alpha: 0.15),
-                                    borderRadius: BorderRadius.circular(4),
-                                  ),
-                                  child: Text(
-                                    session.model!.split('/').last,
-                                    style: TextStyle(
-                                      color: ocTheme.info,
-                                      fontSize: 10,
-                                      fontWeight: FontWeight.w600,
-                                    ),
-                                  ),
-                                ),
-                              ],
-                            ],
-                          ),
-                          const SizedBox(height: 6),
-                          Text(
-                            '${_getProjectName()} · ${_formatDate(session.updatedAt)}',
+                    // Title row with star + time/status
+                    Row(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        // Star icon inline
+                        Icon(Icons.star_rounded, size: 16, color: color),
+                        const SizedBox(width: 8),
+                        Expanded(
+                          child: Text(
+                            session.displayTitle,
                             style: TextStyle(
-                              color: ocTheme.textMuted,
-                              fontSize: 13,
-                              height: 1.4,
-                              letterSpacing: -0.1,
+                              color: ocTheme.text,
+                              fontSize: 15,
+                              fontWeight: FontWeight.w600,
+                              height: 1.3,
                             ),
-                            maxLines: 1,
+                            maxLines: 2,
                             overflow: TextOverflow.ellipsis,
                           ),
-                        ],
-                      ),
+                        ),
+                        const SizedBox(width: 12),
+                        // Status or time
+                        if (isActive)
+                          Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              SizedBox(
+                                width: 10,
+                                height: 10,
+                                child: CircularProgressIndicator(
+                                  strokeWidth: 1.5,
+                                  valueColor: AlwaysStoppedAnimation<Color>(
+                                    status!.isRetry
+                                        ? ocTheme.warning
+                                        : ocTheme.info,
+                                  ),
+                                ),
+                              ),
+                              const SizedBox(width: 6),
+                              Text(
+                                status.isRetry ? 'Retry' : 'Working',
+                                style: TextStyle(
+                                  color: status.isRetry
+                                      ? ocTheme.warning
+                                      : ocTheme.info,
+                                  fontSize: 11,
+                                  fontWeight: FontWeight.w500,
+                                ),
+                              ),
+                            ],
+                          )
+                        else
+                          Text(
+                            _formatDate(session.updatedAt),
+                            style: TextStyle(
+                              color: ocTheme.textMuted,
+                              fontSize: 12,
+                            ),
+                          ),
+                      ],
                     ),
-                    const SizedBox(width: 8),
-                    // Star icon
-                    Icon(Icons.star_rounded, color: color, size: 20),
-                    const SizedBox(width: 4),
-                    // Chevron
-                    Icon(
-                      Icons.chevron_right_rounded,
-                      color: ocTheme.textMuted.withValues(alpha: 0.4),
-                      size: 20,
+                    const SizedBox(height: 10),
+                    // Meta row: agent icon + project + model badge
+                    Row(
+                      children: [
+                        // Claude Code icon
+                        Icon(
+                          Icons.terminal_rounded,
+                          size: 12,
+                          color: ocTheme.accent,
+                        ),
+                        const SizedBox(width: 6),
+                        // Project name
+                        Text(
+                          _getProjectName(),
+                          style: TextStyle(
+                            color: ocTheme.textMuted,
+                            fontSize: 12,
+                          ),
+                        ),
+                        // Model badge if available
+                        if (session.model != null) ...[
+                          const SizedBox(width: 8),
+                          Container(
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 5,
+                              vertical: 2,
+                            ),
+                            decoration: BoxDecoration(
+                              color: ocTheme.info.withValues(alpha: 0.12),
+                              borderRadius: BorderRadius.circular(4),
+                            ),
+                            child: Text(
+                              session.model!.split('/').last,
+                              style: TextStyle(
+                                color: ocTheme.info,
+                                fontSize: 10,
+                                fontWeight: FontWeight.w600,
+                              ),
+                            ),
+                          ),
+                        ],
+                        // Message count if available
+                        if (session.messageCount != null &&
+                            session.messageCount! > 0) ...[
+                          const Spacer(),
+                          Text(
+                            '${session.messageCount} msgs',
+                            style: TextStyle(
+                              color: ocTheme.textMuted,
+                              fontSize: 11,
+                            ),
+                          ),
+                        ],
+                      ],
                     ),
                   ],
                 ),
@@ -5049,7 +5420,7 @@ class _CCHighlightedSessionCard extends StatelessWidget {
         padding: const EdgeInsets.only(right: 20),
         decoration: BoxDecoration(
           color: ocTheme.error,
-          borderRadius: BorderRadius.circular(14),
+          borderRadius: BorderRadius.circular(10),
         ),
         child: const Icon(
           Icons.delete_outline_rounded,
@@ -5067,7 +5438,8 @@ class _CCHighlightedSessionCard extends StatelessWidget {
 }
 
 /// Claude Code session card
-class _CCSessionCard extends StatelessWidget {
+/// Matches OpenCode's _SessionCard design
+class _CCSessionCard extends ConsumerWidget {
   const _CCSessionCard({
     required this.session,
     required this.onTap,
@@ -5103,145 +5475,163 @@ class _CCSessionCard extends StatelessWidget {
     }
   }
 
-  // Get first letter of session title for avatar
-  String _getAvatarLetter() {
-    final title = session.displayTitle;
-    if (title.isEmpty) return '?';
-    // Get first alphanumeric character
-    final match = RegExp(r'[a-zA-Z0-9]').firstMatch(title);
-    return match != null
-        ? match.group(0)!.toUpperCase()
-        : title[0].toUpperCase();
-  }
-
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
     final ocTheme = OpenCodeTheme.of(context);
+    final sessionStatuses = ref.watch(globalSessionStatusProvider);
+    final status = sessionStatuses[session.id];
+    final isActive = status != null && (status.isBusy || status.isRetry);
+
+    // Accent color for left bar
+    final accentColor = isActive
+        ? (status!.isRetry ? ocTheme.warning : ocTheme.info)
+        : ocTheme.accent.withValues(alpha: 0.4);
 
     Widget card = GestureDetector(
       onTap: onTap,
       onLongPress: onLongPress,
       child: Container(
-        height: 80,
-        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
         decoration: BoxDecoration(
           color: ocTheme.backgroundPanel,
-          borderRadius: BorderRadius.circular(14),
-          border: Border.all(color: ocTheme.borderSubtle),
+          borderRadius: BorderRadius.circular(10),
         ),
+        clipBehavior: Clip.antiAlias,
         child: Row(
           children: [
-            // Modern letter avatar with status dot (no active status for CC)
-            Stack(
-              clipBehavior: Clip.none,
-              children: [
-                Container(
-                  width: 44,
-                  height: 44,
-                  decoration: BoxDecoration(
-                    borderRadius: BorderRadius.circular(12),
-                    color: ocTheme.backgroundElement,
-                    border: Border.all(color: ocTheme.borderSubtle, width: 1),
-                  ),
-                  child: Center(
-                    child: Text(
-                      _getAvatarLetter(),
-                      style: TextStyle(
-                        color: ocTheme.textMuted,
-                        fontSize: 18,
-                        fontWeight: FontWeight.w600,
-                        letterSpacing: -0.5,
-                      ),
-                    ),
-                  ),
+            // Left accent bar
+            Container(
+              width: 3,
+              decoration: BoxDecoration(
+                color: accentColor,
+                borderRadius: const BorderRadius.only(
+                  topLeft: Radius.circular(10),
+                  bottomLeft: Radius.circular(10),
                 ),
-                // Status dot at bottom-left corner (gray for idle)
-                Positioned(
-                  bottom: -2,
-                  left: -2,
-                  child: Container(
-                    width: 12,
-                    height: 12,
-                    decoration: BoxDecoration(
-                      shape: BoxShape.circle,
-                      color: ocTheme.textMuted.withValues(alpha: 0.4),
-                      border: Border.all(
-                        color: ocTheme.backgroundPanel,
-                        width: 2,
-                      ),
-                    ),
-                  ),
-                ),
-              ],
-            ),
-            const SizedBox(width: 16),
-            // Session info
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  Row(
-                    children: [
-                      Flexible(
-                        child: Text(
-                          session.displayTitle,
-                          style: TextStyle(
-                            color: ocTheme.text,
-                            fontSize: 15,
-                            fontWeight: FontWeight.w600,
-                            height: 1.4,
-                            letterSpacing: -0.2,
-                          ),
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
-                        ),
-                      ),
-                      // Model badge if available
-                      if (session.model != null) ...[
-                        const SizedBox(width: 6),
-                        Container(
-                          padding: const EdgeInsets.symmetric(
-                            horizontal: 6,
-                            vertical: 2,
-                          ),
-                          decoration: BoxDecoration(
-                            color: ocTheme.info.withValues(alpha: 0.15),
-                            borderRadius: BorderRadius.circular(4),
-                          ),
-                          child: Text(
-                            session.model!.split('/').last,
-                            style: TextStyle(
-                              color: ocTheme.info,
-                              fontSize: 10,
-                              fontWeight: FontWeight.w600,
-                            ),
-                          ),
-                        ),
-                      ],
-                    ],
-                  ),
-                  const SizedBox(height: 6),
-                  Text(
-                    '${_getProjectName()} · ${_formatDate(session.updatedAt)}',
-                    style: TextStyle(
-                      color: ocTheme.textMuted,
-                      fontSize: 13,
-                      height: 1.4,
-                      letterSpacing: -0.1,
-                    ),
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                  ),
-                ],
               ),
             ),
-            const SizedBox(width: 8),
-            // Chevron
-            Icon(
-              Icons.chevron_right_rounded,
-              color: ocTheme.textMuted.withValues(alpha: 0.4),
-              size: 20,
+            // Main content
+            Expanded(
+              child: Padding(
+                padding: const EdgeInsets.fromLTRB(14, 14, 14, 14),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    // Title row with time/status
+                    Row(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Expanded(
+                          child: Text(
+                            session.displayTitle,
+                            style: TextStyle(
+                              color: ocTheme.text,
+                              fontSize: 15,
+                              fontWeight: FontWeight.w600,
+                              height: 1.3,
+                            ),
+                            maxLines: 2,
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                        ),
+                        const SizedBox(width: 12),
+                        // Status or time
+                        if (isActive)
+                          Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              SizedBox(
+                                width: 10,
+                                height: 10,
+                                child: CircularProgressIndicator(
+                                  strokeWidth: 1.5,
+                                  valueColor: AlwaysStoppedAnimation<Color>(
+                                    status!.isRetry
+                                        ? ocTheme.warning
+                                        : ocTheme.info,
+                                  ),
+                                ),
+                              ),
+                              const SizedBox(width: 6),
+                              Text(
+                                status.isRetry ? 'Retry' : 'Working',
+                                style: TextStyle(
+                                  color: status.isRetry
+                                      ? ocTheme.warning
+                                      : ocTheme.info,
+                                  fontSize: 11,
+                                  fontWeight: FontWeight.w500,
+                                ),
+                              ),
+                            ],
+                          )
+                        else
+                          Text(
+                            _formatDate(session.updatedAt),
+                            style: TextStyle(
+                              color: ocTheme.textMuted,
+                              fontSize: 12,
+                            ),
+                          ),
+                      ],
+                    ),
+                    const SizedBox(height: 10),
+                    // Meta row: agent icon + project + model badge
+                    Row(
+                      children: [
+                        // Claude Code icon
+                        Icon(
+                          Icons.terminal_rounded,
+                          size: 12,
+                          color: ocTheme.accent,
+                        ),
+                        const SizedBox(width: 6),
+                        // Project name
+                        Text(
+                          _getProjectName(),
+                          style: TextStyle(
+                            color: ocTheme.textMuted,
+                            fontSize: 12,
+                          ),
+                        ),
+                        // Model badge if available
+                        if (session.model != null) ...[
+                          const SizedBox(width: 8),
+                          Container(
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 5,
+                              vertical: 2,
+                            ),
+                            decoration: BoxDecoration(
+                              color: ocTheme.info.withValues(alpha: 0.12),
+                              borderRadius: BorderRadius.circular(4),
+                            ),
+                            child: Text(
+                              session.model!.split('/').last,
+                              style: TextStyle(
+                                color: ocTheme.info,
+                                fontSize: 10,
+                                fontWeight: FontWeight.w600,
+                              ),
+                            ),
+                          ),
+                        ],
+                        // Message count if available
+                        if (session.messageCount != null &&
+                            session.messageCount! > 0) ...[
+                          const Spacer(),
+                          Text(
+                            '${session.messageCount} msgs',
+                            style: TextStyle(
+                              color: ocTheme.textMuted,
+                              fontSize: 11,
+                            ),
+                          ),
+                        ],
+                      ],
+                    ),
+                  ],
+                ),
+              ),
             ),
           ],
         ),
@@ -5257,7 +5647,7 @@ class _CCSessionCard extends StatelessWidget {
         padding: const EdgeInsets.only(right: 20),
         decoration: BoxDecoration(
           color: ocTheme.error,
-          borderRadius: BorderRadius.circular(14),
+          borderRadius: BorderRadius.circular(10),
         ),
         child: const Icon(
           Icons.delete_outline_rounded,
