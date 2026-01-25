@@ -17,6 +17,7 @@ const TOKEN_FILE_LEGACY = resolve(homedir(), '.broski', 'token')
 const TOKEN_FILE = resolve(homedir(), '.broski', 'token.json')
 const DEBUG_ARTIFACTS = process.env.BROSKI_DEBUG_ARTIFACTS === '1'
 const DEBUG_RTS = process.env.BROSKI_DEBUG_RTS === '1' // Real-Time Sync debugging
+const DEBUG_CX_GLOBAL = process.env.BROSKI_DEBUG_CX_GLOBAL === '1' // Forward noisy Codex global notifications
 
 // Feature flag: Set to true to re-enable artifacts feature
 // TODO(artifacts): Set to true when feature is ready for production
@@ -1090,7 +1091,8 @@ export async function createBridgeServer(options: BridgeServerOptions): Promise<
       codexClient.setHandlers({
         onNotification: (n) => {
           const params: any = n.params ?? {}
-          const threadId = safeString(params.threadId ?? params.thread_id ?? params.threadID)
+          // Codex app-server protocol places threadId in different locations by notification type
+          let threadId = safeString(params.threadId ?? params.thread_id ?? params.threadID)
           const turnId = safeString(params.turnId ?? params.turn_id ?? params.turnID)
 
           if (n.method === 'thread/started') {
@@ -1098,6 +1100,15 @@ export async function createBridgeServer(options: BridgeServerOptions): Promise<
             const id = safeString(thread?.id)
             const cwd = safeString(thread?.cwd)
             if (id && cwd) cxThreadCwds.set(id, resolve(cwd))
+            if (id && !threadId) threadId = id
+          }
+
+          if (!threadId && params.turn?.threadId) {
+            threadId = safeString(params.turn.threadId)
+          }
+
+          if (!threadId && params.item?.threadId) {
+            threadId = safeString(params.item.threadId)
           }
 
           // Cache items for approval requests
@@ -1133,6 +1144,82 @@ export async function createBridgeServer(options: BridgeServerOptions): Promise<
             }
           }
 
+          // Log turn lifecycle events for debugging
+          if (n.method === 'turn/started') {
+            console.log(`[Codex] turn/started: threadId=${threadId}, turnId=${turnId}`)
+          }
+          if (n.method === 'turn/completed') {
+            const turnStatus = safeString(params.turn?.status).toLowerCase()
+            const turnError = params.turn?.error
+            console.log(`[Codex] turn/completed: threadId=${threadId}, turnId=${turnId}, status=${turnStatus}`)
+            
+            // Handle turn/completed with failed status (different from turn/failed notification)
+            if (turnStatus === 'failed' && turnError && threadId) {
+              const errorMessage = typeof turnError === 'string' 
+                ? turnError 
+                : turnError?.message ?? turnError?.additionalDetails ?? JSON.stringify(turnError)
+              const errorCode = turnError?.codexErrorInfo ?? turnError?.code ?? 'turn_failed'
+              
+              console.error(`[Codex] turn/completed with failed status:`, JSON.stringify(turnError, null, 2))
+              
+              emitCxStream(threadId, { 
+                type: 'error', 
+                message: errorMessage,
+                code: typeof errorCode === 'string' ? errorCode : JSON.stringify(errorCode),
+                details: turnError
+              }, owner)
+            }
+          }
+          // Handle turn failures and errors - EMIT TO CLIENT, not just log!
+          if (n.method === 'turn/failed' || n.method === 'error') {
+            const turn = params.turn
+            const error = turn?.error ?? params.error ?? params
+            console.error(`[Codex] ${n.method}: threadId=${threadId}`, JSON.stringify(error, null, 2))
+            if (threadId) {
+              cxActiveTurns.delete(threadId)
+              
+              // CRITICAL: Emit error to client so UI knows the turn failed
+              const errorMessage = typeof error === 'string' 
+                ? error 
+                : error?.message ?? error?.additionalDetails ?? JSON.stringify(error)
+              const errorCode = error?.codexErrorInfo ?? error?.code ?? n.method
+              
+              emitCxStream(threadId, { 
+                type: 'error', 
+                message: errorMessage,
+                code: typeof errorCode === 'string' ? errorCode : JSON.stringify(errorCode),
+                details: error
+              }, owner)
+              
+              // CRITICAL: Send session.idle to reset UI state
+              if (owner) {
+                send(owner, {
+                  type: 'sdk_event',
+                  data: {
+                    payload: {
+                      type: 'session.idle',
+                      properties: { sessionID: threadId },
+                    },
+                  },
+                })
+              }
+              
+              // Clean up approval cache for this thread on failure
+              for (const key of cxApprovalCache.keys()) {
+                if (key.startsWith(`${threadId}:`)) {
+                  cxApprovalCache.delete(key)
+                }
+              }
+            }
+          }
+          // Log response items for debugging
+          if (n.method === 'item/started' || n.method === 'item/completed') {
+            const item = params.item
+            const itemType = safeString(item?.type)
+            const itemId = safeString(item?.id)
+            console.log(`[Codex] ${n.method}: threadId=${threadId}, itemType=${itemType}, itemId=${itemId}`)
+          }
+
           // Multi-Agent Collaboration Events (Codex SDK v0.87.0+)
           // Map collab notifications to specialized event types for UI rendering
           if (n.method.startsWith('collab/')) {
@@ -1158,8 +1245,15 @@ export async function createBridgeServer(options: BridgeServerOptions): Promise<
           const owner = threadId ? cxThreadOwners.get(threadId) : null
           if (!threadId) {
             // Some notifications are global (no threadId): auth, rate limits, MCP oauth completion, etc.
-            for (const ws of sockets) {
-              send(ws, { type: 'cx_global', data: { method: n.method, params } })
+            // NOTE: Codex app-server can emit extremely high-volume `codex/event/*` telemetry
+            // (often duplicating the same information we already forward via `cx_stream`).
+            // Forwarding this to every client can overwhelm mobile devices during streaming,
+            // making “High” effort appear to hang. By default we drop `codex/event/*` and
+            // only forward them when explicitly enabled for debugging.
+            if (DEBUG_CX_GLOBAL || !n.method.startsWith('codex/event/')) {
+              for (const ws of sockets) {
+                send(ws, { type: 'cx_global', data: { method: n.method, params } })
+              }
             }
             return
           }
@@ -1263,6 +1357,55 @@ export async function createBridgeServer(options: BridgeServerOptions): Promise<
           }
 
           return { decision }
+        },
+        // Handle app-server crash - notify all affected clients
+        onExit: (code, signal) => {
+          console.error(`[Codex] App-server crashed! code=${code}, signal=${signal}`)
+          
+          // Notify all thread owners that the server crashed
+          for (const [threadId, owner] of cxThreadOwners.entries()) {
+            send(owner, {
+              type: 'cx_stream',
+              threadId,
+              data: { 
+                type: 'error', 
+                message: `Codex app-server crashed (exit code: ${code})`,
+                code: 'app_server_crashed',
+              },
+            })
+            
+            // Reset UI state
+            send(owner, {
+              type: 'sdk_event',
+              data: {
+                payload: {
+                  type: 'session.idle',
+                  properties: { sessionID: threadId },
+                },
+              },
+            })
+          }
+          
+          // Clean up all state
+          cxThreadOwners.clear()
+          cxActiveTurns.clear()
+          cxApprovalCache.clear()
+          cxApprovalWaiters.forEach(w => {
+            clearTimeout(w.timer)
+            w.resolve({ response: 'reject' })
+          })
+          cxApprovalWaiters.clear()
+          
+          // Reset client so it can be re-created on next request
+          codexClient = null
+        },
+        onError: (error) => {
+          console.error(`[Codex] App-server error:`, error.message)
+          
+          // Broadcast error to all connected clients
+          for (const ws of sockets) {
+            send(ws, { type: 'cx_global', data: { method: 'error', params: { message: error.message } } })
+          }
         },
       })
     }
@@ -2834,16 +2977,17 @@ export async function createBridgeServer(options: BridgeServerOptions): Promise<
     const payload: ServerMessage = { type: 'cx_stream', data: streamMsg, threadId }
     const key = makeSessionKey('codex', threadId)
     const watchers = key ? sessionWatchers.get(key) : null
+    const resolvedOwner = owner ?? cxThreadOwners.get(threadId) ?? null
     
     if (DEBUG_RTS) {
       const msgType = (streamMsg as any)?.type ?? (streamMsg as any)?.method ?? 'unknown'
-      console.log(`[RTS] emitCxStream: thread=${threadId}, msgType=${msgType}, owner=${!!owner}, watchers=${watchers?.size ?? 0}`)
+      console.log(`[RTS] emitCxStream: thread=${threadId}, msgType=${msgType}, owner=${!!resolvedOwner}, watchers=${watchers?.size ?? 0}`)
     }
     
-    if (owner) {
-      send(owner, payload)
+    if (resolvedOwner) {
+      send(resolvedOwner, payload)
     }
-    broadcastToSessionWatchers('codex', threadId, payload, owner)
+    broadcastToSessionWatchers('codex', threadId, payload, resolvedOwner)
   }
 
   let eventCount = 0
@@ -4657,6 +4801,8 @@ export async function createBridgeServer(options: BridgeServerOptions): Promise<
       case 'cx_chat': {
         const client = await ensureCodexClient()
         const cwd = message.cwd ?? process.cwd()
+        // Debug: log model being used
+        console.log(`[Codex cx_chat] model=${message.model ?? 'default'}, threadId=${message.threadId ?? 'new'}, cwd=${cwd}`)
 
         let threadId = message.threadId
         if (!threadId) {
@@ -4670,8 +4816,11 @@ export async function createBridgeServer(options: BridgeServerOptions): Promise<
             developerInstructions: message.developerInstructions ?? null,
           })
           threadId = safeString(startRes?.thread?.id)
+          console.log(`[Codex cx_chat] thread/start result: threadId=${threadId}, model=${message.model}`)
           if (threadId) {
             reply({ type: 'cx_thread_created', data: mapCodexThread(startRes.thread) })
+          } else {
+            console.error(`[Codex cx_chat] thread/start failed - no threadId returned`, startRes)
           }
         } else {
           // Ensure we are subscribed to events for this thread.
@@ -4736,20 +4885,102 @@ export async function createBridgeServer(options: BridgeServerOptions): Promise<
           }
         }
 
-        const turnRes: any = await client.request('turn/start', {
-          threadId,
-          input,
-          cwd,
-          model: message.model ?? null,
-          effort: message.effort ?? null,
-          summary: message.summary ?? null,
-          approvalPolicy: message.approvalPolicy ?? null,
-          sandboxPolicy: message.sandboxPolicy ?? null,
-          collaborationMode,
-        })
+        console.log(`[Codex cx_chat] Starting turn for threadId=${threadId}, model=${message.model}`)
+        
+        try {
+          const turnRes: any = await client.request('turn/start', {
+            threadId,
+            input,
+            cwd,
+            model: message.model ?? null,
+            effort: message.effort ?? null,
+            summary: message.summary ?? null,
+            approvalPolicy: message.approvalPolicy ?? null,
+            sandboxPolicy: message.sandboxPolicy ?? null,
+            collaborationMode,
+          })
 
-        const turnId = safeString(turnRes?.turn?.id)
-        if (turnId) cxActiveTurns.set(threadId, turnId)
+          const turnId = safeString(turnRes?.turn?.id)
+          const turnStatus = safeString(turnRes?.turn?.status).toLowerCase()
+          const turnError = turnRes?.turn?.error ?? turnRes?.error
+          
+          console.log(`[Codex cx_chat] turn/start result: turnId=${turnId}, status=${turnStatus}, model=${message.model}`)
+          
+          // Check if turn started with an error
+          if (turnError || turnStatus === 'failed') {
+            const errorMessage = typeof turnError === 'string' 
+              ? turnError 
+              : turnError?.message ?? turnError?.additionalDetails ?? 'Turn failed to start'
+            const errorCode = turnError?.codexErrorInfo ?? turnError?.code ?? 'turn_start_failed'
+            
+            console.error(`[Codex cx_chat] turn/start failed:`, JSON.stringify(turnError ?? turnRes, null, 2))
+            
+            send(ws, {
+              type: 'cx_stream',
+              threadId,
+              data: { 
+                type: 'error', 
+                message: errorMessage,
+                code: typeof errorCode === 'string' ? errorCode : JSON.stringify(errorCode),
+                details: turnError
+              },
+            })
+            
+            // Send idle to reset UI
+            send(ws, {
+              type: 'sdk_event',
+              data: {
+                payload: {
+                  type: 'session.idle',
+                  properties: { sessionID: threadId },
+                },
+              },
+            })
+            break
+          }
+          
+          if (!turnId) {
+            console.error(`[Codex cx_chat] turn/start returned no turnId:`, JSON.stringify(turnRes, null, 2))
+            send(ws, {
+              type: 'cx_stream',
+              threadId,
+              data: { 
+                type: 'error', 
+                message: 'Turn failed to start - no turn ID returned',
+                code: 'turn_start_no_id',
+                details: turnRes
+              },
+            })
+            break
+          }
+          
+          cxActiveTurns.set(threadId, turnId)
+        } catch (err: any) {
+          // Handle request-level errors (network, timeout, app-server crash, etc.)
+          const errorMessage = err?.message ?? String(err)
+          console.error(`[Codex cx_chat] turn/start threw error:`, errorMessage)
+          
+          send(ws, {
+            type: 'cx_stream',
+            threadId,
+            data: { 
+              type: 'error', 
+              message: errorMessage,
+              code: 'turn_start_exception',
+            },
+          })
+          
+          // Send idle to reset UI
+          send(ws, {
+            type: 'sdk_event',
+            data: {
+              payload: {
+                type: 'session.idle',
+                properties: { sessionID: threadId },
+              },
+            },
+          })
+        }
         break
       }
       case 'cx_abort': {

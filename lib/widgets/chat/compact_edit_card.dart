@@ -32,7 +32,8 @@ class CompactEditCard extends ConsumerWidget {
   /// Handles different backend naming conventions:
   /// - OpenCode: filePath
   /// - Claude Code: path, file_path
-  /// - Codex: changes[0].path or path in item
+  /// - Codex live: changes[0].path or path in item
+  /// - Codex transcript: extracted from patch "*** Update File: <path>"
   String _getFilePath() {
     // Try standard field names first
     final filePath =
@@ -41,13 +42,25 @@ class CompactEditCard extends ConsumerWidget {
         tool.input['file_path'] as String?;
     if (filePath != null && filePath.isNotEmpty) return filePath;
 
-    // Codex: Check changes array
+    // Codex live: Check changes array
     final changes = tool.input['changes'];
     if (changes is List && changes.isNotEmpty) {
       final first = changes[0];
       if (first is Map<String, dynamic>) {
         final changePath = first['path'] as String?;
         if (changePath != null && changePath.isNotEmpty) return changePath;
+      }
+    }
+
+    // Codex transcript: Extract from patch "*** Update File: <path>"
+    final patch = tool.input['patch'] as String? ?? tool.output;
+    if (patch != null && patch.isNotEmpty) {
+      final match = RegExp(r'\*\*\* Update File: ([^\n]+)').firstMatch(patch);
+      if (match != null) {
+        final extractedPath = match.group(1)?.trim();
+        if (extractedPath != null && extractedPath.isNotEmpty) {
+          return extractedPath;
+        }
       }
     }
 
@@ -128,14 +141,15 @@ class CompactEditCard extends ConsumerWidget {
 
   /// Get unified diff text
   /// Handles different backend data locations:
-  /// - Codex: input.changes[0].diff or input.aggregatedOutput
+  /// - Codex live: input.changes[0].diff or input.aggregatedOutput
+  /// - Codex transcript: input.patch (from transcript file parsing)
   /// - Claude Code: metadata.diff (from toolUseResult)
   String? get _unifiedDiff {
     // Claude Code: check metadata.diff first (most reliable)
     final metaDiff = tool.metadata['diff'] as String?;
     if (metaDiff != null && metaDiff.isNotEmpty) return metaDiff;
 
-    // Codex: check changes array with diff
+    // Codex live: check changes array with diff
     final changes = tool.input['changes'];
     if (changes is List && changes.isNotEmpty) {
       final first = changes[0];
@@ -148,6 +162,16 @@ class CompactEditCard extends ConsumerWidget {
     // Codex: check aggregatedOutput
     final aggregated = tool.input['aggregatedOutput'] as String?;
     if (aggregated != null && aggregated.isNotEmpty) return aggregated;
+
+    // Codex transcript: check patch field (from transcript file parsing)
+    final patch = tool.input['patch'] as String?;
+    if (patch != null && patch.isNotEmpty) return patch;
+
+    // Also check tool.output for patch data (transcript stores output here too)
+    final output = tool.output;
+    if (output != null && output.isNotEmpty && output.contains('***')) {
+      return output;
+    }
 
     return null;
   }

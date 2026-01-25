@@ -74,6 +74,7 @@ class WebSocketService {
     'permission_response',
     'cc_permission_response',
     'cx_permission_response',
+    'cx_chat',
     'oc_question_reply',
     'oc_question_reject',
     'abort',

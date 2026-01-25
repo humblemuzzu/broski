@@ -126,6 +126,9 @@ config.json
 .claude/rules/
 .claude/scripts/
 .claude/settings.json
+
+# AI tool undo/cache data
+.broski/codex-undo/
 # thoughts/
 
 # Node.js build artifacts

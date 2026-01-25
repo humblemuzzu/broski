@@ -42,6 +42,8 @@ export type CodexAppServerOptions = {
   clientInfo?: { name: string; title: string; version: string }
   onNotification?: (n: CodexNotification) => void
   onServerRequest?: (r: CodexServerRequest) => Promise<unknown>
+  onExit?: (code: number | null, signal: string | null) => void
+  onError?: (error: Error) => void
 }
 
 export class CodexAppServerClient {
@@ -53,6 +55,8 @@ export class CodexAppServerClient {
   private pending = new Map<string, PendingRequest>()
   private onNotification?: (n: CodexNotification) => void
   private onServerRequest?: (r: CodexServerRequest) => Promise<unknown>
+  private onExit?: (code: number | null, signal: string | null) => void
+  private onError?: (error: Error) => void
   private started = false
 
   constructor(options: CodexAppServerOptions = {}) {
@@ -64,11 +68,15 @@ export class CodexAppServerClient {
     }
     this.onNotification = options.onNotification
     this.onServerRequest = options.onServerRequest
+    this.onExit = options.onExit
+    this.onError = options.onError
   }
 
-  setHandlers(options: Pick<CodexAppServerOptions, 'onNotification' | 'onServerRequest'>) {
+  setHandlers(options: Pick<CodexAppServerOptions, 'onNotification' | 'onServerRequest' | 'onExit' | 'onError'>) {
     this.onNotification = options.onNotification
     this.onServerRequest = options.onServerRequest
+    if (options.onExit) this.onExit = options.onExit
+    if (options.onError) this.onError = options.onError
   }
 
   get isRunning(): boolean {
@@ -88,14 +96,18 @@ export class CodexAppServerClient {
       env: process.env,
     })
 
-    this.child.on('exit', (code) => {
-      console.log(`[Codex] app-server exited with code: ${code}`)
+    this.child.on('exit', (code, signal) => {
+      console.log(`[Codex] app-server exited with code: ${code}, signal: ${signal}`)
       this.started = false
-      this._rejectAllPending(new Error('Codex app-server exited'))
+      this._rejectAllPending(new Error(`Codex app-server exited (code: ${code}, signal: ${signal})`))
+      // Notify server of crash so it can inform all connected clients
+      this.onExit?.(code, signal)
     })
 
     this.child.on('error', (err) => {
       console.error(`[Codex] app-server spawn error:`, err)
+      // Notify server of error
+      this.onError?.(err)
     })
 
     // Log stderr for debugging

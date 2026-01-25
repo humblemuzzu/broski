@@ -2658,6 +2658,58 @@ class ChatSessionNotifier extends StateNotifier<ChatSessionState> {
 
     if (method == 'turn/completed') {
       state = state.copyWith(cxIsStreaming: false);
+      // Trigger a final message update with isStreaming: false
+      // This ensures the message's isStreaming flag is cleared
+      _cxScheduleAssistantUpdate(isStreaming: false);
+      return;
+    }
+
+    // Handle turn failures (e.g., model not available, API errors)
+    if (method == 'turn/failed') {
+      state = state.copyWith(cxIsStreaming: false);
+      final turn = params['turn'];
+      final error = turn is Map<String, dynamic>
+          ? turn['error']
+          : params['error'];
+      String errorMessage = 'Turn failed';
+      if (error is Map<String, dynamic>) {
+        errorMessage = error['message']?.toString() ?? errorMessage;
+      } else if (error is String) {
+        errorMessage = error;
+      }
+      final errorMsg = ChatMessage(
+        id: 'cx-error-${DateTime.now().microsecondsSinceEpoch}',
+        sessionId: state.cxThreadId ?? '',
+        role: MessageRole.system,
+        createdAt: DateTime.now(),
+        text: errorMessage,
+        error: 'turn_failed',
+      );
+      _addMessage(errorMsg);
+      return;
+    }
+
+    // Handle error notifications (unrecoverable errors)
+    if (method == 'error') {
+      state = state.copyWith(cxIsStreaming: false);
+      final error = params['error'];
+      String errorMessage = 'An error occurred';
+      if (error is Map<String, dynamic>) {
+        errorMessage = error['message']?.toString() ?? errorMessage;
+      } else if (error is String) {
+        errorMessage = error;
+      } else if (params['message'] is String) {
+        errorMessage = params['message'] as String;
+      }
+      final errorMsg = ChatMessage(
+        id: 'cx-error-${DateTime.now().microsecondsSinceEpoch}',
+        sessionId: state.cxThreadId ?? '',
+        role: MessageRole.system,
+        createdAt: DateTime.now(),
+        text: errorMessage,
+        error: 'codex_error',
+      );
+      _addMessage(errorMsg);
       return;
     }
 
@@ -2813,9 +2865,16 @@ class ChatSessionNotifier extends StateNotifier<ChatSessionState> {
         );
 
         _cxPendingToolCallsById[itemId] = toolCall;
-        _cxOrderedParts.add(
-          ToolPart(sequence: _cxPartSequence++, callId: itemId),
+        // Only add a new ToolPart if one doesn't already exist for this callId
+        // (item/started and item/completed both call this code for same itemId)
+        final alreadyHasPart = _cxOrderedParts.any(
+          (p) => p is ToolPart && p.callId == itemId,
         );
+        if (!alreadyHasPart) {
+          _cxOrderedParts.add(
+            ToolPart(sequence: _cxPartSequence++, callId: itemId),
+          );
+        }
         _cxScheduleAssistantUpdate(isStreaming: state.cxIsStreaming);
 
         if (type == 'fileChange') {
@@ -3024,6 +3083,12 @@ class ChatSessionNotifier extends StateNotifier<ChatSessionState> {
   }
 
   void _cxScheduleAssistantUpdate({required bool isStreaming}) {
+    // If transitioning to non-streaming (turn/completed), cancel pending timer
+    // and schedule immediately to ensure the final state is rendered
+    if (!isStreaming && _cxUpdateTimer != null) {
+      _cxUpdateTimer!.cancel();
+      _cxUpdateTimer = null;
+    }
     if (_cxUpdateTimer != null) return;
     _cxUpdateTimer = Timer(const Duration(milliseconds: 24), () {
       _cxUpdateTimer = null;
