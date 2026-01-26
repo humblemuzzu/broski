@@ -25,6 +25,9 @@ class _ToolsScreenState extends ConsumerState<ToolsScreen> {
   bool _isLoading = true;
   String? _error;
 
+  // Track expanded sections
+  final Set<String> _expandedSections = {};
+
   @override
   void initState() {
     super.initState();
@@ -276,118 +279,55 @@ class _ToolsScreenState extends ConsumerState<ToolsScreen> {
           // Summary
           _ToolsSummary(totalTools: _tools!.length),
 
-          // Tool categories
+          // Tool categories as collapsible sections
           ...categories.map((category) {
             final tools = groupedTools[category]!;
-            return Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                _SectionHeader(title: category),
-                ...tools.map((tool) => _ToolCard(tool: tool)),
-                const SizedBox(height: 16),
-              ],
+            final isExpanded = _expandedSections.contains(category);
+            return _CollapsibleSection(
+              title: category,
+              itemCount: tools.length,
+              isExpanded: isExpanded,
+              onToggle: () {
+                setState(() {
+                  if (isExpanded) {
+                    _expandedSections.remove(category);
+                  } else {
+                    _expandedSections.add(category);
+                  }
+                });
+              },
+              child: Wrap(
+                spacing: 8,
+                runSpacing: 8,
+                children: tools.map((tool) => _ToolChip(tool: tool)).toList(),
+              ),
             );
           }),
 
-          // Feature 19: Formatters section
+          // Feature 19: Formatters section as collapsible
           if (_formatters != null && _formatters!.isNotEmpty) ...[
             const SizedBox(height: 8),
-            const _SectionHeader(title: 'Formatters'),
-            ..._formatters!.map(
-              (formatter) => _FormatterCard(formatter: formatter),
+            _CollapsibleSection(
+              title: 'Formatters',
+              itemCount: _formatters!.length,
+              isExpanded: _expandedSections.contains('Formatters'),
+              onToggle: () {
+                setState(() {
+                  if (_expandedSections.contains('Formatters')) {
+                    _expandedSections.remove('Formatters');
+                  } else {
+                    _expandedSections.add('Formatters');
+                  }
+                });
+              },
+              child: Column(
+                children: _formatters!
+                    .map((formatter) => _FormatterChip(formatter: formatter))
+                    .toList(),
+              ),
             ),
           ],
         ],
-      ),
-    );
-  }
-}
-
-// Feature 19: Formatter card
-class _FormatterCard extends StatelessWidget {
-  const _FormatterCard({required this.formatter});
-
-  final FormatterInfo formatter;
-
-  @override
-  Widget build(BuildContext context) {
-    final theme = OpenCodeTheme.of(context);
-    final statusColor = switch (formatter.status) {
-      FormatterStatus.active => theme.success,
-      FormatterStatus.error => theme.error,
-      FormatterStatus.inactive => theme.textMuted,
-    };
-
-    final statusLabel = switch (formatter.status) {
-      FormatterStatus.active => 'Active',
-      FormatterStatus.error => 'Error',
-      FormatterStatus.inactive => 'Inactive',
-    };
-
-    return Container(
-      margin: const EdgeInsets.only(bottom: 8),
-      decoration: BoxDecoration(
-        color: theme.backgroundPanel,
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: theme.borderSubtle),
-      ),
-      child: ListTile(
-        contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-        leading: Container(
-          width: 44,
-          height: 44,
-          decoration: BoxDecoration(
-            color: statusColor.withValues(alpha: 0.15),
-            borderRadius: BorderRadius.circular(10),
-          ),
-          child: Icon(Icons.code, color: statusColor, size: 22),
-        ),
-        title: Text(
-          formatter.name,
-          style: TextStyle(
-            color: theme.text,
-            fontSize: 15,
-            fontWeight: FontWeight.w600,
-          ),
-        ),
-        subtitle: Padding(
-          padding: const EdgeInsets.only(top: 4),
-          child: Row(
-            children: [
-              if (formatter.language != null) ...[
-                Text(
-                  formatter.language!,
-                  style: TextStyle(color: theme.textMuted, fontSize: 13),
-                ),
-                const SizedBox(width: 8),
-              ],
-              if (formatter.hasError && formatter.error != null)
-                Expanded(
-                  child: Text(
-                    formatter.error!,
-                    style: TextStyle(color: theme.error, fontSize: 12),
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                  ),
-                ),
-            ],
-          ),
-        ),
-        trailing: Container(
-          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-          decoration: BoxDecoration(
-            color: statusColor.withValues(alpha: 0.15),
-            borderRadius: BorderRadius.circular(12),
-          ),
-          child: Text(
-            statusLabel,
-            style: TextStyle(
-              color: statusColor,
-              fontSize: 11,
-              fontWeight: FontWeight.w600,
-            ),
-          ),
-        ),
       ),
     );
   }
@@ -496,31 +436,112 @@ class _ToolsSummary extends ConsumerWidget {
   }
 }
 
-class _SectionHeader extends StatelessWidget {
-  const _SectionHeader({required this.title});
+/// Collapsible section with expand/collapse arrow
+class _CollapsibleSection extends StatelessWidget {
+  const _CollapsibleSection({
+    required this.title,
+    required this.itemCount,
+    required this.isExpanded,
+    required this.onToggle,
+    required this.child,
+  });
 
   final String title;
+  final int itemCount;
+  final bool isExpanded;
+  final VoidCallback onToggle;
+  final Widget child;
 
   @override
   Widget build(BuildContext context) {
     final theme = OpenCodeTheme.of(context);
-    return Padding(
-      padding: const EdgeInsets.only(bottom: 12),
-      child: Text(
-        title.toUpperCase(),
-        style: TextStyle(
-          color: theme.textMuted,
-          fontSize: 12,
-          fontWeight: FontWeight.w600,
-          letterSpacing: 0.5,
-        ),
+
+    return Container(
+      margin: const EdgeInsets.only(bottom: 12),
+      decoration: BoxDecoration(
+        color: theme.backgroundPanel,
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: theme.borderSubtle),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          // Tappable header
+          InkWell(
+            onTap: onToggle,
+            borderRadius: const BorderRadius.vertical(top: Radius.circular(12)),
+            child: Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+              child: Row(
+                children: [
+                  Expanded(
+                    child: Row(
+                      children: [
+                        Text(
+                          title.toUpperCase(),
+                          style: TextStyle(
+                            color: theme.textMuted,
+                            fontSize: 12,
+                            fontWeight: FontWeight.w700,
+                            letterSpacing: 0.5,
+                          ),
+                        ),
+                        const SizedBox(width: 8),
+                        Container(
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 6,
+                            vertical: 2,
+                          ),
+                          decoration: BoxDecoration(
+                            color: theme.primary.withValues(alpha: 0.15),
+                            borderRadius: BorderRadius.circular(6),
+                          ),
+                          child: Text(
+                            '$itemCount',
+                            style: TextStyle(
+                              color: theme.primary,
+                              fontSize: 11,
+                              fontWeight: FontWeight.w700,
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                  AnimatedRotation(
+                    turns: isExpanded ? 0.5 : 0,
+                    duration: const Duration(milliseconds: 200),
+                    child: Icon(
+                      Icons.keyboard_arrow_down_rounded,
+                      color: theme.textMuted,
+                      size: 20,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+          // Content (only when expanded)
+          AnimatedCrossFade(
+            firstChild: const SizedBox.shrink(),
+            secondChild: Padding(
+              padding: const EdgeInsets.fromLTRB(12, 0, 12, 12),
+              child: child,
+            ),
+            crossFadeState: isExpanded
+                ? CrossFadeState.showSecond
+                : CrossFadeState.showFirst,
+            duration: const Duration(milliseconds: 200),
+          ),
+        ],
       ),
     );
   }
 }
 
-class _ToolCard extends ConsumerWidget {
-  const _ToolCard({required this.tool});
+/// Compact chip for tool display - just icon + name, tap to toggle
+class _ToolChip extends ConsumerWidget {
+  const _ToolChip({required this.tool});
 
   final ToolInfo tool;
 
@@ -530,52 +551,47 @@ class _ToolCard extends ConsumerWidget {
     final toolSettings = ref.watch(toolSettingsProvider);
     final isEnabled = toolSettings.isToolEnabled(tool.id);
     final iconColor = isEnabled ? theme.primary : theme.textMuted;
+    final bgColor = isEnabled
+        ? theme.primary.withValues(alpha: 0.12)
+        : theme.textMuted.withValues(alpha: 0.08);
+    final borderColor = isEnabled
+        ? theme.primary.withValues(alpha: 0.3)
+        : theme.borderSubtle;
 
-    return Container(
-      margin: const EdgeInsets.only(bottom: 8),
-      decoration: BoxDecoration(
-        color: theme.backgroundPanel,
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: theme.borderSubtle),
-      ),
-      child: ListTile(
-        onTap: () {
-          ref.read(toolSettingsProvider.notifier).toggleTool(tool.id);
-        },
-        contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-        leading: Container(
-          width: 44,
-          height: 44,
-          decoration: BoxDecoration(
-            color: iconColor.withValues(alpha: 0.15),
-            borderRadius: BorderRadius.circular(10),
-          ),
-          child: Icon(_getToolIcon(tool.id), color: iconColor, size: 22),
+    return InkWell(
+      onTap: () {
+        ref.read(toolSettingsProvider.notifier).toggleTool(tool.id);
+      },
+      borderRadius: BorderRadius.circular(10),
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+        decoration: BoxDecoration(
+          color: bgColor,
+          borderRadius: BorderRadius.circular(10),
+          border: Border.all(color: borderColor),
         ),
-        title: Text(
-          tool.displayName,
-          style: TextStyle(
-            color: isEnabled ? theme.text : theme.textMuted,
-            fontSize: 15,
-            fontWeight: FontWeight.w600,
-          ),
-        ),
-        subtitle: Padding(
-          padding: const EdgeInsets.only(top: 4),
-          child: Text(
-            tool.description ?? '',
-            style: TextStyle(color: theme.textMuted, fontSize: 13),
-          ),
-        ),
-        trailing: Switch.adaptive(
-          value: isEnabled,
-          onChanged: (_) {
-            ref.read(toolSettingsProvider.notifier).toggleTool(tool.id);
-          },
-          activeThumbColor: theme.success,
-          activeTrackColor: theme.success.withValues(alpha: 0.3),
-          inactiveThumbColor: theme.textMuted,
-          inactiveTrackColor: theme.textMuted.withValues(alpha: 0.3),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(_getToolIcon(tool.id), color: iconColor, size: 16),
+            const SizedBox(width: 6),
+            Text(
+              tool.displayName,
+              style: TextStyle(
+                color: isEnabled ? theme.text : theme.textMuted,
+                fontSize: 13,
+                fontWeight: FontWeight.w600,
+              ),
+            ),
+            if (!isEnabled) ...[
+              const SizedBox(width: 6),
+              Icon(
+                Icons.visibility_off_rounded,
+                color: theme.textMuted.withValues(alpha: 0.5),
+                size: 14,
+              ),
+            ],
+          ],
         ),
       ),
     );
@@ -607,5 +623,77 @@ class _ToolCard extends ConsumerWidget {
       default:
         return Icons.build;
     }
+  }
+}
+
+/// Compact chip for formatter display
+class _FormatterChip extends StatelessWidget {
+  const _FormatterChip({required this.formatter});
+
+  final FormatterInfo formatter;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = OpenCodeTheme.of(context);
+    final statusColor = switch (formatter.status) {
+      FormatterStatus.active => theme.success,
+      FormatterStatus.error => theme.error,
+      FormatterStatus.inactive => theme.textMuted,
+    };
+
+    return Container(
+      margin: const EdgeInsets.only(bottom: 8),
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+      decoration: BoxDecoration(
+        color: statusColor.withValues(alpha: 0.08),
+        borderRadius: BorderRadius.circular(10),
+        border: Border.all(color: statusColor.withValues(alpha: 0.3)),
+      ),
+      child: Row(
+        children: [
+          Icon(Icons.code_rounded, color: statusColor, size: 16),
+          const SizedBox(width: 8),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  formatter.name,
+                  style: TextStyle(
+                    color: theme.text,
+                    fontSize: 13,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+                if (formatter.language != null)
+                  Text(
+                    formatter.language!,
+                    style: TextStyle(color: theme.textMuted, fontSize: 11),
+                  ),
+              ],
+            ),
+          ),
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+            decoration: BoxDecoration(
+              color: statusColor.withValues(alpha: 0.15),
+              borderRadius: BorderRadius.circular(8),
+            ),
+            child: Text(
+              switch (formatter.status) {
+                FormatterStatus.active => 'Active',
+                FormatterStatus.error => 'Error',
+                FormatterStatus.inactive => 'Off',
+              },
+              style: TextStyle(
+                color: statusColor,
+                fontSize: 10,
+                fontWeight: FontWeight.w700,
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
   }
 }

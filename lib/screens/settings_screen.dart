@@ -39,11 +39,21 @@ import 'voice_settings_screen.dart';
 // TODO(artifacts): Re-enable when feature is ready
 // import 'artifacts_screen.dart';
 
-class SettingsScreen extends ConsumerWidget {
+class SettingsScreen extends ConsumerStatefulWidget {
   const SettingsScreen({super.key});
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  ConsumerState<SettingsScreen> createState() => _SettingsScreenState();
+}
+
+class _SettingsScreenState extends ConsumerState<SettingsScreen> {
+  // Track expanded state for backend sections (collapsed by default)
+  bool _openCodeExpanded = false;
+  bool _claudeCodeExpanded = false;
+  bool _codexExpanded = false;
+
+  @override
+  Widget build(BuildContext context) {
     final connection = ref.watch(connectionProvider);
     final currentThemeInfo = ref.watch(currentThemeInfoProvider);
     final currentAgent = ref.watch(agentTypeProvider);
@@ -332,112 +342,114 @@ class SettingsScreen extends ConsumerWidget {
 
             // OPENCODE Section (only when OpenCode is selected)
             if (currentAgent == AgentType.opencode) ...[
-              SliverToBoxAdapter(child: _SectionHeader(title: 'OpenCode')),
               SliverToBoxAdapter(
                 child: Padding(
                   padding: const EdgeInsets.symmetric(horizontal: 20),
-                  child: _SettingsCard(
-                    child: Column(
-                      children: [
-                        _SettingsTile(
-                          title: 'Terminal Sessions',
-                          subtitle: 'PTY terminal sessions',
-                          icon: Icons.terminal_rounded,
-                          onTap: () => Navigator.push(
-                            context,
-                            MaterialPageRoute(
-                              builder: (_) => const TerminalScreen(),
-                            ),
+                  child: _CollapsibleBackendSection(
+                    title: 'OpenCode',
+                    subtitle: 'Power features',
+                    itemCount: 8,
+                    isExpanded: _openCodeExpanded,
+                    onToggle: () =>
+                        setState(() => _openCodeExpanded = !_openCodeExpanded),
+                    children: [
+                      _SettingsTile(
+                        title: 'Terminal Sessions',
+                        subtitle: 'PTY terminal sessions',
+                        icon: Icons.terminal_rounded,
+                        onTap: () => Navigator.push(
+                          context,
+                          MaterialPageRoute(
+                            builder: (_) => const TerminalScreen(),
                           ),
                         ),
-                        _Divider(),
-                        _SettingsTile(
-                          title: 'Skills',
-                          subtitle: 'SKILL.md management',
-                          icon: Icons.auto_fix_high_rounded,
-                          onTap: () => Navigator.push(
-                            context,
-                            MaterialPageRoute(
-                              builder: (_) => const SkillsScreen(
-                                backend: AgentType.opencode,
-                              ),
-                            ),
+                      ),
+                      _Divider(),
+                      _SettingsTile(
+                        title: 'Skills',
+                        subtitle: 'SKILL.md management',
+                        icon: Icons.auto_fix_high_rounded,
+                        onTap: () => Navigator.push(
+                          context,
+                          MaterialPageRoute(
+                            builder: (_) =>
+                                const SkillsScreen(backend: AgentType.opencode),
                           ),
                         ),
-                        _Divider(),
-                        _SettingsTile(
-                          title: 'Commands',
-                          subtitle: '.opencode/command/*.md',
-                          icon: Icons.code_rounded,
-                          onTap: () => Navigator.push(
-                            context,
-                            MaterialPageRoute(
-                              builder: (_) => const OpenCodeCommandsScreen(),
-                            ),
+                      ),
+                      _Divider(),
+                      _SettingsTile(
+                        title: 'Commands',
+                        subtitle: '.opencode/command/*.md',
+                        icon: Icons.code_rounded,
+                        onTap: () => Navigator.push(
+                          context,
+                          MaterialPageRoute(
+                            builder: (_) => const OpenCodeCommandsScreen(),
                           ),
                         ),
-                        _Divider(),
-                        _SettingsTile(
-                          title: 'Agents',
-                          subtitle: '.opencode/agent/*.md',
-                          icon: Icons.smart_toy_outlined,
-                          onTap: () => Navigator.push(
-                            context,
-                            MaterialPageRoute(
-                              builder: (_) => const OpenCodeAgentsScreen(),
-                            ),
+                      ),
+                      _Divider(),
+                      _SettingsTile(
+                        title: 'Agents',
+                        subtitle: '.opencode/agent/*.md',
+                        icon: Icons.smart_toy_outlined,
+                        onTap: () => Navigator.push(
+                          context,
+                          MaterialPageRoute(
+                            builder: (_) => const OpenCodeAgentsScreen(),
                           ),
                         ),
-                        _Divider(),
-                        _SettingsTile(
-                          title: 'Plugins',
-                          subtitle: '.opencode/plugin hooks',
-                          icon: Icons.extension_rounded,
-                          onTap: () => Navigator.push(
-                            context,
-                            MaterialPageRoute(
-                              builder: (_) => const OpenCodePluginsScreen(),
-                            ),
+                      ),
+                      _Divider(),
+                      _SettingsTile(
+                        title: 'Plugins',
+                        subtitle: '.opencode/plugin hooks',
+                        icon: Icons.extension_rounded,
+                        onTap: () => Navigator.push(
+                          context,
+                          MaterialPageRoute(
+                            builder: (_) => const OpenCodePluginsScreen(),
                           ),
                         ),
-                        _Divider(),
-                        _SettingsTile(
-                          title: 'MCP Servers',
-                          subtitle: 'Model Context Protocol',
-                          icon: Icons.dns_rounded,
-                          onTap: () => Navigator.push(
-                            context,
-                            MaterialPageRoute(
-                              builder: (_) => const McpServersScreen(),
-                            ),
+                      ),
+                      _Divider(),
+                      _SettingsTile(
+                        title: 'MCP Servers',
+                        subtitle: 'Model Context Protocol',
+                        icon: Icons.dns_rounded,
+                        onTap: () => Navigator.push(
+                          context,
+                          MaterialPageRoute(
+                            builder: (_) => const McpServersScreen(),
                           ),
                         ),
-                        _Divider(),
-                        _SettingsTile(
-                          title: 'Tools',
-                          subtitle: 'AI tools configuration',
-                          icon: Icons.build_rounded,
-                          onTap: () => Navigator.push(
-                            context,
-                            MaterialPageRoute(
-                              builder: (_) => const ToolsScreen(),
-                            ),
+                      ),
+                      _Divider(),
+                      _SettingsTile(
+                        title: 'Tools',
+                        subtitle: 'AI tools configuration',
+                        icon: Icons.build_rounded,
+                        onTap: () => Navigator.push(
+                          context,
+                          MaterialPageRoute(
+                            builder: (_) => const ToolsScreen(),
                           ),
                         ),
-                        _Divider(),
-                        _SettingsTile(
-                          title: 'Permission Rules',
-                          subtitle: 'Default session permissions',
-                          icon: Icons.security_rounded,
-                          onTap: () => Navigator.push(
-                            context,
-                            MaterialPageRoute(
-                              builder: (_) => const PermissionRulesScreen(),
-                            ),
+                      ),
+                      _Divider(),
+                      _SettingsTile(
+                        title: 'Permission Rules',
+                        subtitle: 'Default session permissions',
+                        icon: Icons.security_rounded,
+                        onTap: () => Navigator.push(
+                          context,
+                          MaterialPageRoute(
+                            builder: (_) => const PermissionRulesScreen(),
                           ),
                         ),
-                      ],
-                    ),
+                      ),
+                    ],
                   ),
                 ),
               ),
@@ -446,112 +458,116 @@ class SettingsScreen extends ConsumerWidget {
 
             // CLAUDE CODE Section (only when Claude Code is selected)
             if (currentAgent == AgentType.claudeCode) ...[
-              SliverToBoxAdapter(child: _SectionHeader(title: 'Claude Code')),
               SliverToBoxAdapter(
                 child: Padding(
                   padding: const EdgeInsets.symmetric(horizontal: 20),
-                  child: _SettingsCard(
-                    child: Column(
-                      children: [
-                        _SettingsTile(
-                          title: 'Settings',
-                          subtitle: 'Language, gitignore, channel',
-                          icon: Icons.tune_rounded,
-                          onTap: () => Navigator.push(
-                            context,
-                            MaterialPageRoute(
-                              builder: (_) => const ClaudeCodeSettingsScreen(),
-                            ),
-                          ),
-                        ),
-                        _Divider(),
-                        _SettingsTile(
-                          title: 'Skills',
-                          subtitle: 'SKILL.md management',
-                          icon: Icons.auto_fix_high_rounded,
-                          onTap: () => Navigator.push(
-                            context,
-                            MaterialPageRoute(
-                              builder: (_) => const SkillsScreen(
-                                backend: AgentType.claudeCode,
-                              ),
-                            ),
-                          ),
-                        ),
-                        _Divider(),
-                        _SettingsTile(
-                          title: 'Commands',
-                          subtitle: '.claude/commands/*.md',
-                          icon: Icons.code_rounded,
-                          onTap: () => Navigator.push(
-                            context,
-                            MaterialPageRoute(
-                              builder: (_) => const ClaudeCodeCommandsScreen(),
-                            ),
-                          ),
-                        ),
-                        _Divider(),
-                        _SettingsTile(
-                          title: 'Hooks',
-                          subtitle: 'hooks.json management',
-                          icon: Icons.bolt_rounded,
-                          onTap: () => Navigator.push(
-                            context,
-                            MaterialPageRoute(
-                              builder: (_) => const HooksScreen(),
-                            ),
-                          ),
-                        ),
-                        _Divider(),
-                        _SettingsTile(
-                          title: 'MCP',
-                          subtitle: '.mcp.json configuration',
-                          icon: Icons.dns_rounded,
-                          onTap: () => Navigator.push(
-                            context,
-                            MaterialPageRoute(
-                              builder: (_) => const ClaudeCodeMcpScreen(),
-                            ),
-                          ),
-                        ),
-                        _Divider(),
-                        _SettingsTile(
-                          title: 'Subagents',
-                          subtitle: 'Custom subagent definitions',
-                          icon: Icons.smart_toy_outlined,
-                          onTap: () => Navigator.push(
-                            context,
-                            MaterialPageRoute(
-                              builder: (_) => const SubagentsScreen(),
-                            ),
-                          ),
-                        ),
-                        _Divider(),
-                        _SettingsTile(
-                          title: 'Custom Tools',
-                          subtitle: 'HTTP APIs, scripts, and more',
-                          icon: Icons.extension_rounded,
-                          onTap: () => Navigator.push(
-                            context,
-                            MaterialPageRoute(
-                              builder: (_) => const CustomToolsScreen(),
-                            ),
-                          ),
-                        ),
-                        _Divider(),
-                        _SettingsTile(
-                          title: 'Plugins',
-                          subtitle: 'Commands, skills, hooks, MCP',
-                          icon: Icons.extension_off_rounded,
-                          onTap: () => Navigator.push(
-                            context,
-                            MaterialPageRoute(
-                              builder: (_) => const PluginsScreen(),
-                            ),
-                          ),
-                        ),
-                      ],
+                  child: _CollapsibleBackendSection(
+                    title: 'Claude Code',
+                    subtitle: 'Power features',
+                    itemCount: 8,
+                    isExpanded: _claudeCodeExpanded,
+                    onToggle: () => setState(
+                      () => _claudeCodeExpanded = !_claudeCodeExpanded,
                     ),
+                    children: [
+                      _SettingsTile(
+                        title: 'Settings',
+                        subtitle: 'Language, gitignore, channel',
+                        icon: Icons.tune_rounded,
+                        onTap: () => Navigator.push(
+                          context,
+                          MaterialPageRoute(
+                            builder: (_) => const ClaudeCodeSettingsScreen(),
+                          ),
+                        ),
+                      ),
+                      _Divider(),
+                      _SettingsTile(
+                        title: 'Skills',
+                        subtitle: 'SKILL.md management',
+                        icon: Icons.auto_fix_high_rounded,
+                        onTap: () => Navigator.push(
+                          context,
+                          MaterialPageRoute(
+                            builder: (_) => const SkillsScreen(
+                              backend: AgentType.claudeCode,
+                            ),
+                          ),
+                        ),
+                      ),
+                      _Divider(),
+                      _SettingsTile(
+                        title: 'Commands',
+                        subtitle: '.claude/commands/*.md',
+                        icon: Icons.code_rounded,
+                        onTap: () => Navigator.push(
+                          context,
+                          MaterialPageRoute(
+                            builder: (_) => const ClaudeCodeCommandsScreen(),
+                          ),
+                        ),
+                      ),
+                      _Divider(),
+                      _SettingsTile(
+                        title: 'Hooks',
+                        subtitle: 'hooks.json management',
+                        icon: Icons.bolt_rounded,
+                        onTap: () => Navigator.push(
+                          context,
+                          MaterialPageRoute(
+                            builder: (_) => const HooksScreen(),
+                          ),
+                        ),
+                      ),
+                      _Divider(),
+                      _SettingsTile(
+                        title: 'MCP',
+                        subtitle: '.mcp.json configuration',
+                        icon: Icons.dns_rounded,
+                        onTap: () => Navigator.push(
+                          context,
+                          MaterialPageRoute(
+                            builder: (_) => const ClaudeCodeMcpScreen(),
+                          ),
+                        ),
+                      ),
+                      _Divider(),
+                      _SettingsTile(
+                        title: 'Subagents',
+                        subtitle: 'Custom subagent definitions',
+                        icon: Icons.smart_toy_outlined,
+                        onTap: () => Navigator.push(
+                          context,
+                          MaterialPageRoute(
+                            builder: (_) => const SubagentsScreen(),
+                          ),
+                        ),
+                      ),
+                      _Divider(),
+                      _SettingsTile(
+                        title: 'Custom Tools',
+                        subtitle: 'HTTP APIs, scripts, and more',
+                        icon: Icons.extension_rounded,
+                        onTap: () => Navigator.push(
+                          context,
+                          MaterialPageRoute(
+                            builder: (_) => const CustomToolsScreen(),
+                          ),
+                        ),
+                      ),
+                      _Divider(),
+                      _SettingsTile(
+                        title: 'Plugins',
+                        subtitle: 'Commands, skills, hooks, MCP',
+                        icon: Icons.extension_off_rounded,
+                        onTap: () => Navigator.push(
+                          context,
+                          MaterialPageRoute(
+                            builder: (_) => const PluginsScreen(),
+                          ),
+                        ),
+                      ),
+                    ],
                   ),
                 ),
               ),
@@ -560,51 +576,54 @@ class SettingsScreen extends ConsumerWidget {
 
             // CODEX Section (only when Codex is selected)
             if (currentAgent == AgentType.codex) ...[
-              SliverToBoxAdapter(child: _SectionHeader(title: 'Codex')),
               SliverToBoxAdapter(
                 child: Padding(
                   padding: const EdgeInsets.symmetric(horizontal: 20),
-                  child: _SettingsCard(
-                    child: Column(
-                      children: [
-                        _SettingsTile(
-                          title: 'Skills',
-                          subtitle: 'SKILL.md management',
-                          icon: Icons.auto_fix_high_rounded,
-                          onTap: () => Navigator.push(
-                            context,
-                            MaterialPageRoute(
-                              builder: (_) =>
-                                  const SkillsScreen(backend: AgentType.codex),
-                            ),
+                  child: _CollapsibleBackendSection(
+                    title: 'Codex',
+                    subtitle: 'Power features',
+                    itemCount: 3,
+                    isExpanded: _codexExpanded,
+                    onToggle: () =>
+                        setState(() => _codexExpanded = !_codexExpanded),
+                    children: [
+                      _SettingsTile(
+                        title: 'Skills',
+                        subtitle: 'SKILL.md management',
+                        icon: Icons.auto_fix_high_rounded,
+                        onTap: () => Navigator.push(
+                          context,
+                          MaterialPageRoute(
+                            builder: (_) =>
+                                const SkillsScreen(backend: AgentType.codex),
                           ),
                         ),
-                        _Divider(),
-                        _SettingsTile(
-                          title: 'Agents',
-                          subtitle: 'AGENTS.md',
-                          icon: Icons.smart_toy_outlined,
-                          onTap: () => Navigator.push(
-                            context,
-                            MaterialPageRoute(
-                              builder: (_) => const CodexAgentsScreen(),
-                            ),
+                      ),
+                      _Divider(),
+                      _SettingsTile(
+                        title: 'Agents',
+                        subtitle: 'AGENTS.md',
+                        icon: Icons.smart_toy_outlined,
+                        onTap: () => Navigator.push(
+                          context,
+                          MaterialPageRoute(
+                            builder: (_) => const CodexAgentsScreen(),
                           ),
                         ),
-                        _Divider(),
-                        _SettingsTile(
-                          title: 'MCP',
-                          subtitle: 'Servers and config',
-                          icon: Icons.dns_rounded,
-                          onTap: () => Navigator.push(
-                            context,
-                            MaterialPageRoute(
-                              builder: (_) => const CodexMcpScreen(),
-                            ),
+                      ),
+                      _Divider(),
+                      _SettingsTile(
+                        title: 'MCP',
+                        subtitle: 'Servers and config',
+                        icon: Icons.dns_rounded,
+                        onTap: () => Navigator.push(
+                          context,
+                          MaterialPageRoute(
+                            builder: (_) => const CodexMcpScreen(),
                           ),
                         ),
-                      ],
-                    ),
+                      ),
+                    ],
                   ),
                 ),
               ),
@@ -1274,6 +1293,138 @@ class _SettingsCard extends StatelessWidget {
         border: Border.all(color: ocTheme.borderSubtle),
       ),
       child: child,
+    );
+  }
+}
+
+/// Collapsible section for backend power features (OpenCode, Claude Code, Codex)
+class _CollapsibleBackendSection extends StatelessWidget {
+  const _CollapsibleBackendSection({
+    required this.title,
+    required this.subtitle,
+    required this.itemCount,
+    required this.isExpanded,
+    required this.onToggle,
+    required this.children,
+  });
+
+  final String title;
+  final String subtitle;
+  final int itemCount;
+  final bool isExpanded;
+  final VoidCallback onToggle;
+  final List<Widget> children;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final ocTheme = OpenCodeTheme.of(context);
+
+    return Container(
+      decoration: BoxDecoration(
+        color: theme.colorScheme.surface.withValues(alpha: 0.5),
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: ocTheme.borderSubtle),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          // Tappable header
+          InkWell(
+            onTap: onToggle,
+            borderRadius: BorderRadius.circular(16),
+            child: Padding(
+              padding: const EdgeInsets.all(16),
+              child: Row(
+                children: [
+                  Icon(
+                    Icons.bolt_rounded,
+                    color: theme.colorScheme.primary,
+                    size: 22,
+                  ),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Row(
+                          children: [
+                            Text(
+                              title,
+                              style: TextStyle(
+                                color: theme.colorScheme.onSurface,
+                                fontSize: 15,
+                                fontWeight: FontWeight.w600,
+                              ),
+                            ),
+                            const SizedBox(width: 8),
+                            Container(
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 6,
+                                vertical: 2,
+                              ),
+                              decoration: BoxDecoration(
+                                color: theme.colorScheme.primary.withValues(
+                                  alpha: 0.15,
+                                ),
+                                borderRadius: BorderRadius.circular(6),
+                              ),
+                              child: Text(
+                                '$itemCount',
+                                style: TextStyle(
+                                  color: theme.colorScheme.primary,
+                                  fontSize: 11,
+                                  fontWeight: FontWeight.w700,
+                                ),
+                              ),
+                            ),
+                          ],
+                        ),
+                        const SizedBox(height: 3),
+                        Text(
+                          subtitle,
+                          style: TextStyle(
+                            color: theme.colorScheme.onSurface.withValues(
+                              alpha: 0.6,
+                            ),
+                            fontSize: 13,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                  AnimatedRotation(
+                    turns: isExpanded ? 0.5 : 0,
+                    duration: const Duration(milliseconds: 200),
+                    child: Icon(
+                      Icons.keyboard_arrow_down_rounded,
+                      color: theme.colorScheme.onSurface.withValues(alpha: 0.5),
+                      size: 24,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+          // Content (only when expanded)
+          AnimatedCrossFade(
+            firstChild: const SizedBox.shrink(),
+            secondChild: Column(
+              children: [
+                Divider(
+                  height: 1,
+                  color: theme.colorScheme.onSurface.withValues(alpha: 0.08),
+                ),
+                ...children,
+              ],
+            ),
+            crossFadeState: isExpanded
+                ? CrossFadeState.showSecond
+                : CrossFadeState.showFirst,
+            duration: const Duration(milliseconds: 200),
+          ),
+        ],
+      ),
     );
   }
 }
