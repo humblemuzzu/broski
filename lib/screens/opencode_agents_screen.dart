@@ -6,13 +6,15 @@ import '../models/skill.dart';
 import '../providers/selection_provider.dart';
 import '../providers/service_providers.dart';
 import '../theme/opencode_theme.dart';
+import '../widgets/chat/detail_sheet.dart';
 import 'markdown_file_editor_screen.dart';
 
 class OpenCodeAgentsScreen extends ConsumerStatefulWidget {
   const OpenCodeAgentsScreen({super.key});
 
   @override
-  ConsumerState<OpenCodeAgentsScreen> createState() => _OpenCodeAgentsScreenState();
+  ConsumerState<OpenCodeAgentsScreen> createState() =>
+      _OpenCodeAgentsScreenState();
 }
 
 class _OpenCodeAgentsScreenState extends ConsumerState<OpenCodeAgentsScreen> {
@@ -77,11 +79,7 @@ class _OpenCodeAgentsScreenState extends ConsumerState<OpenCodeAgentsScreen> {
             path: res.path,
             namePattern: _nameRe,
             nameHint: 'lowercase-with-dashes',
-            onSave: ({
-              required name,
-              required source,
-              required content,
-            }) async {
+            onSave: ({required name, required source, required content}) async {
               return bridge.ocSaveAgentFile(
                 name: name,
                 source: source,
@@ -100,9 +98,9 @@ class _OpenCodeAgentsScreenState extends ConsumerState<OpenCodeAgentsScreen> {
       if (changed == true) await _load();
     } catch (e) {
       if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Failed to load agent: $e')),
-      );
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text('Failed to load agent: $e')));
     }
   }
 
@@ -115,29 +113,33 @@ class _OpenCodeAgentsScreenState extends ConsumerState<OpenCodeAgentsScreen> {
       SkillSource.user,
     ];
 
-    final source = await showModalBottomSheet<SkillSource>(
+    final source = await DetailSheet.show<SkillSource>(
       context: context,
-      builder: (context) => SafeArea(
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            const ListTile(
-              title: Text('Create Agent'),
-              subtitle: Text('OpenCode custom agent'),
-            ),
-            const Divider(height: 1),
-            for (final s in sources)
-              ListTile(
-                leading: Icon(
-                  s == SkillSource.project
-                      ? Icons.folder_outlined
-                      : Icons.person_outline_rounded,
-                ),
-                title: Text(s.displayName),
-                onTap: () => Navigator.pop(context, s),
+      title: 'Add Agent',
+      initialSize: 0.4,
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+            child: Text(
+              'OpenCode custom agent',
+              style: TextStyle(
+                color: Theme.of(context).colorScheme.onSurfaceVariant,
               ),
-          ],
-        ),
+            ),
+          ),
+          for (final s in sources)
+            ListTile(
+              leading: Icon(
+                s == SkillSource.project
+                    ? Icons.folder_outlined
+                    : Icons.person_outline_rounded,
+              ),
+              title: Text(s.displayName),
+              onTap: () => Navigator.pop(context, s),
+            ),
+        ],
       ),
     );
 
@@ -162,11 +164,7 @@ class _OpenCodeAgentsScreenState extends ConsumerState<OpenCodeAgentsScreen> {
           ].join('\n'),
           namePattern: _nameRe,
           nameHint: 'lowercase-with-dashes',
-          onSave: ({
-            required name,
-            required source,
-            required content,
-          }) async {
+          onSave: ({required name, required source, required content}) async {
             return bridge.ocSaveAgentFile(
               name: name,
               source: source,
@@ -213,87 +211,83 @@ class _OpenCodeAgentsScreenState extends ConsumerState<OpenCodeAgentsScreen> {
         child: _isLoading
             ? const Center(child: CircularProgressIndicator())
             : _error != null
-                ? Center(
-                    child: Padding(
-                      padding: const EdgeInsets.all(16),
-                      child: Text(
-                        _error!,
-                        style: TextStyle(color: oc.textMuted),
-                        textAlign: TextAlign.center,
+            ? Center(
+                child: Padding(
+                  padding: const EdgeInsets.all(16),
+                  child: Text(
+                    _error!,
+                    style: TextStyle(color: oc.textMuted),
+                    textAlign: TextAlign.center,
+                  ),
+                ),
+              )
+            : RefreshIndicator(
+                onRefresh: _load,
+                child: ListView(
+                  padding: const EdgeInsets.fromLTRB(16, 12, 16, 16),
+                  children: [
+                    if (selection.project == null)
+                      Padding(
+                        padding: const EdgeInsets.only(bottom: 12),
+                        child: Text(
+                          'Select a project to manage project-level agents.',
+                          style: TextStyle(color: oc.textMuted),
+                        ),
                       ),
-                    ),
-                  )
-                : RefreshIndicator(
-                    onRefresh: _load,
-                    child: ListView(
-                      padding: const EdgeInsets.fromLTRB(16, 12, 16, 16),
-                      children: [
-                        if (selection.project == null)
+                    if (_files.isEmpty)
+                      Padding(
+                        padding: const EdgeInsets.only(top: 24),
+                        child: Center(
+                          child: Text(
+                            'No custom agents found',
+                            style: TextStyle(color: oc.textMuted),
+                          ),
+                        ),
+                      )
+                    else ...[
+                      for (final entry in [
+                        SkillSource.project,
+                        SkillSource.user,
+                      ])
+                        if (bySource[entry]?.isNotEmpty == true) ...[
                           Padding(
-                            padding: const EdgeInsets.only(bottom: 12),
+                            padding: const EdgeInsets.only(top: 12, bottom: 6),
                             child: Text(
-                              'Select a project to manage project-level agents.',
-                              style: TextStyle(color: oc.textMuted),
+                              entry.displayName,
+                              style: TextStyle(
+                                color: oc.textMuted,
+                                fontWeight: FontWeight.w600,
+                              ),
                             ),
                           ),
-                        if (_files.isEmpty)
-                          Padding(
-                            padding: const EdgeInsets.only(top: 24),
-                            child: Center(
-                              child: Text(
-                                'No custom agents found',
-                                style: TextStyle(color: oc.textMuted),
+                          ...bySource[entry]!.map(
+                            (f) => Card(
+                              color: oc.backgroundPanel,
+                              child: ListTile(
+                                title: Text(
+                                  '@${f.name}',
+                                  style: TextStyle(color: oc.text),
+                                ),
+                                subtitle: Text(
+                                  f.description ?? f.path,
+                                  maxLines: 2,
+                                  overflow: TextOverflow.ellipsis,
+                                  style: TextStyle(color: oc.textMuted),
+                                ),
+                                trailing: Icon(
+                                  Icons.chevron_right_rounded,
+                                  color: oc.textMuted,
+                                ),
+                                onTap: () => _open(f),
                               ),
                             ),
-                          )
-                        else ...[
-                          for (final entry in [
-                            SkillSource.project,
-                            SkillSource.user,
-                          ])
-                            if (bySource[entry]?.isNotEmpty == true) ...[
-                              Padding(
-                                padding: const EdgeInsets.only(
-                                  top: 12,
-                                  bottom: 6,
-                                ),
-                                child: Text(
-                                  entry.displayName,
-                                  style: TextStyle(
-                                    color: oc.textMuted,
-                                    fontWeight: FontWeight.w600,
-                                  ),
-                                ),
-                              ),
-                              ...bySource[entry]!.map(
-                                (f) => Card(
-                                  color: oc.backgroundPanel,
-                                  child: ListTile(
-                                    title: Text(
-                                      '@${f.name}',
-                                      style: TextStyle(color: oc.text),
-                                    ),
-                                    subtitle: Text(
-                                      f.description ?? f.path,
-                                      maxLines: 2,
-                                      overflow: TextOverflow.ellipsis,
-                                      style: TextStyle(color: oc.textMuted),
-                                    ),
-                                    trailing: Icon(
-                                      Icons.chevron_right_rounded,
-                                      color: oc.textMuted,
-                                    ),
-                                    onTap: () => _open(f),
-                                  ),
-                                ),
-                              ),
-                            ],
+                          ),
                         ],
-                      ],
-                    ),
-                  ),
+                    ],
+                  ],
+                ),
+              ),
       ),
     );
   }
 }
-

@@ -4,6 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../providers/onboarding_provider.dart';
 import '../theme/opencode_theme.dart';
+import '../widgets/chat/detail_sheet.dart';
 import '../widgets/onboarding_widgets.dart';
 
 class SetupGuideScreen extends ConsumerStatefulWidget {
@@ -172,88 +173,56 @@ class _SetupGuideScreenState extends ConsumerState<SetupGuideScreen> {
   }
 
   void _showManualSetup(BuildContext context, OpenCodeTheme theme) {
-    showModalBottomSheet(
+    DetailSheet.show(
       context: context,
-      backgroundColor: theme.backgroundPanel,
-      isScrollControlled: true,
-      shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+      title: 'Manual Setup',
+      initialSize: 0.6,
+      maxSize: 0.9,
+      minSize: 0.4,
+      child: Padding(
+        padding: const EdgeInsets.fromLTRB(24, 8, 24, 24),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Text(
+              'If the one-liner doesn\'t work, install manually:',
+              style: TextStyle(color: theme.textMuted),
+            ),
+            const SizedBox(height: 24),
+            _buildManualStep(
+              theme,
+              '1',
+              'Install Bun',
+              'curl -fsSL https://bun.sh/install | bash',
+            ),
+            const SizedBox(height: 16),
+            _buildManualStep(
+              theme,
+              '2',
+              'Install OpenCode',
+              'bun install -g opencode',
+            ),
+            const SizedBox(height: 16),
+            _buildManualStep(
+              theme,
+              '3',
+              'Install Broski',
+              'bun install -g broski',
+            ),
+            const SizedBox(height: 16),
+            _buildManualStep(theme, '4', 'Start the Bridge', 'broski'),
+            const SizedBox(height: 32),
+            OnboardingInfoCard(
+              icon: Icons.warning_amber_rounded,
+              title: 'Troubleshooting',
+              content:
+                  'Make sure your Mac allows terminal apps in Privacy & Security settings. Restart Terminal after installing Bun.',
+              color: theme.warning,
+            ),
+          ],
+        ),
       ),
-      builder: (context) {
-        return DraggableScrollableSheet(
-          initialChildSize: 0.6,
-          minChildSize: 0.4,
-          maxChildSize: 0.9,
-          expand: false,
-          builder: (context, scrollController) {
-            return SingleChildScrollView(
-              controller: scrollController,
-              padding: const EdgeInsets.all(24),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Center(
-                    child: Container(
-                      width: 40,
-                      height: 4,
-                      decoration: BoxDecoration(
-                        color: theme.borderSubtle,
-                        borderRadius: BorderRadius.circular(2),
-                      ),
-                    ),
-                  ),
-                  const SizedBox(height: 24),
-                  Text(
-                    'Manual Setup',
-                    style: TextStyle(
-                      color: theme.text,
-                      fontSize: 22,
-                      fontWeight: FontWeight.bold,
-                    ),
-                  ),
-                  const SizedBox(height: 8),
-                  Text(
-                    'If the one-liner doesn\'t work, install manually:',
-                    style: TextStyle(color: theme.textMuted),
-                  ),
-                  const SizedBox(height: 24),
-                  _buildManualStep(
-                    theme,
-                    '1',
-                    'Install Bun',
-                    'curl -fsSL https://bun.sh/install | bash',
-                  ),
-                  const SizedBox(height: 16),
-                  _buildManualStep(
-                    theme,
-                    '2',
-                    'Install OpenCode',
-                    'bun install -g opencode',
-                  ),
-                  const SizedBox(height: 16),
-                  _buildManualStep(
-                    theme,
-                    '3',
-                    'Install Broski',
-                    'bun install -g broski',
-                  ),
-                  const SizedBox(height: 16),
-                  _buildManualStep(theme, '4', 'Start the Bridge', 'broski'),
-                  const SizedBox(height: 32),
-                  OnboardingInfoCard(
-                    icon: Icons.warning_amber_rounded,
-                    title: 'Troubleshooting',
-                    content:
-                        'Make sure your Mac allows terminal apps in Privacy & Security settings. Restart Terminal after installing Bun.',
-                    color: theme.warning,
-                  ),
-                  const SizedBox(height: 24),
-                ],
-              ),
-            );
-          },
-        );
-      },
     );
   }
 

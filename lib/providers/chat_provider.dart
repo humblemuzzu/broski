@@ -226,15 +226,76 @@ class ChatSessionNotifier extends StateNotifier<ChatSessionState> {
 
   Future<void> replyToPendingQuestion(List<List<String>> answers) async {
     final req = state.pendingQuestion;
-    if (req == null || req.id.isEmpty) return;
-    await _bridge.ocReplyToQuestion(requestId: req.id, answers: answers);
+    if (req == null || req.id.isEmpty) {
+      if (kDebugMode) {
+        developer.log(
+          'replyToPendingQuestion: No pending question to reply to',
+          name: 'ChatProvider',
+        );
+      }
+      return;
+    }
+
+    if (kDebugMode) {
+      developer.log(
+        'replyToPendingQuestion: Sending reply for ${req.id} with ${answers.length} answer(s): $answers',
+        name: 'ChatProvider',
+      );
+    }
+
+    final ok = await _bridge.ocReplyToQuestion(
+      requestId: req.id,
+      answers: answers,
+    );
+
+    if (kDebugMode) {
+      developer.log(
+        'replyToPendingQuestion: Reply result for ${req.id}: $ok',
+        name: 'ChatProvider',
+      );
+    }
+
+    // Always clear local state to prevent re-showing the same question
+    // Even if the reply failed, we don't want to keep showing the same prompt
     state = state.copyWith(pendingQuestion: null);
+
+    if (!ok) {
+      developer.log(
+        'WARNING: Question reply may have failed (requestId: ${req.id}). '
+        'The AI might re-ask the question.',
+        name: 'ChatProvider',
+      );
+    }
   }
 
   Future<void> rejectPendingQuestion() async {
     final req = state.pendingQuestion;
-    if (req == null || req.id.isEmpty) return;
-    await _bridge.ocRejectQuestion(requestId: req.id);
+    if (req == null || req.id.isEmpty) {
+      if (kDebugMode) {
+        developer.log(
+          'rejectPendingQuestion: No pending question to reject',
+          name: 'ChatProvider',
+        );
+      }
+      return;
+    }
+
+    if (kDebugMode) {
+      developer.log(
+        'rejectPendingQuestion: Rejecting question ${req.id}',
+        name: 'ChatProvider',
+      );
+    }
+
+    final ok = await _bridge.ocRejectQuestion(requestId: req.id);
+
+    if (kDebugMode) {
+      developer.log(
+        'rejectPendingQuestion: Reject result for ${req.id}: $ok',
+        name: 'ChatProvider',
+      );
+    }
+
     state = state.copyWith(pendingQuestion: null);
   }
 
@@ -1675,9 +1736,53 @@ class ChatSessionNotifier extends StateNotifier<ChatSessionState> {
         (properties['sessionID'] as String?) ??
         (properties['sessionId'] as String?) ??
         '';
-    if (sessionId.isEmpty || state.session?.id != sessionId) return;
+
+    if (kDebugMode) {
+      developer.log(
+        '_handleQuestionAsked: Received question.asked for session $sessionId '
+        '(current: ${state.session?.id})',
+        name: 'ChatProvider',
+      );
+    }
+
+    if (sessionId.isEmpty || state.session?.id != sessionId) {
+      if (kDebugMode) {
+        developer.log(
+          '_handleQuestionAsked: Ignoring (session mismatch or empty)',
+          name: 'ChatProvider',
+        );
+      }
+      return;
+    }
     final request = QuestionRequest.fromJson(properties);
-    if (request.id.isEmpty) return;
+    if (request.id.isEmpty) {
+      if (kDebugMode) {
+        developer.log(
+          '_handleQuestionAsked: Ignoring (empty request ID)',
+          name: 'ChatProvider',
+        );
+      }
+      return;
+    }
+
+    // Check if this is a duplicate question (same ID already being shown)
+    if (state.pendingQuestion?.id == request.id) {
+      if (kDebugMode) {
+        developer.log(
+          '_handleQuestionAsked: Ignoring duplicate question ${request.id}',
+          name: 'ChatProvider',
+        );
+      }
+      return;
+    }
+
+    if (kDebugMode) {
+      developer.log(
+        '_handleQuestionAsked: Setting pendingQuestion ${request.id} '
+        'with ${request.questions.length} question(s)',
+        name: 'ChatProvider',
+      );
+    }
     state = state.copyWith(pendingQuestion: request);
   }
 
@@ -1688,9 +1793,23 @@ class ChatSessionNotifier extends StateNotifier<ChatSessionState> {
         (properties['requestID'] as String?) ??
         (properties['requestId'] as String?) ??
         '';
+
+    if (kDebugMode) {
+      developer.log(
+        '_handleQuestionReplied: Received for requestId $requestId',
+        name: 'ChatProvider',
+      );
+    }
+
     if (requestId.isEmpty) return;
     final pending = state.pendingQuestion;
     if (pending != null && pending.id == requestId) {
+      if (kDebugMode) {
+        developer.log(
+          '_handleQuestionReplied: Clearing pendingQuestion $requestId',
+          name: 'ChatProvider',
+        );
+      }
       state = state.copyWith(pendingQuestion: null);
     }
   }
@@ -1702,9 +1821,23 @@ class ChatSessionNotifier extends StateNotifier<ChatSessionState> {
         (properties['requestID'] as String?) ??
         (properties['requestId'] as String?) ??
         '';
+
+    if (kDebugMode) {
+      developer.log(
+        '_handleQuestionRejected: Received for requestId $requestId',
+        name: 'ChatProvider',
+      );
+    }
+
     if (requestId.isEmpty) return;
     final pending = state.pendingQuestion;
     if (pending != null && pending.id == requestId) {
+      if (kDebugMode) {
+        developer.log(
+          '_handleQuestionRejected: Clearing pendingQuestion $requestId',
+          name: 'ChatProvider',
+        );
+      }
       state = state.copyWith(pendingQuestion: null);
     }
   }

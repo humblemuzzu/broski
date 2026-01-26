@@ -74,11 +74,10 @@ class PermissionRulesScreen extends ConsumerWidget {
                                 await _openEditor(
                                   context,
                                   ref,
-                                  initial:
-                                      state.customRules.isNotEmpty
-                                          ? state.customRules
-                                          : PermissionPreset.askEverything
-                                              .toRuleset(),
+                                  initial: state.customRules.isNotEmpty
+                                      ? state.customRules
+                                      : PermissionPreset.askEverything
+                                            .toRuleset(),
                                 );
                                 return;
                               }
@@ -126,18 +125,12 @@ class PermissionRulesScreen extends ConsumerWidget {
     WidgetRef ref, {
     required PermissionRuleset initial,
   }) async {
-    await showModalBottomSheet<void>(
+    await showPermissionRulesSheet(
       context: context,
-      isScrollControlled: true,
-      backgroundColor: Colors.transparent,
-      builder: (context) => PermissionRulesSheet(
-        initialRules: initial,
-        onApply: (rules) async {
-          await ref.read(permissionRulesProvider.notifier).setCustomRules(rules);
-          if (context.mounted) Navigator.pop(context);
-        },
-      ),
+      initialRules: initial,
+      onApply: (rules) async {
+        await ref.read(permissionRulesProvider.notifier).setCustomRules(rules);
+      },
     );
   }
 }
-

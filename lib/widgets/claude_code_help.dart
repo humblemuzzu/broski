@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../theme/opencode_theme.dart';
+import 'chat/detail_sheet.dart';
 
 enum ClaudeCodeHelpTopic { toolsOverview, subagents, customTools, plugins }
 
@@ -96,61 +97,21 @@ void showClaudeCodeHelpSheet(
       break;
   }
 
-  showModalBottomSheet<void>(
+  DetailSheet.show(
     context: context,
-    isScrollControlled: true,
-    backgroundColor: Colors.transparent,
-    builder: (ctx) {
-      final height = MediaQuery.of(ctx).size.height * 0.7;
-      return SafeArea(
-        child: Container(
-          height: height,
-          decoration: BoxDecoration(
-            color: theme.backgroundPanel,
-            borderRadius: const BorderRadius.vertical(top: Radius.circular(20)),
-          ),
-          child: Padding(
-            padding: const EdgeInsets.fromLTRB(20, 16, 20, 20),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Row(
-                  children: [
-                    Expanded(
-                      child: Text(
-                        title,
-                        style: TextStyle(
-                          color: theme.text,
-                          fontSize: 18,
-                          fontWeight: FontWeight.w700,
-                        ),
-                      ),
-                    ),
-                    IconButton(
-                      onPressed: () => Navigator.pop(ctx),
-                      icon: Icon(Icons.close_rounded, color: theme.textMuted),
-                      tooltip: 'Close',
-                    ),
-                  ],
-                ),
-                const SizedBox(height: 8),
-                Expanded(
-                  child: SingleChildScrollView(
-                    child: DefaultTextStyle(
-                      style: TextStyle(color: theme.text, fontSize: 14),
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: body,
-                      ),
-                    ),
-                  ),
-                ),
-              ],
-            ),
-          ),
+    title: title,
+    initialSize: 0.7,
+    child: Padding(
+      padding: const EdgeInsets.fromLTRB(20, 8, 20, 20),
+      child: DefaultTextStyle(
+        style: TextStyle(color: theme.text, fontSize: 14),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          mainAxisSize: MainAxisSize.min,
+          children: body,
         ),
-      );
-    },
+      ),
+    ),
   );
 }
 

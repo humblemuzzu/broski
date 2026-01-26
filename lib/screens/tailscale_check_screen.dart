@@ -4,6 +4,7 @@ import 'package:url_launcher/url_launcher.dart';
 
 import '../providers/onboarding_provider.dart';
 import '../theme/opencode_theme.dart';
+import '../widgets/chat/detail_sheet.dart';
 import '../widgets/onboarding_widgets.dart';
 
 class TailscaleCheckScreen extends ConsumerWidget {
@@ -84,72 +85,45 @@ class TailscaleCheckScreen extends ConsumerWidget {
   }
 
   void _showInstallOptions(BuildContext context, OpenCodeTheme theme) {
-    showModalBottomSheet(
+    DetailSheet.show(
       context: context,
-      backgroundColor: theme.backgroundPanel,
-      shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
-      ),
-      builder: (context) {
-        return SafeArea(
-          child: Padding(
-            padding: const EdgeInsets.all(24),
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Center(
-                  child: Container(
-                    width: 40,
-                    height: 4,
-                    decoration: BoxDecoration(
-                      color: theme.borderSubtle,
-                      borderRadius: BorderRadius.circular(2),
-                    ),
-                  ),
-                ),
-                const SizedBox(height: 24),
-                Text(
-                  'Install Tailscale',
-                  style: TextStyle(
-                    color: theme.text,
-                    fontSize: 22,
-                    fontWeight: FontWeight.bold,
-                  ),
-                ),
-                const SizedBox(height: 8),
-                Text(
-                  'Install on both your phone and Mac, then sign in with the same account.',
-                  style: TextStyle(color: theme.textMuted),
-                ),
-                const SizedBox(height: 24),
-                _InstallButton(
-                  theme: theme,
-                  icon: Icons.phone_iphone_rounded,
-                  title: 'iPhone / iPad',
-                  url: _tailscaleIosUrl,
-                ),
-                const SizedBox(height: 12),
-                _InstallButton(
-                  theme: theme,
-                  icon: Icons.android_rounded,
-                  title: 'Android',
-                  url: _tailscaleAndroidUrl,
-                ),
-                const SizedBox(height: 24),
-                OnboardingInfoCard(
-                  icon: Icons.warning_amber_rounded,
-                  title: 'Important',
-                  content:
-                      'Sign in to Tailscale with the SAME account on both devices. This is what connects them securely.',
-                  color: theme.warning,
-                ),
-                const SizedBox(height: 16),
-              ],
+      title: 'Install Tailscale',
+      initialSize: 0.5,
+      child: Padding(
+        padding: const EdgeInsets.fromLTRB(24, 8, 24, 24),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              'Install on both your phone and Mac, then sign in with the same account.',
+              style: TextStyle(color: theme.textMuted),
             ),
-          ),
-        );
-      },
+            const SizedBox(height: 24),
+            _InstallButton(
+              theme: theme,
+              icon: Icons.phone_iphone_rounded,
+              title: 'iPhone / iPad',
+              url: _tailscaleIosUrl,
+            ),
+            const SizedBox(height: 12),
+            _InstallButton(
+              theme: theme,
+              icon: Icons.android_rounded,
+              title: 'Android',
+              url: _tailscaleAndroidUrl,
+            ),
+            const SizedBox(height: 24),
+            OnboardingInfoCard(
+              icon: Icons.warning_amber_rounded,
+              title: 'Important',
+              content:
+                  'Sign in to Tailscale with the SAME account on both devices. This is what connects them securely.',
+              color: theme.warning,
+            ),
+          ],
+        ),
+      ),
     );
   }
 }

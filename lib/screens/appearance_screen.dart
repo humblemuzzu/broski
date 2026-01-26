@@ -8,6 +8,7 @@ import '../providers/appearance_provider.dart';
 import '../providers/card_style_provider.dart';
 import '../theme/opencode_theme.dart';
 import '../theme/tool_style.dart';
+import '../widgets/chat/detail_sheet.dart';
 
 class AppearanceScreen extends ConsumerWidget {
   const AppearanceScreen({super.key});
@@ -827,85 +828,67 @@ class _BackgroundSection extends ConsumerWidget {
   void _showBackgroundOptions(BuildContext context, WidgetRef ref) {
     final theme = Theme.of(context);
 
-    showModalBottomSheet(
+    DetailSheet.show(
       context: context,
-      backgroundColor: theme.scaffoldBackgroundColor,
-      shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
-      ),
-      builder: (context) => SafeArea(
-        child: Padding(
-          padding: const EdgeInsets.all(20),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              // Handle bar
-              Container(
-                width: 40,
-                height: 4,
-                decoration: BoxDecoration(
-                  color: theme.colorScheme.onSurface.withValues(alpha: 0.2),
-                  borderRadius: BorderRadius.circular(2),
-                ),
+      title: 'Background',
+      initialSize: 0.35,
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          // Choose from gallery
+          ListTile(
+            leading: Container(
+              padding: const EdgeInsets.all(10),
+              decoration: BoxDecoration(
+                color: theme.colorScheme.primary.withValues(alpha: 0.15),
+                borderRadius: BorderRadius.circular(12),
               ),
-              const SizedBox(height: 24),
-
-              // Choose from gallery
-              ListTile(
-                leading: Container(
-                  padding: const EdgeInsets.all(10),
-                  decoration: BoxDecoration(
-                    color: theme.colorScheme.primary.withValues(alpha: 0.15),
-                    borderRadius: BorderRadius.circular(12),
-                  ),
-                  child: Icon(
-                    Icons.photo_library_rounded,
-                    color: theme.colorScheme.primary,
-                  ),
-                ),
-                title: const Text('Choose from Gallery'),
-                subtitle: const Text('Pick a vertical image for best results'),
-                onTap: () async {
-                  Navigator.pop(context);
-                  final success = await ref
-                      .read(appearanceProvider.notifier)
-                      .pickBackgroundImage();
-                  if (context.mounted && !success) {
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      const SnackBar(content: Text('Failed to set background')),
-                    );
-                  }
-                },
+              child: Icon(
+                Icons.photo_library_rounded,
+                color: theme.colorScheme.primary,
               ),
-
-              // Remove background (only if one is set)
-              if (settings.hasCustomBackground) ...[
-                const SizedBox(height: 8),
-                ListTile(
-                  leading: Container(
-                    padding: const EdgeInsets.all(10),
-                    decoration: BoxDecoration(
-                      color: theme.colorScheme.error.withValues(alpha: 0.15),
-                      borderRadius: BorderRadius.circular(12),
-                    ),
-                    child: Icon(
-                      Icons.delete_outline_rounded,
-                      color: theme.colorScheme.error,
-                    ),
-                  ),
-                  title: const Text('Remove Background'),
-                  subtitle: const Text('Go back to theme default'),
-                  onTap: () {
-                    Navigator.pop(context);
-                    ref.read(appearanceProvider.notifier).clearBackground();
-                  },
-                ),
-              ],
-
-              const SizedBox(height: 16),
-            ],
+            ),
+            title: const Text('Choose from Gallery'),
+            subtitle: const Text('Pick a vertical image for best results'),
+            onTap: () async {
+              Navigator.pop(context);
+              final success = await ref
+                  .read(appearanceProvider.notifier)
+                  .pickBackgroundImage();
+              if (context.mounted && !success) {
+                ScaffoldMessenger.of(context).showSnackBar(
+                  const SnackBar(content: Text('Failed to set background')),
+                );
+              }
+            },
           ),
-        ),
+
+          // Remove background (only if one is set)
+          if (settings.hasCustomBackground) ...[
+            const SizedBox(height: 8),
+            ListTile(
+              leading: Container(
+                padding: const EdgeInsets.all(10),
+                decoration: BoxDecoration(
+                  color: theme.colorScheme.error.withValues(alpha: 0.15),
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                child: Icon(
+                  Icons.delete_outline_rounded,
+                  color: theme.colorScheme.error,
+                ),
+              ),
+              title: const Text('Remove Background'),
+              subtitle: const Text('Go back to theme default'),
+              onTap: () {
+                Navigator.pop(context);
+                ref.read(appearanceProvider.notifier).clearBackground();
+              },
+            ),
+          ],
+
+          const SizedBox(height: 16),
+        ],
       ),
     );
   }

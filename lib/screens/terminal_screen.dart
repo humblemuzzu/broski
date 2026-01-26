@@ -6,6 +6,7 @@ import '../providers/service_providers.dart';
 import '../providers/selection_provider.dart';
 import '../services/storage_service.dart';
 import '../theme/opencode_theme.dart';
+import '../widgets/chat/detail_sheet.dart';
 import '../widgets/connection_indicator.dart';
 import 'terminal_view_screen.dart';
 
@@ -454,147 +455,118 @@ class _TerminalScreenState extends ConsumerState<TerminalScreen> {
 
     final ocTheme = OpenCodeTheme.of(context);
 
-    showModalBottomSheet(
+    DetailSheet.show(
       context: context,
-      backgroundColor: ocTheme.backgroundPanel,
-      shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
-      ),
-      builder: (context) {
-        final sheetTheme = OpenCodeTheme.of(context);
-        return Container(
-          padding: const EdgeInsets.all(24),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Row(
-                children: [
-                  Container(
-                    padding: const EdgeInsets.all(12),
-                    decoration: BoxDecoration(
-                      color: sheetTheme.primary.withValues(alpha: 0.15),
-                      borderRadius: BorderRadius.circular(12),
-                    ),
-                    child: Icon(
-                      Icons.terminal,
-                      color: sheetTheme.primary,
-                      size: 24,
-                    ),
+      title: title,
+      initialSize: 0.4,
+      child: Padding(
+        padding: const EdgeInsets.all(20),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              children: [
+                Container(
+                  padding: const EdgeInsets.all(12),
+                  decoration: BoxDecoration(
+                    color: ocTheme.primary.withValues(alpha: 0.15),
+                    borderRadius: BorderRadius.circular(12),
                   ),
-                  const SizedBox(width: 16),
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          title,
-                          style: TextStyle(
-                            fontSize: 18,
-                            fontWeight: FontWeight.w600,
-                            color: sheetTheme.text,
-                          ),
-                        ),
-                        const SizedBox(height: 4),
-                        Row(
-                          children: [
-                            Container(
-                              width: 8,
-                              height: 8,
-                              decoration: BoxDecoration(
-                                color: status == 'running'
-                                    ? sheetTheme.success
-                                    : sheetTheme.textMuted,
-                                shape: BoxShape.circle,
-                              ),
-                            ),
-                            const SizedBox(width: 6),
-                            Text(
-                              status == 'running' ? 'Running' : 'Exited',
-                              style: TextStyle(
-                                color: sheetTheme.textMuted,
-                                fontSize: 14,
-                              ),
-                            ),
-                          ],
-                        ),
-                      ],
-                    ),
-                  ),
-                ],
-              ),
-              const SizedBox(height: 24),
-              _DetailRow(label: 'ID', value: id),
-              _DetailRow(
-                label: 'Command',
-                value: command.isEmpty ? '-' : command,
-              ),
-              _DetailRow(
-                label: 'Working Directory',
-                value: cwd.isEmpty ? '-' : cwd,
-              ),
-              _DetailRow(label: 'PID', value: pid > 0 ? pid.toString() : '-'),
-              const SizedBox(height: 24),
-              if (status == 'running')
-                Padding(
-                  padding: const EdgeInsets.only(bottom: 12),
-                  child: SizedBox(
-                    width: double.infinity,
-                    child: ElevatedButton.icon(
-                      onPressed: () {
-                        Navigator.pop(context);
-                        _openTerminal(pty);
-                      },
-                      icon: const Icon(Icons.open_in_new, size: 18),
-                      label: const Text('Open Terminal'),
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: sheetTheme.primary,
-                        foregroundColor: Colors.white,
-                        padding: const EdgeInsets.symmetric(vertical: 14),
+                  child: Icon(Icons.terminal, color: ocTheme.primary, size: 24),
+                ),
+                const SizedBox(width: 16),
+                Row(
+                  children: [
+                    Container(
+                      width: 8,
+                      height: 8,
+                      decoration: BoxDecoration(
+                        color: status == 'running'
+                            ? ocTheme.success
+                            : ocTheme.textMuted,
+                        shape: BoxShape.circle,
                       ),
+                    ),
+                    const SizedBox(width: 6),
+                    Text(
+                      status == 'running' ? 'Running' : 'Exited',
+                      style: TextStyle(color: ocTheme.textMuted, fontSize: 14),
+                    ),
+                  ],
+                ),
+              ],
+            ),
+            const SizedBox(height: 24),
+            _DetailRow(label: 'ID', value: id),
+            _DetailRow(
+              label: 'Command',
+              value: command.isEmpty ? '-' : command,
+            ),
+            _DetailRow(
+              label: 'Working Directory',
+              value: cwd.isEmpty ? '-' : cwd,
+            ),
+            _DetailRow(label: 'PID', value: pid > 0 ? pid.toString() : '-'),
+            const SizedBox(height: 24),
+            if (status == 'running')
+              Padding(
+                padding: const EdgeInsets.only(bottom: 12),
+                child: SizedBox(
+                  width: double.infinity,
+                  child: ElevatedButton.icon(
+                    onPressed: () {
+                      Navigator.pop(context);
+                      _openTerminal(pty);
+                    },
+                    icon: const Icon(Icons.open_in_new, size: 18),
+                    label: const Text('Open Terminal'),
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: ocTheme.primary,
+                      foregroundColor: Colors.white,
+                      padding: const EdgeInsets.symmetric(vertical: 14),
                     ),
                   ),
                 ),
-              Row(
-                children: [
-                  Expanded(
-                    child: OutlinedButton.icon(
-                      onPressed: () {
-                        Navigator.pop(context);
-                        _renameSession(id, title);
-                      },
-                      icon: const Icon(Icons.edit, size: 18),
-                      label: const Text('Rename'),
-                      style: OutlinedButton.styleFrom(
-                        foregroundColor: sheetTheme.text,
-                        side: BorderSide(color: sheetTheme.borderSubtle),
-                        padding: const EdgeInsets.symmetric(vertical: 14),
-                      ),
-                    ),
-                  ),
-                  const SizedBox(width: 12),
-                  Expanded(
-                    child: ElevatedButton.icon(
-                      onPressed: () {
-                        Navigator.pop(context);
-                        _deleteSession(id, title);
-                      },
-                      icon: const Icon(Icons.delete_outline, size: 18),
-                      label: const Text('Delete'),
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: sheetTheme.error,
-                        foregroundColor: Colors.white,
-                        padding: const EdgeInsets.symmetric(vertical: 14),
-                      ),
-                    ),
-                  ),
-                ],
               ),
-              const SizedBox(height: 12),
-            ],
-          ),
-        );
-      },
+            Row(
+              children: [
+                Expanded(
+                  child: OutlinedButton.icon(
+                    onPressed: () {
+                      Navigator.pop(context);
+                      _renameSession(id, title);
+                    },
+                    icon: const Icon(Icons.edit, size: 18),
+                    label: const Text('Rename'),
+                    style: OutlinedButton.styleFrom(
+                      foregroundColor: ocTheme.text,
+                      side: BorderSide(color: ocTheme.borderSubtle),
+                      padding: const EdgeInsets.symmetric(vertical: 14),
+                    ),
+                  ),
+                ),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: ElevatedButton.icon(
+                    onPressed: () {
+                      Navigator.pop(context);
+                      _deleteSession(id, title);
+                    },
+                    icon: const Icon(Icons.delete_outline, size: 18),
+                    label: const Text('Delete'),
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: ocTheme.error,
+                      foregroundColor: Colors.white,
+                      padding: const EdgeInsets.symmetric(vertical: 14),
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ],
+        ),
+      ),
     );
   }
 }

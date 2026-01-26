@@ -14,6 +14,7 @@ import '../providers/permission_rules_provider.dart';
 import '../providers/selection_provider.dart';
 import '../providers/service_providers.dart';
 import '../theme/opencode_theme.dart';
+import '../widgets/chat/detail_sheet.dart';
 import '../widgets/connection_quality_indicator.dart';
 import 'chat_screen.dart';
 
@@ -223,136 +224,100 @@ class _ProjectsScreenState extends ConsumerState<ProjectsScreen> {
     }
 
     if (!mounted) return;
-    await showModalBottomSheet<void>(
+    await DetailSheet.show<void>(
       context: context,
-      isScrollControlled: true,
-      backgroundColor: Colors.transparent,
-      builder: (ctx) {
-        final height = MediaQuery.of(ctx).size.height * 0.6;
-        return SafeArea(
-          child: Container(
-            height: height,
-            padding: EdgeInsets.only(
-              left: 20,
-              right: 20,
-              top: 16,
-              bottom: MediaQuery.of(ctx).viewInsets.bottom + 16,
+      title: 'New Worktree',
+      initialSize: 0.5,
+      child: Padding(
+        padding: const EdgeInsets.fromLTRB(20, 8, 20, 20),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Text(
+              'Creates a new sandbox worktree from the current branch.',
+              style: TextStyle(color: ocTheme.textMuted, fontSize: 13),
             ),
-            decoration: BoxDecoration(
-              color: ocTheme.backgroundPanel,
-              borderRadius: const BorderRadius.vertical(
-                top: Radius.circular(20),
+            const SizedBox(height: 12),
+            TextField(
+              controller: nameController,
+              decoration: InputDecoration(
+                labelText: 'Name',
+                hintText: 'e.g. feature-dark-mode',
+                filled: true,
+                fillColor: ocTheme.backgroundElement,
+                border: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(12),
+                  borderSide: BorderSide(color: ocTheme.borderSubtle),
+                ),
               ),
             ),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Row(
-                  children: [
-                    Expanded(
-                      child: Text(
-                        'New Worktree',
-                        style: TextStyle(
-                          color: ocTheme.text,
-                          fontSize: 18,
-                          fontWeight: FontWeight.w700,
-                        ),
-                      ),
-                    ),
-                    IconButton(
-                      onPressed: () => Navigator.pop(ctx),
-                      icon: Icon(Icons.close_rounded, color: ocTheme.textMuted),
-                      tooltip: 'Close',
-                    ),
-                  ],
+            const SizedBox(height: 12),
+            TextField(
+              controller: cmdController,
+              decoration: InputDecoration(
+                labelText: 'Start command (optional)',
+                hintText: 'e.g. pnpm install',
+                filled: true,
+                fillColor: ocTheme.backgroundElement,
+                border: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(12),
+                  borderSide: BorderSide(color: ocTheme.borderSubtle),
                 ),
-                const SizedBox(height: 8),
+              ),
+            ),
+            const SizedBox(height: 12),
+            Row(
+              children: [
+                Icon(
+                  Icons.call_split_rounded,
+                  size: 18,
+                  color: ocTheme.textMuted,
+                ),
+                const SizedBox(width: 8),
                 Text(
-                  'Creates a new sandbox worktree from the current branch.',
+                  'Base branch:',
                   style: TextStyle(color: ocTheme.textMuted, fontSize: 13),
                 ),
-                const SizedBox(height: 12),
-                TextField(
-                  controller: nameController,
-                  decoration: InputDecoration(
-                    labelText: 'Name',
-                    hintText: 'e.g. feature-dark-mode',
-                    filled: true,
-                    fillColor: ocTheme.backgroundElement,
-                    border: OutlineInputBorder(
-                      borderRadius: BorderRadius.circular(12),
-                      borderSide: BorderSide(color: ocTheme.borderSubtle),
-                    ),
-                  ),
-                ),
-                const SizedBox(height: 12),
-                TextField(
-                  controller: cmdController,
-                  decoration: InputDecoration(
-                    labelText: 'Start command (optional)',
-                    hintText: 'e.g. pnpm install',
-                    filled: true,
-                    fillColor: ocTheme.backgroundElement,
-                    border: OutlineInputBorder(
-                      borderRadius: BorderRadius.circular(12),
-                      borderSide: BorderSide(color: ocTheme.borderSubtle),
-                    ),
-                  ),
-                ),
-                const SizedBox(height: 12),
-                Row(
-                  children: [
-                    Icon(
-                      Icons.call_split_rounded,
-                      size: 18,
-                      color: ocTheme.textMuted,
-                    ),
-                    const SizedBox(width: 8),
-                    Text(
-                      'Base branch:',
-                      style: TextStyle(color: ocTheme.textMuted, fontSize: 13),
-                    ),
-                    const SizedBox(width: 8),
-                    Text(
-                      currentBranch ?? '(unknown)',
-                      style: TextStyle(
-                        color: ocTheme.text,
-                        fontSize: 13,
-                        fontWeight: FontWeight.w600,
-                      ),
-                    ),
-                  ],
-                ),
-                const Spacer(),
-                SizedBox(
-                  width: double.infinity,
-                  child: ElevatedButton(
-                    onPressed: () async {
-                      final name = nameController.text.trim();
-                      final cmd = cmdController.text.trim();
-                      Navigator.pop(ctx);
-                      await _createWorktree(
-                        project,
-                        name: name.isEmpty ? null : name,
-                        startCommand: cmd.isEmpty ? null : cmd,
-                      );
-                    },
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: ocTheme.primary,
-                      foregroundColor: ocTheme.background,
-                      padding: const EdgeInsets.symmetric(vertical: 14),
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(12),
-                      ),
-                    ),
-                    child: const Text('Create'),
+                const SizedBox(width: 8),
+                Text(
+                  currentBranch ?? '(unknown)',
+                  style: TextStyle(
+                    color: ocTheme.text,
+                    fontSize: 13,
+                    fontWeight: FontWeight.w600,
                   ),
                 ),
               ],
             ),
-          ),
-        );
-      },
+            const SizedBox(height: 24),
+            SizedBox(
+              width: double.infinity,
+              child: ElevatedButton(
+                onPressed: () async {
+                  final name = nameController.text.trim();
+                  final cmd = cmdController.text.trim();
+                  Navigator.pop(context);
+                  await _createWorktree(
+                    project,
+                    name: name.isEmpty ? null : name,
+                    startCommand: cmd.isEmpty ? null : cmd,
+                  );
+                },
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: ocTheme.primary,
+                  foregroundColor: ocTheme.background,
+                  padding: const EdgeInsets.symmetric(vertical: 14),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                ),
+                child: const Text('Create'),
+              ),
+            ),
+          ],
+        ),
+      ),
     );
   }
 
@@ -450,82 +415,46 @@ class _ProjectsScreenState extends ConsumerState<ProjectsScreen> {
     final ocTheme = OpenCodeTheme.of(context);
     if (!mounted) return;
 
-    await showModalBottomSheet<void>(
+    await DetailSheet.show<void>(
       context: context,
-      backgroundColor: Colors.transparent,
-      builder: (ctx) {
-        return SafeArea(
-          child: Container(
-            padding: const EdgeInsets.fromLTRB(20, 16, 20, 20),
-            decoration: BoxDecoration(
-              color: ocTheme.backgroundPanel,
-              borderRadius: const BorderRadius.vertical(
-                top: Radius.circular(20),
-              ),
-            ),
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  worktree.displayName,
-                  style: TextStyle(
-                    color: ocTheme.text,
-                    fontSize: 16,
-                    fontWeight: FontWeight.w700,
-                  ),
-                ),
-                const SizedBox(height: 12),
-                ListTile(
-                  contentPadding: EdgeInsets.zero,
-                  leading: Icon(
-                    Icons.open_in_new_rounded,
-                    color: ocTheme.textMuted,
-                  ),
-                  title: Text('Open', style: TextStyle(color: ocTheme.text)),
-                  onTap: () {
-                    Navigator.pop(ctx);
-                    _openWorktreeSession(context, project, worktree);
-                  },
-                ),
-                ListTile(
-                  contentPadding: EdgeInsets.zero,
-                  leading: Icon(Icons.copy_rounded, color: ocTheme.textMuted),
-                  title: Text(
-                    'Copy path',
-                    style: TextStyle(color: ocTheme.text),
-                  ),
-                  onTap: () async {
-                    await Clipboard.setData(
-                      ClipboardData(text: worktree.directory),
-                    );
-                    if (!mounted) return;
-                    Navigator.pop(ctx);
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      SnackBar(
-                        content: const Text('Path copied'),
-                        backgroundColor: ocTheme.backgroundPanel,
-                      ),
-                    );
-                  },
-                ),
-                ListTile(
-                  contentPadding: EdgeInsets.zero,
-                  leading: Icon(
-                    Icons.delete_outline_rounded,
-                    color: ocTheme.error,
-                  ),
-                  title: Text('Delete', style: TextStyle(color: ocTheme.error)),
-                  onTap: () async {
-                    Navigator.pop(ctx);
-                    await _deleteWorktree(project, worktree);
-                  },
-                ),
-              ],
-            ),
+      title: worktree.displayName,
+      initialSize: 0.35,
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          ListTile(
+            leading: Icon(Icons.open_in_new_rounded, color: ocTheme.textMuted),
+            title: Text('Open', style: TextStyle(color: ocTheme.text)),
+            onTap: () {
+              Navigator.pop(context);
+              _openWorktreeSession(context, project, worktree);
+            },
           ),
-        );
-      },
+          ListTile(
+            leading: Icon(Icons.copy_rounded, color: ocTheme.textMuted),
+            title: Text('Copy path', style: TextStyle(color: ocTheme.text)),
+            onTap: () async {
+              await Clipboard.setData(ClipboardData(text: worktree.directory));
+              if (!mounted) return;
+              Navigator.pop(context);
+              ScaffoldMessenger.of(context).showSnackBar(
+                SnackBar(
+                  content: const Text('Path copied'),
+                  backgroundColor: ocTheme.backgroundPanel,
+                ),
+              );
+            },
+          ),
+          ListTile(
+            leading: Icon(Icons.delete_outline_rounded, color: ocTheme.error),
+            title: Text('Delete', style: TextStyle(color: ocTheme.error)),
+            onTap: () async {
+              Navigator.pop(context);
+              await _deleteWorktree(project, worktree);
+            },
+          ),
+        ],
+      ),
     );
   }
 

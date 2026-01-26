@@ -5105,12 +5105,49 @@ export async function createBridgeServer(options: BridgeServerOptions): Promise<
           break
         }
         case 'oc_question_reply': {
-          const ok = await opencode.replyToQuestion(message.questionId, message.answers)
+          const questionId = message.questionId
+          const answers = message.answers
+
+          // Validate inputs
+          if (!questionId || typeof questionId !== 'string') {
+            console.error('[OC Question] Reply FAILED: Invalid or missing questionId:', questionId)
+            reply({ type: 'oc_question_replied', data: false })
+            break
+          }
+          if (!Array.isArray(answers)) {
+            console.error('[OC Question] Reply FAILED: Invalid answers format (not array):', typeof answers, answers)
+            reply({ type: 'oc_question_replied', data: false })
+            break
+          }
+
+          if (DEBUG_RTS) {
+            console.log('[OC Question] Reply received:', {
+              questionId,
+              answers,
+              answersType: typeof answers,
+              answersLength: answers.length,
+              answersSample: answers.slice(0, 3),
+            })
+          }
+
+          const ok = await opencode.replyToQuestion(questionId, answers)
+          if (DEBUG_RTS) {
+            console.log('[OC Question] Reply result:', { questionId, ok })
+          }
+          if (!ok) {
+            console.warn('[OC Question] Reply returned false - question may have been already answered or expired')
+          }
           reply({ type: 'oc_question_replied', data: ok })
           break
         }
         case 'oc_question_reject': {
+          if (DEBUG_RTS) {
+            console.log('[OC Question] Reject received:', { questionId: message.questionId })
+          }
           const ok = await opencode.rejectQuestion(message.questionId)
+          if (DEBUG_RTS) {
+            console.log('[OC Question] Reject result:', { questionId: message.questionId, ok })
+          }
           reply({ type: 'oc_question_rejected', data: ok })
           break
         }

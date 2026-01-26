@@ -6,6 +6,7 @@ import '../models/skill.dart';
 import '../providers/selection_provider.dart';
 import '../providers/service_providers.dart';
 import '../theme/opencode_theme.dart';
+import '../widgets/chat/detail_sheet.dart';
 import 'markdown_file_editor_screen.dart';
 
 class ClaudeCodeCommandsScreen extends ConsumerStatefulWidget {
@@ -16,7 +17,8 @@ class ClaudeCodeCommandsScreen extends ConsumerStatefulWidget {
       _ClaudeCodeCommandsScreenState();
 }
 
-class _ClaudeCodeCommandsScreenState extends ConsumerState<ClaudeCodeCommandsScreen> {
+class _ClaudeCodeCommandsScreenState
+    extends ConsumerState<ClaudeCodeCommandsScreen> {
   List<ClaudeCodeCommand> _commands = const [];
   bool _isLoading = true;
   String? _error;
@@ -91,11 +93,7 @@ class _ClaudeCodeCommandsScreenState extends ConsumerState<ClaudeCodeCommandsScr
             path: res.path,
             namePattern: _nameRe,
             nameHint: 'no-spaces-or-slashes',
-            onSave: ({
-              required name,
-              required source,
-              required content,
-            }) async {
+            onSave: ({required name, required source, required content}) async {
               if (source == SkillSource.plugin) return false;
               return bridge.ccSaveCommandFile(
                 name: name,
@@ -107,19 +105,19 @@ class _ClaudeCodeCommandsScreenState extends ConsumerState<ClaudeCodeCommandsScr
             onDelete: readOnly
                 ? null
                 : () => bridge.ccDeleteCommandFile(
-                      name: command.name,
-                      source: source,
-                      cwd: cwd,
-                    ),
+                    name: command.name,
+                    source: source,
+                    cwd: cwd,
+                  ),
           ),
         ),
       );
       if (changed == true) await _load();
     } catch (e) {
       if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Failed to load command: $e')),
-      );
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text('Failed to load command: $e')));
     }
   }
 
@@ -132,29 +130,33 @@ class _ClaudeCodeCommandsScreenState extends ConsumerState<ClaudeCodeCommandsScr
       SkillSource.user,
     ];
 
-    final source = await showModalBottomSheet<SkillSource>(
+    final source = await DetailSheet.show<SkillSource>(
       context: context,
-      builder: (context) => SafeArea(
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            const ListTile(
-              title: Text('Create Command'),
-              subtitle: Text('Claude Code custom command'),
-            ),
-            const Divider(height: 1),
-            for (final s in sources)
-              ListTile(
-                leading: Icon(
-                  s == SkillSource.project
-                      ? Icons.folder_outlined
-                      : Icons.person_outline_rounded,
-                ),
-                title: Text(s.displayName),
-                onTap: () => Navigator.pop(context, s),
+      title: 'Add Command',
+      initialSize: 0.4,
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+            child: Text(
+              'Claude Code custom command',
+              style: TextStyle(
+                color: Theme.of(context).colorScheme.onSurfaceVariant,
               ),
-          ],
-        ),
+            ),
+          ),
+          for (final s in sources)
+            ListTile(
+              leading: Icon(
+                s == SkillSource.project
+                    ? Icons.folder_outlined
+                    : Icons.person_outline_rounded,
+              ),
+              title: Text(s.displayName),
+              onTap: () => Navigator.pop(context, s),
+            ),
+        ],
       ),
     );
 
@@ -181,11 +183,7 @@ class _ClaudeCodeCommandsScreenState extends ConsumerState<ClaudeCodeCommandsScr
           ].join('\n'),
           namePattern: _nameRe,
           nameHint: 'no-spaces-or-slashes',
-          onSave: ({
-            required name,
-            required source,
-            required content,
-          }) async {
+          onSave: ({required name, required source, required content}) async {
             return bridge.ccSaveCommandFile(
               name: name,
               source: source,
@@ -232,88 +230,85 @@ class _ClaudeCodeCommandsScreenState extends ConsumerState<ClaudeCodeCommandsScr
         child: _isLoading
             ? const Center(child: CircularProgressIndicator())
             : _error != null
-                ? Center(
-                    child: Padding(
-                      padding: const EdgeInsets.all(16),
-                      child: Text(
-                        _error!,
-                        style: TextStyle(color: oc.textMuted),
-                        textAlign: TextAlign.center,
+            ? Center(
+                child: Padding(
+                  padding: const EdgeInsets.all(16),
+                  child: Text(
+                    _error!,
+                    style: TextStyle(color: oc.textMuted),
+                    textAlign: TextAlign.center,
+                  ),
+                ),
+              )
+            : RefreshIndicator(
+                onRefresh: _load,
+                child: ListView(
+                  padding: const EdgeInsets.fromLTRB(16, 12, 16, 16),
+                  children: [
+                    if (selection.project == null)
+                      Padding(
+                        padding: const EdgeInsets.only(bottom: 12),
+                        child: Text(
+                          'Select a project to include project/plugin commands.',
+                          style: TextStyle(color: oc.textMuted),
+                        ),
                       ),
-                    ),
-                  )
-                : RefreshIndicator(
-                    onRefresh: _load,
-                    child: ListView(
-                      padding: const EdgeInsets.fromLTRB(16, 12, 16, 16),
-                      children: [
-                        if (selection.project == null)
+                    if (_commands.isEmpty)
+                      Padding(
+                        padding: const EdgeInsets.only(top: 24),
+                        child: Center(
+                          child: Text(
+                            'No commands found',
+                            style: TextStyle(color: oc.textMuted),
+                          ),
+                        ),
+                      )
+                    else ...[
+                      for (final entry in [
+                        SkillSource.project,
+                        SkillSource.user,
+                        SkillSource.plugin,
+                      ])
+                        if (bySource[entry]?.isNotEmpty == true) ...[
                           Padding(
-                            padding: const EdgeInsets.only(bottom: 12),
+                            padding: const EdgeInsets.only(top: 12, bottom: 6),
                             child: Text(
-                              'Select a project to include project/plugin commands.',
-                              style: TextStyle(color: oc.textMuted),
+                              entry.displayName,
+                              style: TextStyle(
+                                color: oc.textMuted,
+                                fontWeight: FontWeight.w600,
+                              ),
                             ),
                           ),
-                        if (_commands.isEmpty)
-                          Padding(
-                            padding: const EdgeInsets.only(top: 24),
-                            child: Center(
-                              child: Text(
-                                'No commands found',
-                                style: TextStyle(color: oc.textMuted),
+                          ...bySource[entry]!.map(
+                            (c) => Card(
+                              color: oc.backgroundPanel,
+                              child: ListTile(
+                                title: Text(
+                                  '/${c.name}',
+                                  style: TextStyle(color: oc.text),
+                                ),
+                                subtitle: Text(
+                                  c.description ?? c.path ?? '',
+                                  maxLines: 2,
+                                  overflow: TextOverflow.ellipsis,
+                                  style: TextStyle(color: oc.textMuted),
+                                ),
+                                trailing: Icon(
+                                  entry == SkillSource.plugin
+                                      ? Icons.lock_outline_rounded
+                                      : Icons.chevron_right_rounded,
+                                  color: oc.textMuted,
+                                ),
+                                onTap: () => _open(c),
                               ),
                             ),
-                          )
-                        else ...[
-                          for (final entry in [
-                            SkillSource.project,
-                            SkillSource.user,
-                            SkillSource.plugin,
-                          ])
-                            if (bySource[entry]?.isNotEmpty == true) ...[
-                              Padding(
-                                padding: const EdgeInsets.only(
-                                  top: 12,
-                                  bottom: 6,
-                                ),
-                                child: Text(
-                                  entry.displayName,
-                                  style: TextStyle(
-                                    color: oc.textMuted,
-                                    fontWeight: FontWeight.w600,
-                                  ),
-                                ),
-                              ),
-                              ...bySource[entry]!.map(
-                                (c) => Card(
-                                  color: oc.backgroundPanel,
-                                  child: ListTile(
-                                    title: Text(
-                                      '/${c.name}',
-                                      style: TextStyle(color: oc.text),
-                                    ),
-                                    subtitle: Text(
-                                      c.description ?? c.path ?? '',
-                                      maxLines: 2,
-                                      overflow: TextOverflow.ellipsis,
-                                      style: TextStyle(color: oc.textMuted),
-                                    ),
-                                    trailing: Icon(
-                                      entry == SkillSource.plugin
-                                          ? Icons.lock_outline_rounded
-                                          : Icons.chevron_right_rounded,
-                                      color: oc.textMuted,
-                                    ),
-                                    onTap: () => _open(c),
-                                  ),
-                                ),
-                              ),
-                            ],
+                          ),
                         ],
-                      ],
-                    ),
-                  ),
+                    ],
+                  ],
+                ),
+              ),
       ),
     );
   }

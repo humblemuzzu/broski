@@ -7,6 +7,7 @@ import '../providers/service_providers.dart';
 import '../providers/selection_provider.dart';
 import '../services/storage_service.dart';
 import '../theme/opencode_theme.dart';
+import '../widgets/chat/detail_sheet.dart';
 import '../widgets/connection_indicator.dart';
 import 'opencode_mcp_config_screen.dart';
 
@@ -266,7 +267,9 @@ class _McpServersScreenState extends ConsumerState<McpServersScreen>
             tooltip: 'Edit MCP config',
             onPressed: () => Navigator.push(
               context,
-              MaterialPageRoute(builder: (_) => const OpenCodeMcpConfigScreen()),
+              MaterialPageRoute(
+                builder: (_) => const OpenCodeMcpConfigScreen(),
+              ),
             ),
           ),
           IconButton(
@@ -505,94 +508,70 @@ class _McpServersScreenState extends ConsumerState<McpServersScreen>
   }
 
   void _showResourceDetails(McpResource resource) {
-    final theme = OpenCodeTheme.of(context);
-    showModalBottomSheet(
+    final sheetTheme = OpenCodeTheme.of(context);
+    DetailSheet.show(
       context: context,
-      backgroundColor: theme.backgroundPanel,
-      shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
-      ),
-      builder: (context) {
-        final sheetTheme = OpenCodeTheme.of(context);
-        return Container(
-          padding: const EdgeInsets.all(24),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Row(
-                children: [
-                  Container(
-                    padding: const EdgeInsets.all(12),
-                    decoration: BoxDecoration(
-                      color: sheetTheme.primary.withValues(alpha: 0.15),
-                      borderRadius: BorderRadius.circular(12),
-                    ),
-                    child: Icon(
-                      _getResourceIcon(resource.mimeType),
-                      color: sheetTheme.primary,
-                      size: 24,
-                    ),
+      title: resource.name,
+      initialSize: 0.5,
+      child: Padding(
+        padding: const EdgeInsets.all(20),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              children: [
+                Container(
+                  padding: const EdgeInsets.all(12),
+                  decoration: BoxDecoration(
+                    color: sheetTheme.primary.withValues(alpha: 0.15),
+                    borderRadius: BorderRadius.circular(12),
                   ),
-                  const SizedBox(width: 16),
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          resource.name,
-                          style: TextStyle(
-                            fontSize: 18,
-                            fontWeight: FontWeight.w600,
-                            color: sheetTheme.text,
-                          ),
-                        ),
-                        const SizedBox(height: 4),
-                        Text(
-                          'from ${resource.client}',
-                          style: TextStyle(
-                            color: sheetTheme.textMuted,
-                            fontSize: 14,
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                ],
-              ),
-              const SizedBox(height: 20),
-
-              // URI
-              _DetailRow(label: 'URI', value: resource.uri),
-
-              // MIME Type
-              if (resource.mimeType != null)
-                _DetailRow(label: 'Type', value: resource.mimeType!),
-
-              // Description
-              if (resource.description != null &&
-                  resource.description!.isNotEmpty) ...[
-                const SizedBox(height: 12),
-                Text(
-                  'Description',
-                  style: TextStyle(
-                    fontSize: 14,
-                    fontWeight: FontWeight.w600,
-                    color: sheetTheme.textMuted,
+                  child: Icon(
+                    _getResourceIcon(resource.mimeType),
+                    color: sheetTheme.primary,
+                    size: 24,
                   ),
                 ),
-                const SizedBox(height: 8),
-                Text(
-                  resource.description!,
-                  style: TextStyle(color: sheetTheme.text, fontSize: 14),
+                const SizedBox(width: 16),
+                Expanded(
+                  child: Text(
+                    'from ${resource.client}',
+                    style: TextStyle(color: sheetTheme.textMuted, fontSize: 14),
+                  ),
                 ),
               ],
+            ),
+            const SizedBox(height: 20),
 
-              const SizedBox(height: 20),
+            // URI
+            _DetailRow(label: 'URI', value: resource.uri),
+
+            // MIME Type
+            if (resource.mimeType != null)
+              _DetailRow(label: 'Type', value: resource.mimeType!),
+
+            // Description
+            if (resource.description != null &&
+                resource.description!.isNotEmpty) ...[
+              const SizedBox(height: 12),
+              Text(
+                'Description',
+                style: TextStyle(
+                  fontSize: 14,
+                  fontWeight: FontWeight.w600,
+                  color: sheetTheme.textMuted,
+                ),
+              ),
+              const SizedBox(height: 8),
+              Text(
+                resource.description!,
+                style: TextStyle(color: sheetTheme.text, fontSize: 14),
+              ),
             ],
-          ),
-        );
-      },
+          ],
+        ),
+      ),
     );
   }
 
@@ -606,209 +585,180 @@ class _McpServersScreenState extends ConsumerState<McpServersScreen>
   }
 
   void _showServerDetails(String name, McpServerStatus status) {
-    final theme = OpenCodeTheme.of(context);
-    showModalBottomSheet(
+    final sheetTheme = OpenCodeTheme.of(context);
+    DetailSheet.show(
       context: context,
-      backgroundColor: theme.backgroundPanel,
-      shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
-      ),
-      builder: (context) {
-        final sheetTheme = OpenCodeTheme.of(context);
-        return Container(
-          padding: const EdgeInsets.all(24),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Row(
-                children: [
-                  Container(
-                    padding: const EdgeInsets.all(12),
-                    decoration: BoxDecoration(
-                      color: _getStatusColor(
-                        status.status,
-                        sheetTheme,
-                      ).withValues(alpha: 0.15),
-                      borderRadius: BorderRadius.circular(12),
-                    ),
-                    child: Icon(
-                      Icons.extension,
-                      color: _getStatusColor(status.status, sheetTheme),
-                      size: 24,
-                    ),
-                  ),
-                  const SizedBox(width: 16),
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          name,
-                          style: TextStyle(
-                            fontSize: 18,
-                            fontWeight: FontWeight.w600,
-                            color: sheetTheme.text,
-                          ),
-                        ),
-                        const SizedBox(height: 4),
-                        Row(
-                          children: [
-                            Container(
-                              width: 8,
-                              height: 8,
-                              decoration: BoxDecoration(
-                                color: _getStatusColor(
-                                  status.status,
-                                  sheetTheme,
-                                ),
-                                shape: BoxShape.circle,
-                              ),
-                            ),
-                            const SizedBox(width: 6),
-                            Text(
-                              status.statusDisplay,
-                              style: TextStyle(
-                                color: _getStatusColor(
-                                  status.status,
-                                  sheetTheme,
-                                ),
-                                fontSize: 14,
-                              ),
-                            ),
-                          ],
-                        ),
-                      ],
-                    ),
-                  ),
-                ],
-              ),
-              const SizedBox(height: 24),
-
-              // Tools
-              if (status.tools.isNotEmpty) ...[
-                Text(
-                  'Tools',
-                  style: TextStyle(
-                    fontSize: 14,
-                    fontWeight: FontWeight.w600,
-                    color: sheetTheme.textMuted,
-                  ),
-                ),
-                const SizedBox(height: 8),
-                Wrap(
-                  spacing: 8,
-                  runSpacing: 8,
-                  children: status.tools
-                      .map(
-                        (tool) => _CapabilityChip(
-                          label: tool,
-                          icon: Icons.build_outlined,
-                        ),
-                      )
-                      .toList(),
-                ),
-                const SizedBox(height: 16),
-              ],
-
-              // Resources
-              if (status.resources.isNotEmpty) ...[
-                Text(
-                  'Resources',
-                  style: TextStyle(
-                    fontSize: 14,
-                    fontWeight: FontWeight.w600,
-                    color: sheetTheme.textMuted,
-                  ),
-                ),
-                const SizedBox(height: 8),
-                Wrap(
-                  spacing: 8,
-                  runSpacing: 8,
-                  children: status.resources
-                      .map(
-                        (resource) => _CapabilityChip(
-                          label: resource,
-                          icon: Icons.folder_outlined,
-                        ),
-                      )
-                      .toList(),
-                ),
-                const SizedBox(height: 16),
-              ],
-
-              // Error message
-              if (status.error != null && status.error!.isNotEmpty) ...[
+      title: name,
+      initialSize: 0.5,
+      child: Padding(
+        padding: const EdgeInsets.all(20),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              children: [
                 Container(
                   padding: const EdgeInsets.all(12),
                   decoration: BoxDecoration(
-                    color: sheetTheme.error.withValues(alpha: 0.1),
+                    color: _getStatusColor(
+                      status.status,
+                      sheetTheme,
+                    ).withValues(alpha: 0.15),
                     borderRadius: BorderRadius.circular(12),
-                    border: Border.all(
-                      color: sheetTheme.error.withValues(alpha: 0.3),
-                    ),
                   ),
+                  child: Icon(
+                    Icons.extension,
+                    color: _getStatusColor(status.status, sheetTheme),
+                    size: 24,
+                  ),
+                ),
+                const SizedBox(width: 16),
+                Expanded(
                   child: Row(
                     children: [
-                      Icon(
-                        Icons.error_outline,
-                        color: sheetTheme.error,
-                        size: 20,
+                      Container(
+                        width: 8,
+                        height: 8,
+                        decoration: BoxDecoration(
+                          color: _getStatusColor(status.status, sheetTheme),
+                          shape: BoxShape.circle,
+                        ),
                       ),
-                      const SizedBox(width: 12),
-                      Expanded(
-                        child: Text(
-                          status.error!,
-                          style: TextStyle(
-                            color: sheetTheme.error,
-                            fontSize: 13,
-                          ),
+                      const SizedBox(width: 6),
+                      Text(
+                        status.statusDisplay,
+                        style: TextStyle(
+                          color: _getStatusColor(status.status, sheetTheme),
+                          fontSize: 14,
                         ),
                       ),
                     ],
                   ),
                 ),
-                const SizedBox(height: 16),
               ],
+            ),
+            const SizedBox(height: 24),
 
-              const SizedBox(height: 8),
-
-              // Action button
-              SizedBox(
-                width: double.infinity,
-                child: status.isConnected
-                    ? OutlinedButton.icon(
-                        onPressed: () {
-                          Navigator.pop(context);
-                          _disconnectServer(name);
-                        },
-                        icon: const Icon(Icons.link_off, size: 18),
-                        label: const Text('Disconnect'),
-                        style: OutlinedButton.styleFrom(
-                          foregroundColor: sheetTheme.error,
-                          side: BorderSide(color: sheetTheme.error),
-                          padding: const EdgeInsets.symmetric(vertical: 14),
-                        ),
-                      )
-                    : ElevatedButton.icon(
-                        onPressed: () {
-                          Navigator.pop(context);
-                          _connectServer(name);
-                        },
-                        icon: const Icon(Icons.link, size: 18),
-                        label: const Text('Connect'),
-                        style: ElevatedButton.styleFrom(
-                          backgroundColor: sheetTheme.primary,
-                          foregroundColor: Colors.white,
-                          padding: const EdgeInsets.symmetric(vertical: 14),
-                        ),
-                      ),
+            // Tools
+            if (status.tools.isNotEmpty) ...[
+              Text(
+                'Tools',
+                style: TextStyle(
+                  fontSize: 14,
+                  fontWeight: FontWeight.w600,
+                  color: sheetTheme.textMuted,
+                ),
               ),
-              const SizedBox(height: 12),
+              const SizedBox(height: 8),
+              Wrap(
+                spacing: 8,
+                runSpacing: 8,
+                children: status.tools
+                    .map(
+                      (tool) => _CapabilityChip(
+                        label: tool,
+                        icon: Icons.build_outlined,
+                      ),
+                    )
+                    .toList(),
+              ),
+              const SizedBox(height: 16),
             ],
-          ),
-        );
-      },
+
+            // Resources
+            if (status.resources.isNotEmpty) ...[
+              Text(
+                'Resources',
+                style: TextStyle(
+                  fontSize: 14,
+                  fontWeight: FontWeight.w600,
+                  color: sheetTheme.textMuted,
+                ),
+              ),
+              const SizedBox(height: 8),
+              Wrap(
+                spacing: 8,
+                runSpacing: 8,
+                children: status.resources
+                    .map(
+                      (resource) => _CapabilityChip(
+                        label: resource,
+                        icon: Icons.folder_outlined,
+                      ),
+                    )
+                    .toList(),
+              ),
+              const SizedBox(height: 16),
+            ],
+
+            // Error message
+            if (status.error != null && status.error!.isNotEmpty) ...[
+              Container(
+                padding: const EdgeInsets.all(12),
+                decoration: BoxDecoration(
+                  color: sheetTheme.error.withValues(alpha: 0.1),
+                  borderRadius: BorderRadius.circular(12),
+                  border: Border.all(
+                    color: sheetTheme.error.withValues(alpha: 0.3),
+                  ),
+                ),
+                child: Row(
+                  children: [
+                    Icon(
+                      Icons.error_outline,
+                      color: sheetTheme.error,
+                      size: 20,
+                    ),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: Text(
+                        status.error!,
+                        style: TextStyle(color: sheetTheme.error, fontSize: 13),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              const SizedBox(height: 16),
+            ],
+
+            const SizedBox(height: 8),
+
+            // Action button
+            SizedBox(
+              width: double.infinity,
+              child: status.isConnected
+                  ? OutlinedButton.icon(
+                      onPressed: () {
+                        Navigator.pop(context);
+                        _disconnectServer(name);
+                      },
+                      icon: const Icon(Icons.link_off, size: 18),
+                      label: const Text('Disconnect'),
+                      style: OutlinedButton.styleFrom(
+                        foregroundColor: sheetTheme.error,
+                        side: BorderSide(color: sheetTheme.error),
+                        padding: const EdgeInsets.symmetric(vertical: 14),
+                      ),
+                    )
+                  : ElevatedButton.icon(
+                      onPressed: () {
+                        Navigator.pop(context);
+                        _connectServer(name);
+                      },
+                      icon: const Icon(Icons.link, size: 18),
+                      label: const Text('Connect'),
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: sheetTheme.primary,
+                        foregroundColor: Colors.white,
+                        padding: const EdgeInsets.symmetric(vertical: 14),
+                      ),
+                    ),
+            ),
+          ],
+        ),
+      ),
     );
   }
 

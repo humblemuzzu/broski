@@ -12,6 +12,7 @@ import '../providers/selection_provider.dart';
 import '../providers/service_providers.dart';
 import '../providers/theme_provider.dart';
 import '../theme/opencode_theme.dart';
+import '../widgets/chat/detail_sheet.dart';
 import '../widgets/connection_quality_indicator.dart';
 import 'ai_backend_screen.dart';
 import 'customization_screen.dart';
@@ -166,13 +167,14 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                           ],
                         ),
                         onTap: () async {
-                          final picked =
-                              await showModalBottomSheet<ProjectSummary>(
-                                context: context,
-                                isScrollControlled: true,
-                                backgroundColor: Colors.transparent,
-                                builder: (_) => const _ProjectPickerSheet(),
-                              );
+                          final picked = await DetailSheet.show<ProjectSummary>(
+                            context: context,
+                            title: 'Select Project',
+                            initialSize: 0.5,
+                            child: _ProjectPickerContent(
+                              onSelect: (p) => Navigator.pop(context, p),
+                            ),
+                          );
                           if (picked == null) return;
                           ref
                               .read(selectionProvider.notifier)
@@ -844,15 +846,17 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
   }
 }
 
-class _ProjectPickerSheet extends ConsumerStatefulWidget {
-  const _ProjectPickerSheet();
+class _ProjectPickerContent extends ConsumerStatefulWidget {
+  const _ProjectPickerContent({required this.onSelect});
+
+  final void Function(ProjectSummary) onSelect;
 
   @override
-  ConsumerState<_ProjectPickerSheet> createState() =>
-      _ProjectPickerSheetState();
+  ConsumerState<_ProjectPickerContent> createState() =>
+      _ProjectPickerContentState();
 }
 
-class _ProjectPickerSheetState extends ConsumerState<_ProjectPickerSheet> {
+class _ProjectPickerContentState extends ConsumerState<_ProjectPickerContent> {
   final TextEditingController _search = TextEditingController();
   List<ProjectSummary> _projects = const [];
   bool _loading = true;
@@ -944,97 +948,53 @@ class _ProjectPickerSheetState extends ConsumerState<_ProjectPickerSheet> {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    final height = MediaQuery.of(context).size.height * 0.75;
     final items = _filtered;
 
-    return SafeArea(
-      child: Container(
-        height: height,
-        decoration: BoxDecoration(
-          color: theme.colorScheme.surface,
-          borderRadius: const BorderRadius.vertical(top: Radius.circular(20)),
+    return Column(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Padding(
+          padding: const EdgeInsets.fromLTRB(16, 8, 16, 12),
+          child: TextField(
+            controller: _search,
+            decoration: const InputDecoration(
+              hintText: 'Search projects',
+              prefixIcon: Icon(Icons.search_rounded),
+            ),
+          ),
         ),
-        child: Column(
-          children: [
-            Padding(
-              padding: const EdgeInsets.fromLTRB(16, 14, 8, 8),
-              child: Row(
-                children: [
-                  Expanded(
-                    child: Text(
-                      'Select a project',
-                      style: theme.textTheme.titleMedium?.copyWith(
-                        fontWeight: FontWeight.w700,
-                      ),
-                    ),
-                  ),
-                  IconButton(
-                    tooltip: 'Refresh',
-                    onPressed: _loading ? null : _load,
-                    icon: const Icon(Icons.refresh_rounded),
-                  ),
-                  IconButton(
-                    tooltip: 'Close',
-                    onPressed: () => Navigator.pop(context),
-                    icon: const Icon(Icons.close_rounded),
-                  ),
-                ],
+        if (_loading)
+          const Padding(
+            padding: EdgeInsets.all(32),
+            child: CircularProgressIndicator(),
+          )
+        else if (_error != null)
+          Padding(
+            padding: const EdgeInsets.all(16),
+            child: Text(
+              _error!,
+              textAlign: TextAlign.center,
+              style: TextStyle(color: theme.colorScheme.error),
+            ),
+          )
+        else
+          ...items.map(
+            (p) => ListTile(
+              leading: const Icon(Icons.folder_outlined),
+              title: Text(
+                p.name.isEmpty ? p.path : p.name,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
               ),
-            ),
-            Padding(
-              padding: const EdgeInsets.fromLTRB(16, 0, 16, 12),
-              child: TextField(
-                controller: _search,
-                decoration: const InputDecoration(
-                  hintText: 'Search projects',
-                  prefixIcon: Icon(Icons.search_rounded),
-                ),
+              subtitle: Text(
+                p.path,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
               ),
+              onTap: () => widget.onSelect(p),
             ),
-            Expanded(
-              child: _loading
-                  ? const Center(child: CircularProgressIndicator())
-                  : _error != null
-                  ? Center(
-                      child: Padding(
-                        padding: const EdgeInsets.all(16),
-                        child: Text(
-                          _error!,
-                          textAlign: TextAlign.center,
-                          style: TextStyle(color: theme.colorScheme.error),
-                        ),
-                      ),
-                    )
-                  : ListView.separated(
-                      itemCount: items.length,
-                      separatorBuilder: (_, __) => Divider(
-                        height: 1,
-                        color: theme.colorScheme.onSurface.withValues(
-                          alpha: 0.08,
-                        ),
-                      ),
-                      itemBuilder: (context, index) {
-                        final p = items[index];
-                        return ListTile(
-                          leading: const Icon(Icons.folder_outlined),
-                          title: Text(
-                            p.name.isEmpty ? p.path : p.name,
-                            maxLines: 1,
-                            overflow: TextOverflow.ellipsis,
-                          ),
-                          subtitle: Text(
-                            p.path,
-                            maxLines: 1,
-                            overflow: TextOverflow.ellipsis,
-                          ),
-                          onTap: () => Navigator.pop(context, p),
-                        );
-                      },
-                    ),
-            ),
-          ],
-        ),
-      ),
+          ),
+      ],
     );
   }
 }

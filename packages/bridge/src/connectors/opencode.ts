@@ -9,6 +9,7 @@ import { homedir } from 'os'
 import type { Agent, Command, FileContent, FileStatusInfo, FormatterInfo, LspServerStatus, McpResource, McpServerStatus, PermissionResponse, PermissionRuleset, ProviderAuthMethod, ProviderInfo, ProjectSummary, PtySession, SessionContextInfo, SessionStatusInfo, SessionSummary, SymbolResult, TextSearchResult, Todo, ToolInfo, VcsInfo, Worktree } from './types'
 
 const DEFAULT_BASE_URL = 'http://localhost:4096'
+const DEBUG_RTS = process.env.BROSKI_DEBUG_RTS === '1'
 
 export type OpenCodeConnectorOptions = {
   baseUrl?: string
@@ -428,16 +429,49 @@ export class OpenCodeConnector {
   async replyToQuestion(requestId: string, answers: string[][]): Promise<boolean> {
     try {
       const url = new URL(`/question/${encodeURIComponent(requestId)}/reply`, this.baseUrl)
+      const body = JSON.stringify({ answers })
+      if (DEBUG_RTS) {
+        console.log('[OC Connector] replyToQuestion:', {
+          requestId,
+          url: url.toString(),
+          body,
+        })
+      }
       const res = await fetch(url.toString(), {
         method: 'POST',
         headers: { 'content-type': 'application/json' },
-        body: JSON.stringify({ answers }),
+        body,
         signal: AbortSignal.timeout(10_000),
       })
-      if (!res.ok) return false
+      if (!res.ok) {
+        if (DEBUG_RTS) {
+          const text = await res.text().catch(() => '<no body>')
+          console.log('[OC Connector] replyToQuestion FAILED:', {
+            requestId,
+            status: res.status,
+            statusText: res.statusText,
+            body: text,
+          })
+        }
+        return false
+      }
       const data = await res.json().catch(() => null)
+      if (DEBUG_RTS) {
+        console.log('[OC Connector] replyToQuestion response:', {
+          requestId,
+          data,
+          dataType: typeof data,
+          isTrue: data === true,
+        })
+      }
       return data === true
-    } catch {
+    } catch (err) {
+      if (DEBUG_RTS) {
+        console.log('[OC Connector] replyToQuestion ERROR:', {
+          requestId,
+          error: err instanceof Error ? err.message : String(err),
+        })
+      }
       return false
     }
   }
@@ -445,14 +479,37 @@ export class OpenCodeConnector {
   async rejectQuestion(requestId: string): Promise<boolean> {
     try {
       const url = new URL(`/question/${encodeURIComponent(requestId)}/reject`, this.baseUrl)
+      if (DEBUG_RTS) {
+        console.log('[OC Connector] rejectQuestion:', { requestId, url: url.toString() })
+      }
       const res = await fetch(url.toString(), {
         method: 'POST',
         signal: AbortSignal.timeout(10_000),
       })
-      if (!res.ok) return false
+      if (!res.ok) {
+        if (DEBUG_RTS) {
+          const text = await res.text().catch(() => '<no body>')
+          console.log('[OC Connector] rejectQuestion FAILED:', {
+            requestId,
+            status: res.status,
+            statusText: res.statusText,
+            body: text,
+          })
+        }
+        return false
+      }
       const data = await res.json().catch(() => null)
+      if (DEBUG_RTS) {
+        console.log('[OC Connector] rejectQuestion response:', { requestId, data })
+      }
       return data === true
-    } catch {
+    } catch (err) {
+      if (DEBUG_RTS) {
+        console.log('[OC Connector] rejectQuestion ERROR:', {
+          requestId,
+          error: err instanceof Error ? err.message : String(err),
+        })
+      }
       return false
     }
   }

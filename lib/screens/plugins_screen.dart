@@ -4,6 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../models/claude_code.dart';
 import '../providers/claude_code_provider.dart';
+import '../widgets/chat/detail_sheet.dart';
 import '../widgets/claude_code_help.dart';
 
 class PluginsScreen extends ConsumerStatefulWidget {
@@ -160,43 +161,33 @@ class _PluginsScreenState extends ConsumerState<PluginsScreen> {
   }
 
   void _showPluginDetails(BuildContext context, ClaudeCodePlugin plugin) {
-    final theme = Theme.of(context);
-
-    showModalBottomSheet(
+    DetailSheet.show(
       context: context,
-      isScrollControlled: true,
-      backgroundColor: theme.colorScheme.surface,
-      shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
-      ),
-      builder: (context) => DraggableScrollableSheet(
-        initialChildSize: 0.6,
-        minChildSize: 0.4,
-        maxChildSize: 0.9,
-        expand: false,
-        builder: (context, scrollController) => _PluginDetailsSheet(
-          plugin: plugin,
-          scrollController: scrollController,
-          onRemovePath: () async {
-            Navigator.pop(context);
-            final success = await ref
-                .read(ccPluginsProvider.notifier)
-                .removePluginPath(plugin.path);
+      title: plugin.name,
+      initialSize: 0.5,
+      maxSize: 0.9,
+      minSize: 0.4,
+      child: _PluginDetailsContent(
+        plugin: plugin,
+        onRemovePath: () async {
+          Navigator.pop(context);
+          final success = await ref
+              .read(ccPluginsProvider.notifier)
+              .removePluginPath(plugin.path);
 
-            if (mounted) {
-              ScaffoldMessenger.of(context).showSnackBar(
-                SnackBar(
-                  content: Text(
-                    success
-                        ? 'Plugin path removed'
-                        : 'Failed to remove plugin path',
-                  ),
-                  behavior: SnackBarBehavior.floating,
+          if (mounted) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              SnackBar(
+                content: Text(
+                  success
+                      ? 'Plugin path removed'
+                      : 'Failed to remove plugin path',
                 ),
-              );
-            }
-          },
-        ),
+                behavior: SnackBarBehavior.floating,
+              ),
+            );
+          }
+        },
       ),
     );
   }
@@ -621,14 +612,12 @@ class _ComponentBadge extends StatelessWidget {
   }
 }
 
-class _PluginDetailsSheet extends StatelessWidget {
+class _PluginDetailsContent extends StatelessWidget {
   final ClaudeCodePlugin plugin;
-  final ScrollController scrollController;
   final VoidCallback onRemovePath;
 
-  const _PluginDetailsSheet({
+  const _PluginDetailsContent({
     required this.plugin,
-    required this.scrollController,
     required this.onRemovePath,
   });
 
@@ -637,246 +626,202 @@ class _PluginDetailsSheet extends StatelessWidget {
     final theme = Theme.of(context);
     final manifest = plugin.manifest;
 
-    return Column(
-      children: [
-        // Handle bar
-        Container(
-          margin: const EdgeInsets.symmetric(vertical: 12),
-          width: 40,
-          height: 4,
-          decoration: BoxDecoration(
-            color: theme.colorScheme.onSurface.withValues(alpha: 0.3),
-            borderRadius: BorderRadius.circular(2),
-          ),
-        ),
-        // Header
-        Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 20),
-          child: Row(
-            children: [
-              Container(
-                width: 48,
-                height: 48,
+    return Padding(
+      padding: const EdgeInsets.all(20),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          // Version badge
+          if (manifest?.version != null)
+            Padding(
+              padding: const EdgeInsets.only(bottom: 16),
+              child: Container(
+                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
                 decoration: BoxDecoration(
                   color: theme.colorScheme.primary.withValues(alpha: 0.15),
-                  borderRadius: BorderRadius.circular(12),
+                  borderRadius: BorderRadius.circular(6),
                 ),
-                child: Icon(
-                  Icons.extension_rounded,
-                  color: theme.colorScheme.primary,
-                  size: 26,
-                ),
-              ),
-              const SizedBox(width: 16),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      plugin.name,
-                      style: theme.textTheme.titleLarge?.copyWith(
-                        fontWeight: FontWeight.w600,
-                      ),
-                    ),
-                    if (manifest?.version != null)
-                      Text(
-                        'v${manifest!.version}',
-                        style: theme.textTheme.bodyMedium?.copyWith(
-                          color: theme.colorScheme.onSurface.withValues(
-                            alpha: 0.6,
-                          ),
-                        ),
-                      ),
-                  ],
+                child: Text(
+                  'v${manifest!.version}',
+                  style: theme.textTheme.bodySmall?.copyWith(
+                    color: theme.colorScheme.primary,
+                  ),
                 ),
               ),
-            ],
-          ),
-        ),
-        const SizedBox(height: 16),
-        Divider(
-          height: 1,
-          color: theme.colorScheme.outlineVariant.withValues(alpha: 0.5),
-        ),
-        // Content
-        Expanded(
-          child: ListView(
-            controller: scrollController,
-            padding: const EdgeInsets.all(20),
-            children: [
-              // Description
-              if (manifest?.description != null &&
-                  manifest!.description!.isNotEmpty) ...[
-                _DetailSection(
-                  title: 'Description',
+            ),
+
+          // Description
+          if (manifest?.description != null &&
+              manifest!.description!.isNotEmpty) ...[
+            _DetailSection(
+              title: 'Description',
+              child: Text(
+                manifest.description!,
+                style: theme.textTheme.bodyMedium,
+              ),
+            ),
+            const SizedBox(height: 20),
+          ],
+
+          // Path
+          _DetailSection(
+            title: 'Path',
+            child: Row(
+              children: [
+                Expanded(
                   child: Text(
-                    manifest.description!,
-                    style: theme.textTheme.bodyMedium,
+                    plugin.path,
+                    style: theme.textTheme.bodyMedium?.copyWith(
+                      fontFamily: 'monospace',
+                      fontSize: 13,
+                    ),
                   ),
                 ),
-                const SizedBox(height: 20),
-              ],
-
-              // Path
-              _DetailSection(
-                title: 'Path',
-                child: Row(
-                  children: [
-                    Expanded(
-                      child: Text(
-                        plugin.path,
-                        style: theme.textTheme.bodyMedium?.copyWith(
-                          fontFamily: 'monospace',
-                          fontSize: 13,
-                        ),
+                IconButton(
+                  icon: const Icon(Icons.copy_rounded, size: 18),
+                  onPressed: () {
+                    Clipboard.setData(ClipboardData(text: plugin.path));
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      const SnackBar(
+                        content: Text('Path copied to clipboard'),
+                        behavior: SnackBarBehavior.floating,
+                        duration: Duration(seconds: 1),
                       ),
-                    ),
-                    IconButton(
-                      icon: const Icon(Icons.copy_rounded, size: 18),
-                      onPressed: () {
-                        Clipboard.setData(ClipboardData(text: plugin.path));
-                        ScaffoldMessenger.of(context).showSnackBar(
-                          const SnackBar(
-                            content: Text('Path copied to clipboard'),
-                            behavior: SnackBarBehavior.floating,
-                            duration: Duration(seconds: 1),
-                          ),
-                        );
-                      },
-                      tooltip: 'Copy path',
-                      visualDensity: VisualDensity.compact,
-                    ),
-                  ],
+                    );
+                  },
+                  tooltip: 'Copy path',
+                  visualDensity: VisualDensity.compact,
                 ),
-              ),
-              const SizedBox(height: 20),
-
-              // Author
-              if (manifest?.authorName != null) ...[
-                _DetailSection(
-                  title: 'Author',
-                  child: Text(
-                    manifest!.authorName!,
-                    style: theme.textTheme.bodyMedium,
-                  ),
-                ),
-                const SizedBox(height: 20),
               ],
-
-              // Commands
-              if (plugin.commands != null && plugin.commands!.isNotEmpty) ...[
-                _DetailSection(
-                  title: 'Commands',
-                  child: Wrap(
-                    spacing: 8,
-                    runSpacing: 8,
-                    children: plugin.commands!
-                        .map(
-                          (cmd) => _ComponentChip(
-                            icon: Icons.terminal_rounded,
-                            label: '/$cmd',
-                          ),
-                        )
-                        .toList(),
-                  ),
-                ),
-                const SizedBox(height: 20),
-              ],
-
-              // Agents
-              if (plugin.agents != null && plugin.agents!.isNotEmpty) ...[
-                _DetailSection(
-                  title: 'Agents',
-                  child: Wrap(
-                    spacing: 8,
-                    runSpacing: 8,
-                    children: plugin.agents!
-                        .map(
-                          (agent) => _ComponentChip(
-                            icon: Icons.smart_toy_outlined,
-                            label: '@$agent',
-                          ),
-                        )
-                        .toList(),
-                  ),
-                ),
-                const SizedBox(height: 20),
-              ],
-
-              // Skills
-              if (plugin.skills != null && plugin.skills!.isNotEmpty) ...[
-                _DetailSection(
-                  title: 'Skills',
-                  child: Wrap(
-                    spacing: 8,
-                    runSpacing: 8,
-                    children: plugin.skills!
-                        .map(
-                          (skill) => _ComponentChip(
-                            icon: Icons.psychology_outlined,
-                            label: skill,
-                          ),
-                        )
-                        .toList(),
-                  ),
-                ),
-                const SizedBox(height: 20),
-              ],
-
-              // Other components
-              if (plugin.hasHooks == true ||
-                  plugin.hasMcpServers == true ||
-                  plugin.hasLspServers == true) ...[
-                _DetailSection(
-                  title: 'Components',
-                  child: Wrap(
-                    spacing: 8,
-                    runSpacing: 8,
-                    children: [
-                      if (plugin.hasHooks == true)
-                        const _ComponentChip(
-                          icon: Icons.webhook_outlined,
-                          label: 'Hooks',
-                        ),
-                      if (plugin.hasMcpServers == true)
-                        const _ComponentChip(
-                          icon: Icons.dns_outlined,
-                          label: 'MCP Servers',
-                        ),
-                      if (plugin.hasLspServers == true)
-                        const _ComponentChip(
-                          icon: Icons.code_rounded,
-                          label: 'LSP Servers',
-                        ),
-                    ],
-                  ),
-                ),
-                const SizedBox(height: 20),
-              ],
-
-              // Remove button (only for custom paths)
-              // Note: We can't easily tell if it's a custom path vs built-in,
-              // but we offer the option anyway since the bridge validates
-              OutlinedButton.icon(
-                onPressed: onRemovePath,
-                icon: Icon(
-                  Icons.remove_circle_outline_rounded,
-                  color: theme.colorScheme.error,
-                ),
-                label: Text(
-                  'Remove Plugin Path',
-                  style: TextStyle(color: theme.colorScheme.error),
-                ),
-                style: OutlinedButton.styleFrom(
-                  side: BorderSide(
-                    color: theme.colorScheme.error.withValues(alpha: 0.5),
-                  ),
-                ),
-              ),
-            ],
+            ),
           ),
-        ),
-      ],
+          const SizedBox(height: 20),
+
+          // Author
+          if (manifest?.authorName != null) ...[
+            _DetailSection(
+              title: 'Author',
+              child: Text(
+                manifest!.authorName!,
+                style: theme.textTheme.bodyMedium,
+              ),
+            ),
+            const SizedBox(height: 20),
+          ],
+
+          // Commands
+          if (plugin.commands != null && plugin.commands!.isNotEmpty) ...[
+            _DetailSection(
+              title: 'Commands',
+              child: Wrap(
+                spacing: 8,
+                runSpacing: 8,
+                children: plugin.commands!
+                    .map(
+                      (cmd) => _ComponentChip(
+                        icon: Icons.terminal_rounded,
+                        label: '/$cmd',
+                      ),
+                    )
+                    .toList(),
+              ),
+            ),
+            const SizedBox(height: 20),
+          ],
+
+          // Agents
+          if (plugin.agents != null && plugin.agents!.isNotEmpty) ...[
+            _DetailSection(
+              title: 'Agents',
+              child: Wrap(
+                spacing: 8,
+                runSpacing: 8,
+                children: plugin.agents!
+                    .map(
+                      (agent) => _ComponentChip(
+                        icon: Icons.smart_toy_outlined,
+                        label: '@$agent',
+                      ),
+                    )
+                    .toList(),
+              ),
+            ),
+            const SizedBox(height: 20),
+          ],
+
+          // Skills
+          if (plugin.skills != null && plugin.skills!.isNotEmpty) ...[
+            _DetailSection(
+              title: 'Skills',
+              child: Wrap(
+                spacing: 8,
+                runSpacing: 8,
+                children: plugin.skills!
+                    .map(
+                      (skill) => _ComponentChip(
+                        icon: Icons.psychology_outlined,
+                        label: skill,
+                      ),
+                    )
+                    .toList(),
+              ),
+            ),
+            const SizedBox(height: 20),
+          ],
+
+          // Other components
+          if (plugin.hasHooks == true ||
+              plugin.hasMcpServers == true ||
+              plugin.hasLspServers == true) ...[
+            _DetailSection(
+              title: 'Components',
+              child: Wrap(
+                spacing: 8,
+                runSpacing: 8,
+                children: [
+                  if (plugin.hasHooks == true)
+                    const _ComponentChip(
+                      icon: Icons.webhook_outlined,
+                      label: 'Hooks',
+                    ),
+                  if (plugin.hasMcpServers == true)
+                    const _ComponentChip(
+                      icon: Icons.dns_outlined,
+                      label: 'MCP Servers',
+                    ),
+                  if (plugin.hasLspServers == true)
+                    const _ComponentChip(
+                      icon: Icons.code_rounded,
+                      label: 'LSP Servers',
+                    ),
+                ],
+              ),
+            ),
+            const SizedBox(height: 20),
+          ],
+
+          // Remove button (only for custom paths)
+          // Note: We can't easily tell if it's a custom path vs built-in,
+          // but we offer the option anyway since the bridge validates
+          OutlinedButton.icon(
+            onPressed: onRemovePath,
+            icon: Icon(
+              Icons.remove_circle_outline_rounded,
+              color: theme.colorScheme.error,
+            ),
+            label: Text(
+              'Remove Plugin Path',
+              style: TextStyle(color: theme.colorScheme.error),
+            ),
+            style: OutlinedButton.styleFrom(
+              side: BorderSide(
+                color: theme.colorScheme.error.withValues(alpha: 0.5),
+              ),
+            ),
+          ),
+        ],
+      ),
     );
   }
 }

@@ -20,6 +20,7 @@ import '../providers/service_providers.dart';
 import '../providers/selection_provider.dart';
 import '../theme/opencode_theme.dart';
 import '../widgets/background_session_widgets.dart';
+import '../widgets/chat/detail_sheet.dart';
 import 'chat_screen.dart';
 
 class SessionsScreen extends ConsumerStatefulWidget {
@@ -43,188 +44,140 @@ class _SessionsScreenState extends ConsumerState<SessionsScreen> {
     final ocTheme = OpenCodeTheme.of(context);
     final controller = TextEditingController();
 
-    showModalBottomSheet<void>(
+    DetailSheet.show(
       context: context,
-      isScrollControlled: true,
-      backgroundColor: Colors.transparent,
-      builder: (ctx) {
-        final height = MediaQuery.of(ctx).size.height * 0.75;
-        return SafeArea(
-          child: Container(
-            height: height,
-            decoration: BoxDecoration(
-              color: ocTheme.backgroundPanel,
-              borderRadius: const BorderRadius.vertical(
-                top: Radius.circular(20),
-              ),
-            ),
-            child: Consumer(
-              builder: (context, ref, _) {
-                final filters = ref.watch(
-                  sessionsTitleExcludeFiltersProvider(AgentType.opencode),
-                );
-                final notifier = ref.read(
-                  sessionsTitleExcludeFiltersProvider(
-                    AgentType.opencode,
-                  ).notifier,
-                );
+      title: 'Title Filters',
+      initialSize: 0.6,
+      child: Consumer(
+        builder: (context, ref, _) {
+          final filters = ref.watch(
+            sessionsTitleExcludeFiltersProvider(AgentType.opencode),
+          );
+          final notifier = ref.read(
+            sessionsTitleExcludeFiltersProvider(AgentType.opencode).notifier,
+          );
 
-                return Padding(
-                  padding: const EdgeInsets.fromLTRB(20, 16, 20, 16),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Row(
-                        children: [
-                          Expanded(
-                            child: Text(
-                              'Title filters',
-                              style: TextStyle(
-                                color: ocTheme.text,
-                                fontSize: 18,
-                                fontWeight: FontWeight.w700,
-                              ),
-                            ),
+          return Padding(
+            padding: const EdgeInsets.fromLTRB(16, 8, 16, 16),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  "Hide sessions whose titles match any filter. Use `/regex/` for regex, otherwise it's a case-insensitive substring match.",
+                  style: TextStyle(color: ocTheme.textMuted, fontSize: 13),
+                ),
+                const SizedBox(height: 12),
+                Row(
+                  children: [
+                    Expanded(
+                      child: TextField(
+                        controller: controller,
+                        decoration: InputDecoration(
+                          hintText: 'e.g. test, tmp, /wip.*/',
+                          hintStyle: TextStyle(color: ocTheme.textMuted),
+                          filled: true,
+                          fillColor: ocTheme.backgroundElement,
+                          border: OutlineInputBorder(
+                            borderRadius: BorderRadius.circular(12),
+                            borderSide: BorderSide(color: ocTheme.borderSubtle),
                           ),
-                          IconButton(
-                            onPressed: () => Navigator.pop(ctx),
-                            icon: Icon(
-                              Icons.close_rounded,
-                              color: ocTheme.textMuted,
-                            ),
-                            tooltip: 'Close',
+                          enabledBorder: OutlineInputBorder(
+                            borderRadius: BorderRadius.circular(12),
+                            borderSide: BorderSide(color: ocTheme.borderSubtle),
                           ),
-                        ],
-                      ),
-                      const SizedBox(height: 6),
-                      Text(
-                        'Hide sessions whose titles match any filter. Use `/regex/` for regex, otherwise it’s a case-insensitive substring match.',
-                        style: TextStyle(
-                          color: ocTheme.textMuted,
-                          fontSize: 13,
-                        ),
-                      ),
-                      const SizedBox(height: 12),
-                      Row(
-                        children: [
-                          Expanded(
-                            child: TextField(
-                              controller: controller,
-                              decoration: InputDecoration(
-                                hintText: 'e.g. test, tmp, /wip.*/',
-                                hintStyle: TextStyle(color: ocTheme.textMuted),
-                                filled: true,
-                                fillColor: ocTheme.backgroundElement,
-                                border: OutlineInputBorder(
-                                  borderRadius: BorderRadius.circular(12),
-                                  borderSide: BorderSide(
-                                    color: ocTheme.borderSubtle,
-                                  ),
-                                ),
-                                enabledBorder: OutlineInputBorder(
-                                  borderRadius: BorderRadius.circular(12),
-                                  borderSide: BorderSide(
-                                    color: ocTheme.borderSubtle,
-                                  ),
-                                ),
-                                focusedBorder: OutlineInputBorder(
-                                  borderRadius: BorderRadius.circular(12),
-                                  borderSide: BorderSide(
-                                    color: ocTheme.primary,
-                                  ),
-                                ),
-                                contentPadding: const EdgeInsets.symmetric(
-                                  horizontal: 12,
-                                  vertical: 10,
-                                ),
-                              ),
-                              style: TextStyle(color: ocTheme.text),
-                              textInputAction: TextInputAction.done,
-                              onSubmitted: (value) async {
-                                await notifier.add(value);
-                                controller.clear();
-                              },
-                            ),
+                          focusedBorder: OutlineInputBorder(
+                            borderRadius: BorderRadius.circular(12),
+                            borderSide: BorderSide(color: ocTheme.primary),
                           ),
-                          const SizedBox(width: 10),
-                          ElevatedButton(
-                            onPressed: () async {
-                              await notifier.add(controller.text);
-                              controller.clear();
-                            },
-                            style: ElevatedButton.styleFrom(
-                              backgroundColor: ocTheme.primary,
-                              foregroundColor: Colors.white,
-                              padding: const EdgeInsets.symmetric(
-                                horizontal: 16,
-                                vertical: 12,
-                              ),
-                              shape: RoundedRectangleBorder(
-                                borderRadius: BorderRadius.circular(12),
-                              ),
-                            ),
-                            child: const Text('Add'),
-                          ),
-                        ],
-                      ),
-                      const SizedBox(height: 12),
-                      if (filters.isNotEmpty)
-                        Align(
-                          alignment: Alignment.centerRight,
-                          child: TextButton(
-                            onPressed: () => notifier.clear(),
-                            child: Text(
-                              'Clear all',
-                              style: TextStyle(color: ocTheme.error),
-                            ),
+                          contentPadding: const EdgeInsets.symmetric(
+                            horizontal: 12,
+                            vertical: 10,
                           ),
                         ),
-                      Expanded(
-                        child: filters.isEmpty
-                            ? Center(
-                                child: Text(
-                                  'No filters yet',
-                                  style: TextStyle(color: ocTheme.textMuted),
-                                ),
-                              )
-                            : ListView.separated(
-                                itemCount: filters.length,
-                                separatorBuilder: (_, __) =>
-                                    Divider(color: ocTheme.borderSubtle),
-                                itemBuilder: (context, index) {
-                                  final f = filters[index];
-                                  return ListTile(
-                                    contentPadding: EdgeInsets.zero,
-                                    leading: Icon(
-                                      f.startsWith('/') && f.endsWith('/')
-                                          ? Icons.code_rounded
-                                          : Icons.text_fields_rounded,
-                                      color: ocTheme.textMuted,
-                                    ),
-                                    title: Text(
-                                      f,
-                                      style: TextStyle(color: ocTheme.text),
-                                    ),
-                                    trailing: IconButton(
-                                      onPressed: () => notifier.removeAt(index),
-                                      icon: Icon(
-                                        Icons.delete_outline_rounded,
-                                        color: ocTheme.error,
-                                      ),
-                                      tooltip: 'Remove',
-                                    ),
-                                  );
-                                },
-                              ),
+                        style: TextStyle(color: ocTheme.text),
+                        textInputAction: TextInputAction.done,
+                        onSubmitted: (value) async {
+                          await notifier.add(value);
+                          controller.clear();
+                        },
                       ),
-                    ],
+                    ),
+                    const SizedBox(width: 10),
+                    ElevatedButton(
+                      onPressed: () async {
+                        await notifier.add(controller.text);
+                        controller.clear();
+                      },
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: ocTheme.primary,
+                        foregroundColor: Colors.white,
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 16,
+                          vertical: 12,
+                        ),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(12),
+                        ),
+                      ),
+                      child: const Text('Add'),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 12),
+                if (filters.isNotEmpty)
+                  Align(
+                    alignment: Alignment.centerRight,
+                    child: TextButton(
+                      onPressed: () => notifier.clear(),
+                      child: Text(
+                        'Clear all',
+                        style: TextStyle(color: ocTheme.error),
+                      ),
+                    ),
                   ),
-                );
-              },
+                if (filters.isEmpty)
+                  Padding(
+                    padding: const EdgeInsets.only(top: 24),
+                    child: Center(
+                      child: Text(
+                        'No filters yet',
+                        style: TextStyle(color: ocTheme.textMuted),
+                      ),
+                    ),
+                  )
+                else
+                  ...filters.asMap().entries.map((entry) {
+                    final index = entry.key;
+                    final f = entry.value;
+                    return Column(
+                      children: [
+                        if (index > 0) Divider(color: ocTheme.borderSubtle),
+                        ListTile(
+                          contentPadding: EdgeInsets.zero,
+                          leading: Icon(
+                            f.startsWith('/') && f.endsWith('/')
+                                ? Icons.code_rounded
+                                : Icons.text_fields_rounded,
+                            color: ocTheme.textMuted,
+                          ),
+                          title: Text(f, style: TextStyle(color: ocTheme.text)),
+                          trailing: IconButton(
+                            onPressed: () => notifier.removeAt(index),
+                            icon: Icon(
+                              Icons.delete_outline_rounded,
+                              color: ocTheme.error,
+                            ),
+                            tooltip: 'Remove',
+                          ),
+                        ),
+                      ],
+                    );
+                  }),
+              ],
             ),
-          ),
-        );
-      },
+          );
+        },
+      ),
     ).whenComplete(controller.dispose);
   }
 
@@ -626,102 +579,66 @@ class _SessionsScreenState extends ConsumerState<SessionsScreen> {
     final status = sessionStatuses[session.id];
     final isRunning = status?.isBusy == true || status?.isRetry == true;
 
-    await showModalBottomSheet<void>(
+    await DetailSheet.show(
       context: context,
-      backgroundColor: ocTheme.backgroundPanel,
-      shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(16)),
-      ),
-      builder: (context) {
-        return SafeArea(
-          child: Padding(
-            padding: const EdgeInsets.symmetric(vertical: 16),
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                // Drag handle
-                Container(
-                  width: 36,
-                  height: 4,
-                  decoration: BoxDecoration(
-                    color: ocTheme.textMuted.withValues(alpha: 0.3),
-                    borderRadius: BorderRadius.circular(2),
-                  ),
-                ),
-                const SizedBox(height: 16),
-                // Session title
-                Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: 20),
-                  child: Text(
-                    session.title,
-                    style: TextStyle(
-                      color: ocTheme.text,
-                      fontSize: 16,
-                      fontWeight: FontWeight.w600,
-                    ),
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                  ),
-                ),
-                const SizedBox(height: 16),
-                // Stop Session option (shown when running or always for stuck sessions)
-                ListTile(
-                  leading: Icon(
-                    Icons.stop_circle_outlined,
-                    color: isRunning ? ocTheme.error : ocTheme.textMuted,
-                  ),
-                  title: Text(
-                    'Stop Session',
-                    style: TextStyle(
-                      color: isRunning ? ocTheme.error : ocTheme.text,
-                    ),
-                  ),
-                  subtitle: Text(
-                    isRunning
-                        ? 'Session is currently running'
-                        : 'Force stop if stuck',
-                    style: TextStyle(color: ocTheme.textMuted, fontSize: 12),
-                  ),
-                  onTap: () {
-                    Navigator.pop(context);
-                    _stopSession(session);
-                  },
-                ),
-                // Options
-                ListTile(
-                  leading: Icon(
-                    isHighlighted
-                        ? Icons.star_rounded
-                        : Icons.star_border_rounded,
-                    color: isHighlighted
-                        ? highlightColor.forBrightness(
-                            Theme.of(context).brightness,
-                            themePrimary: ocTheme.primary,
-                          )
-                        : ocTheme.textMuted,
-                  ),
-                  title: Text(
-                    isHighlighted ? 'Remove Highlight' : 'Highlight',
-                    style: TextStyle(color: ocTheme.text),
-                  ),
-                  onTap: () {
-                    Navigator.pop(context);
-                    _toggleHighlight(session.id);
-                  },
-                ),
-                ListTile(
-                  leading: Icon(Icons.edit_rounded, color: ocTheme.textMuted),
-                  title: Text('Rename', style: TextStyle(color: ocTheme.text)),
-                  onTap: () {
-                    Navigator.pop(context);
-                    _showRenameDialog(session);
-                  },
-                ),
-              ],
+      title: session.title,
+      initialSize: 0.35,
+      minSize: 0.2,
+      maxSize: 0.5,
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          // Stop Session option (shown when running or always for stuck sessions)
+          ListTile(
+            leading: Icon(
+              Icons.stop_circle_outlined,
+              color: isRunning ? ocTheme.error : ocTheme.textMuted,
             ),
+            title: Text(
+              'Stop Session',
+              style: TextStyle(color: isRunning ? ocTheme.error : ocTheme.text),
+            ),
+            subtitle: Text(
+              isRunning
+                  ? 'Session is currently running'
+                  : 'Force stop if stuck',
+              style: TextStyle(color: ocTheme.textMuted, fontSize: 12),
+            ),
+            onTap: () {
+              Navigator.pop(context);
+              _stopSession(session);
+            },
           ),
-        );
-      },
+          // Options
+          ListTile(
+            leading: Icon(
+              isHighlighted ? Icons.star_rounded : Icons.star_border_rounded,
+              color: isHighlighted
+                  ? highlightColor.forBrightness(
+                      Theme.of(context).brightness,
+                      themePrimary: ocTheme.primary,
+                    )
+                  : ocTheme.textMuted,
+            ),
+            title: Text(
+              isHighlighted ? 'Remove Highlight' : 'Highlight',
+              style: TextStyle(color: ocTheme.text),
+            ),
+            onTap: () {
+              Navigator.pop(context);
+              _toggleHighlight(session.id);
+            },
+          ),
+          ListTile(
+            leading: Icon(Icons.edit_rounded, color: ocTheme.textMuted),
+            title: Text('Rename', style: TextStyle(color: ocTheme.text)),
+            onTap: () {
+              Navigator.pop(context);
+              _showRenameDialog(session);
+            },
+          ),
+        ],
+      ),
     );
   }
 
@@ -752,14 +669,15 @@ class _SessionsScreenState extends ConsumerState<SessionsScreen> {
   void _showNewSessionSheet(BuildContext context) {
     final projectsAsync = ref.read(projectsForSessionsProvider);
 
-    showModalBottomSheet<void>(
+    DetailSheet.show(
       context: context,
-      backgroundColor: Colors.transparent,
-      isScrollControlled: true,
-      builder: (ctx) => _NewSessionSheet(
+      title: 'New Session',
+      initialSize: 0.6,
+      maxSize: 0.9,
+      child: _NewSessionContent(
         projects: projectsAsync.valueOrNull ?? [],
         onCreateSession: (project, worktree) async {
-          Navigator.pop(ctx);
+          Navigator.pop(context);
           await _createNewSession(project, worktree);
         },
       ),
@@ -966,9 +884,9 @@ List<_SessionRowItem> _buildGroupedListItems({
   return items;
 }
 
-/// Bottom sheet for creating a new session with project/worktree selection
-class _NewSessionSheet extends ConsumerStatefulWidget {
-  const _NewSessionSheet({
+/// Content widget for creating a new session with project/worktree selection
+class _NewSessionContent extends ConsumerStatefulWidget {
+  const _NewSessionContent({
     required this.projects,
     required this.onCreateSession,
   });
@@ -978,10 +896,10 @@ class _NewSessionSheet extends ConsumerStatefulWidget {
   onCreateSession;
 
   @override
-  ConsumerState<_NewSessionSheet> createState() => _NewSessionSheetState();
+  ConsumerState<_NewSessionContent> createState() => _NewSessionContentState();
 }
 
-class _NewSessionSheetState extends ConsumerState<_NewSessionSheet> {
+class _NewSessionContentState extends ConsumerState<_NewSessionContent> {
   ProjectSummary? _selectedProject;
   Worktree? _selectedWorktree;
   List<Worktree>? _worktrees;
@@ -1049,211 +967,159 @@ class _NewSessionSheetState extends ConsumerState<_NewSessionSheet> {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final ocTheme = OpenCodeTheme.of(context);
-    final height = MediaQuery.of(context).size.height * 0.65;
 
-    return Container(
-      height: height,
-      decoration: BoxDecoration(
-        color: ocTheme.backgroundPanel,
-        borderRadius: const BorderRadius.vertical(top: Radius.circular(20)),
-      ),
-      child: Column(
-        children: [
-          // Handle
-          Center(
-            child: Container(
-              margin: const EdgeInsets.only(top: 12, bottom: 8),
-              width: 40,
-              height: 4,
-              decoration: BoxDecoration(
-                color: ocTheme.border,
-                borderRadius: BorderRadius.circular(2),
-              ),
+    if (widget.projects.isEmpty) {
+      return Center(
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(Icons.folder_off_rounded, color: ocTheme.textMuted, size: 48),
+            const SizedBox(height: 16),
+            Text(
+              'No projects found',
+              style: TextStyle(color: ocTheme.textMuted, fontSize: 16),
             ),
-          ),
-          // Title
-          Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 8),
-            child: Row(
-              children: [
-                Icon(
-                  Icons.add_circle_outline_rounded,
-                  color: ocTheme.primary,
-                  size: 24,
+          ],
+        ),
+      );
+    }
+
+    return Column(
+      mainAxisSize: MainAxisSize.min,
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Padding(
+          padding: const EdgeInsets.fromLTRB(16, 8, 16, 8),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              // Project selection
+              Text(
+                'Select Project',
+                style: TextStyle(
+                  color: ocTheme.textMuted,
+                  fontSize: 12,
+                  fontWeight: FontWeight.w500,
                 ),
-                const SizedBox(width: 12),
+              ),
+              const SizedBox(height: 8),
+              ...widget.projects.map((project) {
+                final isSelected = _selectedProject?.id == project.id;
+                return _ProjectSelectionTile(
+                  project: project,
+                  isSelected: isSelected,
+                  onTap: () => _selectProject(project),
+                );
+              }),
+              // Worktrees section (if project selected)
+              if (_selectedProject != null) ...[
+                const SizedBox(height: 20),
                 Text(
-                  'New Session',
+                  'Select Worktree (Optional)',
                   style: TextStyle(
-                    color: ocTheme.text,
-                    fontSize: 18,
-                    fontWeight: FontWeight.w600,
+                    color: ocTheme.textMuted,
+                    fontSize: 12,
+                    fontWeight: FontWeight.w500,
                   ),
                 ),
-              ],
-            ),
-          ),
-          const Divider(height: 1),
-          // Content
-          Expanded(
-            child: widget.projects.isEmpty
-                ? Center(
-                    child: Column(
-                      mainAxisAlignment: MainAxisAlignment.center,
+                const SizedBox(height: 8),
+                if (_loadingWorktrees)
+                  const Center(
+                    child: Padding(
+                      padding: EdgeInsets.all(20),
+                      child: CircularProgressIndicator.adaptive(),
+                    ),
+                  )
+                else if (_worktrees == null || _worktrees!.isEmpty)
+                  Container(
+                    padding: const EdgeInsets.all(16),
+                    decoration: BoxDecoration(
+                      color: ocTheme.background,
+                      borderRadius: BorderRadius.circular(12),
+                      border: Border.all(color: ocTheme.border),
+                    ),
+                    child: Row(
                       children: [
                         Icon(
-                          Icons.folder_off_rounded,
+                          Icons.info_outline_rounded,
                           color: ocTheme.textMuted,
-                          size: 48,
+                          size: 20,
                         ),
-                        const SizedBox(height: 16),
-                        Text(
-                          'No projects found',
-                          style: TextStyle(
-                            color: ocTheme.textMuted,
-                            fontSize: 16,
+                        const SizedBox(width: 12),
+                        Expanded(
+                          child: Text(
+                            'No worktrees found. Session will use main project.',
+                            style: TextStyle(
+                              color: ocTheme.textMuted,
+                              fontSize: 14,
+                            ),
                           ),
                         ),
                       ],
                     ),
                   )
-                : ListView(
-                    padding: const EdgeInsets.all(16),
-                    children: [
-                      // Project selection
-                      Text(
-                        'Select Project',
-                        style: TextStyle(
-                          color: ocTheme.textMuted,
-                          fontSize: 12,
-                          fontWeight: FontWeight.w500,
-                        ),
-                      ),
-                      const SizedBox(height: 8),
-                      ...widget.projects.map((project) {
-                        final isSelected = _selectedProject?.id == project.id;
-                        return _ProjectSelectionTile(
-                          project: project,
-                          isSelected: isSelected,
-                          onTap: () => _selectProject(project),
-                        );
-                      }),
-                      // Worktrees section (if project selected)
-                      if (_selectedProject != null) ...[
-                        const SizedBox(height: 20),
-                        Text(
-                          'Select Worktree (Optional)',
-                          style: TextStyle(
-                            color: ocTheme.textMuted,
-                            fontSize: 12,
-                            fontWeight: FontWeight.w500,
-                          ),
-                        ),
-                        const SizedBox(height: 8),
-                        if (_loadingWorktrees)
-                          const Center(
-                            child: Padding(
-                              padding: EdgeInsets.all(20),
-                              child: CircularProgressIndicator.adaptive(),
-                            ),
-                          )
-                        else if (_worktrees == null || _worktrees!.isEmpty)
-                          Container(
-                            padding: const EdgeInsets.all(16),
-                            decoration: BoxDecoration(
-                              color: ocTheme.background,
-                              borderRadius: BorderRadius.circular(12),
-                              border: Border.all(color: ocTheme.border),
-                            ),
-                            child: Row(
-                              children: [
-                                Icon(
-                                  Icons.info_outline_rounded,
-                                  color: ocTheme.textMuted,
-                                  size: 20,
-                                ),
-                                const SizedBox(width: 12),
-                                Expanded(
-                                  child: Text(
-                                    'No worktrees found. Session will use main project.',
-                                    style: TextStyle(
-                                      color: ocTheme.textMuted,
-                                      fontSize: 14,
-                                    ),
-                                  ),
-                                ),
-                              ],
-                            ),
-                          )
-                        else ...[
-                          // Main project option
-                          _WorktreeSelectionTile(
-                            name: 'Main Project',
-                            path: _selectedProject!.path,
-                            isMain: true,
-                            isSelected: _selectedWorktree == null,
-                            onTap: () =>
-                                setState(() => _selectedWorktree = null),
-                          ),
-                          // Worktrees
-                          ..._worktrees!.map((worktree) {
-                            final isSelected =
-                                _selectedWorktree?.directory ==
-                                worktree.directory;
-                            return _WorktreeSelectionTile(
-                              name: worktree.displayName,
-                              path: worktree.directory,
-                              isMain: false,
-                              isSelected: isSelected,
-                              onTap: () =>
-                                  setState(() => _selectedWorktree = worktree),
-                            );
-                          }),
-                        ],
-                      ],
-                    ],
+                else ...[
+                  // Main project option
+                  _WorktreeSelectionTile(
+                    name: 'Main Project',
+                    path: _selectedProject!.path,
+                    isMain: true,
+                    isSelected: _selectedWorktree == null,
+                    onTap: () => setState(() => _selectedWorktree = null),
                   ),
+                  // Worktrees
+                  ..._worktrees!.map((worktree) {
+                    final isSelected =
+                        _selectedWorktree?.directory == worktree.directory;
+                    return _WorktreeSelectionTile(
+                      name: worktree.displayName,
+                      path: worktree.directory,
+                      isMain: false,
+                      isSelected: isSelected,
+                      onTap: () => setState(() => _selectedWorktree = worktree),
+                    );
+                  }),
+                ],
+              ],
+            ],
           ),
-          // Create button
-          SafeArea(
-            child: Padding(
-              padding: const EdgeInsets.all(16),
-              child: SizedBox(
-                width: double.infinity,
-                child: ElevatedButton(
-                  onPressed: _selectedProject == null || _creating
-                      ? null
-                      : _createSession,
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: theme.colorScheme.primary,
-                    foregroundColor: theme.colorScheme.onPrimary,
-                    disabledBackgroundColor: ocTheme.border,
-                    padding: const EdgeInsets.symmetric(vertical: 16),
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(12),
-                    ),
-                  ),
-                  child: _creating
-                      ? const SizedBox(
-                          width: 20,
-                          height: 20,
-                          child: CircularProgressIndicator.adaptive(
-                            strokeWidth: 2,
-                          ),
-                        )
-                      : const Text(
-                          'Create Session',
-                          style: TextStyle(
-                            fontSize: 16,
-                            fontWeight: FontWeight.w600,
-                          ),
-                        ),
+        ),
+        // Create button
+        Padding(
+          padding: const EdgeInsets.all(16),
+          child: SizedBox(
+            width: double.infinity,
+            child: ElevatedButton(
+              onPressed: _selectedProject == null || _creating
+                  ? null
+                  : _createSession,
+              style: ElevatedButton.styleFrom(
+                backgroundColor: theme.colorScheme.primary,
+                foregroundColor: theme.colorScheme.onPrimary,
+                disabledBackgroundColor: ocTheme.border,
+                padding: const EdgeInsets.symmetric(vertical: 16),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(12),
                 ),
               ),
+              child: _creating
+                  ? const SizedBox(
+                      width: 20,
+                      height: 20,
+                      child: CircularProgressIndicator.adaptive(strokeWidth: 2),
+                    )
+                  : const Text(
+                      'Create Session',
+                      style: TextStyle(
+                        fontSize: 16,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
             ),
           ),
-        ],
-      ),
+        ),
+      ],
     );
   }
 }
@@ -1774,125 +1640,63 @@ void _showProjectFilter({
   required ValueChanged<String?> onSelected,
 }) {
   final ocTheme = OpenCodeTheme.of(context);
-  showModalBottomSheet<void>(
+  DetailSheet.show(
     context: context,
-    backgroundColor: ocTheme.backgroundPanel,
-    isScrollControlled: true,
-    shape: const RoundedRectangleBorder(
-      borderRadius: BorderRadius.vertical(top: Radius.circular(16)),
+    title: 'Filter by project',
+    initialSize: 0.5,
+    minSize: 0.3,
+    maxSize: 0.85,
+    child: ListView(
+      padding: const EdgeInsets.fromLTRB(16, 0, 16, 32),
+      children: [
+        // All projects option
+        _FilterProjectTile(
+          name: 'All projects',
+          path: null,
+          isSelected: selectedPath == null,
+          onTap: () {
+            onSelected(null);
+            Navigator.pop(context);
+          },
+        ),
+        Divider(height: 24, color: ocTheme.borderSubtle),
+        // Project list
+        projects.when(
+          loading: () => const Padding(
+            padding: EdgeInsets.symmetric(vertical: 32),
+            child: Center(child: CircularProgressIndicator(strokeWidth: 2)),
+          ),
+          error: (error, _) => Padding(
+            padding: const EdgeInsets.symmetric(vertical: 24),
+            child: Text(
+              'Failed to load projects',
+              style: TextStyle(color: ocTheme.textMuted),
+              textAlign: TextAlign.center,
+            ),
+          ),
+          data: (items) {
+            final sorted = items.toList()
+              ..sort(
+                (a, b) => a.name.toLowerCase().compareTo(b.name.toLowerCase()),
+              );
+            return Column(
+              children: sorted.map((project) {
+                final isSelected = selectedPath == project.path;
+                return _FilterProjectTile(
+                  name: project.name,
+                  path: project.path,
+                  isSelected: isSelected,
+                  onTap: () {
+                    onSelected(project.path);
+                    Navigator.pop(context);
+                  },
+                );
+              }).toList(),
+            );
+          },
+        ),
+      ],
     ),
-    builder: (context) {
-      final sheetOcTheme = OpenCodeTheme.of(context);
-      return DraggableScrollableSheet(
-        initialChildSize: 0.5,
-        minChildSize: 0.3,
-        maxChildSize: 0.85,
-        expand: false,
-        builder: (context, scrollController) {
-          return Column(
-            children: [
-              // Drag handle
-              Container(
-                margin: const EdgeInsets.only(top: 12, bottom: 8),
-                width: 36,
-                height: 4,
-                decoration: BoxDecoration(
-                  color: sheetOcTheme.textMuted.withValues(alpha: 0.3),
-                  borderRadius: BorderRadius.circular(2),
-                ),
-              ),
-              // Header
-              Padding(
-                padding: const EdgeInsets.fromLTRB(20, 4, 12, 0),
-                child: Row(
-                  children: [
-                    Expanded(
-                      child: Text(
-                        'Filter by project',
-                        style: TextStyle(
-                          color: sheetOcTheme.text,
-                          fontSize: 15,
-                          fontWeight: FontWeight.w700,
-                        ),
-                      ),
-                    ),
-                    IconButton(
-                      onPressed: () => Navigator.pop(context),
-                      icon: Icon(
-                        Icons.close_rounded,
-                        color: sheetOcTheme.textMuted,
-                        size: 22,
-                      ),
-                      visualDensity: VisualDensity.compact,
-                    ),
-                  ],
-                ),
-              ),
-              const SizedBox(height: 4),
-              // Scrollable content
-              Expanded(
-                child: ListView(
-                  controller: scrollController,
-                  padding: const EdgeInsets.fromLTRB(16, 0, 16, 32),
-                  children: [
-                    // All projects option
-                    _FilterProjectTile(
-                      name: 'All projects',
-                      path: null,
-                      isSelected: selectedPath == null,
-                      onTap: () {
-                        onSelected(null);
-                        Navigator.pop(context);
-                      },
-                    ),
-                    Divider(height: 24, color: sheetOcTheme.borderSubtle),
-                    // Project list
-                    projects.when(
-                      loading: () => const Padding(
-                        padding: EdgeInsets.symmetric(vertical: 32),
-                        child: Center(
-                          child: CircularProgressIndicator(strokeWidth: 2),
-                        ),
-                      ),
-                      error: (error, _) => Padding(
-                        padding: const EdgeInsets.symmetric(vertical: 24),
-                        child: Text(
-                          'Failed to load projects',
-                          style: TextStyle(color: sheetOcTheme.textMuted),
-                          textAlign: TextAlign.center,
-                        ),
-                      ),
-                      data: (items) {
-                        final sorted = items.toList()
-                          ..sort(
-                            (a, b) => a.name.toLowerCase().compareTo(
-                              b.name.toLowerCase(),
-                            ),
-                          );
-                        return Column(
-                          children: sorted.map((project) {
-                            final isSelected = selectedPath == project.path;
-                            return _FilterProjectTile(
-                              name: project.name,
-                              path: project.path,
-                              isSelected: isSelected,
-                              onTap: () {
-                                onSelected(project.path);
-                                Navigator.pop(context);
-                              },
-                            );
-                          }).toList(),
-                        );
-                      },
-                    ),
-                  ],
-                ),
-              ),
-            ],
-          );
-        },
-      );
-    },
   );
 }
 
@@ -3389,186 +3193,142 @@ class _CodexThreadsViewState extends ConsumerState<_CodexThreadsView> {
     final ocTheme = OpenCodeTheme.of(context);
     final controller = TextEditingController();
 
-    showModalBottomSheet<void>(
+    DetailSheet.show(
       context: context,
-      isScrollControlled: true,
-      backgroundColor: Colors.transparent,
-      builder: (ctx) {
-        final height = MediaQuery.of(ctx).size.height * 0.75;
-        return SafeArea(
-          child: Container(
-            height: height,
-            decoration: BoxDecoration(
-              color: ocTheme.backgroundPanel,
-              borderRadius: const BorderRadius.vertical(
-                top: Radius.circular(20),
-              ),
-            ),
-            child: Consumer(
-              builder: (context, ref, _) {
-                final filters = ref.watch(
-                  sessionsTitleExcludeFiltersProvider(AgentType.codex),
-                );
-                final notifier = ref.read(
-                  sessionsTitleExcludeFiltersProvider(AgentType.codex).notifier,
-                );
+      title: 'Title Filters',
+      initialSize: 0.6,
+      minSize: 0.3,
+      maxSize: 0.85,
+      child: Consumer(
+        builder: (context, ref, _) {
+          final filters = ref.watch(
+            sessionsTitleExcludeFiltersProvider(AgentType.codex),
+          );
+          final notifier = ref.read(
+            sessionsTitleExcludeFiltersProvider(AgentType.codex).notifier,
+          );
 
-                return Padding(
-                  padding: const EdgeInsets.fromLTRB(20, 16, 20, 16),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Row(
-                        children: [
-                          Expanded(
-                            child: Text(
-                              'Title filters',
-                              style: TextStyle(
-                                color: ocTheme.text,
-                                fontSize: 18,
-                                fontWeight: FontWeight.w700,
-                              ),
-                            ),
+          return Padding(
+            padding: const EdgeInsets.fromLTRB(16, 8, 16, 16),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  "Hide threads whose titles match any filter. Use `/regex/` for regex, otherwise it's a case-insensitive substring match.",
+                  style: TextStyle(color: ocTheme.textMuted, fontSize: 13),
+                ),
+                const SizedBox(height: 12),
+                Row(
+                  children: [
+                    Expanded(
+                      child: TextField(
+                        controller: controller,
+                        decoration: InputDecoration(
+                          hintText: 'e.g. tmp, /wip.*/',
+                          hintStyle: TextStyle(color: ocTheme.textMuted),
+                          filled: true,
+                          fillColor: ocTheme.backgroundElement,
+                          border: OutlineInputBorder(
+                            borderRadius: BorderRadius.circular(12),
+                            borderSide: BorderSide(color: ocTheme.borderSubtle),
                           ),
-                          IconButton(
-                            onPressed: () => Navigator.pop(ctx),
-                            icon: Icon(
-                              Icons.close_rounded,
-                              color: ocTheme.textMuted,
-                            ),
-                            tooltip: 'Close',
+                          enabledBorder: OutlineInputBorder(
+                            borderRadius: BorderRadius.circular(12),
+                            borderSide: BorderSide(color: ocTheme.borderSubtle),
                           ),
-                        ],
-                      ),
-                      const SizedBox(height: 6),
-                      Text(
-                        'Hide threads whose titles match any filter. Use `/regex/` for regex, otherwise it’s a case-insensitive substring match.',
-                        style: TextStyle(
-                          color: ocTheme.textMuted,
-                          fontSize: 13,
-                        ),
-                      ),
-                      const SizedBox(height: 12),
-                      Row(
-                        children: [
-                          Expanded(
-                            child: TextField(
-                              controller: controller,
-                              decoration: InputDecoration(
-                                hintText: 'e.g. tmp, /wip.*/',
-                                hintStyle: TextStyle(color: ocTheme.textMuted),
-                                filled: true,
-                                fillColor: ocTheme.backgroundElement,
-                                border: OutlineInputBorder(
-                                  borderRadius: BorderRadius.circular(12),
-                                  borderSide: BorderSide(
-                                    color: ocTheme.borderSubtle,
-                                  ),
-                                ),
-                                enabledBorder: OutlineInputBorder(
-                                  borderRadius: BorderRadius.circular(12),
-                                  borderSide: BorderSide(
-                                    color: ocTheme.borderSubtle,
-                                  ),
-                                ),
-                                focusedBorder: OutlineInputBorder(
-                                  borderRadius: BorderRadius.circular(12),
-                                  borderSide: BorderSide(
-                                    color: ocTheme.primary,
-                                  ),
-                                ),
-                                contentPadding: const EdgeInsets.symmetric(
-                                  horizontal: 12,
-                                  vertical: 10,
-                                ),
-                              ),
-                              style: TextStyle(color: ocTheme.text),
-                              textInputAction: TextInputAction.done,
-                              onSubmitted: (value) async {
-                                await notifier.add(value);
-                                controller.clear();
-                              },
-                            ),
+                          focusedBorder: OutlineInputBorder(
+                            borderRadius: BorderRadius.circular(12),
+                            borderSide: BorderSide(color: ocTheme.primary),
                           ),
-                          const SizedBox(width: 10),
-                          ElevatedButton(
-                            onPressed: () async {
-                              await notifier.add(controller.text);
-                              controller.clear();
-                            },
-                            style: ElevatedButton.styleFrom(
-                              backgroundColor: ocTheme.primary,
-                              foregroundColor: Colors.white,
-                              padding: const EdgeInsets.symmetric(
-                                horizontal: 16,
-                                vertical: 12,
-                              ),
-                              shape: RoundedRectangleBorder(
-                                borderRadius: BorderRadius.circular(12),
-                              ),
-                            ),
-                            child: const Text('Add'),
-                          ),
-                        ],
-                      ),
-                      const SizedBox(height: 12),
-                      if (filters.isNotEmpty)
-                        Align(
-                          alignment: Alignment.centerRight,
-                          child: TextButton(
-                            onPressed: () => notifier.clear(),
-                            child: Text(
-                              'Clear all',
-                              style: TextStyle(color: ocTheme.error),
-                            ),
+                          contentPadding: const EdgeInsets.symmetric(
+                            horizontal: 12,
+                            vertical: 10,
                           ),
                         ),
-                      Expanded(
-                        child: filters.isEmpty
-                            ? Center(
-                                child: Text(
-                                  'No filters yet',
-                                  style: TextStyle(color: ocTheme.textMuted),
-                                ),
-                              )
-                            : ListView.separated(
-                                itemCount: filters.length,
-                                separatorBuilder: (_, __) =>
-                                    Divider(color: ocTheme.borderSubtle),
-                                itemBuilder: (context, index) {
-                                  final f = filters[index];
-                                  return ListTile(
-                                    contentPadding: EdgeInsets.zero,
-                                    leading: Icon(
-                                      f.startsWith('/') && f.endsWith('/')
-                                          ? Icons.code_rounded
-                                          : Icons.text_fields_rounded,
-                                      color: ocTheme.textMuted,
-                                    ),
-                                    title: Text(
-                                      f,
-                                      style: TextStyle(color: ocTheme.text),
-                                    ),
-                                    trailing: IconButton(
-                                      onPressed: () => notifier.removeAt(index),
-                                      icon: Icon(
-                                        Icons.delete_outline_rounded,
-                                        color: ocTheme.error,
-                                      ),
-                                      tooltip: 'Remove',
-                                    ),
-                                  );
-                                },
-                              ),
+                        style: TextStyle(color: ocTheme.text),
+                        textInputAction: TextInputAction.done,
+                        onSubmitted: (value) async {
+                          await notifier.add(value);
+                          controller.clear();
+                        },
                       ),
-                    ],
+                    ),
+                    const SizedBox(width: 10),
+                    ElevatedButton(
+                      onPressed: () async {
+                        await notifier.add(controller.text);
+                        controller.clear();
+                      },
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: ocTheme.primary,
+                        foregroundColor: Colors.white,
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 16,
+                          vertical: 12,
+                        ),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(12),
+                        ),
+                      ),
+                      child: const Text('Add'),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 12),
+                if (filters.isNotEmpty)
+                  Align(
+                    alignment: Alignment.centerRight,
+                    child: TextButton(
+                      onPressed: () => notifier.clear(),
+                      child: Text(
+                        'Clear all',
+                        style: TextStyle(color: ocTheme.error),
+                      ),
+                    ),
                   ),
-                );
-              },
+                Expanded(
+                  child: filters.isEmpty
+                      ? Center(
+                          child: Text(
+                            'No filters yet',
+                            style: TextStyle(color: ocTheme.textMuted),
+                          ),
+                        )
+                      : ListView.separated(
+                          itemCount: filters.length,
+                          separatorBuilder: (_, __) =>
+                              Divider(color: ocTheme.borderSubtle),
+                          itemBuilder: (context, index) {
+                            final f = filters[index];
+                            return ListTile(
+                              contentPadding: EdgeInsets.zero,
+                              leading: Icon(
+                                f.startsWith('/') && f.endsWith('/')
+                                    ? Icons.code_rounded
+                                    : Icons.text_fields_rounded,
+                                color: ocTheme.textMuted,
+                              ),
+                              title: Text(
+                                f,
+                                style: TextStyle(color: ocTheme.text),
+                              ),
+                              trailing: IconButton(
+                                onPressed: () => notifier.removeAt(index),
+                                icon: Icon(
+                                  Icons.delete_outline_rounded,
+                                  color: ocTheme.error,
+                                ),
+                                tooltip: 'Remove',
+                              ),
+                            );
+                          },
+                        ),
+                ),
+              ],
             ),
-          ),
-        );
-      },
+          );
+        },
+      ),
     ).whenComplete(controller.dispose);
   }
 
@@ -3577,77 +3337,52 @@ class _CodexThreadsViewState extends ConsumerState<_CodexThreadsView> {
     final highlights = ref.read(highlightsProvider);
     final isHighlighted = highlights.isSessionHighlighted(thread.id);
 
-    showModalBottomSheet<void>(
+    DetailSheet.show(
       context: context,
-      backgroundColor: ocTheme.backgroundPanel,
-      shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(16)),
-      ),
-      builder: (ctx) {
-        return SafeArea(
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              const SizedBox(height: 8),
-              Container(
-                width: 36,
-                height: 4,
-                decoration: BoxDecoration(
-                  color: ocTheme.textMuted.withValues(alpha: 0.3),
-                  borderRadius: BorderRadius.circular(2),
-                ),
-              ),
-              const SizedBox(height: 12),
-              // Stop Thread option
-              ListTile(
-                leading: Icon(
-                  Icons.stop_circle_outlined,
-                  color: ocTheme.textMuted,
-                ),
-                title: Text(
-                  'Stop Thread',
-                  style: TextStyle(color: ocTheme.text),
-                ),
-                subtitle: Text(
-                  'Force stop if stuck',
-                  style: TextStyle(color: ocTheme.textMuted, fontSize: 12),
-                ),
-                onTap: () {
-                  Navigator.pop(ctx);
-                  _stopThread(thread);
-                },
-              ),
-              ListTile(
-                leading: Icon(
-                  isHighlighted
-                      ? Icons.star_rounded
-                      : Icons.star_border_rounded,
-                  color: ocTheme.text,
-                ),
-                title: Text(
-                  isHighlighted ? 'Unhighlight' : 'Highlight',
-                  style: TextStyle(color: ocTheme.text),
-                ),
-                onTap: () {
-                  ref
-                      .read(highlightsProvider.notifier)
-                      .toggleSession(thread.id);
-                  Navigator.pop(ctx);
-                },
-              ),
-              ListTile(
-                leading: Icon(Icons.archive_outlined, color: ocTheme.error),
-                title: Text('Archive', style: TextStyle(color: ocTheme.error)),
-                onTap: () async {
-                  Navigator.pop(ctx);
-                  await _archiveThread(thread);
-                },
-              ),
-              const SizedBox(height: 12),
-            ],
+      title: thread.displayTitle,
+      initialSize: 0.35,
+      minSize: 0.2,
+      maxSize: 0.5,
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          // Stop Thread option
+          ListTile(
+            leading: Icon(Icons.stop_circle_outlined, color: ocTheme.textMuted),
+            title: Text('Stop Thread', style: TextStyle(color: ocTheme.text)),
+            subtitle: Text(
+              'Force stop if stuck',
+              style: TextStyle(color: ocTheme.textMuted, fontSize: 12),
+            ),
+            onTap: () {
+              Navigator.pop(context);
+              _stopThread(thread);
+            },
           ),
-        );
-      },
+          ListTile(
+            leading: Icon(
+              isHighlighted ? Icons.star_rounded : Icons.star_border_rounded,
+              color: ocTheme.text,
+            ),
+            title: Text(
+              isHighlighted ? 'Unhighlight' : 'Highlight',
+              style: TextStyle(color: ocTheme.text),
+            ),
+            onTap: () {
+              ref.read(highlightsProvider.notifier).toggleSession(thread.id);
+              Navigator.pop(context);
+            },
+          ),
+          ListTile(
+            leading: Icon(Icons.archive_outlined, color: ocTheme.error),
+            title: Text('Archive', style: TextStyle(color: ocTheme.error)),
+            onTap: () async {
+              Navigator.pop(context);
+              await _archiveThread(thread);
+            },
+          ),
+        ],
+      ),
     );
   }
 
@@ -4505,188 +4240,142 @@ class _ClaudeCodeSessionsViewState
     final ocTheme = OpenCodeTheme.of(context);
     final controller = TextEditingController();
 
-    showModalBottomSheet<void>(
+    DetailSheet.show(
       context: context,
-      isScrollControlled: true,
-      backgroundColor: Colors.transparent,
-      builder: (ctx) {
-        final height = MediaQuery.of(ctx).size.height * 0.75;
-        return SafeArea(
-          child: Container(
-            height: height,
-            decoration: BoxDecoration(
-              color: ocTheme.backgroundPanel,
-              borderRadius: const BorderRadius.vertical(
-                top: Radius.circular(20),
-              ),
-            ),
-            child: Consumer(
-              builder: (context, ref, _) {
-                final filters = ref.watch(
-                  sessionsTitleExcludeFiltersProvider(AgentType.claudeCode),
-                );
-                final notifier = ref.read(
-                  sessionsTitleExcludeFiltersProvider(
-                    AgentType.claudeCode,
-                  ).notifier,
-                );
+      title: 'Title Filters',
+      initialSize: 0.6,
+      minSize: 0.3,
+      maxSize: 0.85,
+      child: Consumer(
+        builder: (context, ref, _) {
+          final filters = ref.watch(
+            sessionsTitleExcludeFiltersProvider(AgentType.claudeCode),
+          );
+          final notifier = ref.read(
+            sessionsTitleExcludeFiltersProvider(AgentType.claudeCode).notifier,
+          );
 
-                return Padding(
-                  padding: const EdgeInsets.fromLTRB(20, 16, 20, 16),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Row(
-                        children: [
-                          Expanded(
-                            child: Text(
-                              'Title filters',
-                              style: TextStyle(
-                                color: ocTheme.text,
-                                fontSize: 18,
-                                fontWeight: FontWeight.w700,
-                              ),
-                            ),
+          return Padding(
+            padding: const EdgeInsets.fromLTRB(16, 8, 16, 16),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  "Hide sessions whose titles match any filter. Use `/regex/` for regex, otherwise it's a case-insensitive substring match.",
+                  style: TextStyle(color: ocTheme.textMuted, fontSize: 13),
+                ),
+                const SizedBox(height: 12),
+                Row(
+                  children: [
+                    Expanded(
+                      child: TextField(
+                        controller: controller,
+                        decoration: InputDecoration(
+                          hintText: 'e.g. test, tmp, /wip.*/',
+                          hintStyle: TextStyle(color: ocTheme.textMuted),
+                          filled: true,
+                          fillColor: ocTheme.backgroundElement,
+                          border: OutlineInputBorder(
+                            borderRadius: BorderRadius.circular(12),
+                            borderSide: BorderSide(color: ocTheme.borderSubtle),
                           ),
-                          IconButton(
-                            onPressed: () => Navigator.pop(ctx),
-                            icon: Icon(
-                              Icons.close_rounded,
-                              color: ocTheme.textMuted,
-                            ),
-                            tooltip: 'Close',
+                          enabledBorder: OutlineInputBorder(
+                            borderRadius: BorderRadius.circular(12),
+                            borderSide: BorderSide(color: ocTheme.borderSubtle),
                           ),
-                        ],
-                      ),
-                      const SizedBox(height: 6),
-                      Text(
-                        'Hide sessions whose titles match any filter. Use `/regex/` for regex, otherwise it’s a case-insensitive substring match.',
-                        style: TextStyle(
-                          color: ocTheme.textMuted,
-                          fontSize: 13,
-                        ),
-                      ),
-                      const SizedBox(height: 12),
-                      Row(
-                        children: [
-                          Expanded(
-                            child: TextField(
-                              controller: controller,
-                              decoration: InputDecoration(
-                                hintText: 'e.g. test, tmp, /wip.*/',
-                                hintStyle: TextStyle(color: ocTheme.textMuted),
-                                filled: true,
-                                fillColor: ocTheme.backgroundElement,
-                                border: OutlineInputBorder(
-                                  borderRadius: BorderRadius.circular(12),
-                                  borderSide: BorderSide(
-                                    color: ocTheme.borderSubtle,
-                                  ),
-                                ),
-                                enabledBorder: OutlineInputBorder(
-                                  borderRadius: BorderRadius.circular(12),
-                                  borderSide: BorderSide(
-                                    color: ocTheme.borderSubtle,
-                                  ),
-                                ),
-                                focusedBorder: OutlineInputBorder(
-                                  borderRadius: BorderRadius.circular(12),
-                                  borderSide: BorderSide(
-                                    color: ocTheme.primary,
-                                  ),
-                                ),
-                                contentPadding: const EdgeInsets.symmetric(
-                                  horizontal: 12,
-                                  vertical: 10,
-                                ),
-                              ),
-                              style: TextStyle(color: ocTheme.text),
-                              textInputAction: TextInputAction.done,
-                              onSubmitted: (value) async {
-                                await notifier.add(value);
-                                controller.clear();
-                              },
-                            ),
+                          focusedBorder: OutlineInputBorder(
+                            borderRadius: BorderRadius.circular(12),
+                            borderSide: BorderSide(color: ocTheme.primary),
                           ),
-                          const SizedBox(width: 10),
-                          ElevatedButton(
-                            onPressed: () async {
-                              await notifier.add(controller.text);
-                              controller.clear();
-                            },
-                            style: ElevatedButton.styleFrom(
-                              backgroundColor: ocTheme.primary,
-                              foregroundColor: Colors.white,
-                              padding: const EdgeInsets.symmetric(
-                                horizontal: 16,
-                                vertical: 12,
-                              ),
-                              shape: RoundedRectangleBorder(
-                                borderRadius: BorderRadius.circular(12),
-                              ),
-                            ),
-                            child: const Text('Add'),
-                          ),
-                        ],
-                      ),
-                      const SizedBox(height: 12),
-                      if (filters.isNotEmpty)
-                        Align(
-                          alignment: Alignment.centerRight,
-                          child: TextButton(
-                            onPressed: () => notifier.clear(),
-                            child: Text(
-                              'Clear all',
-                              style: TextStyle(color: ocTheme.error),
-                            ),
+                          contentPadding: const EdgeInsets.symmetric(
+                            horizontal: 12,
+                            vertical: 10,
                           ),
                         ),
-                      Expanded(
-                        child: filters.isEmpty
-                            ? Center(
-                                child: Text(
-                                  'No filters yet',
-                                  style: TextStyle(color: ocTheme.textMuted),
-                                ),
-                              )
-                            : ListView.separated(
-                                itemCount: filters.length,
-                                separatorBuilder: (_, __) =>
-                                    Divider(color: ocTheme.borderSubtle),
-                                itemBuilder: (context, index) {
-                                  final f = filters[index];
-                                  return ListTile(
-                                    contentPadding: EdgeInsets.zero,
-                                    leading: Icon(
-                                      f.startsWith('/') && f.endsWith('/')
-                                          ? Icons.code_rounded
-                                          : Icons.text_fields_rounded,
-                                      color: ocTheme.textMuted,
-                                    ),
-                                    title: Text(
-                                      f,
-                                      style: TextStyle(color: ocTheme.text),
-                                    ),
-                                    trailing: IconButton(
-                                      onPressed: () => notifier.removeAt(index),
-                                      icon: Icon(
-                                        Icons.delete_outline_rounded,
-                                        color: ocTheme.error,
-                                      ),
-                                      tooltip: 'Remove',
-                                    ),
-                                  );
-                                },
-                              ),
+                        style: TextStyle(color: ocTheme.text),
+                        textInputAction: TextInputAction.done,
+                        onSubmitted: (value) async {
+                          await notifier.add(value);
+                          controller.clear();
+                        },
                       ),
-                    ],
+                    ),
+                    const SizedBox(width: 10),
+                    ElevatedButton(
+                      onPressed: () async {
+                        await notifier.add(controller.text);
+                        controller.clear();
+                      },
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: ocTheme.primary,
+                        foregroundColor: Colors.white,
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 16,
+                          vertical: 12,
+                        ),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(12),
+                        ),
+                      ),
+                      child: const Text('Add'),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 12),
+                if (filters.isNotEmpty)
+                  Align(
+                    alignment: Alignment.centerRight,
+                    child: TextButton(
+                      onPressed: () => notifier.clear(),
+                      child: Text(
+                        'Clear all',
+                        style: TextStyle(color: ocTheme.error),
+                      ),
+                    ),
                   ),
-                );
-              },
+                Expanded(
+                  child: filters.isEmpty
+                      ? Center(
+                          child: Text(
+                            'No filters yet',
+                            style: TextStyle(color: ocTheme.textMuted),
+                          ),
+                        )
+                      : ListView.separated(
+                          itemCount: filters.length,
+                          separatorBuilder: (_, __) =>
+                              Divider(color: ocTheme.borderSubtle),
+                          itemBuilder: (context, index) {
+                            final f = filters[index];
+                            return ListTile(
+                              contentPadding: EdgeInsets.zero,
+                              leading: Icon(
+                                f.startsWith('/') && f.endsWith('/')
+                                    ? Icons.code_rounded
+                                    : Icons.text_fields_rounded,
+                                color: ocTheme.textMuted,
+                              ),
+                              title: Text(
+                                f,
+                                style: TextStyle(color: ocTheme.text),
+                              ),
+                              trailing: IconButton(
+                                onPressed: () => notifier.removeAt(index),
+                                icon: Icon(
+                                  Icons.delete_outline_rounded,
+                                  color: ocTheme.error,
+                                ),
+                                tooltip: 'Remove',
+                              ),
+                            );
+                          },
+                        ),
+                ),
+              ],
             ),
-          ),
-        );
-      },
+          );
+        },
+      ),
     ).whenComplete(controller.dispose);
   }
 
@@ -4772,101 +4461,58 @@ class _ClaudeCodeSessionsViewState
     final ocTheme = OpenCodeTheme.of(context);
     final highlightColor = highlights.color;
 
-    await showModalBottomSheet<void>(
+    await DetailSheet.show(
       context: context,
-      backgroundColor: ocTheme.backgroundPanel,
-      shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(16)),
-      ),
-      builder: (context) {
-        return SafeArea(
-          child: Padding(
-            padding: const EdgeInsets.symmetric(vertical: 16),
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                // Drag handle
-                Container(
-                  width: 36,
-                  height: 4,
-                  decoration: BoxDecoration(
-                    color: ocTheme.textMuted.withValues(alpha: 0.3),
-                    borderRadius: BorderRadius.circular(2),
-                  ),
-                ),
-                const SizedBox(height: 16),
-                // Session title
-                Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: 20),
-                  child: Text(
-                    session.displayTitle,
-                    style: TextStyle(
-                      color: ocTheme.text,
-                      fontSize: 16,
-                      fontWeight: FontWeight.w600,
-                    ),
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                  ),
-                ),
-                const SizedBox(height: 16),
-                // Stop Session option
-                ListTile(
-                  leading: Icon(
-                    Icons.stop_circle_outlined,
-                    color: ocTheme.textMuted,
-                  ),
-                  title: Text(
-                    'Stop Session',
-                    style: TextStyle(color: ocTheme.text),
-                  ),
-                  subtitle: Text(
-                    'Force stop if stuck',
-                    style: TextStyle(color: ocTheme.textMuted, fontSize: 12),
-                  ),
-                  onTap: () {
-                    Navigator.pop(context);
-                    _stopCCSession(session);
-                  },
-                ),
-                // Options
-                ListTile(
-                  leading: Icon(
-                    isHighlighted
-                        ? Icons.star_rounded
-                        : Icons.star_border_rounded,
-                    color: isHighlighted
-                        ? highlightColor.forBrightness(
-                            Theme.of(context).brightness,
-                            themePrimary: ocTheme.primary,
-                          )
-                        : ocTheme.textMuted,
-                  ),
-                  title: Text(
-                    isHighlighted ? 'Remove Highlight' : 'Highlight',
-                    style: TextStyle(color: ocTheme.text),
-                  ),
-                  onTap: () {
-                    Navigator.pop(context);
-                    _toggleHighlight(session.id);
-                  },
-                ),
-                ListTile(
-                  leading: Icon(
-                    Icons.delete_outline_rounded,
-                    color: ocTheme.error,
-                  ),
-                  title: Text('Delete', style: TextStyle(color: ocTheme.error)),
-                  onTap: () {
-                    Navigator.pop(context);
-                    _deleteSession(session);
-                  },
-                ),
-              ],
+      title: session.displayTitle,
+      initialSize: 0.35,
+      minSize: 0.2,
+      maxSize: 0.5,
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          // Stop Session option
+          ListTile(
+            leading: Icon(Icons.stop_circle_outlined, color: ocTheme.textMuted),
+            title: Text('Stop Session', style: TextStyle(color: ocTheme.text)),
+            subtitle: Text(
+              'Force stop if stuck',
+              style: TextStyle(color: ocTheme.textMuted, fontSize: 12),
             ),
+            onTap: () {
+              Navigator.pop(context);
+              _stopCCSession(session);
+            },
           ),
-        );
-      },
+          // Options
+          ListTile(
+            leading: Icon(
+              isHighlighted ? Icons.star_rounded : Icons.star_border_rounded,
+              color: isHighlighted
+                  ? highlightColor.forBrightness(
+                      Theme.of(context).brightness,
+                      themePrimary: ocTheme.primary,
+                    )
+                  : ocTheme.textMuted,
+            ),
+            title: Text(
+              isHighlighted ? 'Remove Highlight' : 'Highlight',
+              style: TextStyle(color: ocTheme.text),
+            ),
+            onTap: () {
+              Navigator.pop(context);
+              _toggleHighlight(session.id);
+            },
+          ),
+          ListTile(
+            leading: Icon(Icons.delete_outline_rounded, color: ocTheme.error),
+            title: Text('Delete', style: TextStyle(color: ocTheme.error)),
+            onTap: () {
+              Navigator.pop(context);
+              _deleteSession(session);
+            },
+          ),
+        ],
+      ),
     );
   }
 

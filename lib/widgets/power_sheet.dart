@@ -9,6 +9,7 @@ import '../models/permission_rule.dart';
 import '../models/project.dart';
 import '../providers/permission_rules_provider.dart';
 import '../theme/opencode_theme.dart';
+import 'chat/detail_sheet.dart';
 import 'project_tools_sheet.dart';
 
 /// Unified Power Sheet for all AI backends (OpenCode, Claude Code, Codex).
@@ -78,12 +79,10 @@ class _PowerSheetState extends ConsumerState<PowerSheet> {
     Navigator.pop(context);
     Future.delayed(const Duration(milliseconds: 150), () {
       if (!mounted) return;
-      showModalBottomSheet(
+      showProjectToolsSheet(
         context: context,
-        isScrollControlled: true,
-        backgroundColor: Colors.transparent,
-        builder: (_) =>
-            ProjectToolsSheet(backend: widget.backend, project: widget.project),
+        backend: widget.backend,
+        project: widget.project,
       );
     });
   }
@@ -98,228 +97,176 @@ class _PowerSheetState extends ConsumerState<PowerSheet> {
         .where((a) => a.name == 'build' || a.name == 'plan')
         .toList();
 
-    return ConstrainedBox(
-      constraints: BoxConstraints(
-        maxHeight: MediaQuery.of(context).size.height * 0.75,
-      ),
-      child: Container(
-        decoration: BoxDecoration(
-          color: theme.background,
-          borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
-        ),
-        child: SafeArea(
-          top: false,
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              // Header with close button
-              Padding(
-                padding: const EdgeInsets.fromLTRB(20, 12, 12, 0),
-                child: Row(
-                  children: [
-                    // Handle bar
-                    Expanded(
-                      child: Center(
-                        child: Container(
-                          width: 36,
-                          height: 4,
-                          decoration: BoxDecoration(
-                            color: theme.borderSubtle,
-                            borderRadius: BorderRadius.circular(2),
-                          ),
-                        ),
-                      ),
-                    ),
-                    // Close button
-                    GestureDetector(
-                      onTap: () => Navigator.pop(context),
-                      child: Container(
-                        padding: const EdgeInsets.all(8),
-                        child: Icon(
-                          Icons.close_rounded,
-                          color: theme.textMuted,
-                          size: 22,
-                        ),
-                      ),
-                    ),
-                  ],
+    return DetailSheet(
+      title: 'Power Menu',
+      child: SingleChildScrollView(
+        padding: const EdgeInsets.fromLTRB(20, 8, 20, 24),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            // ===== ATTACH SECTION =====
+            _SectionHeader(
+              icon: Icons.add_circle_outline_rounded,
+              title: 'Attach',
+              theme: theme,
+            ),
+            const SizedBox(height: 14),
+            Row(
+              children: [
+                Expanded(
+                  child: _QuickActionCard(
+                    icon: Icons.attach_file_rounded,
+                    label: 'Attach File',
+                    theme: theme,
+                    onTap: () {
+                      Navigator.pop(context);
+                      widget.onAttachFile?.call();
+                    },
+                  ),
                 ),
+                const SizedBox(width: 10),
+                Expanded(
+                  child: _QuickActionCard(
+                    icon: Icons.camera_alt_outlined,
+                    label: 'Take Photo',
+                    theme: theme,
+                    onTap: () {
+                      Navigator.pop(context);
+                      widget.onTakePhoto?.call();
+                    },
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 24),
+
+            // ===== MODEL SECTION =====
+            if (widget.onModelTap != null) ...[
+              _SectionHeader(
+                icon: Icons.auto_awesome_rounded,
+                title: 'Model',
+                theme: theme,
               ),
-              // Scrollable content
-              Flexible(
-                child: SingleChildScrollView(
-                  padding: const EdgeInsets.fromLTRB(20, 12, 20, 24),
-                  child: Column(
-                    mainAxisSize: MainAxisSize.min,
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      // ===== ATTACH SECTION =====
-                      _SectionHeader(
-                        icon: Icons.add_circle_outline_rounded,
-                        title: 'Attach',
-                        theme: theme,
-                      ),
-                      const SizedBox(height: 14),
-                      Row(
-                        children: [
-                          Expanded(
-                            child: _QuickActionCard(
-                              icon: Icons.attach_file_rounded,
-                              label: 'Attach File',
-                              theme: theme,
-                              onTap: () {
-                                Navigator.pop(context);
-                                widget.onAttachFile?.call();
-                              },
-                            ),
-                          ),
-                          const SizedBox(width: 10),
-                          Expanded(
-                            child: _QuickActionCard(
-                              icon: Icons.camera_alt_outlined,
-                              label: 'Take Photo',
-                              theme: theme,
-                              onTap: () {
-                                Navigator.pop(context);
-                                widget.onTakePhoto?.call();
-                              },
-                            ),
-                          ),
-                        ],
-                      ),
-                      const SizedBox(height: 24),
+              const SizedBox(height: 14),
+              _ModelCard(
+                model: widget.currentModel,
+                theme: theme,
+                onTap: () {
+                  Navigator.pop(context);
+                  widget.onModelTap?.call();
+                },
+              ),
+              const SizedBox(height: 24),
+            ],
 
-                      // ===== MODEL SECTION =====
-                      if (widget.onModelTap != null) ...[
-                        _SectionHeader(
-                          icon: Icons.auto_awesome_rounded,
-                          title: 'Model',
-                          theme: theme,
-                        ),
-                        const SizedBox(height: 14),
-                        _ModelCard(
-                          model: widget.currentModel,
-                          theme: theme,
-                          onTap: () {
-                            Navigator.pop(context);
-                            widget.onModelTap?.call();
-                          },
-                        ),
-                        const SizedBox(height: 24),
-                      ],
+            // ===== THINKING LEVEL SECTION =====
+            if (widget.availableVariants.isNotEmpty) ...[
+              _SectionHeader(
+                icon: Icons.psychology_outlined,
+                title: _getThinkingLevelTitle(),
+                theme: theme,
+              ),
+              const SizedBox(height: 14),
+              Wrap(
+                spacing: 8,
+                runSpacing: 8,
+                children: [
+                  _VariantChip(
+                    label: 'Default',
+                    isSelected: widget.currentVariant == null,
+                    theme: theme,
+                    onTap: () {
+                      widget.onVariantChanged?.call(null);
+                    },
+                  ),
+                  ...widget.availableVariants.map(
+                    (v) => _VariantChip(
+                      label: _formatVariantLabel(v),
+                      isSelected: widget.currentVariant == v,
+                      theme: theme,
+                      onTap: () {
+                        widget.onVariantChanged?.call(v);
+                      },
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 24),
+            ],
 
-                      // ===== THINKING LEVEL SECTION =====
-                      if (widget.availableVariants.isNotEmpty) ...[
-                        _SectionHeader(
-                          icon: Icons.psychology_outlined,
-                          title: _getThinkingLevelTitle(),
-                          theme: theme,
-                        ),
-                        const SizedBox(height: 14),
-                        Wrap(
-                          spacing: 8,
-                          runSpacing: 8,
-                          children: [
-                            _VariantChip(
-                              label: 'Default',
-                              isSelected: widget.currentVariant == null,
-                              theme: theme,
-                              onTap: () {
-                                widget.onVariantChanged?.call(null);
-                              },
-                            ),
-                            ...widget.availableVariants.map(
-                              (v) => _VariantChip(
-                                label: _formatVariantLabel(v),
-                                isSelected: widget.currentVariant == v,
-                                theme: theme,
-                                onTap: () {
-                                  widget.onVariantChanged?.call(v);
-                                },
-                              ),
-                            ),
-                          ],
-                        ),
-                        const SizedBox(height: 24),
-                      ],
+            // ===== OPENCODE: AGENT SECTION =====
+            // Only show native agents (build/plan) - custom agents are @-tagged
+            if (widget.backend == AgentType.opencode &&
+                nativeAgents.isNotEmpty) ...[
+              _SectionHeader(
+                icon: Icons.smart_toy_outlined,
+                title: 'Agent',
+                theme: theme,
+              ),
+              const SizedBox(height: 14),
+              _buildOpenCodeAgents(theme, nativeAgents),
+              const SizedBox(height: 24),
+            ],
 
-                      // ===== OPENCODE: AGENT SECTION =====
-                      // Only show native agents (build/plan) - custom agents are @-tagged
-                      if (widget.backend == AgentType.opencode &&
-                          nativeAgents.isNotEmpty) ...[
-                        _SectionHeader(
-                          icon: Icons.smart_toy_outlined,
-                          title: 'Agent',
-                          theme: theme,
-                        ),
-                        const SizedBox(height: 14),
-                        _buildOpenCodeAgents(theme, nativeAgents),
-                        const SizedBox(height: 24),
-                      ],
+            // ===== CLAUDE CODE: PERMISSION MODE SECTION =====
+            if (widget.backend == AgentType.claudeCode) ...[
+              _SectionHeader(
+                icon: Icons.shield_outlined,
+                title: 'Permission Mode',
+                theme: theme,
+              ),
+              const SizedBox(height: 14),
+              _buildClaudeCodePermissionModes(theme),
+              const SizedBox(height: 24),
+            ],
 
-                      // ===== CLAUDE CODE: PERMISSION MODE SECTION =====
-                      if (widget.backend == AgentType.claudeCode) ...[
-                        _SectionHeader(
-                          icon: Icons.shield_outlined,
-                          title: 'Permission Mode',
-                          theme: theme,
-                        ),
-                        const SizedBox(height: 14),
-                        _buildClaudeCodePermissionModes(theme),
-                        const SizedBox(height: 24),
-                      ],
+            // ===== CODEX: COLLABORATION MODE SECTION =====
+            if (widget.backend == AgentType.codex) ...[
+              _SectionHeader(
+                icon: Icons.groups_outlined,
+                title: 'Collaboration Mode',
+                theme: theme,
+              ),
+              const SizedBox(height: 14),
+              _buildCodexCollabModes(theme),
+              const SizedBox(height: 24),
+            ],
 
-                      // ===== CODEX: COLLABORATION MODE SECTION =====
-                      if (widget.backend == AgentType.codex) ...[
-                        _SectionHeader(
-                          icon: Icons.groups_outlined,
-                          title: 'Collaboration Mode',
-                          theme: theme,
-                        ),
-                        const SizedBox(height: 14),
-                        _buildCodexCollabModes(theme),
-                        const SizedBox(height: 24),
-                      ],
-
-                      // ===== OPENCODE: PERMISSION PRESETS SECTION =====
-                      if (widget.backend == AgentType.opencode) ...[
-                        _SectionHeader(
-                          icon: Icons.shield_outlined,
-                          title: 'Permissions',
-                          theme: theme,
-                          trailing: GestureDetector(
-                            onTap: () {
-                              Navigator.pop(context);
-                              // TODO: Navigate to custom rules screen
-                            },
-                            child: Text(
-                              'Custom',
-                              style: TextStyle(
-                                fontSize: 12,
-                                color: theme.primary,
-                                fontWeight: FontWeight.w500,
-                              ),
-                            ),
-                          ),
-                        ),
-                        const SizedBox(height: 14),
-                        _buildOpenCodePermissionPresets(theme, rulesState),
-                        const SizedBox(height: 24),
-                      ],
-
-                      // ===== PROJECT TOOLS BUTTON =====
-                      _ProjectToolsButton(
-                        theme: theme,
-                        backend: widget.backend,
-                        onTap: _openProjectTools,
-                      ),
-                      const SizedBox(height: 8),
-                    ],
+            // ===== OPENCODE: PERMISSION PRESETS SECTION =====
+            if (widget.backend == AgentType.opencode) ...[
+              _SectionHeader(
+                icon: Icons.shield_outlined,
+                title: 'Permissions',
+                theme: theme,
+                trailing: GestureDetector(
+                  onTap: () {
+                    Navigator.pop(context);
+                    // TODO: Navigate to custom rules screen
+                  },
+                  child: Text(
+                    'Custom',
+                    style: TextStyle(
+                      fontSize: 12,
+                      color: theme.primary,
+                      fontWeight: FontWeight.w500,
+                    ),
                   ),
                 ),
               ),
+              const SizedBox(height: 14),
+              _buildOpenCodePermissionPresets(theme, rulesState),
+              const SizedBox(height: 24),
             ],
-          ),
+
+            // ===== PROJECT TOOLS BUTTON =====
+            _ProjectToolsButton(
+              theme: theme,
+              backend: widget.backend,
+              onTap: _openProjectTools,
+            ),
+            const SizedBox(height: 8),
+          ],
         ),
       ),
     );

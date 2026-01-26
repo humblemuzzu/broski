@@ -3,8 +3,29 @@ import 'package:google_fonts/google_fonts.dart';
 
 import '../models/permission_rule.dart';
 import '../theme/opencode_theme.dart';
+import 'chat/detail_sheet.dart';
 
-/// Bottom sheet for configuring custom permission rules
+/// Shows a permission rules sheet using DetailSheet.
+Future<void> showPermissionRulesSheet({
+  required BuildContext context,
+  required PermissionRuleset initialRules,
+  required void Function(PermissionRuleset rules) onApply,
+}) {
+  return DetailSheet.show(
+    context: context,
+    title: 'Permission Rules',
+    initialSize: 0.75,
+    maxSize: 0.9,
+    minSize: 0.5,
+    child: _PermissionRulesSheetContent(
+      initialRules: initialRules,
+      onApply: onApply,
+    ),
+  );
+}
+
+/// Legacy widget for backwards compatibility.
+/// Prefer using [showPermissionRulesSheet] instead.
 class PermissionRulesSheet extends StatefulWidget {
   const PermissionRulesSheet({
     super.key,
@@ -20,6 +41,37 @@ class PermissionRulesSheet extends StatefulWidget {
 }
 
 class _PermissionRulesSheetState extends State<PermissionRulesSheet> {
+  @override
+  Widget build(BuildContext context) {
+    return DetailSheet(
+      title: 'Permission Rules',
+      child: SingleChildScrollView(
+        child: _PermissionRulesSheetContent(
+          initialRules: widget.initialRules,
+          onApply: widget.onApply,
+        ),
+      ),
+    );
+  }
+}
+
+/// The actual content of the permission rules sheet.
+class _PermissionRulesSheetContent extends StatefulWidget {
+  const _PermissionRulesSheetContent({
+    required this.initialRules,
+    required this.onApply,
+  });
+
+  final PermissionRuleset initialRules;
+  final void Function(PermissionRuleset rules) onApply;
+
+  @override
+  State<_PermissionRulesSheetContent> createState() =>
+      _PermissionRulesSheetContentState();
+}
+
+class _PermissionRulesSheetContentState
+    extends State<_PermissionRulesSheetContent> {
   late List<PermissionRule> _rules;
 
   @override
@@ -77,264 +129,169 @@ class _PermissionRulesSheetState extends State<PermissionRulesSheet> {
   @override
   Widget build(BuildContext context) {
     final theme = OpenCodeTheme.of(context);
-    final bottomPadding = MediaQuery.of(context).viewInsets.bottom;
 
-    return Container(
-      height: MediaQuery.of(context).size.height * 0.75,
-      decoration: BoxDecoration(
-        color: theme.background,
-        borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
-      ),
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(20, 8, 20, 20),
       child: Column(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          // Handle bar
-          Padding(
-            padding: const EdgeInsets.only(top: 12, bottom: 4),
-            child: Container(
-              width: 36,
-              height: 4,
-              decoration: BoxDecoration(
-                color: theme.borderSubtle,
-                borderRadius: BorderRadius.circular(2),
-              ),
-            ),
-          ),
-
-          // Header
-          Padding(
-            padding: const EdgeInsets.fromLTRB(20, 12, 12, 0),
-            child: Row(
-              children: [
-                Container(
-                  padding: const EdgeInsets.all(8),
-                  decoration: BoxDecoration(
-                    color: theme.primary.withValues(alpha: 0.1),
-                    borderRadius: BorderRadius.circular(10),
-                  ),
-                  child: Icon(
-                    Icons.shield_outlined,
-                    color: theme.primary,
-                    size: 20,
-                  ),
-                ),
-                const SizedBox(width: 12),
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        'Permission Rules',
-                        style: TextStyle(
-                          fontSize: 17,
-                          fontWeight: FontWeight.w600,
-                          color: theme.text,
-                        ),
-                      ),
-                      Text(
-                        'Configure tool access permissions',
-                        style: TextStyle(fontSize: 12, color: theme.textMuted),
-                      ),
-                    ],
-                  ),
-                ),
-                IconButton(
-                  icon: Icon(Icons.close_rounded, color: theme.textMuted),
-                  onPressed: () => Navigator.pop(context),
-                ),
-              ],
-            ),
-          ),
-
-          const SizedBox(height: 16),
-
           // Quick presets section
-          Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 20),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  'QUICK PRESETS',
-                  style: TextStyle(
-                    color: theme.textMuted,
-                    fontSize: 11,
-                    fontWeight: FontWeight.w600,
-                    letterSpacing: 0.5,
-                  ),
-                ),
-                const SizedBox(height: 10),
-                SingleChildScrollView(
-                  scrollDirection: Axis.horizontal,
-                  child: Row(
-                    children: PermissionPreset.values
-                        .where((p) => p != PermissionPreset.custom)
-                        .map(
-                          (preset) => Padding(
-                            padding: const EdgeInsets.only(right: 8),
-                            child: _PresetChip(
-                              preset: preset,
-                              theme: theme,
-                              onTap: () => _applyPreset(preset),
-                            ),
-                          ),
-                        )
-                        .toList(),
-                  ),
-                ),
-              ],
+          Text(
+            'QUICK PRESETS',
+            style: TextStyle(
+              color: theme.textMuted,
+              fontSize: 11,
+              fontWeight: FontWeight.w600,
+              letterSpacing: 0.5,
+            ),
+          ),
+          const SizedBox(height: 10),
+          SingleChildScrollView(
+            scrollDirection: Axis.horizontal,
+            child: Row(
+              children: PermissionPreset.values
+                  .where((p) => p != PermissionPreset.custom)
+                  .map(
+                    (preset) => Padding(
+                      padding: const EdgeInsets.only(right: 8),
+                      child: _PresetChip(
+                        preset: preset,
+                        theme: theme,
+                        onTap: () => _applyPreset(preset),
+                      ),
+                    ),
+                  )
+                  .toList(),
             ),
           ),
 
           const SizedBox(height: 20),
 
           // Rules section header
-          Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 20),
-            child: Row(
-              children: [
-                Text(
-                  'RULES',
-                  style: TextStyle(
-                    color: theme.textMuted,
-                    fontSize: 11,
-                    fontWeight: FontWeight.w600,
-                    letterSpacing: 0.5,
-                  ),
+          Row(
+            children: [
+              Text(
+                'RULES',
+                style: TextStyle(
+                  color: theme.textMuted,
+                  fontSize: 11,
+                  fontWeight: FontWeight.w600,
+                  letterSpacing: 0.5,
                 ),
-                const Spacer(),
-                Text(
-                  '${_rules.length} rule${_rules.length == 1 ? '' : 's'}',
-                  style: TextStyle(color: theme.textMuted, fontSize: 11),
-                ),
-              ],
-            ),
+              ),
+              const Spacer(),
+              Text(
+                '${_rules.length} rule${_rules.length == 1 ? '' : 's'}',
+                style: TextStyle(color: theme.textMuted, fontSize: 11),
+              ),
+            ],
           ),
 
           const SizedBox(height: 10),
 
           // Wildcard pattern examples
-          Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 20),
-            child: Container(
-              padding: const EdgeInsets.all(10),
-              decoration: BoxDecoration(
-                color: theme.info.withValues(alpha: 0.08),
-                borderRadius: BorderRadius.circular(8),
-                border: Border.all(color: theme.info.withValues(alpha: 0.2)),
-              ),
-              child: Row(
-                children: [
-                  Icon(
-                    Icons.lightbulb_outline_rounded,
-                    size: 14,
-                    color: theme.info,
-                  ),
-                  const SizedBox(width: 8),
-                  Expanded(
-                    child: Text(
-                      'Pattern examples: *, src/*, Bash(npm *), Bash(git commit *)',
-                      style: TextStyle(
-                        color: theme.info,
-                        fontSize: 11,
-                        height: 1.3,
-                      ),
+          Container(
+            padding: const EdgeInsets.all(10),
+            decoration: BoxDecoration(
+              color: theme.info.withValues(alpha: 0.08),
+              borderRadius: BorderRadius.circular(8),
+              border: Border.all(color: theme.info.withValues(alpha: 0.2)),
+            ),
+            child: Row(
+              children: [
+                Icon(
+                  Icons.lightbulb_outline_rounded,
+                  size: 14,
+                  color: theme.info,
+                ),
+                const SizedBox(width: 8),
+                Expanded(
+                  child: Text(
+                    'Pattern examples: *, src/*, Bash(npm *), Bash(git commit *)',
+                    style: TextStyle(
+                      color: theme.info,
+                      fontSize: 11,
+                      height: 1.3,
                     ),
                   ),
-                ],
-              ),
+                ),
+              ],
             ),
           ),
 
           const SizedBox(height: 12),
 
           // Rules list
-          Expanded(
-            child: ListView.builder(
-              padding: EdgeInsets.fromLTRB(20, 0, 20, bottomPadding + 16),
-              itemCount: _rules.length + 1,
-              itemBuilder: (context, index) {
-                if (index == _rules.length) {
-                  return Padding(
-                    padding: const EdgeInsets.only(top: 8),
-                    child: GestureDetector(
-                      onTap: _addRule,
-                      child: Container(
-                        padding: const EdgeInsets.symmetric(vertical: 14),
-                        decoration: BoxDecoration(
-                          color: theme.backgroundPanel,
-                          borderRadius: BorderRadius.circular(12),
-                          border: Border.all(
-                            color: theme.borderSubtle,
-                            style: BorderStyle.solid,
-                          ),
-                        ),
-                        child: Row(
-                          mainAxisAlignment: MainAxisAlignment.center,
-                          children: [
-                            Icon(
-                              Icons.add_rounded,
-                              size: 18,
-                              color: theme.primary,
-                            ),
-                            const SizedBox(width: 8),
-                            Text(
-                              'Add Rule',
-                              style: TextStyle(
-                                color: theme.primary,
-                                fontSize: 14,
-                                fontWeight: FontWeight.w500,
-                              ),
-                            ),
-                          ],
-                        ),
+          ...List.generate(_rules.length, (index) {
+            return _RuleCard(
+              index: index + 1,
+              rule: _rules[index],
+              theme: theme,
+              onUpdate: (rule) => _updateRule(index, rule),
+              onDelete: () => _removeRule(index),
+            );
+          }),
+
+          // Add rule button
+          Padding(
+            padding: const EdgeInsets.only(top: 8),
+            child: GestureDetector(
+              onTap: _addRule,
+              child: Container(
+                padding: const EdgeInsets.symmetric(vertical: 14),
+                decoration: BoxDecoration(
+                  color: theme.backgroundPanel,
+                  borderRadius: BorderRadius.circular(12),
+                  border: Border.all(
+                    color: theme.borderSubtle,
+                    style: BorderStyle.solid,
+                  ),
+                ),
+                child: Row(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    Icon(Icons.add_rounded, size: 18, color: theme.primary),
+                    const SizedBox(width: 8),
+                    Text(
+                      'Add Rule',
+                      style: TextStyle(
+                        color: theme.primary,
+                        fontSize: 14,
+                        fontWeight: FontWeight.w500,
                       ),
                     ),
-                  );
-                }
-                return _RuleCard(
-                  index: index + 1,
-                  rule: _rules[index],
-                  theme: theme,
-                  onUpdate: (rule) => _updateRule(index, rule),
-                  onDelete: () => _removeRule(index),
-                );
-              },
+                  ],
+                ),
+              ),
             ),
           ),
 
+          const SizedBox(height: 16),
+
           // Apply button
-          Container(
-            padding: EdgeInsets.fromLTRB(20, 12, 20, 12 + bottomPadding),
-            decoration: BoxDecoration(
-              color: theme.background,
-              border: Border(top: BorderSide(color: theme.borderSubtle)),
-            ),
-            child: SafeArea(
-              top: false,
-              child: SizedBox(
-                width: double.infinity,
-                child: ElevatedButton(
-                  onPressed: () {
-                    widget.onApply(_rules);
-                    Navigator.pop(context);
-                  },
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: theme.primary,
-                    foregroundColor: theme.background,
-                    padding: const EdgeInsets.symmetric(vertical: 14),
-                    elevation: 0,
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(12),
-                    ),
-                  ),
-                  child: Text(
-                    'Apply Rules',
-                    style: TextStyle(
-                      fontWeight: FontWeight.w600,
-                      fontSize: 15,
-                      color: theme.background,
-                    ),
-                  ),
+          SizedBox(
+            width: double.infinity,
+            child: ElevatedButton(
+              onPressed: () {
+                widget.onApply(_rules);
+                Navigator.pop(context);
+              },
+              style: ElevatedButton.styleFrom(
+                backgroundColor: theme.primary,
+                foregroundColor: theme.background,
+                padding: const EdgeInsets.symmetric(vertical: 14),
+                elevation: 0,
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(12),
+                ),
+              ),
+              child: Text(
+                'Apply Rules',
+                style: TextStyle(
+                  fontWeight: FontWeight.w600,
+                  fontSize: 15,
+                  color: theme.background,
                 ),
               ),
             ),

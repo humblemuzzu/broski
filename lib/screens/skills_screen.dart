@@ -9,6 +9,7 @@ import '../models/skill.dart';
 import '../providers/selection_provider.dart';
 import '../providers/service_providers.dart';
 import '../theme/opencode_theme.dart';
+import '../widgets/chat/detail_sheet.dart';
 
 class SkillsScreen extends ConsumerStatefulWidget {
   const SkillsScreen({required this.backend, super.key});
@@ -44,9 +45,9 @@ class _SkillsScreenState extends ConsumerState<SkillsScreen> {
           return;
         }
 
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Skills updated')),
-        );
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(const SnackBar(content: Text('Skills updated')));
         _load(forceReload: true);
       });
     }
@@ -111,9 +112,9 @@ class _SkillsScreenState extends ConsumerState<SkillsScreen> {
       await _load();
     } catch (e) {
       if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Failed to load skill: $e')),
-      );
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text('Failed to load skill: $e')));
     }
   }
 
@@ -126,40 +127,38 @@ class _SkillsScreenState extends ConsumerState<SkillsScreen> {
       SkillSource.user,
     ];
 
-    final source = await showModalBottomSheet<SkillSource>(
+    final source = await DetailSheet.show<SkillSource>(
       context: context,
-      backgroundColor: Theme.of(context).colorScheme.surface,
-      builder: (context) => SafeArea(
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            ListTile(
-              title: const Text('Create Skill'),
-              subtitle: Text(widget.backend.displayName),
-              trailing: IconButton(
-                icon: const Icon(Icons.close_rounded),
-                onPressed: () => Navigator.pop(context),
+      title: 'Add Skill',
+      initialSize: 0.4,
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+            child: Text(
+              widget.backend.displayName,
+              style: TextStyle(
+                color: Theme.of(context).colorScheme.onSurfaceVariant,
               ),
             ),
-            const Divider(height: 1),
-            for (final s in sources)
-              ListTile(
-                leading: Icon(
-                  s == SkillSource.project
-                      ? Icons.folder_outlined
-                      : Icons.person_outline_rounded,
-                ),
-                title: Text('${s.displayName} skill'),
-                subtitle: Text(
-                  s == SkillSource.project
-                      ? 'Saved in this repo'
-                      : 'Available across projects',
-                ),
-                onTap: () => Navigator.pop(context, s),
+          ),
+          for (final s in sources)
+            ListTile(
+              leading: Icon(
+                s == SkillSource.project
+                    ? Icons.folder_outlined
+                    : Icons.person_outline_rounded,
               ),
-            const SizedBox(height: 8),
-          ],
-        ),
+              title: Text('${s.displayName} skill'),
+              subtitle: Text(
+                s == SkillSource.project
+                    ? 'Saved in this repo'
+                    : 'Available across projects',
+              ),
+              onTap: () => Navigator.pop(context, s),
+            ),
+        ],
       ),
     );
 
@@ -187,7 +186,9 @@ class _SkillsScreenState extends ConsumerState<SkillsScreen> {
       context: context,
       builder: (ctx) => AlertDialog(
         title: const Text('Delete Skill'),
-        content: Text('Delete "${skill.name}" from ${skill.source.displayName}?'),
+        content: Text(
+          'Delete "${skill.name}" from ${skill.source.displayName}?',
+        ),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(ctx, false),
@@ -214,16 +215,16 @@ class _SkillsScreenState extends ConsumerState<SkillsScreen> {
       );
       if (!mounted) return;
       if (!ok) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Failed to delete skill')),
-        );
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(const SnackBar(content: Text('Failed to delete skill')));
       }
       await _load();
     } catch (e) {
       if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Failed to delete skill: $e')),
-      );
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text('Failed to delete skill: $e')));
     }
   }
 
@@ -256,7 +257,8 @@ class _SkillsScreenState extends ConsumerState<SkillsScreen> {
         actions: [
           IconButton(
             icon: const Icon(Icons.refresh_rounded),
-            onPressed: () => _load(forceReload: widget.backend == AgentType.codex),
+            onPressed: () =>
+                _load(forceReload: widget.backend == AgentType.codex),
             tooltip: 'Refresh',
           ),
           IconButton(
@@ -275,7 +277,11 @@ class _SkillsScreenState extends ConsumerState<SkillsScreen> {
                 child: Column(
                   mainAxisAlignment: MainAxisAlignment.center,
                   children: [
-                    Icon(Icons.error_outline_rounded, color: oc.error, size: 48),
+                    Icon(
+                      Icons.error_outline_rounded,
+                      color: oc.error,
+                      size: 48,
+                    ),
                     const SizedBox(height: 12),
                     Text(
                       'Failed to load skills',
@@ -304,7 +310,11 @@ class _SkillsScreenState extends ConsumerState<SkillsScreen> {
                 child: Column(
                   mainAxisAlignment: MainAxisAlignment.center,
                   children: [
-                    Icon(Icons.extension_rounded, color: oc.textMuted, size: 56),
+                    Icon(
+                      Icons.extension_rounded,
+                      color: oc.textMuted,
+                      size: 56,
+                    ),
                     const SizedBox(height: 12),
                     Text('No skills found', style: TextStyle(color: oc.text)),
                     const SizedBox(height: 8),
@@ -453,8 +463,10 @@ description: $description
   }
 
   String _stripFrontmatter(String raw) {
-    final match =
-        RegExp(r'^---\n[\s\S]*?\n---\n?', multiLine: false).firstMatch(raw);
+    final match = RegExp(
+      r'^---\n[\s\S]*?\n---\n?',
+      multiLine: false,
+    ).firstMatch(raw);
     if (match == null) return raw;
     return raw.substring(match.end);
   }
@@ -481,19 +493,17 @@ description: $description
 
     final name = _isCreate ? _name.text.trim() : widget.existing!.name;
     if (name.isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Skill name is required')),
-      );
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(const SnackBar(content: Text('Skill name is required')));
       return;
     }
-    final nameOk = RegExp(r'^[a-z0-9]+(-[a-z0-9]+)*$').hasMatch(name) &&
-        name.length <= 64;
+    final nameOk =
+        RegExp(r'^[a-z0-9]+(-[a-z0-9]+)*$').hasMatch(name) && name.length <= 64;
     if (!nameOk) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
-          content: Text(
-            'Invalid skill name (use lowercase a-z, 0-9, hyphens)',
-          ),
+          content: Text('Invalid skill name (use lowercase a-z, 0-9, hyphens)'),
         ),
       );
       return;
@@ -502,9 +512,9 @@ description: $description
     final source = _isCreate ? widget.createSource : widget.existing!.source;
     if (source == null) return;
     if (!source.isEditable) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('This skill is read-only')),
-      );
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(const SnackBar(content: Text('This skill is read-only')));
       return;
     }
     if (source == SkillSource.project && cwd == null) {
@@ -516,9 +526,10 @@ description: $description
 
     if (_isCreate) {
       final raw = _content.text;
-      final fm = RegExp(r'^---\n([\s\S]*?)\n---', multiLine: false)
-          .firstMatch(raw)
-          ?.group(1);
+      final fm = RegExp(
+        r'^---\n([\s\S]*?)\n---',
+        multiLine: false,
+      ).firstMatch(raw)?.group(1);
       final fmName = fm != null
           ? RegExp(r'(?m)^name:\s*(.+?)\s*$').firstMatch(fm)?.group(1)?.trim()
           : null;
@@ -568,13 +579,19 @@ description: $description
         Navigator.pop(context);
       } else {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Failed to save "$name"'), backgroundColor: theme.error),
+          SnackBar(
+            content: Text('Failed to save "$name"'),
+            backgroundColor: theme.error,
+          ),
         );
       }
     } catch (e) {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Failed to save: $e'), backgroundColor: theme.error),
+        SnackBar(
+          content: Text('Failed to save: $e'),
+          backgroundColor: theme.error,
+        ),
       );
     } finally {
       if (mounted) setState(() => _isSaving = false);
@@ -618,7 +635,10 @@ description: $description
               child: SizedBox(
                 width: 20,
                 height: 20,
-                child: CircularProgressIndicator(strokeWidth: 2, color: oc.primary),
+                child: CircularProgressIndicator(
+                  strokeWidth: 2,
+                  color: oc.primary,
+                ),
               ),
             ),
         ],
@@ -646,7 +666,10 @@ description: $description
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Text('Name', style: TextStyle(color: oc.textMuted, fontSize: 12)),
+                  Text(
+                    'Name',
+                    style: TextStyle(color: oc.textMuted, fontSize: 12),
+                  ),
                   const SizedBox(height: 6),
                   TextField(
                     controller: _name,
@@ -690,7 +713,10 @@ description: $description
                     maxLines: null,
                     expands: true,
                     readOnly: readOnly,
-                    style: const TextStyle(fontFamily: 'monospace', fontSize: 13),
+                    style: const TextStyle(
+                      fontFamily: 'monospace',
+                      fontSize: 13,
+                    ),
                     decoration: InputDecoration(
                       hintText: 'SKILL.md content',
                       filled: true,
@@ -710,7 +736,9 @@ description: $description
                     selectable: true,
                     styleSheet: MarkdownStyleSheet.fromTheme(theme).copyWith(
                       p: theme.textTheme.bodyMedium?.copyWith(color: oc.text),
-                      h1: theme.textTheme.headlineSmall?.copyWith(color: oc.text),
+                      h1: theme.textTheme.headlineSmall?.copyWith(
+                        color: oc.text,
+                      ),
                       h2: theme.textTheme.titleLarge?.copyWith(color: oc.text),
                       h3: theme.textTheme.titleMedium?.copyWith(color: oc.text),
                       code: theme.textTheme.bodyMedium?.copyWith(
@@ -783,10 +811,7 @@ class _BackendHeader extends StatelessWidget {
           Expanded(
             child: Text(
               '${backend.displayName} skills',
-              style: TextStyle(
-                color: oc.text,
-                fontWeight: FontWeight.w700,
-              ),
+              style: TextStyle(color: oc.text, fontWeight: FontWeight.w700),
             ),
           ),
           Text(

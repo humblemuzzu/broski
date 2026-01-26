@@ -5,9 +5,28 @@ import 'package:share_plus/share_plus.dart';
 
 import '../models/message.dart';
 import '../theme/opencode_theme.dart';
+import 'chat/detail_sheet.dart';
 
 enum ExportFormat { markdown, json, text }
 
+/// Shows an export session sheet using DetailSheet.
+Future<void> showExportSessionSheet({
+  required BuildContext context,
+  required String title,
+  required List<ChatMessage> messages,
+}) {
+  return DetailSheet.show(
+    context: context,
+    title: 'Export Session',
+    initialSize: 0.7,
+    maxSize: 0.9,
+    minSize: 0.4,
+    child: _ExportSessionSheetContent(title: title, messages: messages),
+  );
+}
+
+/// Legacy widget for backwards compatibility.
+/// Prefer using [showExportSessionSheet] instead.
 class ExportSessionSheet extends StatefulWidget {
   const ExportSessionSheet({
     super.key,
@@ -23,6 +42,37 @@ class ExportSessionSheet extends StatefulWidget {
 }
 
 class _ExportSessionSheetState extends State<ExportSessionSheet> {
+  @override
+  Widget build(BuildContext context) {
+    return DetailSheet(
+      title: 'Export Session',
+      child: SingleChildScrollView(
+        child: _ExportSessionSheetContent(
+          title: widget.title,
+          messages: widget.messages,
+        ),
+      ),
+    );
+  }
+}
+
+/// The actual content of the export session sheet.
+class _ExportSessionSheetContent extends StatefulWidget {
+  const _ExportSessionSheetContent({
+    required this.title,
+    required this.messages,
+  });
+
+  final String title;
+  final List<ChatMessage> messages;
+
+  @override
+  State<_ExportSessionSheetContent> createState() =>
+      _ExportSessionSheetContentState();
+}
+
+class _ExportSessionSheetContentState
+    extends State<_ExportSessionSheetContent> {
   final _filenameCtrl = TextEditingController();
   ExportFormat _format = ExportFormat.markdown;
 
@@ -88,14 +138,16 @@ class _ExportSessionSheetState extends State<ExportSessionSheet> {
         buf.writeln('### TOOLS');
         for (final t in m.toolCalls) {
           buf.writeln('```json');
-          buf.writeln(const JsonEncoder.withIndent('  ').convert({
-            'name': t.name,
-            'status': t.status,
-            if (t.title != null) 'title': t.title,
-            if (t.input.isNotEmpty) 'input': t.input,
-            if (_includeToolOutputs && (t.output ?? '').isNotEmpty)
-              'output': t.output,
-          }));
+          buf.writeln(
+            const JsonEncoder.withIndent('  ').convert({
+              'name': t.name,
+              'status': t.status,
+              if (t.title != null) 'title': t.title,
+              if (t.input.isNotEmpty) 'input': t.input,
+              if (_includeToolOutputs && (t.output ?? '').isNotEmpty)
+                'output': t.output,
+            }),
+          );
           buf.writeln('```');
           buf.writeln();
         }
@@ -164,134 +216,108 @@ class _ExportSessionSheetState extends State<ExportSessionSheet> {
   Widget build(BuildContext context) {
     final oc = OpenCodeTheme.of(context);
 
-    return SafeArea(
-      child: Container(
-        padding: const EdgeInsets.fromLTRB(20, 12, 20, 20),
-        decoration: BoxDecoration(
-          color: oc.backgroundPanel,
-          borderRadius: const BorderRadius.vertical(top: Radius.circular(20)),
-        ),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Center(
-              child: Container(
-                width: 42,
-                height: 4,
-                decoration: BoxDecoration(
-                  color: oc.textMuted.withValues(alpha: 0.5),
-                  borderRadius: BorderRadius.circular(3),
-                ),
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(20, 8, 20, 20),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          TextField(
+            controller: _filenameCtrl,
+            style: TextStyle(color: oc.text),
+            decoration: InputDecoration(
+              labelText: 'Filename',
+              labelStyle: TextStyle(color: oc.textMuted),
+              filled: true,
+              fillColor: oc.backgroundElement,
+              border: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(12),
               ),
             ),
-            const SizedBox(height: 14),
-            Text(
-              'Export session',
-              style: TextStyle(
-                color: oc.text,
-                fontSize: 16,
-                fontWeight: FontWeight.w600,
+          ),
+          const SizedBox(height: 12),
+          Wrap(
+            spacing: 10,
+            runSpacing: 8,
+            children: [
+              _FormatChip(
+                label: 'Markdown',
+                selected: _format == ExportFormat.markdown,
+                onTap: () => setState(() => _format = ExportFormat.markdown),
               ),
-            ),
-            const SizedBox(height: 12),
-            TextField(
-              controller: _filenameCtrl,
-              style: TextStyle(color: oc.text),
-              decoration: InputDecoration(
-                labelText: 'Filename',
-                labelStyle: TextStyle(color: oc.textMuted),
-                filled: true,
-                fillColor: oc.backgroundElement,
-                border: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(12),
-                ),
+              _FormatChip(
+                label: 'Text',
+                selected: _format == ExportFormat.text,
+                onTap: () => setState(() => _format = ExportFormat.text),
               ),
-            ),
-            const SizedBox(height: 12),
-            Wrap(
-              spacing: 10,
-              runSpacing: 8,
-              children: [
-                _FormatChip(
-                  label: 'Markdown',
-                  selected: _format == ExportFormat.markdown,
-                  onTap: () => setState(() => _format = ExportFormat.markdown),
-                ),
-                _FormatChip(
-                  label: 'Text',
-                  selected: _format == ExportFormat.text,
-                  onTap: () => setState(() => _format = ExportFormat.text),
-                ),
-                _FormatChip(
-                  label: 'JSON',
-                  selected: _format == ExportFormat.json,
-                  onTap: () => setState(() => _format = ExportFormat.json),
-                ),
-              ],
-            ),
-            const SizedBox(height: 12),
-            SwitchListTile(
-              value: _includeThinking,
-              onChanged: (v) => setState(() => _includeThinking = v),
-              title: const Text('Include thinking'),
-              subtitle: const Text('Reasoning / extended thinking parts'),
-            ),
-            SwitchListTile(
-              value: _includeToolCalls,
-              onChanged: (v) => setState(() => _includeToolCalls = v),
-              title: const Text('Include tools'),
-              subtitle: const Text('Tool calls and inputs'),
-            ),
-            SwitchListTile(
-              value: _includeToolOutputs,
-              onChanged: _includeToolCalls
-                  ? (v) => setState(() => _includeToolOutputs = v)
-                  : null,
-              title: const Text('Include tool outputs'),
-              subtitle: const Text('May be large'),
-            ),
-            SwitchListTile(
-              value: _includeMetadata,
-              onChanged: (v) => setState(() => _includeMetadata = v),
-              title: const Text('Include metadata'),
-              subtitle: const Text('IDs and timestamps'),
-            ),
-            const SizedBox(height: 10),
-            Row(
-              children: [
-                Expanded(
-                  child: OutlinedButton(
-                    onPressed: () => Navigator.pop(context),
-                    style: OutlinedButton.styleFrom(
-                      foregroundColor: oc.textMuted,
-                      side: BorderSide(color: oc.borderSubtle),
-                    ),
-                    child: const Text('Cancel'),
+              _FormatChip(
+                label: 'JSON',
+                selected: _format == ExportFormat.json,
+                onTap: () => setState(() => _format = ExportFormat.json),
+              ),
+            ],
+          ),
+          const SizedBox(height: 12),
+          SwitchListTile(
+            value: _includeThinking,
+            onChanged: (v) => setState(() => _includeThinking = v),
+            title: const Text('Include thinking'),
+            subtitle: const Text('Reasoning / extended thinking parts'),
+          ),
+          SwitchListTile(
+            value: _includeToolCalls,
+            onChanged: (v) => setState(() => _includeToolCalls = v),
+            title: const Text('Include tools'),
+            subtitle: const Text('Tool calls and inputs'),
+          ),
+          SwitchListTile(
+            value: _includeToolOutputs,
+            onChanged: _includeToolCalls
+                ? (v) => setState(() => _includeToolOutputs = v)
+                : null,
+            title: const Text('Include tool outputs'),
+            subtitle: const Text('May be large'),
+          ),
+          SwitchListTile(
+            value: _includeMetadata,
+            onChanged: (v) => setState(() => _includeMetadata = v),
+            title: const Text('Include metadata'),
+            subtitle: const Text('IDs and timestamps'),
+          ),
+          const SizedBox(height: 10),
+          Row(
+            children: [
+              Expanded(
+                child: OutlinedButton(
+                  onPressed: () => Navigator.pop(context),
+                  style: OutlinedButton.styleFrom(
+                    foregroundColor: oc.textMuted,
+                    side: BorderSide(color: oc.borderSubtle),
                   ),
+                  child: const Text('Cancel'),
                 ),
-                const SizedBox(width: 12),
-                Expanded(
-                  child: ElevatedButton.icon(
-                    onPressed: () async {
-                      final content = _render();
-                      final name = _filenameCtrl.text.trim().isEmpty
-                          ? 'session'
-                          : _filenameCtrl.text.trim();
-                      await Share.share(content, subject: name);
-                    },
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: oc.primary,
-                      foregroundColor: Colors.white,
-                    ),
-                    icon: const Icon(Icons.share_rounded, size: 18),
-                    label: const Text('Share'),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: ElevatedButton.icon(
+                  onPressed: () async {
+                    final content = _render();
+                    final name = _filenameCtrl.text.trim().isEmpty
+                        ? 'session'
+                        : _filenameCtrl.text.trim();
+                    await Share.share(content, subject: name);
+                  },
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: oc.primary,
+                    foregroundColor: Colors.white,
                   ),
+                  icon: const Icon(Icons.share_rounded, size: 18),
+                  label: const Text('Share'),
                 ),
-              ],
-            ),
-          ],
-        ),
+              ),
+            ],
+          ),
+        ],
       ),
     );
   }
@@ -317,10 +343,14 @@ class _FormatChip extends StatelessWidget {
       child: Container(
         padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
         decoration: BoxDecoration(
-          color: selected ? oc.primary.withValues(alpha: 0.2) : oc.backgroundElement,
+          color: selected
+              ? oc.primary.withValues(alpha: 0.2)
+              : oc.backgroundElement,
           borderRadius: BorderRadius.circular(999),
           border: Border.all(
-            color: selected ? oc.primary.withValues(alpha: 0.6) : oc.borderSubtle,
+            color: selected
+                ? oc.primary.withValues(alpha: 0.6)
+                : oc.borderSubtle,
           ),
         ),
         child: Text(
@@ -335,4 +365,3 @@ class _FormatChip extends StatelessWidget {
     );
   }
 }
-

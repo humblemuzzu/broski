@@ -6,6 +6,7 @@ import '../models/skill.dart';
 import '../providers/selection_provider.dart';
 import '../providers/service_providers.dart';
 import '../theme/opencode_theme.dart';
+import '../widgets/chat/detail_sheet.dart';
 import 'markdown_file_editor_screen.dart';
 
 class OpenCodeCommandsScreen extends ConsumerStatefulWidget {
@@ -16,7 +17,8 @@ class OpenCodeCommandsScreen extends ConsumerStatefulWidget {
       _OpenCodeCommandsScreenState();
 }
 
-class _OpenCodeCommandsScreenState extends ConsumerState<OpenCodeCommandsScreen> {
+class _OpenCodeCommandsScreenState
+    extends ConsumerState<OpenCodeCommandsScreen> {
   List<OpenCodeMarkdownFile> _files = const [];
   bool _isLoading = true;
   String? _error;
@@ -78,11 +80,7 @@ class _OpenCodeCommandsScreenState extends ConsumerState<OpenCodeCommandsScreen>
             path: res.path,
             namePattern: _nameRe,
             nameHint: 'lowercase-with-dashes',
-            onSave: ({
-              required name,
-              required source,
-              required content,
-            }) async {
+            onSave: ({required name, required source, required content}) async {
               return bridge.ocSaveCommandFile(
                 name: name,
                 source: source,
@@ -101,9 +99,9 @@ class _OpenCodeCommandsScreenState extends ConsumerState<OpenCodeCommandsScreen>
       if (changed == true) await _load();
     } catch (e) {
       if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Failed to load command: $e')),
-      );
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text('Failed to load command: $e')));
     }
   }
 
@@ -116,29 +114,33 @@ class _OpenCodeCommandsScreenState extends ConsumerState<OpenCodeCommandsScreen>
       SkillSource.user,
     ];
 
-    final source = await showModalBottomSheet<SkillSource>(
+    final source = await DetailSheet.show<SkillSource>(
       context: context,
-      builder: (context) => SafeArea(
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            const ListTile(
-              title: Text('Create Command'),
-              subtitle: Text('OpenCode custom command'),
-            ),
-            const Divider(height: 1),
-            for (final s in sources)
-              ListTile(
-                leading: Icon(
-                  s == SkillSource.project
-                      ? Icons.folder_outlined
-                      : Icons.person_outline_rounded,
-                ),
-                title: Text(s.displayName),
-                onTap: () => Navigator.pop(context, s),
+      title: 'Add Command',
+      initialSize: 0.4,
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+            child: Text(
+              'OpenCode custom command',
+              style: TextStyle(
+                color: Theme.of(context).colorScheme.onSurfaceVariant,
               ),
-          ],
-        ),
+            ),
+          ),
+          for (final s in sources)
+            ListTile(
+              leading: Icon(
+                s == SkillSource.project
+                    ? Icons.folder_outlined
+                    : Icons.person_outline_rounded,
+              ),
+              title: Text(s.displayName),
+              onTap: () => Navigator.pop(context, s),
+            ),
+        ],
       ),
     );
 
@@ -164,11 +166,7 @@ class _OpenCodeCommandsScreenState extends ConsumerState<OpenCodeCommandsScreen>
           ].join('\n'),
           namePattern: _nameRe,
           nameHint: 'lowercase-with-dashes',
-          onSave: ({
-            required name,
-            required source,
-            required content,
-          }) async {
+          onSave: ({required name, required source, required content}) async {
             return bridge.ocSaveCommandFile(
               name: name,
               source: source,
@@ -215,85 +213,82 @@ class _OpenCodeCommandsScreenState extends ConsumerState<OpenCodeCommandsScreen>
         child: _isLoading
             ? const Center(child: CircularProgressIndicator())
             : _error != null
-                ? Center(
-                    child: Padding(
-                      padding: const EdgeInsets.all(16),
-                      child: Text(
-                        _error!,
-                        style: TextStyle(color: oc.textMuted),
-                        textAlign: TextAlign.center,
+            ? Center(
+                child: Padding(
+                  padding: const EdgeInsets.all(16),
+                  child: Text(
+                    _error!,
+                    style: TextStyle(color: oc.textMuted),
+                    textAlign: TextAlign.center,
+                  ),
+                ),
+              )
+            : RefreshIndicator(
+                onRefresh: _load,
+                child: ListView(
+                  padding: const EdgeInsets.fromLTRB(16, 12, 16, 16),
+                  children: [
+                    if (selection.project == null)
+                      Padding(
+                        padding: const EdgeInsets.only(bottom: 12),
+                        child: Text(
+                          'Select a project to manage project-level commands.',
+                          style: TextStyle(color: oc.textMuted),
+                        ),
                       ),
-                    ),
-                  )
-                : RefreshIndicator(
-                    onRefresh: _load,
-                    child: ListView(
-                      padding: const EdgeInsets.fromLTRB(16, 12, 16, 16),
-                      children: [
-                        if (selection.project == null)
+                    if (_files.isEmpty)
+                      Padding(
+                        padding: const EdgeInsets.only(top: 24),
+                        child: Center(
+                          child: Text(
+                            'No custom commands found',
+                            style: TextStyle(color: oc.textMuted),
+                          ),
+                        ),
+                      )
+                    else ...[
+                      for (final entry in [
+                        SkillSource.project,
+                        SkillSource.user,
+                      ])
+                        if (bySource[entry]?.isNotEmpty == true) ...[
                           Padding(
-                            padding: const EdgeInsets.only(bottom: 12),
+                            padding: const EdgeInsets.only(top: 12, bottom: 6),
                             child: Text(
-                              'Select a project to manage project-level commands.',
-                              style: TextStyle(color: oc.textMuted),
+                              entry.displayName,
+                              style: TextStyle(
+                                color: oc.textMuted,
+                                fontWeight: FontWeight.w600,
+                              ),
                             ),
                           ),
-                        if (_files.isEmpty)
-                          Padding(
-                            padding: const EdgeInsets.only(top: 24),
-                            child: Center(
-                              child: Text(
-                                'No custom commands found',
-                                style: TextStyle(color: oc.textMuted),
+                          ...bySource[entry]!.map(
+                            (f) => Card(
+                              color: oc.backgroundPanel,
+                              child: ListTile(
+                                title: Text(
+                                  '/${f.name}',
+                                  style: TextStyle(color: oc.text),
+                                ),
+                                subtitle: Text(
+                                  f.description ?? f.path,
+                                  maxLines: 2,
+                                  overflow: TextOverflow.ellipsis,
+                                  style: TextStyle(color: oc.textMuted),
+                                ),
+                                trailing: Icon(
+                                  Icons.chevron_right_rounded,
+                                  color: oc.textMuted,
+                                ),
+                                onTap: () => _open(f),
                               ),
                             ),
-                          )
-                        else ...[
-                          for (final entry in [
-                            SkillSource.project,
-                            SkillSource.user,
-                          ])
-                            if (bySource[entry]?.isNotEmpty == true) ...[
-                              Padding(
-                                padding: const EdgeInsets.only(
-                                  top: 12,
-                                  bottom: 6,
-                                ),
-                                child: Text(
-                                  entry.displayName,
-                                  style: TextStyle(
-                                    color: oc.textMuted,
-                                    fontWeight: FontWeight.w600,
-                                  ),
-                                ),
-                              ),
-                              ...bySource[entry]!.map(
-                                (f) => Card(
-                                  color: oc.backgroundPanel,
-                                  child: ListTile(
-                                    title: Text(
-                                      '/${f.name}',
-                                      style: TextStyle(color: oc.text),
-                                    ),
-                                    subtitle: Text(
-                                      f.description ?? f.path,
-                                      maxLines: 2,
-                                      overflow: TextOverflow.ellipsis,
-                                      style: TextStyle(color: oc.textMuted),
-                                    ),
-                                    trailing: Icon(
-                                      Icons.chevron_right_rounded,
-                                      color: oc.textMuted,
-                                    ),
-                                    onTap: () => _open(f),
-                                  ),
-                                ),
-                              ),
-                            ],
+                          ),
                         ],
-                      ],
-                    ),
-                  ),
+                    ],
+                  ],
+                ),
+              ),
       ),
     );
   }

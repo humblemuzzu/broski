@@ -46,6 +46,7 @@ import '../widgets/file_tagging.dart';
 import '../widgets/message_bubble.dart';
 import '../widgets/subtask_notification_card.dart';
 import '../widgets/chat/compact_thinking_card.dart';
+import '../widgets/chat/detail_sheet.dart';
 import '../widgets/permission_prompt.dart';
 import '../widgets/permission_rules_sheet.dart';
 import '../widgets/question_prompt_sheet.dart';
@@ -1471,28 +1472,16 @@ class _ChatScreenState extends ConsumerState<ChatScreen>
 
   void _showShareDialog(String url) {
     final theme = OpenCodeTheme.of(context);
-    showModalBottomSheet(
+    DetailSheet.show(
       context: context,
-      backgroundColor: Colors.transparent,
-      builder: (context) => Container(
-        padding: const EdgeInsets.all(24),
-        decoration: BoxDecoration(
-          color: theme.backgroundPanel,
-          borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
-        ),
+      title: 'Session Shared',
+      initialSize: 0.35,
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 16),
         child: Column(
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Text(
-              'Session Shared',
-              style: TextStyle(
-                fontSize: 20,
-                fontWeight: FontWeight.w600,
-                color: theme.text,
-              ),
-            ),
-            const SizedBox(height: 8),
             Text(
               'Anyone with this link can view your session:',
               style: TextStyle(fontSize: 14, color: theme.textMuted),
@@ -1992,579 +1981,436 @@ class _ChatScreenState extends ConsumerState<ChatScreen>
 
   void _showAttachmentOptions(BuildContext context) {
     final theme = OpenCodeTheme.of(context);
-    showModalBottomSheet(
+    DetailSheet.show(
       context: context,
-      backgroundColor: theme.backgroundPanel,
-      shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(16)),
-      ),
-      builder: (ctx) => SafeArea(
-        child: Padding(
-          padding: const EdgeInsets.symmetric(vertical: 16),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              ListTile(
-                leading: Icon(Icons.camera_alt_rounded, color: theme.primary),
-                title: Text('Take Photo', style: TextStyle(color: theme.text)),
-                onTap: () {
-                  Navigator.pop(ctx);
-                  _pickImageFromCamera();
-                },
-              ),
-              ListTile(
-                leading: Icon(
-                  Icons.photo_library_rounded,
-                  color: theme.primary,
-                ),
-                title: Text(
-                  'Choose from Gallery',
-                  style: TextStyle(color: theme.text),
-                ),
-                onTap: () {
-                  Navigator.pop(ctx);
-                  _pickImageFromGallery();
-                },
-              ),
-              ListTile(
-                leading: Icon(Icons.attach_file_rounded, color: theme.info),
-                title: Text(
-                  'Attach File (@)',
-                  style: TextStyle(color: theme.text),
-                ),
-                subtitle: Text(
-                  'Type @ in the input to search files',
-                  style: TextStyle(color: theme.textMuted, fontSize: 12),
-                ),
-                onTap: () => Navigator.pop(ctx),
-              ),
-            ],
+      title: 'Add Attachment',
+      initialSize: 0.3,
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          ListTile(
+            leading: Icon(Icons.camera_alt_rounded, color: theme.primary),
+            title: Text('Take Photo', style: TextStyle(color: theme.text)),
+            onTap: () {
+              Navigator.pop(context);
+              _pickImageFromCamera();
+            },
           ),
-        ),
+          ListTile(
+            leading: Icon(Icons.photo_library_rounded, color: theme.primary),
+            title: Text(
+              'Choose from Gallery',
+              style: TextStyle(color: theme.text),
+            ),
+            onTap: () {
+              Navigator.pop(context);
+              _pickImageFromGallery();
+            },
+          ),
+          ListTile(
+            leading: Icon(Icons.attach_file_rounded, color: theme.info),
+            title: Text('Attach File (@)', style: TextStyle(color: theme.text)),
+            subtitle: Text(
+              'Type @ in the input to search files',
+              style: TextStyle(color: theme.textMuted, fontSize: 12),
+            ),
+            onTap: () => Navigator.pop(context),
+          ),
+        ],
       ),
     );
   }
 
   void _showClaudeCodeToolsSheet() {
     final theme = OpenCodeTheme.of(context);
-    showModalBottomSheet(
+    DetailSheet.show(
       context: context,
-      isScrollControlled: true,
-      backgroundColor: Colors.transparent,
-      builder: (_) {
-        final screenHeight = MediaQuery.of(context).size.height;
-        final maxSheetHeight = screenHeight * 0.85;
-
-        return Container(
-          constraints: BoxConstraints(maxHeight: maxSheetHeight),
-          decoration: BoxDecoration(
-            color: theme.backgroundPanel,
-            borderRadius: const BorderRadius.vertical(top: Radius.circular(20)),
-            boxShadow: [
-              BoxShadow(
-                color: Colors.black.withValues(alpha: 0.3),
-                blurRadius: 20,
-                offset: const Offset(0, -4),
-              ),
-            ],
+      title: 'Claude Code Tools',
+      initialSize: 0.75,
+      trailing: Material(
+        color: Colors.transparent,
+        child: InkWell(
+          onTap: () => showClaudeCodeHelpSheet(
+            context,
+            topic: ClaudeCodeHelpTopic.toolsOverview,
           ),
-          child: SafeArea(
-            top: false,
-            child: Consumer(
-              builder: (context, ref, _) {
-                final chatState = ref.watch(chatSessionProvider);
-                final init = chatState.ccInit;
-                final configAsync = ref.watch(ccConfigProvider);
+          borderRadius: BorderRadius.circular(20),
+          child: Container(
+            padding: const EdgeInsets.all(8),
+            decoration: BoxDecoration(
+              color: theme.textMuted.withValues(alpha: 0.1),
+              shape: BoxShape.circle,
+            ),
+            child: Icon(
+              Icons.help_outline_rounded,
+              color: theme.textMuted,
+              size: 20,
+            ),
+          ),
+        ),
+      ),
+      child: Consumer(
+        builder: (context, ref, _) {
+          final chatState = ref.watch(chatSessionProvider);
+          final init = chatState.ccInit;
+          final configAsync = ref.watch(ccConfigProvider);
 
-                final config =
-                    configAsync.valueOrNull ??
-                    ClaudeCodeConfig(
-                      permissionMode: ClaudeCodePermissionMode.defaultMode,
-                      allowedTools: init?.tools ?? const [],
-                      disallowedTools: const [],
-                      model: init?.model,
-                    );
+          final config =
+              configAsync.valueOrNull ??
+              ClaudeCodeConfig(
+                permissionMode: ClaudeCodePermissionMode.defaultMode,
+                allowedTools: init?.tools ?? const [],
+                disallowedTools: const [],
+                model: init?.model,
+              );
 
-                final toolUniverse = <String>{
-                  ...config.allowedTools,
-                  ...config.disallowedTools,
-                  ...?init?.tools,
-                }.toList()..sort();
+          final toolUniverse = <String>{
+            ...config.allowedTools,
+            ...config.disallowedTools,
+            ...?init?.tools,
+          }.toList()..sort();
 
-                void updateConfig(ClaudeCodeConfig next) {
-                  ref.read(ccConfigProvider.notifier).updateConfig(next);
-                }
+          void updateConfig(ClaudeCodeConfig next) {
+            ref.read(ccConfigProvider.notifier).updateConfig(next);
+          }
 
-                return Column(
-                  mainAxisSize: MainAxisSize.min,
+          return Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Padding(
+                padding: const EdgeInsets.fromLTRB(20, 16, 20, 24),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    // Drag handle
-                    Container(
-                      margin: const EdgeInsets.only(top: 12, bottom: 8),
-                      width: 40,
-                      height: 4,
-                      decoration: BoxDecoration(
-                        color: theme.textMuted.withValues(alpha: 0.3),
-                        borderRadius: BorderRadius.circular(2),
+                    // Permission mode
+                    _buildSettingsRow(
+                      theme,
+                      'Permission mode',
+                      _buildStyledDropdown<ClaudeCodePermissionMode>(
+                        theme: theme,
+                        value: config.permissionMode,
+                        items: ClaudeCodePermissionMode.values
+                            .map(
+                              (m) => DropdownMenuItem(
+                                value: m,
+                                child: Text(m.displayName),
+                              ),
+                            )
+                            .toList(),
+                        onChanged: (value) {
+                          if (value == null) return;
+                          updateConfig(config.copyWith(permissionMode: value));
+                        },
                       ),
                     ),
 
-                    // Header with close button
-                    Padding(
-                      padding: const EdgeInsets.fromLTRB(20, 8, 12, 0),
-                      child: Row(
+                    const SizedBox(height: 16),
+
+                    // System prompt
+                    _buildSettingsRow(
+                      theme,
+                      'System prompt',
+                      _buildStyledDropdown<String>(
+                        theme: theme,
+                        value: config.systemPrompt?.isEmpty ?? true
+                            ? 'none'
+                            : config.systemPrompt?.preset != null
+                            ? 'preset'
+                            : 'custom',
+                        items: const [
+                          DropdownMenuItem(value: 'none', child: Text('None')),
+                          DropdownMenuItem(
+                            value: 'preset',
+                            child: Text('Claude Code'),
+                          ),
+                          DropdownMenuItem(
+                            value: 'custom',
+                            child: Text('Custom...'),
+                          ),
+                        ],
+                        onChanged: (value) async {
+                          if (value == null) return;
+                          if (value == 'none') {
+                            updateConfig(
+                              config.copyWith(
+                                systemPrompt: const ClaudeCodeSystemPrompt(),
+                              ),
+                            );
+                          } else if (value == 'preset') {
+                            updateConfig(
+                              config.copyWith(
+                                systemPrompt: const ClaudeCodeSystemPrompt(
+                                  preset: 'claude_code',
+                                ),
+                              ),
+                            );
+                          } else if (value == 'custom') {
+                            final customText = await _promptSystemPromptText();
+                            if (customText != null && customText.isNotEmpty) {
+                              updateConfig(
+                                config.copyWith(
+                                  systemPrompt: ClaudeCodeSystemPrompt(
+                                    text: customText,
+                                  ),
+                                ),
+                              );
+                            }
+                          }
+                        },
+                      ),
+                    ),
+
+                    const SizedBox(height: 20),
+                    Divider(
+                      color: theme.borderSubtle.withValues(alpha: 0.5),
+                      height: 1,
+                    ),
+                    const SizedBox(height: 20),
+
+                    // Subagent selector
+                    _buildSettingsTile(
+                      theme: theme,
+                      icon: Icons.account_tree_rounded,
+                      iconColor: theme.info,
+                      title: 'Subagents',
+                      subtitle: 'Delegate specialized tasks',
+                      trailing: Row(
+                        mainAxisSize: MainAxisSize.min,
                         children: [
-                          Container(
-                            padding: const EdgeInsets.all(8),
-                            decoration: BoxDecoration(
-                              color: theme.accent.withValues(alpha: 0.15),
-                              borderRadius: BorderRadius.circular(10),
-                            ),
-                            child: Icon(
-                              Icons.tune_rounded,
-                              color: theme.accent,
-                              size: 20,
-                            ),
-                          ),
-                          const SizedBox(width: 12),
-                          Expanded(
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                Text(
-                                  'Claude Code Tools',
-                                  style: TextStyle(
-                                    color: theme.text,
-                                    fontSize: 17,
-                                    fontWeight: FontWeight.w700,
-                                  ),
+                          _buildStyledDropdown<String?>(
+                            theme: theme,
+                            value: config.activeSubagent,
+                            hint: 'None',
+                            items: [
+                              const DropdownMenuItem<String?>(
+                                value: null,
+                                child: Text('None'),
+                              ),
+                              ...config.subagents.map(
+                                (s) => DropdownMenuItem<String?>(
+                                  value: s.name,
+                                  child: Text(s.name),
                                 ),
-                                const SizedBox(height: 2),
-                                Text(
-                                  'Permissions & tool configuration',
-                                  style: TextStyle(
-                                    color: theme.textMuted,
-                                    fontSize: 12,
-                                  ),
-                                ),
-                              ],
-                            ),
+                              ),
+                            ],
+                            onChanged: (value) {
+                              ref
+                                  .read(ccConfigProvider.notifier)
+                                  .setActiveSubagent(value);
+                            },
                           ),
-                          Material(
-                            color: Colors.transparent,
-                            child: InkWell(
-                              onTap: () => showClaudeCodeHelpSheet(
+                          const SizedBox(width: 4),
+                          _buildSettingsIconButton(
+                            theme: theme,
+                            icon: Icons.chevron_right_rounded,
+                            onTap: () {
+                              Navigator.pop(context);
+                              Navigator.push(
                                 context,
-                                topic: ClaudeCodeHelpTopic.toolsOverview,
-                              ),
-                              borderRadius: BorderRadius.circular(20),
-                              child: Container(
-                                padding: const EdgeInsets.all(8),
-                                decoration: BoxDecoration(
-                                  color: theme.textMuted.withValues(alpha: 0.1),
-                                  shape: BoxShape.circle,
+                                MaterialPageRoute(
+                                  builder: (_) => const SubagentsScreen(),
                                 ),
-                                child: Icon(
-                                  Icons.help_outline_rounded,
-                                  color: theme.textMuted,
-                                  size: 20,
-                                ),
-                              ),
-                            ),
-                          ),
-                          const SizedBox(width: 6),
-                          Material(
-                            color: Colors.transparent,
-                            child: InkWell(
-                              onTap: () => Navigator.pop(context),
-                              borderRadius: BorderRadius.circular(20),
-                              child: Container(
-                                padding: const EdgeInsets.all(8),
-                                decoration: BoxDecoration(
-                                  color: theme.textMuted.withValues(alpha: 0.1),
-                                  shape: BoxShape.circle,
-                                ),
-                                child: Icon(
-                                  Icons.close_rounded,
-                                  color: theme.textMuted,
-                                  size: 20,
-                                ),
-                              ),
-                            ),
+                              );
+                            },
                           ),
                         ],
                       ),
                     ),
 
-                    const SizedBox(height: 16),
+                    const SizedBox(height: 12),
+
+                    // Custom Tools section
+                    _buildSettingsTile(
+                      theme: theme,
+                      icon: Icons.build_rounded,
+                      iconColor: theme.warning,
+                      title: 'Custom Tools',
+                      subtitle: 'mcp__broski-custom-tools__<name>',
+                      trailing: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Consumer(
+                            builder: (context, ref, _) {
+                              final customToolsAsync = ref.watch(
+                                ccCustomToolsProvider,
+                              );
+                              return customToolsAsync.when(
+                                data: (tools) {
+                                  final enabledCount = tools
+                                      .where((t) => t.enabled)
+                                      .length;
+                                  return _buildCountBadge(theme, enabledCount);
+                                },
+                                loading: () => SizedBox(
+                                  width: 14,
+                                  height: 14,
+                                  child: CircularProgressIndicator(
+                                    strokeWidth: 1.5,
+                                    color: theme.textMuted,
+                                  ),
+                                ),
+                                error: (_, __) => Icon(
+                                  Icons.error_outline,
+                                  size: 16,
+                                  color: theme.error,
+                                ),
+                              );
+                            },
+                          ),
+                          const SizedBox(width: 8),
+                          _buildSettingsIconButton(
+                            theme: theme,
+                            icon: Icons.chevron_right_rounded,
+                            onTap: () {
+                              Navigator.pop(context);
+                              Navigator.push(
+                                context,
+                                MaterialPageRoute(
+                                  builder: (_) => const CustomToolsScreen(),
+                                ),
+                              );
+                            },
+                          ),
+                        ],
+                      ),
+                    ),
+
+                    const SizedBox(height: 12),
+
+                    // Plugins section
+                    _buildSettingsTile(
+                      theme: theme,
+                      icon: Icons.extension_rounded,
+                      iconColor: theme.success,
+                      title: 'Plugins',
+                      subtitle: 'Commands, skills, hooks, MCP servers',
+                      trailing: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Consumer(
+                            builder: (context, ref, _) {
+                              final pluginsAsync = ref.watch(ccPluginsProvider);
+                              return pluginsAsync.when(
+                                data: (plugins) {
+                                  final enabledCount = plugins
+                                      .where(
+                                        (p) =>
+                                            p.status ==
+                                            ClaudeCodePluginStatus.enabled,
+                                      )
+                                      .length;
+                                  return _buildCountBadge(theme, enabledCount);
+                                },
+                                loading: () => SizedBox(
+                                  width: 14,
+                                  height: 14,
+                                  child: CircularProgressIndicator(
+                                    strokeWidth: 1.5,
+                                    color: theme.textMuted,
+                                  ),
+                                ),
+                                error: (_, __) => Icon(
+                                  Icons.error_outline,
+                                  size: 16,
+                                  color: theme.error,
+                                ),
+                              );
+                            },
+                          ),
+                          const SizedBox(width: 8),
+                          _buildSettingsIconButton(
+                            theme: theme,
+                            icon: Icons.chevron_right_rounded,
+                            onTap: () {
+                              Navigator.pop(context);
+                              Navigator.push(
+                                context,
+                                MaterialPageRoute(
+                                  builder: (_) => const PluginsScreen(),
+                                ),
+                              );
+                            },
+                          ),
+                        ],
+                      ),
+                    ),
+
+                    const SizedBox(height: 20),
                     Divider(
                       color: theme.borderSubtle.withValues(alpha: 0.5),
                       height: 1,
                     ),
+                    const SizedBox(height: 16),
 
-                    // Scrollable content
-                    Flexible(
-                      child: SingleChildScrollView(
-                        padding: const EdgeInsets.fromLTRB(20, 16, 20, 24),
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            // Permission mode
-                            _buildSettingsRow(
-                              theme,
-                              'Permission mode',
-                              _buildStyledDropdown<ClaudeCodePermissionMode>(
-                                theme: theme,
-                                value: config.permissionMode,
-                                items: ClaudeCodePermissionMode.values
-                                    .map(
-                                      (m) => DropdownMenuItem(
-                                        value: m,
-                                        child: Text(m.displayName),
-                                      ),
-                                    )
-                                    .toList(),
-                                onChanged: (value) {
-                                  if (value == null) return;
-                                  updateConfig(
-                                    config.copyWith(permissionMode: value),
-                                  );
-                                },
-                              ),
-                            ),
-
-                            const SizedBox(height: 16),
-
-                            // System prompt
-                            _buildSettingsRow(
-                              theme,
-                              'System prompt',
-                              _buildStyledDropdown<String>(
-                                theme: theme,
-                                value: config.systemPrompt?.isEmpty ?? true
-                                    ? 'none'
-                                    : config.systemPrompt?.preset != null
-                                    ? 'preset'
-                                    : 'custom',
-                                items: const [
-                                  DropdownMenuItem(
-                                    value: 'none',
-                                    child: Text('None'),
-                                  ),
-                                  DropdownMenuItem(
-                                    value: 'preset',
-                                    child: Text('Claude Code'),
-                                  ),
-                                  DropdownMenuItem(
-                                    value: 'custom',
-                                    child: Text('Custom...'),
-                                  ),
-                                ],
-                                onChanged: (value) async {
-                                  if (value == null) return;
-                                  if (value == 'none') {
-                                    updateConfig(
-                                      config.copyWith(
-                                        systemPrompt:
-                                            const ClaudeCodeSystemPrompt(),
-                                      ),
-                                    );
-                                  } else if (value == 'preset') {
-                                    updateConfig(
-                                      config.copyWith(
-                                        systemPrompt:
-                                            const ClaudeCodeSystemPrompt(
-                                              preset: 'claude_code',
-                                            ),
-                                      ),
-                                    );
-                                  } else if (value == 'custom') {
-                                    final customText =
-                                        await _promptSystemPromptText();
-                                    if (customText != null &&
-                                        customText.isNotEmpty) {
-                                      updateConfig(
-                                        config.copyWith(
-                                          systemPrompt: ClaudeCodeSystemPrompt(
-                                            text: customText,
-                                          ),
-                                        ),
-                                      );
-                                    }
-                                  }
-                                },
-                              ),
-                            ),
-
-                            const SizedBox(height: 20),
-                            Divider(
-                              color: theme.borderSubtle.withValues(alpha: 0.5),
-                              height: 1,
-                            ),
-                            const SizedBox(height: 20),
-
-                            // Subagent selector
-                            _buildSettingsTile(
-                              theme: theme,
-                              icon: Icons.account_tree_rounded,
-                              iconColor: theme.info,
-                              title: 'Subagents',
-                              subtitle: 'Delegate specialized tasks',
-                              trailing: Row(
-                                mainAxisSize: MainAxisSize.min,
-                                children: [
-                                  _buildStyledDropdown<String?>(
-                                    theme: theme,
-                                    value: config.activeSubagent,
-                                    hint: 'None',
-                                    items: [
-                                      const DropdownMenuItem<String?>(
-                                        value: null,
-                                        child: Text('None'),
-                                      ),
-                                      ...config.subagents.map(
-                                        (s) => DropdownMenuItem<String?>(
-                                          value: s.name,
-                                          child: Text(s.name),
-                                        ),
-                                      ),
-                                    ],
-                                    onChanged: (value) {
-                                      ref
-                                          .read(ccConfigProvider.notifier)
-                                          .setActiveSubagent(value);
-                                    },
-                                  ),
-                                  const SizedBox(width: 4),
-                                  _buildSettingsIconButton(
-                                    theme: theme,
-                                    icon: Icons.chevron_right_rounded,
-                                    onTap: () {
-                                      Navigator.pop(context);
-                                      Navigator.push(
-                                        context,
-                                        MaterialPageRoute(
-                                          builder: (_) =>
-                                              const SubagentsScreen(),
-                                        ),
-                                      );
-                                    },
-                                  ),
-                                ],
-                              ),
-                            ),
-
-                            const SizedBox(height: 12),
-
-                            // Custom Tools section
-                            _buildSettingsTile(
-                              theme: theme,
-                              icon: Icons.build_rounded,
-                              iconColor: theme.warning,
-                              title: 'Custom Tools',
-                              subtitle: 'mcp__broski-custom-tools__<name>',
-                              trailing: Row(
-                                mainAxisSize: MainAxisSize.min,
-                                children: [
-                                  Consumer(
-                                    builder: (context, ref, _) {
-                                      final customToolsAsync = ref.watch(
-                                        ccCustomToolsProvider,
-                                      );
-                                      return customToolsAsync.when(
-                                        data: (tools) {
-                                          final enabledCount = tools
-                                              .where((t) => t.enabled)
-                                              .length;
-                                          return _buildCountBadge(
-                                            theme,
-                                            enabledCount,
-                                          );
-                                        },
-                                        loading: () => SizedBox(
-                                          width: 14,
-                                          height: 14,
-                                          child: CircularProgressIndicator(
-                                            strokeWidth: 1.5,
-                                            color: theme.textMuted,
-                                          ),
-                                        ),
-                                        error: (_, __) => Icon(
-                                          Icons.error_outline,
-                                          size: 16,
-                                          color: theme.error,
-                                        ),
-                                      );
-                                    },
-                                  ),
-                                  const SizedBox(width: 8),
-                                  _buildSettingsIconButton(
-                                    theme: theme,
-                                    icon: Icons.chevron_right_rounded,
-                                    onTap: () {
-                                      Navigator.pop(context);
-                                      Navigator.push(
-                                        context,
-                                        MaterialPageRoute(
-                                          builder: (_) =>
-                                              const CustomToolsScreen(),
-                                        ),
-                                      );
-                                    },
-                                  ),
-                                ],
-                              ),
-                            ),
-
-                            const SizedBox(height: 12),
-
-                            // Plugins section
-                            _buildSettingsTile(
-                              theme: theme,
-                              icon: Icons.extension_rounded,
-                              iconColor: theme.success,
-                              title: 'Plugins',
-                              subtitle: 'Commands, skills, hooks, MCP servers',
-                              trailing: Row(
-                                mainAxisSize: MainAxisSize.min,
-                                children: [
-                                  Consumer(
-                                    builder: (context, ref, _) {
-                                      final pluginsAsync = ref.watch(
-                                        ccPluginsProvider,
-                                      );
-                                      return pluginsAsync.when(
-                                        data: (plugins) {
-                                          final enabledCount = plugins
-                                              .where(
-                                                (p) =>
-                                                    p.status ==
-                                                    ClaudeCodePluginStatus
-                                                        .enabled,
-                                              )
-                                              .length;
-                                          return _buildCountBadge(
-                                            theme,
-                                            enabledCount,
-                                          );
-                                        },
-                                        loading: () => SizedBox(
-                                          width: 14,
-                                          height: 14,
-                                          child: CircularProgressIndicator(
-                                            strokeWidth: 1.5,
-                                            color: theme.textMuted,
-                                          ),
-                                        ),
-                                        error: (_, __) => Icon(
-                                          Icons.error_outline,
-                                          size: 16,
-                                          color: theme.error,
-                                        ),
-                                      );
-                                    },
-                                  ),
-                                  const SizedBox(width: 8),
-                                  _buildSettingsIconButton(
-                                    theme: theme,
-                                    icon: Icons.chevron_right_rounded,
-                                    onTap: () {
-                                      Navigator.pop(context);
-                                      Navigator.push(
-                                        context,
-                                        MaterialPageRoute(
-                                          builder: (_) => const PluginsScreen(),
-                                        ),
-                                      );
-                                    },
-                                  ),
-                                ],
-                              ),
-                            ),
-
-                            const SizedBox(height: 20),
-                            Divider(
-                              color: theme.borderSubtle.withValues(alpha: 0.5),
-                              height: 1,
-                            ),
-                            const SizedBox(height: 16),
-
-                            // Tools list header
-                            Row(
-                              children: [
-                                Icon(
-                                  Icons.construction_rounded,
-                                  size: 16,
-                                  color: theme.textMuted,
-                                ),
-                                const SizedBox(width: 8),
-                                Text(
-                                  'Built-in Tools',
-                                  style: TextStyle(
-                                    color: theme.text,
-                                    fontSize: 14,
-                                    fontWeight: FontWeight.w600,
-                                  ),
-                                ),
-                                const Spacer(),
-                                Text(
-                                  '${toolUniverse.length} tools',
-                                  style: TextStyle(
-                                    color: theme.textMuted,
-                                    fontSize: 12,
-                                  ),
-                                ),
-                              ],
-                            ),
-                            const SizedBox(height: 12),
-
-                            // Tools list
-                            ...toolUniverse.map((tool) {
-                              final enabled = !config.disallowedTools.contains(
-                                tool,
-                              );
-                              return _buildToolToggleRow(
-                                theme: theme,
-                                tool: tool,
-                                enabled: enabled,
-                                onChanged: (v) {
-                                  final allowed = [...config.allowedTools];
-                                  final disallowed = [
-                                    ...config.disallowedTools,
-                                  ];
-
-                                  if (v) {
-                                    disallowed.remove(tool);
-                                    if (!allowed.contains(tool)) {
-                                      allowed.add(tool);
-                                    }
-                                  } else {
-                                    allowed.remove(tool);
-                                    if (!disallowed.contains(tool)) {
-                                      disallowed.add(tool);
-                                    }
-                                  }
-
-                                  updateConfig(
-                                    config.copyWith(
-                                      allowedTools: allowed,
-                                      disallowedTools: disallowed,
-                                    ),
-                                  );
-                                },
-                              );
-                            }),
-                          ],
+                    // Tools list header
+                    Row(
+                      children: [
+                        Icon(
+                          Icons.construction_rounded,
+                          size: 16,
+                          color: theme.textMuted,
                         ),
-                      ),
+                        const SizedBox(width: 8),
+                        Text(
+                          'Built-in Tools',
+                          style: TextStyle(
+                            color: theme.text,
+                            fontSize: 14,
+                            fontWeight: FontWeight.w600,
+                          ),
+                        ),
+                        const Spacer(),
+                        Text(
+                          '${toolUniverse.length} tools',
+                          style: TextStyle(
+                            color: theme.textMuted,
+                            fontSize: 12,
+                          ),
+                        ),
+                      ],
                     ),
+                    const SizedBox(height: 12),
+
+                    // Tools list
+                    ...toolUniverse.map((tool) {
+                      final enabled = !config.disallowedTools.contains(tool);
+                      return _buildToolToggleRow(
+                        theme: theme,
+                        tool: tool,
+                        enabled: enabled,
+                        onChanged: (v) {
+                          final allowed = [...config.allowedTools];
+                          final disallowed = [...config.disallowedTools];
+
+                          if (v) {
+                            disallowed.remove(tool);
+                            if (!allowed.contains(tool)) {
+                              allowed.add(tool);
+                            }
+                          } else {
+                            allowed.remove(tool);
+                            if (!disallowed.contains(tool)) {
+                              disallowed.add(tool);
+                            }
+                          }
+
+                          updateConfig(
+                            config.copyWith(
+                              allowedTools: allowed,
+                              disallowedTools: disallowed,
+                            ),
+                          );
+                        },
+                      );
+                    }),
                   ],
-                );
-              },
-            ),
-          ),
-        );
-      },
+                ),
+              ),
+            ],
+          );
+        },
+      ),
     );
   }
 
@@ -2806,502 +2652,281 @@ class _ChatScreenState extends ConsumerState<ChatScreen>
 
   void _showClaudeCodeCommandsSheet() {
     final theme = OpenCodeTheme.of(context);
-    showModalBottomSheet(
+    DetailSheet.show(
       context: context,
-      isScrollControlled: true,
-      backgroundColor: Colors.transparent,
-      builder: (_) {
-        return SafeArea(
-          child: Container(
-            decoration: BoxDecoration(
-              color: theme.backgroundPanel,
-              borderRadius: const BorderRadius.vertical(
-                top: Radius.circular(18),
-              ),
-              border: Border.all(
-                color: theme.borderSubtle.withValues(alpha: 0.2),
-              ),
-            ),
-            padding: const EdgeInsets.fromLTRB(16, 16, 16, 20),
-            child: Consumer(
-              builder: (context, ref, _) {
-                final chatState = ref.watch(chatSessionProvider);
-                final cwd = chatState.ccCwd;
-                final builtins = chatState.ccInit?.slashCommands ?? const [];
-                final customAsync = ref.watch(ccCommandsProvider(cwd));
+      title: 'Commands',
+      initialSize: 0.5,
+      child: Consumer(
+        builder: (context, ref, _) {
+          final chatState = ref.watch(chatSessionProvider);
+          final cwd = chatState.ccCwd;
+          final builtins = chatState.ccInit?.slashCommands ?? const [];
+          final customAsync = ref.watch(ccCommandsProvider(cwd));
 
-                List<String> custom = const [];
-                if (customAsync.hasValue) {
-                  custom = customAsync.value!
-                      .map((c) => '/${c.name}')
-                      .toList(growable: false);
-                }
+          List<String> custom = const [];
+          if (customAsync.hasValue) {
+            custom = customAsync.value!
+                .map((c) => '/${c.name}')
+                .toList(growable: false);
+          }
 
-                final all = <String>{...builtins, ...custom}.toList()..sort();
+          final all = <String>{...builtins, ...custom}.toList()..sort();
 
-                return Column(
-                  mainAxisSize: MainAxisSize.min,
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Row(
-                      children: [
-                        Icon(Icons.bolt_rounded, color: theme.accent, size: 18),
-                        const SizedBox(width: 10),
-                        Expanded(
-                          child: Text(
-                            'Commands',
-                            style: TextStyle(
-                              color: theme.text,
-                              fontSize: 16,
-                              fontWeight: FontWeight.w700,
-                            ),
-                          ),
-                        ),
-                        IconButton(
-                          onPressed: () => Navigator.pop(context),
-                          icon: Icon(
-                            Icons.close_rounded,
-                            color: theme.textMuted,
-                          ),
-                        ),
-                      ],
+          return Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 16),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                if (all.isEmpty)
+                  Padding(
+                    padding: const EdgeInsets.only(top: 8),
+                    child: Text(
+                      'No commands found for this project.',
+                      style: TextStyle(color: theme.textMuted, fontSize: 13),
                     ),
-                    const SizedBox(height: 8),
-                    if (all.isEmpty)
-                      Padding(
-                        padding: const EdgeInsets.only(top: 8),
-                        child: Text(
-                          'No commands found for this project.',
-                          style: TextStyle(
-                            color: theme.textMuted,
-                            fontSize: 13,
-                          ),
-                        ),
-                      )
-                    else
-                      Flexible(
-                        child: ListView.builder(
-                          shrinkWrap: true,
-                          itemCount: all.length,
-                          itemBuilder: (context, index) {
-                            final cmd = all[index];
-                            return ListTile(
-                              dense: true,
-                              contentPadding: EdgeInsets.zero,
-                              leading: Icon(
-                                Icons.chevron_right_rounded,
-                                color: theme.textMuted,
-                                size: 18,
-                              ),
-                              title: Text(
-                                cmd,
-                                style: TextStyle(
-                                  color: theme.text,
-                                  fontSize: 13,
-                                ),
-                              ),
-                              onTap: () {
-                                final normalized = cmd.startsWith('/')
-                                    ? cmd
-                                    : '/$cmd';
-                                _controller.text = '$normalized ';
-                                _controller
-                                    .selection = TextSelection.fromPosition(
-                                  TextPosition(offset: _controller.text.length),
-                                );
-                                Navigator.pop(context);
-                                WidgetsBinding.instance.addPostFrameCallback((
-                                  _,
-                                ) {
-                                  if (mounted) _inputFocusNode.requestFocus();
-                                });
-                              },
-                            );
-                          },
-                        ),
+                  )
+                else
+                  ...all.map(
+                    (cmd) => ListTile(
+                      dense: true,
+                      contentPadding: EdgeInsets.zero,
+                      leading: Icon(
+                        Icons.chevron_right_rounded,
+                        color: theme.textMuted,
+                        size: 18,
                       ),
-                  ],
-                );
-              },
+                      title: Text(
+                        cmd,
+                        style: TextStyle(color: theme.text, fontSize: 13),
+                      ),
+                      onTap: () {
+                        final normalized = cmd.startsWith('/') ? cmd : '/$cmd';
+                        _controller.text = '$normalized ';
+                        _controller.selection = TextSelection.fromPosition(
+                          TextPosition(offset: _controller.text.length),
+                        );
+                        Navigator.pop(context);
+                        WidgetsBinding.instance.addPostFrameCallback((_) {
+                          if (mounted) _inputFocusNode.requestFocus();
+                        });
+                      },
+                    ),
+                  ),
+              ],
             ),
-          ),
-        );
-      },
+          );
+        },
+      ),
     );
   }
 
   void _showClaudeCodeSkillsSheet() {
     final theme = OpenCodeTheme.of(context);
-    showModalBottomSheet(
+    DetailSheet.show(
       context: context,
-      isScrollControlled: true,
-      backgroundColor: Colors.transparent,
-      builder: (_) {
-        return SafeArea(
-          child: Container(
-            decoration: BoxDecoration(
-              color: theme.backgroundPanel,
-              borderRadius: const BorderRadius.vertical(
-                top: Radius.circular(18),
-              ),
-              border: Border.all(
-                color: theme.borderSubtle.withValues(alpha: 0.2),
-              ),
-            ),
-            padding: const EdgeInsets.fromLTRB(16, 16, 16, 20),
-            child: Consumer(
-              builder: (context, ref, _) {
-                final cwd = ref.watch(chatSessionProvider).ccCwd;
-                final skillsAsync = ref.watch(ccSkillsProvider(cwd));
+      title: 'Skills',
+      initialSize: 0.5,
+      child: Consumer(
+        builder: (context, ref, _) {
+          final cwd = ref.watch(chatSessionProvider).ccCwd;
+          final skillsAsync = ref.watch(ccSkillsProvider(cwd));
 
+          return Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 16),
+            child: skillsAsync.when(
+              data: (skills) {
+                if (skills.isEmpty) {
+                  return Padding(
+                    padding: const EdgeInsets.only(top: 8),
+                    child: Text(
+                      'No skills found.',
+                      style: TextStyle(color: theme.textMuted, fontSize: 13),
+                    ),
+                  );
+                }
                 return Column(
                   mainAxisSize: MainAxisSize.min,
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Row(
-                      children: [
-                        Icon(
-                          Icons.auto_awesome_rounded,
-                          color: theme.accent,
-                          size: 18,
-                        ),
-                        const SizedBox(width: 10),
-                        Expanded(
-                          child: Text(
-                            'Skills',
-                            style: TextStyle(
-                              color: theme.text,
-                              fontSize: 16,
-                              fontWeight: FontWeight.w700,
-                            ),
+                  children: skills
+                      .map(
+                        (s) => ListTile(
+                          dense: true,
+                          contentPadding: EdgeInsets.zero,
+                          title: Text(
+                            s.name,
+                            style: TextStyle(color: theme.text, fontSize: 13),
                           ),
-                        ),
-                        IconButton(
-                          onPressed: () => Navigator.pop(context),
-                          icon: Icon(
-                            Icons.close_rounded,
-                            color: theme.textMuted,
-                          ),
-                        ),
-                      ],
-                    ),
-                    const SizedBox(height: 8),
-                    skillsAsync.when(
-                      data: (skills) {
-                        if (skills.isEmpty) {
-                          return Padding(
-                            padding: const EdgeInsets.only(top: 8),
-                            child: Text(
-                              'No skills found.',
-                              style: TextStyle(
-                                color: theme.textMuted,
-                                fontSize: 13,
-                              ),
-                            ),
-                          );
-                        }
-                        return Flexible(
-                          child: ListView.builder(
-                            shrinkWrap: true,
-                            itemCount: skills.length,
-                            itemBuilder: (context, index) {
-                              final s = skills[index];
-                              return ListTile(
-                                dense: true,
-                                contentPadding: EdgeInsets.zero,
-                                title: Text(
-                                  s.name,
-                                  style: TextStyle(
-                                    color: theme.text,
-                                    fontSize: 13,
-                                  ),
-                                ),
-                                subtitle: s.description == null
-                                    ? null
-                                    : Text(
-                                        s.description!,
-                                        style: TextStyle(
-                                          color: theme.textMuted,
-                                          fontSize: 12,
-                                        ),
-                                      ),
-                                trailing: s.autoInvoke
-                                    ? Container(
-                                        padding: const EdgeInsets.symmetric(
-                                          horizontal: 8,
-                                          vertical: 4,
-                                        ),
-                                        decoration: BoxDecoration(
-                                          color: theme.success.withValues(
-                                            alpha: 0.15,
-                                          ),
-                                          borderRadius: BorderRadius.circular(
-                                            8,
-                                          ),
-                                        ),
-                                        child: Text(
-                                          'Auto',
-                                          style: TextStyle(
-                                            color: theme.success,
-                                            fontSize: 11,
-                                            fontWeight: FontWeight.w600,
-                                          ),
-                                        ),
-                                      )
-                                    : null,
-                              );
-                            },
-                          ),
-                        );
-                      },
-                      loading: () => Padding(
-                        padding: const EdgeInsets.only(top: 16),
-                        child: Center(
-                          child: CircularProgressIndicator(
-                            color: theme.primary,
-                          ),
-                        ),
-                      ),
-                      error: (e, _) => Padding(
-                        padding: const EdgeInsets.only(top: 8),
-                        child: Text(
-                          '$e',
-                          style: TextStyle(color: theme.error, fontSize: 13),
-                        ),
-                      ),
-                    ),
-                  ],
-                );
-              },
-            ),
-          ),
-        );
-      },
-    );
-  }
-
-  void _showClaudeCodeHooksSheet() {
-    final theme = OpenCodeTheme.of(context);
-    showModalBottomSheet(
-      context: context,
-      isScrollControlled: true,
-      backgroundColor: Colors.transparent,
-      builder: (_) {
-        return SafeArea(
-          child: Container(
-            decoration: BoxDecoration(
-              color: theme.backgroundPanel,
-              borderRadius: const BorderRadius.vertical(
-                top: Radius.circular(18),
-              ),
-              border: Border.all(
-                color: theme.borderSubtle.withValues(alpha: 0.2),
-              ),
-            ),
-            padding: const EdgeInsets.fromLTRB(16, 16, 16, 20),
-            child: Consumer(
-              builder: (context, ref, _) {
-                final cwd = ref.watch(chatSessionProvider).ccCwd;
-                final hooksAsync = ref.watch(ccHooksProvider(cwd));
-
-                return Column(
-                  mainAxisSize: MainAxisSize.min,
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Row(
-                      children: [
-                        Icon(Icons.link_rounded, color: theme.accent, size: 18),
-                        const SizedBox(width: 10),
-                        Expanded(
-                          child: Text(
-                            'Hooks',
-                            style: TextStyle(
-                              color: theme.text,
-                              fontSize: 16,
-                              fontWeight: FontWeight.w700,
-                            ),
-                          ),
-                        ),
-                        IconButton(
-                          onPressed: () => Navigator.pop(context),
-                          icon: Icon(
-                            Icons.close_rounded,
-                            color: theme.textMuted,
-                          ),
-                        ),
-                      ],
-                    ),
-                    const SizedBox(height: 8),
-                    hooksAsync.when(
-                      data: (hooks) {
-                        if (hooks.isEmpty) {
-                          return Padding(
-                            padding: const EdgeInsets.only(top: 8),
-                            child: Text(
-                              'No hooks found.',
-                              style: TextStyle(
-                                color: theme.textMuted,
-                                fontSize: 13,
-                              ),
-                            ),
-                          );
-                        }
-                        return Flexible(
-                          child: ListView.builder(
-                            shrinkWrap: true,
-                            itemCount: hooks.length,
-                            itemBuilder: (context, index) {
-                              final h = hooks[index];
-                              return ListTile(
-                                dense: true,
-                                contentPadding: EdgeInsets.zero,
-                                title: Text(
-                                  h.event,
-                                  style: TextStyle(
-                                    color: theme.text,
-                                    fontSize: 13,
-                                  ),
-                                ),
-                                subtitle: Text(
-                                  h.matcher == null
-                                      ? 'All tools'
-                                      : 'Matcher: ${h.matcher}',
+                          subtitle: s.description == null
+                              ? null
+                              : Text(
+                                  s.description!,
                                   style: TextStyle(
                                     color: theme.textMuted,
                                     fontSize: 12,
                                   ),
                                 ),
-                              );
-                            },
-                          ),
-                        );
-                      },
-                      loading: () => Padding(
-                        padding: const EdgeInsets.only(top: 16),
-                        child: Center(
-                          child: CircularProgressIndicator(
-                            color: theme.primary,
-                          ),
+                          trailing: s.autoInvoke
+                              ? Container(
+                                  padding: const EdgeInsets.symmetric(
+                                    horizontal: 8,
+                                    vertical: 4,
+                                  ),
+                                  decoration: BoxDecoration(
+                                    color: theme.success.withValues(
+                                      alpha: 0.15,
+                                    ),
+                                    borderRadius: BorderRadius.circular(8),
+                                  ),
+                                  child: Text(
+                                    'Auto',
+                                    style: TextStyle(
+                                      color: theme.success,
+                                      fontSize: 11,
+                                      fontWeight: FontWeight.w600,
+                                    ),
+                                  ),
+                                )
+                              : null,
                         ),
-                      ),
-                      error: (e, _) => Padding(
-                        padding: const EdgeInsets.only(top: 8),
-                        child: Text(
-                          '$e',
-                          style: TextStyle(color: theme.error, fontSize: 13),
-                        ),
-                      ),
-                    ),
-                  ],
+                      )
+                      .toList(),
                 );
               },
+              loading: () => Padding(
+                padding: const EdgeInsets.only(top: 16),
+                child: Center(
+                  child: CircularProgressIndicator(color: theme.primary),
+                ),
+              ),
+              error: (e, _) => Padding(
+                padding: const EdgeInsets.only(top: 8),
+                child: Text(
+                  '$e',
+                  style: TextStyle(color: theme.error, fontSize: 13),
+                ),
+              ),
             ),
-          ),
-        );
-      },
+          );
+        },
+      ),
+    );
+  }
+
+  void _showClaudeCodeHooksSheet() {
+    final theme = OpenCodeTheme.of(context);
+    DetailSheet.show(
+      context: context,
+      title: 'Hooks',
+      initialSize: 0.5,
+      child: Consumer(
+        builder: (context, ref, _) {
+          final cwd = ref.watch(chatSessionProvider).ccCwd;
+          final hooksAsync = ref.watch(ccHooksProvider(cwd));
+
+          return Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 16),
+            child: hooksAsync.when(
+              data: (hooks) {
+                if (hooks.isEmpty) {
+                  return Padding(
+                    padding: const EdgeInsets.only(top: 8),
+                    child: Text(
+                      'No hooks found.',
+                      style: TextStyle(color: theme.textMuted, fontSize: 13),
+                    ),
+                  );
+                }
+                return Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: hooks
+                      .map(
+                        (h) => ListTile(
+                          dense: true,
+                          contentPadding: EdgeInsets.zero,
+                          title: Text(
+                            h.event,
+                            style: TextStyle(color: theme.text, fontSize: 13),
+                          ),
+                          subtitle: Text(
+                            h.matcher == null
+                                ? 'All tools'
+                                : 'Matcher: ${h.matcher}',
+                            style: TextStyle(
+                              color: theme.textMuted,
+                              fontSize: 12,
+                            ),
+                          ),
+                        ),
+                      )
+                      .toList(),
+                );
+              },
+              loading: () => Padding(
+                padding: const EdgeInsets.only(top: 16),
+                child: Center(
+                  child: CircularProgressIndicator(color: theme.primary),
+                ),
+              ),
+              error: (e, _) => Padding(
+                padding: const EdgeInsets.only(top: 8),
+                child: Text(
+                  '$e',
+                  style: TextStyle(color: theme.error, fontSize: 13),
+                ),
+              ),
+            ),
+          );
+        },
+      ),
     );
   }
 
   void _showClaudeCodeMcpSheet() {
     final theme = OpenCodeTheme.of(context);
-    showModalBottomSheet(
+    DetailSheet.show(
       context: context,
-      isScrollControlled: true,
-      backgroundColor: Colors.transparent,
-      builder: (_) {
-        return SafeArea(
-          child: Container(
-            decoration: BoxDecoration(
-              color: theme.backgroundPanel,
-              borderRadius: const BorderRadius.vertical(
-                top: Radius.circular(18),
-              ),
-              border: Border.all(
-                color: theme.borderSubtle.withValues(alpha: 0.2),
-              ),
-            ),
-            padding: const EdgeInsets.fromLTRB(16, 16, 16, 20),
-            child: Consumer(
-              builder: (context, ref, _) {
-                final init = ref.watch(chatSessionProvider).ccInit;
-                final servers = init?.mcpServers ?? const [];
+      title: 'MCP Servers',
+      initialSize: 0.5,
+      child: Consumer(
+        builder: (context, ref, _) {
+          final init = ref.watch(chatSessionProvider).ccInit;
+          final servers = init?.mcpServers ?? const [];
 
-                return Column(
-                  mainAxisSize: MainAxisSize.min,
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Row(
-                      children: [
-                        Icon(Icons.hub_rounded, color: theme.accent, size: 18),
-                        const SizedBox(width: 10),
-                        Expanded(
-                          child: Text(
-                            'MCP Servers',
-                            style: TextStyle(
-                              color: theme.text,
-                              fontSize: 16,
-                              fontWeight: FontWeight.w700,
+          return Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 16),
+            child: servers.isEmpty
+                ? Padding(
+                    padding: const EdgeInsets.only(top: 8),
+                    child: Text(
+                      'No MCP servers reported yet (start a turn to initialize).',
+                      style: TextStyle(color: theme.textMuted, fontSize: 13),
+                    ),
+                  )
+                : Column(
+                    mainAxisSize: MainAxisSize.min,
+                    children: servers
+                        .map(
+                          (s) => ListTile(
+                            dense: true,
+                            contentPadding: EdgeInsets.zero,
+                            title: Text(
+                              s['name']?.toString() ?? 'server',
+                              style: TextStyle(color: theme.text, fontSize: 13),
+                            ),
+                            subtitle: Text(
+                              s['status']?.toString() ?? '',
+                              style: TextStyle(
+                                color: theme.textMuted,
+                                fontSize: 12,
+                              ),
                             ),
                           ),
-                        ),
-                        IconButton(
-                          onPressed: () => Navigator.pop(context),
-                          icon: Icon(
-                            Icons.close_rounded,
-                            color: theme.textMuted,
-                          ),
-                        ),
-                      ],
-                    ),
-                    const SizedBox(height: 8),
-                    if (servers.isEmpty)
-                      Padding(
-                        padding: const EdgeInsets.only(top: 8),
-                        child: Text(
-                          'No MCP servers reported yet (start a turn to initialize).',
-                          style: TextStyle(
-                            color: theme.textMuted,
-                            fontSize: 13,
-                          ),
-                        ),
-                      )
-                    else
-                      Flexible(
-                        child: ListView.builder(
-                          shrinkWrap: true,
-                          itemCount: servers.length,
-                          itemBuilder: (context, index) {
-                            final s = servers[index];
-                            final name = s['name']?.toString() ?? 'server';
-                            final status = s['status']?.toString() ?? '';
-                            return ListTile(
-                              dense: true,
-                              contentPadding: EdgeInsets.zero,
-                              title: Text(
-                                name,
-                                style: TextStyle(
-                                  color: theme.text,
-                                  fontSize: 13,
-                                ),
-                              ),
-                              subtitle: Text(
-                                status,
-                                style: TextStyle(
-                                  color: theme.textMuted,
-                                  fontSize: 12,
-                                ),
-                              ),
-                            );
-                          },
-                        ),
-                      ),
-                  ],
-                );
-              },
-            ),
-          ),
-        );
-      },
+                        )
+                        .toList(),
+                  ),
+          );
+        },
+      ),
     );
   }
 
@@ -3380,27 +3005,26 @@ class _ChatScreenState extends ConsumerState<ChatScreen>
     bool exists = false;
     String? path;
 
-    showModalBottomSheet(
+    DetailSheet.show(
       context: context,
-      isScrollControlled: true,
-      backgroundColor: Colors.transparent,
-      builder: (_) {
-        return StatefulBuilder(
-          builder: (context, setSheetState) {
-            Future<void> load() async {
-              if (loaded) return;
-              loaded = true;
-              final bridge = ref.read(bridgeServiceProvider);
-              final res = await bridge.cxReadAgentsMd(cwd);
-              exists = res['exists'] == true;
-              path = res['path']?.toString();
-              controller.text = (res['content'] ?? '').toString();
-              setSheetState(() {});
-            }
+      title: 'Agents',
+      initialSize: 0.6,
+      child: StatefulBuilder(
+        builder: (context, setSheetState) {
+          Future<void> load() async {
+            if (loaded) return;
+            loaded = true;
+            final bridge = ref.read(bridgeServiceProvider);
+            final res = await bridge.cxReadAgentsMd(cwd);
+            exists = res['exists'] == true;
+            path = res['path']?.toString();
+            controller.text = (res['content'] ?? '').toString();
+            setSheetState(() {});
+          }
 
-            void insertTemplate() {
-              controller.text =
-                  '''
+          void insertTemplate() {
+            controller.text =
+                '''
 # AGENTS.md
 
 <INSTRUCTIONS>
@@ -3412,161 +3036,123 @@ Describe project-specific guidance for Codex here.
 - Commands to run:
 </INSTRUCTIONS>
 '''
-                      .trim();
-              setSheetState(() {});
-            }
+                    .trim();
+            setSheetState(() {});
+          }
 
-            unawaited(load());
+          unawaited(load());
 
-            return SafeArea(
-              child: Padding(
-                padding: EdgeInsets.only(
-                  bottom: MediaQuery.of(context).viewInsets.bottom,
+          return Padding(
+            padding: EdgeInsets.only(
+              bottom: MediaQuery.of(context).viewInsets.bottom,
+            ),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Padding(
+                  padding: const EdgeInsets.fromLTRB(16, 8, 16, 8),
+                  child: Text(
+                    path ?? cwd,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: TextStyle(color: theme.textMuted, fontSize: 11),
+                  ),
                 ),
-                child: Container(
-                  height: MediaQuery.of(context).size.height * 0.75,
-                  decoration: BoxDecoration(
-                    color: theme.backgroundPanel,
-                    borderRadius: const BorderRadius.vertical(
-                      top: Radius.circular(18),
-                    ),
-                    border: Border.all(
-                      color: theme.borderSubtle.withValues(alpha: 0.2),
+                if (!exists)
+                  Padding(
+                    padding: const EdgeInsets.fromLTRB(16, 0, 16, 8),
+                    child: Row(
+                      children: [
+                        Icon(
+                          Icons.info_outline,
+                          size: 16,
+                          color: theme.textMuted,
+                        ),
+                        const SizedBox(width: 8),
+                        Expanded(
+                          child: Text(
+                            'No AGENTS.md found. Create one to guide Codex for this project.',
+                            style: TextStyle(
+                              color: theme.textMuted,
+                              fontSize: 12,
+                            ),
+                          ),
+                        ),
+                        TextButton(
+                          onPressed: insertTemplate,
+                          child: const Text('Insert template'),
+                        ),
+                      ],
                     ),
                   ),
-                  padding: const EdgeInsets.fromLTRB(16, 16, 16, 20),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
+                Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 16),
+                  child: SizedBox(
+                    height: 300,
+                    child: TextField(
+                      controller: controller,
+                      expands: true,
+                      maxLines: null,
+                      minLines: null,
+                      style: TextStyle(
+                        fontFamily: 'monospace',
+                        fontSize: 12,
+                        color: theme.text,
+                      ),
+                      decoration: InputDecoration(
+                        hintText: 'Project instructions for Codex…',
+                        filled: true,
+                        fillColor: theme.background,
+                        border: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(12),
+                          borderSide: BorderSide(
+                            color: theme.borderSubtle.withValues(alpha: 0.35),
+                          ),
+                        ),
+                      ),
+                    ),
+                  ),
+                ),
+                const SizedBox(height: 12),
+                Padding(
+                  padding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
+                  child: Row(
                     children: [
-                      Row(
-                        children: [
-                          Expanded(
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                Text(
-                                  'AGENTS.md',
-                                  style: TextStyle(
-                                    color: theme.text,
-                                    fontSize: 16,
-                                    fontWeight: FontWeight.w700,
-                                  ),
-                                ),
-                                const SizedBox(height: 2),
-                                Text(
-                                  path ?? cwd,
-                                  maxLines: 1,
-                                  overflow: TextOverflow.ellipsis,
-                                  style: TextStyle(
-                                    color: theme.textMuted,
-                                    fontSize: 11,
-                                  ),
-                                ),
-                              ],
-                            ),
-                          ),
-                          IconButton(
-                            onPressed: () => Navigator.pop(context),
-                            icon: Icon(
-                              Icons.close_rounded,
-                              color: theme.textMuted,
-                            ),
-                          ),
-                        ],
-                      ),
-                      const SizedBox(height: 8),
-                      if (!exists)
-                        Padding(
-                          padding: const EdgeInsets.only(bottom: 8),
-                          child: Row(
-                            children: [
-                              Icon(
-                                Icons.info_outline,
-                                size: 16,
-                                color: theme.textMuted,
-                              ),
-                              const SizedBox(width: 8),
-                              Expanded(
-                                child: Text(
-                                  'No AGENTS.md found. Create one to guide Codex for this project.',
-                                  style: TextStyle(
-                                    color: theme.textMuted,
-                                    fontSize: 12,
-                                  ),
-                                ),
-                              ),
-                              TextButton(
-                                onPressed: insertTemplate,
-                                child: const Text('Insert template'),
-                              ),
-                            ],
-                          ),
-                        ),
                       Expanded(
-                        child: TextField(
-                          controller: controller,
-                          expands: true,
-                          maxLines: null,
-                          minLines: null,
-                          style: TextStyle(
-                            fontFamily: 'monospace',
-                            fontSize: 12,
-                            color: theme.text,
-                          ),
-                          decoration: InputDecoration(
-                            hintText: 'Project instructions for Codex…',
-                            filled: true,
-                            fillColor: theme.background,
-                            border: OutlineInputBorder(
-                              borderRadius: BorderRadius.circular(12),
-                              borderSide: BorderSide(
-                                color: theme.borderSubtle.withValues(
-                                  alpha: 0.35,
-                                ),
-                              ),
-                            ),
-                          ),
-                        ),
-                      ),
-                      const SizedBox(height: 12),
-                      Row(
-                        children: [
-                          Expanded(
-                            child: ElevatedButton(
-                              onPressed: () async {
-                                final ok = await ref
-                                    .read(bridgeServiceProvider)
-                                    .cxWriteAgentsMd(
-                                      cwd: cwd,
-                                      content: controller.text,
-                                    );
-                                if (!context.mounted) return;
-                                final messenger = ScaffoldMessenger.of(context);
-                                messenger.showSnackBar(
-                                  SnackBar(
-                                    content: Text(
-                                      ok ? 'Saved AGENTS.md' : 'Save failed',
-                                    ),
-                                    backgroundColor: ok
-                                        ? theme.backgroundPanel
-                                        : theme.error,
-                                  ),
+                        child: ElevatedButton(
+                          onPressed: () async {
+                            final ok = await ref
+                                .read(bridgeServiceProvider)
+                                .cxWriteAgentsMd(
+                                  cwd: cwd,
+                                  content: controller.text,
                                 );
-                                Navigator.pop(context);
-                              },
-                              child: const Text('Save'),
-                            ),
-                          ),
-                        ],
+                            if (!context.mounted) return;
+                            final messenger = ScaffoldMessenger.of(context);
+                            messenger.showSnackBar(
+                              SnackBar(
+                                content: Text(
+                                  ok ? 'Saved AGENTS.md' : 'Save failed',
+                                ),
+                                backgroundColor: ok
+                                    ? theme.backgroundPanel
+                                    : theme.error,
+                              ),
+                            );
+                            Navigator.pop(context);
+                          },
+                          child: const Text('Save'),
+                        ),
                       ),
                     ],
                   ),
                 ),
-              ),
-            );
-          },
-        );
-      },
+              ],
+            ),
+          );
+        },
+      ),
     ).whenComplete(controller.dispose);
   }
 
@@ -3576,284 +3162,255 @@ Describe project-specific guidance for Codex here.
     String? loginId;
     String? authUrl;
 
-    showModalBottomSheet(
+    DetailSheet.show(
       context: context,
-      isScrollControlled: true,
-      backgroundColor: Colors.transparent,
-      builder: (_) {
-        return StatefulBuilder(
-          builder: (context, setSheetState) {
-            Future<void> startChatgptLogin() async {
-              final bridge = ref.read(bridgeServiceProvider);
-              final res = await bridge.cxLoginStartChatgpt();
-              loginId = res['loginId']?.toString();
-              authUrl = res['authUrl']?.toString();
-              setSheetState(() {});
-            }
+      title: 'Authentication',
+      initialSize: 0.5,
+      child: StatefulBuilder(
+        builder: (context, setSheetState) {
+          Future<void> startChatgptLogin() async {
+            final bridge = ref.read(bridgeServiceProvider);
+            final res = await bridge.cxLoginStartChatgpt();
+            loginId = res['loginId']?.toString();
+            authUrl = res['authUrl']?.toString();
+            setSheetState(() {});
+          }
 
-            Future<void> cancelLogin() async {
-              final id = loginId;
-              if (id == null || id.isEmpty) return;
-              final bridge = ref.read(bridgeServiceProvider);
-              await bridge.cxLoginCancel(id);
-              setSheetState(() {
-                loginId = null;
-                authUrl = null;
-              });
-            }
+          Future<void> cancelLogin() async {
+            final id = loginId;
+            if (id == null || id.isEmpty) return;
+            final bridge = ref.read(bridgeServiceProvider);
+            await bridge.cxLoginCancel(id);
+            setSheetState(() {
+              loginId = null;
+              authUrl = null;
+            });
+          }
 
-            return SafeArea(
-              child: Padding(
-                padding: EdgeInsets.only(
-                  bottom: MediaQuery.of(context).viewInsets.bottom,
+          return Padding(
+            padding: EdgeInsets.only(
+              bottom: MediaQuery.of(context).viewInsets.bottom,
+            ),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                const SizedBox(height: 8),
+                Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 16),
+                  child: FutureBuilder<Map<String, dynamic>>(
+                    future: ref.read(bridgeServiceProvider).cxAccountRead(),
+                    builder: (context, snapshot) {
+                      final loading =
+                          snapshot.connectionState == ConnectionState.waiting;
+                      if (loading) {
+                        return const Padding(
+                          padding: EdgeInsets.symmetric(vertical: 16),
+                          child: Center(child: CircularProgressIndicator()),
+                        );
+                      }
+                      if (snapshot.hasError) {
+                        return Text(
+                          'Failed to read account: ${snapshot.error}',
+                          style: TextStyle(
+                            color: theme.textMuted,
+                            fontSize: 12,
+                          ),
+                        );
+                      }
+                      final account = snapshot.data?['account'];
+                      final requires =
+                          snapshot.data?['requiresOpenaiAuth'] == true;
+                      return Container(
+                        padding: const EdgeInsets.all(12),
+                        decoration: BoxDecoration(
+                          color: theme.background,
+                          borderRadius: BorderRadius.circular(12),
+                          border: Border.all(
+                            color: theme.borderSubtle.withValues(alpha: 0.25),
+                          ),
+                        ),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              'Status',
+                              style: TextStyle(
+                                color: theme.textMuted,
+                                fontSize: 12,
+                                fontWeight: FontWeight.w600,
+                              ),
+                            ),
+                            const SizedBox(height: 6),
+                            Text(
+                              account == null
+                                  ? (requires
+                                        ? 'Not logged in (OpenAI auth required)'
+                                        : 'Not logged in (auth not required)')
+                                  : 'Logged in: ${account['type'] ?? account['authMode'] ?? ''}',
+                              style: TextStyle(
+                                color: theme.text,
+                                fontSize: 13,
+                                fontWeight: FontWeight.w600,
+                              ),
+                            ),
+                          ],
+                        ),
+                      );
+                    },
+                  ),
                 ),
-                child: Container(
-                  decoration: BoxDecoration(
-                    color: theme.backgroundPanel,
-                    borderRadius: const BorderRadius.vertical(
-                      top: Radius.circular(18),
-                    ),
-                    border: Border.all(
-                      color: theme.borderSubtle.withValues(alpha: 0.2),
+                const SizedBox(height: 12),
+                Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 16),
+                  child: FutureBuilder<Map<String, dynamic>>(
+                    future: ref.read(bridgeServiceProvider).cxRateLimitsRead(),
+                    builder: (context, snapshot) {
+                      if (snapshot.connectionState == ConnectionState.waiting) {
+                        return const SizedBox.shrink();
+                      }
+                      if (snapshot.hasError) {
+                        return const SizedBox.shrink();
+                      }
+                      final limits = snapshot.data?['rateLimits'];
+                      if (limits is! Map) return const SizedBox.shrink();
+                      final primary = limits['primary'];
+                      if (primary is! Map) return const SizedBox.shrink();
+                      return Padding(
+                        padding: const EdgeInsets.only(bottom: 12),
+                        child: Text(
+                          'Rate limits: ${primary['usedPercent'] ?? 0}% used, resets at ${primary['resetsAt'] ?? ''}',
+                          style: TextStyle(
+                            color: theme.textMuted,
+                            fontSize: 12,
+                          ),
+                        ),
+                      );
+                    },
+                  ),
+                ),
+                const SizedBox(height: 6),
+                Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 16),
+                  child: Row(
+                    children: [
+                      Expanded(
+                        child: ElevatedButton(
+                          onPressed: startChatgptLogin,
+                          child: const Text('Login (ChatGPT)'),
+                        ),
+                      ),
+                      const SizedBox(width: 10),
+                      Expanded(
+                        child: OutlinedButton(
+                          onPressed: () async {
+                            await ref.read(bridgeServiceProvider).cxLogout();
+                            if (!context.mounted) return;
+                            Navigator.pop(context);
+                          },
+                          child: const Text('Logout'),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                const SizedBox(height: 12),
+                Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 16),
+                  child: TextField(
+                    controller: apiKeyController,
+                    obscureText: true,
+                    decoration: const InputDecoration(
+                      labelText: 'API key (optional)',
+                      hintText: 'sk-...',
                     ),
                   ),
-                  padding: const EdgeInsets.fromLTRB(16, 16, 16, 20),
-                  child: SingleChildScrollView(
-                    child: Column(
-                      mainAxisSize: MainAxisSize.min,
-                      crossAxisAlignment: CrossAxisAlignment.start,
+                ),
+                const SizedBox(height: 8),
+                Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 16),
+                  child: Row(
+                    children: [
+                      Expanded(
+                        child: OutlinedButton(
+                          onPressed: () async {
+                            final key = apiKeyController.text.trim();
+                            if (key.isEmpty) return;
+                            await ref
+                                .read(bridgeServiceProvider)
+                                .cxLoginStartApiKey(key);
+                            if (!context.mounted) return;
+                            Navigator.pop(context);
+                          },
+                          child: const Text('Login (API key)'),
+                        ),
+                      ),
+                      const SizedBox(width: 10),
+                      Expanded(
+                        child: TextButton(
+                          onPressed: cancelLogin,
+                          child: const Text('Cancel login'),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                if (authUrl != null && authUrl!.isNotEmpty) ...[
+                  const SizedBox(height: 12),
+                  Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 16),
+                    child: Text(
+                      'ChatGPT login URL (open on the host machine running Broski Bridge):',
+                      style: TextStyle(color: theme.textMuted, fontSize: 12),
+                    ),
+                  ),
+                  const SizedBox(height: 6),
+                  Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 16),
+                    child: SelectableText(
+                      authUrl!,
+                      style: TextStyle(
+                        fontFamily: 'monospace',
+                        color: theme.text,
+                        fontSize: 11,
+                      ),
+                    ),
+                  ),
+                  const SizedBox(height: 6),
+                  Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 16),
+                    child: Row(
                       children: [
-                        Row(
-                          children: [
-                            Expanded(
-                              child: Text(
-                                'Codex auth',
-                                style: TextStyle(
-                                  color: theme.text,
-                                  fontSize: 16,
-                                  fontWeight: FontWeight.w700,
-                                ),
-                              ),
-                            ),
-                            IconButton(
-                              onPressed: () => Navigator.pop(context),
-                              icon: Icon(
-                                Icons.close_rounded,
-                                color: theme.textMuted,
-                              ),
-                            ),
-                          ],
-                        ),
-                        const SizedBox(height: 8),
-                        FutureBuilder<Map<String, dynamic>>(
-                          future: ref
-                              .read(bridgeServiceProvider)
-                              .cxAccountRead(),
-                          builder: (context, snapshot) {
-                            final loading =
-                                snapshot.connectionState ==
-                                ConnectionState.waiting;
-                            if (loading) {
-                              return const Padding(
-                                padding: EdgeInsets.symmetric(vertical: 16),
-                                child: Center(
-                                  child: CircularProgressIndicator(),
-                                ),
-                              );
-                            }
-                            if (snapshot.hasError) {
-                              return Text(
-                                'Failed to read account: ${snapshot.error}',
-                                style: TextStyle(
-                                  color: theme.textMuted,
-                                  fontSize: 12,
-                                ),
-                              );
-                            }
-                            final account = snapshot.data?['account'];
-                            final requires =
-                                snapshot.data?['requiresOpenaiAuth'] == true;
-                            return Container(
-                              padding: const EdgeInsets.all(12),
-                              decoration: BoxDecoration(
-                                color: theme.background,
-                                borderRadius: BorderRadius.circular(12),
-                                border: Border.all(
-                                  color: theme.borderSubtle.withValues(
-                                    alpha: 0.25,
-                                  ),
-                                ),
-                              ),
-                              child: Column(
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                children: [
-                                  Text(
-                                    'Status',
-                                    style: TextStyle(
-                                      color: theme.textMuted,
-                                      fontSize: 12,
-                                      fontWeight: FontWeight.w600,
-                                    ),
-                                  ),
-                                  const SizedBox(height: 6),
-                                  Text(
-                                    account == null
-                                        ? (requires
-                                              ? 'Not logged in (OpenAI auth required)'
-                                              : 'Not logged in (auth not required)')
-                                        : 'Logged in: ${account['type'] ?? account['authMode'] ?? ''}',
-                                    style: TextStyle(
-                                      color: theme.text,
-                                      fontSize: 13,
-                                      fontWeight: FontWeight.w600,
-                                    ),
-                                  ),
-                                ],
-                              ),
+                        TextButton(
+                          onPressed: () async {
+                            final uri = Uri.tryParse(authUrl!);
+                            if (uri == null) return;
+                            await launchUrl(
+                              uri,
+                              mode: LaunchMode.externalApplication,
                             );
                           },
+                          child: const Text('Open'),
                         ),
-                        const SizedBox(height: 12),
-                        FutureBuilder<Map<String, dynamic>>(
-                          future: ref
-                              .read(bridgeServiceProvider)
-                              .cxRateLimitsRead(),
-                          builder: (context, snapshot) {
-                            if (snapshot.connectionState ==
-                                ConnectionState.waiting) {
-                              return const SizedBox.shrink();
-                            }
-                            if (snapshot.hasError) {
-                              return const SizedBox.shrink();
-                            }
-                            final limits = snapshot.data?['rateLimits'];
-                            if (limits is! Map) return const SizedBox.shrink();
-                            final primary = limits['primary'];
-                            if (primary is! Map) return const SizedBox.shrink();
-                            return Padding(
-                              padding: const EdgeInsets.only(bottom: 12),
-                              child: Text(
-                                'Rate limits: ${primary['usedPercent'] ?? 0}% used, resets at ${primary['resetsAt'] ?? ''}',
-                                style: TextStyle(
-                                  color: theme.textMuted,
-                                  fontSize: 12,
-                                ),
-                              ),
+                        const SizedBox(width: 8),
+                        TextButton(
+                          onPressed: () async {
+                            await Clipboard.setData(
+                              ClipboardData(text: authUrl!),
                             );
                           },
+                          child: const Text('Copy'),
                         ),
-                        const SizedBox(height: 6),
-                        Row(
-                          children: [
-                            Expanded(
-                              child: ElevatedButton(
-                                onPressed: startChatgptLogin,
-                                child: const Text('Login (ChatGPT)'),
-                              ),
-                            ),
-                            const SizedBox(width: 10),
-                            Expanded(
-                              child: OutlinedButton(
-                                onPressed: () async {
-                                  await ref
-                                      .read(bridgeServiceProvider)
-                                      .cxLogout();
-                                  if (!context.mounted) return;
-                                  Navigator.pop(context);
-                                },
-                                child: const Text('Logout'),
-                              ),
-                            ),
-                          ],
-                        ),
-                        const SizedBox(height: 12),
-                        TextField(
-                          controller: apiKeyController,
-                          obscureText: true,
-                          decoration: const InputDecoration(
-                            labelText: 'API key (optional)',
-                            hintText: 'sk-...',
-                          ),
-                        ),
-                        const SizedBox(height: 8),
-                        Row(
-                          children: [
-                            Expanded(
-                              child: OutlinedButton(
-                                onPressed: () async {
-                                  final key = apiKeyController.text.trim();
-                                  if (key.isEmpty) return;
-                                  await ref
-                                      .read(bridgeServiceProvider)
-                                      .cxLoginStartApiKey(key);
-                                  if (!context.mounted) return;
-                                  Navigator.pop(context);
-                                },
-                                child: const Text('Login (API key)'),
-                              ),
-                            ),
-                            const SizedBox(width: 10),
-                            Expanded(
-                              child: TextButton(
-                                onPressed: cancelLogin,
-                                child: const Text('Cancel login'),
-                              ),
-                            ),
-                          ],
-                        ),
-                        if (authUrl != null && authUrl!.isNotEmpty) ...[
-                          const SizedBox(height: 12),
-                          Text(
-                            'ChatGPT login URL (open on the host machine running Broski Bridge):',
-                            style: TextStyle(
-                              color: theme.textMuted,
-                              fontSize: 12,
-                            ),
-                          ),
-                          const SizedBox(height: 6),
-                          SelectableText(
-                            authUrl!,
-                            style: TextStyle(
-                              fontFamily: 'monospace',
-                              color: theme.text,
-                              fontSize: 11,
-                            ),
-                          ),
-                          const SizedBox(height: 6),
-                          Row(
-                            children: [
-                              TextButton(
-                                onPressed: () async {
-                                  final uri = Uri.tryParse(authUrl!);
-                                  if (uri == null) return;
-                                  await launchUrl(
-                                    uri,
-                                    mode: LaunchMode.externalApplication,
-                                  );
-                                },
-                                child: const Text('Open'),
-                              ),
-                              const SizedBox(width: 8),
-                              TextButton(
-                                onPressed: () async {
-                                  await Clipboard.setData(
-                                    ClipboardData(text: authUrl!),
-                                  );
-                                },
-                                child: const Text('Copy'),
-                              ),
-                            ],
-                          ),
-                        ],
                       ],
                     ),
                   ),
-                ),
-              ),
-            );
-          },
-        );
-      },
+                ],
+                const SizedBox(height: 16),
+              ],
+            ),
+          );
+        },
+      ),
     ).whenComplete(apiKeyController.dispose);
   }
 
@@ -3863,368 +3420,287 @@ Describe project-specific guidance for Codex here.
     String classification = 'bug';
     bool includeLogs = false;
 
-    showModalBottomSheet(
+    DetailSheet.show(
       context: context,
-      isScrollControlled: true,
-      backgroundColor: Colors.transparent,
-      builder: (_) {
-        return StatefulBuilder(
-          builder: (context, setSheetState) {
-            return SafeArea(
-              child: Padding(
-                padding: EdgeInsets.only(
-                  bottom: MediaQuery.of(context).viewInsets.bottom,
-                ),
-                child: Container(
-                  decoration: BoxDecoration(
-                    color: theme.backgroundPanel,
-                    borderRadius: const BorderRadius.vertical(
-                      top: Radius.circular(18),
-                    ),
-                    border: Border.all(
-                      color: theme.borderSubtle.withValues(alpha: 0.2),
+      title: 'Feedback',
+      initialSize: 0.6,
+      child: StatefulBuilder(
+        builder: (context, setSheetState) {
+          return Padding(
+            padding: EdgeInsets.only(
+              bottom: MediaQuery.of(context).viewInsets.bottom,
+            ),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                const SizedBox(height: 8),
+                Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 16),
+                  child: DropdownButtonFormField<String>(
+                    value: classification,
+                    items: const [
+                      DropdownMenuItem(value: 'bug', child: Text('Bug')),
+                      DropdownMenuItem(
+                        value: 'feature',
+                        child: Text('Feature request'),
+                      ),
+                      DropdownMenuItem(
+                        value: 'bad_output',
+                        child: Text('Bad output'),
+                      ),
+                      DropdownMenuItem(value: 'other', child: Text('Other')),
+                    ],
+                    onChanged: (v) =>
+                        setSheetState(() => classification = v ?? 'bug'),
+                    decoration: const InputDecoration(
+                      labelText: 'Classification',
                     ),
                   ),
-                  padding: const EdgeInsets.fromLTRB(16, 16, 16, 20),
-                  child: Column(
-                    mainAxisSize: MainAxisSize.min,
-                    crossAxisAlignment: CrossAxisAlignment.start,
+                ),
+                const SizedBox(height: 8),
+                Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 16),
+                  child: TextField(
+                    controller: reasonController,
+                    maxLines: 3,
+                    decoration: const InputDecoration(
+                      labelText: 'Reason (optional)',
+                    ),
+                  ),
+                ),
+                const SizedBox(height: 8),
+                Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 16),
+                  child: SwitchListTile(
+                    value: includeLogs,
+                    onChanged: (v) => setSheetState(() => includeLogs = v),
+                    dense: true,
+                    contentPadding: EdgeInsets.zero,
+                    title: Text(
+                      'Include logs',
+                      style: TextStyle(
+                        color: theme.text,
+                        fontSize: 13,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                    subtitle: Text(
+                      'Attach Codex logs from the host machine',
+                      style: TextStyle(color: theme.textMuted, fontSize: 12),
+                    ),
+                    activeThumbColor: theme.primary,
+                  ),
+                ),
+                const SizedBox(height: 12),
+                Padding(
+                  padding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
+                  child: Row(
                     children: [
-                      Row(
-                        children: [
-                          Expanded(
-                            child: Text(
-                              'Send feedback',
-                              style: TextStyle(
-                                color: theme.text,
-                                fontSize: 16,
-                                fontWeight: FontWeight.w700,
+                      Expanded(
+                        child: ElevatedButton(
+                          onPressed: () async {
+                            final bridge = ref.read(bridgeServiceProvider);
+                            final chatState = ref.read(chatSessionProvider);
+                            final res = await bridge.cxFeedbackUpload(
+                              classification: classification,
+                              reason: reasonController.text.trim().isEmpty
+                                  ? null
+                                  : reasonController.text.trim(),
+                              threadId: chatState.cxThreadId,
+                              includeLogs: includeLogs,
+                            );
+                            final threadId = res['threadId']?.toString() ?? '';
+                            if (!context.mounted) return;
+                            Navigator.pop(context);
+                            if (threadId.isEmpty) return;
+                            final thread = await bridge.cxResumeThread(
+                              threadId,
+                            );
+                            if (!context.mounted) return;
+                            Navigator.push(
+                              context,
+                              MaterialPageRoute(
+                                builder: (_) =>
+                                    ChatScreen.codex(cxThread: thread),
                               ),
-                            ),
-                          ),
-                          IconButton(
-                            onPressed: () => Navigator.pop(context),
-                            icon: Icon(
-                              Icons.close_rounded,
-                              color: theme.textMuted,
-                            ),
-                          ),
-                        ],
-                      ),
-                      const SizedBox(height: 8),
-                      DropdownButtonFormField<String>(
-                        value: classification,
-                        items: const [
-                          DropdownMenuItem(value: 'bug', child: Text('Bug')),
-                          DropdownMenuItem(
-                            value: 'feature',
-                            child: Text('Feature request'),
-                          ),
-                          DropdownMenuItem(
-                            value: 'bad_output',
-                            child: Text('Bad output'),
-                          ),
-                          DropdownMenuItem(
-                            value: 'other',
-                            child: Text('Other'),
-                          ),
-                        ],
-                        onChanged: (v) =>
-                            setSheetState(() => classification = v ?? 'bug'),
-                        decoration: const InputDecoration(
-                          labelText: 'Classification',
+                            );
+                          },
+                          child: const Text('Submit'),
                         ),
-                      ),
-                      const SizedBox(height: 8),
-                      TextField(
-                        controller: reasonController,
-                        maxLines: 3,
-                        decoration: const InputDecoration(
-                          labelText: 'Reason (optional)',
-                        ),
-                      ),
-                      const SizedBox(height: 8),
-                      SwitchListTile(
-                        value: includeLogs,
-                        onChanged: (v) => setSheetState(() => includeLogs = v),
-                        dense: true,
-                        contentPadding: EdgeInsets.zero,
-                        title: Text(
-                          'Include logs',
-                          style: TextStyle(
-                            color: theme.text,
-                            fontSize: 13,
-                            fontWeight: FontWeight.w600,
-                          ),
-                        ),
-                        subtitle: Text(
-                          'Attach Codex logs from the host machine',
-                          style: TextStyle(
-                            color: theme.textMuted,
-                            fontSize: 12,
-                          ),
-                        ),
-                        activeColor: theme.primary,
-                      ),
-                      const SizedBox(height: 12),
-                      Row(
-                        children: [
-                          Expanded(
-                            child: ElevatedButton(
-                              onPressed: () async {
-                                final bridge = ref.read(bridgeServiceProvider);
-                                final chatState = ref.read(chatSessionProvider);
-                                final res = await bridge.cxFeedbackUpload(
-                                  classification: classification,
-                                  reason: reasonController.text.trim().isEmpty
-                                      ? null
-                                      : reasonController.text.trim(),
-                                  threadId: chatState.cxThreadId,
-                                  includeLogs: includeLogs,
-                                );
-                                final threadId =
-                                    res['threadId']?.toString() ?? '';
-                                if (!context.mounted) return;
-                                Navigator.pop(context);
-                                if (threadId.isEmpty) return;
-                                final thread = await bridge.cxResumeThread(
-                                  threadId,
-                                );
-                                if (!mounted) return;
-                                Navigator.push(
-                                  context,
-                                  MaterialPageRoute(
-                                    builder: (_) =>
-                                        ChatScreen.codex(cxThread: thread),
-                                  ),
-                                );
-                              },
-                              child: const Text('Submit'),
-                            ),
-                          ),
-                        ],
                       ),
                     ],
                   ),
                 ),
-              ),
-            );
-          },
-        );
-      },
+              ],
+            ),
+          );
+        },
+      ),
     ).whenComplete(reasonController.dispose);
   }
 
   void _showCodexSettingsSheet() {
     final theme = OpenCodeTheme.of(context);
-    showModalBottomSheet(
+    DetailSheet.show(
       context: context,
-      isScrollControlled: true,
-      backgroundColor: Colors.transparent,
-      builder: (_) {
-        return SafeArea(
-          child: Container(
-            decoration: BoxDecoration(
-              color: theme.backgroundPanel,
-              borderRadius: const BorderRadius.vertical(
-                top: Radius.circular(18),
-              ),
-              border: Border.all(
-                color: theme.borderSubtle.withValues(alpha: 0.2),
-              ),
-            ),
-            padding: const EdgeInsets.fromLTRB(16, 16, 16, 20),
-            child: Consumer(
-              builder: (context, ref, _) {
-                final settings = ref.watch(codexSettingsProvider);
-                final notifier = ref.read(codexSettingsProvider.notifier);
+      title: 'Codex Settings',
+      initialSize: 0.7,
+      child: Consumer(
+        builder: (context, ref, _) {
+          final settings = ref.watch(codexSettingsProvider);
+          final notifier = ref.read(codexSettingsProvider.notifier);
 
-                Widget chipGroup<T>({
-                  required String label,
-                  required List<T> values,
-                  required T selected,
-                  required String Function(T) display,
-                  required void Function(T) onSelected,
-                }) {
-                  return Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        label,
-                        style: TextStyle(
-                          color: theme.textMuted,
-                          fontSize: 12,
-                          fontWeight: FontWeight.w600,
-                        ),
-                      ),
-                      const SizedBox(height: 8),
-                      Wrap(
-                        spacing: 8,
-                        runSpacing: 8,
-                        children: values.map((v) {
-                          final isSelected = v == selected;
-                          return ChoiceChip(
-                            label: Text(display(v)),
-                            selected: isSelected,
-                            onSelected: (_) => onSelected(v),
-                            labelStyle: TextStyle(
-                              color: isSelected ? theme.background : theme.text,
-                              fontSize: 12,
-                              fontWeight: FontWeight.w600,
-                            ),
-                            selectedColor: theme.primary,
-                            backgroundColor: theme.background,
-                            shape: RoundedRectangleBorder(
-                              borderRadius: BorderRadius.circular(10),
-                              side: BorderSide(
-                                color: theme.borderSubtle.withValues(
-                                  alpha: 0.3,
-                                ),
-                              ),
-                            ),
-                          );
-                        }).toList(),
-                      ),
-                    ],
-                  );
-                }
-
-                return SingleChildScrollView(
-                  child: Column(
-                    mainAxisSize: MainAxisSize.min,
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Row(
-                        children: [
-                          Expanded(
-                            child: Text(
-                              'Codex settings',
-                              style: TextStyle(
-                                color: theme.text,
-                                fontSize: 16,
-                                fontWeight: FontWeight.w700,
-                              ),
-                            ),
-                          ),
-                          IconButton(
-                            onPressed: () => Navigator.pop(context),
-                            icon: Icon(
-                              Icons.close_rounded,
-                              color: theme.textMuted,
-                            ),
-                          ),
-                        ],
-                      ),
-                      const SizedBox(height: 8),
-                      chipGroup<CodexApprovalPolicy>(
-                        label: 'Approvals',
-                        values: CodexApprovalPolicy.values,
-                        selected: settings.approvalPolicy,
-                        display: (v) => v.wireValue,
-                        onSelected: notifier.setApprovalPolicy,
-                      ),
-                      const SizedBox(height: 16),
-                      chipGroup<CodexSandboxMode>(
-                        label: 'Sandbox',
-                        values: CodexSandboxMode.values,
-                        selected: settings.sandboxMode,
-                        display: (v) => v.threadWireValue,
-                        onSelected: notifier.setSandboxMode,
-                      ),
-                      const SizedBox(height: 12),
-                      if (settings.sandboxMode ==
-                          CodexSandboxMode.workspaceWrite)
-                        SwitchListTile(
-                          value: settings.networkAccessEnabled,
-                          onChanged: notifier.setNetworkAccessEnabled,
-                          dense: true,
-                          contentPadding: EdgeInsets.zero,
-                          title: Text(
-                            'Network access',
-                            style: TextStyle(
-                              color: theme.text,
-                              fontSize: 13,
-                              fontWeight: FontWeight.w600,
-                            ),
-                          ),
-                          subtitle: Text(
-                            'Allow network in Codex sandbox',
-                            style: TextStyle(
-                              color: theme.textMuted,
-                              fontSize: 12,
-                            ),
-                          ),
-                          activeColor: theme.primary,
-                        ),
-                      const SizedBox(height: 12),
-                      chipGroup<CodexReasoningEffort>(
-                        label: 'Reasoning effort',
-                        values: CodexReasoningEffort.values,
-                        selected: settings.reasoningEffort,
-                        display: (v) => v.wireValue,
-                        onSelected: notifier.setReasoningEffort,
-                      ),
-                      const SizedBox(height: 16),
-                      chipGroup<CodexReasoningSummary>(
-                        label: 'Reasoning summary',
-                        values: CodexReasoningSummary.values,
-                        selected: settings.reasoningSummary,
-                        display: (v) => v.wireValue,
-                        onSelected: notifier.setReasoningSummary,
-                      ),
-                      const SizedBox(height: 12),
-                      SwitchListTile(
-                        value: settings.webSearchEnabled,
-                        onChanged: notifier.setWebSearchEnabled,
-                        dense: true,
-                        contentPadding: EdgeInsets.zero,
-                        title: Text(
-                          'Web search',
-                          style: TextStyle(
-                            color: theme.text,
-                            fontSize: 13,
-                            fontWeight: FontWeight.w600,
-                          ),
-                        ),
-                        subtitle: Text(
-                          'Enable web search requests (opt-in)',
-                          style: TextStyle(
-                            color: theme.textMuted,
-                            fontSize: 12,
-                          ),
-                        ),
-                        activeColor: theme.primary,
-                      ),
-                      SwitchListTile(
-                        value: settings.skillsEnabled,
-                        onChanged: notifier.setSkillsEnabled,
-                        dense: true,
-                        contentPadding: EdgeInsets.zero,
-                        title: Text(
-                          'Skills discovery',
-                          style: TextStyle(
-                            color: theme.text,
-                            fontSize: 13,
-                            fontWeight: FontWeight.w600,
-                          ),
-                        ),
-                        subtitle: Text(
-                          'Allow Codex to discover skills from disk',
-                          style: TextStyle(
-                            color: theme.textMuted,
-                            fontSize: 12,
-                          ),
-                        ),
-                        activeColor: theme.primary,
-                      ),
-                    ],
+          Widget chipGroup<T>({
+            required String label,
+            required List<T> values,
+            required T selected,
+            required String Function(T) display,
+            required void Function(T) onSelected,
+          }) {
+            return Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  label,
+                  style: TextStyle(
+                    color: theme.textMuted,
+                    fontSize: 12,
+                    fontWeight: FontWeight.w600,
                   ),
-                );
-              },
+                ),
+                const SizedBox(height: 8),
+                Wrap(
+                  spacing: 8,
+                  runSpacing: 8,
+                  children: values.map((v) {
+                    final isSelected = v == selected;
+                    return ChoiceChip(
+                      label: Text(display(v)),
+                      selected: isSelected,
+                      onSelected: (_) => onSelected(v),
+                      labelStyle: TextStyle(
+                        color: isSelected ? theme.background : theme.text,
+                        fontSize: 12,
+                        fontWeight: FontWeight.w600,
+                      ),
+                      selectedColor: theme.primary,
+                      backgroundColor: theme.background,
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(10),
+                        side: BorderSide(
+                          color: theme.borderSubtle.withValues(alpha: 0.3),
+                        ),
+                      ),
+                    );
+                  }).toList(),
+                ),
+              ],
+            );
+          }
+
+          return Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 16),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                chipGroup<CodexApprovalPolicy>(
+                  label: 'Approvals',
+                  values: CodexApprovalPolicy.values,
+                  selected: settings.approvalPolicy,
+                  display: (v) => v.wireValue,
+                  onSelected: notifier.setApprovalPolicy,
+                ),
+                const SizedBox(height: 16),
+                chipGroup<CodexSandboxMode>(
+                  label: 'Sandbox',
+                  values: CodexSandboxMode.values,
+                  selected: settings.sandboxMode,
+                  display: (v) => v.threadWireValue,
+                  onSelected: notifier.setSandboxMode,
+                ),
+                const SizedBox(height: 12),
+                if (settings.sandboxMode == CodexSandboxMode.workspaceWrite)
+                  SwitchListTile(
+                    value: settings.networkAccessEnabled,
+                    onChanged: notifier.setNetworkAccessEnabled,
+                    dense: true,
+                    contentPadding: EdgeInsets.zero,
+                    title: Text(
+                      'Network access',
+                      style: TextStyle(
+                        color: theme.text,
+                        fontSize: 13,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                    subtitle: Text(
+                      'Allow network in Codex sandbox',
+                      style: TextStyle(color: theme.textMuted, fontSize: 12),
+                    ),
+                    activeColor: theme.primary,
+                  ),
+                const SizedBox(height: 12),
+                chipGroup<CodexReasoningEffort>(
+                  label: 'Reasoning effort',
+                  values: CodexReasoningEffort.values,
+                  selected: settings.reasoningEffort,
+                  display: (v) => v.wireValue,
+                  onSelected: notifier.setReasoningEffort,
+                ),
+                const SizedBox(height: 16),
+                chipGroup<CodexReasoningSummary>(
+                  label: 'Reasoning summary',
+                  values: CodexReasoningSummary.values,
+                  selected: settings.reasoningSummary,
+                  display: (v) => v.wireValue,
+                  onSelected: notifier.setReasoningSummary,
+                ),
+                const SizedBox(height: 12),
+                SwitchListTile(
+                  value: settings.webSearchEnabled,
+                  onChanged: notifier.setWebSearchEnabled,
+                  dense: true,
+                  contentPadding: EdgeInsets.zero,
+                  title: Text(
+                    'Web search',
+                    style: TextStyle(
+                      color: theme.text,
+                      fontSize: 13,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                  subtitle: Text(
+                    'Enable web search requests (opt-in)',
+                    style: TextStyle(color: theme.textMuted, fontSize: 12),
+                  ),
+                  activeColor: theme.primary,
+                ),
+                SwitchListTile(
+                  value: settings.skillsEnabled,
+                  onChanged: notifier.setSkillsEnabled,
+                  dense: true,
+                  contentPadding: EdgeInsets.zero,
+                  title: Text(
+                    'Skills discovery',
+                    style: TextStyle(
+                      color: theme.text,
+                      fontSize: 13,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                  subtitle: Text(
+                    'Allow Codex to discover skills from disk',
+                    style: TextStyle(color: theme.textMuted, fontSize: 12),
+                  ),
+                  activeColor: theme.primary,
+                ),
+              ],
             ),
-          ),
-        );
-      },
+          );
+        },
+      ),
     );
   }
 
@@ -4232,338 +3708,238 @@ Describe project-specific guidance for Codex here.
     final theme = OpenCodeTheme.of(context);
     final chatState = ref.read(chatSessionProvider);
     final cwd = chatState.cxCwd ?? widget.cxThread?.cwd ?? widget.cxDraftCwd;
-    showModalBottomSheet(
+    DetailSheet.show(
       context: context,
-      isScrollControlled: true,
-      backgroundColor: Colors.transparent,
-      builder: (_) {
-        return SafeArea(
-          child: Container(
-            decoration: BoxDecoration(
-              color: theme.backgroundPanel,
-              borderRadius: const BorderRadius.vertical(
-                top: Radius.circular(18),
-              ),
-              border: Border.all(
-                color: theme.borderSubtle.withValues(alpha: 0.2),
-              ),
-            ),
-            padding: const EdgeInsets.fromLTRB(16, 16, 16, 20),
-            child: FutureBuilder<List<Map<String, dynamic>>>(
-              future: ref.read(bridgeServiceProvider).cxListSkills(cwd: cwd),
-              builder: (context, snapshot) {
-                final loading =
-                    snapshot.connectionState == ConnectionState.waiting;
-                final data = snapshot.data ?? const <Map<String, dynamic>>[];
+      title: 'Codex Skills',
+      initialSize: 0.6,
+      child: FutureBuilder<List<Map<String, dynamic>>>(
+        future: ref.read(bridgeServiceProvider).cxListSkills(cwd: cwd),
+        builder: (context, snapshot) {
+          final loading = snapshot.connectionState == ConnectionState.waiting;
+          final data = snapshot.data ?? const <Map<String, dynamic>>[];
 
-                return Column(
-                  mainAxisSize: MainAxisSize.min,
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Row(
-                      children: [
-                        Expanded(
-                          child: Text(
-                            'Codex skills',
-                            style: TextStyle(
-                              color: theme.text,
-                              fontSize: 16,
-                              fontWeight: FontWeight.w700,
-                            ),
-                          ),
-                        ),
-                        IconButton(
-                          onPressed: () => Navigator.pop(context),
-                          icon: Icon(
-                            Icons.close_rounded,
-                            color: theme.textMuted,
-                          ),
-                        ),
-                      ],
+          return Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 16),
+            child: loading
+                ? const Padding(
+                    padding: EdgeInsets.symmetric(vertical: 24),
+                    child: Center(child: CircularProgressIndicator()),
+                  )
+                : snapshot.hasError
+                ? Padding(
+                    padding: const EdgeInsets.symmetric(vertical: 16),
+                    child: Text(
+                      'Failed to load skills: ${snapshot.error}',
+                      style: TextStyle(color: theme.textMuted, fontSize: 12),
                     ),
-                    const SizedBox(height: 8),
-                    if (loading)
-                      const Padding(
-                        padding: EdgeInsets.symmetric(vertical: 24),
-                        child: Center(child: CircularProgressIndicator()),
-                      )
-                    else if (snapshot.hasError)
-                      Padding(
-                        padding: const EdgeInsets.symmetric(vertical: 16),
-                        child: Text(
-                          'Failed to load skills: ${snapshot.error}',
-                          style: TextStyle(
-                            color: theme.textMuted,
-                            fontSize: 12,
-                          ),
-                        ),
-                      )
-                    else if (data.isEmpty)
-                      Padding(
-                        padding: const EdgeInsets.symmetric(vertical: 16),
-                        child: Text(
-                          'No skills found for this project.',
-                          style: TextStyle(
-                            color: theme.textMuted,
-                            fontSize: 13,
-                          ),
-                        ),
-                      )
-                    else
-                      Flexible(
-                        child: ListView.builder(
-                          shrinkWrap: true,
-                          itemCount: data.length,
-                          itemBuilder: (context, index) {
-                            final entry = data[index];
-                            final cwdLabel = (entry['cwd'] ?? '').toString();
-                            final skills =
-                                (entry['skills'] as List<dynamic>? ?? const [])
-                                    .whereType<Map<String, dynamic>>()
-                                    .toList();
-                            final errors =
-                                (entry['errors'] as List<dynamic>? ?? const [])
-                                    .whereType<Map<String, dynamic>>()
-                                    .toList();
+                  )
+                : data.isEmpty
+                ? Padding(
+                    padding: const EdgeInsets.symmetric(vertical: 16),
+                    child: Text(
+                      'No skills found for this project.',
+                      style: TextStyle(color: theme.textMuted, fontSize: 13),
+                    ),
+                  )
+                : Column(
+                    mainAxisSize: MainAxisSize.min,
+                    children: data.map((entry) {
+                      final cwdLabel = (entry['cwd'] ?? '').toString();
+                      final skills =
+                          (entry['skills'] as List<dynamic>? ?? const [])
+                              .whereType<Map<String, dynamic>>()
+                              .toList();
+                      final errors =
+                          (entry['errors'] as List<dynamic>? ?? const [])
+                              .whereType<Map<String, dynamic>>()
+                              .toList();
 
-                            return Padding(
-                              padding: const EdgeInsets.only(bottom: 12),
-                              child: Column(
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                children: [
-                                  if (cwdLabel.isNotEmpty)
-                                    Text(
-                                      cwdLabel,
-                                      style: TextStyle(
-                                        color: theme.textMuted,
-                                        fontSize: 12,
-                                        fontWeight: FontWeight.w600,
-                                      ),
-                                    ),
-                                  const SizedBox(height: 8),
-                                  for (final s in skills)
-                                    ListTile(
-                                      dense: true,
-                                      contentPadding: EdgeInsets.zero,
-                                      leading: Icon(
-                                        Icons.auto_awesome_rounded,
-                                        size: 18,
-                                        color: theme.primary,
-                                      ),
-                                      title: Text(
-                                        (s['name'] ?? 'skill').toString(),
-                                        style: TextStyle(
-                                          color: theme.text,
-                                          fontSize: 13,
-                                          fontWeight: FontWeight.w600,
-                                        ),
-                                      ),
-                                      subtitle: Text(
-                                        (s['description'] ??
-                                                s['shortDescription'] ??
-                                                '')
-                                            .toString(),
-                                        maxLines: 2,
-                                        overflow: TextOverflow.ellipsis,
-                                        style: TextStyle(
-                                          color: theme.textMuted,
-                                          fontSize: 12,
-                                        ),
-                                      ),
-                                      trailing: Text(
-                                        (s['scope'] ?? '').toString(),
-                                        style: TextStyle(
-                                          color: theme.textMuted,
-                                          fontSize: 11,
-                                        ),
-                                      ),
-                                    ),
-                                  for (final e in errors)
-                                    Padding(
-                                      padding: const EdgeInsets.only(top: 6),
-                                      child: Text(
-                                        'Error: ${(e['message'] ?? '').toString()}',
-                                        style: TextStyle(
-                                          color: theme.error,
-                                          fontSize: 12,
-                                        ),
-                                      ),
-                                    ),
-                                ],
+                      return Padding(
+                        padding: const EdgeInsets.only(bottom: 12),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            if (cwdLabel.isNotEmpty)
+                              Text(
+                                cwdLabel,
+                                style: TextStyle(
+                                  color: theme.textMuted,
+                                  fontSize: 12,
+                                  fontWeight: FontWeight.w600,
+                                ),
                               ),
-                            );
-                          },
+                            const SizedBox(height: 8),
+                            for (final s in skills)
+                              ListTile(
+                                dense: true,
+                                contentPadding: EdgeInsets.zero,
+                                leading: Icon(
+                                  Icons.auto_awesome_rounded,
+                                  size: 18,
+                                  color: theme.primary,
+                                ),
+                                title: Text(
+                                  (s['name'] ?? 'skill').toString(),
+                                  style: TextStyle(
+                                    color: theme.text,
+                                    fontSize: 13,
+                                    fontWeight: FontWeight.w600,
+                                  ),
+                                ),
+                                subtitle: Text(
+                                  (s['description'] ??
+                                          s['shortDescription'] ??
+                                          '')
+                                      .toString(),
+                                  maxLines: 2,
+                                  overflow: TextOverflow.ellipsis,
+                                  style: TextStyle(
+                                    color: theme.textMuted,
+                                    fontSize: 12,
+                                  ),
+                                ),
+                                trailing: Text(
+                                  (s['scope'] ?? '').toString(),
+                                  style: TextStyle(
+                                    color: theme.textMuted,
+                                    fontSize: 11,
+                                  ),
+                                ),
+                              ),
+                            for (final e in errors)
+                              Padding(
+                                padding: const EdgeInsets.only(top: 6),
+                                child: Text(
+                                  'Error: ${(e['message'] ?? '').toString()}',
+                                  style: TextStyle(
+                                    color: theme.error,
+                                    fontSize: 12,
+                                  ),
+                                ),
+                              ),
+                          ],
                         ),
-                      ),
-                  ],
-                );
-              },
-            ),
-          ),
-        );
-      },
+                      );
+                    }).toList(),
+                  ),
+          );
+        },
+      ),
     );
   }
 
   void _showCodexMcpSheet() {
     final theme = OpenCodeTheme.of(context);
-    showModalBottomSheet(
+    DetailSheet.show(
       context: context,
-      isScrollControlled: true,
-      backgroundColor: Colors.transparent,
-      builder: (_) {
-        return SafeArea(
-          child: Container(
-            decoration: BoxDecoration(
-              color: theme.backgroundPanel,
-              borderRadius: const BorderRadius.vertical(
-                top: Radius.circular(18),
-              ),
-              border: Border.all(
-                color: theme.borderSubtle.withValues(alpha: 0.2),
-              ),
-            ),
-            padding: const EdgeInsets.fromLTRB(16, 16, 16, 20),
-            child: FutureBuilder<List<Map<String, dynamic>>>(
-              future: ref.read(bridgeServiceProvider).cxListMcpServerStatus(),
-              builder: (context, snapshot) {
-                final loading =
-                    snapshot.connectionState == ConnectionState.waiting;
-                final servers = snapshot.data ?? const <Map<String, dynamic>>[];
+      title: 'MCP Servers',
+      initialSize: 0.5,
+      child: FutureBuilder<List<Map<String, dynamic>>>(
+        future: ref.read(bridgeServiceProvider).cxListMcpServerStatus(),
+        builder: (context, snapshot) {
+          final loading = snapshot.connectionState == ConnectionState.waiting;
+          final servers = snapshot.data ?? const <Map<String, dynamic>>[];
 
-                return Column(
-                  mainAxisSize: MainAxisSize.min,
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Row(
-                      children: [
-                        Expanded(
-                          child: Text(
-                            'MCP servers',
-                            style: TextStyle(
-                              color: theme.text,
-                              fontSize: 16,
-                              fontWeight: FontWeight.w700,
-                            ),
-                          ),
-                        ),
-                        IconButton(
-                          onPressed: () => Navigator.pop(context),
-                          icon: Icon(
-                            Icons.close_rounded,
-                            color: theme.textMuted,
-                          ),
-                        ),
-                      ],
+          return Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 16),
+            child: loading
+                ? const Padding(
+                    padding: EdgeInsets.symmetric(vertical: 24),
+                    child: Center(child: CircularProgressIndicator()),
+                  )
+                : snapshot.hasError
+                ? Padding(
+                    padding: const EdgeInsets.symmetric(vertical: 16),
+                    child: Text(
+                      'Failed to load MCP servers: ${snapshot.error}',
+                      style: TextStyle(color: theme.textMuted, fontSize: 12),
                     ),
-                    const SizedBox(height: 8),
-                    if (loading)
-                      const Padding(
-                        padding: EdgeInsets.symmetric(vertical: 24),
-                        child: Center(child: CircularProgressIndicator()),
-                      )
-                    else if (snapshot.hasError)
-                      Padding(
-                        padding: const EdgeInsets.symmetric(vertical: 16),
-                        child: Text(
-                          'Failed to load MCP servers: ${snapshot.error}',
-                          style: TextStyle(
-                            color: theme.textMuted,
-                            fontSize: 12,
-                          ),
-                        ),
-                      )
-                    else if (servers.isEmpty)
-                      Padding(
-                        padding: const EdgeInsets.symmetric(vertical: 16),
-                        child: Text(
-                          'No MCP servers configured.',
-                          style: TextStyle(
-                            color: theme.textMuted,
-                            fontSize: 13,
-                          ),
-                        ),
-                      )
-                    else
-                      Flexible(
-                        child: ListView.separated(
-                          shrinkWrap: true,
-                          itemCount: servers.length,
-                          separatorBuilder: (_, __) => Divider(
-                            color: theme.borderSubtle.withValues(alpha: 0.35),
-                          ),
-                          itemBuilder: (context, index) {
-                            final s = servers[index];
-                            final name = (s['name'] ?? '').toString();
-                            final auth = (s['authStatus'] ?? '').toString();
-                            final tools = (s['tools'] is Map)
-                                ? (s['tools'] as Map).length
-                                : (s['tools'] as List?)?.length ?? 0;
-                            final resources =
-                                (s['resources'] as List?)?.length ?? 0;
-                            final templates =
-                                (s['resourceTemplates'] as List?)?.length ?? 0;
+                  )
+                : servers.isEmpty
+                ? Padding(
+                    padding: const EdgeInsets.symmetric(vertical: 16),
+                    child: Text(
+                      'No MCP servers configured.',
+                      style: TextStyle(color: theme.textMuted, fontSize: 13),
+                    ),
+                  )
+                : Column(
+                    mainAxisSize: MainAxisSize.min,
+                    children: servers.asMap().entries.map((entry) {
+                      final index = entry.key;
+                      final s = entry.value;
+                      final name = (s['name'] ?? '').toString();
+                      final auth = (s['authStatus'] ?? '').toString();
+                      final tools = (s['tools'] is Map)
+                          ? (s['tools'] as Map).length
+                          : (s['tools'] as List?)?.length ?? 0;
+                      final resources = (s['resources'] as List?)?.length ?? 0;
+                      final templates =
+                          (s['resourceTemplates'] as List?)?.length ?? 0;
 
-                            final needsLogin =
-                                auth.toLowerCase().contains('not') ||
-                                auth.toLowerCase().contains('oauth');
+                      final needsLogin =
+                          auth.toLowerCase().contains('not') ||
+                          auth.toLowerCase().contains('oauth');
 
-                            return ListTile(
-                              contentPadding: EdgeInsets.zero,
-                              leading: Icon(
-                                Icons.hub_rounded,
-                                color: theme.accent,
-                                size: 18,
+                      return Column(
+                        children: [
+                          if (index > 0)
+                            Divider(
+                              color: theme.borderSubtle.withValues(alpha: 0.35),
+                            ),
+                          ListTile(
+                            contentPadding: EdgeInsets.zero,
+                            leading: Icon(
+                              Icons.hub_rounded,
+                              color: theme.accent,
+                              size: 18,
+                            ),
+                            title: Text(
+                              name.isEmpty ? 'server' : name,
+                              style: TextStyle(
+                                color: theme.text,
+                                fontSize: 13,
+                                fontWeight: FontWeight.w600,
                               ),
-                              title: Text(
-                                name.isEmpty ? 'server' : name,
-                                style: TextStyle(
-                                  color: theme.text,
-                                  fontSize: 13,
-                                  fontWeight: FontWeight.w600,
-                                ),
+                            ),
+                            subtitle: Text(
+                              '$auth • $tools tools • $resources resources • $templates templates',
+                              style: TextStyle(
+                                color: theme.textMuted,
+                                fontSize: 12,
                               ),
-                              subtitle: Text(
-                                '$auth • $tools tools • $resources resources • $templates templates',
-                                style: TextStyle(
-                                  color: theme.textMuted,
-                                  fontSize: 12,
-                                ),
-                              ),
-                              trailing: needsLogin
-                                  ? TextButton(
-                                      onPressed: name.isEmpty
-                                          ? null
-                                          : () async {
-                                              final bridge = ref.read(
-                                                bridgeServiceProvider,
-                                              );
-                                              final url = await bridge
-                                                  .cxMcpOauthLogin(name: name);
-                                              if (url == null || url.isEmpty)
-                                                return;
-                                              final uri = Uri.tryParse(url);
-                                              if (uri == null) return;
-                                              await launchUrl(
-                                                uri,
-                                                mode: LaunchMode
-                                                    .externalApplication,
-                                              );
-                                            },
-                                      child: const Text('Login'),
-                                    )
-                                  : null,
-                            );
-                          },
-                        ),
-                      ),
-                  ],
-                );
-              },
-            ),
-          ),
-        );
-      },
+                            ),
+                            trailing: needsLogin
+                                ? TextButton(
+                                    onPressed: name.isEmpty
+                                        ? null
+                                        : () async {
+                                            final bridge = ref.read(
+                                              bridgeServiceProvider,
+                                            );
+                                            final url = await bridge
+                                                .cxMcpOauthLogin(name: name);
+                                            if (url == null || url.isEmpty)
+                                              return;
+                                            final uri = Uri.tryParse(url);
+                                            if (uri == null) return;
+                                            await launchUrl(
+                                              uri,
+                                              mode: LaunchMode
+                                                  .externalApplication,
+                                            );
+                                          },
+                                    child: const Text('Login'),
+                                  )
+                                : null,
+                          ),
+                        ],
+                      );
+                    }).toList(),
+                  ),
+          );
+        },
+      ),
     );
   }
 
@@ -4622,95 +3998,45 @@ Describe project-specific guidance for Codex here.
 
   void _showCodexConfigSheet() {
     final theme = OpenCodeTheme.of(context);
-    showModalBottomSheet(
+    DetailSheet.show(
       context: context,
-      isScrollControlled: true,
-      backgroundColor: Colors.transparent,
-      builder: (_) {
-        return SafeArea(
-          child: Container(
-            decoration: BoxDecoration(
-              color: theme.backgroundPanel,
-              borderRadius: const BorderRadius.vertical(
-                top: Radius.circular(18),
-              ),
-              border: Border.all(
-                color: theme.borderSubtle.withValues(alpha: 0.2),
-              ),
-            ),
-            padding: const EdgeInsets.fromLTRB(16, 16, 16, 20),
-            child: FutureBuilder<Map<String, dynamic>>(
-              future: ref.read(bridgeServiceProvider).cxReadConfig(),
-              builder: (context, snapshot) {
-                final loading =
-                    snapshot.connectionState == ConnectionState.waiting;
-                final config = snapshot.data ?? const <String, dynamic>{};
-                final configJson = const JsonEncoder.withIndent(
-                  '  ',
-                ).convert(config);
+      title: 'Codex Config',
+      initialSize: 0.6,
+      child: FutureBuilder<Map<String, dynamic>>(
+        future: ref.read(bridgeServiceProvider).cxReadConfig(),
+        builder: (context, snapshot) {
+          final loading = snapshot.connectionState == ConnectionState.waiting;
+          final config = snapshot.data ?? const <String, dynamic>{};
+          final configJson = const JsonEncoder.withIndent('  ').convert(config);
 
-                return Column(
-                  mainAxisSize: MainAxisSize.min,
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Row(
-                      children: [
-                        Expanded(
-                          child: Text(
-                            'Codex config',
-                            style: TextStyle(
-                              color: theme.text,
-                              fontSize: 16,
-                              fontWeight: FontWeight.w700,
-                            ),
-                          ),
-                        ),
-                        IconButton(
-                          onPressed: () => Navigator.pop(context),
-                          icon: Icon(
-                            Icons.close_rounded,
-                            color: theme.textMuted,
-                          ),
-                        ),
-                      ],
+          return Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 16),
+            child: loading
+                ? const Padding(
+                    padding: EdgeInsets.symmetric(vertical: 24),
+                    child: Center(child: CircularProgressIndicator()),
+                  )
+                : snapshot.hasError
+                ? Padding(
+                    padding: const EdgeInsets.symmetric(vertical: 16),
+                    child: Text(
+                      'Failed to read config: ${snapshot.error}',
+                      style: TextStyle(color: theme.textMuted, fontSize: 12),
                     ),
-                    const SizedBox(height: 8),
-                    if (loading)
-                      const Padding(
-                        padding: EdgeInsets.symmetric(vertical: 24),
-                        child: Center(child: CircularProgressIndicator()),
-                      )
-                    else if (snapshot.hasError)
-                      Padding(
-                        padding: const EdgeInsets.symmetric(vertical: 16),
-                        child: Text(
-                          'Failed to read config: ${snapshot.error}',
-                          style: TextStyle(
-                            color: theme.textMuted,
-                            fontSize: 12,
-                          ),
-                        ),
-                      )
-                    else
-                      Flexible(
-                        child: SingleChildScrollView(
-                          child: SelectableText(
-                            configJson,
-                            style: TextStyle(
-                              fontFamily: 'monospace',
-                              color: theme.textMuted,
-                              fontSize: 11,
-                            ),
-                          ),
-                        ),
+                  )
+                : SingleChildScrollView(
+                    child: SelectableText(
+                      configJson,
+                      style: TextStyle(
+                        fontFamily: 'monospace',
+                        color: theme.textMuted,
+                        fontSize: 11,
                       ),
-                  ],
-                );
-              },
-            ),
-          ),
-        );
-      },
+                    ),
+                  ),
+          );
+        },
+      ),
     );
   }
 
@@ -4789,123 +4115,80 @@ Describe project-specific guidance for Codex here.
 
   void _showCodexModelSheet() {
     final theme = OpenCodeTheme.of(context);
-    showModalBottomSheet(
+    DetailSheet.show(
       context: context,
-      isScrollControlled: true,
-      backgroundColor: Colors.transparent,
-      builder: (_) {
-        return SafeArea(
-          child: Container(
-            decoration: BoxDecoration(
-              color: theme.backgroundPanel,
-              borderRadius: const BorderRadius.vertical(
-                top: Radius.circular(18),
-              ),
-              border: Border.all(
-                color: theme.borderSubtle.withValues(alpha: 0.2),
-              ),
-            ),
-            padding: const EdgeInsets.fromLTRB(16, 16, 16, 20),
-            child: Consumer(
-              builder: (context, ref, _) {
-                final chatState = ref.watch(chatSessionProvider);
-                final current = chatState.cxModel ?? 'gpt-5.2-codex';
+      title: 'Codex Model',
+      initialSize: 0.5,
+      child: Consumer(
+        builder: (context, ref, _) {
+          final chatState = ref.watch(chatSessionProvider);
+          final current = chatState.cxModel ?? 'gpt-5.2-codex';
 
-                Widget modelTile(String model, String label, String desc) {
-                  final selected = current == model;
-                  return ListTile(
-                    dense: true,
-                    contentPadding: EdgeInsets.zero,
-                    leading: Icon(
-                      selected
-                          ? Icons.radio_button_checked_rounded
-                          : Icons.radio_button_off_rounded,
-                      size: 18,
-                      color: selected ? theme.primary : theme.textMuted,
-                    ),
-                    title: Text(
-                      label,
-                      style: TextStyle(color: theme.text, fontSize: 13),
-                    ),
-                    subtitle: Text(
-                      desc,
-                      style: TextStyle(color: theme.textMuted, fontSize: 12),
-                    ),
-                    onTap: () {
-                      ref
-                          .read(chatSessionProvider.notifier)
-                          .setCodexModel(model);
-                      if (!mounted) return;
-                      Navigator.pop(context);
-                    },
-                  );
-                }
-
-                return Column(
-                  mainAxisSize: MainAxisSize.min,
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Row(
-                      children: [
-                        Icon(
-                          Icons.auto_awesome_rounded,
-                          color: theme.primary,
-                          size: 18,
-                        ),
-                        const SizedBox(width: 10),
-                        Expanded(
-                          child: Text(
-                            'Codex model',
-                            style: TextStyle(
-                              color: theme.text,
-                              fontSize: 16,
-                              fontWeight: FontWeight.w700,
-                            ),
-                          ),
-                        ),
-                        IconButton(
-                          onPressed: () => Navigator.pop(context),
-                          icon: Icon(
-                            Icons.close_rounded,
-                            color: theme.textMuted,
-                          ),
-                        ),
-                      ],
-                    ),
-                    const SizedBox(height: 6),
-                    Text(
-                      'Select the model used for Codex turns.',
-                      style: TextStyle(color: theme.textMuted, fontSize: 13),
-                    ),
-                    const SizedBox(height: 14),
-                    // Codex SDK models (from model_presets.rs - show_in_picker: true)
-                    modelTile(
-                      'gpt-5.2-codex',
-                      'gpt-5.2-codex',
-                      'Latest frontier agentic coding model',
-                    ),
-                    modelTile(
-                      'gpt-5.1-codex-max',
-                      'gpt-5.1-codex-max',
-                      'Codex-optimized flagship for deep and fast reasoning',
-                    ),
-                    modelTile(
-                      'gpt-5.1-codex-mini',
-                      'gpt-5.1-codex-mini',
-                      'Optimized for codex. Cheaper, faster, less capable',
-                    ),
-                    modelTile(
-                      'gpt-5.2',
-                      'gpt-5.2',
-                      'Latest frontier model with improvements across knowledge, reasoning and coding',
-                    ),
-                  ],
-                );
+          Widget modelTile(String model, String label, String desc) {
+            final selected = current == model;
+            return ListTile(
+              dense: true,
+              contentPadding: EdgeInsets.zero,
+              leading: Icon(
+                selected
+                    ? Icons.radio_button_checked_rounded
+                    : Icons.radio_button_off_rounded,
+                size: 18,
+                color: selected ? theme.primary : theme.textMuted,
+              ),
+              title: Text(
+                label,
+                style: TextStyle(color: theme.text, fontSize: 13),
+              ),
+              subtitle: Text(
+                desc,
+                style: TextStyle(color: theme.textMuted, fontSize: 12),
+              ),
+              onTap: () {
+                ref.read(chatSessionProvider.notifier).setCodexModel(model);
+                if (!mounted) return;
+                Navigator.pop(context);
               },
+            );
+          }
+
+          return Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 16),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  'Select the model used for Codex turns.',
+                  style: TextStyle(color: theme.textMuted, fontSize: 13),
+                ),
+                const SizedBox(height: 14),
+                // Codex SDK models (from model_presets.rs - show_in_picker: true)
+                modelTile(
+                  'gpt-5.2-codex',
+                  'gpt-5.2-codex',
+                  'Latest frontier agentic coding model',
+                ),
+                modelTile(
+                  'gpt-5.1-codex-max',
+                  'gpt-5.1-codex-max',
+                  'Codex-optimized flagship for deep and fast reasoning',
+                ),
+                modelTile(
+                  'gpt-5.1-codex-mini',
+                  'gpt-5.1-codex-mini',
+                  'Optimized for codex. Cheaper, faster, less capable',
+                ),
+                modelTile(
+                  'gpt-5.2',
+                  'gpt-5.2',
+                  'Latest frontier model with improvements across knowledge, reasoning and coding',
+                ),
+              ],
             ),
-          ),
-        );
-      },
+          );
+        },
+      ),
     );
   }
 
@@ -4943,127 +4226,86 @@ Describe project-specific guidance for Codex here.
 
   void _showClaudeCodeModelSheet() {
     final theme = OpenCodeTheme.of(context);
-    showModalBottomSheet(
+    DetailSheet.show(
       context: context,
-      isScrollControlled: true,
-      backgroundColor: Colors.transparent,
-      builder: (_) {
-        return SafeArea(
-          child: Container(
-            decoration: BoxDecoration(
-              color: theme.backgroundPanel,
-              borderRadius: const BorderRadius.vertical(
-                top: Radius.circular(18),
+      title: 'Claude Code Model',
+      initialSize: 0.4,
+      child: Consumer(
+        builder: (context, ref, _) {
+          final chatState = ref.watch(chatSessionProvider);
+          final init = chatState.ccInit;
+          final configAsync = ref.watch(ccConfigProvider);
+          final config =
+              configAsync.valueOrNull ??
+              ClaudeCodeConfig(
+                permissionMode: ClaudeCodePermissionMode.defaultMode,
+                allowedTools: init?.tools ?? const [],
+                disallowedTools: const [],
+                model: init?.model,
+              );
+
+          final current =
+              config.model ??
+              chatState.ccModel ??
+              init?.model ??
+              widget.ccSession?.model ??
+              widget.ccDraftModel ??
+              'sonnet';
+
+          Future<void> setModel(String model) async {
+            await ref
+                .read(ccConfigProvider.notifier)
+                .updateConfig(config.copyWith(model: model));
+            ref.read(chatSessionProvider.notifier).setCCModel(model);
+          }
+
+          Widget modelTile(String model, String label) {
+            final selected = current == model;
+            return ListTile(
+              dense: true,
+              contentPadding: EdgeInsets.zero,
+              leading: Icon(
+                selected
+                    ? Icons.radio_button_checked_rounded
+                    : Icons.radio_button_off_rounded,
+                size: 18,
+                color: selected ? theme.accent : theme.textMuted,
               ),
-              border: Border.all(
-                color: theme.borderSubtle.withValues(alpha: 0.2),
+              title: Text(
+                label,
+                style: TextStyle(color: theme.text, fontSize: 13),
               ),
-            ),
-            padding: const EdgeInsets.fromLTRB(16, 16, 16, 20),
-            child: Consumer(
-              builder: (context, ref, _) {
-                final chatState = ref.watch(chatSessionProvider);
-                final init = chatState.ccInit;
-                final configAsync = ref.watch(ccConfigProvider);
-                final config =
-                    configAsync.valueOrNull ??
-                    ClaudeCodeConfig(
-                      permissionMode: ClaudeCodePermissionMode.defaultMode,
-                      allowedTools: init?.tools ?? const [],
-                      disallowedTools: const [],
-                      model: init?.model,
-                    );
-
-                final current =
-                    config.model ??
-                    chatState.ccModel ??
-                    init?.model ??
-                    widget.ccSession?.model ??
-                    widget.ccDraftModel ??
-                    'sonnet';
-
-                Future<void> setModel(String model) async {
-                  await ref
-                      .read(ccConfigProvider.notifier)
-                      .updateConfig(config.copyWith(model: model));
-                  ref.read(chatSessionProvider.notifier).setCCModel(model);
-                }
-
-                Widget modelTile(String model, String label) {
-                  final selected = current == model;
-                  return ListTile(
-                    dense: true,
-                    contentPadding: EdgeInsets.zero,
-                    leading: Icon(
-                      selected
-                          ? Icons.radio_button_checked_rounded
-                          : Icons.radio_button_off_rounded,
-                      size: 18,
-                      color: selected ? theme.accent : theme.textMuted,
-                    ),
-                    title: Text(
-                      label,
-                      style: TextStyle(color: theme.text, fontSize: 13),
-                    ),
-                    subtitle: Text(
-                      model,
-                      style: TextStyle(color: theme.textMuted, fontSize: 12),
-                    ),
-                    onTap: () async {
-                      await setModel(model);
-                      if (!mounted) return;
-                      Navigator.pop(context);
-                    },
-                  );
-                }
-
-                return Column(
-                  mainAxisSize: MainAxisSize.min,
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Row(
-                      children: [
-                        Icon(
-                          Icons.auto_awesome_rounded,
-                          color: theme.accent,
-                          size: 18,
-                        ),
-                        const SizedBox(width: 10),
-                        Expanded(
-                          child: Text(
-                            'Claude Code model',
-                            style: TextStyle(
-                              color: theme.text,
-                              fontSize: 16,
-                              fontWeight: FontWeight.w700,
-                            ),
-                          ),
-                        ),
-                        IconButton(
-                          onPressed: () => Navigator.pop(context),
-                          icon: Icon(
-                            Icons.close_rounded,
-                            color: theme.textMuted,
-                          ),
-                        ),
-                      ],
-                    ),
-                    const SizedBox(height: 6),
-                    Text(
-                      'Select the model used for Claude Code turns.',
-                      style: TextStyle(color: theme.textMuted, fontSize: 13),
-                    ),
-                    const SizedBox(height: 14),
-                    modelTile('sonnet', 'Sonnet'),
-                    modelTile('opus', 'Opus'),
-                    modelTile('haiku', 'Haiku'),
-                  ],
-                );
+              subtitle: Text(
+                model,
+                style: TextStyle(color: theme.textMuted, fontSize: 12),
+              ),
+              onTap: () async {
+                await setModel(model);
+                if (!mounted) return;
+                Navigator.pop(context);
               },
+            );
+          }
+
+          return Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 16),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  'Select the model used for Claude Code turns.',
+                  style: TextStyle(color: theme.textMuted, fontSize: 13),
+                ),
+                const SizedBox(height: 14),
+                modelTile('sonnet', 'Sonnet'),
+                modelTile('opus', 'Opus'),
+                modelTile('haiku', 'Haiku'),
+              ],
             ),
-          ),
-        );
-      },
+          );
+        },
+      ),
     );
   }
 
@@ -5500,91 +4742,55 @@ Describe project-specific guidance for Codex here.
   /// Show help dialog with all available commands
   void _showHelpDialog() {
     final theme = OpenCodeTheme.of(context);
-    showModalBottomSheet(
+    DetailSheet.show(
       context: context,
-      backgroundColor: Colors.transparent,
-      isScrollControlled: true,
-      builder: (context) => DraggableScrollableSheet(
-        initialChildSize: 0.7,
-        minChildSize: 0.5,
-        maxChildSize: 0.9,
-        builder: (context, scrollController) => Container(
-          decoration: BoxDecoration(
-            color: theme.backgroundPanel,
-            borderRadius: const BorderRadius.vertical(top: Radius.circular(20)),
-          ),
-          child: Column(
-            children: [
-              Container(
-                margin: const EdgeInsets.only(top: 12),
-                width: 40,
-                height: 4,
-                decoration: BoxDecoration(
-                  color: theme.textMuted,
-                  borderRadius: BorderRadius.circular(2),
-                ),
+      title: 'Available Commands',
+      initialSize: 0.7,
+      maxSize: 0.9,
+      minSize: 0.5,
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 16),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            _buildCommandSection('Session Actions', [
+              ('/undo', 'Undo last message'),
+              ('/redo', 'Redo last message'),
+              ('/compact', 'Compact session to free context'),
+              ('/fork', 'Fork session from a message'),
+              ('/rename', 'Rename session'),
+              ('/share', 'Share session publicly'),
+              ('/unshare', 'Remove public share'),
+            ], theme),
+            _buildCommandSection('Navigation', [
+              ('/new', 'Create new session'),
+              ('/clear', 'Alias for /new'),
+              ('/session', 'List all sessions'),
+              ('/resume', 'Alias for /session'),
+              ('/timeline', 'Jump to a message'),
+            ], theme),
+            _buildCommandSection('Configuration', [
+              ('/models', 'List available models'),
+              ('/agents', 'List available agents'),
+              ('/thinking', 'Toggle thinking visibility'),
+            ], theme),
+            _buildCommandSection('Export', [
+              ('/copy', 'Copy transcript to clipboard'),
+              ('/export', 'Export transcript to file'),
+            ], theme),
+            if (_commands.any((c) => !c.builtin))
+              _buildCommandSection(
+                'Custom Commands',
+                _commands
+                    .where((c) => !c.builtin)
+                    .map(
+                      (c) => ('/${c.name}', c.description ?? 'No description'),
+                    )
+                    .toList(),
+                theme,
               ),
-              Padding(
-                padding: const EdgeInsets.all(16),
-                child: Text(
-                  'Available Commands',
-                  style: TextStyle(
-                    fontSize: 18,
-                    fontWeight: FontWeight.w600,
-                    color: theme.text,
-                  ),
-                ),
-              ),
-              Expanded(
-                child: ListView(
-                  controller: scrollController,
-                  padding: const EdgeInsets.symmetric(horizontal: 16),
-                  children: [
-                    _buildCommandSection('Session Actions', [
-                      ('/undo', 'Undo last message'),
-                      ('/redo', 'Redo last message'),
-                      ('/compact', 'Compact session to free context'),
-                      ('/fork', 'Fork session from a message'),
-                      ('/rename', 'Rename session'),
-                      ('/share', 'Share session publicly'),
-                      ('/unshare', 'Remove public share'),
-                    ], theme),
-                    _buildCommandSection('Navigation', [
-                      ('/new', 'Create new session'),
-                      ('/clear', 'Alias for /new'),
-                      ('/session', 'List all sessions'),
-                      ('/resume', 'Alias for /session'),
-                      ('/timeline', 'Jump to a message'),
-                    ], theme),
-                    _buildCommandSection('Configuration', [
-                      ('/models', 'List available models'),
-                      ('/agents', 'List available agents'),
-                      ('/thinking', 'Toggle thinking visibility'),
-                    ], theme),
-                    _buildCommandSection('Export', [
-                      ('/copy', 'Copy transcript to clipboard'),
-                      ('/export', 'Export transcript to file'),
-                    ], theme),
-                    if (_commands.any((c) => !c.builtin))
-                      _buildCommandSection(
-                        'Custom Commands',
-                        _commands
-                            .where((c) => !c.builtin)
-                            .map(
-                              (c) => (
-                                '/${c.name}',
-                                c.description ?? 'No description',
-                              ),
-                            )
-                            .toList(),
-                        theme,
-                      ),
-                    const SizedBox(height: 20),
-                  ],
-                ),
-              ),
-            ],
-          ),
+            const SizedBox(height: 20),
+          ],
         ),
       ),
     );
@@ -5746,80 +4952,61 @@ Describe project-specific guidance for Codex here.
       return;
     }
 
-    showModalBottomSheet(
+    DetailSheet.show(
       context: context,
-      backgroundColor: Colors.transparent,
-      builder: (context) => Container(
-        padding: const EdgeInsets.all(24),
-        decoration: BoxDecoration(
-          color: theme.backgroundPanel,
-          borderRadius: const BorderRadius.vertical(top: Radius.circular(20)),
-        ),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text(
-              'Export Transcript',
-              style: TextStyle(
-                fontSize: 18,
-                fontWeight: FontWeight.w600,
-                color: theme.text,
-              ),
+      title: 'Export Transcript',
+      initialSize: 0.4,
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          ListTile(
+            leading: Icon(Icons.copy, color: theme.primary),
+            title: Text(
+              'Copy to Clipboard',
+              style: TextStyle(color: theme.text),
             ),
-            const SizedBox(height: 16),
-            ListTile(
-              leading: Icon(Icons.copy, color: theme.primary),
-              title: Text(
-                'Copy to Clipboard',
-                style: TextStyle(color: theme.text),
-              ),
-              subtitle: Text(
-                'Copy as markdown',
-                style: TextStyle(color: theme.textMuted),
-              ),
-              onTap: () {
-                Navigator.pop(context);
-                _copyTranscriptToClipboard();
-              },
+            subtitle: Text(
+              'Copy as markdown',
+              style: TextStyle(color: theme.textMuted),
             ),
-            ListTile(
-              leading: Icon(Icons.share, color: theme.primary),
-              title: Text('Share', style: TextStyle(color: theme.text)),
-              subtitle: Text(
-                'Share transcript via system share',
-                style: TextStyle(color: theme.textMuted),
-              ),
-              onTap: () {
-                Navigator.pop(context);
-                _shareTranscript();
-              },
+            onTap: () {
+              Navigator.pop(context);
+              _copyTranscriptToClipboard();
+            },
+          ),
+          ListTile(
+            leading: Icon(Icons.share, color: theme.primary),
+            title: Text('Share', style: TextStyle(color: theme.text)),
+            subtitle: Text(
+              'Share transcript via system share',
+              style: TextStyle(color: theme.textMuted),
             ),
-            ListTile(
-              leading: Icon(Icons.tune_rounded, color: theme.primary),
-              title: Text(
-                'Export options…',
-                style: TextStyle(color: theme.text),
-              ),
-              subtitle: Text(
-                'Choose format, include tools, and more',
-                style: TextStyle(color: theme.textMuted),
-              ),
-              onTap: () {
-                Navigator.pop(context);
-                showModalBottomSheet(
-                  context: context,
-                  isScrollControlled: true,
-                  backgroundColor: Colors.transparent,
-                  builder: (_) => ExportSessionSheet(
-                    title: widget.effectiveTitle,
-                    messages: chatState.messages,
-                  ),
-                );
-              },
+            onTap: () {
+              Navigator.pop(context);
+              _shareTranscript();
+            },
+          ),
+          ListTile(
+            leading: Icon(Icons.tune_rounded, color: theme.primary),
+            title: Text('Export options…', style: TextStyle(color: theme.text)),
+            subtitle: Text(
+              'Choose format, include tools, and more',
+              style: TextStyle(color: theme.textMuted),
             ),
-          ],
-        ),
+            onTap: () {
+              Navigator.pop(context);
+              showModalBottomSheet(
+                context: context,
+                isScrollControlled: true,
+                backgroundColor: Colors.transparent,
+                builder: (_) => ExportSessionSheet(
+                  title: widget.effectiveTitle,
+                  messages: chatState.messages,
+                ),
+              );
+            },
+          ),
+        ],
       ),
     );
   }
@@ -5856,93 +5043,55 @@ Describe project-specific guidance for Codex here.
       return;
     }
 
-    showModalBottomSheet(
+    DetailSheet.show(
       context: context,
-      backgroundColor: Colors.transparent,
-      isScrollControlled: true,
-      builder: (context) => DraggableScrollableSheet(
-        initialChildSize: 0.6,
-        minChildSize: 0.4,
-        maxChildSize: 0.9,
-        builder: (context, scrollController) => Container(
-          decoration: BoxDecoration(
-            color: theme.backgroundPanel,
-            borderRadius: const BorderRadius.vertical(top: Radius.circular(20)),
-          ),
-          child: Column(
-            children: [
-              Container(
-                margin: const EdgeInsets.only(top: 12),
-                width: 40,
-                height: 4,
-                decoration: BoxDecoration(
-                  color: theme.textMuted,
-                  borderRadius: BorderRadius.circular(2),
-                ),
+      title: 'Jump to Message',
+      initialSize: 0.6,
+      minSize: 0.4,
+      maxSize: 0.9,
+      child: ListView.builder(
+        shrinkWrap: true,
+        physics: const NeverScrollableScrollPhysics(),
+        itemCount: chatState.messages.length,
+        itemBuilder: (context, index) {
+          final msg = chatState.messages[index];
+          final isUser = msg.role == 'user';
+          return ListTile(
+            leading: CircleAvatar(
+              backgroundColor: isUser ? theme.primary : theme.accent,
+              radius: 16,
+              child: Icon(
+                isUser ? Icons.person : Icons.smart_toy,
+                size: 16,
+                color: Colors.white,
               ),
-              Padding(
-                padding: const EdgeInsets.all(16),
-                child: Text(
-                  'Jump to Message',
-                  style: TextStyle(
-                    fontSize: 18,
-                    fontWeight: FontWeight.w600,
-                    color: theme.text,
-                  ),
-                ),
-              ),
-              Expanded(
-                child: ListView.builder(
-                  controller: scrollController,
-                  itemCount: chatState.messages.length,
-                  itemBuilder: (context, index) {
-                    final msg = chatState.messages[index];
-                    final isUser = msg.role == 'user';
-                    return ListTile(
-                      leading: CircleAvatar(
-                        backgroundColor: isUser ? theme.primary : theme.accent,
-                        radius: 16,
-                        child: Icon(
-                          isUser ? Icons.person : Icons.smart_toy,
-                          size: 16,
-                          color: Colors.white,
-                        ),
-                      ),
-                      title: Text(
-                        isUser ? 'You' : 'Assistant',
-                        style: TextStyle(
-                          fontWeight: FontWeight.w500,
-                          color: theme.text,
-                        ),
-                      ),
-                      subtitle: Text(
-                        msg.text.length > 60
-                            ? '${msg.text.substring(0, 60)}...'
-                            : msg.text,
-                        style: TextStyle(color: theme.textMuted),
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                      ),
-                      onTap: () {
-                        Navigator.pop(context);
-                        // Scroll to the message
-                        final targetIndex =
-                            chatState.messages.length - 1 - index;
-                        if (_scrollController.hasClients) {
-                          _scrollController.animateTo(
-                            targetIndex * 120.0, // Approximate message height
-                            duration: const Duration(milliseconds: 300),
-                            curve: Curves.easeInOut,
-                          );
-                        }
-                      },
-                    );
-                  },
-                ),
-              ),
-            ],
-          ),
-        ),
+            ),
+            title: Text(
+              isUser ? 'You' : 'Assistant',
+              style: TextStyle(fontWeight: FontWeight.w500, color: theme.text),
+            ),
+            subtitle: Text(
+              msg.text.length > 60
+                  ? '${msg.text.substring(0, 60)}...'
+                  : msg.text,
+              style: TextStyle(color: theme.textMuted),
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+            ),
+            onTap: () {
+              Navigator.pop(context);
+              // Scroll to the message
+              final targetIndex = chatState.messages.length - 1 - index;
+              if (_scrollController.hasClients) {
+                _scrollController.animateTo(
+                  targetIndex * 120.0, // Approximate message height
+                  duration: const Duration(milliseconds: 300),
+                  curve: Curves.easeInOut,
+                );
+              }
+            },
+          );
+        },
       ),
     );
   }
@@ -5959,147 +5108,114 @@ Describe project-specific guidance for Codex here.
       return;
     }
 
-    showModalBottomSheet(
+    DetailSheet.show(
       context: context,
-      backgroundColor: Colors.transparent,
-      isScrollControlled: true,
-      builder: (context) => DraggableScrollableSheet(
-        initialChildSize: 0.6,
-        minChildSize: 0.4,
-        maxChildSize: 0.9,
-        builder: (context, scrollController) => Container(
-          decoration: BoxDecoration(
-            color: theme.backgroundPanel,
-            borderRadius: const BorderRadius.vertical(top: Radius.circular(20)),
+      title: 'Fork Session',
+      initialSize: 0.6,
+      minSize: 0.4,
+      maxSize: 0.9,
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Padding(
+            padding: const EdgeInsets.only(bottom: 8),
+            child: Text(
+              'Select a message to fork from',
+              style: TextStyle(fontSize: 13, color: theme.textMuted),
+            ),
           ),
-          child: Column(
-            children: [
-              Container(
-                margin: const EdgeInsets.only(top: 12),
-                width: 40,
-                height: 4,
-                decoration: BoxDecoration(
-                  color: theme.textMuted,
-                  borderRadius: BorderRadius.circular(2),
+          ListView.builder(
+            shrinkWrap: true,
+            physics: const NeverScrollableScrollPhysics(),
+            itemCount: chatState.messages.length,
+            itemBuilder: (context, index) {
+              final msg = chatState.messages[index];
+              final isUser = msg.role == 'user';
+              return ListTile(
+                leading: CircleAvatar(
+                  backgroundColor: isUser ? theme.primary : theme.accent,
+                  radius: 16,
+                  child: Icon(
+                    isUser ? Icons.person : Icons.smart_toy,
+                    size: 16,
+                    color: Colors.white,
+                  ),
                 ),
-              ),
-              Padding(
-                padding: const EdgeInsets.all(16),
-                child: Column(
-                  children: [
-                    Text(
-                      'Fork Session',
-                      style: TextStyle(
-                        fontSize: 18,
-                        fontWeight: FontWeight.w600,
-                        color: theme.text,
-                      ),
-                    ),
-                    const SizedBox(height: 4),
-                    Text(
-                      'Select a message to fork from',
-                      style: TextStyle(fontSize: 13, color: theme.textMuted),
-                    ),
-                  ],
+                title: Text(
+                  isUser ? 'You' : 'Assistant',
+                  style: TextStyle(
+                    fontWeight: FontWeight.w500,
+                    color: theme.text,
+                  ),
                 ),
-              ),
-              Expanded(
-                child: ListView.builder(
-                  controller: scrollController,
-                  itemCount: chatState.messages.length,
-                  itemBuilder: (context, index) {
-                    final msg = chatState.messages[index];
-                    final isUser = msg.role == 'user';
-                    return ListTile(
-                      leading: CircleAvatar(
-                        backgroundColor: isUser ? theme.primary : theme.accent,
-                        radius: 16,
-                        child: Icon(
-                          isUser ? Icons.person : Icons.smart_toy,
-                          size: 16,
-                          color: Colors.white,
-                        ),
-                      ),
-                      title: Text(
-                        isUser ? 'You' : 'Assistant',
-                        style: TextStyle(
-                          fontWeight: FontWeight.w500,
-                          color: theme.text,
-                        ),
-                      ),
-                      subtitle: Text(
-                        msg.text.length > 60
-                            ? '${msg.text.substring(0, 60)}...'
-                            : msg.text,
-                        style: TextStyle(color: theme.textMuted),
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                      ),
-                      trailing: Icon(Icons.fork_right, color: theme.primary),
-                      onTap: () async {
-                        Navigator.pop(context);
-                        try {
-                          final bridge = ref.read(bridgeServiceProvider);
-                          final forkedSession = await bridge.forkSession(
-                            widget.session.id,
-                            messageId: msg.id,
-                            projectPath: widget.project.path,
-                          );
-                          if (mounted) {
-                            String? initialPrompt;
-                            final idx = chatState.messages.indexWhere(
-                              (m) => m.id == msg.id,
-                            );
-                            if (idx >= 0) {
-                              for (var i = idx; i >= 0; i--) {
-                                final m = chatState.messages[i];
-                                if (m.role == MessageRole.user &&
-                                    m.text.trim().isNotEmpty) {
-                                  initialPrompt = m.text.trim();
-                                  break;
-                                }
-                              }
-                              initialPrompt ??= msg.text.trim();
-                            }
-                            ScaffoldMessenger.of(context).showSnackBar(
-                              SnackBar(
-                                content: Text(
-                                  'Forked to "${forkedSession.title}"',
-                                ),
-                                action: SnackBarAction(
-                                  label: 'Open',
-                                  onPressed: () {
-                                    // Navigate to the forked session
-                                    Navigator.pushReplacement(
-                                      context,
-                                      MaterialPageRoute(
-                                        builder: (_) => ChatScreen(
-                                          project: widget.project,
-                                          session: forkedSession,
-                                          initialPrompt: initialPrompt,
-                                        ),
-                                      ),
-                                    );
-                                  },
-                                ),
-                              ),
-                            );
-                          }
-                        } catch (e) {
-                          if (mounted) {
-                            ScaffoldMessenger.of(context).showSnackBar(
-                              SnackBar(content: Text('Failed to fork: $e')),
-                            );
+                subtitle: Text(
+                  msg.text.length > 60
+                      ? '${msg.text.substring(0, 60)}...'
+                      : msg.text,
+                  style: TextStyle(color: theme.textMuted),
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                ),
+                trailing: Icon(Icons.fork_right, color: theme.primary),
+                onTap: () async {
+                  Navigator.pop(context);
+                  try {
+                    final bridge = ref.read(bridgeServiceProvider);
+                    final forkedSession = await bridge.forkSession(
+                      widget.session.id,
+                      messageId: msg.id,
+                      projectPath: widget.project.path,
+                    );
+                    if (mounted) {
+                      String? initialPrompt;
+                      final idx = chatState.messages.indexWhere(
+                        (m) => m.id == msg.id,
+                      );
+                      if (idx >= 0) {
+                        for (var i = idx; i >= 0; i--) {
+                          final m = chatState.messages[i];
+                          if (m.role == MessageRole.user &&
+                              m.text.trim().isNotEmpty) {
+                            initialPrompt = m.text.trim();
+                            break;
                           }
                         }
-                      },
-                    );
-                  },
-                ),
-              ),
-            ],
+                        initialPrompt ??= msg.text.trim();
+                      }
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        SnackBar(
+                          content: Text('Forked to "${forkedSession.title}"'),
+                          action: SnackBarAction(
+                            label: 'Open',
+                            onPressed: () {
+                              // Navigate to the forked session
+                              Navigator.pushReplacement(
+                                context,
+                                MaterialPageRoute(
+                                  builder: (_) => ChatScreen(
+                                    project: widget.project,
+                                    session: forkedSession,
+                                    initialPrompt: initialPrompt,
+                                  ),
+                                ),
+                              );
+                            },
+                          ),
+                        ),
+                      );
+                    }
+                  } catch (e) {
+                    if (mounted) {
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        SnackBar(content: Text('Failed to fork: $e')),
+                      );
+                    }
+                  }
+                },
+              );
+            },
           ),
-        ),
+        ],
       ),
     );
   }
@@ -6126,82 +5242,65 @@ Describe project-specific guidance for Codex here.
   void _showAgentsDialog() {
     final theme = OpenCodeTheme.of(context);
 
-    showModalBottomSheet(
+    DetailSheet.show(
       context: context,
-      backgroundColor: Colors.transparent,
-      builder: (context) => Container(
-        padding: const EdgeInsets.all(24),
-        decoration: BoxDecoration(
-          color: theme.backgroundPanel,
-          borderRadius: const BorderRadius.vertical(top: Radius.circular(20)),
-        ),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text(
-              'Available Agents',
-              style: TextStyle(
-                fontSize: 18,
-                fontWeight: FontWeight.w600,
-                color: theme.text,
+      title: 'Available Agents',
+      initialSize: 0.4,
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const SizedBox(height: 8),
+          if (_agents.isEmpty)
+            Padding(
+              padding: const EdgeInsets.all(16),
+              child: Text(
+                'No agents available',
+                style: TextStyle(color: theme.textMuted),
               ),
-            ),
-            const SizedBox(height: 16),
-            if (_agents.isEmpty)
-              Padding(
-                padding: const EdgeInsets.all(16),
-                child: Text(
-                  'No agents available',
-                  style: TextStyle(color: theme.textMuted),
+            )
+          else
+            ...List.generate(_agents.length, (index) {
+              final agent = _agents[index];
+              final isSelected = _selectedAgent == agent.name;
+              return ListTile(
+                leading: CircleAvatar(
+                  backgroundColor: isSelected ? theme.primary : theme.bgDeep,
+                  child: Icon(
+                    Icons.smart_toy,
+                    color: isSelected ? Colors.white : theme.textMuted,
+                    size: 20,
+                  ),
                 ),
-              )
-            else
-              ...List.generate(_agents.length, (index) {
-                final agent = _agents[index];
-                final isSelected = _selectedAgent == agent.name;
-                return ListTile(
-                  leading: CircleAvatar(
-                    backgroundColor: isSelected ? theme.primary : theme.bgDeep,
-                    child: Icon(
-                      Icons.smart_toy,
-                      color: isSelected ? Colors.white : theme.textMuted,
-                      size: 20,
-                    ),
+                title: Text(
+                  agent.name,
+                  style: TextStyle(
+                    color: theme.text,
+                    fontWeight: isSelected
+                        ? FontWeight.w600
+                        : FontWeight.normal,
                   ),
-                  title: Text(
-                    agent.name,
-                    style: TextStyle(
-                      color: theme.text,
-                      fontWeight: isSelected
-                          ? FontWeight.w600
-                          : FontWeight.normal,
-                    ),
-                  ),
-                  subtitle: agent.description != null
-                      ? Text(
-                          agent.description!,
-                          style: TextStyle(
-                            color: theme.textMuted,
-                            fontSize: 12,
-                          ),
-                        )
-                      : null,
-                  trailing: isSelected
-                      ? Icon(Icons.check_circle, color: theme.primary)
-                      : null,
-                  onTap: () {
-                    setState(() => _selectedAgent = agent.name);
-                    Navigator.pop(context);
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      SnackBar(content: Text('Selected ${agent.name} agent')),
-                    );
-                  },
-                );
-              }),
-            const SizedBox(height: 8),
-          ],
-        ),
+                ),
+                subtitle: agent.description != null
+                    ? Text(
+                        agent.description!,
+                        style: TextStyle(color: theme.textMuted, fontSize: 12),
+                      )
+                    : null,
+                trailing: isSelected
+                    ? Icon(Icons.check_circle, color: theme.primary)
+                    : null,
+                onTap: () {
+                  setState(() => _selectedAgent = agent.name);
+                  Navigator.pop(context);
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    SnackBar(content: Text('Selected ${agent.name} agent')),
+                  );
+                },
+              );
+            }),
+          const SizedBox(height: 8),
+        ],
       ),
     );
   }
@@ -7340,11 +6439,11 @@ Describe project-specific guidance for Codex here.
 
   void _showModelSelector(BuildContext context) {
     final theme = OpenCodeTheme.of(context);
-    showModalBottomSheet(
+    DetailSheet.show(
       context: context,
-      isScrollControlled: true,
-      backgroundColor: Colors.transparent,
-      builder: (_) => _ModelSelectorSheet(
+      title: 'Select Model',
+      initialSize: 0.5,
+      child: _ModelSelectorContent(
         onModelSelected: (model) {
           ref.read(selectionProvider.notifier).selectModelFromString(model);
           Navigator.pop(context);
@@ -7392,72 +6491,55 @@ Describe project-specific guidance for Codex here.
       {'id': 'opus', 'name': 'Opus', 'description': 'Most capable model'},
     ];
 
-    showModalBottomSheet(
+    DetailSheet.show(
       context: context,
-      backgroundColor: theme.background,
-      shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
-      ),
-      builder: (context) => SafeArea(
-        child: Padding(
-          padding: const EdgeInsets.all(20),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(
-                'Select Model',
+      title: 'Select Model',
+      initialSize: 0.4,
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const SizedBox(height: 8),
+          ...models.map((model) {
+            final modelId = model['id'];
+            final isSelected =
+                (modelId == null &&
+                    (currentModel == null || currentModel == 'auto')) ||
+                (modelId != null &&
+                    currentModel?.toLowerCase().contains(modelId) == true);
+            return ListTile(
+              contentPadding: const EdgeInsets.symmetric(horizontal: 16),
+              leading: Icon(
+                isSelected ? Icons.check_circle : Icons.circle_outlined,
+                color: isSelected ? theme.success : theme.borderSubtle,
+              ),
+              title: Text(
+                model['name'] as String,
                 style: TextStyle(
-                  fontSize: 18,
-                  fontWeight: FontWeight.w600,
                   color: theme.text,
+                  fontWeight: isSelected ? FontWeight.w600 : FontWeight.w400,
                 ),
               ),
-              const SizedBox(height: 16),
-              ...models.map((model) {
-                final modelId = model['id'];
-                final isSelected =
-                    (modelId == null &&
-                        (currentModel == null || currentModel == 'auto')) ||
-                    (modelId != null &&
-                        currentModel?.toLowerCase().contains(modelId) == true);
-                return ListTile(
-                  contentPadding: EdgeInsets.zero,
-                  leading: Icon(
-                    isSelected ? Icons.check_circle : Icons.circle_outlined,
-                    color: isSelected ? theme.success : theme.borderSubtle,
+              subtitle: Text(
+                model['description'] as String,
+                style: TextStyle(color: theme.textMuted, fontSize: 12),
+              ),
+              onTap: () {
+                // Update CC config with new model
+                final notifier = ref.read(ccConfigProvider.notifier);
+                notifier.setModel(modelId);
+                Navigator.pop(context);
+                ScaffoldMessenger.of(context).showSnackBar(
+                  SnackBar(
+                    content: Text('Model set to ${model['name']}'),
+                    backgroundColor: theme.backgroundPanel,
+                    behavior: SnackBarBehavior.floating,
                   ),
-                  title: Text(
-                    model['name'] as String,
-                    style: TextStyle(
-                      color: theme.text,
-                      fontWeight: isSelected
-                          ? FontWeight.w600
-                          : FontWeight.w400,
-                    ),
-                  ),
-                  subtitle: Text(
-                    model['description'] as String,
-                    style: TextStyle(color: theme.textMuted, fontSize: 12),
-                  ),
-                  onTap: () {
-                    // Update CC config with new model
-                    final notifier = ref.read(ccConfigProvider.notifier);
-                    notifier.setModel(modelId);
-                    Navigator.pop(context);
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      SnackBar(
-                        content: Text('Model set to ${model['name']}'),
-                        backgroundColor: theme.backgroundPanel,
-                        behavior: SnackBarBehavior.floating,
-                      ),
-                    );
-                  },
                 );
-              }),
-            ],
-          ),
-        ),
+              },
+            );
+          }),
+        ],
       ),
     );
   }
@@ -7496,79 +6578,60 @@ Describe project-specific guidance for Codex here.
       },
     ];
 
-    showModalBottomSheet(
+    DetailSheet.show(
       context: context,
-      backgroundColor: theme.background,
-      shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
-      ),
-      builder: (context) => SafeArea(
-        child: Padding(
-          padding: const EdgeInsets.all(20),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(
-                'Permission Mode',
+      title: 'Permission Mode',
+      initialSize: 0.4,
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const SizedBox(height: 8),
+          ...modes.map((item) {
+            final mode = item['mode'] as ClaudeCodePermissionMode;
+            final isSelected = mode == currentMode;
+            final color = item['color'] as Color;
+            return ListTile(
+              contentPadding: const EdgeInsets.symmetric(horizontal: 16),
+              leading: Container(
+                width: 24,
+                height: 24,
+                decoration: BoxDecoration(
+                  color: isSelected ? color : Colors.transparent,
+                  shape: BoxShape.circle,
+                  border: Border.all(color: color, width: 2),
+                ),
+                child: isSelected
+                    ? Icon(Icons.check, color: theme.background, size: 16)
+                    : null,
+              ),
+              title: Text(
+                mode.displayName,
                 style: TextStyle(
-                  fontSize: 18,
-                  fontWeight: FontWeight.w600,
                   color: theme.text,
+                  fontWeight: isSelected ? FontWeight.w600 : FontWeight.w400,
                 ),
               ),
-              const SizedBox(height: 16),
-              ...modes.map((item) {
-                final mode = item['mode'] as ClaudeCodePermissionMode;
-                final isSelected = mode == currentMode;
-                final color = item['color'] as Color;
-                return ListTile(
-                  contentPadding: EdgeInsets.zero,
-                  leading: Container(
-                    width: 24,
-                    height: 24,
-                    decoration: BoxDecoration(
-                      color: isSelected ? color : Colors.transparent,
-                      shape: BoxShape.circle,
-                      border: Border.all(color: color, width: 2),
-                    ),
-                    child: isSelected
-                        ? Icon(Icons.check, color: theme.background, size: 16)
-                        : null,
+              subtitle: Text(
+                item['description'] as String,
+                style: TextStyle(color: theme.textMuted, fontSize: 12),
+              ),
+              onTap: () {
+                // Update CC config with new permission mode
+                final notifier = ref.read(ccConfigProvider.notifier);
+                notifier.setPermissionMode(mode);
+                Navigator.pop(context);
+                ScaffoldMessenger.of(context).showSnackBar(
+                  SnackBar(
+                    content: Text('Permission mode set to ${mode.displayName}'),
+                    backgroundColor: theme.backgroundPanel,
+                    behavior: SnackBarBehavior.floating,
                   ),
-                  title: Text(
-                    mode.displayName,
-                    style: TextStyle(
-                      color: theme.text,
-                      fontWeight: isSelected
-                          ? FontWeight.w600
-                          : FontWeight.w400,
-                    ),
-                  ),
-                  subtitle: Text(
-                    item['description'] as String,
-                    style: TextStyle(color: theme.textMuted, fontSize: 12),
-                  ),
-                  onTap: () {
-                    // Update CC config with new permission mode
-                    final notifier = ref.read(ccConfigProvider.notifier);
-                    notifier.setPermissionMode(mode);
-                    Navigator.pop(context);
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      SnackBar(
-                        content: Text(
-                          'Permission mode set to ${mode.displayName}',
-                        ),
-                        backgroundColor: theme.backgroundPanel,
-                        behavior: SnackBarBehavior.floating,
-                      ),
-                    );
-                  },
                 );
-              }),
-            ],
-          ),
-        ),
+              },
+            );
+          }),
+        ],
       ),
     );
   }
@@ -8221,47 +7284,45 @@ Describe your project here.
     _haptics.mediumImpact();
 
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      showModalBottomSheet(
-        context: context,
-        isScrollControlled: true,
-        backgroundColor: Colors.transparent,
-        builder: (_) {
-          final isCodex = widget.isCodex;
-          final alwaysLabel = isCodex ? 'Session' : 'Always';
-          VoidCallback? onExecpolicy;
-          String? execpolicyLabel;
-          if (isCodex) {
-            final method = request.metadata['method'] as String?;
-            final proposed = request.metadata['proposedExecpolicyAmendment'];
-            if (method == 'item/commandExecution/requestApproval' &&
-                proposed is List) {
-              final prefix = proposed
-                  .whereType<String>()
-                  .take(3)
-                  .toList()
-                  .join(' ');
-              if (prefix.isNotEmpty) {
-                execpolicyLabel = 'Always allow "$prefix…"';
-                onExecpolicy = () => _respondToPermission(
-                  request,
-                  'execpolicy',
-                  execpolicyAmendment: proposed,
-                );
-              }
-            }
+      final isCodex = widget.isCodex;
+      final alwaysLabel = isCodex ? 'Session' : 'Always';
+      VoidCallback? onExecpolicy;
+      String? execpolicyLabel;
+      if (isCodex) {
+        final method = request.metadata['method'] as String?;
+        final proposed = request.metadata['proposedExecpolicyAmendment'];
+        if (method == 'item/commandExecution/requestApproval' &&
+            proposed is List) {
+          final prefix = proposed
+              .whereType<String>()
+              .take(3)
+              .toList()
+              .join(' ');
+          if (prefix.isNotEmpty) {
+            execpolicyLabel = 'Always allow "$prefix…"';
+            onExecpolicy = () => _respondToPermission(
+              request,
+              'execpolicy',
+              execpolicyAmendment: proposed,
+            );
           }
-          return PermissionPrompt(
-            request: request,
-            onApprove: () => _respondToPermission(request, 'once'),
-            onDeny: () => _respondToPermission(request, 'reject'),
-            onAlwaysAllow: () => _respondToPermission(request, 'always'),
-            approveAlwaysLabel: alwaysLabel,
-            onApproveWithExecpolicy: onExecpolicy,
-            approveWithExecpolicyLabel: execpolicyLabel,
-            onDenyWithMessage: (message) =>
-                _respondToPermission(request, 'reject', message: message),
-          );
-        },
+        }
+      }
+      DetailSheet.show(
+        context: context,
+        title: 'Permission Required',
+        initialSize: 0.5,
+        child: PermissionPrompt(
+          request: request,
+          onApprove: () => _respondToPermission(request, 'once'),
+          onDeny: () => _respondToPermission(request, 'reject'),
+          onAlwaysAllow: () => _respondToPermission(request, 'always'),
+          approveAlwaysLabel: alwaysLabel,
+          onApproveWithExecpolicy: onExecpolicy,
+          approveWithExecpolicyLabel: execpolicyLabel,
+          onDenyWithMessage: (message) =>
+              _respondToPermission(request, 'reject', message: message),
+        ),
       ).whenComplete(() => _activePermissionId = null);
     });
   }
@@ -8668,66 +7729,52 @@ class _FloatingHeader extends StatelessWidget {
   }
 
   void _showAgentPicker(BuildContext context) {
-    final theme = OpenCodeTheme.of(context);
     final primaryAgents = agents.where((a) => a.isPrimary).toList();
+    final theme = OpenCodeTheme.of(context);
 
-    showModalBottomSheet(
+    DetailSheet.show(
       context: context,
-      backgroundColor: Colors.transparent,
-      builder: (context) => Container(
-        padding: const EdgeInsets.all(20),
-        decoration: BoxDecoration(
-          color: theme.backgroundPanel,
-          borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
-        ),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text(
-              'Select Agent',
-              style: TextStyle(
-                fontSize: 18,
-                fontWeight: FontWeight.w600,
-                color: theme.text,
+      title: 'Select Agent',
+      initialSize: 0.4,
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const SizedBox(height: 8),
+          for (final agent in primaryAgents)
+            ListTile(
+              contentPadding: const EdgeInsets.symmetric(horizontal: 16),
+              leading: Container(
+                width: 10,
+                height: 10,
+                decoration: BoxDecoration(
+                  color: agent.displayColor,
+                  shape: BoxShape.circle,
+                ),
               ),
+              title: Text(
+                agent.displayName,
+                style: TextStyle(
+                  color: theme.text,
+                  fontWeight: agent.name == currentAgent
+                      ? FontWeight.w600
+                      : FontWeight.w400,
+                ),
+              ),
+              subtitle: Text(
+                agent.shortDescription,
+                style: TextStyle(color: theme.textMuted, fontSize: 12),
+              ),
+              trailing: agent.name == currentAgent
+                  ? Icon(Icons.check_rounded, color: theme.success, size: 20)
+                  : null,
+              onTap: () {
+                onAgentChanged?.call(agent.name);
+                Navigator.pop(context);
+              },
             ),
-            const SizedBox(height: 16),
-            for (final agent in primaryAgents)
-              ListTile(
-                contentPadding: EdgeInsets.zero,
-                leading: Container(
-                  width: 10,
-                  height: 10,
-                  decoration: BoxDecoration(
-                    color: agent.displayColor,
-                    shape: BoxShape.circle,
-                  ),
-                ),
-                title: Text(
-                  agent.displayName,
-                  style: TextStyle(
-                    color: theme.text,
-                    fontWeight: agent.name == currentAgent
-                        ? FontWeight.w600
-                        : FontWeight.w400,
-                  ),
-                ),
-                subtitle: Text(
-                  agent.shortDescription,
-                  style: TextStyle(color: theme.textMuted, fontSize: 12),
-                ),
-                trailing: agent.name == currentAgent
-                    ? Icon(Icons.check_rounded, color: theme.success, size: 20)
-                    : null,
-                onTap: () {
-                  onAgentChanged?.call(agent.name);
-                  Navigator.pop(context);
-                },
-              ),
-            const SizedBox(height: 8),
-          ],
-        ),
+          const SizedBox(height: 8),
+        ],
       ),
     );
   }
@@ -8745,11 +7792,11 @@ class _FloatingHeader extends StatelessWidget {
     required void Function(String) onMenu,
     VoidCallback? onOpenSidebar,
   }) {
-    showModalBottomSheet(
+    DetailSheet.show(
       context: context,
-      backgroundColor: Colors.transparent,
-      isScrollControlled: true,
-      builder: (ctx) => _SessionActionsSheet(
+      title: 'Session',
+      initialSize: 0.5,
+      child: _SessionActionsContent(
         theme: theme,
         vcsInfo: vcsInfo,
         isConnected: isConnected,
@@ -8760,7 +7807,7 @@ class _FloatingHeader extends StatelessWidget {
         isCompacting: isCompacting,
         onOpenSidebar: onOpenSidebar,
         onAction: (action) {
-          Navigator.pop(ctx);
+          Navigator.pop(context);
           onMenu(action);
         },
       ),
@@ -8775,17 +7822,17 @@ class _FloatingHeader extends StatelessWidget {
     required String? ccModel,
     required void Function(String) onMenu,
   }) {
-    showModalBottomSheet(
+    DetailSheet.show(
       context: context,
-      backgroundColor: Colors.transparent,
-      isScrollControlled: true,
-      builder: (ctx) => _ClaudeCodeActionsSheet(
+      title: 'Claude Code',
+      initialSize: 0.5,
+      child: _ClaudeCodeActionsContent(
         theme: theme,
         isConnected: isConnected,
         rttMs: rttMs,
         ccModel: ccModel,
         onAction: (action) {
-          Navigator.pop(ctx);
+          Navigator.pop(context);
           onMenu(action);
         },
       ),
@@ -8800,17 +7847,17 @@ class _FloatingHeader extends StatelessWidget {
     required String? codexModel,
     required void Function(String) onMenu,
   }) {
-    showModalBottomSheet(
+    DetailSheet.show(
       context: context,
-      backgroundColor: Colors.transparent,
-      isScrollControlled: true,
-      builder: (ctx) => _CodexActionsSheet(
+      title: 'Codex',
+      initialSize: 0.5,
+      child: _CodexActionsContent(
         theme: theme,
         isConnected: isConnected,
         rttMs: rttMs,
         codexModel: codexModel,
         onAction: (action) {
-          Navigator.pop(ctx);
+          Navigator.pop(context);
           onMenu(action);
         },
       ),
@@ -8818,9 +7865,9 @@ class _FloatingHeader extends StatelessWidget {
   }
 }
 
-/// Clean session actions bottom sheet
-class _SessionActionsSheet extends StatelessWidget {
-  const _SessionActionsSheet({
+/// Session actions content for DetailSheet
+class _SessionActionsContent extends StatelessWidget {
+  const _SessionActionsContent({
     required this.theme,
     required this.vcsInfo,
     required this.isConnected,
@@ -8858,301 +7905,272 @@ class _SessionActionsSheet extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      decoration: BoxDecoration(
-        color: theme.background,
-        borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
-      ),
-      child: SafeArea(
-        top: false,
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            // Handle bar
-            Padding(
-              padding: const EdgeInsets.only(top: 12, bottom: 8),
-              child: Container(
-                width: 36,
-                height: 4,
-                decoration: BoxDecoration(
-                  color: theme.borderSubtle,
-                  borderRadius: BorderRadius.circular(2),
-                ),
-              ),
-            ),
-
-            // Status bar (branch, latency, model)
-            Padding(
-              padding: const EdgeInsets.fromLTRB(20, 8, 20, 16),
-              child: Row(
-                children: [
-                  // Branch info
-                  if (vcsInfo != null && vcsInfo!.isAvailable) ...[
-                    Container(
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 10,
-                        vertical: 6,
-                      ),
-                      decoration: BoxDecoration(
-                        color: theme.success.withValues(alpha: 0.1),
-                        borderRadius: BorderRadius.circular(8),
-                      ),
-                      child: Row(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          Icon(
-                            Icons.call_split_rounded,
-                            size: 14,
-                            color: theme.success,
-                          ),
-                          const SizedBox(width: 6),
-                          Text(
-                            vcsInfo!.branch ?? 'main',
-                            style: TextStyle(
-                              fontSize: 12,
-                              color: theme.success,
-                              fontWeight: FontWeight.w500,
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                    const SizedBox(width: 8),
-                  ],
-
-                  // Latency
-                  if (isConnected && rttMs != null) ...[
-                    Container(
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 10,
-                        vertical: 6,
-                      ),
-                      decoration: BoxDecoration(
-                        color: theme.info.withValues(alpha: 0.1),
-                        borderRadius: BorderRadius.circular(8),
-                      ),
-                      child: Row(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          Icon(
-                            Icons.speed_rounded,
-                            size: 14,
-                            color: theme.info,
-                          ),
-                          const SizedBox(width: 6),
-                          Text(
-                            '${rttMs}ms',
-                            style: TextStyle(
-                              fontSize: 12,
-                              color: theme.info,
-                              fontWeight: FontWeight.w500,
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                    const SizedBox(width: 8),
-                  ],
-
-                  const Spacer(),
-
-                  // Model selector
-                  GestureDetector(
-                    onTap: () {
-                      Navigator.pop(context);
-                      onModelTap?.call();
-                    },
-                    child: Container(
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 12,
-                        vertical: 6,
-                      ),
-                      decoration: BoxDecoration(
-                        color: theme.primary.withValues(alpha: 0.1),
-                        borderRadius: BorderRadius.circular(8),
-                      ),
-                      child: Row(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          Icon(
-                            Icons.auto_awesome_rounded,
-                            size: 14,
-                            color: theme.primary,
-                          ),
-                          const SizedBox(width: 6),
-                          Text(
-                            _getModelName(currentModel),
-                            style: TextStyle(
-                              fontSize: 12,
-                              color: theme.primary,
-                              fontWeight: FontWeight.w600,
-                            ),
-                          ),
-                          const SizedBox(width: 4),
-                          Icon(
-                            Icons.chevron_right_rounded,
-                            size: 16,
-                            color: theme.primary,
-                          ),
-                        ],
-                      ),
-                    ),
+    return Column(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        // Status bar (branch, latency, model)
+        Padding(
+          padding: const EdgeInsets.fromLTRB(20, 8, 20, 16),
+          child: Row(
+            children: [
+              // Branch info
+              if (vcsInfo != null && vcsInfo!.isAvailable) ...[
+                Container(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 10,
+                    vertical: 6,
                   ),
-                ],
-              ),
-            ),
-
-            // Divider
-            Divider(color: theme.borderSubtle, height: 1),
-
-            // Session actions
-            Padding(
-              padding: const EdgeInsets.all(20),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  // Project tools (Option 3 entrypoint)
-                  Text(
-                    'PROJECT',
-                    style: TextStyle(
-                      fontSize: 11,
-                      fontWeight: FontWeight.w600,
-                      color: theme.textMuted,
-                      letterSpacing: 0.5,
-                    ),
+                  decoration: BoxDecoration(
+                    color: theme.success.withValues(alpha: 0.1),
+                    borderRadius: BorderRadius.circular(8),
                   ),
-                  const SizedBox(height: 12),
-                  _ActionRow(
-                    icon: Icons.grid_view_rounded,
-                    label: 'Project Tools',
-                    subtitle: 'Skills, commands, agents, MCP, plugins',
-                    theme: theme,
-                    color: theme.accent,
-                    onTap: () => onAction('project_tools'),
-                  ),
-
-                  const SizedBox(height: 20),
-
-                  // Session section
-                  Text(
-                    'SESSION',
-                    style: TextStyle(
-                      fontSize: 11,
-                      fontWeight: FontWeight.w600,
-                      color: theme.textMuted,
-                      letterSpacing: 0.5,
-                    ),
-                  ),
-                  const SizedBox(height: 12),
-                  Row(
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
                     children: [
-                      _ActionTile(
-                        icon: Icons.info_outline_rounded,
-                        label: 'Info',
-                        theme: theme,
-                        onTap: () {
-                          Navigator.pop(context);
-                          // Delay to allow bottom sheet to close first
-                          Future.delayed(
-                            const Duration(milliseconds: 150),
-                            () => onOpenSidebar?.call(),
-                          );
-                        },
+                      Icon(
+                        Icons.call_split_rounded,
+                        size: 14,
+                        color: theme.success,
                       ),
-                      const SizedBox(width: 10),
-                      _ActionTile(
-                        icon: Icons.add_rounded,
-                        label: 'New',
-                        theme: theme,
-                        onTap: () => onAction('new_session'),
-                      ),
-                      const SizedBox(width: 10),
-                      _ActionTile(
-                        icon: Icons.call_split_rounded,
-                        label: 'Fork',
-                        theme: theme,
-                        onTap: () => onAction('fork'),
-                      ),
-                      const SizedBox(width: 10),
-                      _ActionTile(
-                        icon: isSessionShared
-                            ? Icons.link_off
-                            : Icons.share_rounded,
-                        label: isSessionShared ? 'Unshare' : 'Share',
-                        theme: theme,
-                        onTap: () =>
-                            onAction(isSessionShared ? 'unshare' : 'share'),
+                      const SizedBox(width: 6),
+                      Text(
+                        vcsInfo!.branch ?? 'main',
+                        style: TextStyle(
+                          fontSize: 12,
+                          color: theme.success,
+                          fontWeight: FontWeight.w500,
+                        ),
                       ),
                     ],
                   ),
+                ),
+                const SizedBox(width: 8),
+              ],
 
-                  const SizedBox(height: 20),
+              // Latency
+              if (isConnected && rttMs != null) ...[
+                Container(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 10,
+                    vertical: 6,
+                  ),
+                  decoration: BoxDecoration(
+                    color: theme.info.withValues(alpha: 0.1),
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Icon(Icons.speed_rounded, size: 14, color: theme.info),
+                      const SizedBox(width: 6),
+                      Text(
+                        '${rttMs}ms',
+                        style: TextStyle(
+                          fontSize: 12,
+                          color: theme.info,
+                          fontWeight: FontWeight.w500,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                const SizedBox(width: 8),
+              ],
 
-                  // Tools section
-                  Text(
-                    'TOOLS',
-                    style: TextStyle(
-                      fontSize: 11,
-                      fontWeight: FontWeight.w600,
-                      color: theme.textMuted,
-                      letterSpacing: 0.5,
-                    ),
-                  ),
-                  const SizedBox(height: 12),
-                  _ActionRow(
-                    icon: Icons.compress_rounded,
-                    label: isCompacting ? 'Compacting...' : 'Compact',
-                    subtitle: 'Summarize context to free space',
-                    theme: theme,
-                    enabled: !isCompacting,
-                    onTap: () => onAction('compact'),
-                  ),
-                  const SizedBox(height: 8),
-                  _ActionRow(
-                    icon: Icons.auto_fix_high_rounded,
-                    label: 'Initialize Project',
-                    subtitle: 'Create AGENTS.md for this project',
-                    theme: theme,
-                    color: theme.success,
-                    onTap: () => onAction('init'),
-                  ),
+              const Spacer(),
 
-                  const SizedBox(height: 20),
+              // Model selector
+              GestureDetector(
+                onTap: () {
+                  Navigator.pop(context);
+                  onModelTap?.call();
+                },
+                child: Container(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 12,
+                    vertical: 6,
+                  ),
+                  decoration: BoxDecoration(
+                    color: theme.primary.withValues(alpha: 0.1),
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Icon(
+                        Icons.auto_awesome_rounded,
+                        size: 14,
+                        color: theme.primary,
+                      ),
+                      const SizedBox(width: 6),
+                      Text(
+                        _getModelName(currentModel),
+                        style: TextStyle(
+                          fontSize: 12,
+                          color: theme.primary,
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
+                      const SizedBox(width: 4),
+                      Icon(
+                        Icons.chevron_right_rounded,
+                        size: 16,
+                        color: theme.primary,
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ),
 
-                  // Danger zone
-                  Text(
-                    'DANGER ZONE',
-                    style: TextStyle(
-                      fontSize: 11,
-                      fontWeight: FontWeight.w600,
-                      color: theme.error.withValues(alpha: 0.7),
-                      letterSpacing: 0.5,
-                    ),
-                  ),
-                  const SizedBox(height: 12),
-                  _ActionRow(
-                    icon: Icons.undo_rounded,
-                    label: 'Undo Last Changes',
-                    subtitle: 'Revert recent file modifications',
+        // Session actions
+        Padding(
+          padding: const EdgeInsets.all(20),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              // Project tools (Option 3 entrypoint)
+              Text(
+                'PROJECT',
+                style: TextStyle(
+                  fontSize: 11,
+                  fontWeight: FontWeight.w600,
+                  color: theme.textMuted,
+                  letterSpacing: 0.5,
+                ),
+              ),
+              const SizedBox(height: 12),
+              _ActionRow(
+                icon: Icons.grid_view_rounded,
+                label: 'Project Tools',
+                subtitle: 'Skills, commands, agents, MCP, plugins',
+                theme: theme,
+                color: theme.accent,
+                onTap: () => onAction('project_tools'),
+              ),
+
+              const SizedBox(height: 20),
+
+              // Session section
+              Text(
+                'SESSION',
+                style: TextStyle(
+                  fontSize: 11,
+                  fontWeight: FontWeight.w600,
+                  color: theme.textMuted,
+                  letterSpacing: 0.5,
+                ),
+              ),
+              const SizedBox(height: 12),
+              Row(
+                children: [
+                  _ActionTile(
+                    icon: Icons.info_outline_rounded,
+                    label: 'Info',
                     theme: theme,
-                    color: theme.warning,
-                    onTap: () => onAction('undo'),
+                    onTap: () {
+                      Navigator.pop(context);
+                      // Delay to allow bottom sheet to close first
+                      Future.delayed(
+                        const Duration(milliseconds: 150),
+                        () => onOpenSidebar?.call(),
+                      );
+                    },
                   ),
-                  const SizedBox(height: 8),
-                  _ActionRow(
-                    icon: Icons.cleaning_services_outlined,
-                    label: 'Clear Instance',
-                    subtitle: 'Reset project context completely',
+                  const SizedBox(width: 10),
+                  _ActionTile(
+                    icon: Icons.add_rounded,
+                    label: 'New',
                     theme: theme,
-                    color: theme.warning,
-                    onTap: () => onAction('clear_instance'),
+                    onTap: () => onAction('new_session'),
+                  ),
+                  const SizedBox(width: 10),
+                  _ActionTile(
+                    icon: Icons.call_split_rounded,
+                    label: 'Fork',
+                    theme: theme,
+                    onTap: () => onAction('fork'),
+                  ),
+                  const SizedBox(width: 10),
+                  _ActionTile(
+                    icon: isSessionShared
+                        ? Icons.link_off
+                        : Icons.share_rounded,
+                    label: isSessionShared ? 'Unshare' : 'Share',
+                    theme: theme,
+                    onTap: () =>
+                        onAction(isSessionShared ? 'unshare' : 'share'),
                   ),
                 ],
               ),
-            ),
-          ],
+
+              const SizedBox(height: 20),
+
+              // Tools section
+              Text(
+                'TOOLS',
+                style: TextStyle(
+                  fontSize: 11,
+                  fontWeight: FontWeight.w600,
+                  color: theme.textMuted,
+                  letterSpacing: 0.5,
+                ),
+              ),
+              const SizedBox(height: 12),
+              _ActionRow(
+                icon: Icons.compress_rounded,
+                label: isCompacting ? 'Compacting...' : 'Compact',
+                subtitle: 'Summarize context to free space',
+                theme: theme,
+                enabled: !isCompacting,
+                onTap: () => onAction('compact'),
+              ),
+              const SizedBox(height: 8),
+              _ActionRow(
+                icon: Icons.auto_fix_high_rounded,
+                label: 'Initialize Project',
+                subtitle: 'Create AGENTS.md for this project',
+                theme: theme,
+                color: theme.success,
+                onTap: () => onAction('init'),
+              ),
+
+              const SizedBox(height: 20),
+
+              // Danger zone
+              Text(
+                'DANGER ZONE',
+                style: TextStyle(
+                  fontSize: 11,
+                  fontWeight: FontWeight.w600,
+                  color: theme.error.withValues(alpha: 0.7),
+                  letterSpacing: 0.5,
+                ),
+              ),
+              const SizedBox(height: 12),
+              _ActionRow(
+                icon: Icons.undo_rounded,
+                label: 'Undo Last Changes',
+                subtitle: 'Revert recent file modifications',
+                theme: theme,
+                color: theme.warning,
+                onTap: () => onAction('undo'),
+              ),
+              const SizedBox(height: 8),
+              _ActionRow(
+                icon: Icons.cleaning_services_outlined,
+                label: 'Clear Instance',
+                subtitle: 'Reset project context completely',
+                theme: theme,
+                color: theme.warning,
+                onTap: () => onAction('clear_instance'),
+              ),
+            ],
+          ),
         ),
-      ),
+      ],
     );
   }
 }
@@ -9275,9 +8293,9 @@ class _ActionRow extends StatelessWidget {
   }
 }
 
-/// Claude Code actions bottom sheet
-class _ClaudeCodeActionsSheet extends StatelessWidget {
-  const _ClaudeCodeActionsSheet({
+/// Claude Code actions content for DetailSheet
+class _ClaudeCodeActionsContent extends StatelessWidget {
+  const _ClaudeCodeActionsContent({
     required this.theme,
     required this.isConnected,
     required this.rttMs,
@@ -9302,227 +8320,198 @@ class _ClaudeCodeActionsSheet extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      decoration: BoxDecoration(
-        color: theme.background,
-        borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
-      ),
-      child: SafeArea(
-        top: false,
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            // Handle bar
-            Padding(
-              padding: const EdgeInsets.only(top: 12, bottom: 8),
-              child: Container(
-                width: 36,
-                height: 4,
-                decoration: BoxDecoration(
-                  color: theme.borderSubtle,
-                  borderRadius: BorderRadius.circular(2),
-                ),
-              ),
-            ),
-
-            // Status bar (latency, model)
-            Padding(
-              padding: const EdgeInsets.fromLTRB(20, 8, 20, 16),
-              child: Row(
-                children: [
-                  // Latency
-                  if (isConnected && rttMs != null) ...[
-                    Container(
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 10,
-                        vertical: 6,
-                      ),
-                      decoration: BoxDecoration(
-                        color: theme.info.withValues(alpha: 0.1),
-                        borderRadius: BorderRadius.circular(8),
-                      ),
-                      child: Row(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          Icon(
-                            Icons.speed_rounded,
-                            size: 14,
-                            color: theme.info,
-                          ),
-                          const SizedBox(width: 6),
-                          Text(
-                            '${rttMs}ms',
-                            style: TextStyle(
-                              fontSize: 12,
-                              color: theme.info,
-                              fontWeight: FontWeight.w500,
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                  ],
-
-                  const Spacer(),
-
-                  // Model selector (onAction handles Navigator.pop)
-                  GestureDetector(
-                    onTap: () => onAction('cc_model'),
-                    child: Container(
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 12,
-                        vertical: 6,
-                      ),
-                      decoration: BoxDecoration(
-                        color: theme.accent.withValues(alpha: 0.1),
-                        borderRadius: BorderRadius.circular(8),
-                      ),
-                      child: Row(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          Icon(
-                            Icons.auto_awesome_rounded,
-                            size: 14,
-                            color: theme.accent,
-                          ),
-                          const SizedBox(width: 6),
-                          Text(
-                            _getModelName(ccModel),
-                            style: TextStyle(
-                              fontSize: 12,
-                              color: theme.accent,
-                              fontWeight: FontWeight.w600,
-                            ),
-                          ),
-                          const SizedBox(width: 4),
-                          Icon(
-                            Icons.chevron_right_rounded,
-                            size: 16,
-                            color: theme.accent,
-                          ),
-                        ],
-                      ),
-                    ),
+    return Column(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        // Status bar (latency, model)
+        Padding(
+          padding: const EdgeInsets.fromLTRB(20, 8, 20, 16),
+          child: Row(
+            children: [
+              // Latency
+              if (isConnected && rttMs != null) ...[
+                Container(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 10,
+                    vertical: 6,
                   ),
-                ],
-              ),
-            ),
-
-            // Divider
-            Divider(color: theme.borderSubtle, height: 1),
-
-            // Actions
-            Padding(
-              padding: const EdgeInsets.all(20),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  // Configuration section
-                  Text(
-                    'CONFIGURATION',
-                    style: TextStyle(
-                      fontSize: 11,
-                      fontWeight: FontWeight.w600,
-                      color: theme.textMuted,
-                      letterSpacing: 0.5,
-                    ),
+                  decoration: BoxDecoration(
+                    color: theme.info.withValues(alpha: 0.1),
+                    borderRadius: BorderRadius.circular(8),
                   ),
-                  const SizedBox(height: 12),
-                  _ActionRow(
-                    icon: Icons.grid_view_rounded,
-                    label: 'Project Tools',
-                    subtitle: 'Manage skills, commands, hooks, MCP, plugins',
-                    theme: theme,
-                    color: theme.accent,
-                    onTap: () => onAction('project_tools'),
-                  ),
-                  const SizedBox(height: 12),
-                  Row(
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
                     children: [
-                      _ActionTile(
-                        icon: Icons.tune_rounded,
-                        label: 'Tools',
-                        theme: theme,
-                        onTap: () => onAction('cc_tools'),
-                      ),
-                      const SizedBox(width: 10),
-                      _ActionTile(
-                        icon: Icons.bolt_rounded,
-                        label: 'Commands',
-                        theme: theme,
-                        onTap: () => onAction('cc_commands'),
-                      ),
-                      const SizedBox(width: 10),
-                      _ActionTile(
-                        icon: Icons.auto_awesome_rounded,
-                        label: 'Skills',
-                        theme: theme,
-                        onTap: () => onAction('cc_skills'),
-                      ),
-                      const SizedBox(width: 10),
-                      _ActionTile(
-                        icon: Icons.link_rounded,
-                        label: 'Hooks',
-                        theme: theme,
-                        onTap: () => onAction('cc_hooks'),
+                      Icon(Icons.speed_rounded, size: 14, color: theme.info),
+                      const SizedBox(width: 6),
+                      Text(
+                        '${rttMs}ms',
+                        style: TextStyle(
+                          fontSize: 12,
+                          color: theme.info,
+                          fontWeight: FontWeight.w500,
+                        ),
                       ),
                     ],
                   ),
+                ),
+              ],
 
-                  const SizedBox(height: 20),
+              const Spacer(),
 
-                  // Integration section
-                  Text(
-                    'INTEGRATION',
-                    style: TextStyle(
-                      fontSize: 11,
-                      fontWeight: FontWeight.w600,
-                      color: theme.textMuted,
-                      letterSpacing: 0.5,
-                    ),
+              // Model selector (onAction handles Navigator.pop)
+              GestureDetector(
+                onTap: () => onAction('cc_model'),
+                child: Container(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 12,
+                    vertical: 6,
                   ),
-                  const SizedBox(height: 12),
-                  _ActionRow(
-                    icon: Icons.hub_rounded,
-                    label: 'MCP Servers',
-                    subtitle: 'Configure Model Context Protocol servers',
+                  decoration: BoxDecoration(
+                    color: theme.accent.withValues(alpha: 0.1),
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Icon(
+                        Icons.auto_awesome_rounded,
+                        size: 14,
+                        color: theme.accent,
+                      ),
+                      const SizedBox(width: 6),
+                      Text(
+                        _getModelName(ccModel),
+                        style: TextStyle(
+                          fontSize: 12,
+                          color: theme.accent,
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
+                      const SizedBox(width: 4),
+                      Icon(
+                        Icons.chevron_right_rounded,
+                        size: 16,
+                        color: theme.accent,
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ),
+
+        // Actions
+        Padding(
+          padding: const EdgeInsets.all(20),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              // Configuration section
+              Text(
+                'CONFIGURATION',
+                style: TextStyle(
+                  fontSize: 11,
+                  fontWeight: FontWeight.w600,
+                  color: theme.textMuted,
+                  letterSpacing: 0.5,
+                ),
+              ),
+              const SizedBox(height: 12),
+              _ActionRow(
+                icon: Icons.grid_view_rounded,
+                label: 'Project Tools',
+                subtitle: 'Manage skills, commands, hooks, MCP, plugins',
+                theme: theme,
+                color: theme.accent,
+                onTap: () => onAction('project_tools'),
+              ),
+              const SizedBox(height: 12),
+              Row(
+                children: [
+                  _ActionTile(
+                    icon: Icons.tune_rounded,
+                    label: 'Tools',
                     theme: theme,
-                    onTap: () => onAction('cc_mcp'),
+                    onTap: () => onAction('cc_tools'),
                   ),
-
-                  const SizedBox(height: 20),
-
-                  // Session section
-                  Text(
-                    'SESSION',
-                    style: TextStyle(
-                      fontSize: 11,
-                      fontWeight: FontWeight.w600,
-                      color: theme.textMuted,
-                      letterSpacing: 0.5,
-                    ),
-                  ),
-                  const SizedBox(height: 12),
-                  _ActionRow(
-                    icon: Icons.call_split_rounded,
-                    label: 'Fork Session',
-                    subtitle: 'Create a new branch from current conversation',
+                  const SizedBox(width: 10),
+                  _ActionTile(
+                    icon: Icons.bolt_rounded,
+                    label: 'Commands',
                     theme: theme,
-                    onTap: () => onAction('cc_fork'),
+                    onTap: () => onAction('cc_commands'),
+                  ),
+                  const SizedBox(width: 10),
+                  _ActionTile(
+                    icon: Icons.auto_awesome_rounded,
+                    label: 'Skills',
+                    theme: theme,
+                    onTap: () => onAction('cc_skills'),
+                  ),
+                  const SizedBox(width: 10),
+                  _ActionTile(
+                    icon: Icons.link_rounded,
+                    label: 'Hooks',
+                    theme: theme,
+                    onTap: () => onAction('cc_hooks'),
                   ),
                 ],
               ),
-            ),
-          ],
+
+              const SizedBox(height: 20),
+
+              // Integration section
+              Text(
+                'INTEGRATION',
+                style: TextStyle(
+                  fontSize: 11,
+                  fontWeight: FontWeight.w600,
+                  color: theme.textMuted,
+                  letterSpacing: 0.5,
+                ),
+              ),
+              const SizedBox(height: 12),
+              _ActionRow(
+                icon: Icons.hub_rounded,
+                label: 'MCP Servers',
+                subtitle: 'Configure Model Context Protocol servers',
+                theme: theme,
+                onTap: () => onAction('cc_mcp'),
+              ),
+
+              const SizedBox(height: 20),
+
+              // Session section
+              Text(
+                'SESSION',
+                style: TextStyle(
+                  fontSize: 11,
+                  fontWeight: FontWeight.w600,
+                  color: theme.textMuted,
+                  letterSpacing: 0.5,
+                ),
+              ),
+              const SizedBox(height: 12),
+              _ActionRow(
+                icon: Icons.call_split_rounded,
+                label: 'Fork Session',
+                subtitle: 'Create a new branch from current conversation',
+                theme: theme,
+                onTap: () => onAction('cc_fork'),
+              ),
+            ],
+          ),
         ),
-      ),
+      ],
     );
   }
 }
 
-/// Codex actions bottom sheet
-class _CodexActionsSheet extends StatelessWidget {
-  const _CodexActionsSheet({
+/// Codex actions content for DetailSheet
+class _CodexActionsContent extends StatelessWidget {
+  const _CodexActionsContent({
     required this.theme,
     required this.isConnected,
     required this.rttMs,
@@ -9547,243 +8536,214 @@ class _CodexActionsSheet extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      decoration: BoxDecoration(
-        color: theme.background,
-        borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
-      ),
-      child: SafeArea(
-        top: false,
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            // Handle bar
-            Padding(
-              padding: const EdgeInsets.only(top: 12, bottom: 8),
-              child: Container(
-                width: 36,
-                height: 4,
-                decoration: BoxDecoration(
-                  color: theme.borderSubtle,
-                  borderRadius: BorderRadius.circular(2),
-                ),
-              ),
-            ),
-
-            // Status bar (latency, model)
-            Padding(
-              padding: const EdgeInsets.fromLTRB(20, 8, 20, 16),
-              child: Row(
-                children: [
-                  // Latency
-                  if (isConnected && rttMs != null) ...[
-                    Container(
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 10,
-                        vertical: 6,
-                      ),
-                      decoration: BoxDecoration(
-                        color: theme.info.withValues(alpha: 0.1),
-                        borderRadius: BorderRadius.circular(8),
-                      ),
-                      child: Row(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          Icon(
-                            Icons.speed_rounded,
-                            size: 14,
-                            color: theme.info,
-                          ),
-                          const SizedBox(width: 6),
-                          Text(
-                            '${rttMs}ms',
-                            style: TextStyle(
-                              fontSize: 12,
-                              color: theme.info,
-                              fontWeight: FontWeight.w500,
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                  ],
-
-                  const Spacer(),
-
-                  // Model selector (onAction handles Navigator.pop)
-                  GestureDetector(
-                    onTap: () => onAction('cx_model'),
-                    child: Container(
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 12,
-                        vertical: 6,
-                      ),
-                      decoration: BoxDecoration(
-                        color: theme.primary.withValues(alpha: 0.1),
-                        borderRadius: BorderRadius.circular(8),
-                      ),
-                      child: Row(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          Icon(
-                            Icons.auto_awesome_rounded,
-                            size: 14,
-                            color: theme.primary,
-                          ),
-                          const SizedBox(width: 6),
-                          Text(
-                            _getModelName(codexModel),
-                            style: TextStyle(
-                              fontSize: 12,
-                              color: theme.primary,
-                              fontWeight: FontWeight.w600,
-                            ),
-                          ),
-                          const SizedBox(width: 4),
-                          Icon(
-                            Icons.chevron_right_rounded,
-                            size: 16,
-                            color: theme.primary,
-                          ),
-                        ],
-                      ),
-                    ),
+    return Column(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        // Status bar (latency, model)
+        Padding(
+          padding: const EdgeInsets.fromLTRB(20, 8, 20, 16),
+          child: Row(
+            children: [
+              // Latency
+              if (isConnected && rttMs != null) ...[
+                Container(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 10,
+                    vertical: 6,
                   ),
-                ],
-              ),
-            ),
-
-            // Divider
-            Divider(color: theme.borderSubtle, height: 1),
-
-            // Actions
-            Padding(
-              padding: const EdgeInsets.all(20),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  _ActionRow(
-                    icon: Icons.grid_view_rounded,
-                    label: 'Project Tools',
-                    subtitle: 'Skills, agents, MCP, config',
-                    theme: theme,
-                    color: theme.accent,
-                    onTap: () => onAction('project_tools'),
+                  decoration: BoxDecoration(
+                    color: theme.info.withValues(alpha: 0.1),
+                    borderRadius: BorderRadius.circular(8),
                   ),
-                  const SizedBox(height: 20),
-
-                  // Configuration section
-                  Text(
-                    'CONFIGURATION',
-                    style: TextStyle(
-                      fontSize: 11,
-                      fontWeight: FontWeight.w600,
-                      color: theme.textMuted,
-                      letterSpacing: 0.5,
-                    ),
-                  ),
-                  const SizedBox(height: 12),
-                  Row(
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
                     children: [
-                      _ActionTile(
-                        icon: Icons.tune_rounded,
-                        label: 'Settings',
-                        theme: theme,
-                        onTap: () => onAction('cx_settings'),
-                      ),
-                      const SizedBox(width: 10),
-                      _ActionTile(
-                        icon: Icons.auto_awesome_rounded,
-                        label: 'Skills',
-                        theme: theme,
-                        onTap: () => onAction('cx_skills'),
-                      ),
-                      const SizedBox(width: 10),
-                      _ActionTile(
-                        icon: Icons.hub_rounded,
-                        label: 'MCP',
-                        theme: theme,
-                        onTap: () => onAction('cx_mcp'),
-                      ),
-                      const SizedBox(width: 10),
-                      _ActionTile(
-                        icon: Icons.verified_user_rounded,
-                        label: 'Auth',
-                        theme: theme,
-                        onTap: () => onAction('cx_auth'),
-                      ),
-                    ],
-                  ),
-
-                  const SizedBox(height: 20),
-
-                  // Project section
-                  Text(
-                    'PROJECT',
-                    style: TextStyle(
-                      fontSize: 11,
-                      fontWeight: FontWeight.w600,
-                      color: theme.textMuted,
-                      letterSpacing: 0.5,
-                    ),
-                  ),
-                  const SizedBox(height: 12),
-                  _ActionRow(
-                    icon: Icons.description_outlined,
-                    label: 'AGENTS.md',
-                    subtitle: 'Edit project agent instructions',
-                    theme: theme,
-                    onTap: () => onAction('cx_agents'),
-                  ),
-                  const SizedBox(height: 8),
-                  _ActionRow(
-                    icon: Icons.toc_rounded,
-                    label: 'Config',
-                    subtitle: 'View and edit Codex configuration',
-                    theme: theme,
-                    onTap: () => onAction('cx_config'),
-                  ),
-
-                  const SizedBox(height: 20),
-
-                  // Actions section
-                  Text(
-                    'ACTIONS',
-                    style: TextStyle(
-                      fontSize: 11,
-                      fontWeight: FontWeight.w600,
-                      color: theme.textMuted,
-                      letterSpacing: 0.5,
-                    ),
-                  ),
-                  const SizedBox(height: 12),
-                  Row(
-                    children: [
-                      Expanded(
-                        child: _ActionRow(
-                          icon: Icons.rate_review_rounded,
-                          label: 'Review',
-                          subtitle: 'Review pending changes',
-                          theme: theme,
-                          onTap: () => onAction('cx_review'),
+                      Icon(Icons.speed_rounded, size: 14, color: theme.info),
+                      const SizedBox(width: 6),
+                      Text(
+                        '${rttMs}ms',
+                        style: TextStyle(
+                          fontSize: 12,
+                          color: theme.info,
+                          fontWeight: FontWeight.w500,
                         ),
                       ),
                     ],
                   ),
-                  const SizedBox(height: 8),
-                  _ActionRow(
-                    icon: Icons.feedback_outlined,
-                    label: 'Feedback',
-                    subtitle: 'Send feedback to Codex team',
+                ),
+              ],
+
+              const Spacer(),
+
+              // Model selector (onAction handles Navigator.pop)
+              GestureDetector(
+                onTap: () => onAction('cx_model'),
+                child: Container(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 12,
+                    vertical: 6,
+                  ),
+                  decoration: BoxDecoration(
+                    color: theme.primary.withValues(alpha: 0.1),
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Icon(
+                        Icons.auto_awesome_rounded,
+                        size: 14,
+                        color: theme.primary,
+                      ),
+                      const SizedBox(width: 6),
+                      Text(
+                        _getModelName(codexModel),
+                        style: TextStyle(
+                          fontSize: 12,
+                          color: theme.primary,
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
+                      const SizedBox(width: 4),
+                      Icon(
+                        Icons.chevron_right_rounded,
+                        size: 16,
+                        color: theme.primary,
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ),
+
+        // Actions
+        Padding(
+          padding: const EdgeInsets.all(20),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              _ActionRow(
+                icon: Icons.grid_view_rounded,
+                label: 'Project Tools',
+                subtitle: 'Skills, agents, MCP, config',
+                theme: theme,
+                color: theme.accent,
+                onTap: () => onAction('project_tools'),
+              ),
+              const SizedBox(height: 20),
+
+              // Configuration section
+              Text(
+                'CONFIGURATION',
+                style: TextStyle(
+                  fontSize: 11,
+                  fontWeight: FontWeight.w600,
+                  color: theme.textMuted,
+                  letterSpacing: 0.5,
+                ),
+              ),
+              const SizedBox(height: 12),
+              Row(
+                children: [
+                  _ActionTile(
+                    icon: Icons.tune_rounded,
+                    label: 'Settings',
                     theme: theme,
-                    onTap: () => onAction('cx_feedback'),
+                    onTap: () => onAction('cx_settings'),
+                  ),
+                  const SizedBox(width: 10),
+                  _ActionTile(
+                    icon: Icons.auto_awesome_rounded,
+                    label: 'Skills',
+                    theme: theme,
+                    onTap: () => onAction('cx_skills'),
+                  ),
+                  const SizedBox(width: 10),
+                  _ActionTile(
+                    icon: Icons.hub_rounded,
+                    label: 'MCP',
+                    theme: theme,
+                    onTap: () => onAction('cx_mcp'),
+                  ),
+                  const SizedBox(width: 10),
+                  _ActionTile(
+                    icon: Icons.verified_user_rounded,
+                    label: 'Auth',
+                    theme: theme,
+                    onTap: () => onAction('cx_auth'),
                   ),
                 ],
               ),
-            ),
-          ],
+
+              const SizedBox(height: 20),
+
+              // Project section
+              Text(
+                'PROJECT',
+                style: TextStyle(
+                  fontSize: 11,
+                  fontWeight: FontWeight.w600,
+                  color: theme.textMuted,
+                  letterSpacing: 0.5,
+                ),
+              ),
+              const SizedBox(height: 12),
+              _ActionRow(
+                icon: Icons.description_outlined,
+                label: 'AGENTS.md',
+                subtitle: 'Edit project agent instructions',
+                theme: theme,
+                onTap: () => onAction('cx_agents'),
+              ),
+              const SizedBox(height: 8),
+              _ActionRow(
+                icon: Icons.toc_rounded,
+                label: 'Config',
+                subtitle: 'View and edit Codex configuration',
+                theme: theme,
+                onTap: () => onAction('cx_config'),
+              ),
+
+              const SizedBox(height: 20),
+
+              // Actions section
+              Text(
+                'ACTIONS',
+                style: TextStyle(
+                  fontSize: 11,
+                  fontWeight: FontWeight.w600,
+                  color: theme.textMuted,
+                  letterSpacing: 0.5,
+                ),
+              ),
+              const SizedBox(height: 12),
+              Row(
+                children: [
+                  Expanded(
+                    child: _ActionRow(
+                      icon: Icons.rate_review_rounded,
+                      label: 'Review',
+                      subtitle: 'Review pending changes',
+                      theme: theme,
+                      onTap: () => onAction('cx_review'),
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 8),
+              _ActionRow(
+                icon: Icons.feedback_outlined,
+                label: 'Feedback',
+                subtitle: 'Send feedback to Codex team',
+                theme: theme,
+                onTap: () => onAction('cx_feedback'),
+              ),
+            ],
+          ),
         ),
-      ),
+      ],
     );
   }
 }
@@ -11410,11 +10370,11 @@ class _CliStyleInputBarState extends State<_CliStyleInputBar> {
     final theme = OpenCodeTheme.of(context);
     final primaryAgents = widget.agents.where((a) => a.isPrimary).toList();
 
-    showModalBottomSheet(
+    DetailSheet.show(
       context: context,
-      backgroundColor: Colors.transparent,
-      isScrollControlled: true,
-      builder: (context) => _AgentAndPermissionSheet(
+      title: 'Agent & Permissions',
+      initialSize: 0.5,
+      child: _AgentAndPermissionContent(
         theme: theme,
         agents: primaryAgents,
         currentAgent: widget.currentAgent,
@@ -11424,9 +10384,9 @@ class _CliStyleInputBarState extends State<_CliStyleInputBar> {
   }
 }
 
-/// Bottom sheet for selecting agent and viewing permission presets
-class _AgentAndPermissionSheet extends ConsumerStatefulWidget {
-  const _AgentAndPermissionSheet({
+/// Content widget for agent and permission selection in DetailSheet
+class _AgentAndPermissionContent extends ConsumerStatefulWidget {
+  const _AgentAndPermissionContent({
     required this.theme,
     required this.agents,
     this.currentAgent,
@@ -11439,12 +10399,12 @@ class _AgentAndPermissionSheet extends ConsumerStatefulWidget {
   final void Function(String?)? onAgentChanged;
 
   @override
-  ConsumerState<_AgentAndPermissionSheet> createState() =>
-      _AgentAndPermissionSheetState();
+  ConsumerState<_AgentAndPermissionContent> createState() =>
+      _AgentAndPermissionContentState();
 }
 
-class _AgentAndPermissionSheetState
-    extends ConsumerState<_AgentAndPermissionSheet> {
+class _AgentAndPermissionContentState
+    extends ConsumerState<_AgentAndPermissionContent> {
   @override
   Widget build(BuildContext context) {
     final rulesState = ref.watch(permissionRulesProvider);
@@ -11458,275 +10418,250 @@ class _AgentAndPermissionSheetState
         .where((a) => a.name != 'build' && a.name != 'plan')
         .toList();
 
-    return Container(
-      decoration: BoxDecoration(
-        color: widget.theme.background,
-        borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
-      ),
-      child: SafeArea(
-        top: false,
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            // Handle bar
-            Padding(
-              padding: const EdgeInsets.only(top: 12, bottom: 8),
-              child: Container(
-                width: 36,
-                height: 4,
-                decoration: BoxDecoration(
-                  color: widget.theme.borderSubtle,
-                  borderRadius: BorderRadius.circular(2),
+    return Column(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        // Content with proper padding
+        Padding(
+          padding: const EdgeInsets.fromLTRB(20, 8, 20, 24),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              // Agent section
+              if (widget.agents.isNotEmpty) ...[
+                // Section header
+                Row(
+                  children: [
+                    Icon(
+                      Icons.smart_toy_outlined,
+                      color: widget.theme.textMuted,
+                      size: 18,
+                    ),
+                    const SizedBox(width: 8),
+                    Text(
+                      'Agent',
+                      style: TextStyle(
+                        fontSize: 13,
+                        fontWeight: FontWeight.w600,
+                        color: widget.theme.textMuted,
+                        letterSpacing: 0.5,
+                      ),
+                    ),
+                  ],
                 ),
-              ),
-            ),
+                const SizedBox(height: 16),
 
-            // Content with proper padding
-            Padding(
-              padding: const EdgeInsets.fromLTRB(20, 8, 20, 24),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
+                // Primary agents as prominent cards in a row
+                if (primaryAgents.isNotEmpty) ...[
+                  Row(
+                    children: primaryAgents.map((agent) {
+                      final isSelected = agent.name == widget.currentAgent;
+                      return Expanded(
+                        child: Padding(
+                          padding: EdgeInsets.only(
+                            right: agent == primaryAgents.last ? 0 : 10,
+                          ),
+                          child: _AgentCard(
+                            agent: agent,
+                            isSelected: isSelected,
+                            theme: widget.theme,
+                            onTap: () {
+                              widget.onAgentChanged?.call(agent.name);
+                              Navigator.pop(context);
+                            },
+                          ),
+                        ),
+                      );
+                    }).toList(),
+                  ),
+                  const SizedBox(height: 12),
+                ],
+
+                // Secondary agents as smaller list
+                if (secondaryAgents.isNotEmpty) ...[
+                  Container(
+                    decoration: BoxDecoration(
+                      color: widget.theme.backgroundPanel,
+                      borderRadius: BorderRadius.circular(12),
+                      border: Border.all(color: widget.theme.borderSubtle),
+                    ),
+                    child: Column(
+                      children: secondaryAgents.asMap().entries.map((entry) {
+                        final index = entry.key;
+                        final agent = entry.value;
+                        final isSelected = agent.name == widget.currentAgent;
+                        final isLast = index == secondaryAgents.length - 1;
+                        return Column(
+                          children: [
+                            InkWell(
+                              onTap: () {
+                                widget.onAgentChanged?.call(agent.name);
+                                Navigator.pop(context);
+                              },
+                              borderRadius: BorderRadius.vertical(
+                                top: index == 0
+                                    ? const Radius.circular(12)
+                                    : Radius.zero,
+                                bottom: isLast
+                                    ? const Radius.circular(12)
+                                    : Radius.zero,
+                              ),
+                              child: Padding(
+                                padding: const EdgeInsets.symmetric(
+                                  horizontal: 14,
+                                  vertical: 12,
+                                ),
+                                child: Row(
+                                  children: [
+                                    Container(
+                                      width: 8,
+                                      height: 8,
+                                      decoration: BoxDecoration(
+                                        color: agent.displayColor,
+                                        shape: BoxShape.circle,
+                                      ),
+                                    ),
+                                    const SizedBox(width: 12),
+                                    Expanded(
+                                      child: Column(
+                                        crossAxisAlignment:
+                                            CrossAxisAlignment.start,
+                                        children: [
+                                          Text(
+                                            agent.displayName,
+                                            style: TextStyle(
+                                              color: widget.theme.text,
+                                              fontSize: 14,
+                                              fontWeight: isSelected
+                                                  ? FontWeight.w600
+                                                  : FontWeight.w500,
+                                            ),
+                                          ),
+                                          Text(
+                                            agent.shortDescription,
+                                            style: TextStyle(
+                                              color: widget.theme.textMuted,
+                                              fontSize: 12,
+                                            ),
+                                          ),
+                                        ],
+                                      ),
+                                    ),
+                                    if (isSelected)
+                                      Icon(
+                                        Icons.check_rounded,
+                                        color: widget.theme.primary,
+                                        size: 18,
+                                      ),
+                                  ],
+                                ),
+                              ),
+                            ),
+                            if (!isLast)
+                              Divider(
+                                height: 1,
+                                indent: 34,
+                                color: widget.theme.borderSubtle,
+                              ),
+                          ],
+                        );
+                      }).toList(),
+                    ),
+                  ),
+                ],
+
+                const SizedBox(height: 24),
+              ],
+
+              // Permission preset section
+              Row(
                 children: [
-                  // Agent section
-                  if (widget.agents.isNotEmpty) ...[
-                    // Section header
-                    Row(
+                  Icon(
+                    Icons.shield_outlined,
+                    color: widget.theme.textMuted,
+                    size: 18,
+                  ),
+                  const SizedBox(width: 8),
+                  Text(
+                    'Permissions',
+                    style: TextStyle(
+                      fontSize: 13,
+                      fontWeight: FontWeight.w600,
+                      color: widget.theme.textMuted,
+                      letterSpacing: 0.5,
+                    ),
+                  ),
+                  const Spacer(),
+                  // Custom rules button inline
+                  GestureDetector(
+                    onTap: () {
+                      Navigator.pop(context);
+                      showModalBottomSheet(
+                        context: context,
+                        isScrollControlled: true,
+                        backgroundColor: Colors.transparent,
+                        builder: (context) => PermissionRulesSheet(
+                          initialRules: rulesState.effectiveRuleset,
+                          onApply: (rules) {
+                            ref
+                                .read(permissionRulesProvider.notifier)
+                                .setCustomRules(rules);
+                          },
+                        ),
+                      );
+                    },
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
                       children: [
                         Icon(
-                          Icons.smart_toy_outlined,
-                          color: widget.theme.textMuted,
-                          size: 18,
+                          Icons.tune_rounded,
+                          size: 14,
+                          color: widget.theme.primary,
                         ),
-                        const SizedBox(width: 8),
+                        const SizedBox(width: 4),
                         Text(
-                          'Agent',
+                          'Custom',
                           style: TextStyle(
-                            fontSize: 13,
-                            fontWeight: FontWeight.w600,
-                            color: widget.theme.textMuted,
-                            letterSpacing: 0.5,
+                            color: widget.theme.primary,
+                            fontSize: 12,
+                            fontWeight: FontWeight.w500,
                           ),
                         ),
                       ],
                     ),
-                    const SizedBox(height: 16),
-
-                    // Primary agents as prominent cards in a row
-                    if (primaryAgents.isNotEmpty) ...[
-                      Row(
-                        children: primaryAgents.map((agent) {
-                          final isSelected = agent.name == widget.currentAgent;
-                          return Expanded(
-                            child: Padding(
-                              padding: EdgeInsets.only(
-                                right: agent == primaryAgents.last ? 0 : 10,
-                              ),
-                              child: _AgentCard(
-                                agent: agent,
-                                isSelected: isSelected,
-                                theme: widget.theme,
-                                onTap: () {
-                                  widget.onAgentChanged?.call(agent.name);
-                                  Navigator.pop(context);
-                                },
-                              ),
-                            ),
-                          );
-                        }).toList(),
-                      ),
-                      const SizedBox(height: 12),
-                    ],
-
-                    // Secondary agents as smaller list
-                    if (secondaryAgents.isNotEmpty) ...[
-                      Container(
-                        decoration: BoxDecoration(
-                          color: widget.theme.backgroundPanel,
-                          borderRadius: BorderRadius.circular(12),
-                          border: Border.all(color: widget.theme.borderSubtle),
-                        ),
-                        child: Column(
-                          children: secondaryAgents.asMap().entries.map((
-                            entry,
-                          ) {
-                            final index = entry.key;
-                            final agent = entry.value;
-                            final isSelected =
-                                agent.name == widget.currentAgent;
-                            final isLast = index == secondaryAgents.length - 1;
-                            return Column(
-                              children: [
-                                InkWell(
-                                  onTap: () {
-                                    widget.onAgentChanged?.call(agent.name);
-                                    Navigator.pop(context);
-                                  },
-                                  borderRadius: BorderRadius.vertical(
-                                    top: index == 0
-                                        ? const Radius.circular(12)
-                                        : Radius.zero,
-                                    bottom: isLast
-                                        ? const Radius.circular(12)
-                                        : Radius.zero,
-                                  ),
-                                  child: Padding(
-                                    padding: const EdgeInsets.symmetric(
-                                      horizontal: 14,
-                                      vertical: 12,
-                                    ),
-                                    child: Row(
-                                      children: [
-                                        Container(
-                                          width: 8,
-                                          height: 8,
-                                          decoration: BoxDecoration(
-                                            color: agent.displayColor,
-                                            shape: BoxShape.circle,
-                                          ),
-                                        ),
-                                        const SizedBox(width: 12),
-                                        Expanded(
-                                          child: Column(
-                                            crossAxisAlignment:
-                                                CrossAxisAlignment.start,
-                                            children: [
-                                              Text(
-                                                agent.displayName,
-                                                style: TextStyle(
-                                                  color: widget.theme.text,
-                                                  fontSize: 14,
-                                                  fontWeight: isSelected
-                                                      ? FontWeight.w600
-                                                      : FontWeight.w500,
-                                                ),
-                                              ),
-                                              Text(
-                                                agent.shortDescription,
-                                                style: TextStyle(
-                                                  color: widget.theme.textMuted,
-                                                  fontSize: 12,
-                                                ),
-                                              ),
-                                            ],
-                                          ),
-                                        ),
-                                        if (isSelected)
-                                          Icon(
-                                            Icons.check_rounded,
-                                            color: widget.theme.primary,
-                                            size: 18,
-                                          ),
-                                      ],
-                                    ),
-                                  ),
-                                ),
-                                if (!isLast)
-                                  Divider(
-                                    height: 1,
-                                    indent: 34,
-                                    color: widget.theme.borderSubtle,
-                                  ),
-                              ],
-                            );
-                          }).toList(),
-                        ),
-                      ),
-                    ],
-
-                    const SizedBox(height: 24),
-                  ],
-
-                  // Permission preset section
-                  Row(
-                    children: [
-                      Icon(
-                        Icons.shield_outlined,
-                        color: widget.theme.textMuted,
-                        size: 18,
-                      ),
-                      const SizedBox(width: 8),
-                      Text(
-                        'Permissions',
-                        style: TextStyle(
-                          fontSize: 13,
-                          fontWeight: FontWeight.w600,
-                          color: widget.theme.textMuted,
-                          letterSpacing: 0.5,
-                        ),
-                      ),
-                      const Spacer(),
-                      // Custom rules button inline
-                      GestureDetector(
-                        onTap: () {
-                          Navigator.pop(context);
-                          showModalBottomSheet(
-                            context: context,
-                            isScrollControlled: true,
-                            backgroundColor: Colors.transparent,
-                            builder: (context) => PermissionRulesSheet(
-                              initialRules: rulesState.effectiveRuleset,
-                              onApply: (rules) {
-                                ref
-                                    .read(permissionRulesProvider.notifier)
-                                    .setCustomRules(rules);
-                              },
-                            ),
-                          );
-                        },
-                        child: Row(
-                          mainAxisSize: MainAxisSize.min,
-                          children: [
-                            Icon(
-                              Icons.tune_rounded,
-                              size: 14,
-                              color: widget.theme.primary,
-                            ),
-                            const SizedBox(width: 4),
-                            Text(
-                              'Custom',
-                              style: TextStyle(
-                                color: widget.theme.primary,
-                                fontSize: 12,
-                                fontWeight: FontWeight.w500,
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
-                    ],
-                  ),
-                  const SizedBox(height: 14),
-
-                  // Permission presets as 2x2 grid
-                  GridView.count(
-                    shrinkWrap: true,
-                    physics: const NeverScrollableScrollPhysics(),
-                    crossAxisCount: 2,
-                    mainAxisSpacing: 10,
-                    crossAxisSpacing: 10,
-                    childAspectRatio: 2.4,
-                    children: PermissionPreset.values
-                        .where((p) => p != PermissionPreset.custom)
-                        .map(
-                          (preset) => _PermissionPresetCard(
-                            preset: preset,
-                            isSelected: preset == selectedPreset,
-                            theme: widget.theme,
-                            onTap: () {
-                              ref
-                                  .read(permissionRulesProvider.notifier)
-                                  .setPreset(preset);
-                            },
-                          ),
-                        )
-                        .toList(),
                   ),
                 ],
               ),
-            ),
-          ],
+              const SizedBox(height: 14),
+
+              // Permission presets as 2x2 grid
+              GridView.count(
+                shrinkWrap: true,
+                physics: const NeverScrollableScrollPhysics(),
+                crossAxisCount: 2,
+                mainAxisSpacing: 10,
+                crossAxisSpacing: 10,
+                childAspectRatio: 2.4,
+                children: PermissionPreset.values
+                    .where((p) => p != PermissionPreset.custom)
+                    .map(
+                      (preset) => _PermissionPresetCard(
+                        preset: preset,
+                        isSelected: preset == selectedPreset,
+                        theme: widget.theme,
+                        onTap: () {
+                          ref
+                              .read(permissionRulesProvider.notifier)
+                              .setPreset(preset);
+                        },
+                      ),
+                    )
+                    .toList(),
+              ),
+            ],
+          ),
         ),
-      ),
+      ],
     );
   }
 }
@@ -11906,18 +10841,18 @@ class _VariantChip extends StatelessWidget {
   }
 }
 
-// Model selector bottom sheet
-class _ModelSelectorSheet extends ConsumerStatefulWidget {
-  const _ModelSelectorSheet({required this.onModelSelected});
+// Model selector content for DetailSheet
+class _ModelSelectorContent extends ConsumerStatefulWidget {
+  const _ModelSelectorContent({required this.onModelSelected});
 
   final void Function(String model) onModelSelected;
 
   @override
-  ConsumerState<_ModelSelectorSheet> createState() =>
-      _ModelSelectorSheetState();
+  ConsumerState<_ModelSelectorContent> createState() =>
+      _ModelSelectorContentState();
 }
 
-class _ModelSelectorSheetState extends ConsumerState<_ModelSelectorSheet> {
+class _ModelSelectorContentState extends ConsumerState<_ModelSelectorContent> {
   Map<String, dynamic>? _providersData;
   String? _currentModel;
   bool _loading = true;
@@ -11972,102 +10907,83 @@ class _ModelSelectorSheetState extends ConsumerState<_ModelSelectorSheet> {
   @override
   Widget build(BuildContext context) {
     final theme = OpenCodeTheme.of(context);
-    final kBackground = theme.background;
     final kOnBackground = theme.text;
     final kMuted = theme.textMuted;
 
-    return Container(
-      decoration: BoxDecoration(
-        color: kBackground,
-        borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
-      ),
-      child: DraggableScrollableSheet(
-        initialChildSize: 0.6,
-        minChildSize: 0.3,
-        maxChildSize: 0.9,
-        expand: false,
-        builder: (context, scrollController) {
-          if (_loading) {
-            return Center(
-              child: CircularProgressIndicator(color: theme.primary),
-            );
-          }
+    if (_loading) {
+      return const Padding(
+        padding: EdgeInsets.all(32),
+        child: Center(child: CircularProgressIndicator()),
+      );
+    }
 
-          if (_error != null) {
-            return Center(
-              child: Padding(
-                padding: const EdgeInsets.all(20),
-                child: Text(
-                  'Failed to load models: $_error',
-                  style: TextStyle(color: kMuted),
-                ),
-              ),
-            );
-          }
+    if (_error != null) {
+      return Padding(
+        padding: const EdgeInsets.all(20),
+        child: Text(
+          'Failed to load models: $_error',
+          style: TextStyle(color: kMuted),
+        ),
+      );
+    }
 
-          final rawProviders =
-              _providersData?['providers'] as List<dynamic>? ?? [];
+    final rawProviders = _providersData?['providers'] as List<dynamic>? ?? [];
 
-          // Sort providers: Anthropic first, then alphabetically
-          final providers = List<dynamic>.from(rawProviders)
-            ..sort((a, b) {
-              final aId = (a as Map<String, dynamic>)['id'] as String? ?? '';
-              final bId = (b as Map<String, dynamic>)['id'] as String? ?? '';
+    // Sort providers: Anthropic first, then alphabetically
+    final providers = List<dynamic>.from(rawProviders)
+      ..sort((a, b) {
+        final aId = (a as Map<String, dynamic>)['id'] as String? ?? '';
+        final bId = (b as Map<String, dynamic>)['id'] as String? ?? '';
 
-              // Priority order: anthropic first
-              const priorityOrder = ['anthropic', 'openai', 'google'];
-              final aPriority = priorityOrder.indexOf(aId.toLowerCase());
-              final bPriority = priorityOrder.indexOf(bId.toLowerCase());
+        // Priority order: anthropic first
+        const priorityOrder = ['anthropic', 'openai', 'google'];
+        final aPriority = priorityOrder.indexOf(aId.toLowerCase());
+        final bPriority = priorityOrder.indexOf(bId.toLowerCase());
 
-              // If both have priority, sort by priority order
-              if (aPriority >= 0 && bPriority >= 0) {
-                return aPriority.compareTo(bPriority);
-              }
-              // If only a has priority, a comes first
-              if (aPriority >= 0) return -1;
-              // If only b has priority, b comes first
-              if (bPriority >= 0) return 1;
-              // Otherwise sort alphabetically by name
-              final aName = (a)['name'] as String? ?? aId;
-              final bName = (b)['name'] as String? ?? bId;
-              return aName.toLowerCase().compareTo(bName.toLowerCase());
-            });
+        // If both have priority, sort by priority order
+        if (aPriority >= 0 && bPriority >= 0) {
+          return aPriority.compareTo(bPriority);
+        }
+        // If only a has priority, a comes first
+        if (aPriority >= 0) return -1;
+        // If only b has priority, b comes first
+        if (bPriority >= 0) return 1;
+        // Otherwise sort alphabetically by name
+        final aName = (a)['name'] as String? ?? aId;
+        final bName = (b)['name'] as String? ?? bId;
+        return aName.toLowerCase().compareTo(bName.toLowerCase());
+      });
 
-          return ListView(
-            controller: scrollController,
-            padding: const EdgeInsets.all(20),
-            children: [
-              Text(
-                'Select Model',
-                style: TextStyle(
-                  fontSize: 20,
-                  fontWeight: FontWeight.w600,
-                  color: kOnBackground,
-                ),
-              ),
-              const SizedBox(height: 8),
-              if (_currentModel != null)
-                Padding(
-                  padding: const EdgeInsets.only(bottom: 16),
-                  child: Text(
-                    'Current: $_currentModel',
-                    style: TextStyle(fontSize: 13, color: kMuted),
-                  ),
-                ),
-              if (providers.isEmpty)
-                Text(
-                  'No providers configured.',
-                  style: TextStyle(color: kMuted),
-                )
-              else
-                for (final provider in providers) ...[
-                  _buildProviderSection(provider as Map<String, dynamic>),
-                  const SizedBox(height: 16),
-                ],
-            ],
-          );
-        },
-      ),
+    return Column(
+      mainAxisSize: MainAxisSize.min,
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        const SizedBox(height: 8),
+        if (_currentModel != null)
+          Padding(
+            padding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
+            child: Text(
+              'Current: $_currentModel',
+              style: TextStyle(fontSize: 13, color: kMuted),
+            ),
+          ),
+        if (providers.isEmpty)
+          Padding(
+            padding: const EdgeInsets.all(16),
+            child: Text(
+              'No providers configured.',
+              style: TextStyle(color: kMuted),
+            ),
+          )
+        else
+          for (final provider in providers) ...[
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 16),
+              child: _buildProviderSection(provider as Map<String, dynamic>),
+            ),
+            const SizedBox(height: 16),
+          ],
+      ],
     );
   }
 

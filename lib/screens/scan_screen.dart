@@ -7,6 +7,7 @@ import '../models/connection.dart';
 import '../providers/connection_provider.dart';
 import '../providers/service_providers.dart';
 import '../theme/opencode_theme.dart';
+import '../widgets/chat/detail_sheet.dart';
 import '../widgets/onboarding_widgets.dart';
 
 class ScanScreen extends ConsumerStatefulWidget {
@@ -252,89 +253,58 @@ class _ScanScreenState extends ConsumerState<ScanScreen>
     final hostController = TextEditingController();
     final portController = TextEditingController(text: '18274');
 
-    final result = await showModalBottomSheet<ConnectionInfo>(
+    final result = await DetailSheet.show<ConnectionInfo>(
       context: context,
-      backgroundColor: theme.backgroundPanel,
-      isScrollControlled: true,
-      shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+      title: 'Manual Connection',
+      initialSize: 0.5,
+      child: Padding(
+        padding: const EdgeInsets.fromLTRB(24, 8, 24, 24),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              'Enter the IP address and port shown on your Mac.',
+              style: TextStyle(color: theme.textMuted),
+            ),
+            const SizedBox(height: 24),
+            _buildTextField(
+              theme,
+              controller: hostController,
+              label: 'Host (IP or hostname)',
+              hint: '192.168.1.100',
+              keyboardType: TextInputType.url,
+            ),
+            const SizedBox(height: 16),
+            _buildTextField(
+              theme,
+              controller: portController,
+              label: 'Port',
+              hint: '18274',
+              keyboardType: TextInputType.number,
+            ),
+            const SizedBox(height: 24),
+            OnboardingButton(
+              label: 'Connect',
+              onPressed: () {
+                final host = hostController.text.trim();
+                final port = int.tryParse(portController.text.trim()) ?? 18274;
+                if (host.isEmpty) return;
+                Navigator.pop(
+                  context,
+                  ConnectionInfo(localIP: host, port: port),
+                );
+              },
+            ),
+            const SizedBox(height: 12),
+            OnboardingButton(
+              label: 'Cancel',
+              variant: OnboardingButtonVariant.ghost,
+              onPressed: () => Navigator.pop(context),
+            ),
+          ],
+        ),
       ),
-      builder: (context) {
-        return Padding(
-          padding: EdgeInsets.only(
-            left: 24,
-            right: 24,
-            top: 24,
-            bottom: MediaQuery.of(context).viewInsets.bottom + 24,
-          ),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Center(
-                child: Container(
-                  width: 40,
-                  height: 4,
-                  decoration: BoxDecoration(
-                    color: theme.borderSubtle,
-                    borderRadius: BorderRadius.circular(2),
-                  ),
-                ),
-              ),
-              const SizedBox(height: 24),
-              Text(
-                'Manual Connection',
-                style: TextStyle(
-                  color: theme.text,
-                  fontSize: 22,
-                  fontWeight: FontWeight.bold,
-                ),
-              ),
-              const SizedBox(height: 8),
-              Text(
-                'Enter the IP address and port shown on your Mac.',
-                style: TextStyle(color: theme.textMuted),
-              ),
-              const SizedBox(height: 24),
-              _buildTextField(
-                theme,
-                controller: hostController,
-                label: 'Host (IP or hostname)',
-                hint: '192.168.1.100',
-                keyboardType: TextInputType.url,
-              ),
-              const SizedBox(height: 16),
-              _buildTextField(
-                theme,
-                controller: portController,
-                label: 'Port',
-                hint: '18274',
-                keyboardType: TextInputType.number,
-              ),
-              const SizedBox(height: 24),
-              OnboardingButton(
-                label: 'Connect',
-                onPressed: () {
-                  final host = hostController.text.trim();
-                  final port =
-                      int.tryParse(portController.text.trim()) ?? 18274;
-                  if (host.isEmpty) return;
-                  Navigator.pop(
-                    context,
-                    ConnectionInfo(localIP: host, port: port),
-                  );
-                },
-              ),
-              const SizedBox(height: 12),
-              OnboardingButton(
-                label: 'Cancel',
-                variant: OnboardingButtonVariant.ghost,
-                onPressed: () => Navigator.pop(context),
-              ),
-            ],
-          ),
-        );
-      },
     );
 
     if (result != null) {

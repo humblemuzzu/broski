@@ -4,6 +4,7 @@ import 'package:google_fonts/google_fonts.dart';
 
 import '../models/message.dart';
 import '../theme/opencode_theme.dart';
+import 'chat/detail_sheet.dart';
 
 class MessageBubble extends StatelessWidget {
   const MessageBubble({
@@ -279,65 +280,55 @@ class MessageBubble extends StatelessWidget {
 
   // Feature 6: Show fork menu on long press
   void _showForkMenu(BuildContext context, OpenCodeTheme theme) {
-    showModalBottomSheet(
+    DetailSheet.show(
       context: context,
-      backgroundColor: Colors.transparent,
-      builder: (context) => Container(
-        padding: const EdgeInsets.all(20),
-        decoration: BoxDecoration(
-          color: theme.backgroundPanel,
-          borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
-        ),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
+      title: 'Message Actions',
+      initialSize: 0.35,
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          if (onForkFromHere != null)
+            ListTile(
+              leading: Icon(Icons.call_split_rounded, color: theme.primary),
+              title: Text(
+                'Fork from here',
+                style: TextStyle(
+                  color: theme.text,
+                  fontWeight: FontWeight.w500,
+                ),
+              ),
+              subtitle: Text(
+                'Create a new session branch from this point',
+                style: TextStyle(color: theme.textMuted, fontSize: 12),
+              ),
+              onTap: () {
+                Navigator.pop(context);
+                onForkFromHere?.call(message.id);
+              },
+            ),
+          if (onRollback != null) ...[
             if (onForkFromHere != null)
-              ListTile(
-                leading: Icon(Icons.call_split_rounded, color: theme.primary),
-                title: Text(
-                  'Fork from here',
-                  style: TextStyle(
-                    color: theme.text,
-                    fontWeight: FontWeight.w500,
-                  ),
+              Divider(height: 1, color: theme.borderSubtle),
+            ListTile(
+              leading: Icon(Icons.history_rounded, color: theme.warning),
+              title: Text(
+                'Rollback…',
+                style: TextStyle(
+                  color: theme.text,
+                  fontWeight: FontWeight.w500,
                 ),
-                subtitle: Text(
-                  'Create a new session branch from this point',
-                  style: TextStyle(color: theme.textMuted, fontSize: 12),
-                ),
-                onTap: () {
-                  Navigator.pop(context);
-                  onForkFromHere?.call(message.id);
-                },
               ),
-            if (onRollback != null) ...[
-              if (onForkFromHere != null) const Divider(height: 1),
-              ListTile(
-                leading: Icon(Icons.history_rounded, color: theme.warning),
-                title: Text(
-                  'Rollback…',
-                  style: TextStyle(
-                    color: theme.text,
-                    fontWeight: FontWeight.w500,
-                  ),
-                ),
-                subtitle: Text(
-                  'Drop recent turns from this thread',
-                  style: TextStyle(color: theme.textMuted, fontSize: 12),
-                ),
-                onTap: () {
-                  Navigator.pop(context);
-                  onRollback?.call();
-                },
+              subtitle: Text(
+                'Drop recent turns from this thread',
+                style: TextStyle(color: theme.textMuted, fontSize: 12),
               ),
-            ],
-            const SizedBox(height: 8),
-            TextButton(
-              onPressed: () => Navigator.pop(context),
-              child: Text('Cancel', style: TextStyle(color: theme.textMuted)),
+              onTap: () {
+                Navigator.pop(context);
+                onRollback?.call();
+              },
             ),
           ],
-        ),
+        ],
       ),
     );
   }
