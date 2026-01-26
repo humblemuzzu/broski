@@ -1,45 +1,79 @@
 import 'dart:async';
+import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../providers/stt_provider.dart';
-import '../theme/opencode_theme.dart';
 
-/// Shows a voice recording bottom sheet and returns the transcribed text.
+/// Shows a modern voice recording overlay and returns the transcribed text.
 ///
 /// Returns null if cancelled or failed.
 Future<String?> showVoiceRecordingSheet(BuildContext context) async {
-  return showModalBottomSheet<String>(
+  return showGeneralDialog<String>(
     context: context,
-    isScrollControlled: true,
-    isDismissible: false, // Prevent accidental dismiss
-    enableDrag: false,
-    backgroundColor: Colors.transparent,
-    builder: (ctx) => const _VoiceRecordingSheetContent(),
+    barrierDismissible: false,
+    barrierColor: Colors.black54,
+    transitionDuration: const Duration(milliseconds: 300),
+    pageBuilder: (context, animation, secondaryAnimation) {
+      return const _VoiceRecordingOverlay();
+    },
+    transitionBuilder: (context, animation, secondaryAnimation, child) {
+      return SlideTransition(
+        position: Tween<Offset>(begin: const Offset(0, 0.3), end: Offset.zero)
+            .animate(
+              CurvedAnimation(parent: animation, curve: Curves.easeOutCubic),
+            ),
+        child: FadeTransition(opacity: animation, child: child),
+      );
+    },
   );
 }
 
-/// Internal content widget for the voice recording sheet.
-class _VoiceRecordingSheetContent extends ConsumerStatefulWidget {
-  const _VoiceRecordingSheetContent();
+/// Modern voice recording overlay with waveform visualization
+class _VoiceRecordingOverlay extends ConsumerStatefulWidget {
+  const _VoiceRecordingOverlay();
 
   @override
-  ConsumerState<_VoiceRecordingSheetContent> createState() =>
-      _VoiceRecordingSheetContentState();
+  ConsumerState<_VoiceRecordingOverlay> createState() =>
+      _VoiceRecordingOverlayState();
 }
 
-class _VoiceRecordingSheetContentState
-    extends ConsumerState<_VoiceRecordingSheetContent> {
+class _VoiceRecordingOverlayState extends ConsumerState<_VoiceRecordingOverlay>
+    with TickerProviderStateMixin {
   Timer? _durationTimer;
   Duration _duration = Duration.zero;
   bool _isProcessing = false;
   String? _localError;
 
+  // Animation controllers
+  late AnimationController _pulseController;
+  late AnimationController _waveController;
+  late Animation<double> _pulseAnimation;
+
+  // Audio levels for waveform (simulated based on recording state)
+  final List<double> _audioLevels = List.filled(24, 0.1);
+  final math.Random _random = math.Random();
+
   @override
   void initState() {
     super.initState();
+
+    _pulseController = AnimationController(
+      duration: const Duration(milliseconds: 1500),
+      vsync: this,
+    )..repeat(reverse: true);
+
+    _pulseAnimation = Tween<double>(begin: 0.95, end: 1.05).animate(
+      CurvedAnimation(parent: _pulseController, curve: Curves.easeInOut),
+    );
+
+    _waveController = AnimationController(
+      duration: const Duration(milliseconds: 100),
+      vsync: this,
+    )..addListener(_updateWaveform);
+
     WidgetsBinding.instance.addPostFrameCallback((_) {
       _startRecording();
     });
@@ -48,7 +82,28 @@ class _VoiceRecordingSheetContentState
   @override
   void dispose() {
     _durationTimer?.cancel();
+    _pulseController.dispose();
+    _waveController.dispose();
     super.dispose();
+  }
+
+  void _updateWaveform() {
+    if (!mounted) return;
+    final sttState = ref.read(sttProvider);
+    final isRecording = sttState.recordingState == RecordingState.recording;
+
+    setState(() {
+      for (int i = 0; i < _audioLevels.length; i++) {
+        if (isRecording) {
+          // Animate levels with some randomness for visual effect
+          final target = 0.2 + _random.nextDouble() * 0.8;
+          _audioLevels[i] = _audioLevels[i] * 0.7 + target * 0.3;
+        } else {
+          // Decay to minimum
+          _audioLevels[i] = _audioLevels[i] * 0.9 + 0.1 * 0.1;
+        }
+      }
+    });
   }
 
   Future<void> _startRecording() async {
@@ -59,6 +114,10 @@ class _VoiceRecordingSheetContentState
 
     if (success) {
       HapticFeedback.mediumImpact();
+
+      // Start waveform animation
+      _waveController.repeat();
+
       _durationTimer = Timer.periodic(const Duration(milliseconds: 100), (_) {
         if (!mounted) return;
         setState(() {
@@ -71,10 +130,7 @@ class _VoiceRecordingSheetContentState
       setState(() {
         _localError = error ?? 'Failed to start recording';
       });
-      await Future.delayed(const Duration(seconds: 2));
-      if (mounted) {
-        Navigator.of(context).pop(null);
-      }
+      HapticFeedback.heavyImpact();
     }
   }
 
@@ -87,6 +143,7 @@ class _VoiceRecordingSheetContentState
     });
 
     _durationTimer?.cancel();
+    _waveController.stop();
     HapticFeedback.lightImpact();
 
     final notifier = ref.read(sttProvider.notifier);
@@ -108,6 +165,7 @@ class _VoiceRecordingSheetContentState
 
   Future<void> _cancel() async {
     _durationTimer?.cancel();
+    _waveController.stop();
     HapticFeedback.lightImpact();
 
     final notifier = ref.read(sttProvider.notifier);
@@ -118,393 +176,350 @@ class _VoiceRecordingSheetContentState
     }
   }
 
-  Future<void> _retry() async {
-    setState(() {
-      _localError = null;
-      _duration = Duration.zero;
-      _isProcessing = false;
-    });
+  @override
+  Widget build(BuildContext context) {
+    final sttState = ref.watch(sttProvider);
+    final isRecording = sttState.recordingState == RecordingState.recording;
+    final isTranscribing =
+        sttState.recordingState == RecordingState.transcribing || _isProcessing;
+    final hasError = _localError != null;
 
-    // Clear error in provider
-    ref.read(sttProvider.notifier).clearError();
+    return Scaffold(
+      backgroundColor: Colors.transparent,
+      body: Center(
+        child: Padding(
+          padding: const EdgeInsets.all(24),
+          child: ScaleTransition(
+            scale: _pulseAnimation,
+            child: Container(
+              constraints: const BoxConstraints(maxWidth: 360),
+              decoration: BoxDecoration(
+                color: const Color(0xFF1A1A1A),
+                borderRadius: BorderRadius.circular(28),
+                border: Border.all(
+                  color: Colors.white.withValues(alpha: 0.08),
+                  width: 1,
+                ),
+                boxShadow: [
+                  BoxShadow(
+                    color: Colors.black.withValues(alpha: 0.4),
+                    blurRadius: 40,
+                    spreadRadius: 10,
+                  ),
+                ],
+              ),
+              child: Padding(
+                padding: const EdgeInsets.all(20),
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    // Top row: Cancel and Confirm buttons
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        // Cancel button
+                        _CircleButton(
+                          icon: Icons.close_rounded,
+                          onTap: isTranscribing ? null : _cancel,
+                          backgroundColor: Colors.white.withValues(alpha: 0.1),
+                          iconColor: Colors.white.withValues(alpha: 0.7),
+                        ),
+                        // Confirm button
+                        _CircleButton(
+                          icon: Icons.check_rounded,
+                          onTap: (isRecording && _duration.inMilliseconds > 300)
+                              ? _stopAndTranscribe
+                              : null,
+                          backgroundColor: isTranscribing
+                              ? Colors.white.withValues(alpha: 0.1)
+                              : const Color(0xFFF5F5DC), // Cream/beige color
+                          iconColor: isTranscribing
+                              ? Colors.white.withValues(alpha: 0.3)
+                              : const Color(0xFF1A1A1A),
+                          isLoading: isTranscribing,
+                        ),
+                      ],
+                    ),
 
-    await _startRecording();
+                    const SizedBox(height: 32),
+
+                    // Waveform visualization
+                    if (hasError)
+                      _ErrorDisplay(
+                        error: _localError!,
+                        onRetry: () {
+                          setState(() {
+                            _localError = null;
+                            _duration = Duration.zero;
+                          });
+                          ref.read(sttProvider.notifier).clearError();
+                          _startRecording();
+                        },
+                      )
+                    else
+                      _AnimatedWaveform(
+                        levels: _audioLevels,
+                        isActive: isRecording,
+                        color: const Color(0xFFF5F5DC), // Cream/beige color
+                      ),
+
+                    const SizedBox(height: 32),
+
+                    // Bottom row: Language indicator
+                    Row(
+                      children: [
+                        Container(
+                          padding: const EdgeInsets.all(8),
+                          decoration: BoxDecoration(
+                            color: Colors.white.withValues(alpha: 0.05),
+                            shape: BoxShape.circle,
+                            border: Border.all(
+                              color: Colors.white.withValues(alpha: 0.15),
+                              width: 1,
+                            ),
+                          ),
+                          child: Icon(
+                            Icons.language_rounded,
+                            color: Colors.white.withValues(alpha: 0.6),
+                            size: 18,
+                          ),
+                        ),
+                        const SizedBox(width: 12),
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                sttState.settings.provider.displayName,
+                                style: TextStyle(
+                                  color: Colors.white.withValues(alpha: 0.8),
+                                  fontSize: 12,
+                                  fontWeight: FontWeight.w600,
+                                ),
+                              ),
+                              Text(
+                                _formatDuration(_duration),
+                                style: TextStyle(
+                                  color: isRecording
+                                      ? const Color(0xFFFF6B6B)
+                                      : Colors.white.withValues(alpha: 0.4),
+                                  fontSize: 11,
+                                  fontWeight: FontWeight.w500,
+                                  fontFeatures: const [
+                                    FontFeature.tabularFigures(),
+                                  ],
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                        // Recording indicator dot
+                        if (isRecording)
+                          Container(
+                            width: 8,
+                            height: 8,
+                            decoration: BoxDecoration(
+                              color: const Color(0xFFFF6B6B),
+                              shape: BoxShape.circle,
+                              boxShadow: [
+                                BoxShadow(
+                                  color: const Color(
+                                    0xFFFF6B6B,
+                                  ).withValues(alpha: 0.5),
+                                  blurRadius: 8,
+                                  spreadRadius: 2,
+                                ),
+                              ],
+                            ),
+                          ),
+                      ],
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
   }
 
   String _formatDuration(Duration d) {
     final minutes = d.inMinutes;
     final seconds = d.inSeconds % 60;
-    final ms = (d.inMilliseconds % 1000) ~/ 100;
-    if (minutes > 0) {
-      return '$minutes:${seconds.toString().padLeft(2, '0')}';
-    }
-    return '0:${seconds.toString().padLeft(2, '0')}.$ms';
+    return '${minutes.toString().padLeft(2, '0')}:${seconds.toString().padLeft(2, '0')}';
   }
+}
+
+/// Circular action button with optional loading state
+class _CircleButton extends StatelessWidget {
+  const _CircleButton({
+    required this.icon,
+    required this.onTap,
+    required this.backgroundColor,
+    required this.iconColor,
+    this.isLoading = false,
+  });
+
+  final IconData icon;
+  final VoidCallback? onTap;
+  final Color backgroundColor;
+  final Color iconColor;
+  final bool isLoading;
 
   @override
   Widget build(BuildContext context) {
-    final ocTheme = OpenCodeTheme.of(context);
-    final sttState = ref.watch(sttProvider);
-    final isRecording = sttState.recordingState == RecordingState.recording;
-    final isTranscribing =
-        sttState.recordingState == RecordingState.transcribing || _isProcessing;
-    final hasError = _localError != null || sttState.error != null;
-    final errorMessage = _localError ?? sttState.error;
-
-    return Container(
-      decoration: BoxDecoration(
-        color: ocTheme.backgroundPanel,
-        borderRadius: const BorderRadius.vertical(top: Radius.circular(20)),
-      ),
-      child: SafeArea(
-        top: false,
-        child: Padding(
-          padding: const EdgeInsets.all(24),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              // Handle bar
-              Container(
-                width: 36,
-                height: 4,
-                decoration: BoxDecoration(
-                  color: ocTheme.textMuted.withValues(alpha: 0.3),
-                  borderRadius: BorderRadius.circular(2),
-                ),
-              ),
-              const SizedBox(height: 24),
-
-              // Status indicator
-              _buildStatusIndicator(
-                ocTheme,
-                isRecording,
-                isTranscribing,
-                hasError,
-              ),
-
-              const SizedBox(height: 16),
-
-              // Duration display
-              Container(
-                padding: const EdgeInsets.symmetric(
-                  horizontal: 16,
-                  vertical: 8,
-                ),
-                decoration: BoxDecoration(
-                  color: ocTheme.background,
-                  borderRadius: BorderRadius.circular(20),
-                ),
-                child: Text(
-                  _formatDuration(_duration),
-                  style: TextStyle(
-                    color: isRecording ? ocTheme.error : ocTheme.textMuted,
-                    fontSize: 24,
-                    fontWeight: FontWeight.w600,
-                    fontFeatures: const [FontFeature.tabularFigures()],
+    return GestureDetector(
+      onTap: onTap,
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 200),
+        width: 48,
+        height: 48,
+        decoration: BoxDecoration(
+          color: backgroundColor,
+          shape: BoxShape.circle,
+          border: Border.all(
+            color: Colors.white.withValues(alpha: 0.1),
+            width: 1,
+          ),
+        ),
+        child: Center(
+          child: isLoading
+              ? SizedBox(
+                  width: 20,
+                  height: 20,
+                  child: CircularProgressIndicator(
+                    strokeWidth: 2,
+                    color: iconColor,
                   ),
+                )
+              : Icon(icon, color: iconColor, size: 22),
+        ),
+      ),
+    );
+  }
+}
+
+/// Animated waveform visualization with vertical bars
+class _AnimatedWaveform extends StatelessWidget {
+  const _AnimatedWaveform({
+    required this.levels,
+    required this.isActive,
+    required this.color,
+  });
+
+  final List<double> levels;
+  final bool isActive;
+  final Color color;
+
+  @override
+  Widget build(BuildContext context) {
+    return SizedBox(
+      height: 80,
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.center,
+        crossAxisAlignment: CrossAxisAlignment.center,
+        children: List.generate(levels.length, (index) {
+          // Create a wave pattern - bars in center are taller
+          final distanceFromCenter = (index - levels.length / 2).abs();
+          final baseHeight =
+              1 - (distanceFromCenter / (levels.length / 2)) * 0.3;
+          final level = isActive ? levels[index] : 0.15;
+          final height = (level * baseHeight * 60).clamp(4.0, 60.0);
+
+          return Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 2),
+            child: AnimatedContainer(
+              duration: const Duration(milliseconds: 100),
+              curve: Curves.easeOut,
+              width: 4,
+              height: height,
+              decoration: BoxDecoration(
+                color: color.withValues(alpha: isActive ? 1.0 : 0.3),
+                borderRadius: BorderRadius.circular(2),
+              ),
+            ),
+          );
+        }),
+      ),
+    );
+  }
+}
+
+/// Error display with retry option
+class _ErrorDisplay extends StatelessWidget {
+  const _ErrorDisplay({required this.error, required this.onRetry});
+
+  final String error;
+  final VoidCallback onRetry;
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      children: [
+        Container(
+          padding: const EdgeInsets.all(16),
+          decoration: BoxDecoration(
+            color: const Color(0xFFFF6B6B).withValues(alpha: 0.1),
+            borderRadius: BorderRadius.circular(16),
+            border: Border.all(
+              color: const Color(0xFFFF6B6B).withValues(alpha: 0.3),
+              width: 1,
+            ),
+          ),
+          child: Column(
+            children: [
+              Icon(
+                Icons.error_outline_rounded,
+                color: const Color(0xFFFF6B6B),
+                size: 32,
+              ),
+              const SizedBox(height: 12),
+              Text(
+                error,
+                textAlign: TextAlign.center,
+                style: TextStyle(
+                  color: Colors.white.withValues(alpha: 0.8),
+                  fontSize: 13,
                 ),
               ),
-
-              const SizedBox(height: 24),
-
-              // Error message
-              if (hasError && errorMessage != null) ...[
-                Container(
-                  padding: const EdgeInsets.all(12),
+              const SizedBox(height: 16),
+              GestureDetector(
+                onTap: onRetry,
+                child: Container(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 20,
+                    vertical: 10,
+                  ),
                   decoration: BoxDecoration(
-                    color: ocTheme.error.withValues(alpha: 0.1),
-                    borderRadius: BorderRadius.circular(10),
+                    color: Colors.white.withValues(alpha: 0.1),
+                    borderRadius: BorderRadius.circular(20),
                   ),
                   child: Row(
+                    mainAxisSize: MainAxisSize.min,
                     children: [
-                      Icon(Icons.error_outline, color: ocTheme.error, size: 20),
-                      const SizedBox(width: 10),
-                      Expanded(
-                        child: Text(
-                          errorMessage,
-                          style: TextStyle(color: ocTheme.error, fontSize: 13),
+                      Icon(
+                        Icons.refresh_rounded,
+                        color: Colors.white.withValues(alpha: 0.8),
+                        size: 18,
+                      ),
+                      const SizedBox(width: 8),
+                      Text(
+                        'Try Again',
+                        style: TextStyle(
+                          color: Colors.white.withValues(alpha: 0.8),
+                          fontSize: 13,
+                          fontWeight: FontWeight.w600,
                         ),
                       ),
                     ],
                   ),
                 ),
-                const SizedBox(height: 16),
-              ],
-
-              // Action buttons
-              _buildActionButtons(
-                ocTheme,
-                isRecording,
-                isTranscribing,
-                hasError,
-              ),
-
-              const SizedBox(height: 8),
-
-              // Provider info
-              Text(
-                'Using ${sttState.settings.provider.displayName} • ${sttState.settings.model.displayName}',
-                style: TextStyle(color: ocTheme.textMuted, fontSize: 11),
               ),
             ],
           ),
         ),
-      ),
-    );
-  }
-
-  Widget _buildStatusIndicator(
-    OpenCodeTheme ocTheme,
-    bool isRecording,
-    bool isTranscribing,
-    bool hasError,
-  ) {
-    if (hasError) {
-      return Column(
-        children: [
-          Icon(Icons.error_outline, size: 60, color: ocTheme.error),
-          const SizedBox(height: 16),
-          Text(
-            'Error',
-            style: TextStyle(
-              color: ocTheme.error,
-              fontSize: 18,
-              fontWeight: FontWeight.w600,
-            ),
-          ),
-        ],
-      );
-    }
-
-    if (isTranscribing) {
-      return Column(
-        children: [
-          SizedBox(
-            width: 60,
-            height: 60,
-            child: CircularProgressIndicator(
-              strokeWidth: 4,
-              color: ocTheme.primary,
-            ),
-          ),
-          const SizedBox(height: 16),
-          Text(
-            'Transcribing...',
-            style: TextStyle(
-              color: ocTheme.text,
-              fontSize: 18,
-              fontWeight: FontWeight.w600,
-            ),
-          ),
-        ],
-      );
-    }
-
-    if (isRecording) {
-      return Column(
-        children: [
-          _RecordingIndicator(color: ocTheme.error),
-          const SizedBox(height: 16),
-          Text(
-            'Recording...',
-            style: TextStyle(
-              color: ocTheme.text,
-              fontSize: 18,
-              fontWeight: FontWeight.w600,
-            ),
-          ),
-        ],
-      );
-    }
-
-    return Column(
-      children: [
-        SizedBox(
-          width: 60,
-          height: 60,
-          child: CircularProgressIndicator(
-            strokeWidth: 4,
-            color: ocTheme.textMuted,
-          ),
-        ),
-        const SizedBox(height: 16),
-        Text(
-          'Starting...',
-          style: TextStyle(color: ocTheme.textMuted, fontSize: 18),
-        ),
       ],
-    );
-  }
-
-  Widget _buildActionButtons(
-    OpenCodeTheme ocTheme,
-    bool isRecording,
-    bool isTranscribing,
-    bool hasError,
-  ) {
-    if (hasError) {
-      // Show Retry and Cancel buttons
-      return Row(
-        children: [
-          Expanded(
-            child: OutlinedButton.icon(
-              onPressed: _cancel,
-              icon: const Icon(Icons.close),
-              label: const Text('Cancel'),
-              style: OutlinedButton.styleFrom(
-                foregroundColor: ocTheme.textMuted,
-                side: BorderSide(color: ocTheme.borderSubtle),
-                padding: const EdgeInsets.symmetric(vertical: 14),
-              ),
-            ),
-          ),
-          const SizedBox(width: 16),
-          Expanded(
-            flex: 2,
-            child: FilledButton.icon(
-              onPressed: _retry,
-              icon: const Icon(Icons.refresh),
-              label: const Text('Retry'),
-              style: FilledButton.styleFrom(
-                backgroundColor: ocTheme.primary,
-                foregroundColor: Colors.white,
-                padding: const EdgeInsets.symmetric(vertical: 14),
-              ),
-            ),
-          ),
-        ],
-      );
-    }
-
-    // Normal Cancel and Send buttons
-    return Row(
-      children: [
-        Expanded(
-          child: OutlinedButton.icon(
-            onPressed: isTranscribing ? null : _cancel,
-            icon: const Icon(Icons.close),
-            label: const Text('Cancel'),
-            style: OutlinedButton.styleFrom(
-              foregroundColor: ocTheme.textMuted,
-              side: BorderSide(color: ocTheme.borderSubtle),
-              padding: const EdgeInsets.symmetric(vertical: 14),
-            ),
-          ),
-        ),
-        const SizedBox(width: 16),
-        Expanded(
-          flex: 2,
-          child: FilledButton.icon(
-            onPressed: (isRecording && _duration.inMilliseconds > 300)
-                ? _stopAndTranscribe
-                : null,
-            icon: isTranscribing
-                ? SizedBox(
-                    width: 20,
-                    height: 20,
-                    child: CircularProgressIndicator(
-                      strokeWidth: 2,
-                      color: ocTheme.background,
-                    ),
-                  )
-                : const Icon(Icons.send),
-            label: Text(isTranscribing ? 'Processing...' : 'Send'),
-            style: FilledButton.styleFrom(
-              backgroundColor: ocTheme.primary,
-              foregroundColor: Colors.white,
-              padding: const EdgeInsets.symmetric(vertical: 14),
-              disabledBackgroundColor: ocTheme.primary.withValues(alpha: 0.3),
-            ),
-          ),
-        ),
-      ],
-    );
-  }
-}
-
-/// Animated recording indicator with pulsing effect
-class _RecordingIndicator extends StatefulWidget {
-  const _RecordingIndicator({required this.color});
-
-  final Color color;
-
-  @override
-  State<_RecordingIndicator> createState() => _RecordingIndicatorState();
-}
-
-class _RecordingIndicatorState extends State<_RecordingIndicator>
-    with SingleTickerProviderStateMixin {
-  late AnimationController _controller;
-  late Animation<double> _scaleAnimation;
-  late Animation<double> _opacityAnimation;
-
-  @override
-  void initState() {
-    super.initState();
-    _controller = AnimationController(
-      duration: const Duration(milliseconds: 1000),
-      vsync: this,
-    )..repeat();
-
-    _scaleAnimation = Tween<double>(
-      begin: 1.0,
-      end: 1.5,
-    ).animate(CurvedAnimation(parent: _controller, curve: Curves.easeOut));
-
-    _opacityAnimation = Tween<double>(
-      begin: 0.6,
-      end: 0.0,
-    ).animate(CurvedAnimation(parent: _controller, curve: Curves.easeOut));
-  }
-
-  @override
-  void dispose() {
-    _controller.dispose();
-    super.dispose();
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    return SizedBox(
-      width: 80,
-      height: 80,
-      child: Stack(
-        alignment: Alignment.center,
-        children: [
-          // Pulsing ring
-          AnimatedBuilder(
-            animation: _controller,
-            builder: (context, child) {
-              return Transform.scale(
-                scale: _scaleAnimation.value,
-                child: Container(
-                  width: 60,
-                  height: 60,
-                  decoration: BoxDecoration(
-                    shape: BoxShape.circle,
-                    border: Border.all(
-                      color: widget.color.withValues(
-                        alpha: _opacityAnimation.value,
-                      ),
-                      width: 3,
-                    ),
-                  ),
-                ),
-              );
-            },
-          ),
-          // Main mic icon
-          Container(
-            width: 60,
-            height: 60,
-            decoration: BoxDecoration(
-              color: widget.color.withValues(alpha: 0.15),
-              shape: BoxShape.circle,
-            ),
-            child: Icon(Icons.mic, color: widget.color, size: 32),
-          ),
-        ],
-      ),
     );
   }
 }
