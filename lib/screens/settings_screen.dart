@@ -20,7 +20,7 @@ import 'ai_backend_screen.dart';
 import 'customization_screen.dart';
 import 'device_manager_screen.dart';
 import 'mcp_servers_screen.dart';
-import 'providers_screen.dart';
+
 import 'subscription_usage_screen.dart';
 import 'subagents_screen.dart';
 import 'terminal_screen.dart';
@@ -201,20 +201,31 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                         ),
                       ),
                       _Divider(),
-                      _SettingsTile(
-                        title: 'Providers',
-                        subtitle: 'Models and API keys',
-                        icon: Icons.psychology_rounded,
-                        onTap: () => Navigator.push(
-                          context,
-                          MaterialPageRoute(
-                            builder: (_) => const ProvidersScreen(),
-                          ),
+                      _PowerFeaturesTile(
+                        currentAgent: currentAgent,
+                        isExpanded: _powerFeaturesExpanded,
+                        onToggle: () => setState(
+                          () => _powerFeaturesExpanded = !_powerFeaturesExpanded,
                         ),
                       ),
                     ],
                   ),
                 ),
+              ),
+            ),
+            SliverToBoxAdapter(
+              child: AnimatedCrossFade(
+                firstChild: const SizedBox.shrink(),
+                secondChild: Padding(
+                  padding: const EdgeInsets.only(top: 12),
+                  child: _PowerFeaturesExpandedCard(
+                    currentAgent: currentAgent,
+                  ),
+                ),
+                crossFadeState: _powerFeaturesExpanded
+                    ? CrossFadeState.showSecond
+                    : CrossFadeState.showFirst,
+                duration: const Duration(milliseconds: 200),
               ),
             ),
 
@@ -345,21 +356,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
               ),
             ),
 
-            const SliverToBoxAdapter(child: SizedBox(height: 32)),
-            SliverToBoxAdapter(child: SectionHeader(title: 'Power Features')),
-            const SliverToBoxAdapter(child: SizedBox(height: 12)),
-            SliverToBoxAdapter(
-              child: Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 20),
-                child: _PowerFeaturesCard(
-                  currentAgent: currentAgent,
-                  isExpanded: _powerFeaturesExpanded,
-                  onToggle: () => setState(
-                    () => _powerFeaturesExpanded = !_powerFeaturesExpanded,
-                  ),
-                ),
-              ),
-            ),
+
 
             const SliverToBoxAdapter(child: SizedBox(height: 32)),
             SliverToBoxAdapter(child: SectionHeader(title: 'Account')),
@@ -601,8 +598,8 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
   }
 }
 
-class _PowerFeaturesCard extends StatelessWidget {
-  const _PowerFeaturesCard({
+class _PowerFeaturesTile extends StatelessWidget {
+  const _PowerFeaturesTile({
     required this.currentAgent,
     required this.isExpanded,
     required this.onToggle,
@@ -611,6 +608,106 @@ class _PowerFeaturesCard extends StatelessWidget {
   final AgentType currentAgent;
   final bool isExpanded;
   final VoidCallback onToggle;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final featureCount = _getFeatureCount(currentAgent);
+
+    return InkWell(
+      onTap: onToggle,
+      borderRadius: BorderRadius.circular(16),
+      child: Padding(
+        padding: const EdgeInsets.all(16),
+        child: Row(
+          children: [
+            Icon(
+              Icons.bolt_rounded,
+              color: theme.colorScheme.primary,
+              size: 22,
+            ),
+            const SizedBox(width: 12),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
+                    children: [
+                      Text(
+                        'Power Features',
+                        style: TextStyle(
+                          color: theme.colorScheme.onSurface,
+                          fontSize: 15,
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
+                      const SizedBox(width: 8),
+                      Container(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 6,
+                          vertical: 2,
+                        ),
+                        decoration: BoxDecoration(
+                          color: theme.colorScheme.primary.withValues(
+                            alpha: 0.15,
+                          ),
+                          borderRadius: BorderRadius.circular(6),
+                        ),
+                        child: Text(
+                          '$featureCount',
+                          style: TextStyle(
+                            color: theme.colorScheme.primary,
+                            fontSize: 11,
+                            fontWeight: FontWeight.w700,
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 3),
+                  Text(
+                    'Advanced ${currentAgent.displayName} configuration',
+                    style: TextStyle(
+                      color: theme.colorScheme.onSurface.withValues(
+                        alpha: 0.6,
+                      ),
+                      fontSize: 13,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            AnimatedRotation(
+              turns: isExpanded ? 0.5 : 0,
+              duration: const Duration(milliseconds: 200),
+              child: Icon(
+                Icons.keyboard_arrow_down_rounded,
+                color: theme.colorScheme.onSurface.withValues(alpha: 0.5),
+                size: 24,
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  int _getFeatureCount(AgentType agent) {
+    switch (agent) {
+      case AgentType.opencode:
+        return 8;
+      case AgentType.claudeCode:
+        return 8;
+      case AgentType.codex:
+        return 3;
+    }
+  }
+}
+
+class _PowerFeaturesExpandedCard extends StatelessWidget {
+  const _PowerFeaturesExpandedCard({required this.currentAgent});
+
+  final AgentType currentAgent;
 
   List<Widget> _getPowerFeatures(BuildContext context, AgentType agent) {
     switch (agent) {
@@ -832,108 +929,17 @@ class _PowerFeaturesCard extends StatelessWidget {
     final ocTheme = OpenCodeTheme.of(context);
     final features = _getPowerFeatures(context, currentAgent);
 
-    return Container(
-      decoration: BoxDecoration(
-        color: theme.colorScheme.surface.withValues(alpha: 0.4),
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: ocTheme.borderSubtle.withValues(alpha: 0.7)),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          InkWell(
-            onTap: onToggle,
-            borderRadius: BorderRadius.circular(16),
-            child: Padding(
-              padding: const EdgeInsets.all(16),
-              child: Row(
-                children: [
-                  Icon(
-                    Icons.bolt_rounded,
-                    color: theme.colorScheme.primary,
-                    size: 22,
-                  ),
-                  const SizedBox(width: 12),
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Row(
-                          children: [
-                            Text(
-                              'Power Features',
-                              style: TextStyle(
-                                color: theme.colorScheme.onSurface,
-                                fontSize: 15,
-                                fontWeight: FontWeight.w600,
-                              ),
-                            ),
-                            const SizedBox(width: 8),
-                            Container(
-                              padding: const EdgeInsets.symmetric(
-                                horizontal: 6,
-                                vertical: 2,
-                              ),
-                              decoration: BoxDecoration(
-                                color: theme.colorScheme.primary.withValues(
-                                  alpha: 0.15,
-                                ),
-                                borderRadius: BorderRadius.circular(6),
-                              ),
-                              child: Text(
-                                '${features.length ~/ 2}',
-                                style: TextStyle(
-                                  color: theme.colorScheme.primary,
-                                  fontSize: 11,
-                                  fontWeight: FontWeight.w700,
-                                ),
-                              ),
-                            ),
-                          ],
-                        ),
-                        const SizedBox(height: 3),
-                        Text(
-                          'Advanced ${currentAgent.displayName} configuration',
-                          style: TextStyle(
-                            color: theme.colorScheme.onSurface.withValues(
-                              alpha: 0.6,
-                            ),
-                            fontSize: 13,
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                  AnimatedRotation(
-                    turns: isExpanded ? 0.5 : 0,
-                    duration: const Duration(milliseconds: 200),
-                    child: Icon(
-                      Icons.keyboard_arrow_down_rounded,
-                      color: theme.colorScheme.onSurface.withValues(alpha: 0.5),
-                      size: 24,
-                    ),
-                  ),
-                ],
-              ),
-            ),
-          ),
-          AnimatedCrossFade(
-            firstChild: const SizedBox.shrink(),
-            secondChild: Column(
-              children: [
-                Divider(
-                  height: 1,
-                  color: theme.colorScheme.onSurface.withValues(alpha: 0.08),
-                ),
-                ...features,
-              ],
-            ),
-            crossFadeState: isExpanded
-                ? CrossFadeState.showSecond
-                : CrossFadeState.showFirst,
-            duration: const Duration(milliseconds: 200),
-          ),
-        ],
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 20),
+      child: Container(
+        decoration: BoxDecoration(
+          color: theme.colorScheme.surface.withValues(alpha: 0.4),
+          borderRadius: BorderRadius.circular(16),
+          border: Border.all(color: ocTheme.borderSubtle.withValues(alpha: 0.7)),
+        ),
+        child: Column(
+          children: features,
+        ),
       ),
     );
   }
