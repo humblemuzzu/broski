@@ -24,6 +24,7 @@ import '../models/vcs.dart';
 import '../providers/chat_provider.dart';
 import '../providers/claude_code_provider.dart';
 import '../providers/connection_provider.dart';
+import '../providers/app_subscription_provider.dart';
 import '../providers/codex_settings_provider.dart';
 import '../providers/file_search_provider.dart';
 import '../providers/input_style_provider.dart';
@@ -39,12 +40,10 @@ import '../services/haptics_service.dart';
 import '../services/image_picker_service.dart';
 import '../services/websocket_service.dart';
 import '../theme/opencode_theme.dart';
-import '../widgets/background_session_widgets.dart';
 import '../widgets/diff_viewer.dart';
 import '../widgets/export_session_sheet.dart';
 import '../widgets/file_tagging.dart';
 import '../widgets/message_bubble.dart';
-import '../widgets/subtask_notification_card.dart';
 import '../widgets/chat/compact_thinking_card.dart';
 import '../widgets/chat/detail_sheet.dart';
 import '../widgets/permission_prompt.dart';
@@ -574,14 +573,6 @@ class _ChatScreenState extends ConsumerState<ChatScreen>
 
     // OpenCode mode - set up OC session in provider
     chat.setSession(widget.session, projectPath: widget.project.path);
-
-    // Demo mode - use sample messages from DemoDataService
-    if (connection.isDemoMode) {
-      chat.hydrateDemoMessages(widget.session.id);
-      setState(() => _hasLoadedAllMessages = true);
-      _scrollToBottom(animate: false);
-      return;
-    }
 
     // In offline mode, load from cache (all messages)
     if (connection.isOfflineMode) {
@@ -6651,6 +6642,17 @@ Describe project-specific guidance for Codex here.
     BridgeConnectionState connection,
     ChatSessionState chatState,
   ) {
+    final entitlement = ref.read(appSubscriptionProvider).entitled;
+    if (!entitlement) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Subscription required to send messages.'),
+          behavior: SnackBarBehavior.floating,
+        ),
+      );
+      return;
+    }
+
     final text = _controller.text.trim();
     final hasAttachments = _attachedFiles.isNotEmpty;
     if (text.isEmpty && !hasAttachments) return;
@@ -7308,11 +7310,14 @@ Describe your project here.
           }
         }
       }
-      DetailSheet.show(
+      // Note: PermissionPrompt has its own DraggableScrollableSheet with pinned
+      // action buttons, so we use showModalBottomSheet directly instead of
+      // DetailSheet.show() which would create nested scrollable sheets.
+      showModalBottomSheet(
         context: context,
-        title: 'Permission Required',
-        initialSize: 0.5,
-        child: PermissionPrompt(
+        isScrollControlled: true,
+        backgroundColor: Colors.transparent,
+        builder: (_) => PermissionPrompt(
           request: request,
           onApprove: () => _respondToPermission(request, 'once'),
           onDeny: () => _respondToPermission(request, 'reject'),
@@ -7436,6 +7441,18 @@ Describe your project here.
     String? message,
     Object? execpolicyAmendment,
   }) {
+    final entitlement = ref.read(appSubscriptionProvider).entitled;
+    if (!entitlement) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Subscription required to approve tools.'),
+          behavior: SnackBarBehavior.floating,
+        ),
+      );
+      Navigator.pop(context);
+      return;
+    }
+
     final bridge = ref.read(bridgeServiceProvider);
     final chat = ref.read(chatSessionProvider.notifier);
     if (widget.isClaudeCode) {

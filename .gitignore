@@ -134,3 +134,6 @@ config.json
 # Node.js build artifacts
 **/dist/
 packages/bridge/dist/
+
+# Convex
+convex/_generated/

@@ -6,6 +6,8 @@ import '../models/agent_type.dart';
 import '../models/project.dart';
 import '../providers/agent_type_provider.dart';
 import '../providers/app_info_provider.dart';
+import '../providers/app_auth_provider.dart';
+import '../providers/app_subscription_provider.dart';
 import '../providers/connection_provider.dart';
 import '../providers/onboarding_provider.dart';
 import '../providers/selection_provider.dart';
@@ -56,6 +58,8 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
   @override
   Widget build(BuildContext context) {
     final connection = ref.watch(connectionProvider);
+    final appAuth = ref.watch(appAuthProvider);
+    final appSub = ref.watch(appSubscriptionProvider);
     final currentThemeInfo = ref.watch(currentThemeInfoProvider);
     final currentAgent = ref.watch(agentTypeProvider);
     final appVersion = ref.watch(appVersionProvider);
@@ -638,16 +642,67 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
               child: Padding(
                 padding: const EdgeInsets.symmetric(horizontal: 20),
                 child: _SettingsCard(
-                  child: _SettingsTile(
-                    title: 'Subscription Usage',
-                    subtitle: 'API limits and credits',
-                    icon: Icons.data_usage_rounded,
-                    onTap: () => Navigator.push(
-                      context,
-                      MaterialPageRoute(
-                        builder: (_) => const SubscriptionUsageScreen(),
+                  child: Column(
+                    children: [
+                      if (appAuth.user != null)
+                        _InfoTile(
+                          title: 'Signed in as',
+                          value:
+                              appAuth.user!.email ??
+                              appAuth.user!.displayName ??
+                              appAuth.user!.appUserId,
+                          icon: Icons.person_outline_rounded,
+                        ),
+                      if (appAuth.user != null) _Divider(),
+                      if (appSub.managementUrl != null)
+                        _SettingsTile(
+                          title: 'Manage subscription',
+                          subtitle: 'Update billing and cancel anytime',
+                          icon: Icons.manage_accounts_rounded,
+                          onTap: () => launchUrl(
+                            Uri.parse(appSub.managementUrl!),
+                            mode: LaunchMode.externalApplication,
+                          ),
+                        ),
+                      if (appSub.managementUrl != null) _Divider(),
+                      _SettingsTile(
+                        title: 'Restore purchases',
+                        subtitle: 'If you reinstalled or switched devices',
+                        icon: Icons.restore_rounded,
+                        onTap: () {
+                          if (appSub.isLoading) return;
+                          ref
+                              .read(appSubscriptionProvider.notifier)
+                              .restorePurchases();
+                        },
                       ),
-                    ),
+                      _Divider(),
+                      _SettingsTile(
+                        title: 'Subscription Usage',
+                        subtitle: 'API limits and credits',
+                        icon: Icons.data_usage_rounded,
+                        onTap: () => Navigator.push(
+                          context,
+                          MaterialPageRoute(
+                            builder: (_) => const SubscriptionUsageScreen(),
+                          ),
+                        ),
+                      ),
+                      _Divider(),
+                      _SettingsTile(
+                        title: 'Sign out',
+                        subtitle: 'Remove this device from your account',
+                        icon: Icons.logout_rounded,
+                        onTap: () async {
+                          await ref.read(appAuthProvider.notifier).signOut();
+                          if (context.mounted) {
+                            Navigator.of(
+                              context,
+                            ).popUntil((route) => route.isFirst);
+                          }
+                        },
+                      ),
+                    ],
                   ),
                 ),
               ),
@@ -745,18 +800,6 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                         subtitle: 'First-launch experience',
                         icon: Icons.replay_rounded,
                         onTap: () => _replayOnboarding(context, ref),
-                      ),
-                      _Divider(),
-                      _SettingsTile(
-                        title: 'Enter Demo Mode',
-                        subtitle: 'Preview App Store reviewer experience',
-                        icon: Icons.play_circle_outline_rounded,
-                        onTap: () {
-                          ref.read(connectionProvider.notifier).enterDemoMode();
-                          Navigator.of(
-                            context,
-                          ).popUntil((route) => route.isFirst);
-                        },
                       ),
                       _Divider(),
                       _SettingsTile(

@@ -26,6 +26,8 @@ import '../models/vcs.dart';
 class StorageService {
   static const _connectionKey = 'broski_connection';
   static const _connectionAuthTokenKey = 'broski_connection_auth_token';
+  static const _appSessionTokenKey = 'broski_app_session_token';
+  static const _appUserIdKey = 'broski_app_user_id';
   static const _disabledToolsKey = 'broski_disabled_tools';
   static const _lastBrowsePathKey = 'broski_last_browse_path';
   static const _notificationsEnabledKey = 'broski_notifications_enabled';
@@ -412,6 +414,41 @@ class StorageService {
   Future<void> clearConnection() async {
     await _storage.delete(key: _connectionKey);
     await _storage.delete(key: _connectionAuthTokenKey);
+  }
+
+  // ============================================================
+  // App Auth (Convex session)
+  // ============================================================
+
+  Future<String?> getAppSessionToken() async {
+    final token = await _storage.read(key: _appSessionTokenKey);
+    return (token != null && token.isNotEmpty) ? token : null;
+  }
+
+  Future<void> setAppSessionToken(String token) async {
+    await _storage.write(key: _appSessionTokenKey, value: token);
+  }
+
+  Future<void> clearAppSessionToken() async {
+    await _storage.delete(key: _appSessionTokenKey);
+  }
+
+  Future<String?> getAppUserId() async {
+    final id = await _storage.read(key: _appUserIdKey);
+    return (id != null && id.isNotEmpty) ? id : null;
+  }
+
+  Future<void> setAppUserId(String appUserId) async {
+    await _storage.write(key: _appUserIdKey, value: appUserId);
+  }
+
+  Future<void> clearAppUserId() async {
+    await _storage.delete(key: _appUserIdKey);
+  }
+
+  Future<void> clearAppAuth() async {
+    await clearAppSessionToken();
+    await clearAppUserId();
   }
 
   Future<String> getOrCreateDeviceId() async {

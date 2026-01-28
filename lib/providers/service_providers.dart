@@ -1,13 +1,31 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../services/auth_service.dart';
 import '../services/bridge_service.dart';
+import '../services/convex_service.dart';
 import '../services/network_monitor_service.dart';
 import '../services/notification_service.dart';
+import '../services/purchase_service.dart';
 import '../services/storage_service.dart';
 import '../services/websocket_service.dart';
 
 final storageServiceProvider = Provider<StorageService>((ref) {
   return StorageService();
+});
+
+final convexServiceProvider = Provider<ConvexService>((ref) {
+  return ConvexService();
+});
+
+final authServiceProvider = Provider<AuthService>((ref) {
+  return AuthService(
+    storage: ref.watch(storageServiceProvider),
+    convex: ref.watch(convexServiceProvider),
+  );
+});
+
+final purchaseServiceProvider = Provider<PurchaseService>((ref) {
+  return PurchaseService();
 });
 
 final webSocketServiceProvider = Provider<WebSocketService>((ref) {

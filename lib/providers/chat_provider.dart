@@ -13,7 +13,6 @@ import '../models/session.dart';
 import '../models/todo.dart';
 import '../models/vcs.dart';
 import '../services/bridge_service.dart';
-import '../services/demo_data_service.dart';
 import 'service_providers.dart';
 
 /// MCP OAuth pending state (SDK v1.1.23+)
@@ -971,23 +970,6 @@ class ChatSessionNotifier extends StateNotifier<ChatSessionState> {
       if (_pendingEmitMessages) {
         _emitMessages();
       }
-    }
-  }
-
-  /// Hydrate chat with demo messages for App Store review mode.
-  /// Uses pre-built sample conversations from DemoDataService.
-  void hydrateDemoMessages(String sessionId) {
-    _messages.clear();
-    _order.clear();
-    state = state.copyWith(
-      messages: const [],
-      permissions: const [],
-      sessionDiffs: const [],
-    );
-
-    final demoMessages = DemoDataService.instance.getDemoMessages(sessionId);
-    for (final message in demoMessages) {
-      _addMessage(message);
     }
   }
 

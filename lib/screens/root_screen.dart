@@ -1,14 +1,18 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../providers/app_auth_provider.dart';
+import '../providers/app_subscription_provider.dart';
 import '../providers/connection_provider.dart';
 import '../providers/onboarding_provider.dart';
 import '../theme/opencode_theme.dart';
+import 'auth_screen.dart';
 import 'connect_screen.dart';
 import 'connection_lost_screen.dart';
 import 'main_shell.dart';
 import 'network_check_screen.dart';
 import 'onboarding_screen.dart';
+import 'paywall_screen.dart';
 import 'scan_screen.dart';
 import 'setup_guide_screen.dart';
 import 'tailscale_check_screen.dart';
@@ -18,11 +22,36 @@ class RootScreen extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
+    final authState = ref.watch(appAuthProvider);
+    final subState = ref.watch(appSubscriptionProvider);
     final connectionState = ref.watch(connectionProvider);
     final onboardingState = ref.watch(onboardingProvider);
 
-    if (onboardingState.isLoading) {
+    if (onboardingState.isLoading || authState.isLoading) {
       return const _LoadingScreen();
+    }
+
+    if (!onboardingState.hasCompletedOnboarding) {
+      return _OnboardingFlow(
+        state: onboardingState,
+        isSignedIn: authState.isSignedIn,
+        isEntitled: subState.entitled,
+      );
+    }
+
+    if (!authState.isSignedIn) {
+      return const AuthScreen();
+    }
+
+    // Ensure RevenueCat is configured and loaded once the user is signed in.
+    if (!subState.isConfigured && !subState.isLoading) {
+      Future.microtask(
+        () => ref.read(appSubscriptionProvider.notifier).configureAndRefresh(),
+      );
+    }
+
+    if (!subState.entitled) {
+      return const PaywallScreen();
     }
 
     if (connectionState.isOfflineMode) {
@@ -47,7 +76,11 @@ class RootScreen extends ConsumerWidget {
     }
 
     if (!onboardingState.hasCompletedOnboarding) {
-      return _OnboardingFlow(state: onboardingState);
+      return _OnboardingFlow(
+        state: onboardingState,
+        isSignedIn: authState.isSignedIn,
+        isEntitled: subState.entitled,
+      );
     }
 
     return const ScanScreen();
@@ -89,9 +122,15 @@ class _LoadingScreen extends StatelessWidget {
 
 /// Animated onboarding flow with smooth transitions
 class _OnboardingFlow extends StatelessWidget {
-  const _OnboardingFlow({required this.state});
+  const _OnboardingFlow({
+    required this.state,
+    required this.isSignedIn,
+    required this.isEntitled,
+  });
 
   final OnboardingState state;
+  final bool isSignedIn;
+  final bool isEntitled;
 
   @override
   Widget build(BuildContext context) {
@@ -134,6 +173,12 @@ class _OnboardingFlow extends StatelessWidget {
         return const TailscaleCheckScreen(key: ValueKey('tailscale'));
       case OnboardingStep.scanner:
       case OnboardingStep.complete:
+        if (!isSignedIn) {
+          return const AuthScreen(key: ValueKey('auth'));
+        }
+        if (!isEntitled) {
+          return const PaywallScreen(key: ValueKey('paywall'));
+        }
         return const ScanScreen(key: ValueKey('scan'));
     }
   }

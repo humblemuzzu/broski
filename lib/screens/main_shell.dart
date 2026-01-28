@@ -87,18 +87,8 @@ class _MainShellState extends ConsumerState<MainShell> {
               SettingsScreen(),
             ],
           ),
-          // Demo/Offline mode banner at top
-          if (connection.isDemoMode)
-            Positioned(
-              left: 0,
-              right: 0,
-              top: 0,
-              child: _DemoBanner(
-                onExit: () =>
-                    ref.read(connectionProvider.notifier).exitDemoMode(),
-              ),
-            )
-          else if (connection.isOfflineMode)
+          // Offline mode banner at top
+          if (connection.isOfflineMode)
             Positioned(
               left: 0,
               right: 0,
@@ -139,63 +129,6 @@ class _MainShellState extends ConsumerState<MainShell> {
       case NavBarStyle.glassmorphic:
         return GlasmorphicNavBar(currentIndex: _index, onTap: onTap);
     }
-  }
-}
-
-/// Banner shown when app is in demo mode (for App Store review)
-class _DemoBanner extends StatelessWidget {
-  const _DemoBanner({required this.onExit});
-
-  final VoidCallback onExit;
-
-  @override
-  Widget build(BuildContext context) {
-    final ocTheme = OpenCodeTheme.of(context);
-
-    // Demo mode indicator - friendly, inviting to connect
-    return SafeArea(
-      bottom: false,
-      child: GestureDetector(
-        onTap: onExit,
-        child: Container(
-          margin: const EdgeInsets.fromLTRB(16, 4, 16, 0),
-          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-          decoration: BoxDecoration(
-            color: ocTheme.primary.withValues(alpha: 0.15),
-            borderRadius: BorderRadius.circular(20),
-            border: Border.all(color: ocTheme.primary.withValues(alpha: 0.3)),
-          ),
-          child: Row(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Icon(
-                Icons.play_circle_outline_rounded,
-                color: ocTheme.primary,
-                size: 14,
-              ),
-              const SizedBox(width: 6),
-              Text(
-                'Demo Mode',
-                style: TextStyle(
-                  color: ocTheme.primary,
-                  fontSize: 12,
-                  fontWeight: FontWeight.w600,
-                ),
-              ),
-              const SizedBox(width: 6),
-              Text(
-                '- Tap to connect',
-                style: TextStyle(
-                  color: ocTheme.primary.withValues(alpha: 0.7),
-                  fontSize: 12,
-                  fontWeight: FontWeight.w400,
-                ),
-              ),
-            ],
-          ),
-        ),
-      ),
-    );
   }
 }
 

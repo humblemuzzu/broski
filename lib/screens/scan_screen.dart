@@ -196,13 +196,10 @@ class _ScanScreenState extends ConsumerState<ScanScreen>
                     ],
                   ),
                   const SizedBox(height: 12),
-                  // Show "Try Demo" for first-time users, "Browse Offline" if they have cached data
                   OnboardingButton(
-                    label: _hasCachedData ? 'Browse Offline' : 'Try Demo',
+                    label: 'Browse Offline',
                     variant: OnboardingButtonVariant.ghost,
-                    icon: _hasCachedData
-                        ? Icons.cloud_off_rounded
-                        : Icons.play_circle_outline_rounded,
+                    icon: Icons.cloud_off_rounded,
                     onPressed: _checkingCache
                         ? null
                         : () {
@@ -212,10 +209,13 @@ class _ScanScreenState extends ConsumerState<ScanScreen>
                                   .read(connectionProvider.notifier)
                                   .enterOfflineMode();
                             } else {
-                              // No cached data - enter demo mode with sample data
-                              ref
-                                  .read(connectionProvider.notifier)
-                                  .enterDemoMode();
+                              ScaffoldMessenger.of(context).showSnackBar(
+                                const SnackBar(
+                                  content: Text(
+                                    'No offline data yet. Connect once to cache sessions for offline browsing.',
+                                  ),
+                                ),
+                              );
                             }
                           },
                   ),

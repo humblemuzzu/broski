@@ -8,7 +8,6 @@ import '../models/agent_type.dart';
 import '../models/message.dart';
 import '../models/project.dart';
 import '../models/session.dart';
-import '../services/demo_data_service.dart';
 import '../services/notification_service.dart';
 import '../services/storage_service.dart';
 import 'connection_provider.dart';
@@ -527,16 +526,6 @@ final sessionsListProvider = StreamProvider<List<SessionSummary>>((ref) async* {
   final connection = ref.watch(connectionProvider);
   final storage = ref.watch(storageServiceProvider);
 
-  // DEMO MODE: Return sample sessions for App Store review
-  if (connection.isDemoMode) {
-    final demoSessions = DemoDataService.instance.demoSessions;
-    final filtered = filterProjectPath != null
-        ? demoSessions.where((s) => s.directory == filterProjectPath).toList()
-        : demoSessions;
-    yield filtered;
-    return;
-  }
-
   // STEP 1: Immediately yield cached data (instant perceived load)
   final cached = await storage.getCachedSessions();
   if (cached.isNotEmpty) {
@@ -661,12 +650,6 @@ final projectsForSessionsProvider = StreamProvider<List<ProjectSummary>>((
   ref.watch(sessionsRefreshTickProvider);
   final connection = ref.watch(connectionProvider);
   final storage = ref.watch(storageServiceProvider);
-
-  // DEMO MODE: Return sample projects for App Store review
-  if (connection.isDemoMode) {
-    yield DemoDataService.instance.demoProjects;
-    return;
-  }
 
   // STEP 1: Immediately yield cached data
   final cached = await storage.getCachedProjects();
