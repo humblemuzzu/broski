@@ -178,6 +178,7 @@ class _PowerSheetState extends ConsumerState<PowerSheet> {
                     theme: theme,
                     onTap: () {
                       widget.onVariantChanged?.call(null);
+                      Navigator.pop(context);
                     },
                   ),
                   ...widget.availableVariants.map(
@@ -187,6 +188,7 @@ class _PowerSheetState extends ConsumerState<PowerSheet> {
                       theme: theme,
                       onTap: () {
                         widget.onVariantChanged?.call(v);
+                        Navigator.pop(context);
                       },
                     ),
                   ),
@@ -361,6 +363,7 @@ class _PowerSheetState extends ConsumerState<PowerSheet> {
               theme: theme,
               onTap: () {
                 widget.onAgentChanged?.call(agent.name);
+                Navigator.pop(context);
               },
             ),
           ),
@@ -380,6 +383,7 @@ class _PowerSheetState extends ConsumerState<PowerSheet> {
           theme: theme,
           onTap: () {
             widget.onCCPermissionModeChanged?.call(mode);
+            Navigator.pop(context);
           },
         );
       }).toList(),
@@ -414,6 +418,7 @@ class _PowerSheetState extends ConsumerState<PowerSheet> {
               theme: theme,
               onTap: () {
                 widget.onCodexCollabModeChanged?.call(mode);
+                Navigator.pop(context);
               },
             ),
           ),
@@ -445,6 +450,7 @@ class _PowerSheetState extends ConsumerState<PowerSheet> {
               theme: theme,
               onTap: () {
                 ref.read(permissionRulesProvider.notifier).setPreset(preset);
+                Navigator.pop(context);
               },
             ),
           ),

@@ -39,8 +39,6 @@ import 'opencode_commands_screen.dart';
 import 'permission_rules_screen.dart';
 import 'codex_agents_screen.dart';
 import 'voice_settings_screen.dart';
-// TODO(artifacts): Re-enable when feature is ready
-// import 'artifacts_screen.dart';
 
 class SettingsScreen extends ConsumerStatefulWidget {
   const SettingsScreen({super.key});
@@ -50,10 +48,7 @@ class SettingsScreen extends ConsumerStatefulWidget {
 }
 
 class _SettingsScreenState extends ConsumerState<SettingsScreen> {
-  // Track expanded state for backend sections (collapsed by default)
-  bool _openCodeExpanded = false;
-  bool _claudeCodeExpanded = false;
-  bool _codexExpanded = false;
+  bool _powerFeaturesExpanded = false;
 
   @override
   Widget build(BuildContext context) {
@@ -65,16 +60,17 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
     final appVersion = ref.watch(appVersionProvider);
     final selection = ref.watch(selectionProvider);
     final theme = Theme.of(context);
+    final ocTheme = OpenCodeTheme.of(context);
 
     return Scaffold(
       backgroundColor: Colors.transparent,
       body: SafeArea(
         child: CustomScrollView(
           slivers: [
-            // Header
+            const SliverToBoxAdapter(child: SizedBox(height: 12)),
             SliverToBoxAdapter(
               child: Padding(
-                padding: const EdgeInsets.fromLTRB(20, 16, 20, 24),
+                padding: const EdgeInsets.fromLTRB(20, 8, 20, 24),
                 child: Text(
                   'Settings',
                   style: TextStyle(
@@ -86,16 +82,20 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
               ),
             ),
 
-            // CONNECTION Section
+            const SliverToBoxAdapter(child: _SectionDivider()),
+            const SliverToBoxAdapter(child: SizedBox(height: 24)),
+
+            SliverToBoxAdapter(child: SectionHeader(title: 'Connection')),
+            const SliverToBoxAdapter(child: SizedBox(height: 12)),
+
             if (connection.connection != null && connection.isConnected) ...[
-              SliverToBoxAdapter(child: _SectionHeader(title: 'Connection')),
               SliverToBoxAdapter(
                 child: Padding(
                   padding: const EdgeInsets.symmetric(horizontal: 20),
                   child: _ActiveConnectionCard(connection: connection),
                 ),
               ),
-              const SliverToBoxAdapter(child: SizedBox(height: 12)),
+              const SliverToBoxAdapter(child: SizedBox(height: 16)),
               SliverToBoxAdapter(
                 child: Padding(
                   padding: const EdgeInsets.symmetric(horizontal: 20),
@@ -128,138 +128,24 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                   ),
                 ),
               ),
-              const SliverToBoxAdapter(child: SizedBox(height: 28)),
-            ],
-
-            // PROJECT CONTEXT Section
-            SliverToBoxAdapter(child: _SectionHeader(title: 'Project Context')),
-            SliverToBoxAdapter(
-              child: Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 20),
-                child: _SettingsCard(
-                  child: Column(
-                    children: [
-                      _SettingsTile(
-                        title: 'Current project',
-                        subtitle: selection.project == null
-                            ? 'Pick a project for project-scoped power features'
-                            : '${selection.project!.name} • ${selection.project!.path}',
-                        icon: Icons.folder_rounded,
-                        trailing: Row(
-                          mainAxisSize: MainAxisSize.min,
-                          children: [
-                            if (selection.project != null)
-                              IconButton(
-                                tooltip: 'Clear project',
-                                onPressed: () => ref
-                                    .read(selectionProvider.notifier)
-                                    .clearProject(),
-                                icon: Icon(
-                                  Icons.close_rounded,
-                                  color: theme.colorScheme.onSurface.withValues(
-                                    alpha: 0.6,
-                                  ),
-                                ),
-                              ),
-                            Icon(
-                              Icons.chevron_right_rounded,
-                              size: 20,
-                              color: theme.colorScheme.onSurface.withValues(
-                                alpha: 0.5,
-                              ),
-                            ),
-                          ],
-                        ),
-                        onTap: () async {
-                          final picked = await DetailSheet.show<ProjectSummary>(
-                            context: context,
-                            title: 'Select Project',
-                            initialSize: 0.5,
-                            child: _ProjectPickerContent(
-                              onSelect: (p) => Navigator.pop(context, p),
-                            ),
-                          );
-                          if (picked == null) return;
-                          ref
-                              .read(selectionProvider.notifier)
-                              .selectProject(picked);
-                        },
-                      ),
-                    ],
+            ] else
+              SliverToBoxAdapter(
+                child: Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 20),
+                  child: _SettingsCard(
+                    child: _SettingsTile(
+                      title: 'No Connection',
+                      subtitle: 'Connect to a Mac to use Broski',
+                      icon: Icons.link_off_rounded,
+                      onTap: () {},
+                    ),
                   ),
                 ),
               ),
-            ),
-            const SliverToBoxAdapter(child: SizedBox(height: 28)),
 
-            // APPEARANCE Section
-            SliverToBoxAdapter(child: _SectionHeader(title: 'Appearance')),
-            SliverToBoxAdapter(
-              child: Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 20),
-                child: _SettingsCard(
-                  child: Column(
-                    children: [
-                      _SettingsTile(
-                        title: 'Customization',
-                        subtitle: 'Theme, input bar, navigation',
-                        icon: Icons.palette_rounded,
-                        trailing: Row(
-                          mainAxisSize: MainAxisSize.min,
-                          children: [
-                            Container(
-                              width: 14,
-                              height: 14,
-                              decoration: BoxDecoration(
-                                color:
-                                    currentThemeInfo?.primaryColor ??
-                                    theme.colorScheme.primary,
-                                shape: BoxShape.circle,
-                                border: Border.all(
-                                  color: theme.colorScheme.onSurface.withValues(
-                                    alpha: 0.2,
-                                  ),
-                                ),
-                              ),
-                            ),
-                            const SizedBox(width: 8),
-                            Icon(
-                              Icons.chevron_right_rounded,
-                              size: 20,
-                              color: theme.colorScheme.onSurface.withValues(
-                                alpha: 0.5,
-                              ),
-                            ),
-                          ],
-                        ),
-                        onTap: () => Navigator.push(
-                          context,
-                          MaterialPageRoute(
-                            builder: (_) => const CustomizationScreen(),
-                          ),
-                        ),
-                      ),
-                      _Divider(),
-                      _SettingsTile(
-                        title: 'Voice Input',
-                        subtitle: 'Speech-to-text settings',
-                        icon: Icons.mic_rounded,
-                        onTap: () => Navigator.push(
-                          context,
-                          MaterialPageRoute(
-                            builder: (_) => const VoiceSettingsScreen(),
-                          ),
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-              ),
-            ),
-            const SliverToBoxAdapter(child: SizedBox(height: 28)),
-
-            // AI Section
-            SliverToBoxAdapter(child: _SectionHeader(title: 'AI')),
+            const SliverToBoxAdapter(child: SizedBox(height: 32)),
+            SliverToBoxAdapter(child: SectionHeader(title: 'AI')),
+            const SliverToBoxAdapter(child: SizedBox(height: 12)),
             SliverToBoxAdapter(
               child: Padding(
                 padding: const EdgeInsets.symmetric(horizontal: 20),
@@ -326,306 +212,130 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                           ),
                         ),
                       ),
-                      // TODO(artifacts): Re-enable when feature is ready
-                      // _Divider(),
-                      // _SettingsTile(
-                      //   title: 'Artifacts',
-                      //   subtitle: 'Search AI-created files and diffs',
-                      //   icon: Icons.inventory_2_outlined,
-                      //   onTap: () => Navigator.push(
-                      //     context,
-                      //     MaterialPageRoute(
-                      //       builder: (_) => const ArtifactsScreen(),
-                      //     ),
-                      //   ),
-                      // ),
                     ],
                   ),
                 ),
               ),
             ),
-            const SliverToBoxAdapter(child: SizedBox(height: 28)),
 
-            // OPENCODE Section (only when OpenCode is selected)
-            if (currentAgent == AgentType.opencode) ...[
-              SliverToBoxAdapter(
-                child: Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: 20),
-                  child: _CollapsibleBackendSection(
-                    title: 'OpenCode',
-                    subtitle: 'Power features',
-                    itemCount: 8,
-                    isExpanded: _openCodeExpanded,
-                    onToggle: () =>
-                        setState(() => _openCodeExpanded = !_openCodeExpanded),
+            const SliverToBoxAdapter(child: SizedBox(height: 32)),
+            SliverToBoxAdapter(child: SectionHeader(title: 'Project')),
+            const SliverToBoxAdapter(child: SizedBox(height: 12)),
+            SliverToBoxAdapter(
+              child: Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 20),
+                child: _SettingsCard(
+                  child: Column(
                     children: [
                       _SettingsTile(
-                        title: 'Terminal Sessions',
-                        subtitle: 'PTY terminal sessions',
-                        icon: Icons.terminal_rounded,
-                        onTap: () => Navigator.push(
-                          context,
-                          MaterialPageRoute(
-                            builder: (_) => const TerminalScreen(),
-                          ),
-                        ),
-                      ),
-                      _Divider(),
-                      _SettingsTile(
-                        title: 'Skills',
-                        subtitle: 'SKILL.md management',
-                        icon: Icons.auto_fix_high_rounded,
-                        onTap: () => Navigator.push(
-                          context,
-                          MaterialPageRoute(
-                            builder: (_) =>
-                                const SkillsScreen(backend: AgentType.opencode),
-                          ),
-                        ),
-                      ),
-                      _Divider(),
-                      _SettingsTile(
-                        title: 'Commands',
-                        subtitle: '.opencode/command/*.md',
-                        icon: Icons.code_rounded,
-                        onTap: () => Navigator.push(
-                          context,
-                          MaterialPageRoute(
-                            builder: (_) => const OpenCodeCommandsScreen(),
-                          ),
-                        ),
-                      ),
-                      _Divider(),
-                      _SettingsTile(
-                        title: 'Agents',
-                        subtitle: '.opencode/agent/*.md',
-                        icon: Icons.smart_toy_outlined,
-                        onTap: () => Navigator.push(
-                          context,
-                          MaterialPageRoute(
-                            builder: (_) => const OpenCodeAgentsScreen(),
-                          ),
-                        ),
-                      ),
-                      _Divider(),
-                      _SettingsTile(
-                        title: 'Plugins',
-                        subtitle: '.opencode/plugin hooks',
-                        icon: Icons.extension_rounded,
-                        onTap: () => Navigator.push(
-                          context,
-                          MaterialPageRoute(
-                            builder: (_) => const OpenCodePluginsScreen(),
-                          ),
-                        ),
-                      ),
-                      _Divider(),
-                      _SettingsTile(
-                        title: 'MCP Servers',
-                        subtitle: 'Model Context Protocol',
-                        icon: Icons.dns_rounded,
-                        onTap: () => Navigator.push(
-                          context,
-                          MaterialPageRoute(
-                            builder: (_) => const McpServersScreen(),
-                          ),
-                        ),
-                      ),
-                      _Divider(),
-                      _SettingsTile(
-                        title: 'Tools',
-                        subtitle: 'AI tools configuration',
-                        icon: Icons.build_rounded,
-                        onTap: () => Navigator.push(
-                          context,
-                          MaterialPageRoute(
-                            builder: (_) => const ToolsScreen(),
-                          ),
-                        ),
-                      ),
-                      _Divider(),
-                      _SettingsTile(
-                        title: 'Permission Rules',
-                        subtitle: 'Default session permissions',
-                        icon: Icons.security_rounded,
-                        onTap: () => Navigator.push(
-                          context,
-                          MaterialPageRoute(
-                            builder: (_) => const PermissionRulesScreen(),
-                          ),
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-              ),
-              const SliverToBoxAdapter(child: SizedBox(height: 28)),
-            ],
-
-            // CLAUDE CODE Section (only when Claude Code is selected)
-            if (currentAgent == AgentType.claudeCode) ...[
-              SliverToBoxAdapter(
-                child: Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: 20),
-                  child: _CollapsibleBackendSection(
-                    title: 'Claude Code',
-                    subtitle: 'Power features',
-                    itemCount: 8,
-                    isExpanded: _claudeCodeExpanded,
-                    onToggle: () => setState(
-                      () => _claudeCodeExpanded = !_claudeCodeExpanded,
-                    ),
-                    children: [
-                      _SettingsTile(
-                        title: 'Settings',
-                        subtitle: 'Language, gitignore, channel',
-                        icon: Icons.tune_rounded,
-                        onTap: () => Navigator.push(
-                          context,
-                          MaterialPageRoute(
-                            builder: (_) => const ClaudeCodeSettingsScreen(),
-                          ),
-                        ),
-                      ),
-                      _Divider(),
-                      _SettingsTile(
-                        title: 'Skills',
-                        subtitle: 'SKILL.md management',
-                        icon: Icons.auto_fix_high_rounded,
-                        onTap: () => Navigator.push(
-                          context,
-                          MaterialPageRoute(
-                            builder: (_) => const SkillsScreen(
-                              backend: AgentType.claudeCode,
+                        title: 'Current project',
+                        subtitle: selection.project == null
+                            ? 'Pick a project for project-scoped power features'
+                            : '${selection.project!.name} • ${selection.project!.path}',
+                        icon: Icons.folder_rounded,
+                        trailing: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            if (selection.project != null)
+                              IconButton(
+                                tooltip: 'Clear project',
+                                onPressed: () => ref
+                                    .read(selectionProvider.notifier)
+                                    .clearProject(),
+                                icon: Icon(
+                                  Icons.close_rounded,
+                                  color: theme.colorScheme.onSurface.withValues(
+                                    alpha: 0.6,
+                                  ),
+                                ),
+                              ),
+                            Icon(
+                              Icons.chevron_right_rounded,
+                              size: 20,
+                              color: theme.colorScheme.onSurface.withValues(
+                                alpha: 0.5,
+                              ),
                             ),
-                          ),
+                          ],
                         ),
-                      ),
-                      _Divider(),
-                      _SettingsTile(
-                        title: 'Commands',
-                        subtitle: '.claude/commands/*.md',
-                        icon: Icons.code_rounded,
-                        onTap: () => Navigator.push(
-                          context,
-                          MaterialPageRoute(
-                            builder: (_) => const ClaudeCodeCommandsScreen(),
-                          ),
-                        ),
-                      ),
-                      _Divider(),
-                      _SettingsTile(
-                        title: 'Hooks',
-                        subtitle: 'hooks.json management',
-                        icon: Icons.bolt_rounded,
-                        onTap: () => Navigator.push(
-                          context,
-                          MaterialPageRoute(
-                            builder: (_) => const HooksScreen(),
-                          ),
-                        ),
-                      ),
-                      _Divider(),
-                      _SettingsTile(
-                        title: 'MCP',
-                        subtitle: '.mcp.json configuration',
-                        icon: Icons.dns_rounded,
-                        onTap: () => Navigator.push(
-                          context,
-                          MaterialPageRoute(
-                            builder: (_) => const ClaudeCodeMcpScreen(),
-                          ),
-                        ),
-                      ),
-                      _Divider(),
-                      _SettingsTile(
-                        title: 'Subagents',
-                        subtitle: 'Custom subagent definitions',
-                        icon: Icons.smart_toy_outlined,
-                        onTap: () => Navigator.push(
-                          context,
-                          MaterialPageRoute(
-                            builder: (_) => const SubagentsScreen(),
-                          ),
-                        ),
-                      ),
-                      _Divider(),
-                      _SettingsTile(
-                        title: 'Custom Tools',
-                        subtitle: 'HTTP APIs, scripts, and more',
-                        icon: Icons.extension_rounded,
-                        onTap: () => Navigator.push(
-                          context,
-                          MaterialPageRoute(
-                            builder: (_) => const CustomToolsScreen(),
-                          ),
-                        ),
-                      ),
-                      _Divider(),
-                      _SettingsTile(
-                        title: 'Plugins',
-                        subtitle: 'Commands, skills, hooks, MCP',
-                        icon: Icons.extension_off_rounded,
-                        onTap: () => Navigator.push(
-                          context,
-                          MaterialPageRoute(
-                            builder: (_) => const PluginsScreen(),
-                          ),
-                        ),
+                        onTap: () async {
+                          final picked = await DetailSheet.show<ProjectSummary>(
+                            context: context,
+                            title: 'Select Project',
+                            initialSize: 0.5,
+                            child: _ProjectPickerContent(
+                              onSelect: (p) => Navigator.pop(context, p),
+                            ),
+                          );
+                          if (picked == null) return;
+                          ref
+                              .read(selectionProvider.notifier)
+                              .selectProject(picked);
+                        },
                       ),
                     ],
                   ),
                 ),
               ),
-              const SliverToBoxAdapter(child: SizedBox(height: 28)),
-            ],
+            ),
 
-            // CODEX Section (only when Codex is selected)
-            if (currentAgent == AgentType.codex) ...[
-              SliverToBoxAdapter(
-                child: Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: 20),
-                  child: _CollapsibleBackendSection(
-                    title: 'Codex',
-                    subtitle: 'Power features',
-                    itemCount: 3,
-                    isExpanded: _codexExpanded,
-                    onToggle: () =>
-                        setState(() => _codexExpanded = !_codexExpanded),
+            const SliverToBoxAdapter(child: SizedBox(height: 32)),
+            SliverToBoxAdapter(child: SectionHeader(title: 'Personalization')),
+            const SliverToBoxAdapter(child: SizedBox(height: 12)),
+            SliverToBoxAdapter(
+              child: Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 20),
+                child: _SettingsCard(
+                  child: Column(
                     children: [
                       _SettingsTile(
-                        title: 'Skills',
-                        subtitle: 'SKILL.md management',
-                        icon: Icons.auto_fix_high_rounded,
+                        title: 'Customization',
+                        subtitle: 'Theme, input bar, navigation',
+                        icon: Icons.palette_rounded,
+                        trailing: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Container(
+                              width: 14,
+                              height: 14,
+                              decoration: BoxDecoration(
+                                color:
+                                    currentThemeInfo?.primaryColor ??
+                                    theme.colorScheme.primary,
+                                shape: BoxShape.circle,
+                                border: Border.all(
+                                  color: theme.colorScheme.onSurface.withValues(
+                                    alpha: 0.2,
+                                  ),
+                                ),
+                              ),
+                            ),
+                            const SizedBox(width: 8),
+                            Icon(
+                              Icons.chevron_right_rounded,
+                              size: 20,
+                              color: theme.colorScheme.onSurface.withValues(
+                                alpha: 0.5,
+                              ),
+                            ),
+                          ],
+                        ),
                         onTap: () => Navigator.push(
                           context,
                           MaterialPageRoute(
-                            builder: (_) =>
-                                const SkillsScreen(backend: AgentType.codex),
+                            builder: (_) => const CustomizationScreen(),
                           ),
                         ),
                       ),
                       _Divider(),
                       _SettingsTile(
-                        title: 'Agents',
-                        subtitle: 'AGENTS.md',
-                        icon: Icons.smart_toy_outlined,
+                        title: 'Voice Input',
+                        subtitle: 'Speech-to-text settings',
+                        icon: Icons.mic_rounded,
                         onTap: () => Navigator.push(
                           context,
                           MaterialPageRoute(
-                            builder: (_) => const CodexAgentsScreen(),
-                          ),
-                        ),
-                      ),
-                      _Divider(),
-                      _SettingsTile(
-                        title: 'MCP',
-                        subtitle: 'Servers and config',
-                        icon: Icons.dns_rounded,
-                        onTap: () => Navigator.push(
-                          context,
-                          MaterialPageRoute(
-                            builder: (_) => const CodexMcpScreen(),
+                            builder: (_) => const VoiceSettingsScreen(),
                           ),
                         ),
                       ),
@@ -633,11 +343,27 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                   ),
                 ),
               ),
-              const SliverToBoxAdapter(child: SizedBox(height: 28)),
-            ],
+            ),
 
-            // ACCOUNT Section
-            SliverToBoxAdapter(child: _SectionHeader(title: 'Account')),
+            const SliverToBoxAdapter(child: SizedBox(height: 32)),
+            SliverToBoxAdapter(child: SectionHeader(title: 'Power Features')),
+            const SliverToBoxAdapter(child: SizedBox(height: 12)),
+            SliverToBoxAdapter(
+              child: Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 20),
+                child: _PowerFeaturesCard(
+                  currentAgent: currentAgent,
+                  isExpanded: _powerFeaturesExpanded,
+                  onToggle: () => setState(
+                    () => _powerFeaturesExpanded = !_powerFeaturesExpanded,
+                  ),
+                ),
+              ),
+            ),
+
+            const SliverToBoxAdapter(child: SizedBox(height: 32)),
+            SliverToBoxAdapter(child: SectionHeader(title: 'Account')),
+            const SliverToBoxAdapter(child: SizedBox(height: 12)),
             SliverToBoxAdapter(
               child: Padding(
                 padding: const EdgeInsets.symmetric(horizontal: 20),
@@ -678,18 +404,6 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                       ),
                       _Divider(),
                       _SettingsTile(
-                        title: 'Subscription Usage',
-                        subtitle: 'API limits and credits',
-                        icon: Icons.data_usage_rounded,
-                        onTap: () => Navigator.push(
-                          context,
-                          MaterialPageRoute(
-                            builder: (_) => const SubscriptionUsageScreen(),
-                          ),
-                        ),
-                      ),
-                      _Divider(),
-                      _SettingsTile(
                         title: 'Sign out',
                         subtitle: 'Remove this device from your account',
                         icon: Icons.logout_rounded,
@@ -707,14 +421,68 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                 ),
               ),
             ),
-            const SliverToBoxAdapter(child: SizedBox(height: 28)),
 
-            // SUPPORT Section
-            SliverToBoxAdapter(child: _SectionHeader(title: 'Support')),
+            const SliverToBoxAdapter(child: SizedBox(height: 32)),
+            SliverToBoxAdapter(child: SectionHeader(title: 'App Management')),
+            const SliverToBoxAdapter(child: SizedBox(height: 12)),
             SliverToBoxAdapter(
               child: Padding(
                 padding: const EdgeInsets.symmetric(horizontal: 20),
                 child: _SettingsCard(
+                  decoration: BoxDecoration(
+                    color: theme.colorScheme.surface.withValues(alpha: 0.3),
+                    borderRadius: BorderRadius.circular(16),
+                    border: Border.all(
+                      color: ocTheme.borderSubtle.withValues(alpha: 0.5),
+                    ),
+                  ),
+                  child: Column(
+                    children: [
+                      _SettingsTile(
+                        title: 'Subscription Usage',
+                        subtitle: 'API limits and credits',
+                        icon: Icons.data_usage_rounded,
+                        onTap: () => Navigator.push(
+                          context,
+                          MaterialPageRoute(
+                            builder: (_) => const SubscriptionUsageScreen(),
+                          ),
+                        ),
+                      ),
+                      _Divider(),
+                      _SettingsTile(
+                        title: 'Clear Cache',
+                        subtitle: 'Delete all cached data',
+                        icon: Icons.delete_outline_rounded,
+                        onTap: () => _showClearCacheDialog(context, ref),
+                      ),
+                      _Divider(),
+                      _SettingsTile(
+                        title: 'Replay Onboarding',
+                        subtitle: 'First-launch experience',
+                        icon: Icons.replay_rounded,
+                        onTap: () => _replayOnboarding(context, ref),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            ),
+
+            const SliverToBoxAdapter(child: SizedBox(height: 32)),
+            SliverToBoxAdapter(child: SectionHeader(title: 'Help')),
+            const SliverToBoxAdapter(child: SizedBox(height: 12)),
+            SliverToBoxAdapter(
+              child: Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 20),
+                child: _SettingsCard(
+                  decoration: BoxDecoration(
+                    color: theme.colorScheme.surface.withValues(alpha: 0.2),
+                    borderRadius: BorderRadius.circular(16),
+                    border: Border.all(
+                      color: ocTheme.borderSubtle.withValues(alpha: 0.3),
+                    ),
+                  ),
                   child: Column(
                     children: [
                       _SettingsTile(
@@ -734,94 +502,38 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                         onTap: () =>
                             launchUrl(Uri.parse('mailto:broskiappp@gmail.com')),
                       ),
-                    ],
-                  ),
-                ),
-              ),
-            ),
-            const SliverToBoxAdapter(child: SizedBox(height: 28)),
-
-            // LEGAL Section
-            SliverToBoxAdapter(child: _SectionHeader(title: 'Legal')),
-            SliverToBoxAdapter(
-              child: Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 20),
-                child: _SettingsCard(
-                  child: Column(
-                    children: [
-                      _SettingsTile(
-                        title: 'Privacy Policy',
-                        subtitle: 'How we handle your data',
-                        icon: Icons.privacy_tip_outlined,
-                        onTap: () => launchUrl(
-                          Uri.parse('https://broskiapp.com/legal/privacy'),
-                          mode: LaunchMode.externalApplication,
-                        ),
-                      ),
-                      _Divider(),
-                      _SettingsTile(
-                        title: 'Terms of Service',
-                        subtitle: 'Usage terms and conditions',
-                        icon: Icons.description_outlined,
-                        onTap: () => launchUrl(
-                          Uri.parse('https://broskiapp.com/legal/terms'),
-                          mode: LaunchMode.externalApplication,
-                        ),
-                      ),
-                      _Divider(),
-                      _SettingsTile(
-                        title: 'EULA',
-                        subtitle: 'End User License Agreement',
-                        icon: Icons.gavel_rounded,
-                        onTap: () => launchUrl(
-                          Uri.parse(
-                            'https://www.apple.com/legal/internet-services/itunes/dev/stdeula/',
-                          ),
-                          mode: LaunchMode.externalApplication,
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-              ),
-            ),
-            const SliverToBoxAdapter(child: SizedBox(height: 28)),
-
-            // ABOUT Section
-            SliverToBoxAdapter(child: _SectionHeader(title: 'About')),
-            SliverToBoxAdapter(
-              child: Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 20),
-                child: _SettingsCard(
-                  child: Column(
-                    children: [
-                      _SettingsTile(
-                        title: 'Replay Onboarding',
-                        subtitle: 'First-launch experience',
-                        icon: Icons.replay_rounded,
-                        onTap: () => _replayOnboarding(context, ref),
-                      ),
-                      _Divider(),
-                      _SettingsTile(
-                        title: 'Clear Cache',
-                        subtitle: 'Delete all cached data',
-                        icon: Icons.delete_outline_rounded,
-                        onTap: () => _showClearCacheDialog(context, ref),
-                      ),
                       _Divider(),
                       _InfoTile(
                         title: 'Version',
                         value: appVersion,
                         icon: Icons.info_outline_rounded,
                       ),
+                      _Divider(),
+                      _LinkTile(
+                        title: 'Privacy Policy',
+                        icon: Icons.privacy_tip_outlined,
+                        url: 'https://broskiapp.com/legal/privacy',
+                      ),
+                      _Divider(),
+                      _LinkTile(
+                        title: 'Terms of Service',
+                        icon: Icons.description_outlined,
+                        url: 'https://broskiapp.com/legal/terms',
+                      ),
+                      _Divider(),
+                      _LinkTile(
+                        title: 'EULA',
+                        icon: Icons.gavel_rounded,
+                        url:
+                            'https://www.apple.com/legal/internet-services/itunes/dev/stdeula/',
+                      ),
                     ],
                   ),
                 ),
               ),
             ),
 
-            // Bottom padding
-            const SliverToBoxAdapter(child: SizedBox(height: 100)),
+            const SliverToBoxAdapter(child: SizedBox(height: 40)),
           ],
         ),
       ),
@@ -884,6 +596,389 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
             child: const Text('Clear'),
           ),
         ],
+      ),
+    );
+  }
+}
+
+class _PowerFeaturesCard extends StatelessWidget {
+  const _PowerFeaturesCard({
+    required this.currentAgent,
+    required this.isExpanded,
+    required this.onToggle,
+  });
+
+  final AgentType currentAgent;
+  final bool isExpanded;
+  final VoidCallback onToggle;
+
+  List<Widget> _getPowerFeatures(BuildContext context, AgentType agent) {
+    switch (agent) {
+      case AgentType.opencode:
+        return [
+          _SettingsTile(
+            title: 'Terminal Sessions',
+            subtitle: 'PTY terminal sessions',
+            icon: Icons.terminal_rounded,
+            onTap: () => Navigator.push(
+              context,
+              MaterialPageRoute(builder: (_) => const TerminalScreen()),
+            ),
+          ),
+          _Divider(),
+          _SettingsTile(
+            title: 'Skills',
+            subtitle: 'SKILL.md management',
+            icon: Icons.auto_fix_high_rounded,
+            onTap: () => Navigator.push(
+              context,
+              MaterialPageRoute(
+                builder: (_) => const SkillsScreen(backend: AgentType.opencode),
+              ),
+            ),
+          ),
+          _Divider(),
+          _SettingsTile(
+            title: 'Commands',
+            subtitle: '.opencode/command/*.md',
+            icon: Icons.code_rounded,
+            onTap: () => Navigator.push(
+              context,
+              MaterialPageRoute(builder: (_) => const OpenCodeCommandsScreen()),
+            ),
+          ),
+          _Divider(),
+          _SettingsTile(
+            title: 'Agents',
+            subtitle: '.opencode/agent/*.md',
+            icon: Icons.smart_toy_outlined,
+            onTap: () => Navigator.push(
+              context,
+              MaterialPageRoute(builder: (_) => const OpenCodeAgentsScreen()),
+            ),
+          ),
+          _Divider(),
+          _SettingsTile(
+            title: 'Plugins',
+            subtitle: '.opencode/plugin hooks',
+            icon: Icons.extension_rounded,
+            onTap: () => Navigator.push(
+              context,
+              MaterialPageRoute(builder: (_) => const OpenCodePluginsScreen()),
+            ),
+          ),
+          _Divider(),
+          _SettingsTile(
+            title: 'MCP Servers',
+            subtitle: 'Model Context Protocol',
+            icon: Icons.dns_rounded,
+            onTap: () => Navigator.push(
+              context,
+              MaterialPageRoute(builder: (_) => const McpServersScreen()),
+            ),
+          ),
+          _Divider(),
+          _SettingsTile(
+            title: 'Tools',
+            subtitle: 'AI tools configuration',
+            icon: Icons.build_rounded,
+            onTap: () => Navigator.push(
+              context,
+              MaterialPageRoute(builder: (_) => const ToolsScreen()),
+            ),
+          ),
+          _Divider(),
+          _SettingsTile(
+            title: 'Permission Rules',
+            subtitle: 'Default session permissions',
+            icon: Icons.security_rounded,
+            onTap: () => Navigator.push(
+              context,
+              MaterialPageRoute(builder: (_) => const PermissionRulesScreen()),
+            ),
+          ),
+        ];
+
+      case AgentType.claudeCode:
+        return [
+          _SettingsTile(
+            title: 'Settings',
+            subtitle: 'Language, gitignore, channel',
+            icon: Icons.tune_rounded,
+            onTap: () => Navigator.push(
+              context,
+              MaterialPageRoute(
+                builder: (_) => const ClaudeCodeSettingsScreen(),
+              ),
+            ),
+          ),
+          _Divider(),
+          _SettingsTile(
+            title: 'Skills',
+            subtitle: 'SKILL.md management',
+            icon: Icons.auto_fix_high_rounded,
+            onTap: () => Navigator.push(
+              context,
+              MaterialPageRoute(
+                builder: (_) =>
+                    const SkillsScreen(backend: AgentType.claudeCode),
+              ),
+            ),
+          ),
+          _Divider(),
+          _SettingsTile(
+            title: 'Commands',
+            subtitle: '.claude/commands/*.md',
+            icon: Icons.code_rounded,
+            onTap: () => Navigator.push(
+              context,
+              MaterialPageRoute(
+                builder: (_) => const ClaudeCodeCommandsScreen(),
+              ),
+            ),
+          ),
+          _Divider(),
+          _SettingsTile(
+            title: 'Hooks',
+            subtitle: 'hooks.json management',
+            icon: Icons.bolt_rounded,
+            onTap: () => Navigator.push(
+              context,
+              MaterialPageRoute(builder: (_) => const HooksScreen()),
+            ),
+          ),
+          _Divider(),
+          _SettingsTile(
+            title: 'MCP',
+            subtitle: '.mcp.json configuration',
+            icon: Icons.dns_rounded,
+            onTap: () => Navigator.push(
+              context,
+              MaterialPageRoute(builder: (_) => const ClaudeCodeMcpScreen()),
+            ),
+          ),
+          _Divider(),
+          _SettingsTile(
+            title: 'Subagents',
+            subtitle: 'Custom subagent definitions',
+            icon: Icons.smart_toy_outlined,
+            onTap: () => Navigator.push(
+              context,
+              MaterialPageRoute(builder: (_) => const SubagentsScreen()),
+            ),
+          ),
+          _Divider(),
+          _SettingsTile(
+            title: 'Custom Tools',
+            subtitle: 'HTTP APIs, scripts, and more',
+            icon: Icons.extension_rounded,
+            onTap: () => Navigator.push(
+              context,
+              MaterialPageRoute(builder: (_) => const CustomToolsScreen()),
+            ),
+          ),
+          _Divider(),
+          _SettingsTile(
+            title: 'Plugins',
+            subtitle: 'Commands, skills, hooks, MCP',
+            icon: Icons.extension_off_rounded,
+            onTap: () => Navigator.push(
+              context,
+              MaterialPageRoute(builder: (_) => const PluginsScreen()),
+            ),
+          ),
+        ];
+
+      case AgentType.codex:
+        return [
+          _SettingsTile(
+            title: 'Skills',
+            subtitle: 'SKILL.md management',
+            icon: Icons.auto_fix_high_rounded,
+            onTap: () => Navigator.push(
+              context,
+              MaterialPageRoute(
+                builder: (_) => const SkillsScreen(backend: AgentType.codex),
+              ),
+            ),
+          ),
+          _Divider(),
+          _SettingsTile(
+            title: 'Agents',
+            subtitle: 'AGENTS.md',
+            icon: Icons.smart_toy_outlined,
+            onTap: () => Navigator.push(
+              context,
+              MaterialPageRoute(builder: (_) => const CodexAgentsScreen()),
+            ),
+          ),
+          _Divider(),
+          _SettingsTile(
+            title: 'MCP',
+            subtitle: 'Servers and config',
+            icon: Icons.dns_rounded,
+            onTap: () => Navigator.push(
+              context,
+              MaterialPageRoute(builder: (_) => const CodexMcpScreen()),
+            ),
+          ),
+        ];
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final ocTheme = OpenCodeTheme.of(context);
+    final features = _getPowerFeatures(context, currentAgent);
+
+    return Container(
+      decoration: BoxDecoration(
+        color: theme.colorScheme.surface.withValues(alpha: 0.4),
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: ocTheme.borderSubtle.withValues(alpha: 0.7)),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          InkWell(
+            onTap: onToggle,
+            borderRadius: BorderRadius.circular(16),
+            child: Padding(
+              padding: const EdgeInsets.all(16),
+              child: Row(
+                children: [
+                  Icon(
+                    Icons.bolt_rounded,
+                    color: theme.colorScheme.primary,
+                    size: 22,
+                  ),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Row(
+                          children: [
+                            Text(
+                              'Power Features',
+                              style: TextStyle(
+                                color: theme.colorScheme.onSurface,
+                                fontSize: 15,
+                                fontWeight: FontWeight.w600,
+                              ),
+                            ),
+                            const SizedBox(width: 8),
+                            Container(
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 6,
+                                vertical: 2,
+                              ),
+                              decoration: BoxDecoration(
+                                color: theme.colorScheme.primary.withValues(
+                                  alpha: 0.15,
+                                ),
+                                borderRadius: BorderRadius.circular(6),
+                              ),
+                              child: Text(
+                                '${features.length ~/ 2}',
+                                style: TextStyle(
+                                  color: theme.colorScheme.primary,
+                                  fontSize: 11,
+                                  fontWeight: FontWeight.w700,
+                                ),
+                              ),
+                            ),
+                          ],
+                        ),
+                        const SizedBox(height: 3),
+                        Text(
+                          'Advanced ${currentAgent.displayName} configuration',
+                          style: TextStyle(
+                            color: theme.colorScheme.onSurface.withValues(
+                              alpha: 0.6,
+                            ),
+                            fontSize: 13,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                  AnimatedRotation(
+                    turns: isExpanded ? 0.5 : 0,
+                    duration: const Duration(milliseconds: 200),
+                    child: Icon(
+                      Icons.keyboard_arrow_down_rounded,
+                      color: theme.colorScheme.onSurface.withValues(alpha: 0.5),
+                      size: 24,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+          AnimatedCrossFade(
+            firstChild: const SizedBox.shrink(),
+            secondChild: Column(
+              children: [
+                Divider(
+                  height: 1,
+                  color: theme.colorScheme.onSurface.withValues(alpha: 0.08),
+                ),
+                ...features,
+              ],
+            ),
+            crossFadeState: isExpanded
+                ? CrossFadeState.showSecond
+                : CrossFadeState.showFirst,
+            duration: const Duration(milliseconds: 200),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class SectionHeader extends StatelessWidget {
+  const SectionHeader({super.key, required this.title});
+
+  final String title;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 20),
+      child: Text(
+        title.toUpperCase(),
+        style: TextStyle(
+          color: theme.colorScheme.onSurface.withValues(alpha: 0.4),
+          fontSize: 11,
+          fontWeight: FontWeight.w700,
+          letterSpacing: 1.2,
+        ),
+      ),
+    );
+  }
+}
+
+class _SectionDivider extends StatelessWidget {
+  const _SectionDivider();
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    return Container(
+      margin: const EdgeInsets.symmetric(horizontal: 20),
+      height: 1,
+      decoration: BoxDecoration(
+        gradient: LinearGradient(
+          colors: [
+            theme.colorScheme.onSurface.withValues(alpha: 0),
+            theme.colorScheme.onSurface.withValues(alpha: 0.1),
+            theme.colorScheme.onSurface.withValues(alpha: 0),
+          ],
+        ),
       ),
     );
   }
@@ -1042,7 +1137,6 @@ class _ProjectPickerContentState extends ConsumerState<_ProjectPickerContent> {
   }
 }
 
-// Active Connection Card (expandable)
 class _ActiveConnectionCard extends StatefulWidget {
   const _ActiveConnectionCard({required this.connection});
 
@@ -1074,10 +1168,8 @@ class _ActiveConnectionCardState extends State<_ActiveConnectionCard> {
         ),
         child: Column(
           children: [
-            // Header row (always visible)
             Row(
               children: [
-                // Device icon
                 Container(
                   padding: const EdgeInsets.all(16),
                   decoration: BoxDecoration(
@@ -1091,7 +1183,6 @@ class _ActiveConnectionCardState extends State<_ActiveConnectionCard> {
                   ),
                 ),
                 const SizedBox(width: 16),
-                // Device name and status
                 Expanded(
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
@@ -1109,7 +1200,6 @@ class _ActiveConnectionCardState extends State<_ActiveConnectionCard> {
                     ],
                   ),
                 ),
-                // Expand/collapse indicator
                 AnimatedRotation(
                   turns: _isExpanded ? 0.5 : 0,
                   duration: const Duration(milliseconds: 200),
@@ -1121,8 +1211,6 @@ class _ActiveConnectionCardState extends State<_ActiveConnectionCard> {
                 ),
               ],
             ),
-
-            // Expanded details
             if (_isExpanded &&
                 isConnected &&
                 connection.connection != null) ...[
@@ -1135,7 +1223,6 @@ class _ActiveConnectionCardState extends State<_ActiveConnectionCard> {
                 ),
                 child: Column(
                   children: [
-                    // First row: Local IP and Port
                     Row(
                       children: [
                         Expanded(
@@ -1161,7 +1248,6 @@ class _ActiveConnectionCardState extends State<_ActiveConnectionCard> {
                         ),
                       ],
                     ),
-                    // Second row: Tailscale IP and RTT (if available)
                     if (connection.connection!.tailscaleIP != null ||
                         connection.rttMs != null) ...[
                       const SizedBox(height: 16),
@@ -1213,7 +1299,6 @@ class _ActiveConnectionCardState extends State<_ActiveConnectionCard> {
   }
 }
 
-// Connection stat widget
 class _ConnectionStat extends StatelessWidget {
   const _ConnectionStat({
     required this.label,
@@ -1257,32 +1342,11 @@ class _ConnectionStat extends StatelessWidget {
   }
 }
 
-class _SectionHeader extends StatelessWidget {
-  const _SectionHeader({required this.title});
-
-  final String title;
-
-  @override
-  Widget build(BuildContext context) {
-    return Padding(
-      padding: const EdgeInsets.fromLTRB(20, 0, 20, 12),
-      child: Text(
-        title.toUpperCase(),
-        style: TextStyle(
-          color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.5),
-          fontSize: 12,
-          fontWeight: FontWeight.w700,
-          letterSpacing: 0.5,
-        ),
-      ),
-    );
-  }
-}
-
 class _SettingsCard extends StatelessWidget {
-  const _SettingsCard({required this.child});
+  const _SettingsCard({required this.child, this.decoration});
 
   final Widget child;
+  final BoxDecoration? decoration;
 
   @override
   Widget build(BuildContext context) {
@@ -1290,144 +1354,14 @@ class _SettingsCard extends StatelessWidget {
     final themeData = Theme.of(context);
 
     return Container(
-      decoration: BoxDecoration(
-        color: themeData.colorScheme.surface.withValues(alpha: 0.5),
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: ocTheme.borderSubtle),
-      ),
-      child: child,
-    );
-  }
-}
-
-/// Collapsible section for backend power features (OpenCode, Claude Code, Codex)
-class _CollapsibleBackendSection extends StatelessWidget {
-  const _CollapsibleBackendSection({
-    required this.title,
-    required this.subtitle,
-    required this.itemCount,
-    required this.isExpanded,
-    required this.onToggle,
-    required this.children,
-  });
-
-  final String title;
-  final String subtitle;
-  final int itemCount;
-  final bool isExpanded;
-  final VoidCallback onToggle;
-  final List<Widget> children;
-
-  @override
-  Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    final ocTheme = OpenCodeTheme.of(context);
-
-    return Container(
-      decoration: BoxDecoration(
-        color: theme.colorScheme.surface.withValues(alpha: 0.5),
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: ocTheme.borderSubtle),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          // Tappable header
-          InkWell(
-            onTap: onToggle,
+      decoration:
+          decoration ??
+          BoxDecoration(
+            color: themeData.colorScheme.surface.withValues(alpha: 0.5),
             borderRadius: BorderRadius.circular(16),
-            child: Padding(
-              padding: const EdgeInsets.all(16),
-              child: Row(
-                children: [
-                  Icon(
-                    Icons.bolt_rounded,
-                    color: theme.colorScheme.primary,
-                    size: 22,
-                  ),
-                  const SizedBox(width: 12),
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Row(
-                          children: [
-                            Text(
-                              title,
-                              style: TextStyle(
-                                color: theme.colorScheme.onSurface,
-                                fontSize: 15,
-                                fontWeight: FontWeight.w600,
-                              ),
-                            ),
-                            const SizedBox(width: 8),
-                            Container(
-                              padding: const EdgeInsets.symmetric(
-                                horizontal: 6,
-                                vertical: 2,
-                              ),
-                              decoration: BoxDecoration(
-                                color: theme.colorScheme.primary.withValues(
-                                  alpha: 0.15,
-                                ),
-                                borderRadius: BorderRadius.circular(6),
-                              ),
-                              child: Text(
-                                '$itemCount',
-                                style: TextStyle(
-                                  color: theme.colorScheme.primary,
-                                  fontSize: 11,
-                                  fontWeight: FontWeight.w700,
-                                ),
-                              ),
-                            ),
-                          ],
-                        ),
-                        const SizedBox(height: 3),
-                        Text(
-                          subtitle,
-                          style: TextStyle(
-                            color: theme.colorScheme.onSurface.withValues(
-                              alpha: 0.6,
-                            ),
-                            fontSize: 13,
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                  AnimatedRotation(
-                    turns: isExpanded ? 0.5 : 0,
-                    duration: const Duration(milliseconds: 200),
-                    child: Icon(
-                      Icons.keyboard_arrow_down_rounded,
-                      color: theme.colorScheme.onSurface.withValues(alpha: 0.5),
-                      size: 24,
-                    ),
-                  ),
-                ],
-              ),
-            ),
+            border: Border.all(color: ocTheme.borderSubtle),
           ),
-          // Content (only when expanded)
-          AnimatedCrossFade(
-            firstChild: const SizedBox.shrink(),
-            secondChild: Column(
-              children: [
-                Divider(
-                  height: 1,
-                  color: theme.colorScheme.onSurface.withValues(alpha: 0.08),
-                ),
-                ...children,
-              ],
-            ),
-            crossFadeState: isExpanded
-                ? CrossFadeState.showSecond
-                : CrossFadeState.showFirst,
-            duration: const Duration(milliseconds: 200),
-          ),
-        ],
-      ),
+      child: child,
     );
   }
 }
@@ -1489,6 +1423,53 @@ class _SettingsTile extends StatelessWidget {
                   size: 20,
                   color: theme.colorScheme.onSurface.withValues(alpha: 0.5),
                 ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _LinkTile extends StatelessWidget {
+  const _LinkTile({required this.title, required this.icon, required this.url});
+
+  final String title;
+  final IconData icon;
+  final String url;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+
+    return InkWell(
+      onTap: () =>
+          launchUrl(Uri.parse(url), mode: LaunchMode.externalApplication),
+      borderRadius: BorderRadius.circular(16),
+      child: Padding(
+        padding: const EdgeInsets.all(16),
+        child: Row(
+          children: [
+            Icon(
+              icon,
+              color: theme.colorScheme.onSurface.withValues(alpha: 0.5),
+              size: 22,
+            ),
+            const SizedBox(width: 12),
+            Expanded(
+              child: Text(
+                title,
+                style: TextStyle(
+                  color: theme.colorScheme.onSurface,
+                  fontSize: 15,
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
+            ),
+            Icon(
+              Icons.open_in_new_rounded,
+              size: 18,
+              color: theme.colorScheme.onSurface.withValues(alpha: 0.4),
+            ),
           ],
         ),
       ),
@@ -1602,6 +1583,8 @@ class _InfoTile extends StatelessWidget {
 }
 
 class _Divider extends StatelessWidget {
+  const _Divider();
+
   @override
   Widget build(BuildContext context) {
     return Divider(
@@ -1609,7 +1592,7 @@ class _Divider extends StatelessWidget {
       thickness: 1,
       indent: 16,
       endIndent: 16,
-      color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.1),
+      color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.08),
     );
   }
 }
