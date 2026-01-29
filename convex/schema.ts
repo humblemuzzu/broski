@@ -93,5 +93,17 @@ export default defineSchema({
   })
     .index("by_hashedEmail", ["hashedEmail"])
     .index("by_hashedAppUserId", ["hashedAppUserId"]),
+
+  bridgeInstalls: defineTable({
+    platform: v.string(),           // "darwin-arm64", "linux-x64", etc.
+    version: v.string(),            // "0.1.0"
+    method: v.string(),             // "curl-installer", "powershell-installer", "manual"
+    installedAtMs: v.number(),
+    // Optional anonymous machine fingerprint (NOT identifying - just hostname hash)
+    machineHash: v.optional(v.string()),
+  })
+    .index("by_platform", ["platform"])
+    .index("by_version", ["version"])
+    .index("by_installedAt", ["installedAtMs"]),
 });
 

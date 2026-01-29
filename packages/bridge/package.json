@@ -3,7 +3,8 @@
   "version": "0.1.0",
   "description": "Bridge server connecting Broski mobile app to AI coding agents (OpenCode, Claude Code, Codex)",
   "author": "humblemuzzu <broskiappp@gmail.com>",
-  "license": "MIT",
+  "license": "UNLICENSED",
+  "private": true,
   "repository": {
     "type": "git",
     "url": "git+https://github.com/humblemuzzu/broski.git",
@@ -38,7 +39,12 @@
   "scripts": {
     "dev": "bun --watch src/index.ts",
     "start": "bun src/index.ts",
-    "prepublishOnly": "echo 'Ready to publish!'"
+    "build": "sh scripts/build.sh",
+    "build:mac": "sh scripts/build.sh --target darwin-arm64",
+    "build:mac-intel": "sh scripts/build.sh --target darwin-x64",
+    "build:linux": "sh scripts/build.sh --target linux-x64",
+    "build:linux-arm": "sh scripts/build.sh --target linux-arm64",
+    "build:windows": "sh scripts/build.sh --target windows-x64"
   },
   "dependencies": {
     "@anthropic-ai/claude-agent-sdk": "^0.1.76",
@@ -52,8 +58,5 @@
   },
   "engines": {
     "bun": ">=1.0.0"
-  },
-  "publishConfig": {
-    "access": "public"
   }
 }

@@ -5,8 +5,9 @@ import '../models/subscription_usage.dart';
 import '../providers/subscription_usage_provider.dart';
 import '../theme/opencode_theme.dart';
 
-/// Screen for displaying subscription usage limits and credits.
+/// Screen for displaying AI provider usage limits and credits.
 ///
+/// Shows the user's own AI usage (Claude, OpenAI) -- not Broski usage.
 /// Mobile-optimized layout with text above progress bars.
 class SubscriptionUsageScreen extends ConsumerStatefulWidget {
   const SubscriptionUsageScreen({super.key});
@@ -38,7 +39,7 @@ class _SubscriptionUsageScreenState
         backgroundColor: Colors.transparent,
         elevation: 0,
         title: Text(
-          'Subscription Usage',
+          'AI Usage',
           style: TextStyle(
             color: ocTheme.text,
             fontSize: 18,

@@ -7,7 +7,6 @@ import '../models/project.dart';
 import '../providers/agent_type_provider.dart';
 import '../providers/app_info_provider.dart';
 import '../providers/app_auth_provider.dart';
-import '../providers/app_subscription_provider.dart';
 import '../providers/connection_provider.dart';
 import '../providers/onboarding_provider.dart';
 import '../providers/selection_provider.dart';
@@ -16,6 +15,7 @@ import '../providers/theme_provider.dart';
 import '../theme/opencode_theme.dart';
 import '../widgets/chat/detail_sheet.dart';
 import '../widgets/connection_quality_indicator.dart';
+import 'account_screen.dart';
 import 'ai_backend_screen.dart';
 import 'customization_screen.dart';
 import 'device_manager_screen.dart';
@@ -54,7 +54,6 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
   Widget build(BuildContext context) {
     final connection = ref.watch(connectionProvider);
     final appAuth = ref.watch(appAuthProvider);
-    final appSub = ref.watch(appSubscriptionProvider);
     final currentThemeInfo = ref.watch(currentThemeInfoProvider);
     final currentAgent = ref.watch(agentTypeProvider);
     final appVersion = ref.watch(appVersionProvider);
@@ -322,6 +321,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
               ),
             ),
 
+            // ── Account ─────────────────────────────────────────
             const SliverToBoxAdapter(child: SizedBox(height: 32)),
             SliverToBoxAdapter(child: SectionHeader(title: 'Account')),
             const SliverToBoxAdapter(child: SizedBox(height: 12)),
@@ -329,106 +329,66 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
               child: Padding(
                 padding: const EdgeInsets.symmetric(horizontal: 20),
                 child: _SettingsCard(
-                  child: Column(
-                    children: [
-                      if (appAuth.user != null)
-                        _InfoTile(
-                          title: 'Signed in as',
-                          value:
-                              appAuth.user!.email ??
-                              appAuth.user!.displayName ??
-                              appAuth.user!.appUserId,
-                          icon: Icons.person_outline_rounded,
-                        ),
-                      if (appAuth.user != null) _Divider(),
-                      if (appSub.managementUrl != null)
-                        _SettingsTile(
-                          title: 'Manage subscription',
-                          subtitle: 'Update billing and cancel anytime',
-                          icon: Icons.manage_accounts_rounded,
-                          onTap: () => launchUrl(
-                            Uri.parse(appSub.managementUrl!),
-                            mode: LaunchMode.externalApplication,
+                  child: _SettingsTile(
+                    title:
+                        appAuth.user?.displayName ??
+                        appAuth.user?.email ??
+                        'Account',
+                    subtitle: appAuth.user != null
+                        ? 'Subscription, sign out, and more'
+                        : 'Sign in to manage your account',
+                    icon: Icons.person_rounded,
+                    trailing: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        if (appAuth.user != null)
+                          Container(
+                            width: 8,
+                            height: 8,
+                            decoration: BoxDecoration(
+                              color: theme.colorScheme.primary,
+                              shape: BoxShape.circle,
+                            ),
+                          ),
+                        const SizedBox(width: 8),
+                        Icon(
+                          Icons.chevron_right_rounded,
+                          size: 20,
+                          color: theme.colorScheme.onSurface.withValues(
+                            alpha: 0.5,
                           ),
                         ),
-                      if (appSub.managementUrl != null) _Divider(),
-                      _SettingsTile(
-                        title: 'Restore purchases',
-                        subtitle: 'If you reinstalled or switched devices',
-                        icon: Icons.restore_rounded,
-                        onTap: () {
-                          if (appSub.isLoading) return;
-                          ref
-                              .read(appSubscriptionProvider.notifier)
-                              .restorePurchases();
-                        },
-                      ),
-                      _Divider(),
-                      _SettingsTile(
-                        title: 'Sign out',
-                        subtitle: 'Remove this device from your account',
-                        icon: Icons.logout_rounded,
-                        onTap: () async {
-                          await ref.read(appAuthProvider.notifier).signOut();
-                          if (context.mounted) {
-                            Navigator.of(
-                              context,
-                            ).popUntil((route) => route.isFirst);
-                          }
-                        },
-                      ),
-                      _Divider(),
-                      _ActionTile(
-                        title: 'Delete Account',
-                        subtitle: 'Permanently delete all your data',
-                        icon: Icons.delete_forever_rounded,
-                        iconColor: theme.colorScheme.error,
-                        onTap: () => _showDeleteAccountDialog(context, ref),
-                      ),
-                    ],
+                      ],
+                    ),
+                    onTap: () => Navigator.push(
+                      context,
+                      MaterialPageRoute(builder: (_) => const AccountScreen()),
+                    ),
                   ),
                 ),
               ),
             ),
 
+            // ── App ───────────────────────────────────────────────
             const SliverToBoxAdapter(child: SizedBox(height: 32)),
-            SliverToBoxAdapter(child: SectionHeader(title: 'App Management')),
+            SliverToBoxAdapter(child: SectionHeader(title: 'App')),
             const SliverToBoxAdapter(child: SizedBox(height: 12)),
             SliverToBoxAdapter(
               child: Padding(
                 padding: const EdgeInsets.symmetric(horizontal: 20),
                 child: _SettingsCard(
-                  decoration: BoxDecoration(
-                    color: theme.colorScheme.surface.withValues(alpha: 0.3),
-                    borderRadius: BorderRadius.circular(16),
-                    border: Border.all(
-                      color: ocTheme.borderSubtle.withValues(alpha: 0.5),
-                    ),
-                  ),
                   child: Column(
                     children: [
                       _SettingsTile(
-                        title: 'Subscription Usage',
-                        subtitle: 'API limits and credits',
-                        icon: Icons.data_usage_rounded,
-                        onTap: () => Navigator.push(
-                          context,
-                          MaterialPageRoute(
-                            builder: (_) => const SubscriptionUsageScreen(),
-                          ),
-                        ),
-                      ),
-                      _Divider(),
-                      _SettingsTile(
                         title: 'Clear Cache',
-                        subtitle: 'Delete all cached data',
+                        subtitle: 'Delete cached sessions & offline data',
                         icon: Icons.delete_outline_rounded,
                         onTap: () => _showClearCacheDialog(context, ref),
                       ),
                       _Divider(),
                       _SettingsTile(
                         title: 'Replay Onboarding',
-                        subtitle: 'First-launch experience',
+                        subtitle: 'Re-run the first-launch setup',
                         icon: Icons.replay_rounded,
                         onTap: () => _replayOnboarding(context, ref),
                       ),
@@ -438,20 +398,14 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
               ),
             ),
 
+            // ── Support ──────────────────────────────────────────
             const SliverToBoxAdapter(child: SizedBox(height: 32)),
-            SliverToBoxAdapter(child: SectionHeader(title: 'Help')),
+            SliverToBoxAdapter(child: SectionHeader(title: 'Support')),
             const SliverToBoxAdapter(child: SizedBox(height: 12)),
             SliverToBoxAdapter(
               child: Padding(
                 padding: const EdgeInsets.symmetric(horizontal: 20),
                 child: _SettingsCard(
-                  decoration: BoxDecoration(
-                    color: theme.colorScheme.surface.withValues(alpha: 0.2),
-                    borderRadius: BorderRadius.circular(16),
-                    border: Border.all(
-                      color: ocTheme.borderSubtle.withValues(alpha: 0.3),
-                    ),
-                  ),
                   child: Column(
                     children: [
                       _SettingsTile(
@@ -471,13 +425,29 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                         onTap: () =>
                             launchUrl(Uri.parse('mailto:broskiappp@gmail.com')),
                       ),
-                      _Divider(),
-                      _InfoTile(
-                        title: 'Version',
-                        value: appVersion,
-                        icon: Icons.info_outline_rounded,
-                      ),
-                      _Divider(),
+                    ],
+                  ),
+                ),
+              ),
+            ),
+
+            // ── Legal ────────────────────────────────────────────
+            const SliverToBoxAdapter(child: SizedBox(height: 24)),
+            SliverToBoxAdapter(child: SectionHeader(title: 'Legal')),
+            const SliverToBoxAdapter(child: SizedBox(height: 10)),
+            SliverToBoxAdapter(
+              child: Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 20),
+                child: _SettingsCard(
+                  decoration: BoxDecoration(
+                    color: theme.colorScheme.surface.withValues(alpha: 0.2),
+                    borderRadius: BorderRadius.circular(16),
+                    border: Border.all(
+                      color: ocTheme.borderSubtle.withValues(alpha: 0.3),
+                    ),
+                  ),
+                  child: Column(
+                    children: [
                       _LinkTile(
                         title: 'Privacy Policy',
                         icon: Icons.privacy_tip_outlined,
@@ -502,6 +472,25 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
               ),
             ),
 
+            // ── Version (bottom) ─────────────────────────────────
+            const SliverToBoxAdapter(child: SizedBox(height: 32)),
+            SliverToBoxAdapter(
+              child: Center(
+                child: Padding(
+                  padding: const EdgeInsets.only(bottom: 8),
+                  child: Text(
+                    'Broski v$appVersion',
+                    style: TextStyle(
+                      color: theme.colorScheme.onSurface.withValues(
+                        alpha: 0.25,
+                      ),
+                      fontSize: 12,
+                      fontWeight: FontWeight.w500,
+                    ),
+                  ),
+                ),
+              ),
+            ),
             const SliverToBoxAdapter(child: SizedBox(height: 40)),
           ],
         ),
@@ -532,14 +521,6 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
           ),
         ],
       ),
-    );
-  }
-
-  void _showDeleteAccountDialog(BuildContext context, WidgetRef ref) {
-    showDialog(
-      context: context,
-      barrierDismissible: false,
-      builder: (context) => const _DeleteAccountDialog(),
     );
   }
 
@@ -673,11 +654,11 @@ class _PowerFeaturesTile extends StatelessWidget {
   int _getFeatureCount(AgentType agent) {
     switch (agent) {
       case AgentType.opencode:
-        return 8;
+        return 9;
       case AgentType.claudeCode:
-        return 8;
+        return 9;
       case AgentType.codex:
-        return 3;
+        return 4;
     }
   }
 }
@@ -691,6 +672,18 @@ class _PowerFeaturesExpandedCard extends StatelessWidget {
     switch (agent) {
       case AgentType.opencode:
         return [
+          _SettingsTile(
+            title: 'AI Usage',
+            subtitle: 'Your AI provider limits & credits',
+            icon: Icons.data_usage_rounded,
+            onTap: () => Navigator.push(
+              context,
+              MaterialPageRoute(
+                builder: (_) => const SubscriptionUsageScreen(),
+              ),
+            ),
+          ),
+          _Divider(),
           _SettingsTile(
             title: 'Terminal Sessions',
             subtitle: 'PTY terminal sessions',
@@ -776,6 +769,18 @@ class _PowerFeaturesExpandedCard extends StatelessWidget {
 
       case AgentType.claudeCode:
         return [
+          _SettingsTile(
+            title: 'AI Usage',
+            subtitle: 'Your AI provider limits & credits',
+            icon: Icons.data_usage_rounded,
+            onTap: () => Navigator.push(
+              context,
+              MaterialPageRoute(
+                builder: (_) => const SubscriptionUsageScreen(),
+              ),
+            ),
+          ),
+          _Divider(),
           _SettingsTile(
             title: 'Settings',
             subtitle: 'Language, gitignore, channel',
@@ -866,6 +871,18 @@ class _PowerFeaturesExpandedCard extends StatelessWidget {
 
       case AgentType.codex:
         return [
+          _SettingsTile(
+            title: 'AI Usage',
+            subtitle: 'Your AI provider limits & credits',
+            icon: Icons.data_usage_rounded,
+            onTap: () => Navigator.push(
+              context,
+              MaterialPageRoute(
+                builder: (_) => const SubscriptionUsageScreen(),
+              ),
+            ),
+          ),
+          _Divider(),
           _SettingsTile(
             title: 'Skills',
             subtitle: 'SKILL.md management',
@@ -1536,344 +1553,6 @@ class _LinkTile extends StatelessWidget {
             ),
           ],
         ),
-      ),
-    );
-  }
-}
-
-class _ActionTile extends StatelessWidget {
-  const _ActionTile({
-    required this.title,
-    required this.subtitle,
-    required this.icon,
-    required this.onTap,
-    this.iconColor,
-  });
-
-  final String title;
-  final String subtitle;
-  final IconData icon;
-  final VoidCallback onTap;
-  final Color? iconColor;
-
-  @override
-  Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-
-    return InkWell(
-      onTap: onTap,
-      borderRadius: BorderRadius.circular(16),
-      child: Padding(
-        padding: const EdgeInsets.all(16),
-        child: Row(
-          children: [
-            Icon(icon, color: iconColor ?? theme.colorScheme.primary, size: 22),
-            const SizedBox(width: 12),
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    title,
-                    style: TextStyle(
-                      color: iconColor ?? theme.colorScheme.onSurface,
-                      fontSize: 15,
-                      fontWeight: FontWeight.w600,
-                    ),
-                  ),
-                  const SizedBox(height: 3),
-                  Text(
-                    subtitle,
-                    style: TextStyle(
-                      color: theme.colorScheme.onSurface.withValues(alpha: 0.6),
-                      fontSize: 13,
-                    ),
-                  ),
-                ],
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-}
-
-class _InfoTile extends StatelessWidget {
-  const _InfoTile({
-    required this.title,
-    required this.value,
-    required this.icon,
-  });
-
-  final String title;
-  final String value;
-  final IconData icon;
-
-  @override
-  Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-
-    return Padding(
-      padding: const EdgeInsets.all(16),
-      child: Row(
-        children: [
-          Icon(
-            icon,
-            color: theme.colorScheme.onSurface.withValues(alpha: 0.5),
-            size: 22,
-          ),
-          const SizedBox(width: 12),
-          Text(
-            title,
-            style: TextStyle(
-              color: theme.colorScheme.onSurface,
-              fontSize: 15,
-              fontWeight: FontWeight.w600,
-            ),
-          ),
-          const Spacer(),
-          Text(
-            value,
-            style: TextStyle(
-              color: theme.colorScheme.onSurface.withValues(alpha: 0.6),
-              fontSize: 15,
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-class _DeleteAccountDialog extends ConsumerStatefulWidget {
-  const _DeleteAccountDialog();
-
-  @override
-  ConsumerState<_DeleteAccountDialog> createState() =>
-      _DeleteAccountDialogState();
-}
-
-class _DeleteAccountDialogState extends ConsumerState<_DeleteAccountDialog> {
-  final _confirmController = TextEditingController();
-  final _feedbackController = TextEditingController();
-  String? _selectedReason;
-  bool _isDeleting = false;
-  String? _error;
-
-  static const _reasons = [
-    'No longer need it',
-    'Too expensive',
-    'Switching to another app',
-    'Privacy concerns',
-    'Technical issues',
-    'Other',
-  ];
-
-  bool get _canDelete =>
-      _confirmController.text.trim().toUpperCase() == 'DELETE';
-
-  @override
-  void dispose() {
-    _confirmController.dispose();
-    _feedbackController.dispose();
-    super.dispose();
-  }
-
-  Future<void> _performDelete() async {
-    if (!_canDelete || _isDeleting) return;
-    setState(() {
-      _isDeleting = true;
-      _error = null;
-    });
-
-    try {
-      // Log out of RevenueCat first
-      await ref.read(appSubscriptionProvider.notifier).signOut();
-
-      // Delete the account
-      await ref
-          .read(appAuthProvider.notifier)
-          .deleteAccount(
-            reason: _selectedReason,
-            feedback: _feedbackController.text.trim().isNotEmpty
-                ? _feedbackController.text.trim()
-                : null,
-          );
-
-      if (mounted) {
-        Navigator.of(context).pop(); // Close dialog
-        // Navigate to root/auth screen
-        Navigator.of(context).popUntil((route) => route.isFirst);
-      }
-    } catch (e) {
-      if (mounted) {
-        setState(() {
-          _isDeleting = false;
-          _error = e.toString();
-        });
-      }
-    }
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-
-    return AlertDialog(
-      title: Row(
-        children: [
-          Icon(Icons.warning_amber_rounded, color: theme.colorScheme.error),
-          const SizedBox(width: 8),
-          Text(
-            'Delete Account',
-            style: TextStyle(color: theme.colorScheme.error),
-          ),
-        ],
-      ),
-      content: SingleChildScrollView(
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text(
-              'This action is permanent and cannot be undone. All your data will be deleted:',
-              style: TextStyle(
-                color: theme.colorScheme.onSurface.withValues(alpha: 0.8),
-              ),
-            ),
-            const SizedBox(height: 12),
-            _bulletPoint('Your account and profile', theme),
-            _bulletPoint('All session tokens', theme),
-            _bulletPoint('Subscription records', theme),
-            _bulletPoint('RevenueCat event history', theme),
-            const SizedBox(height: 16),
-            Text(
-              'Your subscription (if active) will NOT be automatically cancelled. '
-              'Please cancel it through your App Store settings first.',
-              style: TextStyle(
-                color: theme.colorScheme.error,
-                fontWeight: FontWeight.w600,
-                fontSize: 13,
-              ),
-            ),
-            const SizedBox(height: 20),
-            Text(
-              'Why are you leaving? (optional)',
-              style: TextStyle(
-                color: theme.colorScheme.onSurface,
-                fontWeight: FontWeight.w600,
-                fontSize: 14,
-              ),
-            ),
-            const SizedBox(height: 8),
-            DropdownButtonFormField<String>(
-              value: _selectedReason,
-              decoration: const InputDecoration(
-                hintText: 'Select a reason',
-                border: OutlineInputBorder(),
-                contentPadding: EdgeInsets.symmetric(
-                  horizontal: 12,
-                  vertical: 8,
-                ),
-              ),
-              items: _reasons
-                  .map((r) => DropdownMenuItem(value: r, child: Text(r)))
-                  .toList(),
-              onChanged: (v) => setState(() => _selectedReason = v),
-            ),
-            const SizedBox(height: 12),
-            TextField(
-              controller: _feedbackController,
-              maxLines: 2,
-              decoration: const InputDecoration(
-                hintText: 'Any additional feedback? (optional)',
-                border: OutlineInputBorder(),
-                contentPadding: EdgeInsets.symmetric(
-                  horizontal: 12,
-                  vertical: 8,
-                ),
-              ),
-            ),
-            const SizedBox(height: 20),
-            Text(
-              'Type DELETE to confirm:',
-              style: TextStyle(
-                color: theme.colorScheme.onSurface,
-                fontWeight: FontWeight.w600,
-                fontSize: 14,
-              ),
-            ),
-            const SizedBox(height: 8),
-            TextField(
-              controller: _confirmController,
-              onChanged: (_) => setState(() {}),
-              decoration: InputDecoration(
-                hintText: 'DELETE',
-                border: const OutlineInputBorder(),
-                contentPadding: const EdgeInsets.symmetric(
-                  horizontal: 12,
-                  vertical: 8,
-                ),
-                enabledBorder: OutlineInputBorder(
-                  borderSide: BorderSide(
-                    color: _canDelete
-                        ? theme.colorScheme.error
-                        : theme.colorScheme.outline,
-                  ),
-                ),
-              ),
-            ),
-            if (_error != null) ...[
-              const SizedBox(height: 12),
-              Text(
-                _error!,
-                style: TextStyle(color: theme.colorScheme.error, fontSize: 12),
-              ),
-            ],
-          ],
-        ),
-      ),
-      actions: [
-        TextButton(
-          onPressed: _isDeleting ? null : () => Navigator.pop(context),
-          child: const Text('Cancel'),
-        ),
-        ElevatedButton(
-          onPressed: _canDelete && !_isDeleting ? _performDelete : null,
-          style: ElevatedButton.styleFrom(
-            backgroundColor: theme.colorScheme.error,
-            foregroundColor: theme.colorScheme.onError,
-          ),
-          child: _isDeleting
-              ? const SizedBox(
-                  width: 20,
-                  height: 20,
-                  child: CircularProgressIndicator(strokeWidth: 2),
-                )
-              : const Text('Delete Account'),
-        ),
-      ],
-    );
-  }
-
-  Widget _bulletPoint(String text, ThemeData theme) {
-    return Padding(
-      padding: const EdgeInsets.only(left: 8, bottom: 4),
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text('•  ', style: TextStyle(color: theme.colorScheme.error)),
-          Expanded(
-            child: Text(
-              text,
-              style: TextStyle(
-                color: theme.colorScheme.onSurface.withValues(alpha: 0.7),
-                fontSize: 13,
-              ),
-            ),
-          ),
-        ],
       ),
     );
   }

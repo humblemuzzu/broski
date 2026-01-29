@@ -398,4 +398,27 @@ http.route({
   }),
 });
 
+http.route({
+  path: "/hooks/bridge-install",
+  method: "POST",
+  handler: httpAction(async (ctx, req) => {
+    // No auth required - this is a public analytics endpoint
+    let body: any;
+    try {
+      body = await req.json();
+    } catch {
+      return json({ ok: true }); // Silently succeed even on bad input
+    }
+
+    await ctx.runMutation(internal.installs.recordInstall, {
+      platform: typeof body?.platform === "string" ? body.platform : "unknown",
+      version: typeof body?.version === "string" ? body.version : "unknown",
+      method: typeof body?.method === "string" ? body.method : "unknown",
+      machineHash: typeof body?.machineHash === "string" ? body.machineHash : undefined,
+    });
+
+    return json({ ok: true });
+  }),
+});
+
 export default http;
