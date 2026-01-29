@@ -651,6 +651,7 @@ class BridgeService {
   Future<bool> ocReplyToQuestion({
     required String requestId,
     required List<List<String>> answers,
+    String? projectPath,
   }) async {
     final wireRequestId = _generateRequestId();
     _socket.send({
@@ -658,6 +659,7 @@ class BridgeService {
       'requestId': wireRequestId,
       'questionId': requestId,
       'answers': answers,
+      if (projectPath != null) 'projectPath': projectPath,
     });
     final response = await _waitFor(
       'oc_question_replied',
@@ -666,12 +668,16 @@ class BridgeService {
     return response['data'] == true;
   }
 
-  Future<bool> ocRejectQuestion({required String requestId}) async {
+  Future<bool> ocRejectQuestion({
+    required String requestId,
+    String? projectPath,
+  }) async {
     final wireRequestId = _generateRequestId();
     _socket.send({
       'type': 'oc_question_reject',
       'requestId': wireRequestId,
       'questionId': requestId,
+      if (projectPath != null) 'projectPath': projectPath,
     });
     final response = await _waitFor(
       'oc_question_rejected',

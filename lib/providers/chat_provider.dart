@@ -242,26 +242,37 @@ class ChatSessionNotifier extends StateNotifier<ChatSessionState> {
       );
     }
 
-    final ok = await _bridge.ocReplyToQuestion(
-      requestId: req.id,
-      answers: answers,
-    );
-
-    if (kDebugMode) {
-      developer.log(
-        'replyToPendingQuestion: Reply result for ${req.id}: $ok',
-        name: 'ChatProvider',
-      );
-    }
-
-    // Always clear local state to prevent re-showing the same question
-    // Even if the reply failed, we don't want to keep showing the same prompt
+    // Clear local state IMMEDIATELY to prevent re-showing the same question.
+    // The WebSocket send() is synchronous — the answer is already on the wire
+    // before we await the confirmation. Even if the confirmation times out,
+    // the bridge already received the reply.
     state = state.copyWith(pendingQuestion: null);
 
-    if (!ok) {
+    try {
+      final ok = await _bridge.ocReplyToQuestion(
+        requestId: req.id,
+        answers: answers,
+        projectPath: state.projectPath,
+      );
+
+      if (kDebugMode) {
+        developer.log(
+          'replyToPendingQuestion: Reply result for ${req.id}: $ok',
+          name: 'ChatProvider',
+        );
+      }
+
+      if (!ok) {
+        developer.log(
+          'WARNING: Question reply may have failed (requestId: ${req.id}). '
+          'The AI might re-ask the question.',
+          name: 'ChatProvider',
+        );
+      }
+    } catch (e) {
       developer.log(
-        'WARNING: Question reply may have failed (requestId: ${req.id}). '
-        'The AI might re-ask the question.',
+        'replyToPendingQuestion: Error sending reply for ${req.id}: $e '
+        '(answer was already sent on the wire)',
         name: 'ChatProvider',
       );
     }
@@ -286,16 +297,27 @@ class ChatSessionNotifier extends StateNotifier<ChatSessionState> {
       );
     }
 
-    final ok = await _bridge.ocRejectQuestion(requestId: req.id);
+    // Clear local state IMMEDIATELY (same rationale as replyToPendingQuestion)
+    state = state.copyWith(pendingQuestion: null);
 
-    if (kDebugMode) {
+    try {
+      final ok = await _bridge.ocRejectQuestion(
+        requestId: req.id,
+        projectPath: state.projectPath,
+      );
+
+      if (kDebugMode) {
+        developer.log(
+          'rejectPendingQuestion: Reject result for ${req.id}: $ok',
+          name: 'ChatProvider',
+        );
+      }
+    } catch (e) {
       developer.log(
-        'rejectPendingQuestion: Reject result for ${req.id}: $ok',
+        'rejectPendingQuestion: Error rejecting ${req.id}: $e',
         name: 'ChatProvider',
       );
     }
-
-    state = state.copyWith(pendingQuestion: null);
   }
 
   /// Reply to a Codex request_user_input (SDK v0.87.0+)

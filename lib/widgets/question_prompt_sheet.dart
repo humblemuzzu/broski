@@ -19,123 +19,71 @@ class QuestionPromptSheet extends StatefulWidget {
   State<QuestionPromptSheet> createState() => _QuestionPromptSheetState();
 }
 
-class _QuestionPromptSheetState extends State<QuestionPromptSheet>
-    with SingleTickerProviderStateMixin {
-  late final TabController _tabController;
-
+class _QuestionPromptSheetState extends State<QuestionPromptSheet> {
   late final List<List<String>> _answers;
   late final List<String> _custom;
+  late int _currentPage;
+  bool _submitted = false;
 
-  bool get _isSingleAutoSubmit {
-    if (widget.request.questions.length != 1) return false;
-    return widget.request.questions.first.multiple != true;
-  }
+  int get _totalQuestions => widget.request.questions.length;
+  bool get _isSingle => _totalQuestions == 1;
 
   @override
   void initState() {
     super.initState();
-    final qCount = widget.request.questions.length;
-    _answers = List.generate(qCount, (_) => <String>[]);
-    _custom = List.generate(qCount, (_) => '');
-    _tabController = TabController(
-      length: _isSingleAutoSubmit ? qCount : qCount + 1,
-      vsync: this,
-    );
+    _answers = List.generate(_totalQuestions, (_) => <String>[]);
+    _custom = List.generate(_totalQuestions, (_) => '');
+    _currentPage = 0;
   }
 
-  @override
-  void dispose() {
-    _tabController.dispose();
-    super.dispose();
+  bool get _currentAnswered {
+    final a = _answers[_currentPage];
+    return a.any((s) => s.trim().isNotEmpty);
   }
 
-  Future<void> _editOther(int qIndex, {required bool multiple}) async {
-    final theme = OpenCodeTheme.of(context);
-    final controller = TextEditingController(text: _custom[qIndex]);
-    final result = await showDialog<String>(
-      context: context,
-      builder: (ctx) {
-        return AlertDialog(
-          backgroundColor: theme.backgroundPanel,
-          title: Text('Other', style: TextStyle(color: theme.text)),
-          content: TextField(
-            controller: controller,
-            autofocus: true,
-            maxLines: 3,
-            style: TextStyle(color: theme.text),
-            decoration: InputDecoration(
-              hintText: 'Type your answer…',
-              hintStyle: TextStyle(color: theme.textMuted),
-              filled: true,
-              fillColor: theme.backgroundElement,
-              border: OutlineInputBorder(
-                borderRadius: BorderRadius.circular(12),
-              ),
-            ),
-          ),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.pop(ctx),
-              child: Text('Cancel', style: TextStyle(color: theme.textMuted)),
-            ),
-            TextButton(
-              onPressed: () => Navigator.pop(ctx, controller.text.trim()),
-              child: Text('Save', style: TextStyle(color: theme.primary)),
-            ),
-          ],
-        );
-      },
-    );
-    if (result == null) return;
-
-    setState(() {
-      final prev = _custom[qIndex];
-      _custom[qIndex] = result;
-      if (multiple) {
-        if (prev.isNotEmpty) {
-          _answers[qIndex].remove(prev);
-        }
-        if (result.isNotEmpty && !_answers[qIndex].contains(result)) {
-          _answers[qIndex].add(result);
-        }
-      } else {
-        _answers[qIndex]
-          ..clear()
-          ..add(result);
-      }
-    });
-
-    if (_isSingleAutoSubmit) {
-      final answer = _answers.first.where((a) => a.trim().isNotEmpty).toList();
-      widget.onReply([answer]);
-      return;
+  bool get _allAnswered {
+    for (final a in _answers) {
+      if (!a.any((s) => s.trim().isNotEmpty)) return false;
     }
-
-    if (!multiple && _tabController.index < _tabController.length - 1) {
-      _tabController.animateTo(_tabController.index + 1);
-    }
+    return true;
   }
 
-  void _pickSingle(int qIndex, String value) {
+  void _submit() {
+    if (_submitted) return;
+    setState(() => _submitted = true);
+    widget.onReply(_answers);
+  }
+
+  void _dismiss() {
+    if (_submitted) return;
+    setState(() => _submitted = true);
+    widget.onReject();
+  }
+
+  void _pickSingle(int qi, String value) {
     setState(() {
-      _answers[qIndex]
+      _answers[qi]
         ..clear()
         ..add(value);
     });
 
-    if (_isSingleAutoSubmit) {
-      widget.onReply([<String>[value]]);
+    // Single question with single-select: auto-submit
+    if (_isSingle && widget.request.questions.first.multiple != true) {
+      _submit();
       return;
     }
 
-    if (_tabController.index < _tabController.length - 1) {
-      _tabController.animateTo(_tabController.index + 1);
+    // Multi-question: auto-advance
+    if (_currentPage < _totalQuestions - 1) {
+      Future.delayed(const Duration(milliseconds: 200), () {
+        if (mounted) setState(() => _currentPage++);
+      });
     }
   }
 
-  void _toggleMulti(int qIndex, String value) {
+  void _toggleMulti(int qi, String value) {
     setState(() {
-      final existing = _answers[qIndex];
+      final existing = _answers[qi];
       if (existing.contains(value)) {
         existing.remove(value);
       } else {
@@ -144,329 +92,513 @@ class _QuestionPromptSheetState extends State<QuestionPromptSheet>
     });
   }
 
-  bool _isOtherSelected(int qIndex) {
-    final v = _custom[qIndex];
-    if (v.trim().isEmpty) return false;
-    return _answers[qIndex].contains(v);
+  Future<void> _editCustom(int qi, {required bool multiple}) async {
+    final theme = OpenCodeTheme.of(context);
+    final controller = TextEditingController(text: _custom[qi]);
+    final result = await showDialog<String>(
+      context: context,
+      builder: (ctx) {
+        return AlertDialog(
+          backgroundColor: theme.bgSheet,
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(16),
+            side: BorderSide(color: theme.borderSubtle.withValues(alpha: 0.3)),
+          ),
+          title: Text(
+            'Custom answer',
+            style: TextStyle(
+              color: theme.text,
+              fontSize: 15,
+              fontWeight: FontWeight.w600,
+            ),
+          ),
+          content: TextField(
+            controller: controller,
+            autofocus: true,
+            maxLines: 3,
+            style: TextStyle(color: theme.text, fontSize: 14),
+            decoration: InputDecoration(
+              hintText: 'Type your answer...',
+              hintStyle: TextStyle(
+                color: theme.textMuted.withValues(alpha: 0.5),
+              ),
+              filled: true,
+              fillColor: theme.bgRaised,
+              contentPadding: const EdgeInsets.symmetric(
+                horizontal: 14,
+                vertical: 12,
+              ),
+              border: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(12),
+                borderSide: BorderSide(
+                  color: theme.borderSubtle.withValues(alpha: 0.3),
+                ),
+              ),
+              enabledBorder: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(12),
+                borderSide: BorderSide(
+                  color: theme.borderSubtle.withValues(alpha: 0.3),
+                ),
+              ),
+              focusedBorder: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(12),
+                borderSide: BorderSide(color: theme.primary, width: 1.5),
+              ),
+            ),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(ctx),
+              child: Text(
+                'Cancel',
+                style: TextStyle(color: theme.textMuted, fontSize: 13),
+              ),
+            ),
+            TextButton(
+              onPressed: () => Navigator.pop(ctx, controller.text.trim()),
+              child: Text(
+                'Save',
+                style: TextStyle(
+                  color: theme.primary,
+                  fontSize: 13,
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
+            ),
+          ],
+        );
+      },
+    );
+    if (result == null) return;
+
+    setState(() {
+      final prev = _custom[qi];
+      _custom[qi] = result;
+      if (multiple) {
+        if (prev.isNotEmpty) _answers[qi].remove(prev);
+        if (result.isNotEmpty && !_answers[qi].contains(result)) {
+          _answers[qi].add(result);
+        }
+      } else {
+        _answers[qi]
+          ..clear()
+          ..add(result);
+      }
+    });
+
+    // Single question auto-submit for custom answer too
+    if (_isSingle && widget.request.questions.first.multiple != true) {
+      if (_answers[0].any((s) => s.trim().isNotEmpty)) _submit();
+      return;
+    }
+    if (!multiple && _currentPage < _totalQuestions - 1) {
+      Future.delayed(const Duration(milliseconds: 200), () {
+        if (mounted) setState(() => _currentPage++);
+      });
+    }
   }
 
   @override
   Widget build(BuildContext context) {
     final theme = OpenCodeTheme.of(context);
-    final questions = widget.request.questions;
+    final question = widget.request.questions[_currentPage];
 
     return SafeArea(
-      child: Container(
-        padding: const EdgeInsets.fromLTRB(16, 10, 16, 16),
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 200),
         decoration: BoxDecoration(
-          color: theme.backgroundPanel,
+          color: theme.bgSheet,
           borderRadius: const BorderRadius.vertical(top: Radius.circular(20)),
           border: Border(
-            top: BorderSide(color: theme.borderSubtle.withValues(alpha: 0.5)),
+            top: BorderSide(color: theme.borderSubtle.withValues(alpha: 0.2)),
           ),
         ),
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            Container(
-              width: 42,
-              height: 4,
-              decoration: BoxDecoration(
-                color: theme.textMuted.withValues(alpha: 0.5),
-                borderRadius: BorderRadius.circular(3),
+            _buildHeader(theme),
+            if (!_isSingle) _buildProgressDots(theme),
+            Flexible(
+              child: Padding(
+                padding: const EdgeInsets.fromLTRB(20, 4, 20, 0),
+                child: _buildQuestionBody(theme, question, _currentPage),
               ),
             ),
-            const SizedBox(height: 12),
-            Row(
+            _buildFooter(theme),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildHeader(OpenCodeTheme theme) {
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(20, 14, 12, 0),
+      child: Row(
+        children: [
+          Container(
+            width: 32,
+            height: 32,
+            decoration: BoxDecoration(
+              color: theme.primary.withValues(alpha: 0.12),
+              borderRadius: BorderRadius.circular(10),
+            ),
+            child: Icon(
+              Icons.help_outline_rounded,
+              size: 17,
+              color: theme.primary,
+            ),
+          ),
+          const SizedBox(width: 10),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Expanded(
-                  child: Text(
-                    'Quick question',
-                    style: TextStyle(
-                      color: theme.text,
-                      fontSize: 16,
-                      fontWeight: FontWeight.w600,
-                    ),
+                Text(
+                  'Agent question',
+                  style: TextStyle(
+                    color: theme.text,
+                    fontSize: 15,
+                    fontWeight: FontWeight.w600,
+                    letterSpacing: -0.3,
                   ),
                 ),
-                TextButton(
-                  onPressed: widget.onReject,
-                  child: Text('Dismiss', style: TextStyle(color: theme.textMuted)),
+                if (!_isSingle)
+                  Text(
+                    '${_currentPage + 1} of $_totalQuestions',
+                    style: TextStyle(color: theme.textMuted, fontSize: 12),
+                  ),
+              ],
+            ),
+          ),
+          IconButton(
+            onPressed: _submitted ? null : _dismiss,
+            icon: Icon(Icons.close_rounded, size: 20, color: theme.textMuted),
+            style: IconButton.styleFrom(
+              backgroundColor: theme.bgRaised,
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(10),
+              ),
+              minimumSize: const Size(36, 36),
+              maximumSize: const Size(36, 36),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildProgressDots(OpenCodeTheme theme) {
+    return Padding(
+      padding: const EdgeInsets.only(top: 12),
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: List.generate(_totalQuestions, (i) {
+          final isActive = i == _currentPage;
+          final isDone = _answers[i].any((s) => s.trim().isNotEmpty);
+          return AnimatedContainer(
+            duration: const Duration(milliseconds: 200),
+            width: isActive ? 20 : 6,
+            height: 6,
+            margin: const EdgeInsets.symmetric(horizontal: 3),
+            decoration: BoxDecoration(
+              color: isActive
+                  ? theme.primary
+                  : isDone
+                  ? theme.primary.withValues(alpha: 0.4)
+                  : theme.borderSubtle.withValues(alpha: 0.4),
+              borderRadius: BorderRadius.circular(3),
+            ),
+          );
+        }),
+      ),
+    );
+  }
+
+  Widget _buildQuestionBody(
+    OpenCodeTheme theme,
+    QuestionInfo question,
+    int qi,
+  ) {
+    final opts = question.options;
+    final isMultiple = question.multiple;
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        const SizedBox(height: 16),
+        // Question text
+        Text(
+          question.question,
+          style: TextStyle(
+            color: theme.text,
+            fontSize: 14,
+            fontWeight: FontWeight.w500,
+            height: 1.4,
+          ),
+        ),
+        const SizedBox(height: 14),
+        // Options as chips/cards
+        Flexible(
+          child: ListView(
+            shrinkWrap: true,
+            padding: EdgeInsets.zero,
+            children: [
+              for (final opt in opts)
+                _OptionTile(
+                  label: opt.label,
+                  description: opt.description,
+                  isSelected: _answers[qi].contains(opt.label),
+                  isMultiple: isMultiple,
+                  theme: theme,
+                  onTap: _submitted
+                      ? null
+                      : () {
+                          if (isMultiple) {
+                            _toggleMulti(qi, opt.label);
+                          } else {
+                            _pickSingle(qi, opt.label);
+                          }
+                        },
+                ),
+              // Custom answer option
+              _OptionTile(
+                label: _custom[qi].trim().isEmpty
+                    ? 'Type your own answer'
+                    : _custom[qi],
+                description: '',
+                isSelected:
+                    _custom[qi].trim().isNotEmpty &&
+                    _answers[qi].contains(_custom[qi]),
+                isMultiple: isMultiple,
+                isCustom: true,
+                theme: theme,
+                onTap: _submitted
+                    ? null
+                    : () => _editCustom(qi, multiple: isMultiple),
+              ),
+            ],
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildFooter(OpenCodeTheme theme) {
+    final showBackNext = !_isSingle;
+    final isLast = _currentPage == _totalQuestions - 1;
+    final isFirst = _currentPage == 0;
+
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(20, 8, 20, 16),
+      child: Row(
+        children: [
+          if (showBackNext && !isFirst)
+            _FooterButton(
+              label: 'Back',
+              theme: theme,
+              onTap: () => setState(() => _currentPage--),
+            ),
+          const Spacer(),
+          if (showBackNext && !isLast)
+            _FooterButton(
+              label: 'Next',
+              theme: theme,
+              isPrimary: _currentAnswered,
+              onTap: _currentAnswered
+                  ? () => setState(() => _currentPage++)
+                  : null,
+            ),
+          if (showBackNext && isLast)
+            _FooterButton(
+              label: 'Submit',
+              theme: theme,
+              isPrimary: _allAnswered,
+              onTap: (_allAnswered && !_submitted) ? _submit : null,
+            ),
+          // Single question with multiple: show submit
+          if (_isSingle && widget.request.questions.first.multiple == true)
+            _FooterButton(
+              label: 'Submit',
+              theme: theme,
+              isPrimary: _currentAnswered,
+              onTap: (_currentAnswered && !_submitted) ? _submit : null,
+            ),
+        ],
+      ),
+    );
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Option tile - modern card-style option
+// ---------------------------------------------------------------------------
+class _OptionTile extends StatelessWidget {
+  const _OptionTile({
+    required this.label,
+    required this.description,
+    required this.isSelected,
+    required this.isMultiple,
+    required this.theme,
+    this.isCustom = false,
+    this.onTap,
+  });
+
+  final String label;
+  final String description;
+  final bool isSelected;
+  final bool isMultiple;
+  final bool isCustom;
+  final OpenCodeTheme theme;
+  final VoidCallback? onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 8),
+      child: Material(
+        color: Colors.transparent,
+        child: InkWell(
+          onTap: onTap,
+          borderRadius: BorderRadius.circular(12),
+          child: AnimatedContainer(
+            duration: const Duration(milliseconds: 150),
+            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+            decoration: BoxDecoration(
+              color: isSelected
+                  ? theme.primary.withValues(alpha: 0.08)
+                  : theme.bgRaised,
+              borderRadius: BorderRadius.circular(12),
+              border: Border.all(
+                color: isSelected
+                    ? theme.primary.withValues(alpha: 0.5)
+                    : theme.borderSubtle.withValues(alpha: 0.2),
+                width: isSelected ? 1.5 : 1,
+              ),
+            ),
+            child: Row(
+              children: [
+                // Selection indicator
+                AnimatedContainer(
+                  duration: const Duration(milliseconds: 150),
+                  width: 20,
+                  height: 20,
+                  decoration: BoxDecoration(
+                    color: isSelected ? theme.primary : Colors.transparent,
+                    shape: isMultiple ? BoxShape.rectangle : BoxShape.circle,
+                    borderRadius: isMultiple ? BorderRadius.circular(5) : null,
+                    border: Border.all(
+                      color: isSelected
+                          ? theme.primary
+                          : theme.textMuted.withValues(alpha: 0.3),
+                      width: 1.5,
+                    ),
+                  ),
+                  child: isSelected
+                      ? Icon(
+                          Icons.check_rounded,
+                          size: 14,
+                          color: theme.bgSheet,
+                        )
+                      : isCustom
+                      ? Icon(
+                          Icons.edit_rounded,
+                          size: 11,
+                          color: theme.textMuted.withValues(alpha: 0.4),
+                        )
+                      : null,
+                ),
+                const SizedBox(width: 12),
+                // Label + description
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        label,
+                        style: TextStyle(
+                          color: isSelected
+                              ? theme.text
+                              : theme.text.withValues(alpha: 0.85),
+                          fontSize: 13.5,
+                          fontWeight: isSelected
+                              ? FontWeight.w600
+                              : FontWeight.w400,
+                        ),
+                        maxLines: 2,
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                      if (description.isNotEmpty) ...[
+                        const SizedBox(height: 2),
+                        Text(
+                          description,
+                          style: TextStyle(
+                            color: theme.textMuted.withValues(alpha: 0.7),
+                            fontSize: 12,
+                          ),
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                      ],
+                    ],
+                  ),
                 ),
               ],
             ),
-            if (!_isSingleAutoSubmit) ...[
-              const SizedBox(height: 8),
-              Align(
-                alignment: Alignment.centerLeft,
-                child: TabBar(
-                  controller: _tabController,
-                  isScrollable: true,
-                  indicatorColor: theme.primary,
-                  labelColor: theme.text,
-                  unselectedLabelColor: theme.textMuted,
-                  tabs: [
-                    for (final q in questions)
-                      Tab(text: q.header.isNotEmpty ? q.header : 'Q'),
-                    const Tab(text: 'Confirm'),
-                  ],
-                ),
-              ),
-            ],
-            const SizedBox(height: 12),
-            Flexible(
-              child: TabBarView(
-                controller: _tabController,
-                children: [
-                  for (var qi = 0; qi < questions.length; qi++)
-                    _QuestionTab(
-                      question: questions[qi],
-                      theme: theme,
-                      multiple: questions[qi].multiple,
-                      selected: _answers[qi],
-                      otherPicked: _isOtherSelected(qi),
-                      otherText: _custom[qi],
-                      onPickSingle: (v) => _pickSingle(qi, v),
-                      onToggleMulti: (v) => _toggleMulti(qi, v),
-                      onEditOther: () =>
-                          _editOther(qi, multiple: questions[qi].multiple),
-                      showNext: !_isSingleAutoSubmit,
-                      onNext: () {
-                        if (_tabController.index < _tabController.length - 1) {
-                          _tabController.animateTo(_tabController.index + 1);
-                        }
-                      },
-                    ),
-                  if (!_isSingleAutoSubmit)
-                    _ConfirmTab(
-                      theme: theme,
-                      questions: questions,
-                      answers: _answers,
-                      onSubmit: () => widget.onReply(_answers),
-                      onBack: () {
-                        if (_tabController.index > 0) {
-                          _tabController.animateTo(_tabController.index - 1);
-                        }
-                      },
-                    ),
-                ],
-              ),
-            ),
-          ],
+          ),
         ),
       ),
     );
   }
 }
 
-class _QuestionTab extends StatelessWidget {
-  const _QuestionTab({
-    required this.question,
+// ---------------------------------------------------------------------------
+// Footer button
+// ---------------------------------------------------------------------------
+class _FooterButton extends StatelessWidget {
+  const _FooterButton({
+    required this.label,
     required this.theme,
-    required this.multiple,
-    required this.selected,
-    required this.otherPicked,
-    required this.otherText,
-    required this.onPickSingle,
-    required this.onToggleMulti,
-    required this.onEditOther,
-    required this.showNext,
-    required this.onNext,
+    this.isPrimary = false,
+    this.onTap,
   });
 
-  final QuestionInfo question;
+  final String label;
   final OpenCodeTheme theme;
-  final bool multiple;
-  final List<String> selected;
-  final bool otherPicked;
-  final String otherText;
-  final void Function(String) onPickSingle;
-  final void Function(String) onToggleMulti;
-  final VoidCallback onEditOther;
-  final bool showNext;
-  final VoidCallback onNext;
+  final bool isPrimary;
+  final VoidCallback? onTap;
 
   @override
   Widget build(BuildContext context) {
-    final opts = question.options;
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.stretch,
-      children: [
-        Text(
-          question.question,
+    final enabled = onTap != null;
+    return GestureDetector(
+      onTap: onTap,
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 150),
+        padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
+        decoration: BoxDecoration(
+          color: isPrimary && enabled ? theme.primary : theme.bgRaised,
+          borderRadius: BorderRadius.circular(10),
+          border: Border.all(
+            color: isPrimary && enabled
+                ? theme.primary
+                : theme.borderSubtle.withValues(alpha: 0.2),
+          ),
+        ),
+        child: Text(
+          label,
           style: TextStyle(
-            color: theme.text,
-            fontSize: 14,
+            color: isPrimary && enabled
+                ? Colors.white
+                : enabled
+                ? theme.text
+                : theme.textMuted.withValues(alpha: 0.4),
+            fontSize: 13,
             fontWeight: FontWeight.w600,
           ),
         ),
-        const SizedBox(height: 10),
-        Expanded(
-          child: ListView(
-            children: [
-              for (final opt in opts)
-                multiple
-                    ? CheckboxListTile(
-                        value: selected.contains(opt.label),
-                        onChanged: (_) => onToggleMulti(opt.label),
-                        controlAffinity: ListTileControlAffinity.leading,
-                        activeColor: theme.primary,
-                        title: Text(opt.label, style: TextStyle(color: theme.text)),
-                        subtitle: opt.description.isNotEmpty
-                            ? Text(
-                                opt.description,
-                                style: TextStyle(color: theme.textMuted, fontSize: 12),
-                              )
-                            : null,
-                      )
-                    : RadioListTile<String>(
-                        value: opt.label,
-                        groupValue: selected.isEmpty ? null : selected.first,
-                        onChanged: (v) {
-                          if (v == null) return;
-                          onPickSingle(v);
-                        },
-                        activeColor: theme.primary,
-                        title: Text(opt.label, style: TextStyle(color: theme.text)),
-                        subtitle: opt.description.isNotEmpty
-                            ? Text(
-                                opt.description,
-                                style: TextStyle(color: theme.textMuted, fontSize: 12),
-                              )
-                            : null,
-                      ),
-              const Divider(height: 16),
-              ListTile(
-                leading: Icon(
-                  multiple ? (otherPicked ? Icons.check_box : Icons.check_box_outline_blank) : Icons.edit_note_rounded,
-                  color: theme.textMuted,
-                ),
-                title: Text(
-                  otherText.trim().isEmpty ? 'Other…' : 'Other: $otherText',
-                  style: TextStyle(color: theme.text),
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                ),
-                subtitle: Text(
-                  multiple
-                      ? 'Add a custom option (toggleable)'
-                      : 'Write a custom answer',
-                  style: TextStyle(color: theme.textMuted, fontSize: 12),
-                ),
-                onTap: onEditOther,
-              ),
-            ],
-          ),
-        ),
-        if (showNext)
-          Padding(
-            padding: const EdgeInsets.only(top: 8),
-            child: Row(
-              children: [
-                const Spacer(),
-                TextButton(
-                  onPressed: onNext,
-                  child: Text('Next', style: TextStyle(color: theme.primary)),
-                ),
-              ],
-            ),
-          ),
-      ],
+      ),
     );
   }
 }
-
-class _ConfirmTab extends StatelessWidget {
-  const _ConfirmTab({
-    required this.theme,
-    required this.questions,
-    required this.answers,
-    required this.onSubmit,
-    required this.onBack,
-  });
-
-  final OpenCodeTheme theme;
-  final List<QuestionInfo> questions;
-  final List<List<String>> answers;
-  final VoidCallback onSubmit;
-  final VoidCallback onBack;
-
-  bool get _canSubmit {
-    for (final a in answers) {
-      if (a.where((x) => x.trim().isNotEmpty).isEmpty) return false;
-    }
-    return true;
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.stretch,
-      children: [
-        Text(
-          'Confirm',
-          style: TextStyle(
-            color: theme.text,
-            fontSize: 14,
-            fontWeight: FontWeight.w600,
-          ),
-        ),
-        const SizedBox(height: 10),
-        Expanded(
-          child: ListView.builder(
-            itemCount: questions.length,
-            itemBuilder: (ctx, i) {
-              final q = questions[i];
-              final a = answers[i].where((x) => x.trim().isNotEmpty).toList();
-              return Container(
-                margin: const EdgeInsets.only(bottom: 10),
-                padding: const EdgeInsets.all(12),
-                decoration: BoxDecoration(
-                  color: theme.backgroundElement,
-                  borderRadius: BorderRadius.circular(12),
-                  border: Border.all(color: theme.borderSubtle),
-                ),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      q.header.isNotEmpty ? q.header : 'Question ${i + 1}',
-                      style: TextStyle(
-                        color: theme.textMuted,
-                        fontSize: 12,
-                        fontWeight: FontWeight.w600,
-                      ),
-                    ),
-                    const SizedBox(height: 6),
-                    Text(
-                      a.isEmpty ? 'No answer' : a.join(', '),
-                      style: TextStyle(color: theme.text, fontSize: 13),
-                    ),
-                  ],
-                ),
-              );
-            },
-          ),
-        ),
-        Row(
-          children: [
-            TextButton(
-              onPressed: onBack,
-              child: Text('Back', style: TextStyle(color: theme.textMuted)),
-            ),
-            const Spacer(),
-            ElevatedButton(
-              onPressed: _canSubmit ? onSubmit : null,
-              style: ElevatedButton.styleFrom(
-                backgroundColor: theme.primary,
-                foregroundColor: Colors.white,
-              ),
-              child: const Text('Submit'),
-            ),
-          ],
-        ),
-      ],
-    );
-  }
-}
-

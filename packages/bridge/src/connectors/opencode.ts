@@ -428,13 +428,17 @@ export class OpenCodeConnector {
     )
   }
 
-  async replyToQuestion(requestId: string, answers: string[][]): Promise<boolean> {
+  async replyToQuestion(requestId: string, answers: string[][], directory?: string): Promise<boolean> {
     try {
       const url = new URL(`/question/${encodeURIComponent(requestId)}/reply`, this.baseUrl)
+      if (directory) {
+        url.searchParams.set('directory', directory)
+      }
       const body = JSON.stringify({ answers })
       if (DEBUG_RTS) {
         console.log('[OC Connector] replyToQuestion:', {
           requestId,
+          directory,
           url: url.toString(),
           body,
         })
@@ -478,11 +482,14 @@ export class OpenCodeConnector {
     }
   }
 
-  async rejectQuestion(requestId: string): Promise<boolean> {
+  async rejectQuestion(requestId: string, directory?: string): Promise<boolean> {
     try {
       const url = new URL(`/question/${encodeURIComponent(requestId)}/reject`, this.baseUrl)
+      if (directory) {
+        url.searchParams.set('directory', directory)
+      }
       if (DEBUG_RTS) {
-        console.log('[OC Connector] rejectQuestion:', { requestId, url: url.toString() })
+        console.log('[OC Connector] rejectQuestion:', { requestId, directory, url: url.toString() })
       }
       const res = await fetch(url.toString(), {
         method: 'POST',

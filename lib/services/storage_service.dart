@@ -45,6 +45,8 @@ class StorageService {
 
   // Prompt accent key
   static const _promptAccentColorKey = 'broski_prompt_accent_color';
+  // Glow style key
+  static const _glowStyleKey = 'broski_glow_style';
 
   // Card style keys
   static const _cardHeaderStyleKey = 'broski_card_header_style';
@@ -1688,6 +1690,16 @@ class StorageService {
   /// Save selected prompt accent color
   Future<void> savePromptAccentColor(String colorName) async {
     await _storage.write(key: _promptAccentColorKey, value: colorName);
+  }
+
+  /// Get selected glow style
+  Future<String?> getGlowStyle() async {
+    return _storage.read(key: _glowStyleKey);
+  }
+
+  /// Save selected glow style
+  Future<void> saveGlowStyle(String styleName) async {
+    await _storage.write(key: _glowStyleKey, value: styleName);
   }
 
   // ============================================================

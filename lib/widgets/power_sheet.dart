@@ -106,49 +106,44 @@ class _PowerSheetState extends ConsumerState<PowerSheet> {
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             // ===== ATTACH SECTION =====
-            _SectionHeader(
-              icon: Icons.add_circle_outline_rounded,
-              title: 'Attach',
-              theme: theme,
-            ),
-            const SizedBox(height: 14),
-            Row(
-              children: [
-                Expanded(
-                  child: _QuickActionCard(
-                    icon: Icons.attach_file_rounded,
-                    label: 'Attach File',
-                    theme: theme,
-                    onTap: () {
-                      Navigator.pop(context);
-                      widget.onAttachFile?.call();
-                    },
+            _SectionHeader(title: 'Attach', theme: theme),
+            const SizedBox(height: 12),
+            IntrinsicHeight(
+              child: Row(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  Expanded(
+                    child: _QuickActionCard(
+                      icon: Icons.attach_file_rounded,
+                      label: 'Attach File',
+                      theme: theme,
+                      onTap: () {
+                        Navigator.pop(context);
+                        widget.onAttachFile?.call();
+                      },
+                    ),
                   ),
-                ),
-                const SizedBox(width: 10),
-                Expanded(
-                  child: _QuickActionCard(
-                    icon: Icons.camera_alt_outlined,
-                    label: 'Take Photo',
-                    theme: theme,
-                    onTap: () {
-                      Navigator.pop(context);
-                      widget.onTakePhoto?.call();
-                    },
+                  const SizedBox(width: 10),
+                  Expanded(
+                    child: _QuickActionCard(
+                      icon: Icons.camera_alt_outlined,
+                      label: 'Take Photo',
+                      theme: theme,
+                      onTap: () {
+                        Navigator.pop(context);
+                        widget.onTakePhoto?.call();
+                      },
+                    ),
                   ),
-                ),
-              ],
+                ],
+              ),
             ),
-            const SizedBox(height: 24),
+            const SizedBox(height: 28),
 
             // ===== MODEL SECTION =====
             if (widget.onModelTap != null) ...[
-              _SectionHeader(
-                icon: Icons.auto_awesome_rounded,
-                title: 'Model',
-                theme: theme,
-              ),
-              const SizedBox(height: 14),
+              _SectionHeader(title: 'Model', theme: theme),
+              const SizedBox(height: 12),
               _ModelCard(
                 model: widget.currentModel,
                 theme: theme,
@@ -157,17 +152,13 @@ class _PowerSheetState extends ConsumerState<PowerSheet> {
                   widget.onModelTap?.call();
                 },
               ),
-              const SizedBox(height: 24),
+              const SizedBox(height: 28),
             ],
 
             // ===== THINKING LEVEL SECTION =====
             if (widget.availableVariants.isNotEmpty) ...[
-              _SectionHeader(
-                icon: Icons.psychology_outlined,
-                title: _getThinkingLevelTitle(),
-                theme: theme,
-              ),
-              const SizedBox(height: 14),
+              _SectionHeader(title: _getThinkingLevelTitle(), theme: theme),
+              const SizedBox(height: 12),
               Wrap(
                 spacing: 8,
                 runSpacing: 8,
@@ -194,51 +185,38 @@ class _PowerSheetState extends ConsumerState<PowerSheet> {
                   ),
                 ],
               ),
-              const SizedBox(height: 24),
+              const SizedBox(height: 28),
             ],
 
             // ===== OPENCODE: AGENT SECTION =====
             // Only show native agents (build/plan) - custom agents are @-tagged
             if (widget.backend == AgentType.opencode &&
                 nativeAgents.isNotEmpty) ...[
-              _SectionHeader(
-                icon: Icons.smart_toy_outlined,
-                title: 'Agent',
-                theme: theme,
-              ),
-              const SizedBox(height: 14),
+              _SectionHeader(title: 'Agent', theme: theme),
+              const SizedBox(height: 12),
               _buildOpenCodeAgents(theme, nativeAgents),
-              const SizedBox(height: 24),
+              const SizedBox(height: 28),
             ],
 
             // ===== CLAUDE CODE: PERMISSION MODE SECTION =====
             if (widget.backend == AgentType.claudeCode) ...[
-              _SectionHeader(
-                icon: Icons.shield_outlined,
-                title: 'Permission Mode',
-                theme: theme,
-              ),
-              const SizedBox(height: 14),
+              _SectionHeader(title: 'Permission Mode', theme: theme),
+              const SizedBox(height: 12),
               _buildClaudeCodePermissionModes(theme),
-              const SizedBox(height: 24),
+              const SizedBox(height: 28),
             ],
 
             // ===== CODEX: COLLABORATION MODE SECTION =====
             if (widget.backend == AgentType.codex) ...[
-              _SectionHeader(
-                icon: Icons.groups_outlined,
-                title: 'Collaboration Mode',
-                theme: theme,
-              ),
-              const SizedBox(height: 14),
+              _SectionHeader(title: 'Collaboration Mode', theme: theme),
+              const SizedBox(height: 12),
               _buildCodexCollabModes(theme),
-              const SizedBox(height: 24),
+              const SizedBox(height: 28),
             ],
 
             // ===== OPENCODE: PERMISSION PRESETS SECTION =====
             if (widget.backend == AgentType.opencode) ...[
               _SectionHeader(
-                icon: Icons.shield_outlined,
                 title: 'Permissions',
                 theme: theme,
                 trailing: GestureDetector(
@@ -256,9 +234,9 @@ class _PowerSheetState extends ConsumerState<PowerSheet> {
                   ),
                 ),
               ),
-              const SizedBox(height: 14),
+              const SizedBox(height: 12),
               _buildOpenCodePermissionPresets(theme, rulesState),
-              const SizedBox(height: 24),
+              const SizedBox(height: 28),
             ],
 
             // ===== PROJECT TOOLS BUTTON =====
@@ -347,28 +325,28 @@ class _PowerSheetState extends ConsumerState<PowerSheet> {
     // Custom agents are accessed via @-mention in the chat input
     if (agents.isEmpty) return const SizedBox.shrink();
 
-    return Row(
-      children: agents.map((agent) {
-        final isSelected = agent.name == widget.currentAgent;
-        return Expanded(
-          child: Padding(
-            padding: EdgeInsets.only(right: agent == agents.last ? 0 : 10),
-            child: _AgentCard(
-              name: agent.displayName,
-              description: agent.name == 'build'
-                  ? 'Full access for development'
-                  : 'Read-only for analysis',
-              color: agent.displayColor,
-              isSelected: isSelected,
-              theme: theme,
-              onTap: () {
-                widget.onAgentChanged?.call(agent.name);
-                Navigator.pop(context);
-              },
+    return IntrinsicHeight(
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: agents.map((agent) {
+          final isSelected = agent.name == widget.currentAgent;
+          return Expanded(
+            child: Padding(
+              padding: EdgeInsets.only(right: agent == agents.last ? 0 : 10),
+              child: _AgentCard(
+                name: agent.displayName,
+                description: agent.name == 'build' ? 'Development' : 'Analysis',
+                isSelected: isSelected,
+                theme: theme,
+                onTap: () {
+                  widget.onAgentChanged?.call(agent.name);
+                  Navigator.pop(context);
+                },
+              ),
             ),
-          ),
-        );
-      }).toList(),
+          );
+        }).toList(),
+      ),
     );
   }
 
@@ -404,26 +382,29 @@ class _PowerSheetState extends ConsumerState<PowerSheet> {
   }
 
   Widget _buildCodexCollabModes(OpenCodeTheme theme) {
-    return Row(
-      children: CodexCollaborationMode.values.map((mode) {
-        final isSelected = widget.codexCollabMode == mode;
-        return Expanded(
-          child: Padding(
-            padding: EdgeInsets.only(
-              right: mode == CodexCollaborationMode.values.last ? 0 : 8,
+    return IntrinsicHeight(
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: CodexCollaborationMode.values.map((mode) {
+          final isSelected = widget.codexCollabMode == mode;
+          return Expanded(
+            child: Padding(
+              padding: EdgeInsets.only(
+                right: mode == CodexCollaborationMode.values.last ? 0 : 8,
+              ),
+              child: _CollabModeCard(
+                mode: mode,
+                isSelected: isSelected,
+                theme: theme,
+                onTap: () {
+                  widget.onCodexCollabModeChanged?.call(mode);
+                  Navigator.pop(context);
+                },
+              ),
             ),
-            child: _CollabModeCard(
-              mode: mode,
-              isSelected: isSelected,
-              theme: theme,
-              onTap: () {
-                widget.onCodexCollabModeChanged?.call(mode);
-                Navigator.pop(context);
-              },
-            ),
-          ),
-        );
-      }).toList(),
+          );
+        }).toList(),
+      ),
     );
   }
 
@@ -437,25 +418,27 @@ class _PowerSheetState extends ConsumerState<PowerSheet> {
         .take(3)
         .toList();
 
-    return Row(
-      children: presets.map((preset) {
-        final isSelected = rulesState.preset == preset;
-        return Expanded(
-          child: Padding(
-            padding: EdgeInsets.only(right: preset == presets.last ? 0 : 8),
-            child: _PresetCard(
-              name: preset.shortName,
-              description: preset.description,
-              isSelected: isSelected,
-              theme: theme,
-              onTap: () {
-                ref.read(permissionRulesProvider.notifier).setPreset(preset);
-                Navigator.pop(context);
-              },
+    return IntrinsicHeight(
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: presets.map((preset) {
+          final isSelected = rulesState.preset == preset;
+          return Expanded(
+            child: Padding(
+              padding: EdgeInsets.only(right: preset == presets.last ? 0 : 8),
+              child: _PresetCard(
+                name: preset.shortName,
+                isSelected: isSelected,
+                theme: theme,
+                onTap: () {
+                  ref.read(permissionRulesProvider.notifier).setPreset(preset);
+                  Navigator.pop(context);
+                },
+              ),
             ),
-          ),
-        );
-      }).toList(),
+          );
+        }).toList(),
+      ),
     );
   }
 }
@@ -466,13 +449,11 @@ class _PowerSheetState extends ConsumerState<PowerSheet> {
 
 class _SectionHeader extends StatelessWidget {
   const _SectionHeader({
-    required this.icon,
     required this.title,
     required this.theme,
     this.trailing,
   });
 
-  final IconData icon;
   final String title;
   final OpenCodeTheme theme;
   final Widget? trailing;
@@ -481,15 +462,12 @@ class _SectionHeader extends StatelessWidget {
   Widget build(BuildContext context) {
     return Row(
       children: [
-        Icon(icon, color: theme.textMuted, size: 18),
-        const SizedBox(width: 8),
         Text(
           title,
           style: TextStyle(
             fontSize: 13,
-            fontWeight: FontWeight.w600,
-            color: theme.textMuted,
-            letterSpacing: 0.5,
+            fontWeight: FontWeight.w500,
+            color: theme.textMuted.withValues(alpha: 0.7),
           ),
         ),
         if (trailing != null) ...[const Spacer(), trailing!],
@@ -583,19 +561,6 @@ class _ModelCard extends StatelessWidget {
         ),
         child: Row(
           children: [
-            Container(
-              padding: const EdgeInsets.all(8),
-              decoration: BoxDecoration(
-                color: theme.primary.withValues(alpha: 0.12),
-                borderRadius: BorderRadius.circular(8),
-              ),
-              child: Icon(
-                Icons.auto_awesome_rounded,
-                size: 18,
-                color: theme.primary,
-              ),
-            ),
-            const SizedBox(width: 12),
             Expanded(
               child: Text(
                 _formatModel(model),
@@ -635,7 +600,7 @@ class _VariantChip extends StatelessWidget {
         padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
         decoration: BoxDecoration(
           color: isSelected
-              ? theme.primary.withValues(alpha: 0.15)
+              ? theme.primary.withValues(alpha: 0.08)
               : theme.backgroundPanel,
           borderRadius: BorderRadius.circular(20),
           border: Border.all(
@@ -659,7 +624,6 @@ class _AgentCard extends StatelessWidget {
   const _AgentCard({
     required this.name,
     required this.description,
-    required this.color,
     required this.isSelected,
     required this.theme,
     required this.onTap,
@@ -667,7 +631,6 @@ class _AgentCard extends StatelessWidget {
 
   final String name;
   final String description;
-  final Color color;
   final bool isSelected;
   final OpenCodeTheme theme;
   final VoidCallback onTap;
@@ -678,51 +641,32 @@ class _AgentCard extends StatelessWidget {
       onTap: onTap,
       borderRadius: BorderRadius.circular(12),
       child: Container(
-        padding: const EdgeInsets.all(14),
+        padding: const EdgeInsets.symmetric(vertical: 16, horizontal: 14),
         decoration: BoxDecoration(
           color: isSelected
-              ? color.withValues(alpha: 0.12)
+              ? theme.primary.withValues(alpha: 0.08)
               : theme.backgroundPanel,
           borderRadius: BorderRadius.circular(12),
           border: Border.all(
-            color: isSelected ? color : theme.borderSubtle,
-            width: isSelected ? 2 : 1,
+            color: isSelected ? theme.primary : theme.borderSubtle,
           ),
         ),
         child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
+          mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            Row(
-              children: [
-                Container(
-                  width: 10,
-                  height: 10,
-                  decoration: BoxDecoration(
-                    color: color,
-                    shape: BoxShape.circle,
-                  ),
-                ),
-                const SizedBox(width: 8),
-                Expanded(
-                  child: Text(
-                    name,
-                    style: TextStyle(
-                      fontSize: 14,
-                      fontWeight: FontWeight.w600,
-                      color: theme.text,
-                    ),
-                  ),
-                ),
-                if (isSelected)
-                  Icon(Icons.check_rounded, size: 16, color: color),
-              ],
+            Text(
+              name,
+              style: TextStyle(
+                fontSize: 14,
+                fontWeight: FontWeight.w600,
+                color: isSelected ? theme.primary : theme.text,
+              ),
             ),
-            const SizedBox(height: 6),
+            const SizedBox(height: 4),
             Text(
               description,
               style: TextStyle(fontSize: 11, color: theme.textMuted),
-              maxLines: 2,
-              overflow: TextOverflow.ellipsis,
+              textAlign: TextAlign.center,
             ),
           ],
         ),
@@ -857,12 +801,11 @@ class _PermissionModeCard extends StatelessWidget {
           padding: const EdgeInsets.all(14),
           decoration: BoxDecoration(
             color: isSelected
-                ? theme.primary.withValues(alpha: 0.1)
+                ? theme.primary.withValues(alpha: 0.08)
                 : theme.backgroundPanel,
             borderRadius: BorderRadius.circular(12),
             border: Border.all(
               color: isSelected ? theme.primary : theme.borderSubtle,
-              width: isSelected ? 2 : 1,
             ),
           ),
           child: Row(
@@ -876,7 +819,7 @@ class _PermissionModeCard extends StatelessWidget {
                       style: TextStyle(
                         fontSize: 14,
                         fontWeight: FontWeight.w600,
-                        color: theme.text,
+                        color: isSelected ? theme.primary : theme.text,
                       ),
                     ),
                     const SizedBox(height: 2),
@@ -888,7 +831,7 @@ class _PermissionModeCard extends StatelessWidget {
                 ),
               ),
               if (isSelected)
-                Icon(Icons.check_circle, size: 20, color: theme.primary),
+                Icon(Icons.check_rounded, size: 18, color: theme.primary),
             ],
           ),
         ),
@@ -910,80 +853,50 @@ class _CollabModeCard extends StatelessWidget {
   final OpenCodeTheme theme;
   final VoidCallback onTap;
 
-  Color _getModeColor() {
-    switch (mode) {
-      case CodexCollaborationMode.plan:
-        return Colors.amber;
-      case CodexCollaborationMode.pairProgramming:
-        return theme.primary;
-      case CodexCollaborationMode.execute:
-        return Colors.green;
-    }
-  }
-
   @override
   Widget build(BuildContext context) {
-    final color = _getModeColor();
     return InkWell(
       onTap: onTap,
       borderRadius: BorderRadius.circular(12),
       child: Container(
-        padding: const EdgeInsets.all(12),
+        padding: const EdgeInsets.symmetric(vertical: 16, horizontal: 12),
         decoration: BoxDecoration(
           color: isSelected
-              ? color.withValues(alpha: 0.12)
+              ? theme.primary.withValues(alpha: 0.08)
               : theme.backgroundPanel,
           borderRadius: BorderRadius.circular(12),
           border: Border.all(
-            color: isSelected ? color : theme.borderSubtle,
-            width: isSelected ? 2 : 1,
+            color: isSelected ? theme.primary : theme.borderSubtle,
           ),
         ),
         child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            Icon(
-              _getModeIcon(),
-              size: 22,
-              color: isSelected ? color : theme.textMuted,
-            ),
-            const SizedBox(height: 6),
             Text(
               mode.displayName,
               style: TextStyle(
-                fontSize: 12,
+                fontSize: 13,
                 fontWeight: isSelected ? FontWeight.w600 : FontWeight.w500,
-                color: isSelected ? color : theme.text,
+                color: isSelected ? theme.primary : theme.text,
               ),
+              textAlign: TextAlign.center,
             ),
           ],
         ),
       ),
     );
   }
-
-  IconData _getModeIcon() {
-    switch (mode) {
-      case CodexCollaborationMode.plan:
-        return Icons.edit_note_rounded;
-      case CodexCollaborationMode.pairProgramming:
-        return Icons.people_rounded;
-      case CodexCollaborationMode.execute:
-        return Icons.rocket_launch_rounded;
-    }
-  }
 }
 
 class _PresetCard extends StatelessWidget {
   const _PresetCard({
     required this.name,
-    required this.description,
     required this.isSelected,
     required this.theme,
     required this.onTap,
   });
 
   final String name;
-  final String description;
   final bool isSelected;
   final OpenCodeTheme theme;
   final VoidCallback onTap;
@@ -992,36 +905,28 @@ class _PresetCard extends StatelessWidget {
   Widget build(BuildContext context) {
     return InkWell(
       onTap: onTap,
-      borderRadius: BorderRadius.circular(12),
+      borderRadius: BorderRadius.circular(20),
       child: Container(
-        padding: const EdgeInsets.all(12),
+        padding: const EdgeInsets.symmetric(vertical: 10, horizontal: 14),
         decoration: BoxDecoration(
           color: isSelected
               ? theme.primary.withValues(alpha: 0.1)
               : theme.backgroundPanel,
-          borderRadius: BorderRadius.circular(12),
+          borderRadius: BorderRadius.circular(20),
           border: Border.all(
             color: isSelected ? theme.primary : theme.borderSubtle,
-            width: isSelected ? 2 : 1,
           ),
         ),
-        child: Column(
-          children: [
-            Text(
-              name,
-              style: TextStyle(
-                fontSize: 13,
-                fontWeight: isSelected ? FontWeight.w600 : FontWeight.w500,
-                color: isSelected ? theme.primary : theme.text,
-              ),
+        child: Center(
+          child: Text(
+            name,
+            style: TextStyle(
+              fontSize: 13,
+              fontWeight: isSelected ? FontWeight.w600 : FontWeight.w500,
+              color: isSelected ? theme.primary : theme.text,
             ),
-            const SizedBox(height: 2),
-            Text(
-              description,
-              style: TextStyle(fontSize: 10, color: theme.textMuted),
-              textAlign: TextAlign.center,
-            ),
-          ],
+            textAlign: TextAlign.center,
+          ),
         ),
       ),
     );
@@ -1045,27 +950,14 @@ class _ProjectToolsButton extends StatelessWidget {
       onTap: onTap,
       borderRadius: BorderRadius.circular(12),
       child: Container(
-        padding: const EdgeInsets.all(16),
+        padding: const EdgeInsets.all(14),
         decoration: BoxDecoration(
-          color: theme.accent.withValues(alpha: 0.08),
+          color: theme.backgroundPanel,
           borderRadius: BorderRadius.circular(12),
-          border: Border.all(color: theme.accent.withValues(alpha: 0.3)),
+          border: Border.all(color: theme.borderSubtle),
         ),
         child: Row(
           children: [
-            Container(
-              padding: const EdgeInsets.all(8),
-              decoration: BoxDecoration(
-                color: theme.accent.withValues(alpha: 0.15),
-                borderRadius: BorderRadius.circular(8),
-              ),
-              child: Icon(
-                Icons.grid_view_rounded,
-                size: 20,
-                color: theme.accent,
-              ),
-            ),
-            const SizedBox(width: 14),
             Expanded(
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
@@ -1078,6 +970,7 @@ class _ProjectToolsButton extends StatelessWidget {
                       color: theme.text,
                     ),
                   ),
+                  const SizedBox(height: 2),
                   Text(
                     _getToolsDescription(),
                     style: TextStyle(fontSize: 12, color: theme.textMuted),
@@ -1085,7 +978,7 @@ class _ProjectToolsButton extends StatelessWidget {
                 ],
               ),
             ),
-            Icon(Icons.chevron_right_rounded, size: 20, color: theme.accent),
+            Icon(Icons.chevron_right_rounded, size: 20, color: theme.textMuted),
           ],
         ),
       ),

@@ -1,9 +1,11 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../models/glow_style.dart';
 import '../models/highlight_color.dart';
 import '../models/nav_bar_style.dart';
 import '../models/prompt_accent_color.dart';
+import '../providers/glow_style_provider.dart';
 import '../providers/highlights_provider.dart';
 import '../providers/input_style_provider.dart';
 import '../providers/nav_bar_style_provider.dart';
@@ -36,6 +38,7 @@ class CustomizationScreen extends ConsumerWidget {
     final highlights = ref.watch(highlightsProvider);
     final selectedHighlightColor = highlights.color;
     final promptAccent = ref.watch(promptAccentProvider);
+    final glowStyle = ref.watch(glowStyleProvider);
     final ocTheme = OpenCodeTheme.of(context);
 
     return Scaffold(
@@ -162,13 +165,52 @@ class CustomizationScreen extends ConsumerWidget {
             ),
           ),
 
-          // Only show prompt accent when CLI style is selected
-          if (inputStyle == InputBarStyle.cli) ...[
-            const SizedBox(height: 28),
+          const SizedBox(height: 28),
 
-            // Prompt Accent Section
-            _SectionHeader(title: 'Prompt Accent'),
-            const SizedBox(height: 12),
+          // Prompt Glow Section — applies to both input bar styles
+          _SectionHeader(title: 'Prompt Glow'),
+          const SizedBox(height: 12),
+
+          // Glow Style picker
+          _SettingsCard(
+            child: Column(
+              children: [
+                _RadioTile(
+                  title: 'No Glow',
+                  subtitle: 'Clean, minimal input bar',
+                  icon: Icons.block_rounded,
+                  isSelected: glowStyle == GlowStyle.none,
+                  onTap: () => ref
+                      .read(glowStyleProvider.notifier)
+                      .setStyle(GlowStyle.none),
+                ),
+                _Divider(),
+                _RadioTile(
+                  title: 'Left Only',
+                  subtitle: 'Accent glow on the left edge',
+                  icon: Icons.border_left_rounded,
+                  isSelected: glowStyle == GlowStyle.leftOnly,
+                  onTap: () => ref
+                      .read(glowStyleProvider.notifier)
+                      .setStyle(GlowStyle.leftOnly),
+                ),
+                _Divider(),
+                _RadioTile(
+                  title: 'Full Border',
+                  subtitle: 'Glow along the entire visible border',
+                  icon: Icons.border_all_rounded,
+                  isSelected: glowStyle == GlowStyle.fullBorder,
+                  onTap: () => ref
+                      .read(glowStyleProvider.notifier)
+                      .setStyle(GlowStyle.fullBorder),
+                ),
+              ],
+            ),
+          ),
+
+          // Accent color picker (shown when glow is enabled)
+          if (glowStyle != GlowStyle.none) ...[
+            const SizedBox(height: 16),
             _SettingsCard(
               child: Padding(
                 padding: const EdgeInsets.all(16),
@@ -178,7 +220,7 @@ class CustomizationScreen extends ConsumerWidget {
                     Row(
                       children: [
                         Icon(
-                          Icons.border_left_rounded,
+                          Icons.palette_rounded,
                           color: theme.colorScheme.primary,
                           size: 22,
                         ),
@@ -197,7 +239,7 @@ class CustomizationScreen extends ConsumerWidget {
                               ),
                               const SizedBox(height: 4),
                               Text(
-                                'Border glow color in CLI-style input',
+                                'Color of the glow border',
                                 style: TextStyle(
                                   color: theme.colorScheme.onSurface.withValues(
                                     alpha: 0.6,

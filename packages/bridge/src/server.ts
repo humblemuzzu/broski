@@ -5110,6 +5110,7 @@ export async function createBridgeServer(options: BridgeServerOptions): Promise<
         case 'oc_question_reply': {
           const questionId = message.questionId
           const answers = message.answers
+          const directory = message.projectPath
 
           // Validate inputs
           if (!questionId || typeof questionId !== 'string') {
@@ -5130,10 +5131,11 @@ export async function createBridgeServer(options: BridgeServerOptions): Promise<
               answersType: typeof answers,
               answersLength: answers.length,
               answersSample: answers.slice(0, 3),
+              directory,
             })
           }
 
-          const ok = await opencode.replyToQuestion(questionId, answers)
+          const ok = await opencode.replyToQuestion(questionId, answers, directory)
           if (DEBUG_RTS) {
             console.log('[OC Question] Reply result:', { questionId, ok })
           }
@@ -5144,10 +5146,11 @@ export async function createBridgeServer(options: BridgeServerOptions): Promise<
           break
         }
         case 'oc_question_reject': {
+          const directory = message.projectPath
           if (DEBUG_RTS) {
-            console.log('[OC Question] Reject received:', { questionId: message.questionId })
+            console.log('[OC Question] Reject received:', { questionId: message.questionId, directory })
           }
-          const ok = await opencode.rejectQuestion(message.questionId)
+          const ok = await opencode.rejectQuestion(message.questionId, directory)
           if (DEBUG_RTS) {
             console.log('[OC Question] Reject result:', { questionId: message.questionId, ok })
           }

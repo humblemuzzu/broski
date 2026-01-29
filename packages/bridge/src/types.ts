@@ -180,8 +180,8 @@ export type ClientMessage =
   | { type: 'oc_save_agent_file'; name: string; source: 'project' | 'user'; content: string; cwd?: string }
   | { type: 'oc_delete_agent_file'; name: string; source: 'project' | 'user'; cwd?: string }
   // OpenCode Question Tool
-  | { type: 'oc_question_reply'; questionId: string; answers: string[][] }
-  | { type: 'oc_question_reject'; questionId: string }
+  | { type: 'oc_question_reply'; questionId: string; answers: string[][]; projectPath?: string }
+  | { type: 'oc_question_reject'; questionId: string; projectPath?: string }
   // Claude Code-specific messages
   | { type: 'cc_list_projects' }
   | { type: 'cc_list_sessions'; cwd?: string }

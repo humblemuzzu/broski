@@ -83,43 +83,40 @@ class DetailSheet extends StatelessWidget {
             ),
           ),
 
-          // Header row
+          // Header
           Padding(
             padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-            child: Row(
+            child: Stack(
+              alignment: Alignment.center,
               children: [
-                // Close button
-                IconButton(
-                  onPressed: () => Navigator.of(context).pop(),
-                  icon: Icon(Icons.close, color: theme.textMuted, size: 24),
-                  padding: EdgeInsets.zero,
-                  constraints: const BoxConstraints(),
-                ),
-
-                // Title (centered)
-                Expanded(
-                  child: Text(
-                    title,
-                    textAlign: TextAlign.center,
-                    style: TextStyle(
-                      color: theme.text,
-                      fontSize: 16,
-                      fontWeight: FontWeight.w600,
-                    ),
+                // Title (truly centered on sheet)
+                Text(
+                  title,
+                  textAlign: TextAlign.center,
+                  style: TextStyle(
+                    color: theme.text,
+                    fontSize: 16,
+                    fontWeight: FontWeight.w600,
                   ),
                 ),
 
-                // Trailing widget or spacer
+                // Close button (left-aligned, independent of title)
+                Align(
+                  alignment: Alignment.centerLeft,
+                  child: IconButton(
+                    onPressed: () => Navigator.of(context).pop(),
+                    icon: Icon(Icons.close, color: theme.textMuted, size: 24),
+                    padding: EdgeInsets.zero,
+                    constraints: const BoxConstraints(),
+                  ),
+                ),
+
+                // Trailing widget (right-aligned)
                 if (trailing != null)
-                  trailing!
-                else
-                  const SizedBox(width: 24), // Balance the close button
+                  Align(alignment: Alignment.centerRight, child: trailing!),
               ],
             ),
           ),
-
-          // Divider
-          Divider(height: 1, color: theme.borderSubtle),
 
           // Content
           Flexible(child: child),
