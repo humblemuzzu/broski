@@ -444,7 +444,7 @@ class _PowerSheetState extends ConsumerState<PowerSheet> {
           child: Padding(
             padding: EdgeInsets.only(right: preset == presets.last ? 0 : 8),
             child: _PresetCard(
-              name: preset.displayName.split(' ').first,
+              name: preset.shortName,
               description: preset.description,
               isSelected: isSelected,
               theme: theme,

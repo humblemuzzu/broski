@@ -10,7 +10,7 @@
 
 import { $ } from 'bun'
 import { readdir, stat, realpath } from 'node:fs/promises'
-import { homedir } from 'node:os'
+import { homedir, tmpdir } from 'node:os'
 import { join, relative, dirname, parse as parsePath, sep } from 'node:path'
 import ignore from 'ignore'
 
@@ -64,11 +64,10 @@ const EXCLUDE_PATTERNS = [
   '*.log',
 ]
 
-// Security: Only allow searching within home directory or common dev paths
+// Security: Only allow searching within home directory or OS temp directory
 const ALLOWED_BASE_PATHS = [
   homedir(),
-  '/tmp',
-  '/var/tmp',
+  tmpdir(),
 ]
 
 // =============================================================================

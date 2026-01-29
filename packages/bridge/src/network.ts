@@ -1,10 +1,8 @@
 import { networkInterfaces } from 'os'
 import { spawnSync } from 'node:child_process'
+import { getTailscaleBinaryPath, getPreferredInterfaceNames, getHotspotInterfacePatterns } from './platform'
 
-// Tailscale CLI path varies by platform
-const TAILSCALE_CLI = process.platform === 'darwin'
-  ? '/Applications/Tailscale.app/Contents/MacOS/Tailscale'
-  : 'tailscale'
+const TAILSCALE_CLI = getTailscaleBinaryPath()
 
 // Timeout for shell commands (5 seconds)
 const COMMAND_TIMEOUT_MS = 5000
@@ -32,7 +30,9 @@ export function getLocalIP(): string | null {
   for (const name of Object.keys(interfaces)) {
     for (const iface of interfaces[name] || []) {
       if (iface.internal || iface.family !== 'IPv4') continue
-      if (name === 'en0' || name === 'eth0') return iface.address
+      const preferred = getPreferredInterfaceNames()
+      // Check if this interface matches any preferred name (case-insensitive, prefix match for Linux patterns like enp*)
+      if (preferred.some(p => name.toLowerCase() === p.toLowerCase() || name.toLowerCase().startsWith(p.toLowerCase()))) return iface.address
     }
   }
 
@@ -119,7 +119,7 @@ export function getHotspotIP(): string | null {
   }
 
   // Second, look for hotspot interface names
-  const hotspotInterfacePatterns = ['en1', 'en2', 'bridge100', 'bridge', 'utun', 'apd']
+  const hotspotInterfacePatterns = getHotspotInterfacePatterns()
   for (const name of Object.keys(interfaces)) {
     const ifaceName = name.toLowerCase()
     if (hotspotInterfacePatterns.some(pattern => ifaceName.includes(pattern))) {

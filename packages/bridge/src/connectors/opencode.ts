@@ -6,6 +6,8 @@ import {
   type Session,
 } from '@opencode-ai/sdk/v2'
 import { homedir } from 'os'
+import { basename, isAbsolute, join } from 'node:path'
+import { pathToFileURL } from 'node:url'
 import type { Agent, Command, FileContent, FileStatusInfo, FormatterInfo, LspServerStatus, McpResource, McpServerStatus, PermissionResponse, PermissionRuleset, ProviderAuthMethod, ProviderInfo, ProjectSummary, PtySession, SessionContextInfo, SessionStatusInfo, SessionSummary, SymbolResult, TextSearchResult, Todo, ToolInfo, VcsInfo, Worktree } from './types'
 
 const DEFAULT_BASE_URL = 'http://localhost:4096'
@@ -228,17 +230,17 @@ export class OpenCodeConnector {
           parts.push({
             type: 'file',
             url: `data:${attachment.mimeType};base64,${attachment.base64Data}`,
-            filename: attachment.path.split('/').pop() ?? 'image',
+            filename: basename(attachment.path || 'image'),
             mime: attachment.mimeType,
           })
         } else {
-          const absolutePath = attachment.path.startsWith('/') 
+          const absolutePath = isAbsolute(attachment.path)
             ? attachment.path 
-            : `${baseDir}/${attachment.path}`
-          const filename = attachment.path.split('/').pop() ?? attachment.path
+            : join(baseDir, attachment.path)
+          const filename = basename(attachment.path) || attachment.path
           parts.push({
             type: 'file',
-            url: `file://${absolutePath}`,
+            url: pathToFileURL(absolutePath).href,
             filename: attachment.isDirectory ? `${filename}/` : filename,
             mime: attachment.isDirectory ? 'inode/directory' : 'text/plain',
           })
@@ -308,17 +310,17 @@ export class OpenCodeConnector {
           parts.push({
             type: 'file',
             url: `data:${attachment.mimeType};base64,${attachment.base64Data}`,
-            filename: attachment.path.split('/').pop() ?? 'image',
+            filename: basename(attachment.path || 'image'),
             mime: attachment.mimeType,
           })
         } else {
-          const absolutePath = attachment.path.startsWith('/')
+          const absolutePath = isAbsolute(attachment.path)
             ? attachment.path
-            : `${baseDir}/${attachment.path}`
-          const filename = attachment.path.split('/').pop() ?? attachment.path
+            : join(baseDir, attachment.path)
+          const filename = basename(attachment.path) || attachment.path
           parts.push({
             type: 'file',
-            url: `file://${absolutePath}`,
+            url: pathToFileURL(absolutePath).href,
             filename: attachment.isDirectory ? `${filename}/` : filename,
             mime: attachment.isDirectory ? 'inode/directory' : 'text/plain',
           })
@@ -1178,7 +1180,7 @@ export class OpenCodeConnector {
               branch = ''
             }
             out.push({
-              name: dir.split('/').pop() ?? dir,
+              name: basename(dir) || dir,
               branch,
               directory: dir,
             })
@@ -1250,9 +1252,9 @@ export class OpenCodeConnector {
 
       // OpenCode currently has no API endpoint for deleting a worktree.
       // We perform a local git worktree removal on the host running the bridge.
-      const target = worktreeDirectory.startsWith('/')
+      const target = isAbsolute(worktreeDirectory)
         ? worktreeDirectory
-        : `${directory.replace(/\/+$/, '')}/${worktreeDirectory}`
+        : join(directory, worktreeDirectory)
 
       const proc = Bun.spawnSync({
         cmd: ['git', '-C', directory, 'worktree', 'remove', '--force', target],
@@ -1455,7 +1457,7 @@ export class OpenCodeConnector {
 
   private mapProject(project: Project): ProjectSummary {
     const path = project.worktree
-    const name = path.split('/').filter(Boolean).pop() ?? path
+    const name = basename(path) || path
     return {
       id: project.id,
       name,

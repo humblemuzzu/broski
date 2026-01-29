@@ -1,9 +1,11 @@
 import { $ } from 'bun'
 import { getLocalIP, getTailscaleIP, isTailscaleConnected } from './network'
-
-const TAILSCALE_CLI = process.platform === 'darwin'
-  ? '/Applications/Tailscale.app/Contents/MacOS/Tailscale'
-  : 'tailscale'
+import {
+  IS_MACOS, IS_LINUX, IS_WINDOWS, CURRENT_PLATFORM,
+  findBinary, isCompiledBinary, checkPortInUse, getProcessOnPort,
+  isTailscaleInstalled as platformIsTailscaleInstalled,
+  getKillPortHint, getTailscaleInstallHint,
+} from './platform'
 
 interface CheckResult {
   name: string
@@ -32,40 +34,40 @@ function printResult(result: CheckResult): void {
 }
 
 async function checkBun(): Promise<CheckResult> {
+  if (isCompiledBinary()) {
+    return {
+      name: 'runtime',
+      status: 'ok',
+      message: 'Running as compiled binary (Bun embedded)',
+    }
+  }
   try {
     const result = await $`bun --version`.quiet()
     const version = result.text().trim()
-    return {
-      name: 'bun',
-      status: 'ok',
-      message: `Bun v${version}`,
-    }
+    return { name: 'bun', status: 'ok', message: `Bun v${version}` }
   } catch {
-    return {
-      name: 'bun',
-      status: 'error',
-      message: 'Bun not found',
-      fix: 'curl -fsSL https://bun.sh/install | bash',
-    }
+    let fix = 'curl -fsSL https://bun.sh/install | bash'
+    if (IS_WINDOWS) fix = 'powershell -c "irm bun.sh/install.ps1 | iex"'
+    return { name: 'bun', status: 'error', message: 'Bun not found', fix }
   }
 }
 
 async function checkOpenCode(): Promise<CheckResult> {
+  const found = findBinary('opencode')
+  if (!found) {
+    return {
+      name: 'opencode',
+      status: 'warning',
+      message: 'OpenCode not found (optional - only needed for OpenCode sessions)',
+      fix: IS_WINDOWS ? 'npm install -g opencode' : 'bun install -g opencode',
+    }
+  }
   try {
     const result = await $`opencode --version`.quiet()
     const version = result.text().trim()
-    return {
-      name: 'opencode',
-      status: 'ok',
-      message: `OpenCode ${version}`,
-    }
+    return { name: 'opencode', status: 'ok', message: `OpenCode ${version}` }
   } catch {
-    return {
-      name: 'opencode',
-      status: 'error',
-      message: 'OpenCode not found',
-      fix: 'bun install -g opencode',
-    }
+    return { name: 'opencode', status: 'ok', message: 'OpenCode found (version check failed)' }
   }
 }
 
@@ -89,14 +91,14 @@ async function checkLocalNetwork(): Promise<CheckResult> {
 async function checkTailscale(): Promise<CheckResult[]> {
   const results: CheckResult[] = []
   
-  const appExists = await Bun.file('/Applications/Tailscale.app/Contents/Info.plist').exists()
+  const installed = await platformIsTailscaleInstalled()
   
-  if (!appExists) {
+  if (!installed) {
     results.push({
       name: 'tailscale_installed',
       status: 'warning',
-      message: 'Tailscale not installed',
-      fix: 'Install from App Store or run: broski setup-tailscale',
+      message: 'Tailscale not installed (optional - needed for remote access)',
+      fix: getTailscaleInstallHint(),
     })
     return results
   }
@@ -109,11 +111,16 @@ async function checkTailscale(): Promise<CheckResult[]> {
   
   const connected = await isTailscaleConnected()
   if (!connected) {
+    let fixMsg = 'Connect via Tailscale'
+    if (IS_MACOS) fixMsg = 'Click the Tailscale icon in your menu bar to connect'
+    else if (IS_LINUX) fixMsg = 'Run: sudo tailscale up'
+    else fixMsg = 'Open Tailscale from your system tray to connect'
+    
     results.push({
       name: 'tailscale_connected',
       status: 'warning',
       message: 'Tailscale not connected',
-      fix: 'Click the Tailscale icon in your menu bar to connect',
+      fix: fixMsg,
     })
     return results
   }
@@ -137,31 +144,20 @@ async function checkTailscale(): Promise<CheckResult[]> {
 }
 
 async function checkPort(port: number): Promise<CheckResult> {
-  try {
-    const result = await $`lsof -nP -iTCP:${port} -sTCP:LISTEN`.quiet()
-    const output = result.text().trim()
-    
-    if (output) {
-      return {
-        name: 'port',
-        status: 'warning',
-        message: `Port ${port} is in use`,
-        fix: `lsof -nP -iTCP:${port} -sTCP:LISTEN | awk 'NR>1 {print $2}' | xargs kill`,
-      }
-    }
-    
+  const inUse = await checkPortInUse(port)
+  
+  if (inUse) {
+    const proc = await getProcessOnPort(port)
+    const who = proc ? ` (${proc.name}, PID ${proc.pid})` : ''
     return {
       name: 'port',
-      status: 'ok',
-      message: `Port ${port} available`,
-    }
-  } catch {
-    return {
-      name: 'port',
-      status: 'ok',
-      message: `Port ${port} available`,
+      status: 'warning',
+      message: `Port ${port} is in use${who}`,
+      fix: getKillPortHint(port),
     }
   }
+  
+  return { name: 'port', status: 'ok', message: `Port ${port} available` }
 }
 
 export async function runDoctor(): Promise<void> {
@@ -172,6 +168,16 @@ ${CYAN}╔═══════════════════════�
 ║                                                          ║
 ╚══════════════════════════════════════════════════════════╝${NC}
 `)
+  
+  console.log(`${BOLD}SYSTEM${NC}`)
+  console.log('─'.repeat(50))
+  console.log(`  Platform: ${process.platform} (${process.arch})`)
+  if (isCompiledBinary()) {
+    console.log(`  Mode: Compiled binary`)
+  } else {
+    console.log(`  Mode: Development (bun + source)`)
+  }
+  console.log('')
   
   const issues: CheckResult[] = []
   
@@ -210,7 +216,7 @@ ${CYAN}╔═══════════════════════�
   if (issues.length === 0) {
     console.log(`${GREEN}${BOLD}✓ All checks passed!${NC}`)
     console.log('')
-    console.log('Run `broski-bridge` to start.')
+    console.log('Run `broski` to start.')
   } else {
     const errors = issues.filter(i => i.status === 'error')
     const warnings = issues.filter(i => i.status === 'warning')
@@ -223,12 +229,8 @@ ${CYAN}╔═══════════════════════�
     }
     
     console.log('')
-    console.log('Fix the issues above, then run `broski-bridge`.')
+    console.log('Fix the issues above, then run `broski`.')
   }
   
   console.log('')
-}
-
-if (import.meta.main) {
-  await runDoctor()
 }

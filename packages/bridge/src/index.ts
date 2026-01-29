@@ -3,18 +3,26 @@ import { displayBanner, displayQRCode } from './qr'
 import { getLocalIP, getHotspotIP, getTailscaleIP, getTailscaleMagicDNS, isTailscaleConnected } from './network'
 import { enableFunnel, disableFunnel } from './funnel'
 import { OpenCodeConnector } from './connectors/opencode'
-import { createBridgeServer, loadOrCreateAuthState } from './server'
+import { createBridgeServer, loadOrCreateAuthState, type BridgeServer } from './server'
 import { parseCli, printHelp, promptForChoice } from './cli'
 import { runDoctor } from './doctor'
 import { runSetupTailscale } from './setup-tailscale'
 import { spawnSync } from 'node:child_process'
 import { homedir } from 'node:os'
-import { mkdir, writeFile, unlink, readFile, stat } from 'node:fs/promises'
+import { mkdir, readFile } from 'node:fs/promises'
 import { resolve, dirname } from 'node:path'
+import {
+  IS_MACOS, IS_LINUX, IS_WINDOWS, CURRENT_PLATFORM, isCompiledBinary, getBroskiBinaryPath,
+  getBunPath as platformGetBunPath,
+  installDaemon, uninstallDaemon, getDaemonStatus, stopDaemon, restartDaemon,
+  getDaemonConfigPath, getDaemonType, checkPortInUse, getProcessOnPort,
+  killProcess, findProcessByPattern, getSleepPreventionTip, getKillPortHint,
+  getTailLogsHint, type DaemonConfig,
+} from './platform'
+import packageMeta from '../package.json'
+import { startupUpdateCheck, startPeriodicUpdateCheck, stopPeriodicUpdateCheck, performUpdate } from './updater'
 
 // Daemon (Always On mode) configuration
-const LAUNCH_AGENT_LABEL = 'com.broski.bridge'
-const LAUNCH_AGENT_PATH = resolve(homedir(), 'Library/LaunchAgents', `${LAUNCH_AGENT_LABEL}.plist`)
 const BROSKI_LOG_DIR = resolve(homedir(), '.broski', 'logs')
 const BROSKI_PID_FILE = resolve(homedir(), '.broski', 'bridge.pid')
 
@@ -45,30 +53,13 @@ async function sleep(ms: number): Promise<void> {
 // Daemon Management (Always On Mode)
 // ============================================================================
 
-async function getBunPath(): Promise<string> {
-  // Try to find bun in common locations
-  const bunLocations = [
-    Bun.which('bun'),
-    '/usr/local/bin/bun',
-    resolve(homedir(), '.bun/bin/bun'),
-    '/opt/homebrew/bin/bun',
-  ]
-  
-  for (const loc of bunLocations) {
-    if (!loc) continue
-    try {
-      const s = await stat(loc)
-      if (s.isFile()) return loc
-    } catch {
-      // continue
-    }
-  }
-  
-  return 'bun' // fallback
-}
+// getBunPath is now imported as platformGetBunPath from platform.ts
 
 async function getBridgeScriptPath(): Promise<string> {
-  // Get the path to the current script
+  if (isCompiledBinary()) {
+    return process.execPath  // The binary IS the bridge
+  }
+  // Dev mode: get the script being run
   const scriptUrl = import.meta.url
   if (scriptUrl.startsWith('file://')) {
     return scriptUrl.replace('file://', '')
@@ -76,147 +67,96 @@ async function getBridgeScriptPath(): Promise<string> {
   return resolve(dirname(new URL(import.meta.url).pathname), 'index.ts')
 }
 
-function generateLaunchAgentPlist(bunPath: string, scriptPath: string, args: string[] = []): string {
-  const programArgs = [bunPath, scriptPath, '--daemon', ...args]
-  const programArgsXml = programArgs
-    .map(arg => `        <string>${arg}</string>`)
-    .join('\n')
-
-  // Enhanced LaunchAgent configuration for robust "Always On" mode:
-  // - KeepAlive with NetworkState: Only runs when network is available (prevents crash loops when offline)
-  // - KeepAlive with SuccessfulExit=false: Restarts on crash but not on clean exit
-  // - ThrottleInterval: Prevents rapid restart loops (10 second minimum between restarts)
-  return `<?xml version="1.0" encoding="UTF-8"?>
-<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
-<plist version="1.0">
-<dict>
-    <key>Label</key>
-    <string>${LAUNCH_AGENT_LABEL}</string>
-    <key>ProgramArguments</key>
-    <array>
-${programArgsXml}
-    </array>
-    <key>RunAtLoad</key>
-    <true/>
-    <key>KeepAlive</key>
-    <dict>
-        <key>SuccessfulExit</key>
-        <false/>
-        <key>NetworkState</key>
-        <true/>
-    </dict>
-    <key>ThrottleInterval</key>
-    <integer>10</integer>
-    <key>StandardOutPath</key>
-    <string>${BROSKI_LOG_DIR}/bridge.log</string>
-    <key>StandardErrorPath</key>
-    <string>${BROSKI_LOG_DIR}/bridge.error.log</string>
-    <key>WorkingDirectory</key>
-    <string>${homedir()}</string>
-    <key>EnvironmentVariables</key>
-    <dict>
-        <key>PATH</key>
-        <string>/usr/local/bin:/usr/bin:/bin:/opt/homebrew/bin:${dirname(bunPath)}:${homedir()}/.opencode/bin:${homedir()}/.local/bin:${homedir()}/.npm-global/bin</string>
-        <key>HOME</key>
-        <string>${homedir()}</string>
-    </dict>
-</dict>
-</plist>`
-}
+// generateLaunchAgentPlist removed — platform.ts handles daemon config generation
 
 async function runInstall(): Promise<void> {
   console.log('Installing Broski as background service...\n')
 
   // Check if already installed
-  try {
-    await stat(LAUNCH_AGENT_PATH)
-    console.log('⚠️  Broski is already installed as a background service.')
+  const status = await getDaemonStatus()
+  if (status.installed) {
+    console.log('Warning: Broski is already installed as a background service.')
     console.log('   Run `broski uninstall` first if you want to reinstall.')
     console.log('   Run `broski status` to check if it\'s running.')
     return
-  } catch {
-    // Not installed, continue
   }
 
   // Create log directory
   await mkdir(BROSKI_LOG_DIR, { recursive: true })
-  console.log(`✓ Created log directory: ${BROSKI_LOG_DIR}`)
+  console.log(`  Created log directory: ${BROSKI_LOG_DIR}`)
 
-  // Get paths
-  const bunPath = await getBunPath()
-  const scriptPath = await getBridgeScriptPath()
-  console.log(`✓ Bun path: ${bunPath}`)
-  console.log(`✓ Bridge script: ${scriptPath}`)
+  // Get binary path
+  const binaryPath = getBroskiBinaryPath()
+  console.log(`  Binary: ${binaryPath}`)
 
-  // Generate and write plist
-  const plist = generateLaunchAgentPlist(bunPath, scriptPath, ['--hotspot'])
-  await mkdir(dirname(LAUNCH_AGENT_PATH), { recursive: true })
-  await writeFile(LAUNCH_AGENT_PATH, plist, { mode: 0o644 })
-  console.log(`✓ Created LaunchAgent: ${LAUNCH_AGENT_PATH}`)
+  // If running in dev mode, also log bun path
+  if (!isCompiledBinary()) {
+    const bunPath = await platformGetBunPath()
+    console.log(`  Bun path: ${bunPath}`)
+  }
 
-  // Load the LaunchAgent
-  const loadResult = spawnSync('launchctl', ['load', LAUNCH_AGENT_PATH], { encoding: 'utf-8' })
-  if (loadResult.status !== 0) {
-    console.error(`❌ Failed to load LaunchAgent: ${loadResult.stderr || loadResult.stdout}`)
+  // Install daemon using platform.ts
+  const config: DaemonConfig = {
+    binaryPath,
+    args: ['--daemon', '--hotspot'],
+    logDir: BROSKI_LOG_DIR,
+    workDir: homedir(),
+  }
+
+  try {
+    await installDaemon(config)
+  } catch (err) {
+    console.error(`  Failed to install service: ${err}`)
     return
   }
-  console.log('✓ LaunchAgent loaded')
 
   // Wait a moment for the service to start
   await sleep(1000)
 
-  // Check if it's running
-  const statusResult = spawnSync('launchctl', ['list', LAUNCH_AGENT_LABEL], { encoding: 'utf-8' })
-  if (statusResult.status === 0 && statusResult.stdout.includes(LAUNCH_AGENT_LABEL)) {
-    console.log('\n✅ Broski bridge installed and running!')
+  // Verify it's running
+  const newStatus = await getDaemonStatus()
+  if (newStatus.running) {
+    console.log('\n  Broski bridge installed and running!')
     console.log('\n   The bridge will now:')
-    console.log('   • Start automatically when you log in')
-    console.log('   • Stay running in the background')
-    console.log('   • Restart automatically if it crashes')
+    console.log('   - Start automatically when you log in')
+    console.log('   - Stay running in the background')
+    console.log('   - Restart automatically if it crashes')
     console.log('\n   Commands:')
-    console.log('   • broski status    - Check if running')
-    console.log('   • broski stop      - Stop the service')
-    console.log('   • broski uninstall - Remove the service')
+    console.log('   - broski status    - Check if running')
+    console.log('   - broski stop      - Stop the service')
+    console.log('   - broski uninstall - Remove the service')
     console.log(`\n   Logs: ${BROSKI_LOG_DIR}/bridge.log`)
-    console.log('\n   💡 Want to use Broski with your Mac lid closed?')
-    console.log('      Install Amphetamine (free on App Store) and disable')
-    console.log('      "Allow system sleep when display is closed"')
+
+    // Platform-specific sleep prevention tip
+    const sleepTip = getSleepPreventionTip()
+    if (sleepTip) {
+      console.log(`\n   Tip: ${sleepTip}`)
+    }
   } else {
-    console.log('\n⚠️  Service installed but may not be running.')
+    console.log('\n   Service installed but may not be running.')
     console.log('   Check status with: broski status')
-    console.log(`   Check logs: tail -f ${BROSKI_LOG_DIR}/bridge.log`)
+    console.log(`   Check logs: ${getTailLogsHint()}`)
   }
 }
 
 async function runUninstall(): Promise<void> {
   console.log('Uninstalling Broski background service...\n')
 
-  // Check if installed
-  try {
-    await stat(LAUNCH_AGENT_PATH)
-  } catch {
-    console.log('ℹ️  Broski is not installed as a background service.')
+  const status = await getDaemonStatus()
+  if (!status.installed) {
+    console.log('  Broski is not installed as a background service.')
     return
   }
 
-  // Unload the LaunchAgent
-  const unloadResult = spawnSync('launchctl', ['unload', LAUNCH_AGENT_PATH], { encoding: 'utf-8' })
-  if (unloadResult.status !== 0) {
-    console.warn(`⚠️  Could not unload LaunchAgent (may not be loaded): ${unloadResult.stderr || ''}`)
-  } else {
-    console.log('✓ LaunchAgent unloaded')
-  }
-
-  // Remove the plist file
   try {
-    await unlink(LAUNCH_AGENT_PATH)
-    console.log('✓ LaunchAgent file removed')
+    await uninstallDaemon()
+    console.log('  Service removed')
   } catch (err) {
-    console.error(`❌ Failed to remove LaunchAgent file: ${err}`)
+    console.error(`  Failed to uninstall service: ${err}`)
     return
   }
 
-  console.log('\n✅ Broski background service uninstalled.')
+  console.log('\n  Broski background service uninstalled.')
   console.log('   The bridge will no longer start automatically.')
   console.log('   Run `broski` to start it manually when needed.')
 }
@@ -224,39 +164,18 @@ async function runUninstall(): Promise<void> {
 async function runStatus(): Promise<void> {
   console.log('Broski Bridge Status\n')
 
-  // Check if installed
-  let installed = false
-  try {
-    await stat(LAUNCH_AGENT_PATH)
-    installed = true
-  } catch {
-    // Not installed
-  }
+  const status = await getDaemonStatus()
+  console.log(`Background service: ${status.installed ? '  Installed' : '  Not installed'}`)
 
-  console.log(`Background service: ${installed ? '✓ Installed' : '✗ Not installed'}`)
-
-  if (installed) {
-    // Check if running via launchctl
-    const listResult = spawnSync('launchctl', ['list', LAUNCH_AGENT_LABEL], { encoding: 'utf-8' })
-    const isRunning = listResult.status === 0 && listResult.stdout.includes(LAUNCH_AGENT_LABEL)
-    
-    // Parse PID from launchctl output
-    let pid: string | null = null
-    if (isRunning && listResult.stdout) {
-      const match = listResult.stdout.match(/^(\d+)\s+/)
-      if (match) pid = match[1]
-    }
-
-    console.log(`Service status:     ${isRunning ? '✓ Running' : '✗ Not running'}`)
-    if (pid && pid !== '-') {
-      console.log(`Process ID:         ${pid}`)
+  if (status.installed) {
+    console.log(`Service status:     ${status.running ? '  Running' : '  Not running'}`)
+    if (status.pid) {
+      console.log(`Process ID:         ${status.pid}`)
     }
   }
 
   // Check for any broski process
-  const psResult = spawnSync('pgrep', ['-f', 'broski.*index.ts'], { encoding: 'utf-8' })
-  const pids = psResult.stdout.trim().split('\n').filter(Boolean)
-  
+  const pids = findProcessByPattern('broski')
   if (pids.length > 0) {
     console.log(`\nActive processes:   ${pids.length} found`)
     for (const p of pids) {
@@ -265,18 +184,33 @@ async function runStatus(): Promise<void> {
   }
 
   // Check if port 18274 is in use
-  const lsofResult = spawnSync('lsof', ['-nP', '-iTCP:18274', '-sTCP:LISTEN'], { encoding: 'utf-8' })
-  const portInUse = lsofResult.status === 0 && lsofResult.stdout.includes('LISTEN')
-  
-  console.log(`\nDefault port 18274: ${portInUse ? '✓ In use (bridge is listening)' : '✗ Not in use'}`)
+  const portInUse = await checkPortInUse(18274)
+  console.log(`\nDefault port 18274: ${portInUse ? '  In use (bridge is listening)' : '  Not in use'}`)
 
   // Show log file location
   console.log(`\nLog files:          ${BROSKI_LOG_DIR}/`)
-  console.log(`  • bridge.log       - Standard output`)
-  console.log(`  • bridge.error.log - Error output`)
+  console.log(`  - bridge.log       - Standard output`)
+  console.log(`  - bridge.error.log - Error output`)
 
-  if (!installed) {
-    console.log('\n💡 Tip: Run `broski install` to enable Always On mode')
+  // Show version
+  const ver = packageMeta.version ?? '0.1.0'
+  console.log(`\nVersion:            v${ver}`)
+
+  // Show last update check result
+  const { getLastUpdateCheck } = await import('./updater')
+  const lastCheck = await getLastUpdateCheck()
+  if (lastCheck) {
+    console.log(`Last update check:  ${lastCheck.checkedAt}`)
+    if (lastCheck.updateAvailable) {
+      console.log(`  Update available: v${lastCheck.latestVersion}`)
+      console.log(`  Run \`broski update\` to install`)
+    } else {
+      console.log(`  Up to date`)
+    }
+  }
+
+  if (!status.installed) {
+    console.log('\n   Tip: Run `broski install` to enable Always On mode')
   }
 }
 
@@ -326,8 +260,7 @@ async function runQR(detectHotspot: boolean): Promise<void> {
 
   // Check if bridge is actually running
   const port = 18274 // Default port
-  const lsofResult = spawnSync('lsof', ['-nP', `-iTCP:${port}`, '-sTCP:LISTEN'], { encoding: 'utf-8' })
-  const bridgeRunning = lsofResult.status === 0 && lsofResult.stdout.includes('LISTEN')
+  const bridgeRunning = await checkPortInUse(port)
 
   if (!bridgeRunning) {
     console.log('⚠️  Bridge is not running on port 18274.')
@@ -366,39 +299,24 @@ async function runQR(detectHotspot: boolean): Promise<void> {
 async function runStop(): Promise<void> {
   console.log('Stopping Broski bridge...\n')
 
-  // Check if installed as service
-  let installed = false
-  try {
-    await stat(LAUNCH_AGENT_PATH)
-    installed = true
-  } catch {
-    // Not installed as service
-  }
-
-  if (installed) {
-    // Stop via launchctl (it will auto-restart due to KeepAlive, so we unload temporarily)
-    const stopResult = spawnSync('launchctl', ['stop', LAUNCH_AGENT_LABEL], { encoding: 'utf-8' })
-    if (stopResult.status === 0) {
-      console.log('✓ Sent stop signal to background service')
-      console.log('\n⚠️  Note: The service will restart automatically (KeepAlive is enabled).')
-      console.log('   To stop permanently, run: broski uninstall')
-      return
-    }
+  const status = await getDaemonStatus()
+  if (status.installed) {
+    await stopDaemon()
+    console.log('  Sent stop signal to background service')
+    console.log('\n   Note: The service will restart automatically (KeepAlive is enabled).')
+    console.log('   To stop permanently, run: broski uninstall')
+    return
   }
 
   // Try to kill any running broski processes
-  const pkillResult = spawnSync('pkill', ['-f', 'broski.*index.ts'], { encoding: 'utf-8' })
-  
-  if (pkillResult.status === 0) {
-    console.log('✓ Stopped running Broski processes')
-  } else {
-    // Check if anything was running
-    const pgrepResult = spawnSync('pgrep', ['-f', 'broski.*index.ts'], { encoding: 'utf-8' })
-    if (pgrepResult.stdout.trim()) {
-      console.log('⚠️  Some processes may still be running')
-    } else {
-      console.log('ℹ️  No running Broski bridge found')
+  const pids = findProcessByPattern('broski')
+  if (pids.length > 0) {
+    for (const pid of pids) {
+      killProcess(pid)
     }
+    console.log('  Stopped running Broski processes')
+  } else {
+    console.log('  No running Broski bridge found')
   }
 }
 
@@ -406,51 +324,36 @@ async function runRestart(): Promise<void> {
   console.log('Restarting Broski bridge...\n')
   const DEFAULT_PORT = 18274
 
-  // Check if installed as service
-  let installed = false
-  try {
-    await stat(LAUNCH_AGENT_PATH)
-    installed = true
-  } catch {
-    // Not installed as service
-  }
-
-  if (!installed) {
-    console.log('⚠️  Background service not installed.')
+  const status = await getDaemonStatus()
+  if (!status.installed) {
+    console.log('   Background service not installed.')
     console.log('   Run: broski install')
     return
   }
 
-  // 1. Unload the service (this stops it and prevents auto-restart)
+  // Stop the daemon
   console.log('Stopping service...')
-  spawnSync('launchctl', ['unload', LAUNCH_AGENT_PATH], { encoding: 'utf-8' })
+  await stopDaemon()
 
-  // 2. Kill ALL broski/bun processes on the port to ensure clean restart
+  // Kill ALL broski processes on the port
   for (let i = 0; i < 5; i++) {
-    const lsofResult = spawnSync('lsof', ['-nP', `-iTCP:${DEFAULT_PORT}`, '-sTCP:LISTEN'], { encoding: 'utf-8' })
-    if (!lsofResult.stdout.trim()) break
-    
-    // Force kill any process on the port
-    const lines = lsofResult.stdout.trim().split('\n')
-    for (const line of lines.slice(1)) { // Skip header
-      const parts = line.split(/\s+/)
-      const pid = parts[1]
-      if (pid && /^\d+$/.test(pid)) {
-        spawnSync('kill', ['-9', pid], { encoding: 'utf-8' })
-      }
-    }
+    const proc = await getProcessOnPort(DEFAULT_PORT)
+    if (!proc) break
+    killProcess(proc.pid)
     await sleep(300)
   }
 
-  // 3. Also kill any orphaned bun processes running our server
-  spawnSync('pkill', ['-9', '-f', 'bun.*broski.*server'], { encoding: 'utf-8' })
+  // Also kill any orphaned broski processes
+  const orphans = findProcessByPattern('broski')
+  for (const pid of orphans) {
+    killProcess(pid)
+  }
   await sleep(500)
 
-  // 4. Final check - wait for port to be truly free
+  // Wait for port to be truly free
   let portFree = false
   for (let i = 0; i < 6; i++) {
-    const lsofResult = spawnSync('lsof', ['-nP', `-iTCP:${DEFAULT_PORT}`, '-sTCP:LISTEN'], { encoding: 'utf-8' })
-    if (!lsofResult.stdout.trim()) {
+    if (!(await checkPortInUse(DEFAULT_PORT))) {
       portFree = true
       break
     }
@@ -458,40 +361,32 @@ async function runRestart(): Promise<void> {
   }
 
   if (!portFree) {
-    console.log('❌ Failed to free port. Try: kill -9 $(lsof -t -i:18274)')
+    console.log(`  Failed to free port. Try: ${getKillPortHint(DEFAULT_PORT)}`)
     return
   }
 
   console.log('Starting service...')
-  
-  // 5. Load the service again
-  const loadResult = spawnSync('launchctl', ['load', LAUNCH_AGENT_PATH], { encoding: 'utf-8' })
-  if (loadResult.status !== 0) {
-    console.log('❌ Failed to start service:', loadResult.stderr)
-    return
-  }
+  await restartDaemon()
 
-  // 6. Wait for it to be ready (up to 15 seconds - OpenCode takes time to start)
+  // Wait for it to be ready
   let ready = false
   process.stdout.write('Waiting for bridge')
   for (let i = 0; i < 30; i++) {
     await sleep(500)
     process.stdout.write('.')
-    const checkResult = spawnSync('lsof', ['-nP', `-iTCP:${DEFAULT_PORT}`, '-sTCP:LISTEN'], { encoding: 'utf-8' })
-    if (checkResult.stdout.trim()) {
+    if (await checkPortInUse(DEFAULT_PORT)) {
       ready = true
       break
     }
   }
   console.log('')
-  
-  // 7. Report status
+
   if (ready) {
-    console.log('✓ Bridge restarted successfully')
-    console.log(`✓ Listening on port ${DEFAULT_PORT}`)
+    console.log('  Bridge restarted successfully')
+    console.log(`  Listening on port ${DEFAULT_PORT}`)
   } else {
-    console.log('⚠️  Service started but port not yet listening')
-    console.log('   Check: tail ~/.broski/logs/bridge.error.log')
+    console.log('   Service started but port not yet listening')
+    console.log(`   Check: ${getTailLogsHint()}`)
   }
 }
 
@@ -573,7 +468,7 @@ type OpencodeBootstrap = {
 
 // Global server reference for shutdown
 let opencodeServer: OpenCodeServer | null = null
-let bridgeServer: ReturnType<typeof createBridgeServer> | null = null
+let bridgeServer: BridgeServer | null = null
 let primaryEventStreamController: AbortController | null = null
 const extraEventStreamControllers: AbortController[] = []
 let healthTimer: Timer | null = null
@@ -608,6 +503,8 @@ async function subscribeOpenCodeStream(
 // Graceful shutdown handler
 async function shutdown(signal: string) {
   console.log(`\n${signal} received. Shutting down...`)
+
+  stopPeriodicUpdateCheck()
 
   if (healthTimer) {
     clearInterval(healthTimer)
@@ -693,49 +590,62 @@ async function restartManagedOpenCode(): Promise<boolean> {
 }
 
 async function bootstrapManagedOpenCode(hostname: string, port: number, verbose: boolean): Promise<OpencodeBootstrap> {
-  console.log('Starting OpenCode (managed)...')
-  try {
-    const { client, server } = await createOpencode({
-      hostname,
-      port,
-      timeout: 10000,
-    })
+  const MAX_RETRIES = 3
+  const RETRY_DELAY_MS = 3000
 
-    const ready = await waitForOpencodeReady(server.url, 10000)
-    if (!ready) {
-      try {
-        server.close()
-      } catch {
-        // ignore
+  for (let attempt = 1; attempt <= MAX_RETRIES; attempt++) {
+    console.log(`Starting OpenCode (managed)...${attempt > 1 ? ` (attempt ${attempt}/${MAX_RETRIES})` : ''}`)
+    try {
+      const { client, server } = await createOpencode({
+        hostname,
+        port,
+        timeout: 10000,
+      })
+
+      const ready = await waitForOpencodeReady(server.url, 10000)
+      if (!ready) {
+        try {
+          server.close()
+        } catch {
+          // ignore
+        }
+        throw new Error(`OpenCode started but did not become ready at ${server.url}`)
       }
-      throw new Error(`OpenCode started but did not become ready at ${server.url}`)
-    }
 
-    if (verbose) {
-      console.log(`✓ OpenCode ready at ${server.url}`)
-    } else {
-      console.log('✓ OpenCode ready')
-    }
+      if (verbose) {
+        console.log(`✓ OpenCode ready at ${server.url}`)
+      } else {
+        console.log('✓ OpenCode ready')
+      }
 
-    return {
-      client,
-      server: {
-        url: server.url,
-        close: async () => {
-          try {
-            server.close()
-            console.log('  Managed OpenCode server stopped')
-          } catch (error) {
-            console.error('  Error stopping managed OpenCode server:', error)
-          }
+      return {
+        client,
+        server: {
+          url: server.url,
+          close: async () => {
+            try {
+              server.close()
+              console.log('  Managed OpenCode server stopped')
+            } catch (error) {
+              console.error('  Error stopping managed OpenCode server:', error)
+            }
+          },
         },
-      },
+      }
+    } catch (error) {
+      if (attempt < MAX_RETRIES) {
+        console.log(`  OpenCode not ready, retrying in ${RETRY_DELAY_MS / 1000}s...`)
+        await sleep(RETRY_DELAY_MS)
+        continue
+      }
+      console.error('Failed to start managed OpenCode server after all retries:', error)
+      console.log('  Ensure OpenCode is installed and on PATH (e.g. `bun install -g opencode`)')
+      throw error
     }
-  } catch (error) {
-    console.error('Failed to start managed OpenCode server:', error)
-    console.log('  Ensure OpenCode is installed and on PATH (e.g. `bun install -g opencode`)')
-    throw error
   }
+
+  // TypeScript: unreachable, but satisfies return type
+  throw new Error('Unreachable')
 }
 
 async function bootstrapManualOpenCode(url: string): Promise<OpencodeBootstrap> {
@@ -762,6 +672,21 @@ function defaultAttachPorts(): number[] {
 
 function discoverListeningPortsFromLsof(verbose: boolean): number[] {
   try {
+    if (IS_WINDOWS) {
+      // On Windows use netstat
+      const result = spawnSync('netstat', ['-ano'], { encoding: 'utf8', timeout: 5000 })
+      const out = result.stdout ?? ''
+      const ports = new Set<number>()
+      for (const line of out.split('\n')) {
+        const m = line.match(/:(\d+)\s+.*LISTENING/)
+        if (!m) continue
+        const port = Number(m[1])
+        if (Number.isFinite(port) && port > 0 && port <= 65535) ports.add(port)
+      }
+      return Array.from(ports)
+    }
+    
+    // macOS/Linux: lsof
     const res = spawnSync('lsof', ['-nP', '-iTCP', '-sTCP:LISTEN'], { encoding: 'utf8' })
     const out = `${res.stdout ?? ''}\n${res.stderr ?? ''}`
     if (!out.trim()) return []
@@ -777,7 +702,7 @@ function discoverListeningPortsFromLsof(verbose: boolean): number[] {
     return Array.from(ports)
   } catch (err) {
     if (verbose) {
-      console.warn('lsof scan failed (continuing without it):', err)
+      console.warn('Port scan failed (continuing without it):', err)
     }
     return []
   }
@@ -828,6 +753,20 @@ async function main() {
     return
   }
 
+  if (cli.subCommand === 'version') {
+    const ver = packageMeta.version ?? '0.1.0'
+    const mode = isCompiledBinary() ? '(compiled binary)' : '(dev mode - bun)'
+    console.log(`broski v${ver} ${mode}`)
+    console.log(`Platform: ${CURRENT_PLATFORM}-${process.arch}`)
+    return
+  }
+
+  if (cli.subCommand === 'update') {
+    const ver = packageMeta.version ?? '0.1.0'
+    await performUpdate(ver, (msg) => console.log(msg))
+    return
+  }
+
   if (cli.subCommand === 'doctor') {
     await runDoctor()
     return
@@ -870,7 +809,9 @@ async function main() {
 
   process.on('SIGINT', () => void shutdown('SIGINT'))
   process.on('SIGTERM', () => void shutdown('SIGTERM'))
-  process.on('SIGTSTP', () => void shutdown('SIGTSTP'))
+  if (!IS_WINDOWS) {
+    process.on('SIGTSTP', () => void shutdown('SIGTSTP'))
+  }
   verboseMode = cli.verbose
   managedHostname = cli.opencodeHostname
   managedPort = cli.opencodePort
@@ -962,25 +903,18 @@ async function main() {
       console.error('Fix options:')
       console.error('  - If it is a suspended job: return to that terminal, run `fg`, then press Ctrl+C.')
       console.error(`  - Or find and stop the process holding the port:`)
-      console.error(`      lsof -nP -iTCP:${port} -sTCP:LISTEN`)
-      console.error(`      kill <PID>`)
+      console.error(`      ${getKillPortHint(port)}`)
       console.error(`  - Dev fallback: run the bridge on a different port: --port 0 (random free port)\n`)
 
       // Best-effort: print the owning PID to make this frictionless.
       try {
-        const proc = Bun.spawnSync({
-          cmd: ['lsof', '-nP', `-iTCP:${port}`, '-sTCP:LISTEN'],
-          stdout: 'pipe',
-          stderr: 'pipe',
-        })
-        const out = (proc.stdout?.toString() ?? '').trim()
-        if (out) {
-          console.error('Port owner:')
-          console.error(out)
+        const proc = await getProcessOnPort(port)
+        if (proc) {
+          console.error(`Port owner: ${proc.name} (PID ${proc.pid})`)
           console.error('')
         }
       } catch {
-        // ignore - lsof may not be available
+        // ignore
       }
     } else {
       console.error('\n❌ Failed to start bridge server:', error)
@@ -1072,6 +1006,39 @@ async function main() {
     console.log('  (OpenCode is managed by the bridge and will stop on shutdown)')
   } else {
     console.log('  (OpenCode is external and will be left running)')
+  }
+
+  // Non-blocking update check on startup
+  startupUpdateCheck(version, (msg) => console.log(msg)).then((result) => {
+    if (result?.updateAvailable) {
+      // Notify connected phone clients
+      bridgeServer?.broadcast({
+        type: 'status',
+        data: {
+          opencodeRunning: true,
+          updateAvailable: true,
+          latestVersion: result.latestVersion,
+          currentVersion: result.currentVersion,
+        } as any, // Extended status payload
+      })
+    }
+  }).catch(() => { /* best-effort */ })
+
+  // For daemon mode: check for updates every 24h
+  if (cli.daemon) {
+    startPeriodicUpdateCheck(version, (result) => {
+      console.log(`[update] Bridge v${result.latestVersion} available (current: v${result.currentVersion})`)
+      // Notify connected phone clients
+      bridgeServer?.broadcast({
+        type: 'status',
+        data: {
+          opencodeRunning: true,
+          updateAvailable: true,
+          latestVersion: result.latestVersion,
+          currentVersion: result.currentVersion,
+        } as any,
+      })
+    }, (msg) => console.log(msg))
   }
 
 }

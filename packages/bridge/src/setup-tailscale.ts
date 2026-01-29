@@ -2,12 +2,10 @@ import { $ } from 'bun'
 import { stdin as input, stdout as output } from 'node:process'
 import readline from 'node:readline/promises'
 import { getTailscaleIP, isTailscaleConnected } from './network'
+import { IS_MACOS, IS_LINUX, IS_WINDOWS, openUrl, isTailscaleInstalled as platformIsTailscaleInstalled, getTailscaleBinaryPath, getTailscaleInstallHint, getTailscaleDownloadUrl } from './platform'
 
-const TAILSCALE_CLI = process.platform === 'darwin'
-  ? '/Applications/Tailscale.app/Contents/MacOS/Tailscale'
-  : 'tailscale'
+const TAILSCALE_CLI = getTailscaleBinaryPath()
 
-const TAILSCALE_MAC_APPSTORE = 'macappstore://apps.apple.com/app/tailscale/id1475387142'
 const TAILSCALE_IOS_URL = 'https://apps.apple.com/app/tailscale/id1470499037'
 const TAILSCALE_ANDROID_URL = 'https://play.google.com/store/apps/details?id=com.tailscale.ipn'
 
@@ -26,10 +24,6 @@ async function waitForEnter(prompt: string): Promise<void> {
   }
 }
 
-async function isTailscaleInstalled(): Promise<boolean> {
-  return Bun.file('/Applications/Tailscale.app/Contents/Info.plist').exists()
-}
-
 async function sleep(ms: number): Promise<void> {
   return new Promise(resolve => setTimeout(resolve, ms))
 }
@@ -40,27 +34,39 @@ ${CYAN}╔═══════════════════════�
 ║                                                          ║
 ║   🔒 Tailscale Setup                                     ║
 ║                                                          ║
-║   Tailscale lets you connect to your Mac from anywhere.  ║
-║   It's free for personal use and takes 2 minutes.        ║
+║   Tailscale lets you connect to your computer from       ║
+║   anywhere. It's free for personal use and takes 2 min.  ║
 ║                                                          ║
 ╚══════════════════════════════════════════════════════════╝${NC}
 `)
 
-  const installed = await isTailscaleInstalled()
+  const installed = await platformIsTailscaleInstalled()
   
   if (!installed) {
     console.log(`${BOLD}Step 1: Install Tailscale${NC}`)
     console.log('─'.repeat(50))
     console.log('')
-    console.log('  Opening App Store...')
-    
-    await $`open ${TAILSCALE_MAC_APPSTORE}`.quiet()
-    
+
+    if (IS_MACOS) {
+      console.log('  Opening App Store...')
+      openUrl(getTailscaleDownloadUrl())
+    } else if (IS_LINUX) {
+      console.log(`  Install Tailscale with:`)
+      console.log(`  ${CYAN}${getTailscaleInstallHint()}${NC}`)
+      console.log('')
+      console.log(`  Or visit: ${getTailscaleDownloadUrl()}`)
+    } else {
+      console.log(`  Install Tailscale with:`)
+      console.log(`  ${CYAN}${getTailscaleInstallHint()}${NC}`)
+      console.log('')
+      console.log(`  Or visit: ${getTailscaleDownloadUrl()}`)
+      openUrl(getTailscaleDownloadUrl())
+    }
+
     console.log('')
-    console.log('  Install Tailscale from the App Store.')
     await waitForEnter('Press ENTER when installed...')
     
-    const nowInstalled = await isTailscaleInstalled()
+    const nowInstalled = await platformIsTailscaleInstalled()
     if (!nowInstalled) {
       console.log('')
       console.log(`${YELLOW}!${NC} Tailscale not detected yet.`)
@@ -81,12 +87,18 @@ ${CYAN}╔═══════════════════════�
     console.log(`${BOLD}Step 2: Connect to Tailscale${NC}`)
     console.log('─'.repeat(50))
     console.log('')
-    console.log('  Opening Tailscale...')
-    
-    await $`open -a Tailscale`.quiet()
-    
+
+    if (IS_MACOS) {
+      try { await $`open -a Tailscale`.quiet() } catch { /* may not exist */ }
+      console.log('  Click the Tailscale icon in your menu bar (top-right).')
+    } else if (IS_LINUX) {
+      console.log(`  Run: ${CYAN}sudo tailscale up${NC}`)
+      console.log('  Then log in with Google, Microsoft, GitHub, or email.')
+    } else {
+      console.log('  Open Tailscale from the Start menu or system tray.')
+    }
+
     console.log('')
-    console.log('  Click the Tailscale icon in your menu bar (top-right).')
     console.log('  Log in with Google, Microsoft, GitHub, or email.')
     console.log('')
     console.log('  Waiting for connection...')
@@ -101,7 +113,7 @@ ${CYAN}╔═══════════════════════�
       if (attempts >= maxAttempts) {
         console.log('')
         console.log(`${YELLOW}!${NC} Timeout waiting for connection.`)
-        console.log('  Connect via the menu bar, then run broski-bridge.')
+        console.log('  Connect to Tailscale, then run broski.')
         return
       }
       
@@ -128,16 +140,12 @@ ${CYAN}╔═══════════════════════�
   console.log(`  • iPhone:  ${TAILSCALE_IOS_URL}`)
   console.log(`  • Android: ${TAILSCALE_ANDROID_URL}`)
   console.log('')
-  console.log(`  ${YELLOW}Important:${NC} Log in with the SAME account you used on your Mac.`)
+  console.log(`  ${YELLOW}Important:${NC} Log in with the SAME account you used on your computer.`)
   console.log('')
   console.log('─'.repeat(50))
   console.log('')
   console.log(`${GREEN}${BOLD}All done!${NC}`)
   console.log('')
-  console.log('Run `broski-bridge` to start coding from your phone.')
+  console.log('Run `broski` to start coding from your phone.')
   console.log('')
-}
-
-if (import.meta.main) {
-  await runSetupTailscale()
 }

@@ -208,7 +208,7 @@ class _PermissionRulesSheetContentState
                 const SizedBox(width: 8),
                 Expanded(
                   child: Text(
-                    'Pattern examples: *, src/*, Bash(npm *), Bash(git commit *)',
+                    'Patterns: *, src/*, *.dart, git *, npm *\nOrder matters: last matching rule wins',
                     style: TextStyle(
                       color: theme.info,
                       fontSize: 11,
@@ -359,6 +359,9 @@ class _RuleCard extends StatelessWidget {
       case 'bash':
         return theme.toolBash;
       case 'read':
+      case 'glob':
+      case 'grep':
+      case 'list':
         return theme.toolRead;
       case 'write':
         return theme.toolWrite;
@@ -375,6 +378,12 @@ class _RuleCard extends StatelessWidget {
         return Icons.terminal_rounded;
       case 'read':
         return Icons.visibility_outlined;
+      case 'glob':
+        return Icons.search_rounded;
+      case 'grep':
+        return Icons.find_in_page_outlined;
+      case 'list':
+        return Icons.folder_open_outlined;
       case 'write':
         return Icons.save_outlined;
       default:
@@ -447,7 +456,18 @@ class _RuleCard extends StatelessWidget {
                   child: _StyledDropdown(
                     label: 'Type',
                     value: rule.permission,
-                    items: const ['edit', 'bash', 'read', 'write'],
+                    items: const [
+                      'edit',
+                      'bash',
+                      'read',
+                      'write',
+                      'glob',
+                      'grep',
+                      'list',
+                      'task',
+                      'webfetch',
+                      'external_directory',
+                    ],
                     theme: theme,
                     onChanged: (value) =>
                         onUpdate(rule.copyWith(permission: value)),

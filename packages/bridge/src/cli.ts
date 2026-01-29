@@ -2,7 +2,7 @@ import { stdin as input, stdout as output } from 'node:process'
 import readline from 'node:readline/promises'
 
 export type OpencodeMode = 'managed' | 'manual' | 'attach'
-export type SubCommand = 'serve' | 'doctor' | 'setup-tailscale' | 'install' | 'uninstall' | 'status' | 'stop' | 'restart' | 'qr' | null
+export type SubCommand = 'serve' | 'doctor' | 'setup-tailscale' | 'install' | 'uninstall' | 'status' | 'stop' | 'restart' | 'qr' | 'version' | 'update' | null
 
 export type CliOptions = {
   subCommand: SubCommand
@@ -60,17 +60,25 @@ export function parseCli(argv: string[], env: NodeJS.ProcessEnv): CliOptions {
     subCommand = 'restart'
   } else if (firstArg === 'qr') {
     subCommand = 'qr'
+  } else if (firstArg === 'version') {
+    subCommand = 'version'
+  } else if (firstArg === 'update') {
+    subCommand = 'update'
   } else if (firstArg === 'serve' || !firstArg?.startsWith('-')) {
     subCommand = 'serve'
   }
 
   for (let i = 0; i < args.length; i++) {
     const arg = args[i]
-    if (arg === 'doctor' || arg === 'setup-tailscale' || arg === 'serve' || arg === 'install' || arg === 'uninstall' || arg === 'status' || arg === 'stop' || arg === 'restart' || arg === 'qr') {
+    if (arg === 'doctor' || arg === 'setup-tailscale' || arg === 'serve' || arg === 'install' || arg === 'uninstall' || arg === 'status' || arg === 'stop' || arg === 'restart' || arg === 'qr' || arg === 'version' || arg === 'update') {
       continue
     }
     if (arg === '--help' || arg === '-h') {
       help = true
+      continue
+    }
+    if (arg === '--version' || arg === '-V') {
+      subCommand = 'version'
       continue
     }
     if (arg === '--verbose' || arg === '-v') {
@@ -160,11 +168,14 @@ Commands:
   stop              Stop the background service
   restart           Restart the background service (picks up code changes)
   qr                Show QR code to connect your phone
+  update            Check for and install bridge updates
+  version           Show version and platform info
   doctor            Check system requirements and diagnose issues
   setup-tailscale   Install and configure Tailscale for remote access
 
 Options:
   --help, -h                Show help
+  --version, -V             Show version and platform info
   --verbose, -v             Verbose logging (SDK events + debug)
   --port, --bridge-port N   Bridge WebSocket port (default: 18274; use 0 for random free port)
   --funnel                  Enable Tailscale Funnel for public HTTPS access (no VPN needed on phone)
@@ -190,6 +201,7 @@ Examples:
   broski uninstall               Remove background service
   broski doctor                  Check if everything is set up correctly
   broski setup-tailscale         Set up Tailscale for remote access
+  broski update                  Update to the latest version
   broski --verbose               Start with debug logging
   broski --hotspot               Prioritize hotspot IP (for mobile tethering)
 `.trim())

@@ -1,7 +1,8 @@
-import { mkdir, readFile, stat, writeFile } from 'node:fs/promises'
+import { readFile, stat } from 'node:fs/promises'
 import { homedir } from 'node:os'
-import { dirname, resolve } from 'node:path'
+import { resolve } from 'node:path'
 import { createHash } from 'node:crypto'
+import { generateSelfSignedCertificate } from './platform'
 
 export type TlsMaterial = {
   keyPath: string
@@ -39,54 +40,13 @@ function isTruthyEnv(value: string | undefined, fallback: boolean): boolean {
 }
 
 async function generateSelfSignedCert(): Promise<void> {
-  // We intentionally shell out to OpenSSL instead of adding heavy JS/X509 deps.
-  // OpenSSL exists on macOS + most Linux distros; if it doesn't, we'll fail fast
-  // and the user can set BROSKI_TLS=0 as an explicit insecure escape hatch.
-  const openssl = Bun.which('openssl') ?? 'openssl'
   const validityDays = Number(process.env.BROSKI_TLS_CERT_DAYS ?? '365') || 365
-
-  await mkdir(dirname(TLS_KEY_PATH), { recursive: true })
-
-  // Create a new private key + self-signed cert in one shot.
-  // - CN is informational; the app pins the cert fingerprint (not hostname).
-  const res = Bun.spawnSync({
-    cmd: [
-      openssl,
-      'req',
-      '-x509',
-      '-newkey',
-      'rsa:2048',
-      '-nodes',
-      '-subj',
-      '/CN=broski',
-      '-days',
-      String(validityDays),
-      '-keyout',
-      TLS_KEY_PATH,
-      '-out',
-      TLS_CERT_PATH,
-    ],
-    stdout: 'pipe',
-    stderr: 'pipe',
+  await generateSelfSignedCertificate({
+    commonName: 'broski',
+    validityDays,
+    keyPath: TLS_KEY_PATH,
+    certPath: TLS_CERT_PATH,
   })
-
-  if (res.exitCode !== 0) {
-    const stderr = (res.stderr?.toString() ?? '').trim()
-    const stdout = (res.stdout?.toString() ?? '').trim()
-    throw new Error(`Failed to generate TLS cert via OpenSSL. ${stderr || stdout || 'unknown error'}`)
-  }
-
-  // Tighten key permissions (best-effort; platform-dependent).
-  try {
-    await writeFile(TLS_KEY_PATH, await readFile(TLS_KEY_PATH), { mode: 0o600 })
-  } catch {
-    // ignore
-  }
-  try {
-    await writeFile(TLS_CERT_PATH, await readFile(TLS_CERT_PATH), { mode: 0o644 })
-  } catch {
-    // ignore
-  }
 }
 
 export function isTlsEnabledByEnv(): boolean {

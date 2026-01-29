@@ -12,6 +12,7 @@ import * as fileSearch from './file-search'
 import { CodexAppServerClient, checkCodexAvailable } from './connectors/codex'
 import { headTailTruncate } from './utils'
 import { ensureTlsMaterial, isTlsEnabledByEnv, type TlsMaterial } from './tls'
+import { getDefaultAllowedPaths, IS_WINDOWS } from './platform'
 
 const TOKEN_FILE_LEGACY = resolve(homedir(), '.broski', 'token')
 const TOKEN_FILE = resolve(homedir(), '.broski', 'token.json')
@@ -418,7 +419,7 @@ function validateAuthToken(provided: string, expectedToken: string): boolean {
 
 const SECURITY_ALLOWED_BASE_PATHS = (() => {
   const raw = (process.env.BROSKI_ALLOWED_BASE_PATHS ?? '').trim()
-  const defaults = [homedir(), '/tmp', '/var/tmp']
+  const defaults = getDefaultAllowedPaths()
   const bases = raw
     ? raw
         .split(',')
@@ -507,6 +508,7 @@ async function readFileDirectly(filePath: string): Promise<{ content: string; mi
 
   try {
     // Mitigate symlink-based TOCTOU by refusing to follow symlinks at open-time.
+    // O_NOFOLLOW not available on Windows — symlink defense disabled there (acceptable trade-off for dev tool)
     const noFollow = Number((fsConstants as any).O_NOFOLLOW ?? 0) || 0
     if (!noFollow) {
       // Best-effort symlink refusal on platforms without O_NOFOLLOW.
@@ -568,6 +570,7 @@ async function readFileBinaryDirectly(
   }
 
   try {
+    // O_NOFOLLOW not available on Windows — symlink defense disabled there (acceptable trade-off for dev tool)
     const noFollow = Number((fsConstants as any).O_NOFOLLOW ?? 0) || 0
     if (!noFollow) {
       const lst = await lstat(securePath).catch(() => null)

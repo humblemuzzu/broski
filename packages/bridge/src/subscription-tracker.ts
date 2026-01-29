@@ -10,7 +10,7 @@
 
 import { readFile } from 'node:fs/promises'
 import { homedir } from 'node:os'
-import { resolve } from 'node:path'
+import { basename, resolve } from 'node:path'
 import { execSync } from 'node:child_process'
 
 // ============================================================================
@@ -85,7 +85,7 @@ function loadClaudeCredentialsFromKeychain(): ClaudeOAuthCredentials | null {
   
   try {
     // Get the current username for the account field
-    const username = process.env.USER || homedir().split('/').pop() || ''
+    const username = process.env.USER || basename(homedir()) || ''
     
     // Use security CLI to read from Keychain
     const result = execSync(

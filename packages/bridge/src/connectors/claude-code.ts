@@ -239,8 +239,10 @@ function variantToThinkingTokens(variant?: string): number | null | undefined {
  * as a best-effort hint and fall back to scanning.
  */
 function encodeProjectPath(path: string): string {
+  // Normalize Windows backslashes to forward slashes for consistent encoding.
+  // Claude Code encodes `/Users/me/repo` as `-Users-me-repo`.
+  // On Windows, `C:\Users\me\repo` → `C:/Users/me/repo` → `-C:-Users-me-repo`.
   const normalized = path.replaceAll('\\', '/')
-  if (normalized.startsWith('/')) return normalized.replaceAll('/', '-')
   return normalized.replaceAll('/', '-')
 }
 

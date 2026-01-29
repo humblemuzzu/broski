@@ -10792,7 +10792,7 @@ class _PermissionPresetCard extends StatelessWidget {
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
             Text(
-              preset.displayName,
+              preset.shortName,
               style: TextStyle(
                 color: isSelected ? theme.primary : theme.text,
                 fontSize: 13,
@@ -10805,7 +10805,7 @@ class _PermissionPresetCard extends StatelessWidget {
             Text(
               preset.description,
               style: TextStyle(color: theme.textMuted, fontSize: 10),
-              maxLines: 1,
+              maxLines: 2,
               overflow: TextOverflow.ellipsis,
             ),
           ],

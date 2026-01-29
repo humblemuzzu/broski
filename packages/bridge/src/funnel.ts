@@ -1,4 +1,7 @@
 import { $ } from 'bun'
+import { getTailscaleBinaryPath } from './platform'
+
+const TAILSCALE_BIN = getTailscaleBinaryPath()
 
 export interface FunnelStatus {
   enabled: boolean
@@ -8,7 +11,7 @@ export interface FunnelStatus {
 
 export async function getFunnelStatus(): Promise<FunnelStatus> {
   try {
-    const result = await $`tailscale funnel status --json 2>/dev/null`.quiet()
+    const result = await $`${TAILSCALE_BIN} funnel status --json`.quiet()
     const status = JSON.parse(result.text())
 
     const services = status.Services ?? {}
@@ -37,7 +40,7 @@ export async function getFunnelStatus(): Promise<FunnelStatus> {
  */
 export async function enableFunnel(port: number): Promise<{ success: boolean; url: string | null; error?: string }> {
   try {
-    await $`tailscale funnel ${port}`.quiet()
+    await $`${TAILSCALE_BIN} funnel ${port}`.quiet()
     await new Promise((resolve) => setTimeout(resolve, 1000))
 
     const status = await getFunnelStatus()
@@ -72,7 +75,7 @@ export async function enableFunnel(port: number): Promise<{ success: boolean; ur
 
 export async function disableFunnel(port: number): Promise<boolean> {
   try {
-    await $`tailscale funnel off ${port}`.quiet()
+    await $`${TAILSCALE_BIN} funnel off ${port}`.quiet()
     return true
   } catch {
     return false
@@ -81,7 +84,7 @@ export async function disableFunnel(port: number): Promise<boolean> {
 
 export async function isFunnelAvailable(): Promise<boolean> {
   try {
-    await $`tailscale funnel --help 2>/dev/null`.quiet()
+    await $`${TAILSCALE_BIN} funnel --help`.quiet()
     return true
   } catch {
     return false
