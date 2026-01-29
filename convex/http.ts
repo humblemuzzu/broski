@@ -276,6 +276,46 @@ http.route({
   }),
 });
 
+// NOTE: Trial abuse prevention is handled by App Store / Play Store at the
+// Apple ID / Google account level. RevenueCat also tracks original_app_user_id
+// across account deletions. Our tombstone table (deletedAccounts) records
+// deletion metadata for analytics and fraud investigation.
+
+http.route({
+  path: "/me/delete",
+  method: "POST",
+  handler: httpAction(async (ctx, req) => {
+    const auth = await requireSession(ctx, req);
+    if (!auth.ok) return auth.response;
+
+    let body: any = {};
+    try {
+      body = await req.json();
+    } catch {
+      // Body is optional for delete
+    }
+
+    const reason = typeof body?.reason === "string" ? body.reason : undefined;
+    const feedback = typeof body?.feedback === "string" ? body.feedback : undefined;
+
+    // Hash email and appUserId for tombstone (crypto.subtle available in httpAction)
+    const hashedEmail = auth.user.email
+      ? await sha256Hex(auth.user.email.toLowerCase())
+      : undefined;
+    const hashedAppUserId = await sha256Hex(auth.user.appUserId);
+
+    await ctx.runMutation(internal.users.deleteAccountAndData, {
+      userId: auth.user._id,
+      hashedEmail,
+      hashedAppUserId,
+      reason,
+      feedback,
+    });
+
+    return json({ ok: true });
+  }),
+});
+
 // Recursively sanitize objects to rename keys starting with '$' (Convex reserved)
 function sanitizeForConvex(obj: unknown): unknown {
   if (obj === null || obj === undefined) return obj;

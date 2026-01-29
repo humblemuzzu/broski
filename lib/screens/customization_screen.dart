@@ -12,6 +12,7 @@ import '../providers/service_providers.dart';
 import '../providers/theme_provider.dart';
 import '../theme/opencode_theme.dart';
 import 'appearance_screen.dart';
+import 'background_screen.dart';
 import 'theme_selector_screen.dart';
 
 /// Helper to get contrasting text color for a background
@@ -61,8 +62,8 @@ class CustomizationScreen extends ConsumerWidget {
       body: ListView(
         padding: const EdgeInsets.all(20),
         children: [
-          // Theme Section
-          _SectionHeader(title: 'Theme'),
+          // Appearance Section
+          _SectionHeader(title: 'Appearance'),
           const SizedBox(height: 12),
           _SettingsCard(
             child: Column(
@@ -114,6 +115,16 @@ class CustomizationScreen extends ConsumerWidget {
                   onTap: () => Navigator.push(
                     context,
                     MaterialPageRoute(builder: (_) => const AppearanceScreen()),
+                  ),
+                ),
+                _Divider(),
+                _NavigationTile(
+                  title: 'Background',
+                  subtitle: 'Wallpaper, shade, and per-screen settings',
+                  icon: Icons.wallpaper_rounded,
+                  onTap: () => Navigator.push(
+                    context,
+                    MaterialPageRoute(builder: (_) => const BackgroundScreen()),
                   ),
                 ),
               ],

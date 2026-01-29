@@ -164,6 +164,69 @@ export const setRevenueCatIds = internalMutation({
   },
 });
 
+export const deleteAccountAndData = internalMutation({
+  args: {
+    userId: v.id("users"),
+    hashedEmail: v.optional(v.string()),
+    hashedAppUserId: v.string(),
+    reason: v.optional(v.string()),
+    feedback: v.optional(v.string()),
+  },
+  handler: async (ctx, args) => {
+    const user = await ctx.db.get(args.userId);
+    if (!user) return { success: false, error: "User not found" };
+
+    const now = Date.now();
+
+    // 1. Create tombstone with pre-hashed data (non-reversible)
+    await ctx.db.insert("deletedAccounts", {
+      hashedEmail: args.hashedEmail,
+      hashedAppUserId: args.hashedAppUserId,
+      provider: user.provider,
+      hadActiveSubscription: user.subscription?.entitlementActive ?? false,
+      lastPlan: user.subscription?.productId,
+      revenueCatOriginalAppUserId: user.revenueCat?.originalAppUserId,
+      deletedAtMs: now,
+      reason: args.reason,
+      feedback: args.feedback,
+    });
+
+    // 2. Delete ALL auth sessions for this user
+    const sessions = await ctx.db
+      .query("authSessions")
+      .withIndex("by_userId", (q) => q.eq("userId", args.userId))
+      .collect();
+    for (const session of sessions) {
+      await ctx.db.delete(session._id);
+    }
+
+    // 3. Delete all RevenueCat events for this user
+    const rcEvents = await ctx.db
+      .query("revenuecatEvents")
+      .withIndex("by_appUserId", (q) => q.eq("appUserId", user.appUserId))
+      .collect();
+    for (const event of rcEvents) {
+      await ctx.db.delete(event._id);
+    }
+
+    // 4. Delete the user record
+    await ctx.db.delete(args.userId);
+
+    return { success: true };
+  },
+});
+
+export const checkDeletedAccount = internalQuery({
+  args: { hashedEmail: v.string() },
+  handler: async (ctx, args) => {
+    const tombstone = await ctx.db
+      .query("deletedAccounts")
+      .withIndex("by_hashedEmail", (q) => q.eq("hashedEmail", args.hashedEmail))
+      .first();
+    return tombstone;
+  },
+});
+
 export const updateSubscriptionFromClient = internalMutation({
   args: {
     userId: v.id("users"),

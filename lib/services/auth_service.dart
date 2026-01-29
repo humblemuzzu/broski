@@ -113,6 +113,26 @@ class AuthService {
     }
   }
 
+  Future<void> deleteAccount({String? reason, String? feedback}) async {
+    final token = await _storage.getAppSessionToken();
+    if (token != null) {
+      await _convex.deleteAccount(
+        sessionToken: token,
+        reason: reason,
+        feedback: feedback,
+      );
+    }
+
+    // Sign out of Google locally
+    try {
+      await _ensureGoogleInitialized();
+      await GoogleSignIn.instance.signOut();
+    } catch (_) {}
+
+    // Clear all local auth data
+    await _storage.clearAppAuth();
+  }
+
   Future<void> signOut() async {
     final token = await _storage.getAppSessionToken();
     if (token != null) {

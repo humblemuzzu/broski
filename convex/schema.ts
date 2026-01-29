@@ -74,5 +74,24 @@ export default defineSchema({
     environment: v.optional(v.string()),
     raw: v.optional(v.any()),
   }).index("by_appUserId", ["appUserId"]),
+
+  deletedAccounts: defineTable({
+    // SHA-256 hash of lowercase email — NOT the raw email (GDPR-safe)
+    hashedEmail: v.optional(v.string()),
+    // SHA-256 hash of the appUserId
+    hashedAppUserId: v.string(),
+    // Provider used (google/apple)
+    provider: v.string(),
+    // RevenueCat info at time of deletion
+    hadActiveSubscription: v.boolean(),
+    lastPlan: v.optional(v.string()),
+    revenueCatOriginalAppUserId: v.optional(v.string()),
+    // Deletion metadata
+    deletedAtMs: v.number(),
+    reason: v.optional(v.string()),
+    feedback: v.optional(v.string()),
+  })
+    .index("by_hashedEmail", ["hashedEmail"])
+    .index("by_hashedAppUserId", ["hashedAppUserId"]),
 });
 

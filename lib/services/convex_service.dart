@@ -96,6 +96,28 @@ class ConvexService {
     }
   }
 
+  Future<void> deleteAccount({
+    required String sessionToken,
+    String? reason,
+    String? feedback,
+  }) async {
+    final res = await _client.post(
+      _url('/me/delete'),
+      headers: {
+        'authorization': 'Bearer $sessionToken',
+        'content-type': 'application/json',
+      },
+      body: jsonEncode({
+        if (reason != null) 'reason': reason,
+        if (feedback != null) 'feedback': feedback,
+      }),
+    );
+    final json = _parseJson(res);
+    if (json['ok'] != true) {
+      throw Exception(json['error'] ?? 'Failed to delete account');
+    }
+  }
+
   AuthSession _parseAuthSession(http.Response res) {
     final json = _parseJson(res);
     if (json['ok'] != true) {
@@ -122,4 +144,3 @@ class ConvexService {
     }
   }
 }
-

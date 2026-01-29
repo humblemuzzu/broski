@@ -6,11 +6,7 @@ import '../services/convex_service.dart';
 import 'service_providers.dart';
 
 class AppAuthState {
-  const AppAuthState({
-    this.user,
-    this.isLoading = true,
-    this.error,
-  });
+  const AppAuthState({this.user, this.isLoading = true, this.error});
 
   final AppUser? user;
   final bool isLoading;
@@ -33,8 +29,7 @@ class AppAuthState {
 }
 
 class AppAuthNotifier extends StateNotifier<AppAuthState> {
-  AppAuthNotifier(this._ref)
-      : super(const AppAuthState(isLoading: true)) {
+  AppAuthNotifier(this._ref) : super(const AppAuthState(isLoading: true)) {
     _bootstrap();
   }
 
@@ -86,10 +81,22 @@ class AppAuthNotifier extends StateNotifier<AppAuthState> {
     await _auth.signOut();
     state = const AppAuthState(isLoading: false);
   }
+
+  Future<void> deleteAccount({String? reason, String? feedback}) async {
+    if (state.isLoading) return;
+    state = state.copyWith(isLoading: true, clearError: true);
+    try {
+      await _auth.deleteAccount(reason: reason, feedback: feedback);
+      state = const AppAuthState(isLoading: false);
+    } catch (e) {
+      state = AppAuthState(isLoading: false, error: e.toString());
+      rethrow; // Let the UI handle this
+    }
+  }
 }
 
-final appAuthProvider =
-    StateNotifierProvider<AppAuthNotifier, AppAuthState>((ref) {
+final appAuthProvider = StateNotifierProvider<AppAuthNotifier, AppAuthState>((
+  ref,
+) {
   return AppAuthNotifier(ref);
 });
-

@@ -95,39 +95,6 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                   child: _ActiveConnectionCard(connection: connection),
                 ),
               ),
-              const SliverToBoxAdapter(child: SizedBox(height: 16)),
-              SliverToBoxAdapter(
-                child: Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: 20),
-                  child: _SettingsCard(
-                    child: Column(
-                      children: [
-                        _SettingsTile(
-                          title: 'Device Manager',
-                          subtitle: 'Paired Macs and connections',
-                          icon: Icons.devices_rounded,
-                          onTap: () => Navigator.push(
-                            context,
-                            MaterialPageRoute(
-                              builder: (_) => const DeviceManagerScreen(),
-                            ),
-                          ),
-                        ),
-                        _Divider(),
-                        _ActionTile(
-                          title: 'Disconnect',
-                          subtitle: 'End current session',
-                          icon: Icons.link_off_rounded,
-                          iconColor: theme.colorScheme.error,
-                          onTap: () => ref
-                              .read(connectionProvider.notifier)
-                              .disconnect(),
-                        ),
-                      ],
-                    ),
-                  ),
-                ),
-              ),
             ] else
               SliverToBoxAdapter(
                 child: Padding(
@@ -205,7 +172,8 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                         currentAgent: currentAgent,
                         isExpanded: _powerFeaturesExpanded,
                         onToggle: () => setState(
-                          () => _powerFeaturesExpanded = !_powerFeaturesExpanded,
+                          () =>
+                              _powerFeaturesExpanded = !_powerFeaturesExpanded,
                         ),
                       ),
                     ],
@@ -218,9 +186,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                 firstChild: const SizedBox.shrink(),
                 secondChild: Padding(
                   padding: const EdgeInsets.only(top: 12),
-                  child: _PowerFeaturesExpandedCard(
-                    currentAgent: currentAgent,
-                  ),
+                  child: _PowerFeaturesExpandedCard(currentAgent: currentAgent),
                 ),
                 crossFadeState: _powerFeaturesExpanded
                     ? CrossFadeState.showSecond
@@ -356,8 +322,6 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
               ),
             ),
 
-
-
             const SliverToBoxAdapter(child: SizedBox(height: 32)),
             SliverToBoxAdapter(child: SectionHeader(title: 'Account')),
             const SliverToBoxAdapter(child: SizedBox(height: 12)),
@@ -412,6 +376,14 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                             ).popUntil((route) => route.isFirst);
                           }
                         },
+                      ),
+                      _Divider(),
+                      _ActionTile(
+                        title: 'Delete Account',
+                        subtitle: 'Permanently delete all your data',
+                        icon: Icons.delete_forever_rounded,
+                        iconColor: theme.colorScheme.error,
+                        onTap: () => _showDeleteAccountDialog(context, ref),
                       ),
                     ],
                   ),
@@ -563,6 +535,14 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
     );
   }
 
+  void _showDeleteAccountDialog(BuildContext context, WidgetRef ref) {
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (context) => const _DeleteAccountDialog(),
+    );
+  }
+
   void _showClearCacheDialog(BuildContext context, WidgetRef ref) {
     showDialog(
       context: context,
@@ -668,9 +648,7 @@ class _PowerFeaturesTile extends StatelessWidget {
                   Text(
                     'Advanced ${currentAgent.displayName} configuration',
                     style: TextStyle(
-                      color: theme.colorScheme.onSurface.withValues(
-                        alpha: 0.6,
-                      ),
+                      color: theme.colorScheme.onSurface.withValues(alpha: 0.6),
                       fontSize: 13,
                     ),
                   ),
@@ -935,11 +913,11 @@ class _PowerFeaturesExpandedCard extends StatelessWidget {
         decoration: BoxDecoration(
           color: theme.colorScheme.surface.withValues(alpha: 0.4),
           borderRadius: BorderRadius.circular(16),
-          border: Border.all(color: ocTheme.borderSubtle.withValues(alpha: 0.7)),
+          border: Border.all(
+            color: ocTheme.borderSubtle.withValues(alpha: 0.7),
+          ),
         ),
-        child: Column(
-          children: features,
-        ),
+        child: Column(children: features),
       ),
     );
   }
@@ -1143,16 +1121,17 @@ class _ProjectPickerContentState extends ConsumerState<_ProjectPickerContent> {
   }
 }
 
-class _ActiveConnectionCard extends StatefulWidget {
+class _ActiveConnectionCard extends ConsumerStatefulWidget {
   const _ActiveConnectionCard({required this.connection});
 
   final BridgeConnectionState connection;
 
   @override
-  State<_ActiveConnectionCard> createState() => _ActiveConnectionCardState();
+  ConsumerState<_ActiveConnectionCard> createState() =>
+      _ActiveConnectionCardState();
 }
 
-class _ActiveConnectionCardState extends State<_ActiveConnectionCard> {
+class _ActiveConnectionCardState extends ConsumerState<_ActiveConnectionCard> {
   bool _isExpanded = false;
 
   @override
@@ -1221,6 +1200,7 @@ class _ActiveConnectionCardState extends State<_ActiveConnectionCard> {
                 isConnected &&
                 connection.connection != null) ...[
               const SizedBox(height: 20),
+              // Connection details
               Container(
                 padding: const EdgeInsets.all(16),
                 decoration: BoxDecoration(
@@ -1297,7 +1277,85 @@ class _ActiveConnectionCardState extends State<_ActiveConnectionCard> {
                   ],
                 ),
               ),
+              // Connection actions
+              const SizedBox(height: 12),
+              Row(
+                children: [
+                  Expanded(
+                    child: _ConnectionActionButton(
+                      icon: Icons.devices_rounded,
+                      label: 'Device Manager',
+                      onTap: () => Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                          builder: (_) => const DeviceManagerScreen(),
+                        ),
+                      ),
+                    ),
+                  ),
+                  const SizedBox(width: 10),
+                  Expanded(
+                    child: _ConnectionActionButton(
+                      icon: Icons.link_off_rounded,
+                      label: 'Disconnect',
+                      isDestructive: true,
+                      onTap: () =>
+                          ref.read(connectionProvider.notifier).disconnect(),
+                    ),
+                  ),
+                ],
+              ),
             ],
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+/// Compact action button for connection card expanded section
+class _ConnectionActionButton extends StatelessWidget {
+  const _ConnectionActionButton({
+    required this.icon,
+    required this.label,
+    required this.onTap,
+    this.isDestructive = false,
+  });
+
+  final IconData icon;
+  final String label;
+  final VoidCallback onTap;
+  final bool isDestructive;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final color = isDestructive
+        ? theme.colorScheme.error
+        : theme.colorScheme.primary;
+
+    return GestureDetector(
+      onTap: onTap,
+      child: Container(
+        padding: const EdgeInsets.symmetric(vertical: 12),
+        decoration: BoxDecoration(
+          color: color.withValues(alpha: 0.1),
+          borderRadius: BorderRadius.circular(12),
+          border: Border.all(color: color.withValues(alpha: 0.2)),
+        ),
+        child: Row(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Icon(icon, size: 16, color: color),
+            const SizedBox(width: 8),
+            Text(
+              label,
+              style: TextStyle(
+                color: color,
+                fontSize: 13,
+                fontWeight: FontWeight.w600,
+              ),
+            ),
           ],
         ),
       ),
@@ -1580,6 +1638,239 @@ class _InfoTile extends StatelessWidget {
             style: TextStyle(
               color: theme.colorScheme.onSurface.withValues(alpha: 0.6),
               fontSize: 15,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _DeleteAccountDialog extends ConsumerStatefulWidget {
+  const _DeleteAccountDialog();
+
+  @override
+  ConsumerState<_DeleteAccountDialog> createState() =>
+      _DeleteAccountDialogState();
+}
+
+class _DeleteAccountDialogState extends ConsumerState<_DeleteAccountDialog> {
+  final _confirmController = TextEditingController();
+  final _feedbackController = TextEditingController();
+  String? _selectedReason;
+  bool _isDeleting = false;
+  String? _error;
+
+  static const _reasons = [
+    'No longer need it',
+    'Too expensive',
+    'Switching to another app',
+    'Privacy concerns',
+    'Technical issues',
+    'Other',
+  ];
+
+  bool get _canDelete =>
+      _confirmController.text.trim().toUpperCase() == 'DELETE';
+
+  @override
+  void dispose() {
+    _confirmController.dispose();
+    _feedbackController.dispose();
+    super.dispose();
+  }
+
+  Future<void> _performDelete() async {
+    if (!_canDelete || _isDeleting) return;
+    setState(() {
+      _isDeleting = true;
+      _error = null;
+    });
+
+    try {
+      // Log out of RevenueCat first
+      await ref.read(appSubscriptionProvider.notifier).signOut();
+
+      // Delete the account
+      await ref
+          .read(appAuthProvider.notifier)
+          .deleteAccount(
+            reason: _selectedReason,
+            feedback: _feedbackController.text.trim().isNotEmpty
+                ? _feedbackController.text.trim()
+                : null,
+          );
+
+      if (mounted) {
+        Navigator.of(context).pop(); // Close dialog
+        // Navigate to root/auth screen
+        Navigator.of(context).popUntil((route) => route.isFirst);
+      }
+    } catch (e) {
+      if (mounted) {
+        setState(() {
+          _isDeleting = false;
+          _error = e.toString();
+        });
+      }
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+
+    return AlertDialog(
+      title: Row(
+        children: [
+          Icon(Icons.warning_amber_rounded, color: theme.colorScheme.error),
+          const SizedBox(width: 8),
+          Text(
+            'Delete Account',
+            style: TextStyle(color: theme.colorScheme.error),
+          ),
+        ],
+      ),
+      content: SingleChildScrollView(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              'This action is permanent and cannot be undone. All your data will be deleted:',
+              style: TextStyle(
+                color: theme.colorScheme.onSurface.withValues(alpha: 0.8),
+              ),
+            ),
+            const SizedBox(height: 12),
+            _bulletPoint('Your account and profile', theme),
+            _bulletPoint('All session tokens', theme),
+            _bulletPoint('Subscription records', theme),
+            _bulletPoint('RevenueCat event history', theme),
+            const SizedBox(height: 16),
+            Text(
+              'Your subscription (if active) will NOT be automatically cancelled. '
+              'Please cancel it through your App Store settings first.',
+              style: TextStyle(
+                color: theme.colorScheme.error,
+                fontWeight: FontWeight.w600,
+                fontSize: 13,
+              ),
+            ),
+            const SizedBox(height: 20),
+            Text(
+              'Why are you leaving? (optional)',
+              style: TextStyle(
+                color: theme.colorScheme.onSurface,
+                fontWeight: FontWeight.w600,
+                fontSize: 14,
+              ),
+            ),
+            const SizedBox(height: 8),
+            DropdownButtonFormField<String>(
+              value: _selectedReason,
+              decoration: const InputDecoration(
+                hintText: 'Select a reason',
+                border: OutlineInputBorder(),
+                contentPadding: EdgeInsets.symmetric(
+                  horizontal: 12,
+                  vertical: 8,
+                ),
+              ),
+              items: _reasons
+                  .map((r) => DropdownMenuItem(value: r, child: Text(r)))
+                  .toList(),
+              onChanged: (v) => setState(() => _selectedReason = v),
+            ),
+            const SizedBox(height: 12),
+            TextField(
+              controller: _feedbackController,
+              maxLines: 2,
+              decoration: const InputDecoration(
+                hintText: 'Any additional feedback? (optional)',
+                border: OutlineInputBorder(),
+                contentPadding: EdgeInsets.symmetric(
+                  horizontal: 12,
+                  vertical: 8,
+                ),
+              ),
+            ),
+            const SizedBox(height: 20),
+            Text(
+              'Type DELETE to confirm:',
+              style: TextStyle(
+                color: theme.colorScheme.onSurface,
+                fontWeight: FontWeight.w600,
+                fontSize: 14,
+              ),
+            ),
+            const SizedBox(height: 8),
+            TextField(
+              controller: _confirmController,
+              onChanged: (_) => setState(() {}),
+              decoration: InputDecoration(
+                hintText: 'DELETE',
+                border: const OutlineInputBorder(),
+                contentPadding: const EdgeInsets.symmetric(
+                  horizontal: 12,
+                  vertical: 8,
+                ),
+                enabledBorder: OutlineInputBorder(
+                  borderSide: BorderSide(
+                    color: _canDelete
+                        ? theme.colorScheme.error
+                        : theme.colorScheme.outline,
+                  ),
+                ),
+              ),
+            ),
+            if (_error != null) ...[
+              const SizedBox(height: 12),
+              Text(
+                _error!,
+                style: TextStyle(color: theme.colorScheme.error, fontSize: 12),
+              ),
+            ],
+          ],
+        ),
+      ),
+      actions: [
+        TextButton(
+          onPressed: _isDeleting ? null : () => Navigator.pop(context),
+          child: const Text('Cancel'),
+        ),
+        ElevatedButton(
+          onPressed: _canDelete && !_isDeleting ? _performDelete : null,
+          style: ElevatedButton.styleFrom(
+            backgroundColor: theme.colorScheme.error,
+            foregroundColor: theme.colorScheme.onError,
+          ),
+          child: _isDeleting
+              ? const SizedBox(
+                  width: 20,
+                  height: 20,
+                  child: CircularProgressIndicator(strokeWidth: 2),
+                )
+              : const Text('Delete Account'),
+        ),
+      ],
+    );
+  }
+
+  Widget _bulletPoint(String text, ThemeData theme) {
+    return Padding(
+      padding: const EdgeInsets.only(left: 8, bottom: 4),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text('•  ', style: TextStyle(color: theme.colorScheme.error)),
+          Expanded(
+            child: Text(
+              text,
+              style: TextStyle(
+                color: theme.colorScheme.onSurface.withValues(alpha: 0.7),
+                fontSize: 13,
+              ),
             ),
           ),
         ],
