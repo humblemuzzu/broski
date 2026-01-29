@@ -8963,95 +8963,112 @@ class _FloatingInputBar extends ConsumerWidget {
                     ),
                   ),
 
-                // Main input row
+                // Main input container - ChatGPT-style unified card
                 Padding(
                   key: const ValueKey('floating-input-row'),
-                  padding: const EdgeInsets.fromLTRB(16, 4, 16, 4),
-                  child: Row(
-                    crossAxisAlignment: CrossAxisAlignment.center,
-                    children: [
-                      // Menu button - always shows tune icon, opens PowerSheet for all backends
-                      GestureDetector(
-                        onTap: () => _showPowerSheet(context),
-                        child: Container(
-                          height: 42,
-                          width: 42,
-                          margin: const EdgeInsets.only(right: 8),
-                          decoration: BoxDecoration(
-                            color: kCard,
-                            borderRadius: BorderRadius.circular(21),
-                            border: Border.all(color: fade(kMuted, 0.2)),
-                          ),
-                          child: Center(
-                            child: Icon(
-                              Icons.tune_rounded,
+                  padding: const EdgeInsets.fromLTRB(12, 4, 12, 4),
+                  child: Container(
+                    decoration: BoxDecoration(
+                      color: kCard,
+                      borderRadius: BorderRadius.circular(24),
+                      border: Border.all(color: fade(kMuted, 0.18)),
+                    ),
+                    child: Column(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        // Top: Text input (full width)
+                        Padding(
+                          padding: const EdgeInsets.fromLTRB(18, 6, 18, 0),
+                          child: TextField(
+                            controller: controller,
+                            focusNode: focusNode,
+                            enabled: !isOfflineMode && !isBusy,
+                            minLines: 1,
+                            maxLines: 5,
+                            style: TextStyle(
+                              fontWeight: FontWeight.w400,
                               color: kOnBackground,
-                              size: 22,
+                              fontSize: 15,
                             ),
+                            decoration: InputDecoration(
+                              hintText: isOfflineMode
+                                  ? 'Offline mode - read only'
+                                  : 'Ask AI to edit code...',
+                              filled: false,
+                              border: InputBorder.none,
+                              enabledBorder: InputBorder.none,
+                              focusedBorder: InputBorder.none,
+                              disabledBorder: InputBorder.none,
+                              errorBorder: InputBorder.none,
+                              focusedErrorBorder: InputBorder.none,
+                              hintStyle: TextStyle(
+                                color: isOfflineMode
+                                    ? theme.warning
+                                    : kMuted.withValues(alpha: 0.5),
+                                fontWeight: FontWeight.w400,
+                                fontSize: 15,
+                              ),
+                              contentPadding: const EdgeInsets.symmetric(
+                                horizontal: 0,
+                                vertical: 10,
+                              ),
+                              isDense: true,
+                            ),
+                            onSubmitted: canSend ? (_) => onSend() : null,
                           ),
                         ),
-                      ),
-                      // Prompt bar container
-                      Expanded(
-                        child: Container(
-                          constraints: const BoxConstraints(minHeight: 42),
-                          decoration: BoxDecoration(
-                            color: kCard,
-                            borderRadius: BorderRadius.circular(22),
-                            border: Border.all(color: fade(kMuted, 0.2)),
-                          ),
-                          padding: const EdgeInsets.symmetric(
-                            horizontal: 14,
-                            vertical: 4,
-                          ),
+                        // Bottom: Action row
+                        Padding(
+                          padding: const EdgeInsets.fromLTRB(12, 2, 10, 10),
                           child: Row(
-                            crossAxisAlignment: CrossAxisAlignment.center,
                             children: [
-                              // Text input
-                              Expanded(
-                                child: TextField(
-                                  controller: controller,
-                                  focusNode: focusNode,
-                                  enabled: !isOfflineMode && !isBusy,
-                                  minLines: 1,
-                                  maxLines: 5,
-                                  style: TextStyle(
-                                    fontWeight: FontWeight.w400,
-                                    color: kOnBackground,
-                                    fontSize: 15,
+                              // Project chip (left)
+                              GestureDetector(
+                                onTap: () => _showPowerSheet(context),
+                                child: Container(
+                                  padding: const EdgeInsets.symmetric(
+                                    horizontal: 12,
+                                    vertical: 6,
                                   ),
-                                  decoration: InputDecoration(
-                                    hintText: isOfflineMode
-                                        ? 'Offline mode - read only'
-                                        : 'Ask AI to edit code...',
-                                    filled: false,
-                                    border: InputBorder.none,
-                                    enabledBorder: InputBorder.none,
-                                    focusedBorder: InputBorder.none,
-                                    disabledBorder: InputBorder.none,
-                                    errorBorder: InputBorder.none,
-                                    focusedErrorBorder: InputBorder.none,
-                                    hintStyle: TextStyle(
-                                      color: isOfflineMode
-                                          ? theme.warning
-                                          : kMuted.withValues(alpha: 0.6),
+                                  decoration: BoxDecoration(
+                                    borderRadius: BorderRadius.circular(18),
+                                    border: Border.all(
+                                      color: fade(kMuted, 0.25),
+                                    ),
+                                  ),
+                                  child: Text(
+                                    project.name.isNotEmpty
+                                        ? project.name
+                                        : 'Project',
+                                    style: TextStyle(
+                                      color: kMuted,
+                                      fontSize: 13,
                                       fontWeight: FontWeight.w400,
-                                      fontSize: 15,
                                     ),
-                                    contentPadding: const EdgeInsets.symmetric(
-                                      horizontal: 0,
-                                      vertical: 10,
-                                    ),
-                                    isDense: true,
+                                    maxLines: 1,
+                                    overflow: TextOverflow.ellipsis,
                                   ),
-                                  onSubmitted: canSend ? (_) => onSend() : null,
                                 ),
                               ),
-                              const SizedBox(width: 8),
+                              const Spacer(),
+                              // Attach button (+)
+                              if (onAttachTap != null)
+                                GestureDetector(
+                                  onTap: onAttachTap,
+                                  child: Padding(
+                                    padding: const EdgeInsets.all(6),
+                                    child: Icon(
+                                      Icons.add_rounded,
+                                      color: kMuted,
+                                      size: 22,
+                                    ),
+                                  ),
+                                ),
+                              const SizedBox(width: 4),
                               // Voice input button
                               VoiceInputButton(
-                                size: 22,
-                                padding: EdgeInsets.zero,
+                                size: 20,
+                                padding: const EdgeInsets.all(6),
                                 onTranscription: (text) {
                                   if (text.isEmpty) return;
                                   final current = controller.text;
@@ -9071,24 +9088,39 @@ class _FloatingInputBar extends ConsumerWidget {
                                   );
                                 },
                               ),
-                              const SizedBox(width: 8),
+                              const SizedBox(width: 4),
+                              // Tune / PowerSheet button
+                              GestureDetector(
+                                onTap: () => _showPowerSheet(context),
+                                child: Padding(
+                                  padding: const EdgeInsets.all(6),
+                                  child: Icon(
+                                    Icons.tune_rounded,
+                                    color: kMuted,
+                                    size: 20,
+                                  ),
+                                ),
+                              ),
+                              const SizedBox(width: 6),
                               // Send button
                               GestureDetector(
                                 onTap: canSend ? onSend : null,
                                 child: Container(
-                                  width: 30,
-                                  height: 30,
+                                  width: 32,
+                                  height: 32,
                                   decoration: BoxDecoration(
                                     color: canSend
                                         ? kOnBackground
-                                        : fade(kMuted, 0.1),
-                                    borderRadius: BorderRadius.circular(15),
+                                        : fade(kMuted, 0.08),
+                                    borderRadius: BorderRadius.circular(16),
                                   ),
                                   child: Center(
                                     child: Icon(
                                       Icons.arrow_upward_rounded,
-                                      color: canSend ? kBackground : kMuted,
-                                      size: 16,
+                                      color: canSend
+                                          ? kBackground
+                                          : fade(kMuted, 0.4),
+                                      size: 18,
                                     ),
                                   ),
                                 ),
@@ -9096,8 +9128,8 @@ class _FloatingInputBar extends ConsumerWidget {
                             ],
                           ),
                         ),
-                      ),
-                    ],
+                      ],
+                    ),
                   ),
                 ),
               ],
@@ -9950,411 +9982,372 @@ class _CliStyleInputBarState extends State<_CliStyleInputBar> {
                     ),
                   ),
 
-                // Main CLI input container
-                Container(
+                // Main CLI input container with ∩-shaped glow border
+                CustomPaint(
                   key: const ValueKey('cli-input-container'),
-                  margin: EdgeInsets.zero, // Touch screen edges
-                  // Use theme background for proper theming
-                  decoration: BoxDecoration(
-                    color: theme.backgroundElement,
-                    borderRadius: const BorderRadius.only(
-                      topLeft: Radius.circular(20),
-                      topRight: Radius.circular(20),
-                    ),
+                  foregroundPainter: _GlowBorderPainter(
+                    color: agentColor,
+                    radius: 20,
+                    strokeWidth: 3.5,
                   ),
-                  child: IntrinsicHeight(
-                    child: Row(
-                      crossAxisAlignment: CrossAxisAlignment.stretch,
+                  child: Container(
+                    margin: EdgeInsets.zero, // Touch screen edges
+                    // Use theme background for proper theming
+                    decoration: BoxDecoration(
+                      color: theme.backgroundElement,
+                      borderRadius: const BorderRadius.only(
+                        topLeft: Radius.circular(20),
+                        topRight: Radius.circular(20),
+                      ),
+                    ),
+                    child: Column(
+                      mainAxisSize: MainAxisSize.min,
+                      crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        // Glowing accent line on the left - fills full height with rounded top
-                        Container(
-                          width: 4,
-                          decoration: BoxDecoration(
-                            color: agentColor,
-                            borderRadius: const BorderRadius.only(
-                              topLeft: Radius.circular(20),
-                            ),
-                            boxShadow: [
-                              BoxShadow(
-                                color: agentColor.withValues(alpha: 0.6),
-                                blurRadius: 8,
-                                spreadRadius: 1,
+                        // Attached files chips row
+                        if (widget.onRemoveAttachment != null)
+                          Visibility(
+                            visible: widget.attachedFiles.isNotEmpty,
+                            maintainState: true,
+                            child: Padding(
+                              padding: const EdgeInsets.fromLTRB(12, 8, 12, 0),
+                              child: AttachedFilesChips(
+                                attachments: widget.attachedFiles,
+                                onRemove: widget.onRemoveAttachment!,
                               ),
-                            ],
+                            ),
+                          ),
+
+                        // Text input area
+                        Container(
+                          constraints: const BoxConstraints(
+                            minHeight: 44,
+                            maxHeight: 140,
+                          ),
+                          child: TextField(
+                            controller: widget.controller,
+                            focusNode: widget.focusNode,
+                            enabled: !widget.isOfflineMode && !widget.isBusy,
+                            minLines: 1,
+                            maxLines: 5,
+                            style: TextStyle(
+                              color: theme.text,
+                              fontSize: 14,
+                              height: 1.5,
+                            ),
+                            decoration: InputDecoration(
+                              hintText: widget.isOfflineMode
+                                  ? 'Offline mode - read only'
+                                  : _placeholders[_placeholderIndex],
+                              filled: false,
+                              border: InputBorder.none,
+                              enabledBorder: InputBorder.none,
+                              focusedBorder: InputBorder.none,
+                              disabledBorder: InputBorder.none,
+                              hintStyle: TextStyle(
+                                color: widget.isOfflineMode
+                                    ? theme.warning
+                                    : theme.textMuted.withValues(alpha: 0.4),
+                                fontSize: 14,
+                              ),
+                              contentPadding: const EdgeInsets.fromLTRB(
+                                16,
+                                12,
+                                16,
+                                4,
+                              ),
+                              isDense: true,
+                            ),
+                            onSubmitted: widget.canSend
+                                ? (_) => widget.onSend()
+                                : null,
                           ),
                         ),
 
-                        // Main content area
-                        Expanded(
+                        // Bottom info rows - agent + actions on top, model below
+                        Padding(
+                          padding: EdgeInsets.fromLTRB(
+                            16,
+                            0,
+                            12,
+                            MediaQuery.of(context).padding.bottom + 12,
+                          ),
                           child: Column(
                             mainAxisSize: MainAxisSize.min,
                             crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
-                              // Attached files chips row
-                              if (widget.onRemoveAttachment != null)
-                                Visibility(
-                                  visible: widget.attachedFiles.isNotEmpty,
-                                  maintainState: true,
-                                  child: Padding(
-                                    padding: const EdgeInsets.fromLTRB(
-                                      12,
-                                      8,
-                                      12,
-                                      0,
-                                    ),
-                                    child: AttachedFilesChips(
-                                      attachments: widget.attachedFiles,
-                                      onRemove: widget.onRemoveAttachment!,
+                              // ROW 1: Agent/mode + action buttons
+                              Row(
+                                children: [
+                                  // Agent/mode selector - opens PowerSheet
+                                  GestureDetector(
+                                    onTap: () => _showPowerSheet(context),
+                                    child: Text(
+                                      isClaudeCode
+                                          ? (widget
+                                                    .ccPermissionMode
+                                                    ?.displayName ??
+                                                'Default')
+                                          : isCodex
+                                          ? _getCodexCollabModeDisplay(
+                                              widget.codexCollabMode,
+                                            )
+                                          : (agent?.displayName ?? 'Build'),
+                                      style: TextStyle(
+                                        color: isCodex
+                                            ? _getCodexCollabModeColor(
+                                                widget.codexCollabMode,
+                                                theme,
+                                              )
+                                            : agentColor,
+                                        fontSize: 13,
+                                        fontWeight: FontWeight.w600,
+                                      ),
                                     ),
                                   ),
-                                ),
 
-                              // Text input area
-                              Container(
-                                constraints: const BoxConstraints(
-                                  minHeight: 44,
-                                  maxHeight: 140,
-                                ),
-                                child: TextField(
-                                  controller: widget.controller,
-                                  focusNode: widget.focusNode,
-                                  enabled:
-                                      !widget.isOfflineMode && !widget.isBusy,
-                                  minLines: 1,
-                                  maxLines: 5,
-                                  style: TextStyle(
-                                    color: theme.text,
-                                    fontSize: 14,
-                                    height: 1.5,
-                                  ),
-                                  decoration: InputDecoration(
-                                    hintText: widget.isOfflineMode
-                                        ? 'Offline mode - read only'
-                                        : _placeholders[_placeholderIndex],
-                                    filled: false,
-                                    border: InputBorder.none,
-                                    enabledBorder: InputBorder.none,
-                                    focusedBorder: InputBorder.none,
-                                    disabledBorder: InputBorder.none,
-                                    hintStyle: TextStyle(
-                                      color: widget.isOfflineMode
-                                          ? theme.warning
-                                          : theme.textMuted.withValues(
-                                              alpha: 0.4,
+                                  const Spacer(),
+
+                                  // Attachment button
+                                  if (widget.onAttachTap != null)
+                                    GestureDetector(
+                                      onTap: widget.onAttachTap,
+                                      child: Padding(
+                                        padding: const EdgeInsets.only(
+                                          right: 12,
+                                        ),
+                                        child: Icon(
+                                          widget.attachIcon,
+                                          color: theme.textMuted,
+                                          size: 22,
+                                        ),
+                                      ),
+                                    ),
+
+                                  // Voice input button
+                                  Consumer(
+                                    builder: (context, ref, _) {
+                                      return VoiceInputButton(
+                                        size: 22,
+                                        padding: const EdgeInsets.only(
+                                          right: 10,
+                                        ),
+                                        onTranscription: (text) {
+                                          if (text.isEmpty) return;
+                                          final ctrl = widget.controller;
+                                          final current = ctrl.text;
+                                          final newText = current.isEmpty
+                                              ? text
+                                              : (current.endsWith(' ')
+                                                    ? '$current$text'
+                                                    : '$current $text');
+                                          ctrl.value = TextEditingValue(
+                                            text: newText,
+                                            selection: TextSelection.collapsed(
+                                              offset: newText.length,
                                             ),
-                                      fontSize: 14,
-                                    ),
-                                    contentPadding: const EdgeInsets.fromLTRB(
-                                      16,
-                                      12,
-                                      16,
-                                      4,
-                                    ),
-                                    isDense: true,
+                                          );
+                                          Future.microtask(
+                                            () =>
+                                                widget.focusNode.requestFocus(),
+                                          );
+                                        },
+                                      );
+                                    },
                                   ),
-                                  onSubmitted: widget.canSend
-                                      ? (_) => widget.onSend()
-                                      : null,
-                                ),
+
+                                  // Send button (minimal)
+                                  GestureDetector(
+                                    onTap: widget.canSend
+                                        ? widget.onSend
+                                        : null,
+                                    child: Container(
+                                      width: 28,
+                                      height: 28,
+                                      decoration: BoxDecoration(
+                                        color: widget.canSend
+                                            ? theme.text
+                                            : theme.textMuted.withValues(
+                                                alpha: 0.15,
+                                              ),
+                                        borderRadius: BorderRadius.circular(6),
+                                      ),
+                                      child: Center(
+                                        child: Icon(
+                                          Icons.arrow_upward_rounded,
+                                          color: widget.canSend
+                                              ? theme.background
+                                              : theme.textMuted.withValues(
+                                                  alpha: 0.4,
+                                                ),
+                                          size: 16,
+                                        ),
+                                      ),
+                                    ),
+                                  ),
+                                ],
                               ),
 
-                              // Bottom info row - like OpenCode CLI
-                              Padding(
-                                padding: EdgeInsets.fromLTRB(
-                                  16,
-                                  0,
-                                  12,
-                                  MediaQuery.of(context).padding.bottom + 12,
-                                ),
+                              const SizedBox(height: 6),
+
+                              // ROW 2: Model + variant/thinking level
+                              GestureDetector(
+                                onTap: isClaudeCode
+                                    ? widget.onCCModelTap
+                                    : isCodex
+                                    ? widget.onCodexModelTap
+                                    : widget.onModelTap,
                                 child: Row(
                                   children: [
-                                    // FIRST CHIP: Main mode/agent selector - opens PowerSheet for all backends
-                                    GestureDetector(
-                                      onTap: () => _showPowerSheet(context),
-                                      child: Text(
-                                        isClaudeCode
-                                            ? (widget
-                                                      .ccPermissionMode
-                                                      ?.displayName ??
-                                                  'Default')
-                                            : isCodex
-                                            ? _getCodexCollabModeDisplay(
-                                                widget.codexCollabMode,
-                                              )
-                                            : (agent?.displayName ?? 'Build'),
+                                    // Model name
+                                    if (isClaudeCode)
+                                      Text(
+                                        _getCCModelDisplayName(widget.ccModel),
                                         style: TextStyle(
-                                          color: isCodex
-                                              ? _getCodexCollabModeColor(
-                                                  widget.codexCollabMode,
-                                                  theme,
-                                                )
-                                              : agentColor,
-                                          fontSize: 13,
-                                          fontWeight: FontWeight.w600,
+                                          color: theme.textMuted,
+                                          fontSize: 12,
+                                          fontWeight: FontWeight.w500,
                                         ),
-                                      ),
-                                    ),
-
-                                    // Separator dot
-                                    Padding(
-                                      padding: const EdgeInsets.symmetric(
-                                        horizontal: 8,
-                                      ),
-                                      child: Text(
-                                        '·',
+                                      )
+                                    else if (isCodex)
+                                      Text(
+                                        _getCodexModelDisplayName(
+                                          widget.codexModel,
+                                        ),
                                         style: TextStyle(
-                                          color: theme.textMuted.withValues(
-                                            alpha: 0.4,
-                                          ),
-                                          fontSize: 13,
+                                          color: theme.textMuted,
+                                          fontSize: 12,
+                                          fontWeight: FontWeight.w500,
+                                        ),
+                                      )
+                                    else ...[
+                                      Text(
+                                        _getModelDisplayName(
+                                          widget.currentModel,
+                                        ),
+                                        style: TextStyle(
+                                          color: theme.textMuted,
+                                          fontSize: 12,
+                                          fontWeight: FontWeight.w500,
                                         ),
                                       ),
-                                    ),
-
-                                    // SECOND CHIP: Model selector - different per backend
-                                    if (isClaudeCode) ...[
-                                      GestureDetector(
-                                        onTap: widget.onCCModelTap,
-                                        child: Text(
-                                          _getCCModelDisplayName(
-                                            widget.ccModel,
-                                          ),
-                                          style: TextStyle(
-                                            color: theme.text,
-                                            fontSize: 13,
-                                            fontWeight: FontWeight.w500,
-                                          ),
-                                        ),
-                                      ),
-                                      // Claude Code thinking level (if set)
-                                      if (widget.currentVariant != null) ...[
-                                        Padding(
-                                          padding: const EdgeInsets.symmetric(
-                                            horizontal: 8,
-                                          ),
-                                          child: Text(
-                                            '·',
-                                            style: TextStyle(
-                                              color: theme.textMuted.withValues(
-                                                alpha: 0.4,
-                                              ),
-                                              fontSize: 13,
-                                            ),
-                                          ),
-                                        ),
-                                        GestureDetector(
-                                          onTap: () => _showPowerSheet(context),
-                                          child: Text(
-                                            _formatThinkingLevelDisplay(
-                                              widget.currentVariant!,
-                                            ),
-                                            style: TextStyle(
-                                              color: theme.primary,
-                                              fontSize: 13,
-                                              fontWeight: FontWeight.w500,
-                                            ),
-                                          ),
-                                        ),
-                                      ],
-                                    ] else if (isCodex) ...[
-                                      // Codex model selector
-                                      GestureDetector(
-                                        onTap: widget.onCodexModelTap,
-                                        child: Text(
-                                          _getCodexModelDisplayName(
-                                            widget.codexModel,
-                                          ),
-                                          style: TextStyle(
-                                            color: theme.text,
-                                            fontSize: 13,
-                                            fontWeight: FontWeight.w500,
-                                          ),
-                                        ),
-                                      ),
-                                      // Codex Reasoning Effort (if not default)
-                                      if (widget.currentVariant != null &&
-                                          widget.currentVariant !=
-                                              'medium') ...[
-                                        Padding(
-                                          padding: const EdgeInsets.symmetric(
-                                            horizontal: 8,
-                                          ),
-                                          child: Text(
-                                            '·',
-                                            style: TextStyle(
-                                              color: theme.textMuted.withValues(
-                                                alpha: 0.4,
-                                              ),
-                                              fontSize: 13,
-                                            ),
-                                          ),
-                                        ),
-                                        GestureDetector(
-                                          onTap: () => _showPowerSheet(context),
-                                          child: Text(
-                                            _formatThinkingLevelDisplay(
-                                              widget.currentVariant!,
-                                            ),
-                                            style: TextStyle(
-                                              color: theme.primary,
-                                              fontSize: 13,
-                                              fontWeight: FontWeight.w500,
-                                            ),
-                                          ),
-                                        ),
-                                      ],
-                                    ] else ...[
-                                      // OpenCode model selector
-                                      GestureDetector(
-                                        onTap: widget.onModelTap,
-                                        child: Text(
-                                          _getModelDisplayName(
-                                            widget.currentModel,
-                                          ),
-                                          style: TextStyle(
-                                            color: theme.text,
-                                            fontSize: 13,
-                                            fontWeight: FontWeight.w500,
-                                          ),
-                                        ),
-                                      ),
-
                                       // Provider name (muted) - only for OpenCode
                                       if (_getProviderName(
                                         widget.currentModel,
                                       ).isNotEmpty) ...[
-                                        const SizedBox(width: 6),
+                                        const SizedBox(width: 5),
                                         Text(
                                           _getProviderName(widget.currentModel),
                                           style: TextStyle(
                                             color: theme.textMuted.withValues(
-                                              alpha: 0.5,
+                                              alpha: 0.4,
                                             ),
-                                            fontSize: 13,
-                                          ),
-                                        ),
-                                      ],
-
-                                      // Variant/Thinking level selector (only for OpenCode when variants available)
-                                      if (isOpenCode &&
-                                          widget
-                                              .availableVariants
-                                              .isNotEmpty) ...[
-                                        Padding(
-                                          padding: const EdgeInsets.symmetric(
-                                            horizontal: 8,
-                                          ),
-                                          child: Text(
-                                            '·',
-                                            style: TextStyle(
-                                              color: theme.textMuted.withValues(
-                                                alpha: 0.4,
-                                              ),
-                                              fontSize: 13,
-                                            ),
-                                          ),
-                                        ),
-                                        GestureDetector(
-                                          onTap: widget.onVariantChanged != null
-                                              ? () => _cycleVariant()
-                                              : null,
-                                          child: Text(
-                                            widget.currentVariant ?? 'Default',
-                                            style: TextStyle(
-                                              color:
-                                                  widget.currentVariant != null
-                                                  ? theme.primary
-                                                  : theme.textMuted,
-                                              fontSize: 13,
-                                              fontWeight: FontWeight.w500,
-                                            ),
+                                            fontSize: 12,
                                           ),
                                         ),
                                       ],
                                     ],
 
-                                    const Spacer(),
-
-                                    // Attachment button
-                                    if (widget.onAttachTap != null)
+                                    // Variant / thinking level (if applicable)
+                                    if (isClaudeCode &&
+                                        widget.currentVariant != null) ...[
+                                      Padding(
+                                        padding: const EdgeInsets.symmetric(
+                                          horizontal: 6,
+                                        ),
+                                        child: Text(
+                                          '·',
+                                          style: TextStyle(
+                                            color: theme.textMuted.withValues(
+                                              alpha: 0.3,
+                                            ),
+                                            fontSize: 12,
+                                          ),
+                                        ),
+                                      ),
                                       GestureDetector(
-                                        onTap: widget.onAttachTap,
-                                        child: Padding(
-                                          padding: const EdgeInsets.only(
-                                            right: 12,
+                                        onTap: () => _showPowerSheet(context),
+                                        child: Text(
+                                          _formatThinkingLevelDisplay(
+                                            widget.currentVariant!,
                                           ),
-                                          child: Icon(
-                                            widget.attachIcon,
-                                            color: theme.textMuted,
-                                            size: 22,
-                                          ),
-                                        ),
-                                      ),
-
-                                    // Voice input button
-                                    Consumer(
-                                      builder: (context, ref, _) {
-                                        return VoiceInputButton(
-                                          size: 22,
-                                          padding: const EdgeInsets.only(
-                                            right: 10,
-                                          ),
-                                          onTranscription: (text) {
-                                            if (text.isEmpty) return;
-                                            final ctrl = widget.controller;
-                                            final current = ctrl.text;
-                                            final newText = current.isEmpty
-                                                ? text
-                                                : (current.endsWith(' ')
-                                                      ? '$current$text'
-                                                      : '$current $text');
-                                            ctrl.value = TextEditingValue(
-                                              text: newText,
-                                              selection:
-                                                  TextSelection.collapsed(
-                                                    offset: newText.length,
-                                                  ),
-                                            );
-                                            Future.microtask(
-                                              () => widget.focusNode
-                                                  .requestFocus(),
-                                            );
-                                          },
-                                        );
-                                      },
-                                    ),
-
-                                    // Send button (minimal)
-                                    GestureDetector(
-                                      onTap: widget.canSend
-                                          ? widget.onSend
-                                          : null,
-                                      child: Container(
-                                        width: 28,
-                                        height: 28,
-                                        decoration: BoxDecoration(
-                                          color: widget.canSend
-                                              ? theme.text
-                                              : theme.textMuted.withValues(
-                                                  alpha: 0.15,
-                                                ),
-                                          borderRadius: BorderRadius.circular(
-                                            6,
-                                          ),
-                                        ),
-                                        child: Center(
-                                          child: Icon(
-                                            Icons.arrow_upward_rounded,
-                                            color: widget.canSend
-                                                ? theme.background
-                                                : theme.textMuted.withValues(
-                                                    alpha: 0.4,
-                                                  ),
-                                            size: 16,
+                                          style: TextStyle(
+                                            color: theme.primary.withValues(
+                                              alpha: 0.7,
+                                            ),
+                                            fontSize: 12,
+                                            fontWeight: FontWeight.w500,
                                           ),
                                         ),
                                       ),
-                                    ),
+                                    ] else if (isCodex &&
+                                        widget.currentVariant != null &&
+                                        widget.currentVariant != 'medium') ...[
+                                      Padding(
+                                        padding: const EdgeInsets.symmetric(
+                                          horizontal: 6,
+                                        ),
+                                        child: Text(
+                                          '·',
+                                          style: TextStyle(
+                                            color: theme.textMuted.withValues(
+                                              alpha: 0.3,
+                                            ),
+                                            fontSize: 12,
+                                          ),
+                                        ),
+                                      ),
+                                      GestureDetector(
+                                        onTap: () => _showPowerSheet(context),
+                                        child: Text(
+                                          _formatThinkingLevelDisplay(
+                                            widget.currentVariant!,
+                                          ),
+                                          style: TextStyle(
+                                            color: theme.primary.withValues(
+                                              alpha: 0.7,
+                                            ),
+                                            fontSize: 12,
+                                            fontWeight: FontWeight.w500,
+                                          ),
+                                        ),
+                                      ),
+                                    ] else if (isOpenCode &&
+                                        widget
+                                            .availableVariants
+                                            .isNotEmpty) ...[
+                                      Padding(
+                                        padding: const EdgeInsets.symmetric(
+                                          horizontal: 6,
+                                        ),
+                                        child: Text(
+                                          '·',
+                                          style: TextStyle(
+                                            color: theme.textMuted.withValues(
+                                              alpha: 0.3,
+                                            ),
+                                            fontSize: 12,
+                                          ),
+                                        ),
+                                      ),
+                                      GestureDetector(
+                                        onTap: widget.onVariantChanged != null
+                                            ? () => _cycleVariant()
+                                            : null,
+                                        child: Text(
+                                          widget.currentVariant ?? 'Default',
+                                          style: TextStyle(
+                                            color: widget.currentVariant != null
+                                                ? theme.primary.withValues(
+                                                    alpha: 0.7,
+                                                  )
+                                                : theme.textMuted,
+                                            fontSize: 12,
+                                            fontWeight: FontWeight.w500,
+                                          ),
+                                        ),
+                                      ),
+                                    ],
                                   ],
                                 ),
                               ),
@@ -10399,6 +10392,63 @@ class _CliStyleInputBarState extends State<_CliStyleInputBar> {
       ),
     );
   }
+}
+
+/// CustomPainter that draws a glowing ∩-shaped border (left + top + right)
+/// on the CLI input bar container.
+class _GlowBorderPainter extends CustomPainter {
+  _GlowBorderPainter({
+    required this.color,
+    required this.radius,
+    required this.strokeWidth,
+  });
+
+  final Color color;
+  final double radius;
+  final double strokeWidth;
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    // Inset the path by half stroke width so the stroke sits on the container edge
+    final hw = strokeWidth / 2;
+    final r = radius - hw; // adjusted corner radius
+
+    final path = Path()
+      // Start at bottom-left edge
+      ..moveTo(hw, size.height)
+      // Up the left side to the start of the top-left corner
+      ..lineTo(hw, radius)
+      // Top-left rounded corner
+      ..arcToPoint(Offset(radius, hw), radius: Radius.circular(r))
+      // Across the top
+      ..lineTo(size.width - radius, hw)
+      // Top-right rounded corner
+      ..arcToPoint(Offset(size.width - hw, radius), radius: Radius.circular(r))
+      // Down the right side to the bottom
+      ..lineTo(size.width - hw, size.height);
+
+    // 1) Draw the outer glow (blurred, wider stroke)
+    final glowPaint = Paint()
+      ..color = color.withValues(alpha: 0.45)
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = strokeWidth + 8
+      ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 8);
+    canvas.drawPath(path, glowPaint);
+
+    // 2) Draw the solid accent line on top
+    final solidPaint = Paint()
+      ..color = color
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = strokeWidth
+      ..strokeCap = StrokeCap.butt;
+    canvas.drawPath(path, solidPaint);
+  }
+
+  @override
+  bool shouldRepaint(covariant _GlowBorderPainter oldDelegate) =>
+      oldDelegate.color != color ||
+      oldDelegate.radius != radius ||
+      oldDelegate.strokeWidth != strokeWidth;
 }
 
 /// Content widget for agent and permission selection in DetailSheet

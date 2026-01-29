@@ -28,7 +28,10 @@ enum PromptAccentColor {
   mint('Mint', Color(0xFF2DD4BF)),
 
   /// Gold - warm and distinguished
-  gold('Gold', Color(0xFFDAA520));
+  gold('Gold', Color(0xFFDAA520)),
+
+  /// White - clean and bright
+  white('White', Color(0xFFFFFFFF));
 
   const PromptAccentColor(this.displayName, this.color);
 

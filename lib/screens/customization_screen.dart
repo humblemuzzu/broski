@@ -197,7 +197,7 @@ class CustomizationScreen extends ConsumerWidget {
                               ),
                               const SizedBox(height: 4),
                               Text(
-                                'Left bar color in CLI-style input',
+                                'Border glow color in CLI-style input',
                                 style: TextStyle(
                                   color: theme.colorScheme.onSurface.withValues(
                                     alpha: 0.6,
