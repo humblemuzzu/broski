@@ -209,6 +209,8 @@ export type ClientMessage =
   | { type: 'cc_get_config'; cwd?: string }
   | { type: 'cc_set_config'; config: Partial<ClaudeCodeConfig>; cwd?: string }
   | { type: 'cc_get_active_sessions' }
+  | { type: 'cc_rename_session'; sessionId: string; name: string; cwd?: string }
+  | { type: 'cc_background_session'; sessionId: string; cwd?: string }
   // Codex (OpenAI Codex app-server) messages
   | { type: 'cx_list_projects'; refresh?: boolean }
   | { type: 'cx_list_threads'; cwd?: string; cursor?: string | null; limit?: number | null; refresh?: boolean }
@@ -471,6 +473,8 @@ export type ServerMessage =
   | { type: 'cc_session_created'; data: ClaudeCodeSession; requestId?: string }
   | { type: 'cc_session_deleted'; data: boolean; sessionId: string; requestId?: string }
   | { type: 'cc_session_forked'; data: ClaudeCodeSession | null; requestId?: string }
+  | { type: 'cc_session_renamed'; data: ClaudeCodeSession | null; requestId?: string }
+  | { type: 'cc_session_backgrounded'; data: boolean; sessionId: string; requestId?: string }
   | { type: 'cc_session_messages'; data: ClaudeCodeTranscriptMessage[]; sessionId: string; requestId?: string }
   | { type: 'cc_skills'; data: ClaudeCodeSkill[]; requestId?: string }
   | { type: 'cc_skill'; data: { name: string; path: string; source: 'project' | 'user' | 'plugin'; content: string }; requestId?: string }
@@ -712,6 +716,8 @@ export type ClaudeCodeSkill = {
   license?: string
   source?: 'project' | 'user' | 'plugin'
   path?: string
+  agent?: string
+  context?: 'fork'
 }
 
 // Claude Code Hook Event Types
@@ -728,6 +734,7 @@ export type ClaudeCodeHookEvent =
   | 'SubagentStart'
   | 'SubagentStop'
   | 'PreCompact'
+  | 'Setup'
 
 // Claude Code Hook Configuration
 export type ClaudeCodeHook = {
@@ -750,6 +757,7 @@ export type ClaudeCodeSession = {
   createdAt: number
   updatedAt: number
   messageCount?: number
+  isBackground?: boolean
 }
 
 // Claude Code Command (slash command)
@@ -778,6 +786,8 @@ export type ClaudeCodeSubagent = {
   prompt: string                 // System prompt for the subagent
   tools?: string[]               // Allowed tools (inherits if omitted)
   model?: 'sonnet' | 'opus' | 'haiku' | 'inherit'  // Model override
+  permissionMode?: ClaudeCodePermissionMode
+  disallowedTools?: string[]
 }
 
 // Claude Code Custom Tool Parameter

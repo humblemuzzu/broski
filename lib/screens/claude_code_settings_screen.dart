@@ -140,6 +140,104 @@ class _ClaudeCodeSettingsScreenState
     }
   }
 
+  Future<void> _showAddToolDialog(
+    ClaudeCodeConfig cfg, {
+    required bool isAllowed,
+  }) async {
+    final controller = TextEditingController();
+    final presets = <String>[
+      'Read',
+      'Write',
+      'Edit',
+      'MultiEdit',
+      'Bash',
+      'Bash(npm *)',
+      'Bash(git *)',
+      'Bash(*)',
+      'Glob',
+      'Grep',
+      'WebFetch',
+      'WebSearch',
+      'Task',
+      'TodoRead',
+      'TodoWrite',
+      'NotebookEdit',
+      'mcp__*',
+    ];
+    final oc = OpenCodeTheme.of(context);
+
+    final result = await showDialog<String?>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: Text(isAllowed ? 'Add Allowed Tool' : 'Add Disallowed Tool'),
+        content: SizedBox(
+          width: double.maxFinite,
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              TextField(
+                controller: controller,
+                decoration: const InputDecoration(
+                  hintText: 'e.g. Bash(npm *)',
+                  labelText: 'Tool name or pattern',
+                ),
+                autofocus: true,
+              ),
+              const SizedBox(height: 12),
+              Text(
+                'Presets:',
+                style: TextStyle(color: oc.textMuted, fontSize: 12),
+              ),
+              const SizedBox(height: 6),
+              SizedBox(
+                height: 200,
+                child: SingleChildScrollView(
+                  child: Wrap(
+                    spacing: 6,
+                    runSpacing: 6,
+                    children: presets.map((p) {
+                      return ActionChip(
+                        label: Text(p, style: const TextStyle(fontSize: 11)),
+                        visualDensity: VisualDensity.compact,
+                        onPressed: () => Navigator.pop(ctx, p),
+                      );
+                    }).toList(),
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, null),
+            child: const Text('Cancel'),
+          ),
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, controller.text.trim()),
+            child: const Text('Add'),
+          ),
+        ],
+      ),
+    );
+
+    controller.dispose();
+    if (result == null || result.isEmpty) return;
+
+    if (isAllowed) {
+      if (!cfg.allowedTools.contains(result)) {
+        final next = [...cfg.allowedTools, result];
+        await _update(cfg.copyWith(allowedTools: next));
+      }
+    } else {
+      if (!cfg.disallowedTools.contains(result)) {
+        final next = [...cfg.disallowedTools, result];
+        await _update(cfg.copyWith(disallowedTools: next));
+      }
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     final oc = OpenCodeTheme.of(context);
@@ -245,6 +343,168 @@ class _ClaudeCodeSettingsScreenState
                     style: TextStyle(color: oc.textMuted, fontSize: 12),
                   ),
                   const SizedBox(height: 14),
+                  // Permission Mode (SDK v2.0.43)
+                  if (_matches('permission mode security'))
+                    _buildSettingCard(
+                      oc: oc,
+                      title: 'Permission Mode',
+                      child: DropdownButtonFormField<ClaudeCodePermissionMode>(
+                        value:
+                            cfg?.permissionMode ??
+                            ClaudeCodePermissionMode.defaultMode,
+                        decoration: const InputDecoration(
+                          labelText: 'How Claude handles permissions',
+                        ),
+                        items: ClaudeCodePermissionMode.values.map((m) {
+                          return DropdownMenuItem(
+                            value: m,
+                            child: Text(m.displayName),
+                          );
+                        }).toList(),
+                        onChanged: cfg == null
+                            ? null
+                            : (value) async {
+                                if (value != null) {
+                                  await _update(
+                                    cfg.copyWith(permissionMode: value),
+                                  );
+                                }
+                              },
+                      ),
+                    ),
+                  // Model override
+                  if (_matches('model sonnet opus haiku'))
+                    _buildSettingCard(
+                      oc: oc,
+                      title: 'Model',
+                      child: DropdownButtonFormField<String?>(
+                        value: cfg?.model,
+                        decoration: const InputDecoration(
+                          labelText: 'Default model',
+                        ),
+                        items: const [
+                          DropdownMenuItem<String?>(
+                            value: null,
+                            child: Text('Default'),
+                          ),
+                          DropdownMenuItem<String?>(
+                            value: 'sonnet',
+                            child: Text('Sonnet'),
+                          ),
+                          DropdownMenuItem<String?>(
+                            value: 'opus',
+                            child: Text('Opus'),
+                          ),
+                          DropdownMenuItem<String?>(
+                            value: 'haiku',
+                            child: Text('Haiku'),
+                          ),
+                        ],
+                        onChanged: cfg == null
+                            ? null
+                            : (value) async {
+                                await _update(cfg.copyWith(model: value));
+                              },
+                      ),
+                    ),
+                  // Allowed Tools (SDK v2.1.0 wildcards)
+                  if (_matches('allowed tools permissions bash wildcard'))
+                    _buildSettingCard(
+                      oc: oc,
+                      title: 'Allowed Tools',
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            'Tools Claude is allowed to use. Supports wildcards like Bash(npm *)',
+                            style: TextStyle(color: oc.textMuted, fontSize: 12),
+                          ),
+                          const SizedBox(height: 8),
+                          if (cfg != null && cfg.allowedTools.isNotEmpty)
+                            Wrap(
+                              spacing: 6,
+                              runSpacing: 6,
+                              children: cfg.allowedTools.map((tool) {
+                                return Chip(
+                                  label: Text(
+                                    tool,
+                                    style: const TextStyle(fontSize: 12),
+                                  ),
+                                  deleteIcon: const Icon(Icons.close, size: 16),
+                                  onDeleted: () {
+                                    final next = List<String>.from(
+                                      cfg.allowedTools,
+                                    )..remove(tool);
+                                    _update(cfg.copyWith(allowedTools: next));
+                                  },
+                                  materialTapTargetSize:
+                                      MaterialTapTargetSize.shrinkWrap,
+                                  visualDensity: VisualDensity.compact,
+                                );
+                              }).toList(),
+                            ),
+                          const SizedBox(height: 8),
+                          OutlinedButton.icon(
+                            icon: const Icon(Icons.add, size: 16),
+                            label: const Text('Add Tool'),
+                            onPressed: cfg == null
+                                ? null
+                                : () =>
+                                      _showAddToolDialog(cfg, isAllowed: true),
+                          ),
+                        ],
+                      ),
+                    ),
+                  // Disallowed Tools (SDK v2.0.30)
+                  if (_matches('disallowed blocked tools'))
+                    _buildSettingCard(
+                      oc: oc,
+                      title: 'Disallowed Tools',
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            'Tools Claude cannot use. Use Task(AgentName) to disable agents.',
+                            style: TextStyle(color: oc.textMuted, fontSize: 12),
+                          ),
+                          const SizedBox(height: 8),
+                          if (cfg != null && cfg.disallowedTools.isNotEmpty)
+                            Wrap(
+                              spacing: 6,
+                              runSpacing: 6,
+                              children: cfg.disallowedTools.map((tool) {
+                                return Chip(
+                                  label: Text(
+                                    tool,
+                                    style: const TextStyle(fontSize: 12),
+                                  ),
+                                  deleteIcon: const Icon(Icons.close, size: 16),
+                                  onDeleted: () {
+                                    final next = List<String>.from(
+                                      cfg.disallowedTools,
+                                    )..remove(tool);
+                                    _update(
+                                      cfg.copyWith(disallowedTools: next),
+                                    );
+                                  },
+                                  materialTapTargetSize:
+                                      MaterialTapTargetSize.shrinkWrap,
+                                  visualDensity: VisualDensity.compact,
+                                );
+                              }).toList(),
+                            ),
+                          const SizedBox(height: 8),
+                          OutlinedButton.icon(
+                            icon: const Icon(Icons.add, size: 16),
+                            label: const Text('Add Tool'),
+                            onPressed: cfg == null
+                                ? null
+                                : () =>
+                                      _showAddToolDialog(cfg, isAllowed: false),
+                          ),
+                        ],
+                      ),
+                    ),
                   // Language setting
                   if (_matches('language response'))
                     _buildSettingCard(
@@ -402,6 +662,10 @@ class _ClaudeCodeSettingsScreenState
                     ),
                   // No results message
                   if (_searchQuery.isNotEmpty &&
+                      !_matches('permission mode security') &&
+                      !_matches('model sonnet opus haiku') &&
+                      !_matches('allowed tools permissions bash wildcard') &&
+                      !_matches('disallowed blocked tools') &&
                       !_matches('language response') &&
                       !_matches('release channel update stable latest') &&
                       !_matches('gitignore ignore files respect'))

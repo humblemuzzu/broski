@@ -391,6 +391,8 @@ class _SubagentEditorScreenState extends State<_SubagentEditorScreen> {
   late final TextEditingController _promptController;
   late final TextEditingController _toolsController;
   late ClaudeCodeSubagentModel _model;
+  late ClaudeCodePermissionMode? _permissionMode;
+  late final TextEditingController _disallowedToolsController;
 
   bool get isEditing => widget.existing != null;
 
@@ -407,6 +409,10 @@ class _SubagentEditorScreenState extends State<_SubagentEditorScreen> {
       text: existing?.tools?.join(', ') ?? '',
     );
     _model = existing?.model ?? ClaudeCodeSubagentModel.inherit;
+    _permissionMode = existing?.permissionMode;
+    _disallowedToolsController = TextEditingController(
+      text: existing?.disallowedTools?.join(', ') ?? '',
+    );
   }
 
   @override
@@ -415,6 +421,7 @@ class _SubagentEditorScreenState extends State<_SubagentEditorScreen> {
     _descriptionController.dispose();
     _promptController.dispose();
     _toolsController.dispose();
+    _disallowedToolsController.dispose();
     super.dispose();
   }
 
@@ -555,6 +562,58 @@ class _SubagentEditorScreenState extends State<_SubagentEditorScreen> {
 
             const SizedBox(height: 24),
 
+            // Permission Mode dropdown (SDK v2.0.43)
+            _buildLabel('Permission Mode (optional)', oc),
+            const SizedBox(height: 8),
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 12),
+              decoration: BoxDecoration(
+                color: oc.backgroundElement,
+                borderRadius: BorderRadius.circular(8),
+                border: Border.all(color: oc.border),
+              ),
+              child: DropdownButtonHideUnderline(
+                child: DropdownButton<ClaudeCodePermissionMode?>(
+                  value: _permissionMode,
+                  isExpanded: true,
+                  dropdownColor: oc.backgroundElement,
+                  style: TextStyle(color: oc.text),
+                  hint: Text(
+                    'Inherit from config',
+                    style: TextStyle(color: oc.textMuted),
+                  ),
+                  items: [
+                    DropdownMenuItem<ClaudeCodePermissionMode?>(
+                      value: null,
+                      child: Text(
+                        'Inherit from config',
+                        style: TextStyle(color: oc.textMuted),
+                      ),
+                    ),
+                    ...ClaudeCodePermissionMode.values.map((m) {
+                      return DropdownMenuItem(
+                        value: m,
+                        child: Text(m.displayName),
+                      );
+                    }),
+                  ],
+                  onChanged: (value) {
+                    setState(() => _permissionMode = value);
+                  },
+                ),
+              ),
+            ),
+            const SizedBox(height: 4),
+            Text(
+              'Override permission mode for this subagent only',
+              style: TextStyle(
+                color: oc.textMuted.withOpacity(0.7),
+                fontSize: 12,
+              ),
+            ),
+
+            const SizedBox(height: 24),
+
             // Tools field
             _buildLabel('Allowed Tools (optional)', oc),
             const SizedBox(height: 8),
@@ -566,6 +625,28 @@ class _SubagentEditorScreenState extends State<_SubagentEditorScreen> {
             const SizedBox(height: 4),
             Text(
               'Comma-separated list of tool names. Leave empty to inherit all tools.',
+              style: TextStyle(
+                color: oc.textMuted.withOpacity(0.7),
+                fontSize: 12,
+              ),
+            ),
+
+            const SizedBox(height: 32),
+
+            // Disallowed Tools field (SDK v2.0.30)
+            _buildLabel('Disallowed Tools (optional)', oc),
+            const SizedBox(height: 8),
+            TextField(
+              controller: _disallowedToolsController,
+              decoration: _inputDecoration(
+                'e.g., Bash, Write, Task(agent-name)',
+                oc,
+              ),
+              style: TextStyle(color: oc.text),
+            ),
+            const SizedBox(height: 4),
+            Text(
+              'Tools this subagent cannot use. Supports wildcards like Bash(npm *)',
               style: TextStyle(
                 color: oc.textMuted.withOpacity(0.7),
                 fontSize: 12,
@@ -686,12 +767,25 @@ class _SubagentEditorScreenState extends State<_SubagentEditorScreen> {
           .toList();
     }
 
+    // Parse disallowed tools
+    List<String>? disallowedTools;
+    final disallowedText = _disallowedToolsController.text.trim();
+    if (disallowedText.isNotEmpty) {
+      disallowedTools = disallowedText
+          .split(',')
+          .map((t) => t.trim())
+          .where((t) => t.isNotEmpty)
+          .toList();
+    }
+
     final subagent = ClaudeCodeSubagent(
       name: name,
       description: description,
       prompt: prompt,
       tools: tools,
       model: _model,
+      permissionMode: _permissionMode,
+      disallowedTools: disallowedTools,
     );
 
     Navigator.pop(context, subagent);

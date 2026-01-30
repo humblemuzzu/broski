@@ -5492,6 +5492,17 @@ export async function createBridgeServer(options: BridgeServerOptions): Promise<
           reply({ type: 'cc_session_forked', data: forked })
           break
         }
+        case 'cc_rename_session': {
+          const renamed = await claudeCode.renameSession(message.sessionId, message.name, message.cwd)
+          reply({ type: 'cc_session_renamed', data: renamed })
+          break
+        }
+        case 'cc_background_session': {
+          // Background session support - mark session as backgrounded
+          // For now, this is a client-side state change acknowledgment
+          reply({ type: 'cc_session_backgrounded', data: true, sessionId: message.sessionId })
+          break
+        }
         case 'cc_chat': {
           const cwd = message.cwd || process.cwd()
           let actualSessionId = message.sessionId ?? ''

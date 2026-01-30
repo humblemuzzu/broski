@@ -68,12 +68,11 @@ class _HooksScreenState extends ConsumerState<HooksScreen>
 
     try {
       final bridge = ref.read(bridgeServiceProvider);
-      final content = await bridge.ccReadHooksFile(
-        source: _source,
-        cwd: cwd,
-      );
+      final content = await bridge.ccReadHooksFile(source: _source, cwd: cwd);
       final decoded = jsonDecode(content);
-      final root = decoded is Map ? decoded.cast<String, dynamic>() : <String, dynamic>{};
+      final root = decoded is Map
+          ? decoded.cast<String, dynamic>()
+          : <String, dynamic>{};
       if (!mounted) return;
       setState(() {
         _root = root;
@@ -126,9 +125,7 @@ class _HooksScreenState extends ConsumerState<HooksScreen>
   Future<void> _addHook() async {
     final created = await Navigator.push<_HookEditResult>(
       context,
-      MaterialPageRoute(
-        builder: (_) => const HookEditorScreen(),
-      ),
+      MaterialPageRoute(builder: (_) => const HookEditorScreen()),
     );
     if (created == null) return;
     _applyEdit(null, created);
@@ -209,7 +206,9 @@ class _HooksScreenState extends ConsumerState<HooksScreen>
     final oc = OpenCodeTheme.of(context);
     if (_source == SkillSource.project && cwd == null) return;
 
-    final content = const JsonEncoder.withIndent('  ').convert(_root.isEmpty ? {'hooks': {}} : _root);
+    final content = const JsonEncoder.withIndent(
+      '  ',
+    ).convert(_root.isEmpty ? {'hooks': {}} : _root);
     try {
       final bridge = ref.read(bridgeServiceProvider);
       final ok = await bridge.ccWriteHooksFile(
@@ -221,17 +220,26 @@ class _HooksScreenState extends ConsumerState<HooksScreen>
       if (ok) {
         setState(() => _dirty = false);
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: const Text('Hooks saved'), backgroundColor: oc.backgroundPanel),
+          SnackBar(
+            content: const Text('Hooks saved'),
+            backgroundColor: oc.backgroundPanel,
+          ),
         );
       } else {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: const Text('Failed to save hooks'), backgroundColor: oc.error),
+          SnackBar(
+            content: const Text('Failed to save hooks'),
+            backgroundColor: oc.error,
+          ),
         );
       }
     } catch (e) {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Failed to save: $e'), backgroundColor: oc.error),
+        SnackBar(
+          content: Text('Failed to save: $e'),
+          backgroundColor: oc.error,
+        ),
       );
     }
   }
@@ -301,7 +309,10 @@ class _HooksScreenState extends ConsumerState<HooksScreen>
                   children: [
                     Icon(Icons.bolt_rounded, color: oc.textMuted, size: 56),
                     const SizedBox(height: 12),
-                    Text('No hooks configured', style: TextStyle(color: oc.text)),
+                    Text(
+                      'No hooks configured',
+                      style: TextStyle(color: oc.text),
+                    ),
                     const SizedBox(height: 8),
                     Text(
                       'Add hooks to run scripts/commands on events like PreToolUse.',
@@ -336,7 +347,10 @@ class _HooksScreenState extends ConsumerState<HooksScreen>
                     onTap: () => _editHook(row),
                     title: Text(
                       row.event,
-                      style: TextStyle(color: oc.text, fontWeight: FontWeight.w700),
+                      style: TextStyle(
+                        color: oc.text,
+                        fontWeight: FontWeight.w700,
+                      ),
                     ),
                     subtitle: Text(
                       row.matcher?.trim().isNotEmpty == true
@@ -394,46 +408,59 @@ class HookEditorScreen extends StatefulWidget {
 }
 
 class _HookEditorScreenState extends State<HookEditorScreen> {
-  late final TextEditingController _event;
+  late String _selectedEvent;
   late final TextEditingController _json;
+
+  static const _hookEvents = <String>[
+    'PreToolUse',
+    'PostToolUse',
+    'PostToolUseFailure',
+    'Notification',
+    'SessionStart',
+    'SessionEnd',
+    'Stop',
+    'PermissionRequest',
+    'UserPromptSubmit',
+    'SubagentStart',
+    'SubagentStop',
+    'PreCompact',
+    'Setup',
+  ];
 
   @override
   void initState() {
     super.initState();
-    _event = TextEditingController(text: widget.initialEvent ?? 'PreToolUse');
+    _selectedEvent = widget.initialEvent ?? 'PreToolUse';
     _json = TextEditingController(
       text:
           widget.initialJson ??
-          const JsonEncoder.withIndent('  ').convert(
-            {
-              'matcher': '',
-              'hooks': [],
-            },
-          ),
+          const JsonEncoder.withIndent(
+            '  ',
+          ).convert({'matcher': '', 'hooks': []}),
     );
   }
 
   @override
   void dispose() {
-    _event.dispose();
     _json.dispose();
     super.dispose();
   }
 
   void _save() {
-    final event = _event.text.trim();
+    final event = _selectedEvent;
     if (event.isEmpty) return;
     try {
       final decoded = jsonDecode(_json.text);
-      if (decoded is! Map) throw const FormatException('Hook JSON must be an object');
+      if (decoded is! Map)
+        throw const FormatException('Hook JSON must be an object');
       Navigator.pop(
         context,
         _HookEditResult(event: event, value: decoded.cast<String, dynamic>()),
       );
     } catch (e) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Invalid JSON: $e')),
-      );
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text('Invalid JSON: $e')));
     }
   }
 
@@ -464,11 +491,26 @@ class _HookEditorScreenState extends State<HookEditorScreen> {
           children: [
             Text('Event', style: TextStyle(color: oc.textMuted, fontSize: 12)),
             const SizedBox(height: 6),
-            TextField(
-              controller: _event,
-              decoration: const InputDecoration(
-                hintText: 'e.g. PreToolUse, SessionStart, Stop',
+            DropdownButtonFormField<String>(
+              value: _selectedEvent,
+              decoration: InputDecoration(
+                filled: true,
+                fillColor: oc.backgroundElement,
+                border: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(8),
+                  borderSide: BorderSide(color: oc.border),
+                ),
               ),
+              dropdownColor: oc.backgroundElement,
+              style: TextStyle(color: oc.text),
+              items: _hookEvents.map((e) {
+                return DropdownMenuItem(value: e, child: Text(e));
+              }).toList(),
+              onChanged: (value) {
+                if (value != null) {
+                  setState(() => _selectedEvent = value);
+                }
+              },
             ),
             const SizedBox(height: 16),
             Text(

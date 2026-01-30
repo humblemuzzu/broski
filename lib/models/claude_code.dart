@@ -54,6 +54,7 @@ class ClaudeCodeSession {
   final int createdAt;
   final int updatedAt;
   final int? messageCount;
+  final bool isBackground;
 
   const ClaudeCodeSession({
     required this.id,
@@ -63,6 +64,7 @@ class ClaudeCodeSession {
     required this.createdAt,
     required this.updatedAt,
     this.messageCount,
+    this.isBackground = false,
   });
 
   factory ClaudeCodeSession.fromJson(Map<String, dynamic> json) {
@@ -74,6 +76,7 @@ class ClaudeCodeSession {
       createdAt: json['createdAt'] as int? ?? 0,
       updatedAt: json['updatedAt'] as int? ?? 0,
       messageCount: json['messageCount'] as int?,
+      isBackground: json['isBackground'] as bool? ?? false,
     );
   }
 
@@ -86,6 +89,7 @@ class ClaudeCodeSession {
       'createdAt': createdAt,
       'updatedAt': updatedAt,
       if (messageCount != null) 'messageCount': messageCount,
+      if (isBackground) 'isBackground': isBackground,
     };
   }
 
@@ -104,6 +108,8 @@ class ClaudeCodeSkill {
   final List<String>? tags;
   final String? source;
   final String? path;
+  final String? agent;
+  final String? context;
 
   const ClaudeCodeSkill({
     required this.name,
@@ -112,6 +118,8 @@ class ClaudeCodeSkill {
     this.tags,
     this.source,
     this.path,
+    this.agent,
+    this.context,
   });
 
   factory ClaudeCodeSkill.fromJson(Map<String, dynamic> json) {
@@ -122,6 +130,8 @@ class ClaudeCodeSkill {
       tags: (json['tags'] as List<dynamic>?)?.cast<String>(),
       source: json['source'] as String?,
       path: json['path'] as String?,
+      agent: json['agent'] as String?,
+      context: json['context'] as String?,
     );
   }
 
@@ -133,6 +143,8 @@ class ClaudeCodeSkill {
       if (tags != null) 'tags': tags,
       if (source != null) 'source': source,
       if (path != null) 'path': path,
+      if (agent != null) 'agent': agent,
+      if (context != null) 'context': context,
     };
   }
 }
@@ -339,6 +351,8 @@ class ClaudeCodeSubagent {
   final String prompt;
   final List<String>? tools;
   final ClaudeCodeSubagentModel model;
+  final ClaudeCodePermissionMode? permissionMode;
+  final List<String>? disallowedTools;
 
   const ClaudeCodeSubagent({
     required this.name,
@@ -346,6 +360,8 @@ class ClaudeCodeSubagent {
     required this.prompt,
     this.tools,
     this.model = ClaudeCodeSubagentModel.inherit,
+    this.permissionMode,
+    this.disallowedTools,
   });
 
   factory ClaudeCodeSubagent.fromJson(Map<String, dynamic> json) {
@@ -355,6 +371,13 @@ class ClaudeCodeSubagent {
       prompt: json['prompt'] as String? ?? '',
       tools: (json['tools'] as List<dynamic>?)?.cast<String>(),
       model: ClaudeCodeSubagentModel.fromWireValue(json['model'] as String?),
+      permissionMode: json['permissionMode'] != null
+          ? ClaudeCodePermissionMode.fromWireValue(
+              json['permissionMode'] as String,
+            )
+          : null,
+      disallowedTools: (json['disallowedTools'] as List<dynamic>?)
+          ?.cast<String>(),
     );
   }
 
@@ -365,6 +388,9 @@ class ClaudeCodeSubagent {
       'prompt': prompt,
       if (tools != null && tools!.isNotEmpty) 'tools': tools,
       if (model != ClaudeCodeSubagentModel.inherit) 'model': model.wireValue,
+      if (permissionMode != null) 'permissionMode': permissionMode!.wireValue,
+      if (disallowedTools != null && disallowedTools!.isNotEmpty)
+        'disallowedTools': disallowedTools,
     };
   }
 
@@ -374,6 +400,8 @@ class ClaudeCodeSubagent {
     String? prompt,
     List<String>? tools,
     ClaudeCodeSubagentModel? model,
+    ClaudeCodePermissionMode? permissionMode,
+    List<String>? disallowedTools,
   }) {
     return ClaudeCodeSubagent(
       name: name ?? this.name,
@@ -381,6 +409,8 @@ class ClaudeCodeSubagent {
       prompt: prompt ?? this.prompt,
       tools: tools ?? this.tools,
       model: model ?? this.model,
+      permissionMode: permissionMode ?? this.permissionMode,
+      disallowedTools: disallowedTools ?? this.disallowedTools,
     );
   }
 }

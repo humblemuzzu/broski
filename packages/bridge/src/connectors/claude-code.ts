@@ -870,6 +870,38 @@ export async function forkSession(sessionId: string, messageId?: string, cwd?: s
   }
 }
 
+/**
+ * Rename a Claude Code session by updating its title in the JSONL metadata.
+ */
+export async function renameSession(sessionId: string, name: string, cwd?: string): Promise<ClaudeCodeSession | null> {
+  const projectPath = cwd || process.cwd()
+  const encodedPath = encodeProjectPath(projectPath)
+  const claudeDir = join(homedir(), '.claude', 'projects', encodedPath)
+  const sessionFile = join(claudeDir, `${sessionId}.jsonl`)
+  
+  try {
+    const content = await Bun.file(sessionFile).text()
+    const lines = content.split('\n')
+    
+    // The first line contains session metadata - update the title
+    if (lines.length > 0) {
+      try {
+        const firstLine = JSON.parse(lines[0])
+        firstLine.title = name
+        lines[0] = JSON.stringify(firstLine)
+        await Bun.write(sessionFile, lines.join('\n'))
+      } catch {
+        // If first line isn't valid JSON, we can't rename
+        return null
+      }
+    }
+    
+    return getSession(sessionId, cwd)
+  } catch {
+    return null
+  }
+}
+
 export async function listSkills(cwd?: string): Promise<ClaudeCodeSkill[]> {
   const skills: ClaudeCodeSkill[] = []
   const searchDirs: string[] = []
@@ -959,7 +991,19 @@ function parseSkillFile(name: string, content: string): ClaudeCodeSkill {
     }
   }
 
-  return { name, description, autoInvoke, tags: tags.length > 0 ? tags : undefined }
+  let agent: string | undefined
+  let context: 'fork' | undefined
+
+  if (frontmatterMatch) {
+    const frontmatter = frontmatterMatch[1]
+    const agentMatch = frontmatter.match(/agent:\s*(.+)/)
+    if (agentMatch) agent = agentMatch[1].trim()
+
+    const contextMatch = frontmatter.match(/context:\s*(.+)/)
+    if (contextMatch && contextMatch[1].trim() === 'fork') context = 'fork'
+  }
+
+  return { name, description, autoInvoke, tags: tags.length > 0 ? tags : undefined, agent, context }
 }
 
 export async function listHooks(cwd?: string): Promise<ClaudeCodeHook[]> {
@@ -1176,14 +1220,16 @@ export async function setConfig(config: Partial<ClaudeCodeConfig>, cwd?: string)
  * Convert an array of ClaudeCodeSubagent to SDK's agents Record format.
  * The SDK expects agents as Record<name, { description, prompt, tools?, model? }>
  */
-function convertSubagentsToRecord(subagents: ClaudeCodeSubagent[]): Record<string, { description: string; prompt: string; tools?: string[]; model?: string }> {
-  const record: Record<string, { description: string; prompt: string; tools?: string[]; model?: string }> = {}
+function convertSubagentsToRecord(subagents: ClaudeCodeSubagent[]): Record<string, { description: string; prompt: string; tools?: string[]; model?: string; permissionMode?: string; disallowedTools?: string[] }> {
+  const record: Record<string, { description: string; prompt: string; tools?: string[]; model?: string; permissionMode?: string; disallowedTools?: string[] }> = {}
   for (const agent of subagents) {
     record[agent.name] = {
       description: agent.description,
       prompt: agent.prompt,
       ...(agent.tools?.length && { tools: agent.tools }),
       ...(agent.model && agent.model !== 'inherit' && { model: agent.model }),
+      ...(agent.permissionMode && { permissionMode: agent.permissionMode }),
+      ...(agent.disallowedTools?.length && { disallowedTools: agent.disallowedTools }),
     }
   }
   return record

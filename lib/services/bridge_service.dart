@@ -2303,6 +2303,51 @@ class BridgeService {
     }
   }
 
+  Future<ClaudeCodeSession?> ccRenameSession(
+    String sessionId,
+    String name, {
+    String? cwd,
+  }) async {
+    final requestId = _generateRequestId();
+    _socket.send({
+      'type': 'cc_rename_session',
+      'sessionId': sessionId,
+      'name': name,
+      'requestId': requestId,
+      if (cwd != null) 'cwd': cwd,
+    });
+    try {
+      final response = await _waitFor(
+        'cc_session_renamed',
+        requestId: requestId,
+      );
+      final data = response['data'] as Map<String, dynamic>?;
+      if (data == null) return null;
+      return ClaudeCodeSession.fromJson(data);
+    } catch (_) {
+      return null;
+    }
+  }
+
+  Future<bool> ccBackgroundSession(String sessionId, {String? cwd}) async {
+    final requestId = _generateRequestId();
+    _socket.send({
+      'type': 'cc_background_session',
+      'sessionId': sessionId,
+      'requestId': requestId,
+      if (cwd != null) 'cwd': cwd,
+    });
+    try {
+      final response = await _waitFor(
+        'cc_session_backgrounded',
+        requestId: requestId,
+      );
+      return response['data'] as bool? ?? false;
+    } catch (_) {
+      return false;
+    }
+  }
+
   /// Rewinds files to a previous checkpoint created during a Claude Code session.
   /// This undoes file changes made by Write/Edit/NotebookEdit tools.
   /// Returns true if successful, false otherwise.
@@ -3160,6 +3205,8 @@ class BridgeService {
                 extra: {
                   'autoInvoke': s.autoInvoke,
                   if (s.tags != null) 'tags': s.tags,
+                  if (s.agent != null) 'agent': s.agent,
+                  if (s.context != null) 'context': s.context,
                 },
               ),
             )

@@ -352,12 +352,40 @@ class _SkillsScreenState extends ConsumerState<SkillsScreen> {
                       ),
                       child: ListTile(
                         onTap: () => _openSkill(skill),
-                        title: Text(
-                          skill.name,
-                          style: TextStyle(
-                            color: oc.text,
-                            fontWeight: FontWeight.w600,
-                          ),
+                        title: Row(
+                          children: [
+                            Flexible(
+                              child: Text(
+                                skill.name,
+                                style: TextStyle(
+                                  color: oc.text,
+                                  fontWeight: FontWeight.w600,
+                                ),
+                                overflow: TextOverflow.ellipsis,
+                              ),
+                            ),
+                            if (skill.extra?['agent'] != null) ...[
+                              const SizedBox(width: 6),
+                              Container(
+                                padding: const EdgeInsets.symmetric(
+                                  horizontal: 6,
+                                  vertical: 2,
+                                ),
+                                decoration: BoxDecoration(
+                                  color: oc.primary.withValues(alpha: 0.15),
+                                  borderRadius: BorderRadius.circular(4),
+                                ),
+                                child: Text(
+                                  skill.extra!['agent'].toString(),
+                                  style: TextStyle(
+                                    color: oc.primary,
+                                    fontSize: 10,
+                                    fontWeight: FontWeight.w600,
+                                  ),
+                                ),
+                              ),
+                            ],
+                          ],
                         ),
                         subtitle: Text(
                           skill.description?.trim().isNotEmpty == true
@@ -450,6 +478,8 @@ class _SkillEditorScreenState extends ConsumerState<SkillEditorScreen>
     return '''---
 name: $name
 description: $description
+# agent: my-agent  # Optional: agent type for execution (SDK v2.1.0)
+# context: fork    # Optional: run in forked sub-agent context (SDK v2.1.0)
 ---
 
 # $name

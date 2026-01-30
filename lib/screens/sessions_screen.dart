@@ -4759,12 +4759,25 @@ class _ClaudeCodeSessionsViewState
     await DetailSheet.show(
       context: context,
       title: session.displayTitle,
-      initialSize: 0.35,
+      initialSize: 0.4,
       minSize: 0.2,
       maxSize: 0.5,
       child: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
+          // Rename option
+          ListTile(
+            leading: Icon(Icons.edit_outlined, color: ocTheme.textMuted),
+            title: Text('Rename', style: TextStyle(color: ocTheme.text)),
+            subtitle: Text(
+              'Set a custom session name',
+              style: TextStyle(color: ocTheme.textMuted, fontSize: 12),
+            ),
+            onTap: () {
+              Navigator.pop(context);
+              _renameCCSession(session);
+            },
+          ),
           // Stop Session option
           ListTile(
             leading: Icon(Icons.stop_circle_outlined, color: ocTheme.textMuted),
@@ -4827,6 +4840,75 @@ class _ClaudeCodeSessionsViewState
         behavior: SnackBarBehavior.floating,
       ),
     );
+  }
+
+  /// Rename a Claude Code session
+  Future<void> _renameCCSession(ClaudeCodeSession session) async {
+    final ocTheme = OpenCodeTheme.of(context);
+    final controller = TextEditingController(text: session.title ?? '');
+    final name = await showDialog<String>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        backgroundColor: ocTheme.backgroundPanel,
+        title: Text('Rename Session', style: TextStyle(color: ocTheme.text)),
+        content: TextField(
+          controller: controller,
+          autofocus: true,
+          style: TextStyle(color: ocTheme.text),
+          decoration: InputDecoration(
+            hintText: 'Enter a new name',
+            hintStyle: TextStyle(color: ocTheme.textMuted),
+            filled: true,
+            fillColor: ocTheme.backgroundElement,
+            border: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(8),
+              borderSide: BorderSide(color: ocTheme.border),
+            ),
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx),
+            child: Text('Cancel', style: TextStyle(color: ocTheme.textMuted)),
+          ),
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, controller.text.trim()),
+            child: Text('Rename', style: TextStyle(color: ocTheme.primary)),
+          ),
+        ],
+      ),
+    );
+    controller.dispose();
+
+    if (name == null || name.isEmpty || !mounted) return;
+
+    final bridge = ref.read(bridgeServiceProvider);
+    final result = await bridge.ccRenameSession(
+      session.id,
+      name,
+      cwd: session.cwd,
+    );
+    if (!mounted) return;
+
+    if (result != null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Renamed to "$name"'),
+          backgroundColor: ocTheme.backgroundPanel,
+          behavior: SnackBarBehavior.floating,
+        ),
+      );
+      // Refresh sessions list
+      _refresh();
+    } else {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: const Text('Failed to rename session'),
+          backgroundColor: ocTheme.error,
+          behavior: SnackBarBehavior.floating,
+        ),
+      );
+    }
   }
 
   @override
@@ -5247,6 +5329,14 @@ class _CCHighlightedSessionCard extends ConsumerWidget {
                             overflow: TextOverflow.ellipsis,
                           ),
                         ),
+                        if (session.isBackground) ...[
+                          const SizedBox(width: 4),
+                          Icon(
+                            Icons.cloud_outlined,
+                            size: 14,
+                            color: ocTheme.textMuted,
+                          ),
+                        ],
                         const SizedBox(width: 12),
                         // Status or time
                         if (isActive)
@@ -5474,6 +5564,14 @@ class _CCSessionCard extends ConsumerWidget {
                             overflow: TextOverflow.ellipsis,
                           ),
                         ),
+                        if (session.isBackground) ...[
+                          const SizedBox(width: 4),
+                          Icon(
+                            Icons.cloud_outlined,
+                            size: 14,
+                            color: ocTheme.textMuted,
+                          ),
+                        ],
                         const SizedBox(width: 12),
                         // Status or time
                         if (isActive)
