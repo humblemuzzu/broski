@@ -2578,13 +2578,19 @@ class ChatSessionNotifier extends StateNotifier<ChatSessionState> {
 
     if (message is CodexErrorMessage) {
       state = state.copyWith(cxIsStreaming: false);
+      // Check for ModelCap rate limit error
+      String errorText = message.message;
+      final code = message.code;
+      if (code != null && code.contains('ModelCap')) {
+        errorText = message.message; // Already formatted by bridge
+      }
       final errorMsg = ChatMessage(
         id: 'cx-error-${DateTime.now().microsecondsSinceEpoch}',
         sessionId: state.cxThreadId ?? '',
         role: MessageRole.system,
         createdAt: DateTime.now(),
-        text: message.message,
-        error: message.code,
+        text: errorText,
+        error: code ?? 'codex_error',
       );
       _addMessage(errorMsg);
       return;
@@ -2809,8 +2815,27 @@ class ChatSessionNotifier extends StateNotifier<ChatSessionState> {
           ? turn['error']
           : params['error'];
       String errorMessage = 'Turn failed';
+      String errorCode = 'turn_failed';
       if (error is Map<String, dynamic>) {
         errorMessage = error['message']?.toString() ?? errorMessage;
+        // Check for ModelCap error
+        final codexErrorInfo = error['codexErrorInfo'];
+        if (codexErrorInfo is Map<String, dynamic>) {
+          final capType = codexErrorInfo['type']?.toString();
+          if (capType == 'ModelCap') {
+            final model = codexErrorInfo['model']?.toString() ?? 'Unknown';
+            final retrySeconds = codexErrorInfo['reset_after_seconds'];
+            if (retrySeconds is num && retrySeconds > 0) {
+              final minutes = (retrySeconds / 60).ceil();
+              errorMessage =
+                  'Model $model is at capacity. Try again in ${minutes}m.';
+            } else {
+              errorMessage =
+                  'Model $model is at capacity. Please try a different model.';
+            }
+            errorCode = 'model_cap';
+          }
+        }
       } else if (error is String) {
         errorMessage = error;
       }
@@ -2820,9 +2845,27 @@ class ChatSessionNotifier extends StateNotifier<ChatSessionState> {
         role: MessageRole.system,
         createdAt: DateTime.now(),
         text: errorMessage,
-        error: 'turn_failed',
+        error: errorCode,
       );
       _addMessage(errorMsg);
+      return;
+    }
+
+    // Handle context compaction
+    if (method == 'thread/compacted' ||
+        (method == 'item/completed' &&
+            params['item'] is Map<String, dynamic> &&
+            (params['item'] as Map<String, dynamic>)['type'] ==
+                'contextCompaction')) {
+      final compactionMsg = ChatMessage(
+        id: 'cx-compaction-${DateTime.now().microsecondsSinceEpoch}',
+        sessionId: state.cxThreadId ?? '',
+        role: MessageRole.system,
+        createdAt: DateTime.now(),
+        text: 'Context compacted',
+        error: 'context_compacted',
+      );
+      _addMessage(compactionMsg);
       return;
     }
 

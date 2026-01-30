@@ -119,7 +119,7 @@ class CodexSettings {
     this.networkAccessEnabled = false,
     this.reasoningEffort = CodexReasoningEffort.medium,
     this.reasoningSummary = CodexReasoningSummary.auto,
-    this.webSearchEnabled = false,
+    this.webSearchMode = CodexWebSearchMode.disabled,
     this.skillsEnabled = false,
     this.collaborationMode = CodexCollaborationMode.pairProgramming,
   });
@@ -129,7 +129,7 @@ class CodexSettings {
   final bool networkAccessEnabled;
   final CodexReasoningEffort reasoningEffort;
   final CodexReasoningSummary reasoningSummary;
-  final bool webSearchEnabled;
+  final CodexWebSearchMode webSearchMode;
   final bool skillsEnabled;
   final CodexCollaborationMode collaborationMode;
 
@@ -139,7 +139,7 @@ class CodexSettings {
     bool? networkAccessEnabled,
     CodexReasoningEffort? reasoningEffort,
     CodexReasoningSummary? reasoningSummary,
-    bool? webSearchEnabled,
+    CodexWebSearchMode? webSearchMode,
     bool? skillsEnabled,
     CodexCollaborationMode? collaborationMode,
   }) {
@@ -149,7 +149,7 @@ class CodexSettings {
       networkAccessEnabled: networkAccessEnabled ?? this.networkAccessEnabled,
       reasoningEffort: reasoningEffort ?? this.reasoningEffort,
       reasoningSummary: reasoningSummary ?? this.reasoningSummary,
-      webSearchEnabled: webSearchEnabled ?? this.webSearchEnabled,
+      webSearchMode: webSearchMode ?? this.webSearchMode,
       skillsEnabled: skillsEnabled ?? this.skillsEnabled,
       collaborationMode: collaborationMode ?? this.collaborationMode,
     );
@@ -224,7 +224,13 @@ class CodexSettings {
       networkAccessEnabled: json['networkAccessEnabled'] == true,
       reasoningEffort: parseEffort(json['reasoningEffort'] as String?),
       reasoningSummary: parseSummary(json['reasoningSummary'] as String?),
-      webSearchEnabled: json['webSearchEnabled'] == true,
+      webSearchMode: () {
+        // Migration: handle old boolean format
+        final wsVal = json['webSearchMode'] ?? json['webSearchEnabled'];
+        if (wsVal is bool)
+          return wsVal ? CodexWebSearchMode.live : CodexWebSearchMode.disabled;
+        return CodexWebSearchMode.fromString(wsVal?.toString());
+      }(),
       skillsEnabled: json['skillsEnabled'] == true,
       collaborationMode: CodexCollaborationMode.fromString(
         json['collaborationMode'] as String?,
@@ -239,7 +245,7 @@ class CodexSettings {
       'networkAccessEnabled': networkAccessEnabled,
       'reasoningEffort': reasoningEffort.wireValue,
       'reasoningSummary': reasoningSummary.wireValue,
-      'webSearchEnabled': webSearchEnabled,
+      'webSearchMode': webSearchMode.wireValue,
       'skillsEnabled': skillsEnabled,
       'collaborationMode': collaborationMode.wireValue,
     };
@@ -422,6 +428,7 @@ class CodexTokenUsageBreakdown {
     required this.cachedInputTokens,
     required this.outputTokens,
     required this.reasoningOutputTokens,
+    this.cacheWriteTokens = 0,
   });
 
   final int totalTokens;
@@ -429,6 +436,7 @@ class CodexTokenUsageBreakdown {
   final int cachedInputTokens;
   final int outputTokens;
   final int reasoningOutputTokens;
+  final int cacheWriteTokens;
 
   factory CodexTokenUsageBreakdown.fromJson(Map<String, dynamic> json) {
     return CodexTokenUsageBreakdown(
@@ -437,6 +445,10 @@ class CodexTokenUsageBreakdown {
       cachedInputTokens: json['cachedInputTokens'] as int? ?? 0,
       outputTokens: json['outputTokens'] as int? ?? 0,
       reasoningOutputTokens: json['reasoningOutputTokens'] as int? ?? 0,
+      cacheWriteTokens:
+          json['cacheWriteTokens'] as int? ??
+          json['cacheCreationInputTokens'] as int? ??
+          0,
     );
   }
 }

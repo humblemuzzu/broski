@@ -3653,24 +3653,12 @@ Describe project-specific guidance for Codex here.
                   onSelected: notifier.setReasoningSummary,
                 ),
                 const SizedBox(height: 12),
-                SwitchListTile(
-                  value: settings.webSearchEnabled,
-                  onChanged: notifier.setWebSearchEnabled,
-                  dense: true,
-                  contentPadding: EdgeInsets.zero,
-                  title: Text(
-                    'Web search',
-                    style: TextStyle(
-                      color: theme.text,
-                      fontSize: 13,
-                      fontWeight: FontWeight.w600,
-                    ),
-                  ),
-                  subtitle: Text(
-                    'Enable web search requests (opt-in)',
-                    style: TextStyle(color: theme.textMuted, fontSize: 12),
-                  ),
-                  activeColor: theme.primary,
+                chipGroup<CodexWebSearchMode>(
+                  label: 'Web search',
+                  values: CodexWebSearchMode.values,
+                  selected: settings.webSearchMode,
+                  display: (v) => v.name[0].toUpperCase() + v.name.substring(1),
+                  onSelected: notifier.setWebSearchMode,
                 ),
                 SwitchListTile(
                   value: settings.skillsEnabled,
@@ -4054,7 +4042,7 @@ Describe project-specific guidance for Codex here.
     };
 
     final config = <String, dynamic>{
-      'features.web_search_request': settings.webSearchEnabled,
+      'web_search': settings.webSearchMode.wireValue,
       'features.skills': settings.skillsEnabled,
       'model_reasoning_effort': settings.reasoningEffort.wireValue,
       'model_reasoning_summary': settings.reasoningSummary.wireValue,
@@ -6862,9 +6850,13 @@ Describe project-specific guidance for Codex here.
 
       if (text.startsWith('/websearch')) {
         final arg = text.replaceFirst('/websearch', '').trim().toLowerCase();
-        final enabled = arg == 'on' || arg == 'true' || arg == '1';
+        final mode = switch (arg) {
+          'live' || 'on' || 'true' || '1' => CodexWebSearchMode.live,
+          'cached' => CodexWebSearchMode.cached,
+          _ => CodexWebSearchMode.disabled,
+        };
         chat.appendUserMessage(text);
-        ref.read(codexSettingsProvider.notifier).setWebSearchEnabled(enabled);
+        ref.read(codexSettingsProvider.notifier).setWebSearchMode(mode);
         _controller.clear();
         _userHasScrolledUp = false;
         _scrollToBottom();
@@ -6926,7 +6918,7 @@ Describe project-specific guidance for Codex here.
           )
           ..writeln('- Effort: ${codexSettings.reasoningEffort.wireValue}')
           ..writeln('- Summary: ${codexSettings.reasoningSummary.wireValue}')
-          ..writeln('- Web search: ${codexSettings.webSearchEnabled}')
+          ..writeln('- Web search: ${codexSettings.webSearchMode.wireValue}')
           ..writeln('- Skills: ${codexSettings.skillsEnabled}');
         if (tokenUsage != null) {
           summary.writeln(
@@ -6972,7 +6964,7 @@ Describe project-specific guidance for Codex here.
             },
           },
           config: <String, dynamic>{
-            'features.web_search_request': codexSettings.webSearchEnabled,
+            'web_search': codexSettings.webSearchMode.wireValue,
             'features.skills': codexSettings.skillsEnabled,
             'model_reasoning_effort': codexSettings.reasoningEffort.wireValue,
             'model_reasoning_summary': codexSettings.reasoningSummary.wireValue,
@@ -7162,7 +7154,7 @@ Describe your project here.
       };
 
       final config = <String, dynamic>{
-        'features.web_search_request': codexSettings.webSearchEnabled,
+        'web_search': codexSettings.webSearchMode.wireValue,
         'features.skills': codexSettings.skillsEnabled,
         'model_reasoning_effort': codexSettings.reasoningEffort.wireValue,
         'model_reasoning_summary': codexSettings.reasoningSummary.wireValue,

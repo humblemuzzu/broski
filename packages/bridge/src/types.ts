@@ -213,11 +213,11 @@ export type ClientMessage =
   | { type: 'cx_list_projects'; refresh?: boolean }
   | { type: 'cx_list_threads'; cwd?: string; cursor?: string | null; limit?: number | null; refresh?: boolean }
   | { type: 'cx_warmup' }
-  | { type: 'cx_start_thread'; cwd?: string; model?: string; approvalPolicy?: string; sandbox?: string }
+  | { type: 'cx_start_thread'; cwd?: string; model?: string; approvalPolicy?: string; sandbox?: string; env?: Record<string, string> }
   | { type: 'cx_resume_thread'; threadId: string }
   | { type: 'cx_archive_thread'; threadId: string }
   | { type: 'cx_get_thread_messages'; threadId: string }
-  | { type: 'cx_chat'; threadId?: string; prompt: string; cwd?: string; model?: string; effort?: string; summary?: string; approvalPolicy?: string; sandbox?: string; sandboxPolicy?: any; config?: Record<string, any>; baseInstructions?: string; developerInstructions?: string; fileAttachments?: FileAttachment[]; collaborationMode?: 'plan' | 'pairprogramming' | 'execute' }
+  | { type: 'cx_chat'; threadId?: string; prompt: string; cwd?: string; model?: string; effort?: string; summary?: string; approvalPolicy?: string; sandbox?: string; sandboxPolicy?: any; config?: Record<string, any>; env?: Record<string, string>; baseInstructions?: string; developerInstructions?: string; fileAttachments?: FileAttachment[]; collaborationMode?: 'plan' | 'pairprogramming' | 'execute' }
   | { type: 'cx_abort'; threadId: string; turnId?: string }
   | { type: 'cx_permission_response'; requestId: string; response: PermissionResponse; execpolicyAmendment?: any }
   // Codex request_user_input response (SDK v0.87.0+)
@@ -969,7 +969,7 @@ export type CodexTranscriptMessage = {
 export type CodexStreamMessage =
   | { type: 'notification'; method: string; params: any }
   | { type: 'request'; requestId: string; method: string; params: any }
-  | { type: 'error'; message: string; code?: string }
+  | { type: 'error'; message: string; code?: string; details?: any; modelCapModel?: string; modelCapRetrySeconds?: number }
   // Multi-Agent Collaboration Events (Codex SDK v0.87.0+)
   | { type: 'collab_spawn_begin'; data: CodexCollabAgentSpawnBeginEvent }
   | { type: 'collab_spawn_end'; data: CodexCollabAgentSpawnEndEvent }

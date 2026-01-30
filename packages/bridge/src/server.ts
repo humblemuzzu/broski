@@ -1132,6 +1132,12 @@ export async function createBridgeServer(options: BridgeServerOptions): Promise<
                   cxFileChangeSnapshots.delete(key)
                 }
               }
+
+              // Handle context compaction events
+              if (safeString(item?.type) === 'contextCompaction') {
+                const compactionStatus = n.method === 'item/started' ? 'started' : 'completed'
+                console.log(`[Codex] context compaction ${compactionStatus}: threadId=${threadId}`)
+              }
             }
           }
 
@@ -1165,11 +1171,25 @@ export async function createBridgeServer(options: BridgeServerOptions): Promise<
               
               console.error(`[Codex] turn/completed with failed status:`, JSON.stringify(turnError, null, 2))
               
+              // Extract ModelCap info if present
+              const codexErrorInfoTC = turnError?.codexErrorInfo ?? turnError?.details?.codexErrorInfo
+              let modelCapModelTC: string | undefined
+              let modelCapRetrySecondsTC: number | undefined
+              if (codexErrorInfoTC && typeof codexErrorInfoTC === 'object') {
+                if (codexErrorInfoTC.type === 'ModelCap' || codexErrorInfoTC.ModelCap) {
+                  const cap = codexErrorInfoTC.ModelCap ?? codexErrorInfoTC
+                  modelCapModelTC = cap.model ?? cap.modelName
+                  modelCapRetrySecondsTC = cap.reset_after_seconds ?? cap.resetAfterSeconds
+                }
+              }
+              
               emitCxStream(threadId, { 
                 type: 'error', 
                 message: errorMessage,
                 code: typeof errorCode === 'string' ? errorCode : JSON.stringify(errorCode),
-                details: turnError
+                details: turnError,
+                modelCapModel: modelCapModelTC,
+                modelCapRetrySeconds: modelCapRetrySecondsTC,
               }, owner)
             }
           }
@@ -1187,11 +1207,25 @@ export async function createBridgeServer(options: BridgeServerOptions): Promise<
                 : error?.message ?? error?.additionalDetails ?? JSON.stringify(error)
               const errorCode = error?.codexErrorInfo ?? error?.code ?? n.method
               
+              // Extract ModelCap info if present
+              const codexErrorInfoTF = error?.codexErrorInfo ?? error?.details?.codexErrorInfo
+              let modelCapModelTF: string | undefined
+              let modelCapRetrySecondsTF: number | undefined
+              if (codexErrorInfoTF && typeof codexErrorInfoTF === 'object') {
+                if (codexErrorInfoTF.type === 'ModelCap' || codexErrorInfoTF.ModelCap) {
+                  const cap = codexErrorInfoTF.ModelCap ?? codexErrorInfoTF
+                  modelCapModelTF = cap.model ?? cap.modelName
+                  modelCapRetrySecondsTF = cap.reset_after_seconds ?? cap.resetAfterSeconds
+                }
+              }
+              
               emitCxStream(threadId, { 
                 type: 'error', 
                 message: errorMessage,
                 code: typeof errorCode === 'string' ? errorCode : JSON.stringify(errorCode),
-                details: error
+                details: error,
+                modelCapModel: modelCapModelTF,
+                modelCapRetrySeconds: modelCapRetrySecondsTF,
               }, owner)
               
               // CRITICAL: Send session.idle to reset UI state
@@ -1215,6 +1249,14 @@ export async function createBridgeServer(options: BridgeServerOptions): Promise<
               }
             }
           }
+          // Handle thread/compacted (deprecated notification)
+          if (n.method === 'thread/compacted') {
+            console.log(`[Codex] thread/compacted (deprecated): threadId=${threadId}`)
+            if (threadId) {
+              emitCxStream(threadId, { type: 'notification', method: 'thread/compacted', params }, owner)
+            }
+          }
+
           // Log response items for debugging
           if (n.method === 'item/started' || n.method === 'item/completed') {
             const item = params.item
@@ -4448,6 +4490,7 @@ export async function createBridgeServer(options: BridgeServerOptions): Promise<
           model: message.model ?? null,
           approvalPolicy: message.approvalPolicy ?? null,
           sandbox: message.sandbox ?? null,
+          ...(message.env ? { env: message.env } : {}),
         })
         const thread = mapCodexThread(result?.thread)
         if (thread.id && thread.cwd) cxThreadCwds.set(thread.id, resolve(thread.cwd))
@@ -4817,6 +4860,7 @@ export async function createBridgeServer(options: BridgeServerOptions): Promise<
             config: message.config ?? null,
             baseInstructions: message.baseInstructions ?? null,
             developerInstructions: message.developerInstructions ?? null,
+            ...(message.env ? { env: message.env } : {}),
           })
           threadId = safeString(startRes?.thread?.id)
           console.log(`[Codex cx_chat] thread/start result: threadId=${threadId}, model=${message.model}`)
@@ -4836,6 +4880,7 @@ export async function createBridgeServer(options: BridgeServerOptions): Promise<
             config: message.config ?? null,
             baseInstructions: message.baseInstructions ?? null,
             developerInstructions: message.developerInstructions ?? null,
+            ...(message.env ? { env: message.env } : {}),
           })
         }
 

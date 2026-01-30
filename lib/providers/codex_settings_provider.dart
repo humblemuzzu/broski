@@ -45,8 +45,8 @@ class CodexSettingsNotifier extends StateNotifier<CodexSettings> {
     await _save();
   }
 
-  Future<void> setWebSearchEnabled(bool enabled) async {
-    state = state.copyWith(webSearchEnabled: enabled);
+  Future<void> setWebSearchMode(CodexWebSearchMode mode) async {
+    state = state.copyWith(webSearchMode: mode);
     await _save();
   }
 
