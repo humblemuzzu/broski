@@ -267,7 +267,7 @@ export class OpenCodeConnector {
 
   /**
    * Async prompt: returns immediately while the session runs in background.
-   * Useful for background jobs like artifact enrichment.
+   * Useful for background jobs.
    */
   async sendPromptAsync(
     sessionId: string,

@@ -1,13 +1,3 @@
-import type {
-  Artifact,
-  ArtifactSearchFilters,
-  ArtifactSearchQuery,
-  ArtifactSearchResult,
-  ArtifactsConfig,
-  ArtifactsEnrichmentEvent,
-  ArtifactsStats,
-} from './artifacts/types'
-
 export type PermissionResponse = 'once' | 'always' | 'reject' | 'execpolicy'
 
 // Session permission rules (OpenCode SDK v1.1.1+)
@@ -261,15 +251,6 @@ export type ClientMessage =
   | { type: 'cc_remove_plugin_path'; path: string }
   | { type: 'cc_get_plugin_config' }
   | { type: 'cc_reload_plugins'; cwd?: string }
-  // Artifact Index (SQLite)
-  | { type: 'artifacts_search'; text?: string; filters?: ArtifactSearchFilters; limit?: number; offset?: number }
-  | { type: 'artifacts_get'; id: string }
-  | { type: 'artifacts_update'; id: string; userTags?: string[]; starred?: boolean; notes?: string | null }
-  | { type: 'artifacts_get_config' }
-  | { type: 'artifacts_set_config'; config: Partial<ArtifactsConfig> }
-  | { type: 'artifacts_clear' }
-  | { type: 'artifacts_stats' }
-  | { type: 'artifacts_enrich_now' }
   // Subscription Usage Tracking
   | { type: 'get_subscription_usage' }
   | { type: 'get_provider_usage'; providerId: 'claude' | 'openai' }
@@ -538,28 +519,9 @@ export type ServerMessage =
   | { type: 'cc_plugin_path_removed'; data: boolean; path: string; requestId?: string }
   | { type: 'cc_plugin_config'; data: ClaudeCodePluginConfig; requestId?: string }
   | { type: 'cc_plugins_reloaded'; data: ClaudeCodePlugin[]; requestId?: string }
-  // Artifact Index (SQLite)
-  | { type: 'artifacts_results'; data: ArtifactSearchResult; requestId?: string }
-  | { type: 'artifact'; data: Artifact | null; requestId?: string }
-  | { type: 'artifact_updated'; data: boolean; id: string; requestId?: string }
-  | { type: 'artifacts_config'; data: ArtifactsConfig; requestId?: string }
-  | { type: 'artifacts_cleared'; data: boolean; requestId?: string }
-  | { type: 'artifacts_stats'; data: ArtifactsStats; requestId?: string }
-  | { type: 'artifacts_enrich_started'; data: boolean; requestId?: string }
-  | { type: 'artifacts_enrichment'; data: ArtifactsEnrichmentEvent }
   // Subscription Usage Tracking
   | { type: 'subscription_usage'; data: SubscriptionUsage; requestId?: string }
   | { type: 'provider_usage'; data: ProviderUsage; requestId?: string }
-
-export type {
-  Artifact,
-  ArtifactSearchFilters,
-  ArtifactSearchQuery,
-  ArtifactSearchResult,
-  ArtifactsConfig,
-  ArtifactsEnrichmentEvent,
-  ArtifactsStats,
-} from './artifacts/types'
 
 // Feature 11: File Content
 export type FileContent = {
