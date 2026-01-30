@@ -1,5 +1,3 @@
-import 'dart:async';
-
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -20,7 +18,7 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
   final PageController _pageController = PageController();
 
   // Total pages: Splash(0), Intro(1), Feature1(2), Feature2(3), Feature3(4), GetStarted(5)
-  static const int _totalPages = 6;
+  static const int _totalPages = 5;
 
   void _goToPage(int page) {
     if (page < 0 || page >= _totalPages) return;
@@ -60,19 +58,12 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
         physics: const NeverScrollableScrollPhysics(),
         onPageChanged: (page) => setState(() => _currentPage = page),
         children: [
-          // Page 0: Logo Splash
-          _LogoSplashPage(onComplete: _nextPage),
+          // Page 0: Code From The Couch
+          _CodeFromCouchPage(onContinue: _nextPage),
 
-          // Page 1: Hero Intro with floating tiles
-          _HeroIntroPage(
-            onContinue: _nextPage,
-            currentPage: _currentPage,
-            totalPages: _totalPages,
-          ),
-
-          // Page 2: Feature - Chat from Anywhere
+          // Page 1: Feature - Chat from Anywhere
           _FeaturePage(
-            pageIndex: 2,
+            pageIndex: 1,
             currentPage: _currentPage,
             totalPages: _totalPages,
             icon: Icons.chat_bubble_rounded,
@@ -84,9 +75,9 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
             onContinue: _nextPage,
           ),
 
-          // Page 3: Feature - Approve Commands
+          // Page 2: Feature - Approve Commands
           _FeaturePage(
-            pageIndex: 3,
+            pageIndex: 2,
             currentPage: _currentPage,
             totalPages: _totalPages,
             icon: Icons.terminal_rounded,
@@ -98,9 +89,9 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
             onContinue: _nextPage,
           ),
 
-          // Page 4: Feature - Track Changes
+          // Page 3: Feature - Track Changes
           _FeaturePage(
-            pageIndex: 4,
+            pageIndex: 3,
             currentPage: _currentPage,
             totalPages: _totalPages,
             icon: Icons.difference_rounded,
@@ -112,7 +103,7 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
             onContinue: _nextPage,
           ),
 
-          // Page 5: Get Started
+          // Page 4: Get Started
           _GetStartedPage(
             currentPage: _currentPage,
             totalPages: _totalPages,
@@ -167,184 +158,28 @@ class _StepDots extends StatelessWidget {
 }
 
 // =============================================================================
-// PAGE 0: LOGO SPLASH
+// PAGE 0: CODE FROM THE COUCH
 // =============================================================================
 
-class _LogoSplashPage extends StatefulWidget {
-  const _LogoSplashPage({required this.onComplete});
+class _CodeFromCouchPage extends StatefulWidget {
+  const _CodeFromCouchPage({required this.onContinue});
 
-  final VoidCallback onComplete;
+  final VoidCallback onContinue;
 
   @override
-  State<_LogoSplashPage> createState() => _LogoSplashPageState();
+  State<_CodeFromCouchPage> createState() => _CodeFromCouchPageState();
 }
 
-class _LogoSplashPageState extends State<_LogoSplashPage>
+class _CodeFromCouchPageState extends State<_CodeFromCouchPage>
     with SingleTickerProviderStateMixin {
   late AnimationController _controller;
-  late Animation<double> _scaleAnimation;
-  late Animation<double> _opacityAnimation;
-  late Animation<double> _glowAnimation;
-  Timer? _autoAdvanceTimer;
 
   @override
   void initState() {
     super.initState();
-
     _controller = AnimationController(
       vsync: this,
       duration: const Duration(milliseconds: 1200),
-    );
-
-    _scaleAnimation = Tween<double>(begin: 0.8, end: 1.0).animate(
-      CurvedAnimation(
-        parent: _controller,
-        curve: const Interval(0.0, 0.6, curve: Curves.elasticOut),
-      ),
-    );
-
-    _opacityAnimation = Tween<double>(begin: 0.0, end: 1.0).animate(
-      CurvedAnimation(
-        parent: _controller,
-        curve: const Interval(0.0, 0.4, curve: Curves.easeOut),
-      ),
-    );
-
-    _glowAnimation = Tween<double>(begin: 0.0, end: 1.0).animate(
-      CurvedAnimation(
-        parent: _controller,
-        curve: const Interval(0.3, 1.0, curve: Curves.easeOut),
-      ),
-    );
-
-    _controller.forward();
-
-    // Auto-advance after 2.5 seconds
-    _autoAdvanceTimer = Timer(const Duration(milliseconds: 2500), () {
-      widget.onComplete();
-    });
-  }
-
-  @override
-  void dispose() {
-    _controller.dispose();
-    _autoAdvanceTimer?.cancel();
-    super.dispose();
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    return GestureDetector(
-      onTap: () {
-        _autoAdvanceTimer?.cancel();
-        widget.onComplete();
-      },
-      behavior: HitTestBehavior.opaque,
-      child: Container(
-        color: Colors.black,
-        child: Center(
-          child: AnimatedBuilder(
-            animation: _controller,
-            builder: (context, child) {
-              return Transform.scale(
-                scale: _scaleAnimation.value,
-                child: Opacity(
-                  opacity: _opacityAnimation.value,
-                  child: Column(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      // Logo with glow
-                      Container(
-                        width: 120,
-                        height: 120,
-                        decoration: BoxDecoration(
-                          gradient: const LinearGradient(
-                            begin: Alignment.topLeft,
-                            end: Alignment.bottomRight,
-                            colors: [Color(0xFF3B82F6), Color(0xFF8B5CF6)],
-                          ),
-                          borderRadius: BorderRadius.circular(32),
-                          boxShadow: [
-                            BoxShadow(
-                              color: const Color(
-                                0xFF6366F1,
-                              ).withValues(alpha: 0.5 * _glowAnimation.value),
-                              blurRadius: 60 * _glowAnimation.value,
-                              spreadRadius: 10 * _glowAnimation.value,
-                            ),
-                          ],
-                        ),
-                        child: const Center(
-                          child: Text(
-                            'B',
-                            style: TextStyle(
-                              fontSize: 64,
-                              fontWeight: FontWeight.w800,
-                              color: Colors.white,
-                              letterSpacing: -2,
-                            ),
-                          ),
-                        ),
-                      ),
-                      const SizedBox(height: 32),
-                      // App name
-                      ShaderMask(
-                        shaderCallback: (bounds) => const LinearGradient(
-                          colors: [Colors.white, Color(0xFFB4B4B4)],
-                          begin: Alignment.topCenter,
-                          end: Alignment.bottomCenter,
-                        ).createShader(bounds),
-                        child: const Text(
-                          'Broski',
-                          style: TextStyle(
-                            fontSize: 42,
-                            fontWeight: FontWeight.w700,
-                            color: Colors.white,
-                            letterSpacing: -1,
-                          ),
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-              );
-            },
-          ),
-        ),
-      ),
-    );
-  }
-}
-
-// =============================================================================
-// PAGE 1: HERO INTRO WITH FLOATING TILES
-// =============================================================================
-
-class _HeroIntroPage extends StatefulWidget {
-  const _HeroIntroPage({
-    required this.onContinue,
-    required this.currentPage,
-    required this.totalPages,
-  });
-
-  final VoidCallback onContinue;
-  final int currentPage;
-  final int totalPages;
-
-  @override
-  State<_HeroIntroPage> createState() => _HeroIntroPageState();
-}
-
-class _HeroIntroPageState extends State<_HeroIntroPage>
-    with SingleTickerProviderStateMixin {
-  late AnimationController _controller;
-
-  @override
-  void initState() {
-    super.initState();
-    _controller = AnimationController(
-      vsync: this,
-      duration: const Duration(milliseconds: 1000),
     )..forward();
   }
 
@@ -356,223 +191,225 @@ class _HeroIntroPageState extends State<_HeroIntroPage>
 
   @override
   Widget build(BuildContext context) {
-    final screenSize = MediaQuery.of(context).size;
-    final isTablet = screenSize.width > 600;
-
-    return SafeArea(
-      child: Column(
-        children: [
-          // Step dots
-          Padding(
-            padding: const EdgeInsets.only(top: 20),
-            child: _StepDots(
-              currentPage: widget.currentPage,
-              totalPages: widget.totalPages,
-            ),
-          ),
-          // Floating tiles area
-          Expanded(
-            flex: 3,
-            child: Stack(
-              clipBehavior: Clip.none,
-              children: [
-                // Animated floating tiles
-                ..._buildFloatingTiles(screenSize, isTablet),
-                // Center content
-                Center(
-                  child: FadeTransition(
-                    opacity: CurvedAnimation(
-                      parent: _controller,
-                      curve: const Interval(0.3, 0.8, curve: Curves.easeOut),
+    return Container(
+      color: Colors.black,
+      child: SafeArea(
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            // Concentric circles + B icon area
+            Expanded(
+              flex: 5,
+              child: Center(
+                child: FadeTransition(
+                  opacity: CurvedAnimation(
+                    parent: _controller,
+                    curve: const Interval(0.0, 0.5, curve: Curves.easeOut),
+                  ),
+                  child: ScaleTransition(
+                    scale: Tween<double>(begin: 0.85, end: 1.0).animate(
+                      CurvedAnimation(
+                        parent: _controller,
+                        curve: const Interval(
+                          0.0,
+                          0.6,
+                          curve: Curves.easeOutCubic,
+                        ),
+                      ),
                     ),
-                    child: Column(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        RichText(
-                          textAlign: TextAlign.center,
-                          text: TextSpan(
-                            style: TextStyle(
-                              fontSize: isTablet ? 42 : 34,
-                              fontWeight: FontWeight.w700,
-                              height: 1.2,
-                            ),
-                            children: const [
-                              TextSpan(
-                                text: 'Your AI agents,\n',
-                                style: TextStyle(color: Colors.white),
+                    child: LayoutBuilder(
+                      builder: (context, constraints) {
+                        final dim = constraints.maxWidth < constraints.maxHeight
+                            ? constraints.maxWidth
+                            : constraints.maxHeight;
+                        final circleSize = dim * 0.85;
+                        return SizedBox(
+                          width: circleSize,
+                          height: circleSize,
+                          child: Stack(
+                            alignment: Alignment.center,
+                            children: [
+                              // Concentric circles
+                              CustomPaint(
+                                size: Size(circleSize, circleSize),
+                                painter: _ConcentricCirclesPainter(),
                               ),
-                              TextSpan(
-                                text: 'in your pocket',
-                                style: TextStyle(
-                                  foreground: null, // Will use gradient
-                                  color: Color(0xFF60A5FA),
+                              // Broski B icon
+                              ShaderMask(
+                                shaderCallback: (Rect bounds) {
+                                  return const RadialGradient(
+                                    colors: [
+                                      Colors.white,
+                                      Colors.white,
+                                      Colors.transparent,
+                                    ],
+                                    stops: [0.0, 0.35, 0.65],
+                                  ).createShader(bounds);
+                                },
+                                blendMode: BlendMode.dstIn,
+                                child: Image.asset(
+                                  'docs/assets/broski-icon.png',
+                                  width: 100,
+                                  height: 100,
                                 ),
                               ),
                             ],
                           ),
+                        );
+                      },
+                    ),
+                  ),
+                ),
+              ),
+            ),
+            // Headline text
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 32),
+              child: FadeTransition(
+                opacity: CurvedAnimation(
+                  parent: _controller,
+                  curve: const Interval(0.3, 0.7, curve: Curves.easeOut),
+                ),
+                child: SlideTransition(
+                  position:
+                      Tween<Offset>(
+                        begin: const Offset(0, 0.15),
+                        end: Offset.zero,
+                      ).animate(
+                        CurvedAnimation(
+                          parent: _controller,
+                          curve: const Interval(
+                            0.3,
+                            0.7,
+                            curve: Curves.easeOutCubic,
+                          ),
                         ),
-                        const SizedBox(height: 16),
+                      ),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      const Text.rich(
+                        TextSpan(
+                          children: [
+                            TextSpan(
+                              text: 'CODE\nFROM THE\n',
+                              style: TextStyle(
+                                fontSize: 52,
+                                fontWeight: FontWeight.w900,
+                                color: Colors.white,
+                                height: 1.05,
+                                letterSpacing: -1,
+                              ),
+                            ),
+                            TextSpan(
+                              text: 'COUCH.',
+                              style: TextStyle(
+                                fontSize: 52,
+                                fontWeight: FontWeight.w900,
+                                color: Color(0xFF555555),
+                                height: 1.05,
+                                letterSpacing: -1,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                      const SizedBox(height: 20),
+                      Text(
+                        'The first IDE designed for the\nhorizontal lifestyle.',
+                        style: TextStyle(
+                          fontSize: 16,
+                          color: Colors.white.withValues(alpha: 0.5),
+                          height: 1.5,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            ),
+            const SizedBox(height: 32),
+            // Get Started button
+            Padding(
+              padding: const EdgeInsets.fromLTRB(24, 0, 24, 24),
+              child: FadeTransition(
+                opacity: CurvedAnimation(
+                  parent: _controller,
+                  curve: const Interval(0.5, 1.0, curve: Curves.easeOut),
+                ),
+                child: GestureDetector(
+                  onTap: () {
+                    HapticFeedback.lightImpact();
+                    widget.onContinue();
+                  },
+                  child: Container(
+                    width: double.infinity,
+                    height: 58,
+                    decoration: BoxDecoration(
+                      color: Colors.white,
+                      borderRadius: BorderRadius.circular(29),
+                    ),
+                    child: const Row(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
                         Text(
-                          'Control AI coding agents from anywhere',
-                          textAlign: TextAlign.center,
+                          'Get Started',
                           style: TextStyle(
-                            fontSize: isTablet ? 18 : 16,
-                            color: Colors.white.withValues(alpha: 0.6),
+                            fontSize: 17,
+                            fontWeight: FontWeight.w600,
+                            color: Colors.black,
+                            letterSpacing: 0.2,
+                          ),
+                        ),
+                        SizedBox(width: 8),
+                        Text(
+                          '\u2192',
+                          style: TextStyle(
+                            fontSize: 20,
+                            fontWeight: FontWeight.w500,
+                            color: Colors.black,
                           ),
                         ),
                       ],
                     ),
                   ),
                 ),
-              ],
-            ),
-          ),
-          // Bottom section with button
-          Padding(
-            padding: EdgeInsets.fromLTRB(24, 0, 24, isTablet ? 48 : 32),
-            child: FadeTransition(
-              opacity: CurvedAnimation(
-                parent: _controller,
-                curve: const Interval(0.5, 1.0, curve: Curves.easeOut),
-              ),
-              child: _PrimaryButton(
-                label: 'Get started',
-                onPressed: widget.onContinue,
               ),
             ),
-          ),
-        ],
+          ],
+        ),
       ),
     );
   }
+}
 
-  List<Widget> _buildFloatingTiles(Size screenSize, bool isTablet) {
-    final tileSize = isTablet ? 90.0 : 70.0;
-    final tiles = <_FloatingTileData>[
-      // Top left - Terminal icon
-      _FloatingTileData(
-        offset: Offset(-screenSize.width * 0.32, -screenSize.height * 0.12),
-        icon: Icons.terminal_rounded,
-        gradient: const [Color(0xFF10B981), Color(0xFF059669)],
-        delay: 0.0,
-      ),
-      // Top right - Code icon
-      _FloatingTileData(
-        offset: Offset(screenSize.width * 0.32, -screenSize.height * 0.12),
-        icon: Icons.code_rounded,
-        gradient: const [Color(0xFF6366F1), Color(0xFF8B5CF6)],
-        delay: 0.1,
-      ),
-      // Left - Chat icon
-      _FloatingTileData(
-        offset: Offset(-screenSize.width * 0.38, screenSize.height * 0.02),
-        icon: Icons.chat_bubble_rounded,
-        gradient: const [Color(0xFF3B82F6), Color(0xFF2563EB)],
-        delay: 0.2,
-      ),
-      // Right - File diff icon
-      _FloatingTileData(
-        offset: Offset(screenSize.width * 0.38, screenSize.height * 0.02),
-        icon: Icons.difference_rounded,
-        gradient: const [Color(0xFFF59E0B), Color(0xFFD97706)],
-        delay: 0.15,
-      ),
-      // Bottom left - Folder icon
-      _FloatingTileData(
-        offset: Offset(-screenSize.width * 0.32, screenSize.height * 0.14),
-        icon: Icons.folder_rounded,
-        gradient: const [Color(0xFFEC4899), Color(0xFFDB2777)],
-        delay: 0.25,
-      ),
-      // Bottom right - Settings/gear icon
-      _FloatingTileData(
-        offset: Offset(screenSize.width * 0.32, screenSize.height * 0.14),
-        icon: Icons.settings_rounded,
-        gradient: const [Color(0xFF8B5CF6), Color(0xFF7C3AED)],
-        delay: 0.3,
-      ),
+/// Draws subtle concentric circles for the background effect
+class _ConcentricCirclesPainter extends CustomPainter {
+  @override
+  void paint(Canvas canvas, Size size) {
+    final center = Offset(size.width / 2, size.height / 2);
+    final maxRadius = size.width / 2;
+
+    final paint = Paint()
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = 1.0;
+
+    // 4 evenly spaced concentric circles, subtle gray
+    final radii = [
+      maxRadius * 0.3,
+      maxRadius * 0.5,
+      maxRadius * 0.7,
+      maxRadius * 0.9,
     ];
 
-    return tiles.map((tile) {
-      return AnimatedBuilder(
-        animation: _controller,
-        builder: (context, child) {
-          final delay = tile.delay;
-          final progress = ((_controller.value - delay) / (1 - delay)).clamp(
-            0.0,
-            1.0,
-          );
-          final curvedProgress = Curves.easeOutBack.transform(progress);
-
-          return Positioned(
-            left: screenSize.width / 2 + tile.offset.dx - tileSize / 2,
-            top: screenSize.height / 2 + tile.offset.dy - tileSize / 2,
-            child: Transform.scale(
-              scale: curvedProgress,
-              child: Opacity(
-                opacity: curvedProgress,
-                child: _FloatingTile(
-                  size: tileSize,
-                  icon: tile.icon,
-                  gradient: tile.gradient,
-                ),
-              ),
-            ),
-          );
-        },
-      );
-    }).toList();
+    for (var i = 0; i < radii.length; i++) {
+      paint.color = Color.fromRGBO(255, 255, 255, 0.10 - (i * 0.015));
+      canvas.drawCircle(center, radii[i], paint);
+    }
   }
-}
-
-class _FloatingTileData {
-  const _FloatingTileData({
-    required this.offset,
-    required this.icon,
-    required this.gradient,
-    required this.delay,
-  });
-
-  final Offset offset;
-  final IconData icon;
-  final List<Color> gradient;
-  final double delay;
-}
-
-class _FloatingTile extends StatelessWidget {
-  const _FloatingTile({
-    required this.size,
-    required this.icon,
-    required this.gradient,
-  });
-
-  final double size;
-  final IconData icon;
-  final List<Color> gradient;
 
   @override
-  Widget build(BuildContext context) {
-    return Container(
-      width: size,
-      height: size,
-      decoration: BoxDecoration(
-        gradient: LinearGradient(
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
-          colors: gradient,
-        ),
-        borderRadius: BorderRadius.circular(size * 0.28),
-        boxShadow: [
-          BoxShadow(
-            color: gradient.first.withValues(alpha: 0.4),
-            blurRadius: 20,
-            offset: const Offset(0, 8),
-          ),
-        ],
-      ),
-      child: Icon(icon, color: Colors.white, size: size * 0.45),
-    );
-  }
+  bool shouldRepaint(covariant CustomPainter oldDelegate) => false;
 }
 
 // =============================================================================
@@ -801,7 +638,8 @@ class _GetStartedPageState extends State<_GetStartedPage>
   @override
   void didUpdateWidget(_GetStartedPage oldWidget) {
     super.didUpdateWidget(oldWidget);
-    if (widget.currentPage == 5 && oldWidget.currentPage != 5) {
+    if (widget.currentPage == widget.totalPages - 1 &&
+        oldWidget.currentPage != widget.totalPages - 1) {
       _controller.forward(from: 0);
     }
   }
@@ -817,7 +655,8 @@ class _GetStartedPageState extends State<_GetStartedPage>
     final screenSize = MediaQuery.of(context).size;
     final isTablet = screenSize.width > 600;
 
-    if (widget.currentPage == 5 && !_controller.isAnimating) {
+    if (widget.currentPage == widget.totalPages - 1 &&
+        !_controller.isAnimating) {
       _controller.forward(from: 0);
     }
 
