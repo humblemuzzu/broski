@@ -8,6 +8,7 @@ class SessionSummary {
     this.parentID,
     this.summary,
     this.share,
+    this.revert,
   });
 
   final String id;
@@ -18,6 +19,7 @@ class SessionSummary {
   final SessionTime time;
   final SessionSummaryStats? summary;
   final SessionShare? share; // Share URL if shared
+  final SessionRevert? revert; // Active revert state (non-null when reverted)
 
   /// Whether this is a background/subagent task (title contains @agent subagent pattern)
   bool get isBackgroundTask {
@@ -43,6 +45,9 @@ class SessionSummary {
   /// Whether this session is shared publicly
   bool get isShared => share != null && share!.url.isNotEmpty;
 
+  /// Whether this session is archived
+  bool get isArchived => time.archived != null;
+
   factory SessionSummary.fromJson(Map<String, dynamic> json) {
     return SessionSummary(
       id: json['id'] as String? ?? '',
@@ -61,6 +66,9 @@ class SessionSummary {
       share: json['share'] == null
           ? null
           : SessionShare.fromJson(json['share'] as Map<String, dynamic>),
+      revert: json['revert'] == null
+          ? null
+          : SessionRevert.fromJson(json['revert'] as Map<String, dynamic>),
     );
   }
 
@@ -73,6 +81,7 @@ class SessionSummary {
     SessionTime? time,
     SessionSummaryStats? summary,
     SessionShare? share,
+    SessionRevert? revert,
   }) {
     return SessionSummary(
       id: id ?? this.id,
@@ -83,6 +92,22 @@ class SessionSummary {
       time: time ?? this.time,
       summary: summary ?? this.summary,
       share: share ?? this.share,
+      revert: revert ?? this.revert,
+    );
+  }
+}
+
+/// Revert state for a session (non-null when session has been reverted)
+class SessionRevert {
+  const SessionRevert({this.id, this.timestamp});
+
+  final String? id;
+  final int? timestamp;
+
+  factory SessionRevert.fromJson(Map<String, dynamic> json) {
+    return SessionRevert(
+      id: json['id'] as String?,
+      timestamp: json['timestamp'] as int? ?? json['time'] as int?,
     );
   }
 }
@@ -103,17 +128,20 @@ class SessionTime {
     required this.created,
     required this.updated,
     this.compacting,
+    this.archived,
   });
 
   final int created;
   final int updated;
   final int? compacting;
+  final int? archived; // Timestamp when archived, null if not archived
 
   factory SessionTime.fromJson(Map<String, dynamic> json) {
     return SessionTime(
       created: json['created'] as int? ?? 0,
       updated: json['updated'] as int? ?? 0,
       compacting: json['compacting'] as int?,
+      archived: json['archived'] as int?,
     );
   }
 }

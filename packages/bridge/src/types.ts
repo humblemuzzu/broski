@@ -84,7 +84,7 @@ export type ClientMessage =
   | { type: 'create_session'; projectPath?: string; title?: string; permission?: PermissionRuleset }
   | { type: 'get_session'; sessionId: string; projectPath?: string }
   | { type: 'get_session_messages'; sessionId: string; projectPath?: string; limit?: number }
-  | { type: 'chat'; sessionId: string; content: string; projectPath?: string; messageId?: string; model?: { providerID: string; modelID: string }; agent?: string; disabledTools?: string[]; fileAttachments?: FileAttachment[] }
+  | { type: 'chat'; sessionId: string; content: string; projectPath?: string; messageId?: string; model?: { providerID: string; modelID: string }; agent?: string; disabledTools?: string[]; fileAttachments?: FileAttachment[]; variant?: string }
   | { type: 'abort'; sessionId: string; projectPath?: string }
   | { type: 'diff'; sessionId: string; projectPath?: string; messageId?: string }
   | { type: 'browse'; path: string; projectPath?: string }
@@ -289,6 +289,7 @@ export type SessionSummary = {
     created: number
     updated: number
     compacting?: number
+    archived?: number
   }
   summary?: {
     additions: number
@@ -305,6 +306,7 @@ export type SessionSummary = {
   share?: {  // Feature 8: Session sharing info
     url: string
   }
+  revert?: { messageID: string; partID?: string; snapshot?: string; diff?: string }
 }
 
 // VCS/Git information from OpenCode SDK
@@ -328,6 +330,9 @@ export type SessionContextInfo = {
     output: number
     total: number
     contextWindow: number // Model's max context
+    reasoning?: number
+    cacheRead?: number
+    cacheWrite?: number
   }
   cost: number
   lsp: LspServerStatus[]
@@ -890,7 +895,7 @@ export type ClaudeCodeStreamMessage =
   | { type: 'tool-call'; tool: string; input: any; toolUseId?: string; status: 'running' | 'completed' | 'failed'; messageId?: string }
   | { type: 'tool-result'; toolUseId?: string; result: any; toolUseResult?: any; messageId?: string }
   | { type: 'subagent-invocation'; subagentName: string; toolUseId?: string; prompt?: string; description?: string; messageId?: string }
-  | { type: 'token-usage'; usage: { inputTokens?: number; outputTokens?: number; cacheReadTokens?: number }; messageId?: string }
+  | { type: 'token-usage'; usage: { inputTokens?: number; outputTokens?: number; cacheReadTokens?: number; cacheWriteTokens?: number; reasoningTokens?: number }; messageId?: string }
   | { type: 'error'; message: string; code?: string }
 
 export type ClaudeCodeTranscriptToolCall = {

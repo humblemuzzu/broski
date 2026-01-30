@@ -672,6 +672,10 @@ const MESSAGE_PRIORITIES: Record<string, 'immediate' | 'high' | 'normal' | 'low'
   'message.updated': 'normal',
   'session.diff': 'normal',
   'todo.updated': 'normal',
+  'session.compacted': 'normal',
+  'session.created': 'normal',
+  'session.deleted': 'normal',
+  'session.updated': 'low',
   'file.watcher.updated': 'low',
   'lsp.updated': 'low',
 }
@@ -1997,16 +2001,20 @@ export async function createBridgeServer(options: BridgeServerOptions): Promise<
       }
     }
 
-    const extractUsage = (parsed: any): { inputTokens?: number; outputTokens?: number; cacheReadTokens?: number } => {
+    const extractUsage = (parsed: any): { inputTokens?: number; outputTokens?: number; cacheReadTokens?: number; cacheWriteTokens?: number; reasoningTokens?: number } => {
       const usage = parsed?.message?.usage
       if (!usage || typeof usage !== 'object') return {}
       const inputTokens = Number((usage as any).input_tokens ?? NaN)
       const outputTokens = Number((usage as any).output_tokens ?? NaN)
       const cacheReadTokens = Number((usage as any).cache_read_input_tokens ?? NaN)
+      const cacheWriteTokens = Number((usage as any).cache_creation_input_tokens ?? NaN)
+      const reasoningTokens = Number((usage as any).reasoning_tokens ?? (usage as any).reasoning_output_tokens ?? NaN)
       return {
         ...(Number.isFinite(inputTokens) ? { inputTokens } : {}),
         ...(Number.isFinite(outputTokens) ? { outputTokens } : {}),
         ...(Number.isFinite(cacheReadTokens) ? { cacheReadTokens } : {}),
+        ...(Number.isFinite(cacheWriteTokens) ? { cacheWriteTokens } : {}),
+        ...(Number.isFinite(reasoningTokens) ? { reasoningTokens } : {}),
       }
     }
 

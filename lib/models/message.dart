@@ -35,6 +35,30 @@ class ToolPart extends MessagePart {
   final String callId;
 }
 
+/// A subtask/agent delegation within a message (Task 6)
+class SubtaskPart extends MessagePart {
+  const SubtaskPart({
+    required super.sequence,
+    required this.agentName,
+    this.description,
+  });
+
+  final String agentName;
+  final String? description;
+}
+
+/// A retry attempt within a message (Task 7)
+class RetryPart extends MessagePart {
+  const RetryPart({
+    required super.sequence,
+    required this.attempt,
+    this.errorMessage,
+  });
+
+  final int attempt;
+  final String? errorMessage;
+}
+
 class ChatMessage {
   const ChatMessage({
     required this.id,

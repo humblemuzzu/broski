@@ -1,4 +1,7 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../models/agent_type.dart';
@@ -31,6 +34,25 @@ class SessionsScreen extends ConsumerStatefulWidget {
 }
 
 class _SessionsScreenState extends ConsumerState<SessionsScreen> {
+  // Task 8: Session search
+  final _searchController = TextEditingController();
+  String _searchQuery = '';
+  Timer? _searchDebounce;
+
+  @override
+  void dispose() {
+    _searchController.dispose();
+    _searchDebounce?.cancel();
+    super.dispose();
+  }
+
+  void _onSearchChanged(String value) {
+    _searchDebounce?.cancel();
+    _searchDebounce = Timer(const Duration(milliseconds: 300), () {
+      setState(() => _searchQuery = value.trim().toLowerCase());
+    });
+  }
+
   Future<void> _refresh() async {
     ref.read(sessionsRefreshTickProvider.notifier).state++;
     ref.invalidate(sessionsListProvider);
@@ -270,6 +292,9 @@ class _SessionsScreenState extends ConsumerState<SessionsScreen> {
                         }
                       },
                       backgroundTaskCount: backgroundTaskCount,
+                      // Task 8: Session search
+                      searchController: _searchController,
+                      onSearchChanged: _onSearchChanged,
                     );
                   },
                 ),
@@ -323,6 +348,34 @@ class _SessionsScreenState extends ConsumerState<SessionsScreen> {
                     return [SliverFillRemaining(child: _EmptyState())];
                   }
 
+                  // Task 8: Apply search filter
+                  final filteredSessions = _searchQuery.isEmpty
+                      ? sessions
+                      : sessions
+                            .where(
+                              (s) =>
+                                  s.title.toLowerCase().contains(_searchQuery),
+                            )
+                            .toList();
+
+                  if (filteredSessions.isEmpty && _searchQuery.isNotEmpty) {
+                    return [
+                      SliverFillRemaining(
+                        child: Center(
+                          child: Text(
+                            'No sessions matching "$_searchQuery"',
+                            style: TextStyle(
+                              color: Theme.of(
+                                context,
+                              ).colorScheme.onSurface.withValues(alpha: 0.6),
+                              fontSize: 14,
+                            ),
+                          ),
+                        ),
+                      ),
+                    ];
+                  }
+
                   // Use grouped sessions for hierarchical display
                   final groupedSessions = ref.watch(groupedSessionsProvider);
                   final showBgTasks = ref.watch(showBackgroundTasksProvider);
@@ -333,7 +386,7 @@ class _SessionsScreenState extends ConsumerState<SessionsScreen> {
                   final highlightColor = highlights.color;
 
                   // Filter to only root sessions (background tasks are nested)
-                  final rootSessions = sessions
+                  final rootSessions = filteredSessions
                       .where((s) => s.isRootSession)
                       .toList();
 
@@ -356,7 +409,17 @@ class _SessionsScreenState extends ConsumerState<SessionsScreen> {
                   }
 
                   // Build items using grouped sessions (only for regular sessions)
-                  final regularGrouped = groupedSessions
+                  // Task 8: Also filter grouped sessions by search query
+                  final searchFilteredGrouped = _searchQuery.isEmpty
+                      ? groupedSessions
+                      : groupedSessions
+                            .where(
+                              (g) => g.session.title.toLowerCase().contains(
+                                _searchQuery,
+                              ),
+                            )
+                            .toList();
+                  final regularGrouped = searchFilteredGrouped
                       .where(
                         (g) => !highlights.isSessionHighlighted(g.session.id),
                       )
@@ -637,6 +700,52 @@ class _SessionsScreenState extends ConsumerState<SessionsScreen> {
               _showRenameDialog(session);
             },
           ),
+          // Archive / Unarchive
+          ListTile(
+            leading: Icon(
+              session.isArchived
+                  ? Icons.unarchive_outlined
+                  : Icons.archive_outlined,
+              color: session.isArchived ? ocTheme.textMuted : ocTheme.error,
+            ),
+            title: Text(
+              session.isArchived ? 'Unarchive' : 'Archive',
+              style: TextStyle(
+                color: session.isArchived ? ocTheme.text : ocTheme.error,
+              ),
+            ),
+            onTap: () {
+              Navigator.pop(context);
+              _archiveSession(session, archive: !session.isArchived);
+            },
+          ),
+          // Share / Unshare
+          ListTile(
+            leading: Icon(
+              session.isShared ? Icons.link_off_rounded : Icons.share_rounded,
+              color: ocTheme.textMuted,
+            ),
+            title: Text(
+              session.isShared ? 'Unshare' : 'Share',
+              style: TextStyle(color: ocTheme.text),
+            ),
+            subtitle: session.isShared
+                ? Text(
+                    session.share!.url,
+                    style: TextStyle(color: ocTheme.textMuted, fontSize: 11),
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                  )
+                : null,
+            onTap: () {
+              Navigator.pop(context);
+              if (session.isShared) {
+                _unshareSession(session);
+              } else {
+                _shareSession(session);
+              }
+            },
+          ),
         ],
       ),
     );
@@ -663,6 +772,138 @@ class _SessionsScreenState extends ConsumerState<SessionsScreen> {
     Future.delayed(const Duration(milliseconds: 500), () {
       ref.read(globalSessionStatusProvider.notifier).fetchAllStatuses();
     });
+  }
+
+  /// Archive or unarchive a session
+  Future<void> _archiveSession(
+    SessionSummary session, {
+    required bool archive,
+  }) async {
+    final bridge = ref.read(bridgeServiceProvider);
+    final ocTheme = OpenCodeTheme.of(context);
+
+    try {
+      await bridge.updateSession(
+        session.id,
+        archived: archive,
+        projectPath: session.directory,
+      );
+      if (!mounted) return;
+
+      // Refresh sessions list
+      ref.invalidate(sessionsListProvider);
+
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(archive ? 'Session archived' : 'Session unarchived'),
+          backgroundColor: ocTheme.backgroundPanel,
+          behavior: SnackBarBehavior.floating,
+        ),
+      );
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            'Failed to ${archive ? 'archive' : 'unarchive'} session',
+          ),
+          backgroundColor: ocTheme.error,
+          behavior: SnackBarBehavior.floating,
+        ),
+      );
+    }
+  }
+
+  /// Share a session and copy the URL to clipboard
+  Future<void> _shareSession(SessionSummary session) async {
+    final bridge = ref.read(bridgeServiceProvider);
+    final ocTheme = OpenCodeTheme.of(context);
+
+    try {
+      final updated = await bridge.shareSession(
+        session.id,
+        projectPath: session.directory,
+      );
+      if (!mounted) return;
+
+      // Refresh sessions list
+      ref.invalidate(sessionsListProvider);
+
+      final url = updated.share?.url ?? '';
+      if (url.isNotEmpty) {
+        await Clipboard.setData(ClipboardData(text: url));
+        if (!mounted) return;
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: const Text('Share link copied to clipboard'),
+            backgroundColor: ocTheme.backgroundPanel,
+            behavior: SnackBarBehavior.floating,
+          ),
+        );
+      }
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: const Text('Failed to share session'),
+          backgroundColor: ocTheme.error,
+          behavior: SnackBarBehavior.floating,
+        ),
+      );
+    }
+  }
+
+  /// Unshare a session (remove public URL)
+  Future<void> _unshareSession(SessionSummary session) async {
+    final bridge = ref.read(bridgeServiceProvider);
+    final ocTheme = OpenCodeTheme.of(context);
+
+    final confirm = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        backgroundColor: Theme.of(context).colorScheme.surface,
+        title: const Text('Unshare Session?'),
+        content: const Text(
+          'This will remove the public share link. Anyone with the link will no longer be able to view it.',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context, false),
+            child: const Text('Cancel'),
+          ),
+          TextButton(
+            onPressed: () => Navigator.pop(context, true),
+            child: Text('Unshare', style: TextStyle(color: ocTheme.error)),
+          ),
+        ],
+      ),
+    );
+    if (confirm != true) return;
+
+    try {
+      await bridge.unshareSession(session.id, projectPath: session.directory);
+      if (!mounted) return;
+
+      // Refresh sessions list
+      ref.invalidate(sessionsListProvider);
+
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: const Text('Session unshared'),
+          backgroundColor: ocTheme.backgroundPanel,
+          behavior: SnackBarBehavior.floating,
+        ),
+      );
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: const Text('Failed to unshare session'),
+          backgroundColor: ocTheme.error,
+          behavior: SnackBarBehavior.floating,
+        ),
+      );
+    }
   }
 
   /// Show bottom sheet to create a new session with project/worktree selection
@@ -1296,6 +1537,8 @@ class _ModernHeader extends StatelessWidget {
     required this.showBackgroundTasks,
     required this.onToggleBackgroundTasks,
     required this.backgroundTaskCount,
+    this.searchController,
+    this.onSearchChanged,
   });
 
   final BridgeConnectionState connection;
@@ -1309,6 +1552,9 @@ class _ModernHeader extends StatelessWidget {
   final bool showBackgroundTasks;
   final VoidCallback onToggleBackgroundTasks;
   final int backgroundTaskCount;
+  // Task 8: Session search
+  final TextEditingController? searchController;
+  final ValueChanged<String>? onSearchChanged;
 
   @override
   Widget build(BuildContext context) {
@@ -1414,6 +1660,55 @@ class _ModernHeader extends StatelessWidget {
                 ),
             ],
           ),
+          // Task 8: Session search bar
+          if (searchController != null) ...[
+            const SizedBox(height: 12),
+            TextField(
+              controller: searchController,
+              onChanged: onSearchChanged,
+              style: TextStyle(color: ocTheme.text, fontSize: 14),
+              decoration: InputDecoration(
+                hintText: 'Search sessions...',
+                hintStyle: TextStyle(color: ocTheme.textMuted, fontSize: 14),
+                prefixIcon: Icon(
+                  Icons.search_rounded,
+                  color: ocTheme.textMuted,
+                  size: 20,
+                ),
+                suffixIcon: searchController!.text.isNotEmpty
+                    ? IconButton(
+                        icon: Icon(
+                          Icons.close_rounded,
+                          color: ocTheme.textMuted,
+                          size: 18,
+                        ),
+                        onPressed: () {
+                          searchController!.clear();
+                          onSearchChanged?.call('');
+                        },
+                      )
+                    : null,
+                filled: true,
+                fillColor: ocTheme.backgroundElement,
+                border: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(12),
+                  borderSide: BorderSide(color: ocTheme.borderSubtle),
+                ),
+                enabledBorder: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(12),
+                  borderSide: BorderSide(color: ocTheme.borderSubtle),
+                ),
+                focusedBorder: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(12),
+                  borderSide: BorderSide(color: ocTheme.primary),
+                ),
+                contentPadding: const EdgeInsets.symmetric(
+                  horizontal: 12,
+                  vertical: 10,
+                ),
+              ),
+            ),
+          ],
         ],
       ),
     );

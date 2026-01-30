@@ -580,7 +580,11 @@ export class OpenCodeConnector {
     // Compute token totals from assistant messages
     let inputTokens = 0
     let outputTokens = 0
+    let reasoningTokens = 0
+    let cacheReadTokens = 0
+    let cacheWriteTokens = 0
     let totalCost = 0
+    let contextWindow = 200000 // Default fallback
     
     for (const msg of (messages ?? [])) {
       const info = msg?.info
@@ -589,8 +593,23 @@ export class OpenCodeConnector {
         if (tokens) {
           inputTokens += tokens.input ?? 0
           outputTokens += tokens.output ?? 0
+          reasoningTokens += tokens.reasoning ?? 0
+          // Cache tokens may be nested under tokens.cache
+          const cache = tokens.cache
+          if (cache && typeof cache === 'object') {
+            cacheReadTokens += cache.read ?? 0
+            cacheWriteTokens += cache.write ?? 0
+          }
         }
         totalCost += info.cost ?? 0
+        // Extract context window from model metadata if available
+        const modelMeta = info.model ?? info.metadata?.model
+        if (modelMeta && typeof modelMeta === 'object') {
+          const cw = modelMeta.contextWindow ?? modelMeta.context_window
+          if (typeof cw === 'number' && cw > 0) {
+            contextWindow = cw
+          }
+        }
       }
     }
     
@@ -601,15 +620,15 @@ export class OpenCodeConnector {
       deletions: diff.deletions ?? 0,
     }))
     
-    // Default context window (Claude 3.5 Sonnet has 200k)
-    const contextWindow = 200000
-    
     return {
       tokens: {
         input: inputTokens,
         output: outputTokens,
         total: inputTokens + outputTokens,
         contextWindow,
+        reasoning: reasoningTokens || undefined,
+        cacheRead: cacheReadTokens || undefined,
+        cacheWrite: cacheWriteTokens || undefined,
       },
       cost: totalCost,
       lsp,
@@ -1483,6 +1502,7 @@ export class OpenCodeConnector {
       time: session.time,
       summary: session.summary,
       share: (session as any).share,  // Share URL if shared
+      revert: (session as any).revert ?? undefined,
     }
   }
 }

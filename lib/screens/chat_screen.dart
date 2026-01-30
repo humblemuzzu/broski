@@ -5340,6 +5340,10 @@ Describe project-specific guidance for Codex here.
     ref.watch(chatSessionProvider.select((s) => s.ccSessionId));
 
     final connection = ref.watch(connectionProvider);
+    // Watch session revert state for revert banner (Task 2)
+    final sessionRevert = ref.watch(
+      chatSessionProvider.select((s) => s.session?.revert),
+    );
 
     _maybeShowPermissionPromptFromList(permissions);
     _maybeShowQuestionPrompt(pendingQuestion);
@@ -5602,6 +5606,26 @@ Describe project-specific guidance for Codex here.
               ccModel: ccModel,
             ),
           ),
+
+          // Task 1: Retry status countdown banner
+          if (sessionStatus.isRetry)
+            Positioned(
+              left: 16,
+              right: 16,
+              top: MediaQuery.of(context).padding.top + 50,
+              child: _RetryStatusBanner(status: sessionStatus),
+            ),
+
+          // Task 2: Revert state banner
+          if (widget.isOpenCode && sessionRevert != null)
+            Positioned(
+              left: 16,
+              right: 16,
+              top:
+                  MediaQuery.of(context).padding.top +
+                  (sessionStatus.isRetry ? 90 : 50),
+              child: _RevertStateBanner(onUndoRevert: _unrevertSession),
+            ),
 
           // Floating header at top (glass pills)
           Positioned(
@@ -5968,8 +5992,8 @@ Describe project-specific guidance for Codex here.
       );
     }
 
-    // Task tool (subagent) -> CompactAgentCard
-    if (toolName == 'task') {
+    // Task/subtask/agent tool -> CompactAgentCard
+    if (toolName == 'task' || toolName == 'subtask' || toolName == 'agent') {
       return CompactAgentCard(tool: tool, messageId: messageId);
     }
 
@@ -5988,6 +6012,119 @@ Describe project-specific guidance for Codex here.
       onUndo: _canUndoTool(toolName)
           ? (msgId, partId) => _revertMessage(msgId, partId: partId)
           : null,
+    );
+  }
+
+  /// Task 3: Build a compaction divider marker
+  Widget _buildCompactionDivider() {
+    final theme = OpenCodeTheme.of(context);
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 16),
+      child: Row(
+        children: [
+          Expanded(
+            child: Divider(
+              color: theme.textMuted.withValues(alpha: 0.3),
+              thickness: 1,
+            ),
+          ),
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 12),
+            child: Text(
+              'Context compacted',
+              style: TextStyle(
+                color: theme.textMuted,
+                fontSize: 12,
+                fontWeight: FontWeight.w500,
+              ),
+            ),
+          ),
+          Expanded(
+            child: Divider(
+              color: theme.textMuted.withValues(alpha: 0.3),
+              thickness: 1,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  /// Task 6: Build a compact chip for a subtask/agent delegation
+  Widget _buildSubtaskChip(String agentName, String? description) {
+    final theme = OpenCodeTheme.of(context);
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+      decoration: BoxDecoration(
+        color: theme.info.withValues(alpha: 0.1),
+        borderRadius: BorderRadius.circular(10),
+        border: Border.all(color: theme.info.withValues(alpha: 0.2)),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(Icons.account_tree_rounded, color: theme.info, size: 16),
+          const SizedBox(width: 8),
+          Flexible(
+            child: Text.rich(
+              TextSpan(
+                children: [
+                  TextSpan(
+                    text: 'Delegated to: ',
+                    style: TextStyle(color: theme.textMuted, fontSize: 13),
+                  ),
+                  TextSpan(
+                    text: agentName,
+                    style: TextStyle(
+                      color: theme.info,
+                      fontSize: 13,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                  if (description != null && description.isNotEmpty)
+                    TextSpan(
+                      text: ' — $description',
+                      style: TextStyle(color: theme.textMuted, fontSize: 13),
+                    ),
+                ],
+              ),
+              maxLines: 2,
+              overflow: TextOverflow.ellipsis,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  /// Task 7: Build a muted retry indicator
+  Widget _buildRetryIndicator(int attempt, String? errorMessage) {
+    final theme = OpenCodeTheme.of(context);
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+      decoration: BoxDecoration(
+        color: theme.warning.withValues(alpha: 0.08),
+        borderRadius: BorderRadius.circular(10),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(
+            Icons.warning_amber_rounded,
+            color: theme.warning.withValues(alpha: 0.7),
+            size: 16,
+          ),
+          const SizedBox(width: 8),
+          Flexible(
+            child: Text(
+              'Retry attempt #$attempt${errorMessage != null && errorMessage.isNotEmpty ? ': $errorMessage' : ''}',
+              style: TextStyle(color: theme.textMuted, fontSize: 13),
+              maxLines: 2,
+              overflow: TextOverflow.ellipsis,
+            ),
+          ),
+        ],
+      ),
     );
   }
 
@@ -6045,6 +6182,11 @@ Describe project-specific guidance for Codex here.
   }
 
   Widget _buildMessageGroup(ChatMessage message) {
+    // Task 3: Compaction marker — render as centered divider instead of error bubble
+    if (message.error == 'context_compacted') {
+      return _buildCompactionDivider();
+    }
+
     // PERF: RepaintBoundary isolates this message's painting from others.
     // Changes to one message don't trigger repaints of nearby messages.
     return RepaintBoundary(
@@ -6153,6 +6295,22 @@ Describe project-specific guidance for Codex here.
               ),
             );
           }
+        // Task 6: Subtask/agent delegation part
+        case SubtaskPart(:final agentName, :final description):
+          widgets.add(
+            Padding(
+              padding: const EdgeInsets.only(top: 8),
+              child: _buildSubtaskChip(agentName, description),
+            ),
+          );
+        // Task 7: Retry attempt part
+        case RetryPart(:final attempt, :final errorMessage):
+          widgets.add(
+            Padding(
+              padding: const EdgeInsets.only(top: 8),
+              child: _buildRetryIndicator(attempt, errorMessage),
+            ),
+          );
       }
     }
 
@@ -11688,6 +11846,153 @@ class _CustomToolAutocomplete extends ConsumerWidget {
           ),
         );
       },
+    );
+  }
+}
+
+// Task 1: Retry status countdown banner
+class _RetryStatusBanner extends StatefulWidget {
+  const _RetryStatusBanner({required this.status});
+
+  final SessionStatus status;
+
+  @override
+  State<_RetryStatusBanner> createState() => _RetryStatusBannerState();
+}
+
+class _RetryStatusBannerState extends State<_RetryStatusBanner> {
+  Timer? _countdownTimer;
+  int _remainingSeconds = 0;
+
+  @override
+  void initState() {
+    super.initState();
+    _startCountdown();
+  }
+
+  @override
+  void didUpdateWidget(_RetryStatusBanner oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (widget.status.next != oldWidget.status.next) {
+      _startCountdown();
+    }
+  }
+
+  void _startCountdown() {
+    _countdownTimer?.cancel();
+    final nextTimestamp = widget.status.next;
+    if (nextTimestamp == null || nextTimestamp == 0) {
+      _remainingSeconds = 0;
+      return;
+    }
+    _updateRemaining();
+    _countdownTimer = Timer.periodic(const Duration(seconds: 1), (_) {
+      _updateRemaining();
+    });
+  }
+
+  void _updateRemaining() {
+    final now = DateTime.now().millisecondsSinceEpoch;
+    final next = widget.status.next ?? 0;
+    // next could be seconds or milliseconds — handle both
+    final nextMs = next > 1e12 ? next : next * 1000;
+    final remaining = ((nextMs - now) / 1000).ceil();
+    setState(() {
+      _remainingSeconds = remaining > 0 ? remaining : 0;
+    });
+    if (remaining <= 0) {
+      _countdownTimer?.cancel();
+    }
+  }
+
+  @override
+  void dispose() {
+    _countdownTimer?.cancel();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = OpenCodeTheme.of(context);
+    final attempt = widget.status.attempt ?? 0;
+    final message = widget.status.message ?? 'Retrying...';
+
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+      decoration: BoxDecoration(
+        color: theme.warning.withValues(alpha: 0.15),
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: theme.warning.withValues(alpha: 0.3)),
+      ),
+      child: Row(
+        children: [
+          Icon(Icons.refresh_rounded, color: theme.warning, size: 18),
+          const SizedBox(width: 10),
+          Expanded(
+            child: Text(
+              'Retry #$attempt: $message'
+              '${_remainingSeconds > 0 ? '. Next attempt in ${_remainingSeconds}s' : ''}',
+              style: TextStyle(
+                color: theme.text,
+                fontSize: 13,
+                fontWeight: FontWeight.w500,
+              ),
+              maxLines: 2,
+              overflow: TextOverflow.ellipsis,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+// Task 2: Revert state banner
+class _RevertStateBanner extends StatelessWidget {
+  const _RevertStateBanner({required this.onUndoRevert});
+
+  final VoidCallback onUndoRevert;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = OpenCodeTheme.of(context);
+
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+      decoration: BoxDecoration(
+        color: theme.info.withValues(alpha: 0.15),
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: theme.info.withValues(alpha: 0.3)),
+      ),
+      child: Row(
+        children: [
+          Icon(Icons.history_rounded, color: theme.info, size: 18),
+          const SizedBox(width: 10),
+          Expanded(
+            child: Text(
+              'Session reverted',
+              style: TextStyle(
+                color: theme.text,
+                fontSize: 13,
+                fontWeight: FontWeight.w500,
+              ),
+            ),
+          ),
+          TextButton(
+            onPressed: onUndoRevert,
+            style: TextButton.styleFrom(
+              foregroundColor: theme.info,
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
+              minimumSize: Size.zero,
+              tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+            ),
+            child: const Text(
+              'Undo Revert',
+              style: TextStyle(fontSize: 13, fontWeight: FontWeight.w600),
+            ),
+          ),
+        ],
+      ),
     );
   }
 }

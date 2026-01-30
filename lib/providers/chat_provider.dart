@@ -2020,6 +2020,17 @@ class ChatSessionNotifier extends StateNotifier<ChatSessionState> {
 
     developer.log('Session compacted: $sessionId', name: 'ChatProvider');
     state = state.copyWith(isCompacting: false);
+
+    // Insert a compaction marker message into the chat (same as Codex)
+    final compactionMsg = ChatMessage(
+      id: 'oc-compaction-${DateTime.now().microsecondsSinceEpoch}',
+      sessionId: sessionId,
+      role: MessageRole.system,
+      createdAt: DateTime.now(),
+      text: 'Context compacted',
+      error: 'context_compacted',
+    );
+    _addMessage(compactionMsg);
   }
 
   /// Set compacting state (called when starting summarize)

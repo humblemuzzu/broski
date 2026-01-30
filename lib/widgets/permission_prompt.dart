@@ -85,6 +85,13 @@ class _PermissionPromptState extends State<PermissionPrompt> {
     }
   }
 
+  /// Check if this is a doom loop permission request
+  bool get _isDoomLoop {
+    return widget.request.permission == 'doom_loop' ||
+        (widget.request.metadata['type'] as String?) == 'doom_loop' ||
+        (widget.request.metadata['doomLoop'] == true);
+  }
+
   void _handleRejectTap() {
     setState(() {
       _showRejectFeedback = true;
@@ -183,6 +190,55 @@ class _PermissionPromptState extends State<PermissionPrompt> {
                         ],
                       ),
                       const SizedBox(height: 12),
+
+                      // Task 5: Doom loop custom text
+                      if (_isDoomLoop) ...[
+                        Container(
+                          width: double.infinity,
+                          padding: const EdgeInsets.all(12),
+                          decoration: BoxDecoration(
+                            color: theme.warning.withValues(alpha: 0.1),
+                            borderRadius: BorderRadius.circular(10),
+                            border: Border.all(
+                              color: theme.warning.withValues(alpha: 0.3),
+                            ),
+                          ),
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Row(
+                                children: [
+                                  Icon(
+                                    Icons.loop_rounded,
+                                    color: theme.warning,
+                                    size: 18,
+                                  ),
+                                  const SizedBox(width: 8),
+                                  Text(
+                                    'Repeated tool call detected',
+                                    style: TextStyle(
+                                      color: theme.warning,
+                                      fontSize: 13,
+                                      fontWeight: FontWeight.w600,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                              const SizedBox(height: 8),
+                              Text(
+                                'The AI has called the same tool repeatedly with identical inputs. '
+                                'Allow it to continue or reject to break the loop.',
+                                style: TextStyle(
+                                  color: theme.text,
+                                  fontSize: 13,
+                                  height: 1.4,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                        const SizedBox(height: 12),
+                      ],
 
                       // Show patterns if available (SDK v1.1.1+)
                       if (widget.request.patterns.isNotEmpty) ...[

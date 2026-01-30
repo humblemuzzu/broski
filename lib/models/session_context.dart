@@ -46,6 +46,8 @@ class SessionContext {
     int inputTokens = 0,
     int outputTokens = 0,
     int cacheReadTokens = 0,
+    int cacheWriteTokens = 0,
+    int reasoningTokens = 0,
     double? totalCostUsd,
     List<ModifiedFile> modifiedFiles = const [],
     int contextWindow = 200000, // SDK v2.1.6+: Allow custom context window
@@ -58,6 +60,9 @@ class SessionContext {
         total: total,
         // Claude's context window varies by model, use passed value or 200K default
         contextWindow: contextWindow,
+        reasoning: reasoningTokens > 0 ? reasoningTokens : null,
+        cacheRead: cacheReadTokens > 0 ? cacheReadTokens : null,
+        cacheWrite: cacheWriteTokens > 0 ? cacheWriteTokens : null,
       ),
       cost: totalCostUsd ?? 0.0,
       lsp: const [], // Claude Code doesn't have LSP
@@ -84,12 +89,18 @@ class TokenUsage {
     required this.output,
     required this.total,
     required this.contextWindow,
+    this.reasoning,
+    this.cacheRead,
+    this.cacheWrite,
   });
 
   final int input;
   final int output;
   final int total;
   final int contextWindow;
+  final int? reasoning;
+  final int? cacheRead;
+  final int? cacheWrite;
 
   factory TokenUsage.fromJson(Map<String, dynamic> json) {
     return TokenUsage(
@@ -97,6 +108,9 @@ class TokenUsage {
       output: json['output'] as int? ?? 0,
       total: json['total'] as int? ?? 0,
       contextWindow: json['contextWindow'] as int? ?? 200000,
+      reasoning: json['reasoning'] as int?,
+      cacheRead: json['cacheRead'] as int?,
+      cacheWrite: json['cacheWrite'] as int?,
     );
   }
 
@@ -106,6 +120,23 @@ class TokenUsage {
       return '${(count / 1000).toStringAsFixed(1)}K';
     }
     return count.toString();
+  }
+
+  /// Breakdown string showing all token categories
+  String get breakdownText {
+    final parts = <String>[];
+    parts.add('In: ${formatCount(input)}');
+    parts.add('Out: ${formatCount(output)}');
+    if (reasoning != null && reasoning! > 0) {
+      parts.add('Reason: ${formatCount(reasoning!)}');
+    }
+    if (cacheRead != null && cacheRead! > 0) {
+      parts.add('Cache R: ${formatCount(cacheRead!)}');
+    }
+    if (cacheWrite != null && cacheWrite! > 0) {
+      parts.add('Cache W: ${formatCount(cacheWrite!)}');
+    }
+    return parts.join(' | ');
   }
 }
 
