@@ -773,13 +773,25 @@ async function main() {
   }
 
   if (cli.subCommand === 'setup') {
-    const { ClackPrompter } = await import('./wizard')
     const { runOnboardingWizard } = await import('./wizard/onboarding')
-    const prompter = new ClackPrompter()
-    await runOnboardingWizard(prompter, {
-      quick: cli.setupQuick,
-      advanced: cli.setupAdvanced,
-    })
+    if (cli.nonInteractive) {
+      await runOnboardingWizard(null as any, {
+        nonInteractive: true,
+        agents: cli.setupAgents.length > 0 ? cli.setupAgents : undefined,
+        networkMode: cli.setupNetworkMode || undefined,
+        tls: cli.setupNoTls ? false : cli.setupTls ?? undefined,
+        tokenTtl: cli.setupTokenTtl ?? undefined,
+        daemon: cli.setupNoDaemon ? false : cli.daemon ? true : undefined,
+        port: cli.bridgePort !== 18274 ? cli.bridgePort : undefined,
+      })
+    } else {
+      const { ClackPrompter } = await import('./wizard')
+      const prompter = new ClackPrompter()
+      await runOnboardingWizard(prompter, {
+        quick: cli.setupQuick,
+        advanced: cli.setupAdvanced,
+      })
+    }
     return
   }
 

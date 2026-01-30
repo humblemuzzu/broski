@@ -59,7 +59,7 @@ export async function runTroubleshootWizard(
         `  ${brand('broski doctor')}    ${muted('— Full diagnostic with auto-fix')}\n` +
         `  ${brand('broski logs')}      ${muted('— View bridge logs')}\n` +
         `  ${brand('broski restart')}   ${muted('— Restart the bridge')}\n\n` +
-        `${muted('Report bugs at: https://github.com/broskiapp/broski/issues')}`,
+        `${muted('Report bugs at: https://github.com/humblemuzzu/broski/issues')}`,
         'More Help',
       )
       await prompter.outro(muted('Good luck! We\'re here to help.'))

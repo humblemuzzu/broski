@@ -1,6 +1,6 @@
 import type { WizardPrompter } from '../prompter'
 import { ensureTlsMaterial, isTlsEnabledByEnv } from '../../tls'
-import { success, muted, bold, brand } from '../palette'
+import { success, muted, bold, brand, warning } from '../palette'
 
 export type SecurityResult = {
   tls: boolean
@@ -27,8 +27,14 @@ export async function runSecurityStep(
         `  ${bold('Cert SHA:')}   ${brand(fingerprint)}${muted('...')}`,
         'Security',
       )
-    } catch {
-      spin.stop('TLS setup skipped (will retry on bridge start)')
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : String(err)
+      spin.stop(`TLS setup failed: ${msg}`)
+      await prompter.note(
+        `${muted('TLS will be retried when the bridge starts.')}\n` +
+        `${muted('If this persists, run:')} ${brand('broski doctor')}`,
+        'TLS Warning',
+      )
     }
 
     return { tls: true, tokenTtlDays: 7 }
@@ -48,8 +54,14 @@ export async function runSecurityStep(
       const material = await ensureTlsMaterial()
       const fingerprint = material.certSha256.substring(0, 16)
       spin.stop(`${success('Certificate ready')} ${muted(`SHA: ${fingerprint}...`)}`)
-    } catch {
-      spin.stop('Certificate generation failed (will retry on bridge start)')
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : String(err)
+      spin.stop(`TLS setup failed: ${msg}`)
+      await prompter.note(
+        `${muted('TLS will be retried when the bridge starts.')}\n` +
+        `${muted('If this persists, run:')} ${brand('broski doctor')}`,
+        'TLS Warning',
+      )
     }
   }
 

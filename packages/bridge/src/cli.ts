@@ -20,6 +20,13 @@ export type CliOptions = {
   skipWizard: boolean
   setupQuick: boolean
   setupAdvanced: boolean
+  nonInteractive: boolean
+  setupAgents: string[]
+  setupNetworkMode: string
+  setupTls: boolean | null
+  setupNoTls: boolean
+  setupTokenTtl: number | null
+  setupNoDaemon: boolean
 }
 
 const DEFAULT_BRIDGE_PORT = 18274
@@ -48,6 +55,13 @@ export function parseCli(argv: string[], env: NodeJS.ProcessEnv): CliOptions {
   let skipWizard = false
   let setupQuick = false
   let setupAdvanced = false
+  let nonInteractive = false
+  let setupAgents: string[] = []
+  let setupNetworkMode = ''
+  let setupTls: boolean | null = null
+  let setupNoTls = false
+  let setupTokenTtl: number | null = null
+  let setupNoDaemon = false
 
   const firstArg = args[0]
   if (firstArg === 'doctor') {
@@ -159,6 +173,40 @@ export function parseCli(argv: string[], env: NodeJS.ProcessEnv): CliOptions {
       setupAdvanced = true
       continue
     }
+    if (arg === '--non-interactive') {
+      nonInteractive = true
+      continue
+    }
+    if (arg === '--agents') {
+      const val = args[i + 1]
+      if (val) {
+        setupAgents = val.split(',').map(s => s.trim()).filter(Boolean)
+        i++
+      }
+      continue
+    }
+    if (arg === '--network-mode') {
+      setupNetworkMode = args[i + 1] ?? ''
+      i++
+      continue
+    }
+    if (arg === '--tls') {
+      setupTls = true
+      continue
+    }
+    if (arg === '--no-tls') {
+      setupNoTls = true
+      continue
+    }
+    if (arg === '--token-ttl') {
+      setupTokenTtl = parseNumber(args[i + 1], 7)
+      i++
+      continue
+    }
+    if (arg === '--no-daemon') {
+      setupNoDaemon = true
+      continue
+    }
   }
 
   if (opencodeUrl) {
@@ -181,6 +229,13 @@ export function parseCli(argv: string[], env: NodeJS.ProcessEnv): CliOptions {
     skipWizard,
     setupQuick,
     setupAdvanced,
+    nonInteractive,
+    setupAgents,
+    setupNetworkMode,
+    setupTls,
+    setupNoTls,
+    setupTokenTtl,
+    setupNoDaemon,
   }
 }
 
@@ -217,6 +272,14 @@ Options:
   --skip-wizard             Skip interactive wizard prompts (for daemon/CI mode)
   --quick                   QuickStart mode for setup wizard (auto-detect everything)
   --advanced                Advanced mode for setup wizard (customize each setting)
+
+Setup (non-interactive):
+  --non-interactive           Run setup without prompts (uses defaults + flags)
+  --agents LIST               Comma-separated agents: opencode,claude,codex
+  --network-mode MODE         Network mode: local, tailscale, hotspot-iphone, hotspot-android
+  --tls / --no-tls            Enable/disable TLS (default: enabled)
+  --token-ttl DAYS            Auth token TTL in days (default: 7)
+  --no-daemon                 Don't install background service
 
 OpenCode:
   --managed                 Force managed mode (default)

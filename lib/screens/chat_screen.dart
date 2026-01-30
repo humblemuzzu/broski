@@ -6050,52 +6050,7 @@ Describe project-specific guidance for Codex here.
     );
   }
 
-  /// Task 6: Build a compact chip for a subtask/agent delegation
-  Widget _buildSubtaskChip(String agentName, String? description) {
-    final theme = OpenCodeTheme.of(context);
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-      decoration: BoxDecoration(
-        color: theme.info.withValues(alpha: 0.1),
-        borderRadius: BorderRadius.circular(10),
-        border: Border.all(color: theme.info.withValues(alpha: 0.2)),
-      ),
-      child: Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Icon(Icons.account_tree_rounded, color: theme.info, size: 16),
-          const SizedBox(width: 8),
-          Flexible(
-            child: Text.rich(
-              TextSpan(
-                children: [
-                  TextSpan(
-                    text: 'Delegated to: ',
-                    style: TextStyle(color: theme.textMuted, fontSize: 13),
-                  ),
-                  TextSpan(
-                    text: agentName,
-                    style: TextStyle(
-                      color: theme.info,
-                      fontSize: 13,
-                      fontWeight: FontWeight.w600,
-                    ),
-                  ),
-                  if (description != null && description.isNotEmpty)
-                    TextSpan(
-                      text: ' — $description',
-                      style: TextStyle(color: theme.textMuted, fontSize: 13),
-                    ),
-                ],
-              ),
-              maxLines: 2,
-              overflow: TextOverflow.ellipsis,
-            ),
-          ),
-        ],
-      ),
-    );
-  }
+  // _buildSubtaskChip removed — using CompactAgentCard.fromNotification() instead
 
   /// Task 7: Build a muted retry indicator
   Widget _buildRetryIndicator(int attempt, String? errorMessage) {
@@ -6295,12 +6250,20 @@ Describe project-specific guidance for Codex here.
               ),
             );
           }
-        // Task 6: Subtask/agent delegation part
+        // Task 6: Subtask/agent delegation part — use existing CompactAgentCard
         case SubtaskPart(:final agentName, :final description):
           widgets.add(
             Padding(
               padding: const EdgeInsets.only(top: 8),
-              child: _buildSubtaskChip(agentName, description),
+              child: CompactAgentCard.fromNotification(
+                notification: SubtaskNotification(
+                  id: 'subtask-${message.id}-${part.sequence}',
+                  description: description ?? '',
+                  agent: agentName,
+                  sessionId: message.sessionId,
+                ),
+                messageId: message.id,
+              ),
             ),
           );
         // Task 7: Retry attempt part

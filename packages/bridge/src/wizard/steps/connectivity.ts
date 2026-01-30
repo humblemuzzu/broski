@@ -4,6 +4,7 @@ import { getLocalIP, getTailscaleIP, getHotspotIP, getTailscaleMagicDNS } from '
 import { checkPortInUse } from '../../platform'
 import type { BroskiConfig } from '../../config/schema'
 import { brand, muted, bold, success, warning } from '../palette'
+import packageMeta from '../../../package.json'
 
 export async function runConnectivityStep(
   prompter: WizardPrompter,
@@ -45,9 +46,39 @@ export async function runConnectivityStep(
     funnelURL: null,
     hotspotIP,
     port,
-    version: '0.1.0',
+    version: packageMeta.version ?? '0.1.0',
     authToken: '', // Token not available in wizard context; QR is informational here
     tlsEnabled: config.security.tls,
     certSha256: null,
   })
+
+  // Ask user to confirm they scanned the QR code
+  const scanned = await prompter.confirm({
+    message: 'Have you scanned the QR code with the Broski app?',
+    initialValue: true,
+  })
+
+  if (scanned) {
+    await prompter.note(
+      `${success('✓')} ${bold('Pairing complete!')}\n\n` +
+      `${muted('Your phone should now be connected to the bridge.')}\n` +
+      `${muted('If the app shows "Disconnected", try these:')}\n\n` +
+      `  ${bold('1.')} Ensure phone and computer are on the same Wi-Fi\n` +
+      `  ${bold('2.')} Re-scan the QR code with ${brand('broski qr')}\n` +
+      `  ${bold('3.')} Run ${brand('broski doctor')} for a full check`,
+      'Connection',
+    )
+  } else {
+    await prompter.note(
+      `${warning('⚠')} ${bold('QR code not scanned yet')}\n\n` +
+      `${muted('You can scan the QR code later:')}\n\n` +
+      `  ${brand('broski qr')}          ${muted('— show QR code')}\n` +
+      `  ${brand('broski qr --new-token')} ${muted('— generate a fresh QR')}\n\n` +
+      `${muted('Troubleshooting:')}\n` +
+      `  ${bold('•')} Make sure the Broski app is installed on your phone\n` +
+      `  ${bold('•')} Both devices must be on the same network\n` +
+      `  ${bold('•')} Run ${brand('broski troubleshoot')} for guided help`,
+      'Pairing Skipped',
+    )
+  }
 }
