@@ -772,6 +772,39 @@ async function main() {
     return
   }
 
+  if (cli.subCommand === 'setup') {
+    const { ClackPrompter } = await import('./wizard')
+    const { runOnboardingWizard } = await import('./wizard/onboarding')
+    const prompter = new ClackPrompter()
+    await runOnboardingWizard(prompter, {
+      quick: cli.setupQuick,
+      advanced: cli.setupAdvanced,
+    })
+    return
+  }
+
+  if (cli.subCommand === 'configure') {
+    const { ClackPrompter } = await import('./wizard')
+    const { runConfigure } = await import('./wizard/configure')
+    const prompter = new ClackPrompter()
+    await runConfigure(prompter)
+    return
+  }
+
+  if (cli.subCommand === 'troubleshoot') {
+    const { ClackPrompter } = await import('./wizard')
+    const { runTroubleshootWizard } = await import('./wizard/troubleshoot')
+    const prompter = new ClackPrompter()
+    await runTroubleshootWizard(prompter)
+    return
+  }
+
+  if (cli.subCommand === 'logs') {
+    const { runLogs } = await import('./logs')
+    await runLogs()
+    return
+  }
+
   if (cli.subCommand === 'setup-tailscale') {
     await runSetupTailscale()
     return
@@ -815,6 +848,36 @@ async function main() {
   verboseMode = cli.verbose
   managedHostname = cli.opencodeHostname
   managedPort = cli.opencodePort
+
+  // First-run wizard trigger
+  if (!cli.skipWizard && !cli.daemon) {
+    const { readConfig } = await import('./config')
+    const { getConfigPath } = await import('./config/read-write')
+    const { existsSync } = await import('node:fs')
+    const config = await readConfig()
+    if (!config.wizard.completedSetup) {
+      const configPath = getConfigPath()
+      // Only trigger if config file doesn't exist (true first run)
+      if (!existsSync(configPath)) {
+        console.log('\nFirst time? Let\'s get you set up!\n')
+        try {
+          const { ClackPrompter } = await import('./wizard')
+          const { runOnboardingWizard } = await import('./wizard/onboarding')
+          const clack = await import('@clack/prompts')
+          const shouldRun = await clack.confirm({
+            message: 'Run the setup wizard?',
+            initialValue: true,
+          })
+          if (shouldRun && !clack.isCancel(shouldRun)) {
+            const prompter = new ClackPrompter()
+            await runOnboardingWizard(prompter)
+          }
+        } catch {
+          // Wizard cancelled or error, continue to serve
+        }
+      }
+    }
+  }
 
   const packageJson = await Bun.file(new URL('../package.json', import.meta.url)).json()
   const version = packageJson.version ?? '0.1.0'

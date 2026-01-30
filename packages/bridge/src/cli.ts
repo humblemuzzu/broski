@@ -2,7 +2,7 @@ import { stdin as input, stdout as output } from 'node:process'
 import readline from 'node:readline/promises'
 
 export type OpencodeMode = 'managed' | 'manual' | 'attach'
-export type SubCommand = 'serve' | 'doctor' | 'setup-tailscale' | 'install' | 'uninstall' | 'status' | 'stop' | 'restart' | 'qr' | 'version' | 'update' | null
+export type SubCommand = 'serve' | 'doctor' | 'setup-tailscale' | 'install' | 'uninstall' | 'status' | 'stop' | 'restart' | 'qr' | 'version' | 'update' | 'setup' | 'configure' | 'troubleshoot' | 'logs' | null
 
 export type CliOptions = {
   subCommand: SubCommand
@@ -17,6 +17,9 @@ export type CliOptions = {
   newToken: boolean
   detectHotspot: boolean
   daemon: boolean
+  skipWizard: boolean
+  setupQuick: boolean
+  setupAdvanced: boolean
 }
 
 const DEFAULT_BRIDGE_PORT = 18274
@@ -42,6 +45,9 @@ export function parseCli(argv: string[], env: NodeJS.ProcessEnv): CliOptions {
   let newToken = false
   let detectHotspot = false
   let daemon = false
+  let skipWizard = false
+  let setupQuick = false
+  let setupAdvanced = false
 
   const firstArg = args[0]
   if (firstArg === 'doctor') {
@@ -64,13 +70,21 @@ export function parseCli(argv: string[], env: NodeJS.ProcessEnv): CliOptions {
     subCommand = 'version'
   } else if (firstArg === 'update') {
     subCommand = 'update'
+  } else if (firstArg === 'setup') {
+    subCommand = 'setup'
+  } else if (firstArg === 'configure') {
+    subCommand = 'configure'
+  } else if (firstArg === 'troubleshoot') {
+    subCommand = 'troubleshoot'
+  } else if (firstArg === 'logs') {
+    subCommand = 'logs'
   } else if (firstArg === 'serve' || !firstArg?.startsWith('-')) {
     subCommand = 'serve'
   }
 
   for (let i = 0; i < args.length; i++) {
     const arg = args[i]
-    if (arg === 'doctor' || arg === 'setup-tailscale' || arg === 'serve' || arg === 'install' || arg === 'uninstall' || arg === 'status' || arg === 'stop' || arg === 'restart' || arg === 'qr' || arg === 'version' || arg === 'update') {
+    if (arg === 'doctor' || arg === 'setup-tailscale' || arg === 'serve' || arg === 'install' || arg === 'uninstall' || arg === 'status' || arg === 'stop' || arg === 'restart' || arg === 'qr' || arg === 'version' || arg === 'update' || arg === 'setup' || arg === 'configure' || arg === 'troubleshoot' || arg === 'logs') {
       continue
     }
     if (arg === '--help' || arg === '-h') {
@@ -133,6 +147,18 @@ export function parseCli(argv: string[], env: NodeJS.ProcessEnv): CliOptions {
       daemon = true
       continue
     }
+    if (arg === '--skip-wizard') {
+      skipWizard = true
+      continue
+    }
+    if (arg === '--quick') {
+      setupQuick = true
+      continue
+    }
+    if (arg === '--advanced') {
+      setupAdvanced = true
+      continue
+    }
   }
 
   if (opencodeUrl) {
@@ -152,6 +178,9 @@ export function parseCli(argv: string[], env: NodeJS.ProcessEnv): CliOptions {
     newToken,
     detectHotspot,
     daemon,
+    skipWizard,
+    setupQuick,
+    setupAdvanced,
   }
 }
 
@@ -162,6 +191,10 @@ Usage:
 
 Commands:
   (default)         Start the bridge server
+  setup             Launch onboarding wizard
+  configure         Reconfigure existing setup
+  troubleshoot      Interactive troubleshooter
+  logs              Tail bridge logs
   install           Install as background service (runs on login)
   uninstall         Remove background service
   status            Show if bridge is running
@@ -181,6 +214,9 @@ Options:
   --funnel                  Enable Tailscale Funnel for public HTTPS access (no VPN needed on phone)
   --new-token               Generate a new auth token (invalidates existing QR codes)
   --hotspot, --detect-hotspot Detect and prioritize hotspot IP for remote access via mobile hotspot
+  --skip-wizard             Skip interactive wizard prompts (for daemon/CI mode)
+  --quick                   QuickStart mode for setup wizard (auto-detect everything)
+  --advanced                Advanced mode for setup wizard (customize each setting)
 
 OpenCode:
   --managed                 Force managed mode (default)

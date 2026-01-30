@@ -1,8 +1,9 @@
-import { readFile, stat } from 'node:fs/promises'
+import { readFile, stat, unlink } from 'node:fs/promises'
 import { homedir } from 'node:os'
 import { resolve } from 'node:path'
 import { createHash } from 'node:crypto'
-import { generateSelfSignedCertificate } from './platform'
+import { spawnSync } from 'node:child_process'
+import { generateSelfSignedCertificate, findBinary } from './platform'
 
 export type TlsMaterial = {
   keyPath: string
@@ -53,11 +54,118 @@ export function isTlsEnabledByEnv(): boolean {
   return isTruthyEnv(process.env.BROSKI_TLS, true)
 }
 
+export type CertExpiryInfo = {
+  valid: boolean
+  expiresAt: Date | null
+  daysRemaining: number
+}
+
+/**
+ * Check the expiry date of a PEM certificate file.
+ *
+ * Uses `openssl x509 -enddate -noout` when available, otherwise
+ * falls back to a basic DER parse of the notAfter field.
+ */
+export function checkCertExpiry(certPath: string): CertExpiryInfo {
+  const fallback: CertExpiryInfo = { valid: false, expiresAt: null, daysRemaining: 0 }
+
+  // Try openssl first (most reliable, available on macOS/Linux)
+  try {
+    const opensslBin = findBinary('openssl') ?? 'openssl'
+    const result = spawnSync(opensslBin, ['x509', '-enddate', '-noout', '-in', certPath], {
+      encoding: 'utf-8',
+      timeout: 5000,
+    })
+    if (result.status === 0 && result.stdout) {
+      // Output format: "notAfter=Mon DD HH:MM:SS YYYY GMT"
+      const match = result.stdout.match(/notAfter=(.+)/)
+      if (match) {
+        const expiresAt = new Date(match[1].trim())
+        if (!isNaN(expiresAt.getTime())) {
+          const now = new Date()
+          const msRemaining = expiresAt.getTime() - now.getTime()
+          const daysRemaining = Math.floor(msRemaining / (1000 * 60 * 60 * 24))
+          return {
+            valid: daysRemaining > 0,
+            expiresAt,
+            daysRemaining,
+          }
+        }
+      }
+    }
+  } catch {
+    // openssl not available, try fallback
+  }
+
+  // Fallback: read the PEM and parse the ASN.1 notAfter from DER.
+  // This is a minimal parser for X.509 v3 certs — it searches for the
+  // UTCTime or GeneralizedTime that represents notAfter.
+  try {
+    const pem = require('node:fs').readFileSync(certPath, 'utf-8') as string
+    const der = pemToDer(pem)
+
+    // Scan for two consecutive time values (notBefore, notAfter) in the DER.
+    // UTCTime tag = 0x17, GeneralizedTime tag = 0x18
+    let timeCount = 0
+    for (let i = 0; i < der.length - 2; i++) {
+      const tag = der[i]
+      if (tag !== 0x17 && tag !== 0x18) continue
+      const len = der[i + 1]
+      if (len < 10 || i + 2 + len > der.length) continue
+
+      timeCount++
+      if (timeCount === 2) {
+        // This is notAfter
+        const timeStr = der.subarray(i + 2, i + 2 + len).toString('ascii')
+        let expiresAt: Date
+        if (tag === 0x17) {
+          // UTCTime: YYMMDDHHMMSSZ
+          const year = parseInt(timeStr.slice(0, 2), 10)
+          const fullYear = year >= 50 ? 1900 + year : 2000 + year
+          expiresAt = new Date(
+            `${fullYear}-${timeStr.slice(2, 4)}-${timeStr.slice(4, 6)}T${timeStr.slice(6, 8)}:${timeStr.slice(8, 10)}:${timeStr.slice(10, 12)}Z`,
+          )
+        } else {
+          // GeneralizedTime: YYYYMMDDHHMMSSZ
+          expiresAt = new Date(
+            `${timeStr.slice(0, 4)}-${timeStr.slice(4, 6)}-${timeStr.slice(6, 8)}T${timeStr.slice(8, 10)}:${timeStr.slice(10, 12)}:${timeStr.slice(12, 14)}Z`,
+          )
+        }
+        if (!isNaN(expiresAt.getTime())) {
+          const now = new Date()
+          const msRemaining = expiresAt.getTime() - now.getTime()
+          const daysRemaining = Math.floor(msRemaining / (1000 * 60 * 60 * 24))
+          return { valid: daysRemaining > 0, expiresAt, daysRemaining }
+        }
+        break
+      }
+    }
+  } catch {
+    // Could not parse cert
+  }
+
+  return fallback
+}
+
 export async function ensureTlsMaterial(): Promise<TlsMaterial> {
   const hasKey = await fileExists(TLS_KEY_PATH)
   const hasCert = await fileExists(TLS_CERT_PATH)
 
-  if (!hasKey || !hasCert) {
+  if (hasKey && hasCert) {
+    // Check if cert is expired or expiring within 7 days
+    const expiry = checkCertExpiry(TLS_CERT_PATH)
+    if (!expiry.valid || expiry.daysRemaining < 7) {
+      const reason = !expiry.valid ? 'expired' : `expiring in ${expiry.daysRemaining} day(s)`
+      console.log(`TLS certificate ${reason} — regenerating...`)
+      try {
+        await unlink(TLS_KEY_PATH)
+        await unlink(TLS_CERT_PATH)
+      } catch {
+        // Files may already be gone
+      }
+      await generateSelfSignedCert()
+    }
+  } else {
     await generateSelfSignedCert()
   }
 
