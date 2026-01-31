@@ -17,8 +17,8 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
   int _currentPage = 0;
   final PageController _pageController = PageController();
 
-  // Total pages: Splash(0), Intro(1), Feature1(2), Feature2(3), Feature3(4), GetStarted(5)
-  static const int _totalPages = 5;
+  // Total pages: Splash(0), Architecture(1), Feature1(2), Feature2(3), Feature3(4), GetStarted(5)
+  static const int _totalPages = 6;
 
   void _goToPage(int page) {
     if (page < 0 || page >= _totalPages) return;
@@ -61,23 +61,23 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
           // Page 0: Code From The Couch
           _CodeFromCouchPage(onContinue: _nextPage),
 
-          // Page 1: Feature - Chat from Anywhere
-          _FeaturePage(
-            pageIndex: 1,
+          // Page 1: Architecture Diagram
+          _ArchitecturePage(
             currentPage: _currentPage,
             totalPages: _totalPages,
-            icon: Icons.chat_bubble_rounded,
-            iconGradient: const [Color(0xFF6366F1), Color(0xFF8B5CF6)],
-            title: 'Chat from Anywhere',
-            subtitle:
-                'Talk to your AI coding agents from your phone. Review context, ask questions, and guide the work in real-time.',
-            mockupChild: const _ChatMockup(),
             onContinue: _nextPage,
           ),
 
-          // Page 2: Feature - Approve Commands
+          // Page 2: Unified Intelligence
+          _UnifiedIntelligencePage(
+            currentPage: _currentPage,
+            totalPages: _totalPages,
+            onContinue: _nextPage,
+          ),
+
+          // Page 3: Feature - Approve Commands
           _FeaturePage(
-            pageIndex: 2,
+            pageIndex: 3,
             currentPage: _currentPage,
             totalPages: _totalPages,
             icon: Icons.terminal_rounded,
@@ -89,9 +89,9 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
             onContinue: _nextPage,
           ),
 
-          // Page 3: Feature - Track Changes
+          // Page 4: Feature - Track Changes
           _FeaturePage(
-            pageIndex: 3,
+            pageIndex: 4,
             currentPage: _currentPage,
             totalPages: _totalPages,
             icon: Icons.difference_rounded,
@@ -103,7 +103,7 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
             onContinue: _nextPage,
           ),
 
-          // Page 4: Get Started
+          // Page 5: Get Started
           _GetStartedPage(
             currentPage: _currentPage,
             totalPages: _totalPages,
@@ -249,8 +249,8 @@ class _CodeFromCouchPageState extends State<_CodeFromCouchPage>
                                 blendMode: BlendMode.dstIn,
                                 child: Image.asset(
                                   'docs/assets/broski-icon.png',
-                                  width: 100,
-                                  height: 100,
+                                  width: 220,
+                                  height: 220,
                                 ),
                               ),
                             ],
@@ -318,8 +318,8 @@ class _CodeFromCouchPageState extends State<_CodeFromCouchPage>
                       Text(
                         'The first IDE designed for the\nhorizontal lifestyle.',
                         style: TextStyle(
-                          fontSize: 16,
-                          color: Colors.white.withValues(alpha: 0.5),
+                          fontSize: 18,
+                          color: Colors.white.withValues(alpha: 0.55),
                           height: 1.5,
                         ),
                       ),
@@ -413,7 +413,725 @@ class _ConcentricCirclesPainter extends CustomPainter {
 }
 
 // =============================================================================
-// FEATURE PAGES (2, 3, 4)
+// PAGE 1: ARCHITECTURE DIAGRAM
+// =============================================================================
+
+class _ArchitecturePage extends StatefulWidget {
+  const _ArchitecturePage({
+    required this.currentPage,
+    required this.totalPages,
+    required this.onContinue,
+  });
+
+  final int currentPage;
+  final int totalPages;
+  final VoidCallback onContinue;
+
+  @override
+  State<_ArchitecturePage> createState() => _ArchitecturePageState();
+}
+
+class _ArchitecturePageState extends State<_ArchitecturePage>
+    with SingleTickerProviderStateMixin {
+  late AnimationController _controller;
+
+  @override
+  void initState() {
+    super.initState();
+    _controller = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 800),
+    );
+  }
+
+  @override
+  void didUpdateWidget(_ArchitecturePage oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (widget.currentPage == 1 && oldWidget.currentPage != 1) {
+      _controller.forward(from: 0);
+    }
+  }
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final isTablet = MediaQuery.of(context).size.width > 600;
+
+    if (widget.currentPage == 1 && !_controller.isAnimating) {
+      _controller.forward(from: 0);
+    }
+
+    return Container(
+      color: Colors.black,
+      child: SafeArea(
+        child: Stack(
+          children: [
+            Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                // Minimal top spacing - diagram starts near back button
+                SizedBox(height: isTablet ? 24 : 16),
+                // Architecture diagram area - fills vertical space
+                Expanded(
+                  child: FadeTransition(
+                    opacity: CurvedAnimation(
+                      parent: _controller,
+                      curve: const Interval(0.0, 0.6, curve: Curves.easeOut),
+                    ),
+                    child: SlideTransition(
+                      position:
+                          Tween<Offset>(
+                            begin: const Offset(0, 0.08),
+                            end: Offset.zero,
+                          ).animate(
+                            CurvedAnimation(
+                              parent: _controller,
+                              curve: const Interval(
+                                0.0,
+                                0.6,
+                                curve: Curves.easeOutCubic,
+                              ),
+                            ),
+                          ),
+                      child: Padding(
+                        padding: EdgeInsets.only(top: isTablet ? 12.0 : 6.0),
+                        child: _ArchitectureDiagram(isTablet: isTablet),
+                      ),
+                    ),
+                  ),
+                ),
+                // Breathing room between diagram and text
+                SizedBox(height: isTablet ? 40 : 35),
+                // Text content - LEFT aligned
+                Padding(
+                  padding: EdgeInsets.symmetric(horizontal: isTablet ? 48 : 28),
+                  child: FadeTransition(
+                    opacity: CurvedAnimation(
+                      parent: _controller,
+                      curve: const Interval(0.3, 0.8, curve: Curves.easeOut),
+                    ),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          'Your Mac is the Engine.',
+                          style: TextStyle(
+                            fontSize: isTablet ? 34 : 28,
+                            fontWeight: FontWeight.w800,
+                            color: Colors.white,
+                            letterSpacing: -0.5,
+                            height: 1.15,
+                          ),
+                        ),
+                        const SizedBox(height: 14),
+                        Text(
+                          'The app acts as a remote interface. Your code, terminal, and git history stay secure on your local machine.',
+                          style: TextStyle(
+                            fontSize: isTablet ? 20 : 18,
+                            color: Colors.white.withValues(alpha: 0.55),
+                            height: 1.55,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+                SizedBox(height: isTablet ? 80 : 110),
+              ],
+            ),
+            // Back button (top-left)
+            Positioned(
+              top: 16,
+              left: 20,
+              child: FadeTransition(
+                opacity: CurvedAnimation(
+                  parent: _controller,
+                  curve: const Interval(0.0, 0.5, curve: Curves.easeOut),
+                ),
+                child: GestureDetector(
+                  onTap: () {
+                    final pageController = context
+                        .findAncestorStateOfType<_OnboardingScreenState>()
+                        ?._pageController;
+                    pageController?.previousPage(
+                      duration: const Duration(milliseconds: 400),
+                      curve: Curves.easeOutCubic,
+                    );
+                  },
+                  child: Container(
+                    width: 44,
+                    height: 44,
+                    decoration: BoxDecoration(
+                      shape: BoxShape.circle,
+                      border: Border.all(
+                        color: Colors.white.withValues(alpha: 0.20),
+                        width: 1,
+                      ),
+                    ),
+                    child: Icon(
+                      Icons.arrow_back_rounded,
+                      color: Colors.white.withValues(alpha: 0.75),
+                      size: 22,
+                    ),
+                  ),
+                ),
+              ),
+            ),
+            // Forward button (bottom-right)
+            Positioned(
+              bottom: isTablet ? 48 : 32,
+              right: 24,
+              child: FadeTransition(
+                opacity: CurvedAnimation(
+                  parent: _controller,
+                  curve: const Interval(0.5, 1.0, curve: Curves.easeOut),
+                ),
+                child: GestureDetector(
+                  onTap: () {
+                    HapticFeedback.lightImpact();
+                    widget.onContinue();
+                  },
+                  child: Container(
+                    width: 60,
+                    height: 60,
+                    decoration: const BoxDecoration(
+                      color: Colors.white,
+                      shape: BoxShape.circle,
+                    ),
+                    child: const Icon(
+                      Icons.arrow_forward_rounded,
+                      color: Colors.black,
+                      size: 26,
+                    ),
+                  ),
+                ),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+// Architecture diagram visualization
+class _ArchitectureDiagram extends StatelessWidget {
+  const _ArchitectureDiagram({required this.isTablet});
+
+  final bool isTablet;
+
+  @override
+  Widget build(BuildContext context) {
+    final cardWidth = isTablet ? 220.0 : 195.0;
+    final cardHeight = isTablet ? 140.0 : 120.0;
+
+    return Column(
+      children: [
+        // Top Card: Localhost (laptop)
+        _SystemCard(
+          width: cardWidth,
+          height: cardHeight,
+          icon: Icons.laptop_mac_outlined,
+          label: 'LOCALHOST',
+          isTablet: isTablet,
+        ),
+        // Flexible dashed line - fills available space
+        Expanded(
+          child: LayoutBuilder(
+            builder: (context, constraints) => CustomPaint(
+              size: Size(2, constraints.maxHeight),
+              painter: _DashedLinePainter(),
+            ),
+          ),
+        ),
+        // Bridge pill
+        Container(
+          padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
+          decoration: BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.circular(24),
+          ),
+          child: const Text(
+            'BROSKI BRIDGE',
+            style: TextStyle(
+              fontSize: 13,
+              fontWeight: FontWeight.w700,
+              color: Colors.black,
+              letterSpacing: 1.0,
+              fontFamily: 'monospace',
+            ),
+          ),
+        ),
+        // Flexible dashed line - fills available space
+        Expanded(
+          child: LayoutBuilder(
+            builder: (context, constraints) => CustomPaint(
+              size: Size(2, constraints.maxHeight),
+              painter: _DashedLinePainter(),
+            ),
+          ),
+        ),
+        // Bottom Card: Remote (phone)
+        _SystemCard(
+          width: cardWidth,
+          height: cardHeight,
+          icon: Icons.phone_iphone_outlined,
+          label: 'REMOTE',
+          isTablet: isTablet,
+        ),
+      ],
+    );
+  }
+}
+
+// System card component
+class _SystemCard extends StatelessWidget {
+  const _SystemCard({
+    required this.width,
+    required this.height,
+    required this.icon,
+    required this.label,
+    required this.isTablet,
+  });
+
+  final double width;
+  final double height;
+  final IconData icon;
+  final String label;
+  final bool isTablet;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      width: width,
+      height: height,
+      decoration: BoxDecoration(
+        color: Colors.white.withValues(alpha: 0.03),
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(
+          color: Colors.white.withValues(alpha: 0.07),
+          width: 1,
+        ),
+      ),
+      child: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          Icon(
+            icon,
+            color: Colors.white.withValues(alpha: 0.6),
+            size: isTablet ? 44 : 36,
+          ),
+          const SizedBox(height: 12),
+          Text(
+            label,
+            style: TextStyle(
+              fontSize: isTablet ? 14 : 12,
+              fontWeight: FontWeight.w600,
+              color: Colors.white.withValues(alpha: 0.4),
+              letterSpacing: 2.5,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+// Dashed line painter
+class _DashedLinePainter extends CustomPainter {
+  @override
+  void paint(Canvas canvas, Size size) {
+    final paint = Paint()
+      ..color = Colors.white.withValues(alpha: 0.16)
+      ..strokeWidth = 1.5
+      ..style = PaintingStyle.stroke
+      ..strokeCap = StrokeCap.round;
+
+    const dashHeight = 7.0;
+    const dashSpace = 6.0;
+    double startY = 0;
+
+    while (startY < size.height) {
+      canvas.drawLine(
+        Offset(size.width / 2, startY),
+        Offset(size.width / 2, startY + dashHeight),
+        paint,
+      );
+      startY += dashHeight + dashSpace;
+    }
+  }
+
+  @override
+  bool shouldRepaint(covariant CustomPainter oldDelegate) => false;
+}
+
+// =============================================================================
+// PAGE 2: UNIFIED INTELLIGENCE
+// =============================================================================
+
+class _UnifiedIntelligencePage extends StatefulWidget {
+  const _UnifiedIntelligencePage({
+    required this.currentPage,
+    required this.totalPages,
+    required this.onContinue,
+  });
+
+  final int currentPage;
+  final int totalPages;
+  final VoidCallback onContinue;
+
+  @override
+  State<_UnifiedIntelligencePage> createState() =>
+      _UnifiedIntelligencePageState();
+}
+
+class _UnifiedIntelligencePageState extends State<_UnifiedIntelligencePage>
+    with SingleTickerProviderStateMixin {
+  late AnimationController _controller;
+
+  @override
+  void initState() {
+    super.initState();
+    _controller = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 800),
+    );
+  }
+
+  @override
+  void didUpdateWidget(_UnifiedIntelligencePage oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (widget.currentPage == 2 && oldWidget.currentPage != 2) {
+      _controller.forward(from: 0);
+    }
+  }
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    if (widget.currentPage == 2 && !_controller.isAnimating) {
+      _controller.forward(from: 0);
+    }
+
+    return Container(
+      color: Colors.black,
+      child: SafeArea(
+        child: Stack(
+          children: [
+            // Subtle vertical grid lines background
+            Positioned.fill(child: CustomPaint(painter: _GridLinesPainter())),
+            // Main content
+            Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                const SizedBox(height: 60),
+                // Title
+                Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 28),
+                  child: FadeTransition(
+                    opacity: CurvedAnimation(
+                      parent: _controller,
+                      curve: const Interval(0.0, 0.5, curve: Curves.easeOut),
+                    ),
+                    child: SlideTransition(
+                      position:
+                          Tween<Offset>(
+                            begin: const Offset(0, 0.1),
+                            end: Offset.zero,
+                          ).animate(
+                            CurvedAnimation(
+                              parent: _controller,
+                              curve: const Interval(
+                                0.0,
+                                0.5,
+                                curve: Curves.easeOutCubic,
+                              ),
+                            ),
+                          ),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          const Text(
+                            'Unified Intelligence.',
+                            style: TextStyle(
+                              fontSize: 32,
+                              fontWeight: FontWeight.w800,
+                              color: Colors.white,
+                              letterSpacing: -0.5,
+                              height: 1.1,
+                            ),
+                          ),
+                          const SizedBox(height: 12),
+                          Text(
+                            'Connect your preferred engines. We\norchestrate the rest.',
+                            style: TextStyle(
+                              fontSize: 17,
+                              color: Colors.white.withValues(alpha: 0.50),
+                              height: 1.5,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                ),
+                // Agent cards - centered vertically in remaining space
+                Expanded(
+                  child: FadeTransition(
+                    opacity: CurvedAnimation(
+                      parent: _controller,
+                      curve: const Interval(0.2, 0.7, curve: Curves.easeOut),
+                    ),
+                    child: SlideTransition(
+                      position:
+                          Tween<Offset>(
+                            begin: const Offset(0, 0.08),
+                            end: Offset.zero,
+                          ).animate(
+                            CurvedAnimation(
+                              parent: _controller,
+                              curve: const Interval(
+                                0.2,
+                                0.7,
+                                curve: Curves.easeOutCubic,
+                              ),
+                            ),
+                          ),
+                      child: Center(
+                        child: Padding(
+                          padding: const EdgeInsets.symmetric(horizontal: 28),
+                          child: Column(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              // Codex card
+                              _AgentCard(
+                                iconWidget: Container(
+                                  width: 44,
+                                  height: 44,
+                                  decoration: BoxDecoration(
+                                    color: Colors.white,
+                                    borderRadius: BorderRadius.circular(12),
+                                  ),
+                                  child: Padding(
+                                    padding: const EdgeInsets.all(8),
+                                    child: Image.asset(
+                                      'docs/assets/codex-icon.png',
+                                      fit: BoxFit.contain,
+                                    ),
+                                  ),
+                                ),
+                                name: 'Codex',
+                              ),
+                              const SizedBox(height: 19),
+                              // OpenCode card
+                              _AgentCard(
+                                iconWidget: ClipRRect(
+                                  borderRadius: BorderRadius.circular(12),
+                                  child: Image.asset(
+                                    'docs/assets/opencode-mark.png',
+                                    width: 44,
+                                    height: 44,
+                                    fit: BoxFit.cover,
+                                  ),
+                                ),
+                                name: 'OpenCode',
+                              ),
+                              const SizedBox(height: 19),
+                              // Claude Code card
+                              _AgentCard(
+                                iconWidget: ClipRRect(
+                                  borderRadius: BorderRadius.circular(12),
+                                  child: Image.asset(
+                                    'docs/assets/claude-code.png',
+                                    width: 44,
+                                    height: 44,
+                                    fit: BoxFit.cover,
+                                  ),
+                                ),
+                                name: 'Claude Code',
+                              ),
+                            ],
+                          ),
+                        ),
+                      ),
+                    ),
+                  ),
+                ),
+                // Continue button
+                Padding(
+                  padding: const EdgeInsets.fromLTRB(24, 0, 24, 32),
+                  child: FadeTransition(
+                    opacity: CurvedAnimation(
+                      parent: _controller,
+                      curve: const Interval(0.5, 1.0, curve: Curves.easeOut),
+                    ),
+                    child: GestureDetector(
+                      onTap: () {
+                        HapticFeedback.lightImpact();
+                        widget.onContinue();
+                      },
+                      child: Container(
+                        width: double.infinity,
+                        height: 58,
+                        decoration: BoxDecoration(
+                          color: Colors.white,
+                          borderRadius: BorderRadius.circular(29),
+                        ),
+                        child: const Center(
+                          child: Text(
+                            'Continue',
+                            style: TextStyle(
+                              fontSize: 17,
+                              fontWeight: FontWeight.w600,
+                              color: Colors.black,
+                              letterSpacing: 0.2,
+                            ),
+                          ),
+                        ),
+                      ),
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+/// Agent row card for the Unified Intelligence page
+class _AgentCard extends StatelessWidget {
+  const _AgentCard({required this.iconWidget, required this.name});
+
+  final Widget iconWidget;
+  final String name;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 18),
+      decoration: BoxDecoration(
+        color: const Color(0xFF0A0A0A),
+        borderRadius: BorderRadius.circular(20),
+        border: Border.all(
+          color: Colors.white.withValues(alpha: 0.10),
+          width: 1,
+        ),
+      ),
+      child: Row(
+        children: [
+          // Icon with subtle background container
+          Container(
+            width: 48,
+            height: 48,
+            decoration: BoxDecoration(
+              color: const Color(0xFF1A1A1A),
+              borderRadius: BorderRadius.circular(14),
+            ),
+            child: Center(
+              child: ClipRRect(
+                borderRadius: BorderRadius.circular(12),
+                child: SizedBox(width: 44, height: 44, child: iconWidget),
+              ),
+            ),
+          ),
+          const SizedBox(width: 16),
+          Expanded(
+            child: Text(
+              name,
+              style: const TextStyle(
+                fontSize: 18,
+                fontWeight: FontWeight.w600,
+                color: Colors.white,
+                letterSpacing: -0.2,
+              ),
+            ),
+          ),
+          // Green status dot
+          Container(
+            width: 10,
+            height: 10,
+            decoration: BoxDecoration(
+              color: const Color(0xFF22C55E),
+              shape: BoxShape.circle,
+              boxShadow: [
+                BoxShadow(
+                  color: const Color(0xFF22C55E).withValues(alpha: 0.4),
+                  blurRadius: 6,
+                  spreadRadius: 1,
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+/// 3 staggered vertical accent lines — each with its own start/end and fade.
+/// Inspired by the Figma: lines connect through the card region at different heights.
+class _GridLinesPainter extends CustomPainter {
+  @override
+  void paint(Canvas canvas, Size size) {
+    final h = size.height;
+    final w = size.width;
+
+    // Line 1 (left ~30% x): starts near subtitle text, ends just before Continue button
+    _drawFadedLine(canvas, size, x: w * 0.30, startY: h * 0.18, endY: h * 0.88);
+
+    // Line 2 (center ~50% x): starts a bit below line 1, ends at roughly the same bottom
+    _drawFadedLine(canvas, size, x: w * 0.50, startY: h * 0.24, endY: h * 0.90);
+
+    // Line 3 (right ~70% x): starts highest (around "We" in subtitle), goes to bottom
+    _drawFadedLine(canvas, size, x: w * 0.70, startY: h * 0.14, endY: h * 0.92);
+  }
+
+  void _drawFadedLine(
+    Canvas canvas,
+    Size size, {
+    required double x,
+    required double startY,
+    required double endY,
+  }) {
+    final lineHeight = endY - startY;
+    final paint = Paint()
+      ..strokeWidth = 0.5
+      ..style = PaintingStyle.stroke
+      ..shader = LinearGradient(
+        begin: Alignment.topCenter,
+        end: Alignment.bottomCenter,
+        colors: [
+          Colors.white.withValues(alpha: 0.0),
+          Colors.white.withValues(alpha: 0.13),
+          Colors.white.withValues(alpha: 0.13),
+          Colors.white.withValues(alpha: 0.0),
+        ],
+        stops: const [0.0, 0.08, 0.92, 1.0],
+      ).createShader(Rect.fromLTWH(x, startY, 1, lineHeight));
+
+    canvas.drawLine(Offset(x, startY), Offset(x, endY), paint);
+  }
+
+  @override
+  bool shouldRepaint(covariant CustomPainter oldDelegate) => false;
+}
+
+// =============================================================================
+// FEATURE PAGES (3, 4)
 // =============================================================================
 
 class _FeaturePage extends StatefulWidget {

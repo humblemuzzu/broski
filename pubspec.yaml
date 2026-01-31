@@ -98,6 +98,9 @@ flutter:
     - docs/assets/broski-icon.png
     - docs/assets/broski-logo.png
     - docs/assets/Untitled design (1).png
+    - docs/assets/opencode-mark.png
+    - docs/assets/claude-code.png
+    - docs/assets/codex-icon.png
     - docs/assets/opencode/
 
   # An image asset can refer to one or more resolution-specific "variants", see
