@@ -7,17 +7,14 @@ import '../providers/connection_provider.dart';
 import '../providers/onboarding_provider.dart';
 import '../theme/opencode_theme.dart';
 import 'auth_screen.dart';
-import 'connect_screen.dart';
-import 'connect_setup_screen.dart';
+import 'bridge_setup_screen.dart';
 import 'connection_lost_screen.dart';
 import 'main_shell.dart';
-import 'network_check_screen.dart';
 import 'onboarding_auth_screen.dart';
 import 'onboarding_screen.dart';
 import 'paywall_screen.dart';
 import 'scan_screen.dart';
-import 'setup_guide_screen.dart';
-import 'tailscale_check_screen.dart';
+import 'system_linked_screen.dart';
 
 class RootScreen extends ConsumerWidget {
   const RootScreen({super.key});
@@ -59,7 +56,7 @@ class RootScreen extends ConsumerWidget {
     }
 
     if (connectionState.isConnecting) {
-      return const ConnectScreen();
+      return const _ConnectingScreen();
     }
 
     if (connectionState.isConnected) {
@@ -101,6 +98,95 @@ class _LoadingScreen extends StatelessWidget {
               style: TextStyle(color: theme.textMuted, fontSize: 14),
             ),
           ],
+        ),
+      ),
+    );
+  }
+}
+
+/// Minimal connecting screen for post-onboarding reconnections.
+class _ConnectingScreen extends ConsumerWidget {
+  const _ConnectingScreen();
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final state = ref.watch(connectionProvider);
+
+    return Scaffold(
+      backgroundColor: Colors.black,
+      body: SafeArea(
+        child: Center(
+          child: Padding(
+            padding: const EdgeInsets.all(32),
+            child: Column(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                SizedBox(
+                  width: 48,
+                  height: 48,
+                  child: CircularProgressIndicator(
+                    strokeWidth: 2.5,
+                    color: Colors.white.withValues(alpha: 0.6),
+                  ),
+                ),
+                const SizedBox(height: 24),
+                const Text(
+                  'Connecting...',
+                  style: TextStyle(
+                    fontSize: 20,
+                    fontWeight: FontWeight.w600,
+                    color: Colors.white,
+                  ),
+                ),
+                if (state.connection != null) ...[
+                  const SizedBox(height: 8),
+                  Text(
+                    '${state.connection!.localIP ?? ''}:${state.connection!.port}',
+                    style: TextStyle(
+                      fontSize: 14,
+                      color: Colors.white.withValues(alpha: 0.4),
+                      fontFamily: 'monospace',
+                    ),
+                  ),
+                ],
+                if (state.error != null) ...[
+                  const SizedBox(height: 20),
+                  Container(
+                    padding: const EdgeInsets.all(16),
+                    decoration: BoxDecoration(
+                      color: Colors.red.withValues(alpha: 0.1),
+                      borderRadius: BorderRadius.circular(12),
+                      border: Border.all(
+                        color: Colors.red.withValues(alpha: 0.2),
+                      ),
+                    ),
+                    child: Text(
+                      state.error!,
+                      textAlign: TextAlign.center,
+                      style: TextStyle(
+                        color: Colors.red.withValues(alpha: 0.8),
+                        fontSize: 13,
+                      ),
+                    ),
+                  ),
+                ],
+                const SizedBox(height: 32),
+                GestureDetector(
+                  onTap: () =>
+                      ref.read(connectionProvider.notifier).clearConnection(),
+                  child: Text(
+                    'Scan Different QR',
+                    style: TextStyle(
+                      color: Colors.white.withValues(alpha: 0.5),
+                      fontSize: 14,
+                      decoration: TextDecoration.underline,
+                      decorationColor: Colors.white.withValues(alpha: 0.3),
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
         ),
       ),
     );
@@ -165,14 +251,8 @@ class _OnboardingFlow extends ConsumerWidget {
         return const OnboardingAuthScreen(key: ValueKey('auth'));
       case OnboardingStep.paywall:
         return const PaywallScreen(key: ValueKey('paywall'));
-      case OnboardingStep.connectSetup:
-        return const ConnectSetupScreen(key: ValueKey('connectSetup'));
-      case OnboardingStep.macSetup:
-        return const SetupGuideScreen(key: ValueKey('setup'));
-      case OnboardingStep.networkCheck:
-        return const NetworkCheckScreen(key: ValueKey('network'));
-      case OnboardingStep.tailscaleCheck:
-        return const TailscaleCheckScreen(key: ValueKey('tailscale'));
+      case OnboardingStep.bridgeSetup:
+        return const BridgeSetupScreen(key: ValueKey('bridgeSetup'));
       case OnboardingStep.scanner:
       case OnboardingStep.complete:
         return const _OnboardingScanWrapper(key: ValueKey('scan'));
@@ -181,11 +261,7 @@ class _OnboardingFlow extends ConsumerWidget {
 }
 
 /// Wraps [ScanScreen] during onboarding to detect when connection succeeds
-/// and automatically complete onboarding + transition to MainShell.
-///
-/// Without this, the RootScreen checks `hasCompletedOnboarding` before
-/// `isConnected`, so the code path that calls `completeOnboarding()` is
-/// unreachable during onboarding — trapping the user on the scan screen.
+/// and show the SystemLinkedScreen before transitioning to MainShell.
 class _OnboardingScanWrapper extends ConsumerWidget {
   const _OnboardingScanWrapper({super.key});
 
@@ -193,17 +269,14 @@ class _OnboardingScanWrapper extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final connectionState = ref.watch(connectionProvider);
 
-    // Connection succeeded during onboarding — complete it and show MainShell
+    // Connection succeeded during onboarding — show System Linked screen
     if (connectionState.isConnected) {
-      Future.microtask(() {
-        ref.read(onboardingProvider.notifier).completeOnboarding();
-      });
-      return const MainShell();
+      return const SystemLinkedScreen();
     }
 
-    // Still connecting — show progress
+    // Still connecting — show minimal connecting indicator overlay
     if (connectionState.isConnecting) {
-      return const ConnectScreen();
+      return const _ConnectingScreen();
     }
 
     return const ScanScreen();
