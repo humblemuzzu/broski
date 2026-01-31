@@ -8,7 +8,8 @@ import 'package:google_fonts/google_fonts.dart';
 import 'package:url_launcher/url_launcher.dart';
 
 import '../providers/app_auth_provider.dart';
-import '../providers/onboarding_provider.dart';
+import '../providers/onboarding_provider.dart'
+    show onboardingProvider, kDevBypassOnboarding;
 
 /// Premium onboarding experience for Broski.
 /// Inspired by modern mobile app onboarding patterns with developer-focused content.
@@ -57,7 +58,10 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
       backgroundColor: Colors.black,
       body: PageView(
         controller: _pageController,
-        physics: const NeverScrollableScrollPhysics(),
+        // DEV BYPASS: enable swiping through intro pages
+        physics: kDevBypassOnboarding
+            ? const ClampingScrollPhysics()
+            : const NeverScrollableScrollPhysics(),
         onPageChanged: (page) => setState(() => _currentPage = page),
         children: [
           // Page 0: Code From The Couch

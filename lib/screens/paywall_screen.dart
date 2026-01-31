@@ -1,8 +1,11 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../providers/app_auth_provider.dart';
 import '../providers/app_subscription_provider.dart';
+import '../providers/onboarding_provider.dart'
+    show onboardingProvider, kDevBypassOnboarding;
 import '../theme/opencode_theme.dart';
 
 class PaywallScreen extends ConsumerWidget {
@@ -372,6 +375,26 @@ class PaywallScreen extends ConsumerWidget {
                       ],
                     ),
                     const SizedBox(height: 8),
+                    // DEV BYPASS: skip paywall button
+                    if (kDevBypassOnboarding) ...[
+                      const SizedBox(height: 8),
+                      Center(
+                        child: GestureDetector(
+                          onTap: () {
+                            HapticFeedback.lightImpact();
+                            ref.read(onboardingProvider.notifier).skipForward();
+                          },
+                          child: Text(
+                            'Skip (dev) \u2192',
+                            style: TextStyle(
+                              color: Colors.red.withValues(alpha: 0.6),
+                              fontSize: 13,
+                              fontWeight: FontWeight.w600,
+                            ),
+                          ),
+                        ),
+                      ),
+                    ],
                   ],
                 ),
               ),

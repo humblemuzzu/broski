@@ -1,6 +1,10 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
+/// !! TEMPORARY DEV FLAG — remove before App Store submission !!
+/// When true: swipe through all onboarding screens freely, skip auth/paywall.
+const kDevBypassOnboarding = true;
+
 enum OnboardingStep { welcome, auth, paywall, bridgeSetup, scanner, complete }
 
 class OnboardingState {
@@ -80,15 +84,44 @@ class OnboardingNotifier extends StateNotifier<OnboardingState> {
         state = state.copyWith(currentStep: OnboardingStep.welcome);
         break;
       case OnboardingStep.paywall:
+        if (kDevBypassOnboarding) {
+          state = state.copyWith(currentStep: OnboardingStep.auth);
+        }
         // Can't meaningfully go back from paywall (already signed in)
         break;
       case OnboardingStep.bridgeSetup:
+        if (kDevBypassOnboarding) {
+          state = state.copyWith(currentStep: OnboardingStep.paywall);
+        }
         // Can't go back past paywall
         break;
       case OnboardingStep.scanner:
         state = state.copyWith(currentStep: OnboardingStep.bridgeSetup);
         break;
       default:
+        break;
+    }
+  }
+
+  /// DEV ONLY: Advance to next step regardless of completion status.
+  void skipForward() {
+    if (!kDevBypassOnboarding) return;
+    switch (state.currentStep) {
+      case OnboardingStep.welcome:
+        state = state.copyWith(currentStep: OnboardingStep.auth);
+        break;
+      case OnboardingStep.auth:
+        state = state.copyWith(currentStep: OnboardingStep.paywall);
+        break;
+      case OnboardingStep.paywall:
+        state = state.copyWith(currentStep: OnboardingStep.bridgeSetup);
+        break;
+      case OnboardingStep.bridgeSetup:
+        state = state.copyWith(currentStep: OnboardingStep.scanner);
+        break;
+      case OnboardingStep.scanner:
+      case OnboardingStep.complete:
+        completeOnboarding();
         break;
     }
   }

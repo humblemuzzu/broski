@@ -8,7 +8,8 @@ import 'package:google_fonts/google_fonts.dart';
 import 'package:url_launcher/url_launcher.dart';
 
 import '../providers/app_auth_provider.dart';
-import '../providers/onboarding_provider.dart';
+import '../providers/onboarding_provider.dart'
+    show onboardingProvider, kDevBypassOnboarding;
 
 /// Standalone "Identify Yourself" auth screen used during onboarding.
 /// Auto-advances to the paywall step once the user signs in.
@@ -243,6 +244,24 @@ class _OnboardingAuthScreenState extends ConsumerState<OnboardingAuthScreen>
                   textAlign: TextAlign.center,
                 ),
               ),
+              // DEV BYPASS: skip auth button
+              if (kDevBypassOnboarding) ...[
+                const SizedBox(height: 16),
+                GestureDetector(
+                  onTap: () {
+                    HapticFeedback.lightImpact();
+                    ref.read(onboardingProvider.notifier).skipForward();
+                  },
+                  child: Text(
+                    'Skip (dev) \u2192',
+                    style: TextStyle(
+                      color: Colors.red.withValues(alpha: 0.6),
+                      fontSize: 13,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                ),
+              ],
               const SizedBox(height: 32),
             ],
           ),

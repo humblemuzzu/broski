@@ -8,7 +8,8 @@ import 'package:mobile_scanner/mobile_scanner.dart';
 
 import '../models/connection.dart';
 import '../providers/connection_provider.dart';
-import '../providers/onboarding_provider.dart';
+import '../providers/onboarding_provider.dart'
+    show onboardingProvider, kDevBypassOnboarding;
 import '../widgets/chat/detail_sheet.dart';
 import '../widgets/onboarding_widgets.dart';
 
@@ -333,6 +334,26 @@ class _ScanScreenState extends ConsumerState<ScanScreen>
                         ),
                       ],
                     ),
+                    // DEV BYPASS: skip scan step
+                    if (kDevBypassOnboarding) ...[
+                      const SizedBox(height: 14),
+                      GestureDetector(
+                        onTap: () {
+                          HapticFeedback.lightImpact();
+                          ref
+                              .read(onboardingProvider.notifier)
+                              .completeOnboarding();
+                        },
+                        child: Text(
+                          'Skip scan (dev) \u2192',
+                          style: TextStyle(
+                            color: Colors.red.withValues(alpha: 0.7),
+                            fontSize: 13,
+                            fontWeight: FontWeight.w600,
+                          ),
+                        ),
+                      ),
+                    ],
                   ],
                 ),
               ),

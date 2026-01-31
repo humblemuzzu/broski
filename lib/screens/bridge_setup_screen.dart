@@ -2,7 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-import '../providers/onboarding_provider.dart';
+import '../providers/onboarding_provider.dart'
+    show onboardingProvider, kDevBypassOnboarding;
 
 /// "Run the Bridge" screen shown after paywall during onboarding.
 /// Terminal-style mockup with shimmer animation and copy-to-clipboard.
@@ -197,6 +198,26 @@ class _BridgeSetupScreenState extends ConsumerState<BridgeSetupScreen>
                   ),
                 ),
               ),
+              // DEV BYPASS: skip to next step
+              if (kDevBypassOnboarding) ...[
+                const SizedBox(height: 14),
+                Center(
+                  child: GestureDetector(
+                    onTap: () {
+                      HapticFeedback.lightImpact();
+                      ref.read(onboardingProvider.notifier).skipForward();
+                    },
+                    child: Text(
+                      'Skip (dev) \u2192',
+                      style: TextStyle(
+                        color: Colors.red.withValues(alpha: 0.6),
+                        fontSize: 13,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                  ),
+                ),
+              ],
               const SizedBox(height: 32),
             ],
           ),

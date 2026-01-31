@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../providers/app_auth_provider.dart';
@@ -36,19 +37,32 @@ class RootScreen extends ConsumerWidget {
     }
 
     // Post-onboarding: normal app routing
-    if (!authState.isSignedIn) {
+    // DEV BYPASS: skip auth + paywall gates entirely
+    if (!kDevBypassOnboarding && !authState.isSignedIn) {
       return const AuthScreen();
     }
 
     // Ensure RevenueCat is configured and loaded once the user is signed in.
-    if (!subState.isConfigured && !subState.isLoading) {
+    if (!kDevBypassOnboarding &&
+        !subState.isConfigured &&
+        !subState.isLoading) {
       Future.microtask(
         () => ref.read(appSubscriptionProvider.notifier).configureAndRefresh(),
       );
     }
 
-    if (!subState.entitled) {
+    if (!kDevBypassOnboarding && !subState.entitled) {
       return const PaywallScreen();
+    }
+
+    // DEV BYPASS: auto-enter offline mode so we land in MainShell
+    if (kDevBypassOnboarding &&
+        !connectionState.isOfflineMode &&
+        !connectionState.isConnected &&
+        !connectionState.isConnecting) {
+      Future.microtask(
+        () => ref.read(connectionProvider.notifier).enterOfflineMode(),
+      );
     }
 
     if (connectionState.isOfflineMode) {
@@ -206,20 +220,25 @@ class _OnboardingFlow extends ConsumerWidget {
     final subState = ref.watch(appSubscriptionProvider);
 
     // Auto-advance: if we're on auth step but already signed in, skip forward
-    if (state.currentStep == OnboardingStep.auth && authState.isSignedIn) {
+    // (disabled in dev bypass — we want to VIEW the auth screen)
+    if (!kDevBypassOnboarding &&
+        state.currentStep == OnboardingStep.auth &&
+        authState.isSignedIn) {
       Future.microtask(
         () => ref.read(onboardingProvider.notifier).finishAuth(),
       );
     }
 
     // Auto-advance: if we're on paywall step but already entitled, skip forward
-    if (state.currentStep == OnboardingStep.paywall && subState.entitled) {
+    if (!kDevBypassOnboarding &&
+        state.currentStep == OnboardingStep.paywall &&
+        subState.entitled) {
       Future.microtask(
         () => ref.read(onboardingProvider.notifier).finishPaywall(),
       );
     }
 
-    return AnimatedSwitcher(
+    Widget content = AnimatedSwitcher(
       duration: const Duration(milliseconds: 350),
       switchInCurve: Curves.easeOutCubic,
       switchOutCurve: Curves.easeInCubic,
@@ -241,6 +260,13 @@ class _OnboardingFlow extends ConsumerWidget {
       },
       child: _buildCurrentScreen(state),
     );
+
+    // DEV BYPASS: wrap with edge-swipe detection + skip button overlay
+    if (kDevBypassOnboarding) {
+      content = _DevSwipeWrapper(child: content);
+    }
+
+    return content;
   }
 
   Widget _buildCurrentScreen(OnboardingState state) {
@@ -257,6 +283,123 @@ class _OnboardingFlow extends ConsumerWidget {
       case OnboardingStep.complete:
         return const _OnboardingScanWrapper(key: ValueKey('scan'));
     }
+  }
+}
+
+/// DEV ONLY: Edge-swipe gesture wrapper + floating skip button.
+/// Swipe from right edge = advance, swipe from left edge = go back.
+/// Also shows a floating "Skip All >>" button at top-right.
+class _DevSwipeWrapper extends ConsumerStatefulWidget {
+  const _DevSwipeWrapper({required this.child});
+  final Widget child;
+
+  @override
+  ConsumerState<_DevSwipeWrapper> createState() => _DevSwipeWrapperState();
+}
+
+class _DevSwipeWrapperState extends ConsumerState<_DevSwipeWrapper> {
+  double _dragStartX = 0;
+  bool _isDragging = false;
+
+  @override
+  Widget build(BuildContext context) {
+    final screenWidth = MediaQuery.of(context).size.width;
+    final edgeThreshold = screenWidth * 0.15; // 15% from each edge
+
+    return GestureDetector(
+      behavior: HitTestBehavior.translucent,
+      onHorizontalDragStart: (details) {
+        _dragStartX = details.globalPosition.dx;
+        _isDragging = true;
+      },
+      onHorizontalDragEnd: (details) {
+        if (!_isDragging) return;
+        _isDragging = false;
+
+        final velocity = details.primaryVelocity ?? 0;
+        final startedFromLeftEdge = _dragStartX < edgeThreshold;
+        final startedFromRightEdge = _dragStartX > screenWidth - edgeThreshold;
+
+        // Swipe right from left edge -> go back
+        if (startedFromLeftEdge && velocity > 300) {
+          HapticFeedback.lightImpact();
+          ref.read(onboardingProvider.notifier).goBack();
+        }
+        // Swipe left from right edge -> skip forward
+        else if (startedFromRightEdge && velocity < -300) {
+          HapticFeedback.lightImpact();
+          ref.read(onboardingProvider.notifier).skipForward();
+        }
+      },
+      child: Stack(
+        children: [
+          widget.child,
+          // Floating "Skip All" button at top-right
+          Positioned(
+            top: MediaQuery.of(context).padding.top + 12,
+            right: 16,
+            child: GestureDetector(
+              onTap: () {
+                HapticFeedback.mediumImpact();
+                ref.read(onboardingProvider.notifier).completeOnboarding();
+              },
+              child: Container(
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 14,
+                  vertical: 8,
+                ),
+                decoration: BoxDecoration(
+                  color: Colors.red.withValues(alpha: 0.15),
+                  borderRadius: BorderRadius.circular(20),
+                  border: Border.all(color: Colors.red.withValues(alpha: 0.3)),
+                ),
+                child: const Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Text(
+                      'DEV SKIP',
+                      style: TextStyle(
+                        color: Colors.red,
+                        fontSize: 11,
+                        fontWeight: FontWeight.w700,
+                        letterSpacing: 0.5,
+                      ),
+                    ),
+                    SizedBox(width: 4),
+                    Icon(Icons.skip_next_rounded, color: Colors.red, size: 16),
+                  ],
+                ),
+              ),
+            ),
+          ),
+          // Edge swipe hint indicators (subtle arrows)
+          Positioned(
+            left: 4,
+            top: 0,
+            bottom: 0,
+            child: Center(
+              child: Icon(
+                Icons.chevron_left_rounded,
+                color: Colors.white.withValues(alpha: 0.08),
+                size: 28,
+              ),
+            ),
+          ),
+          Positioned(
+            right: 4,
+            top: 0,
+            bottom: 0,
+            child: Center(
+              child: Icon(
+                Icons.chevron_right_rounded,
+                color: Colors.white.withValues(alpha: 0.08),
+                size: 28,
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
   }
 }
 
