@@ -469,78 +469,80 @@ class _ArchitecturePageState extends State<_ArchitecturePage>
       child: SafeArea(
         child: Stack(
           children: [
-            Column(
-              crossAxisAlignment: CrossAxisAlignment.stretch,
-              children: [
-                // Minimal top spacing - diagram starts near back button
-                SizedBox(height: isTablet ? 24 : 16),
-                // Architecture diagram area - fills vertical space
-                Expanded(
-                  child: FadeTransition(
-                    opacity: CurvedAnimation(
-                      parent: _controller,
-                      curve: const Interval(0.0, 0.6, curve: Curves.easeOut),
-                    ),
-                    child: SlideTransition(
-                      position:
-                          Tween<Offset>(
-                            begin: const Offset(0, 0.08),
-                            end: Offset.zero,
-                          ).animate(
-                            CurvedAnimation(
-                              parent: _controller,
-                              curve: const Interval(
-                                0.0,
-                                0.6,
-                                curve: Curves.easeOutCubic,
+            Padding(
+              padding: EdgeInsets.only(top: isTablet ? 16 : 8),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  // Architecture diagram - takes up top portion
+                  Expanded(
+                    flex: 55,
+                    child: FadeTransition(
+                      opacity: CurvedAnimation(
+                        parent: _controller,
+                        curve: const Interval(0.0, 0.6, curve: Curves.easeOut),
+                      ),
+                      child: SlideTransition(
+                        position:
+                            Tween<Offset>(
+                              begin: const Offset(0, 0.08),
+                              end: Offset.zero,
+                            ).animate(
+                              CurvedAnimation(
+                                parent: _controller,
+                                curve: const Interval(
+                                  0.0,
+                                  0.6,
+                                  curve: Curves.easeOutCubic,
+                                ),
                               ),
                             ),
-                          ),
-                      child: Padding(
-                        padding: EdgeInsets.only(top: isTablet ? 12.0 : 6.0),
                         child: _ArchitectureDiagram(isTablet: isTablet),
                       ),
                     ),
                   ),
-                ),
-                // Breathing room between diagram and text
-                SizedBox(height: isTablet ? 40 : 35),
-                // Text content - LEFT aligned
-                Padding(
-                  padding: EdgeInsets.symmetric(horizontal: isTablet ? 48 : 28),
-                  child: FadeTransition(
+                  // Flexible gap pushes text toward bottom
+                  const Spacer(flex: 15),
+                  // Text content pinned in lower area
+                  FadeTransition(
                     opacity: CurvedAnimation(
                       parent: _controller,
                       curve: const Interval(0.3, 0.8, curve: Curves.easeOut),
                     ),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          'Your Mac is the Engine.',
-                          style: TextStyle(
-                            fontSize: isTablet ? 34 : 28,
-                            fontWeight: FontWeight.w800,
-                            color: Colors.white,
-                            letterSpacing: -0.5,
-                            height: 1.15,
+                    child: Padding(
+                      padding: EdgeInsets.symmetric(
+                        horizontal: isTablet ? 48 : 28,
+                      ),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            'Your Mac is the Engine.',
+                            style: TextStyle(
+                              fontSize: isTablet ? 34 : 28,
+                              fontWeight: FontWeight.w800,
+                              color: Colors.white,
+                              letterSpacing: -0.5,
+                              height: 1.15,
+                            ),
                           ),
-                        ),
-                        const SizedBox(height: 14),
-                        Text(
-                          'The app acts as a remote interface. Your code, terminal, and git history stay secure on your local machine.',
-                          style: TextStyle(
-                            fontSize: isTablet ? 20 : 18,
-                            color: Colors.white.withValues(alpha: 0.55),
-                            height: 1.55,
+                          const SizedBox(height: 14),
+                          Text(
+                            'The app acts as a remote interface. Your code, terminal, and git history stay secure on your local machine.',
+                            style: TextStyle(
+                              fontSize: isTablet ? 20 : 18,
+                              color: Colors.white.withValues(alpha: 0.55),
+                              height: 1.55,
+                            ),
                           ),
-                        ),
-                      ],
+                        ],
+                      ),
                     ),
                   ),
-                ),
-                SizedBox(height: isTablet ? 80 : 110),
-              ],
+                  // Bottom space for forward button
+                  SizedBox(height: isTablet ? 80 : 100),
+                ],
+              ),
             ),
             // Back button (top-left)
             Positioned(
@@ -625,28 +627,23 @@ class _ArchitectureDiagram extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final cardWidth = isTablet ? 220.0 : 195.0;
-    final cardHeight = isTablet ? 140.0 : 120.0;
+    final cardWidth = isTablet ? 190.0 : 160.0;
+    final cardHeight = isTablet ? 115.0 : 100.0;
 
     return Column(
+      mainAxisAlignment: MainAxisAlignment.spaceBetween,
       children: [
-        // Top Card: Localhost (laptop)
+        // Top Card: Localhost (laptop) - dull
         _SystemCard(
           width: cardWidth,
           height: cardHeight,
-          icon: Icons.laptop_mac_outlined,
+          icon: Icons.computer_rounded,
           label: 'LOCALHOST',
           isTablet: isTablet,
+          isBright: false,
         ),
-        // Flexible dashed line - fills available space
-        Expanded(
-          child: LayoutBuilder(
-            builder: (context, constraints) => CustomPaint(
-              size: Size(2, constraints.maxHeight),
-              painter: _DashedLinePainter(),
-            ),
-          ),
-        ),
+        // 5-dash line (top)
+        _FixedDashLine(dashCount: 5, isTablet: isTablet),
         // Bridge pill
         Container(
           padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
@@ -665,22 +662,16 @@ class _ArchitectureDiagram extends StatelessWidget {
             ),
           ),
         ),
-        // Flexible dashed line - fills available space
-        Expanded(
-          child: LayoutBuilder(
-            builder: (context, constraints) => CustomPaint(
-              size: Size(2, constraints.maxHeight),
-              painter: _DashedLinePainter(),
-            ),
-          ),
-        ),
-        // Bottom Card: Remote (phone)
+        // 5-dash line (bottom)
+        _FixedDashLine(dashCount: 5, isTablet: isTablet),
+        // Bottom Card: Remote (phone) - bright
         _SystemCard(
           width: cardWidth,
           height: cardHeight,
-          icon: Icons.phone_iphone_outlined,
+          icon: Icons.smartphone_rounded,
           label: 'REMOTE',
           isTablet: isTablet,
+          isBright: true,
         ),
       ],
     );
@@ -695,6 +686,7 @@ class _SystemCard extends StatelessWidget {
     required this.icon,
     required this.label,
     required this.isTablet,
+    this.isBright = false,
   });
 
   final double width;
@@ -702,17 +694,23 @@ class _SystemCard extends StatelessWidget {
   final IconData icon;
   final String label;
   final bool isTablet;
+  final bool isBright;
 
   @override
   Widget build(BuildContext context) {
+    final iconAlpha = isBright ? 0.95 : 0.35;
+    final labelAlpha = isBright ? 0.85 : 0.3;
+    final bgAlpha = isBright ? 0.06 : 0.03;
+    final borderAlpha = isBright ? 0.12 : 0.06;
+
     return Container(
       width: width,
       height: height,
       decoration: BoxDecoration(
-        color: Colors.white.withValues(alpha: 0.03),
-        borderRadius: BorderRadius.circular(16),
+        color: Colors.white.withValues(alpha: bgAlpha),
+        borderRadius: BorderRadius.circular(14),
         border: Border.all(
-          color: Colors.white.withValues(alpha: 0.07),
+          color: Colors.white.withValues(alpha: borderAlpha),
           width: 1,
         ),
       ),
@@ -721,16 +719,16 @@ class _SystemCard extends StatelessWidget {
         children: [
           Icon(
             icon,
-            color: Colors.white.withValues(alpha: 0.6),
-            size: isTablet ? 44 : 36,
+            color: Colors.white.withValues(alpha: iconAlpha),
+            size: isTablet ? 38 : 30,
           ),
-          const SizedBox(height: 12),
+          const SizedBox(height: 10),
           Text(
             label,
             style: TextStyle(
-              fontSize: isTablet ? 14 : 12,
+              fontSize: isTablet ? 13 : 11,
               fontWeight: FontWeight.w600,
-              color: Colors.white.withValues(alpha: 0.4),
+              color: Colors.white.withValues(alpha: labelAlpha),
               letterSpacing: 2.5,
             ),
           ),
@@ -740,32 +738,38 @@ class _SystemCard extends StatelessWidget {
   }
 }
 
-// Dashed line painter
-class _DashedLinePainter extends CustomPainter {
+// Fixed-count dashed line (exactly N dashes, evenly spaced vertically)
+class _FixedDashLine extends StatelessWidget {
+  const _FixedDashLine({required this.dashCount, required this.isTablet});
+
+  final int dashCount;
+  final bool isTablet;
+
   @override
-  void paint(Canvas canvas, Size size) {
-    final paint = Paint()
-      ..color = Colors.white.withValues(alpha: 0.16)
-      ..strokeWidth = 1.5
-      ..style = PaintingStyle.stroke
-      ..strokeCap = StrokeCap.round;
+  Widget build(BuildContext context) {
+    final dashHeight = isTablet ? 8.0 : 7.0;
+    final dashSpace = isTablet ? 7.0 : 6.0;
 
-    const dashHeight = 7.0;
-    const dashSpace = 6.0;
-    double startY = 0;
-
-    while (startY < size.height) {
-      canvas.drawLine(
-        Offset(size.width / 2, startY),
-        Offset(size.width / 2, startY + dashHeight),
-        paint,
-      );
-      startY += dashHeight + dashSpace;
-    }
+    return Column(
+      mainAxisSize: MainAxisSize.min,
+      children: List.generate(dashCount * 2 - 1, (index) {
+        if (index.isEven) {
+          // Dash
+          return Container(
+            width: 1.5,
+            height: dashHeight,
+            decoration: BoxDecoration(
+              color: Colors.white.withValues(alpha: 0.18),
+              borderRadius: BorderRadius.circular(1),
+            ),
+          );
+        } else {
+          // Space
+          return SizedBox(height: dashSpace);
+        }
+      }),
+    );
   }
-
-  @override
-  bool shouldRepaint(covariant CustomPainter oldDelegate) => false;
 }
 
 // =============================================================================
@@ -1198,91 +1202,101 @@ class _SuperpowersPageState extends State<_SuperpowersPage>
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       const Spacer(flex: 2),
-                      // Floating notification toast — slightly left of content, wide
+                      // Floating notification toast — slight tilt like Figma
                       Transform.translate(
                         offset: const Offset(-14, 0),
-                        child: SizedBox(
-                          width: MediaQuery.of(context).size.width - 28,
-                          child: Container(
-                            padding: const EdgeInsets.symmetric(
-                              horizontal: 16,
-                              vertical: 16,
-                            ),
-                            decoration: BoxDecoration(
-                              color: Colors.white.withValues(alpha: 0.08),
-                              borderRadius: BorderRadius.circular(20),
-                              border: Border.all(
-                                color: Colors.white.withValues(alpha: 0.06),
+                        child: Transform.rotate(
+                          angle: -0.035, // ~2 degrees counter-clockwise
+                          child: SizedBox(
+                            width: MediaQuery.of(context).size.width - 28,
+                            child: Container(
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 16,
+                                vertical: 16,
                               ),
-                            ),
-                            child: Row(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                // Broski logo
-                                ClipRRect(
-                                  borderRadius: BorderRadius.circular(8),
-                                  child: Image.asset(
-                                    'docs/assets/broski-icon.png',
-                                    width: 32,
-                                    height: 32,
-                                    fit: BoxFit.cover,
-                                  ),
+                              decoration: BoxDecoration(
+                                color: Colors.white.withValues(alpha: 0.08),
+                                borderRadius: BorderRadius.circular(20),
+                                border: Border.all(
+                                  color: Colors.white.withValues(alpha: 0.06),
                                 ),
-                                const SizedBox(width: 10),
-                                Expanded(
-                                  child: Column(
-                                    crossAxisAlignment:
-                                        CrossAxisAlignment.start,
-                                    children: [
-                                      Row(
-                                        children: [
-                                          const Text(
-                                            'BROSKI',
-                                            style: TextStyle(
-                                              fontSize: 11,
-                                              fontWeight: FontWeight.w700,
-                                              color: Colors.white,
-                                              letterSpacing: 0.8,
-                                            ),
-                                          ),
-                                          const SizedBox(width: 6),
-                                          Text(
-                                            '\u2022 NOW',
-                                            style: TextStyle(
-                                              fontSize: 11,
-                                              fontWeight: FontWeight.w500,
-                                              color: Colors.white.withValues(
-                                                alpha: 0.35,
+                              ),
+                              child: Row(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  // Broski logo — zoomed in to show the B prominently
+                                  ClipRRect(
+                                    borderRadius: BorderRadius.circular(8),
+                                    child: SizedBox(
+                                      width: 32,
+                                      height: 32,
+                                      child: Transform.scale(
+                                        scale: 1.6,
+                                        child: Image.asset(
+                                          'docs/assets/broski-icon.png',
+                                          width: 32,
+                                          height: 32,
+                                          fit: BoxFit.cover,
+                                        ),
+                                      ),
+                                    ),
+                                  ),
+                                  const SizedBox(width: 10),
+                                  Expanded(
+                                    child: Column(
+                                      crossAxisAlignment:
+                                          CrossAxisAlignment.start,
+                                      children: [
+                                        Row(
+                                          children: [
+                                            const Text(
+                                              'BROSKI',
+                                              style: TextStyle(
+                                                fontSize: 11,
+                                                fontWeight: FontWeight.w700,
+                                                color: Colors.white,
+                                                letterSpacing: 0.8,
                                               ),
-                                              letterSpacing: 0.5,
                                             ),
-                                          ),
-                                        ],
-                                      ),
-                                      const SizedBox(height: 5),
-                                      const Text(
-                                        'Build Successful',
-                                        style: TextStyle(
-                                          fontSize: 15,
-                                          fontWeight: FontWeight.w600,
-                                          color: Colors.white,
+                                            const SizedBox(width: 6),
+                                            Text(
+                                              '\u2022 NOW',
+                                              style: TextStyle(
+                                                fontSize: 11,
+                                                fontWeight: FontWeight.w500,
+                                                color: Colors.white.withValues(
+                                                  alpha: 0.35,
+                                                ),
+                                                letterSpacing: 0.5,
+                                              ),
+                                            ),
+                                          ],
                                         ),
-                                      ),
-                                      const SizedBox(height: 3),
-                                      Text(
-                                        'Agent corrected 3 errors in auth.ts. Ready to deploy.',
-                                        style: TextStyle(
-                                          fontSize: 14,
-                                          color: Colors.white.withValues(
-                                            alpha: 0.50,
+                                        const SizedBox(height: 5),
+                                        const Text(
+                                          'Build Successful',
+                                          style: TextStyle(
+                                            fontSize: 15,
+                                            fontWeight: FontWeight.w600,
+                                            color: Colors.white,
                                           ),
-                                          height: 1.35,
                                         ),
-                                      ),
-                                    ],
+                                        const SizedBox(height: 3),
+                                        Text(
+                                          'Agent corrected 3 errors in auth.ts. Ready to deploy.',
+                                          style: TextStyle(
+                                            fontSize: 14,
+                                            color: Colors.white.withValues(
+                                              alpha: 0.50,
+                                            ),
+                                            height: 1.35,
+                                          ),
+                                        ),
+                                      ],
+                                    ),
                                   ),
-                                ),
-                              ],
+                                ],
+                              ),
                             ),
                           ),
                         ),
