@@ -1,7 +1,13 @@
+import 'dart:io';
+import 'dart:math' as math;
+
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:google_fonts/google_fonts.dart';
+import 'package:url_launcher/url_launcher.dart';
 
+import '../providers/app_auth_provider.dart';
 import '../providers/onboarding_provider.dart';
 
 /// Premium onboarding experience for Broski.
@@ -17,8 +23,8 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
   int _currentPage = 0;
   final PageController _pageController = PageController();
 
-  // Total pages: Splash(0), Architecture(1), Feature1(2), Feature2(3), Terminal(4), SafetyNet(5), ZeroTelemetry(6), GetStarted(7)
-  static const int _totalPages = 8;
+  // Total pages: Splash(0), Architecture(1), Feature1(2), Feature2(3), Terminal(4), SafetyNet(5), ZeroTelemetry(6), GetStarted(7), Auth(8)
+  static const int _totalPages = 9;
 
   void _goToPage(int page) {
     if (page < 0 || page >= _totalPages) return;
@@ -109,6 +115,12 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
             totalPages: _totalPages,
             onSetupNeeded: () => _completeOnboarding(hasBridge: false),
             onAlreadySetup: () => _completeOnboarding(hasBridge: true),
+          ),
+
+          // Page 8: Auth (Identify Yourself)
+          _IdentifyYourselfPage(
+            currentPage: _currentPage,
+            totalPages: _totalPages,
           ),
         ],
       ),
@@ -3918,6 +3930,556 @@ class _SecondaryButton extends StatelessWidget {
               fontWeight: FontWeight.w500,
             ),
           ),
+        ),
+      ),
+    );
+  }
+}
+
+// =============================================================================
+// PAGE 8: IDENTIFY YOURSELF (AUTH)
+// =============================================================================
+
+class _IdentifyYourselfPage extends ConsumerStatefulWidget {
+  const _IdentifyYourselfPage({
+    required this.currentPage,
+    required this.totalPages,
+  });
+
+  final int currentPage;
+  final int totalPages;
+
+  @override
+  ConsumerState<_IdentifyYourselfPage> createState() =>
+      _IdentifyYourselfPageState();
+}
+
+class _IdentifyYourselfPageState extends ConsumerState<_IdentifyYourselfPage>
+    with SingleTickerProviderStateMixin {
+  late AnimationController _scanController;
+
+  @override
+  void initState() {
+    super.initState();
+    _scanController = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 2400),
+    )..repeat(reverse: true);
+  }
+
+  @override
+  void dispose() {
+    _scanController.dispose();
+    super.dispose();
+  }
+
+  Future<void> _launchUrl(String url) async {
+    final uri = Uri.parse(url);
+    if (await canLaunchUrl(uri)) {
+      await launchUrl(uri, mode: LaunchMode.externalApplication);
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final state = ref.watch(appAuthProvider);
+    final screenWidth = MediaQuery.of(context).size.width;
+
+    return Container(
+      color: const Color(0xFF0A0A0A),
+      child: SafeArea(
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 28),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              const SizedBox(height: 48),
+
+              // -- SYSTEM ONLINE indicator --
+              Row(
+                children: [
+                  Container(
+                    width: 8,
+                    height: 8,
+                    decoration: BoxDecoration(
+                      color: const Color(0xFF22C55E),
+                      shape: BoxShape.circle,
+                      boxShadow: [
+                        BoxShadow(
+                          color: const Color(0xFF22C55E).withValues(alpha: 0.5),
+                          blurRadius: 8,
+                          spreadRadius: 1,
+                        ),
+                      ],
+                    ),
+                  ),
+                  const SizedBox(width: 10),
+                  Text(
+                    'SYSTEM ONLINE',
+                    style: GoogleFonts.jetBrainsMono(
+                      fontSize: 13,
+                      fontWeight: FontWeight.w500,
+                      color: Colors.white.withValues(alpha: 0.55),
+                      letterSpacing: 1.5,
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 16),
+
+              // -- "Identify\nYourself." heading --
+              Text.rich(
+                TextSpan(
+                  children: [
+                    TextSpan(
+                      text: 'Identify\n',
+                      style: GoogleFonts.inter(
+                        fontSize: 44,
+                        fontWeight: FontWeight.w800,
+                        color: Colors.white,
+                        height: 1.1,
+                        letterSpacing: -1.0,
+                      ),
+                    ),
+                    TextSpan(
+                      text: 'Yourself.',
+                      style: GoogleFonts.inter(
+                        fontSize: 44,
+                        fontWeight: FontWeight.w800,
+                        color: const Color(0xFF555555),
+                        height: 1.1,
+                        letterSpacing: -1.0,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+
+              const Spacer(flex: 2),
+
+              // -- Scanning image box --
+              Center(
+                child: _OnboardingScanBox(
+                  scanController: _scanController,
+                  boxWidth: math.min(screenWidth - 56, 320),
+                ),
+              ),
+
+              const Spacer(flex: 2),
+
+              // -- Error display --
+              if (state.error != null) ...[
+                Container(
+                  width: double.infinity,
+                  padding: const EdgeInsets.all(12),
+                  decoration: BoxDecoration(
+                    color: const Color(0xFFEF4444).withValues(alpha: 0.10),
+                    borderRadius: BorderRadius.circular(12),
+                    border: Border.all(
+                      color: const Color(0xFFEF4444).withValues(alpha: 0.20),
+                    ),
+                  ),
+                  child: Text(
+                    state.error!,
+                    style: const TextStyle(
+                      color: Color(0xFFEF4444),
+                      fontSize: 13,
+                    ),
+                  ),
+                ),
+                const SizedBox(height: 16),
+              ],
+
+              // -- Continue with Apple button (iOS only, on top) --
+              if (Platform.isIOS) ...[
+                _OnboardingAuthButton(
+                  label: 'Continue with Apple',
+                  icon: Icons.apple,
+                  isLoading: state.isLoading,
+                  onPressed: () {
+                    HapticFeedback.lightImpact();
+                    ref.read(appAuthProvider.notifier).signInWithApple();
+                  },
+                ),
+                const SizedBox(height: 14),
+              ],
+
+              // -- Continue with Google button --
+              _OnboardingAuthButton(
+                label: 'Continue with Google',
+                icon: Icons.g_mobiledata_rounded,
+                isLoading: state.isLoading,
+                outlined: true,
+                onPressed: () {
+                  HapticFeedback.lightImpact();
+                  ref.read(appAuthProvider.notifier).signInWithGoogle();
+                },
+              ),
+              const SizedBox(height: 20),
+
+              // -- Terms and Privacy Policy --
+              Center(
+                child: Text.rich(
+                  TextSpan(
+                    style: GoogleFonts.jetBrainsMono(
+                      fontSize: 11,
+                      color: Colors.white.withValues(alpha: 0.35),
+                      height: 1.5,
+                    ),
+                    children: [
+                      const TextSpan(text: 'By identifying, you agree to the '),
+                      WidgetSpan(
+                        child: GestureDetector(
+                          onTap: () =>
+                              _launchUrl('https://broskiapp.com/legal/terms'),
+                          child: Text(
+                            'Terms of Service',
+                            style: GoogleFonts.jetBrainsMono(
+                              fontSize: 11,
+                              color: Colors.white.withValues(alpha: 0.55),
+                              decoration: TextDecoration.underline,
+                              decorationColor: Colors.white.withValues(
+                                alpha: 0.35,
+                              ),
+                            ),
+                          ),
+                        ),
+                      ),
+                      const TextSpan(text: '\nand '),
+                      WidgetSpan(
+                        child: GestureDetector(
+                          onTap: () =>
+                              _launchUrl('https://broskiapp.com/legal/privacy'),
+                          child: Text(
+                            'Privacy Policy',
+                            style: GoogleFonts.jetBrainsMono(
+                              fontSize: 11,
+                              color: Colors.white.withValues(alpha: 0.55),
+                              decoration: TextDecoration.underline,
+                              decorationColor: Colors.white.withValues(
+                                alpha: 0.35,
+                              ),
+                            ),
+                          ),
+                        ),
+                      ),
+                      const TextSpan(text: '.'),
+                    ],
+                  ),
+                  textAlign: TextAlign.center,
+                ),
+              ),
+              const SizedBox(height: 32),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+// =============================================================================
+// ONBOARDING SCAN BOX (reusable within onboarding)
+// =============================================================================
+
+class _OnboardingScanBox extends StatelessWidget {
+  const _OnboardingScanBox({
+    required this.scanController,
+    required this.boxWidth,
+  });
+
+  final AnimationController scanController;
+  final double boxWidth;
+
+  @override
+  Widget build(BuildContext context) {
+    final boxHeight = boxWidth * 0.88;
+
+    return SizedBox(
+      width: boxWidth,
+      height: boxHeight,
+      child: Stack(
+        children: [
+          // -- Rounded container with border --
+          Positioned.fill(
+            child: Container(
+              decoration: BoxDecoration(
+                borderRadius: BorderRadius.circular(16),
+                border: Border.all(
+                  color: Colors.white.withValues(alpha: 0.08),
+                  width: 1,
+                ),
+                color: Colors.white.withValues(alpha: 0.03),
+              ),
+              child: ClipRRect(
+                borderRadius: BorderRadius.circular(15),
+                child: Stack(
+                  fit: StackFit.expand,
+                  children: [
+                    // -- Dull profile image --
+                    ColorFiltered(
+                      colorFilter: ColorFilter.matrix(<double>[
+                        0.3, 0.3, 0.3, 0, 0, //
+                        0.3, 0.3, 0.3, 0, 0, //
+                        0.3, 0.3, 0.3, 0, 0, //
+                        0, 0, 0, 0.7, 0, //
+                      ]),
+                      child: Image.asset(
+                        'docs/assets/dax-oc.jpg',
+                        fit: BoxFit.cover,
+                      ),
+                    ),
+                    // -- Dark overlay --
+                    Container(color: Colors.black.withValues(alpha: 0.35)),
+                  ],
+                ),
+              ),
+            ),
+          ),
+
+          // -- Fingerprint icon (centered) --
+          Center(
+            child: Icon(
+              Icons.fingerprint_rounded,
+              size: 56,
+              color: Colors.white.withValues(alpha: 0.65),
+            ),
+          ),
+
+          // -- Scanning line animation --
+          AnimatedBuilder(
+            animation: scanController,
+            builder: (context, _) {
+              final yPos = scanController.value * (boxHeight - 2);
+              return Positioned(
+                top: yPos,
+                left: 0,
+                right: 0,
+                child: Container(
+                  height: 1.5,
+                  decoration: BoxDecoration(
+                    gradient: LinearGradient(
+                      colors: [
+                        Colors.transparent,
+                        Colors.white.withValues(alpha: 0.45),
+                        Colors.white.withValues(alpha: 0.7),
+                        Colors.white.withValues(alpha: 0.45),
+                        Colors.transparent,
+                      ],
+                      stops: const [0.0, 0.2, 0.5, 0.8, 1.0],
+                    ),
+                  ),
+                ),
+              );
+            },
+          ),
+
+          // -- Subtle glow around scan line --
+          AnimatedBuilder(
+            animation: scanController,
+            builder: (context, _) {
+              final yPos = scanController.value * (boxHeight - 2);
+              return Positioned(
+                top: yPos - 20,
+                left: 0,
+                right: 0,
+                child: Container(
+                  height: 42,
+                  decoration: BoxDecoration(
+                    gradient: LinearGradient(
+                      begin: Alignment.topCenter,
+                      end: Alignment.bottomCenter,
+                      colors: [
+                        Colors.transparent,
+                        Colors.white.withValues(alpha: 0.04),
+                        Colors.transparent,
+                      ],
+                    ),
+                  ),
+                ),
+              );
+            },
+          ),
+
+          // -- "ID: UNKNOWN" and "ACCESS: PENDING" --
+          Positioned(
+            left: 16,
+            bottom: 16,
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  'ID: UNKNOWN',
+                  style: GoogleFonts.jetBrainsMono(
+                    fontSize: 12,
+                    fontWeight: FontWeight.w500,
+                    color: Colors.white.withValues(alpha: 0.40),
+                    letterSpacing: 1.2,
+                  ),
+                ),
+                const SizedBox(height: 4),
+                Text(
+                  'ACCESS: PENDING',
+                  style: GoogleFonts.jetBrainsMono(
+                    fontSize: 12,
+                    fontWeight: FontWeight.w500,
+                    color: Colors.white.withValues(alpha: 0.40),
+                    letterSpacing: 1.2,
+                  ),
+                ),
+              ],
+            ),
+          ),
+
+          // -- Corner bracket marks --
+          Positioned(
+            top: 0,
+            left: 0,
+            child: _OnboardingCornerBracket(
+              rotation: 0,
+              color: Colors.white.withValues(alpha: 0.12),
+            ),
+          ),
+          Positioned(
+            top: 0,
+            right: 0,
+            child: _OnboardingCornerBracket(
+              rotation: 90,
+              color: Colors.white.withValues(alpha: 0.12),
+            ),
+          ),
+          Positioned(
+            bottom: 0,
+            right: 0,
+            child: _OnboardingCornerBracket(
+              rotation: 180,
+              color: Colors.white.withValues(alpha: 0.12),
+            ),
+          ),
+          Positioned(
+            bottom: 0,
+            left: 0,
+            child: _OnboardingCornerBracket(
+              rotation: 270,
+              color: Colors.white.withValues(alpha: 0.12),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _OnboardingCornerBracket extends StatelessWidget {
+  const _OnboardingCornerBracket({required this.rotation, required this.color});
+
+  final double rotation;
+  final Color color;
+
+  @override
+  Widget build(BuildContext context) {
+    return Transform.rotate(
+      angle: rotation * math.pi / 180,
+      child: SizedBox(
+        width: 24,
+        height: 24,
+        child: CustomPaint(painter: _OnboardingCornerPainter(color: color)),
+      ),
+    );
+  }
+}
+
+class _OnboardingCornerPainter extends CustomPainter {
+  _OnboardingCornerPainter({required this.color});
+
+  final Color color;
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final paint = Paint()
+      ..color = color
+      ..strokeWidth = 1.5
+      ..style = PaintingStyle.stroke
+      ..strokeCap = StrokeCap.round;
+
+    final path = Path()
+      ..moveTo(0, size.height * 0.45)
+      ..lineTo(0, 0)
+      ..lineTo(size.width * 0.45, 0);
+
+    canvas.drawPath(path, paint);
+  }
+
+  @override
+  bool shouldRepaint(covariant CustomPainter oldDelegate) => false;
+}
+
+// =============================================================================
+// ONBOARDING AUTH BUTTON
+// =============================================================================
+
+class _OnboardingAuthButton extends StatelessWidget {
+  const _OnboardingAuthButton({
+    required this.label,
+    required this.icon,
+    required this.isLoading,
+    required this.onPressed,
+    this.outlined = false,
+  });
+
+  final String label;
+  final IconData icon;
+  final bool isLoading;
+  final VoidCallback onPressed;
+  final bool outlined;
+
+  @override
+  Widget build(BuildContext context) {
+    return GestureDetector(
+      onTap: isLoading ? null : onPressed,
+      child: Container(
+        width: double.infinity,
+        height: 56,
+        decoration: BoxDecoration(
+          color: outlined
+              ? Colors.transparent
+              : Colors.white.withValues(alpha: 0.08),
+          borderRadius: BorderRadius.circular(14),
+          border: Border.all(
+            color: Colors.white.withValues(alpha: outlined ? 0.12 : 0.10),
+            width: 1,
+          ),
+        ),
+        child: Center(
+          child: isLoading
+              ? SizedBox(
+                  width: 22,
+                  height: 22,
+                  child: CircularProgressIndicator(
+                    strokeWidth: 2,
+                    color: Colors.white.withValues(alpha: 0.6),
+                  ),
+                )
+              : Row(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    Icon(
+                      icon,
+                      color: Colors.white.withValues(alpha: 0.8),
+                      size: 22,
+                    ),
+                    const SizedBox(width: 12),
+                    Text(
+                      label,
+                      style: TextStyle(
+                        fontSize: 15,
+                        fontWeight: FontWeight.w600,
+                        color: Colors.white.withValues(alpha: 0.85),
+                        letterSpacing: 0.1,
+                      ),
+                    ),
+                  ],
+                ),
         ),
       ),
     );
