@@ -165,6 +165,7 @@ class _AuthScreenState extends ConsumerState<AuthScreen>
               _AuthButton(
                 label: 'Continue with Google',
                 icon: Icons.g_mobiledata_rounded,
+                iconAsset: 'docs/assets/google-logo.png',
                 isLoading: state.isLoading,
                 outlined: true,
                 onPressed: () {
@@ -497,6 +498,7 @@ class _AuthButton extends StatelessWidget {
     required this.isLoading,
     required this.onPressed,
     this.outlined = false,
+    this.iconAsset,
   });
 
   final String label;
@@ -504,6 +506,7 @@ class _AuthButton extends StatelessWidget {
   final bool isLoading;
   final VoidCallback onPressed;
   final bool outlined;
+  final String? iconAsset;
 
   @override
   Widget build(BuildContext context) {
@@ -535,11 +538,19 @@ class _AuthButton extends StatelessWidget {
               : Row(
                   mainAxisAlignment: MainAxisAlignment.center,
                   children: [
-                    Icon(
-                      icon,
-                      color: Colors.white.withValues(alpha: 0.8),
-                      size: 22,
-                    ),
+                    if (iconAsset != null)
+                      Image.asset(
+                        iconAsset!,
+                        width: 20,
+                        height: 20,
+                        fit: BoxFit.contain,
+                      )
+                    else
+                      Icon(
+                        icon,
+                        color: Colors.white.withValues(alpha: 0.8),
+                        size: 22,
+                      ),
                     const SizedBox(width: 12),
                     Text(
                       label,

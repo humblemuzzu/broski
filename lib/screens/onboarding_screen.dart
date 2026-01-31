@@ -2726,14 +2726,14 @@ class _ZeroTelemetryPageState extends State<_ZeroTelemetryPage>
                     child: Column(
                       mainAxisSize: MainAxisSize.min,
                       children: [
-                        // Shield image
+                        // Shield image — larger to match Figma
                         Image.asset(
                           'docs/assets/Abstract dark minimalist 3d geometric shapes, black and white high contrast, shield and lock concept, futuristic technology abstract.png',
-                          width: 220,
-                          height: 220,
+                          width: 280,
+                          height: 280,
                           fit: BoxFit.contain,
                         ),
-                        const SizedBox(height: 16),
+                        const SizedBox(height: 12),
                         // "LOCALHOST:3000" pill
                         Container(
                           padding: const EdgeInsets.symmetric(
@@ -2819,7 +2819,7 @@ class _ZeroTelemetryPageState extends State<_ZeroTelemetryPage>
                         ),
                       ),
                     ),
-                    const SizedBox(height: 20),
+                    const SizedBox(height: 28),
                     // ── Feature row 1: Local Execution
                     FadeTransition(
                       opacity: CurvedAnimation(
@@ -2833,7 +2833,7 @@ class _ZeroTelemetryPageState extends State<_ZeroTelemetryPage>
                             'Code lives on your machine. We just\nprovide the window.',
                       ),
                     ),
-                    const SizedBox(height: 18),
+                    const SizedBox(height: 24),
                     // ── Feature row 2: No Training Data
                     FadeTransition(
                       opacity: CurvedAnimation(
@@ -4110,6 +4110,7 @@ class _IdentifyYourselfPageState extends ConsumerState<_IdentifyYourselfPage>
               _OnboardingAuthButton(
                 label: 'Continue with Google',
                 icon: Icons.g_mobiledata_rounded,
+                iconAsset: 'docs/assets/google-logo.png',
                 isLoading: state.isLoading,
                 outlined: true,
                 onPressed: () {
@@ -4427,6 +4428,7 @@ class _OnboardingAuthButton extends StatelessWidget {
     required this.isLoading,
     required this.onPressed,
     this.outlined = false,
+    this.iconAsset,
   });
 
   final String label;
@@ -4434,6 +4436,7 @@ class _OnboardingAuthButton extends StatelessWidget {
   final bool isLoading;
   final VoidCallback onPressed;
   final bool outlined;
+  final String? iconAsset;
 
   @override
   Widget build(BuildContext context) {
@@ -4465,11 +4468,19 @@ class _OnboardingAuthButton extends StatelessWidget {
               : Row(
                   mainAxisAlignment: MainAxisAlignment.center,
                   children: [
-                    Icon(
-                      icon,
-                      color: Colors.white.withValues(alpha: 0.8),
-                      size: 22,
-                    ),
+                    if (iconAsset != null)
+                      Image.asset(
+                        iconAsset!,
+                        width: 20,
+                        height: 20,
+                        fit: BoxFit.contain,
+                      )
+                    else
+                      Icon(
+                        icon,
+                        color: Colors.white.withValues(alpha: 0.8),
+                        size: 22,
+                      ),
                     const SizedBox(width: 12),
                     Text(
                       label,
