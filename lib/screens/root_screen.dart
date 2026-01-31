@@ -8,9 +8,11 @@ import '../providers/onboarding_provider.dart';
 import '../theme/opencode_theme.dart';
 import 'auth_screen.dart';
 import 'connect_screen.dart';
+import 'connect_setup_screen.dart';
 import 'connection_lost_screen.dart';
 import 'main_shell.dart';
 import 'network_check_screen.dart';
+import 'onboarding_auth_screen.dart';
 import 'onboarding_screen.dart';
 import 'paywall_screen.dart';
 import 'scan_screen.dart';
@@ -31,14 +33,12 @@ class RootScreen extends ConsumerWidget {
       return const _LoadingScreen();
     }
 
+    // Onboarding in progress — the flow handles auth, paywall, and scanner internally
     if (!onboardingState.hasCompletedOnboarding) {
-      return _OnboardingFlow(
-        state: onboardingState,
-        isSignedIn: authState.isSignedIn,
-        isEntitled: subState.entitled,
-      );
+      return _OnboardingFlow(state: onboardingState);
     }
 
+    // Post-onboarding: normal app routing
     if (!authState.isSignedIn) {
       return const AuthScreen();
     }
@@ -63,24 +63,11 @@ class RootScreen extends ConsumerWidget {
     }
 
     if (connectionState.isConnected) {
-      if (!onboardingState.hasCompletedOnboarding) {
-        Future.microtask(() {
-          ref.read(onboardingProvider.notifier).completeOnboarding();
-        });
-      }
       return const MainShell();
     }
 
     if (connectionState.connection != null) {
       return const ConnectionLostScreen();
-    }
-
-    if (!onboardingState.hasCompletedOnboarding) {
-      return _OnboardingFlow(
-        state: onboardingState,
-        isSignedIn: authState.isSignedIn,
-        isEntitled: subState.entitled,
-      );
     }
 
     return const ScanScreen();
@@ -120,26 +107,37 @@ class _LoadingScreen extends StatelessWidget {
   }
 }
 
-/// Animated onboarding flow with smooth transitions
-class _OnboardingFlow extends StatelessWidget {
-  const _OnboardingFlow({
-    required this.state,
-    required this.isSignedIn,
-    required this.isEntitled,
-  });
+/// Animated onboarding flow with smooth transitions.
+/// Converted to ConsumerWidget to auto-advance auth/paywall steps.
+class _OnboardingFlow extends ConsumerWidget {
+  const _OnboardingFlow({required this.state});
 
   final OnboardingState state;
-  final bool isSignedIn;
-  final bool isEntitled;
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
+    final authState = ref.watch(appAuthProvider);
+    final subState = ref.watch(appSubscriptionProvider);
+
+    // Auto-advance: if we're on auth step but already signed in, skip forward
+    if (state.currentStep == OnboardingStep.auth && authState.isSignedIn) {
+      Future.microtask(
+        () => ref.read(onboardingProvider.notifier).finishAuth(),
+      );
+    }
+
+    // Auto-advance: if we're on paywall step but already entitled, skip forward
+    if (state.currentStep == OnboardingStep.paywall && subState.entitled) {
+      Future.microtask(
+        () => ref.read(onboardingProvider.notifier).finishPaywall(),
+      );
+    }
+
     return AnimatedSwitcher(
       duration: const Duration(milliseconds: 350),
       switchInCurve: Curves.easeOutCubic,
       switchOutCurve: Curves.easeInCubic,
       transitionBuilder: (child, animation) {
-        // Determine slide direction based on key comparison
         final slideIn = Tween<Offset>(
           begin: const Offset(0.15, 0),
           end: Offset.zero,
@@ -160,11 +158,15 @@ class _OnboardingFlow extends StatelessWidget {
   }
 
   Widget _buildCurrentScreen(OnboardingState state) {
-    // Use ValueKey to help AnimatedSwitcher detect changes
     switch (state.currentStep) {
       case OnboardingStep.welcome:
-        // Premium onboarding flow with splash, intro, and feature demos
         return const OnboardingScreen(key: ValueKey('onboarding'));
+      case OnboardingStep.auth:
+        return const OnboardingAuthScreen(key: ValueKey('auth'));
+      case OnboardingStep.paywall:
+        return const PaywallScreen(key: ValueKey('paywall'));
+      case OnboardingStep.connectSetup:
+        return const ConnectSetupScreen(key: ValueKey('connectSetup'));
       case OnboardingStep.macSetup:
         return const SetupGuideScreen(key: ValueKey('setup'));
       case OnboardingStep.networkCheck:
@@ -173,12 +175,6 @@ class _OnboardingFlow extends StatelessWidget {
         return const TailscaleCheckScreen(key: ValueKey('tailscale'));
       case OnboardingStep.scanner:
       case OnboardingStep.complete:
-        if (!isSignedIn) {
-          return const AuthScreen(key: ValueKey('auth'));
-        }
-        if (!isEntitled) {
-          return const PaywallScreen(key: ValueKey('paywall'));
-        }
         return const _OnboardingScanWrapper(key: ValueKey('scan'));
     }
   }

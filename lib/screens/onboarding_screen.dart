@@ -23,8 +23,8 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
   int _currentPage = 0;
   final PageController _pageController = PageController();
 
-  // Total pages: Splash(0), Architecture(1), Feature1(2), Feature2(3), Terminal(4), SafetyNet(5), ZeroTelemetry(6), GetStarted(7), Auth(8)
-  static const int _totalPages = 9;
+  // Total pages: Splash(0), Architecture(1), Feature1(2), Feature2(3), Terminal(4), SafetyNet(5), ZeroTelemetry(6)
+  static const int _totalPages = 7;
 
   void _goToPage(int page) {
     if (page < 0 || page >= _totalPages) return;
@@ -41,12 +41,8 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
     }
   }
 
-  void _completeOnboarding({required bool hasBridge}) {
-    if (hasBridge) {
-      ref.read(onboardingProvider.notifier).setHasMacSetup(true);
-    } else {
-      ref.read(onboardingProvider.notifier).setHasMacSetup(false);
-    }
+  void _finishIntro() {
+    ref.read(onboardingProvider.notifier).finishIntro();
   }
 
   @override
@@ -102,25 +98,11 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
             onContinue: _nextPage,
           ),
 
-          // Page 6: Zero Telemetry
+          // Page 6: Zero Telemetry (last page — transitions to auth step)
           _ZeroTelemetryPage(
             currentPage: _currentPage,
             totalPages: _totalPages,
-            onContinue: _nextPage,
-          ),
-
-          // Page 7: Get Started
-          _GetStartedPage(
-            currentPage: _currentPage,
-            totalPages: _totalPages,
-            onSetupNeeded: () => _completeOnboarding(hasBridge: false),
-            onAlreadySetup: () => _completeOnboarding(hasBridge: true),
-          ),
-
-          // Page 8: Auth (Identify Yourself)
-          _IdentifyYourselfPage(
-            currentPage: _currentPage,
-            totalPages: _totalPages,
+            onContinue: _finishIntro,
           ),
         ],
       ),

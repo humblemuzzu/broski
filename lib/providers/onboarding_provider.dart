@@ -3,6 +3,9 @@ import 'package:shared_preferences/shared_preferences.dart';
 
 enum OnboardingStep {
   welcome,
+  auth,
+  paywall,
+  connectSetup,
   macSetup,
   networkCheck,
   tailscaleCheck,
@@ -67,6 +70,21 @@ class OnboardingNotifier extends StateNotifier<OnboardingState> {
     state = state.copyWith(currentStep: OnboardingStep.welcome);
   }
 
+  /// Called when the intro PageView finishes → advance to auth.
+  void finishIntro() {
+    state = state.copyWith(currentStep: OnboardingStep.auth);
+  }
+
+  /// Called after successful sign-in → advance to paywall.
+  void finishAuth() {
+    state = state.copyWith(currentStep: OnboardingStep.paywall);
+  }
+
+  /// Called after subscription confirmed → advance to connect setup.
+  void finishPaywall() {
+    state = state.copyWith(currentStep: OnboardingStep.connectSetup);
+  }
+
   void setHasMacSetup(bool value) {
     state = state.copyWith(
       hasMacSetup: value,
@@ -95,11 +113,20 @@ class OnboardingNotifier extends StateNotifier<OnboardingState> {
 
   void goBack() {
     switch (state.currentStep) {
-      case OnboardingStep.macSetup:
+      case OnboardingStep.auth:
         state = state.copyWith(currentStep: OnboardingStep.welcome);
         break;
+      case OnboardingStep.paywall:
+        // Can't meaningfully go back from paywall (already signed in)
+        break;
+      case OnboardingStep.connectSetup:
+        // Can't go back past paywall
+        break;
+      case OnboardingStep.macSetup:
+        state = state.copyWith(currentStep: OnboardingStep.connectSetup);
+        break;
       case OnboardingStep.networkCheck:
-        state = state.copyWith(currentStep: OnboardingStep.welcome);
+        state = state.copyWith(currentStep: OnboardingStep.connectSetup);
         break;
       case OnboardingStep.tailscaleCheck:
         state = state.copyWith(currentStep: OnboardingStep.networkCheck);
