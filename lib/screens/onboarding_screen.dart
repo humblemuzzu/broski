@@ -140,13 +140,17 @@ class _StepDots extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    // Don't show on splash page
-    if (currentPage == 0) return const SizedBox.shrink();
+    // Don't show on splash page or auth page
+    if (currentPage == 0 || currentPage >= totalPages - 1) {
+      return const SizedBox.shrink();
+    }
 
+    // Dots for pages 1..totalPages-2 (exclude splash at 0 and auth at last)
+    final dotCount = totalPages - 2;
     return Row(
       mainAxisAlignment: MainAxisAlignment.center,
-      children: List.generate(totalPages - 1, (index) {
-        // Skip splash in count (index 0 maps to page 1, etc.)
+      children: List.generate(dotCount, (index) {
+        // index 0 maps to page 1, etc.
         final pageIndex = index + 1;
         final isActive = pageIndex == currentPage;
         final isCompleted = pageIndex < currentPage;
@@ -2991,11 +2995,14 @@ class _GetStartedPageState extends State<_GetStartedPage>
     );
   }
 
+  // GetStarted is page 7 (fixed index, not totalPages-1)
+  static const _pageIndex = 7;
+
   @override
   void didUpdateWidget(_GetStartedPage oldWidget) {
     super.didUpdateWidget(oldWidget);
-    if (widget.currentPage == widget.totalPages - 1 &&
-        oldWidget.currentPage != widget.totalPages - 1) {
+    if (widget.currentPage == _pageIndex &&
+        oldWidget.currentPage != _pageIndex) {
       _controller.forward(from: 0);
     }
   }
@@ -3011,8 +3018,7 @@ class _GetStartedPageState extends State<_GetStartedPage>
     final screenSize = MediaQuery.of(context).size;
     final isTablet = screenSize.width > 600;
 
-    if (widget.currentPage == widget.totalPages - 1 &&
-        !_controller.isAnimating) {
+    if (widget.currentPage == _pageIndex && !_controller.isAnimating) {
       _controller.forward(from: 0);
     }
 

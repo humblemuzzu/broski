@@ -179,7 +179,37 @@ class _OnboardingFlow extends StatelessWidget {
         if (!isEntitled) {
           return const PaywallScreen(key: ValueKey('paywall'));
         }
-        return const ScanScreen(key: ValueKey('scan'));
+        return const _OnboardingScanWrapper(key: ValueKey('scan'));
     }
+  }
+}
+
+/// Wraps [ScanScreen] during onboarding to detect when connection succeeds
+/// and automatically complete onboarding + transition to MainShell.
+///
+/// Without this, the RootScreen checks `hasCompletedOnboarding` before
+/// `isConnected`, so the code path that calls `completeOnboarding()` is
+/// unreachable during onboarding — trapping the user on the scan screen.
+class _OnboardingScanWrapper extends ConsumerWidget {
+  const _OnboardingScanWrapper({super.key});
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final connectionState = ref.watch(connectionProvider);
+
+    // Connection succeeded during onboarding — complete it and show MainShell
+    if (connectionState.isConnected) {
+      Future.microtask(() {
+        ref.read(onboardingProvider.notifier).completeOnboarding();
+      });
+      return const MainShell();
+    }
+
+    // Still connecting — show progress
+    if (connectionState.isConnecting) {
+      return const ConnectScreen();
+    }
+
+    return const ScanScreen();
   }
 }
