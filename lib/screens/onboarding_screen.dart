@@ -17,8 +17,8 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
   int _currentPage = 0;
   final PageController _pageController = PageController();
 
-  // Total pages: Splash(0), Architecture(1), Feature1(2), Feature2(3), Feature3(4), GetStarted(5)
-  static const int _totalPages = 6;
+  // Total pages: Splash(0), Architecture(1), Feature1(2), Feature2(3), Terminal(4), SafetyNet(5), ZeroTelemetry(6), GetStarted(7)
+  static const int _totalPages = 8;
 
   void _goToPage(int page) {
     if (page < 0 || page >= _totalPages) return;
@@ -75,35 +75,35 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
             onContinue: _nextPage,
           ),
 
-          // Page 3: Feature - Approve Commands
-          _FeaturePage(
-            pageIndex: 3,
+          // Page 3: Superpowers (Instant Alerts + Voice to Code)
+          _SuperpowersPage(
             currentPage: _currentPage,
             totalPages: _totalPages,
-            icon: Icons.terminal_rounded,
-            iconGradient: const [Color(0xFF10B981), Color(0xFF059669)],
-            title: 'Approve Commands',
-            subtitle:
-                'Get notified when your agent needs permission. Review shell commands and approve with a tap.',
-            mockupChild: const _TerminalMockup(),
             onContinue: _nextPage,
           ),
 
-          // Page 4: Feature - Track Changes
-          _FeaturePage(
-            pageIndex: 4,
+          // Page 4: Full Terminal
+          _FullTerminalPage(
             currentPage: _currentPage,
             totalPages: _totalPages,
-            icon: Icons.difference_rounded,
-            iconGradient: const [Color(0xFFF59E0B), Color(0xFFD97706)],
-            title: 'Track Changes',
-            subtitle:
-                'See every file your agent touches. Review diffs, browse the filesystem, and monitor progress live.',
-            mockupChild: const _DiffMockup(),
             onContinue: _nextPage,
           ),
 
-          // Page 5: Get Started
+          // Page 5: Safety Net (Rollback / Undo)
+          _SafetyNetPage(
+            currentPage: _currentPage,
+            totalPages: _totalPages,
+            onContinue: _nextPage,
+          ),
+
+          // Page 6: Zero Telemetry
+          _ZeroTelemetryPage(
+            currentPage: _currentPage,
+            totalPages: _totalPages,
+            onContinue: _nextPage,
+          ),
+
+          // Page 7: Get Started
           _GetStartedPage(
             currentPage: _currentPage,
             totalPages: _totalPages,
@@ -1131,7 +1131,379 @@ class _GridLinesPainter extends CustomPainter {
 }
 
 // =============================================================================
-// FEATURE PAGES (3, 4)
+// PAGE 3: SUPERPOWERS (Instant Alerts + Voice to Code)
+// =============================================================================
+
+class _SuperpowersPage extends StatefulWidget {
+  const _SuperpowersPage({
+    required this.currentPage,
+    required this.totalPages,
+    required this.onContinue,
+  });
+
+  final int currentPage;
+  final int totalPages;
+  final VoidCallback onContinue;
+
+  @override
+  State<_SuperpowersPage> createState() => _SuperpowersPageState();
+}
+
+class _SuperpowersPageState extends State<_SuperpowersPage>
+    with SingleTickerProviderStateMixin {
+  late AnimationController _controller;
+
+  @override
+  void initState() {
+    super.initState();
+    _controller = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 800),
+    );
+  }
+
+  @override
+  void didUpdateWidget(_SuperpowersPage oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (widget.currentPage == 3 && oldWidget.currentPage != 3) {
+      _controller.forward(from: 0);
+    }
+  }
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    if (widget.currentPage == 3 && !_controller.isAnimating) {
+      _controller.forward(from: 0);
+    }
+
+    return Container(
+      color: Colors.black,
+      child: SafeArea(
+        child: FadeTransition(
+          opacity: CurvedAnimation(
+            parent: _controller,
+            curve: const Interval(0.0, 0.6, curve: Curves.easeOut),
+          ),
+          child: Column(
+            children: [
+              // ---- TOP HALF: Instant Alerts ----
+              Expanded(
+                child: Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 28),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      const Spacer(flex: 2),
+                      // Floating notification toast — slightly left of content, wide
+                      Transform.translate(
+                        offset: const Offset(-14, 0),
+                        child: SizedBox(
+                          width: MediaQuery.of(context).size.width - 28,
+                          child: Container(
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 16,
+                              vertical: 16,
+                            ),
+                            decoration: BoxDecoration(
+                              color: Colors.white.withValues(alpha: 0.08),
+                              borderRadius: BorderRadius.circular(20),
+                              border: Border.all(
+                                color: Colors.white.withValues(alpha: 0.06),
+                              ),
+                            ),
+                            child: Row(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                // Broski logo
+                                ClipRRect(
+                                  borderRadius: BorderRadius.circular(8),
+                                  child: Image.asset(
+                                    'docs/assets/broski-icon.png',
+                                    width: 32,
+                                    height: 32,
+                                    fit: BoxFit.cover,
+                                  ),
+                                ),
+                                const SizedBox(width: 10),
+                                Expanded(
+                                  child: Column(
+                                    crossAxisAlignment:
+                                        CrossAxisAlignment.start,
+                                    children: [
+                                      Row(
+                                        children: [
+                                          const Text(
+                                            'BROSKI',
+                                            style: TextStyle(
+                                              fontSize: 11,
+                                              fontWeight: FontWeight.w700,
+                                              color: Colors.white,
+                                              letterSpacing: 0.8,
+                                            ),
+                                          ),
+                                          const SizedBox(width: 6),
+                                          Text(
+                                            '\u2022 NOW',
+                                            style: TextStyle(
+                                              fontSize: 11,
+                                              fontWeight: FontWeight.w500,
+                                              color: Colors.white.withValues(
+                                                alpha: 0.35,
+                                              ),
+                                              letterSpacing: 0.5,
+                                            ),
+                                          ),
+                                        ],
+                                      ),
+                                      const SizedBox(height: 5),
+                                      const Text(
+                                        'Build Successful',
+                                        style: TextStyle(
+                                          fontSize: 15,
+                                          fontWeight: FontWeight.w600,
+                                          color: Colors.white,
+                                        ),
+                                      ),
+                                      const SizedBox(height: 3),
+                                      Text(
+                                        'Agent corrected 3 errors in auth.ts. Ready to deploy.',
+                                        style: TextStyle(
+                                          fontSize: 14,
+                                          color: Colors.white.withValues(
+                                            alpha: 0.50,
+                                          ),
+                                          height: 1.35,
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                        ),
+                      ),
+                      const SizedBox(height: 22),
+                      // Title + subtitle
+                      const Text(
+                        'Instant Alerts.',
+                        style: TextStyle(
+                          fontSize: 30,
+                          fontWeight: FontWeight.w800,
+                          color: Colors.white,
+                          letterSpacing: -0.3,
+                        ),
+                      ),
+                      const SizedBox(height: 8),
+                      Text(
+                        "Step away. We'll ping you when the\nagent fixes the bug.",
+                        style: TextStyle(
+                          fontSize: 18,
+                          color: Colors.white.withValues(alpha: 0.55),
+                          height: 1.45,
+                        ),
+                      ),
+                      const Spacer(flex: 2),
+                    ],
+                  ),
+                ),
+              ),
+              // ---- Divider ----
+              Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 20),
+                child: Container(
+                  width: double.infinity,
+                  height: 0.5,
+                  color: Colors.white.withValues(alpha: 0.08),
+                ),
+              ),
+              // ---- BOTTOM HALF: Voice to Code ----
+              Expanded(child: _VoiceSection(onContinue: widget.onContinue)),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+/// Bottom half — waveform centered + title/subtitle + Next button
+class _VoiceSection extends StatefulWidget {
+  const _VoiceSection({required this.onContinue});
+
+  final VoidCallback onContinue;
+
+  @override
+  State<_VoiceSection> createState() => _VoiceSectionState();
+}
+
+class _VoiceSectionState extends State<_VoiceSection>
+    with SingleTickerProviderStateMixin {
+  late AnimationController _waveController;
+
+  @override
+  void initState() {
+    super.initState();
+    _waveController = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 1400),
+    )..repeat(reverse: true);
+  }
+
+  @override
+  void dispose() {
+    _waveController.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 28),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const Spacer(flex: 2),
+          // Compact centered waveform — nudged 5px up
+          Transform.translate(
+            offset: const Offset(0, -5),
+            child: Center(
+              child: SizedBox(
+                width: 110,
+                height: 40,
+                child: AnimatedBuilder(
+                  animation: _waveController,
+                  builder: (context, _) {
+                    return CustomPaint(
+                      size: const Size(110, 40),
+                      painter: _WaveformPainter(
+                        progress: _waveController.value,
+                      ),
+                    );
+                  },
+                ),
+              ),
+            ),
+          ),
+          const Spacer(flex: 1),
+          // Title + subtitle
+          const Text(
+            'Voice to Code.',
+            style: TextStyle(
+              fontSize: 30,
+              fontWeight: FontWeight.w800,
+              color: Colors.white,
+              letterSpacing: -0.3,
+            ),
+          ),
+          const SizedBox(height: 8),
+          Text(
+            'Dictate complex logic. The bridge parses\nnatural language into syntax.',
+            style: TextStyle(
+              fontSize: 18,
+              color: Colors.white.withValues(alpha: 0.55),
+              height: 1.45,
+            ),
+          ),
+          const SizedBox(height: 24),
+          // Next button
+          GestureDetector(
+            onTap: () {
+              HapticFeedback.lightImpact();
+              widget.onContinue();
+            },
+            child: Container(
+              width: double.infinity,
+              height: 58,
+              decoration: BoxDecoration(
+                color: Colors.white,
+                borderRadius: BorderRadius.circular(29),
+              ),
+              child: const Center(
+                child: Text(
+                  'Next',
+                  style: TextStyle(
+                    fontSize: 17,
+                    fontWeight: FontWeight.w600,
+                    color: Colors.black,
+                    letterSpacing: 0.2,
+                  ),
+                ),
+              ),
+            ),
+          ),
+          const SizedBox(height: 32),
+        ],
+      ),
+    );
+  }
+}
+
+/// Waveform: ~11 bars, wave starts from outside edges and moves inward.
+/// Outer bars tall, dip in middle, center bars tall — animates smoothly.
+class _WaveformPainter extends CustomPainter {
+  _WaveformPainter({required this.progress});
+
+  final double progress;
+
+  static const _barCount = 11;
+  static const _pi = 3.14159265;
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final totalWidth = size.width;
+    final barSpacing = totalWidth / (_barCount + 1);
+    final maxH = size.height * 0.92;
+    final minH = size.height * 0.12;
+
+    final paint = Paint()
+      ..strokeCap = StrokeCap.round
+      ..strokeWidth = 4.0;
+
+    for (var i = 0; i < _barCount; i++) {
+      // Phase offset: outer bars lead, inner bars follow — wave travels inward
+      final center = (_barCount - 1) / 2.0;
+      final distFromEdge =
+          (center - (i - center).abs()) / center; // 0 at edge, 1 at center
+      final phase = distFromEdge * _pi * 1.2; // inner bars are delayed
+
+      final t = progress * _pi * 2 + phase;
+      final wave = ((_sin(t) + 1) / 2); // 0..1
+
+      final barHeight = minH + (maxH - minH) * wave;
+
+      final x = barSpacing * (i + 1);
+      final y1 = (size.height - barHeight) / 2;
+      final y2 = y1 + barHeight;
+
+      // Bright silver — high-alpha base with shiny peak on taller bars
+      final alpha = 0.55 + 0.45 * wave;
+      paint.color = const Color(0xFFD4D8E0).withValues(alpha: alpha);
+
+      canvas.drawLine(Offset(x, y1), Offset(x, y2), paint);
+    }
+  }
+
+  double _sin(double x) {
+    final xMod = x % (2 * _pi);
+    final norm = xMod < _pi ? xMod : (2 * _pi - xMod);
+    final t = norm / _pi;
+    return 4 * t * (1 - t) * (xMod < _pi ? 1 : -1);
+  }
+
+  @override
+  bool shouldRepaint(covariant _WaveformPainter oldDelegate) =>
+      oldDelegate.progress != progress;
+}
+
+// =============================================================================
+// FEATURE PAGES (4)
 // =============================================================================
 
 class _FeaturePage extends StatefulWidget {
@@ -1320,7 +1692,1261 @@ class _FeaturePageState extends State<_FeaturePage>
 }
 
 // =============================================================================
-// PAGE 5: GET STARTED
+// PAGE 4: FULL TERMINAL
+// =============================================================================
+
+class _FullTerminalPage extends StatefulWidget {
+  const _FullTerminalPage({
+    required this.currentPage,
+    required this.totalPages,
+    required this.onContinue,
+  });
+
+  final int currentPage;
+  final int totalPages;
+  final VoidCallback onContinue;
+
+  @override
+  State<_FullTerminalPage> createState() => _FullTerminalPageState();
+}
+
+class _FullTerminalPageState extends State<_FullTerminalPage>
+    with SingleTickerProviderStateMixin {
+  late AnimationController _controller;
+
+  @override
+  void initState() {
+    super.initState();
+    _controller = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 800),
+    );
+  }
+
+  @override
+  void didUpdateWidget(_FullTerminalPage oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (widget.currentPage == 4 && oldWidget.currentPage != 4) {
+      _controller.forward(from: 0);
+    }
+  }
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    if (widget.currentPage == 4 && !_controller.isAnimating) {
+      _controller.forward(from: 0);
+    }
+
+    return Container(
+      color: Colors.black,
+      child: SafeArea(
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 28),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              const SizedBox(height: 32),
+              // ── Title: "Full Terminal.\nNo Laptop\nRequired."
+              FadeTransition(
+                opacity: CurvedAnimation(
+                  parent: _controller,
+                  curve: const Interval(0.0, 0.5, curve: Curves.easeOut),
+                ),
+                child: SlideTransition(
+                  position:
+                      Tween<Offset>(
+                        begin: const Offset(0, 0.12),
+                        end: Offset.zero,
+                      ).animate(
+                        CurvedAnimation(
+                          parent: _controller,
+                          curve: const Interval(
+                            0.0,
+                            0.5,
+                            curve: Curves.easeOutCubic,
+                          ),
+                        ),
+                      ),
+                  child: const Text.rich(
+                    TextSpan(
+                      children: [
+                        TextSpan(
+                          text: 'Full Terminal.\n',
+                          style: TextStyle(
+                            fontSize: 42,
+                            fontWeight: FontWeight.w900,
+                            color: Colors.white,
+                            height: 1.08,
+                            letterSpacing: -1,
+                          ),
+                        ),
+                        TextSpan(
+                          text: 'No Laptop\nRequired.',
+                          style: TextStyle(
+                            fontSize: 42,
+                            fontWeight: FontWeight.w900,
+                            color: Color(0xFF555555),
+                            height: 1.08,
+                            letterSpacing: -1,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+              ),
+              const SizedBox(height: 24),
+              // ── Terminal mockup card
+              Expanded(
+                child: FadeTransition(
+                  opacity: CurvedAnimation(
+                    parent: _controller,
+                    curve: const Interval(0.15, 0.65, curve: Curves.easeOut),
+                  ),
+                  child: SlideTransition(
+                    position:
+                        Tween<Offset>(
+                          begin: const Offset(0, 0.08),
+                          end: Offset.zero,
+                        ).animate(
+                          CurvedAnimation(
+                            parent: _controller,
+                            curve: const Interval(
+                              0.15,
+                              0.65,
+                              curve: Curves.easeOutCubic,
+                            ),
+                          ),
+                        ),
+                    child: const _TerminalWindowCard(),
+                  ),
+                ),
+              ),
+              const SizedBox(height: 20),
+              // ── Subtitle
+              FadeTransition(
+                opacity: CurvedAnimation(
+                  parent: _controller,
+                  curve: const Interval(0.35, 0.85, curve: Curves.easeOut),
+                ),
+                child: Text(
+                  "SSH, PTY, full shell access. It's not a simulation.\nIt's your actual machine, in your pocket.",
+                  style: TextStyle(
+                    fontSize: 16,
+                    color: Colors.white.withValues(alpha: 0.55),
+                    height: 1.45,
+                  ),
+                ),
+              ),
+              const SizedBox(height: 20),
+              // ── "Continue" button
+              FadeTransition(
+                opacity: CurvedAnimation(
+                  parent: _controller,
+                  curve: const Interval(0.5, 1.0, curve: Curves.easeOut),
+                ),
+                child: GestureDetector(
+                  onTap: () {
+                    HapticFeedback.lightImpact();
+                    widget.onContinue();
+                  },
+                  child: Container(
+                    width: double.infinity,
+                    height: 58,
+                    decoration: BoxDecoration(
+                      color: Colors.white,
+                      borderRadius: BorderRadius.circular(29),
+                    ),
+                    child: const Center(
+                      child: Text(
+                        'Continue',
+                        style: TextStyle(
+                          fontSize: 17,
+                          fontWeight: FontWeight.w600,
+                          color: Colors.black,
+                          letterSpacing: 0.2,
+                        ),
+                      ),
+                    ),
+                  ),
+                ),
+              ),
+              const SizedBox(height: 28),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+/// macOS-style terminal window card with colored output lines + blinking cursor.
+class _TerminalWindowCard extends StatefulWidget {
+  const _TerminalWindowCard();
+
+  @override
+  State<_TerminalWindowCard> createState() => _TerminalWindowCardState();
+}
+
+class _TerminalWindowCardState extends State<_TerminalWindowCard>
+    with SingleTickerProviderStateMixin {
+  late AnimationController _cursorController;
+
+  @override
+  void initState() {
+    super.initState();
+    _cursorController = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 600),
+    )..repeat(reverse: true);
+  }
+
+  @override
+  void dispose() {
+    _cursorController.dispose();
+    super.dispose();
+  }
+
+  // ── Figma-matched palette ──
+  static const _termBg = Color(0xFF2A2421);
+  static const _titleBarBg = Color(0xFF322D29);
+  static const _dotRed = Color(0xFFFF5F57);
+  static const _dotYellow = Color(0xFFFFBD2E);
+  static const _dotGreen = Color(0xFF28CA41);
+  static const _green = Color(0xFF50FA7B);
+  static const _blue = Color(0xFF8BE9FD);
+  static const _red = Color(0xFFFF6E6E);
+  static const _checkGreen = Color(0xFF50FA7B);
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      width: double.infinity,
+      decoration: BoxDecoration(
+        color: _termBg,
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(
+          color: Colors.white.withValues(alpha: 0.07),
+          width: 1,
+        ),
+      ),
+      child: ClipRRect(
+        borderRadius: BorderRadius.circular(11),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            // ── Title bar with traffic lights + "zsh -- 80x24"
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+              decoration: const BoxDecoration(
+                color: _titleBarBg,
+                border: Border(bottom: BorderSide(color: Color(0xFF3A3430))),
+              ),
+              child: Row(
+                children: [
+                  // Traffic lights
+                  Container(
+                    width: 13,
+                    height: 13,
+                    decoration: const BoxDecoration(
+                      color: _dotRed,
+                      shape: BoxShape.circle,
+                    ),
+                  ),
+                  const SizedBox(width: 8),
+                  Container(
+                    width: 13,
+                    height: 13,
+                    decoration: const BoxDecoration(
+                      color: _dotYellow,
+                      shape: BoxShape.circle,
+                    ),
+                  ),
+                  const SizedBox(width: 8),
+                  Container(
+                    width: 13,
+                    height: 13,
+                    decoration: const BoxDecoration(
+                      color: _dotGreen,
+                      shape: BoxShape.circle,
+                    ),
+                  ),
+                  const Spacer(),
+                  Text(
+                    'zsh \u2014 80x24',
+                    style: TextStyle(
+                      fontSize: 12,
+                      fontFamily: 'monospace',
+                      color: Colors.white.withValues(alpha: 0.5),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            // ── Terminal body (tight bottom padding)
+            Expanded(
+              child: Padding(
+                padding: const EdgeInsets.fromLTRB(16, 14, 16, 4),
+                child: SingleChildScrollView(
+                  physics: const NeverScrollableScrollPhysics(),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      // ── git status block
+                      _tPromptLine('~/project', 'git status'),
+                      _tLine('On branch main', null),
+                      _tLine('modified: src/App.tsx', _red),
+                      _tLine('modified: src/api/client.ts', _red),
+                      const SizedBox(height: 14),
+                      // ── npm run build block
+                      _tPromptLine('~/project', 'npm run build'),
+                      _tLine('> vite build', null),
+                      const SizedBox(height: 6),
+                      _tLine('vite v4.4.9 building for production...', null),
+                      _tLine(
+                        'transforming...',
+                        Colors.white.withValues(alpha: 0.45),
+                      ),
+                      _tColorLine(
+                        '\u2713 ',
+                        _checkGreen,
+                        '428 modules transformed.',
+                        _checkGreen,
+                      ),
+                      _tLine(
+                        'rendering chunks...',
+                        Colors.white.withValues(alpha: 0.45),
+                      ),
+                      _tSizeLine('dist/index.html', '0.45 kB'),
+                      _tSizeLine('dist/assets/index.js', '142.32 kB'),
+                      const SizedBox(height: 14),
+                      // ── firebase deploy + blinking cursor
+                      _tPromptLineWithCursor('~/project', 'firebase deploy'),
+                    ],
+                  ),
+                ),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  /// Prompt line: "-> ~/project command"
+  Widget _tPromptLine(String dir, String cmd) {
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 3),
+      child: Text.rich(
+        TextSpan(
+          children: [
+            const TextSpan(
+              text: '\u2192 ',
+              style: TextStyle(
+                fontSize: 13,
+                fontFamily: 'monospace',
+                color: _green,
+              ),
+            ),
+            TextSpan(
+              text: '$dir ',
+              style: const TextStyle(
+                fontSize: 13,
+                fontFamily: 'monospace',
+                color: _blue,
+              ),
+            ),
+            TextSpan(
+              text: cmd,
+              style: const TextStyle(
+                fontSize: 13,
+                fontFamily: 'monospace',
+                color: Colors.white,
+                fontWeight: FontWeight.w500,
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  /// Prompt line with a blinking block cursor at the end.
+  Widget _tPromptLineWithCursor(String dir, String cmd) {
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 3),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Text.rich(
+            TextSpan(
+              children: [
+                const TextSpan(
+                  text: '\u2192 ',
+                  style: TextStyle(
+                    fontSize: 13,
+                    fontFamily: 'monospace',
+                    color: _green,
+                  ),
+                ),
+                TextSpan(
+                  text: '$dir ',
+                  style: const TextStyle(
+                    fontSize: 13,
+                    fontFamily: 'monospace',
+                    color: _blue,
+                  ),
+                ),
+                TextSpan(
+                  text: cmd,
+                  style: const TextStyle(
+                    fontSize: 13,
+                    fontFamily: 'monospace',
+                    color: Colors.white,
+                    fontWeight: FontWeight.w500,
+                  ),
+                ),
+              ],
+            ),
+          ),
+          // Blinking block cursor
+          FadeTransition(
+            opacity: _cursorController,
+            child: Container(
+              width: 8,
+              height: 16,
+              margin: const EdgeInsets.only(left: 1),
+              color: Colors.white.withValues(alpha: 0.9),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  /// Plain text line with optional color override.
+  Widget _tLine(String text, Color? color) {
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 2),
+      child: Text(
+        text,
+        style: TextStyle(
+          fontSize: 13,
+          fontFamily: 'monospace',
+          color: color ?? Colors.white.withValues(alpha: 0.88),
+        ),
+      ),
+    );
+  }
+
+  /// Two-part colored line (e.g. checkmark + message).
+  Widget _tColorLine(
+    String prefix,
+    Color prefixColor,
+    String body,
+    Color bodyColor,
+  ) {
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 2),
+      child: Text.rich(
+        TextSpan(
+          children: [
+            TextSpan(
+              text: prefix,
+              style: TextStyle(
+                fontSize: 13,
+                fontFamily: 'monospace',
+                color: prefixColor,
+              ),
+            ),
+            TextSpan(
+              text: body,
+              style: TextStyle(
+                fontSize: 13,
+                fontFamily: 'monospace',
+                color: bodyColor,
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  /// File + size line (white filename, muted size).
+  Widget _tSizeLine(String filename, String size) {
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 2),
+      child: Text.rich(
+        TextSpan(
+          children: [
+            TextSpan(
+              text: filename,
+              style: const TextStyle(
+                fontSize: 13,
+                fontFamily: 'monospace',
+                color: Colors.white,
+                fontWeight: FontWeight.w500,
+              ),
+            ),
+            TextSpan(
+              text: '  $size',
+              style: TextStyle(
+                fontSize: 13,
+                fontFamily: 'monospace',
+                color: Colors.white.withValues(alpha: 0.45),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+// =============================================================================
+// PAGE 5: SAFETY NET (ROLLBACK / UNDO)
+// =============================================================================
+
+class _SafetyNetPage extends StatefulWidget {
+  const _SafetyNetPage({
+    required this.currentPage,
+    required this.totalPages,
+    required this.onContinue,
+  });
+
+  final int currentPage;
+  final int totalPages;
+  final VoidCallback onContinue;
+
+  @override
+  State<_SafetyNetPage> createState() => _SafetyNetPageState();
+}
+
+class _SafetyNetPageState extends State<_SafetyNetPage>
+    with SingleTickerProviderStateMixin {
+  late AnimationController _controller;
+
+  @override
+  void initState() {
+    super.initState();
+    _controller = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 800),
+    );
+  }
+
+  @override
+  void didUpdateWidget(_SafetyNetPage oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (widget.currentPage == 5 && oldWidget.currentPage != 5) {
+      _controller.forward(from: 0);
+    }
+  }
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    if (widget.currentPage == 5 && !_controller.isAnimating) {
+      _controller.forward(from: 0);
+    }
+
+    return Container(
+      color: Colors.black,
+      child: SafeArea(
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 28),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              const SizedBox(height: 32),
+              // ── Title: "Agent broke it?\nOne tap. Gone."
+              FadeTransition(
+                opacity: CurvedAnimation(
+                  parent: _controller,
+                  curve: const Interval(0.0, 0.5, curve: Curves.easeOut),
+                ),
+                child: SlideTransition(
+                  position:
+                      Tween<Offset>(
+                        begin: const Offset(0, 0.12),
+                        end: Offset.zero,
+                      ).animate(
+                        CurvedAnimation(
+                          parent: _controller,
+                          curve: const Interval(
+                            0.0,
+                            0.5,
+                            curve: Curves.easeOutCubic,
+                          ),
+                        ),
+                      ),
+                  child: const Text.rich(
+                    TextSpan(
+                      children: [
+                        TextSpan(
+                          text: 'Agent broke it?\n',
+                          style: TextStyle(
+                            fontSize: 42,
+                            fontWeight: FontWeight.w900,
+                            color: Colors.white,
+                            height: 1.08,
+                            letterSpacing: -1,
+                          ),
+                        ),
+                        TextSpan(
+                          text: 'One tap. Gone.',
+                          style: TextStyle(
+                            fontSize: 42,
+                            fontWeight: FontWeight.w900,
+                            color: Color(0xFFFF6B6B),
+                            height: 1.08,
+                            letterSpacing: -1,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+              ),
+              const SizedBox(height: 20),
+              // ── Session History mockup card
+              Expanded(
+                child: FadeTransition(
+                  opacity: CurvedAnimation(
+                    parent: _controller,
+                    curve: const Interval(0.15, 0.65, curve: Curves.easeOut),
+                  ),
+                  child: SlideTransition(
+                    position:
+                        Tween<Offset>(
+                          begin: const Offset(0, 0.08),
+                          end: Offset.zero,
+                        ).animate(
+                          CurvedAnimation(
+                            parent: _controller,
+                            curve: const Interval(
+                              0.15,
+                              0.65,
+                              curve: Curves.easeOutCubic,
+                            ),
+                          ),
+                        ),
+                    child: const _SessionHistoryCard(),
+                  ),
+                ),
+              ),
+              const SizedBox(height: 20),
+              // ── Subtitle
+              FadeTransition(
+                opacity: CurvedAnimation(
+                  parent: _controller,
+                  curve: const Interval(0.35, 0.85, curve: Curves.easeOut),
+                ),
+                child: Text(
+                  'Fearless experimentation. We snapshot every agent action so you can revert instantly. No broken builds.',
+                  style: TextStyle(
+                    fontSize: 16,
+                    color: Colors.white.withValues(alpha: 0.55),
+                    height: 1.45,
+                  ),
+                ),
+              ),
+              const SizedBox(height: 20),
+              // ── "Get The Safety Net" button
+              FadeTransition(
+                opacity: CurvedAnimation(
+                  parent: _controller,
+                  curve: const Interval(0.5, 1.0, curve: Curves.easeOut),
+                ),
+                child: GestureDetector(
+                  onTap: () {
+                    HapticFeedback.lightImpact();
+                    widget.onContinue();
+                  },
+                  child: Container(
+                    width: double.infinity,
+                    height: 58,
+                    decoration: BoxDecoration(
+                      color: Colors.white,
+                      borderRadius: BorderRadius.circular(29),
+                    ),
+                    child: const Center(
+                      child: Text(
+                        'Get The Safety Net',
+                        style: TextStyle(
+                          fontSize: 17,
+                          fontWeight: FontWeight.w600,
+                          color: Colors.black,
+                          letterSpacing: 0.2,
+                        ),
+                      ),
+                    ),
+                  ),
+                ),
+              ),
+              const SizedBox(height: 28),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+/// Floating session history card with red/green glow and rollback entries.
+class _SessionHistoryCard extends StatelessWidget {
+  const _SessionHistoryCard();
+
+  @override
+  Widget build(BuildContext context) {
+    return Stack(
+      children: [
+        // ── Red glow at top
+        Positioned(
+          top: 0,
+          left: 20,
+          right: 20,
+          height: 100,
+          child: Container(
+            decoration: BoxDecoration(
+              gradient: RadialGradient(
+                center: Alignment.topCenter,
+                radius: 1.2,
+                colors: [
+                  const Color(0xFFFF4444).withValues(alpha: 0.18),
+                  Colors.transparent,
+                ],
+              ),
+            ),
+          ),
+        ),
+        // ── Green glow at bottom
+        Positioned(
+          bottom: 0,
+          left: 20,
+          right: 20,
+          height: 100,
+          child: Container(
+            decoration: BoxDecoration(
+              gradient: RadialGradient(
+                center: Alignment.bottomCenter,
+                radius: 1.2,
+                colors: [
+                  const Color(0xFF50FA7B).withValues(alpha: 0.10),
+                  Colors.transparent,
+                ],
+              ),
+            ),
+          ),
+        ),
+        // ── Card
+        Center(
+          child: Container(
+            width: double.infinity,
+            margin: const EdgeInsets.symmetric(vertical: 24),
+            padding: const EdgeInsets.fromLTRB(20, 22, 20, 22),
+            decoration: BoxDecoration(
+              color: const Color(0xFF161616),
+              borderRadius: BorderRadius.circular(16),
+              border: Border.all(
+                color: Colors.white.withValues(alpha: 0.08),
+                width: 1,
+              ),
+            ),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                // ── Header: "Session History" + "Now" badge
+                Row(
+                  children: [
+                    const Text(
+                      'Session History',
+                      style: TextStyle(
+                        fontSize: 18,
+                        fontWeight: FontWeight.w700,
+                        color: Colors.white,
+                        letterSpacing: -0.2,
+                      ),
+                    ),
+                    const Spacer(),
+                    Container(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 12,
+                        vertical: 5,
+                      ),
+                      decoration: BoxDecoration(
+                        color: Colors.white.withValues(alpha: 0.1),
+                        borderRadius: BorderRadius.circular(8),
+                      ),
+                      child: Text(
+                        'Now',
+                        style: TextStyle(
+                          fontSize: 13,
+                          fontWeight: FontWeight.w500,
+                          color: Colors.white.withValues(alpha: 0.6),
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 22),
+                // ── Entry 1: Modified auth.ts (error)
+                Row(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    // Red dot + vertical line
+                    Column(
+                      children: [
+                        Container(
+                          width: 10,
+                          height: 10,
+                          decoration: const BoxDecoration(
+                            color: Color(0xFFFF4444),
+                            shape: BoxShape.circle,
+                          ),
+                        ),
+                        Container(
+                          width: 1.5,
+                          height: 32,
+                          color: Colors.white.withValues(alpha: 0.08),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(width: 14),
+                    // Text
+                    Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        const Text(
+                          'Modified auth.ts',
+                          style: TextStyle(
+                            fontSize: 14,
+                            fontFamily: 'monospace',
+                            color: Color(0xFFFF6B6B),
+                            fontWeight: FontWeight.w500,
+                          ),
+                        ),
+                        const SizedBox(height: 3),
+                        Text(
+                          'Caused 2 errors',
+                          style: TextStyle(
+                            fontSize: 12,
+                            color: Colors.white.withValues(alpha: 0.4),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 10),
+                // ── Entry 2: Rolled back to clean state (success)
+                Row(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    // Green dot
+                    Container(
+                      width: 10,
+                      height: 10,
+                      margin: const EdgeInsets.only(top: 2),
+                      decoration: const BoxDecoration(
+                        color: Color(0xFF50FA7B),
+                        shape: BoxShape.circle,
+                      ),
+                    ),
+                    const SizedBox(width: 14),
+                    // Text
+                    Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        const Text(
+                          'Rolled back to clean state',
+                          style: TextStyle(
+                            fontSize: 14,
+                            fontFamily: 'monospace',
+                            color: Color(0xFF50FA7B),
+                            fontWeight: FontWeight.w500,
+                          ),
+                        ),
+                        const SizedBox(height: 3),
+                        Text(
+                          'Restored v2.4.1',
+                          style: TextStyle(
+                            fontSize: 12,
+                            color: Colors.white.withValues(alpha: 0.4),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 24),
+                // ── "Undo Last Action" button
+                Container(
+                  width: double.infinity,
+                  height: 48,
+                  decoration: BoxDecoration(
+                    color: Colors.white.withValues(alpha: 0.1),
+                    borderRadius: BorderRadius.circular(12),
+                    border: Border.all(
+                      color: Colors.white.withValues(alpha: 0.06),
+                    ),
+                  ),
+                  child: Row(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      Icon(
+                        Icons.replay_rounded,
+                        size: 18,
+                        color: Colors.white.withValues(alpha: 0.8),
+                      ),
+                      const SizedBox(width: 10),
+                      Text(
+                        'Undo Last Action',
+                        style: TextStyle(
+                          fontSize: 15,
+                          fontWeight: FontWeight.w600,
+                          color: Colors.white.withValues(alpha: 0.85),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+// =============================================================================
+// PAGE 6: ZERO TELEMETRY
+// =============================================================================
+
+class _ZeroTelemetryPage extends StatefulWidget {
+  const _ZeroTelemetryPage({
+    required this.currentPage,
+    required this.totalPages,
+    required this.onContinue,
+  });
+
+  final int currentPage;
+  final int totalPages;
+  final VoidCallback onContinue;
+
+  @override
+  State<_ZeroTelemetryPage> createState() => _ZeroTelemetryPageState();
+}
+
+class _ZeroTelemetryPageState extends State<_ZeroTelemetryPage>
+    with SingleTickerProviderStateMixin {
+  late AnimationController _controller;
+
+  @override
+  void initState() {
+    super.initState();
+    _controller = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 800),
+    );
+  }
+
+  @override
+  void didUpdateWidget(_ZeroTelemetryPage oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (widget.currentPage == 6 && oldWidget.currentPage != 6) {
+      _controller.forward(from: 0);
+    }
+  }
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    if (widget.currentPage == 6 && !_controller.isAnimating) {
+      _controller.forward(from: 0);
+    }
+
+    return Container(
+      color: Colors.black,
+      child: SafeArea(
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            // ── Crystal / shield illustration (top half)
+            Expanded(
+              flex: 5,
+              child: FadeTransition(
+                opacity: CurvedAnimation(
+                  parent: _controller,
+                  curve: const Interval(0.0, 0.5, curve: Curves.easeOut),
+                ),
+                child: ScaleTransition(
+                  scale: Tween<double>(begin: 0.9, end: 1.0).animate(
+                    CurvedAnimation(
+                      parent: _controller,
+                      curve: const Interval(
+                        0.0,
+                        0.5,
+                        curve: Curves.easeOutCubic,
+                      ),
+                    ),
+                  ),
+                  child: Center(
+                    child: Column(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        // Shield image
+                        Image.asset(
+                          'docs/assets/Abstract dark minimalist 3d geometric shapes, black and white high contrast, shield and lock concept, futuristic technology abstract.png',
+                          width: 220,
+                          height: 220,
+                          fit: BoxFit.contain,
+                        ),
+                        const SizedBox(height: 16),
+                        // "LOCALHOST:3000" pill
+                        Container(
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 18,
+                            vertical: 8,
+                          ),
+                          decoration: BoxDecoration(
+                            color: Colors.white.withValues(alpha: 0.07),
+                            borderRadius: BorderRadius.circular(20),
+                            border: Border.all(
+                              color: Colors.white.withValues(alpha: 0.08),
+                            ),
+                          ),
+                          child: Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              Container(
+                                width: 8,
+                                height: 8,
+                                decoration: const BoxDecoration(
+                                  color: Color(0xFF50FA7B),
+                                  shape: BoxShape.circle,
+                                ),
+                              ),
+                              const SizedBox(width: 10),
+                              const Text(
+                                'LOCALHOST:3000',
+                                style: TextStyle(
+                                  fontSize: 14,
+                                  fontFamily: 'monospace',
+                                  fontWeight: FontWeight.w600,
+                                  color: Colors.white,
+                                  letterSpacing: 1.5,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+              ),
+            ),
+            // ── Bottom content
+            Expanded(
+              flex: 4,
+              child: Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 28),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    // ── Title: "Zero Telemetry."
+                    FadeTransition(
+                      opacity: CurvedAnimation(
+                        parent: _controller,
+                        curve: const Interval(0.2, 0.6, curve: Curves.easeOut),
+                      ),
+                      child: SlideTransition(
+                        position:
+                            Tween<Offset>(
+                              begin: const Offset(0, 0.12),
+                              end: Offset.zero,
+                            ).animate(
+                              CurvedAnimation(
+                                parent: _controller,
+                                curve: const Interval(
+                                  0.2,
+                                  0.6,
+                                  curve: Curves.easeOutCubic,
+                                ),
+                              ),
+                            ),
+                        child: const Text(
+                          'Zero Telemetry.',
+                          style: TextStyle(
+                            fontSize: 38,
+                            fontWeight: FontWeight.w900,
+                            color: Colors.white,
+                            height: 1.1,
+                            letterSpacing: -0.8,
+                          ),
+                        ),
+                      ),
+                    ),
+                    const SizedBox(height: 20),
+                    // ── Feature row 1: Local Execution
+                    FadeTransition(
+                      opacity: CurvedAnimation(
+                        parent: _controller,
+                        curve: const Interval(0.3, 0.7, curve: Curves.easeOut),
+                      ),
+                      child: _FeatureRow(
+                        icon: Icons.computer_rounded,
+                        title: 'Local Execution',
+                        subtitle:
+                            'Code lives on your machine. We just\nprovide the window.',
+                      ),
+                    ),
+                    const SizedBox(height: 18),
+                    // ── Feature row 2: No Training Data
+                    FadeTransition(
+                      opacity: CurvedAnimation(
+                        parent: _controller,
+                        curve: const Interval(0.4, 0.8, curve: Curves.easeOut),
+                      ),
+                      child: _FeatureRow(
+                        icon: Icons.visibility_off_rounded,
+                        title: 'No Training Data',
+                        subtitle:
+                            'Your intellectual property is never used to\ntrain our models.',
+                      ),
+                    ),
+                    const Spacer(),
+                    // ── "Acknowledge & Continue" button (dark gray pill)
+                    FadeTransition(
+                      opacity: CurvedAnimation(
+                        parent: _controller,
+                        curve: const Interval(0.5, 1.0, curve: Curves.easeOut),
+                      ),
+                      child: GestureDetector(
+                        onTap: () {
+                          HapticFeedback.lightImpact();
+                          widget.onContinue();
+                        },
+                        child: Container(
+                          width: double.infinity,
+                          height: 58,
+                          decoration: BoxDecoration(
+                            color: const Color(0xFF2A2A2A),
+                            borderRadius: BorderRadius.circular(29),
+                            border: Border.all(
+                              color: Colors.white.withValues(alpha: 0.08),
+                            ),
+                          ),
+                          child: const Center(
+                            child: Text(
+                              'Acknowledge & Continue',
+                              style: TextStyle(
+                                fontSize: 17,
+                                fontWeight: FontWeight.w600,
+                                color: Colors.white,
+                                letterSpacing: 0.2,
+                              ),
+                            ),
+                          ),
+                        ),
+                      ),
+                    ),
+                    const SizedBox(height: 28),
+                  ],
+                ),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+/// Icon-circle + title + subtitle row used in the Zero Telemetry page.
+class _FeatureRow extends StatelessWidget {
+  const _FeatureRow({
+    required this.icon,
+    required this.title,
+    required this.subtitle,
+  });
+
+  final IconData icon;
+  final String title;
+  final String subtitle;
+
+  @override
+  Widget build(BuildContext context) {
+    return Row(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        // Icon circle
+        Container(
+          width: 44,
+          height: 44,
+          decoration: BoxDecoration(
+            color: Colors.white.withValues(alpha: 0.08),
+            shape: BoxShape.circle,
+          ),
+          child: Icon(
+            icon,
+            size: 22,
+            color: Colors.white.withValues(alpha: 0.7),
+          ),
+        ),
+        const SizedBox(width: 16),
+        // Text
+        Expanded(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                title,
+                style: const TextStyle(
+                  fontSize: 17,
+                  fontWeight: FontWeight.w700,
+                  color: Colors.white,
+                ),
+              ),
+              const SizedBox(height: 4),
+              Text(
+                subtitle,
+                style: TextStyle(
+                  fontSize: 15,
+                  color: Colors.white.withValues(alpha: 0.5),
+                  height: 1.4,
+                ),
+              ),
+            ],
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+// =============================================================================
+// PAGE 7: GET STARTED
 // =============================================================================
 
 class _GetStartedPage extends StatefulWidget {
