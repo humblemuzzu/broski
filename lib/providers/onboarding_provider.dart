@@ -3,7 +3,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 
 /// !! TEMPORARY DEV FLAG — remove before App Store submission !!
 /// When true: swipe through all onboarding screens freely, skip auth/paywall.
-const kDevBypassOnboarding = true;
+const kDevBypassOnboarding = false;
 
 enum OnboardingStep { welcome, auth, paywall, bridgeSetup, scanner, complete }
 

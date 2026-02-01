@@ -10,7 +10,7 @@ set -e
 VERSION="0.1.0"
 BASE_URL="https://broskiapp.com/download"
 INSTALL_DIR="$HOME/.broski/bin"
-ANALYTICS_URL="https://neat-gerbil-813.convex.site/hooks/bridge-install"
+# ANALYTICS_URL removed — endpoint disabled to prevent unauthenticated abuse
 
 echo ""
 echo "  ____                _    _ "
@@ -118,11 +118,7 @@ case ":$PATH:" in
     ;;
 esac
 
-# ── Track install (fire-and-forget) ──────────
-curl -fsSL -X POST "$ANALYTICS_URL" \
-  -H "Content-Type: application/json" \
-  -d "{\"platform\":\"$TARGET\",\"version\":\"$VERSION\",\"method\":\"curl-installer\"}" \
-  > /dev/null 2>&1 &
+# ── Track install (disabled — endpoint removed) ──
 
 # ── Done ─────────────────────────────────────
 echo ""

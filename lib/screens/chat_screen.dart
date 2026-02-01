@@ -4068,18 +4068,6 @@ Describe project-specific guidance for Codex here.
         );
   }
 
-  // TODO: Remove after QA - legacy method replaced by PowerSheet selection
-  /// Cycle through Codex reasoning effort levels
-  void _cycleCodexReasoningEffort() {
-    final current = ref.read(codexSettingsProvider).reasoningEffort;
-    final values = CodexReasoningEffort.values;
-    final currentIndex = values.indexOf(current);
-    final nextIndex = (currentIndex + 1) % values.length;
-    ref
-        .read(codexSettingsProvider.notifier)
-        .setReasoningEffort(values[nextIndex]);
-  }
-
   /// Set Codex reasoning effort by wireValue string (e.g., 'high', 'xhigh')
   void _setCodexReasoningEffort(String? wireValue) {
     if (wireValue == null) return;
@@ -4088,12 +4076,6 @@ Describe project-specific guidance for Codex here.
       orElse: () => CodexReasoningEffort.medium,
     );
     ref.read(codexSettingsProvider.notifier).setReasoningEffort(effort);
-  }
-
-  // TODO: Remove after QA - legacy method replaced by PowerSheet selection
-  /// Cycle through Codex collaboration modes (SDK v0.87.0+)
-  void _cycleCodexCollaborationMode() {
-    ref.read(codexSettingsProvider.notifier).cycleCollaborationMode();
   }
 
   void _showCodexModelSheet() {
@@ -4171,38 +4153,6 @@ Describe project-specific guidance for Codex here.
             ),
           );
         },
-      ),
-    );
-  }
-
-  // TODO: Remove after QA - custom model option removed from Claude Code (only sonnet/opus/haiku)
-  Future<String?> _promptCustomClaudeModel() async {
-    final controller = TextEditingController();
-    final theme = OpenCodeTheme.of(context);
-    return showDialog<String>(
-      context: context,
-      builder: (ctx) => AlertDialog(
-        backgroundColor: theme.backgroundPanel,
-        title: const Text('Custom model'),
-        content: TextField(
-          controller: controller,
-          autofocus: true,
-          decoration: const InputDecoration(
-            hintText: 'e.g. sonnet, opus, haiku, or a full model id',
-            border: OutlineInputBorder(),
-          ),
-          onSubmitted: (value) => Navigator.pop(ctx, value.trim()),
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(ctx),
-            child: const Text('Cancel'),
-          ),
-          TextButton(
-            onPressed: () => Navigator.pop(ctx, controller.text.trim()),
-            child: const Text('Save'),
-          ),
-        ],
       ),
     );
   }
@@ -4359,28 +4309,6 @@ Describe project-specific guidance for Codex here.
     final attachment = await imagePicker.pickFromCamera();
     if (attachment != null) {
       setState(() => _attachedFiles.add(attachment));
-    }
-  }
-
-  // ignore: unused_element
-  void _handleFileAutocompleteKeyboard(KeyEvent event) {
-    if (!_showFileAutocomplete) return;
-
-    final fileSearch = ref.read(fileSearchProvider.notifier);
-    if (event is KeyDownEvent) {
-      if (event.logicalKey == LogicalKeyboardKey.arrowDown) {
-        fileSearch.selectNext();
-      } else if (event.logicalKey == LogicalKeyboardKey.arrowUp) {
-        fileSearch.selectPrevious();
-      } else if (event.logicalKey == LogicalKeyboardKey.enter) {
-        final attachment = fileSearch.getSelectedAttachment();
-        if (attachment != null) {
-          _handleFileSelection(attachment);
-        }
-      } else if (event.logicalKey == LogicalKeyboardKey.escape) {
-        setState(() => _showFileAutocomplete = false);
-        fileSearch.clear();
-      }
     }
   }
 
@@ -5768,6 +5696,7 @@ Describe project-specific guidance for Codex here.
         showFileAutocomplete: _showFileAutocomplete,
         onFileSelect: _handleFileSelection,
         onAttachTap: () => _showAttachmentOptions(context),
+        onTakePhoto: _pickImageFromCamera,
         attachIcon: Icons.add_rounded,
         // Claude Code specific
         ccPermissionMode: widget.isClaudeCode
@@ -5868,6 +5797,7 @@ Describe project-specific guidance for Codex here.
         showFileAutocomplete: _showFileAutocomplete,
         onFileSelect: _handleFileSelection,
         onAttachTap: () => _showAttachmentOptions(context),
+        onTakePhoto: _pickImageFromCamera,
         attachIcon: Icons.add_rounded,
         // Model selector
         currentModel: widget.isClaudeCode
@@ -6564,183 +6494,6 @@ Describe project-specific guidance for Codex here.
             ),
           );
         },
-      ),
-    );
-  }
-
-  // TODO: Remove after QA - legacy method replaced by PowerSheet model selector
-  /// Show Claude Code model selector (Auto/Haiku/Sonnet/Opus)
-  void _showClaudeCodeModelSelector(BuildContext context) {
-    final theme = OpenCodeTheme.of(context);
-    final chatState = ref.read(chatSessionProvider);
-    final ccConfig = ref.read(ccConfigProvider).valueOrNull;
-    final currentModel =
-        ccConfig?.model ??
-        chatState.ccModel ??
-        chatState.ccInit?.model ??
-        widget.ccSession?.model;
-
-    // Claude Code models
-    final models = [
-      {
-        'id': null,
-        'name': 'Auto',
-        'description': 'Let Claude Code choose the best model',
-      },
-      {
-        'id': 'haiku',
-        'name': 'Haiku',
-        'description': 'Fastest, most compact model',
-      },
-      {
-        'id': 'sonnet',
-        'name': 'Sonnet',
-        'description': 'Balanced speed and capability',
-      },
-      {'id': 'opus', 'name': 'Opus', 'description': 'Most capable model'},
-    ];
-
-    DetailSheet.show(
-      context: context,
-      title: 'Select Model',
-      initialSize: 0.4,
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          const SizedBox(height: 8),
-          ...models.map((model) {
-            final modelId = model['id'];
-            final isSelected =
-                (modelId == null &&
-                    (currentModel == null || currentModel == 'auto')) ||
-                (modelId != null &&
-                    currentModel?.toLowerCase().contains(modelId) == true);
-            return ListTile(
-              contentPadding: const EdgeInsets.symmetric(horizontal: 16),
-              leading: Icon(
-                isSelected ? Icons.check_circle : Icons.circle_outlined,
-                color: isSelected ? theme.success : theme.borderSubtle,
-              ),
-              title: Text(
-                model['name'] as String,
-                style: TextStyle(
-                  color: theme.text,
-                  fontWeight: isSelected ? FontWeight.w600 : FontWeight.w400,
-                ),
-              ),
-              subtitle: Text(
-                model['description'] as String,
-                style: TextStyle(color: theme.textMuted, fontSize: 12),
-              ),
-              onTap: () {
-                // Update CC config with new model
-                final notifier = ref.read(ccConfigProvider.notifier);
-                notifier.setModel(modelId);
-                Navigator.pop(context);
-                ScaffoldMessenger.of(context).showSnackBar(
-                  SnackBar(
-                    content: Text('Model set to ${model['name']}'),
-                    backgroundColor: theme.backgroundPanel,
-                    behavior: SnackBarBehavior.floating,
-                  ),
-                );
-              },
-            );
-          }),
-        ],
-      ),
-    );
-  }
-
-  // TODO: Remove after QA - legacy method replaced by PowerSheet permission selector
-  /// Show Claude Code permission mode selector
-  void _showClaudeCodePermissionModeSelector(BuildContext context) {
-    final theme = OpenCodeTheme.of(context);
-    final ccConfig = ref.read(ccConfigProvider).valueOrNull;
-    final chatState = ref.read(chatSessionProvider);
-    final currentMode =
-        ccConfig?.permissionMode ??
-        chatState.ccInit?.permissionMode ??
-        ClaudeCodePermissionMode.defaultMode;
-
-    final modes = [
-      {
-        'mode': ClaudeCodePermissionMode.defaultMode,
-        'description': 'Ask before making changes',
-        'color': theme.primary,
-      },
-      {
-        'mode': ClaudeCodePermissionMode.acceptEdits,
-        'description': 'Auto-accept file edits',
-        'color': theme.success,
-      },
-      {
-        'mode': ClaudeCodePermissionMode.plan,
-        'description': 'Planning only, no execution',
-        'color': theme.warning,
-      },
-      {
-        'mode': ClaudeCodePermissionMode.bypassPermissions,
-        'description': 'Skip all permission checks',
-        'color': theme.error,
-      },
-    ];
-
-    DetailSheet.show(
-      context: context,
-      title: 'Permission Mode',
-      initialSize: 0.4,
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          const SizedBox(height: 8),
-          ...modes.map((item) {
-            final mode = item['mode'] as ClaudeCodePermissionMode;
-            final isSelected = mode == currentMode;
-            final color = item['color'] as Color;
-            return ListTile(
-              contentPadding: const EdgeInsets.symmetric(horizontal: 16),
-              leading: Container(
-                width: 24,
-                height: 24,
-                decoration: BoxDecoration(
-                  color: isSelected ? color : Colors.transparent,
-                  shape: BoxShape.circle,
-                  border: Border.all(color: color, width: 2),
-                ),
-                child: isSelected
-                    ? Icon(Icons.check, color: theme.background, size: 16)
-                    : null,
-              ),
-              title: Text(
-                mode.displayName,
-                style: TextStyle(
-                  color: theme.text,
-                  fontWeight: isSelected ? FontWeight.w600 : FontWeight.w400,
-                ),
-              ),
-              subtitle: Text(
-                item['description'] as String,
-                style: TextStyle(color: theme.textMuted, fontSize: 12),
-              ),
-              onTap: () {
-                // Update CC config with new permission mode
-                final notifier = ref.read(ccConfigProvider.notifier);
-                notifier.setPermissionMode(mode);
-                Navigator.pop(context);
-                ScaffoldMessenger.of(context).showSnackBar(
-                  SnackBar(
-                    content: Text('Permission mode set to ${mode.displayName}'),
-                    backgroundColor: theme.backgroundPanel,
-                    behavior: SnackBarBehavior.floating,
-                  ),
-                );
-              },
-            );
-          }),
-        ],
       ),
     );
   }
@@ -8950,6 +8703,7 @@ class _FloatingInputBar extends ConsumerWidget {
     this.showFileAutocomplete = false,
     this.onFileSelect,
     this.onAttachTap,
+    this.onTakePhoto,
     this.attachIcon = Icons.add_rounded,
     // Model selector
     this.currentModel,
@@ -8986,6 +8740,7 @@ class _FloatingInputBar extends ConsumerWidget {
   final bool showFileAutocomplete;
   final void Function(FileAttachment)? onFileSelect;
   final VoidCallback? onAttachTap;
+  final VoidCallback? onTakePhoto;
   final IconData attachIcon;
   // Model selector
   final String? currentModel;
@@ -9017,9 +8772,7 @@ class _FloatingInputBar extends ConsumerWidget {
         backend: backend,
         project: project,
         onAttachFile: onAttachTap,
-        onTakePhoto: () {
-          // TODO: Implement camera
-        },
+        onTakePhoto: onTakePhoto,
         currentModel: currentModel,
         onModelTap: onModelTap,
         currentVariant: currentVariant,
@@ -9395,475 +9148,6 @@ class _PillGlowPainter extends CustomPainter {
       oldDelegate.strokeWidth != strokeWidth;
 }
 
-/// Bottom sheet menu for floating input bar with agent selection and quick actions
-class _FloatingInputMenuSheet extends ConsumerStatefulWidget {
-  const _FloatingInputMenuSheet({
-    required this.theme,
-    required this.agents,
-    this.currentAgent,
-    this.onAgentChanged,
-    this.onAttachTap,
-    // Variant props
-    this.isOpenCode = false,
-    this.currentVariant,
-    this.availableVariants = const [],
-    this.onVariantTap,
-  });
-
-  final OpenCodeTheme theme;
-  final List<Agent> agents;
-  final String? currentAgent;
-  final void Function(String?)? onAgentChanged;
-  final VoidCallback? onAttachTap;
-  // Variant props
-  final bool isOpenCode;
-  final String? currentVariant;
-  final List<String> availableVariants;
-  final VoidCallback? onVariantTap;
-
-  @override
-  ConsumerState<_FloatingInputMenuSheet> createState() =>
-      _FloatingInputMenuSheetState();
-}
-
-class _FloatingInputMenuSheetState
-    extends ConsumerState<_FloatingInputMenuSheet> {
-  @override
-  Widget build(BuildContext context) {
-    final rulesState = ref.watch(permissionRulesProvider);
-    final selectedPreset = rulesState.preset;
-
-    // Separate primary (Build/Plan) from secondary agents
-    final primaryAgents = widget.agents
-        .where((a) => a.name == 'build' || a.name == 'plan')
-        .toList();
-    final secondaryAgents = widget.agents
-        .where((a) => a.name != 'build' && a.name != 'plan')
-        .toList();
-
-    return Container(
-      decoration: BoxDecoration(
-        color: widget.theme.background,
-        borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
-      ),
-      child: SafeArea(
-        top: false,
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            // Handle bar
-            Padding(
-              padding: const EdgeInsets.only(top: 12, bottom: 8),
-              child: Container(
-                width: 36,
-                height: 4,
-                decoration: BoxDecoration(
-                  color: widget.theme.borderSubtle,
-                  borderRadius: BorderRadius.circular(2),
-                ),
-              ),
-            ),
-
-            // Content with proper padding
-            Padding(
-              padding: const EdgeInsets.fromLTRB(20, 8, 20, 24),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  // Quick Actions section (Attach File, Take Photo)
-                  Row(
-                    children: [
-                      Icon(
-                        Icons.add_circle_outline_rounded,
-                        color: widget.theme.textMuted,
-                        size: 18,
-                      ),
-                      const SizedBox(width: 8),
-                      Text(
-                        'Attach',
-                        style: TextStyle(
-                          fontSize: 13,
-                          fontWeight: FontWeight.w600,
-                          color: widget.theme.textMuted,
-                          letterSpacing: 0.5,
-                        ),
-                      ),
-                    ],
-                  ),
-                  const SizedBox(height: 14),
-                  Row(
-                    children: [
-                      Expanded(
-                        child: _QuickActionCard(
-                          icon: Icons.attach_file_rounded,
-                          label: 'Attach File',
-                          theme: widget.theme,
-                          onTap: () {
-                            Navigator.pop(context);
-                            widget.onAttachTap?.call();
-                          },
-                        ),
-                      ),
-                      const SizedBox(width: 10),
-                      Expanded(
-                        child: _QuickActionCard(
-                          icon: Icons.camera_alt_outlined,
-                          label: 'Take Photo',
-                          theme: widget.theme,
-                          onTap: () {
-                            Navigator.pop(context);
-                            // TODO: Trigger camera
-                          },
-                        ),
-                      ),
-                    ],
-                  ),
-                  const SizedBox(height: 24),
-
-                  // Agent section
-                  if (widget.agents.isNotEmpty) ...[
-                    // Section header
-                    Row(
-                      children: [
-                        Icon(
-                          Icons.smart_toy_outlined,
-                          color: widget.theme.textMuted,
-                          size: 18,
-                        ),
-                        const SizedBox(width: 8),
-                        Text(
-                          'Agent',
-                          style: TextStyle(
-                            fontSize: 13,
-                            fontWeight: FontWeight.w600,
-                            color: widget.theme.textMuted,
-                            letterSpacing: 0.5,
-                          ),
-                        ),
-                      ],
-                    ),
-                    const SizedBox(height: 16),
-
-                    // Primary agents as prominent cards in a row
-                    if (primaryAgents.isNotEmpty) ...[
-                      Row(
-                        children: primaryAgents.map((agent) {
-                          final isSelected = agent.name == widget.currentAgent;
-                          return Expanded(
-                            child: Padding(
-                              padding: EdgeInsets.only(
-                                right: agent == primaryAgents.last ? 0 : 10,
-                              ),
-                              child: _AgentCard(
-                                agent: agent,
-                                isSelected: isSelected,
-                                theme: widget.theme,
-                                onTap: () {
-                                  widget.onAgentChanged?.call(agent.name);
-                                  Navigator.pop(context);
-                                },
-                              ),
-                            ),
-                          );
-                        }).toList(),
-                      ),
-                      const SizedBox(height: 12),
-                    ],
-
-                    // Secondary agents as smaller list
-                    if (secondaryAgents.isNotEmpty) ...[
-                      Container(
-                        decoration: BoxDecoration(
-                          color: widget.theme.backgroundPanel,
-                          borderRadius: BorderRadius.circular(12),
-                          border: Border.all(color: widget.theme.borderSubtle),
-                        ),
-                        child: Column(
-                          children: secondaryAgents.asMap().entries.map((
-                            entry,
-                          ) {
-                            final index = entry.key;
-                            final agent = entry.value;
-                            final isSelected =
-                                agent.name == widget.currentAgent;
-                            final isLast = index == secondaryAgents.length - 1;
-                            return Column(
-                              children: [
-                                InkWell(
-                                  onTap: () {
-                                    widget.onAgentChanged?.call(agent.name);
-                                    Navigator.pop(context);
-                                  },
-                                  borderRadius: BorderRadius.vertical(
-                                    top: index == 0
-                                        ? const Radius.circular(12)
-                                        : Radius.zero,
-                                    bottom: isLast
-                                        ? const Radius.circular(12)
-                                        : Radius.zero,
-                                  ),
-                                  child: Padding(
-                                    padding: const EdgeInsets.symmetric(
-                                      horizontal: 14,
-                                      vertical: 12,
-                                    ),
-                                    child: Row(
-                                      children: [
-                                        Container(
-                                          width: 8,
-                                          height: 8,
-                                          decoration: BoxDecoration(
-                                            color: agent.displayColor,
-                                            shape: BoxShape.circle,
-                                          ),
-                                        ),
-                                        const SizedBox(width: 12),
-                                        Expanded(
-                                          child: Column(
-                                            crossAxisAlignment:
-                                                CrossAxisAlignment.start,
-                                            children: [
-                                              Text(
-                                                agent.displayName,
-                                                style: TextStyle(
-                                                  color: widget.theme.text,
-                                                  fontSize: 14,
-                                                  fontWeight: isSelected
-                                                      ? FontWeight.w600
-                                                      : FontWeight.w500,
-                                                ),
-                                              ),
-                                              Text(
-                                                agent.shortDescription,
-                                                style: TextStyle(
-                                                  color: widget.theme.textMuted,
-                                                  fontSize: 12,
-                                                ),
-                                              ),
-                                            ],
-                                          ),
-                                        ),
-                                        if (isSelected)
-                                          Icon(
-                                            Icons.check_rounded,
-                                            color: widget.theme.primary,
-                                            size: 18,
-                                          ),
-                                      ],
-                                    ),
-                                  ),
-                                ),
-                                if (!isLast)
-                                  Divider(
-                                    height: 1,
-                                    indent: 34,
-                                    color: widget.theme.borderSubtle,
-                                  ),
-                              ],
-                            );
-                          }).toList(),
-                        ),
-                      ),
-                    ],
-
-                    const SizedBox(height: 24),
-                  ],
-
-                  // Thinking Level (Variant) section - for OpenCode, Claude Code, and Codex
-                  if (widget.availableVariants.isNotEmpty) ...[
-                    Row(
-                      children: [
-                        Icon(
-                          Icons.psychology_outlined,
-                          color: widget.theme.textMuted,
-                          size: 18,
-                        ),
-                        const SizedBox(width: 8),
-                        Text(
-                          'Thinking Level',
-                          style: TextStyle(
-                            fontSize: 13,
-                            fontWeight: FontWeight.w600,
-                            color: widget.theme.textMuted,
-                            letterSpacing: 0.5,
-                          ),
-                        ),
-                      ],
-                    ),
-                    const SizedBox(height: 14),
-                    // Variant chips in a wrap
-                    Wrap(
-                      spacing: 8,
-                      runSpacing: 8,
-                      children: [
-                        // Default option
-                        _VariantChip(
-                          label: 'Default',
-                          isSelected: widget.currentVariant == null,
-                          theme: widget.theme,
-                          onTap: () {
-                            widget.onVariantTap?.call();
-                            Navigator.pop(context);
-                          },
-                        ),
-                        // Available variants
-                        ...widget.availableVariants.map(
-                          (v) => _VariantChip(
-                            label: v[0].toUpperCase() + v.substring(1),
-                            isSelected: widget.currentVariant == v,
-                            theme: widget.theme,
-                            onTap: () {
-                              widget.onVariantTap?.call();
-                              Navigator.pop(context);
-                            },
-                          ),
-                        ),
-                      ],
-                    ),
-                    const SizedBox(height: 24),
-                  ],
-
-                  // Permission preset section
-                  Row(
-                    children: [
-                      Icon(
-                        Icons.shield_outlined,
-                        color: widget.theme.textMuted,
-                        size: 18,
-                      ),
-                      const SizedBox(width: 8),
-                      Text(
-                        'Permissions',
-                        style: TextStyle(
-                          fontSize: 13,
-                          fontWeight: FontWeight.w600,
-                          color: widget.theme.textMuted,
-                          letterSpacing: 0.5,
-                        ),
-                      ),
-                      const Spacer(),
-                      // Custom rules button inline
-                      GestureDetector(
-                        onTap: () {
-                          Navigator.pop(context);
-                          showModalBottomSheet(
-                            context: context,
-                            isScrollControlled: true,
-                            backgroundColor: Colors.transparent,
-                            builder: (context) => PermissionRulesSheet(
-                              initialRules: rulesState.effectiveRuleset,
-                              onApply: (rules) {
-                                ref
-                                    .read(permissionRulesProvider.notifier)
-                                    .setCustomRules(rules);
-                              },
-                            ),
-                          );
-                        },
-                        child: Row(
-                          mainAxisSize: MainAxisSize.min,
-                          children: [
-                            Icon(
-                              Icons.tune_rounded,
-                              size: 14,
-                              color: widget.theme.primary,
-                            ),
-                            const SizedBox(width: 4),
-                            Text(
-                              'Custom',
-                              style: TextStyle(
-                                color: widget.theme.primary,
-                                fontSize: 12,
-                                fontWeight: FontWeight.w500,
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
-                    ],
-                  ),
-                  const SizedBox(height: 14),
-
-                  // Permission presets as 2x2 grid
-                  GridView.count(
-                    shrinkWrap: true,
-                    physics: const NeverScrollableScrollPhysics(),
-                    crossAxisCount: 2,
-                    mainAxisSpacing: 10,
-                    crossAxisSpacing: 10,
-                    childAspectRatio: 2.4,
-                    children: PermissionPreset.values
-                        .where((p) => p != PermissionPreset.custom)
-                        .map(
-                          (preset) => _PermissionPresetCard(
-                            preset: preset,
-                            isSelected: preset == selectedPreset,
-                            theme: widget.theme,
-                            onTap: () {
-                              ref
-                                  .read(permissionRulesProvider.notifier)
-                                  .setPreset(preset);
-                            },
-                          ),
-                        )
-                        .toList(),
-                  ),
-                ],
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-}
-
-/// Card for quick actions (Attach File, Take Photo) - matches _AgentCard style
-class _QuickActionCard extends StatelessWidget {
-  const _QuickActionCard({
-    required this.icon,
-    required this.label,
-    required this.theme,
-    required this.onTap,
-  });
-
-  final IconData icon;
-  final String label;
-  final OpenCodeTheme theme;
-  final VoidCallback onTap;
-
-  @override
-  Widget build(BuildContext context) {
-    return GestureDetector(
-      onTap: onTap,
-      child: Container(
-        padding: const EdgeInsets.all(14),
-        decoration: BoxDecoration(
-          color: theme.backgroundPanel,
-          borderRadius: BorderRadius.circular(14),
-          border: Border.all(color: theme.borderSubtle),
-        ),
-        child: Row(
-          children: [
-            Icon(icon, color: theme.primary, size: 20),
-            const SizedBox(width: 10),
-            Expanded(
-              child: Text(
-                label,
-                style: TextStyle(
-                  color: theme.text,
-                  fontSize: 14,
-                  fontWeight: FontWeight.w500,
-                ),
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-}
-
 // CLI-style input bar (OpenCode terminal aesthetic)
 class _CliStyleInputBar extends StatefulWidget {
   const _CliStyleInputBar({
@@ -9885,6 +9169,7 @@ class _CliStyleInputBar extends StatefulWidget {
     this.showFileAutocomplete = false,
     this.onFileSelect,
     this.onAttachTap,
+    this.onTakePhoto,
     this.attachIcon = Icons.add_rounded,
     // Claude Code specific props
     this.ccPermissionMode,
@@ -9925,6 +9210,7 @@ class _CliStyleInputBar extends StatefulWidget {
   final bool showFileAutocomplete;
   final void Function(FileAttachment)? onFileSelect;
   final VoidCallback? onAttachTap;
+  final VoidCallback? onTakePhoto;
   final IconData attachIcon;
   // Claude Code specific props
   final ClaudeCodePermissionMode? ccPermissionMode;
@@ -9987,26 +9273,6 @@ class _CliStyleInputBarState extends State<_CliStyleInputBar> {
     super.dispose();
   }
 
-  // TODO: Remove after QA - legacy method replaced by PowerSheet permission selector
-  /// Cycle through Claude Code permission modes
-  void _cyclePermissionMode() {
-    final current =
-        widget.ccPermissionMode ?? ClaudeCodePermissionMode.defaultMode;
-    final modes = ClaudeCodePermissionMode.values;
-    final nextIndex = (modes.indexOf(current) + 1) % modes.length;
-    widget.onCCPermissionModeChanged?.call(modes[nextIndex]);
-  }
-
-  // TODO: Remove after QA - legacy method replaced by PowerSheet collab mode selector
-  /// Cycle through Codex collaboration modes
-  void _cycleCollaborationMode() {
-    final current =
-        widget.codexCollabMode ?? CodexCollaborationMode.pairProgramming;
-    final modes = CodexCollaborationMode.values;
-    final nextIndex = (modes.indexOf(current) + 1) % modes.length;
-    widget.onCodexCollabModeChanged?.call(modes[nextIndex]);
-  }
-
   /// Cycle through variants/thinking levels
   void _cycleVariant() {
     if (widget.availableVariants.isEmpty) return;
@@ -10030,9 +9296,7 @@ class _CliStyleInputBarState extends State<_CliStyleInputBar> {
         backend: widget.backend,
         project: widget.project,
         onAttachFile: widget.onAttachTap,
-        onTakePhoto: () {
-          // TODO: Implement camera
-        },
+        onTakePhoto: widget.onTakePhoto,
         // Model - depends on backend
         currentModel: widget.backend == AgentType.claudeCode
             ? widget.ccModel
@@ -10681,24 +9945,6 @@ class _CliStyleInputBarState extends State<_CliStyleInputBar> {
     return primaryAgents.firstWhere(
       (a) => a.name == widget.currentAgent,
       orElse: () => primaryAgents.first,
-    );
-  }
-
-  // TODO: Remove after QA - legacy method replaced by PowerSheet agent selector
-  void _showAgentPicker(BuildContext context) {
-    final theme = OpenCodeTheme.of(context);
-    final primaryAgents = widget.agents.where((a) => a.isPrimary).toList();
-
-    DetailSheet.show(
-      context: context,
-      title: 'Agent & Permissions',
-      initialSize: 0.5,
-      child: _AgentAndPermissionContent(
-        theme: theme,
-        agents: primaryAgents,
-        currentAgent: widget.currentAgent,
-        onAgentChanged: widget.onAgentChanged,
-      ),
     );
   }
 }

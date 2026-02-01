@@ -192,10 +192,9 @@ We may update this Privacy Policy from time to time. We will notify you of any c
 
 We encourage you to review this Privacy Policy periodically.
 
-## Open Source
+## Transparency
 
-Broski is open source software. You can review our code to verify our privacy practices:
-- [GitHub Repository](https://github.com/your-username/broski)
+Broski is proprietary software. We do not sell your data, and we do not use your data for advertising or tracking.
 
 ## Contact Us
 

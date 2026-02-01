@@ -1,10 +1,12 @@
 import 'package:flutter/foundation.dart';
 
 class AppConfig {
-  static const String convexHttpBaseUrl = String.fromEnvironment(
-    'CONVEX_HTTP_BASE_URL',
-    defaultValue: 'https://neat-gerbil-813.convex.site',
-  );
+  static String get convexHttpBaseUrl {
+    const fromEnv = String.fromEnvironment('CONVEX_HTTP_BASE_URL');
+    if (fromEnv.isNotEmpty) return fromEnv;
+    if (!kReleaseMode) return 'https://neat-gerbil-813.convex.site';
+    throw StateError('Missing --dart-define=CONVEX_HTTP_BASE_URL for release');
+  }
 
   static const String revenueCatEntitlementId = String.fromEnvironment(
     'REVENUECAT_ENTITLEMENT_ID',
@@ -36,19 +38,21 @@ class AppConfig {
   );
 
   static String revenueCatIosApiKey() {
-    if (_revenueCatIosApiKeyFromEnv.isNotEmpty)
+    if (_revenueCatIosApiKeyFromEnv.isNotEmpty) {
       return _revenueCatIosApiKeyFromEnv;
-    // Defaults from RevenueCat dashboard
-    return kReleaseMode
-        ? 'appl_oLMOZAgKCsHdjSJdVbkrUZHNnkl'
-        : 'test_jZAhlIXorwupEVNHJWVrjBYaibO';
+    }
+    if (!kReleaseMode) {
+      // Dev fallback: avoids blocking local UI iteration.
+      return 'test_jZAhlIXorwupEVNHJWVrjBYaibO';
+    }
+    throw StateError('Missing --dart-define=REVENUECAT_IOS_API_KEY for release');
   }
 
   static String revenueCatAndroidApiKey() {
     if (_revenueCatAndroidApiKeyFromEnv.isNotEmpty) {
       return _revenueCatAndroidApiKeyFromEnv;
     }
-    // TODO: Provide Android public SDK key when ready.
+    // Android is shipped later; keep empty until release config is set.
     return '';
   }
 }

@@ -7,9 +7,12 @@ import '../models/claude_code.dart';
 import '../models/codex.dart';
 import '../models/permission_rule.dart';
 import '../models/project.dart';
+import '../providers/claude_code_provider.dart';
+import '../providers/codex_settings_provider.dart';
 import '../providers/permission_rules_provider.dart';
 import '../theme/opencode_theme.dart';
 import 'chat/detail_sheet.dart';
+import 'permission_rules_sheet.dart';
 import 'project_tools_sheet.dart';
 
 /// Unified Power Sheet for all AI backends (OpenCode, Claude Code, Codex).
@@ -214,28 +217,48 @@ class _PowerSheetState extends ConsumerState<PowerSheet> {
               const SizedBox(height: 28),
             ],
 
-            // ===== OPENCODE: PERMISSION PRESETS SECTION =====
-            if (widget.backend == AgentType.opencode) ...[
-              _SectionHeader(
-                title: 'Permissions',
-                theme: theme,
-                trailing: GestureDetector(
-                  onTap: () {
-                    Navigator.pop(context);
-                    // TODO: Navigate to custom rules screen
-                  },
-                  child: Text(
-                    'Custom',
-                    style: TextStyle(
-                      fontSize: 12,
-                      color: theme.primary,
-                      fontWeight: FontWeight.w500,
-                    ),
+            // ===== PERMISSIONS SECTION (all backends) =====
+            _SectionHeader(
+              title: 'Permissions',
+              theme: theme,
+              trailing: GestureDetector(
+                onTap: () {
+                  final rootContext = Navigator.of(
+                    context,
+                    rootNavigator: true,
+                  ).context;
+                  Navigator.pop(context);
+                  showPermissionRulesSheet(
+                    context: rootContext,
+                    backend: widget.backend,
+                    initialRules: widget.backend == AgentType.opencode
+                        ? rulesState.effectiveRuleset
+                        : null,
+                    onApply: widget.backend == AgentType.opencode
+                        ? (rules) {
+                            ref
+                                .read(permissionRulesProvider.notifier)
+                                .setCustomRules(rules);
+                          }
+                        : null,
+                  );
+                },
+                child: Text(
+                  'Custom',
+                  style: TextStyle(
+                    fontSize: 12,
+                    color: theme.primary,
+                    fontWeight: FontWeight.w500,
                   ),
                 ),
               ),
-              const SizedBox(height: 12),
+            ),
+            const SizedBox(height: 12),
+            if (widget.backend == AgentType.opencode) ...[
               _buildOpenCodePermissionPresets(theme, rulesState),
+              const SizedBox(height: 28),
+            ] else ...[
+              _PermissionSummaryCard(backend: widget.backend, theme: theme),
               const SizedBox(height: 28),
             ],
 
@@ -250,20 +273,6 @@ class _PowerSheetState extends ConsumerState<PowerSheet> {
         ),
       ),
     );
-  }
-
-  // TODO: Remove after QA - method not currently used, kept for potential future use
-  /// Truncate description to a short version for UI display
-  String _truncateDescription(String desc) {
-    // For very short descriptions, return as-is
-    if (desc.length <= 35) return desc;
-    // Truncate at word boundary if possible
-    final truncated = desc.substring(0, 35);
-    final lastSpace = truncated.lastIndexOf(' ');
-    if (lastSpace > 20) {
-      return '${truncated.substring(0, lastSpace)}...';
-    }
-    return '$truncated...';
   }
 
   String _getThinkingLevelTitle() {
@@ -675,106 +684,6 @@ class _AgentCard extends StatelessWidget {
   }
 }
 
-// TODO: Remove after QA - class not currently used, kept for potential future use
-class _SecondaryAgentsList extends StatelessWidget {
-  const _SecondaryAgentsList({
-    required this.agents,
-    required this.currentAgent,
-    required this.theme,
-    required this.onAgentChanged,
-  });
-
-  final List<Agent> agents;
-  final String? currentAgent;
-  final OpenCodeTheme theme;
-  final void Function(String) onAgentChanged;
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      decoration: BoxDecoration(
-        color: theme.backgroundPanel,
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: theme.borderSubtle),
-      ),
-      child: Column(
-        children: agents.asMap().entries.map((entry) {
-          final index = entry.key;
-          final agent = entry.value;
-          final isSelected = agent.name == currentAgent;
-          final isLast = index == agents.length - 1;
-          return Column(
-            children: [
-              InkWell(
-                onTap: () => onAgentChanged(agent.name),
-                borderRadius: BorderRadius.vertical(
-                  top: index == 0 ? const Radius.circular(12) : Radius.zero,
-                  bottom: isLast ? const Radius.circular(12) : Radius.zero,
-                ),
-                child: Padding(
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 14,
-                    vertical: 12,
-                  ),
-                  child: Row(
-                    children: [
-                      Container(
-                        width: 8,
-                        height: 8,
-                        decoration: BoxDecoration(
-                          color: agent.displayColor,
-                          shape: BoxShape.circle,
-                        ),
-                      ),
-                      const SizedBox(width: 12),
-                      Expanded(
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Text(
-                              agent.displayName,
-                              style: TextStyle(
-                                color: theme.text,
-                                fontSize: 14,
-                                fontWeight: isSelected
-                                    ? FontWeight.w600
-                                    : FontWeight.w500,
-                              ),
-                            ),
-                            Text(
-                              agent.shortDescription.length > 35
-                                  ? '${agent.shortDescription.substring(0, 32)}...'
-                                  : agent.shortDescription,
-                              style: TextStyle(
-                                color: theme.textMuted,
-                                fontSize: 12,
-                              ),
-                              maxLines: 1,
-                              overflow: TextOverflow.ellipsis,
-                            ),
-                          ],
-                        ),
-                      ),
-                      if (isSelected)
-                        Icon(
-                          Icons.check_rounded,
-                          color: theme.primary,
-                          size: 18,
-                        ),
-                    ],
-                  ),
-                ),
-              ),
-              if (!isLast)
-                Divider(height: 1, indent: 34, color: theme.borderSubtle),
-            ],
-          );
-        }).toList(),
-      ),
-    );
-  }
-}
-
 class _PermissionModeCard extends StatelessWidget {
   const _PermissionModeCard({
     required this.title,
@@ -993,6 +902,84 @@ class _ProjectToolsButton extends StatelessWidget {
         return 'Skills, Hooks, MCP, Plugins';
       case AgentType.codex:
         return 'Skills, Agents, MCP';
+    }
+  }
+}
+
+/// A brief summary card shown in the Power Menu for Claude Code / Codex
+/// permissions. Tapping "Custom" opens the full sheet; this just shows
+/// the current active mode at a glance.
+class _PermissionSummaryCard extends ConsumerWidget {
+  const _PermissionSummaryCard({required this.backend, required this.theme});
+
+  final AgentType backend;
+  final OpenCodeTheme theme;
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final String label;
+    final String value;
+    final IconData icon;
+
+    if (backend == AgentType.claudeCode) {
+      final config = ref.watch(ccConfigProvider).valueOrNull;
+      final mode =
+          config?.permissionMode ?? ClaudeCodePermissionMode.defaultMode;
+      label = 'Mode';
+      value = mode.displayName;
+      icon = Icons.shield_outlined;
+    } else {
+      // Codex
+      final settings = ref.watch(codexSettingsProvider);
+      label = 'Approval';
+      value = _formatCodexPolicy(settings.approvalPolicy);
+      icon = Icons.verified_user_outlined;
+    }
+
+    return Container(
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: theme.backgroundPanel,
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: theme.borderSubtle),
+      ),
+      child: Row(
+        children: [
+          Icon(icon, color: theme.textMuted, size: 18),
+          const SizedBox(width: 10),
+          Text(
+            '$label: ',
+            style: TextStyle(
+              fontSize: 13,
+              color: theme.textMuted,
+              fontWeight: FontWeight.w500,
+            ),
+          ),
+          Text(
+            value,
+            style: TextStyle(
+              fontSize: 13,
+              color: theme.text,
+              fontWeight: FontWeight.w600,
+            ),
+          ),
+          const Spacer(),
+          Icon(Icons.chevron_right_rounded, size: 18, color: theme.textMuted),
+        ],
+      ),
+    );
+  }
+
+  String _formatCodexPolicy(CodexApprovalPolicy policy) {
+    switch (policy) {
+      case CodexApprovalPolicy.unlessTrusted:
+        return 'Unless Trusted';
+      case CodexApprovalPolicy.onFailure:
+        return 'On Failure';
+      case CodexApprovalPolicy.onRequest:
+        return 'On Request';
+      case CodexApprovalPolicy.never:
+        return 'Never';
     }
   }
 }

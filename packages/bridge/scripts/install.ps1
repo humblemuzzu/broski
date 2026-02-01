@@ -8,7 +8,7 @@ $ErrorActionPreference = "Stop"
 
 $Version = "0.1.0"
 $BaseUrl = "https://broskiapp.com/download"
-$AnalyticsUrl = "https://neat-gerbil-813.convex.site/hooks/bridge-install"
+# $AnalyticsUrl removed — endpoint disabled to prevent unauthenticated abuse
 
 Write-Host ""
 Write-Host "  ____                _    _ "
@@ -68,22 +68,7 @@ if ($CurrentPath -notlike "*$InstallDir*") {
     Write-Host "  Already in PATH."
 }
 
-# ── Track install (non-blocking background job) ──
-Start-Job -ScriptBlock {
-    param($Url, $Target, $Version)
-    try {
-        $Body = @{
-            platform = $Target
-            version  = $Version
-            method   = "powershell-installer"
-        } | ConvertTo-Json
-
-        Invoke-WebRequest -Uri $Url -Method POST -Body $Body `
-            -ContentType "application/json" -UseBasicParsing | Out-Null
-    } catch {
-        # Silently ignore analytics errors
-    }
-} -ArgumentList $AnalyticsUrl, $Target, $Version | Out-Null
+# ── Track install (disabled — endpoint removed) ──
 
 # ── Done ─────────────────────────────────────
 Write-Host ""

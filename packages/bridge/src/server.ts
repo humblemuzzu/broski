@@ -1096,6 +1096,9 @@ export async function createBridgeServer(options: BridgeServerOptions): Promise<
             }
           }
 
+          // Resolve owner EARLY so all downstream code can use it safely
+          const owner = threadId ? cxThreadOwners.get(threadId) : null
+
           // Track latest running turn for abort
           if (n.method === 'turn/started') {
             const tid = safeString(params.turn?.id)
@@ -1237,12 +1240,11 @@ export async function createBridgeServer(options: BridgeServerOptions): Promise<
               statuses: params.statuses,
             }
             const senderThread = collabData.senderThreadId || threadId
-            const owner = senderThread ? cxThreadOwners.get(senderThread) : null
-            emitCxStream(senderThread || threadId, { type: `collab_${collabMethod}` as any, data: collabData }, owner)
+            const collabOwner = senderThread ? cxThreadOwners.get(senderThread) : null
+            emitCxStream(senderThread || threadId, { type: `collab_${collabMethod}` as any, data: collabData }, collabOwner)
             return
           }
 
-          const owner = threadId ? cxThreadOwners.get(threadId) : null
           if (!threadId) {
             // Some notifications are global (no threadId): auth, rate limits, MCP oauth completion, etc.
             // NOTE: Codex app-server can emit extremely high-volume `codex/event/*` telemetry

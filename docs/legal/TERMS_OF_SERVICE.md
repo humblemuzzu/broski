@@ -73,8 +73,8 @@ The App, including its design, features, and code (excluding open-source compone
 
 We grant you a limited, non-exclusive, non-transferable, revocable license to use the App for personal, non-commercial purposes in accordance with these Terms.
 
-### 6.2 Open Source
-Broski is open source software distributed under the [LICENSE] license. The open source license grants you additional rights as specified in that license.
+### 6.2 Proprietary Software
+Broski is proprietary software. All rights reserved. You are granted a limited, non-exclusive, non-transferable license to use the App subject to these Terms.
 
 ### 6.3 Your Content
 You retain ownership of any content you create or transmit through the App (such as chat messages, code, or files). By using the App, you do not grant us any rights to your content—your content remains entirely yours and stays on your devices.

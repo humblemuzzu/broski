@@ -38,6 +38,7 @@ import 'opencode_agents_screen.dart';
 import 'opencode_commands_screen.dart';
 import 'permission_rules_screen.dart';
 import 'codex_agents_screen.dart';
+import 'scan_screen.dart';
 import 'voice_settings_screen.dart';
 
 class SettingsScreen extends ConsumerStatefulWidget {
@@ -103,7 +104,12 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                       title: 'No Connection',
                       subtitle: 'Connect to a Mac to use Broski',
                       icon: Icons.link_off_rounded,
-                      onTap: () {},
+                      onTap: () {
+                        Navigator.push(
+                          context,
+                          MaterialPageRoute(builder: (_) => const ScanScreen()),
+                        );
+                      },
                     ),
                   ),
                 ),

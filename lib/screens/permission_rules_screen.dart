@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../models/agent_type.dart';
 import '../models/permission_rule.dart';
 import '../providers/permission_rules_provider.dart';
 import '../theme/opencode_theme.dart';
@@ -127,6 +128,7 @@ class PermissionRulesScreen extends ConsumerWidget {
   }) async {
     await showPermissionRulesSheet(
       context: context,
+      backend: AgentType.opencode,
       initialRules: initial,
       onApply: (rules) async {
         await ref.read(permissionRulesProvider.notifier).setCustomRules(rules);

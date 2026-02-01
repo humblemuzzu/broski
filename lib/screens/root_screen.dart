@@ -7,7 +7,6 @@ import '../providers/app_subscription_provider.dart';
 import '../providers/connection_provider.dart';
 import '../providers/onboarding_provider.dart';
 import '../theme/opencode_theme.dart';
-import 'auth_screen.dart';
 import 'bridge_setup_screen.dart';
 import 'connection_lost_screen.dart';
 import 'main_shell.dart';
@@ -39,7 +38,7 @@ class RootScreen extends ConsumerWidget {
     // Post-onboarding: normal app routing
     // DEV BYPASS: skip auth + paywall gates entirely
     if (!kDevBypassOnboarding && !authState.isSignedIn) {
-      return const AuthScreen();
+      return const OnboardingAuthScreen();
     }
 
     // Ensure RevenueCat is configured and loaded once the user is signed in.
@@ -57,6 +56,7 @@ class RootScreen extends ConsumerWidget {
 
     // DEV BYPASS: auto-enter offline mode so we land in MainShell
     if (kDevBypassOnboarding &&
+        connectionState.devBypassAutoOfflineEnabled &&
         !connectionState.isOfflineMode &&
         !connectionState.isConnected &&
         !connectionState.isConnecting) {

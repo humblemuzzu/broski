@@ -239,40 +239,113 @@ http.route({
     const auth = await requireSession(ctx, req);
     if (!auth.ok) return auth.response;
 
-    let body: any;
+    // Backwards-compat: older clients POSTed subscription fields here.
+    // We intentionally ignore client-reported subscription state and instead
+    // verify server-side against RevenueCat.
     try {
-      body = await req.json();
+      // Allow empty body.
+      await req.json();
     } catch {
-      return error("Invalid JSON body", 400);
+      // Ignore invalid JSON bodies.
     }
 
-    const entitlementActive = body?.entitlementActive;
-    const status = body?.status;
-    if (typeof entitlementActive !== "boolean") {
-      return error("Missing entitlementActive", 400);
-    }
-    if (typeof status !== "string" || status.isEmpty) {
-      return error("Missing status", 400);
+    const rcApiKey = process.env.REVENUECAT_SECRET_API_KEY;
+    if (!rcApiKey) {
+      return error("RevenueCat API key not configured", 500);
     }
 
-    await ctx.runMutation(internal.users.updateSubscriptionFromClient, {
+    const entitlementId = process.env.REVENUECAT_ENTITLEMENT_ID ?? "Pro";
+
+    const subscriberUrl = `https://api.revenuecat.com/v1/subscribers/${encodeURIComponent(
+      auth.user.appUserId,
+    )}`;
+
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), 8000);
+
+    let response: Response;
+    try {
+      response = await fetch(subscriberUrl, {
+        method: "GET",
+        headers: {
+          Authorization: `Bearer ${rcApiKey}`,
+          "Content-Type": "application/json",
+        },
+        signal: controller.signal,
+      });
+    } catch {
+      return error("RevenueCat API request failed", 502);
+    } finally {
+      clearTimeout(timeout);
+    }
+
+    if (!response.ok) {
+      return error("RevenueCat API error", 502);
+    }
+
+    let data: any;
+    try {
+      data = await response.json();
+    } catch {
+      return error("Invalid RevenueCat response", 502);
+    }
+
+    const activeEntitlements = data?.subscriber?.entitlements?.active ?? {};
+    const entitlement = activeEntitlements?.[entitlementId];
+
+    const parseNumber = (v: unknown): number | undefined => {
+      if (typeof v === "number" && Number.isFinite(v)) return v;
+      if (typeof v === "string") {
+        const n = Number(v);
+        if (Number.isFinite(n)) return n;
+      }
+      return undefined;
+    };
+
+    const expiresAtMs =
+      parseNumber(entitlement?.expires_date_ms) ??
+      parseNumber(entitlement?.expiration_at_ms) ??
+      parseNumber(entitlement?.expires_at_ms);
+
+    const productId =
+      typeof entitlement?.product_identifier === "string"
+        ? entitlement.product_identifier
+        : undefined;
+
+    const store = typeof entitlement?.store === "string" ? entitlement.store : undefined;
+    const environment =
+      typeof entitlement?.environment === "string" ? entitlement.environment : undefined;
+
+    const originalAppUserId =
+      typeof data?.subscriber?.original_app_user_id === "string"
+        ? data.subscriber.original_app_user_id
+        : undefined;
+
+    const fetchedAtMs = Date.now();
+    const entitlementActive = Boolean(entitlement) && (expiresAtMs ? expiresAtMs > fetchedAtMs : true);
+    const status = entitlementActive ? "active" : "inactive";
+
+    await ctx.runMutation(internal.users.updateSubscriptionFromRevenueCatApi, {
       userId: auth.user._id,
       entitlementActive,
       status,
-      productId: typeof body?.productId === "string" ? body.productId : undefined,
-      expiresAtMs:
-        typeof body?.expiresAtMs === "number"
-          ? body.expiresAtMs
-          : typeof body?.expiresAtMs === "string"
-            ? Number(body.expiresAtMs)
-            : undefined,
-      originalAppUserId:
-        typeof body?.originalAppUserId === "string" ? body.originalAppUserId : undefined,
-      store: typeof body?.store === "string" ? body.store : undefined,
-      environment: typeof body?.environment === "string" ? body.environment : undefined,
+      productId,
+      expiresAtMs,
+      originalAppUserId,
+      store,
+      environment,
+      fetchedAtMs,
     });
 
-    return json({ ok: true });
+    return json({
+      ok: true,
+      entitlementActive,
+      status,
+      productId,
+      expiresAtMs,
+      store,
+      environment,
+    });
   }),
 });
 
@@ -337,12 +410,14 @@ http.route({
   method: "POST",
   handler: httpAction(async (ctx, req) => {
     const expected = process.env.REVENUECAT_WEBHOOK_SECRET;
-    if (expected) {
-      const got = req.headers.get("authorization") ?? req.headers.get("Authorization");
-      const normalized = (got ?? "").trim();
-      if (normalized !== expected && normalized !== `Bearer ${expected}`) {
-        return error("Unauthorized", 401);
-      }
+    if (!expected) {
+      return error("RevenueCat webhook secret not configured", 500);
+    }
+
+    const got = req.headers.get("authorization") ?? req.headers.get("Authorization");
+    const normalized = (got ?? "").trim();
+    if (normalized !== expected && normalized !== `Bearer ${expected}`) {
+      return error("Unauthorized", 401);
     }
 
     let raw: any;
@@ -398,27 +473,8 @@ http.route({
   }),
 });
 
-http.route({
-  path: "/hooks/bridge-install",
-  method: "POST",
-  handler: httpAction(async (ctx, req) => {
-    // No auth required - this is a public analytics endpoint
-    let body: any;
-    try {
-      body = await req.json();
-    } catch {
-      return json({ ok: true }); // Silently succeed even on bad input
-    }
-
-    await ctx.runMutation(internal.installs.recordInstall, {
-      platform: typeof body?.platform === "string" ? body.platform : "unknown",
-      version: typeof body?.version === "string" ? body.version : "unknown",
-      method: typeof body?.method === "string" ? body.method : "unknown",
-      machineHash: typeof body?.machineHash === "string" ? body.machineHash : undefined,
-    });
-
-    return json({ ok: true });
-  }),
-});
+// NOTE: /hooks/bridge-install endpoint removed — unauthenticated, no rate
+// limiting, anyone could spam thousands of DB writes to exhaust Convex quota.
+// Re-add with auth or rate limiting when bridge binary distribution is live.
 
 export default http;

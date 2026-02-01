@@ -39,6 +39,7 @@ class BridgeConnectionState {
     this.isReconnecting = false,
     this.rttMs,
     this.isOfflineMode = false,
+    this.devBypassAutoOfflineEnabled = true,
     this.connectionType = ConnectionType.unknown,
     this.connectedHost,
     this.thisDevice,
@@ -61,6 +62,11 @@ class BridgeConnectionState {
   /// When true, the app operates in read-only mode using cached data.
   /// User can browse projects, sessions, and messages but cannot send new messages.
   final bool isOfflineMode;
+
+  /// DEV BYPASS ONLY: when enabled, RootScreen auto-enters offline mode to allow UI preview.
+  /// This must be disabled once the user explicitly tries to reconnect/scan,
+  /// otherwise RootScreen will immediately force the user back into offline mode.
+  final bool devBypassAutoOfflineEnabled;
 
   /// Last connection event (for providers to react to reconnection)
   final ConnectionEvent? lastEvent;
@@ -95,6 +101,7 @@ class BridgeConnectionState {
     bool? isReconnecting,
     int? rttMs,
     bool? isOfflineMode,
+    bool? devBypassAutoOfflineEnabled,
     ConnectionType? connectionType,
     String? connectedHost,
     DeviceInfo? thisDevice,
@@ -109,6 +116,8 @@ class BridgeConnectionState {
       isReconnecting: isReconnecting ?? this.isReconnecting,
       rttMs: rttMs ?? this.rttMs,
       isOfflineMode: isOfflineMode ?? this.isOfflineMode,
+      devBypassAutoOfflineEnabled:
+          devBypassAutoOfflineEnabled ?? this.devBypassAutoOfflineEnabled,
       connectionType: connectionType ?? this.connectionType,
       connectedHost: connectedHost ?? this.connectedHost,
       thisDevice: thisDevice ?? this.thisDevice,
@@ -177,20 +186,6 @@ class ReconnectPolicy {
     jitter: 0.3,
     maxAttempts: 10,
   );
-}
-
-enum ReconnectionStrategy {
-  quickRecovery(
-    timeout: Duration(seconds: 2),
-    delay: Duration(milliseconds: 500),
-  ),
-  normal(timeout: Duration(seconds: 5), delay: Duration(seconds: 2)),
-  slowRecovery(timeout: Duration(seconds: 10), delay: Duration(seconds: 30));
-
-  const ReconnectionStrategy({required this.timeout, required this.delay});
-
-  final Duration timeout;
-  final Duration delay;
 }
 
 /// Result of a connection attempt to a specific endpoint.
@@ -397,18 +392,20 @@ class ConnectionNotifier extends StateNotifier<BridgeConnectionState>
     } catch (error) {
       _failureStreak++;
       final errString = '$error';
-      final isAuthError = errString.contains('401') ||
+      final isAuthError =
+          errString.contains('401') ||
           errString.toLowerCase().contains('unauthorized') ||
           errString.toLowerCase().contains('forbidden');
-      final isPinError = errString.toLowerCase().contains('handshake') &&
+      final isPinError =
+          errString.toLowerCase().contains('handshake') &&
           errString.toLowerCase().contains('certificate');
       state = state.copyWith(
         status: ConnectionStatus.disconnected,
         error: isAuthError
             ? 'Authentication failed. Scan a new QR code.'
             : (isPinError
-                ? 'Secure connection failed (certificate mismatch). Scan a new QR code.'
-                : errString),
+                  ? 'Secure connection failed (certificate mismatch). Scan a new QR code.'
+                  : errString),
         lastEvent: ConnectionEvent.failed,
       );
       if (!isAuthError) {
@@ -421,11 +418,9 @@ class ConnectionNotifier extends StateNotifier<BridgeConnectionState>
 
   /// Build list of endpoints to try, ordered by preference.
   List<({ConnectionType type, Uri uri, String host, bool isFunnel})>
-  _buildEndpointsToTry(
-    ConnectionInfo info,
-    ConnectionType? preferredType,
-  ) {
-    final endpoints = <({ConnectionType type, Uri uri, String host, bool isFunnel})>[];
+  _buildEndpointsToTry(ConnectionInfo info, ConnectionType? preferredType) {
+    final endpoints =
+        <({ConnectionType type, Uri uri, String host, bool isFunnel})>[];
 
     bool isValidHostname(String host) {
       if (host.isEmpty || host.length > 253) return false;
@@ -453,7 +448,8 @@ class ConnectionNotifier extends StateNotifier<BridgeConnectionState>
       if (ip.a == 172 && ip.b >= 16 && ip.b <= 31) return true;
       if (ip.a == 192 && ip.b == 168) return true;
       // Common hotspot ranges (still private, but be explicit)
-      if (ip.a == 172 && ip.b == 20 && ip.c == 10) return true; // iPhone hotspot
+      if (ip.a == 172 && ip.b == 20 && ip.c == 10)
+        return true; // iPhone hotspot
       return false;
     }
 
@@ -464,7 +460,11 @@ class ConnectionNotifier extends StateNotifier<BridgeConnectionState>
       return ip.a == 100;
     }
 
-    bool isAllowedTarget(ConnectionType type, String host, {required bool isFunnel}) {
+    bool isAllowedTarget(
+      ConnectionType type,
+      String host, {
+      required bool isFunnel,
+    }) {
       if (isFunnel) {
         // Funnel URL is HTTPS/WSS. Restrict to tailscale domains.
         if (!isValidHostname(host)) return false;
@@ -492,7 +492,9 @@ class ConnectionNotifier extends StateNotifier<BridgeConnectionState>
     }) {
       if (host == null || host.isEmpty) return;
       if (!isAllowedTarget(type, host, isFunnel: isFunnel)) {
-        debugPrint('[Connection] Skipping disallowed host for ${type.name}: $host');
+        debugPrint(
+          '[Connection] Skipping disallowed host for ${type.name}: $host',
+        );
         return;
       }
 
@@ -505,13 +507,29 @@ class ConnectionNotifier extends StateNotifier<BridgeConnectionState>
     if (preferredType != null) {
       switch (preferredType) {
         case ConnectionType.local:
-          addEndpoint(ConnectionType.local, info.localIP, isSecure: info.tlsEnabled);
+          addEndpoint(
+            ConnectionType.local,
+            info.localIP,
+            isSecure: info.tlsEnabled,
+          );
         case ConnectionType.hotspot:
-          addEndpoint(ConnectionType.hotspot, info.hotspotIP, isSecure: info.tlsEnabled);
+          addEndpoint(
+            ConnectionType.hotspot,
+            info.hotspotIP,
+            isSecure: info.tlsEnabled,
+          );
         case ConnectionType.tailscale:
-          addEndpoint(ConnectionType.tailscale, info.tailscaleIP, isSecure: info.tlsEnabled);
+          addEndpoint(
+            ConnectionType.tailscale,
+            info.tailscaleIP,
+            isSecure: info.tlsEnabled,
+          );
         case ConnectionType.magicDNS:
-          addEndpoint(ConnectionType.magicDNS, info.magicDNSHostname, isSecure: info.tlsEnabled);
+          addEndpoint(
+            ConnectionType.magicDNS,
+            info.magicDNSHostname,
+            isSecure: info.tlsEnabled,
+          );
         case ConnectionType.unknown:
           break;
       }
@@ -519,13 +537,25 @@ class ConnectionNotifier extends StateNotifier<BridgeConnectionState>
 
     // Add all endpoints (if not already added as preferred)
     if (preferredType != ConnectionType.local && info.localIP != null) {
-      addEndpoint(ConnectionType.local, info.localIP, isSecure: info.tlsEnabled);
+      addEndpoint(
+        ConnectionType.local,
+        info.localIP,
+        isSecure: info.tlsEnabled,
+      );
     }
     if (preferredType != ConnectionType.hotspot && info.hotspotIP != null) {
-      addEndpoint(ConnectionType.hotspot, info.hotspotIP, isSecure: info.tlsEnabled);
+      addEndpoint(
+        ConnectionType.hotspot,
+        info.hotspotIP,
+        isSecure: info.tlsEnabled,
+      );
     }
     if (preferredType != ConnectionType.tailscale && info.tailscaleIP != null) {
-      addEndpoint(ConnectionType.tailscale, info.tailscaleIP, isSecure: info.tlsEnabled);
+      addEndpoint(
+        ConnectionType.tailscale,
+        info.tailscaleIP,
+        isSecure: info.tlsEnabled,
+      );
     }
     if (preferredType != ConnectionType.magicDNS &&
         info.magicDNSHostname != null) {
@@ -551,7 +581,8 @@ class ConnectionNotifier extends StateNotifier<BridgeConnectionState>
   }
 
   Future<_ConnectionResult?> _tryConnectConcurrent(
-    List<({ConnectionType type, Uri uri, String host, bool isFunnel})> endpoints,
+    List<({ConnectionType type, Uri uri, String host, bool isFunnel})>
+    endpoints,
     ConnectionInfo info,
   ) async {
     if (endpoints.isEmpty) return null;
@@ -598,35 +629,6 @@ class ConnectionNotifier extends StateNotifier<BridgeConnectionState>
       success: false,
       error: lastError,
     );
-  }
-
-  // TODO: Remove after QA - replaced by parallel connection strategy
-  /// Try to connect to a single endpoint with timeout.
-  Future<_ConnectionResult> _tryConnectSingle(
-    ({ConnectionType type, Uri uri, String host}) endpoint,
-  ) async {
-    try {
-      await _socket
-          .connect(endpoint.uri)
-          .timeout(
-            const Duration(seconds: 5),
-            onTimeout: () => throw TimeoutException('Connection timeout'),
-          );
-      return _ConnectionResult(
-        type: endpoint.type,
-        uri: endpoint.uri,
-        host: endpoint.host,
-        success: true,
-      );
-    } catch (e) {
-      return _ConnectionResult(
-        type: endpoint.type,
-        uri: endpoint.uri,
-        host: endpoint.host,
-        success: false,
-        error: e,
-      );
-    }
   }
 
   String _connectionTypeToString(ConnectionType type) {
@@ -740,6 +742,7 @@ class ConnectionNotifier extends StateNotifier<BridgeConnectionState>
       clearConnection: true,
       status: ConnectionStatus.disconnected,
       isOfflineMode: false,
+      devBypassAutoOfflineEnabled: false,
       isReconnecting: false,
     );
 
@@ -755,7 +758,10 @@ class ConnectionNotifier extends StateNotifier<BridgeConnectionState>
 
   /// Exit offline mode
   void exitOfflineMode() {
-    state = state.copyWith(isOfflineMode: false);
+    state = state.copyWith(
+      isOfflineMode: false,
+      devBypassAutoOfflineEnabled: false,
+    );
     // Try to reconnect if we have a saved connection
     final connection = state.connection;
     if (connection != null) {
@@ -956,28 +962,6 @@ class ConnectionNotifier extends StateNotifier<BridgeConnectionState>
       return ReconnectPolicy.defaultPolicy;
     } else {
       return ReconnectPolicy.conservative;
-    }
-  }
-
-  // TODO: Remove after QA - logic now inline in reconnect method
-  ReconnectionStrategy _determineReconnectionStrategy() {
-    // If we had a recent success (within 30s), use quick recovery
-    if (_lastSuccessfulConnection != null) {
-      final timeSinceSuccess = DateTime.now().difference(
-        _lastSuccessfulConnection!,
-      );
-      if (timeSinceSuccess.inSeconds < 30 && _failureStreak < 3) {
-        return ReconnectionStrategy.quickRecovery;
-      }
-    }
-
-    // Based on failure streak
-    if (_failureStreak < 3) {
-      return ReconnectionStrategy.quickRecovery;
-    } else if (_failureStreak < 6) {
-      return ReconnectionStrategy.normal;
-    } else {
-      return ReconnectionStrategy.slowRecovery;
     }
   }
 

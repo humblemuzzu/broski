@@ -227,7 +227,7 @@ export const checkDeletedAccount = internalQuery({
   },
 });
 
-export const updateSubscriptionFromClient = internalMutation({
+export const updateSubscriptionFromRevenueCatApi = internalMutation({
   args: {
     userId: v.id("users"),
     entitlementActive: v.boolean(),
@@ -237,6 +237,7 @@ export const updateSubscriptionFromClient = internalMutation({
     originalAppUserId: v.optional(v.string()),
     store: v.optional(v.string()),
     environment: v.optional(v.string()),
+    fetchedAtMs: v.number(),
   },
   handler: async (ctx, args) => {
     const user = await ctx.db.get(args.userId);
@@ -251,14 +252,15 @@ export const updateSubscriptionFromClient = internalMutation({
         expiresAtMs: args.expiresAtMs ?? user.subscription?.expiresAtMs,
         store: args.store ?? user.subscription?.store,
         environment: args.environment ?? user.subscription?.environment,
-        lastEventType: "CLIENT_SYNC",
-        lastEventAtMs: now,
+        lastEventType: "REVENUECAT_API",
+        lastEventAtMs: args.fetchedAtMs,
       },
       revenueCat: {
         ...(user.revenueCat ?? {}),
-        originalAppUserId: args.originalAppUserId ?? user.revenueCat?.originalAppUserId,
-        lastEventType: "CLIENT_SYNC",
-        lastEventAtMs: now,
+        originalAppUserId:
+          args.originalAppUserId ?? user.revenueCat?.originalAppUserId,
+        lastEventType: "REVENUECAT_API",
+        lastEventAtMs: args.fetchedAtMs,
       },
       updatedAtMs: now,
       lastSeenAtMs: now,

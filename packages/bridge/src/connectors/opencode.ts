@@ -1446,16 +1446,6 @@ export class OpenCodeConnector {
     }
   }
 
-  async disposeInstance(directory?: string): Promise<boolean> {
-    try {
-      const client = await this.getClient(directory)
-      await client.instance.dispose()
-      return true
-    } catch {
-      return false
-    }
-  }
-
   getPtyWebSocketUrl(ptyId: string, directory?: string): string {
     // Build the WebSocket URL for PTY connection
     // OpenCode exposes PTY I/O at ws://host:port/pty/{id}/connect
