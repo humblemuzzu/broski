@@ -110,14 +110,12 @@ async function discoverPluginComponents(pluginDir: string): Promise<{
   skills: string[]
   hasHooks: boolean
   hasMcpServers: boolean
-  hasLspServers: boolean
 }> {
   const commands: string[] = []
   const agents: string[] = []
   const skills: string[] = []
   let hasHooks = false
   let hasMcpServers = false
-  let hasLspServers = false
 
   // Check for commands directory
   const commandsDir = join(pluginDir, 'commands')
@@ -179,12 +177,7 @@ async function discoverPluginComponents(pluginDir: string): Promise<{
     hasMcpServers = true
   }
 
-  // Check for LSP servers
-  if (await fileExists(join(pluginDir, '.lsp.json'))) {
-    hasLspServers = true
-  }
-
-  return { commands, agents, skills, hasHooks, hasMcpServers, hasLspServers }
+  return { commands, agents, skills, hasHooks, hasMcpServers }
 }
 
 /**
@@ -220,7 +213,6 @@ async function discoverPlugin(pluginDir: string): Promise<ClaudeCodePlugin | nul
     skills: components.skills.length > 0 ? components.skills : undefined,
     hasHooks: components.hasHooks || undefined,
     hasMcpServers: components.hasMcpServers || undefined,
-    hasLspServers: components.hasLspServers || undefined,
     loadedAt: Date.now(),
   }
 }

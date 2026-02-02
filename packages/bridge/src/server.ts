@@ -70,6 +70,31 @@ function isSafeClaudeCommandName(name: string): boolean {
   return trimmed === basename(trimmed)
 }
 
+function resolveClaudeCommandFilePath(params: {
+  cwd: string
+  source: 'project' | 'user'
+  name: string
+}): string | null {
+  const baseDir =
+    params.source === 'project'
+      ? join(params.cwd, '.claude', 'commands')
+      : join(homedir(), '.claude', 'commands')
+
+  const parts = params.name.split(':')
+  if (parts.some((p) => p.length === 0)) return null
+
+  const file = parts.at(-1)
+  if (!file) return null
+
+  const dirParts = parts.slice(0, -1)
+  const filePath = join(baseDir, ...dirParts, `${file}.md`)
+
+  const resolvedBase = resolve(baseDir)
+  const resolvedFile = resolve(filePath)
+  if (resolvedFile !== resolvedBase && !resolvedFile.startsWith(resolvedBase + sep)) return null
+  return resolvedFile
+}
+
 function _countDiffAddsDels(diff: string): { adds: number; dels: number } {
   let adds = 0
   let dels = 0
@@ -689,10 +714,6 @@ export async function createBridgeServer(options: BridgeServerOptions): Promise<
   const cxThreadCwds = new Map<string, string>() // threadId -> absolute cwd
   const cxFileChangeSnapshots = new Map<string, string>() // `${threadId}:${turnId}:${itemId}` -> manifestPath
   const cxUndoStackByThread = new Map<string, string[]>() // threadId -> snapshot keys (LIFO)
-  
-  // Codex session-scoped approval cache: remembers "accept for session" decisions
-  // Key format: `${threadId}:${method}:${argsHash}` -> 'approved'
-  const cxApprovalCache = new Map<string, 'approved'>()
 
   // Codex caching for fast session/project loading (mirrors OpenCode's 5s TTL pattern)
   // Project cache has longer TTL since projects rarely change
@@ -713,33 +734,6 @@ export async function createBridgeServer(options: BridgeServerOptions): Promise<
       cxThreadCache.delete(resolve(cwd))
     }
     cxThreadCache.delete('__all__')
-  }
-
-  /** Generate a stable cache key for approval caching */
-  const makeCxApprovalKey = (threadId: string, method: string, params: any): string => {
-    // Extract the command/tool-specific parts for the cache key
-    let argsForKey: string
-    if (method === 'item/commandExecution/requestApproval') {
-      // For command approvals, use the command string
-      argsForKey = safeString(params?.command ?? params?.item?.command ?? '')
-    } else if (method === 'item/fileChange/requestApproval') {
-      // For file change approvals, use the file paths
-      const changes = Array.isArray(params?.changes) ? params.changes : []
-      argsForKey = changes.map((c: any) => safeString(c?.path)).sort().join('|')
-    } else {
-      // For other approvals, use stringified params
-      try {
-        argsForKey = JSON.stringify(params, Object.keys(params ?? {}).sort())
-      } catch {
-        argsForKey = ''
-      }
-    }
-    // Create a simple hash for the key
-    let hash = 0
-    for (let i = 0; i < argsForKey.length; i++) {
-      hash = ((hash << 5) - hash + argsForKey.charCodeAt(i)) | 0
-    }
-    return `${threadId}:${method}:${hash}`
   }
   
   let codexClient: CodexAppServerClient | null = null
@@ -1198,13 +1192,6 @@ export async function createBridgeServer(options: BridgeServerOptions): Promise<
                   },
                 })
               }
-              
-              // Clean up approval cache for this thread on failure
-              for (const key of cxApprovalCache.keys()) {
-                if (key.startsWith(`${threadId}:`)) {
-                  cxApprovalCache.delete(key)
-                }
-              }
             }
           }
           // Handle thread/compacted (deprecated notification)
@@ -1224,7 +1211,9 @@ export async function createBridgeServer(options: BridgeServerOptions): Promise<
           }
 
           // Multi-Agent Collaboration Events (Codex SDK v0.87.0+)
-          // Map collab notifications to specialized event types for UI rendering
+          // EXPERIMENTAL: `collab/*` notifications are not part of the stable, documented
+          // Codex protocol surface. We forward them for richer UI rendering, but they may
+          // change or disappear in future SDK/app-server versions.
           if (n.method.startsWith('collab/')) {
             const collabMethod = n.method.replace('collab/', '').replace('/', '_')
             const collabData = {
@@ -1297,13 +1286,6 @@ export async function createBridgeServer(options: BridgeServerOptions): Promise<
             return { decision: 'decline' }
           }
 
-          // Check approval cache for "accept for session" decisions
-          const approvalCacheKey = makeCxApprovalKey(threadId, r.method, params)
-          if (cxApprovalCache.has(approvalCacheKey)) {
-            // Already approved for this session, skip prompting
-            return { decision: 'acceptForSession' }
-          }
-
           const cached = threadId && turnId && itemId
             ? cxItemCache.get(`${threadId}:${turnId}:${itemId}`)
             : null
@@ -1353,11 +1335,6 @@ export async function createBridgeServer(options: BridgeServerOptions): Promise<
                 ? 'accept'
                 : 'decline'
 
-          // Cache "accept for session" decisions to avoid re-prompting
-          if (decision === 'acceptForSession') {
-            cxApprovalCache.set(approvalCacheKey, 'approved')
-          }
-
           return { decision }
         },
         // Handle app-server crash - notify all affected clients
@@ -1391,7 +1368,6 @@ export async function createBridgeServer(options: BridgeServerOptions): Promise<
           // Clean up all state
           cxThreadOwners.clear()
           cxActiveTurns.clear()
-          cxApprovalCache.clear()
           cxApprovalWaiters.forEach(w => {
             clearTimeout(w.timer)
             w.resolve({ response: 'reject' })
@@ -3423,12 +3399,6 @@ export async function createBridgeServer(options: BridgeServerOptions): Promise<
           if (owner === ws) {
             cxThreadOwners.delete(tid)
             releasedKeys.push({ agent: 'codex', id: tid })
-            // Clear approval cache for this thread
-            for (const key of cxApprovalCache.keys()) {
-              if (key.startsWith(`${tid}:`)) {
-                cxApprovalCache.delete(key)
-              }
-            }
           }
         }
         for (const k of releasedKeys) {
@@ -3799,7 +3769,6 @@ export async function createBridgeServer(options: BridgeServerOptions): Promise<
             message.messageId,
             message.model,
             message.agent,
-            message.disabledTools,
             message.fileAttachments,
             message.variant,
           )
@@ -4292,8 +4261,9 @@ export async function createBridgeServer(options: BridgeServerOptions): Promise<
           break
         }
         case 'dispose_instance': {
-          const disposed = await opencode.disposeInstance(message.projectPath)
-          reply({ type: 'instance_disposed', data: disposed })
+          // OpenCode SDK does not expose a "dispose instance" API anymore.
+          // Keep the message for backward compatibility, but treat as a no-op.
+          reply({ type: 'instance_disposed', data: true })
           break
       }
       case 'cx_list_projects': {
@@ -4373,7 +4343,6 @@ export async function createBridgeServer(options: BridgeServerOptions): Promise<
           model: message.model ?? null,
           approvalPolicy: message.approvalPolicy ?? null,
           sandbox: message.sandbox ?? null,
-          ...(message.env ? { env: message.env } : {}),
         })
         const thread = mapCodexThread(result?.thread)
         if (thread.id && thread.cwd) cxThreadCwds.set(thread.id, resolve(thread.cwd))
@@ -4508,13 +4477,10 @@ export async function createBridgeServer(options: BridgeServerOptions): Promise<
       }
       case 'cx_config_value_write': {
         const client = await ensureCodexClient()
-        const mergeStrategyRaw = safeString(message.mergeStrategy)
-        const mergeStrategy =
-          mergeStrategyRaw.toLowerCase() === 'upsert'
-            ? 'Upsert'
-            : mergeStrategyRaw.toLowerCase() === 'replace'
-              ? 'Replace'
-              : 'Replace'
+        // Codex app-server protocol expects MergeStrategy on the wire as lower-case strings
+        // (enum is `Replace|Upsert` in Rust with `rename_all = "camelCase"`).
+        const mergeStrategyRaw = safeString(message.mergeStrategy).trim().toLowerCase()
+        const mergeStrategy = mergeStrategyRaw === 'upsert' ? 'upsert' : 'replace'
         const result: any = await client.request('config/value/write', {
           keyPath: message.keyPath,
           value: message.value,
@@ -4551,7 +4517,8 @@ export async function createBridgeServer(options: BridgeServerOptions): Promise<
       // Codex MCP Hot Reload (SDK feature) - reloads MCP server config without restarting
       case 'cx_mcp_reload': {
         const client = await ensureCodexClient()
-        const result: any = await client.request('config/mcpServer/reload', {})
+        // Protocol expects params to be omitted (Option<()>).
+        const result: any = await client.request('config/mcpServer/reload')
         reply({ type: 'cx_mcp_reloaded', data: result ?? {} })
         break
       }
@@ -4593,6 +4560,8 @@ export async function createBridgeServer(options: BridgeServerOptions): Promise<
 
         const target = message.target ?? { type: 'uncommittedChanges' }
         const delivery = message.delivery ?? 'inline'
+        // EXPERIMENTAL: `review/start` is not part of the confirmed public Codex API surface.
+        // Keep this feature behind UI affordances that can be removed if the endpoint disappears.
         const res: any = await client.request('review/start', {
           threadId,
           target,
@@ -4733,6 +4702,7 @@ export async function createBridgeServer(options: BridgeServerOptions): Promise<
         // Debug: log model being used
         console.log(`[Codex cx_chat] model=${message.model ?? 'default'}, threadId=${message.threadId ?? 'new'}, cwd=${cwd}`)
 
+        let resolvedModel = safeString(message.model).trim()
         let threadId = message.threadId
         if (!threadId) {
           const startRes: any = await client.request('thread/start', {
@@ -4743,9 +4713,11 @@ export async function createBridgeServer(options: BridgeServerOptions): Promise<
             config: message.config ?? null,
             baseInstructions: message.baseInstructions ?? null,
             developerInstructions: message.developerInstructions ?? null,
-            ...(message.env ? { env: message.env } : {}),
           })
           threadId = safeString(startRes?.thread?.id)
+          if (!resolvedModel) {
+            resolvedModel = safeString(startRes?.model).trim()
+          }
           console.log(`[Codex cx_chat] thread/start result: threadId=${threadId}, model=${message.model}`)
           if (threadId) {
             reply({ type: 'cx_thread_created', data: mapCodexThread(startRes.thread) })
@@ -4754,7 +4726,7 @@ export async function createBridgeServer(options: BridgeServerOptions): Promise<
           }
         } else {
           // Ensure we are subscribed to events for this thread.
-          await client.request('thread/resume', {
+          const resumeRes: any = await client.request('thread/resume', {
             threadId,
             model: message.model ?? null,
             cwd,
@@ -4763,8 +4735,10 @@ export async function createBridgeServer(options: BridgeServerOptions): Promise<
             config: message.config ?? null,
             baseInstructions: message.baseInstructions ?? null,
             developerInstructions: message.developerInstructions ?? null,
-            ...(message.env ? { env: message.env } : {}),
           })
+          if (!resolvedModel) {
+            resolvedModel = safeString(resumeRes?.model).trim()
+          }
         }
 
           if (!threadId) {
@@ -4804,15 +4778,51 @@ export async function createBridgeServer(options: BridgeServerOptions): Promise<
           }
         }
 
-        // Build collaboration mode object if specified (SDK v0.87.0+)
-        // Format: { mode: "plan"|"pairprogramming"|"execute", model: string, reasoningEffort?: string }
+        // Build collaboration mode object if specified.
+        // Codex protocol expects: { mode: "pair_programming"|..., settings: { model, reasoning_effort?, developer_instructions? } }
         let collaborationMode: any = null
-        if (message.collaborationMode) {
-          collaborationMode = {
-            mode: message.collaborationMode,
-            model: message.model ?? 'gpt-4.1', // Fallback model
-            reasoningEffort: message.effort ?? null,
-            developerInstructions: message.developerInstructions ?? null,
+        const collabModeRaw = safeString(message.collaborationMode).trim()
+        if (collabModeRaw) {
+          const collabKey = collabModeRaw.replace(/[-_]/g, '').toLowerCase()
+          const normalizedMode =
+            collabKey === 'plan'
+              ? 'plan'
+              : collabKey === 'code'
+                ? 'code'
+                : collabKey === 'pairprogramming'
+                  ? 'pair_programming'
+                  : collabKey === 'execute'
+                    ? 'execute'
+                    : collabKey === 'custom'
+                      ? 'custom'
+                      : null
+
+          const model = resolvedModel
+          if (normalizedMode && model) {
+            const effortRaw = safeString(message.effort).trim().toLowerCase()
+            const reasoningEffort =
+              effortRaw === 'none' ||
+              effortRaw === 'minimal' ||
+              effortRaw === 'low' ||
+              effortRaw === 'medium' ||
+              effortRaw === 'high' ||
+              effortRaw === 'xhigh'
+                ? effortRaw
+                : null
+
+            const developerInstructions = safeString(message.developerInstructions).trim()
+            collaborationMode = {
+              mode: normalizedMode,
+              settings: {
+                model,
+                ...(reasoningEffort ? { reasoning_effort: reasoningEffort } : {}),
+                ...(developerInstructions ? { developer_instructions: developerInstructions } : {}),
+              },
+            }
+          } else if (!model) {
+            console.warn('[Codex cx_chat] collaborationMode ignored (missing model)')
+          } else {
+            console.warn(`[Codex cx_chat] collaborationMode ignored (unknown mode: ${collabModeRaw})`)
           }
         }
 
@@ -4823,7 +4833,7 @@ export async function createBridgeServer(options: BridgeServerOptions): Promise<
             threadId,
             input,
             cwd,
-            model: message.model ?? null,
+            model: resolvedModel || null,
             effort: message.effort ?? null,
             summary: message.summary ?? null,
             approvalPolicy: message.approvalPolicy ?? null,
@@ -5099,7 +5109,7 @@ export async function createBridgeServer(options: BridgeServerOptions): Promise<
             reply({ type: 'error', message: 'Invalid skill name' })
             break
           }
-          const path = skillFiles.getOpenCodeSkillFilePath({
+          const path = await skillFiles.resolveOpenCodeSkillFilePath({
             name: message.name,
             source: message.source,
             cwd: message.cwd,
@@ -5121,7 +5131,7 @@ export async function createBridgeServer(options: BridgeServerOptions): Promise<
             reply({ type: 'oc_skill_saved', data: { ok: false } })
             break
           }
-          const path = skillFiles.getOpenCodeSkillFilePath({
+          const path = await skillFiles.resolveOpenCodeSkillFilePath({
             name: message.name,
             source: message.source,
             cwd: message.cwd,
@@ -5140,7 +5150,7 @@ export async function createBridgeServer(options: BridgeServerOptions): Promise<
             reply({ type: 'oc_skill_deleted', data: { ok: false } })
             break
           }
-          const path = skillFiles.getOpenCodeSkillFilePath({
+          const path = await skillFiles.resolveOpenCodeSkillFilePath({
             name: message.name,
             source: message.source,
             cwd: message.cwd,
@@ -5165,7 +5175,7 @@ export async function createBridgeServer(options: BridgeServerOptions): Promise<
             reply({ type: 'error', message: 'Invalid plugin filename' })
             break
           }
-          const path = plugins.getPluginFilePath({
+          const path = await plugins.resolvePluginFilePath({
             name: message.name,
             source: message.source,
             cwd: message.cwd,
@@ -5187,7 +5197,7 @@ export async function createBridgeServer(options: BridgeServerOptions): Promise<
             reply({ type: 'oc_plugin_file_saved', data: { ok: false } })
             break
           }
-          const path = plugins.getPluginFilePath({
+          const path = await plugins.resolvePluginFilePath({
             name: message.name,
             source: message.source,
             cwd: message.cwd,
@@ -5206,7 +5216,7 @@ export async function createBridgeServer(options: BridgeServerOptions): Promise<
             reply({ type: 'oc_plugin_file_deleted', data: { ok: false } })
             break
           }
-          const path = plugins.getPluginFilePath({
+          const path = await plugins.resolvePluginFilePath({
             name: message.name,
             source: message.source,
             cwd: message.cwd,
@@ -5233,7 +5243,7 @@ export async function createBridgeServer(options: BridgeServerOptions): Promise<
             reply({ type: 'error', message: 'Invalid command name' })
             break
           }
-          const path = files.commandFilePath({ name: message.name, source: message.source, cwd: message.cwd })
+          const path = await files.resolveCommandFilePath({ name: message.name, source: message.source, cwd: message.cwd })
           try {
             const content = await files.readMarkdownFile(path)
             reply({ type: 'oc_command_file', data: { name: message.name, path, source: message.source, content } })
@@ -5248,7 +5258,7 @@ export async function createBridgeServer(options: BridgeServerOptions): Promise<
             reply({ type: 'oc_command_file_saved', data: { ok: false } })
             break
           }
-          const path = files.commandFilePath({ name: message.name, source: message.source, cwd: message.cwd })
+          const path = await files.resolveCommandFilePath({ name: message.name, source: message.source, cwd: message.cwd })
           try {
             await files.writeMarkdownFile(path, message.content)
             reply({ type: 'oc_command_file_saved', data: { ok: true, path } })
@@ -5263,7 +5273,7 @@ export async function createBridgeServer(options: BridgeServerOptions): Promise<
             reply({ type: 'oc_command_file_deleted', data: { ok: false } })
             break
           }
-          const path = files.commandFilePath({ name: message.name, source: message.source, cwd: message.cwd })
+          const path = await files.resolveCommandFilePath({ name: message.name, source: message.source, cwd: message.cwd })
           try {
             await files.deleteMarkdownFile(path)
             reply({ type: 'oc_command_file_deleted', data: { ok: true } })
@@ -5286,7 +5296,7 @@ export async function createBridgeServer(options: BridgeServerOptions): Promise<
             reply({ type: 'error', message: 'Invalid agent name' })
             break
           }
-          const path = files.agentFilePath({ name: message.name, source: message.source, cwd: message.cwd })
+          const path = await files.resolveAgentFilePath({ name: message.name, source: message.source, cwd: message.cwd })
           try {
             const content = await files.readMarkdownFile(path)
             reply({ type: 'oc_agent_file', data: { name: message.name, path, source: message.source, content } })
@@ -5301,7 +5311,7 @@ export async function createBridgeServer(options: BridgeServerOptions): Promise<
             reply({ type: 'oc_agent_file_saved', data: { ok: false } })
             break
           }
-          const path = files.agentFilePath({ name: message.name, source: message.source, cwd: message.cwd })
+          const path = await files.resolveAgentFilePath({ name: message.name, source: message.source, cwd: message.cwd })
           try {
             await files.writeMarkdownFile(path, message.content)
             reply({ type: 'oc_agent_file_saved', data: { ok: true, path } })
@@ -5316,7 +5326,7 @@ export async function createBridgeServer(options: BridgeServerOptions): Promise<
             reply({ type: 'oc_agent_file_deleted', data: { ok: false } })
             break
           }
-          const path = files.agentFilePath({ name: message.name, source: message.source, cwd: message.cwd })
+          const path = await files.resolveAgentFilePath({ name: message.name, source: message.source, cwd: message.cwd })
           try {
             await files.deleteMarkdownFile(path)
             reply({ type: 'oc_agent_file_deleted', data: { ok: true } })
@@ -5784,10 +5794,22 @@ export async function createBridgeServer(options: BridgeServerOptions): Promise<
               break
             }
           } else {
-            cmdPath =
-              source === 'project'
-                ? join(cwd, '.claude', 'commands', `${name}.md`)
-                : join(homedir(), '.claude', 'commands', `${name}.md`)
+            if (source !== 'project' && source !== 'user') {
+              reply({
+                type: 'cc_command_file',
+                data: { ok: false, name, source, path: '', content: '' },
+              })
+              break
+            }
+            const resolved = resolveClaudeCommandFilePath({ cwd, source, name })
+            if (!resolved) {
+              reply({
+                type: 'cc_command_file',
+                data: { ok: false, name, source, path: '', content: '' },
+              })
+              break
+            }
+            cmdPath = resolved
           }
 
           try {
@@ -5824,10 +5846,11 @@ export async function createBridgeServer(options: BridgeServerOptions): Promise<
             break
           }
 
-          const cmdPath =
-            source === 'project'
-              ? join(cwd, '.claude', 'commands', `${name}.md`)
-              : join(homedir(), '.claude', 'commands', `${name}.md`)
+          const cmdPath = resolveClaudeCommandFilePath({ cwd, source, name })
+          if (!cmdPath) {
+            reply({ type: 'cc_command_saved', data: { ok: false, name, source } })
+            break
+          }
 
           try {
             await mkdir(resolve(cmdPath, '..'), { recursive: true })
@@ -5852,10 +5875,11 @@ export async function createBridgeServer(options: BridgeServerOptions): Promise<
             break
           }
 
-          const cmdPath =
-            source === 'project'
-              ? join(cwd, '.claude', 'commands', `${name}.md`)
-              : join(homedir(), '.claude', 'commands', `${name}.md`)
+          const cmdPath = resolveClaudeCommandFilePath({ cwd, source, name })
+          if (!cmdPath) {
+            reply({ type: 'cc_command_deleted', data: { ok: false, name, source } })
+            break
+          }
 
           try {
             await rm(cmdPath, { force: true })

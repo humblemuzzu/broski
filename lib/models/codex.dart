@@ -227,8 +227,9 @@ class CodexSettings {
       webSearchMode: () {
         // Migration: handle old boolean format
         final wsVal = json['webSearchMode'] ?? json['webSearchEnabled'];
-        if (wsVal is bool)
+        if (wsVal is bool) {
           return wsVal ? CodexWebSearchMode.live : CodexWebSearchMode.disabled;
+        }
         return CodexWebSearchMode.fromString(wsVal?.toString());
       }(),
       skillsEnabled: json['skillsEnabled'] == true,
@@ -584,20 +585,30 @@ enum CodexCollaborationMode {
   /// Research and planning mode - restricted file edits, more discussion
   plan,
 
+  /// Code-focused mode - optimized for implementation with less discussion
+  code,
+
   /// Interactive coding together - balanced between discussion and action (default)
   pairProgramming,
 
   /// Autonomous execution - agent completes tasks with minimal interaction
-  execute;
+  execute,
+
+  /// Custom collaboration mode (advanced / experimental)
+  custom;
 
   String get wireValue {
     switch (this) {
       case CodexCollaborationMode.plan:
         return 'plan';
+      case CodexCollaborationMode.code:
+        return 'code';
       case CodexCollaborationMode.pairProgramming:
-        return 'pairprogramming';
+        return 'pair_programming';
       case CodexCollaborationMode.execute:
         return 'execute';
+      case CodexCollaborationMode.custom:
+        return 'custom';
     }
   }
 
@@ -605,10 +616,14 @@ enum CodexCollaborationMode {
     switch (this) {
       case CodexCollaborationMode.plan:
         return 'Plan';
+      case CodexCollaborationMode.code:
+        return 'Code';
       case CodexCollaborationMode.pairProgramming:
         return 'Pair';
       case CodexCollaborationMode.execute:
         return 'Execute';
+      case CodexCollaborationMode.custom:
+        return 'Custom';
     }
   }
 
@@ -616,20 +631,33 @@ enum CodexCollaborationMode {
     switch (this) {
       case CodexCollaborationMode.plan:
         return 'Research & planning mode';
+      case CodexCollaborationMode.code:
+        return 'Code-focused mode';
       case CodexCollaborationMode.pairProgramming:
         return 'Interactive pair coding';
       case CodexCollaborationMode.execute:
         return 'Autonomous execution';
+      case CodexCollaborationMode.custom:
+        return 'Custom mode (advanced)';
     }
   }
 
   factory CodexCollaborationMode.fromString(String? v) {
-    switch (v) {
+    final raw = (v ?? '').trim();
+    if (raw.isEmpty) return CodexCollaborationMode.pairProgramming;
+
+    // Normalize legacy and variant spellings.
+    final key = raw.replaceAll(RegExp(r'[-_]'), '').toLowerCase();
+    switch (key) {
       case 'plan':
         return CodexCollaborationMode.plan;
+      case 'code':
+        return CodexCollaborationMode.code;
       case 'execute':
       case 'exec':
         return CodexCollaborationMode.execute;
+      case 'custom':
+        return CodexCollaborationMode.custom;
       case 'pairprogramming':
       case 'pair':
       case 'pp':

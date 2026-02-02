@@ -74,7 +74,7 @@ export type ClientMessage =
   | { type: 'create_session'; projectPath?: string; title?: string; permission?: PermissionRuleset }
   | { type: 'get_session'; sessionId: string; projectPath?: string }
   | { type: 'get_session_messages'; sessionId: string; projectPath?: string; limit?: number }
-  | { type: 'chat'; sessionId: string; content: string; projectPath?: string; messageId?: string; model?: { providerID: string; modelID: string }; agent?: string; disabledTools?: string[]; fileAttachments?: FileAttachment[]; variant?: string }
+  | { type: 'chat'; sessionId: string; content: string; projectPath?: string; messageId?: string; model?: { providerID: string; modelID: string }; agent?: string; fileAttachments?: FileAttachment[]; variant?: string }
   | { type: 'abort'; sessionId: string; projectPath?: string }
   | { type: 'diff'; sessionId: string; projectPath?: string; messageId?: string }
   | { type: 'browse'; path: string; projectPath?: string }
@@ -205,11 +205,28 @@ export type ClientMessage =
   | { type: 'cx_list_projects'; refresh?: boolean }
   | { type: 'cx_list_threads'; cwd?: string; cursor?: string | null; limit?: number | null; refresh?: boolean }
   | { type: 'cx_warmup' }
-  | { type: 'cx_start_thread'; cwd?: string; model?: string; approvalPolicy?: string; sandbox?: string; env?: Record<string, string> }
+  | { type: 'cx_start_thread'; cwd?: string; model?: string; approvalPolicy?: string; sandbox?: string }
   | { type: 'cx_resume_thread'; threadId: string }
   | { type: 'cx_archive_thread'; threadId: string }
   | { type: 'cx_get_thread_messages'; threadId: string }
-  | { type: 'cx_chat'; threadId?: string; prompt: string; cwd?: string; model?: string; effort?: string; summary?: string; approvalPolicy?: string; sandbox?: string; sandboxPolicy?: any; config?: Record<string, any>; env?: Record<string, string>; baseInstructions?: string; developerInstructions?: string; fileAttachments?: FileAttachment[]; collaborationMode?: 'plan' | 'pairprogramming' | 'execute' }
+  | {
+      type: 'cx_chat'
+      threadId?: string
+      prompt: string
+      cwd?: string
+      model?: string
+      effort?: string
+      summary?: string
+      approvalPolicy?: string
+      sandbox?: string
+      sandboxPolicy?: any
+      config?: Record<string, any>
+      baseInstructions?: string
+      developerInstructions?: string
+      fileAttachments?: FileAttachment[]
+      // Official protocol values are snake_case; keep legacy variants for backward compatibility.
+      collaborationMode?: 'plan' | 'code' | 'pair_programming' | 'pairprogramming' | 'pairProgramming' | 'execute' | 'custom'
+    }
   | { type: 'cx_abort'; threadId: string; turnId?: string }
   | { type: 'cx_permission_response'; requestId: string; response: PermissionResponse; execpolicyAmendment?: any }
   // Codex request_user_input response (SDK v0.87.0+)
@@ -827,7 +844,6 @@ export type ClaudeCodePlugin = {
   skills?: string[]               // Skills provided
   hasHooks?: boolean              // Has hooks.json
   hasMcpServers?: boolean         // Has MCP server configs
-  hasLspServers?: boolean         // Has LSP server configs
   // Runtime info
   loadedAt?: number               // When plugin was last loaded
   error?: string                  // Error message if status is 'error'

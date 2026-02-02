@@ -37,7 +37,6 @@ import '../providers/selection_provider.dart';
 import '../models/glow_style.dart';
 import '../models/prompt_accent_color.dart';
 import '../providers/service_providers.dart';
-import '../providers/tool_settings_provider.dart';
 import '../services/haptics_service.dart';
 import '../services/image_picker_service.dart';
 import '../services/websocket_service.dart';
@@ -1377,14 +1376,16 @@ class _ChatScreenState extends ConsumerState<ChatScreen>
     }
   }
 
-  // Claude Code: Rewind files to checkpoint (undo file changes)
+  // Claude Code: Rewind files to the most recent checkpoint.
+  // Uses the SDK's `rewindFiles(userMessageId)` which reverts ALL tracked files
+  // to their state at that user message. Pops the checkpoint from the stack so
+  // subsequent undos go further back.
   Future<void> _ccRewindToCheckpoint() async {
     _haptics.mediumImpact();
     final theme = OpenCodeTheme.of(context);
 
-    // Check if we have a checkpoint to rewind to
     final ccChatState = ref.read(ccChatProvider);
-    if (ccChatState.latestCheckpoint == null) {
+    if (!ccChatState.canUndo) {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: const Text('No file changes to undo'),
@@ -1393,6 +1394,8 @@ class _ChatScreenState extends ConsumerState<ChatScreen>
       );
       return;
     }
+
+    final remaining = ccChatState.checkpoints.length - 1;
 
     try {
       final ccChat = ref.read(ccChatProvider.notifier);
@@ -1405,7 +1408,11 @@ class _ChatScreenState extends ConsumerState<ChatScreen>
       if (success) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: const Text('File changes reverted'),
+            content: Text(
+              remaining > 0
+                  ? 'File changes reverted ($remaining more undo${remaining == 1 ? '' : 's'} available)'
+                  : 'File changes reverted',
+            ),
             backgroundColor: theme.backgroundPanel,
           ),
         );
@@ -4839,7 +4846,7 @@ Describe project-specific guidance for Codex here.
     buffer.writeln('---\n');
 
     for (final msg in chatState.messages) {
-      final role = msg.role == 'user' ? 'You' : 'Assistant';
+      final role = msg.role == MessageRole.user ? 'You' : 'Assistant';
       buffer.writeln('## $role');
       buffer.writeln(msg.text);
       buffer.writeln();
@@ -4930,7 +4937,7 @@ Describe project-specific guidance for Codex here.
     buffer.writeln('---\n');
 
     for (final msg in chatState.messages) {
-      final role = msg.role == 'user' ? 'You' : 'Assistant';
+      final role = msg.role == MessageRole.user ? 'You' : 'Assistant';
       buffer.writeln('## $role');
       buffer.writeln(msg.text);
       buffer.writeln();
@@ -4966,7 +4973,7 @@ Describe project-specific guidance for Codex here.
         itemCount: chatState.messages.length,
         itemBuilder: (context, index) {
           final msg = chatState.messages[index];
-          final isUser = msg.role == 'user';
+          final isUser = msg.role == MessageRole.user;
           return ListTile(
             leading: CircleAvatar(
               backgroundColor: isUser ? theme.primary : theme.accent,
@@ -5041,7 +5048,7 @@ Describe project-specific guidance for Codex here.
             itemCount: chatState.messages.length,
             itemBuilder: (context, index) {
               final msg = chatState.messages[index];
-              final isUser = msg.role == 'user';
+              final isUser = msg.role == MessageRole.user;
               return ListTile(
                 leading: CircleAvatar(
                   backgroundColor: isUser ? theme.primary : theme.accent,
@@ -5905,10 +5912,11 @@ Describe project-specific guidance for Codex here.
       return CompactEditCard(
         tool: tool,
         messageId: messageId,
-        onUndo: widget.isClaudeCode
-            ? (_, __) => _ccRewindToCheckpoint()
-            : widget.isCodex
-            ? null // Codex handles undo differently
+        // Claude Code + Codex: no per-card undo (CC uses turn-level rewind
+        // via SDK's rewindFiles(); Codex uses /undo command with custom snapshots).
+        // OpenCode: per-message/part revert via SDK's session.revert().
+        onUndo: widget.isClaudeCode || widget.isCodex
+            ? null
             : (msgId, partId) => _revertMessage(msgId, partId: partId),
       );
     }
@@ -5918,7 +5926,10 @@ Describe project-specific guidance for Codex here.
       return CompactWriteCard(
         tool: tool,
         messageId: messageId,
-        onUndo: (msgId, partId) => _revertMessage(msgId, partId: partId),
+        // Claude Code: no per-card undo (turn-level rewind only)
+        onUndo: widget.isClaudeCode
+            ? null
+            : (msgId, partId) => _revertMessage(msgId, partId: partId),
       );
     }
 
@@ -6045,6 +6056,44 @@ Describe project-specific guidance for Codex here.
         toolName == 'file_editor';
   }
 
+  /// Whether an assistant message contains any file-modifying tool calls.
+  bool _messageHasFileChanges(ChatMessage message) {
+    return message.toolCalls.any((t) {
+      final name = t.name.toLowerCase().replaceFirst('mcp_', '');
+      return _isFileModificationTool(name);
+    });
+  }
+
+  /// Extract file paths from file-modifying tool calls in a message.
+  /// Uses the same field-name heuristics as CompactEditCard._getFilePath().
+  List<String> _extractChangedFilePaths(ChatMessage message) {
+    final paths = <String>{};
+    for (final tool in message.toolCalls) {
+      final name = tool.name.toLowerCase().replaceFirst('mcp_', '');
+      if (!_isFileModificationTool(name)) continue;
+      final path =
+          tool.input['filePath'] as String? ??
+          tool.input['path'] as String? ??
+          tool.input['file_path'] as String? ??
+          tool.input['file'] as String?;
+      if (path != null && path.isNotEmpty) {
+        paths.add(path);
+        continue;
+      }
+      // Codex live: changes array
+      final changes = tool.input['changes'];
+      if (changes is List && changes.isNotEmpty) {
+        for (final c in changes) {
+          if (c is Map<String, dynamic>) {
+            final cp = c['path'] as String?;
+            if (cp != null && cp.isNotEmpty) paths.add(cp);
+          }
+        }
+      }
+    }
+    return paths.toList();
+  }
+
   /// Check if a tool is a file modification tool (edit, write, patch)
   /// These tools produce diffs that are shown inline in their compact cards
   bool _isFileModificationTool(String toolName) {
@@ -6117,8 +6166,9 @@ Describe project-specific guidance for Codex here.
                 child: DiffViewer(
                   diff: diff,
                   messageId: message.id,
+                  // Claude Code: no per-diff undo (turn-level rewind only)
                   onUndo: widget.isClaudeCode
-                      ? (_, __) => _ccRewindToCheckpoint()
+                      ? null
                       : (messageId, partId) =>
                             _revertMessage(messageId, partId: partId),
                   onViewFull: () => _openDiffView(diff, messageId: message.id),
@@ -6130,6 +6180,24 @@ Describe project-specific guidance for Codex here.
             Padding(
               padding: const EdgeInsets.only(top: 8),
               child: CompactAgentCard.fromNotification(notification: subtask),
+            ),
+
+          // Claude Code: Turn-level undo bar after assistant messages with file changes.
+          // Uses the SDK's rewindFiles(userMessageId) which reverts ALL files to a
+          // checkpoint — no per-file undo exists in the SDK.
+          if (widget.isClaudeCode &&
+              message.role == MessageRole.assistant &&
+              !message.isStreaming &&
+              _messageHasFileChanges(message))
+            Builder(
+              builder: (context) {
+                final ccState = ref.watch(ccChatProvider);
+                if (!ccState.canUndo) return const SizedBox.shrink();
+                return _CCUndoTurnBar(
+                  changedFiles: _extractChangedFilePaths(message),
+                  onUndo: _ccRewindToCheckpoint,
+                );
+              },
             ),
 
           const SizedBox(height: 16),
@@ -7103,10 +7171,6 @@ Describe your project here.
       final clientMessageId = _newClientMessageId();
       chat.appendUserMessage(displayText, messageId: clientMessageId);
 
-      // Get disabled tools from settings
-      final toolSettings = ref.read(toolSettingsProvider);
-      final disabledTools = toolSettings.disabledTools.toList();
-
       // Get variant (thinking level) for OpenCode models
       final variantState = ref.read(openCodeVariantProvider);
       final variant = variantState.getVariant(selectedModel);
@@ -7119,7 +7183,6 @@ Describe your project here.
         providerID: selectedModel?.providerID,
         modelID: selectedModel?.modelID,
         agent: messageAgent,
-        disabledTools: disabledTools.isNotEmpty ? disabledTools : null,
         fileAttachments: hasAttachments ? _attachedFiles : null,
         variant: variant,
       );
@@ -9413,10 +9476,14 @@ class _CliStyleInputBarState extends State<_CliStyleInputBar> {
     switch (mode) {
       case CodexCollaborationMode.plan:
         return 'Plan';
+      case CodexCollaborationMode.code:
+        return 'Code';
       case CodexCollaborationMode.pairProgramming:
         return 'Pair';
       case CodexCollaborationMode.execute:
         return 'Exec';
+      case CodexCollaborationMode.custom:
+        return 'Custom';
       case null:
         return 'Pair';
     }
@@ -9430,10 +9497,14 @@ class _CliStyleInputBarState extends State<_CliStyleInputBar> {
     switch (mode) {
       case CodexCollaborationMode.plan:
         return theme.warning; // Planning mode - amber
+      case CodexCollaborationMode.code:
+        return theme.info; // Code mode - cyan/blue
       case CodexCollaborationMode.pairProgramming:
         return theme.primary; // Default interactive - primary
       case CodexCollaborationMode.execute:
         return theme.success; // Autonomous execution - green
+      case CodexCollaborationMode.custom:
+        return theme.accent; // Custom - accent
       case null:
         return theme.primary;
     }
@@ -11201,6 +11272,214 @@ class _RevertStateBanner extends StatelessWidget {
             ),
           ),
         ],
+      ),
+    );
+  }
+}
+
+/// Claude Code: Turn-level undo bar shown after assistant messages that
+/// modified files. The SDK only supports `rewindFiles(userMessageId)` which
+/// reverts ALL file changes back to a checkpoint — there is no per-file undo.
+/// This bar makes that behaviour transparent instead of misleading per-card
+/// undo buttons.
+class _CCUndoTurnBar extends StatelessWidget {
+  const _CCUndoTurnBar({required this.changedFiles, required this.onUndo});
+
+  /// Paths of files changed in this turn (extracted from tool call inputs).
+  final List<String> changedFiles;
+
+  /// Called when the user taps undo. Should call rewindToCheckpoint().
+  final VoidCallback onUndo;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = OpenCodeTheme.of(context);
+    final fileCount = changedFiles.length;
+    final label = fileCount == 1
+        ? '1 file changed'
+        : '$fileCount files changed';
+
+    return Container(
+      margin: const EdgeInsets.only(top: 8),
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+      decoration: BoxDecoration(
+        color: theme.backgroundPanel.withValues(alpha: 0.6),
+        borderRadius: BorderRadius.circular(10),
+        border: Border.all(color: theme.border.withValues(alpha: 0.4)),
+      ),
+      child: Row(
+        children: [
+          Icon(Icons.history_rounded, color: theme.textMuted, size: 16),
+          const SizedBox(width: 8),
+          Expanded(
+            child: GestureDetector(
+              onTap: () => _showChangedFilesSheet(context, theme),
+              child: Text(
+                label,
+                style: TextStyle(
+                  color: theme.textMuted,
+                  fontSize: 12,
+                  fontWeight: FontWeight.w500,
+                ),
+              ),
+            ),
+          ),
+          SizedBox(
+            height: 28,
+            child: TextButton.icon(
+              onPressed: onUndo,
+              icon: Icon(Icons.undo_rounded, size: 14, color: theme.info),
+              label: Text(
+                'Undo turn',
+                style: TextStyle(
+                  color: theme.info,
+                  fontSize: 12,
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
+              style: TextButton.styleFrom(
+                padding: const EdgeInsets.symmetric(horizontal: 10),
+                minimumSize: Size.zero,
+                tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  void _showChangedFilesSheet(BuildContext context, dynamic theme) {
+    showModalBottomSheet(
+      context: context,
+      backgroundColor: Colors.transparent,
+      builder: (ctx) => Container(
+        constraints: BoxConstraints(
+          maxHeight: MediaQuery.of(context).size.height * 0.45,
+        ),
+        decoration: BoxDecoration(
+          color: theme.background,
+          borderRadius: const BorderRadius.vertical(top: Radius.circular(16)),
+          border: Border.all(color: theme.border.withValues(alpha: 0.3)),
+        ),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            // Handle
+            Container(
+              margin: const EdgeInsets.only(top: 10),
+              width: 36,
+              height: 4,
+              decoration: BoxDecoration(
+                color: theme.textMuted.withValues(alpha: 0.3),
+                borderRadius: BorderRadius.circular(2),
+              ),
+            ),
+            // Header
+            Padding(
+              padding: const EdgeInsets.fromLTRB(16, 14, 16, 8),
+              child: Row(
+                children: [
+                  Icon(Icons.history_rounded, color: theme.info, size: 18),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: Text(
+                      'Files changed this turn',
+                      style: TextStyle(
+                        color: theme.text,
+                        fontSize: 15,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            const Divider(height: 1),
+            // File list
+            Flexible(
+              child: ListView.builder(
+                shrinkWrap: true,
+                padding: const EdgeInsets.symmetric(vertical: 8),
+                itemCount: changedFiles.length,
+                itemBuilder: (ctx, i) {
+                  final path = changedFiles[i];
+                  final fileName = path.split('/').last;
+                  final dir = path.contains('/')
+                      ? path.substring(0, path.lastIndexOf('/'))
+                      : '';
+                  return Padding(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 16,
+                      vertical: 4,
+                    ),
+                    child: Row(
+                      children: [
+                        Icon(
+                          Icons.description_outlined,
+                          color: theme.textMuted,
+                          size: 15,
+                        ),
+                        const SizedBox(width: 8),
+                        Expanded(
+                          child: Text.rich(
+                            TextSpan(
+                              children: [
+                                TextSpan(
+                                  text: fileName,
+                                  style: TextStyle(
+                                    color: theme.text,
+                                    fontSize: 13,
+                                    fontWeight: FontWeight.w500,
+                                  ),
+                                ),
+                                if (dir.isNotEmpty)
+                                  TextSpan(
+                                    text: '  $dir',
+                                    style: TextStyle(
+                                      color: theme.textMuted,
+                                      fontSize: 12,
+                                    ),
+                                  ),
+                              ],
+                            ),
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                        ),
+                      ],
+                    ),
+                  );
+                },
+              ),
+            ),
+            // Undo button
+            Padding(
+              padding: const EdgeInsets.fromLTRB(16, 8, 16, 16),
+              child: SizedBox(
+                width: double.infinity,
+                child: ElevatedButton.icon(
+                  onPressed: () {
+                    Navigator.of(ctx).pop();
+                    onUndo();
+                  },
+                  icon: const Icon(Icons.undo_rounded, size: 16),
+                  label: Text(
+                    'Undo all changes from this turn',
+                    style: const TextStyle(fontWeight: FontWeight.w600),
+                  ),
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: theme.info,
+                    foregroundColor: Colors.white,
+                    padding: const EdgeInsets.symmetric(vertical: 12),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(10),
+                    ),
+                  ),
+                ),
+              ),
+            ),
+          ],
+        ),
       ),
     );
   }

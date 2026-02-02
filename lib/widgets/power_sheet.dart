@@ -391,28 +391,29 @@ class _PowerSheetState extends ConsumerState<PowerSheet> {
   }
 
   Widget _buildCodexCollabModes(OpenCodeTheme theme) {
-    return IntrinsicHeight(
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: CodexCollaborationMode.values.map((mode) {
+    final modes = CodexCollaborationMode.values;
+    return SizedBox(
+      height: 56,
+      child: ListView.separated(
+        scrollDirection: Axis.horizontal,
+        itemCount: modes.length,
+        separatorBuilder: (_, __) => const SizedBox(width: 8),
+        itemBuilder: (context, index) {
+          final mode = modes[index];
           final isSelected = widget.codexCollabMode == mode;
-          return Expanded(
-            child: Padding(
-              padding: EdgeInsets.only(
-                right: mode == CodexCollaborationMode.values.last ? 0 : 8,
-              ),
-              child: _CollabModeCard(
-                mode: mode,
-                isSelected: isSelected,
-                theme: theme,
-                onTap: () {
-                  widget.onCodexCollabModeChanged?.call(mode);
-                  Navigator.pop(context);
-                },
-              ),
+          return SizedBox(
+            width: 120,
+            child: _CollabModeCard(
+              mode: mode,
+              isSelected: isSelected,
+              theme: theme,
+              onTap: () {
+                widget.onCodexCollabModeChanged?.call(mode);
+                Navigator.pop(context);
+              },
             ),
           );
-        }).toList(),
+        },
       ),
     );
   }

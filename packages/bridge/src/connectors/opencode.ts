@@ -21,7 +21,6 @@ export type OpenCodeConnectorOptions = {
 export class OpenCodeConnector {
   private client: OpencodeClient
   private baseUrl: string
-  private toolIdsCache = new Map<string, { ids: string[]; fetchedAt: number }>()
 
   // Session list cache with 5s TTL (prevents redundant fetches)
   private sessionCache = new Map<string, { data: SessionSummary[]; fetchedAt: number }>()
@@ -195,30 +194,9 @@ export class OpenCodeConnector {
     messageId?: string,
     model?: { providerID: string; modelID: string },
     agent?: string,
-    disabledTools?: string[],
     fileAttachments?: FileAttachment[],
     variant?: string,
   ) {
-    let tools: Record<string, boolean> | undefined
-    if (disabledTools && disabledTools.length > 0) {
-      const key = directory ?? 'global'
-      const cached = this.toolIdsCache.get(key)
-      const now = Date.now()
-      const ttlMs = 30_000
-
-      let ids: string[]
-      if (cached && now - cached.fetchedAt < ttlMs) {
-        ids = cached.ids
-      } else {
-        ids = await this.listToolIds(directory)
-        this.toolIdsCache.set(key, { ids, fetchedAt: now })
-      }
-
-      tools = {}
-      for (const id of ids) tools[id] = true
-      for (const id of disabledTools) tools[id] = false
-    }
-    
     const parts: Array<{ type: string; text?: string; url?: string; filename?: string; mime?: string }> = [
       { type: 'text', text: content },
     ]
@@ -257,7 +235,6 @@ export class OpenCodeConnector {
         ...(messageId ? { messageID: messageId } : {}),
         ...(model ? { model } : {}),
         ...(agent ? { agent } : {}),
-        ...(tools ? { tools } : {}),
         ...(variant ? { variant } : {}),
         parts,
       },
@@ -275,30 +252,9 @@ export class OpenCodeConnector {
     directory?: string,
     model?: { providerID: string; modelID: string },
     agent?: string,
-    disabledTools?: string[],
     fileAttachments?: FileAttachment[],
     variant?: string,
   ) {
-    let tools: Record<string, boolean> | undefined
-    if (disabledTools && disabledTools.length > 0) {
-      const key = directory ?? 'global'
-      const cached = this.toolIdsCache.get(key)
-      const now = Date.now()
-      const ttlMs = 30_000
-
-      let ids: string[]
-      if (cached && now - cached.fetchedAt < ttlMs) {
-        ids = cached.ids
-      } else {
-        ids = await this.listToolIds(directory)
-        this.toolIdsCache.set(key, { ids, fetchedAt: now })
-      }
-
-      tools = {}
-      for (const id of ids) tools[id] = true
-      for (const id of disabledTools) tools[id] = false
-    }
-
     const parts: Array<{ type: string; text?: string; url?: string; filename?: string; mime?: string }> = [
       { type: 'text', text: content },
     ]
@@ -336,7 +292,6 @@ export class OpenCodeConnector {
         directory,
         ...(model ? { model } : {}),
         ...(agent ? { agent } : {}),
-        ...(tools ? { tools } : {}),
         ...(variant ? { variant } : {}),
         parts,
       },

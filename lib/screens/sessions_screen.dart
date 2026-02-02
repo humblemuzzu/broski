@@ -8,6 +8,7 @@ import '../models/agent_type.dart';
 import '../models/claude_code.dart';
 import '../models/codex.dart';
 import '../models/highlight_color.dart';
+import '../models/permission_rule.dart';
 import '../models/project.dart';
 import '../models/session.dart';
 import '../models/worktree.dart';
@@ -21,6 +22,7 @@ import '../providers/permission_rules_provider.dart';
 import '../providers/sessions_provider.dart';
 import '../providers/service_providers.dart';
 import '../providers/selection_provider.dart';
+import '../providers/tool_settings_provider.dart';
 import '../theme/opencode_theme.dart';
 import '../widgets/background_session_widgets.dart';
 import '../widgets/chat/detail_sheet.dart';
@@ -932,7 +934,9 @@ class _SessionsScreenState extends ConsumerState<SessionsScreen> {
   ) async {
     final bridge = ref.read(bridgeServiceProvider);
     final chat = ref.read(chatSessionProvider.notifier);
-    final permissionRules = ref.read(permissionRulesProvider).effectiveRuleset;
+    final baseRules = ref.read(permissionRulesProvider).effectiveRuleset;
+    final disabledTools = ref.read(toolSettingsProvider).disabledTools;
+    final permissionRules = applyDisabledToolsToRuleset(baseRules, disabledTools);
 
     final projectPath = worktree?.directory ?? project.path;
 

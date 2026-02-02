@@ -2,7 +2,7 @@ import { query } from '@anthropic-ai/claude-agent-sdk'
 import { mkdir, readdir, readFile, stat, writeFile } from 'node:fs/promises'
 import { randomBytes } from 'node:crypto'
 import { existsSync, readFileSync } from 'node:fs'
-import { join, basename, sep } from 'node:path'
+import { join, basename, relative } from 'node:path'
 import { homedir } from 'node:os'
 import type {
   PermissionResponse,
@@ -1079,6 +1079,43 @@ export async function listHooks(cwd?: string): Promise<ClaudeCodeHook[]> {
   return hooks
 }
 
+async function scanCommandsRecursive(
+  baseDir: string,
+  currentDir: string,
+  source: 'project' | 'user',
+  out: ClaudeCodeCommand[],
+): Promise<void> {
+  try {
+    const entries = await readdir(currentDir, { withFileTypes: true })
+    for (const entry of entries) {
+      if (entry.name.startsWith('.')) continue
+
+      const fullPath = join(currentDir, entry.name)
+
+      if (entry.isDirectory()) {
+        await scanCommandsRecursive(baseDir, fullPath, source, out)
+        continue
+      }
+
+      if (!entry.isFile() || !entry.name.endsWith('.md')) continue
+
+      const rel = relative(baseDir, fullPath)
+      const withoutExt = rel.replace(/\.md$/, '')
+      const name = withoutExt.replace(/[\\/]/g, ':')
+
+      try {
+        const content = await readFile(fullPath, 'utf-8')
+        const cmd = parseCommandFile(name, content)
+        out.push({ ...cmd, source, path: fullPath })
+      } catch {
+        out.push({ name, source, path: fullPath })
+      }
+    }
+  } catch {
+    // ignore (dir doesn't exist)
+  }
+}
+
 export async function listCommands(cwd?: string): Promise<ClaudeCodeCommand[]> {
   const commands: ClaudeCodeCommand[] = []
   const searchDirs: string[] = []
@@ -1091,25 +1128,7 @@ export async function listCommands(cwd?: string): Promise<ClaudeCodeCommand[]> {
 
   for (const dir of searchDirs) {
     const source: 'project' | 'user' = dir.startsWith(homedir()) ? 'user' : 'project'
-    try {
-      const entries = await readdir(dir)
-      for (const entry of entries) {
-        if (!entry.endsWith('.md')) continue
-
-        const name = basename(entry, '.md')
-        const filePath = join(dir, entry)
-
-        try {
-          const content = await readFile(filePath, 'utf-8')
-          const cmd = parseCommandFile(name, content)
-          commands.push({ ...cmd, source, path: filePath })
-        } catch {
-          commands.push({ name, source, path: filePath })
-        }
-      }
-    } catch {
-      continue
-    }
+    await scanCommandsRecursive(dir, dir, source, commands)
   }
 
   // Also include commands exposed by enabled plugins (so "/" autocomplete finds them).

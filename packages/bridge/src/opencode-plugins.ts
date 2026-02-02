@@ -10,7 +10,8 @@ export type OpenCodePluginFile = {
   source: OpenCodePluginSource
 }
 
-const ALLOWED_EXTS = ['.js', '.ts', '.mjs', '.cjs']
+// OpenCode upstream only scans `{plugin,plugins}/*.{ts,js}`.
+const ALLOWED_EXTS = ['.js', '.ts']
 
 function hasAllowedExt(name: string): boolean {
   return ALLOWED_EXTS.some((ext) => name.endsWith(ext))
@@ -33,8 +34,14 @@ async function fileExists(path: string): Promise<boolean> {
 }
 
 function pluginDir(source: OpenCodePluginSource, cwd?: string): string {
-  if (source === 'user') return join(homedir(), '.config', 'opencode', 'plugin')
-  return join(cwd || process.cwd(), '.opencode', 'plugin')
+  if (source === 'user') return join(homedir(), '.config', 'opencode')
+  return join(cwd || process.cwd(), '.opencode')
+}
+
+function pluginDirs(source: OpenCodePluginSource, cwd?: string): string[] {
+  const root = pluginDir(source, cwd)
+  // Prefer plural directory for new writes, but support legacy singular for reads.
+  return [join(root, 'plugins'), join(root, 'plugin')]
 }
 
 export function getPluginFilePath(params: {
@@ -42,16 +49,32 @@ export function getPluginFilePath(params: {
   cwd?: string
   name: string
 }): string {
-  return join(pluginDir(params.source, params.cwd), params.name)
+  return join(pluginDirs(params.source, params.cwd)[0], params.name)
+}
+
+export async function resolvePluginFilePath(params: {
+  source: OpenCodePluginSource
+  cwd?: string
+  name: string
+}): Promise<string> {
+  const candidates = pluginDirs(params.source, params.cwd).map((d) => join(d, params.name))
+  for (const candidate of candidates) {
+    if (await fileExists(candidate)) return candidate
+  }
+  return candidates[0]
 }
 
 export async function listPluginFiles(cwd?: string): Promise<OpenCodePluginFile[]> {
   const out: OpenCodePluginFile[] = []
 
   const dirs: Array<{ source: OpenCodePluginSource; dir: string }> = [
-    { source: 'user', dir: pluginDir('user') },
+    { source: 'user', dir: pluginDirs('user')[0] },
+    { source: 'user', dir: pluginDirs('user')[1] },
   ]
-  if (cwd) dirs.unshift({ source: 'project', dir: pluginDir('project', cwd) })
+  if (cwd) {
+    dirs.unshift({ source: 'project', dir: pluginDirs('project', cwd)[1] })
+    dirs.unshift({ source: 'project', dir: pluginDirs('project', cwd)[0] })
+  }
 
   for (const { source, dir } of dirs) {
     try {
@@ -84,4 +107,3 @@ export async function writePluginFile(path: string, content: string): Promise<vo
 export async function deletePluginFile(path: string): Promise<void> {
   await rm(path, { force: true })
 }
-

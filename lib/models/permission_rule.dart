@@ -100,6 +100,45 @@ class PermissionRule {
 /// the `question` tool which are set to `ask` or `deny` at the agent level).
 typedef PermissionRuleset = List<PermissionRule>;
 
+/// Apply tool-disable settings as hard "deny" permission rules.
+///
+/// OpenCode's permission model groups the write/edit family under the `edit`
+/// permission key. To mirror upstream behavior, disabling any of:
+/// `edit`, `write`, `patch`, `multiedit` results in denying `edit` entirely.
+///
+/// The returned ruleset appends deny rules at the end so they win under
+/// OpenCode's "last matching rule wins" semantics.
+PermissionRuleset applyDisabledToolsToRuleset(
+  PermissionRuleset base,
+  Iterable<String> disabledTools,
+) {
+  final denyPermissions = <String>{};
+  for (final raw in disabledTools) {
+    final id = raw.trim().toLowerCase();
+    if (id.isEmpty) continue;
+
+    if (id == 'edit' || id == 'write' || id == 'patch' || id == 'multiedit') {
+      denyPermissions.add('edit');
+      continue;
+    }
+
+    denyPermissions.add(id);
+  }
+
+  if (denyPermissions.isEmpty) return base;
+
+  final sorted = denyPermissions.toList()..sort();
+  return [
+    ...base,
+    for (final permission in sorted)
+      PermissionRule(
+        permission: permission,
+        pattern: '*',
+        action: PermissionAction.deny,
+      ),
+  ];
+}
+
 // ---------------------------------------------------------------------------
 // Helpers used by presets
 // ---------------------------------------------------------------------------

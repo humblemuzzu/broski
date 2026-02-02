@@ -1,6 +1,6 @@
 import { readdir, mkdir, readFile, writeFile, rm, stat } from 'node:fs/promises'
 import { homedir } from 'node:os'
-import { join, resolve } from 'node:path'
+import { dirname, join, relative, resolve } from 'node:path'
 
 export type SkillSource = 'project' | 'user' | 'system' | 'admin' | 'plugin'
 
@@ -13,10 +13,20 @@ export type SkillListEntry = {
 }
 
 const SKILL_FILENAME = 'SKILL.md'
-const SKILL_NAME_RE = /^[a-z0-9]+(-[a-z0-9]+)*$/
+const SKILL_NAME_SEGMENT_RE = /^[A-Za-z0-9][A-Za-z0-9_-]*$/
 
 export function validateSkillName(name: string): boolean {
-  return name.length >= 1 && name.length <= 64 && SKILL_NAME_RE.test(name)
+  const normalized = name.trim()
+  if (normalized.length < 1 || normalized.length > 256) return false
+  if (normalized.includes('\0')) return false
+  if (normalized.startsWith('/')) return false
+  if (normalized.includes('\\')) return false
+
+  const parts = normalized.split('/')
+  if (parts.some((p) => !p || p === '.' || p === '..' || !SKILL_NAME_SEGMENT_RE.test(p))) {
+    return false
+  }
+  return true
 }
 
 function parseDescriptionFromFrontmatter(content: string): string | undefined {
@@ -39,31 +49,57 @@ async function fileExists(path: string): Promise<boolean> {
 async function listSkillsInRoot(rootDir: string, source: SkillSource): Promise<SkillListEntry[]> {
   const out: SkillListEntry[] = []
   try {
-    const entries = await readdir(rootDir, { withFileTypes: true })
-    for (const entry of entries) {
-      if (!entry.isDirectory()) continue
-      if (entry.name.startsWith('.')) continue
-      const dir = join(rootDir, entry.name)
-      const skillPath = join(dir, SKILL_FILENAME)
-      if (!(await fileExists(skillPath))) continue
+    const rootAbs = resolve(rootDir)
+
+    const visit = async (dir: string) => {
+      let entries
       try {
-        const content = await readFile(skillPath, 'utf-8')
-        out.push({
-          name: entry.name,
-          description: parseDescriptionFromFrontmatter(content),
-          path: skillPath,
-          source,
-          editable: source === 'project' || source === 'user',
-        })
+        entries = await readdir(dir, { withFileTypes: true })
       } catch {
-        out.push({
-          name: entry.name,
-          path: skillPath,
-          source,
-          editable: source === 'project' || source === 'user',
-        })
+        return
+      }
+
+      for (const entry of entries) {
+        // Skip hidden directories to avoid picking up unexpected internal folders.
+        if (entry.isDirectory() && entry.name.startsWith('.')) continue
+
+        const full = join(dir, entry.name)
+        if (entry.isDirectory()) {
+          await visit(full)
+          continue
+        }
+
+        if (!entry.isFile()) continue
+        if (entry.name !== SKILL_FILENAME) continue
+
+        const skillDir = dirname(full)
+        const relDir = relative(rootAbs, skillDir)
+        if (!relDir || relDir.startsWith('..')) continue
+
+        const name = relDir.split(/[\\/]/).join('/')
+        if (!validateSkillName(name)) continue
+
+        try {
+          const content = await readFile(full, 'utf-8')
+          out.push({
+            name,
+            description: parseDescriptionFromFrontmatter(content),
+            path: full,
+            source,
+            editable: source === 'project' || source === 'user',
+          })
+        } catch {
+          out.push({
+            name,
+            path: full,
+            source,
+            editable: source === 'project' || source === 'user',
+          })
+        }
       }
     }
+
+    await visit(rootAbs)
   } catch {
     // ignore
   }
@@ -89,12 +125,44 @@ export function getOpenCodeSkillFilePath(params: {
   return join(base, SKILL_FILENAME)
 }
 
+export async function resolveOpenCodeSkillFilePath(params: {
+  name: string
+  source: Extract<SkillSource, 'project' | 'user'>
+  cwd?: string
+}): Promise<string> {
+  const { name, source } = params
+  const cwd = params.cwd || process.cwd()
+  const root = source === 'project' ? join(cwd, '.opencode') : join(homedir(), '.config', 'opencode')
+
+  const candidates = [
+    join(root, 'skills', name, SKILL_FILENAME),
+    join(root, 'skill', name, SKILL_FILENAME),
+  ]
+
+  for (const candidate of candidates) {
+    if (await fileExists(candidate)) return candidate
+  }
+
+  // Default for new skills: keep legacy `.opencode/skill/<name>/SKILL.md` structure.
+  return join(root, 'skill', name, SKILL_FILENAME)
+}
+
 export async function listOpenCodeSkills(cwd?: string): Promise<SkillListEntry[]> {
-  const userRoot = join(homedir(), '.config', 'opencode', 'skill')
-  const user = await listSkillsInRoot(userRoot, 'user')
+  const userRoots = [
+    join(homedir(), '.config', 'opencode', 'skill'),
+    join(homedir(), '.config', 'opencode', 'skills'),
+  ]
+  const user = (
+    await Promise.all(userRoots.map((r) => listSkillsInRoot(r, 'user')))
+  ).flat()
+
   if (!cwd) return user
-  const projectRoot = join(cwd, '.opencode', 'skill')
-  const project = await listSkillsInRoot(projectRoot, 'project')
+
+  const projectRoots = [join(cwd, '.opencode', 'skill'), join(cwd, '.opencode', 'skills')]
+  const project = (
+    await Promise.all(projectRoots.map((r) => listSkillsInRoot(r, 'project')))
+  ).flat()
+
   return [...project, ...user]
 }
 

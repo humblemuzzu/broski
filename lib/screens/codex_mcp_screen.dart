@@ -78,7 +78,7 @@ class _CodexMcpScreenState extends ConsumerState<CodexMcpScreen>
       await bridge.cxWriteConfigValue(
         keyPath: 'mcp_servers',
         value: servers,
-        mergeStrategy: 'Replace',
+        mergeStrategy: 'replace',
       );
       if (!mounted) return;
       setState(() => _dirty = false);

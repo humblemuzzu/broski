@@ -4,6 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../models/agent_type.dart';
 import '../models/highlight_color.dart';
+import '../models/permission_rule.dart';
 import '../models/project.dart';
 import '../models/worktree.dart';
 import '../providers/agent_type_provider.dart';
@@ -13,6 +14,7 @@ import '../providers/highlights_provider.dart';
 import '../providers/permission_rules_provider.dart';
 import '../providers/selection_provider.dart';
 import '../providers/service_providers.dart';
+import '../providers/tool_settings_provider.dart';
 import '../theme/opencode_theme.dart';
 import '../widgets/chat/detail_sheet.dart';
 import '../widgets/connection_quality_indicator.dart';
@@ -174,7 +176,9 @@ class _ProjectsScreenState extends ConsumerState<ProjectsScreen> {
   ) async {
     final bridge = ref.read(bridgeServiceProvider);
     final chat = ref.read(chatSessionProvider.notifier);
-    final permissionRules = ref.read(permissionRulesProvider).effectiveRuleset;
+    final baseRules = ref.read(permissionRulesProvider).effectiveRuleset;
+    final disabledTools = ref.read(toolSettingsProvider).disabledTools;
+    final permissionRules = applyDisabledToolsToRuleset(baseRules, disabledTools);
 
     try {
       final session = await bridge.createSession(
@@ -759,7 +763,9 @@ class _ProjectsScreenState extends ConsumerState<ProjectsScreen> {
     }
 
     final bridge = ref.read(bridgeServiceProvider);
-    final permissionRules = ref.read(permissionRulesProvider).effectiveRuleset;
+    final baseRules = ref.read(permissionRulesProvider).effectiveRuleset;
+    final disabledTools = ref.read(toolSettingsProvider).disabledTools;
+    final permissionRules = applyDisabledToolsToRuleset(baseRules, disabledTools);
     final session = await bridge.createSession(
       projectPath: project.path,
       permission: permissionRules,

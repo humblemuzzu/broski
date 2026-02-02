@@ -291,8 +291,9 @@ class ClaudeCodeSystemPrompt {
 
   String get displayValue {
     if (text != null) return 'Custom';
-    if (preset != null)
+    if (preset != null) {
       return preset == 'claude_code' ? 'Claude Code' : preset!;
+    }
     return 'None';
   }
 }
@@ -1462,7 +1463,6 @@ class ClaudeCodePlugin {
   final List<String>? skills;
   final bool hasHooks;
   final bool hasMcpServers;
-  final bool hasLspServers;
   final int? loadedAt;
   final String? error;
 
@@ -1476,7 +1476,6 @@ class ClaudeCodePlugin {
     this.skills,
     this.hasHooks = false,
     this.hasMcpServers = false,
-    this.hasLspServers = false,
     this.loadedAt,
     this.error,
   });
@@ -1496,7 +1495,6 @@ class ClaudeCodePlugin {
       skills: (json['skills'] as List<dynamic>?)?.cast<String>(),
       hasHooks: json['hasHooks'] as bool? ?? false,
       hasMcpServers: json['hasMcpServers'] as bool? ?? false,
-      hasLspServers: json['hasLspServers'] as bool? ?? false,
       loadedAt: json['loadedAt'] as int?,
       error: json['error'] as String?,
     );
@@ -1513,7 +1511,6 @@ class ClaudeCodePlugin {
       if (skills != null && skills!.isNotEmpty) 'skills': skills,
       if (hasHooks) 'hasHooks': hasHooks,
       if (hasMcpServers) 'hasMcpServers': hasMcpServers,
-      if (hasLspServers) 'hasLspServers': hasLspServers,
       if (loadedAt != null) 'loadedAt': loadedAt,
       if (error != null) 'error': error,
     };
@@ -1534,8 +1531,7 @@ class ClaudeCodePlugin {
       (agents?.length ?? 0) +
       (skills?.length ?? 0) +
       (hasHooks ? 1 : 0) +
-      (hasMcpServers ? 1 : 0) +
-      (hasLspServers ? 1 : 0);
+      (hasMcpServers ? 1 : 0);
 
   /// Create a copy with updated status
   ClaudeCodePlugin copyWith({
@@ -1548,7 +1544,6 @@ class ClaudeCodePlugin {
     List<String>? skills,
     bool? hasHooks,
     bool? hasMcpServers,
-    bool? hasLspServers,
     int? loadedAt,
     String? error,
   }) {
@@ -1562,7 +1557,6 @@ class ClaudeCodePlugin {
       skills: skills ?? this.skills,
       hasHooks: hasHooks ?? this.hasHooks,
       hasMcpServers: hasMcpServers ?? this.hasMcpServers,
-      hasLspServers: hasLspServers ?? this.hasLspServers,
       loadedAt: loadedAt ?? this.loadedAt,
       error: error ?? this.error,
     );

@@ -333,16 +333,24 @@ class CCChatState {
   final bool isStreaming;
   final String? error;
 
-  /// The most recent checkpoint UUID for file revert (undo) functionality.
-  /// Updated whenever we receive a checkpoint-created event from the SDK.
-  final CCCheckpointCreated? latestCheckpoint;
+  /// Stack of checkpoint UUIDs for file revert (undo) functionality.
+  /// Each user message turn creates a checkpoint; we store all of them so
+  /// users can undo multiple turns (LIFO order).
+  final List<CCCheckpointCreated> checkpoints;
+
+  /// Convenience getter -- the most recent checkpoint (top of the stack).
+  CCCheckpointCreated? get latestCheckpoint =>
+      checkpoints.isNotEmpty ? checkpoints.last : null;
+
+  /// Whether any checkpoints are available for undo.
+  bool get canUndo => checkpoints.isNotEmpty;
 
   const CCChatState({
     this.sessionId,
     this.messages = const [],
     this.isStreaming = false,
     this.error,
-    this.latestCheckpoint,
+    this.checkpoints = const [],
   });
 
   CCChatState copyWith({
@@ -350,17 +358,17 @@ class CCChatState {
     List<ClaudeCodeStreamMessage>? messages,
     bool? isStreaming,
     String? error,
-    CCCheckpointCreated? latestCheckpoint,
-    bool clearCheckpoint = false,
+    List<CCCheckpointCreated>? checkpoints,
+    bool clearCheckpoints = false,
   }) {
     return CCChatState(
       sessionId: sessionId ?? this.sessionId,
       messages: messages ?? this.messages,
       isStreaming: isStreaming ?? this.isStreaming,
       error: error,
-      latestCheckpoint: clearCheckpoint
-          ? null
-          : (latestCheckpoint ?? this.latestCheckpoint),
+      checkpoints: clearCheckpoints
+          ? const []
+          : (checkpoints ?? this.checkpoints),
     );
   }
 }
@@ -417,10 +425,10 @@ class CCChatNotifier extends StateNotifier<CCChatState> {
     } else if (message is CCError) {
       state = state.copyWith(isStreaming: false, error: message.message);
     } else if (message is CCCheckpointCreated) {
-      // Track the latest checkpoint for undo/revert functionality.
+      // Append checkpoint to the stack for per-turn undo functionality.
       // Only track if it matches the current session.
       if (message.sessionId == state.sessionId) {
-        state = state.copyWith(latestCheckpoint: message);
+        state = state.copyWith(checkpoints: [...state.checkpoints, message]);
       }
     }
 
@@ -440,15 +448,18 @@ class CCChatNotifier extends StateNotifier<CCChatState> {
     state = CCChatState(sessionId: sessionId);
   }
 
-  /// Rewind files to the latest checkpoint (undo file changes).
+  /// Rewind files to the latest checkpoint (undo the last turn's file changes).
+  /// Pops the most recent checkpoint from the stack so subsequent undos
+  /// rewind further back in history.
   /// Returns true if successful, false otherwise.
   Future<bool> rewindToCheckpoint({required String cwd}) async {
-    final checkpoint = state.latestCheckpoint;
-    final sessionId = state.sessionId;
-
-    if (checkpoint == null || sessionId == null) {
+    if (state.checkpoints.isEmpty || state.sessionId == null) {
       return false;
     }
+
+    final sessionId = state.sessionId!;
+    final checkpoints = List<CCCheckpointCreated>.from(state.checkpoints);
+    final checkpoint = checkpoints.removeLast();
 
     final success = await _bridge.ccRewindCheckpoint(
       sessionId: sessionId,
@@ -457,9 +468,8 @@ class CCChatNotifier extends StateNotifier<CCChatState> {
     );
 
     if (success) {
-      // Clear the checkpoint after successful rewind.
-      // The SDK will create a new checkpoint on the next file operation.
-      state = state.copyWith(clearCheckpoint: true);
+      // Pop the used checkpoint; older checkpoints remain for further undos.
+      state = state.copyWith(checkpoints: checkpoints);
     }
 
     return success;

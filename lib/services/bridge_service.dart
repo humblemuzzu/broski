@@ -432,7 +432,6 @@ class BridgeService {
     String? providerID,
     String? modelID,
     String? agent,
-    List<String>? disabledTools,
     List<FileAttachment>? fileAttachments,
     String? variant,
   }) {
@@ -454,8 +453,6 @@ class BridgeService {
       if (providerID != null && modelID != null)
         'model': {'providerID': providerID, 'modelID': modelID},
       if (agent != null) 'agent': agent,
-      if (disabledTools != null && disabledTools.isNotEmpty)
-        'disabledTools': disabledTools,
       if (fileAttachments != null && fileAttachments.isNotEmpty)
         'fileAttachments': fileAttachments.map((f) => f.toJson()).toList(),
       if (variant != null && variant.isNotEmpty) 'variant': variant,
@@ -2800,15 +2797,17 @@ class BridgeService {
   Future<Map<String, dynamic>> cxWriteConfigValue({
     required String keyPath,
     required dynamic value,
-    String mergeStrategy = 'Replace',
+    String mergeStrategy = 'replace',
   }) async {
     final requestId = _generateRequestId();
+    final normalizedMergeStrategy =
+        mergeStrategy.trim().toLowerCase() == 'upsert' ? 'upsert' : 'replace';
     _socket.send({
       'type': 'cx_config_value_write',
       'requestId': requestId,
       'keyPath': keyPath,
       'value': value,
-      'mergeStrategy': mergeStrategy,
+      'mergeStrategy': normalizedMergeStrategy,
     });
     final response = await _waitFor(
       'cx_config_written',
@@ -2925,7 +2924,7 @@ class BridgeService {
     Map<String, dynamic>? config,
     List<FileAttachment>? fileAttachments,
     String?
-    collaborationMode, // SDK v0.87.0+: 'plan', 'pairprogramming', 'execute'
+    collaborationMode, // SDK v0.87.0+: 'plan', 'code', 'pair_programming', 'execute', 'custom'
   }) {
     _socket.send({
       'type': 'cx_chat',

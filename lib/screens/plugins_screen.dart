@@ -772,8 +772,7 @@ class _PluginDetailsContent extends StatelessWidget {
 
           // Other components
           if (plugin.hasHooks == true ||
-              plugin.hasMcpServers == true ||
-              plugin.hasLspServers == true) ...[
+              plugin.hasMcpServers == true) ...[
             _DetailSection(
               title: 'Components',
               child: Wrap(
@@ -789,11 +788,6 @@ class _PluginDetailsContent extends StatelessWidget {
                     const _ComponentChip(
                       icon: Icons.dns_outlined,
                       label: 'MCP Servers',
-                    ),
-                  if (plugin.hasLspServers == true)
-                    const _ComponentChip(
-                      icon: Icons.code_rounded,
-                      label: 'LSP Servers',
                     ),
                 ],
               ),
