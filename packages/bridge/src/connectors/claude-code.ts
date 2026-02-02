@@ -1186,6 +1186,100 @@ function parseCommandFile(name: string, content: string): ClaudeCodeCommand {
   return { name, description, agent, model, subtask }
 }
 
+// ── Filesystem-based Agent Discovery ─────────────────────────────────
+// Scans .claude/agents/ directories (project + user) for .md agent files.
+// Each .md file defines a subagent that Claude Code auto-loads at session startup.
+// See: https://code.claude.com/docs/en/sub-agents
+
+import type { ClaudeCodeFilesystemAgent } from '../types'
+
+function parseAgentFile(name: string, content: string): Omit<ClaudeCodeFilesystemAgent, 'source' | 'path'> {
+  let description: string | undefined
+  let tools: string[] | undefined
+  let model: string | undefined
+
+  // Parse YAML frontmatter if present
+  const frontmatterMatch = content.match(/^---\n([\s\S]*?)\n---/)
+  if (frontmatterMatch) {
+    const frontmatter = frontmatterMatch[1]
+
+    const descMatch = frontmatter.match(/description:\s*(.+)/)
+    if (descMatch) description = descMatch[1].trim()
+
+    const modelMatch = frontmatter.match(/model:\s*(.+)/)
+    if (modelMatch) model = modelMatch[1].trim()
+
+    // Tools can be comma-separated or YAML array
+    const toolsMatch = frontmatter.match(/tools:\s*\[([^\]]*)\]/)
+    if (toolsMatch) {
+      tools = toolsMatch[1].split(',').map(t => t.trim().replace(/["']/g, '')).filter(Boolean)
+    } else {
+      // Check for YAML list format
+      const toolsListMatch = frontmatter.match(/tools:\s*\n((?:\s+-\s+.+\n?)+)/)
+      if (toolsListMatch) {
+        tools = toolsListMatch[1]
+          .split('\n')
+          .map(line => line.replace(/^\s*-\s*/, '').trim())
+          .filter(Boolean)
+      }
+    }
+  }
+
+  // If no frontmatter description, use first non-empty line after frontmatter
+  if (!description) {
+    const bodyStart = frontmatterMatch ? content.indexOf('---', 4) + 3 : 0
+    const body = content.slice(bodyStart).trim()
+    const firstLine = body.split('\n').find(l => l.trim() && !l.startsWith('#'))
+    if (firstLine) description = firstLine.trim().slice(0, 200)
+  }
+
+  // The full content (minus frontmatter) is the agent's prompt/instructions
+  const promptStart = frontmatterMatch ? content.indexOf('---', 4) + 3 : 0
+  const prompt = content.slice(promptStart).trim()
+
+  return { name, description, prompt: prompt || undefined, tools, model }
+}
+
+export async function listAgents(cwd?: string): Promise<ClaudeCodeFilesystemAgent[]> {
+  const agents: ClaudeCodeFilesystemAgent[] = []
+  const searchDirs: string[] = []
+
+  if (cwd) {
+    searchDirs.push(join(cwd, '.claude', 'agents'))
+  }
+
+  searchDirs.push(join(homedir(), '.claude', 'agents'))
+
+  for (const dir of searchDirs) {
+    const source: 'project' | 'user' = dir.startsWith(homedir()) ? 'user' : 'project'
+    try {
+      const entries = await readdir(dir, { withFileTypes: true })
+      for (const entry of entries) {
+        if (entry.name.startsWith('.')) continue
+        if (!entry.isFile() || !entry.name.endsWith('.md')) continue
+
+        const filePath = join(dir, entry.name)
+        const name = entry.name.replace(/\.md$/, '')
+
+        // Skip if we already have an agent with this name (project takes precedence)
+        if (agents.some(a => a.name === name)) continue
+
+        try {
+          const content = await readFile(filePath, 'utf-8')
+          const parsed = parseAgentFile(name, content)
+          agents.push({ ...parsed, source, path: filePath })
+        } catch {
+          agents.push({ name, source, path: filePath })
+        }
+      }
+    } catch {
+      continue
+    }
+  }
+
+  return agents
+}
+
 export async function getConfig(cwd?: string): Promise<ClaudeCodeConfig> {
   const cfg: ClaudeCodeConfig = { ...currentConfig }
 
@@ -1399,6 +1493,11 @@ export async function queryClaudeCode(
     const q = query({ prompt: finalPrompt, options: sdkOptions })
 
     for await (const message of q as any) {
+      // Extract parent_tool_use_id from SDK message for subagent context tracking.
+      // When non-null, this message originated from inside a subagent's execution.
+      const parentToolUseId = (message as any)?.parent_tool_use_id as string | undefined
+      const emit = (msg: Record<string, unknown>) => onMessage(parentToolUseId ? { ...msg, parentToolUseId } : msg)
+
       // System init: session created + capabilities snapshot (tools/commands/etc)
       if (message?.type === 'system' && message?.subtype === 'init') {
         sessionId = message.session_id
@@ -1408,13 +1507,13 @@ export async function queryClaudeCode(
           query: q,
           startedAt: Date.now(),
         })
-        onMessage({
+        emit({
           type: 'session-created',
           sessionId,
           agent: 'claude-code',
           model: message.model || sdkOptions.model,
         })
-        onMessage({
+        emit({
           type: 'session-init',
           sessionId,
           model: message.model || sdkOptions.model,
@@ -1451,13 +1550,13 @@ export async function queryClaudeCode(
         if (eventType === 'content_block_start') {
           const block = event?.content_block
           if (block?.type === 'text' && typeof block?.text === 'string' && block.text.length > 0) {
-            onMessage({ type: 'assistant-message-delta', content: block.text })
+            emit({ type: 'assistant-message-delta', content: block.text })
           }
           if (block?.type === 'tool_use') {
             const toolName = block.name as string
             const toolInput = block.input as Record<string, unknown>
             
-            onMessage({
+            emit({
               type: 'tool-call',
               tool: toolName,
               input: toolInput,
@@ -1470,7 +1569,7 @@ export async function queryClaudeCode(
             if (toolName === 'Task') {
               const subagentType = toolInput?.subagent_type as string | undefined
               if (subagentType) {
-                onMessage({
+                emit({
                   type: 'subagent-invocation',
                   subagentName: subagentType,
                   toolUseId: block.id,
@@ -1486,12 +1585,12 @@ export async function queryClaudeCode(
           const delta = event?.delta
           const deltaType = delta?.type as string | undefined
           if (deltaType === 'text_delta' && typeof delta?.text === 'string') {
-            onMessage({ type: 'assistant-message-delta', content: delta.text })
+            emit({ type: 'assistant-message-delta', content: delta.text })
           } else if (
             (deltaType === 'thinking_delta' || deltaType === 'reasoning_delta') &&
             typeof delta?.thinking === 'string'
           ) {
-            onMessage({
+            emit({
               type: 'thinking-delta',
               content: delta.thinking,
               partId: typeof event?.index === 'number' ? `thinking_${event.index}` : undefined,
@@ -1502,7 +1601,7 @@ export async function queryClaudeCode(
 
       // Tool progress signals (long-running tools)
       if (message?.type === 'tool_progress') {
-        onMessage({
+        emit({
           type: 'tool-call',
           tool: message.tool_name,
           input: { elapsedSeconds: message.elapsed_time_seconds },
@@ -1516,12 +1615,12 @@ export async function queryClaudeCode(
         const content = message.message?.content || []
         for (const block of content) {
           if (block?.type === 'text') {
-            onMessage({ type: 'assistant-message', content: block.text ?? '' })
+            emit({ type: 'assistant-message', content: block.text ?? '' })
           } else if (block?.type === 'tool_use') {
             const toolName = block.name as string
             const toolInput = block.input as Record<string, unknown>
             
-            onMessage({
+            emit({
               type: 'tool-call',
               tool: toolName,
               input: toolInput,
@@ -1533,7 +1632,7 @@ export async function queryClaudeCode(
             if (toolName === 'Task') {
               const subagentType = toolInput?.subagent_type as string | undefined
               if (subagentType) {
-                onMessage({
+                emit({
                   type: 'subagent-invocation',
                   subagentName: subagentType,
                   toolUseId: block.id,
@@ -1552,7 +1651,7 @@ export async function queryClaudeCode(
         // Emit checkpoint if UUID is present (for file checkpointing/undo support)
         const checkpointUuid = message.uuid as string | undefined
         if (checkpointUuid && sessionId) {
-          onMessage({
+          emit({
             type: 'checkpoint-created',
             sessionId,
             checkpointUuid,
@@ -1563,7 +1662,7 @@ export async function queryClaudeCode(
         const content = message.message?.content || []
         for (const block of content) {
           if (block?.type === 'tool_result') {
-            onMessage({
+            emit({
               type: 'tool-result',
               toolUseId: block.tool_use_id,
               result: block.content,
@@ -1576,10 +1675,10 @@ export async function queryClaudeCode(
       // Result / token usage + cost (end of conversation - cumulative totals)
       if (message?.type === 'result') {
         if (typeof message.result === 'string' && message.result.trim().length > 0) {
-          onMessage({ type: 'assistant-message', content: message.result })
+          emit({ type: 'assistant-message', content: message.result })
         }
         if (message.usage) {
-          onMessage({
+          emit({
             type: 'token-usage',
             usage: {
               inputTokens: message.usage.input_tokens,

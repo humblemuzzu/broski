@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../models/claude_code.dart';
 import '../providers/claude_code_provider.dart';
+import '../providers/service_providers.dart';
 import '../theme/opencode_theme.dart';
 import '../widgets/claude_code_help.dart';
 
@@ -16,13 +17,35 @@ class SubagentsScreen extends ConsumerStatefulWidget {
 }
 
 class _SubagentsScreenState extends ConsumerState<SubagentsScreen> {
+  List<Map<String, dynamic>> _filesystemAgents = [];
+  bool _loadingFsAgents = false;
+
   @override
   void initState() {
     super.initState();
     // Load config if not already loaded
     WidgetsBinding.instance.addPostFrameCallback((_) {
       ref.read(ccConfigProvider.notifier).load();
+      _loadFilesystemAgents();
     });
+  }
+
+  void _loadFilesystemAgents() async {
+    setState(() => _loadingFsAgents = true);
+    try {
+      final bridge = ref.read(bridgeServiceProvider);
+      final agents = await bridge.ccListAgents();
+      if (mounted) {
+        setState(() {
+          _filesystemAgents = agents
+              .where((a) => a['source'] == 'filesystem')
+              .toList();
+          _loadingFsAgents = false;
+        });
+      }
+    } catch (_) {
+      if (mounted) setState(() => _loadingFsAgents = false);
+    }
   }
 
   @override
@@ -61,8 +84,11 @@ class _SubagentsScreenState extends ConsumerState<SubagentsScreen> {
         ),
         data: (config) {
           final subagents = config.subagents;
+          final hasFilesystem = _filesystemAgents.isNotEmpty;
+          final hasConfig = subagents.isNotEmpty;
 
-          if (subagents.isEmpty) {
+          // Empty state: only show when BOTH filesystem and config agents are empty
+          if (!hasFilesystem && !hasConfig && !_loadingFsAgents) {
             return Center(
               child: Column(
                 mainAxisAlignment: MainAxisAlignment.center,
@@ -101,21 +127,98 @@ class _SubagentsScreenState extends ConsumerState<SubagentsScreen> {
             );
           }
 
-          return ListView.builder(
+          return ListView(
             padding: const EdgeInsets.all(16),
-            itemCount: subagents.length,
-            itemBuilder: (context, index) {
-              final subagent = subagents[index];
-              final isActive = config.activeSubagent == subagent.name;
+            children: [
+              // Filesystem agents section (read-only)
+              if (_loadingFsAgents)
+                Padding(
+                  padding: const EdgeInsets.only(bottom: 16),
+                  child: Center(
+                    child: SizedBox(
+                      width: 16,
+                      height: 16,
+                      child: CircularProgressIndicator(
+                        strokeWidth: 2,
+                        color: oc.textMuted,
+                      ),
+                    ),
+                  ),
+                ),
+              if (hasFilesystem) ...[
+                Padding(
+                  padding: const EdgeInsets.only(bottom: 8),
+                  child: Row(
+                    children: [
+                      Icon(
+                        Icons.folder_outlined,
+                        size: 14,
+                        color: oc.textMuted,
+                      ),
+                      const SizedBox(width: 6),
+                      Text(
+                        'Project Agents (.claude/agents/)',
+                        style: TextStyle(
+                          color: oc.textMuted,
+                          fontSize: 12,
+                          fontWeight: FontWeight.w600,
+                          letterSpacing: 0.5,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                for (final agent in _filesystemAgents)
+                  _FilesystemAgentCard(
+                    name: agent['name'] as String? ?? 'Unknown',
+                    description: agent['description'] as String? ?? '',
+                  ),
+              ],
 
-              return _SubagentCard(
-                subagent: subagent,
-                isActive: isActive,
-                onTap: () => _showSubagentEditor(context, subagent),
-                onSetActive: () => _setActiveSubagent(subagent.name, isActive),
-                onDelete: () => _deleteSubagent(subagent.name),
-              );
-            },
+              // Divider between filesystem and config sections
+              if (hasFilesystem && hasConfig)
+                Padding(
+                  padding: const EdgeInsets.symmetric(vertical: 12),
+                  child: Divider(color: oc.border, height: 1),
+                ),
+
+              // Config agents section header
+              if (hasConfig) ...[
+                Padding(
+                  padding: const EdgeInsets.only(bottom: 8),
+                  child: Row(
+                    children: [
+                      Icon(
+                        Icons.settings_outlined,
+                        size: 14,
+                        color: oc.textMuted,
+                      ),
+                      const SizedBox(width: 6),
+                      Text(
+                        'Configured Subagents',
+                        style: TextStyle(
+                          color: oc.textMuted,
+                          fontSize: 12,
+                          fontWeight: FontWeight.w600,
+                          letterSpacing: 0.5,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                for (final subagent in subagents)
+                  _SubagentCard(
+                    subagent: subagent,
+                    isActive: config.activeSubagent == subagent.name,
+                    onTap: () => _showSubagentEditor(context, subagent),
+                    onSetActive: () => _setActiveSubagent(
+                      subagent.name,
+                      config.activeSubagent == subagent.name,
+                    ),
+                    onDelete: () => _deleteSubagent(subagent.name),
+                  ),
+              ],
+            ],
           );
         },
       ),
@@ -336,6 +439,90 @@ class _SubagentCard extends StatelessWidget {
               ),
             ],
           ),
+        ),
+      ),
+    );
+  }
+}
+
+/// Read-only card for filesystem-based agents (.claude/agents/).
+/// These are managed on the user's system, not from the app.
+class _FilesystemAgentCard extends StatelessWidget {
+  final String name;
+  final String description;
+
+  const _FilesystemAgentCard({required this.name, required this.description});
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final oc = theme.extension<OpenCodeTheme>()!;
+
+    return Card(
+      color: oc.backgroundElement,
+      margin: const EdgeInsets.only(bottom: 12),
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(12),
+        side: BorderSide(color: oc.border),
+      ),
+      child: Padding(
+        padding: const EdgeInsets.all(16),
+        child: Row(
+          children: [
+            Icon(Icons.description_outlined, color: oc.textMuted, size: 24),
+            const SizedBox(width: 12),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
+                    children: [
+                      Flexible(
+                        child: Text(
+                          name,
+                          style: TextStyle(
+                            color: oc.text,
+                            fontSize: 16,
+                            fontWeight: FontWeight.w600,
+                          ),
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                      ),
+                      const SizedBox(width: 8),
+                      Container(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 6,
+                          vertical: 2,
+                        ),
+                        decoration: BoxDecoration(
+                          color: oc.textMuted.withOpacity(0.15),
+                          borderRadius: BorderRadius.circular(4),
+                        ),
+                        child: Text(
+                          'FILESYSTEM',
+                          style: TextStyle(
+                            color: oc.textMuted,
+                            fontSize: 9,
+                            fontWeight: FontWeight.bold,
+                            letterSpacing: 0.5,
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                  if (description.isNotEmpty) ...[
+                    const SizedBox(height: 4),
+                    Text(
+                      description,
+                      style: TextStyle(color: oc.textMuted, fontSize: 13),
+                      maxLines: 2,
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                  ],
+                ],
+              ),
+            ),
+          ],
         ),
       ),
     );

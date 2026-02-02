@@ -5759,6 +5759,11 @@ export async function createBridgeServer(options: BridgeServerOptions): Promise<
           reply({ type: 'cc_commands', data: commands })
           break
         }
+        case 'cc_list_agents': {
+          const agents = await claudeCode.listAgents(message.cwd || message.projectPath)
+          reply({ type: 'cc_agents', data: agents })
+          break
+        }
         case 'cc_get_command': {
           const name = safeString(message.name)
           const source = message.source

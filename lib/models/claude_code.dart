@@ -513,7 +513,11 @@ class ClaudeCodeConfig {
 }
 
 sealed class ClaudeCodeStreamMessage {
-  const ClaudeCodeStreamMessage();
+  /// When non-null, this message originated from inside a subagent's execution.
+  /// Maps to `parent_tool_use_id` from the Claude Code SDK.
+  final String? parentToolUseId;
+
+  const ClaudeCodeStreamMessage({this.parentToolUseId});
 
   factory ClaudeCodeStreamMessage.fromJson(Map<String, dynamic> json) {
     final type = json['type'] as String?;
@@ -557,6 +561,7 @@ class CCSessionCreated extends ClaudeCodeStreamMessage {
     required this.sessionId,
     required this.agent,
     this.model,
+    super.parentToolUseId,
   });
 
   factory CCSessionCreated.fromJson(Map<String, dynamic> json) {
@@ -564,6 +569,7 @@ class CCSessionCreated extends ClaudeCodeStreamMessage {
       sessionId: json['sessionId'] as String? ?? '',
       agent: json['agent'] as String? ?? 'claude-code',
       model: json['model'] as String?,
+      parentToolUseId: json['parentToolUseId'] as String?,
     );
   }
 }
@@ -591,6 +597,7 @@ class CCSessionInit extends ClaudeCodeStreamMessage {
     required this.plugins,
     this.apiKeySource,
     this.claudeCodeVersion,
+    super.parentToolUseId,
   });
 
   factory CCSessionInit.fromJson(Map<String, dynamic> json) {
@@ -623,6 +630,7 @@ class CCSessionInit extends ClaudeCodeStreamMessage {
           const [],
       apiKeySource: json['apiKeySource'] as String?,
       claudeCodeVersion: json['claudeCodeVersion'] as String?,
+      parentToolUseId: json['parentToolUseId'] as String?,
     );
   }
 }
@@ -644,6 +652,7 @@ class CCPermissionRequest extends ClaudeCodeStreamMessage {
     this.decisionReason,
     this.blockedPath,
     required this.hasSuggestions,
+    super.parentToolUseId,
   });
 
   factory CCPermissionRequest.fromJson(Map<String, dynamic> json) {
@@ -657,6 +666,7 @@ class CCPermissionRequest extends ClaudeCodeStreamMessage {
       decisionReason: json['decisionReason'] as String?,
       blockedPath: json['blockedPath'] as String?,
       hasSuggestions: json['hasSuggestions'] as bool? ?? false,
+      parentToolUseId: json['parentToolUseId'] as String?,
     );
   }
 }
@@ -672,6 +682,7 @@ class CCCheckpointCreated extends ClaudeCodeStreamMessage {
     required this.sessionId,
     required this.checkpointUuid,
     required this.timestamp,
+    super.parentToolUseId,
   });
 
   factory CCCheckpointCreated.fromJson(Map<String, dynamic> json) {
@@ -679,6 +690,7 @@ class CCCheckpointCreated extends ClaudeCodeStreamMessage {
       sessionId: json['sessionId'] as String? ?? '',
       checkpointUuid: json['checkpointUuid'] as String? ?? '',
       timestamp: json['timestamp'] as int? ?? 0,
+      parentToolUseId: json['parentToolUseId'] as String?,
     );
   }
 
@@ -690,12 +702,17 @@ class CCAssistantMessage extends ClaudeCodeStreamMessage {
   final String content;
   final String? messageId;
 
-  const CCAssistantMessage({required this.content, this.messageId});
+  const CCAssistantMessage({
+    required this.content,
+    this.messageId,
+    super.parentToolUseId,
+  });
 
   factory CCAssistantMessage.fromJson(Map<String, dynamic> json) {
     return CCAssistantMessage(
       content: json['content'] as String? ?? '',
       messageId: json['messageId'] as String?,
+      parentToolUseId: json['parentToolUseId'] as String?,
     );
   }
 }
@@ -704,12 +721,17 @@ class CCAssistantMessageDelta extends ClaudeCodeStreamMessage {
   final String content;
   final String? messageId;
 
-  const CCAssistantMessageDelta({required this.content, this.messageId});
+  const CCAssistantMessageDelta({
+    required this.content,
+    this.messageId,
+    super.parentToolUseId,
+  });
 
   factory CCAssistantMessageDelta.fromJson(Map<String, dynamic> json) {
     return CCAssistantMessageDelta(
       content: json['content'] as String? ?? '',
       messageId: json['messageId'] as String?,
+      parentToolUseId: json['parentToolUseId'] as String?,
     );
   }
 }
@@ -719,13 +741,19 @@ class CCThinkingDelta extends ClaudeCodeStreamMessage {
   final String? partId;
   final String? messageId;
 
-  const CCThinkingDelta({required this.content, this.partId, this.messageId});
+  const CCThinkingDelta({
+    required this.content,
+    this.partId,
+    this.messageId,
+    super.parentToolUseId,
+  });
 
   factory CCThinkingDelta.fromJson(Map<String, dynamic> json) {
     return CCThinkingDelta(
       content: json['content'] as String? ?? '',
       partId: json['partId'] as String?,
       messageId: json['messageId'] as String?,
+      parentToolUseId: json['parentToolUseId'] as String?,
     );
   }
 }
@@ -743,6 +771,7 @@ class CCToolCall extends ClaudeCodeStreamMessage {
     this.toolUseId,
     required this.status,
     this.messageId,
+    super.parentToolUseId,
   });
 
   factory CCToolCall.fromJson(Map<String, dynamic> json) {
@@ -752,6 +781,7 @@ class CCToolCall extends ClaudeCodeStreamMessage {
       toolUseId: json['toolUseId'] as String?,
       status: json['status'] as String? ?? 'running',
       messageId: json['messageId'] as String?,
+      parentToolUseId: json['parentToolUseId'] as String?,
     );
   }
 }
@@ -767,6 +797,7 @@ class CCToolResult extends ClaudeCodeStreamMessage {
     this.result,
     this.toolUseResult,
     this.messageId,
+    super.parentToolUseId,
   });
 
   factory CCToolResult.fromJson(Map<String, dynamic> json) {
@@ -775,6 +806,7 @@ class CCToolResult extends ClaudeCodeStreamMessage {
       result: json['result'],
       toolUseResult: json['toolUseResult'],
       messageId: json['messageId'] as String?,
+      parentToolUseId: json['parentToolUseId'] as String?,
     );
   }
 }
@@ -803,6 +835,7 @@ class CCSubagentInvocation extends ClaudeCodeStreamMessage {
     this.prompt,
     this.description,
     this.messageId,
+    super.parentToolUseId,
   });
 
   factory CCSubagentInvocation.fromJson(Map<String, dynamic> json) {
@@ -812,6 +845,7 @@ class CCSubagentInvocation extends ClaudeCodeStreamMessage {
       prompt: json['prompt'] as String?,
       description: json['description'] as String?,
       messageId: json['messageId'] as String?,
+      parentToolUseId: json['parentToolUseId'] as String?,
     );
   }
 }
@@ -834,6 +868,7 @@ class CCTokenUsage extends ClaudeCodeStreamMessage {
     this.totalCostUsd,
     this.messageId,
     this.contextWindow,
+    super.parentToolUseId,
   });
 
   factory CCTokenUsage.fromJson(Map<String, dynamic> json) {
@@ -847,6 +882,7 @@ class CCTokenUsage extends ClaudeCodeStreamMessage {
       messageId: json['messageId'] as String?,
       contextWindow:
           usage['contextWindow'] as int? ?? json['contextWindow'] as int?,
+      parentToolUseId: json['parentToolUseId'] as String?,
     );
   }
 
@@ -872,12 +908,13 @@ class CCError extends ClaudeCodeStreamMessage {
   final String message;
   final String? code;
 
-  const CCError({required this.message, this.code});
+  const CCError({required this.message, this.code, super.parentToolUseId});
 
   factory CCError.fromJson(Map<String, dynamic> json) {
     return CCError(
       message: json['message'] as String? ?? 'Unknown error',
       code: json['code'] as String?,
+      parentToolUseId: json['parentToolUseId'] as String?,
     );
   }
 }
@@ -886,7 +923,7 @@ class CCUnknown extends ClaudeCodeStreamMessage {
   final String type;
   final Map<String, dynamic> data;
 
-  const CCUnknown(this.type, this.data);
+  const CCUnknown(this.type, this.data, {super.parentToolUseId});
 }
 
 // =============================================================================

@@ -586,6 +586,12 @@ class ChatSessionNotifier extends StateNotifier<ChatSessionState> {
   // Track the current text part index (-1 if last part was not text)
   int _ccCurrentTextPartIndex = -1;
 
+  // Claude Code subagent tracking
+  // Maps Task tool_use_id -> subagent name for running subagents
+  final Map<String, String> _ccActiveSubagentNames = {};
+  // Maps parentToolUseId -> list of nested ToolCalls from within that subagent
+  final Map<String, List<ToolCall>> _ccNestedToolCalls = {};
+
   // Codex streaming state (ordered parts)
   String _cxCurrentAssistantMessageId = '';
   final StringBuffer _cxAssistantTextBuffer = StringBuffer();
@@ -778,6 +784,9 @@ class ChatSessionNotifier extends StateNotifier<ChatSessionState> {
     _ccOrderedParts.clear();
     _ccPartSequence = 0;
     _ccCurrentTextPartIndex = -1;
+    // Reset subagent tracking
+    _ccActiveSubagentNames.clear();
+    _ccNestedToolCalls.clear();
   }
 
   void _resetCodexState() {
@@ -2418,6 +2427,17 @@ class ChatSessionNotifier extends StateNotifier<ChatSessionState> {
       return;
     }
 
+    if (message is CCSubagentInvocation) {
+      ensureTurnId(message.messageId);
+      // Track the subagent invocation for UI display (activity indicator + card enrichment)
+      if (message.toolUseId != null) {
+        _ccActiveSubagentNames[message.toolUseId!] = message.subagentName;
+      }
+      // Don't add a separate UI element — the Task tool-call card handles display
+      _scheduleCCAssistantUpdate(isStreaming: true);
+      return;
+    }
+
     if (message is CCToolCall) {
       ensureTurnId(message.messageId);
       // Check for TodoWrite tool - update todos state
@@ -2442,6 +2462,32 @@ class ChatSessionNotifier extends StateNotifier<ChatSessionState> {
         output: null,
         metadata: const {},
       );
+
+      // If this tool call is from inside a subagent (has parentToolUseId),
+      // track it as a nested tool call instead of a top-level one.
+      if (message.parentToolUseId != null &&
+          message.parentToolUseId!.isNotEmpty) {
+        _ccNestedToolCalls
+            .putIfAbsent(message.parentToolUseId!, () => [])
+            .add(tool);
+        // Update the parent Task tool's metadata with nested tool count
+        final parentTool = _ccPendingToolCallsById[message.parentToolUseId];
+        if (parentTool != null) {
+          _ccPendingToolCallsById[message.parentToolUseId!] = parentTool
+              .copyWith(
+                metadata: {
+                  ...parentTool.metadata,
+                  'nestedToolCount':
+                      _ccNestedToolCalls[message.parentToolUseId]!.length,
+                  'subagentName':
+                      _ccActiveSubagentNames[message.parentToolUseId] ??
+                      parentTool.metadata['subagentName'],
+                },
+              );
+        }
+        _scheduleCCAssistantUpdate(isStreaming: true);
+        return;
+      }
 
       _ccPendingToolCallsById[tool.callId] = tool;
 
@@ -2471,14 +2517,64 @@ class ChatSessionNotifier extends StateNotifier<ChatSessionState> {
       // Tool completed - update tool status
       final toolUseId = message.toolUseId;
       if (toolUseId == null || toolUseId.isEmpty) return;
+
+      // If this result is from a nested tool call inside a subagent,
+      // update it in the nested tracking map.
+      if (message.parentToolUseId != null &&
+          message.parentToolUseId!.isNotEmpty) {
+        final nestedList = _ccNestedToolCalls[message.parentToolUseId];
+        if (nestedList != null) {
+          for (int i = 0; i < nestedList.length; i++) {
+            if (nestedList[i].callId == toolUseId) {
+              final toolMeta = _ccMetadataFromToolUseResult(
+                message.toolUseResult,
+              );
+              nestedList[i] = nestedList[i].copyWith(
+                status: 'completed',
+                output: message.result?.toString(),
+                metadata: {...nestedList[i].metadata, ...toolMeta},
+              );
+              break;
+            }
+          }
+        }
+        _scheduleCCAssistantUpdate(isStreaming: true);
+        return;
+      }
+
       final existing = _ccPendingToolCallsById[toolUseId];
       if (existing != null) {
         final toolMeta = _ccMetadataFromToolUseResult(message.toolUseResult);
+        // If this is a Task tool completing, attach nested tool calls to metadata
+        final isTaskTool =
+            existing.name.toLowerCase() == 'task' ||
+            existing.name.toLowerCase() == 'subtask' ||
+            existing.name.toLowerCase() == 'agent';
+        final nestedCalls = isTaskTool ? _ccNestedToolCalls[toolUseId] : null;
         _ccPendingToolCallsById[toolUseId] = existing.copyWith(
           status: 'completed',
           output: message.result?.toString(),
-          metadata: {...existing.metadata, ...toolMeta},
+          metadata: {
+            ...existing.metadata,
+            ...toolMeta,
+            if (nestedCalls != null)
+              'nestedToolCalls': nestedCalls
+                  .map(
+                    (t) => {
+                      'name': t.name,
+                      'status': t.status,
+                      'callId': t.callId,
+                      if (t.output != null) 'output': t.output,
+                    },
+                  )
+                  .toList(),
+          },
         );
+        // Clean up subagent tracking for this tool
+        if (isTaskTool) {
+          _ccActiveSubagentNames.remove(toolUseId);
+          _ccNestedToolCalls.remove(toolUseId);
+        }
         _scheduleCCAssistantUpdate(isStreaming: true);
       }
       return;
@@ -2500,6 +2596,9 @@ class ChatSessionNotifier extends StateNotifier<ChatSessionState> {
       _ccOrderedParts.clear();
       _ccPartSequence = 0;
       _ccCurrentTextPartIndex = -1;
+      // Reset subagent tracking
+      _ccActiveSubagentNames.clear();
+      _ccNestedToolCalls.clear();
       return;
     }
 

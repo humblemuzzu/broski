@@ -3276,6 +3276,32 @@ class BridgeService {
         .toList();
   }
 
+  /// List filesystem-based agents from .claude/agents/ directories.
+  /// Returns raw maps with 'name', 'description', 'source', 'path', 'tools', 'model' keys.
+  Future<List<Map<String, dynamic>>> ccListAgents({String? cwd}) async {
+    final requestId = _generateRequestId();
+    _socket.send({
+      'type': 'cc_list_agents',
+      'requestId': requestId,
+      if (cwd != null) 'cwd': cwd,
+    });
+    final response = await _waitFor('cc_agents', requestId: requestId);
+    final data = response['data'] as List<dynamic>? ?? [];
+    return data
+        .whereType<Map<String, dynamic>>()
+        .map(
+          (item) => {
+            'name': item['name'] as String? ?? '',
+            'description': item['description'] as String? ?? '',
+            'source': item['source'] as String? ?? 'filesystem',
+            'path': item['path'] as String? ?? '',
+            if (item['tools'] != null) 'tools': item['tools'],
+            if (item['model'] != null) 'model': item['model'],
+          },
+        )
+        .toList();
+  }
+
   Future<({bool ok, String path, String content})> ccGetCommandFile({
     required String name,
     required SkillSource source,

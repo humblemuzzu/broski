@@ -208,7 +208,33 @@ class CompactAgentCard extends ConsumerWidget {
                   style: TextStyle(color: theme.textMuted, fontSize: 12),
                 ),
               ),
-              const SizedBox(width: 8),
+
+              // Nested tool count badge (when tool has nested calls)
+              if (!_isNotification &&
+                  (_tool?.metadata['nestedToolCount'] is int))
+                Padding(
+                  padding: const EdgeInsets.only(right: 6),
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 5,
+                      vertical: 1,
+                    ),
+                    decoration: BoxDecoration(
+                      color: agentColor.withValues(alpha: 0.15),
+                      borderRadius: BorderRadius.circular(8),
+                    ),
+                    child: Text(
+                      '${_tool!.metadata['nestedToolCount']} tools',
+                      style: TextStyle(
+                        color: agentColor,
+                        fontSize: 10,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                  ),
+                ),
+
+              const SizedBox(width: 2),
 
               // Running spinner or chevron
               if (isRunning)
@@ -353,17 +379,31 @@ class CompactAgentCard extends ConsumerWidget {
     );
   }
 
-  /// Parse nested tool calls from the agent output (if structured)
+  /// Parse nested tool calls from tool metadata (populated by chat_provider)
   List<Map<String, String>> _parseNestedToolCalls() {
-    // The tool output might contain structured data about nested calls
-    // This is a simplified version - adjust based on actual output format
-    // For now, return empty list if we can't parse
     try {
-      final output = _tool?.output;
-      if (output == null) return [];
+      final metadata = _tool?.metadata;
+      if (metadata == null) return [];
 
-      // If output contains tool call information, parse it
-      // This is format-dependent - adjust as needed
+      // Read from metadata['nestedToolCalls'] populated by chat_provider
+      final nestedRaw = metadata['nestedToolCalls'];
+      if (nestedRaw is List) {
+        return nestedRaw
+            .whereType<Map>()
+            .map(
+              (t) => {
+                'name': (t['name'] ?? 'unknown').toString(),
+                'status': (t['status'] ?? 'completed').toString(),
+                'preview': t['output'] != null
+                    ? t['output'].toString().length > 80
+                          ? '${t['output'].toString().substring(0, 80)}...'
+                          : t['output'].toString()
+                    : '',
+              },
+            )
+            .toList();
+      }
+
       return [];
     } catch (e) {
       return [];

@@ -199,6 +199,7 @@ export type ClientMessage =
   | { type: 'cc_delete_command'; name: string; source: 'project' | 'user'; cwd?: string }
   | { type: 'cc_get_config'; cwd?: string }
   | { type: 'cc_set_config'; config: Partial<ClaudeCodeConfig>; cwd?: string }
+  | { type: 'cc_list_agents'; cwd?: string; projectPath?: string }
   | { type: 'cc_get_active_sessions' }
   | { type: 'cc_rename_session'; sessionId: string; name: string; cwd?: string }
   | { type: 'cc_background_session'; sessionId: string; cwd?: string }
@@ -486,6 +487,7 @@ export type ServerMessage =
   | { type: 'cc_mcp_file'; data: { ok: boolean; path: string; content: string }; requestId?: string }
   | { type: 'cc_mcp_file_written'; data: { ok: boolean; path: string }; requestId?: string }
   | { type: 'cc_commands'; data: ClaudeCodeCommand[]; requestId?: string }
+  | { type: 'cc_agents'; data: ClaudeCodeFilesystemAgent[]; requestId?: string }
   | { type: 'cc_active_sessions'; data: Array<{ id: string; cwd: string; startedAt?: number }>; requestId?: string }
   | { type: 'cc_command_file'; data: { ok: boolean; name: string; source: 'project' | 'user' | 'plugin'; path: string; content: string }; requestId?: string }
   | { type: 'cc_command_saved'; data: { ok: boolean; name: string; source: 'project' | 'user'; path?: string }; requestId?: string }
@@ -762,6 +764,17 @@ export type ClaudeCodeSystemPrompt =
   | { type: 'preset'; preset: 'claude_code'; append?: string }
   | null
 
+// Claude Code Filesystem Agent (discovered from .claude/agents/*.md)
+export type ClaudeCodeFilesystemAgent = {
+  name: string                   // Derived from filename (without .md)
+  description?: string           // From frontmatter or first paragraph
+  prompt?: string                // Full markdown content (the agent's instructions)
+  tools?: string[]               // From frontmatter 'tools' field
+  model?: string                 // From frontmatter 'model' field
+  source: 'project' | 'user'    // Project-level (.claude/agents/) or user-level (~/.claude/agents/)
+  path: string                   // Absolute path to the .md file
+}
+
 // Claude Code Subagent Definition (matches SDK AgentDefinition)
 export type ClaudeCodeSubagent = {
   name: string                   // Unique identifier for the subagent
@@ -886,18 +899,18 @@ export type ClaudeCodeConfig = {
 
 // Claude Code Message (for streaming)
 export type ClaudeCodeStreamMessage = 
-  | { type: 'session-created'; sessionId: string; agent: 'claude-code'; model?: string }
-  | { type: 'session-init'; sessionId: string; model: string; permissionMode: ClaudeCodePermissionMode; tools: string[]; slashCommands: string[]; skills: string[]; mcpServers: Array<{ name: string; status: string }>; plugins: Array<{ name: string; path: string }>; apiKeySource?: string; claudeCodeVersion?: string }
-  | { type: 'permission-request'; sessionId: string; toolUseId: string; tool: string; input: Record<string, unknown>; decisionReason?: string; blockedPath?: string; hasSuggestions?: boolean }
-  | { type: 'checkpoint-created'; sessionId: string; checkpointUuid: string; timestamp: number }
-  | { type: 'assistant-message'; content: string; messageId?: string }
-  | { type: 'assistant-message-delta'; content: string; messageId?: string }
-  | { type: 'thinking-delta'; content: string; partId?: string; messageId?: string }
-  | { type: 'tool-call'; tool: string; input: any; toolUseId?: string; status: 'running' | 'completed' | 'failed'; messageId?: string }
-  | { type: 'tool-result'; toolUseId?: string; result: any; toolUseResult?: any; messageId?: string }
-  | { type: 'subagent-invocation'; subagentName: string; toolUseId?: string; prompt?: string; description?: string; messageId?: string }
-  | { type: 'token-usage'; usage: { inputTokens?: number; outputTokens?: number; cacheReadTokens?: number; cacheWriteTokens?: number; reasoningTokens?: number }; messageId?: string }
-  | { type: 'error'; message: string; code?: string }
+  | { type: 'session-created'; sessionId: string; agent: 'claude-code'; model?: string; parentToolUseId?: string }
+  | { type: 'session-init'; sessionId: string; model: string; permissionMode: ClaudeCodePermissionMode; tools: string[]; slashCommands: string[]; skills: string[]; mcpServers: Array<{ name: string; status: string }>; plugins: Array<{ name: string; path: string }>; apiKeySource?: string; claudeCodeVersion?: string; parentToolUseId?: string }
+  | { type: 'permission-request'; sessionId: string; toolUseId: string; tool: string; input: Record<string, unknown>; decisionReason?: string; blockedPath?: string; hasSuggestions?: boolean; parentToolUseId?: string }
+  | { type: 'checkpoint-created'; sessionId: string; checkpointUuid: string; timestamp: number; parentToolUseId?: string }
+  | { type: 'assistant-message'; content: string; messageId?: string; parentToolUseId?: string }
+  | { type: 'assistant-message-delta'; content: string; messageId?: string; parentToolUseId?: string }
+  | { type: 'thinking-delta'; content: string; partId?: string; messageId?: string; parentToolUseId?: string }
+  | { type: 'tool-call'; tool: string; input: any; toolUseId?: string; status: 'running' | 'completed' | 'failed'; messageId?: string; parentToolUseId?: string }
+  | { type: 'tool-result'; toolUseId?: string; result: any; toolUseResult?: any; messageId?: string; parentToolUseId?: string }
+  | { type: 'subagent-invocation'; subagentName: string; toolUseId?: string; prompt?: string; description?: string; messageId?: string; parentToolUseId?: string }
+  | { type: 'token-usage'; usage: { inputTokens?: number; outputTokens?: number; cacheReadTokens?: number; cacheWriteTokens?: number; reasoningTokens?: number }; messageId?: string; parentToolUseId?: string }
+  | { type: 'error'; message: string; code?: string; parentToolUseId?: string }
 
 export type ClaudeCodeTranscriptToolCall = {
   toolUseId: string
