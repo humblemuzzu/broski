@@ -11282,6 +11282,9 @@ class _RevertStateBanner extends StatelessWidget {
 /// reverts ALL file changes back to a checkpoint — there is no per-file undo.
 /// This bar makes that behaviour transparent instead of misleading per-card
 /// undo buttons.
+///
+/// Design matches the compact card system: bgRaised, circular(12), cardBorderSubtle,
+/// JetBrains Mono for paths, DetailSheet for the expanded file list.
 class _CCUndoTurnBar extends StatelessWidget {
   const _CCUndoTurnBar({required this.changedFiles, required this.onUndo});
 
@@ -11299,120 +11302,89 @@ class _CCUndoTurnBar extends StatelessWidget {
         ? '1 file changed'
         : '$fileCount files changed';
 
-    return Container(
-      margin: const EdgeInsets.only(top: 8),
-      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-      decoration: BoxDecoration(
-        color: theme.backgroundPanel.withValues(alpha: 0.6),
-        borderRadius: BorderRadius.circular(10),
-        border: Border.all(color: theme.border.withValues(alpha: 0.4)),
-      ),
-      child: Row(
-        children: [
-          Icon(Icons.history_rounded, color: theme.textMuted, size: 16),
-          const SizedBox(width: 8),
-          Expanded(
-            child: GestureDetector(
-              onTap: () => _showChangedFilesSheet(context, theme),
+    return GestureDetector(
+      onTap: () => _showChangedFilesSheet(context),
+      child: Container(
+        margin: const EdgeInsets.symmetric(vertical: 4),
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+        decoration: BoxDecoration(
+          color: theme.bgRaised,
+          borderRadius: BorderRadius.circular(12),
+          border: Border.all(color: theme.cardBorderSubtle),
+        ),
+        child: Row(
+          children: [
+            Icon(Icons.history_rounded, color: theme.warning, size: 16),
+            const SizedBox(width: 6),
+            Text(
+              label,
+              style: TextStyle(
+                color: theme.cardHeaderText,
+                fontSize: 12,
+                fontWeight: FontWeight.w600,
+              ),
+            ),
+            const SizedBox(width: 8),
+            Expanded(
               child: Text(
-                label,
-                style: TextStyle(
-                  color: theme.textMuted,
-                  fontSize: 12,
-                  fontWeight: FontWeight.w500,
+                changedFiles.map((p) => p.split('/').last).join(', '),
+                style: TextStyle(color: theme.textMuted, fontSize: 12),
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+              ),
+            ),
+            const SizedBox(width: 8),
+            SizedBox(
+              height: 28,
+              child: OutlinedButton.icon(
+                onPressed: onUndo,
+                icon: Icon(Icons.undo_rounded, size: 14, color: theme.warning),
+                label: Text(
+                  'Undo',
+                  style: TextStyle(
+                    color: theme.warning,
+                    fontSize: 12,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+                style: OutlinedButton.styleFrom(
+                  side: BorderSide(color: theme.warning.withValues(alpha: 0.5)),
+                  padding: const EdgeInsets.symmetric(horizontal: 10),
+                  minimumSize: Size.zero,
+                  tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(8),
+                  ),
                 ),
               ),
             ),
-          ),
-          SizedBox(
-            height: 28,
-            child: TextButton.icon(
-              onPressed: onUndo,
-              icon: Icon(Icons.undo_rounded, size: 14, color: theme.info),
-              label: Text(
-                'Undo turn',
-                style: TextStyle(
-                  color: theme.info,
-                  fontSize: 12,
-                  fontWeight: FontWeight.w600,
-                ),
-              ),
-              style: TextButton.styleFrom(
-                padding: const EdgeInsets.symmetric(horizontal: 10),
-                minimumSize: Size.zero,
-                tapTargetSize: MaterialTapTargetSize.shrinkWrap,
-              ),
-            ),
-          ),
-        ],
+          ],
+        ),
       ),
     );
   }
 
-  void _showChangedFilesSheet(BuildContext context, dynamic theme) {
-    showModalBottomSheet(
+  void _showChangedFilesSheet(BuildContext context) {
+    final theme = OpenCodeTheme.of(context);
+
+    DetailSheet.show(
       context: context,
-      backgroundColor: Colors.transparent,
-      builder: (ctx) => Container(
-        constraints: BoxConstraints(
-          maxHeight: MediaQuery.of(context).size.height * 0.45,
-        ),
-        decoration: BoxDecoration(
-          color: theme.background,
-          borderRadius: const BorderRadius.vertical(top: Radius.circular(16)),
-          border: Border.all(color: theme.border.withValues(alpha: 0.3)),
-        ),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            // Handle
-            Container(
-              margin: const EdgeInsets.only(top: 10),
-              width: 36,
-              height: 4,
-              decoration: BoxDecoration(
-                color: theme.textMuted.withValues(alpha: 0.3),
-                borderRadius: BorderRadius.circular(2),
-              ),
-            ),
-            // Header
-            Padding(
-              padding: const EdgeInsets.fromLTRB(16, 14, 16, 8),
-              child: Row(
-                children: [
-                  Icon(Icons.history_rounded, color: theme.info, size: 18),
-                  const SizedBox(width: 8),
-                  Expanded(
-                    child: Text(
-                      'Files changed this turn',
-                      style: TextStyle(
-                        color: theme.text,
-                        fontSize: 15,
-                        fontWeight: FontWeight.w600,
-                      ),
-                    ),
-                  ),
-                ],
-              ),
-            ),
-            const Divider(height: 1),
-            // File list
-            Flexible(
-              child: ListView.builder(
-                shrinkWrap: true,
-                padding: const EdgeInsets.symmetric(vertical: 8),
-                itemCount: changedFiles.length,
-                itemBuilder: (ctx, i) {
-                  final path = changedFiles[i];
-                  final fileName = path.split('/').last;
-                  final dir = path.contains('/')
-                      ? path.substring(0, path.lastIndexOf('/'))
-                      : '';
-                  return Padding(
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 16,
-                      vertical: 4,
-                    ),
+      title: 'Undo File Changes',
+      initialSize: 0.35,
+      minSize: 0.2,
+      maxSize: 0.6,
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          // File list section
+          DetailSection(
+            label: '${changedFiles.length} files changed this turn',
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                for (final path in changedFiles)
+                  Padding(
+                    padding: const EdgeInsets.symmetric(vertical: 3),
                     child: Row(
                       children: [
                         Icon(
@@ -11422,64 +11394,43 @@ class _CCUndoTurnBar extends StatelessWidget {
                         ),
                         const SizedBox(width: 8),
                         Expanded(
-                          child: Text.rich(
-                            TextSpan(
-                              children: [
-                                TextSpan(
-                                  text: fileName,
-                                  style: TextStyle(
-                                    color: theme.text,
-                                    fontSize: 13,
-                                    fontWeight: FontWeight.w500,
-                                  ),
-                                ),
-                                if (dir.isNotEmpty)
-                                  TextSpan(
-                                    text: '  $dir',
-                                    style: TextStyle(
-                                      color: theme.textMuted,
-                                      fontSize: 12,
-                                    ),
-                                  ),
-                              ],
+                          child: Text(
+                            path,
+                            style: TextStyle(
+                              fontFamily: 'monospace',
+                              color: theme.text,
+                              fontSize: 12,
                             ),
                             overflow: TextOverflow.ellipsis,
                           ),
                         ),
                       ],
                     ),
-                  );
-                },
-              ),
+                  ),
+              ],
             ),
-            // Undo button
-            Padding(
-              padding: const EdgeInsets.fromLTRB(16, 8, 16, 16),
-              child: SizedBox(
-                width: double.infinity,
-                child: ElevatedButton.icon(
-                  onPressed: () {
-                    Navigator.of(ctx).pop();
-                    onUndo();
-                  },
-                  icon: const Icon(Icons.undo_rounded, size: 16),
-                  label: Text(
-                    'Undo all changes from this turn',
-                    style: const TextStyle(fontWeight: FontWeight.w600),
-                  ),
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: theme.info,
-                    foregroundColor: Colors.white,
-                    padding: const EdgeInsets.symmetric(vertical: 12),
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(10),
-                    ),
-                  ),
+          ),
+
+          // Undo button (matches edit/write card undo style: OutlinedButton, warning color)
+          Padding(
+            padding: const EdgeInsets.all(16),
+            child: SizedBox(
+              width: double.infinity,
+              child: OutlinedButton.icon(
+                onPressed: () {
+                  Navigator.of(context).pop();
+                  onUndo();
+                },
+                icon: const Icon(Icons.undo, size: 18),
+                label: const Text('Undo all changes from this turn'),
+                style: OutlinedButton.styleFrom(
+                  foregroundColor: theme.warning,
+                  side: BorderSide(color: theme.warning.withValues(alpha: 0.5)),
                 ),
               ),
             ),
-          ],
-        ),
+          ),
+        ],
       ),
     );
   }
