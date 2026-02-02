@@ -345,6 +345,18 @@ export type SessionContextInfo = {
   }>
 }
 
+export type StatusPayload = {
+  // Legacy field (keep for backwards compatibility with older mobile builds)
+  opencodeRunning: boolean
+  // Additive fields for multi-backend UX
+  activeAgent?: AgentType
+  backends?: Record<AgentType, AgentStatusInfo>
+  // Bridge updater notifications
+  updateAvailable?: boolean
+  latestVersion?: string
+  currentVersion?: string
+}
+
 export type ServerMessage =
   | { type: 'projects'; data: ProjectSummary[]; requestId?: string }
   | { type: 'sessions'; data: SessionSummary[]; projectPath?: string; requestId?: string }
@@ -361,7 +373,7 @@ export type ServerMessage =
   | { type: 'client_pong'; id: string; sentAt: number; receivedAt: number }
   | { type: 'connection_metrics'; data: { rttMs: number; lastPongAt: number; connectionType?: string } }
   | { type: 'opencode_restarted'; data: boolean; requestId?: string }
-  | { type: 'status'; data: { opencodeRunning: boolean } }
+  | { type: 'status'; data: StatusPayload }
   | { type: 'error'; message: string; code?: string; requestId?: string }
   | { type: 'lsp_status'; data: LspServerStatus[]; requestId?: string }
   | { type: 'session_context'; data: SessionContextInfo; sessionId: string; requestId?: string }

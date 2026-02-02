@@ -5,6 +5,7 @@ import 'dart:math';
 import 'package:flutter/widgets.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../models/agent_type.dart';
 import '../models/connection.dart';
 import '../models/connection_quality.dart';
 import '../models/device.dart';
@@ -36,6 +37,7 @@ class BridgeConnectionState {
     this.status = ConnectionStatus.disconnected,
     this.error,
     this.opencodeRunning = true,
+    this.backends,
     this.isReconnecting = false,
     this.rttMs,
     this.isOfflineMode = false,
@@ -55,6 +57,7 @@ class BridgeConnectionState {
   final ConnectionStatus status;
   final String? error;
   final bool opencodeRunning;
+  final AgentsStatus? backends;
   final bool isReconnecting;
   final int? rttMs;
   final ConnectionType connectionType;
@@ -110,6 +113,7 @@ class BridgeConnectionState {
     ConnectionStatus? status,
     String? error,
     bool? opencodeRunning,
+    AgentsStatus? backends,
     bool? isReconnecting,
     int? rttMs,
     bool? isOfflineMode,
@@ -128,6 +132,7 @@ class BridgeConnectionState {
       status: status ?? this.status,
       error: error,
       opencodeRunning: opencodeRunning ?? this.opencodeRunning,
+      backends: backends ?? this.backends,
       isReconnecting: isReconnecting ?? this.isReconnecting,
       rttMs: rttMs ?? this.rttMs,
       isOfflineMode: isOfflineMode ?? this.isOfflineMode,
@@ -822,7 +827,11 @@ class ConnectionNotifier extends StateNotifier<BridgeConnectionState>
     if (message['type'] == 'status') {
       final data = message['data'] as Map<String, dynamic>? ?? const {};
       final running = data['opencodeRunning'] == true;
-      state = state.copyWith(opencodeRunning: running);
+      final backendsJson = data['backends'] as Map<String, dynamic>?;
+      final backends = backendsJson != null
+          ? AgentsStatus.fromJson(backendsJson)
+          : state.backends;
+      state = state.copyWith(opencodeRunning: running, backends: backends);
     }
 
     if (message['type'] == 'connection_metrics') {

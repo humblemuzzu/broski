@@ -1,7 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../models/agent_type.dart';
 import '../models/mcp.dart';
+import '../providers/agent_type_provider.dart';
 import '../providers/connection_provider.dart';
 import '../providers/service_providers.dart';
 import '../providers/selection_provider.dart';
@@ -237,6 +239,11 @@ class _McpServersScreenState extends ConsumerState<McpServersScreen>
   Widget build(BuildContext context) {
     final theme = OpenCodeTheme.of(context);
     final connection = ref.watch(connectionProvider);
+    final agentType = ref.watch(agentTypeProvider);
+
+    final agentAvailable =
+        connection.backends?.forType(agentType).available ??
+        (agentType == AgentType.opencode ? connection.opencodeRunning : true);
 
     return Scaffold(
       backgroundColor: theme.background,
@@ -286,7 +293,7 @@ class _McpServersScreenState extends ConsumerState<McpServersScreen>
             padding: const EdgeInsets.symmetric(horizontal: 8),
             child: ConnectionIndicator(
               status: connection.status,
-              opencodeRunning: connection.opencodeRunning,
+              agentAvailable: agentAvailable,
               isReconnecting: connection.isReconnecting,
               rttMs: connection.rttMs,
               compact: true,

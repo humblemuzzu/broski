@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../models/agent_type.dart';
+import '../providers/agent_type_provider.dart';
 import '../providers/connection_provider.dart';
 import '../providers/service_providers.dart';
 import '../providers/selection_provider.dart';
@@ -283,7 +285,12 @@ class _TerminalScreenState extends ConsumerState<TerminalScreen> {
   @override
   Widget build(BuildContext context) {
     final connection = ref.watch(connectionProvider);
+    final agentType = ref.watch(agentTypeProvider);
     final ocTheme = OpenCodeTheme.of(context);
+
+    final agentAvailable =
+        connection.backends?.forType(agentType).available ??
+        (agentType == AgentType.opencode ? connection.opencodeRunning : true);
 
     return Scaffold(
       backgroundColor: ocTheme.background,
@@ -303,7 +310,7 @@ class _TerminalScreenState extends ConsumerState<TerminalScreen> {
             padding: const EdgeInsets.symmetric(horizontal: 8),
             child: ConnectionIndicator(
               status: connection.status,
-              opencodeRunning: connection.opencodeRunning,
+              agentAvailable: agentAvailable,
               isReconnecting: connection.isReconnecting,
               rttMs: connection.rttMs,
               compact: true,

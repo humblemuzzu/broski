@@ -7,39 +7,44 @@ class ConnectionIndicator extends StatelessWidget {
   const ConnectionIndicator({
     super.key,
     required this.status,
-    required this.opencodeRunning,
+    required this.agentAvailable,
     this.isReconnecting = false,
     this.rttMs,
     this.compact = false,
+    this.agentLabel,
   });
 
   final ConnectionStatus status;
-  final bool opencodeRunning;
+  final bool agentAvailable;
   final bool isReconnecting;
   final int? rttMs;
   final bool compact;
+  final String? agentLabel;
 
   @override
   Widget build(BuildContext context) {
     final theme = OpenCodeTheme.of(context);
     final color = switch (status) {
       ConnectionStatus.connected =>
-        opencodeRunning ? theme.success : theme.warning,
+        agentAvailable ? theme.success : theme.warning,
       ConnectionStatus.connecting => theme.warning,
       ConnectionStatus.disconnected => theme.error,
     };
 
     final baseLabel = switch (status) {
-      ConnectionStatus.connected =>
-        opencodeRunning ? 'Online' : 'Agent offline',
+      ConnectionStatus.connected => agentAvailable ? 'Online' : 'Agent offline',
       ConnectionStatus.connecting =>
         isReconnecting ? 'Reconnecting' : 'Connecting',
       ConnectionStatus.disconnected => 'Offline',
     };
 
-    final label = (status == ConnectionStatus.connected && rttMs != null)
-        ? '$baseLabel · ${rttMs}ms'
+    final labeled = (agentLabel != null && status == ConnectionStatus.connected)
+        ? '${agentLabel!} · $baseLabel'
         : baseLabel;
+
+    final label = (status == ConnectionStatus.connected && rttMs != null)
+        ? '$labeled · ${rttMs}ms'
+        : labeled;
 
     return Row(
       mainAxisSize: MainAxisSize.min,

@@ -5,7 +5,7 @@ import { homedir } from 'node:os'
 import { basename, dirname, join, resolve, sep } from 'node:path'
 import { createHash, randomBytes, timingSafeEqual } from 'node:crypto'
 import type { OpenCodeConnector } from './connectors/opencode'
-import type { AgentType, ClaudeCodeStreamMessage, ClientMessage, CodexStreamMessage, CodexThread, CodexTranscriptMessage, DeviceInfo, FileAttachment, PermissionResponse, ServerMessage } from './types'
+import type { AgentStatusInfo, AgentType, ClaudeCodeStreamMessage, ClientMessage, CodexStreamMessage, CodexThread, CodexTranscriptMessage, DeviceInfo, FileAttachment, PermissionResponse, ServerMessage } from './types'
 import * as claudeCode from './connectors/claude-code'
 import * as codexFs from './connectors/codex-fs'
 import * as fileSearch from './file-search'
@@ -611,7 +611,7 @@ async function readFileBinaryDirectly(
 
 export type BridgeServerOptions = {
   port: number
-  opencode: OpenCodeConnector
+  opencode: OpenCodeConnector | null
   currentAgent?: AgentType
   version: string
   auth: AuthTokenState
@@ -744,6 +744,73 @@ export async function createBridgeServer(options: BridgeServerOptions): Promise<
   
   let codexClient: CodexAppServerClient | null = null
   const { opencode, version, logger } = options
+
+  const requireOpenCode = (): OpenCodeConnector => {
+    if (!opencode) {
+      throw new Error(
+        'OpenCode backend is not available on this machine. Install OpenCode (or start it and attach), or switch to Claude Code / Codex in the app.',
+      )
+    }
+    return opencode
+  }
+
+  const BACKEND_STATUS_TTL_MS = 1500
+  let backendsCache: { fetchedAt: number; data: Record<AgentType, AgentStatusInfo> } | null = null
+  let backendsInFlight: Promise<Record<AgentType, AgentStatusInfo>> | null = null
+
+  const getBackendsStatus = async (): Promise<Record<AgentType, AgentStatusInfo>> => {
+    const now = Date.now()
+    if (backendsCache && now - backendsCache.fetchedAt <= BACKEND_STATUS_TTL_MS) {
+      return backendsCache.data
+    }
+    if (backendsInFlight) return backendsInFlight
+
+    backendsInFlight = (async () => {
+      const envKey = !!process.env.ANTHROPIC_API_KEY
+
+      const [ocOk, ccOk, cxOk] = await Promise.all([
+        (async () => {
+          try {
+            return opencode ? await opencode.isRunning() : false
+          } catch {
+            return false
+          }
+        })(),
+        (async () => {
+          try {
+            return await claudeCode.checkClaudeCodeAvailable()
+          } catch {
+            return false
+          }
+        })(),
+        (async () => {
+          try {
+            return await checkCodexAvailable()
+          } catch {
+            return false
+          }
+        })(),
+      ])
+
+      const data: Record<AgentType, AgentStatusInfo> = {
+        opencode: { available: ocOk, version },
+        'claude-code': {
+          available: ccOk,
+          authMethod: ccOk ? (envKey ? 'api-key' : 'claude-login') : undefined,
+        },
+        codex: { available: cxOk, authMethod: cxOk ? 'cli' : undefined },
+      }
+
+      backendsCache = { fetchedAt: Date.now(), data }
+      return data
+    })()
+
+    try {
+      return await backendsInFlight
+    } finally {
+      backendsInFlight = null
+    }
+  }
   
   let currentAgent: AgentType = options.currentAgent || 'opencode'
   const lastGitBranchByProject = new Map<string, string>()
@@ -1483,6 +1550,7 @@ export async function createBridgeServer(options: BridgeServerOptions): Promise<
    * When the TUI runs, events don't reach global.event() stream, so we poll the API instead.
    */
   const startOpenCodeExternalTail = (sessionId: string, projectPath: string): { stop: () => void } => {
+    const oc = requireOpenCode()
     let stopped = false
     let pollTimer: Timer | null = null
     let initialSyncDone = false // Skip emitting events on first poll (historical messages)
@@ -1500,7 +1568,7 @@ export async function createBridgeServer(options: BridgeServerOptions): Promise<
       if (stopped) return
       try {
         // Get session status
-        const statusMap = await opencode.getSessionStatus(projectPath).catch(() => ({}))
+        const statusMap = await oc.getSessionStatus(projectPath).catch(() => ({}))
         const status = statusMap[sessionId]
         const newStatus = status?.type ?? 'idle'
         
@@ -1542,7 +1610,7 @@ export async function createBridgeServer(options: BridgeServerOptions): Promise<
         }
 
         // Get session messages
-        const messages = await opencode.getSessionMessages(sessionId, projectPath).catch(() => null)
+        const messages = await oc.getSessionMessages(sessionId, projectPath).catch(() => null)
         if (!messages || !Array.isArray(messages)) return
 
         let hadChanges = false
@@ -2863,7 +2931,7 @@ export async function createBridgeServer(options: BridgeServerOptions): Promise<
       // OpenCode external tail: poll session messages API when TUI is running externally
       // The TUI runs in a Bun Worker and events don't reach global.event() stream
       const projectPath = ocSessionProjectPaths.get(id)
-      const shouldRun = watcherCount > 0 && projectPath
+      const shouldRun = watcherCount > 0 && !!opencode && !!projectPath
       if (shouldRun) {
         if (!ocExternalTails.has(id)) {
           ocExternalTails.set(id, startOpenCodeExternalTail(id, projectPath))
@@ -3218,6 +3286,9 @@ export async function createBridgeServer(options: BridgeServerOptions): Promise<
     }
 
     if (url.pathname === '/projects') {
+      if (!opencode) {
+        return jsonResponse({ error: 'OpenCode not available' }, 503)
+      }
       try {
         const data = await opencode.listProjects()
         return jsonResponse(data)
@@ -3528,8 +3599,17 @@ export async function createBridgeServer(options: BridgeServerOptions): Promise<
   }
 
   async function sendStatus(ws: ServerWebSocket<unknown>): Promise<void> {
-    const running = await opencode.isRunning()
-    send(ws, { type: 'status', data: { opencodeRunning: running } })
+    const ctx = contexts.get(ws)
+    const activeAgent: AgentType = ctx?.viewAgent ?? currentAgent
+    const backends = await getBackendsStatus()
+    send(ws, {
+      type: 'status',
+      data: {
+        opencodeRunning: backends.opencode.available,
+        activeAgent,
+        backends,
+      },
+    })
   }
 
   const processSingleMessage = async (
@@ -3576,6 +3656,7 @@ export async function createBridgeServer(options: BridgeServerOptions): Promise<
           broadcast({ type: 'device_connected', data: deviceInfo })
         }
         log(`Device registered: ${message.deviceName} (${message.platform})`)
+        void sendStatus(ws)
         break
       }
       case 'list_devices': {
@@ -3679,7 +3760,8 @@ export async function createBridgeServer(options: BridgeServerOptions): Promise<
           break
         }
         case 'list_projects': {
-          const projects = await opencode.listProjects()
+          const oc = requireOpenCode()
+          const projects = await oc.listProjects()
           reply({ type: 'projects', data: projects })
           break
         }
@@ -3689,37 +3771,43 @@ export async function createBridgeServer(options: BridgeServerOptions): Promise<
           break
         }
         case 'list_sessions': {
-          const sessions = await opencode.listSessions(message.projectPath)
+          const oc = requireOpenCode()
+          const sessions = await oc.listSessions(message.projectPath)
           reply({ type: 'sessions', data: sessions, projectPath: message.projectPath })
           break
         }
         case 'list_providers': {
-          const providers = await opencode.listProviders()
+          const oc = requireOpenCode()
+          const providers = await oc.listProviders()
           reply({ type: 'providers', data: providers })
           break
         }
         case 'get_config': {
+          const oc = requireOpenCode()
           // Use instance directory as fallback when no project is specified
-          const projectPath = message.projectPath ?? await opencode.getInstanceDirectory()
-          const config = await opencode.getConfig(projectPath ?? undefined)
+          const projectPath = message.projectPath ?? await oc.getInstanceDirectory()
+          const config = await oc.getConfig(projectPath ?? undefined)
           reply({ type: 'config', data: config })
           break
         }
         case 'set_config': {
+          const oc = requireOpenCode()
           // Use instance directory as fallback when no project is specified
-          const projectPath = message.projectPath ?? await opencode.getInstanceDirectory()
-          const config = await opencode.updateConfig(message.config, projectPath ?? undefined)
+          const projectPath = message.projectPath ?? await oc.getInstanceDirectory()
+          const config = await oc.updateConfig(message.config, projectPath ?? undefined)
           reply({ type: 'config', data: config })
           break
         }
         case 'set_model': {
-          await opencode.updateModel(message.model, message.projectPath)
-          const config = await opencode.getConfig(message.projectPath)
+          const oc = requireOpenCode()
+          await oc.updateModel(message.model, message.projectPath)
+          const config = await oc.getConfig(message.projectPath)
           reply({ type: 'config', data: config })
           break
         }
         case 'create_session': {
-          const session = await opencode.createSession(
+          const oc = requireOpenCode()
+          const session = await oc.createSession(
             message.projectPath,
             message.title,
             message.permission,
@@ -3728,12 +3816,14 @@ export async function createBridgeServer(options: BridgeServerOptions): Promise<
           break
         }
         case 'get_session': {
-          const session = await opencode.getSession(message.sessionId, message.projectPath)
+          const oc = requireOpenCode()
+          const session = await oc.getSession(message.sessionId, message.projectPath)
           reply({ type: 'session', data: session })
           break
         }
         case 'get_session_messages': {
-          const messages = await opencode.getSessionMessages(
+          const oc = requireOpenCode()
+          const messages = await oc.getSessionMessages(
             message.sessionId,
             message.projectPath,
             message.limit,
@@ -3742,6 +3832,7 @@ export async function createBridgeServer(options: BridgeServerOptions): Promise<
           break
         }
         case 'chat': {
+          const oc = requireOpenCode()
           const msgId = safeString((message as any).messageId)
           if (msgId) {
             const key = `${message.sessionId}:${msgId}`
@@ -3760,7 +3851,7 @@ export async function createBridgeServer(options: BridgeServerOptions): Promise<
               }
             }
           }
-          await opencode.sendPromptAsync(
+          await oc.sendPromptAsync(
             message.sessionId,
             message.content,
             message.projectPath,
@@ -3772,11 +3863,13 @@ export async function createBridgeServer(options: BridgeServerOptions): Promise<
           break
         }
         case 'abort': {
-          await opencode.abortSession(message.sessionId, message.projectPath)
+          const oc = requireOpenCode()
+          await oc.abortSession(message.sessionId, message.projectPath)
           break
         }
         case 'diff': {
-          const diff = await opencode.getSessionDiff(
+          const oc = requireOpenCode()
+          const diff = await oc.getSessionDiff(
             message.sessionId,
             message.projectPath,
             message.messageId,
@@ -3791,6 +3884,7 @@ export async function createBridgeServer(options: BridgeServerOptions): Promise<
           break
         }
         case 'permission_response': {
+          const oc = requireOpenCode()
           // OpenCode only accepts: once | always | reject
           const raw = message.response
           const normalized: 'once' | 'always' | 'reject' =
@@ -3799,7 +3893,7 @@ export async function createBridgeServer(options: BridgeServerOptions): Promise<
             console.warn('[permission_response] Invalid OpenCode permission response, forcing reject:', raw)
           }
           // Use the new permission.reply() API - permissionId is now requestId
-          await opencode.respondToPermission(
+          await oc.respondToPermission(
             message.permissionId,  // This is the requestID in the new API
             normalized,
             message.message,  // Optional rejection feedback message
@@ -3808,22 +3902,26 @@ export async function createBridgeServer(options: BridgeServerOptions): Promise<
           break
         }
         case 'list_pending_permissions': {
-          const pending = await opencode.listPendingPermissions(message.projectPath)
+          const oc = requireOpenCode()
+          const pending = await oc.listPendingPermissions(message.projectPath)
           reply({ type: 'pending_permissions', data: pending })
           break
         }
         case 'list_pending_questions': {
-          const pending = await opencode.listPendingQuestions(message.projectPath)
+          const oc = requireOpenCode()
+          const pending = await oc.listPendingQuestions(message.projectPath)
           reply({ type: 'pending_questions', data: pending })
           break
         }
         case 'get_lsp_status': {
-          const lspStatus = await opencode.getLspStatus(message.projectPath)
+          const oc = requireOpenCode()
+          const lspStatus = await oc.getLspStatus(message.projectPath)
           reply({ type: 'lsp_status', data: lspStatus })
           break
         }
         case 'get_session_context': {
-          const context = await opencode.getSessionContext(
+          const oc = requireOpenCode()
+          const context = await oc.getSessionContext(
             message.sessionId,
             message.projectPath,
           )
@@ -3832,18 +3930,21 @@ export async function createBridgeServer(options: BridgeServerOptions): Promise<
         }
         // Feature 1: Todo/Plan Management
         case 'get_todos': {
-          const todos = await opencode.getTodos(message.sessionId, message.projectPath)
+          const oc = requireOpenCode()
+          const todos = await oc.getTodos(message.sessionId, message.projectPath)
           reply({ type: 'todos', data: todos, sessionId: message.sessionId })
           break
         }
         // Feature 2: Slash Commands
         case 'list_commands': {
-          const commands = await opencode.listCommands(message.projectPath)
+          const oc = requireOpenCode()
+          const commands = await oc.listCommands(message.projectPath)
           reply({ type: 'commands', data: commands })
           break
         }
         case 'execute_command': {
-          const result = await opencode.executeCommand(
+          const oc = requireOpenCode()
+          const result = await oc.executeCommand(
             message.sessionId,
             message.command,
             message.arguments,
@@ -3856,19 +3957,22 @@ export async function createBridgeServer(options: BridgeServerOptions): Promise<
         }
         // Feature 3: Agent Switching
         case 'list_agents': {
-          const agents = await opencode.listAgents(message.projectPath)
+          const oc = requireOpenCode()
+          const agents = await oc.listAgents(message.projectPath)
           reply({ type: 'agents', data: agents })
           break
         }
         // Feature 4: Session Delete
         case 'delete_session': {
-          const deleted = await opencode.deleteSession(message.sessionId, message.projectPath)
+          const oc = requireOpenCode()
+          const deleted = await oc.deleteSession(message.sessionId, message.projectPath)
           reply({ type: 'session_deleted', data: deleted, sessionId: message.sessionId })
           break
         }
         // Feature 5: Session Update (Rename)
         case 'update_session': {
-          const session = await opencode.updateSession(
+          const oc = requireOpenCode()
+          const session = await oc.updateSession(
             message.sessionId,
             message.title,
             message.archived,
@@ -3879,7 +3983,8 @@ export async function createBridgeServer(options: BridgeServerOptions): Promise<
         }
         // Feature 6: Session Fork
         case 'fork_session': {
-          const session = await opencode.forkSession(
+          const oc = requireOpenCode()
+          const session = await oc.forkSession(
             message.sessionId,
             message.messageId,
             message.projectPath,
@@ -3889,7 +3994,8 @@ export async function createBridgeServer(options: BridgeServerOptions): Promise<
         }
         // Feature 7: Message Revert (Undo)
         case 'revert_message': {
-          const session = await opencode.revertMessage(
+          const oc = requireOpenCode()
+          const session = await oc.revertMessage(
             message.sessionId,
             message.messageId,
             message.partId,
@@ -3899,7 +4005,8 @@ export async function createBridgeServer(options: BridgeServerOptions): Promise<
           break
         }
         case 'unrevert_session': {
-          const session = await opencode.unrevertSession(
+          const oc = requireOpenCode()
+          const session = await oc.unrevertSession(
             message.sessionId,
             message.projectPath,
           )
@@ -3908,7 +4015,8 @@ export async function createBridgeServer(options: BridgeServerOptions): Promise<
         }
         // Feature 8: Session Share
         case 'share_session': {
-          const session = await opencode.shareSession(
+          const oc = requireOpenCode()
+          const session = await oc.shareSession(
             message.sessionId,
             message.projectPath,
           )
@@ -3916,7 +4024,8 @@ export async function createBridgeServer(options: BridgeServerOptions): Promise<
           break
         }
         case 'unshare_session': {
-          const session = await opencode.unshareSession(
+          const oc = requireOpenCode()
+          const session = await oc.unshareSession(
             message.sessionId,
             message.projectPath,
           )
@@ -3925,7 +4034,8 @@ export async function createBridgeServer(options: BridgeServerOptions): Promise<
         }
         // Feature 9: Session Summarize (Compact)
         case 'summarize_session': {
-          const success = await opencode.summarizeSession(
+          const oc = requireOpenCode()
+          const success = await oc.summarizeSession(
             message.sessionId,
             message.providerID,
             message.modelID,
@@ -3936,14 +4046,15 @@ export async function createBridgeServer(options: BridgeServerOptions): Promise<
         }
         // Feature 10: Git/VCS Information
         case 'get_vcs': {
-          const vcs = await opencode.getVcsInfo(message.projectPath)
+          const oc = requireOpenCode()
+          const vcs = await oc.getVcsInfo(message.projectPath)
           reply({ type: 'vcs', data: vcs })
           break
         }
         // Feature 11: File Content Read
         case 'read_file': {
           const content = message.projectPath
-            ? await opencode.readFile(message.path, message.projectPath)
+            ? await requireOpenCode().readFile(message.path, message.projectPath)
             : await readFileDirectly(message.path)
           reply({ type: 'file_content', data: content, path: message.path })
           break
@@ -3973,17 +4084,20 @@ export async function createBridgeServer(options: BridgeServerOptions): Promise<
         }
         // Feature 12: File Search
         case 'find_files': {
-          const files = await opencode.findFiles(message.query, message.projectPath)
+          const oc = requireOpenCode()
+          const files = await oc.findFiles(message.query, message.projectPath)
           reply({ type: 'files_found', data: files })
           break
         }
         case 'find_text': {
-          const results = await opencode.findText(message.pattern, message.include, message.projectPath)
+          const oc = requireOpenCode()
+          const results = await oc.findText(message.pattern, message.include, message.projectPath)
           reply({ type: 'text_found', data: results })
           break
         }
         case 'find_symbols': {
-          const symbols = await opencode.findSymbols(message.query, message.projectPath)
+          const oc = requireOpenCode()
+          const symbols = await oc.findSymbols(message.query, message.projectPath)
           reply({ type: 'symbols_found', data: symbols })
           break
         }
@@ -4003,22 +4117,25 @@ export async function createBridgeServer(options: BridgeServerOptions): Promise<
             reply({ type: 'files_and_dirs_found', data: results })
           } else {
             // No project path - try OpenCode SDK (it uses its current working directory)
-            const results = await opencode.searchFilesAndDirs(message.query, message.projectPath)
+            const oc = requireOpenCode()
+            const results = await oc.searchFilesAndDirs(message.query, message.projectPath)
             reply({ type: 'files_and_dirs_found', data: results })
           }
           break
         }
         // Feature 13: Session Status
         case 'get_session_status': {
-          const status = await opencode.getSessionStatus(message.projectPath)
+          const oc = requireOpenCode()
+          const status = await oc.getSessionStatus(message.projectPath)
           reply({ type: 'session_status', data: status })
           break
         }
         // Feature 14: PTY Terminal Sessions
         case 'list_pty': {
           try {
+            const oc = requireOpenCode()
             log(`[PTY] Listing PTY sessions for projectPath: ${message.projectPath ?? '(none)'}`)
-            const ptys = await opencode.listPty(message.projectPath)
+            const ptys = await oc.listPty(message.projectPath)
             log(`[PTY] Found ${ptys.length} PTY sessions`)
             reply({ type: 'pty_list', data: ptys })
           } catch (error) {
@@ -4029,8 +4146,9 @@ export async function createBridgeServer(options: BridgeServerOptions): Promise<
         }
         case 'create_pty': {
           try {
+            const oc = requireOpenCode()
             log(`[PTY] Creating PTY session: command=${message.command}, title=${message.title}, cwd=${message.cwd}, projectPath=${message.projectPath}`)
-            const pty = await opencode.createPty(
+            const pty = await oc.createPty(
               message.command,
               message.args,
               message.cwd,
@@ -4051,7 +4169,8 @@ export async function createBridgeServer(options: BridgeServerOptions): Promise<
           break
         }
         case 'get_pty': {
-          const pty = await opencode.getPty(message.ptyId, message.projectPath)
+          const oc = requireOpenCode()
+          const pty = await oc.getPty(message.ptyId, message.projectPath)
           if (pty) {
             reply({ type: 'pty', data: pty })
           } else {
@@ -4060,7 +4179,8 @@ export async function createBridgeServer(options: BridgeServerOptions): Promise<
           break
         }
         case 'update_pty': {
-          const pty = await opencode.updatePty(
+          const oc = requireOpenCode()
+          const pty = await oc.updatePty(
             message.ptyId,
             message.title,
             message.rows,
@@ -4075,11 +4195,13 @@ export async function createBridgeServer(options: BridgeServerOptions): Promise<
           break
         }
         case 'delete_pty': {
-          const deleted = await opencode.deletePty(message.ptyId, message.projectPath)
+          const oc = requireOpenCode()
+          const deleted = await oc.deletePty(message.ptyId, message.projectPath)
           reply({ type: 'pty_deleted', data: deleted, ptyId: message.ptyId })
           break
         }
       case 'pty_connect': {
+          const oc = requireOpenCode()
           const ptyId = message.ptyId
           getPtyListeners(ptyId).add(ws)
           const existingWs = ptyConnections.get(ptyId)
@@ -4088,7 +4210,7 @@ export async function createBridgeServer(options: BridgeServerOptions): Promise<
             break
           }
           
-          const ptyWsUrl = opencode.getPtyWebSocketUrl(ptyId, message.projectPath)
+          const ptyWsUrl = oc.getPtyWebSocketUrl(ptyId, message.projectPath)
           
           try {
             const ptyWs = new WebSocket(ptyWsUrl)
@@ -4182,38 +4304,45 @@ export async function createBridgeServer(options: BridgeServerOptions): Promise<
           break
         }
         case 'pty_resize': {
-          await opencode.updatePty(message.ptyId, undefined, message.rows, message.cols, message.projectPath)
+          const oc = requireOpenCode()
+          await oc.updatePty(message.ptyId, undefined, message.rows, message.cols, message.projectPath)
           break
         }
         // Feature 15: MCP Server Management
         case 'get_mcp_status': {
-          const status = await opencode.getMcpStatus(message.projectPath)
+          const oc = requireOpenCode()
+          const status = await oc.getMcpStatus(message.projectPath)
           reply({ type: 'mcp_status', data: status })
           break
         }
         case 'connect_mcp': {
-          const connected = await opencode.connectMcp(message.name, message.projectPath)
+          const oc = requireOpenCode()
+          const connected = await oc.connectMcp(message.name, message.projectPath)
           reply({ type: 'mcp_connected', data: connected, name: message.name })
           break
         }
         case 'disconnect_mcp': {
-          const disconnected = await opencode.disconnectMcp(message.name, message.projectPath)
+          const oc = requireOpenCode()
+          const disconnected = await oc.disconnectMcp(message.name, message.projectPath)
           reply({ type: 'mcp_disconnected', data: disconnected, name: message.name })
           break
         }
         case 'get_mcp_resources': {
-          const resources = await opencode.getMcpResources(message.projectPath)
+          const oc = requireOpenCode()
+          const resources = await oc.getMcpResources(message.projectPath)
           reply({ type: 'mcp_resources', data: resources })
           break
         }
         // Feature 23: Git Worktrees (SDK v1.1.1+ experimental)
         case 'list_worktrees': {
-          const worktrees = await opencode.listWorktrees(message.projectPath)
+          const oc = requireOpenCode()
+          const worktrees = await oc.listWorktrees(message.projectPath)
           reply({ type: 'worktrees', data: worktrees })
           break
         }
         case 'create_worktree': {
-          const worktree = await opencode.createWorktree(
+          const oc = requireOpenCode()
+          const worktree = await oc.createWorktree(
             message.name,
             message.startCommand,
             message.projectPath,
@@ -4226,47 +4355,55 @@ export async function createBridgeServer(options: BridgeServerOptions): Promise<
           break
         }
         case 'delete_worktree': {
-          const deleted = await opencode.deleteWorktree(message.name, message.projectPath)
+          const oc = requireOpenCode()
+          const deleted = await oc.deleteWorktree(message.name, message.projectPath)
           reply({ type: 'worktree_deleted', data: deleted, name: message.name })
           break
         }
         // Feature 16: Full Provider Management
         case 'list_all_providers': {
-          const providers = await opencode.listAllProviders(message.projectPath)
+          const oc = requireOpenCode()
+          const providers = await oc.listAllProviders(message.projectPath)
           reply({ type: 'all_providers', data: providers })
           break
         }
         case 'get_provider_auth': {
-          const auth = await opencode.getProviderAuth(message.projectPath)
+          const oc = requireOpenCode()
+          const auth = await oc.getProviderAuth(message.projectPath)
           reply({ type: 'provider_auth', data: auth })
           break
         }
         // Feature 17: Tool List
         case 'list_tool_ids': {
-          const toolIds = await opencode.listToolIds(message.projectPath)
+          const oc = requireOpenCode()
+          const toolIds = await oc.listToolIds(message.projectPath)
           reply({ type: 'tool_ids', data: toolIds })
           break
         }
         case 'list_tools': {
-          const tools = await opencode.listTools(message.provider, message.model, message.projectPath)
+          const oc = requireOpenCode()
+          const tools = await oc.listTools(message.provider, message.model, message.projectPath)
           reply({ type: 'tools', data: tools })
           break
         }
         // Feature 18: File Status (Git)
         case 'get_file_status': {
-          const fileStatus = await opencode.getFileStatus(message.projectPath)
+          const oc = requireOpenCode()
+          const fileStatus = await oc.getFileStatus(message.projectPath)
           reply({ type: 'file_status', data: fileStatus })
           break
         }
         // Feature 19: Formatter Status
         case 'get_formatter_status': {
-          const formatterStatus = await opencode.getFormatterStatus(message.projectPath)
+          const oc = requireOpenCode()
+          const formatterStatus = await oc.getFormatterStatus(message.projectPath)
           reply({ type: 'formatter_status', data: formatterStatus })
           break
         }
         // Feature 20: Session Init
         case 'init_session': {
-          const initialized = await opencode.initSession(
+          const oc = requireOpenCode()
+          const initialized = await oc.initSession(
             message.sessionId,
             message.providerID,
             message.modelID,
@@ -4277,7 +4414,8 @@ export async function createBridgeServer(options: BridgeServerOptions): Promise<
           break
         }
         case 'dispose_instance': {
-          const disposed = await opencode.disposeInstance(message.projectPath)
+          const oc = requireOpenCode()
+          const disposed = await oc.disposeInstance(message.projectPath)
           reply({ type: 'instance_disposed', data: disposed })
           break
       }
@@ -5029,29 +5167,12 @@ export async function createBridgeServer(options: BridgeServerOptions): Promise<
           break
         }
         case 'get_agents_status': {
-          const opencodeRunning = await opencode.isRunning()
-          const claudeCodeAvailable = await claudeCode.checkClaudeCodeAvailable()
-          const codexAvailable = await checkCodexAvailable()
-          reply({
-            type: 'agents_status',
-            data: {
-              opencode: {
-                available: opencodeRunning,
-                version: version,
-              },
-              'claude-code': {
-                available: claudeCodeAvailable,
-                authMethod: claudeCodeAvailable ? 'api-key' : undefined,
-              },
-              codex: {
-                available: codexAvailable,
-                authMethod: codexAvailable ? 'cli' : undefined,
-              },
-            },
-          })
+          const backends = await getBackendsStatus()
+          reply({ type: 'agents_status', data: backends })
           break
         }
         case 'oc_question_reply': {
+          const oc = requireOpenCode()
           const questionId = message.questionId
           const answers = message.answers
           const directory = message.projectPath
@@ -5079,7 +5200,7 @@ export async function createBridgeServer(options: BridgeServerOptions): Promise<
             })
           }
 
-          const ok = await opencode.replyToQuestion(questionId, answers, directory)
+          const ok = await oc.replyToQuestion(questionId, answers, directory)
           if (DEBUG_RTS) {
             console.log('[OC Question] Reply result:', { questionId, ok })
           }
@@ -5090,11 +5211,12 @@ export async function createBridgeServer(options: BridgeServerOptions): Promise<
           break
         }
         case 'oc_question_reject': {
+          const oc = requireOpenCode()
           const directory = message.projectPath
           if (DEBUG_RTS) {
             console.log('[OC Question] Reject received:', { questionId: message.questionId, directory })
           }
-          const ok = await opencode.rejectQuestion(message.questionId, directory)
+          const ok = await oc.rejectQuestion(message.questionId, directory)
           if (DEBUG_RTS) {
             console.log('[OC Question] Reject result:', { questionId: message.questionId, ok })
           }
@@ -5102,9 +5224,10 @@ export async function createBridgeServer(options: BridgeServerOptions): Promise<
           break
         }
         case 'oc_list_skills': {
+          const oc = requireOpenCode()
           const skillFiles = await import('./skills')
           // Use instance directory as fallback when no cwd is specified
-          const cwd = message.cwd ?? await opencode.getInstanceDirectory()
+          const cwd = message.cwd ?? await oc.getInstanceDirectory()
           const data = await skillFiles.listOpenCodeSkills(cwd ?? undefined)
           reply({ type: 'oc_skills', data })
           break
@@ -5236,9 +5359,10 @@ export async function createBridgeServer(options: BridgeServerOptions): Promise<
           break
         }
         case 'oc_list_command_files': {
+          const oc = requireOpenCode()
           const files = await import('./opencode-custom')
           // Use instance directory as fallback when no cwd is specified
-          const cwd = message.cwd ?? await opencode.getInstanceDirectory()
+          const cwd = message.cwd ?? await oc.getInstanceDirectory()
           const data = await files.listCommandFiles(cwd ?? undefined)
           reply({ type: 'oc_command_files', data })
           break
@@ -5289,9 +5413,10 @@ export async function createBridgeServer(options: BridgeServerOptions): Promise<
           break
         }
         case 'oc_list_agent_files': {
+          const oc = requireOpenCode()
           const files = await import('./opencode-custom')
           // Use instance directory as fallback when no cwd is specified
-          const cwd = message.cwd ?? await opencode.getInstanceDirectory()
+          const cwd = message.cwd ?? await oc.getInstanceDirectory()
           const data = await files.listAgentFiles(cwd ?? undefined)
           reply({ type: 'oc_agent_files', data })
           break

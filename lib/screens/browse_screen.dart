@@ -6,6 +6,8 @@ import '../models/file_binary_content.dart';
 import '../models/file_content.dart';
 import '../models/search_result.dart';
 import '../models/vcs.dart';
+import '../models/agent_type.dart';
+import '../providers/agent_type_provider.dart';
 import '../providers/connection_provider.dart';
 import '../providers/service_providers.dart';
 import '../providers/selection_provider.dart';
@@ -441,8 +443,13 @@ class _BrowseScreenState extends ConsumerState<BrowseScreen>
   Widget build(BuildContext context) {
     final theme = OpenCodeTheme.of(context);
     final connection = ref.watch(connectionProvider);
+    final agentType = ref.watch(agentTypeProvider);
     final selection = ref.watch(selectionProvider);
     final selectedProjectPath = selection.project?.path;
+
+    final agentAvailable =
+        connection.backends?.forType(agentType).available ??
+        (agentType == AgentType.opencode ? connection.opencodeRunning : true);
 
     // Listen for selection changes to sync Browse path with selected project
     ref.listen(selectionProvider, _handleSelectionChange);
@@ -556,7 +563,7 @@ class _BrowseScreenState extends ConsumerState<BrowseScreen>
               padding: const EdgeInsets.symmetric(horizontal: 8),
               child: ConnectionIndicator(
                 status: connection.status,
-                opencodeRunning: connection.opencodeRunning,
+                agentAvailable: agentAvailable,
                 isReconnecting: connection.isReconnecting,
                 rttMs: connection.rttMs,
                 compact: true,

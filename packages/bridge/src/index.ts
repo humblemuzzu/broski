@@ -708,6 +708,25 @@ function discoverListeningPortsFromLsof(verbose: boolean): number[] {
   }
 }
 
+function isOpencodeCliAvailable(verbose: boolean): boolean {
+  try {
+    // Fast PATH check to avoid slow retries when OpenCode isn't installed.
+    const res = spawnSync('opencode', ['--version'], { encoding: 'utf8', timeout: 1500 })
+    if (res.error) {
+      if (verbose) {
+        console.warn('OpenCode CLI check failed:', res.error)
+      }
+      return false
+    }
+    return res.status === 0
+  } catch (err) {
+    if (verbose) {
+      console.warn('OpenCode CLI check threw:', err)
+    }
+    return false
+  }
+}
+
 async function bootstrapAttachOpenCode(verbose: boolean): Promise<OpencodeBootstrap> {
   const lsofPorts = discoverListeningPortsFromLsof(verbose)
   const ports = Array.from(new Set([...defaultAttachPorts(), ...lsofPorts]))
@@ -898,27 +917,45 @@ async function main() {
 
   const port = cli.bridgePort
 
-  let bootstrap: OpencodeBootstrap
-  if (cli.opencodeMode === 'manual') {
-    if (!cli.opencodeUrl) {
-      console.log('Manual mode requires --opencode-url or OPENCODE_BASE_URL')
-      printHelp()
-      return
+  let bootstrap: OpencodeBootstrap | null = null
+  let opencode: OpenCodeConnector | null = null
+
+  try {
+    if (cli.opencodeMode === 'manual') {
+      if (!cli.opencodeUrl) {
+        console.log('Manual OpenCode mode requested but no --opencode-url/OPENCODE_BASE_URL provided.')
+        console.log('Continuing without OpenCode (Claude Code / Codex still work).')
+      } else {
+        bootstrap = await bootstrapManualOpenCode(cli.opencodeUrl)
+      }
+    } else if (cli.opencodeMode === 'attach') {
+      bootstrap = await bootstrapAttachOpenCode(cli.verbose)
+    } else {
+      if (!isOpencodeCliAvailable(cli.verbose)) {
+        console.log('OpenCode CLI not found in PATH; skipping OpenCode bootstrap.')
+      } else {
+        bootstrap = await bootstrapManagedOpenCode(cli.opencodeHostname, cli.opencodePort, cli.verbose)
+      }
     }
-    bootstrap = await bootstrapManualOpenCode(cli.opencodeUrl)
-  } else if (cli.opencodeMode === 'attach') {
-    bootstrap = await bootstrapAttachOpenCode(cli.verbose)
-  } else {
-    bootstrap = await bootstrapManagedOpenCode(cli.opencodeHostname, cli.opencodePort, cli.verbose)
+  } catch (err) {
+    console.log('⚠️  OpenCode not available; continuing without it.')
+    if (cli.verbose) {
+      console.warn(err)
+    }
+    bootstrap = null
   }
 
-  opencodeServer = bootstrap.server
-
-  const opencode = new OpenCodeConnector({
-    baseUrl: opencodeServer.url,
-    client: bootstrap.client,
-  })
-  opencodeConnector = opencode
+  if (bootstrap) {
+    opencodeServer = bootstrap.server
+    opencode = new OpenCodeConnector({
+      baseUrl: opencodeServer.url,
+      client: bootstrap.client,
+    })
+    opencodeConnector = opencode
+  } else {
+    opencodeServer = null
+    opencodeConnector = null
+  }
 
   if (cli.daemon) console.log('[daemon] Detecting network...')
   const localIP = getLocalIP()
@@ -961,15 +998,15 @@ async function main() {
   // Create bridge server
   try {
     const willEnableFunnel = cli.enableFunnel && tailscaleConnected
-    bridgeServer = await createBridgeServer({
-      port,
-      opencode,
-      version,
-      auth,
-      enableLoopbackInsecureServer: willEnableFunnel,
-      restartOpenCode: restartManagedOpenCode,
-      logger: (message) => console.log(message),
-    })
+     bridgeServer = await createBridgeServer({
+       port,
+       opencode,
+       version,
+       auth,
+       enableLoopbackInsecureServer: willEnableFunnel,
+       restartOpenCode: restartManagedOpenCode,
+       logger: (message) => console.log(message),
+     })
   } catch (error: any) {
     if (error?.code === 'EADDRINUSE') {
       console.error(`\n❌ Bridge port ${port} is already in use.`)
@@ -1021,28 +1058,30 @@ async function main() {
     }
   }
 
-  // Subscribe to OpenCode events and forward to clients.
-  // Also subscribe to any other local OpenCode servers so a TUI using a
-  // different instance still drives real-time updates in the app.
-  primaryEventStreamController = await subscribeOpenCodeStream(opencode, 'primary', cli.verbose)
+  if (opencode) {
+    // Subscribe to OpenCode events and forward to clients.
+    // Also subscribe to any other local OpenCode servers so a TUI using a
+    // different instance still drives real-time updates in the app.
+    primaryEventStreamController = await subscribeOpenCodeStream(opencode, 'primary', cli.verbose)
 
-  try {
-    const primaryUrl = normalizeBaseUrl(opencode.url)
-    const extraUrls = (await discoverLocalOpencodeUrls(cli.verbose))
-      .map(normalizeBaseUrl)
-      .filter((u) => u !== primaryUrl)
+    try {
+      const primaryUrl = normalizeBaseUrl(opencode.url)
+      const extraUrls = (await discoverLocalOpencodeUrls(cli.verbose))
+        .map(normalizeBaseUrl)
+        .filter((u) => u !== primaryUrl)
 
-    const seen = new Set<string>()
-    for (const u of extraUrls) {
-      if (seen.has(u)) continue
-      seen.add(u)
-      const extra = new OpenCodeConnector({ baseUrl: u })
-      const ctrl = await subscribeOpenCodeStream(extra, 'extra', cli.verbose)
-      extraEventStreamControllers.push(ctrl)
-    }
-  } catch (err) {
-    if (cli.verbose) {
-      console.warn('⚠️  Failed to subscribe to extra local OpenCode servers:', err)
+      const seen = new Set<string>()
+      for (const u of extraUrls) {
+        if (seen.has(u)) continue
+        seen.add(u)
+        const extra = new OpenCodeConnector({ baseUrl: u })
+        const ctrl = await subscribeOpenCodeStream(extra, 'extra', cli.verbose)
+        extraEventStreamControllers.push(ctrl)
+      }
+    } catch (err) {
+      if (cli.verbose) {
+        console.warn('⚠️  Failed to subscribe to extra local OpenCode servers:', err)
+      }
     }
   }
 
@@ -1077,42 +1116,53 @@ async function main() {
 
   console.log(`\n✓ Bridge listening on port ${bridgePort}`)
   console.log('  Press Ctrl+C to shutdown')
-  if (opencodeServer && 'close' in opencodeServer) {
+  if (!opencodeServer) {
+    console.log('  (OpenCode not detected - OpenCode-only features are unavailable)')
+  } else if ('close' in opencodeServer) {
     console.log('  (OpenCode is managed by the bridge and will stop on shutdown)')
   } else {
     console.log('  (OpenCode is external and will be left running)')
   }
 
   // Non-blocking update check on startup
-  startupUpdateCheck(version, (msg) => console.log(msg)).then((result) => {
-    if (result?.updateAvailable) {
-      // Notify connected phone clients
+  startupUpdateCheck(version, (msg) => console.log(msg))
+    .then(async (result) => {
+      if (!result?.updateAvailable) return
+      const ocRunning = opencodeConnector
+        ? await opencodeConnector.isRunning().catch(() => false)
+        : false
       bridgeServer?.broadcast({
         type: 'status',
         data: {
-          opencodeRunning: true,
+          opencodeRunning: ocRunning,
           updateAvailable: true,
           latestVersion: result.latestVersion,
           currentVersion: result.currentVersion,
-        } as any, // Extended status payload
+        },
       })
-    }
-  }).catch(() => { /* best-effort */ })
+    })
+    .catch(() => {
+      /* best-effort */
+    })
 
   // For daemon mode: check for updates every 24h
   if (cli.daemon) {
     startPeriodicUpdateCheck(version, (result) => {
       console.log(`[update] Bridge v${result.latestVersion} available (current: v${result.currentVersion})`)
-      // Notify connected phone clients
-      bridgeServer?.broadcast({
-        type: 'status',
-        data: {
-          opencodeRunning: true,
-          updateAvailable: true,
-          latestVersion: result.latestVersion,
-          currentVersion: result.currentVersion,
-        } as any,
-      })
+      void (async () => {
+        const ocRunning = opencodeConnector
+          ? await opencodeConnector.isRunning().catch(() => false)
+          : false
+        bridgeServer?.broadcast({
+          type: 'status',
+          data: {
+            opencodeRunning: ocRunning,
+            updateAvailable: true,
+            latestVersion: result.latestVersion,
+            currentVersion: result.currentVersion,
+          },
+        })
+      })()
     }, (msg) => console.log(msg))
   }
 

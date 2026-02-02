@@ -5,7 +5,9 @@ import 'browse_screen.dart';
 import 'projects_screen.dart';
 import 'sessions_screen.dart';
 import 'settings_screen.dart';
+import '../models/agent_type.dart';
 import '../models/nav_bar_style.dart';
+import '../providers/agent_type_provider.dart';
 import '../providers/appearance_provider.dart';
 import '../providers/connection_provider.dart';
 import '../providers/nav_bar_style_provider.dart';
@@ -48,9 +50,13 @@ class _MainShellState extends ConsumerState<MainShell> {
     // Main tabs don't need per-session traffic; keep it global-only for bandwidth.
     // Defer until after first frame so ref is fully available.
     WidgetsBinding.instance.addPostFrameCallback((_) {
+      final agent = ref.read(agentTypeProvider);
+      if (agent != AgentType.opencode) {
+        setState(() => _index = 2);
+      }
       ref
           .read(bridgeServiceProvider)
-          .setView(projectPath: 'global', agent: 'opencode');
+          .setView(projectPath: 'global', agent: agent.wireValue);
     });
   }
 
@@ -65,10 +71,22 @@ class _MainShellState extends ConsumerState<MainShell> {
       final wasConnected = previous?.status == ConnectionStatus.connected;
       final isConnected = next.status == ConnectionStatus.connected;
       if (!wasConnected && isConnected) {
+        final a = ref.read(agentTypeProvider);
         ref
             .read(bridgeServiceProvider)
-            .setView(projectPath: 'global', agent: 'opencode');
+            .setView(projectPath: 'global', agent: a.wireValue);
       }
+    });
+
+    // Keep bridge view agent aligned with selected backend.
+    ref.listen<AgentType>(agentTypeProvider, (previous, next) {
+      if (previous == next) return;
+      if (next != AgentType.opencode && (_index == 0 || _index == 1)) {
+        setState(() => _index = 2);
+      }
+      ref
+          .read(bridgeServiceProvider)
+          .setView(projectPath: 'global', agent: next.wireValue);
     });
 
     return Scaffold(
@@ -131,9 +149,10 @@ class _MainShellState extends ConsumerState<MainShell> {
     final onTap = (int value) {
       setState(() => _index = value);
       if (!connection.isOfflineMode) {
+        final a = ref.read(agentTypeProvider);
         ref
             .read(bridgeServiceProvider)
-            .setView(projectPath: 'global', agent: 'opencode');
+            .setView(projectPath: 'global', agent: a.wireValue);
       }
       if (value == 2) {
         ref.read(sessionsRefreshTickProvider.notifier).state++;
