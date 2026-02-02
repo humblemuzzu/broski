@@ -93,9 +93,8 @@ class _ToolsScreenState extends ConsumerState<ToolsScreen> {
                   .map(
                     (id) => ToolInfo(
                       id: id,
-                      name: id,
                       description: _getToolDescription(id),
-                      enabled: true,
+                      parameters: const {},
                     ),
                   )
                   .toList();
@@ -104,9 +103,8 @@ class _ToolsScreenState extends ConsumerState<ToolsScreen> {
             .map(
               (id) => ToolInfo(
                 id: id,
-                name: id,
                 description: _getToolDescription(id),
-                enabled: true,
+                parameters: const {},
               ),
             )
             .toList();

@@ -15,8 +15,10 @@ class OpenCodeMcpConfigScreen extends ConsumerStatefulWidget {
       _OpenCodeMcpConfigScreenState();
 }
 
-class _OpenCodeMcpConfigScreenState extends ConsumerState<OpenCodeMcpConfigScreen> {
+class _OpenCodeMcpConfigScreenState
+    extends ConsumerState<OpenCodeMcpConfigScreen> {
   bool _loading = true;
+  // Config edits are disabled; this is kept to avoid larger refactors.
   bool _dirty = false;
   String? _error;
   Map<String, dynamic> _config = const {};
@@ -33,7 +35,6 @@ class _OpenCodeMcpConfigScreenState extends ConsumerState<OpenCodeMcpConfigScree
     setState(() {
       _loading = true;
       _error = null;
-      _dirty = false;
     });
     try {
       final bridge = ref.read(bridgeServiceProvider);
@@ -67,12 +68,18 @@ class _OpenCodeMcpConfigScreenState extends ConsumerState<OpenCodeMcpConfigScree
       if (!mounted) return;
       setState(() => _dirty = false);
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: const Text('Saved MCP config'), backgroundColor: oc.backgroundPanel),
+        SnackBar(
+          content: const Text('Saved MCP config'),
+          backgroundColor: oc.backgroundPanel,
+        ),
       );
     } catch (e) {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Failed to save: $e'), backgroundColor: oc.error),
+        SnackBar(
+          content: Text('Failed to save: $e'),
+          backgroundColor: oc.error,
+        ),
       );
     }
   }
@@ -92,7 +99,10 @@ class _OpenCodeMcpConfigScreenState extends ConsumerState<OpenCodeMcpConfigScree
     } catch (e) {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Restart failed: $e'), backgroundColor: oc.error),
+        SnackBar(
+          content: Text('Restart failed: $e'),
+          backgroundColor: oc.error,
+        ),
       );
     }
   }
@@ -109,7 +119,10 @@ class _OpenCodeMcpConfigScreenState extends ConsumerState<OpenCodeMcpConfigScree
           autofocus: true,
         ),
         actions: [
-          TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('Cancel')),
+          TextButton(
+            onPressed: () => Navigator.pop(ctx),
+            child: const Text('Cancel'),
+          ),
           ElevatedButton(
             onPressed: () => Navigator.pop(ctx, nameController.text.trim()),
             child: const Text('Next'),
@@ -119,13 +132,11 @@ class _OpenCodeMcpConfigScreenState extends ConsumerState<OpenCodeMcpConfigScree
     );
     if (name == null || name.isEmpty) return;
 
-    final json = const JsonEncoder.withIndent('  ').convert(
-      {
-        'type': 'local',
-        'command': ['echo', 'TODO'],
-        'enabled': false,
-      },
-    );
+    final json = const JsonEncoder.withIndent('  ').convert({
+      'type': 'local',
+      'command': ['echo', 'TODO'],
+      'enabled': false,
+    });
     final cfg = await Navigator.push<Map<String, dynamic>>(
       context,
       MaterialPageRoute(
@@ -165,7 +176,10 @@ class _OpenCodeMcpConfigScreenState extends ConsumerState<OpenCodeMcpConfigScree
         title: const Text('Remove MCP server'),
         content: Text('Remove "$name" from OpenCode config?'),
         actions: [
-          TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('Cancel')),
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, false),
+            child: const Text('Cancel'),
+          ),
           TextButton(
             onPressed: () => Navigator.pop(ctx, true),
             style: TextButton.styleFrom(foregroundColor: Colors.red),
@@ -197,24 +211,7 @@ class _OpenCodeMcpConfigScreenState extends ConsumerState<OpenCodeMcpConfigScree
         title: Text('MCP Config', style: TextStyle(color: oc.text)),
         iconTheme: IconThemeData(color: oc.text),
         actions: [
-          IconButton(
-            icon: const Icon(Icons.refresh_rounded),
-            onPressed: _dirty ? null : _load,
-          ),
-          IconButton(
-            icon: const Icon(Icons.add_rounded),
-            onPressed: _addServer,
-          ),
-          TextButton(
-            onPressed: _dirty ? _save : null,
-            child: Text(
-              'Save',
-              style: TextStyle(
-                color: _dirty ? oc.primary : oc.textMuted,
-                fontWeight: FontWeight.w700,
-              ),
-            ),
-          ),
+          IconButton(icon: const Icon(Icons.refresh_rounded), onPressed: _load),
         ],
       ),
       body: _loading
@@ -234,7 +231,7 @@ class _OpenCodeMcpConfigScreenState extends ConsumerState<OpenCodeMcpConfigScree
                     children: [
                       Expanded(
                         child: Text(
-                          'Changes may require a restart to apply.',
+                          'Edit MCP config on your Mac. Broski does not modify config from mobile.',
                           style: TextStyle(color: oc.textMuted, fontSize: 12),
                         ),
                       ),
@@ -254,20 +251,21 @@ class _OpenCodeMcpConfigScreenState extends ConsumerState<OpenCodeMcpConfigScree
                             child: Column(
                               mainAxisAlignment: MainAxisAlignment.center,
                               children: [
-                                Icon(Icons.dns_rounded, color: oc.textMuted, size: 56),
+                                Icon(
+                                  Icons.dns_rounded,
+                                  color: oc.textMuted,
+                                  size: 56,
+                                ),
                                 const SizedBox(height: 12),
-                                Text('No MCP servers configured', style: TextStyle(color: oc.text)),
+                                Text(
+                                  'No MCP servers configured',
+                                  style: TextStyle(color: oc.text),
+                                ),
                                 const SizedBox(height: 8),
                                 Text(
                                   'Add servers under the `mcp` key in OpenCode config.',
                                   textAlign: TextAlign.center,
                                   style: TextStyle(color: oc.textMuted),
-                                ),
-                                const SizedBox(height: 16),
-                                ElevatedButton.icon(
-                                  onPressed: _addServer,
-                                  icon: const Icon(Icons.add_rounded),
-                                  label: const Text('Add server'),
                                 ),
                               ],
                             ),
@@ -287,27 +285,18 @@ class _OpenCodeMcpConfigScreenState extends ConsumerState<OpenCodeMcpConfigScree
                                 side: BorderSide(color: oc.border),
                               ),
                               child: ListTile(
-                                onTap: () => _editServer(name, (cfg as Map).cast<String, dynamic>()),
                                 title: Text(
                                   name,
-                                  style: TextStyle(color: oc.text, fontWeight: FontWeight.w700),
+                                  style: TextStyle(
+                                    color: oc.text,
+                                    fontWeight: FontWeight.w700,
+                                  ),
                                 ),
                                 subtitle: Text(
-                                  'Tap to edit JSON',
+                                  'Configured in OpenCode config',
                                   style: TextStyle(color: oc.textMuted),
                                 ),
-                                trailing: PopupMenuButton<String>(
-                                  onSelected: (v) {
-                                    if (v == 'edit') {
-                                      _editServer(name, (cfg as Map).cast<String, dynamic>());
-                                    }
-                                    if (v == 'delete') _deleteServer(name);
-                                  },
-                                  itemBuilder: (_) => const [
-                                    PopupMenuItem(value: 'edit', child: Text('Edit')),
-                                    PopupMenuItem(value: 'delete', child: Text('Remove')),
-                                  ],
-                                ),
+                                trailing: null,
                               ),
                             );
                           },
@@ -320,13 +309,17 @@ class _OpenCodeMcpConfigScreenState extends ConsumerState<OpenCodeMcpConfigScree
 }
 
 class _JsonObjectEditorScreen extends StatefulWidget {
-  const _JsonObjectEditorScreen({required this.title, required this.initialJson});
+  const _JsonObjectEditorScreen({
+    required this.title,
+    required this.initialJson,
+  });
 
   final String title;
   final String initialJson;
 
   @override
-  State<_JsonObjectEditorScreen> createState() => _JsonObjectEditorScreenState();
+  State<_JsonObjectEditorScreen> createState() =>
+      _JsonObjectEditorScreenState();
 }
 
 class _JsonObjectEditorScreenState extends State<_JsonObjectEditorScreen> {
@@ -347,12 +340,13 @@ class _JsonObjectEditorScreenState extends State<_JsonObjectEditorScreen> {
   void _done() {
     try {
       final decoded = jsonDecode(_json.text);
-      if (decoded is! Map) throw const FormatException('Config must be a JSON object');
+      if (decoded is! Map)
+        throw const FormatException('Config must be a JSON object');
       Navigator.pop(context, decoded.cast<String, dynamic>());
     } catch (e) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Invalid JSON: $e')),
-      );
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text('Invalid JSON: $e')));
     }
   }
 
@@ -369,7 +363,10 @@ class _JsonObjectEditorScreenState extends State<_JsonObjectEditorScreen> {
         actions: [
           TextButton(
             onPressed: _done,
-            child: Text('Done', style: TextStyle(color: oc.primary, fontWeight: FontWeight.w700)),
+            child: Text(
+              'Done',
+              style: TextStyle(color: oc.primary, fontWeight: FontWeight.w700),
+            ),
           ),
         ],
       ),
@@ -393,4 +390,3 @@ class _JsonObjectEditorScreenState extends State<_JsonObjectEditorScreen> {
     );
   }
 }
-

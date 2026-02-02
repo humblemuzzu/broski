@@ -45,6 +45,10 @@ class BridgeConnectionState {
     this.thisDevice,
     this.connectedDevices = const [],
     this.lastEvent,
+
+    this.appProtocolVersion = BridgeService.protocolVersion,
+    this.bridgeProtocolVersion,
+    this.protocolBannerDismissed = false,
   });
 
   final ConnectionInfo? connection;
@@ -58,6 +62,14 @@ class BridgeConnectionState {
 
   final DeviceInfo? thisDevice;
   final List<DeviceInfo> connectedDevices;
+
+  final String appProtocolVersion;
+  final String? bridgeProtocolVersion;
+  final bool protocolBannerDismissed;
+
+  bool get hasProtocolMismatch =>
+      bridgeProtocolVersion != null &&
+      bridgeProtocolVersion != appProtocolVersion;
 
   /// When true, the app operates in read-only mode using cached data.
   /// User can browse projects, sessions, and messages but cannot send new messages.
@@ -107,6 +119,9 @@ class BridgeConnectionState {
     DeviceInfo? thisDevice,
     List<DeviceInfo>? connectedDevices,
     ConnectionEvent? lastEvent,
+
+    String? bridgeProtocolVersion,
+    bool? protocolBannerDismissed,
   }) {
     return BridgeConnectionState(
       connection: clearConnection ? null : (connection ?? this.connection),
@@ -123,6 +138,12 @@ class BridgeConnectionState {
       thisDevice: thisDevice ?? this.thisDevice,
       connectedDevices: connectedDevices ?? this.connectedDevices,
       lastEvent: lastEvent ?? this.lastEvent,
+
+      appProtocolVersion: appProtocolVersion,
+      bridgeProtocolVersion:
+          bridgeProtocolVersion ?? this.bridgeProtocolVersion,
+      protocolBannerDismissed:
+          protocolBannerDismissed ?? this.protocolBannerDismissed,
     );
   }
 
@@ -769,6 +790,10 @@ class ConnectionNotifier extends StateNotifier<BridgeConnectionState>
     }
   }
 
+  void dismissProtocolBanner() {
+    state = state.copyWith(protocolBannerDismissed: true);
+  }
+
   void _handleStatus(ConnectionStatus status) {
     // Only schedule reconnect if we unexpectedly disconnected (not during intentional reconnect)
     if (status == ConnectionStatus.disconnected &&
@@ -816,7 +841,14 @@ class ConnectionNotifier extends StateNotifier<BridgeConnectionState>
     if (message['type'] == 'device_registered') {
       final data = message['data'] as Map<String, dynamic>? ?? const {};
       final device = DeviceInfo.fromJson(data);
-      state = state.copyWith(thisDevice: device);
+      final proto = message['protocolVersion'] as String?;
+      final resetDismiss =
+          proto != null && proto != state.bridgeProtocolVersion;
+      state = state.copyWith(
+        thisDevice: device,
+        bridgeProtocolVersion: proto,
+        protocolBannerDismissed: resetDismiss ? false : null,
+      );
     }
 
     if (message['type'] == 'device_connected') {

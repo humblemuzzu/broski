@@ -8,7 +8,7 @@ import {
 import { homedir } from 'os'
 import { basename, isAbsolute, join } from 'node:path'
 import { pathToFileURL } from 'node:url'
-import type { Agent, Command, FileContent, FileStatusInfo, FormatterInfo, LspServerStatus, McpResource, McpServerStatus, PermissionResponse, PermissionRuleset, ProviderAuthMethod, ProviderInfo, ProjectSummary, PtySession, SessionContextInfo, SessionStatusInfo, SessionSummary, SymbolResult, TextSearchResult, Todo, ToolInfo, VcsInfo, Worktree } from './types'
+import type { Agent, Command, FileAttachment, FileContent, FileStatusInfo, FormatterInfo, LspServerStatus, McpResource, McpServerStatus, PermissionRuleset, ProviderAuthMethod, ProviderInfo, ProjectSummary, PtySession, SessionContextInfo, SessionStatusInfo, SessionSummary, SymbolResult, TextSearchResult, Todo, ToolInfo, VcsInfo, Worktree } from '../types'
 
 const DEFAULT_BASE_URL = 'http://localhost:4096'
 const DEBUG_RTS = process.env.BROSKI_DEBUG_RTS === '1'
@@ -364,7 +364,7 @@ export class OpenCodeConnector {
 
   async respondToPermission(
     requestId: string,
-    response: PermissionResponse,
+    response: 'once' | 'always' | 'reject',
     message?: string,
     directory?: string,
   ): Promise<boolean> {
@@ -381,6 +381,30 @@ export class OpenCodeConnector {
         responseStyle: 'data',
       },
     )
+  }
+
+  async listPendingPermissions(directory?: string): Promise<unknown[]> {
+    try {
+      const result = await this.client.permission.list(
+        { directory },
+        { responseStyle: 'data' },
+      )
+      return (result as any) ?? []
+    } catch {
+      return []
+    }
+  }
+
+  async listPendingQuestions(directory?: string): Promise<unknown[]> {
+    try {
+      const result = await this.client.question.list(
+        { directory },
+        { responseStyle: 'data' },
+      )
+      return (result as any) ?? []
+    } catch {
+      return []
+    }
   }
 
   async replyToQuestion(requestId: string, answers: string[][], directory?: string): Promise<boolean> {
@@ -502,7 +526,7 @@ export class OpenCodeConnector {
   async getLspStatus(directory?: string): Promise<LspServerStatus[]> {
     try {
       // v2 SDK: first arg is parameters, second arg is options
-      const response = await this.client.lsp.list(
+      const response = await this.client.lsp.status(
         { directory },
         { responseStyle: 'data' },
       )
@@ -510,15 +534,27 @@ export class OpenCodeConnector {
       // Map SDK LSP status to our type
       const lspServers = response ?? []
       return lspServers.map((server: any) => ({
-        id: server.id ?? server.name ?? 'unknown',
-        name: server.name ?? server.id ?? 'LSP Server',
-        language: server.language,
-        status: server.status === 'running' ? 'running' : server.status === 'error' ? 'error' : 'stopped',
+        id: server.id ?? 'unknown',
+        name: server.name ?? server.id ?? 'LSP',
+        status: server.status === 'connected' ? 'running' : 'error',
         root: server.root,
       }))
     } catch {
       // LSP endpoint might not be available
       return []
+    }
+  }
+
+  async disposeInstance(directory?: string): Promise<boolean> {
+    try {
+      // v2 SDK: first arg is parameters, second arg is options
+      const result = await this.client.instance.dispose(
+        { directory },
+        { responseStyle: 'data' },
+      )
+      return result === true
+    } catch {
+      return false
     }
   }
 
@@ -1230,19 +1266,21 @@ export class OpenCodeConnector {
   async deleteWorktree(worktreeDirectory: string, directory?: string): Promise<boolean> {
     try {
       if (!directory || directory.length === 0) return false
-
-      // OpenCode currently has no API endpoint for deleting a worktree.
-      // We perform a local git worktree removal on the host running the bridge.
       const target = isAbsolute(worktreeDirectory)
         ? worktreeDirectory
         : join(directory, worktreeDirectory)
 
-      const proc = Bun.spawnSync({
-        cmd: ['git', '-C', directory, 'worktree', 'remove', '--force', target],
-        stdout: 'pipe',
-        stderr: 'pipe',
-      })
-      return proc.exitCode === 0
+      // Use the official OpenCode API for worktree removal.
+      // This keeps OpenCode's internal sandbox/worktree bookkeeping consistent.
+      const result = await this.client.worktree.remove(
+        {
+          directory,
+          worktreeRemoveInput: { directory: target },
+        },
+        { responseStyle: 'data' },
+      )
+
+      return result === true
     } catch {
       return false
     }
@@ -1293,20 +1331,6 @@ export class OpenCodeConnector {
     }
   }
 
-  // Feature 16: Full Provider Management - Set API key
-  async setApiKey(providerID: string, key: string, directory?: string): Promise<boolean> {
-    try {
-      // v2 SDK: first arg is parameters, second arg is options
-      await this.client.auth.set(
-        { provider: providerID, directory, type: 'api', key },
-        { responseStyle: 'data' },
-      )
-      return true
-    } catch {
-      return false
-    }
-  }
-
   // Feature 17: Tool List - Get tool IDs
   async listToolIds(directory?: string): Promise<string[]> {
     try {
@@ -1331,10 +1355,9 @@ export class OpenCodeConnector {
         { responseStyle: 'data' },
       )
       return (result ?? []).map((tool: any) => ({
-        id: tool.id ?? tool.name ?? '',
-        name: tool.name ?? tool.id ?? '',
+        id: tool.id ?? '',
         description: tool.description,
-        enabled: tool.enabled ?? true,
+        parameters: tool.parameters,
       }))
     } catch {
       return []
@@ -1351,8 +1374,9 @@ export class OpenCodeConnector {
       )
       return (result ?? []).map((f: any) => ({
         path: f.path ?? '',
+        added: typeof f.added === 'number' ? f.added : 0,
+        removed: typeof f.removed === 'number' ? f.removed : 0,
         status: f.status ?? 'modified',
-        staged: f.staged ?? false,
       }))
     } catch {
       return []

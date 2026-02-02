@@ -28,6 +28,8 @@ import '../models/worktree.dart';
 import 'websocket_service.dart';
 
 class BridgeService {
+  static const protocolVersion = '1.0.0';
+
   BridgeService(this._socket) {
     _dispatcherSub = _socket.messages.listen(_dispatchMessage);
   }
@@ -1361,6 +1363,11 @@ class BridgeService {
 
     final type = response['type'];
     if (type == 'file_too_large') {
+      final payload = response['data'];
+      if (payload is Map<String, dynamic>) {
+        return FileBinaryResult.tooLarge(FileTooLargeError.fromJson(payload));
+      }
+      // Backward compatibility (older bridge used top-level fields)
       return FileBinaryResult.tooLarge(FileTooLargeError.fromJson(response));
     }
     if (type == 'error') {
@@ -1849,40 +1856,6 @@ class BridgeService {
     return result;
   }
 
-  /// Set API key for a provider (protected against duplicate sets)
-  Future<bool> setApiKey({
-    required String providerID,
-    required String key,
-    String? projectPath,
-  }) {
-    final dedupeKey = 'set_api_key:$providerID';
-    return _deduplicatedRequest(
-      dedupeKey,
-      () => _setApiKeyInternal(
-        providerID: providerID,
-        key: key,
-        projectPath: projectPath,
-      ),
-    );
-  }
-
-  Future<bool> _setApiKeyInternal({
-    required String providerID,
-    required String key,
-    String? projectPath,
-  }) async {
-    final requestId = _generateRequestId();
-    _socket.send({
-      'type': 'set_api_key',
-      'providerID': providerID,
-      'key': key,
-      'requestId': requestId,
-      if (projectPath != null) 'projectPath': projectPath,
-    });
-    final response = await _waitFor('api_key_set', requestId: requestId);
-    return response['data'] as bool? ?? false;
-  }
-
   // ============================================================
   // Feature 17: Tool List
   // ============================================================
@@ -2026,7 +1999,39 @@ class BridgeService {
       'deviceId': deviceId,
       'deviceName': deviceName,
       'platform': platform,
+      'protocolVersion': BridgeService.protocolVersion,
     });
+  }
+
+  Future<List<Map<String, dynamic>>> listPendingPermissions({
+    String? projectPath,
+  }) async {
+    final requestId = _generateRequestId();
+    _socket.send({
+      'type': 'list_pending_permissions',
+      'requestId': requestId,
+      if (projectPath != null) 'projectPath': projectPath,
+    });
+    final response = await _waitFor(
+      'pending_permissions',
+      requestId: requestId,
+    );
+    final data = response['data'] as List<dynamic>? ?? [];
+    return data.whereType<Map<String, dynamic>>().toList();
+  }
+
+  Future<List<Map<String, dynamic>>> listPendingQuestions({
+    String? projectPath,
+  }) async {
+    final requestId = _generateRequestId();
+    _socket.send({
+      'type': 'list_pending_questions',
+      'requestId': requestId,
+      if (projectPath != null) 'projectPath': projectPath,
+    });
+    final response = await _waitFor('pending_questions', requestId: requestId);
+    final data = response['data'] as List<dynamic>? ?? [];
+    return data.whereType<Map<String, dynamic>>().toList();
   }
 
   Future<List<DeviceInfo>> listDevices() async {
@@ -2252,6 +2257,11 @@ class BridgeService {
         'cc_checkpoint_rewound',
         requestId: requestId,
       );
+      final data = response['data'];
+      if (data is Map<String, dynamic>) {
+        return data['success'] as bool? ?? false;
+      }
+      // Backward compatibility (older bridge sent top-level success)
       return response['success'] as bool? ?? false;
     } catch (_) {
       return false;
@@ -2838,29 +2848,6 @@ class BridgeService {
     );
     final data = response['data'] as List<dynamic>? ?? [];
     return data.whereType<Map<String, dynamic>>().toList();
-  }
-
-  Future<String?> cxMcpOauthLogin({
-    required String name,
-    List<String>? scopes,
-    int? timeoutSecs,
-  }) async {
-    final requestId = _generateRequestId();
-    _socket.send({
-      'type': 'cx_mcp_oauth_login',
-      'requestId': requestId,
-      'name': name,
-      if (scopes != null) 'scopes': scopes,
-      if (timeoutSecs != null) 'timeoutSecs': timeoutSecs,
-    });
-    // OAuth login can take longer as user may need to interact with browser
-    final response = await _waitFor(
-      'cx_mcp_oauth',
-      requestId: requestId,
-      timeoutSeconds: _codexTimeoutSeconds * 2, // 120s for OAuth
-    );
-    final data = response['data'] as Map<String, dynamic>? ?? const {};
-    return data['authorizationUrl'] as String?;
   }
 
   /// Hot reload MCP server config (Codex SDK feature)

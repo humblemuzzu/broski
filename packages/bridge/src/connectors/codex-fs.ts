@@ -8,7 +8,13 @@
 import { readdir, stat } from 'node:fs/promises'
 import { basename, join, resolve } from 'node:path'
 import { homedir } from 'node:os'
-import type { CodexThread, ProjectSummary } from '../types'
+import type {
+  CodexThread,
+  CodexTranscriptDiff,
+  CodexTranscriptMessage,
+  CodexTranscriptToolCall,
+  ProjectSummary,
+} from '../types'
 
 const CODEX_SESSIONS_DIR = join(homedir(), '.codex', 'sessions')
 
@@ -174,6 +180,7 @@ export async function listThreadsFromFs(cwd?: string): Promise<CodexThread[]> {
       preview: meta.preview ?? `Session ${meta.id.slice(0, 8)}`,
       modelProvider: meta.modelProvider,
       createdAt: Math.floor(fileStat.birthtime.getTime() / 1000),
+      updatedAt: Math.floor(fileStat.mtime.getTime() / 1000),
       cwd: meta.cwd,
       cliVersion: meta.cliVersion,
       gitInfo: meta.gitBranch ? { branch: meta.gitBranch } : null,
@@ -237,6 +244,7 @@ export async function getThreadFromFs(threadId: string): Promise<CodexThread | n
         preview: meta.preview ?? `Session ${meta.id.slice(0, 8)}`,
         modelProvider: meta.modelProvider,
         createdAt: fileStat ? Math.floor(fileStat.birthtime.getTime() / 1000) : 0,
+        updatedAt: fileStat ? Math.floor(fileStat.mtime.getTime() / 1000) : 0,
         cwd: meta.cwd,
         cliVersion: meta.cliVersion,
         gitInfo: meta.gitBranch ? { branch: meta.gitBranch } : null,
@@ -262,35 +270,12 @@ export async function findThreadFilePath(threadId: string): Promise<string | nul
 }
 
 // ============================================================================
-// TRANSCRIPT MESSAGE TYPES (must match server.ts CodexTranscriptMessage)
+// TRANSCRIPT MESSAGE TYPES (must match `packages/bridge/src/types.ts`)
 // ============================================================================
 
-interface TranscriptToolCall {
-  itemId: string
-  type: string
-  name: string
-  status: string
-  input?: Record<string, unknown>
-  output?: string
-}
-
-interface TranscriptDiff {
-  file: string
-  diff: string
-  additions: number
-  deletions: number
-  itemId?: string
-}
-
-interface TranscriptMessage {
-  id: string
-  role: 'user' | 'assistant' | 'system'
-  createdAt: number
-  text: string
-  thinking?: string
-  toolCalls?: TranscriptToolCall[]
-  diffs?: TranscriptDiff[]
-}
+type TranscriptToolCall = CodexTranscriptToolCall
+type TranscriptDiff = CodexTranscriptDiff
+type TranscriptMessage = CodexTranscriptMessage
 
 function safeStr(v: unknown): string {
   return typeof v === 'string' ? v : ''
@@ -498,8 +483,9 @@ export async function getThreadMessagesFromFs(threadId: string): Promise<Transcr
           const output = safeStr(payload?.output)
           
           // Find and update the matching tool call in current assistant
-          if (currentAssistant?.toolCalls) {
-            for (const tc of currentAssistant.toolCalls) {
+          const toolCalls = (currentAssistant as any)?.toolCalls
+          if (Array.isArray(toolCalls)) {
+            for (const tc of toolCalls as TranscriptToolCall[]) {
               if (tc.itemId === callId) {
                 tc.status = 'completed'
                 tc.output = headTailTruncate(output, 50, 30)

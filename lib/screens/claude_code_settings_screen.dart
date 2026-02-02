@@ -339,7 +339,7 @@ class _ClaudeCodeSettingsScreenState
                   ),
                   const SizedBox(height: 12),
                   Text(
-                    'Applied to this repo via `.claude/settings.json`.',
+                    'Broski-managed settings (applied when sessions run through the bridge).',
                     style: TextStyle(color: oc.textMuted, fontSize: 12),
                   ),
                   const SizedBox(height: 14),

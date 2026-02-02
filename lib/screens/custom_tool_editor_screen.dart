@@ -168,17 +168,21 @@ class _CustomToolEditorScreenState
             _SectionHeader(title: 'Handler Type'),
             const SizedBox(height: 12),
             SegmentedButton<CustomToolHandlerType>(
-              segments: CustomToolHandlerType.values.map((type) {
-                return ButtonSegment(
-                  value: type,
-                  label: Text(type.displayName),
-                  icon: Icon(
-                    type == CustomToolHandlerType.http
-                        ? Icons.http_rounded
-                        : Icons.terminal_rounded,
-                  ),
-                );
-              }).toList(),
+              segments:
+                  const [
+                    CustomToolHandlerType.http,
+                    CustomToolHandlerType.script,
+                  ].map((type) {
+                    return ButtonSegment(
+                      value: type,
+                      label: Text(type.displayName),
+                      icon: Icon(
+                        type == CustomToolHandlerType.http
+                            ? Icons.http_rounded
+                            : Icons.terminal_rounded,
+                      ),
+                    );
+                  }).toList(),
               selected: {_handlerType},
               onSelectionChanged: (selected) {
                 setState(() => _handlerType = selected.first);
@@ -203,13 +207,15 @@ class _CustomToolEditorScreenState
                 headersController: _headersController,
                 bodyTemplateController: _bodyTemplateController,
               )
-            else
+            else if (_handlerType == CustomToolHandlerType.script)
               _ScriptConfigSection(
                 commandController: _commandController,
                 argsController: _argsController,
                 cwdController: _cwdController,
                 timeoutController: _timeoutController,
-              ),
+              )
+            else
+              const SizedBox.shrink(),
 
             const SizedBox(height: 24),
 

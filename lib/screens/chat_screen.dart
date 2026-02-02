@@ -391,6 +391,12 @@ class _ChatScreenState extends ConsumerState<ChatScreen>
 
         _hydrateSession().whenComplete(() {
           _resyncingAfterReconnect = false;
+          if (widget.isOpenCode &&
+              !ref.read(connectionProvider).isOfflineMode) {
+            ref
+                .read(chatSessionProvider.notifier)
+                .rehydrateOpenCodePending(projectPath: widget.project.path);
+          }
           _maybeSendInitialPrompt();
         });
       }
@@ -407,7 +413,14 @@ class _ChatScreenState extends ConsumerState<ChatScreen>
     // Defer _hydrateSession to after first frame - it modifies provider state
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (!mounted) return;
-      _hydrateSession().whenComplete(_maybeSendInitialPrompt);
+      _hydrateSession().whenComplete(() {
+        if (widget.isOpenCode && !ref.read(connectionProvider).isOfflineMode) {
+          ref
+              .read(chatSessionProvider.notifier)
+              .rehydrateOpenCodePending(projectPath: widget.project.path);
+        }
+        _maybeSendInitialPrompt();
+      });
     });
     _controller.addListener(_onTextChanged);
     _scrollController.addListener(_onScroll);
@@ -918,24 +931,34 @@ class _ChatScreenState extends ConsumerState<ChatScreen>
       // Fetch custom commands from .claude/commands/ directories
       final ccCommands = await bridge.ccListCommands(cwd: cwd);
 
-      // Built-in Claude Code commands
-      const builtInCommands = [
-        SlashCommand(
-          name: 'compact',
-          description: 'Summarize conversation to free context',
-          builtin: true,
-        ),
-        SlashCommand(
-          name: 'clear',
-          description: 'Clear conversation and start fresh',
-          builtin: true,
-        ),
-        SlashCommand(
-          name: 'help',
-          description: 'Show available commands',
-          builtin: true,
-        ),
-      ];
+      // Built-in slash commands (from Claude Code init payload when available).
+      // Fallback to a small default list when init is not available (e.g. draft screen).
+      const builtInDescriptions = <String, String>{
+        'compact': 'Summarize conversation to free context',
+        'clear': 'Clear conversation and start fresh',
+        'help': 'Show available commands',
+      };
+      final initSlash =
+          ref.read(chatSessionProvider).ccInit?.slashCommands ??
+          const <String>[];
+      final builtInNames = initSlash.isNotEmpty
+          ? initSlash
+                .map((s) => s.toString().trim())
+                .where((s) => s.startsWith('/'))
+                .map((s) => s.replaceFirst('/', ''))
+                .where((s) => s.isNotEmpty)
+                .toSet()
+                .toList()
+          : const ['compact', 'clear', 'help'];
+      final builtInCommands = builtInNames
+          .map(
+            (name) => SlashCommand(
+              name: name,
+              description: builtInDescriptions[name] ?? 'Claude Code command',
+              builtin: true,
+            ),
+          )
+          .toList();
 
       // Convert CC commands to SlashCommand and merge
       final customCommands = ccCommands
@@ -3867,10 +3890,6 @@ Describe project-specific guidance for Codex here.
                       final templates =
                           (s['resourceTemplates'] as List?)?.length ?? 0;
 
-                      final needsLogin =
-                          auth.toLowerCase().contains('not') ||
-                          auth.toLowerCase().contains('oauth');
-
                       return Column(
                         children: [
                           if (index > 0)
@@ -3899,29 +3918,7 @@ Describe project-specific guidance for Codex here.
                                 fontSize: 12,
                               ),
                             ),
-                            trailing: needsLogin
-                                ? TextButton(
-                                    onPressed: name.isEmpty
-                                        ? null
-                                        : () async {
-                                            final bridge = ref.read(
-                                              bridgeServiceProvider,
-                                            );
-                                            final url = await bridge
-                                                .cxMcpOauthLogin(name: name);
-                                            if (url == null || url.isEmpty)
-                                              return;
-                                            final uri = Uri.tryParse(url);
-                                            if (uri == null) return;
-                                            await launchUrl(
-                                              uri,
-                                              mode: LaunchMode
-                                                  .externalApplication,
-                                            );
-                                          },
-                                    child: const Text('Login'),
-                                  )
-                                : null,
+                            trailing: null,
                           ),
                         ],
                       );
@@ -5811,7 +5808,7 @@ Describe project-specific guidance for Codex here.
             ? ref.watch(chatSessionProvider.select((s) => s.ccModel))
             : widget.isCodex
             ? ref.watch(chatSessionProvider.select((s) => s.cxModel))
-            : ref.watch(selectionProvider).model as String?,
+            : ref.watch(selectionProvider).model?.displayString,
         onModelTap: widget.isClaudeCode
             ? () => _showClaudeCodeModelSheet()
             : widget.isCodex

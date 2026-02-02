@@ -320,6 +320,88 @@ class ChatSessionNotifier extends StateNotifier<ChatSessionState> {
     }
   }
 
+  /// Rehydrate pending OpenCode permission/question prompts after reconnect.
+  /// This prevents sessions from getting stuck if events were missed.
+  Future<void> rehydrateOpenCodePending({required String projectPath}) async {
+    final sessionId = state.session?.id;
+    if (sessionId == null || sessionId.isEmpty) return;
+
+    try {
+      final pendingPerms = await _bridge.listPendingPermissions(
+        projectPath: projectPath,
+      );
+
+      final existingIds = state.permissions.map((p) => p.id).toSet();
+      final nextPerms = <PermissionRequest>[...state.permissions];
+
+      for (final item in pendingPerms) {
+        final sid =
+            (item['sessionID'] as String?) ??
+            (item['sessionId'] as String?) ??
+            '';
+        if (sid != sessionId) continue;
+
+        final id = item['id'] as String? ?? '';
+        if (id.isEmpty || existingIds.contains(id)) continue;
+
+        final toolData = item['tool'] as Map<String, dynamic>?;
+        final tool = toolData != null ? ToolReference.fromJson(toolData) : null;
+
+        final patterns =
+            (item['patterns'] as List<dynamic>?)
+                ?.map((e) => e.toString())
+                .toList() ??
+            const <String>[];
+        final always =
+            (item['always'] as List<dynamic>?)
+                ?.map((e) => e.toString())
+                .toList() ??
+            const <String>[];
+
+        nextPerms.add(
+          PermissionRequest(
+            id: id,
+            sessionId: sid,
+            title: item['title'] as String? ?? 'Permission required',
+            permission: item['permission'] as String?,
+            patterns: patterns,
+            always: always,
+            tool: tool,
+            command:
+                (item['metadata'] as Map<String, dynamic>?)?['command']
+                    as String?,
+            metadata: item['metadata'] as Map<String, dynamic>? ?? const {},
+          ),
+        );
+        existingIds.add(id);
+      }
+
+      if (nextPerms.length != state.permissions.length) {
+        state = state.copyWith(permissions: nextPerms);
+      }
+    } catch (_) {
+      // Best-effort only.
+    }
+
+    try {
+      final pendingQs = await _bridge.listPendingQuestions(
+        projectPath: projectPath,
+      );
+      if (state.pendingQuestion != null) return;
+
+      for (final item in pendingQs) {
+        final req = QuestionRequest.fromJson(item);
+        if (req.id.isEmpty) continue;
+        if (req.sessionId != sessionId) continue;
+
+        state = state.copyWith(pendingQuestion: req);
+        break;
+      }
+    } catch (_) {
+      // Best-effort only.
+    }
+  }
+
   /// Reply to a Codex request_user_input (SDK v0.87.0+)
   /// [answers] is indexed by question position, matching the UI's output format
   void replyToCodexUserInput(List<List<String>> answers) {

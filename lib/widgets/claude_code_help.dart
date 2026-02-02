@@ -32,7 +32,6 @@ void showClaudeCodeHelpSheet(
         ),
         const SizedBox(height: 8),
         _p(theme, 'Quick access:'),
-        _bullet(theme, 'Type `@<subagent>` to target a subagent'),
         _bullet(theme, 'Type `@tool:` to insert a custom tool name'),
         _bullet(theme, 'Type `/` to browse available slash commands'),
       ];
@@ -49,7 +48,6 @@ void showClaudeCodeHelpSheet(
           theme,
           'Select an active subagent from Chat → menu → Claude Code → Tools → Subagents',
         ),
-        _bullet(theme, 'Or type `@<subagent>` in the prompt to target one'),
         const SizedBox(height: 8),
         _p(
           theme,

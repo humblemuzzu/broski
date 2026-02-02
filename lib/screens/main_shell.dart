@@ -98,6 +98,23 @@ class _MainShellState extends ConsumerState<MainShell> {
                     ref.read(connectionProvider.notifier).exitOfflineMode(),
               ),
             ),
+
+          // Protocol mismatch banner (soft warning; never blocks usage)
+          if (!connection.isOfflineMode &&
+              connection.hasProtocolMismatch &&
+              !connection.protocolBannerDismissed)
+            Positioned(
+              left: 0,
+              right: 0,
+              top: 0,
+              child: _ProtocolBanner(
+                bridgeVersion: connection.bridgeProtocolVersion ?? 'unknown',
+                appVersion: connection.appProtocolVersion,
+                onDismiss: () => ref
+                    .read(connectionProvider.notifier)
+                    .dismissProtocolBanner(),
+              ),
+            ),
           // Navigation bar - switches between styles
           Positioned(
             left: 0,
@@ -171,6 +188,64 @@ class _OfflineBanner extends StatelessWidget {
               Icon(Icons.refresh_rounded, color: ocTheme.textMuted, size: 14),
             ],
           ),
+        ),
+      ),
+    );
+  }
+}
+
+class _ProtocolBanner extends StatelessWidget {
+  const _ProtocolBanner({
+    required this.bridgeVersion,
+    required this.appVersion,
+    required this.onDismiss,
+  });
+
+  final String bridgeVersion;
+  final String appVersion;
+  final VoidCallback onDismiss;
+
+  @override
+  Widget build(BuildContext context) {
+    final ocTheme = OpenCodeTheme.of(context);
+
+    return SafeArea(
+      bottom: false,
+      child: Container(
+        margin: const EdgeInsets.fromLTRB(16, 4, 16, 0),
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+        decoration: BoxDecoration(
+          color: ocTheme.warning.withValues(alpha: 0.14),
+          borderRadius: BorderRadius.circular(16),
+          border: Border.all(color: ocTheme.warning.withValues(alpha: 0.25)),
+        ),
+        child: Row(
+          children: [
+            Icon(Icons.warning_amber_rounded, color: ocTheme.warning, size: 16),
+            const SizedBox(width: 8),
+            Expanded(
+              child: Text(
+                'Bridge protocol $bridgeVersion (app $appVersion). Some features may be unavailable until you update.',
+                style: TextStyle(
+                  color: ocTheme.text,
+                  fontSize: 12,
+                  fontWeight: FontWeight.w500,
+                  height: 1.2,
+                ),
+              ),
+            ),
+            IconButton(
+              onPressed: onDismiss,
+              icon: Icon(
+                Icons.close_rounded,
+                color: ocTheme.textMuted,
+                size: 18,
+              ),
+              padding: EdgeInsets.zero,
+              constraints: const BoxConstraints(minWidth: 32, minHeight: 32),
+              splashRadius: 16,
+            ),
+          ],
         ),
       ),
     );

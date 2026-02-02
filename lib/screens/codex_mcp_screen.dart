@@ -252,31 +252,10 @@ class _CodexMcpScreenState extends ConsumerState<CodexMcpScreen>
         title: Text('MCP', style: TextStyle(color: oc.text)),
         iconTheme: IconThemeData(color: oc.text),
         actions: [
-          // Hot Reload button (Codex SDK feature)
-          IconButton(
-            icon: const Icon(Icons.bolt_rounded),
-            onPressed: _dirty ? null : _hotReload,
-            tooltip: 'Hot Reload',
-          ),
           IconButton(
             icon: const Icon(Icons.refresh_rounded),
-            onPressed: _dirty ? null : _load,
+            onPressed: _load,
             tooltip: 'Refresh Status',
-          ),
-          IconButton(
-            icon: const Icon(Icons.add_rounded),
-            onPressed: _tabs.index == 1 ? _addServer : null,
-            tooltip: 'Add server',
-          ),
-          TextButton(
-            onPressed: _dirty ? _save : null,
-            child: Text(
-              'Save',
-              style: TextStyle(
-                color: _dirty ? oc.primary : oc.textMuted,
-                fontWeight: FontWeight.w700,
-              ),
-            ),
           ),
         ],
         bottom: TabBar(
@@ -303,93 +282,44 @@ class _CodexMcpScreenState extends ConsumerState<CodexMcpScreen>
               controller: _tabs,
               children: [
                 _CodexMcpStatusList(status: _status),
-                names.isEmpty
-                    ? Center(
-                        child: Padding(
-                          padding: const EdgeInsets.all(24),
-                          child: Column(
-                            mainAxisAlignment: MainAxisAlignment.center,
-                            children: [
-                              Icon(
-                                Icons.dns_rounded,
-                                color: oc.textMuted,
-                                size: 56,
-                              ),
-                              const SizedBox(height: 12),
-                              Text(
-                                'No MCP servers',
-                                style: TextStyle(color: oc.text),
-                              ),
-                              const SizedBox(height: 8),
-                              Text(
-                                'Add servers to `mcp_servers` in Codex config.',
-                                textAlign: TextAlign.center,
-                                style: TextStyle(color: oc.textMuted),
-                              ),
-                              const SizedBox(height: 16),
-                              ElevatedButton.icon(
-                                onPressed: _addServer,
-                                icon: const Icon(Icons.add_rounded),
-                                label: const Text('Add server'),
-                              ),
-                            ],
+                SingleChildScrollView(
+                  padding: const EdgeInsets.fromLTRB(16, 12, 16, 16),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        'Edit MCP servers on your Mac. Broski does not modify Codex config from mobile.',
+                        style: TextStyle(color: oc.textMuted, fontSize: 12),
+                      ),
+                      const SizedBox(height: 12),
+                      Container(
+                        width: double.infinity,
+                        padding: const EdgeInsets.all(12),
+                        decoration: BoxDecoration(
+                          color: oc.backgroundElement,
+                          borderRadius: BorderRadius.circular(12),
+                          border: Border.all(color: oc.border),
+                        ),
+                        child: Text(
+                          const JsonEncoder.withIndent('  ').convert(servers),
+                          style: TextStyle(
+                            color: oc.text,
+                            fontFamily: 'Menlo',
+                            fontSize: 12,
+                            height: 1.2,
                           ),
                         ),
-                      )
-                    : ListView.builder(
-                        padding: const EdgeInsets.fromLTRB(16, 12, 16, 16),
-                        itemCount: names.length,
-                        itemBuilder: (context, idx) {
-                          final name = names[idx];
-                          final cfg = servers[name];
-                          return Card(
-                            color: oc.backgroundElement,
-                            margin: const EdgeInsets.only(bottom: 10),
-                            shape: RoundedRectangleBorder(
-                              borderRadius: BorderRadius.circular(12),
-                              side: BorderSide(color: oc.border),
-                            ),
-                            child: ListTile(
-                              onTap: () => _editServer(
-                                name,
-                                (cfg as Map).cast<String, dynamic>(),
-                              ),
-                              title: Text(
-                                name,
-                                style: TextStyle(
-                                  color: oc.text,
-                                  fontWeight: FontWeight.w700,
-                                ),
-                              ),
-                              subtitle: Text(
-                                'Tap to edit config',
-                                style: TextStyle(color: oc.textMuted),
-                              ),
-                              trailing: PopupMenuButton<String>(
-                                onSelected: (v) {
-                                  if (v == 'edit') {
-                                    _editServer(
-                                      name,
-                                      (cfg as Map).cast<String, dynamic>(),
-                                    );
-                                  }
-                                  if (v == 'delete') _deleteServer(name);
-                                },
-                                itemBuilder: (_) => const [
-                                  PopupMenuItem(
-                                    value: 'edit',
-                                    child: Text('Edit'),
-                                  ),
-                                  PopupMenuItem(
-                                    value: 'delete',
-                                    child: Text('Remove'),
-                                  ),
-                                ],
-                              ),
-                            ),
-                          );
-                        },
                       ),
+                      if (names.isEmpty) ...[
+                        const SizedBox(height: 12),
+                        Text(
+                          'No MCP servers configured in `mcp_servers`.',
+                          style: TextStyle(color: oc.textMuted),
+                        ),
+                      ],
+                    ],
+                  ),
+                ),
               ],
             ),
     );

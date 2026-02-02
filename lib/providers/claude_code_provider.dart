@@ -333,6 +333,10 @@ class CCChatState {
   final bool isStreaming;
   final String? error;
 
+  /// True when viewing a session that was not created in this app flow.
+  /// Used for clarity in UX around undo/checkpoints.
+  final bool isExternal;
+
   /// Stack of checkpoint UUIDs for file revert (undo) functionality.
   /// Each user message turn creates a checkpoint; we store all of them so
   /// users can undo multiple turns (LIFO order).
@@ -351,6 +355,7 @@ class CCChatState {
     this.isStreaming = false,
     this.error,
     this.checkpoints = const [],
+    this.isExternal = false,
   });
 
   CCChatState copyWith({
@@ -360,6 +365,7 @@ class CCChatState {
     String? error,
     List<CCCheckpointCreated>? checkpoints,
     bool clearCheckpoints = false,
+    bool? isExternal,
   }) {
     return CCChatState(
       sessionId: sessionId ?? this.sessionId,
@@ -369,6 +375,7 @@ class CCChatState {
       checkpoints: clearCheckpoints
           ? const []
           : (checkpoints ?? this.checkpoints),
+      isExternal: isExternal ?? this.isExternal,
     );
   }
 }
@@ -421,7 +428,7 @@ class CCChatNotifier extends StateNotifier<CCChatState> {
 
   void _handleStreamMessage(ClaudeCodeStreamMessage message) {
     if (message is CCSessionCreated) {
-      state = state.copyWith(sessionId: message.sessionId);
+      state = state.copyWith(sessionId: message.sessionId, isExternal: false);
     } else if (message is CCError) {
       state = state.copyWith(isStreaming: false, error: message.message);
     } else if (message is CCCheckpointCreated) {
@@ -445,7 +452,7 @@ class CCChatNotifier extends StateNotifier<CCChatState> {
 
   void setSession(String sessionId) {
     // Clear checkpoint when switching sessions - it's session-specific
-    state = CCChatState(sessionId: sessionId);
+    state = CCChatState(sessionId: sessionId, isExternal: true);
   }
 
   /// Rewind files to the latest checkpoint (undo the last turn's file changes).

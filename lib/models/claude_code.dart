@@ -937,7 +937,8 @@ enum CustomToolParameterType {
 /// Handler type for custom tools
 enum CustomToolHandlerType {
   http,
-  script;
+  script,
+  builtin;
 
   String get wireValue => name;
 
@@ -945,6 +946,8 @@ enum CustomToolHandlerType {
     switch (value) {
       case 'script':
         return CustomToolHandlerType.script;
+      case 'builtin':
+        return CustomToolHandlerType.builtin;
       default:
         return CustomToolHandlerType.http;
     }
@@ -956,6 +959,8 @@ enum CustomToolHandlerType {
         return 'HTTP Request';
       case CustomToolHandlerType.script:
         return 'Script/Command';
+      case CustomToolHandlerType.builtin:
+        return 'Built-in';
     }
   }
 
@@ -965,7 +970,29 @@ enum CustomToolHandlerType {
         return 'Make HTTP requests to external APIs';
       case CustomToolHandlerType.script:
         return 'Execute local scripts or commands';
+      case CustomToolHandlerType.builtin:
+        return 'Reserved for built-in tools';
     }
+  }
+}
+
+class BuiltinHandlerConfig {
+  final String action;
+  final Map<String, dynamic> config;
+
+  const BuiltinHandlerConfig({required this.action, this.config = const {}});
+
+  factory BuiltinHandlerConfig.fromJson(Map<String, dynamic> json) {
+    return BuiltinHandlerConfig(
+      action: json['action'] as String? ?? '',
+      config: json['config'] is Map<String, dynamic>
+          ? json['config'] as Map<String, dynamic>
+          : const {},
+    );
+  }
+
+  Map<String, dynamic> toJson() {
+    return {'action': action, if (config.isNotEmpty) 'config': config};
   }
 }
 
@@ -1166,7 +1193,8 @@ class ClaudeCodeCustomTool {
   final String description;
   final List<CustomToolParameter> parameters;
   final CustomToolHandlerType handler;
-  final dynamic handlerConfig; // HttpHandlerConfig or ScriptHandlerConfig
+  final dynamic
+  handlerConfig; // HttpHandlerConfig | ScriptHandlerConfig | BuiltinHandlerConfig
   final bool enabled;
   final int createdAt;
   final int updatedAt;
@@ -1194,6 +1222,11 @@ class ClaudeCodeCustomTool {
       ? handlerConfig as ScriptHandlerConfig
       : null;
 
+  BuiltinHandlerConfig? get builtinConfig =>
+      handler == CustomToolHandlerType.builtin
+      ? handlerConfig as BuiltinHandlerConfig
+      : null;
+
   /// Get the MCP tool name as it will appear in Claude Code
   String get mcpToolName => 'mcp__broski-custom-tools__$name';
 
@@ -1203,9 +1236,13 @@ class ClaudeCodeCustomTool {
     );
     final configJson = json['handlerConfig'] as Map<String, dynamic>? ?? {};
 
-    final dynamic config = handlerType == CustomToolHandlerType.http
-        ? HttpHandlerConfig.fromJson(configJson)
-        : ScriptHandlerConfig.fromJson(configJson);
+    final dynamic config = switch (handlerType) {
+      CustomToolHandlerType.http => HttpHandlerConfig.fromJson(configJson),
+      CustomToolHandlerType.script => ScriptHandlerConfig.fromJson(configJson),
+      CustomToolHandlerType.builtin => BuiltinHandlerConfig.fromJson(
+        configJson,
+      ),
+    };
 
     return ClaudeCodeCustomTool(
       id: json['id'] as String? ?? '',
@@ -1227,9 +1264,14 @@ class ClaudeCodeCustomTool {
   }
 
   Map<String, dynamic> toJson() {
-    final dynamic configJson = handler == CustomToolHandlerType.http
-        ? (handlerConfig as HttpHandlerConfig).toJson()
-        : (handlerConfig as ScriptHandlerConfig).toJson();
+    final dynamic configJson = switch (handler) {
+      CustomToolHandlerType.http =>
+        (handlerConfig as HttpHandlerConfig).toJson(),
+      CustomToolHandlerType.script =>
+        (handlerConfig as ScriptHandlerConfig).toJson(),
+      CustomToolHandlerType.builtin =>
+        (handlerConfig as BuiltinHandlerConfig).toJson(),
+    };
 
     return {
       'id': id,

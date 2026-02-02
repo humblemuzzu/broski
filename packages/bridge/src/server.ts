@@ -5,7 +5,7 @@ import { homedir } from 'node:os'
 import { basename, dirname, join, resolve, sep } from 'node:path'
 import { createHash, randomBytes, timingSafeEqual } from 'node:crypto'
 import type { OpenCodeConnector } from './connectors/opencode'
-import type { AgentType, ClientMessage, CodexStreamMessage, CodexThread, CodexTranscriptMessage, DeviceInfo, FileAttachment, PermissionResponse, ServerMessage } from './types'
+import type { AgentType, ClaudeCodeStreamMessage, ClientMessage, CodexStreamMessage, CodexThread, CodexTranscriptMessage, DeviceInfo, FileAttachment, PermissionResponse, ServerMessage } from './types'
 import * as claudeCode from './connectors/claude-code'
 import * as codexFs from './connectors/codex-fs'
 import * as fileSearch from './file-search'
@@ -18,6 +18,7 @@ const TOKEN_FILE_LEGACY = resolve(homedir(), '.broski', 'token')
 const TOKEN_FILE = resolve(homedir(), '.broski', 'token.json')
 const DEBUG_RTS = process.env.BROSKI_DEBUG_RTS === '1' // Real-Time Sync debugging
 const DEBUG_CX_GLOBAL = process.env.BROSKI_DEBUG_CX_GLOBAL === '1' // Forward noisy Codex global notifications
+const BRIDGE_PROTOCOL_VERSION = '1.0.0'
 
 function structuredPatchToUnifiedDiff(filePath: string, patches: unknown): string | null {
   if (!Array.isArray(patches) || patches.length === 0) return null
@@ -83,7 +84,7 @@ function resolveClaudeCommandFilePath(params: {
   const parts = params.name.split(':')
   if (parts.some((p) => p.length === 0)) return null
 
-  const file = parts.at(-1)
+  const file = parts.length > 0 ? parts[parts.length - 1] : undefined
   if (!file) return null
 
   const dirParts = parts.slice(0, -1)
@@ -253,7 +254,7 @@ function buildCodexTranscript(thread: any): CodexTranscriptMessage[] {
         a.toolCalls.push({
           itemId: id,
           type: 'mcpToolCall',
-          name: `${safeString(item?.server)}.${safeString(item?.tool)}`.replaceAll(/^\./, ''),
+           name: `${safeString(item?.server)}.${safeString(item?.tool)}`.replace(/^\./, ''),
           status: safeString(item?.status).toLowerCase() === 'completed'
             ? 'completed'
             : safeString(item?.status).toLowerCase() === 'failed'
@@ -645,6 +646,7 @@ type ConnectionContext = {
   deviceId?: string
   deviceName?: string
   platform?: string
+  protocolVersion?: string
   connectedAt: number
 }
 
@@ -702,7 +704,11 @@ export async function createBridgeServer(options: BridgeServerOptions): Promise<
     string,
     { resolve: (response: 'once' | 'always' | 'reject') => void; timer: Timer }
   >()
-  type CodexApprovalReply = { response: PermissionResponse; execpolicyAmendment?: any }
+  type CodexApprovalReply = {
+    response?: PermissionResponse
+    execpolicyAmendment?: any
+    answers?: Record<string, { selected: string[]; other?: string }>
+  }
   const cxApprovalWaiters = new Map<
     string,
     { resolve: (response: CodexApprovalReply) => void; timer: Timer }
@@ -2258,26 +2264,7 @@ export async function createBridgeServer(options: BridgeServerOptions): Promise<
           // Process user messages (for tool_result AND user text)
           if (recordType === 'user') {
             const content = parsed?.message?.content
-            
-            // Only emit user messages AFTER initial sync is done
-            if (initialSyncDone) {
-              // Extract and emit user text (the actual user message)
-              const userText = extractText(content)
-              if (userText) {
-                const userMsgId = typeof parsed?.uuid === 'string'
-                  ? parsed.uuid
-                  : `user-${Date.now()}`
-                emitCcStream(sessionId, { 
-                  type: 'user-message', 
-                  content: userText, 
-                  messageId: userMsgId 
-                })
-                if (DEBUG_RTS) {
-                  console.log(`[RTS] CC External: Emitted user-message for session ${sessionId}`)
-                }
-              }
-            }
-            
+
             // Extract and emit tool results (processToolResults already has initialSyncDone check)
             const toolResults = extractToolResults(content)
             if (toolResults.length > 0) {
@@ -2634,7 +2621,7 @@ export async function createBridgeServer(options: BridgeServerOptions): Promise<
                 : (typeof payload?.text === 'string' ? payload.text : '')
               if (text) {
                 const ts = typeof parsed?.timestamp === 'string' ? parsed.timestamp : `${Date.now()}`
-                const itemId = `cx-ext-msg-${ts.replaceAll(/[^a-zA-Z0-9]/g, '_')}`
+                const itemId = `cx-ext-msg-${ts.replace(/[^a-zA-Z0-9]/g, '_')}`
                 emit('item/agentMessage/delta', { itemId, delta: text })
                 if (turnInProgress) {
                   turnInProgress = false
@@ -2932,7 +2919,7 @@ export async function createBridgeServer(options: BridgeServerOptions): Promise<
 
   const emitCcStream = (
     sessionId: string,
-    streamMsg: unknown,
+    streamMsg: ClaudeCodeStreamMessage,
     owner?: ServerWebSocket<unknown> | null,
   ) => {
     const payload: ServerMessage = { type: 'cc_stream', data: streamMsg, sessionId }
@@ -3109,7 +3096,12 @@ export async function createBridgeServer(options: BridgeServerOptions): Promise<
 
     if (clientQ.timer) return
 
-    const ctx = contexts.get(ws) ?? { lastPongAt: Date.now(), lastRttMs: 0, connectionType: 'unknown' as const }
+    const ctx = contexts.get(ws) ?? {
+      lastPongAt: Date.now(),
+      lastRttMs: 0,
+      connectionType: 'unknown' as const,
+      connectedAt: Date.now(),
+    }
     const batchMs = getBatchInterval(ctx)
 
     clientQ.timer = setTimeout(() => flushClientQueue(ws), batchMs)
@@ -3576,10 +3568,11 @@ export async function createBridgeServer(options: BridgeServerOptions): Promise<
           deviceId: message.deviceId,
           deviceName: message.deviceName,
           platform: message.platform,
+          protocolVersion: safeString((message as any).protocolVersion) || undefined,
         })
         const deviceInfo = getDeviceInfo(ws)
         if (deviceInfo) {
-          reply({ type: 'device_registered', data: deviceInfo })
+          reply({ type: 'device_registered', data: deviceInfo, protocolVersion: BRIDGE_PROTOCOL_VERSION })
           broadcast({ type: 'device_connected', data: deviceInfo })
         }
         log(`Device registered: ${message.deviceName} (${message.platform})`)
@@ -3610,7 +3603,12 @@ export async function createBridgeServer(options: BridgeServerOptions): Promise<
         break
       }
       case 'set_view': {
-          const existing = contexts.get(ws) ?? { lastPongAt: Date.now(), lastRttMs: 0 }
+           const existing = contexts.get(ws) ?? {
+             lastPongAt: Date.now(),
+             lastRttMs: 0,
+             connectionType: 'unknown' as const,
+             connectedAt: Date.now(),
+           }
           const prevKey = makeSessionKey(existing.viewAgent, existing.sessionId)
           const nextAgent =
             message.agent ??
@@ -3762,11 +3760,10 @@ export async function createBridgeServer(options: BridgeServerOptions): Promise<
               }
             }
           }
-          await opencode.sendPrompt(
+          await opencode.sendPromptAsync(
             message.sessionId,
             message.content,
             message.projectPath,
-            message.messageId,
             message.model,
             message.agent,
             message.fileAttachments,
@@ -3794,13 +3791,30 @@ export async function createBridgeServer(options: BridgeServerOptions): Promise<
           break
         }
         case 'permission_response': {
+          // OpenCode only accepts: once | always | reject
+          const raw = message.response
+          const normalized: 'once' | 'always' | 'reject' =
+            raw === 'once' || raw === 'always' || raw === 'reject' ? raw : 'reject'
+          if (raw !== normalized) {
+            console.warn('[permission_response] Invalid OpenCode permission response, forcing reject:', raw)
+          }
           // Use the new permission.reply() API - permissionId is now requestId
           await opencode.respondToPermission(
             message.permissionId,  // This is the requestID in the new API
-            message.response,
+            normalized,
             message.message,  // Optional rejection feedback message
             message.projectPath,
           )
+          break
+        }
+        case 'list_pending_permissions': {
+          const pending = await opencode.listPendingPermissions(message.projectPath)
+          reply({ type: 'pending_permissions', data: pending })
+          break
+        }
+        case 'list_pending_questions': {
+          const pending = await opencode.listPendingQuestions(message.projectPath)
+          reply({ type: 'pending_questions', data: pending })
           break
         }
         case 'get_lsp_status': {
@@ -3939,7 +3953,14 @@ export async function createBridgeServer(options: BridgeServerOptions): Promise<
           const result = await readFileBinaryDirectly(message.path, maxSizeMb)
           if ('error' in result) {
             if (result.error === 'too_large') {
-              reply({ type: 'file_too_large', path: message.path, size: result.size ?? 0, maxSize: maxSizeMb * 1024 * 1024 })
+              reply({
+                type: 'file_too_large',
+                data: {
+                  path: message.path,
+                  size: result.size ?? 0,
+                  maxSize: maxSizeMb * 1024 * 1024,
+                },
+              })
             } else if (result.error === 'access_denied') {
               reply({ type: 'error', message: 'Access denied' })
             } else {
@@ -4063,7 +4084,7 @@ export async function createBridgeServer(options: BridgeServerOptions): Promise<
           getPtyListeners(ptyId).add(ws)
           const existingWs = ptyConnections.get(ptyId)
           if (existingWs) {
-            reply({ type: 'pty_connected', ptyId })
+            reply({ type: 'pty_connected', data: { ptyId } })
             break
           }
           
@@ -4075,7 +4096,7 @@ export async function createBridgeServer(options: BridgeServerOptions): Promise<
             ptyWs.addEventListener('open', () => {
               ptyConnections.set(ptyId, ptyWs)
               ensurePtyHealth(ptyId)
-              reply({ type: 'pty_connected', ptyId })
+              reply({ type: 'pty_connected', data: { ptyId } })
             })
             
             ptyWs.addEventListener('message', (event) => {
@@ -4157,7 +4178,7 @@ export async function createBridgeServer(options: BridgeServerOptions): Promise<
           if (listeners && listeners.size === 0) {
             closePtyIfNoListeners(message.ptyId)
           }
-          reply({ type: 'pty_disconnected', ptyId: message.ptyId })
+          reply({ type: 'pty_disconnected', data: { ptyId: message.ptyId } })
           break
         }
         case 'pty_resize': {
@@ -4220,11 +4241,6 @@ export async function createBridgeServer(options: BridgeServerOptions): Promise<
           reply({ type: 'provider_auth', data: auth })
           break
         }
-        case 'set_api_key': {
-          const success = await opencode.setApiKey(message.providerID, message.key, message.projectPath)
-          reply({ type: 'api_key_set', data: success, providerID: message.providerID })
-          break
-        }
         // Feature 17: Tool List
         case 'list_tool_ids': {
           const toolIds = await opencode.listToolIds(message.projectPath)
@@ -4261,9 +4277,8 @@ export async function createBridgeServer(options: BridgeServerOptions): Promise<
           break
         }
         case 'dispose_instance': {
-          // OpenCode SDK does not expose a "dispose instance" API anymore.
-          // Keep the message for backward compatibility, but treat as a no-op.
-          reply({ type: 'instance_disposed', data: true })
+          const disposed = await opencode.disposeInstance(message.projectPath)
+          reply({ type: 'instance_disposed', data: disposed })
           break
       }
       case 'cx_list_projects': {
@@ -4502,16 +4517,6 @@ export async function createBridgeServer(options: BridgeServerOptions): Promise<
           data: result?.data ?? [],
           nextCursor: result?.nextCursor ?? null,
         })
-        break
-      }
-      case 'cx_mcp_oauth_login': {
-        const client = await ensureCodexClient()
-        const result: any = await client.request('mcpServer/oauth/login', {
-          name: message.name,
-          scopes: message.scopes ?? null,
-          timeoutSecs: message.timeoutSecs ?? null,
-        })
-        reply({ type: 'cx_mcp_oauth', data: result ?? {} })
         break
       }
       // Codex MCP Hot Reload (SDK feature) - reloads MCP server config without restarting
@@ -4768,15 +4773,16 @@ export async function createBridgeServer(options: BridgeServerOptions): Promise<
                   : '.jpg'
               const fileName = `${Date.now()}_${token}${ext}`
               const outPath = resolve(attachmentsDir, fileName)
-              await writeFile(outPath, Buffer.from(a.base64Data, 'base64'))
-              input.push({ type: 'localImage', path: outPath })
-            } else if (a.path) {
-              // File/directory references via prompt hint
-              const ref = a.path.startsWith('@') ? a.path : `@${a.path}`
-              input[0].text = `${input[0].text}\n\nAttached context (via Broski):\n- ${a.isDirectory ? 'Directory' : 'File'}: ${ref}`
-            }
-          }
-        }
+               await writeFile(outPath, Buffer.from(a.base64Data, 'base64'))
+               // Codex expects snake_case input types.
+               input.push({ type: 'local_image', path: outPath })
+             } else if (a.path) {
+               // File/directory references via prompt hint
+               const ref = a.path.startsWith('@') ? a.path : `@${a.path}`
+               input[0].text = `${input[0].text}\n\nAttached context (via Broski):\n- ${a.isDirectory ? 'Directory' : 'File'}: ${ref}`
+             }
+           }
+         }
 
         // Build collaboration mode object if specified.
         // Codex protocol expects: { mode: "pair_programming"|..., settings: { model, reasoning_effort?, developer_instructions? } }
@@ -5593,7 +5599,10 @@ export async function createBridgeServer(options: BridgeServerOptions): Promise<
           if (waiter) {
             clearTimeout(waiter.timer)
             ccPermissionWaiters.delete(key)
-            waiter.resolve(message.response)
+            const raw = message.response
+            const normalized: 'once' | 'always' | 'reject' =
+              raw === 'once' || raw === 'always' || raw === 'reject' ? raw : 'reject'
+            waiter.resolve(normalized)
           }
           break
         }
@@ -5890,7 +5899,9 @@ export async function createBridgeServer(options: BridgeServerOptions): Promise<
           break
         }
         case 'cc_get_active_sessions': {
-          const sessions = claudeCode.listActiveSessions()
+          const sessions = claudeCode
+            .listActiveSessions()
+            .map((s) => ({ id: s.sessionId, cwd: s.cwd, startedAt: s.startedAt }))
           reply({ type: 'cc_active_sessions', data: sessions })
           break
         }
@@ -5911,7 +5922,14 @@ export async function createBridgeServer(options: BridgeServerOptions): Promise<
             message.checkpointUuid,
             message.cwd,
           )
-          reply({ type: 'cc_checkpoint_rewound', success, sessionId: message.sessionId, checkpointUuid: message.checkpointUuid })
+          reply({
+            type: 'cc_checkpoint_rewound',
+            data: {
+              success,
+              sessionId: message.sessionId,
+              checkpointUuid: message.checkpointUuid,
+            },
+          })
           break
         }
         // Claude Code Custom Tools
@@ -6045,7 +6063,7 @@ export async function createBridgeServer(options: BridgeServerOptions): Promise<
 
     const requestId = message.requestId
     const reply = (response: ServerMessage) => {
-      send(ws, requestId ? { ...response, requestId } : response)
+      send(ws, requestId ? ({ ...response, requestId } as any) : response)
     }
 
     try {
@@ -6058,7 +6076,7 @@ export async function createBridgeServer(options: BridgeServerOptions): Promise<
         
         for (const batchedMsg of batchedMessages) {
           const batchReply = (response: ServerMessage) => {
-            send(ws, batchedMsg.requestId ? { ...response, requestId: batchedMsg.requestId } : response)
+            send(ws, batchedMsg.requestId ? ({ ...response, requestId: batchedMsg.requestId } as any) : response)
           }
           
           try {

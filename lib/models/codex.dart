@@ -483,6 +483,19 @@ sealed class CodexStreamMessage {
 
   factory CodexStreamMessage.fromJson(Map<String, dynamic> json) {
     final type = json['type'] as String? ?? 'unknown';
+
+    // EXPERIMENTAL: bridge may forward Codex `collab/*` events as `collab_*`.
+    // Normalize them into notification messages so the existing handler can consume them.
+    if (type.startsWith('collab_')) {
+      final suffix = type.substring('collab_'.length);
+      final method = 'collab/${suffix.replaceAll('_', '/')}';
+      final data = json['data'];
+      return CodexNotificationMessage(
+        method: method,
+        params: data is Map<String, dynamic> ? data : const <String, dynamic>{},
+      );
+    }
+
     switch (type) {
       case 'notification':
         return CodexNotificationMessage.fromJson(json);

@@ -79,6 +79,15 @@ class _CustomToolsScreenState extends ConsumerState<CustomToolsScreen> {
   }
 
   void _editTool(BuildContext context, ClaudeCodeCustomTool tool) {
+    if (tool.handler == CustomToolHandlerType.builtin) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Built-in tools cannot be edited.'),
+          behavior: SnackBarBehavior.floating,
+        ),
+      );
+      return;
+    }
     Navigator.push(
       context,
       MaterialPageRoute(builder: (_) => CustomToolEditorScreen(tool: tool)),
@@ -101,6 +110,15 @@ class _CustomToolsScreenState extends ConsumerState<CustomToolsScreen> {
   }
 
   void _confirmDeleteTool(BuildContext context, ClaudeCodeCustomTool tool) {
+    if (tool.handler == CustomToolHandlerType.builtin) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Built-in tools cannot be deleted.'),
+          behavior: SnackBarBehavior.floating,
+        ),
+      );
+      return;
+    }
     showDialog(
       context: context,
       builder: (context) => AlertDialog(
@@ -453,6 +471,8 @@ class _ToolCard extends StatelessWidget {
         return Icons.http_rounded;
       case CustomToolHandlerType.script:
         return Icons.terminal_rounded;
+      case CustomToolHandlerType.builtin:
+        return Icons.extension_rounded;
     }
   }
 
@@ -462,6 +482,8 @@ class _ToolCard extends StatelessWidget {
         return Colors.blue;
       case CustomToolHandlerType.script:
         return Colors.orange;
+      case CustomToolHandlerType.builtin:
+        return theme.colorScheme.secondary;
     }
   }
 }

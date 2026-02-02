@@ -62,7 +62,7 @@ export type ClientMessage =
   // Client-initiated ping (for app lifecycle detection)
   | { type: 'client_ping'; id: string; sentAt: number }
   // Multi-device support
-  | { type: 'register_device'; deviceId: string; deviceName: string; platform: string }
+  | { type: 'register_device'; deviceId: string; deviceName: string; platform: string; protocolVersion?: string }
   | { type: 'list_devices' }
   | { type: 'disconnect_device'; deviceId: string }
   | { type: 'list_projects' }
@@ -70,7 +70,7 @@ export type ClientMessage =
   | { type: 'list_providers' }
   | { type: 'get_config'; projectPath?: string }
   | { type: 'set_config'; config: Record<string, any>; projectPath?: string }
-  | { type: 'set_model'; model: string }
+  | { type: 'set_model'; model: string; projectPath?: string }
   | { type: 'create_session'; projectPath?: string; title?: string; permission?: PermissionRuleset }
   | { type: 'get_session'; sessionId: string; projectPath?: string }
   | { type: 'get_session_messages'; sessionId: string; projectPath?: string; limit?: number }
@@ -79,6 +79,8 @@ export type ClientMessage =
   | { type: 'diff'; sessionId: string; projectPath?: string; messageId?: string }
   | { type: 'browse'; path: string; projectPath?: string }
   | { type: 'permission_response'; sessionId: string; permissionId: string; response: PermissionResponse; message?: string; projectPath?: string }
+  | { type: 'list_pending_permissions'; projectPath?: string }
+  | { type: 'list_pending_questions'; projectPath?: string }
   | { type: 'get_lsp_status'; projectPath?: string }
   | { type: 'get_session_context'; sessionId: string; projectPath?: string }
   // Feature 1: Todo/Plan Management
@@ -138,7 +140,6 @@ export type ClientMessage =
   // Feature 16: Full Provider Management
   | { type: 'list_all_providers'; projectPath?: string }
   | { type: 'get_provider_auth'; projectPath?: string }
-  | { type: 'set_api_key'; providerID: string; key: string; projectPath?: string }
   // Feature 17: Tool List
   | { type: 'list_tool_ids'; projectPath?: string }
   | { type: 'list_tools'; provider: string; model: string; projectPath?: string }
@@ -241,7 +242,7 @@ export type ClientMessage =
   | { type: 'cx_config_read' }
   | { type: 'cx_config_value_write'; keyPath: string; value: any; mergeStrategy?: string }
   | { type: 'cx_mcp_status_list'; cursor?: string | null; limit?: number | null }
-  | { type: 'cx_mcp_oauth_login'; name: string; scopes?: string[]; timeoutSecs?: number }
+  | { type: 'cx_mcp_reload' }
   | { type: 'cx_review_start'; threadId?: string; cwd?: string; delivery?: 'inline' | 'detached'; target?: any; model?: string; approvalPolicy?: string; sandbox?: string; sandboxPolicy?: any; config?: Record<string, any> }
   | { type: 'cx_account_read'; refreshToken?: boolean }
   | { type: 'cx_login_start'; loginType: 'chatgpt' | 'apiKey'; apiKey?: string }
@@ -363,10 +364,12 @@ export type ServerMessage =
   | { type: 'error'; message: string; code?: string; requestId?: string }
   | { type: 'lsp_status'; data: LspServerStatus[]; requestId?: string }
   | { type: 'session_context'; data: SessionContextInfo; sessionId: string; requestId?: string }
-  | { type: 'device_registered'; data: DeviceInfo; requestId?: string }
+  | { type: 'device_registered'; data: DeviceInfo; protocolVersion?: string; requestId?: string }
   | { type: 'devices'; data: DeviceInfo[]; requestId?: string }
   | { type: 'device_disconnected'; data: { deviceId: string; deviceName?: string }; requestId?: string }
   | { type: 'device_connected'; data: DeviceInfo }
+  | { type: 'pending_permissions'; data: unknown[]; requestId?: string }
+  | { type: 'pending_questions'; data: unknown[]; requestId?: string }
   // Feature 1: Todo/Plan Management
   | { type: 'todos'; data: Todo[]; sessionId: string; requestId?: string }
   // Feature 2: Slash Commands
@@ -377,7 +380,7 @@ export type ServerMessage =
   | { type: 'oc_question_replied'; data: boolean; requestId?: string }
   | { type: 'oc_question_rejected'; data: boolean; requestId?: string }
   // Skills (filesystem-backed)
-  | { type: 'oc_skills'; data: Array<{ name: string; description?: string; path: string; source: 'project' | 'user'; editable: boolean }>; requestId?: string }
+  | { type: 'oc_skills'; data: Array<{ name: string; description?: string; path: string; source: 'project' | 'user' | 'system' | 'admin' | 'plugin'; editable: boolean }>; requestId?: string }
   | { type: 'oc_skill'; data: { name: string; path: string; source: 'project' | 'user'; content: string }; requestId?: string }
   | { type: 'oc_skill_saved'; data: { ok: boolean; path?: string }; requestId?: string }
   | { type: 'oc_skill_deleted'; data: { ok: boolean }; requestId?: string }
@@ -413,7 +416,7 @@ export type ServerMessage =
   | { type: 'file_content'; data: FileContent; path: string; requestId?: string }
   // Feature 21: Binary File Content
   | { type: 'file_binary'; data: FileBinaryContent; path: string; requestId?: string }
-  | { type: 'file_too_large'; path: string; size: number; maxSize: number; requestId?: string }
+  | { type: 'file_too_large'; data: { path: string; size: number; maxSize: number }; requestId?: string }
   // Feature 12: File Search
   | { type: 'files_found'; data: string[]; requestId?: string }
   | { type: 'text_found'; data: TextSearchResult[]; requestId?: string }
@@ -427,8 +430,8 @@ export type ServerMessage =
   | { type: 'pty'; data: PtySession; requestId?: string }
   | { type: 'pty_updated'; data: PtySession; requestId?: string }
   | { type: 'pty_deleted'; data: boolean; ptyId: string; requestId?: string }
-  | { type: 'pty_connected'; ptyId: string; requestId?: string }
-  | { type: 'pty_disconnected'; ptyId: string; requestId?: string }
+  | { type: 'pty_connected'; data: { ptyId: string }; requestId?: string }
+  | { type: 'pty_disconnected'; data: { ptyId: string }; requestId?: string }
   | { type: 'pty_output'; ptyId: string; data: string }
   | { type: 'pty_error'; ptyId: string; error: string }
   | {
@@ -453,7 +456,6 @@ export type ServerMessage =
   // Feature 16: Full Provider Management
   | { type: 'all_providers'; data: ProviderInfo; requestId?: string }
   | { type: 'provider_auth'; data: Record<string, ProviderAuthMethod[]>; requestId?: string }
-  | { type: 'api_key_set'; data: boolean; providerID: string; requestId?: string }
   // Feature 17: Tool List
   | { type: 'tool_ids'; data: string[]; requestId?: string }
   | { type: 'tools'; data: ToolInfo[]; requestId?: string }
@@ -484,11 +486,13 @@ export type ServerMessage =
   | { type: 'cc_mcp_file'; data: { ok: boolean; path: string; content: string }; requestId?: string }
   | { type: 'cc_mcp_file_written'; data: { ok: boolean; path: string }; requestId?: string }
   | { type: 'cc_commands'; data: ClaudeCodeCommand[]; requestId?: string }
+  | { type: 'cc_active_sessions'; data: Array<{ id: string; cwd: string; startedAt?: number }>; requestId?: string }
   | { type: 'cc_command_file'; data: { ok: boolean; name: string; source: 'project' | 'user' | 'plugin'; path: string; content: string }; requestId?: string }
   | { type: 'cc_command_saved'; data: { ok: boolean; name: string; source: 'project' | 'user'; path?: string }; requestId?: string }
   | { type: 'cc_command_deleted'; data: { ok: boolean; name: string; source: 'project' | 'user' }; requestId?: string }
   | { type: 'cc_config'; data: ClaudeCodeConfig; requestId?: string }
   | { type: 'cc_config_updated'; data: ClaudeCodeConfig; requestId?: string }
+  | { type: 'cc_checkpoint_rewound'; data: { success: boolean; sessionId: string; checkpointUuid: string }; requestId?: string }
   | { type: 'cc_fs_changed'; data: { kind: 'skills' | 'plugins' | 'hooks' | 'commands' | 'mcp'; dir: string; cwd?: string; file?: string }; requestId?: string }
   | { type: 'cc_stream'; data: ClaudeCodeStreamMessage; sessionId: string }
   // Codex (OpenAI Codex app-server)
@@ -510,7 +514,7 @@ export type ServerMessage =
   | { type: 'cx_config'; data: any; requestId?: string }
   | { type: 'cx_config_written'; data: any; requestId?: string }
   | { type: 'cx_mcp_status'; data: any; nextCursor?: string | null; requestId?: string }
-  | { type: 'cx_mcp_oauth'; data: any; requestId?: string }
+  | { type: 'cx_mcp_reloaded'; data: any; requestId?: string }
   | { type: 'cx_review_started'; data: { threadId: string; reviewThreadId: string; turnId: string }; requestId?: string }
   | { type: 'cx_account'; data: any; requestId?: string }
   | { type: 'cx_login_started'; data: any; requestId?: string }
@@ -654,16 +658,16 @@ export type ProviderAuthMethod = {
 // Feature 17: Tool Info
 export type ToolInfo = {
   id: string
-  name: string
   description?: string
-  enabled: boolean
+  parameters?: Record<string, unknown>
 }
 
 // Feature 18: File Status (Git)
 export type FileStatusInfo = {
   path: string
-  status: 'modified' | 'added' | 'deleted' | 'renamed' | 'copied' | 'untracked' | 'ignored'
-  staged: boolean
+  added: number
+  removed: number
+  status: 'modified' | 'added' | 'deleted'
 }
 
 // Feature 19: Formatter Info
@@ -796,14 +800,23 @@ export type ClaudeCodeScriptHandlerConfig = {
   shell?: boolean
 }
 
+// Claude Code Custom Tool Builtin Handler Config (reserved)
+export type ClaudeCodeBuiltinHandlerConfig = {
+  action: string
+  config?: Record<string, unknown>
+}
+
 // Claude Code Custom Tool Definition
 export type ClaudeCodeCustomTool = {
   id: string
   name: string
   description: string
   parameters: ClaudeCodeCustomToolParameter[]
-  handler: 'http' | 'script'
-  handlerConfig: ClaudeCodeHttpHandlerConfig | ClaudeCodeScriptHandlerConfig
+  handler: 'http' | 'script' | 'builtin'
+  handlerConfig:
+    | ClaudeCodeHttpHandlerConfig
+    | ClaudeCodeScriptHandlerConfig
+    | ClaudeCodeBuiltinHandlerConfig
   enabled: boolean
   createdAt: number
   updatedAt: number

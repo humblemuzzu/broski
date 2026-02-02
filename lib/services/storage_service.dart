@@ -1011,9 +1011,8 @@ class StorageService {
   Map<String, dynamic> _toolInfoToJson(ToolInfo t) {
     return {
       'id': t.id,
-      'name': t.name,
       'description': t.description,
-      'enabled': t.enabled,
+      'parameters': t.parameters,
     };
   }
 

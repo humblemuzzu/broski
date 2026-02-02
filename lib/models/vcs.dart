@@ -50,19 +50,22 @@ enum FileStatusType {
 class FileStatusInfo {
   final String path;
   final FileStatusType status;
-  final bool staged;
+  final int added;
+  final int removed;
 
   const FileStatusInfo({
     required this.path,
     required this.status,
-    required this.staged,
+    required this.added,
+    required this.removed,
   });
 
   factory FileStatusInfo.fromJson(Map<String, dynamic> json) {
     return FileStatusInfo(
       path: json['path'] as String? ?? '',
       status: _parseStatus(json['status'] as String? ?? 'modified'),
-      staged: json['staged'] as bool? ?? false,
+      added: json['added'] is int ? json['added'] as int : 0,
+      removed: json['removed'] is int ? json['removed'] as int : 0,
     );
   }
 
