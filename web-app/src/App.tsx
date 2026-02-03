@@ -1,5 +1,4 @@
-import { Layout } from "@/components/layout/Layout"
-import { ConnectionGate } from "@/components/layout/ConnectionGate"
+import { ConnectionGate, Layout } from "@/components/layout"
 import { GoogleOAuthProvider } from "@react-oauth/google"
 import { ThemeProvider } from "@/theme/ThemeProvider"
 import { AppErrorBoundary } from "@/components/layout/AppErrorBoundary"

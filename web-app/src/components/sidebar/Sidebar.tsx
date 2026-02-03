@@ -1,14 +1,26 @@
-import { useEffect, useRef, useState } from "react"
-import { useConnectionStore } from "@/stores/connection-store"
+import * as React from "react"
+import {
+  Plus,
+  Sparkles,
+  ChevronRight,
+  ChevronDown,
+  FolderOpen,
+  MessageCircle,
+  Circle,
+  Building2,
+  Bot,
+  X,
+} from "lucide-react"
+
 import { useProjectsStore } from "@/stores/projects-store"
 import { useSessionsStore } from "@/stores/sessions-store"
-import { usePermissionsStore } from "@/stores/permissions-store"
-import { useChatStore } from "@/stores/chat-store"
-import { useUiStore } from "@/stores/ui-store"
-import { useWorkspaceStore } from "@/stores/workspace-store"
+import { useConnectionStore } from "@/stores/connection-store"
 import { requestAllSessionsForProject } from "@/core/bootstrap"
 
-// Relative time formatting
+// ============================================================================
+// Utilities
+// ============================================================================
+
 function formatRelativeTime(timestamp: number | undefined): string {
   if (!timestamp) return ""
   const now = Date.now()
@@ -28,208 +40,305 @@ function formatRelativeTime(timestamp: number | undefined): string {
   return "now"
 }
 
-function normalizePreviewText(value: string): string {
-  return value.replace(/\s+/g, " ").trim()
+function truncateText(text: string, maxLength: number): string {
+  if (text.length <= maxLength) return text
+  return text.slice(0, maxLength).trim() + "..."
 }
 
-function getPreviewFromMessages(messages: Array<{ role?: string; text?: string }> | undefined): string {
-  if (!messages || messages.length === 0) return ""
-  for (let i = messages.length - 1; i >= 0; i--) {
-    const msg = messages[i]
-    if (!msg) continue
-    if (msg.role === "system") continue
-    const text = typeof msg.text === "string" ? normalizePreviewText(msg.text) : ""
-    if (!text) continue
-    return text
-  }
-  return ""
+function getProjectName(path: string): string {
+  return path.split("/").pop() || path
 }
 
-// Clean SVG icons matching the reference style
-function NewThreadIcon({ className }: { className?: string }) {
-  return (
-    <svg className={className} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
-      <path d="M12 20h9" />
-      <path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z" />
-    </svg>
-  )
-}
+// ============================================================================
+// Agent Selector
+// ============================================================================
 
-function AutomationsIcon({ className }: { className?: string }) {
-  return (
-    <svg className={className} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
-      <circle cx="12" cy="12" r="9" />
-      <path d="M12 7v5l3 2" />
-    </svg>
-  )
-}
+const AGENTS = [
+  { id: "opencode", label: "OpenCode", color: "#4ade80" },
+  { id: "claude-code", label: "Claude Code", color: "#f97316" },
+  { id: "codex", label: "Codex", color: "#8b5cf6" },
+] as const
 
-function SkillsIcon({ className }: { className?: string }) {
-  return (
-    <svg className={className} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
-      <path d="M12 2l8 4.5v11L12 22l-8-4.5v-11L12 2z" />
-      <path d="M12 22v-9" />
-      <path d="M20 6.5l-8 4.5-8-4.5" />
-    </svg>
-  )
-}
-
-function FolderIcon({ className }: { className?: string }) {
-  return (
-    <svg className={className} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
-      <path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z" />
-    </svg>
-  )
-}
-
-function SplitIcon({ className }: { className?: string }) {
-  return (
-    <svg className={className} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
-      <rect x="3" y="3" width="7" height="7" rx="1" />
-      <rect x="14" y="3" width="7" height="7" rx="1" />
-      <rect x="3" y="14" width="7" height="7" rx="1" />
-      <rect x="14" y="14" width="7" height="7" rx="1" />
-    </svg>
-  )
-}
-
-function FilterIcon({ className }: { className?: string }) {
-  return (
-    <svg className={className} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
-      <line x1="4" y1="6" x2="20" y2="6" />
-      <line x1="6" y1="12" x2="18" y2="12" />
-      <line x1="8" y1="18" x2="16" y2="18" />
-    </svg>
-  )
-}
-
-function SidebarToggleIcon({ className }: { className?: string }) {
-  return (
-    <svg className={className} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
-      <rect x="3" y="3" width="18" height="18" rx="2" />
-      <path d="M9 3v18" />
-    </svg>
-  )
-}
-
-function WorkspaceIcon({ className }: { className?: string }) {
-  return (
-    <svg className={className} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
-      <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z" />
-    </svg>
-  )
-}
-
-export function Sidebar() {
-  const sidebarCollapsed = useUiStore((s) => s.sidebarCollapsed)
-  const toggleSidebar = useUiStore((s) => s.toggleSidebar)
-
+function AgentSelector() {
   const activeAgent = useConnectionStore((s) => s.activeAgent)
-  const send = useConnectionStore((s) => s.send)
+  const setActiveAgent = useConnectionStore((s) => s.setActiveAgent)
+  const [open, setOpen] = React.useState(false)
 
+  const currentAgent = AGENTS.find((a) => a.id === activeAgent) || AGENTS[0]
+
+  return (
+    <div style={{ position: "relative", marginBottom: 8 }}>
+      <button
+        onClick={() => setOpen(!open)}
+        style={{
+          display: "flex",
+          alignItems: "center",
+          gap: 8,
+          width: "100%",
+          padding: "8px 10px",
+          borderRadius: 6,
+          border: "1px solid rgba(255,255,255,0.1)",
+          backgroundColor: "rgba(255,255,255,0.03)",
+          color: "#e8e8e8",
+          fontSize: 13,
+          fontWeight: 500,
+          cursor: "pointer",
+        }}
+      >
+        <Bot size={16} style={{ color: currentAgent.color }} />
+        <span style={{ flex: 1, textAlign: "left" }}>{currentAgent.label}</span>
+        <ChevronDown size={14} style={{ color: "#808080" }} />
+      </button>
+      
+      {open && (
+        <div
+          style={{
+            position: "absolute",
+            top: "100%",
+            left: 0,
+            right: 0,
+            marginTop: 4,
+            backgroundColor: "#1a1a1a",
+            border: "1px solid rgba(255,255,255,0.1)",
+            borderRadius: 6,
+            overflow: "hidden",
+            zIndex: 100,
+          }}
+        >
+          {AGENTS.map((agent) => (
+            <button
+              key={agent.id}
+              onClick={() => {
+                setActiveAgent(agent.id)
+                setOpen(false)
+              }}
+              style={{
+                display: "flex",
+                alignItems: "center",
+                gap: 8,
+                width: "100%",
+                padding: "8px 10px",
+                border: "none",
+                backgroundColor: activeAgent === agent.id ? "rgba(255,255,255,0.06)" : "transparent",
+                color: "#e8e8e8",
+                fontSize: 13,
+                cursor: "pointer",
+                textAlign: "left",
+              }}
+            >
+              <Bot size={16} style={{ color: agent.color }} />
+              {agent.label}
+            </button>
+          ))}
+        </div>
+      )}
+    </div>
+  )
+}
+
+// ============================================================================
+// Session Item
+// ============================================================================
+
+interface SessionItemProps {
+  id: string
+  title: string
+  preview?: string
+  timestamp?: number
+  agentType: "opencode" | "claude-code" | "codex"
+  isSelected: boolean
+  hasPending?: boolean
+  onSelect: () => void
+}
+
+function SessionItem({ title, preview, timestamp, agentType, isSelected, hasPending, onSelect }: SessionItemProps) {
+  const agentColor = AGENTS.find((a) => a.id === agentType)?.color || "#808080"
+  
+  return (
+    <button
+      onClick={onSelect}
+      style={{
+        display: "flex",
+        alignItems: "flex-start",
+        gap: 8,
+        width: "100%",
+        padding: "8px 10px",
+        marginLeft: 16,
+        borderRadius: 6,
+        border: "none",
+        backgroundColor: isSelected ? "rgba(255,255,255,0.06)" : "transparent",
+        color: "#e8e8e8",
+        fontSize: 13,
+        cursor: "pointer",
+        textAlign: "left",
+      }}
+    >
+      <MessageCircle size={14} style={{ color: agentColor, marginTop: 2, flexShrink: 0 }} />
+      <div style={{ flex: 1, minWidth: 0 }}>
+        <div style={{ 
+          display: "flex", 
+          alignItems: "center", 
+          gap: 6,
+          marginBottom: 2,
+        }}>
+          <span style={{ 
+            flex: 1, 
+            overflow: "hidden", 
+            textOverflow: "ellipsis", 
+            whiteSpace: "nowrap",
+            fontWeight: 500,
+          }}>
+            {truncateText(title, 25)}
+          </span>
+          {hasPending && (
+            <Circle size={6} fill="#f97316" style={{ color: "#f97316", flexShrink: 0 }} />
+          )}
+          {timestamp && (
+            <span style={{ color: "#5c5c5c", fontSize: 11, flexShrink: 0 }}>
+              {formatRelativeTime(timestamp)}
+            </span>
+          )}
+        </div>
+        {preview && (
+          <div style={{ color: "#808080", fontSize: 12, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+            {truncateText(preview, 35)}
+          </div>
+        )}
+      </div>
+    </button>
+  )
+}
+
+// ============================================================================
+// Project Folder
+// ============================================================================
+
+interface ProjectFolderProps {
+  path: string
+  name: string
+  isSelected: boolean
+  isExpanded: boolean
+  sessions: Array<{
+    id: string
+    title: string
+    preview?: string
+    timestamp?: number
+    agentType: "opencode" | "claude-code" | "codex"
+  }>
+  selectedSessionId: string | null
+  onToggle: () => void
+  onSelect: () => void
+  onSessionSelect: (id: string, agentType: "opencode" | "claude-code" | "codex") => void
+}
+
+function ProjectFolder({ 
+  name, 
+  isSelected, 
+  isExpanded, 
+  sessions, 
+  selectedSessionId,
+  onToggle, 
+  onSelect,
+  onSessionSelect,
+}: ProjectFolderProps) {
+  return (
+    <div style={{ marginBottom: 4 }}>
+      <button
+        onClick={() => {
+          onSelect()
+          if (!isExpanded) onToggle()
+        }}
+        style={{
+          display: "flex",
+          alignItems: "center",
+          gap: 6,
+          width: "100%",
+          padding: "6px 8px",
+          borderRadius: 6,
+          border: "none",
+          backgroundColor: isSelected ? "rgba(255,255,255,0.06)" : "transparent",
+          color: "#e8e8e8",
+          fontSize: 13,
+          fontWeight: 500,
+          cursor: "pointer",
+          textAlign: "left",
+        }}
+      >
+        {sessions.length > 0 ? (
+          isExpanded ? (
+            <ChevronDown size={14} style={{ color: "#808080" }} />
+          ) : (
+            <ChevronRight size={14} style={{ color: "#808080" }} />
+          )
+        ) : (
+          <span style={{ width: 14 }} />
+        )}
+        <FolderOpen size={14} style={{ color: "#a8a8a8" }} />
+        <span style={{ flex: 1, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+          {name}
+        </span>
+        {sessions.length > 0 && (
+          <span style={{ color: "#5c5c5c", fontSize: 11 }}>{sessions.length}</span>
+        )}
+      </button>
+      
+      {isExpanded && sessions.length > 0 && (
+        <div style={{ marginTop: 2 }}>
+          {sessions.map((session) => (
+            <SessionItem
+              key={session.id}
+              id={session.id}
+              title={session.title}
+              preview={session.preview}
+              timestamp={session.timestamp}
+              agentType={session.agentType}
+              isSelected={selectedSessionId === session.id}
+              onSelect={() => onSessionSelect(session.id, session.agentType)}
+            />
+          ))}
+        </div>
+      )}
+    </div>
+  )
+}
+
+// ============================================================================
+// Main Sidebar
+// ============================================================================
+
+interface SidebarProps {
+  onClose?: () => void
+}
+
+export function Sidebar({ onClose }: SidebarProps) {
+  const send = useConnectionStore((s) => s.send)
+  const activeAgent = useConnectionStore((s) => s.activeAgent)
+  
   const projects = useProjectsStore((s) => s.projects)
   const selectedProjectPath = useProjectsStore((s) => s.selectedProjectPath)
   const selectProject = useProjectsStore((s) => s.selectProject)
-
+  
   const openCodeByProject = useSessionsStore((s) => s.openCodeByProject)
   const claudeCodeSessions = useSessionsStore((s) => s.claudeCodeSessions)
   const codexThreads = useSessionsStore((s) => s.codexThreads)
-
-  const selectSession = useSessionsStore((s) => s.selectSession)
   const selectedSessionId = useSessionsStore((s) => s.selectedSessionId)
-  const setPendingCreate = useSessionsStore((s) => s.setPendingCreate)
-  const openChat = useWorkspaceStore((s) => s.openChat)
-  const openPanel = useWorkspaceStore((s) => s.openPanel)
-
-  const ccPermissions = usePermissionsStore((s) => s.claudeCode)
-  const codexApprovals = usePermissionsStore((s) => s.codexApprovals)
-  const codexUserInputs = usePermissionsStore((s) => s.codexUserInputs)
-
-  const chatsBySession = useChatStore((s) => s.bySession)
-
-  // Track "show more" state per project
-  const [showAllThreads, setShowAllThreads] = useState<Record<string, boolean>>({})
-  const THREADS_PREVIEW_COUNT = 10
-
-  // OpenCode requires per-project session listing. Prefetch sessions for all projects
-  // as they appear so the sidebar can render threads immediately.
-  const requestedProjectSessionsRef = useRef(new Set<string>())
-  useEffect(() => {
+  const selectSession = useSessionsStore((s) => s.selectSession)
+  
+  const [expandedProjects, setExpandedProjects] = React.useState<Set<string>>(new Set())
+  
+  // Request sessions for projects on mount
+  const requestedRef = React.useRef(new Set<string>())
+  React.useEffect(() => {
     for (const project of projects) {
-      const path = project.path
-      if (!path) continue
-      if (requestedProjectSessionsRef.current.has(path)) continue
-      requestedProjectSessionsRef.current.add(path)
-      send({ type: "list_sessions", projectPath: path } as any)
+      if (!requestedRef.current.has(project.path)) {
+        requestedRef.current.add(project.path)
+        requestAllSessionsForProject(send, project.path)
+      }
     }
   }, [projects, send])
 
-  const handleProjectSelect = (path: string) => {
-    selectProject(path)
-    send({ type: "set_view", projectPath: path })
-    requestAllSessionsForProject(send, path)
-  }
-
-  const handleSessionSelect = (id: string, agentType: string, projectPath: string) => {
-    // Keep project selection in sync when selecting a thread from the global list.
-    if (projectPath && projectPath !== selectedProjectPath) {
-      selectProject(projectPath)
-    }
-    selectSession(id, agentType as "opencode" | "claude-code" | "codex")
-    openChat(agentType, id)
-    
-    send({
-      type: "set_view",
-      projectPath: projectPath || undefined,
-      sessionId: id,
-      agent: agentType as "opencode" | "claude-code" | "codex",
-    })
-    if (agentType === "opencode") {
-      send({
-        type: "get_session_messages",
-        sessionId: id,
-        projectPath: projectPath || undefined,
-        limit: 200,
-      } as any)
-    } else if (agentType === "claude-code") {
-      send({
-        type: "cc_get_session_messages",
-        sessionId: id,
-        cwd: projectPath || undefined,
-        limit: 200,
-      } as any)
-    } else if (agentType === "codex") {
-      send({ type: "cx_get_thread_messages", threadId: id } as any)
-    }
-  }
-
-  const handleCreateSession = () => {
-    if (!selectedProjectPath) return
-    const requestId = `web_${Date.now()}_${Math.random().toString(16).slice(2)}`
-    setPendingCreate({
-      requestId,
-      agent: activeAgent,
-      projectPath: selectedProjectPath,
-    })
-    if (activeAgent === "opencode") {
-      send({
-        type: "create_session",
-        projectPath: selectedProjectPath,
-        title: "New Session",
-        requestId,
-      } as any)
-      send({ type: "list_sessions", projectPath: selectedProjectPath, requestId: `${requestId}:list` } as any)
-    } else if (activeAgent === "claude-code") {
-      send({ type: "cc_create_session", cwd: selectedProjectPath, requestId } as any)
-      send({ type: "cc_list_sessions", cwd: selectedProjectPath, requestId: `${requestId}:list` } as any)
-    } else if (activeAgent === "codex") {
-      send({ type: "cx_start_thread", cwd: selectedProjectPath, requestId } as any)
-      send({ type: "cx_list_threads", cwd: selectedProjectPath, requestId: `${requestId}:list` } as any)
-    }
-  }
-
-  // Get sessions for a specific project
-  const getSessionsForProject = (projectPath: string) => {
+  // Get sessions for a project
+  const getSessionsForProject = React.useCallback((projectPath: string) => {
     const openCode = openCodeByProject[projectPath] ?? []
     const claudeCode = claudeCodeSessions.filter(
       (s) => s.cwd === projectPath || s.cwd?.startsWith(projectPath + "/")
@@ -243,293 +352,239 @@ export function Sidebar() {
         id: s.id,
         title: s.title || "Untitled",
         agentType: "opencode" as const,
-        cwd: s.directory,
-        updatedAt: s.time?.updated,
+        timestamp: s.time?.updated,
       })),
       ...claudeCode.map((s) => ({
         id: s.id,
         title: s.title || "Claude Code",
         agentType: "claude-code" as const,
-        cwd: s.cwd,
-        updatedAt: s.updatedAt,
+        timestamp: s.updatedAt,
       })),
       ...codex.map((t) => ({
         id: t.id,
         title: t.preview || "Codex",
         agentType: "codex" as const,
-        cwd: t.cwd,
-        updatedAt: t.updatedAt ? t.updatedAt * 1000 : undefined,
+        timestamp: t.updatedAt ? t.updatedAt * 1000 : undefined,
       })),
     ]
 
-    // Sort by updatedAt, most recent first
-    sessions.sort((a, b) => (b.updatedAt ?? 0) - (a.updatedAt ?? 0))
+    sessions.sort((a, b) => (b.timestamp ?? 0) - (a.timestamp ?? 0))
     return sessions
+  }, [openCodeByProject, claudeCodeSessions, codexThreads])
+
+  const handleProjectSelect = (path: string) => {
+    selectProject(path)
+    send({ type: "set_view", projectPath: path })
   }
 
-  // Prefetch a small amount of transcript/messages for visible sessions so we
-  // can show the ChatGPT-style "preview snippet" line in the sidebar.
-  const requestedPreviewRef = useRef(new Set<string>())
-  useEffect(() => {
-    for (const project of projects) {
-      const sessions = getSessionsForProject(project.path)
-      const showingAll = showAllThreads[project.path] ?? false
-      const visible = showingAll ? sessions : sessions.slice(0, THREADS_PREVIEW_COUNT)
-
-      for (const session of visible) {
-        const chatKey = `${session.agentType}:${session.id}`
-        if (requestedPreviewRef.current.has(chatKey)) continue
-
-        const existing = (chatsBySession as any)?.[chatKey]
-        if (Array.isArray(existing) && existing.length > 0) {
-          requestedPreviewRef.current.add(chatKey)
-          continue
-        }
-
-        // Only prefetch for backends where we can request a limited window.
-        if (session.agentType === "opencode") {
-          requestedPreviewRef.current.add(chatKey)
-          send({
-            type: "get_session_messages",
-            sessionId: session.id,
-            projectPath: session.cwd ?? project.path,
-            limit: 20,
-          } as any)
-          continue
-        }
-
-        if (session.agentType === "claude-code") {
-          requestedPreviewRef.current.add(chatKey)
-          send({
-            type: "cc_get_session_messages",
-            sessionId: session.id,
-            cwd: session.cwd ?? project.path,
-            limit: 20,
-          } as any)
-          continue
-        }
-      }
+  const handleSessionSelect = (id: string, agentType: "opencode" | "claude-code" | "codex", projectPath: string) => {
+    if (projectPath !== selectedProjectPath) {
+      selectProject(projectPath)
     }
-  }, [chatsBySession, projects, send, showAllThreads, openCodeByProject, claudeCodeSessions, codexThreads])
-
-  const hasPendingForSession = (id: string, agentType: string) => {
-    if (agentType === "claude-code") return (ccPermissions[id]?.length ?? 0) > 0
-    if (agentType === "codex") {
-      return (codexApprovals[id]?.length ?? 0) > 0 || (codexUserInputs[id]?.length ?? 0) > 0
+    selectSession(id, agentType)
+    
+    send({
+      type: "set_view",
+      projectPath,
+      sessionId: id,
+      agent: agentType,
+    })
+    
+    // Fetch messages
+    if (agentType === "opencode") {
+      send({ type: "get_session_messages", sessionId: id, projectPath, limit: 200 } as any)
+    } else if (agentType === "claude-code") {
+      send({ type: "cc_get_session_messages", sessionId: id, cwd: projectPath, limit: 200 } as any)
+    } else if (agentType === "codex") {
+      send({ type: "cx_get_thread_messages", threadId: id } as any)
     }
-    return false
   }
 
-  // Collapsed state
-  if (sidebarCollapsed) {
-    return (
-      <div className="flex flex-col h-full py-3 px-2 bg-[var(--sidebar-bg)]">
-        <button
-          onClick={toggleSidebar}
-          className="ml-auto p-2 rounded-lg text-[var(--text-muted)] hover:text-[var(--text)] hover:bg-[var(--bg-hover)] transition-colors"
-          aria-label="Expand sidebar"
-        >
-          <SidebarToggleIcon className="w-5 h-5" />
-        </button>
+  const handleNewSession = () => {
+    if (!selectedProjectPath) return
+    
+    const requestId = `web_${Date.now()}_${Math.random().toString(16).slice(2)}`
+    
+    if (activeAgent === "opencode") {
+      send({ type: "create_session", projectPath: selectedProjectPath, title: "New Session", requestId } as any)
+    } else if (activeAgent === "claude-code") {
+      send({ type: "cc_create_session", cwd: selectedProjectPath, requestId } as any)
+    } else if (activeAgent === "codex") {
+      send({ type: "cx_start_thread", cwd: selectedProjectPath, requestId } as any)
+    }
+  }
 
-        <div className="mt-2 flex flex-col gap-1">
-          <button
-            onClick={handleCreateSession}
-            className="p-2 rounded-lg text-[var(--text-secondary)] hover:text-[var(--text)] hover:bg-[var(--bg-hover)] transition-colors"
-            aria-label="New thread"
-          >
-            <NewThreadIcon className="w-5 h-5" />
-          </button>
-          <button
-            onClick={() => openPanel(`automations:${selectedProjectPath ?? ""}`)}
-            className="p-2 rounded-lg text-[var(--text-secondary)] hover:text-[var(--text)] hover:bg-[var(--bg-hover)] transition-colors"
-            aria-label="Automations"
-          >
-            <AutomationsIcon className="w-5 h-5" />
-          </button>
-          <button
-            onClick={() => openPanel(`skills:${selectedProjectPath ?? ""}`)}
-            className="p-2 rounded-lg text-[var(--text-secondary)] hover:text-[var(--text)] hover:bg-[var(--bg-hover)] transition-colors"
-            aria-label="Skills"
-          >
-            <SkillsIcon className="w-5 h-5" />
-          </button>
-        </div>
-
-        <div className="mt-auto">
-          <button
-            className="w-full p-2 rounded-lg text-[var(--text-secondary)] hover:text-[var(--text)] hover:bg-[var(--bg-hover)] transition-colors"
-            aria-label="Workspace"
-          >
-            <WorkspaceIcon className="w-5 h-5 mx-auto" />
-          </button>
-        </div>
-      </div>
-    )
+  const toggleProject = (path: string) => {
+    setExpandedProjects((prev) => {
+      const next = new Set(prev)
+      if (next.has(path)) next.delete(path)
+      else next.add(path)
+      return next
+    })
   }
 
   return (
-    <div className="flex flex-col h-full bg-[var(--sidebar-bg)]">
-      {/* Top row with toggle */}
-      <div className="flex items-center justify-end px-4 py-3">
-        <button
-          onClick={toggleSidebar}
-          className="p-1.5 rounded-md text-[var(--text-muted)] hover:text-[var(--text)] hover:bg-[var(--bg-hover)] transition-colors"
-          aria-label="Toggle sidebar"
-        >
-          <SidebarToggleIcon className="w-5 h-5" />
-        </button>
-      </div>
-
-      {/* Primary nav */}
-      <div className="px-3 space-y-0.5">
-        <button
-          onClick={handleCreateSession}
-          className="w-full flex items-center gap-3 rounded-lg px-3 py-2 text-[var(--text-secondary)] hover:text-[var(--text)] hover:bg-[var(--bg-hover)] transition-colors text-left"
-        >
-          <NewThreadIcon className="w-[18px] h-[18px]" />
-          <span className="text-[15px]">New thread</span>
-        </button>
-
-        <button
-          onClick={() => openPanel(`automations:${selectedProjectPath ?? ""}`)}
-          className="w-full flex items-center gap-3 rounded-lg px-3 py-2 text-[var(--text-secondary)] hover:text-[var(--text)] hover:bg-[var(--bg-hover)] transition-colors text-left"
-        >
-          <AutomationsIcon className="w-[18px] h-[18px]" />
-          <span className="text-[15px]">Automations</span>
-        </button>
-
-        <button
-          onClick={() => openPanel(`skills:${selectedProjectPath ?? ""}`)}
-          className="w-full flex items-center gap-3 rounded-lg px-3 py-2 text-[var(--text-secondary)] hover:text-[var(--text)] hover:bg-[var(--bg-hover)] transition-colors text-left"
-        >
-          <SkillsIcon className="w-[18px] h-[18px]" />
-          <span className="text-[15px]">Skills</span>
-        </button>
-      </div>
-
-      {/* Threads section */}
-      <div className="mt-4 flex-1 overflow-y-auto min-h-0">
-        {/* Section header */}
-        <div className="flex items-center justify-between px-6 mb-2">
-          <span className="text-[13px] text-[var(--text-muted)]">Threads</span>
-          <div className="flex items-center gap-2">
-            <button className="p-0.5 text-[var(--text-faint)] hover:text-[var(--text-muted)] transition-colors">
-              <SplitIcon className="w-4 h-4" />
-            </button>
-            <button className="p-0.5 text-[var(--text-faint)] hover:text-[var(--text-muted)] transition-colors">
-              <FilterIcon className="w-4 h-4" />
+    <aside
+      style={{
+        width: 280,
+        minWidth: 280,
+        height: "100%",
+        backgroundColor: "#0f0f0f",
+        display: "flex",
+        flexDirection: "column",
+        borderRight: "1px solid rgba(255,255,255,0.06)",
+      }}
+    >
+      {/* Header */}
+      <div style={{ padding: "12px", borderBottom: "1px solid rgba(255,255,255,0.06)" }}>
+        {/* Close button */}
+        {onClose && (
+          <div style={{ display: "flex", justifyContent: "flex-end", marginBottom: 8 }}>
+            <button
+              onClick={onClose}
+              style={{
+                padding: 6,
+                borderRadius: 6,
+                border: "none",
+                backgroundColor: "transparent",
+                color: "#808080",
+                cursor: "pointer",
+              }}
+            >
+              <X size={18} />
             </button>
           </div>
-        </div>
-
-        {/* Projects with threads */}
-        <div className="px-3">
-          {projects.map((project) => {
-            const projectName = project.name ?? project.path.split("/").pop() ?? project.path
-            const sessions = getSessionsForProject(project.path)
-            const shouldShowMore = sessions.length > THREADS_PREVIEW_COUNT
-            const showingAll = showAllThreads[project.path] ?? false
-            const displaySessions = showingAll 
-              ? sessions 
-              : sessions.slice(0, THREADS_PREVIEW_COUNT)
-            
-            return (
-              <div key={project.path} className="mb-1">
-                {/* Project name row */}
-                <button
-                  onClick={() => handleProjectSelect(project.path)}
-                  className={`w-full flex items-center gap-2 rounded-lg px-3 py-1.5 text-left transition-colors ${
-                    selectedProjectPath === project.path 
-                      ? "bg-[var(--sidebar-item-selected)] text-[var(--text)]" 
-                      : "text-[var(--text-secondary)] hover:text-[var(--text)] hover:bg-[var(--sidebar-item-hover)]"
-                  }`}
-                >
-                  <FolderIcon className="w-[18px] h-[18px] text-[var(--text-faint)] flex-shrink-0" />
-                  <span className="text-[15px] truncate">{projectName}</span>
-                </button>
-
-                {/* Threads under this project */}
-                {sessions.length > 0 && (
-                  <div className="mt-0.5">
-                    {displaySessions.map((session) => {
-                      const isSelected = selectedSessionId === session.id
-                      const hasPending = hasPendingForSession(session.id, session.agentType)
-                      const title =
-                        session.title.length > 42
-                          ? session.title.slice(0, 42) + "..."
-                          : session.title
-                      const subtitle =
-                        session.agentType === "claude-code"
-                          ? "Claude"
-                          : session.agentType === "codex"
-                            ? "Codex"
-                            : "OpenCode"
-                      const chatKey = `${session.agentType}:${session.id}`
-                      const preview = getPreviewFromMessages((chatsBySession as any)?.[chatKey]) || subtitle
-
-                      return (
-                        <button
-                          key={`${session.agentType}:${session.id}`}
-                          onClick={() => handleSessionSelect(session.id, session.agentType, project.path)}
-                          className={[
-                            "w-full rounded-lg pl-8 pr-3 py-2 text-left transition-colors",
-                            isSelected
-                              ? "bg-[var(--sidebar-item-selected)] text-[var(--text)]"
-                              : "text-[var(--text-secondary)] hover:text-[var(--text)] hover:bg-[var(--sidebar-item-hover)]",
-                          ].join(" ")}
-                        >
-                          <div className="flex items-center gap-2">
-                            <span className="text-[14px] font-medium truncate flex-1">
-                              {title}
-                            </span>
-                            {hasPending && (
-                              <span className="h-4 w-4 rounded-full bg-[var(--error)] text-white text-[10px] font-bold flex items-center justify-center">
-                                !
-                              </span>
-                            )}
-                          </div>
-                          <div className="mt-0.5 flex items-center justify-between gap-3">
-                            <span className="text-[12px] text-[var(--text-muted)] truncate">
-                              {preview}
-                            </span>
-                            <span className="text-[12px] text-[var(--text-faint)] flex-shrink-0">
-                              {formatRelativeTime(session.updatedAt)}
-                            </span>
-                          </div>
-                        </button>
-                      )
-                    })}
-                    
-                    {/* Show more */}
-                    {shouldShowMore && (
-                      <button
-                        onClick={() => setShowAllThreads(prev => ({ 
-                          ...prev, 
-                          [project.path]: !showingAll 
-                        }))}
-                        className="w-full pl-8 pr-3 py-1 text-left text-[13px] text-[var(--text-faint)] hover:text-[var(--text-muted)] transition-colors"
-                      >
-                        {showingAll 
-                          ? "Show less" 
-                          : `Show more`}
-                      </button>
-                    )}
-                  </div>
-                )}
-              </div>
-            )
-          })}
-        </div>
-      </div>
-
-      {/* Bottom workspace */}
-      <div className="px-3 py-3">
-        <button className="w-full flex items-center gap-2.5 rounded-lg px-3 py-2 text-[var(--text-secondary)] hover:text-[var(--text)] hover:bg-[var(--bg-hover)] transition-colors">
-          <WorkspaceIcon className="w-[18px] h-[18px] flex-shrink-0" />
-          <span className="text-[14px] flex-1 text-left truncate">Broski Workspace</span>
+        )}
+        
+        {/* Agent Selector */}
+        <AgentSelector />
+        
+        {/* New Session Button */}
+        <button
+          onClick={handleNewSession}
+          disabled={!selectedProjectPath}
+          style={{
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            gap: 8,
+            width: "100%",
+            padding: "10px",
+            borderRadius: 8,
+            border: "none",
+            backgroundColor: selectedProjectPath ? "#e8e8e8" : "#333",
+            color: selectedProjectPath ? "#0f0f0f" : "#666",
+            fontSize: 13,
+            fontWeight: 600,
+            cursor: selectedProjectPath ? "pointer" : "not-allowed",
+          }}
+        >
+          <Plus size={16} />
+          New Session
         </button>
       </div>
-    </div>
+
+      {/* Skills Button */}
+      <div style={{ padding: "8px 12px" }}>
+        <button
+          style={{
+            display: "flex",
+            alignItems: "center",
+            gap: 8,
+            width: "100%",
+            padding: "8px 10px",
+            borderRadius: 6,
+            border: "none",
+            backgroundColor: "transparent",
+            color: "#a8a8a8",
+            fontSize: 13,
+            cursor: "pointer",
+          }}
+        >
+          <Sparkles size={16} />
+          Skills
+        </button>
+      </div>
+
+      {/* Sessions Section */}
+      <div style={{ padding: "8px 12px 0" }}>
+        <div style={{ 
+          fontSize: 11, 
+          fontWeight: 600, 
+          color: "#5c5c5c", 
+          textTransform: "uppercase",
+          letterSpacing: "0.5px",
+          marginBottom: 8,
+        }}>
+          Sessions
+        </div>
+      </div>
+
+      {/* Projects List */}
+      <div style={{ flex: 1, overflow: "auto", padding: "0 8px" }}>
+        {projects.length === 0 ? (
+          <div style={{ color: "#5c5c5c", fontSize: 13, padding: "16px 8px", textAlign: "center" }}>
+            No projects connected.
+            <br />
+            <span style={{ fontSize: 12 }}>Start the bridge server to connect.</span>
+          </div>
+        ) : (
+          projects.map((project) => {
+            const sessions = getSessionsForProject(project.path)
+            return (
+              <ProjectFolder
+                key={project.path}
+                path={project.path}
+                name={getProjectName(project.path)}
+                isSelected={selectedProjectPath === project.path}
+                isExpanded={expandedProjects.has(project.path)}
+                sessions={sessions}
+                selectedSessionId={selectedSessionId}
+                onToggle={() => toggleProject(project.path)}
+                onSelect={() => handleProjectSelect(project.path)}
+                onSessionSelect={(id, agentType) => handleSessionSelect(id, agentType, project.path)}
+              />
+            )
+          })
+        )}
+      </div>
+
+      {/* Workspace Selector */}
+      <div style={{ padding: 12, borderTop: "1px solid rgba(255,255,255,0.06)" }}>
+        <button
+          style={{
+            display: "flex",
+            alignItems: "center",
+            gap: 10,
+            width: "100%",
+            padding: "8px 10px",
+            borderRadius: 6,
+            border: "none",
+            backgroundColor: "transparent",
+            color: "#e8e8e8",
+            fontSize: 13,
+            cursor: "pointer",
+            textAlign: "left",
+          }}
+        >
+          <div
+            style={{
+              width: 28,
+              height: 28,
+              borderRadius: 6,
+              backgroundColor: "rgba(255,255,255,0.06)",
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
+            }}
+          >
+            <Building2 size={16} style={{ color: "#a8a8a8" }} />
+          </div>
+          <span>Broski Workspace</span>
+        </button>
+      </div>
+    </aside>
   )
 }
+
+export default Sidebar
