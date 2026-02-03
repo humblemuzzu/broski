@@ -11,6 +11,7 @@ type WorkspaceState = {
 
   setActiveProjectKey: (projectPath: string | null) => void
   setLayout: (layout: MosaicNode<string> | null) => void
+  hasPanelBaseId: (baseId: string) => boolean
   openChat: (agent: string, sessionId: string) => void
   openPanel: (panelId: string) => void
 }
@@ -18,7 +19,7 @@ type WorkspaceState = {
 const defaultLayout: MosaicNode<string> = {
   direction: "row",
   first: "dashboard",
-  second: "chat:claude-code:welcome",
+  second: "new:main",
   splitPercentage: 42,
 }
 
@@ -32,6 +33,11 @@ function ensureUniqueId(layout: MosaicNode<string> | null, baseId: string): stri
   const leaves = new Set(collectLeafIds(layout))
   if (!leaves.has(baseId)) return baseId
   return `${baseId}#${Math.random().toString(16).slice(2)}`
+}
+
+function stripInstanceSuffix(panelId: string): string {
+  const idx = panelId.indexOf("#")
+  return idx === -1 ? panelId : panelId.slice(0, idx)
 }
 
 export const useWorkspaceStore = create<WorkspaceState>()(
@@ -66,6 +72,14 @@ export const useWorkspaceStore = create<WorkspaceState>()(
             },
           }
         }),
+
+      hasPanelBaseId: (baseId) => {
+        const leaves = collectLeafIds(get().layout)
+        for (const id of leaves) {
+          if (stripInstanceSuffix(id) === baseId) return true
+        }
+        return false
+      },
 
       openChat: (agent, sessionId) => {
         const base = `chat:${agent}:${sessionId}`

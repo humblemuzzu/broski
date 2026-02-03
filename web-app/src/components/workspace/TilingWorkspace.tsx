@@ -22,6 +22,9 @@ function titleForPanel(panelId: string): string {
   if (baseId.startsWith("git:")) return "Git"
   if (baseId.startsWith("browser:")) return "Preview"
   if (baseId.startsWith("spec:")) return "Spec"
+  if (baseId.startsWith("automation:")) return "Automation"
+  if (baseId.startsWith("integrations:")) return "Integrations"
+  if (baseId.startsWith("collab:")) return "Multi-Agent"
   return baseId
 }
 

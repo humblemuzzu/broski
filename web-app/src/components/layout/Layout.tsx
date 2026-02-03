@@ -3,6 +3,7 @@ import * as React from "react"
 import { Sidebar } from "@/components/sidebar/Sidebar"
 import { RightPanel } from "@/components/right-panel/RightPanel"
 import { TilingWorkspace } from "@/components/workspace/TilingWorkspace"
+import { CommandPalette } from "@/components/layout/CommandPalette"
 import { useUiStore } from "@/stores/ui-store"
 import { useProjectsStore } from "@/stores/projects-store"
 import { useWorkspaceStore } from "@/stores/workspace-store"
@@ -19,6 +20,7 @@ export function Layout() {
 
   return (
     <div className="h-screen w-screen overflow-hidden" style={{ background: "var(--background)" }}>
+      <CommandPalette />
       <div className="flex h-full w-full">
         <div
           className={[

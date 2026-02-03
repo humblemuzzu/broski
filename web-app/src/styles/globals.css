@@ -1,73 +1,182 @@
-@import "tailwindcss";
-@import "tw-animate-css";
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
 
-@custom-variant dark (&:is(.dark *));
+@layer base {
+  :root {
+    /* ═══════════════════════════════════════════════════════════════════════════
+       Theme tokens - set by JavaScript, fallback to OpenCode dark theme
+       ═══════════════════════════════════════════════════════════════════════════ */
+    
+    /* Core colors */
+    --primary: #fab283;
+    --secondary: #5c9cf5;
+    --accent: #56b6c2;
+    --error: #e06c75;
+    --warning: #f5a742;
+    --success: #7fd88f;
+    --info: #56b6c2;
+    
+    /* Text colors */
+    --text: #eeeeee;
+    --text-muted: #808080;
+    --selected-list-item-text: #0a0a0a;
+    
+    /* Background colors */
+    --background: #0a0a0a;
+    --background-panel: #141414;
+    --background-element: #1e1e1e;
+    --background-menu: #1e1e1e;
+    
+    /* Extended BG scale */
+    --bg-deep: #050505;
+    --bg-raised: #0f0f0f;
+    --bg-sheet: #141414;
+    --bg-hover: #1a1a1a;
+    --bg-active: #242424;
+    --bg-highlight: #2a2a2a;
+    --bg-overlay: #303030;
+    --bg-contrast: #383838;
+    
+    /* Border colors */
+    --border: #484848;
+    --border-active: #606060;
+    --border-subtle: #3c3c3c;
+    --card-border-subtle: rgba(60, 60, 60, 0.4);
+    --divider-section: rgba(128, 128, 128, 0.12);
+    
+    /* Card header */
+    --card-header-bg: #1a1a1a;
+    --card-header-border: #404040;
+    --card-header-text: #b0b0b0;
+    
+    /* Tool colors */
+    --tool-thinking: #5c9cf5;
+    --tool-edit: #f5a742;
+    --tool-read: #56b6c2;
+    --tool-write: #7fd88f;
+    --tool-bash: #94a3b8;
+    --tool-search: #38bdf8;
+    --tool-todo: #fb923c;
+    --tool-subtask: #2dd4bf;
+    
+    /* Diff colors */
+    --diff-added: #4fd6be;
+    --diff-removed: #c53b53;
+    --diff-context: #828bb8;
+    --diff-hunk-header: #828bb8;
+    --diff-highlight-added: #b8db87;
+    --diff-highlight-removed: #e26a75;
+    --diff-added-bg: #20303b;
+    --diff-removed-bg: #37222c;
+    --diff-context-bg: #141414;
+    --diff-line-number: #1e1e1e;
+    --diff-added-line-number-bg: #1b2b34;
+    --diff-removed-line-number-bg: #2d1f26;
+    
+    /* Markdown colors */
+    --markdown-text: #eeeeee;
+    --markdown-heading: #56b6c2;
+    --markdown-link: #fab283;
+    --markdown-link-text: #56b6c2;
+    --markdown-code: #7fd88f;
+    --markdown-block-quote: #e5c07b;
+    --markdown-emph: #e5c07b;
+    --markdown-strong: #f5a742;
+    --markdown-horizontal-rule: #808080;
+    --markdown-list-item: #fab283;
+    --markdown-list-enumeration: #56b6c2;
+    --markdown-image: #fab283;
+    --markdown-image-text: #56b6c2;
+    --markdown-code-block: #eeeeee;
+    
+    /* Syntax highlighting */
+    --syntax-comment: #808080;
+    --syntax-keyword: #56b6c2;
+    --syntax-function: #fab283;
+    --syntax-variable: #e06c75;
+    --syntax-string: #7fd88f;
+    --syntax-number: #f5a742;
+    --syntax-type: #e5c07b;
+    --syntax-operator: #56b6c2;
+    --syntax-punctuation: #eeeeee;
+    
+    /* ═══════════════════════════════════════════════════════════════════════════
+       Semantic aliases (for backwards compatibility with existing components)
+       ═══════════════════════════════════════════════════════════════════════════ */
+    
+    /* Legacy shadcn tokens for compatibility */
+    --foreground: var(--text);
+    --card: var(--background-panel);
+    --card-foreground: var(--text);
+    --popover: var(--background-menu);
+    --popover-foreground: var(--text);
+    --primary-foreground: var(--selected-list-item-text);
+    --secondary-foreground: var(--text);
+    --muted: var(--background-element);
+    --muted-foreground: var(--text-muted);
+    --accent-foreground: var(--selected-list-item-text);
+    --destructive: var(--error);
+    --input: var(--background-element);
+    --ring: var(--primary);
+    
+    /* Panel theming */
+    --panel: var(--background-panel);
+    --panel-header: var(--card-header-bg);
+    --panel-border: var(--border-subtle);
+    
+    /* Sidebar theming */
+    --sidebar-bg: var(--bg-raised);
+    --sidebar-border: var(--border-subtle);
+    --sidebar-item-hover: var(--bg-hover);
+    --sidebar-item-active: var(--bg-active);
+    
+    /* Input theming */
+    --input-bg: var(--background-element);
+    --input-border: var(--border);
+    --input-focus: var(--primary);
+    
+    /* Typography */
+    --font-ui: 'Inter', system-ui, sans-serif;
+    --font-code: 'JetBrains Mono', 'Fira Code', monospace;
+    
+    /* Spacing */
+    --spacing-xs: 4px;
+    --spacing-sm: 8px;
+    --spacing-md: 12px;
+    --spacing-lg: 16px;
+    --spacing-xl: 24px;
+    
+    /* Radius */
+    --radius: 0.8rem;
+    --radius-sm: 4px;
+    --radius-md: 6px;
+    --radius-lg: 8px;
+    --radius-xl: 12px;
+    
+    /* Transitions */
+    --transition-fast: 100ms ease;
+    --transition-normal: 200ms ease;
+    --transition-slow: 300ms ease;
+    
+    /* Legacy dashboard tokens */
+    --sidebar: var(--sidebar-bg);
+    --sidebar-border: var(--sidebar-border);
+    --sidebar-item-hover: rgba(232, 232, 234, 0.06);
+    --sidebar-item-active: rgba(232, 232, 234, 0.12);
+    --shadow-panel: 0 12px 36px rgba(0, 0, 0, 0.35);
+  }
 
-/* Tailwind v4 theme bridge (shadcn-style tokens) */
-@theme inline {
-  --color-background: var(--background);
-  --color-foreground: var(--foreground);
-  --color-card: var(--card);
-  --color-card-foreground: var(--card-foreground);
-  --color-popover: var(--popover);
-  --color-popover-foreground: var(--popover-foreground);
-  --color-primary: var(--primary);
-  --color-primary-foreground: var(--primary-foreground);
-  --color-secondary: var(--secondary);
-  --color-secondary-foreground: var(--secondary-foreground);
-  --color-muted: var(--muted);
-  --color-muted-foreground: var(--muted-foreground);
-  --color-accent: var(--accent);
-  --color-accent-foreground: var(--accent-foreground);
-  --color-destructive: var(--destructive);
-  --color-border: var(--border);
-  --color-input: var(--input);
-  --color-ring: var(--ring);
-  --radius-lg: var(--radius);
-  --radius-md: calc(var(--radius) - 2px);
-  --radius-sm: calc(var(--radius) - 4px);
-}
+  /* Base styles */
+  * {
+    border-color: var(--border-subtle);
+  }
 
-:root {
-  --radius: 0.8rem;
-
-  /* Broski premium default (dark) */
-  --background: #181d2b;
-  --foreground: #f0f0f2;
-
-  --card: #2c2f3c;
-  --card-foreground: #f0f0f2;
-
-  --popover: #2e3140;
-  --popover-foreground: #f0f0f2;
-
-  --primary: #d0d0d4;
-  --primary-foreground: #181d2b;
-
-  --secondary: #323542;
-  --secondary-foreground: #f0f0f2;
-
-  --muted: #323542;
-  --muted-foreground: #a0a0a8;
-
-  --accent: #e8e8ea;
-  --accent-foreground: #181d2b;
-
-  --destructive: #cf6679;
-
-  --border: #3a4252;
-  --input: #323542;
-  --ring: #d0d0d4;
-
-  /* Dashboard-specific semantic tokens */
-  --panel: #212538;
-  --panel-header: #252a3f;
-  --panel-border: #3a4252;
-  --sidebar: #1c222e;
-  --sidebar-border: #3a4252;
-  --sidebar-item-hover: rgba(232, 232, 234, 0.06);
-  --sidebar-item-active: rgba(232, 232, 234, 0.12);
-  --shadow-panel: 0 12px 36px rgba(0, 0, 0, 0.35);
+  body {
+    background-color: var(--background);
+    color: var(--text);
+    font-family: var(--font-ui);
+  }
 }
 
 /* Optional alt themes (can be expanded/ported from Flutter) */
@@ -103,14 +212,6 @@
 html,
 body {
   height: 100%;
-}
-
-body {
-  background: var(--background);
-  color: var(--foreground);
-  font-family: ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont,
-    "Segoe UI", Roboto, "Helvetica Neue", Arial, "Noto Sans", "Apple Color Emoji",
-    "Segoe UI Emoji";
 }
 
 * {

@@ -36,6 +36,8 @@ export function NewPanelChooserPanel({
     { id: `git:${project}`, label: "Git", disabled: !project },
     { id: `browser:${project}`, label: "Preview", disabled: !project },
     { id: `spec:${project}`, label: "Spec", disabled: !project },
+    { id: `automation:${project}`, label: "Automation", disabled: !project },
+    { id: `integrations:${project}`, label: "Integrations", disabled: !project },
   ]
 
   if (selectedSessionId && selectedSessionAgent) {
@@ -43,6 +45,12 @@ export function NewPanelChooserPanel({
       id: `chat:${selectedSessionAgent}:${selectedSessionId}`,
       label: `Chat (${selectedSessionAgent})`,
     })
+    if (selectedSessionAgent === "codex") {
+      items.unshift({
+        id: `collab:${selectedSessionId}`,
+        label: "Multi-Agent (Codex)",
+      })
+    }
   }
 
   return (
@@ -77,4 +85,3 @@ export function NewPanelChooserPanel({
     </div>
   )
 }
-

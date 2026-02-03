@@ -147,6 +147,8 @@ export type ClientMessage =
   | { type: 'list_tools'; provider: string; model: string; projectPath?: string }
   // Feature 18: File Status (Git)
   | { type: 'get_file_status'; projectPath?: string }
+  // Feature 18b: Git diff (working tree / staged)
+  | { type: 'git_diff'; projectPath: string; path?: string; staged?: boolean }
   // Feature 19: Formatter Status
   | { type: 'get_formatter_status'; projectPath?: string }
   // Feature 20: Session Init
@@ -477,6 +479,7 @@ export type ServerMessage =
   | { type: 'tools'; data: ToolInfo[]; requestId?: string }
   // Feature 18: File Status (Git)
   | { type: 'file_status'; data: FileStatusInfo[]; requestId?: string }
+  | { type: 'git_diff'; data: { path?: string; diff: string; staged?: boolean }; requestId?: string }
   // Feature 19: Formatter Status
   | { type: 'formatter_status'; data: FormatterInfo[]; requestId?: string }
   // Feature 20: Session Init

@@ -6,6 +6,9 @@ import { FilesPanel } from "@/components/workspace/panels/FilesPanel"
 import { GitPanel } from "@/components/workspace/panels/GitPanel"
 import { BrowserPanel } from "@/components/workspace/panels/BrowserPanel"
 import { SpecPanel } from "@/components/workspace/panels/SpecPanel"
+import { AutomationPanel } from "@/components/workspace/panels/AutomationPanel"
+import { IntegrationsPanel } from "@/components/workspace/panels/IntegrationsPanel"
+import { CodexCollabPanel } from "@/components/workspace/panels/CodexCollabPanel"
 import { NewPanelChooserPanel } from "@/components/workspace/panels/NewPanelChooserPanel"
 import type { MosaicBranch } from "react-mosaic-component"
 
@@ -51,6 +54,18 @@ export function PanelRenderer({
   if (baseId.startsWith("spec:")) {
     const projectPath = baseId.slice("spec:".length)
     return <SpecPanel projectPath={projectPath} />
+  }
+  if (baseId.startsWith("automation:")) {
+    const projectPath = baseId.slice("automation:".length)
+    return <AutomationPanel projectPath={projectPath} />
+  }
+  if (baseId.startsWith("integrations:")) {
+    const projectPath = baseId.slice("integrations:".length)
+    return <IntegrationsPanel projectPath={projectPath} />
+  }
+  if (baseId.startsWith("collab:")) {
+    const threadId = baseId.slice("collab:".length)
+    return <CodexCollabPanel threadId={threadId} />
   }
   return <PlaceholderPanel title={baseId} />
 }

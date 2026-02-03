@@ -93,6 +93,18 @@ export default defineConfig({
         changeOrigin: true,
         rewrite: () => "/",
       },
+      // Proxy preview reverse-proxy endpoint during dev
+      "/proxy": {
+        target: bridgeOrigin,
+        secure: false,
+        changeOrigin: true,
+      },
+      "/proxy-ws": {
+        target: bridgeOrigin,
+        ws: true,
+        secure: false,
+        changeOrigin: true,
+      },
     },
   },
 })

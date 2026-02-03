@@ -27,10 +27,18 @@ type SessionsState = {
   selectedSessionId: string | null
   selectedSessionAgent: AgentType | null
 
+  pendingCreate:
+    | null
+    | { requestId: string; agent: AgentType; projectPath: string }
+
   setOpenCodeSessions: (projectPath: string | undefined, sessions: SessionSummary[]) => void
+  upsertOpenCodeSession: (projectPath: string | undefined, session: SessionSummary) => void
   setClaudeCodeSessions: (sessions: ClaudeCodeSession[]) => void
+  upsertClaudeCodeSession: (session: ClaudeCodeSession) => void
   setCodexThreads: (threads: CodexThread[], nextCursor: string | null) => void
+  upsertCodexThread: (thread: CodexThread) => void
   selectSession: (id: string | null, agent: AgentType | null) => void
+  setPendingCreate: (pending: SessionsState["pendingCreate"]) => void
 
   getCwdFor: (agent: AgentType, id: string) => string | undefined
 }
@@ -44,6 +52,7 @@ export const useSessionsStore = create<SessionsState>()(
       codexNextCursor: null,
       selectedSessionId: null,
       selectedSessionAgent: null,
+      pendingCreate: null,
 
       setOpenCodeSessions: (projectPath, sessions) => {
         const key = projectPath ?? ""
@@ -54,11 +63,42 @@ export const useSessionsStore = create<SessionsState>()(
           },
         }))
       },
+      upsertOpenCodeSession: (projectPath, session) => {
+        const key = projectPath ?? ""
+        set((s) => {
+          const existing = s.openCodeByProject[key] ?? []
+          const next = [
+            session,
+            ...existing.filter((x) => x.id !== session.id),
+          ]
+          return {
+            openCodeByProject: {
+              ...s.openCodeByProject,
+              [key]: next,
+            },
+          }
+        })
+      },
       setClaudeCodeSessions: (sessions) => set({ claudeCodeSessions: sessions }),
+      upsertClaudeCodeSession: (session) =>
+        set((s) => ({
+          claudeCodeSessions: [
+            session,
+            ...s.claudeCodeSessions.filter((x) => x.id !== session.id),
+          ],
+        })),
       setCodexThreads: (threads, nextCursor) =>
         set({ codexThreads: threads, codexNextCursor: nextCursor }),
+      upsertCodexThread: (thread) =>
+        set((s) => ({
+          codexThreads: [
+            thread,
+            ...s.codexThreads.filter((t) => t.id !== thread.id),
+          ],
+        })),
       selectSession: (id, agent) =>
         set({ selectedSessionId: id, selectedSessionAgent: agent }),
+      setPendingCreate: (pending) => set({ pendingCreate: pending }),
 
       getCwdFor: (agent, id) => {
         if (agent === "claude-code") {

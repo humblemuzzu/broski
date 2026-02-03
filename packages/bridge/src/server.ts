@@ -3579,6 +3579,132 @@ export async function createBridgeServer(options: BridgeServerOptions): Promise<
     const accept = request.headers.get('accept') ?? ''
     const wantsHtml = accept.includes('text/html')
 
+    // Reverse proxy for embedded previews (iframe-safe).
+    // Route format: /proxy/:port/* (only loopback access is allowed by makeFetch).
+    if (url.pathname.startsWith('/proxy/')) {
+      const rest = url.pathname.slice('/proxy/'.length)
+      const slashIdx = rest.indexOf('/')
+      const portRaw = (slashIdx === -1 ? rest : rest.slice(0, slashIdx)).trim()
+      const port = Number(portRaw)
+      if (!Number.isFinite(port) || port < 1 || port > 65535) {
+        return publicJson({ error: 'Invalid proxy port' }, 400)
+      }
+      const upstreamPath = slashIdx === -1 ? '/' : `/${rest.slice(slashIdx + 1)}`
+
+      // Only allow proxying to loopback. (No arbitrary open proxy.)
+      const upstreamUrl = new URL(`${tlsEnabled ? 'https' : 'http'}://127.0.0.1:${port}${upstreamPath}`)
+      upstreamUrl.search = url.search
+
+      const forwardHeaders = (() => {
+        const h = new Headers()
+        // Forward basic headers; keep it conservative.
+        const allow = new Set([
+          'accept',
+          'accept-language',
+          'content-type',
+          'cache-control',
+          'pragma',
+          'if-none-match',
+          'if-modified-since',
+          'user-agent',
+          'cookie',
+        ])
+        for (const [k, v] of request.headers.entries()) {
+          const key = k.toLowerCase()
+          if (!allow.has(key)) continue
+          h.set(key, v)
+        }
+        // Ensure UA exists
+        if (!h.has('user-agent')) h.set('user-agent', 'broski-bridge-proxy')
+        return h
+      })()
+
+      const method = request.method.toUpperCase()
+      const hasBody = !['GET', 'HEAD'].includes(method)
+      const upstreamRes = await fetch(upstreamUrl.toString(), {
+        method,
+        redirect: 'manual',
+        headers: forwardHeaders,
+        body: hasBody ? request.body : undefined,
+        duplex: hasBody ? 'half' : undefined,
+      } as any).catch((err) => {
+        return new Response(`Proxy fetch failed: ${toErrorMessage(err)}`, { status: 502 })
+      })
+
+      // If fetch failed (we returned a Response above), pass it through.
+      if (upstreamRes instanceof Response && upstreamRes.headers?.get('content-type') == null) {
+        return upstreamRes
+      }
+
+      const headers = new Headers(upstreamRes.headers)
+      // Strip frame-blocking headers so we can embed inside Broski.
+      headers.delete('x-frame-options')
+      headers.delete('frame-options')
+      headers.delete('content-security-policy')
+      headers.delete('content-security-policy-report-only')
+      headers.set('cache-control', 'no-store')
+      headers.set('x-content-type-options', 'nosniff')
+
+      // Rewrite cookies so upstream auth flows can work under /proxy/:port/
+      // Best-effort: remove Domain and set Path to the proxy prefix.
+      try {
+        const setCookies = (upstreamRes.headers as any).getSetCookie?.() as string[] | undefined
+        if (Array.isArray(setCookies) && setCookies.length > 0) {
+          headers.delete('set-cookie')
+          for (const sc of setCookies) {
+            const parts = sc.split(';').map((p) => p.trim())
+            const base = parts.shift() ?? ''
+            const attrs = parts.filter((p) => !/^domain=/i.test(p) && !/^path=/i.test(p))
+            attrs.push(`Path=/proxy/${port}/`)
+            headers.append('set-cookie', [base, ...attrs].join('; '))
+          }
+        }
+      } catch {
+        // ignore
+      }
+
+      // Rewrite redirects to stay inside proxy.
+      const location = headers.get('location')
+      if (location) {
+        try {
+          const locUrl = new URL(location, upstreamUrl)
+          if (
+            (locUrl.hostname === '127.0.0.1' || locUrl.hostname === 'localhost') &&
+            Number(locUrl.port) === port
+          ) {
+            const rewritten = `/proxy/${port}${locUrl.pathname}${locUrl.search}${locUrl.hash}`
+            headers.set('location', rewritten)
+          }
+        } catch {
+          // ignore
+        }
+      }
+
+      const contentType = headers.get('content-type') ?? ''
+      const isHtml = contentType.includes('text/html')
+
+      if (isHtml) {
+        let text = await upstreamRes.text().catch(() => '')
+        const prefix = `/proxy/${port}`
+        const wsPrefix = `/proxy-ws/${port}`
+        const shim = `<script>(function(){try{var P=${JSON.stringify(prefix)};var W=${JSON.stringify(wsPrefix)};window.__BROSKI_PROXY_PREFIX__=P;function abs(u){try{if(typeof u!=='string')return u;if(u.startsWith(P+'/')||u===P)return u;if(u.startsWith('/'))return P+u;return u}catch{return u}};var of=window.fetch;if(of)window.fetch=function(input,init){try{if(typeof input==='string'){input=abs(input)}else if(input&&typeof input.url==='string'){var nu=abs(input.url);if(nu!==input.url)input=new Request(nu,input)} }catch{}return of.call(this,input,init)};var xo=XMLHttpRequest&&XMLHttpRequest.prototype&&XMLHttpRequest.prototype.open;if(xo)XMLHttpRequest.prototype.open=function(m,u){try{u=abs(u)}catch{}return xo.apply(this,arguments)};var oe=window.EventSource;if(oe)window.EventSource=function(u,c){try{u=abs(u)}catch{}return new oe(u,c)};var OWS=window.WebSocket;if(OWS){window.WebSocket=function(u,p){try{if(typeof u==='string'){if(u.startsWith('ws://localhost:')||u.startsWith('ws://127.0.0.1:')||u.startsWith('wss://localhost:')||u.startsWith('wss://127.0.0.1:')){var uu=new URL(u);u=(location.protocol==='https:'?'wss':'ws')+'://'+location.host+W+uu.pathname+uu.search+uu.hash}else if(u.startsWith('/')){u=(location.protocol==='https:'?'wss':'ws')+'://'+location.host+W+u}}}catch{}return new OWS(u,p)};window.WebSocket.prototype=OWS.prototype} }catch(e){}})();</script>`
+        // Inject <base> so relative assets load from the proxy path.
+        if (text.includes('<head')) {
+          text = text.replace(/<head([^>]*)>/i, `<head$1><base href="${prefix}/">${shim}`)
+        } else {
+          text = `<base href="${prefix}/">\n${shim}\n` + text
+        }
+        // Rewrite root-relative URLs ("/...") to proxy-prefixed paths.
+        text = text
+          .replace(/(href|src|action)=([\"'])\//gi, `$1=$2${prefix}/`)
+          .replace(/url\(\//gi, `url(${prefix}/`)
+        return new Response(text, { status: upstreamRes.status, headers })
+      }
+
+      const buf = await upstreamRes.arrayBuffer()
+      return new Response(buf, { status: upstreamRes.status, headers })
+    }
+
     // Serve embedded web dashboard (Vite build output) when present.
     // Keep "/" JSON response for API callers (Accept does not include text/html).
     if (
@@ -3857,11 +3983,52 @@ export async function createBridgeServer(options: BridgeServerOptions): Promise<
 
   const websocketConfig = {
     open(ws: ServerWebSocket<unknown>) {
+      const proxy = (ws as any).data && (ws as any).data.kind === 'proxy'
+      if (proxy) {
+        const d: any = (ws as any).data
+        const port = Number(d.port)
+        const path = typeof d.path === 'string' ? d.path : '/'
+        const search = typeof d.search === 'string' ? d.search : ''
+        const proto = tlsEnabled ? 'wss' : 'ws'
+        const upstreamUrl = `${proto}://127.0.0.1:${port}${path}${search}`
+        try {
+          const upstream = new WebSocket(upstreamUrl)
+          ;(ws as any).__proxyUpstream = upstream
+          upstream.onmessage = (evt) => {
+            try {
+              ws.send(evt.data as any)
+            } catch {
+              // ignore
+            }
+          }
+          upstream.onclose = () => {
+            try {
+              ws.close(1000, 'Upstream closed')
+            } catch {
+              // ignore
+            }
+          }
+          upstream.onerror = () => {
+            try {
+              ws.close(1011, 'Upstream error')
+            } catch {
+              // ignore
+            }
+          }
+        } catch {
+          try {
+            ws.close(1011, 'Proxy init failed')
+          } catch {
+            // ignore
+          }
+        }
+        return
+      }
       sockets.add(ws)
       rateLimiters.set(ws, { tokens: RATE.burst, lastRefill: Date.now(), blockedUntil: 0 })
-	      const baseCtx: ConnectionContext = {
-	        lastPongAt: Date.now(),
-	        lastRttMs: 0,
+		      const baseCtx: ConnectionContext = {
+		        lastPongAt: Date.now(),
+		        lastRttMs: 0,
 	        connectionType: 'unknown',
 	        connectedAt: Date.now(),
 	      }
@@ -3869,8 +4036,19 @@ export async function createBridgeServer(options: BridgeServerOptions): Promise<
 	      log(`Client connected (${sockets.size} total)`)
 	      scheduleCloudAuthDeadline(ws)
 	      void sendStatus(ws)
-	    },
+		    },
     close(ws: ServerWebSocket<unknown>) {
+      const proxy = (ws as any).data && (ws as any).data.kind === 'proxy'
+      if (proxy) {
+        const upstream = (ws as any).__proxyUpstream as WebSocket | undefined
+        ;(ws as any).__proxyUpstream = undefined
+        try {
+          upstream?.close()
+        } catch {
+          // ignore
+        }
+        return
+      }
       clearCloudAuthTimer(ws)
       const ctx = contexts.get(ws)
       const disconnectedDeviceId = ctx?.deviceId
@@ -3926,6 +4104,18 @@ export async function createBridgeServer(options: BridgeServerOptions): Promise<
         }
     },
     message(ws: ServerWebSocket<unknown>, raw: string | Uint8Array) {
+      const proxy = (ws as any).data && (ws as any).data.kind === 'proxy'
+      if (proxy) {
+        const upstream = (ws as any).__proxyUpstream as WebSocket | undefined
+        try {
+          if (upstream && upstream.readyState === WebSocket.OPEN) {
+            upstream.send(raw as any)
+          }
+        } catch {
+          // ignore
+        }
+        return
+      }
       const bytes = typeof raw === 'string' ? Buffer.byteLength(raw, 'utf8') : raw.byteLength
       if (bytes > MAX_WS_MESSAGE_BYTES) {
         try {
@@ -3961,9 +4151,12 @@ export async function createBridgeServer(options: BridgeServerOptions): Promise<
 
       const isWebSocketUpgrade = request.headers.get('upgrade')?.toLowerCase() === 'websocket'
       if (isWebSocketUpgrade) {
-        if (sockets.size >= MAX_CLIENTS) {
-          log(`[Security] WS rejected: too many clients (${sockets.size} >= ${MAX_CLIENTS})`)
-          return new Response('Too many clients', { status: 429 })
+        const isProxyWs = url.pathname.startsWith('/proxy-ws/')
+        if (!isProxyWs) {
+          if (sockets.size >= MAX_CLIENTS) {
+            log(`[Security] WS rejected: too many clients (${sockets.size} >= ${MAX_CLIENTS})`)
+            return new Response('Too many clients', { status: 429 })
+          }
         }
         const origin = request.headers.get('origin')
         if (!isAllowedOrigin(origin)) {
@@ -3984,6 +4177,25 @@ export async function createBridgeServer(options: BridgeServerOptions): Promise<
       })()
       const isLoopback = isLoopbackAddress(requestIp)
 
+      // WebSocket proxy for embedded previews (loopback-only, no auth token).
+      // Route format: /proxy-ws/:port/*
+      if (isWebSocketUpgrade && url.pathname.startsWith('/proxy-ws/')) {
+        if (!isLoopback) return new Response('Forbidden', { status: 403 })
+        const rest = url.pathname.slice('/proxy-ws/'.length)
+        const slashIdx = rest.indexOf('/')
+        const portRaw = (slashIdx === -1 ? rest : rest.slice(0, slashIdx)).trim()
+        const port = Number(portRaw)
+        if (!Number.isFinite(port) || port < 1 || port > 65535) {
+          return new Response('Invalid proxy port', { status: 400 })
+        }
+        const upstreamPath = slashIdx === -1 ? '/' : `/${rest.slice(slashIdx + 1)}`
+        const ok = serverInstance.upgrade(request, {
+          data: { kind: 'proxy', port, path: upstreamPath, search: url.search },
+        })
+        if (ok) return
+        return new Response('WebSocket upgrade failed', { status: 500 })
+      }
+
       // Web dashboard bootstrap: allow loopback clients to fetch the current bridge auth token
       // without needing an existing token (avoids token-in-URL and QR pairing for localhost UI).
       if (!isWebSocketUpgrade && request.method === 'GET' && url.pathname === '/api/web/token') {
@@ -4000,6 +4212,18 @@ export async function createBridgeServer(options: BridgeServerOptions): Promise<
             'access-control-allow-headers': 'content-type',
           },
         )
+      }
+
+      // Preview proxy is only allowed from loopback (iframe requests cannot attach auth headers).
+      if (!isWebSocketUpgrade && url.pathname.startsWith('/proxy/')) {
+        if (!isLoopback) return new Response('Forbidden', { status: 403 })
+        // Proxy requests (including POST) never require a bridge auth token.
+        try {
+          return await handleHttp(request)
+        } catch (error) {
+          log(`[HTTP] Error: ${toErrorMessage(error)}`)
+          return publicJson({ error: toPublicErrorMessage(error) }, 500)
+        }
       }
 
       const providedToken = extractTokenFromRequest(url, request)
@@ -4022,6 +4246,7 @@ export async function createBridgeServer(options: BridgeServerOptions): Promise<
         const looksLikeDashboardAsset =
           wantsHtml ||
           url.pathname.startsWith('/assets/') ||
+          url.pathname.startsWith('/proxy/') ||
           url.pathname === '/favicon.ico' ||
           url.pathname === '/manifest.json' ||
           url.pathname === '/robots.txt'
@@ -5110,6 +5335,62 @@ export async function createBridgeServer(options: BridgeServerOptions): Promise<
           const oc = requireOpenCode()
           const fileStatus = await oc.getFileStatus(message.projectPath)
           reply({ type: 'file_status', data: fileStatus })
+          break
+        }
+        case 'git_diff': {
+          const projectPath = safeString(message.projectPath).trim()
+          if (!projectPath) {
+            reply({ type: 'error', message: 'Missing projectPath' })
+            break
+          }
+          const secureCwd = await getSecurePath(projectPath)
+          if (!secureCwd) {
+            reply({ type: 'error', message: 'Access denied' })
+            break
+          }
+
+          const rawPath = safeString((message as any).path).trim()
+          const staged = Boolean((message as any).staged)
+
+          const isSafePathSpec = (p: string) => {
+            if (!p) return true
+            if (p.startsWith('-')) return false
+            if (p.includes('\u0000')) return false
+            // Disallow traversal and absolute paths.
+            if (p.startsWith('/') || p.startsWith('~')) return false
+            if (p.split(/[\\/]+/).includes('..')) return false
+            return true
+          }
+
+          if (rawPath && !isSafePathSpec(rawPath)) {
+            reply({ type: 'error', message: 'Invalid path' })
+            break
+          }
+
+          const args: string[] = ['diff']
+          if (staged) args.push('--staged')
+          args.push('--')
+          if (rawPath) args.push(rawPath)
+
+          const proc = Bun.spawn(['git', ...args], {
+            cwd: secureCwd,
+            stdout: 'pipe',
+            stderr: 'pipe',
+          })
+          const [stdout, stderr] = await Promise.all([
+            new Response(proc.stdout).text(),
+            new Response(proc.stderr).text(),
+          ])
+          const exitCode = await proc.exited
+          if (exitCode !== 0 && stderr.trim()) {
+            reply({ type: 'error', message: stderr.trim().slice(0, 5000) })
+            break
+          }
+          reply({
+            type: 'git_diff',
+            data: { path: rawPath || undefined, diff: stdout, staged },
+            requestId: message.requestId,
+          })
           break
         }
         // Feature 19: Formatter Status

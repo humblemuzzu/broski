@@ -7,6 +7,9 @@ import type {
   CodexTranscriptMessage,
 } from "@/core/types"
 import { usePermissionsStore } from "@/stores/permissions-store"
+import { useCodexCollabStore } from "@/stores/codex-collab-store"
+import { useSettingsStore } from "@/stores/settings-store"
+import { useWorkspaceStore } from "@/stores/workspace-store"
 
 export type ChatRole = "user" | "assistant" | "system"
 
@@ -563,6 +566,23 @@ export const useChatStore = create<ChatState>((set, get) => ({
 
       // Collab events etc.
       if ("type" in msg && typeof (msg as any).type === "string" && (msg as any).type.startsWith("collab_")) {
+        useCodexCollabStore.getState().addEvent(threadId, (msg as any).type, (msg as any).data)
+        // Optional: auto-open spawned threads as chat panels.
+        if ((msg as any).type === "collab_spawn_end") {
+          const data: any = (msg as any).data
+          const newThreadId = typeof data?.newThreadId === "string" ? data.newThreadId : null
+          const statusType = data?.status?.type
+          const ok =
+            statusType === "running" ||
+            statusType === "completed" ||
+            statusType === "pending_init"
+          if (newThreadId && ok && useSettingsStore.getState().autoOpenCodexSpawns) {
+            const baseId = `chat:codex:${newThreadId}`
+            if (!useWorkspaceStore.getState().hasPanelBaseId(baseId)) {
+              useWorkspaceStore.getState().openChat("codex", newThreadId)
+            }
+          }
+        }
         return addSystem(`[Codex] ${(msg as any).type}`)
       }
 

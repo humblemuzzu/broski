@@ -1,13 +1,11 @@
 import * as React from "react"
-import { Send } from "lucide-react"
 import { useVirtualizer } from "@tanstack/react-virtual"
 
 import { useChatStore } from "@/stores/chat-store"
 import { useConnectionStore } from "@/stores/connection-store"
 import { useSessionsStore } from "@/stores/sessions-store"
-import { Button } from "@/components/ui/button"
-import { Input } from "@/components/ui/input"
-import { ToolCallCard } from "@/components/workspace/chat/ToolCallCard"
+import { useWorkspaceStore } from "@/stores/workspace-store"
+import { ChatHeader, MessageItem, ChatInputForm } from "@/components/workspace/chat"
 
 const EMPTY: never[] = []
 
@@ -23,8 +21,8 @@ export function ChatPanel({
   const appendUserMessage = useChatStore((s) => s.appendUserMessage)
   const send = useConnectionStore((s) => s.send)
   const getCwdFor = useSessionsStore((s) => s.getCwdFor)
+  const openPanel = useWorkspaceStore((s) => s.openPanel)
 
-  const [value, setValue] = React.useState("")
   const parentRef = React.useRef<HTMLDivElement | null>(null)
   const stickToBottomRef = React.useRef(true)
 
@@ -52,14 +50,49 @@ export function ChatPanel({
     virtualizer.scrollToIndex(messages.length - 1, { align: "end" })
   }, [messages.length, virtualizer])
 
+  const handleSendMessage = React.useCallback(
+    (value: string) => {
+      appendUserMessage(chatKey, value)
+      const cwd = getCwdFor(agent as any, sessionId)
+      // Send prompt based on active agent.
+      if (agent === "claude-code") {
+        send({ type: "cc_chat", sessionId, prompt: value, cwd } as any)
+      } else if (agent === "codex") {
+        send({ type: "cx_chat", threadId: sessionId, prompt: value, cwd } as any)
+      } else {
+        const trimmed = value.trim()
+        if (trimmed.startsWith("/")) {
+          const cmdLine = trimmed.slice(1)
+          const [command, ...rest] = cmdLine.split(/\s+/)
+          const args = rest.join(" ")
+          if (command) {
+            send({
+              type: "execute_command",
+              sessionId,
+              command,
+              arguments: args,
+              projectPath: cwd,
+            } as any)
+          }
+        } else {
+          send({ type: "chat", sessionId, content: value, projectPath: cwd } as any)
+        }
+      }
+    },
+    [chatKey, appendUserMessage, send, getCwdFor, agent, sessionId]
+  )
+
+  const handleOpenCollab = React.useCallback(() => {
+    openPanel(`collab:${sessionId}`)
+  }, [openPanel, sessionId])
+
   return (
     <div className="flex h-full flex-col">
-      <div className="border-b border-[var(--panel-border)] bg-[var(--panel-header)] px-4 py-3">
-        <div className="text-sm font-semibold">Chat</div>
-        <div className="mt-1 text-xs text-muted-foreground">
-          Session: {sessionId} · Agent: {agent}
-        </div>
-      </div>
+      <ChatHeader
+        sessionId={sessionId}
+        agent={agent}
+        onOpenCollab={agent === "codex" ? handleOpenCollab : undefined}
+      />
 
       <div ref={parentRef} className="flex-1 overflow-auto p-3">
         <div
@@ -75,10 +108,11 @@ export function ChatPanel({
             </div>
           ) : null}
           {virtualizer.getVirtualItems().map((row) => {
-            const m = messages[row.index]
+            const message = messages[row.index]
             return (
-              <div
-                key={m.id}
+              <MessageItem
+                key={message.id}
+                message={message}
                 style={{
                   position: "absolute",
                   top: 0,
@@ -87,67 +121,13 @@ export function ChatPanel({
                   transform: `translateY(${row.start}px)`,
                   paddingBottom: "8px",
                 }}
-              >
-                <div className="rounded-lg border border-[var(--panel-border)] bg-[var(--panel)] p-3">
-                  <div className="text-xs font-semibold text-muted-foreground">
-                    {m.role.toUpperCase()}
-                  </div>
-                  <div className="mt-1 whitespace-pre-wrap text-sm">
-                    {m.text}
-                  </div>
-                  {m.thinking ? (
-                    <details className="mt-2">
-                      <summary className="cursor-pointer text-xs text-muted-foreground">
-                        Thinking
-                      </summary>
-                      <div className="mt-2 whitespace-pre-wrap text-xs text-muted-foreground">
-                        {m.thinking}
-                      </div>
-                    </details>
-                  ) : null}
-                  {m.toolCalls && m.toolCalls.length > 0 ? (
-                    <div className="mt-2 space-y-2">
-                      {m.toolCalls.map((t) => (
-                        <ToolCallCard key={t.id} toolCall={t} />
-                      ))}
-                    </div>
-                  ) : null}
-                </div>
-              </div>
+              />
             )
           })}
         </div>
       </div>
 
-      <form
-        className="border-t border-[var(--panel-border)] bg-[var(--panel-header)] p-3"
-        onSubmit={(e) => {
-          e.preventDefault()
-          if (!value.trim()) return
-          appendUserMessage(chatKey, value)
-          const cwd = getCwdFor(agent as any, sessionId)
-          // Send prompt based on active agent.
-          if (agent === "claude-code") {
-            send({ type: "cc_chat", sessionId, prompt: value, cwd } as any)
-          } else if (agent === "codex") {
-            send({ type: "cx_chat", threadId: sessionId, prompt: value, cwd } as any)
-          } else {
-            send({ type: "chat", sessionId, content: value, projectPath: cwd } as any)
-          }
-          setValue("")
-        }}
-      >
-        <div className="flex items-center gap-2">
-          <Input
-            value={value}
-            onChange={(e) => setValue(e.target.value)}
-            placeholder="Message…"
-          />
-          <Button type="submit" size="icon">
-            <Send className="h-4 w-4" />
-          </Button>
-        </div>
-      </form>
+      <ChatInputForm onSend={handleSendMessage} />
     </div>
   )
 }
