@@ -7,6 +7,13 @@ export const BroskiConfigSchema = z.object({
     lastRunAt: z.string().optional(),
     lastRunVersion: z.string().optional(),
   }).default({}),
+  cloud: z.object({
+    convexHttpBaseUrl: z.string().default("https://neat-gerbil-813.convex.site"),
+    requireEntitlement: z.boolean().default(true),
+    entitlementCacheTtlMs: z.number().default(30_000),
+    entitlementRecheckMs: z.number().default(30 * 60_000),
+    offlineGraceHours: z.number().default(72),
+  }).default({}),
   network: z.object({
     port: z.number().default(18274),
     mode: z.enum(["local", "tailscale", "hotspot-iphone", "hotspot-android"]).default("local"),
@@ -15,6 +22,7 @@ export const BroskiConfigSchema = z.object({
   security: z.object({
     tls: z.boolean().default(true),
     tokenTtlDays: z.number().default(7),
+    verifyCodeSignature: z.boolean().default(false),
   }).default({}),
   agents: z.object({
     opencode: z.boolean().default(true),

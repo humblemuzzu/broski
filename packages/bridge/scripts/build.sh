@@ -46,10 +46,63 @@ mkdir -p "$DIST"
 build_target() {
   BUN_TARGET="$1"
   OUTPUT_NAME="$2"
+  PLATFORM="$3"
 
   echo "  Building ${OUTPUT_NAME} (${BUN_TARGET})..."
   bun build --compile --target="$BUN_TARGET" "$ENTRY" --outfile "${DIST}/${OUTPUT_NAME}"
   echo "    Done."
+
+  # Build native license library (best-effort).
+  # Disabled by default because it adds Rust as a build dependency and may require network access.
+  # Enable explicitly with: BROSKI_BUILD_NATIVE_LICENSE=1
+  if [ "${BROSKI_BUILD_NATIVE_LICENSE:-0}" != "1" ]; then
+    echo "  Skipping native license library build (set BROSKI_BUILD_NATIVE_LICENSE=1 to enable)"
+    return 0
+  fi
+
+  # Only build for host target by default.
+  HOST_TRIPLE=""
+  if command -v rustc >/dev/null 2>&1; then
+    HOST_TRIPLE=$(rustc -vV 2>/dev/null | grep '^host:' | awk '{print $2}')
+  fi
+  RUST_TARGET=""
+  LIB_NAME=""
+  case "$PLATFORM" in
+    darwin-arm64)
+      RUST_TARGET="aarch64-apple-darwin"
+      LIB_NAME="libbroski_license.dylib"
+      ;;
+    darwin-x64)
+      RUST_TARGET="x86_64-apple-darwin"
+      LIB_NAME="libbroski_license.dylib"
+      ;;
+    linux-x64)
+      RUST_TARGET="x86_64-unknown-linux-gnu"
+      LIB_NAME="libbroski_license.so"
+      ;;
+    linux-arm64)
+      RUST_TARGET="aarch64-unknown-linux-gnu"
+      LIB_NAME="libbroski_license.so"
+      ;;
+    windows-x64)
+      RUST_TARGET="x86_64-pc-windows-msvc"
+      LIB_NAME="broski_license.dll"
+      ;;
+  esac
+
+  if [ -n "$RUST_TARGET" ] && [ -n "$HOST_TRIPLE" ] && [ "$RUST_TARGET" = "$HOST_TRIPLE" ] && command -v cargo >/dev/null 2>&1; then
+    echo "  Building native license library (${RUST_TARGET})..."
+    (cd native/license && cargo build --release --target "$RUST_TARGET") || echo "    Warning: native license build failed; continuing without it."
+    SRC_PATH="native/license/target/${RUST_TARGET}/release/${LIB_NAME}"
+    if [ -f "$SRC_PATH" ]; then
+      cp "$SRC_PATH" "${DIST}/${LIB_NAME}"
+      echo "    Native lib copied: ${DIST}/${LIB_NAME}"
+    else
+      echo "    Warning: native lib not found at ${SRC_PATH}"
+    fi
+  else
+    echo "  Skipping native license library build for ${PLATFORM} (host=${HOST_TRIPLE})"
+  fi
 }
 
 TARGETS="
@@ -72,7 +125,7 @@ for pair in $TARGETS; do
     continue
   fi
 
-  build_target "$BUN_TARGET" "$OUTPUT"
+  build_target "$BUN_TARGET" "$OUTPUT" "$PLATFORM"
   BUILT=$((BUILT + 1))
 done
 

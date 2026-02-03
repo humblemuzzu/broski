@@ -130,6 +130,19 @@ class BridgeService {
 
   Stream<Map<String, dynamic>> get messages => _socket.messages;
 
+  // ============================================================
+  // Cloud Auth (Convex session) for licensing
+  // ============================================================
+  Future<void> authSession({required String sessionToken}) async {
+    final requestId = _generateRequestId();
+    _socket.send({
+      'type': 'auth_session',
+      'sessionToken': sessionToken,
+      'requestId': requestId,
+    });
+    await _waitFor('auth_session_ok', requestId: requestId);
+  }
+
   void _dispatchMessage(Map<String, dynamic> message) {
     final requestId = message['requestId'];
     if (requestId is! String || requestId.isEmpty) return;

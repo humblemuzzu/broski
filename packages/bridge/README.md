@@ -117,8 +117,40 @@ broski setup-tailscale
 
 - Random auth token generation (timing-safe)
 - Path validation for file operations
-- All traffic stays peer-to-peer (no cloud)
+- Optional cloud entitlement check (Convex) to enforce Pro access
+- Core agent traffic stays local; only entitlement checks hit the cloud
 - Optional Tailscale WireGuard encryption
+
+## Pro licensing (paid-only)
+
+The bridge can enforce that a user has an active subscription by verifying a cloud session (Convex) and caching a **machine-bound signed license** locally with a **72 hour offline grace**.
+
+**Convex env vars**
+
+- `BROSKI_LICENSE_PRIVATE_KEY_PKCS8_B64URL` (required): Ed25519 private key (PKCS8 DER, base64url) used to sign licenses.
+- `BROSKI_LICENSE_OFFLINE_GRACE_HOURS` (optional, default `72`): max offline duration before the bridge locks again.
+- `BROSKI_MAX_MACHINES` (optional, default `3`): max active machines per account.
+
+Generate keys (developer-only):
+
+```bash
+node scripts/generate-license-keys.mjs
+```
+
+Then paste the public key into `packages/bridge/src/license/fallback.ts` and set the private key in your Convex environment.
+
+**Bridge config**
+
+The bridge reads `~/.broski/config.json`. Defaults are production-safe:
+- `cloud.convexHttpBaseUrl` defaults to `https://neat-gerbil-813.convex.site`
+- `cloud.requireEntitlement` defaults to `true`
+- `cloud.offlineGraceHours` defaults to `72`
+
+To build with the optional native license library:
+
+```bash
+BROSKI_BUILD_NATIVE_LICENSE=1 bun run build --target darwin-arm64
+```
 
 ## Links
 

@@ -1,7 +1,7 @@
 import { httpRouter } from "convex/server";
 import { httpAction } from "./_generated/server";
 import { internal } from "./_generated/api";
-import { createRemoteJWKSet, jwtVerify } from "jose";
+import { CompactSign, createRemoteJWKSet, importPKCS8, jwtVerify } from "jose";
 
 const http = httpRouter();
 
@@ -22,6 +22,49 @@ async function sha256Hex(input: string) {
   return Array.from(new Uint8Array(digest))
     .map((b) => b.toString(16).padStart(2, "0"))
     .join("");
+}
+
+function base64UrlToBase64(b64url: string): string {
+  const normalized = b64url.replace(/-/g, "+").replace(/_/g, "/");
+  const padLen = (4 - (normalized.length % 4)) % 4;
+  return normalized + "=".repeat(padLen);
+}
+
+function derB64UrlToPem(derB64Url: string, label: "PRIVATE KEY" | "PUBLIC KEY"): string {
+  const b64 = base64UrlToBase64(derB64Url);
+  const lines = b64.match(/.{1,64}/g) ?? [];
+  return `-----BEGIN ${label}-----\n${lines.join("\n")}\n-----END ${label}-----\n`;
+}
+
+function getMaxMachines(): number {
+  const raw = process.env.BROSKI_MAX_MACHINES ?? "3";
+  const n = Number(raw);
+  if (!Number.isFinite(n) || n <= 0) return 3;
+  return Math.min(Math.max(Math.floor(n), 1), 10);
+}
+
+async function hmacSha256Hex(secret: string, message: string) {
+  const enc = new TextEncoder();
+  const key = await crypto.subtle.importKey(
+    "raw",
+    enc.encode(secret),
+    { name: "HMAC", hash: "SHA-256" },
+    false,
+    ["sign"],
+  );
+  const sig = await crypto.subtle.sign("HMAC", key, enc.encode(message));
+  return Array.from(new Uint8Array(sig))
+    .map((b) => b.toString(16).padStart(2, "0"))
+    .join("");
+}
+
+function timingSafeEqualHex(a: string, b: string) {
+  if (a.length !== b.length) return false;
+  let out = 0;
+  for (let i = 0; i < a.length; i++) {
+    out |= a.charCodeAt(i) ^ b.charCodeAt(i);
+  }
+  return out === 0;
 }
 
 function getBearerToken(req: Request) {
@@ -229,6 +272,92 @@ http.route({
     const auth = await requireSession(ctx, req);
     if (!auth.ok) return auth.response;
     return json({ ok: true, user: publicUser(auth.user) });
+  }),
+});
+
+http.route({
+  path: "/me/license",
+  method: "POST",
+  handler: httpAction(async (ctx, req) => {
+    const auth = await requireSession(ctx, req);
+    if (!auth.ok) return auth.response;
+
+    let body: any;
+    try {
+      body = await req.json();
+    } catch {
+      return error("Invalid JSON body", 400);
+    }
+
+    const machineIdHash =
+      typeof body?.machineIdHash === "string" ? body.machineIdHash.trim() : "";
+    if (machineIdHash.length < 16 || machineIdHash.length > 128) {
+      return error("Missing machineIdHash", 400);
+    }
+
+    const maxMachines = getMaxMachines();
+    const upsert = await ctx.runMutation(internal.machines.upsertMachine, {
+      userId: auth.user._id,
+      machineIdHash,
+      maxMachines,
+    });
+    if (!upsert.ok) {
+      return error("Too many machines on this account", 403);
+    }
+
+    const privDerB64Url = (process.env.BROSKI_LICENSE_PRIVATE_KEY_PKCS8_B64URL ?? "").trim();
+    if (!privDerB64Url) {
+      return error("License signing key not configured", 500);
+    }
+
+    let key: CryptoKey;
+    try {
+      const privPem = derB64UrlToPem(privDerB64Url, "PRIVATE KEY");
+      key = await importPKCS8(privPem, "EdDSA");
+    } catch {
+      return error("Invalid license signing key", 500);
+    }
+
+    const nowSec = Math.floor(Date.now() / 1000);
+    const graceHoursRaw = Number(process.env.BROSKI_LICENSE_OFFLINE_GRACE_HOURS ?? "72");
+    const graceHours = Number.isFinite(graceHoursRaw) ? graceHoursRaw : 72;
+    const graceSec = Math.min(Math.max(graceHours, 1), 168) * 60 * 60; // cap 7 days
+
+    const entitled = !!auth.user.subscription?.entitlementActive;
+    const status = auth.user.subscription?.status ?? (entitled ? "active" : "inactive");
+    const subscriptionExpiresAtMs = auth.user.subscription?.expiresAtMs ?? null;
+    const subscriptionExpSec =
+      subscriptionExpiresAtMs != null ? Math.floor(subscriptionExpiresAtMs / 1000) : null;
+
+    let exp = nowSec + graceSec;
+    if (subscriptionExpSec != null) {
+      exp = Math.min(exp, subscriptionExpSec);
+    }
+    // If not entitled, keep the token short-lived to reduce stale caching.
+    if (!entitled) {
+      exp = Math.min(exp, nowSec + 300);
+    }
+
+    const payload = {
+      appUserId: auth.user.appUserId,
+      sessionTokenHash: auth.tokenHash,
+      machineIdHash,
+      entitled,
+      status,
+      iat: nowSec,
+      exp,
+    };
+
+    let jws: string;
+    try {
+      jws = await new CompactSign(new TextEncoder().encode(JSON.stringify(payload)))
+        .setProtectedHeader({ alg: "EdDSA", typ: "BRSK-LICENSE", kid: "v1" })
+        .sign(key);
+    } catch {
+      return error("Failed to sign license", 500);
+    }
+
+    return json({ ok: true, license: jws, payload });
   }),
 });
 
@@ -466,6 +595,94 @@ http.route({
       expiresAtMs,
       store,
       environment,
+      raw: sanitizedRaw,
+    });
+
+    return json({ ok: true });
+  }),
+});
+
+http.route({
+  path: "/webhooks/stripe",
+  method: "POST",
+  handler: httpAction(async (ctx, req) => {
+    const secret = process.env.STRIPE_WEBHOOK_SECRET;
+    if (!secret) {
+      return error("Stripe webhook secret not configured", 500);
+    }
+
+    const sigHeader =
+      req.headers.get("stripe-signature") ?? req.headers.get("Stripe-Signature");
+    if (!sigHeader) {
+      return error("Missing Stripe-Signature header", 400);
+    }
+
+    const rawBody = await req.text();
+
+    // Stripe signature header shape: "t=...,v1=...,v1=..."
+    const parts = sigHeader.split(",").map((p) => p.trim());
+    const timestampPart = parts.find((p) => p.startsWith("t="));
+    const v1Parts = parts.filter((p) => p.startsWith("v1="));
+    const ts = timestampPart ? Number(timestampPart.slice(2)) : NaN;
+    const signatures = v1Parts.map((p) => p.slice(3)).filter(Boolean);
+
+    if (!Number.isFinite(ts) || signatures.length === 0) {
+      return error("Invalid Stripe-Signature header", 400);
+    }
+
+    // 5 minute replay tolerance (Stripe recommends short tolerances).
+    const toleranceSec = Number(process.env.STRIPE_WEBHOOK_TOLERANCE_SEC ?? "300");
+    if (Math.abs(Date.now() / 1000 - ts) > toleranceSec) {
+      return error("Webhook timestamp outside tolerance", 400);
+    }
+
+    const signedPayload = `${ts}.${rawBody}`;
+    const expected = await hmacSha256Hex(secret, signedPayload);
+    const ok = signatures.some((sig) => timingSafeEqualHex(sig, expected));
+    if (!ok) {
+      return error("Invalid Stripe webhook signature", 401);
+    }
+
+    let event: any;
+    try {
+      event = JSON.parse(rawBody);
+    } catch {
+      return error("Invalid JSON body", 400);
+    }
+
+    const receivedAtMs = Date.now();
+    const eventType = typeof event?.type === "string" ? event.type : undefined;
+    const stripeEventId = typeof event?.id === "string" ? event.id : undefined;
+    const obj = event?.data?.object;
+
+    // We expect subscription events to carry metadata.appUserId.
+    const metaAppUserId =
+      typeof obj?.metadata?.appUserId === "string" ? obj.metadata.appUserId : undefined;
+    const stripeCustomerId =
+      typeof obj?.customer === "string"
+        ? obj.customer
+        : typeof obj?.customer?.id === "string"
+          ? obj.customer.id
+          : undefined;
+    const stripeSubscriptionId =
+      typeof obj?.id === "string" ? obj.id : undefined;
+    const status = typeof obj?.status === "string" ? obj.status : undefined;
+    const currentPeriodEndMs =
+      typeof obj?.current_period_end === "number"
+        ? obj.current_period_end * 1000
+        : undefined;
+
+    const sanitizedRaw = sanitizeForConvex(event);
+
+    await ctx.runMutation(internal.stripe.recordEventAndUpdateUser, {
+      receivedAtMs,
+      eventType,
+      stripeEventId,
+      appUserId: metaAppUserId,
+      stripeCustomerId,
+      stripeSubscriptionId,
+      status,
+      currentPeriodEndMs,
       raw: sanitizedRaw,
     });
 

@@ -31,10 +31,13 @@ export default defineSchema({
       v.object({
         entitlementActive: v.boolean(),
         status: v.string(),
+        source: v.optional(v.string()), // "revenuecat" | "stripe" (string to keep migrations flexible)
         productId: v.optional(v.string()),
         expiresAtMs: v.optional(v.number()),
         store: v.optional(v.string()),
         environment: v.optional(v.string()),
+        stripeCustomerId: v.optional(v.string()),
+        stripeSubscriptionId: v.optional(v.string()),
         lastEventType: v.optional(v.string()),
         lastEventAtMs: v.optional(v.number()),
       }),
@@ -75,6 +78,31 @@ export default defineSchema({
     raw: v.optional(v.any()),
   }).index("by_appUserId", ["appUserId"]),
 
+  machines: defineTable({
+    userId: v.id("users"),
+    machineIdHash: v.string(), // stable hash produced by the bridge (not raw hardware identifiers)
+    firstSeenAtMs: v.number(),
+    lastSeenAtMs: v.number(),
+    revokedAtMs: v.optional(v.number()),
+  })
+    .index("by_user_machine", ["userId", "machineIdHash"])
+    .index("by_machineIdHash", ["machineIdHash"])
+    .index("by_userId", ["userId"]),
+
+  stripeEvents: defineTable({
+    receivedAtMs: v.number(),
+    eventType: v.optional(v.string()),
+    stripeEventId: v.optional(v.string()),
+    appUserId: v.optional(v.string()),
+    stripeCustomerId: v.optional(v.string()),
+    stripeSubscriptionId: v.optional(v.string()),
+    status: v.optional(v.string()),
+    currentPeriodEndMs: v.optional(v.number()),
+    raw: v.optional(v.any()),
+  })
+    .index("by_appUserId", ["appUserId"])
+    .index("by_stripeEventId", ["stripeEventId"]),
+
   deletedAccounts: defineTable({
     // SHA-256 hash of lowercase email — NOT the raw email (GDPR-safe)
     hashedEmail: v.optional(v.string()),
@@ -106,4 +134,3 @@ export default defineSchema({
     .index("by_version", ["version"])
     .index("by_installedAt", ["installedAtMs"]),
 });
-

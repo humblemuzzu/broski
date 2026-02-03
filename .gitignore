@@ -135,6 +135,11 @@ config.json
 **/dist/
 packages/bridge/dist/
 
+# Rust build artifacts
+**/target/
+*.dylib
+*.d
+
 # Convex
 convex/_generated/
 .asc/

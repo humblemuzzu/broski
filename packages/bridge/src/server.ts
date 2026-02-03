@@ -12,7 +12,8 @@ import * as fileSearch from './file-search'
 import { CodexAppServerClient, checkCodexAvailable } from './connectors/codex'
 import { headTailTruncate } from './utils'
 import { ensureTlsMaterial, isTlsEnabledByEnv, type TlsMaterial } from './tls'
-import { getDefaultAllowedPaths, IS_WINDOWS } from './platform'
+import { getDefaultAllowedPaths, IS_WINDOWS, isCompiledBinary } from './platform'
+import { loadLocalLicenseState, refreshLocalLicenseFromCloud, type LocalLicenseState } from './license'
 
 const TOKEN_FILE_LEGACY = resolve(homedir(), '.broski', 'token')
 const TOKEN_FILE = resolve(homedir(), '.broski', 'token.json')
@@ -42,6 +43,14 @@ function structuredPatchToUnifiedDiff(filePath: string, patches: unknown): strin
 
 function safeString(value: unknown): string {
   return typeof value === 'string' ? value : ''
+}
+
+function isTruthyEnv(value: string | undefined, fallback: boolean): boolean {
+  if (value == null) return fallback
+  const v = value.trim().toLowerCase()
+  if (v === '1' || v === 'true' || v === 'yes' || v === 'on') return true
+  if (v === '0' || v === 'false' || v === 'no' || v === 'off') return false
+  return fallback
 }
 
 function hasPrototypePoisonKeys(value: unknown, depth = 0): boolean {
@@ -295,8 +304,9 @@ type AuthTokenState = {
   lastUsedAt?: number
 }
 
-function getTokenTtlMs(): number {
-  const days = Number(process.env.BROSKI_TOKEN_TTL_DAYS ?? '7')
+function getTokenTtlMs(tokenTtlDays?: number): number {
+  const envDays = Number(process.env.BROSKI_TOKEN_TTL_DAYS ?? '7')
+  const days = tokenTtlDays ?? (Number.isFinite(envDays) ? envDays : 7)
   const ttlMs = Math.floor((Number.isFinite(days) ? days : 7) * 24 * 60 * 60 * 1000)
   // Minimum: 1 hour, Maximum: 90 days (defense-in-depth against misconfig)
   return Math.min(Math.max(ttlMs, 60 * 60 * 1000), 90 * 24 * 60 * 60 * 1000)
@@ -314,9 +324,9 @@ async function persistAuthState(state: AuthTokenState): Promise<void> {
   await writeFile(TOKEN_FILE, JSON.stringify(state), { mode: 0o600 })
 }
 
-async function createNewAuthState(now = Date.now()): Promise<AuthTokenState> {
+async function createNewAuthState(now = Date.now(), tokenTtlDays?: number): Promise<AuthTokenState> {
   const token = generateAuthToken()
-  const ttlMs = getTokenTtlMs()
+  const ttlMs = getTokenTtlMs(tokenTtlDays)
   const state: AuthTokenState = {
     version: 1,
     token,
@@ -334,7 +344,7 @@ async function createNewAuthState(now = Date.now()): Promise<AuthTokenState> {
   return state
 }
 
-export async function loadOrCreateAuthState(forceNew = false): Promise<AuthTokenState> {
+export async function loadOrCreateAuthState(forceNew = false, tokenTtlDays?: number): Promise<AuthTokenState> {
   const now = Date.now()
 
   if (!forceNew) {
@@ -344,13 +354,13 @@ export async function loadOrCreateAuthState(forceNew = false): Promise<AuthToken
       const parsed = JSON.parse(raw) as Partial<AuthTokenState>
       const token = typeof parsed.token === 'string' ? parsed.token.trim() : ''
       const createdAt = Number(parsed.createdAt ?? 0) || now
-      const expiresAt = Number(parsed.expiresAt ?? 0) || (createdAt + getTokenTtlMs())
+      const expiresAt = Number(parsed.expiresAt ?? 0) || (createdAt + getTokenTtlMs(tokenTtlDays))
       const lastUsedAt = Number(parsed.lastUsedAt ?? 0) || undefined
 
       if (parsed.version === 1 && isLikelyValidToken(token)) {
         if (now > expiresAt) {
           // Rotate on read if expired.
-          return await createNewAuthState(now)
+          return await createNewAuthState(now, tokenTtlDays)
         }
         const state: AuthTokenState = {
           version: 1,
@@ -372,7 +382,7 @@ export async function loadOrCreateAuthState(forceNew = false): Promise<AuthToken
       const existing = await readFile(TOKEN_FILE_LEGACY, 'utf-8')
       const token = existing.trim()
       if (isLikelyValidToken(token)) {
-        const ttlMs = getTokenTtlMs()
+        const ttlMs = getTokenTtlMs(tokenTtlDays)
         const state: AuthTokenState = {
           version: 1,
           token,
@@ -393,12 +403,12 @@ export async function loadOrCreateAuthState(forceNew = false): Promise<AuthToken
     }
   }
 
-  return await createNewAuthState(now)
+  return await createNewAuthState(now, tokenTtlDays)
 }
 
 // Load or create persistent auth token (compat API for older callers)
-export async function loadOrCreateAuthToken(forceNew = false): Promise<string> {
-  const state = await loadOrCreateAuthState(forceNew)
+export async function loadOrCreateAuthToken(forceNew = false, tokenTtlDays?: number): Promise<string> {
+  const state = await loadOrCreateAuthState(forceNew, tokenTtlDays)
   return state.token
 }
 
@@ -615,6 +625,14 @@ export type BridgeServerOptions = {
   currentAgent?: AgentType
   version: string
   auth: AuthTokenState
+  tokenTtlDays?: number
+  cloud?: {
+    convexHttpBaseUrl?: string
+    requireEntitlement?: boolean
+    entitlementCacheTtlMs?: number
+    entitlementRecheckMs?: number
+    offlineGraceHours?: number
+  }
   /**
    * When true, also starts a loopback-only plaintext WS/HTTP server used for
    * Tailscale Funnel (which terminates TLS at the edge and proxies to localhost).
@@ -635,20 +653,29 @@ export type BridgeServer = {
   tls: () => { enabled: boolean; certSha256: string | null }
 }
 
-type ConnectionContext = {
-  projectPath?: string
-  sessionId?: string
-  viewAgent?: AgentType
-  lastPongAt: number
-  lastRttMs: number
-  pendingPing?: { id: string; sentAt: number }
-  connectionType: 'local' | 'tailscale' | 'unknown'
-  deviceId?: string
-  deviceName?: string
-  platform?: string
-  protocolVersion?: string
-  connectedAt: number
-}
+	type ConnectionContext = {
+	  projectPath?: string
+	  sessionId?: string
+	  viewAgent?: AgentType
+	  lastPongAt: number
+	  lastRttMs: number
+	  pendingPing?: { id: string; sentAt: number }
+	  connectionType: 'local' | 'tailscale' | 'unknown'
+	  deviceId?: string
+	  deviceName?: string
+	  platform?: string
+	  protocolVersion?: string
+	  connectedAt: number
+	  // Cloud-authenticated session (Convex) for licensing/entitlements.
+	  cloudAuthed?: boolean
+	  cloudAppUserId?: string
+	  cloudEntitled?: boolean
+	  cloudStatus?: string
+	  cloudCheckedAt?: number
+	  cloudSessionToken?: string
+	  cloudSessionTokenHash?: string
+	  licenseExpSec?: number
+	}
 
 type ClientQueue = {
   queue: unknown[]
@@ -686,6 +713,225 @@ export async function createBridgeServer(options: BridgeServerOptions): Promise<
   const sockets = new Set<ServerWebSocket<unknown>>()
   const contexts = new Map<ServerWebSocket<unknown>, ConnectionContext>()
   const clientQueues = new Map<ServerWebSocket<unknown>, ClientQueue>()
+  const cloudAuthTimers = new Map<ServerWebSocket<unknown>, Timer>()
+  let localLicense: LocalLicenseState | null = null
+  const ENTITLEMENT_CACHE_TTL_MS = Math.max(
+    5_000,
+    Math.min(Number(options.cloud?.entitlementCacheTtlMs ?? process.env.BROSKI_ENTITLEMENT_CACHE_TTL_MS ?? '30000'), 10 * 60 * 1000),
+  )
+  const ENTITLEMENT_RECHECK_MS = Math.max(
+    60_000,
+    Math.min(Number(options.cloud?.entitlementRecheckMs ?? process.env.BROSKI_ENTITLEMENT_RECHECK_MS ?? String(30 * 60_000)), 24 * 60 * 60 * 1000),
+  )
+  const OFFLINE_GRACE_MS = Math.max(
+    0,
+    Math.min(Number(options.cloud?.offlineGraceHours ?? process.env.BROSKI_LICENSE_OFFLINE_GRACE_HOURS ?? '72') * 60 * 60 * 1000, 7 * 24 * 60 * 60 * 1000),
+  )
+  const entitlementCache = new Map<
+    string,
+    { checkedAt: number; appUserId: string; entitled: boolean; status?: string }
+  >()
+
+  try {
+    localLicense = await loadLocalLicenseState()
+    if (localLicense?.entitled) {
+      const expInSec = Math.max(0, localLicense.exp - Math.floor(Date.now() / 1000))
+      log(`[License] Local license loaded (expires in ${Math.floor(expInSec / 60)} min)`)
+    }
+  } catch {
+    // ignore
+  }
+
+  const clearCloudAuthTimer = (ws: ServerWebSocket<unknown>) => {
+    const t = cloudAuthTimers.get(ws)
+    if (t) clearTimeout(t)
+    cloudAuthTimers.delete(ws)
+  }
+
+  const scheduleCloudAuthDeadline = (ws: ServerWebSocket<unknown>) => {
+    clearCloudAuthTimer(ws)
+    if (!requireEntitlement) return
+    const t = setTimeout(() => {
+      const ctx = contexts.get(ws)
+      if (ctx?.cloudAuthed) return
+      try {
+        send(ws, { type: 'error', message: 'CLOUD_AUTH_REQUIRED', code: 'CLOUD_AUTH_REQUIRED' })
+      } catch {
+        // ignore
+      }
+      try {
+        ws.close(4401, 'Cloud auth required')
+      } catch {
+        // ignore
+      }
+    }, 10_000)
+    cloudAuthTimers.set(ws, t)
+  }
+
+	  const refreshCloudEntitlement = async (
+	    ws: ServerWebSocket<unknown>,
+	    ctx: ConnectionContext,
+	    reason: string,
+	  ): Promise<void> => {
+	    if (!requireEntitlement) return
+	    if (!convexHttpBaseUrl) return
+	    const sessionToken = ctx.cloudSessionToken
+	    if (!sessionToken) return
+
+    const now = Date.now()
+    if (ctx.cloudCheckedAt && now - ctx.cloudCheckedAt < ENTITLEMENT_RECHECK_MS) return
+
+    const tokenHash = createHash('sha256').update(sessionToken, 'utf8').digest('hex')
+	    const cached = entitlementCache.get(tokenHash)
+	    if (cached && now - cached.checkedAt <= ENTITLEMENT_CACHE_TTL_MS) {
+	      contexts.set(ws, {
+	        ...ctx,
+	        cloudAuthed: true,
+	        cloudAppUserId: cached.appUserId,
+	        cloudEntitled: cached.entitled,
+	        cloudStatus: cached.status,
+	        cloudCheckedAt: cached.checkedAt,
+	        cloudSessionTokenHash: tokenHash,
+	        licenseExpSec: localLicense?.sessionTokenHash === tokenHash ? localLicense.exp : undefined,
+	      })
+	      if (!cached.entitled) {
+	        try {
+	          ws.close(4403, 'License required')
+	        } catch {
+	          // ignore
+	        }
+	      }
+	      return
+	    }
+
+	    try {
+	      const refreshed = await refreshLocalLicenseFromCloud({
+	        convexHttpBaseUrl,
+	        sessionToken,
+	      })
+
+	      if (!refreshed.ok) {
+	        if (refreshed.status === 401) {
+	          try {
+	            ws.close(4401, 'Invalid session')
+	          } catch {
+	            // ignore
+	          }
+	          return
+	        }
+
+	        // Keep working if we have a valid local license for this session and it's not expired.
+	        const nowSec = Math.floor(Date.now() / 1000)
+	        if (
+	          localLicense?.entitled &&
+	          localLicense.sessionTokenHash === tokenHash &&
+	          nowSec <= localLicense.exp
+	        ) {
+	          contexts.set(ws, {
+	            ...ctx,
+	            cloudAuthed: true,
+	            cloudAppUserId: localLicense.appUserId,
+	            cloudEntitled: true,
+	            cloudStatus: localLicense.status,
+	            cloudCheckedAt: now,
+	            cloudSessionTokenHash: tokenHash,
+	            licenseExpSec: localLicense.exp,
+	          })
+	          log(`[CloudAuth] Refresh failed (${reason}); using valid local license`)
+	          return
+	        }
+
+	        if (cached && cached.entitled && now - cached.checkedAt <= OFFLINE_GRACE_MS) {
+	          contexts.set(ws, {
+	            ...ctx,
+	            cloudAuthed: true,
+	            cloudAppUserId: cached.appUserId,
+	            cloudEntitled: cached.entitled,
+	            cloudStatus: cached.status,
+	            cloudCheckedAt: cached.checkedAt,
+	            cloudSessionTokenHash: tokenHash,
+	            licenseExpSec: localLicense?.sessionTokenHash === tokenHash ? localLicense.exp : undefined,
+	          })
+	          log(`[CloudAuth] Offline grace applied during refresh (${reason})`)
+	          return
+	        }
+
+	        if (refreshed.status === 403) {
+	          try {
+	            ws.close(4403, 'License required')
+	          } catch {
+	            // ignore
+	          }
+	          return
+	        }
+
+	        log(`[CloudAuth] Refresh failed (${reason}): ${refreshed.code} ${refreshed.message}`)
+	        return
+	      }
+
+	      if (refreshed.state.entitled) localLicense = refreshed.state
+	      const record = {
+	        checkedAt: now,
+	        appUserId: refreshed.state.appUserId,
+	        entitled: refreshed.state.entitled,
+	        ...(refreshed.state.status ? { status: refreshed.state.status } : {}),
+	      }
+	      entitlementCache.set(tokenHash, record)
+	      contexts.set(ws, {
+	        ...ctx,
+	        cloudAuthed: true,
+	        cloudAppUserId: refreshed.state.appUserId,
+	        cloudEntitled: refreshed.state.entitled,
+	        cloudStatus: refreshed.state.status,
+	        cloudCheckedAt: record.checkedAt,
+	        cloudSessionTokenHash: tokenHash,
+	        licenseExpSec: refreshed.state.exp,
+	      })
+	      if (!refreshed.state.entitled) {
+	        try {
+	          ws.close(4403, 'License required')
+	        } catch {
+	          // ignore
+	        }
+	      }
+	    } catch (error) {
+	      const nowSec = Math.floor(Date.now() / 1000)
+	      if (
+	        localLicense?.entitled &&
+	        localLicense.sessionTokenHash === tokenHash &&
+	        nowSec <= localLicense.exp
+	      ) {
+	        contexts.set(ws, {
+	          ...ctx,
+	          cloudAuthed: true,
+	          cloudAppUserId: localLicense.appUserId,
+	          cloudEntitled: true,
+	          cloudStatus: localLicense.status,
+	          cloudCheckedAt: now,
+	          cloudSessionTokenHash: tokenHash,
+	          licenseExpSec: localLicense.exp,
+	        })
+	        log(`[CloudAuth] Cloud unreachable during refresh (${reason}); using valid local license`)
+	        return
+	      }
+
+	      if (cached && cached.entitled && now - cached.checkedAt <= OFFLINE_GRACE_MS) {
+	        contexts.set(ws, {
+	          ...ctx,
+	          cloudAuthed: true,
+	          cloudAppUserId: cached.appUserId,
+	          cloudEntitled: cached.entitled,
+	          cloudStatus: cached.status,
+	          cloudCheckedAt: cached.checkedAt,
+	          cloudSessionTokenHash: tokenHash,
+	          licenseExpSec: localLicense?.sessionTokenHash === tokenHash ? localLicense.exp : undefined,
+	        })
+	        log(`[CloudAuth] Offline grace applied during refresh (${reason})`)
+	        return
+	      }
+	      log(`[CloudAuth] Refresh failed (${reason}): ${toErrorMessage(error)}`)
+	    }
+	  }
   // Dedupe chat prompts (prevents resend storms on flaky networks).
   const recentChatMessageIds = new Map<string, number>() // key: `${sessionId}:${messageId}` -> tsMs
   const ptyConnections = new Map<string, WebSocket>()
@@ -815,12 +1061,34 @@ export async function createBridgeServer(options: BridgeServerOptions): Promise<
   let currentAgent: AgentType = options.currentAgent || 'opencode'
   const lastGitBranchByProject = new Map<string, string>()
   
-  let authState: AuthTokenState = options.auth
-  let authToken = authState.token
-  let authExpiresAt = authState.expiresAt
-  const allowTokenInUrl = process.env.BROSKI_ALLOW_TOKEN_IN_URL === '1'
-  const tlsEnabled = isTlsEnabledByEnv()
-  let tlsMaterial: TlsMaterial | null = null
+	  let authState: AuthTokenState = options.auth
+	  let authToken = authState.token
+	  let authExpiresAt = authState.expiresAt
+	  const allowTokenInUrl = process.env.BROSKI_ALLOW_TOKEN_IN_URL === '1'
+	  const compiled = isCompiledBinary()
+	  // In production binaries, do not allow environment flags to weaken enforcement.
+	  const requireEntitlement = compiled ? true : isTruthyEnv(process.env.BROSKI_REQUIRE_ENTITLEMENT, !!options.cloud?.requireEntitlement)
+	  const convexHttpBaseUrlRaw = (
+	    compiled
+	      ? (options.cloud?.convexHttpBaseUrl ?? '')
+	      : (options.cloud?.convexHttpBaseUrl ?? process.env.BROSKI_CONVEX_HTTP_BASE_URL ?? process.env.CONVEX_HTTP_BASE_URL ?? '')
+	  )
+	    .trim()
+	    .replace(/\/+$/, '')
+	  const convexHttpBaseUrl = (() => {
+	    if (!convexHttpBaseUrlRaw) return ''
+	    try {
+	      const u = new URL(convexHttpBaseUrlRaw)
+	      if (u.protocol !== 'https:' && !(u.protocol === 'http:' && !compiled)) return ''
+	      // Cheap "pinning": require Convex HTTPS hostnames in production.
+	      if (compiled && !u.hostname.endsWith('.convex.site')) return ''
+	      return `${u.protocol}//${u.host}`
+	    } catch {
+	      return ''
+	    }
+	  })()
+	  const tlsEnabled = isTlsEnabledByEnv()
+	  let tlsMaterial: TlsMaterial | null = null
 
   // Claude Code filesystem watchers (skills/plugins/hook/command updates).
   const ccFsWatchers = new Map<string, { watcher: FSWatcher; debounce: Timer | null; kind: 'skills' | 'plugins' | 'hooks' | 'commands' | 'mcp'; cwd?: string }>()
@@ -3278,6 +3546,19 @@ export async function createBridgeServer(options: BridgeServerOptions): Promise<
     }
   }, TICK_INTERVAL_MS)
 
+  // Periodic entitlement refresh (best-effort). This makes revocations take effect
+  // without requiring the client to reconnect.
+  const entitlementRefreshTimer = setInterval(() => {
+    if (!requireEntitlement) return
+    void (async () => {
+      for (const ws of sockets) {
+        const ctx = contexts.get(ws)
+        if (!ctx?.cloudAuthed || !ctx.cloudSessionToken) continue
+        await refreshCloudEntitlement(ws, ctx, 'timer')
+      }
+    })().catch(() => {})
+  }, 60_000)
+
   const handleHttp = async (request: Request): Promise<Response> => {
     const url = new URL(request.url)
 
@@ -3285,7 +3566,56 @@ export async function createBridgeServer(options: BridgeServerOptions): Promise<
       return jsonResponse({ status: 'ok', version })
     }
 
-    if (url.pathname === '/projects') {
+	    if (url.pathname === '/projects') {
+	      if (requireEntitlement) {
+	        const cloudSession = safeString(request.headers.get('x-broski-session')).trim()
+	        if (!cloudSession) {
+	          return publicJson({ error: 'LICENSE_REQUIRED' }, 402)
+	        }
+	        const tokenHash = createHash('sha256').update(cloudSession, 'utf8').digest('hex')
+	        const cached = entitlementCache.get(tokenHash)
+	        const now = Date.now()
+	        if (cached && now - cached.checkedAt <= ENTITLEMENT_CACHE_TTL_MS) {
+	          if (!cached.entitled) return publicJson({ error: 'LICENSE_REQUIRED' }, 402)
+	        } else if (convexHttpBaseUrl) {
+	          try {
+	            const refreshed = await refreshLocalLicenseFromCloud({
+	              convexHttpBaseUrl,
+	              sessionToken: cloudSession,
+	            })
+	            if (!refreshed.ok) {
+	              if (refreshed.status === 401) return publicJson({ error: 'INVALID_SESSION' }, 401)
+	              if (refreshed.status === 403) return publicJson({ error: 'LICENSE_REQUIRED' }, 402)
+
+	              const nowSec = Math.floor(Date.now() / 1000)
+	              if (
+	                localLicense?.entitled &&
+	                localLicense.sessionTokenHash === tokenHash &&
+	                nowSec <= localLicense.exp
+	              ) {
+	                // allow via local license
+	              } else if (!(cached && cached.entitled && now - cached.checkedAt <= OFFLINE_GRACE_MS)) {
+	                return publicJson({ error: 'CLOUD_AUTH_FAILED' }, 503)
+	              }
+	            } else {
+	              if (refreshed.state.entitled) localLicense = refreshed.state
+	              entitlementCache.set(tokenHash, {
+	                checkedAt: now,
+	                appUserId: refreshed.state.appUserId,
+	                entitled: refreshed.state.entitled,
+	                ...(refreshed.state.status ? { status: refreshed.state.status } : {}),
+	              })
+	              if (!refreshed.state.entitled) return publicJson({ error: 'LICENSE_REQUIRED' }, 402)
+	            }
+	          } catch {
+	            if (!(cached && cached.entitled && now - cached.checkedAt <= OFFLINE_GRACE_MS)) {
+	              return publicJson({ error: 'CLOUD_AUTH_FAILED' }, 503)
+	            }
+	          }
+	        } else {
+	          return publicJson({ error: 'CLOUD_AUTH_UNAVAILABLE' }, 503)
+	        }
+	      }
       if (!opencode) {
         return jsonResponse({ error: 'OpenCode not available' }, 503)
       }
@@ -3297,7 +3627,56 @@ export async function createBridgeServer(options: BridgeServerOptions): Promise<
       }
     }
 
-    if (url.pathname === '/browse') {
+	    if (url.pathname === '/browse') {
+	      if (requireEntitlement) {
+	        const cloudSession = safeString(request.headers.get('x-broski-session')).trim()
+	        if (!cloudSession) {
+	          return publicJson({ error: 'LICENSE_REQUIRED' }, 402)
+	        }
+	        const tokenHash = createHash('sha256').update(cloudSession, 'utf8').digest('hex')
+	        const cached = entitlementCache.get(tokenHash)
+	        const now = Date.now()
+	        if (cached && now - cached.checkedAt <= ENTITLEMENT_CACHE_TTL_MS) {
+	          if (!cached.entitled) return publicJson({ error: 'LICENSE_REQUIRED' }, 402)
+	        } else if (convexHttpBaseUrl) {
+	          try {
+	            const refreshed = await refreshLocalLicenseFromCloud({
+	              convexHttpBaseUrl,
+	              sessionToken: cloudSession,
+	            })
+	            if (!refreshed.ok) {
+	              if (refreshed.status === 401) return publicJson({ error: 'INVALID_SESSION' }, 401)
+	              if (refreshed.status === 403) return publicJson({ error: 'LICENSE_REQUIRED' }, 402)
+
+	              const nowSec = Math.floor(Date.now() / 1000)
+	              if (
+	                localLicense?.entitled &&
+	                localLicense.sessionTokenHash === tokenHash &&
+	                nowSec <= localLicense.exp
+	              ) {
+	                // allow via local license
+	              } else if (!(cached && cached.entitled && now - cached.checkedAt <= OFFLINE_GRACE_MS)) {
+	                return publicJson({ error: 'CLOUD_AUTH_FAILED' }, 503)
+	              }
+	            } else {
+	              if (refreshed.state.entitled) localLicense = refreshed.state
+	              entitlementCache.set(tokenHash, {
+	                checkedAt: now,
+	                appUserId: refreshed.state.appUserId,
+	                entitled: refreshed.state.entitled,
+	                ...(refreshed.state.status ? { status: refreshed.state.status } : {}),
+	              })
+	              if (!refreshed.state.entitled) return publicJson({ error: 'LICENSE_REQUIRED' }, 402)
+	            }
+	          } catch {
+	            if (!(cached && cached.entitled && now - cached.checkedAt <= OFFLINE_GRACE_MS)) {
+	              return publicJson({ error: 'CLOUD_AUTH_FAILED' }, 503)
+	            }
+	          }
+	        } else {
+	          return publicJson({ error: 'CLOUD_AUTH_UNAVAILABLE' }, 503)
+	        }
+	      }
       const path = url.searchParams.get('path')
       if (!path) {
         return jsonResponse({ error: 'Missing path' }, 400)
@@ -3389,7 +3768,7 @@ export async function createBridgeServer(options: BridgeServerOptions): Promise<
     const now = Date.now()
     if (now <= authExpiresAt) return
     // Rotate token on first contact after expiry.
-    authState = await createNewAuthState(now)
+    authState = await createNewAuthState(now, options.tokenTtlDays)
     authToken = authState.token
     authExpiresAt = authState.expiresAt
     log('[Auth] Token expired; rotated. Run `broski qr` to re-pair (old QR codes invalid).')
@@ -3433,49 +3812,52 @@ export async function createBridgeServer(options: BridgeServerOptions): Promise<
     open(ws: ServerWebSocket<unknown>) {
       sockets.add(ws)
       rateLimiters.set(ws, { tokens: RATE.burst, lastRefill: Date.now(), blockedUntil: 0 })
-      contexts.set(ws, {
-        lastPongAt: Date.now(),
-        lastRttMs: 0,
-        connectionType: 'unknown',
-        connectedAt: Date.now(),
-      })
-      log(`Client connected (${sockets.size} total)`)
-      void sendStatus(ws)
-    },
+	      const baseCtx: ConnectionContext = {
+	        lastPongAt: Date.now(),
+	        lastRttMs: 0,
+	        connectionType: 'unknown',
+	        connectedAt: Date.now(),
+	      }
+	      contexts.set(ws, baseCtx)
+	      log(`Client connected (${sockets.size} total)`)
+	      scheduleCloudAuthDeadline(ws)
+	      void sendStatus(ws)
+	    },
     close(ws: ServerWebSocket<unknown>) {
+      clearCloudAuthTimer(ws)
       const ctx = contexts.get(ws)
       const disconnectedDeviceId = ctx?.deviceId
       const disconnectedDeviceName = ctx?.deviceName
       const prevKey = makeSessionKey(ctx?.viewAgent, ctx?.sessionId)
       updateSessionWatchers(ws, prevKey, null)
 
-        // If this socket owned any CC/Codex sessions, release ownership so watchers can fall back
-        // to external tailing (or another owner) correctly.
-        const releasedKeys: Array<{ agent: AgentType; id: string }> = []
-        for (const [sid, owner] of ccSessionOwners.entries()) {
-          if (owner === ws) {
-            ccSessionOwners.delete(sid)
-            releasedKeys.push({ agent: 'claude-code', id: sid })
-          }
-        }
-        for (const [tid, owner] of cxThreadOwners.entries()) {
-          if (owner === ws) {
-            cxThreadOwners.delete(tid)
-            releasedKeys.push({ agent: 'codex', id: tid })
-          }
-        }
-        for (const k of releasedKeys) {
-          syncExternalTailForKey(makeSessionKey(k.agent, k.id))
-        }
-        
-        sockets.delete(ws)
-        contexts.delete(ws)
-        rateLimiters.delete(ws)
-        const clientQ = clientQueues.get(ws)
-        if (clientQ?.timer) {
-          clearTimeout(clientQ.timer)
-        }
-        clientQueues.delete(ws)
+	      // If this socket owned any CC/Codex sessions, release ownership so watchers can fall back
+	      // to external tailing (or another owner) correctly.
+	      const releasedKeys: Array<{ agent: AgentType; id: string }> = []
+	      for (const [sid, owner] of ccSessionOwners.entries()) {
+	        if (owner === ws) {
+	          ccSessionOwners.delete(sid)
+	          releasedKeys.push({ agent: 'claude-code', id: sid })
+	        }
+	      }
+	      for (const [tid, owner] of cxThreadOwners.entries()) {
+	        if (owner === ws) {
+	          cxThreadOwners.delete(tid)
+	          releasedKeys.push({ agent: 'codex', id: tid })
+	        }
+	      }
+	      for (const k of releasedKeys) {
+	        syncExternalTailForKey(makeSessionKey(k.agent, k.id))
+	      }
+
+	      sockets.delete(ws)
+	      contexts.delete(ws)
+	      rateLimiters.delete(ws)
+	      const clientQ = clientQueues.get(ws)
+	      if (clientQ?.timer) {
+	        clearTimeout(clientQ.timer)
+	      }
+	      clientQueues.delete(ws)
 
         // Remove from any PTY listener sets; close PTYs that have no listeners.
         for (const [ptyId, listeners] of ptyListeners.entries()) {
@@ -3617,7 +3999,249 @@ export async function createBridgeServer(options: BridgeServerOptions): Promise<
     message: ClientMessage & { requestId?: string },
     reply: (response: ServerMessage) => void,
   ) => {
+    const cloudAuthRequiredMessageTypes = new Set(['auth_session', 'pong', 'client_ping', 'batch'])
+	    const ctx = contexts.get(ws)
+	    if (requireEntitlement && !cloudAuthRequiredMessageTypes.has(message.type)) {
+	      if (!ctx?.cloudAuthed || !ctx.cloudEntitled) {
+	        reply({ type: 'error', message: 'LICENSE_REQUIRED', code: 'LICENSE_REQUIRED', requestId: message.requestId })
+	        try {
+	          ws.close(4403, 'License required')
+	        } catch {
+	          // ignore
+	        }
+	        return
+	      }
+	      if (typeof ctx.licenseExpSec === 'number') {
+	        const nowSec = Math.floor(Date.now() / 1000)
+	        if (nowSec > ctx.licenseExpSec) {
+	          reply({ type: 'error', message: 'LICENSE_EXPIRED', code: 'LICENSE_EXPIRED', requestId: message.requestId })
+	          try {
+	            ws.close(4403, 'License expired')
+	          } catch {
+	            // ignore
+	          }
+	          return
+	        }
+	      }
+	    }
+
     switch (message.type) {
+	      case 'auth_session': {
+	        const sessionToken = safeString(message.sessionToken).trim()
+	        if (sessionToken.length < 10 || sessionToken.length > 1024) {
+	          reply({ type: 'error', message: 'Invalid sessionToken', code: 'INVALID_SESSION', requestId: message.requestId })
+	          try {
+	            ws.close(4401, 'Invalid session')
+	          } catch {
+	            // ignore
+	          }
+	          break
+	        }
+	        const tokenHash = createHash('sha256').update(sessionToken, 'utf8').digest('hex')
+	        const cached = entitlementCache.get(tokenHash)
+	        const nowSec = Math.floor(Date.now() / 1000)
+	        const hasValidLocalLicense = !!(
+	          requireEntitlement &&
+	          localLicense?.entitled &&
+	          localLicense.sessionTokenHash === tokenHash &&
+	          nowSec <= localLicense.exp
+	        )
+
+	        if (!convexHttpBaseUrl) {
+	          if (hasValidLocalLicense) {
+	            contexts.set(ws, {
+	              ...(ctx ?? { lastPongAt: Date.now(), lastRttMs: 0, connectionType: 'unknown' as const, connectedAt: Date.now() }),
+	              cloudAuthed: true,
+	              cloudAppUserId: localLicense!.appUserId,
+	              cloudEntitled: true,
+	              cloudStatus: localLicense!.status,
+	              cloudCheckedAt: Date.now(),
+	              cloudSessionToken: sessionToken,
+	              cloudSessionTokenHash: tokenHash,
+	              licenseExpSec: localLicense!.exp,
+	            })
+	            clearCloudAuthTimer(ws)
+	            reply({
+	              type: 'auth_session_ok',
+	              data: {
+	                appUserId: localLicense!.appUserId,
+	                entitled: true,
+	                ...(localLicense!.status ? { status: localLicense!.status } : {}),
+	              },
+	              requestId: message.requestId,
+	            })
+	            log('[CloudAuth] Convex base URL missing; accepted due to valid local license')
+	            break
+	          }
+	          reply({ type: 'error', message: 'Convex base URL not configured', code: 'CLOUD_AUTH_UNAVAILABLE', requestId: message.requestId })
+	          try {
+	            ws.close(1011, 'Cloud auth unavailable')
+	          } catch {
+	            // ignore
+	          }
+	          break
+	        }
+
+	        if (cached && Date.now() - cached.checkedAt <= ENTITLEMENT_CACHE_TTL_MS) {
+	          contexts.set(ws, {
+	            ...(ctx ?? { lastPongAt: Date.now(), lastRttMs: 0, connectionType: 'unknown' as const, connectedAt: Date.now() }),
+	            cloudAuthed: true,
+	            cloudAppUserId: cached.appUserId,
+	            cloudEntitled: cached.entitled,
+	            cloudStatus: cached.status,
+	            cloudCheckedAt: cached.checkedAt,
+	            cloudSessionToken: sessionToken,
+	            cloudSessionTokenHash: tokenHash,
+	            licenseExpSec: localLicense?.sessionTokenHash === tokenHash ? localLicense.exp : undefined,
+	          })
+          clearCloudAuthTimer(ws)
+          reply({ type: 'auth_session_ok', data: { appUserId: cached.appUserId, entitled: cached.entitled, ...(cached.status ? { status: cached.status } : {}) }, requestId: message.requestId })
+	          if (cached.entitled && convexHttpBaseUrl) {
+	            void (async () => {
+	              const refreshed = await refreshLocalLicenseFromCloud({
+	                convexHttpBaseUrl,
+	                sessionToken,
+	              }).catch(() => null)
+	              if (refreshed && refreshed.ok && refreshed.state.entitled) {
+	                localLicense = refreshed.state
+	              }
+	            })()
+	          }
+          if (requireEntitlement && !cached.entitled) {
+            try {
+              ws.close(4403, 'License required')
+            } catch {
+              // ignore
+            }
+	          }
+	          break
+	        }
+
+	        try {
+	          const refreshed = await refreshLocalLicenseFromCloud({
+	            convexHttpBaseUrl,
+	            sessionToken,
+	          })
+
+	          if (!refreshed.ok) {
+	            if (refreshed.status === 401) {
+	              reply({ type: 'error', message: 'Invalid session', code: 'INVALID_SESSION', requestId: message.requestId })
+	              try {
+	                ws.close(4401, 'Invalid session')
+	              } catch {
+	                // ignore
+	              }
+	              break
+	            }
+	            if (refreshed.status === 403) {
+	              reply({ type: 'error', message: refreshed.message, code: refreshed.code || 'LICENSE_DENIED', requestId: message.requestId })
+	              try {
+	                ws.close(4403, 'License required')
+	              } catch {
+	                // ignore
+	              }
+	              break
+	            }
+	            reply({ type: 'error', message: refreshed.message, code: refreshed.code || 'CLOUD_AUTH_FAILED', requestId: message.requestId })
+	            try {
+	              ws.close(1011, 'Cloud auth failed')
+	            } catch {
+	              // ignore
+	            }
+	            break
+	          }
+
+	          localLicense = refreshed.state
+	          const record = { checkedAt: Date.now(), appUserId: refreshed.state.appUserId, entitled: refreshed.state.entitled, ...(refreshed.state.status ? { status: refreshed.state.status } : {}) }
+	          entitlementCache.set(tokenHash, record)
+
+	          contexts.set(ws, {
+	            ...(ctx ?? { lastPongAt: Date.now(), lastRttMs: 0, connectionType: 'unknown' as const, connectedAt: Date.now() }),
+	            cloudAuthed: true,
+	            cloudAppUserId: refreshed.state.appUserId,
+	            cloudEntitled: refreshed.state.entitled,
+	            cloudStatus: refreshed.state.status,
+	            cloudCheckedAt: record.checkedAt,
+	            cloudSessionToken: sessionToken,
+	            cloudSessionTokenHash: tokenHash,
+	            licenseExpSec: refreshed.state.exp,
+	          })
+	          clearCloudAuthTimer(ws)
+	          reply({ type: 'auth_session_ok', data: { appUserId: refreshed.state.appUserId, entitled: refreshed.state.entitled, ...(refreshed.state.status ? { status: refreshed.state.status } : {}) }, requestId: message.requestId })
+	          if (requireEntitlement && !refreshed.state.entitled) {
+	            try {
+	              ws.close(4403, 'License required')
+	            } catch {
+	              // ignore
+	            }
+	          }
+	        } catch (error) {
+	          // If a valid local license exists, do not hard-fail auth_session when the
+	          // cloud is unreachable (offline / transient DNS issues). We'll refresh on
+	          // the next successful online handshake.
+	          if (hasValidLocalLicense) {
+	            contexts.set(ws, {
+	              ...(ctx ?? { lastPongAt: Date.now(), lastRttMs: 0, connectionType: 'unknown' as const, connectedAt: Date.now() }),
+	              cloudAuthed: true,
+	              cloudAppUserId: localLicense!.appUserId,
+	              cloudEntitled: true,
+	              cloudStatus: localLicense!.status,
+	              cloudCheckedAt: Date.now(),
+	              cloudSessionToken: sessionToken,
+	              cloudSessionTokenHash: tokenHash,
+	              licenseExpSec: localLicense!.exp,
+	            })
+            clearCloudAuthTimer(ws)
+            reply({
+              type: 'auth_session_ok',
+              data: {
+                appUserId: localLicense!.appUserId,
+                entitled: true,
+                ...(localLicense!.status ? { status: localLicense!.status } : {}),
+              },
+              requestId: message.requestId,
+            })
+	            log('[CloudAuth] Cloud unreachable; accepted due to valid local license')
+	            break
+	          }
+
+          // Offline grace: if we have a recent "entitled" cache, keep working.
+          if (cached && cached.entitled && Date.now() - cached.checkedAt <= OFFLINE_GRACE_MS) {
+	            contexts.set(ws, {
+	              ...(ctx ?? { lastPongAt: Date.now(), lastRttMs: 0, connectionType: 'unknown' as const, connectedAt: Date.now() }),
+	              cloudAuthed: true,
+	              cloudAppUserId: cached.appUserId,
+	              cloudEntitled: cached.entitled,
+	              cloudStatus: cached.status,
+	              cloudCheckedAt: cached.checkedAt,
+	              cloudSessionToken: sessionToken,
+	              cloudSessionTokenHash: tokenHash,
+	              licenseExpSec: localLicense?.sessionTokenHash === tokenHash ? localLicense.exp : undefined,
+	            })
+            clearCloudAuthTimer(ws)
+            reply({
+              type: 'auth_session_ok',
+              data: {
+                appUserId: cached.appUserId,
+                entitled: cached.entitled,
+                ...(cached.status ? { status: cached.status } : {}),
+              },
+              requestId: message.requestId,
+            })
+            log(`[CloudAuth] Offline grace applied (cache age ${Date.now() - cached.checkedAt}ms)`)
+            break
+          }
+
+          reply({ type: 'error', message: 'Cloud auth failed', code: 'CLOUD_AUTH_FAILED', requestId: message.requestId })
+          try {
+            ws.close(1011, 'Cloud auth failed')
+          } catch {
+            // ignore
+          }
+          log(`[CloudAuth] Failed: ${toErrorMessage(error)}`)
+        }
+        break
+      }
       case 'register_device': {
         if (!message.deviceId || typeof message.deviceId !== 'string' || message.deviceId.length > 128) {
           reply({ type: 'error', message: 'Invalid deviceId' })
@@ -6191,14 +6815,44 @@ export async function createBridgeServer(options: BridgeServerOptions): Promise<
 	      return
 	    }
 
-    const requestId = message.requestId
-    const reply = (response: ServerMessage) => {
-      send(ws, requestId ? ({ ...response, requestId } as any) : response)
-    }
+	    const requestId = message.requestId
+	    const reply = (response: ServerMessage) => {
+	      send(ws, requestId ? ({ ...response, requestId } as any) : response)
+	    }
 
-    try {
-      if (message.type === 'batch') {
-        const batchedMessages = message.messages as Array<ClientMessage & { requestId?: string }>
+	    // Defense-in-depth: enforce entitlement before even entering the main
+	    // per-message switch (a patched `processSingleMessage` should not be enough).
+	    if (requireEntitlement) {
+	      const allowed = new Set(['auth_session', 'pong', 'client_ping', 'batch'])
+	      if (!allowed.has(message.type)) {
+	        const c = contexts.get(ws)
+	        if (!c?.cloudAuthed || !c.cloudEntitled) {
+	          reply({ type: 'error', message: 'LICENSE_REQUIRED', code: 'LICENSE_REQUIRED' })
+	          try {
+	            ws.close(4403, 'License required')
+	          } catch {
+	            // ignore
+	          }
+	          return
+	        }
+	        if (typeof c.licenseExpSec === 'number') {
+	          const nowSec = Math.floor(Date.now() / 1000)
+	          if (nowSec > c.licenseExpSec) {
+	            reply({ type: 'error', message: 'LICENSE_EXPIRED', code: 'LICENSE_EXPIRED' })
+	            try {
+	              ws.close(4403, 'License expired')
+	            } catch {
+	              // ignore
+	            }
+	            return
+	          }
+	        }
+	      }
+	    }
+
+	    try {
+	      if (message.type === 'batch') {
+	        const batchedMessages = message.messages as Array<ClientMessage & { requestId?: string }>
         if (!Array.isArray(batchedMessages)) {
           reply({ type: 'error', message: 'Invalid batch: messages must be an array' })
           return
@@ -6228,6 +6882,10 @@ export async function createBridgeServer(options: BridgeServerOptions): Promise<
     enqueueSdkEvent,
     stop: (force = true) => {
       clearInterval(heartbeatTimer)
+      clearInterval(tickTimer)
+      clearInterval(entitlementRefreshTimer)
+      for (const t of cloudAuthTimers.values()) clearTimeout(t)
+      cloudAuthTimers.clear()
       for (const t of ccExternalTails.values()) {
         try {
           t.stop()

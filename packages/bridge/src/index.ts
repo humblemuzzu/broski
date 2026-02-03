@@ -767,6 +767,24 @@ async function discoverLocalOpencodeUrls(verbose: boolean): Promise<string[]> {
 
 async function main() {
   const cli = parseCli(process.argv, process.env)
+
+  // Load persisted config early so ALL subcommands (including `qr`) behave consistently.
+  const { readConfig } = await import('./config')
+  const config = await readConfig()
+
+  const argvHas = (flag: string): boolean => process.argv.includes(flag)
+  const argvHasPortFlag = argvHas('--port') || argvHas('--bridge-port')
+
+  // Apply config defaults only when user didn't explicitly override via env/CLI.
+  if (!process.env.BROSKI_TLS) {
+    process.env.BROSKI_TLS = config.security.tls ? '1' : '0'
+  }
+  if (!process.env.BROSKI_TOKEN_TTL_DAYS) {
+    process.env.BROSKI_TOKEN_TTL_DAYS = String(config.security.tokenTtlDays)
+  }
+  if (!process.env.BROSKI_CONVEX_HTTP_BASE_URL && config.cloud.convexHttpBaseUrl) {
+    process.env.BROSKI_CONVEX_HTTP_BASE_URL = config.cloud.convexHttpBaseUrl
+  }
   if (cli.help) {
     printHelp()
     return
@@ -916,6 +934,21 @@ async function main() {
   displayBanner()
 
   const port = cli.bridgePort
+  const effectivePort =
+    !argvHasPortFlag && !process.env.BROSKI_PORT && config.network.port
+      ? config.network.port
+      : port
+
+  if (cli.subCommand === 'serve' && isCompiledBinary() && config.security.verifyCodeSignature) {
+    const { getLicenseCrypto } = await import('./license')
+    const crypto = getLicenseCrypto()
+    const ok = crypto.verifyCodesign(process.execPath)
+    if (!ok) {
+      console.error('❌ Integrity check failed: code signature verification failed.')
+      console.error('   The binary may be modified or unsigned.')
+      process.exit(1)
+    }
+  }
 
   let bootstrap: OpencodeBootstrap | null = null
   let opencode: OpenCodeConnector | null = null
@@ -987,7 +1020,7 @@ async function main() {
 
   if (cli.daemon) console.log('[daemon] Loading auth token...')
   // Load persistent auth token (same token survives bridge restarts)
-  const auth = await loadOrCreateAuthState(cli.newToken)
+  const auth = await loadOrCreateAuthState(cli.newToken, config.security.tokenTtlDays)
   if (cli.newToken) {
     console.log('✓ New auth token generated (old QR codes are now invalid)')
   } else {
@@ -999,28 +1032,36 @@ async function main() {
   try {
     const willEnableFunnel = cli.enableFunnel && tailscaleConnected
      bridgeServer = await createBridgeServer({
-       port,
+       port: effectivePort,
        opencode,
        version,
        auth,
+       tokenTtlDays: config.security.tokenTtlDays,
+       cloud: {
+         convexHttpBaseUrl: config.cloud.convexHttpBaseUrl,
+         requireEntitlement: config.cloud.requireEntitlement,
+         entitlementCacheTtlMs: config.cloud.entitlementCacheTtlMs,
+         entitlementRecheckMs: config.cloud.entitlementRecheckMs,
+         offlineGraceHours: config.cloud.offlineGraceHours,
+       },
        enableLoopbackInsecureServer: willEnableFunnel,
        restartOpenCode: restartManagedOpenCode,
        logger: (message) => console.log(message),
      })
   } catch (error: any) {
     if (error?.code === 'EADDRINUSE') {
-      console.error(`\n❌ Bridge port ${port} is already in use.`)
+      console.error(`\n❌ Bridge port ${effectivePort} is already in use.`)
       console.error('This usually means another broski process is still running.')
       console.error('If you stopped it with Ctrl+Z, it was suspended (not terminated) and will keep the port open.')
       console.error('Fix options:')
       console.error('  - If it is a suspended job: return to that terminal, run `fg`, then press Ctrl+C.')
       console.error(`  - Or find and stop the process holding the port:`)
-      console.error(`      ${getKillPortHint(port)}`)
+      console.error(`      ${getKillPortHint(effectivePort)}`)
       console.error(`  - Dev fallback: run the bridge on a different port: --port 0 (random free port)\n`)
 
       // Best-effort: print the owning PID to make this frictionless.
       try {
-        const proc = await getProcessOnPort(port)
+        const proc = await getProcessOnPort(effectivePort)
         if (proc) {
           console.error(`Port owner: ${proc.name} (PID ${proc.pid})`)
           console.error('')

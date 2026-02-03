@@ -55,6 +55,8 @@ export type DeviceInfo = {
 
 export type ClientMessage =
   | { type: 'batch'; messages: Array<ClientMessage & { requestId?: string }>; count?: number; timestamp?: number }
+  // Cloud auth (Convex session) used for licensing/entitlements.
+  | { type: 'auth_session'; sessionToken: string; requestId?: string }
   | { type: 'set_view'; projectPath?: string; sessionId?: string; agent?: AgentType }
   | { type: 'set_agent'; agent: AgentType }
   | { type: 'restart_opencode' }
@@ -358,6 +360,7 @@ export type StatusPayload = {
 }
 
 export type ServerMessage =
+  | { type: 'auth_session_ok'; data: { appUserId: string; entitled: boolean; status?: string }; requestId?: string }
   | { type: 'projects'; data: ProjectSummary[]; requestId?: string }
   | { type: 'sessions'; data: SessionSummary[]; projectPath?: string; requestId?: string }
   | { type: 'providers'; data: unknown; requestId?: string }

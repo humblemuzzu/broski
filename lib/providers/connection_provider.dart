@@ -414,21 +414,32 @@ class ConnectionNotifier extends StateNotifier<BridgeConnectionState>
         lastEvent: connectionEvent,
       );
 
+      final sessionToken = await _storage.getAppSessionToken();
+      if (sessionToken != null) {
+        await _bridge.authSession(sessionToken: sessionToken);
+      }
+
       await _registerThisDevice();
     } catch (error) {
       _failureStreak++;
       final errString = '$error';
+      final lower = errString.toLowerCase();
+      final isLicenseError =
+          lower.contains('license_required') || lower.contains('license required');
       final isAuthError =
           errString.contains('401') ||
-          errString.toLowerCase().contains('unauthorized') ||
-          errString.toLowerCase().contains('forbidden');
+          lower.contains('unauthorized') ||
+          lower.contains('forbidden') ||
+          lower.contains('invalid session') ||
+          isLicenseError;
       final isPinError =
-          errString.toLowerCase().contains('handshake') &&
-          errString.toLowerCase().contains('certificate');
+          lower.contains('handshake') && lower.contains('certificate');
       state = state.copyWith(
         status: ConnectionStatus.disconnected,
         error: isAuthError
-            ? 'Authentication failed. Scan a new QR code.'
+            ? (isLicenseError
+                  ? 'Subscription required. Please subscribe to Pro to use the bridge.'
+                  : 'Authentication failed. Scan a new QR code.')
             : (isPinError
                   ? 'Secure connection failed (certificate mismatch). Scan a new QR code.'
                   : errString),
@@ -474,8 +485,9 @@ class ConnectionNotifier extends StateNotifier<BridgeConnectionState>
       if (ip.a == 172 && ip.b >= 16 && ip.b <= 31) return true;
       if (ip.a == 192 && ip.b == 168) return true;
       // Common hotspot ranges (still private, but be explicit)
-      if (ip.a == 172 && ip.b == 20 && ip.c == 10)
+      if (ip.a == 172 && ip.b == 20 && ip.c == 10) {
         return true; // iPhone hotspot
+      }
       return false;
     }
 
