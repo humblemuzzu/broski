@@ -18,16 +18,32 @@ function safeName(name: string) {
   return name.trim()
 }
 
-export function AutomationPanel({ projectPath }: { projectPath: string }) {
+export function AutomationPanel({
+  projectPath,
+  initialBackend,
+  initialKind,
+}: {
+  projectPath: string
+  initialBackend?: BackendTab
+  initialKind?: KindTab
+}) {
   const send = useConnectionStore((s) => s.send)
   const selectedProjectPath = useProjectsStore((s) => s.selectedProjectPath)
   const cwd = projectPath || selectedProjectPath || ""
 
-  const [backend, setBackend] = React.useState<BackendTab>("opencode")
-  const [kind, setKind] = React.useState<KindTab>("skills")
+  const [backend, setBackend] = React.useState<BackendTab>(initialBackend ?? "opencode")
+  const [kind, setKind] = React.useState<KindTab>(initialKind ?? "skills")
   const [newName, setNewName] = React.useState("")
   const [draft, setDraft] = React.useState("")
   const [selected, setSelected] = React.useState<{ name: string; meta?: any } | null>(null)
+
+  React.useEffect(() => {
+    if (initialBackend) setBackend(initialBackend)
+  }, [initialBackend])
+
+  React.useEffect(() => {
+    if (initialKind) setKind(initialKind)
+  }, [initialKind])
 
   // Store selectors
   const ocSkills = useAutomationStore((s) => s.ocSkills)
@@ -230,13 +246,19 @@ export function AutomationPanel({ projectPath }: { projectPath: string }) {
   }
 
   return (
-    <div className="flex h-full flex-col">
-      <div className="flex items-center justify-between border-b border-[var(--panel-border)] bg-[var(--panel-header)] px-4 py-3">
+    <div className="flex h-full flex-col" style={{ backgroundColor: '#0f0f0f' }}>
+      <div 
+        className="flex items-center justify-between px-4 py-3"
+        style={{ 
+          backgroundColor: '#0f0f0f', 
+          borderBottom: '1px solid rgba(255,255,255,0.06)' 
+        }}
+      >
         <div className="flex items-center gap-2">
-          <Wand2 className="h-4 w-4 text-muted-foreground" />
+          <Wand2 className="h-4 w-4" style={{ color: '#808080' }} />
           <div>
-            <div className="text-sm font-semibold">Automation</div>
-            <div className="mt-1 text-xs text-muted-foreground">{cwd}</div>
+            <div className="text-sm font-semibold" style={{ color: '#e8e8e8' }}>Automation</div>
+            <div className="mt-1 text-xs" style={{ color: '#808080' }}>{cwd}</div>
           </div>
         </div>
         <div className="flex items-center gap-2">
@@ -247,7 +269,13 @@ export function AutomationPanel({ projectPath }: { projectPath: string }) {
         </div>
       </div>
 
-      <div className="border-b border-[var(--panel-border)] bg-[var(--panel-header)] p-3">
+      <div 
+        className="p-3"
+        style={{ 
+          backgroundColor: '#0f0f0f', 
+          borderBottom: '1px solid rgba(255,255,255,0.06)' 
+        }}
+      >
         <div className="flex flex-wrap items-center gap-2">
           <BackendTabs value={backend} onChange={setBackend} />
           <KindTabs kinds={kindOptions} value={kind} onChange={handleKindChange} />
@@ -255,7 +283,10 @@ export function AutomationPanel({ projectPath }: { projectPath: string }) {
       </div>
 
       <div className="flex min-h-0 flex-1">
-        <div className="w-[340px] shrink-0 border-r border-[var(--panel-border)]">
+        <div 
+          className="w-[340px] shrink-0"
+          style={{ borderRight: '1px solid rgba(255,255,255,0.06)' }}
+        >
           <AutomationControls
             newName={newName}
             onNewNameChange={setNewName}

@@ -1,7 +1,5 @@
 import * as React from "react"
-import { TerminalSquare } from "lucide-react"
-
-import { Button } from "@/components/ui/button"
+import { Terminal, Plus, Circle } from "lucide-react"
 
 interface TerminalHeaderProps {
   projectPath: string
@@ -14,20 +12,40 @@ export const TerminalHeader = React.memo<TerminalHeaderProps>(({
   connected, 
   onNewTerminal 
 }) => {
+  // Get folder name from path
+  const folderName = projectPath.split("/").pop() ?? projectPath
+
   return (
-    <div className="flex items-center justify-between border-b border-[var(--panel-border)] bg-[var(--panel-header)] px-4 py-3">
-      <div className="flex items-center gap-2">
-        <TerminalSquare className="h-4 w-4 text-muted-foreground" />
-        <div>
-          <div className="text-sm font-semibold">Terminal</div>
-          <div className="text-xs text-muted-foreground">{projectPath}</div>
+    <div className="flex items-center justify-between px-4 py-3 bg-[var(--panel-header-bg)]">
+      <div className="flex items-center gap-3 min-w-0">
+        <div className="w-8 h-8 rounded-lg bg-[var(--tool-bash-bg)] flex items-center justify-center flex-shrink-0">
+          <Terminal className="h-4 w-4 text-[var(--tool-bash)]" />
+        </div>
+        <div className="min-w-0">
+          <div className="flex items-center gap-2">
+            <span className="text-sm font-medium text-[var(--text)]">Terminal</span>
+            <Circle 
+              className={[
+                "h-2 w-2",
+                connected ? "fill-[var(--success)] text-[var(--success)]" : "fill-[var(--text-faint)] text-[var(--text-faint)]"
+              ].join(" ")} 
+            />
+          </div>
+          <div className="text-[11px] text-[var(--text-muted)] truncate">
+            {folderName}
+          </div>
         </div>
       </div>
-      <div className="flex items-center gap-2">
-        <Button variant="outline" size="sm" onClick={onNewTerminal}>
-          New
-        </Button>
-      </div>
+      
+      <button
+        onClick={onNewTerminal}
+        className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-xs font-medium
+                   text-[var(--text-secondary)] hover:text-[var(--text)] 
+                   hover:bg-[var(--bg-hover)] transition-all"
+      >
+        <Plus className="h-3.5 w-3.5" />
+        New
+      </button>
     </div>
   )
 })

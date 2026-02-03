@@ -1,37 +1,55 @@
-import { ChevronLeft, ChevronRight } from "lucide-react"
-
-import { Button } from "@/components/ui/button"
+import { PanelLeftClose, PanelLeft } from "lucide-react"
 
 interface SidebarHeaderProps {
-  collapsed: boolean;
-  wsState: "idle" | "connecting" | "open" | "error" | "closed";
-  onToggle: () => void;
+  collapsed: boolean
+  wsState: "idle" | "connecting" | "open" | "error" | "closed"
+  onToggle: () => void
 }
 
 export function SidebarHeader({ collapsed, wsState, onToggle }: SidebarHeaderProps) {
+  const isConnected = wsState === "open"
+  
   return (
-    <div className="flex items-center justify-between gap-2 border-b border-[var(--sidebar-border)] px-3 py-3">
-      <div className="min-w-0">
-        <div className="truncate text-sm font-semibold">Broski</div>
-        {!collapsed ? (
-          <div className="text-xs text-muted-foreground">
-            {wsState === "open" ? "Connected" : wsState}
+    <div className="flex items-center justify-between px-3 py-4">
+      <div className="flex items-center gap-2.5 min-w-0">
+        {/* Logo mark */}
+        <div className="w-7 h-7 rounded-lg bg-gradient-to-br from-[var(--accent)] to-[var(--accent-hover)] 
+                        flex items-center justify-center flex-shrink-0">
+          <span className="text-white text-xs font-bold">B</span>
+        </div>
+        
+        {!collapsed && (
+          <div className="min-w-0">
+            <div className="text-sm font-semibold text-[var(--text)] truncate">
+              Broski
+            </div>
+            <div className="flex items-center gap-1.5">
+              <span 
+                className={[
+                  "status-dot",
+                  isConnected ? "running" : "idle"
+                ].join(" ")}
+              />
+              <span className="text-[11px] text-[var(--text-muted)]">
+                {isConnected ? "Connected" : wsState}
+              </span>
+            </div>
           </div>
-        ) : null}
+        )}
       </div>
-      <Button
-        variant="ghost"
-        size="icon"
+      
+      <button
         onClick={onToggle}
-        className="shrink-0"
+        className="p-1.5 rounded-md text-[var(--text-muted)] hover:text-[var(--text)] 
+                   hover:bg-[var(--bg-hover)] transition-all"
         aria-label="Toggle sidebar"
       >
         {collapsed ? (
-          <ChevronRight className="h-4 w-4" />
+          <PanelLeft className="h-4 w-4" />
         ) : (
-          <ChevronLeft className="h-4 w-4" />
+          <PanelLeftClose className="h-4 w-4" />
         )}
-      </Button>
+      </button>
     </div>
   )
 }

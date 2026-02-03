@@ -55,6 +55,14 @@ export function PanelRenderer({
     const projectPath = baseId.slice("spec:".length)
     return <SpecPanel projectPath={projectPath} />
   }
+  if (baseId.startsWith("automations:")) {
+    const projectPath = baseId.slice("automations:".length)
+    return <AutomationPanel projectPath={projectPath} initialKind="commands" />
+  }
+  if (baseId.startsWith("skills:")) {
+    const projectPath = baseId.slice("skills:".length)
+    return <AutomationPanel projectPath={projectPath} initialKind="skills" />
+  }
   if (baseId.startsWith("automation:")) {
     const projectPath = baseId.slice("automation:".length)
     return <AutomationPanel projectPath={projectPath} />

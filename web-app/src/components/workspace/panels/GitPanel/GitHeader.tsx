@@ -1,27 +1,38 @@
 import * as React from "react"
 import { GitBranch, RefreshCw } from "lucide-react"
 
-import { Button } from "@/components/ui/button"
-
 interface GitHeaderProps {
   projectPath: string
   onRefresh: () => void
 }
 
 export const GitHeader = React.memo<GitHeaderProps>(({ projectPath, onRefresh }) => {
+  // Get folder name from path
+  const folderName = projectPath.split("/").pop() ?? projectPath
+
   return (
-    <div className="flex items-center justify-between border-b border-[var(--panel-border)] bg-[var(--panel-header)] px-4 py-3">
-      <div className="flex items-center gap-2">
-        <GitBranch className="h-4 w-4 text-muted-foreground" />
-        <div>
-          <div className="text-sm font-semibold">Git</div>
-          <div className="mt-1 text-xs text-muted-foreground">{projectPath}</div>
+    <div className="flex items-center justify-between px-4 py-3 bg-[var(--panel-header-bg)]">
+      <div className="flex items-center gap-3 min-w-0">
+        <div className="w-8 h-8 rounded-lg bg-[var(--success-soft)] flex items-center justify-center flex-shrink-0">
+          <GitBranch className="h-4 w-4 text-[var(--success)]" />
+        </div>
+        <div className="min-w-0">
+          <div className="text-sm font-medium text-[var(--text)]">Git</div>
+          <div className="text-[11px] text-[var(--text-muted)] truncate">
+            {folderName}
+          </div>
         </div>
       </div>
-      <Button variant="outline" size="sm" onClick={onRefresh}>
-        <RefreshCw className="mr-2 h-4 w-4" />
+      
+      <button
+        onClick={onRefresh}
+        className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-xs font-medium
+                   text-[var(--text-secondary)] hover:text-[var(--text)] 
+                   hover:bg-[var(--bg-hover)] transition-all"
+      >
+        <RefreshCw className="h-3.5 w-3.5" />
         Refresh
-      </Button>
+      </button>
     </div>
   )
 })

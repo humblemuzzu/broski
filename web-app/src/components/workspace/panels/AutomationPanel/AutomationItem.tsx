@@ -18,24 +18,22 @@ export const AutomationItem = React.memo<AutomationItemProps>(({
 }) => {
   return (
     <button
-      className={[
-        "flex w-full items-center justify-between gap-2 rounded-md px-2 py-2 text-left text-sm",
-        isSelected
-          ? "bg-[var(--sidebar-item-active)]"
-          : "hover:bg-[var(--sidebar-item-hover)]",
-      ].join(" ")}
+      className="flex w-full items-center justify-between gap-2 rounded-md px-2 py-2 text-left text-sm"
+      style={{ 
+        backgroundColor: isSelected ? 'rgba(255,255,255,0.06)' : 'transparent',
+      }}
       onClick={onSelect}
       title={path ?? name}
     >
       <div className="min-w-0">
-        <div className="truncate font-semibold">{name}</div>
+        <div className="truncate font-semibold" style={{ color: '#e8e8e8' }}>{name}</div>
         {description && (
-          <div className="truncate text-[11px] text-muted-foreground">
+          <div className="truncate text-[11px]" style={{ color: '#808080' }}>
             {description}
           </div>
         )}
       </div>
-      <FileCode2 className="h-4 w-4 shrink-0 text-muted-foreground" />
+      <FileCode2 className="h-4 w-4 shrink-0" style={{ color: '#808080' }} />
     </button>
   )
 })

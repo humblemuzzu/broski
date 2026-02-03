@@ -17,25 +17,45 @@ export const MessageItem = React.memo(function MessageItem({
   message,
   style,
 }: MessageItemProps) {
+  const isUser = message.role === "user"
+  
   return (
     <div style={style}>
-      <div className="rounded-lg border border-[var(--panel-border)] bg-[var(--panel)] p-3">
-        <div className="text-xs font-semibold text-muted-foreground">
-          {message.role.toUpperCase()}
-        </div>
-        <div className="mt-1 whitespace-pre-wrap text-sm">
-          {message.text}
-        </div>
-        {message.thinking ? (
-          <ThinkingBlock content={message.thinking} />
-        ) : null}
-        {message.toolCalls && message.toolCalls.length > 0 ? (
-          <div className="mt-2 space-y-2">
-            {message.toolCalls.map((toolCall) => (
-              <ToolCallCard key={toolCall.id} toolCall={toolCall} />
-            ))}
+      <div className="py-2">
+        {/* User message - simple right-aligned */}
+        {isUser ? (
+          <div className="flex justify-end">
+            <div className="max-w-[80%] rounded-2xl px-4 py-3 bg-[var(--bg-contrast)] text-[var(--text)]">
+              <div className="text-sm whitespace-pre-wrap leading-relaxed">
+                {message.text}
+              </div>
+            </div>
           </div>
-        ) : null}
+        ) : (
+          /* Assistant message - clean left-aligned */
+          <div className="space-y-3">
+            {/* Thinking block */}
+            {message.thinking && (
+              <ThinkingBlock content={message.thinking} />
+            )}
+            
+            {/* Tool calls */}
+            {message.toolCalls && message.toolCalls.length > 0 && (
+              <div className="space-y-2">
+                {message.toolCalls.map((toolCall) => (
+                  <ToolCallCard key={toolCall.id} toolCall={toolCall} />
+                ))}
+              </div>
+            )}
+            
+            {/* Text content */}
+            {message.text && (
+              <div className="text-sm text-[var(--text)] whitespace-pre-wrap leading-relaxed">
+                {message.text}
+              </div>
+            )}
+          </div>
+        )}
       </div>
     </div>
   )

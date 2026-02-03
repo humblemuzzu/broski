@@ -1,11 +1,13 @@
 import * as React from "react"
-import { ChevronDown, ChevronRight } from "lucide-react"
+import { ChevronDown, ChevronRight, Loader2, Check, X } from "lucide-react"
 
 export interface BaseToolCardProps {
   icon: React.ElementType
   title: string
   subtitle?: string
   status: "running" | "done" | "error"
+  color?: string
+  bgColor?: string
   expandable?: boolean
   defaultExpanded?: boolean
   children?: React.ReactNode
@@ -16,24 +18,13 @@ export const BaseToolCard = React.memo(function BaseToolCard({
   title,
   subtitle,
   status,
+  color = "var(--text-muted)",
+  bgColor = "var(--bg-elevated)",
   expandable = false,
   defaultExpanded = true,
   children,
 }: BaseToolCardProps) {
   const [isExpanded, setIsExpanded] = React.useState(defaultExpanded)
-
-  const statusColor = React.useMemo(() => {
-    switch (status) {
-      case "running":
-        return "text-blue-400"
-      case "done":
-        return "text-green-400"
-      case "error":
-        return "text-red-400"
-      default:
-        return "text-muted-foreground"
-    }
-  }, [status])
 
   const handleToggle = React.useCallback(() => {
     if (expandable) {
@@ -41,46 +32,70 @@ export const BaseToolCard = React.memo(function BaseToolCard({
     }
   }, [expandable])
 
+  // Status indicator
+  const StatusIndicator = React.useMemo(() => {
+    switch (status) {
+      case "running":
+        return <Loader2 className="h-3 w-3 animate-spin text-[var(--accent)]" />
+      case "done":
+        return <Check className="h-3 w-3 text-[var(--success)]" />
+      case "error":
+        return <X className="h-3 w-3 text-[var(--error)]" />
+      default:
+        return null
+    }
+  }, [status])
+
   return (
-    <div className="rounded-md border border-border bg-card p-2">
+    <div 
+      className="rounded-xl border border-[var(--border-subtle)] overflow-hidden"
+      style={{ backgroundColor: bgColor }}
+    >
+      {/* Header */}
       <div 
-        className={`flex items-center justify-between gap-2 ${
-          expandable ? "cursor-pointer" : ""
-        }`}
+        className={[
+          "flex items-center justify-between gap-3 px-3 py-2.5",
+          expandable ? "cursor-pointer hover:bg-[var(--bg-hover)]" : ""
+        ].join(" ")}
         onClick={handleToggle}
       >
-        <div className="flex min-w-0 items-center gap-2">
-          <Icon className="h-4 w-4 text-muted-foreground" />
+        <div className="flex min-w-0 items-center gap-2.5">
+          <div 
+            className="w-6 h-6 rounded-md flex items-center justify-center flex-shrink-0"
+            style={{ backgroundColor: `color-mix(in srgb, ${color} 15%, transparent)` }}
+          >
+            <Icon className="h-3.5 w-3.5" style={{ color }} />
+          </div>
           <div className="min-w-0">
-            <div className="truncate text-xs font-semibold">
+            <div className="truncate text-xs font-medium text-[var(--text)]">
               {title}
             </div>
-            {subtitle ? (
-              <div className="truncate text-[11px] text-muted-foreground">
+            {subtitle && (
+              <div className="truncate text-[10px] text-[var(--text-muted)] mt-0.5">
                 {subtitle}
               </div>
-            ) : null}
+            )}
           </div>
         </div>
-        <div className="flex shrink-0 items-center gap-1">
-          <div className={`text-[11px] ${statusColor}`}>
-            {status}
-          </div>
-          {expandable && children ? (
+        
+        <div className="flex shrink-0 items-center gap-2">
+          {StatusIndicator}
+          {expandable && children && (
             isExpanded ? (
-              <ChevronDown className="h-3 w-3 text-muted-foreground" />
+              <ChevronDown className="h-3.5 w-3.5 text-[var(--text-faint)]" />
             ) : (
-              <ChevronRight className="h-3 w-3 text-muted-foreground" />
+              <ChevronRight className="h-3.5 w-3.5 text-[var(--text-faint)]" />
             )
-          ) : null}
+          )}
         </div>
       </div>
 
-      {children && (!expandable || isExpanded) ? (
-        <div className="mt-2">
+      {/* Content */}
+      {children && (!expandable || isExpanded) && (
+        <div className="px-3 pb-3 pt-1">
           {children}
         </div>
-      ) : null}
+      )}
     </div>
   )
 })

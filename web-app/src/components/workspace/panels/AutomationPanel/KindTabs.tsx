@@ -20,7 +20,7 @@ const kindLabels: Record<KindTab, string> = {
 export const KindTabs = React.memo<KindTabsProps>(({ kinds, value, onChange }) => {
   return (
     <>
-      <div className="mx-2 h-6 w-px bg-[var(--panel-border)]" />
+      <div className="mx-2 h-6 w-px" style={{ backgroundColor: 'rgba(255,255,255,0.06)' }} />
       {kinds.map((k) => (
         <Button
           key={k}

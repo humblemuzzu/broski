@@ -34,7 +34,13 @@ export const AutomationControls = React.memo<AutomationControlsProps>(({
       : "new file name"
 
   return (
-    <div className="flex items-center gap-2 border-b border-[var(--panel-border)] bg-[var(--panel-header)] p-3">
+    <div 
+      className="flex items-center gap-2 p-3"
+      style={{ 
+        backgroundColor: '#0f0f0f', 
+        borderBottom: '1px solid rgba(255,255,255,0.06)' 
+      }}
+    >
       <Input
         value={newName}
         onChange={(e) => onNewNameChange(e.target.value)}

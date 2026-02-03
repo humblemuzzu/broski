@@ -1,3 +1,8 @@
+
+@import "tw-animate-css";
+
+@custom-variant dark (&:is(.dark *));
+
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
@@ -5,223 +10,220 @@
 @layer base {
   :root {
     /* ═══════════════════════════════════════════════════════════════════════════
-       Theme tokens - set by JavaScript, fallback to OpenCode dark theme
+       BROSKI DESIGN SYSTEM - Claude/Cursor-inspired
+       True dark theme with soft, refined visual treatment
        ═══════════════════════════════════════════════════════════════════════════ */
-    
-    /* Core colors */
-    --primary: #fab283;
-    --secondary: #5c9cf5;
-    --accent: #56b6c2;
-    --error: #e06c75;
-    --warning: #f5a742;
-    --success: #7fd88f;
-    --info: #56b6c2;
-    
-    /* Text colors */
-    --text: #eeeeee;
-    --text-muted: #808080;
-    --selected-list-item-text: #0a0a0a;
-    
-    /* Background colors */
-    --background: #0a0a0a;
-    --background-panel: #141414;
-    --background-element: #1e1e1e;
-    --background-menu: #1e1e1e;
-    
-    /* Extended BG scale */
-    --bg-deep: #050505;
+
+    /* Core backgrounds - deep charcoal, not pure black */
+    --background: #0f0f0f;
+    --background-panel: #0f0f0f;
+    --background-element: #171717;
+    --background-menu: #1c1c1c;
+    --bg-deep: #0a0a0a;
     --bg-raised: #0f0f0f;
-    --bg-sheet: #141414;
-    --bg-hover: #1a1a1a;
-    --bg-active: #242424;
-    --bg-highlight: #2a2a2a;
-    --bg-overlay: #303030;
-    --bg-contrast: #383838;
-    
-    /* Border colors */
-    --border: #484848;
-    --border-active: #606060;
-    --border-subtle: #3c3c3c;
-    --card-border-subtle: rgba(60, 60, 60, 0.4);
-    --divider-section: rgba(128, 128, 128, 0.12);
-    
-    /* Card header */
-    --card-header-bg: #1a1a1a;
-    --card-header-border: #404040;
-    --card-header-text: #b0b0b0;
-    
-    /* Tool colors */
-    --tool-thinking: #5c9cf5;
-    --tool-edit: #f5a742;
-    --tool-read: #56b6c2;
-    --tool-write: #7fd88f;
-    --tool-bash: #94a3b8;
-    --tool-search: #38bdf8;
-    --tool-todo: #fb923c;
-    --tool-subtask: #2dd4bf;
-    
-    /* Diff colors */
-    --diff-added: #4fd6be;
-    --diff-removed: #c53b53;
-    --diff-context: #828bb8;
-    --diff-hunk-header: #828bb8;
-    --diff-highlight-added: #b8db87;
-    --diff-highlight-removed: #e26a75;
-    --diff-added-bg: #20303b;
-    --diff-removed-bg: #37222c;
-    --diff-context-bg: #141414;
-    --diff-line-number: #1e1e1e;
-    --diff-added-line-number-bg: #1b2b34;
-    --diff-removed-line-number-bg: #2d1f26;
-    
-    /* Markdown colors */
-    --markdown-text: #eeeeee;
-    --markdown-heading: #56b6c2;
-    --markdown-link: #fab283;
-    --markdown-link-text: #56b6c2;
-    --markdown-code: #7fd88f;
-    --markdown-block-quote: #e5c07b;
-    --markdown-emph: #e5c07b;
-    --markdown-strong: #f5a742;
-    --markdown-horizontal-rule: #808080;
-    --markdown-list-item: #fab283;
-    --markdown-list-enumeration: #56b6c2;
-    --markdown-image: #fab283;
-    --markdown-image-text: #56b6c2;
-    --markdown-code-block: #eeeeee;
-    
-    /* Syntax highlighting */
-    --syntax-comment: #808080;
-    --syntax-keyword: #56b6c2;
-    --syntax-function: #fab283;
-    --syntax-variable: #e06c75;
-    --syntax-string: #7fd88f;
-    --syntax-number: #f5a742;
-    --syntax-type: #e5c07b;
-    --syntax-operator: #56b6c2;
-    --syntax-punctuation: #eeeeee;
-    
-    /* ═══════════════════════════════════════════════════════════════════════════
-       Semantic aliases (for backwards compatibility with existing components)
-       ═══════════════════════════════════════════════════════════════════════════ */
-    
-    /* Legacy shadcn tokens for compatibility */
+    --bg-surface: var(--background);
+    --bg-elevated: var(--background-element);
+    --bg-hover: rgba(255, 255, 255, 0.03);
+    --bg-active: rgba(255, 255, 255, 0.06);
+    --bg-highlight: rgba(255, 255, 255, 0.04);
+    --bg-overlay: #1c1c1c;
+    --bg-contrast: #212121;
+    --bg-input: var(--background-element);
+
+    /* Sidebar - seamless with main area */
+    --sidebar-bg: var(--background);
+    --sidebar-item-hover: var(--bg-hover);
+    --sidebar-item-active: var(--bg-active);
+    --sidebar-item-selected: var(--bg-highlight);
+
+    /* Panel styling */
+    --panel-bg: var(--background-panel);
+    --panel-header-bg: var(--background-panel);
+
+    /* Panel aliases (used across components) */
+    --panel: var(--background-element);
+    --panel-header: var(--panel-header-bg);
+    --panel-border: var(--border-subtle);
+    --shadow-panel: var(--shadow-md);
+
+    /* Text colors - refined grays */
+    --text: #e8e8e8;
+    --text-muted: #808080;
+    --text-faint: #5c5c5c;
+    --text-secondary: #a8a8a8;
+
+    /* Borders - barely there */
+    --border: rgba(255, 255, 255, 0.06);
+    --border-subtle: rgba(255, 255, 255, 0.04);
+    --border-input: rgba(255, 255, 255, 0.10);
+    --card-header-bg: #171717;
+
+    /* Accent - clean white */
+    --accent: #e8e8e8;
+    --accent-hover: #ffffff;
+    --accent-soft: rgba(255, 255, 255, 0.06);
+
+    /* Status colors - slightly muted */
+    --success: #4ade80;
+    --error: #f87171;
+    --warning: #fbbf24;
+    --info: #60a5fa;
+
+    /* Status soft variants - very subtle */
+    --success-soft: rgba(74, 222, 128, 0.10);
+    --warning-soft: rgba(251, 191, 36, 0.10);
+    --error-soft: rgba(248, 113, 113, 0.10);
+    --info-soft: rgba(96, 165, 250, 0.10);
+
+    /* Tool backgrounds - whisper soft */
+    --tool-thinking-bg: rgba(129, 140, 248, 0.06);
+    --tool-edit-bg: rgba(251, 191, 36, 0.06);
+    --tool-read-bg: rgba(34, 211, 238, 0.06);
+    --tool-write-bg: rgba(74, 222, 128, 0.06);
+    --tool-bash-bg: rgba(148, 163, 184, 0.06);
+    --tool-search-bg: rgba(56, 189, 248, 0.06);
+    --tool-glob-bg: rgba(192, 132, 252, 0.06);
+
+    /* Typography */
+    --font-sans: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", sans-serif;
+    --font-mono: "SF Mono", "Fira Code", "JetBrains Mono", Consolas, monospace;
+
+    /* Radius - modern rounded */
+    --radius-sm: 6px;
+    --radius-md: 10px;
+    --radius-lg: 12px;
+    --radius-xl: 16px;
+    --radius-full: 9999px;
+    --radius: var(--radius-md);
+
+    /* Shadows - subtle depth */
+    --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.3);
+    --shadow-md: 0 4px 12px rgba(0, 0, 0, 0.4);
+    --shadow-lg: 0 8px 24px rgba(0, 0, 0, 0.5);
+
+    /* Transitions - smooth and quick */
+    --transition-fast: 80ms ease-out;
+    --transition-normal: 120ms ease-out;
+    --transition-slow: 180ms ease-out;
+
+    /* shadcn compatibility */
     --foreground: var(--text);
     --card: var(--background-panel);
     --card-foreground: var(--text);
     --popover: var(--background-menu);
     --popover-foreground: var(--text);
-    --primary-foreground: var(--selected-list-item-text);
+    --primary: var(--accent);
+    --primary-foreground: #0f0f0f;
+    --secondary: var(--bg-elevated);
     --secondary-foreground: var(--text);
     --muted: var(--background-element);
     --muted-foreground: var(--text-muted);
-    --accent-foreground: var(--selected-list-item-text);
+    --accent-foreground: var(--text);
     --destructive: var(--error);
     --input: var(--background-element);
-    --ring: var(--primary);
-    
-    /* Panel theming */
-    --panel: var(--background-panel);
-    --panel-header: var(--card-header-bg);
-    --panel-border: var(--border-subtle);
-    
-    /* Sidebar theming */
-    --sidebar-bg: var(--bg-raised);
-    --sidebar-border: var(--border-subtle);
-    --sidebar-item-hover: var(--bg-hover);
-    --sidebar-item-active: var(--bg-active);
-    
-    /* Input theming */
-    --input-bg: var(--background-element);
-    --input-border: var(--border);
-    --input-focus: var(--primary);
-    
-    /* Typography */
-    --font-ui: 'Inter', system-ui, sans-serif;
-    --font-code: 'JetBrains Mono', 'Fira Code', monospace;
-    
-    /* Spacing */
-    --spacing-xs: 4px;
-    --spacing-sm: 8px;
-    --spacing-md: 12px;
-    --spacing-lg: 16px;
-    --spacing-xl: 24px;
-    
-    /* Radius */
-    --radius: 0.8rem;
-    --radius-sm: 4px;
-    --radius-md: 6px;
-    --radius-lg: 8px;
-    --radius-xl: 12px;
-    
-    /* Transitions */
-    --transition-fast: 100ms ease;
-    --transition-normal: 200ms ease;
-    --transition-slow: 300ms ease;
-    
-    /* Legacy dashboard tokens */
-    --sidebar: var(--sidebar-bg);
-    --sidebar-border: var(--sidebar-border);
-    --sidebar-item-hover: rgba(232, 232, 234, 0.06);
-    --sidebar-item-active: rgba(232, 232, 234, 0.12);
-    --shadow-panel: 0 12px 36px rgba(0, 0, 0, 0.35);
+    --ring: var(--border);
+    --selected-list-item-text: var(--text);
   }
 
-  /* Base styles */
+  /* Base resets */
   * {
     border-color: var(--border-subtle);
+  }
+
+  html {
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+  }
+
+  html, body, #root {
+    height: 100%;
+    margin: 0;
+    padding: 0;
   }
 
   body {
     background-color: var(--background);
     color: var(--text);
-    font-family: var(--font-ui);
+    font-family: var(--font-sans);
+    font-size: 14px;
+    line-height: 1.5;
+  }
+
+  /* Custom scrollbars - nearly invisible, only appear on hover */
+  * {
+    scrollbar-width: thin;
+    scrollbar-color: transparent transparent;
+  }
+
+  *:hover {
+    scrollbar-color: rgba(255, 255, 255, 0.06) transparent;
+  }
+
+  *::-webkit-scrollbar {
+    width: 5px;
+    height: 5px;
+  }
+
+  *::-webkit-scrollbar-track {
+    background: transparent;
+  }
+
+  *::-webkit-scrollbar-thumb {
+    background: transparent;
+    border-radius: 100px;
+    transition: background 0.2s ease;
+  }
+
+  *:hover::-webkit-scrollbar-thumb {
+    background: rgba(255, 255, 255, 0.06);
+  }
+
+  *::-webkit-scrollbar-thumb:hover {
+    background: rgba(255, 255, 255, 0.10);
+  }
+
+  /* Selection - subtle highlight */
+  ::selection {
+    background: rgba(255, 255, 255, 0.12);
+    color: var(--text);
+  }
+
+  /* Remove focus outlines - we handle focus states in components */
+  *:focus-visible {
+    outline: none;
+  }
+
+  /* Smooth font rendering */
+  * {
+    text-rendering: optimizeLegibility;
   }
 }
 
-/* Optional alt themes (can be expanded/ported from Flutter) */
-.theme-light {
-  --background: #ffffff;
-  --foreground: #111111;
-  --card: #ffffff;
-  --card-foreground: #111111;
-  --popover: #ffffff;
-  --popover-foreground: #111111;
-  --primary: #111111;
-  --primary-foreground: #ffffff;
-  --secondary: #f6f6f7;
-  --secondary-foreground: #111111;
-  --muted: #f3f3f4;
-  --muted-foreground: #666666;
-  --accent: #f0f0f2;
-  --accent-foreground: #111111;
-  --destructive: #dc2626;
-  --border: #e5e7eb;
-  --input: #e5e7eb;
-  --ring: #111111;
-  --panel: #ffffff;
-  --panel-header: #fafafa;
-  --panel-border: #e5e7eb;
-  --sidebar: #ffffff;
-  --sidebar-border: #e5e7eb;
-  --sidebar-item-hover: rgba(17, 17, 17, 0.05);
-  --sidebar-item-active: rgba(17, 17, 17, 0.08);
-  --shadow-panel: 0 12px 36px rgba(0, 0, 0, 0.12);
+@layer components {
+  /* Status indicator dot */
+  .status-dot {
+    width: 6px;
+    height: 6px;
+    border-radius: 50%;
+    flex-shrink: 0;
+  }
+  .status-dot.running {
+    background: var(--success);
+    box-shadow: 0 0 8px var(--success);
+  }
+  .status-dot.idle {
+    background: var(--text-faint);
+  }
+  .status-dot.error {
+    background: var(--error);
+  }
 }
 
-html,
-body {
-  height: 100%;
-}
-
-* {
-  scrollbar-color: rgba(232, 232, 234, 0.22) transparent;
-}
-
-/* react-mosaic overrides: ensure tiles fill their container and use our theme */
+/* react-mosaic overrides - HIDE all borders and make seamless */
 .mosaic {
   height: 100% !important;
   width: 100% !important;
+  background: var(--background) !important;
 }
 
 .mosaic-root {
@@ -229,20 +231,163 @@ body {
   inset: 0;
 }
 
+.mosaic-blueprint-theme .mosaic-window {
+  border-radius: 0 !important;
+  overflow: hidden;
+  box-shadow: none !important;
+}
+
 .mosaic-blueprint-theme .mosaic-window .mosaic-window-body {
-  background: var(--panel);
+  background: var(--background) !important;
+  border: none !important;
 }
 
+/* HIDE mosaic toolbars/headers completely */
 .mosaic-blueprint-theme .mosaic-window .mosaic-window-toolbar {
-  background: var(--panel-header);
-  border-bottom: 1px solid var(--panel-border);
+  display: none !important;
 }
 
-.mosaic-blueprint-theme .mosaic-window .mosaic-window-toolbar .mosaic-window-title {
-  color: var(--foreground);
+.mosaic-blueprint-theme .mosaic-window .mosaic-window-controls {
+  display: none !important;
+}
+
+.mosaic-blueprint-theme .mosaic-split {
+  background: transparent !important;
 }
 
 .mosaic-blueprint-theme .mosaic-split .mosaic-split-line {
-  background: var(--border);
+  background: var(--border-subtle) !important;
+  opacity: 0;
+  transition: opacity var(--transition-fast);
 }
 
+.mosaic-blueprint-theme .mosaic-split:hover .mosaic-split-line {
+  opacity: 1;
+}
+
+.mosaic-blueprint-theme .mosaic-tile {
+  margin: 0 !important;
+}
+
+/* xterm overrides */
+.xterm {
+  padding: 12px;
+}
+
+.xterm-viewport {
+  background: var(--background) !important;
+}
+
+.xterm-screen {
+  background: var(--background) !important;
+}
+
+/* Input overrides - clean, minimal */
+input, textarea, select {
+  background: transparent !important;
+  border: none !important;
+  border-radius: 0 !important;
+  color: var(--text) !important;
+}
+
+input:focus, textarea:focus, select:focus {
+  outline: none !important;
+  box-shadow: none !important;
+}
+
+input::placeholder, textarea::placeholder {
+  color: var(--text-faint) !important;
+}
+
+/* Code blocks */
+pre, code {
+  font-family: var(--font-mono);
+  font-size: 13px;
+}
+
+code {
+  background: var(--bg-elevated);
+  padding: 2px 6px;
+  border-radius: var(--radius-sm);
+}
+
+pre {
+  background: var(--bg-elevated);
+  padding: 16px;
+  border-radius: var(--radius-lg);
+  overflow-x: auto;
+}
+
+pre code {
+  background: transparent;
+  padding: 0;
+}
+
+/* shadcn sidebar variables - dark theme only (Broski is always dark) */
+:root {
+  --sidebar: #0f0f0f;
+  --sidebar-foreground: #e8e8e8;
+  --sidebar-primary: #e8e8e8;
+  --sidebar-primary-foreground: #0f0f0f;
+  --sidebar-accent: rgba(255, 255, 255, 0.04);
+  --sidebar-accent-foreground: #e8e8e8;
+  --sidebar-border: rgba(255, 255, 255, 0.04);
+  --sidebar-ring: rgba(255, 255, 255, 0.1);
+}
+
+/* @theme inline directive for Tailwind v4 - maps CSS variables to Tailwind colors */
+@theme inline {
+  /* Sidebar colors */
+  --color-sidebar: #0f0f0f;
+  --color-sidebar-foreground: #e8e8e8;
+  --color-sidebar-primary: #e8e8e8;
+  --color-sidebar-primary-foreground: #0f0f0f;
+  --color-sidebar-accent: rgba(255, 255, 255, 0.04);
+  --color-sidebar-accent-foreground: #e8e8e8;
+  --color-sidebar-border: rgba(255, 255, 255, 0.04);
+  --color-sidebar-ring: rgba(255, 255, 255, 0.1);
+  
+  /* Core colors - using explicit values for Tailwind v4 */
+  --color-background: #0f0f0f;
+  --color-foreground: #e8e8e8;
+  
+  /* Card */
+  --color-card: #0f0f0f;
+  --color-card-foreground: #e8e8e8;
+  
+  /* Popover */
+  --color-popover: #1c1c1c;
+  --color-popover-foreground: #e8e8e8;
+  
+  /* Primary */
+  --color-primary: #e8e8e8;
+  --color-primary-foreground: #0f0f0f;
+  
+  /* Secondary */
+  --color-secondary: #171717;
+  --color-secondary-foreground: #e8e8e8;
+  
+  /* Muted */
+  --color-muted: #171717;
+  --color-muted-foreground: #808080;
+  
+  /* Accent */
+  --color-accent: rgba(255, 255, 255, 0.06);
+  --color-accent-foreground: #e8e8e8;
+  
+  /* Destructive */
+  --color-destructive: #f87171;
+  --color-destructive-foreground: #0f0f0f;
+  
+  /* Border & Input */
+  --color-border: rgba(255, 255, 255, 0.06);
+  --color-input: #171717;
+  --color-ring: rgba(255, 255, 255, 0.1);
+}
+
+/* Additional base styles for shadcn compatibility - using CSS variables directly */
+@layer base {
+  * {
+    border-color: var(--border);
+  }
+}

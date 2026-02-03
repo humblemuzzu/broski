@@ -31,10 +31,24 @@ export const AutomationDetail = React.memo<AutomationDetailProps>(({
       : "Select an item, or type a new name and save"
 
   return (
-    <div className="min-w-0 flex-1 overflow-hidden">
+    <div className="min-w-0 flex-1 overflow-hidden" style={{ backgroundColor: '#0f0f0f' }}>
       <div className="h-full p-3">
-        <div className="flex h-full flex-col overflow-hidden rounded-lg border border-[var(--panel-border)] bg-[var(--panel)] shadow-[var(--shadow-panel)]">
-          <div className="border-b border-[var(--panel-border)] bg-[var(--panel-header)] px-3 py-2 text-xs text-muted-foreground">
+        <div 
+          className="flex h-full flex-col overflow-hidden rounded-lg"
+          style={{ 
+            backgroundColor: '#171717', 
+            border: '1px solid rgba(255,255,255,0.06)',
+            boxShadow: '0 4px 12px rgba(0,0,0,0.4)'
+          }}
+        >
+          <div 
+            className="px-3 py-2 text-xs"
+            style={{ 
+              backgroundColor: '#0f0f0f', 
+              borderBottom: '1px solid rgba(255,255,255,0.06)',
+              color: '#808080'
+            }}
+          >
             {title}
           </div>
           <div className="min-h-0 flex-1 p-2">
@@ -43,6 +57,11 @@ export const AutomationDetail = React.memo<AutomationDetailProps>(({
               onChange={(e) => onDraftChange(e.target.value)}
               placeholder={placeholders[kind]}
               className="h-full min-h-0 resize-none font-mono text-xs leading-relaxed"
+              style={{ 
+                backgroundColor: '#0f0f0f', 
+                color: '#e8e8e8',
+                border: '1px solid rgba(255,255,255,0.06)'
+              }}
             />
           </div>
         </div>
