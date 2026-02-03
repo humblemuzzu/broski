@@ -1,0 +1,26 @@
+// IMPORTANT: The bridge is the source of truth for message types.
+// We re-export types from the bridge package (type-only) so the dashboard stays in sync.
+export type {
+  AgentType,
+  Agent,
+  ClientMessage,
+  DeviceInfo,
+  FileContent,
+  FileStatusInfo,
+  Command,
+  Todo,
+  LspServerStatus,
+  SessionContextInfo,
+  PtySession,
+  ProjectSummary,
+  ServerMessage,
+  SessionSummary,
+  StatusPayload,
+  VcsInfo,
+  ClaudeCodeSession,
+  ClaudeCodeStreamMessage,
+  ClaudeCodeTranscriptMessage,
+  CodexThread,
+  CodexStreamMessage,
+  CodexTranscriptMessage,
+} from "../../../packages/bridge/src/types"

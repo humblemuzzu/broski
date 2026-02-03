@@ -41,6 +41,13 @@ function structuredPatchToUnifiedDiff(filePath: string, patches: unknown): strin
   return header + body
 }
 
+function isLoopbackAddress(address: string | undefined): boolean {
+  if (!address) return false
+  if (address === '127.0.0.1' || address === '::1') return true
+  if (address.startsWith('::ffff:127.')) return true
+  return false
+}
+
 function safeString(value: unknown): string {
   return typeof value === 'string' ? value : ''
 }
@@ -731,6 +738,14 @@ export async function createBridgeServer(options: BridgeServerOptions): Promise<
     string,
     { checkedAt: number; appUserId: string; entitled: boolean; status?: string }
   >()
+
+  // Web dashboard dist directory (served by bridge HTTP when present).
+  const webDistDir = (() => {
+    const fromEnv = safeString(process.env.BROSKI_WEB_DIST).trim()
+    if (fromEnv) return resolve(fromEnv)
+    // repo layout: packages/bridge/src -> ../../web-app/dist
+    return resolve(import.meta.dir, '..', '..', 'web-app', 'dist')
+  })()
 
   try {
     localLicense = await loadLocalLicenseState()
@@ -3561,6 +3576,38 @@ export async function createBridgeServer(options: BridgeServerOptions): Promise<
 
   const handleHttp = async (request: Request): Promise<Response> => {
     const url = new URL(request.url)
+    const accept = request.headers.get('accept') ?? ''
+    const wantsHtml = accept.includes('text/html')
+
+    // Serve embedded web dashboard (Vite build output) when present.
+    // Keep "/" JSON response for API callers (Accept does not include text/html).
+    if (
+      request.method === 'GET' &&
+      (wantsHtml ||
+        url.pathname.startsWith('/assets/') ||
+        url.pathname === '/favicon.ico' ||
+        url.pathname === '/manifest.json' ||
+        url.pathname === '/robots.txt')
+    ) {
+      const indexPath = join(webDistDir, 'index.html')
+      const indexFile = Bun.file(indexPath)
+      if (await indexFile.exists()) {
+        const safePath = (() => {
+          if (url.pathname === '/' || url.pathname === '') return indexPath
+          const target = resolve(webDistDir, `.${url.pathname}`)
+          const base = resolve(webDistDir) + sep
+          if (!target.startsWith(base)) return null
+          return target
+        })()
+
+        if (safePath) {
+          const file = Bun.file(safePath)
+          if (await file.exists()) return new Response(file)
+        }
+        // SPA fallback
+        return new Response(indexFile)
+      }
+    }
 
     if (url.pathname === '/') {
       return jsonResponse({ status: 'ok', version })
@@ -3925,6 +3972,36 @@ export async function createBridgeServer(options: BridgeServerOptions): Promise<
         }
       }
 
+      const requestIp = (() => {
+        try {
+          const ip = serverInstance?.requestIP?.(request)
+          if (!ip) return undefined
+          if (typeof ip === 'string') return ip
+          return typeof ip.address === 'string' ? ip.address : undefined
+        } catch {
+          return undefined
+        }
+      })()
+      const isLoopback = isLoopbackAddress(requestIp)
+
+      // Web dashboard bootstrap: allow loopback clients to fetch the current bridge auth token
+      // without needing an existing token (avoids token-in-URL and QR pairing for localhost UI).
+      if (!isWebSocketUpgrade && request.method === 'GET' && url.pathname === '/api/web/token') {
+        if (!isLoopback) return new Response('Forbidden', { status: 403 })
+        return publicJson(
+          {
+            token: authToken,
+            expiresAt: authExpiresAt,
+            tls: tlsEnabled,
+          },
+          200,
+          {
+            'access-control-allow-origin': request.headers.get('origin') ?? '*',
+            'access-control-allow-headers': 'content-type',
+          },
+        )
+      }
+
       const providedToken = extractTokenFromRequest(url, request)
       const isValidToken = !!(providedToken && validateAuthToken(providedToken, authToken) && Date.now() <= authExpiresAt)
 
@@ -3938,6 +4015,24 @@ export async function createBridgeServer(options: BridgeServerOptions): Promise<
       }
 
       if (!isValidToken) {
+        // Allow unauthenticated GETs for the embedded web dashboard only (static files).
+        // Everything else (including /projects, /browse, etc.) still requires auth.
+        const accept = request.headers.get('accept') ?? ''
+        const wantsHtml = accept.includes('text/html')
+        const looksLikeDashboardAsset =
+          wantsHtml ||
+          url.pathname.startsWith('/assets/') ||
+          url.pathname === '/favicon.ico' ||
+          url.pathname === '/manifest.json' ||
+          url.pathname === '/robots.txt'
+        if (request.method === 'GET' && looksLikeDashboardAsset) {
+          try {
+            return await handleHttp(request)
+          } catch (error) {
+            log(`[HTTP] Error: ${toErrorMessage(error)}`)
+            return publicJson({ error: toPublicErrorMessage(error) }, 500)
+          }
+        }
         return publicJson({ error: 'Unauthorized' }, 401)
       }
 
