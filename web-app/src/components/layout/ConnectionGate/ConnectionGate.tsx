@@ -6,29 +6,11 @@ import { bootstrapInitialData } from "@/core/bootstrap"
 import { useConnectionStore } from "@/stores/connection-store"
 import { useProjectsStore } from "@/stores/projects-store"
 
-import { DevBypassScreen } from "./DevBypassScreen"
 import { AuthForm } from "./AuthForm"
 import { GoogleSignInSection } from "./GoogleSignInSection"
 import { CloudAuthStatus } from "./CloudAuthStatus"
 
-/**
- * Dev bypass: skip auth gate and auto-connect without tokens.
- * Activate via VITE_DEV_BYPASS=true env var or ?dev=1 URL param.
- */
-function isDevBypass(): boolean {
-  try {
-    const envFlag = (import.meta as any).env?.VITE_DEV_BYPASS
-    if (envFlag === "true" || envFlag === "1") return true
-    const params = new URLSearchParams(window.location.search)
-    if (params.get("dev") === "1") return true
-  } catch {
-    // ignore
-  }
-  return false
-}
-
 export function ConnectionGate({ children }: { children: React.ReactNode }) {
-  const devBypass = React.useMemo(() => isDevBypass(), [])
   const googleClientId = (import.meta as any).env?.VITE_GOOGLE_CLIENT_ID as
     | string
     | undefined
@@ -41,7 +23,6 @@ export function ConnectionGate({ children }: { children: React.ReactNode }) {
   const disconnect = useConnectionStore((s) => s.disconnect)
   const bridgeAuthToken = useConnectionStore((s) => s.bridgeAuthToken)
   const setBridgeAuthToken = useConnectionStore((s) => s.setBridgeAuthToken)
-  const bootstrapBridgeToken = useConnectionStore((s) => s.bootstrapBridgeToken)
   const convexSessionToken = useConnectionStore((s) => s.convexSessionToken)
   const setConvexSessionToken = useConnectionStore((s) => s.setConvexSessionToken)
   const registerDevice = useConnectionStore((s) => s.registerDevice)
@@ -50,22 +31,6 @@ export function ConnectionGate({ children }: { children: React.ReactNode }) {
   const authenticateCloud = useConnectionStore((s) => s.authenticateCloud)
   const cloud = useConnectionStore((s) => s.cloud)
   const send = useConnectionStore((s) => s.send)
-
-  React.useEffect(() => {
-    if (devBypass) {
-      // Dev mode: use Vite's WebSocket proxy to avoid self-signed TLS issues.
-      // Vite proxies ws://localhost:5173/bridge-ws → wss://bridge:PORT
-      const viteWsProxy = `ws://${window.location.host}/bridge-ws`
-      setWsUrl(viteWsProxy)
-      // Fetch token then auto-connect will fire via the other useEffect.
-      void bootstrapBridgeToken()
-      return
-    }
-    // Best-effort: fetch bridge auth token from loopback endpoint (works when
-    // served by bridge, or via Vite proxy).
-    void bootstrapBridgeToken()
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [devBypass])
 
   React.useEffect(() => {
     // Auto-connect once we have a bridge token.
@@ -102,18 +67,6 @@ export function ConnectionGate({ children }: { children: React.ReactNode }) {
 
   if (wsState === "open") return <>{children}</>
 
-  // In dev bypass mode, show a minimal connecting screen instead of the full auth form
-  if (devBypass) {
-    return (
-      <DevBypassScreen
-        bridgeAuthToken={bridgeAuthToken}
-        wsState={wsState}
-        lastClose={lastClose}
-        onRetry={connect}
-      />
-    )
-  }
-
   return (
     <div className="min-h-screen w-full px-6 py-10">
       <div className="mx-auto max-w-lg rounded-xl border border-border bg-card p-6 shadow-[var(--shadow-panel)]">
@@ -142,7 +95,6 @@ export function ConnectionGate({ children }: { children: React.ReactNode }) {
             onConvexTokenChange={setConvexSessionToken}
             onConnect={connect}
             onDisconnect={disconnect}
-            onFetchToken={() => void bootstrapBridgeToken()}
             onCloudAuth={authenticateCloud}
           />
 

@@ -296,6 +296,52 @@ async function runQR(detectHotspot: boolean): Promise<void> {
   }
 }
 
+async function runShowToken(): Promise<void> {
+  console.log('Broski Auth Token\n')
+
+  // Load existing auth token from new token.json format (or fallback to legacy)
+  let authToken: string
+  let expiresAt: number | null = null
+
+  try {
+    // Try new format first (token.json)
+    const tokenJsonFile = resolve(homedir(), '.broski', 'token.json')
+    const raw = await readFile(tokenJsonFile, 'utf-8')
+    const parsed = JSON.parse(raw)
+    authToken = parsed.token?.trim() ?? ''
+    expiresAt = parsed.expiresAt ?? null
+    if (!authToken || authToken.length < 16) {
+      throw new Error('Invalid token in token.json')
+    }
+  } catch {
+    // Fallback to legacy format
+    try {
+      const tokenFile = resolve(homedir(), '.broski', 'token')
+      const existing = await readFile(tokenFile, 'utf-8')
+      authToken = existing.trim()
+      if (authToken.length < 16) {
+        throw new Error('Invalid token')
+      }
+    } catch {
+      console.log('  No auth token found.')
+      console.log('  Run `broski` or `broski install` first to start the bridge.')
+      return
+    }
+  }
+
+  console.log('  Token: ' + authToken)
+  console.log('')
+  if (expiresAt) {
+    const expiresDate = new Date(expiresAt)
+    const now = new Date()
+    const daysRemaining = Math.ceil((expiresAt - now.getTime()) / (1000 * 60 * 60 * 24))
+    console.log('  Expires: ' + expiresDate.toLocaleDateString() + ' (' + daysRemaining + ' days)')
+  }
+  console.log('')
+  console.log('  Use this token in the Broski app manual connection dialog.')
+  console.log('  Or run `broski qr` to generate a scannable QR code.')
+}
+
 async function runStop(): Promise<void> {
   console.log('Stopping Broski bridge...\n')
 
@@ -886,6 +932,11 @@ async function main() {
 
   if (cli.subCommand === 'qr') {
     await runQR(cli.detectHotspot)
+    return
+  }
+
+  if (cli.subCommand === 'show-token') {
+    await runShowToken()
     return
   }
 

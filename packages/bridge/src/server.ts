@@ -48,6 +48,26 @@ function isLoopbackAddress(address: string | undefined): boolean {
   return false
 }
 
+function isTailscaleAddress(address: string | undefined): boolean {
+  if (!address) return false
+  const a = address.trim().toLowerCase()
+  // IPv6-mapped IPv4
+  const v4 = a.startsWith('::ffff:') ? a.slice('::ffff:'.length) : a
+
+  // IPv4: 100.64.0.0/10
+  const m = v4.match(/^(\d{1,3})\.(\d{1,3})\.(\d{1,3})\.(\d{1,3})$/)
+  if (m) {
+    const o1 = Number(m[1])
+    const o2 = Number(m[2])
+    if (o1 === 100 && o2 >= 64 && o2 <= 127) return true
+    return false
+  }
+
+  // IPv6 (Tailscale ULA range)
+  if (a.startsWith('fd7a:115c:a1e0:')) return true
+  return false
+}
+
 function safeString(value: unknown): string {
   return typeof value === 'string' ? value : ''
 }
@@ -717,6 +737,32 @@ const MESSAGE_PRIORITIES: Record<string, 'immediate' | 'high' | 'normal' | 'low'
 }
 
 export async function createBridgeServer(options: BridgeServerOptions): Promise<BridgeServer> {
+  const { opencode, version, logger } = options
+
+  // Security: Redact sensitive information from logs in production
+  const SENSITIVE_PATTERNS = [
+    /token[=:]\s*["']?[a-zA-Z0-9_-]{16,}["']?/gi,
+    /bearer\s+[a-zA-Z0-9_.-]+/gi,
+    /password[=:]\s*["']?[^"'\s]+["']?/gi,
+    /secret[=:]\s*["']?[^"'\s]+["']?/gi,
+    /api[_-]?key[=:]\s*["']?[a-zA-Z0-9_-]+["']?/gi,
+    /authorization[=:]\s*["']?[^"'\s]+["']?/gi,
+  ]
+  const isDebugMode = process.env.BROSKI_DEBUG === '1' || process.env.BROSKI_VERBOSE === '1'
+
+  function redactSensitive(message: string): string {
+    if (isDebugMode) return message // Don't redact in debug mode
+    let result = message
+    for (const pattern of SENSITIVE_PATTERNS) {
+      result = result.replace(pattern, '[REDACTED]')
+    }
+    return result
+  }
+
+  function log(message: string): void {
+    logger?.(redactSensitive(message))
+  }
+
   const sockets = new Set<ServerWebSocket<unknown>>()
   const contexts = new Map<ServerWebSocket<unknown>, ConnectionContext>()
   const clientQueues = new Map<ServerWebSocket<unknown>, ClientQueue>()
@@ -1003,8 +1049,7 @@ export async function createBridgeServer(options: BridgeServerOptions): Promise<
     cxThreadCache.delete('__all__')
   }
   
-  let codexClient: CodexAppServerClient | null = null
-  const { opencode, version, logger } = options
+	  let codexClient: CodexAppServerClient | null = null
 
   const requireOpenCode = (): OpenCodeConnector => {
     if (!opencode) {
@@ -1079,8 +1124,9 @@ export async function createBridgeServer(options: BridgeServerOptions): Promise<
 	  let authState: AuthTokenState = options.auth
 	  let authToken = authState.token
 	  let authExpiresAt = authState.expiresAt
-	  const allowTokenInUrl = process.env.BROSKI_ALLOW_TOKEN_IN_URL === '1'
 	  const compiled = isCompiledBinary()
+	  // Never allow token-in-URL in production binaries.
+	  const allowTokenInUrl = !compiled && process.env.BROSKI_ALLOW_TOKEN_IN_URL === '1'
 	  // In production binaries, do not allow environment flags to weaken enforcement.
 	  const requireEntitlement = compiled ? true : isTruthyEnv(process.env.BROSKI_REQUIRE_ENTITLEMENT, !!options.cloud?.requireEntitlement)
 	  const convexHttpBaseUrlRaw = (
@@ -1102,7 +1148,9 @@ export async function createBridgeServer(options: BridgeServerOptions): Promise<
 	      return ''
 	    }
 	  })()
-	  const tlsEnabled = isTlsEnabledByEnv()
+	  // In production binaries, always enable TLS for any non-loopback access.
+	  // Allowing BROSKI_TLS=0 creates sniffing/MITM risk on WiFi/hotspot.
+	  const tlsEnabled = compiled ? true : isTlsEnabledByEnv()
 	  let tlsMaterial: TlsMaterial | null = null
 
   // Claude Code filesystem watchers (skills/plugins/hook/command updates).
@@ -1139,12 +1187,6 @@ export async function createBridgeServer(options: BridgeServerOptions): Promise<
       // Ignore watch failures (dir missing or unsupported)
     }
   }
-
-
-  const log = (message: string) => {
-    logger?.(message)
-  }
-
   const send = (ws: ServerWebSocket<unknown>, message: ServerMessage) => {
     ws.send(JSON.stringify(message))
   }
@@ -1355,7 +1397,9 @@ export async function createBridgeServer(options: BridgeServerOptions): Promise<
     if (!manifestPath) return []
     const raw = await readFile(manifestPath, 'utf8')
     const parsed = JSON.parse(raw) as { cwd: string; entries: FileSnapshotEntry[] }
-    const cwd = parsed.cwd
+    const secureCwd = await getSecurePath(parsed.cwd)
+    if (!secureCwd) return []
+    const cwd = secureCwd
     const reverted: string[] = []
     const filesDir = resolve(dirname(manifestPath), 'files')
 
@@ -1407,7 +1451,13 @@ export async function createBridgeServer(options: BridgeServerOptions): Promise<
             const thread = params.thread
             const id = safeString(thread?.id)
             const cwd = safeString(thread?.cwd)
-            if (id && cwd) cxThreadCwds.set(id, resolve(cwd))
+            if (id && cwd) {
+              void getSecurePath(cwd)
+                .then((secure) => {
+                  if (secure) cxThreadCwds.set(id, secure)
+                })
+                .catch(() => {})
+            }
             if (id && !threadId) threadId = id
           }
 
@@ -3589,6 +3639,11 @@ export async function createBridgeServer(options: BridgeServerOptions): Promise<
       if (!Number.isFinite(port) || port < 1 || port > 65535) {
         return publicJson({ error: 'Invalid proxy port' }, 400)
       }
+      // Security: Only allow proxying to known dev server ports
+      if (!isAllowedProxyPort(port)) {
+        log(`[Security] Proxy blocked: port ${port} not in allowlist`)
+        return publicJson({ error: 'Port not allowed for proxy' }, 403)
+      }
       const upstreamPath = slashIdx === -1 ? '/' : `/${rest.slice(slashIdx + 1)}`
 
       // Only allow proxying to loopback. (No arbitrary open proxy.)
@@ -3869,13 +3924,38 @@ export async function createBridgeServer(options: BridgeServerOptions): Promise<
 
   const MAX_WS_MESSAGE_BYTES = Math.max(
     1024 * 1024, // 1MB minimum
-    Math.min(Number(process.env.BROSKI_MAX_WS_MESSAGE_MB ?? '50') * 1024 * 1024, 200 * 1024 * 1024), // cap at 200MB
+    Math.min(Number(process.env.BROSKI_MAX_WS_MESSAGE_MB ?? '15') * 1024 * 1024, 200 * 1024 * 1024), // cap at 200MB
   )
 
   const RATE = {
-    perSecond: Math.max(10, Math.min(Number(process.env.BROSKI_RATE_LIMIT_PER_SEC ?? '250'), 5000)),
-    burst: Math.max(10, Math.min(Number(process.env.BROSKI_RATE_LIMIT_BURST ?? '500'), 20000)),
+    perSecond: Math.max(10, Math.min(Number(process.env.BROSKI_RATE_LIMIT_PER_SEC ?? '60'), 5000)),
+    burst: Math.max(10, Math.min(Number(process.env.BROSKI_RATE_LIMIT_BURST ?? '150'), 20000)),
     blockMs: Math.max(1000, Math.min(Number(process.env.BROSKI_RATE_LIMIT_BLOCK_MS ?? '10000'), 60_000)),
+  }
+
+  // Security: Proxy port allowlist for preview feature.
+  // Only common dev server ports are allowed to reduce attack surface.
+  // Users can extend via BROSKI_ALLOWED_PROXY_PORTS env var.
+  const DEFAULT_ALLOWED_PROXY_PORTS = new Set([
+    3000, 3001, 3002, 3003, // React, Next.js, Remix
+    4000, 4001, 4200, 4321, // Angular, Astro
+    5000, 5001, 5173, 5174, 5175, // Flask, Vite
+    8000, 8001, 8080, 8081, 8888, // Django, generic
+    9000, 9001, // PHP, misc
+  ])
+  const extraProxyPorts = (process.env.BROSKI_ALLOWED_PROXY_PORTS ?? '')
+    .split(',')
+    .map((p) => Number(p.trim()))
+    .filter((p) => Number.isFinite(p) && p > 0 && p < 65536)
+  const ALLOWED_PROXY_PORTS = new Set([...DEFAULT_ALLOWED_PROXY_PORTS, ...extraProxyPorts])
+
+  const isAllowedProxyPort = (port: number): boolean => {
+    // Always allow configured ports
+    if (ALLOWED_PROXY_PORTS.has(port)) return true
+    // Also allow high ports (>= 10000) commonly used for dev servers
+    // This balances security with usability
+    if (port >= 10000 && port <= 65535) return true
+    return false
   }
 
   const rateLimiters = new Map<ServerWebSocket<unknown>, { tokens: number; lastRefill: number; blockedUntil: number }>()
@@ -3901,6 +3981,22 @@ export async function createBridgeServer(options: BridgeServerOptions): Promise<
     return false
   }
 
+  // Harden localhost-only HTTP endpoints against "malicious website" attacks.
+  // Browsers will send Origin and/or Sec-Fetch-Site for subresource requests.
+  // We only allow same-origin requests to hit tokenless loopback helpers like /proxy.
+  const isAllowedBrowserRequest = (request: Request): boolean => {
+    try {
+      const site = safeString(request.headers.get('sec-fetch-site')).toLowerCase().trim()
+      if (site && site !== 'same-origin' && site !== 'none') return false
+
+      const origin = request.headers.get('origin')
+      if (origin != null && origin !== '' && !isAllowedOrigin(origin)) return false
+      return true
+    } catch {
+      return false
+    }
+  }
+
   const extractProtocolToken = (protocolHeader: string | null): string | null => {
     if (!protocolHeader) return null
     // Header is comma-separated. We accept tokens in the form: "broski-auth.<token>".
@@ -3914,13 +4010,13 @@ export async function createBridgeServer(options: BridgeServerOptions): Promise<
     return null
   }
 
-  const extractTokenFromRequest = (url: URL, request: Request): string | null => {
-    const authHeader = request.headers.get('authorization')
-    const tokenFromHeader = authHeader?.startsWith('Bearer ') ? authHeader.slice(7) : null
-    const tokenFromProtocol = extractProtocolToken(request.headers.get('sec-websocket-protocol'))
-    const tokenFromQuery = allowTokenInUrl ? url.searchParams.get('token') : null
-    return tokenFromHeader || tokenFromProtocol || tokenFromQuery
-  }
+	  const extractTokenFromRequest = (_url: URL, request: Request): string | null => {
+	    const authHeader = request.headers.get('authorization')
+	    const tokenFromHeader = authHeader?.startsWith('Bearer ') ? authHeader.slice(7) : null
+	    const tokenFromProtocol = extractProtocolToken(request.headers.get('sec-websocket-protocol'))
+	    // Security: never allow tokens in URLs (leak via logs, history, referrers).
+	    return tokenFromHeader || tokenFromProtocol
+	  }
 
   const publicJson = (data: unknown, status = 200, extraHeaders: Record<string, string> = {}): Response => {
     return new Response(JSON.stringify(data), {
@@ -4142,6 +4238,12 @@ export async function createBridgeServer(options: BridgeServerOptions): Promise<
     return async (request: Request, serverInstance: any): Promise<Response | void> => {
       const url = new URL(request.url)
 
+      const isLoopbackHostHeader = (() => {
+        const host = safeString(request.headers.get('host')).toLowerCase().trim()
+        if (!host) return false
+        return host.startsWith('127.0.0.1') || host.startsWith('localhost') || host.startsWith('[::1]')
+      })()
+
       // Reject token-in-URL by default (tokens leak into logs, proxies, referrers).
       if (!allowTokenInUrl && url.searchParams.has('token')) {
         return publicJson({ error: 'Token in URL not allowed' }, 400)
@@ -4176,17 +4278,32 @@ export async function createBridgeServer(options: BridgeServerOptions): Promise<
         }
       })()
       const isLoopback = isLoopbackAddress(requestIp)
+      const isTailscale = isTailscaleAddress(requestIp)
+
+      // Transport hardening: if TLS is disabled, only allow loopback or Tailscale clients.
+      // (Tailscale provides encryption-in-transit; LAN/hotspot without TLS is sniffable.)
+      if (!tlsEnabled && !isLoopback && !isTailscale) {
+        return new Response('TLS required for non-local connections', { status: 403 })
+      }
 
       // WebSocket proxy for embedded previews (loopback-only, no auth token).
       // Route format: /proxy-ws/:port/*
       if (isWebSocketUpgrade && url.pathname.startsWith('/proxy-ws/')) {
         if (!isLoopback) return new Response('Forbidden', { status: 403 })
+        // Never expose preview proxy to Funnel/public hosts.
+        if (serverLabel === 'loopback' && !isLoopbackHostHeader) return new Response('Forbidden', { status: 403 })
+        if (!isAllowedBrowserRequest(request)) return new Response('Forbidden', { status: 403 })
         const rest = url.pathname.slice('/proxy-ws/'.length)
         const slashIdx = rest.indexOf('/')
         const portRaw = (slashIdx === -1 ? rest : rest.slice(0, slashIdx)).trim()
         const port = Number(portRaw)
         if (!Number.isFinite(port) || port < 1 || port > 65535) {
           return new Response('Invalid proxy port', { status: 400 })
+        }
+        // Security: Only allow proxying to known dev server ports
+        if (!isAllowedProxyPort(port)) {
+          log(`[Security] WS Proxy blocked: port ${port} not in allowlist`)
+          return new Response('Port not allowed for proxy', { status: 403 })
         }
         const upstreamPath = slashIdx === -1 ? '/' : `/${rest.slice(slashIdx + 1)}`
         const ok = serverInstance.upgrade(request, {
@@ -4196,27 +4313,15 @@ export async function createBridgeServer(options: BridgeServerOptions): Promise<
         return new Response('WebSocket upgrade failed', { status: 500 })
       }
 
-      // Web dashboard bootstrap: allow loopback clients to fetch the current bridge auth token
-      // without needing an existing token (avoids token-in-URL and QR pairing for localhost UI).
-      if (!isWebSocketUpgrade && request.method === 'GET' && url.pathname === '/api/web/token') {
-        if (!isLoopback) return new Response('Forbidden', { status: 403 })
-        return publicJson(
-          {
-            token: authToken,
-            expiresAt: authExpiresAt,
-            tls: tlsEnabled,
-          },
-          200,
-          {
-            'access-control-allow-origin': request.headers.get('origin') ?? '*',
-            'access-control-allow-headers': 'content-type',
-          },
-        )
-      }
+      // Security: do not expose bridge auth tokens to browsers via HTTP endpoints.
+      // The web dashboard must not rely on a token-fetching bootstrap.
 
       // Preview proxy is only allowed from loopback (iframe requests cannot attach auth headers).
       if (!isWebSocketUpgrade && url.pathname.startsWith('/proxy/')) {
         if (!isLoopback) return new Response('Forbidden', { status: 403 })
+        // Never expose preview proxy to Funnel/public hosts.
+        if (serverLabel === 'loopback' && !isLoopbackHostHeader) return new Response('Forbidden', { status: 403 })
+        if (!isAllowedBrowserRequest(request)) return new Response('Forbidden', { status: 403 })
         // Proxy requests (including POST) never require a bridge auth token.
         try {
           return await handleHttp(request)
@@ -4251,6 +4356,11 @@ export async function createBridgeServer(options: BridgeServerOptions): Promise<
           url.pathname === '/manifest.json' ||
           url.pathname === '/robots.txt'
         if (request.method === 'GET' && looksLikeDashboardAsset) {
+          // Do not serve the embedded dashboard over the Funnel-facing loopback backend.
+          // (It increases attack surface on a public hostname.)
+          if (serverLabel === 'loopback' && !isLoopbackHostHeader) {
+            return publicJson({ error: 'Unauthorized' }, 401)
+          }
           try {
             return await handleHttp(request)
           } catch (error) {
@@ -4271,6 +4381,8 @@ export async function createBridgeServer(options: BridgeServerOptions): Promise<
   }
 
   const secureServer = Bun.serve({
+    // If TLS is disabled, only bind to loopback to avoid exposing plaintext traffic on LAN/WiFi.
+    ...(tlsMaterial ? {} : { hostname: '127.0.0.1' }),
     port: options.port,
     ...(tlsMaterial
       ? {
@@ -4344,6 +4456,30 @@ export async function createBridgeServer(options: BridgeServerOptions): Promise<
 	        }
 	      }
 	    }
+
+      // Security: never trust client-supplied filesystem roots.
+      // Many message types accept `cwd` / `projectPath` and downstream SDKs
+      // (Codex/OpenCode/Claude Code) will happily use whatever we pass.
+      // We canonicalize to a real path and enforce the allowed-base allowlist.
+      const rawCwd = (message as any).cwd
+      if (typeof rawCwd === 'string' && rawCwd.trim()) {
+        const secureCwd = await getSecurePath(rawCwd.trim())
+        if (!secureCwd) {
+          reply({ type: 'error', message: 'Access denied', requestId: message.requestId })
+          return
+        }
+        ;(message as any).cwd = secureCwd
+      }
+
+      const rawProjectPath = (message as any).projectPath
+      if (typeof rawProjectPath === 'string' && rawProjectPath.trim()) {
+        const secureProjectPath = await getSecurePath(rawProjectPath.trim())
+        if (!secureProjectPath) {
+          reply({ type: 'error', message: 'Access denied', requestId: message.requestId })
+          return
+        }
+        ;(message as any).projectPath = secureProjectPath
+      }
 
     switch (message.type) {
 	      case 'auth_session': {
@@ -4729,16 +4865,18 @@ export async function createBridgeServer(options: BridgeServerOptions): Promise<
         case 'get_config': {
           const oc = requireOpenCode()
           // Use instance directory as fallback when no project is specified
-          const projectPath = message.projectPath ?? await oc.getInstanceDirectory()
-          const config = await oc.getConfig(projectPath ?? undefined)
+          const fallback = await oc.getInstanceDirectory()
+          const projectPath = safeString(message.projectPath).trim() || (fallback ? (await getSecurePath(fallback)) : '')
+          const config = await oc.getConfig(projectPath || undefined)
           reply({ type: 'config', data: config })
           break
         }
         case 'set_config': {
           const oc = requireOpenCode()
           // Use instance directory as fallback when no project is specified
-          const projectPath = message.projectPath ?? await oc.getInstanceDirectory()
-          const config = await oc.updateConfig(message.config, projectPath ?? undefined)
+          const fallback = await oc.getInstanceDirectory()
+          const projectPath = safeString(message.projectPath).trim() || (fallback ? (await getSecurePath(fallback)) : '')
+          const config = await oc.updateConfig(message.config, projectPath || undefined)
           reply({ type: 'config', data: config })
           break
         }
@@ -5091,7 +5229,7 @@ export async function createBridgeServer(options: BridgeServerOptions): Promise<
         case 'create_pty': {
           try {
             const oc = requireOpenCode()
-            log(`[PTY] Creating PTY session: command=${message.command}, title=${message.title}, cwd=${message.cwd}, projectPath=${message.projectPath}`)
+	          log(`[PTY] Creating PTY session: title=${safeString(message.title)}, projectPath=${safeString(message.projectPath) || '(none)'}`)
             const pty = await oc.createPty(
               message.command,
               message.args,
@@ -5100,7 +5238,7 @@ export async function createBridgeServer(options: BridgeServerOptions): Promise<
               message.projectPath,
             )
             if (pty) {
-              log(`[PTY] Created PTY session: ${JSON.stringify(pty)}`)
+		        log('[PTY] Created PTY session')
               reply({ type: 'pty_created', data: pty })
             } else {
               log(`[PTY] createPty returned null`)
@@ -5491,14 +5629,22 @@ export async function createBridgeServer(options: BridgeServerOptions): Promise<
       }
       case 'cx_start_thread': {
         const client = await ensureCodexClient()
+        const cwd = safeString(message.cwd).trim()
+        if (!cwd) {
+          reply({ type: 'error', message: 'Missing cwd' })
+          break
+        }
         const result: any = await client.request('thread/start', {
-          cwd: message.cwd ?? null,
+          cwd,
           model: message.model ?? null,
           approvalPolicy: message.approvalPolicy ?? null,
           sandbox: message.sandbox ?? null,
         })
         const thread = mapCodexThread(result?.thread)
-        if (thread.id && thread.cwd) cxThreadCwds.set(thread.id, resolve(thread.cwd))
+        if (thread.id && thread.cwd) {
+          const secureThreadCwd = await getSecurePath(thread.cwd)
+          if (secureThreadCwd) cxThreadCwds.set(thread.id, secureThreadCwd)
+        }
         // Invalidate caches since a new thread was created
         invalidateCodexCaches(thread.cwd)
         reply({ type: 'cx_thread_created', data: thread })
@@ -5510,7 +5656,10 @@ export async function createBridgeServer(options: BridgeServerOptions): Promise<
           threadId: message.threadId,
         })
         const thread = mapCodexThread(result?.thread)
-        if (thread.id && thread.cwd) cxThreadCwds.set(thread.id, resolve(thread.cwd))
+        if (thread.id && thread.cwd) {
+          const secureThreadCwd = await getSecurePath(thread.cwd)
+          if (secureThreadCwd) cxThreadCwds.set(thread.id, secureThreadCwd)
+        }
         reply({ type: 'cx_thread', data: thread })
         break
       }
@@ -5667,9 +5816,19 @@ export async function createBridgeServer(options: BridgeServerOptions): Promise<
       }
       case 'cx_review_start': {
         const client = await ensureCodexClient()
-        const cwd = message.cwd ?? process.cwd()
+        const explicitCwd = safeString(message.cwd).trim()
 
         let threadId = message.threadId
+        const storedCwd = threadId ? cxThreadCwds.get(threadId) : null
+        if (storedCwd && explicitCwd && storedCwd !== explicitCwd) {
+          reply({ type: 'error', message: 'Access denied' })
+          break
+        }
+        const cwd = explicitCwd || storedCwd || ''
+        if (!cwd) {
+          reply({ type: 'error', message: 'Missing cwd' })
+          break
+        }
         if (!threadId) {
           const startRes: any = await client.request('thread/start', {
             cwd,
@@ -5681,7 +5840,7 @@ export async function createBridgeServer(options: BridgeServerOptions): Promise<
           threadId = safeString(startRes?.thread?.id)
           if (threadId) {
             reply({ type: 'cx_thread_created', data: mapCodexThread(startRes.thread) })
-            cxThreadCwds.set(threadId, resolve(cwd))
+            cxThreadCwds.set(threadId, cwd)
           }
         } else {
           await client.request('thread/resume', {
@@ -5806,8 +5965,13 @@ export async function createBridgeServer(options: BridgeServerOptions): Promise<
         break
       }
       case 'cx_agents_read': {
-        const cwd = resolve(message.cwd)
-        const agentsPath = resolve(cwd, 'AGENTS.md')
+	        const requestedCwd = safeString(message.cwd).trim()
+	        const secureCwd = requestedCwd ? await getSecurePath(requestedCwd) : null
+	        if (!secureCwd) {
+	          reply({ type: 'error', message: 'Access denied' })
+	          break
+	        }
+	        const agentsPath = resolve(secureCwd, 'AGENTS.md')
         try {
           const content = await readFile(agentsPath, 'utf8')
           reply({
@@ -5823,8 +5987,13 @@ export async function createBridgeServer(options: BridgeServerOptions): Promise<
         break
       }
       case 'cx_agents_write': {
-        const cwd = resolve(message.cwd)
-        const agentsPath = resolve(cwd, 'AGENTS.md')
+	        const requestedCwd = safeString(message.cwd).trim()
+	        const secureCwd = requestedCwd ? await getSecurePath(requestedCwd) : null
+	        if (!secureCwd) {
+	          reply({ type: 'error', message: 'Access denied' })
+	          break
+	        }
+	        const agentsPath = resolve(secureCwd, 'AGENTS.md')
         try {
           await writeFile(agentsPath, message.content ?? '', 'utf8')
           reply({
@@ -5841,12 +6010,26 @@ export async function createBridgeServer(options: BridgeServerOptions): Promise<
       }
       case 'cx_chat': {
         const client = await ensureCodexClient()
-        const cwd = message.cwd ?? process.cwd()
-        // Debug: log model being used
-        console.log(`[Codex cx_chat] model=${message.model ?? 'default'}, threadId=${message.threadId ?? 'new'}, cwd=${cwd}`)
+	        const explicitCwd = safeString(message.cwd).trim()
+	        const existingThreadId = safeString(message.threadId).trim()
+	        const storedCwd = existingThreadId ? cxThreadCwds.get(existingThreadId) : null
+	        if (storedCwd && explicitCwd && storedCwd !== explicitCwd) {
+	          reply({ type: 'error', message: 'Access denied' })
+	          break
+	        }
+	        const cwd = storedCwd || explicitCwd
+	        if (!cwd) {
+	          reply({ type: 'error', message: 'Missing cwd' })
+	          break
+	        }
+	        if (DEBUG_CX_GLOBAL) {
+	          console.log(
+	            `[Codex cx_chat] model=${message.model ?? 'default'}, threadId=${message.threadId ?? 'new'}`,
+	          )
+	        }
 
         let resolvedModel = safeString(message.model).trim()
-        let threadId = message.threadId
+        let threadId = existingThreadId || null
         if (!threadId) {
           const startRes: any = await client.request('thread/start', {
             cwd,
@@ -5861,11 +6044,13 @@ export async function createBridgeServer(options: BridgeServerOptions): Promise<
           if (!resolvedModel) {
             resolvedModel = safeString(startRes?.model).trim()
           }
-          console.log(`[Codex cx_chat] thread/start result: threadId=${threadId}, model=${message.model}`)
+	          if (DEBUG_CX_GLOBAL) {
+	            console.log(`[Codex cx_chat] thread/start result: threadId=${threadId}`)
+	          }
           if (threadId) {
             reply({ type: 'cx_thread_created', data: mapCodexThread(startRes.thread) })
           } else {
-            console.error(`[Codex cx_chat] thread/start failed - no threadId returned`, startRes)
+	            console.error(`[Codex cx_chat] thread/start failed - no threadId returned`)
           }
         } else {
           // Ensure we are subscribed to events for this thread.
@@ -5894,7 +6079,7 @@ export async function createBridgeServer(options: BridgeServerOptions): Promise<
           }
 
           cxThreadOwners.set(threadId, ws)
-          cxThreadCwds.set(threadId, resolve(cwd))
+          cxThreadCwds.set(threadId, cwd)
 
         // Prepare input (text + optional local images written to disk).
         const input: Array<any> = [{ type: 'text', text: message.prompt }]
@@ -5970,7 +6155,9 @@ export async function createBridgeServer(options: BridgeServerOptions): Promise<
           }
         }
 
-        console.log(`[Codex cx_chat] Starting turn for threadId=${threadId}, model=${message.model}`)
+	        if (DEBUG_CX_GLOBAL) {
+	          console.log(`[Codex cx_chat] Starting turn for threadId=${threadId}`)
+	        }
         
         try {
           const turnRes: any = await client.request('turn/start', {
@@ -5989,7 +6176,9 @@ export async function createBridgeServer(options: BridgeServerOptions): Promise<
           const turnStatus = safeString(turnRes?.turn?.status).toLowerCase()
           const turnError = turnRes?.turn?.error ?? turnRes?.error
           
-          console.log(`[Codex cx_chat] turn/start result: turnId=${turnId}, status=${turnStatus}, model=${message.model}`)
+	          if (DEBUG_CX_GLOBAL) {
+	            console.log(`[Codex cx_chat] turn/start result: turnId=${turnId}, status=${turnStatus}`)
+	          }
           
           // Check if turn started with an error
           if (turnError || turnStatus === 'failed') {
@@ -5998,7 +6187,14 @@ export async function createBridgeServer(options: BridgeServerOptions): Promise<
               : turnError?.message ?? turnError?.additionalDetails ?? 'Turn failed to start'
             const errorCode = turnError?.codexErrorInfo ?? turnError?.code ?? 'turn_start_failed'
             
-            console.error(`[Codex cx_chat] turn/start failed:`, JSON.stringify(turnError ?? turnRes, null, 2))
+	            console.error(`[Codex cx_chat] turn/start failed`)
+	            if (DEBUG_CX_GLOBAL) {
+	              try {
+	                console.error(JSON.stringify(turnError ?? turnRes, null, 2))
+	              } catch {
+	                // ignore
+	              }
+	            }
             
             send(ws, {
               type: 'cx_stream',
@@ -6024,8 +6220,15 @@ export async function createBridgeServer(options: BridgeServerOptions): Promise<
             break
           }
           
-          if (!turnId) {
-            console.error(`[Codex cx_chat] turn/start returned no turnId:`, JSON.stringify(turnRes, null, 2))
+	          if (!turnId) {
+	            console.error(`[Codex cx_chat] turn/start returned no turnId`)
+	            if (DEBUG_CX_GLOBAL) {
+	              try {
+	                console.error(JSON.stringify(turnRes, null, 2))
+	              } catch {
+	                // ignore
+	              }
+	            }
             send(ws, {
               type: 'cx_stream',
               threadId,
@@ -6090,7 +6293,10 @@ export async function createBridgeServer(options: BridgeServerOptions): Promise<
           if (id) {
             cxThreadOwners.set(id, ws)
             const cwd = safeString(thread?.cwd)
-            if (cwd) cxThreadCwds.set(id, resolve(cwd))
+            if (cwd) {
+              const secureThreadCwd = await getSecurePath(cwd)
+              if (secureThreadCwd) cxThreadCwds.set(id, secureThreadCwd)
+            }
           }
           reply({ type: 'cx_thread_forked', data: mapCodexThread(thread) })
         } else {
@@ -6226,9 +6432,11 @@ export async function createBridgeServer(options: BridgeServerOptions): Promise<
         case 'oc_list_skills': {
           const oc = requireOpenCode()
           const skillFiles = await import('./skills')
-          // Use instance directory as fallback when no cwd is specified
-          const cwd = message.cwd ?? await oc.getInstanceDirectory()
-          const data = await skillFiles.listOpenCodeSkills(cwd ?? undefined)
+          // Use instance directory as fallback when no cwd is specified.
+          // Ensure the fallback is still within allowed base paths.
+          const fallback = await oc.getInstanceDirectory()
+          const cwd = safeString(message.cwd).trim() || (fallback ? (await getSecurePath(fallback)) : '')
+          const data = await skillFiles.listOpenCodeSkills(cwd || undefined)
           reply({ type: 'oc_skills', data })
           break
         }
@@ -6361,9 +6569,11 @@ export async function createBridgeServer(options: BridgeServerOptions): Promise<
         case 'oc_list_command_files': {
           const oc = requireOpenCode()
           const files = await import('./opencode-custom')
-          // Use instance directory as fallback when no cwd is specified
-          const cwd = message.cwd ?? await oc.getInstanceDirectory()
-          const data = await files.listCommandFiles(cwd ?? undefined)
+          // Use instance directory as fallback when no cwd is specified.
+          // Ensure the fallback is still within allowed base paths.
+          const fallback = await oc.getInstanceDirectory()
+          const cwd = safeString(message.cwd).trim() || (fallback ? (await getSecurePath(fallback)) : '')
+          const data = await files.listCommandFiles(cwd || undefined)
           reply({ type: 'oc_command_files', data })
           break
         }
@@ -6415,9 +6625,11 @@ export async function createBridgeServer(options: BridgeServerOptions): Promise<
         case 'oc_list_agent_files': {
           const oc = requireOpenCode()
           const files = await import('./opencode-custom')
-          // Use instance directory as fallback when no cwd is specified
-          const cwd = message.cwd ?? await oc.getInstanceDirectory()
-          const data = await files.listAgentFiles(cwd ?? undefined)
+          // Use instance directory as fallback when no cwd is specified.
+          // Ensure the fallback is still within allowed base paths.
+          const fallback = await oc.getInstanceDirectory()
+          const cwd = safeString(message.cwd).trim() || (fallback ? (await getSecurePath(fallback)) : '')
+          const data = await files.listAgentFiles(cwd || undefined)
           reply({ type: 'oc_agent_files', data })
           break
         }
@@ -6520,7 +6732,11 @@ export async function createBridgeServer(options: BridgeServerOptions): Promise<
           break
         }
         case 'cc_chat': {
-          const cwd = message.cwd || process.cwd()
+	          const cwd = safeString(message.cwd).trim()
+	          if (!cwd) {
+	            reply({ type: 'error', message: 'Missing cwd' })
+	            break
+	          }
           let actualSessionId = message.sessionId ?? ''
           const cfg = await claudeCode.getConfig(cwd)
           const model = message.model || cfg.model || 'sonnet'
@@ -6828,11 +7044,22 @@ export async function createBridgeServer(options: BridgeServerOptions): Promise<
         }
         case 'cc_hooks_file_read': {
           const src = message.source
-          const cwd = message.cwd || process.cwd()
-          const hooksPath =
-            src === 'project'
-              ? join(cwd, '.claude', 'hooks', 'hooks.json')
-              : join(homedir(), '.claude', 'hooks', 'hooks.json')
+          const cwd = safeString(message.cwd).trim()
+          if (src === 'project' && !cwd) {
+            reply({ type: 'cc_hooks_file', data: { ok: false, source: src, path: '', content: '' } })
+            break
+          }
+          let hooksPath: string | null = null
+          if (src === 'project') {
+            const secureCwd = await getSecurePath(cwd)
+            if (!secureCwd) {
+              reply({ type: 'cc_hooks_file', data: { ok: false, source: src, path: '', content: '' } })
+              break
+            }
+            hooksPath = join(secureCwd, '.claude', 'hooks', 'hooks.json')
+          } else {
+            hooksPath = join(homedir(), '.claude', 'hooks', 'hooks.json')
+          }
           try {
             const content = await readFile(hooksPath, 'utf-8')
             reply({ type: 'cc_hooks_file', data: { ok: true, source: src, path: hooksPath, content } })
@@ -6843,11 +7070,22 @@ export async function createBridgeServer(options: BridgeServerOptions): Promise<
         }
         case 'cc_hooks_file_write': {
           const src = message.source
-          const cwd = message.cwd || process.cwd()
-          const hooksPath =
-            src === 'project'
-              ? join(cwd, '.claude', 'hooks', 'hooks.json')
-              : join(homedir(), '.claude', 'hooks', 'hooks.json')
+          const cwd = safeString(message.cwd).trim()
+          if (src === 'project' && !cwd) {
+            reply({ type: 'cc_hooks_file_written', data: { ok: false, source: src, path: '' } })
+            break
+          }
+          let hooksPath: string | null = null
+          if (src === 'project') {
+            const secureCwd = await getSecurePath(cwd)
+            if (!secureCwd) {
+              reply({ type: 'cc_hooks_file_written', data: { ok: false, source: src, path: '' } })
+              break
+            }
+            hooksPath = join(secureCwd, '.claude', 'hooks', 'hooks.json')
+          } else {
+            hooksPath = join(homedir(), '.claude', 'hooks', 'hooks.json')
+          }
           try {
             await mkdir(resolve(hooksPath, '..'), { recursive: true })
             await writeFile(hooksPath, message.content, 'utf-8')
@@ -6858,8 +7096,17 @@ export async function createBridgeServer(options: BridgeServerOptions): Promise<
           break
         }
         case 'cc_mcp_file_read': {
-          const cwd = message.cwd || process.cwd()
-          const mcpPath = join(cwd, '.mcp.json')
+          const cwd = safeString(message.cwd).trim()
+          if (!cwd) {
+            reply({ type: 'cc_mcp_file', data: { ok: false, path: '', content: '' } })
+            break
+          }
+          const secureCwd = await getSecurePath(cwd)
+          if (!secureCwd) {
+            reply({ type: 'cc_mcp_file', data: { ok: false, path: '', content: '' } })
+            break
+          }
+          const mcpPath = join(secureCwd, '.mcp.json')
           try {
             const content = await readFile(mcpPath, 'utf-8')
             reply({ type: 'cc_mcp_file', data: { ok: true, path: mcpPath, content } })
@@ -6869,8 +7116,17 @@ export async function createBridgeServer(options: BridgeServerOptions): Promise<
           break
         }
         case 'cc_mcp_file_write': {
-          const cwd = message.cwd || process.cwd()
-          const mcpPath = join(cwd, '.mcp.json')
+          const cwd = safeString(message.cwd).trim()
+          if (!cwd) {
+            reply({ type: 'cc_mcp_file_written', data: { ok: false, path: '' } })
+            break
+          }
+          const secureCwd = await getSecurePath(cwd)
+          if (!secureCwd) {
+            reply({ type: 'cc_mcp_file_written', data: { ok: false, path: '' } })
+            break
+          }
+          const mcpPath = join(secureCwd, '.mcp.json')
           try {
             await writeFile(mcpPath, message.content, 'utf-8')
             reply({ type: 'cc_mcp_file_written', data: { ok: true, path: mcpPath } })
@@ -6892,7 +7148,7 @@ export async function createBridgeServer(options: BridgeServerOptions): Promise<
         case 'cc_get_command': {
           const name = safeString(message.name)
           const source = message.source
-          const cwd = message.cwd || process.cwd()
+          let cwd = safeString(message.cwd).trim() || process.cwd()
 
           if (!isSafeClaudeCommandName(name)) {
             reply({
@@ -6940,6 +7196,17 @@ export async function createBridgeServer(options: BridgeServerOptions): Promise<
               })
               break
             }
+            if (source === 'project') {
+              const secureCwd = await getSecurePath(cwd)
+              if (!secureCwd) {
+                reply({
+                  type: 'cc_command_file',
+                  data: { ok: false, name, source, path: '', content: '' },
+                })
+                break
+              }
+              cwd = secureCwd
+            }
             const resolved = resolveClaudeCommandFilePath({ cwd, source, name })
             if (!resolved) {
               reply({
@@ -6974,7 +7241,7 @@ export async function createBridgeServer(options: BridgeServerOptions): Promise<
         case 'cc_save_command': {
           const name = safeString(message.name)
           const source = message.source
-          const cwd = message.cwd || process.cwd()
+          let cwd = safeString(message.cwd).trim() || process.cwd()
 
           if (source !== 'project' && source !== 'user') {
             reply({ type: 'cc_command_saved', data: { ok: false, name, source } })
@@ -6983,6 +7250,15 @@ export async function createBridgeServer(options: BridgeServerOptions): Promise<
           if (!isSafeClaudeCommandName(name)) {
             reply({ type: 'cc_command_saved', data: { ok: false, name, source } })
             break
+          }
+
+          if (source === 'project') {
+            const secureCwd = await getSecurePath(cwd)
+            if (!secureCwd) {
+              reply({ type: 'cc_command_saved', data: { ok: false, name, source } })
+              break
+            }
+            cwd = secureCwd
           }
 
           const cmdPath = resolveClaudeCommandFilePath({ cwd, source, name })
@@ -7003,7 +7279,7 @@ export async function createBridgeServer(options: BridgeServerOptions): Promise<
         case 'cc_delete_command': {
           const name = safeString(message.name)
           const source = message.source
-          const cwd = message.cwd || process.cwd()
+          let cwd = safeString(message.cwd).trim() || process.cwd()
 
           if (source !== 'project' && source !== 'user') {
             reply({ type: 'cc_command_deleted', data: { ok: false, name, source } })
@@ -7012,6 +7288,15 @@ export async function createBridgeServer(options: BridgeServerOptions): Promise<
           if (!isSafeClaudeCommandName(name)) {
             reply({ type: 'cc_command_deleted', data: { ok: false, name, source } })
             break
+          }
+
+          if (source === 'project') {
+            const secureCwd = await getSecurePath(cwd)
+            if (!secureCwd) {
+              reply({ type: 'cc_command_deleted', data: { ok: false, name, source } })
+              break
+            }
+            cwd = secureCwd
           }
 
           const cmdPath = resolveClaudeCommandFilePath({ cwd, source, name })

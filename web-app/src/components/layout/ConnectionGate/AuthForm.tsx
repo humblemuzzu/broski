@@ -14,7 +14,6 @@ interface AuthFormProps {
   onConvexTokenChange: (token: string | null) => void
   onConnect: () => void
   onDisconnect: () => void
-  onFetchToken: () => void
   onCloudAuth: () => void
 }
 
@@ -28,7 +27,6 @@ export const AuthForm = React.memo<AuthFormProps>(({
   onConvexTokenChange,
   onConnect,
   onDisconnect,
-  onFetchToken,
   onCloudAuth,
 }) => {
   return (
@@ -43,7 +41,7 @@ export const AuthForm = React.memo<AuthFormProps>(({
       />
 
       <label className="block text-xs text-muted-foreground">
-        Bridge Auth Token (auto-fetched on localhost)
+        Bridge Auth Token
       </label>
       <Input
         value={bridgeAuthToken ?? ""}
@@ -70,9 +68,6 @@ export const AuthForm = React.memo<AuthFormProps>(({
         <Button variant="outline" onClick={onDisconnect}>
           Disconnect
         </Button>
-        <Button variant="outline" onClick={onFetchToken}>
-          Fetch Token
-        </Button>
         <Button
           variant="outline"
           onClick={onCloudAuth}
@@ -83,7 +78,7 @@ export const AuthForm = React.memo<AuthFormProps>(({
       </div>
       
       <div className="text-xs text-muted-foreground">
-        Tip: Start the bridge first. For localhost, token auto-fetch should work.
+        Tip: Get the token from the bridge QR code or `broski show-token`.
       </div>
     </div>
   )

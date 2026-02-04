@@ -2,7 +2,7 @@ import { stdin as input, stdout as output } from 'node:process'
 import readline from 'node:readline/promises'
 
 export type OpencodeMode = 'managed' | 'manual' | 'attach'
-export type SubCommand = 'serve' | 'doctor' | 'setup-tailscale' | 'install' | 'uninstall' | 'status' | 'stop' | 'restart' | 'qr' | 'version' | 'update' | 'setup' | 'configure' | 'troubleshoot' | 'logs' | null
+export type SubCommand = 'serve' | 'doctor' | 'setup-tailscale' | 'install' | 'uninstall' | 'status' | 'stop' | 'restart' | 'qr' | 'version' | 'update' | 'setup' | 'configure' | 'troubleshoot' | 'logs' | 'show-token' | null
 
 export type CliOptions = {
   subCommand: SubCommand
@@ -92,13 +92,15 @@ export function parseCli(argv: string[], env: NodeJS.ProcessEnv): CliOptions {
     subCommand = 'troubleshoot'
   } else if (firstArg === 'logs') {
     subCommand = 'logs'
+  } else if (firstArg === 'show-token') {
+    subCommand = 'show-token'
   } else if (firstArg === 'serve' || !firstArg?.startsWith('-')) {
     subCommand = 'serve'
   }
 
   for (let i = 0; i < args.length; i++) {
     const arg = args[i]
-    if (arg === 'doctor' || arg === 'setup-tailscale' || arg === 'serve' || arg === 'install' || arg === 'uninstall' || arg === 'status' || arg === 'stop' || arg === 'restart' || arg === 'qr' || arg === 'version' || arg === 'update' || arg === 'setup' || arg === 'configure' || arg === 'troubleshoot' || arg === 'logs') {
+    if (arg === 'doctor' || arg === 'setup-tailscale' || arg === 'serve' || arg === 'install' || arg === 'uninstall' || arg === 'status' || arg === 'stop' || arg === 'restart' || arg === 'qr' || arg === 'version' || arg === 'update' || arg === 'setup' || arg === 'configure' || arg === 'troubleshoot' || arg === 'logs' || arg === 'show-token') {
       continue
     }
     if (arg === '--help' || arg === '-h') {
@@ -256,6 +258,7 @@ Commands:
   stop              Stop the background service
   restart           Restart the background service (picks up code changes)
   qr                Show QR code to connect your phone
+  show-token        Show auth token for manual connection
   update            Check for and install bridge updates
   version           Show version and platform info
   doctor            Check system requirements and diagnose issues

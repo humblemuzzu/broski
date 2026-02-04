@@ -31,7 +31,6 @@ type ConnectionState = {
   setWsUrl: (wsUrl: string) => void
   setBridgeAuthToken: (token: string | null) => void
   setConvexSessionToken: (token: string | null) => void
-  bootstrapBridgeToken: () => Promise<boolean>
   connect: () => void
   disconnect: () => void
   send: WebSocketClient["send"]
@@ -73,22 +72,6 @@ export const useConnectionStore = create<ConnectionState>()(
       setWsUrl: (wsUrl) => set({ wsUrl }),
       setBridgeAuthToken: (token) => set({ bridgeAuthToken: token }),
       setConvexSessionToken: (token) => set({ convexSessionToken: token }),
-      bootstrapBridgeToken: async () => {
-        try {
-          const res = await fetch("/api/web/token", {
-            method: "GET",
-            credentials: "omit",
-          })
-          if (!res.ok) return false
-          const json = (await res.json().catch(() => null)) as any
-          const token = typeof json?.token === "string" ? json.token : null
-          if (!token) return false
-          set({ bridgeAuthToken: token })
-          return true
-        } catch {
-          return false
-        }
-      },
       connect: () => {
         const { wsUrl, bridgeAuthToken } = get()
         set({ wsState: "connecting" })
@@ -138,7 +121,6 @@ export const useConnectionStore = create<ConnectionState>()(
       name: STORAGE_KEYS.bridgeWsUrl,
       partialize: (s) => ({
         wsUrl: s.wsUrl,
-        bridgeAuthToken: s.bridgeAuthToken,
         deviceName: s.deviceName,
         activeAgent: s.activeAgent,
       }),
@@ -147,7 +129,6 @@ export const useConnectionStore = create<ConnectionState>()(
         return {
           ...current,
           wsUrl: p?.wsUrl ?? current.wsUrl,
-          bridgeAuthToken: p?.bridgeAuthToken ?? current.bridgeAuthToken,
           deviceName: p?.deviceName ?? current.deviceName,
           activeAgent: p?.activeAgent ?? current.activeAgent,
         }

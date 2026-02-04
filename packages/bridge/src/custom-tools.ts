@@ -12,17 +12,149 @@
 
 import { createSdkMcpServer, tool } from '@anthropic-ai/claude-agent-sdk'
 import { z } from 'zod'
-import { readFile, writeFile, mkdir } from 'node:fs/promises'
-import { join } from 'node:path'
+import { readFile, writeFile, mkdir, realpath } from 'node:fs/promises'
+import { join, resolve, sep } from 'node:path'
 import { homedir } from 'node:os'
-import { exec } from 'node:child_process'
-import { promisify } from 'node:util'
+import { spawn } from 'node:child_process'
 
-const execAsync = promisify(exec)
+import { getDefaultAllowedPaths } from './platform'
 
 // Storage path for custom tools
 const BROSKI_DIR = join(homedir(), '.broski')
 const CUSTOM_TOOLS_FILE = join(BROSKI_DIR, 'custom-tools.json')
+
+const SECURITY_ALLOWED_BASE_PATHS = (() => {
+  const raw = (process.env.BROSKI_ALLOWED_BASE_PATHS ?? '').trim()
+  const defaults = getDefaultAllowedPaths()
+  const bases = raw
+    ? raw
+        .split(',')
+        .map((p) => p.trim())
+        .filter(Boolean)
+    : defaults
+  return bases.map((p) => resolve(p))
+})()
+
+function isSecureBasePath(realPath: string): boolean {
+  return SECURITY_ALLOWED_BASE_PATHS.some((base) => realPath === base || realPath.startsWith(base + sep))
+}
+
+async function getSecurePath(requestedPath: string): Promise<string | null> {
+  try {
+    if (!requestedPath || typeof requestedPath !== 'string') return null
+    if (requestedPath.length > 4096) return null
+    if (requestedPath.includes('\0')) return null
+    if (/[\u0000-\u001F]/.test(requestedPath)) return null
+
+    const expandedPath = requestedPath.startsWith('~')
+      ? requestedPath.replace(/^~/, homedir())
+      : requestedPath
+
+    const abs = resolve(expandedPath)
+    if (!isSecureBasePath(abs)) return null
+
+    const rp = await realpath(abs).catch(() => null)
+    if (!rp) return null
+    return isSecureBasePath(rp) ? rp : null
+  } catch {
+    return null
+  }
+}
+
+function splitCommandLine(input: string): string[] {
+  const out: string[] = []
+  let cur = ''
+  let quote: 'single' | 'double' | null = null
+  for (let i = 0; i < input.length; i++) {
+    const ch = input[i]
+    if (quote === 'single') {
+      if (ch === "'") {
+        quote = null
+      } else {
+        cur += ch
+      }
+      continue
+    }
+    if (quote === 'double') {
+      if (ch === '"') {
+        quote = null
+      } else if (ch === '\\' && i + 1 < input.length) {
+        // Basic escape support in double quotes
+        i += 1
+        cur += input[i]
+      } else {
+        cur += ch
+      }
+      continue
+    }
+
+    if (ch === "'") {
+      quote = 'single'
+      continue
+    }
+    if (ch === '"') {
+      quote = 'double'
+      continue
+    }
+    if (ch === '\\' && i + 1 < input.length) {
+      i += 1
+      cur += input[i]
+      continue
+    }
+    if (ch === ' ' || ch === '\t' || ch === '\n') {
+      if (cur) {
+        out.push(cur)
+        cur = ''
+      }
+      continue
+    }
+    cur += ch
+  }
+  if (cur) out.push(cur)
+  return out
+}
+
+async function runCommand(
+  file: string,
+  args: string[],
+  options: { cwd?: string; timeoutMs?: number },
+): Promise<{ code: number | null; stdout: string; stderr: string; timedOut: boolean }> {
+  return await new Promise((resolvePromise) => {
+    const proc = spawn(file, args, {
+      cwd: options.cwd,
+      shell: false,
+      stdio: ['ignore', 'pipe', 'pipe'],
+      windowsHide: true,
+    })
+
+    const chunksOut: Buffer[] = []
+    const chunksErr: Buffer[] = []
+    let timedOut = false
+    const timer = options.timeoutMs
+      ? setTimeout(() => {
+          timedOut = true
+          try {
+            proc.kill('SIGKILL')
+          } catch {
+            // ignore
+          }
+        }, Math.max(1, options.timeoutMs))
+      : null
+
+    proc.stdout?.on('data', (b) => chunksOut.push(Buffer.from(b)))
+    proc.stderr?.on('data', (b) => chunksErr.push(Buffer.from(b)))
+
+    proc.on('close', (code) => {
+      if (timer) clearTimeout(timer)
+      resolvePromise({
+        code,
+        stdout: Buffer.concat(chunksOut).toString('utf-8'),
+        stderr: Buffer.concat(chunksErr).toString('utf-8'),
+        timedOut,
+      })
+    })
+  })
+}
 
 /**
  * Parameter definition for a custom tool
@@ -215,7 +347,7 @@ function buildZodSchema(parameters: CustomToolParameter[]): Record<string, z.Zod
         schema = z.array(z.any())
         break
       case 'object':
-        schema = z.record(z.any())
+        schema = z.record(z.string(), z.any())
         break
       default:
         schema = z.any()
@@ -328,42 +460,71 @@ async function handleScriptTool(
   args: Record<string, unknown>
 ): Promise<{ content: Array<{ type: 'text'; text: string }> }> {
   try {
-    // Build command with arguments
-    let command = config.command
-    
-    // Replace placeholders in command
-    command = replaceTemplatePlaceholders(command, args)
-    
-    // Add static args
-    if (config.args?.length) {
-      const processedArgs = config.args.map(arg => replaceTemplatePlaceholders(arg, args))
-      command = `${command} ${processedArgs.join(' ')}`
+    // Security: custom tools execute on the user's machine. We do NOT run via a shell
+    // (prevents injection through placeholder substitution).
+    if (config.shell === true) {
+      return {
+        content: [
+          {
+            type: 'text',
+            text:
+              'Refusing to run custom tool with shell=true. For security, Broski only supports direct program execution (shell: false).',
+          },
+        ],
+      }
     }
-    
-    // Execute command
-    const options: { cwd?: string; timeout?: number; shell?: boolean | string } = {}
-    if (config.cwd) options.cwd = config.cwd
-    if (config.timeout) options.timeout = config.timeout
-    if (config.shell !== false) options.shell = true
-    
-    const { stdout, stderr } = await execAsync(command, options)
-    
-    const output = []
-    if (stdout) output.push(`Output:\n${stdout}`)
-    if (stderr) output.push(`Stderr:\n${stderr}`)
-    
+
+    const cmdRaw = replaceTemplatePlaceholders(config.command, args).trim()
+    const base = splitCommandLine(cmdRaw)
+    if (base.length === 0) {
+      return {
+        content: [{ type: 'text', text: 'Invalid script command (empty)' }],
+      }
+    }
+
+    const file = base[0]
+    const finalArgs: string[] = [...base.slice(1)]
+    if (config.args?.length) {
+      for (const a of config.args) {
+        finalArgs.push(replaceTemplatePlaceholders(a, args))
+      }
+    }
+
+    const secureCwd = config.cwd ? await getSecurePath(config.cwd) : null
+    if (config.cwd && !secureCwd) {
+      return {
+        content: [{ type: 'text', text: 'Refusing to run: cwd is outside allowed base paths' }],
+      }
+    }
+
+    const result = await runCommand(file, finalArgs, {
+      cwd: secureCwd ?? undefined,
+      timeoutMs: config.timeout,
+    })
+
+    const output: string[] = []
+    if (result.timedOut) output.push('Error: command timed out')
+    if (result.stdout) output.push(`Output:\n${result.stdout}`)
+    if (result.stderr) output.push(`Stderr:\n${result.stderr}`)
+
+    const ok = result.code === 0 && !result.timedOut
     return {
-      content: [{
-        type: 'text',
-        text: output.length ? output.join('\n\n') : 'Command executed successfully (no output)',
-      }],
+      content: [
+        {
+          type: 'text',
+          text: output.length
+            ? output.join('\n\n')
+            : ok
+              ? 'Command executed successfully (no output)'
+              : `Command failed (exit ${result.code ?? 'unknown'})`,
+        },
+      ],
     }
   } catch (error) {
-    const execError = error as { stdout?: string; stderr?: string; message?: string }
     return {
       content: [{
         type: 'text',
-        text: `Error executing script: ${execError.message || String(error)}\n${execError.stderr || ''}`,
+        text: `Error executing script: ${error instanceof Error ? error.message : String(error)}`,
       }],
     }
   }

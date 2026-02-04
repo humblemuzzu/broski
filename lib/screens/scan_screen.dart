@@ -367,49 +367,243 @@ class _ScanScreenState extends ConsumerState<ScanScreen>
   Future<void> _showManualEntry(BuildContext context) async {
     final hostController = TextEditingController();
     final portController = TextEditingController(text: '18274');
+    final tokenController = TextEditingController();
+    bool useTls = false;
+    String? parseError;
+
+    // Try to parse QR JSON data from clipboard or pasted text
+    void tryParseQrJson(String text, void Function(void Function()) setState) {
+      final info = ConnectionInfo.parseQrPayload(text);
+      if (info != null) {
+        hostController.text =
+            info.localIP ??
+            info.tailscaleIP ??
+            info.magicDNSHostname ??
+            info.hotspotIP ??
+            '';
+        portController.text = info.port.toString();
+        tokenController.text = info.authToken ?? '';
+        setState(() {
+          useTls = info.tlsEnabled;
+          parseError = null;
+        });
+        HapticFeedback.mediumImpact();
+      } else {
+        setState(() => parseError = 'Could not parse QR data');
+      }
+    }
 
     final result = await DetailSheet.show<ConnectionInfo>(
       context: context,
       title: 'Manual Connection',
-      initialSize: 0.5,
-      child: Padding(
-        padding: const EdgeInsets.fromLTRB(24, 8, 24, 24),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text(
-              'Enter the IP address and port shown on your Mac.',
-              style: TextStyle(color: Colors.white.withValues(alpha: 0.5)),
-            ),
-            const SizedBox(height: 24),
-            _buildTextField(
-              controller: hostController,
-              label: 'Host (IP or hostname)',
-              hint: '192.168.1.100',
-              keyboardType: TextInputType.url,
-            ),
-            const SizedBox(height: 16),
-            _buildTextField(
-              controller: portController,
-              label: 'Port',
-              hint: '18274',
-              keyboardType: TextInputType.number,
-            ),
-            const SizedBox(height: 24),
-            OnboardingButton(
-              label: 'Connect',
-              onPressed: () {
-                final host = hostController.text.trim();
-                final port = int.tryParse(portController.text.trim()) ?? 18274;
-                if (host.isEmpty) return;
-                Navigator.pop(
-                  context,
-                  ConnectionInfo(localIP: host, port: port),
-                );
-              },
-            ),
-          ],
+      initialSize: 0.72,
+      child: StatefulBuilder(
+        builder: (context, setSheetState) => Padding(
+          padding: const EdgeInsets.fromLTRB(24, 8, 24, 24),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              // Paste QR JSON button
+              GestureDetector(
+                onTap: () async {
+                  final data = await Clipboard.getData(Clipboard.kTextPlain);
+                  if (data?.text != null && data!.text!.isNotEmpty) {
+                    tryParseQrJson(data.text!, setSheetState);
+                  } else {
+                    setSheetState(() => parseError = 'Clipboard is empty');
+                  }
+                },
+                child: Container(
+                  width: double.infinity,
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 16,
+                    vertical: 12,
+                  ),
+                  decoration: BoxDecoration(
+                    color: const Color(0xFF2ECB71).withValues(alpha: 0.15),
+                    borderRadius: BorderRadius.circular(12),
+                    border: Border.all(
+                      color: const Color(0xFF2ECB71).withValues(alpha: 0.3),
+                    ),
+                  ),
+                  child: Row(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      Icon(
+                        Icons.content_paste_rounded,
+                        color: const Color(0xFF2ECB71),
+                        size: 18,
+                      ),
+                      const SizedBox(width: 8),
+                      Text(
+                        'Paste QR Code Data from Clipboard',
+                        style: TextStyle(
+                          color: const Color(0xFF2ECB71),
+                          fontSize: 14,
+                          fontWeight: FontWeight.w500,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+              if (parseError != null) ...[
+                const SizedBox(height: 8),
+                Text(
+                  parseError!,
+                  style: TextStyle(
+                    color: Colors.red.withValues(alpha: 0.8),
+                    fontSize: 12,
+                  ),
+                ),
+              ],
+              const SizedBox(height: 16),
+              // Divider with "or enter manually"
+              Row(
+                children: [
+                  Expanded(
+                    child: Container(
+                      height: 1,
+                      color: Colors.white.withValues(alpha: 0.1),
+                    ),
+                  ),
+                  Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 12),
+                    child: Text(
+                      'or enter manually',
+                      style: TextStyle(
+                        color: Colors.white.withValues(alpha: 0.4),
+                        fontSize: 12,
+                      ),
+                    ),
+                  ),
+                  Expanded(
+                    child: Container(
+                      height: 1,
+                      color: Colors.white.withValues(alpha: 0.1),
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 16),
+              _buildTextField(
+                controller: hostController,
+                label: 'Host (IP or hostname)',
+                hint: '192.168.1.100 or hostname.ts.net',
+                keyboardType: TextInputType.url,
+              ),
+              const SizedBox(height: 12),
+              _buildTextField(
+                controller: portController,
+                label: 'Port',
+                hint: '18274',
+                keyboardType: TextInputType.number,
+              ),
+              const SizedBox(height: 12),
+              _buildTextField(
+                controller: tokenController,
+                label: 'Auth Token',
+                hint: 'Required for connection',
+                keyboardType: TextInputType.visiblePassword,
+              ),
+              const SizedBox(height: 12),
+              // TLS toggle
+              GestureDetector(
+                onTap: () => setSheetState(() => useTls = !useTls),
+                child: Container(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 16,
+                    vertical: 12,
+                  ),
+                  decoration: BoxDecoration(
+                    color: Colors.white.withValues(alpha: 0.06),
+                    borderRadius: BorderRadius.circular(12),
+                    border: Border.all(
+                      color: Colors.white.withValues(alpha: 0.1),
+                    ),
+                  ),
+                  child: Row(
+                    children: [
+                      Icon(
+                        useTls ? Icons.lock_rounded : Icons.lock_open_rounded,
+                        color: useTls
+                            ? const Color(0xFF2ECB71)
+                            : Colors.white.withValues(alpha: 0.5),
+                        size: 20,
+                      ),
+                      const SizedBox(width: 12),
+                      Expanded(
+                        child: Text(
+                          'Use TLS (wss://)',
+                          style: TextStyle(
+                            color: Colors.white.withValues(alpha: 0.7),
+                            fontSize: 14,
+                          ),
+                        ),
+                      ),
+                      Container(
+                        width: 44,
+                        height: 26,
+                        decoration: BoxDecoration(
+                          color: useTls
+                              ? const Color(0xFF2ECB71)
+                              : Colors.white.withValues(alpha: 0.1),
+                          borderRadius: BorderRadius.circular(13),
+                        ),
+                        child: AnimatedAlign(
+                          duration: const Duration(milliseconds: 150),
+                          alignment: useTls
+                              ? Alignment.centerRight
+                              : Alignment.centerLeft,
+                          child: Container(
+                            width: 22,
+                            height: 22,
+                            margin: const EdgeInsets.symmetric(horizontal: 2),
+                            decoration: const BoxDecoration(
+                              color: Colors.white,
+                              shape: BoxShape.circle,
+                            ),
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+              const SizedBox(height: 16),
+              OnboardingButton(
+                label: 'Connect',
+                onPressed: () {
+                  final host = hostController.text.trim();
+                  final port =
+                      int.tryParse(portController.text.trim()) ?? 18274;
+                  final token = tokenController.text.trim();
+                  if (host.isEmpty) return;
+                  Navigator.pop(
+                    context,
+                    ConnectionInfo(
+                      localIP: host,
+                      port: port,
+                      authToken: token.isNotEmpty ? token : null,
+                      tlsEnabled: useTls,
+                    ),
+                  );
+                },
+              ),
+              const SizedBox(height: 8),
+              Center(
+                child: Text(
+                  'Run "broski show-token" in terminal to get the auth token',
+                  textAlign: TextAlign.center,
+                  style: TextStyle(
+                    color: Colors.white.withValues(alpha: 0.35),
+                    fontSize: 11,
+                  ),
+                ),
+              ),
+            ],
+          ),
         ),
       ),
     );

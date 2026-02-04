@@ -425,7 +425,8 @@ class ConnectionNotifier extends StateNotifier<BridgeConnectionState>
       final errString = '$error';
       final lower = errString.toLowerCase();
       final isLicenseError =
-          lower.contains('license_required') || lower.contains('license required');
+          lower.contains('license_required') ||
+          lower.contains('license required');
       final isAuthError =
           errString.contains('401') ||
           lower.contains('unauthorized') ||
@@ -463,6 +464,10 @@ class ConnectionNotifier extends StateNotifier<BridgeConnectionState>
       if (host.isEmpty || host.length > 253) return false;
       // Basic sanity: hostname chars only.
       return RegExp(r'^[a-zA-Z0-9.-]+$').hasMatch(host);
+    }
+
+    bool isLoopbackHost(String host) {
+      return host == 'localhost' || host == '127.0.0.1' || host == '::1';
     }
 
     ({int a, int b, int c, int d})? parseIpv4(String host) {
@@ -532,6 +537,16 @@ class ConnectionNotifier extends StateNotifier<BridgeConnectionState>
       if (!isAllowedTarget(type, host, isFunnel: isFunnel)) {
         debugPrint(
           '[Connection] Skipping disallowed host for ${type.name}: $host',
+        );
+        return;
+      }
+
+      // Security: do not allow plaintext ws:// for non-loopback connections.
+      // The bridge enforces TLS for LAN/hotspot by default; allowing ws:// would
+      // enable sniffing/MITM on shared networks.
+      if (!isSecure && !isFunnel && !isLoopbackHost(host)) {
+        debugPrint(
+          '[Connection] Skipping insecure ws:// endpoint for ${type.name}: $host',
         );
         return;
       }

@@ -67,7 +67,7 @@ class WebSocketService {
   bool _isDecoding = false;
   // Safety valve: allow large dev payloads, but prevent OOM on malicious peers.
   // This is intentionally generous for "vibe coding" flows.
-  static const int _maxIncomingMessageBytes = 50 * 1024 * 1024; // 50MB
+  static const int _maxIncomingMessageBytes = 15 * 1024 * 1024; // 15MB
 
   // Message types that should be sent immediately (bypass batching)
   static const _immediateTypes = {
@@ -140,8 +140,9 @@ class WebSocketService {
     _setStatus(ConnectionStatus.connecting);
     _isReconnecting = true;
     if (kIsWeb) {
-      final protocols =
-          authToken != null ? <String>['broski-auth.$authToken'] : null;
+      final protocols = authToken != null
+          ? <String>['broski-auth.$authToken']
+          : null;
       // Web: no custom headers; use subprotocol for auth (server extracts it).
       _channel = WebSocketChannel.connect(uri, protocols: protocols);
     } else {
@@ -149,15 +150,12 @@ class WebSocketService {
       if (uri.scheme == 'wss' && pinnedCertSha256 != null) {
         final normalizedPinned = pinnedCertSha256.replaceAll('=', '');
         client = HttpClient()
-          ..badCertificateCallback = (
-            X509Certificate cert,
-            String host,
-            int port,
-          ) {
-            final digest = sha256.convert(cert.der).bytes;
-            final fp = base64Url.encode(digest).replaceAll('=', '');
-            return fp == normalizedPinned;
-          };
+          ..badCertificateCallback =
+              (X509Certificate cert, String host, int port) {
+                final digest = sha256.convert(cert.der).bytes;
+                final fp = base64Url.encode(digest).replaceAll('=', '');
+                return fp == normalizedPinned;
+              };
       }
 
       final headers = <String, dynamic>{};
@@ -212,7 +210,9 @@ class WebSocketService {
           _handleMessage(event);
         } else if (event is List<int>) {
           if (event.length > _maxIncomingMessageBytes) {
-            debugPrint('[WebSocket] Dropping oversized message: ${event.length} bytes');
+            debugPrint(
+              '[WebSocket] Dropping oversized message: ${event.length} bytes',
+            );
             return;
           }
           _handleMessage(utf8.decode(event));
