@@ -2,7 +2,7 @@ import { stdin as input, stdout as output } from 'node:process'
 import readline from 'node:readline/promises'
 
 export type OpencodeMode = 'managed' | 'manual' | 'attach'
-export type SubCommand = 'serve' | 'doctor' | 'setup-tailscale' | 'install' | 'uninstall' | 'status' | 'stop' | 'restart' | 'qr' | 'version' | 'update' | 'setup' | 'configure' | 'troubleshoot' | 'logs' | 'show-token' | null
+export type SubCommand = 'serve' | 'doctor' | 'setup-tailscale' | 'install' | 'uninstall' | 'status' | 'stop' | 'restart' | 'qr' | 'version' | 'update' | 'setup' | 'configure' | 'troubleshoot' | 'logs' | 'show-token' | 'account' | null
 
 export type CliOptions = {
   subCommand: SubCommand
@@ -94,13 +94,15 @@ export function parseCli(argv: string[], env: NodeJS.ProcessEnv): CliOptions {
     subCommand = 'logs'
   } else if (firstArg === 'show-token') {
     subCommand = 'show-token'
+  } else if (firstArg === 'account') {
+    subCommand = 'account'
   } else if (firstArg === 'serve' || !firstArg?.startsWith('-')) {
     subCommand = 'serve'
   }
 
   for (let i = 0; i < args.length; i++) {
     const arg = args[i]
-    if (arg === 'doctor' || arg === 'setup-tailscale' || arg === 'serve' || arg === 'install' || arg === 'uninstall' || arg === 'status' || arg === 'stop' || arg === 'restart' || arg === 'qr' || arg === 'version' || arg === 'update' || arg === 'setup' || arg === 'configure' || arg === 'troubleshoot' || arg === 'logs' || arg === 'show-token') {
+    if (arg === 'doctor' || arg === 'setup-tailscale' || arg === 'serve' || arg === 'install' || arg === 'uninstall' || arg === 'status' || arg === 'stop' || arg === 'restart' || arg === 'qr' || arg === 'version' || arg === 'update' || arg === 'setup' || arg === 'configure' || arg === 'troubleshoot' || arg === 'logs' || arg === 'show-token' || arg === 'account') {
       continue
     }
     if (arg === '--help' || arg === '-h') {
@@ -252,6 +254,7 @@ Commands:
   configure         Reconfigure existing setup
   troubleshoot      Interactive troubleshooter
   logs              Tail bridge logs
+  account           Show subscription status and machine info
   install           Install as background service (runs on login)
   uninstall         Remove background service
   status            Show if bridge is running
@@ -294,6 +297,7 @@ OpenCode:
 
 Examples:
   broski                         Start the bridge
+  broski account                 Show subscription & machine status
   broski install                 Install as background service
   broski qr                      Show QR code to pair your phone
   broski qr --hotspot            Show QR code with hotspot IP

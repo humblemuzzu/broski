@@ -4,12 +4,48 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../providers/app_auth_provider.dart';
 import '../providers/app_subscription_provider.dart';
+import '../providers/connection_provider.dart';
 import '../providers/onboarding_provider.dart'
     show onboardingProvider, kDevBypassOnboarding;
 import '../theme/opencode_theme.dart';
 
 class PaywallScreen extends ConsumerWidget {
-  const PaywallScreen({super.key});
+  const PaywallScreen({
+    super.key,
+    this.showCloseButton = true,
+  });
+
+  /// Whether to show the X close button (for Apple compliance).
+  /// Set to false only during initial onboarding before any content is shown.
+  final bool showCloseButton;
+
+  void _handleDismiss(BuildContext context, WidgetRef ref) {
+    HapticFeedback.lightImpact();
+
+    final onboarding = ref.read(onboardingProvider);
+    final sub = ref.read(appSubscriptionProvider);
+
+    // Mark paywall as dismissed this session
+    ref.read(paywallDismissedThisSessionProvider.notifier).state = true;
+
+    // If we're in onboarding flow, complete it (user chose to skip payment)
+    if (!onboarding.hasCompletedOnboarding) {
+      ref.read(onboardingProvider.notifier).completeOnboarding();
+    }
+
+    // If user is NOT entitled, put them in offline mode so they land in MainShell
+    // with the upgrade banner instead of going to the scanner
+    if (!sub.entitled) {
+      Future.microtask(
+        () => ref.read(connectionProvider.notifier).enterUnpaidPreviewMode(),
+      );
+    }
+
+    // If this was pushed as a modal, pop it
+    if (Navigator.of(context).canPop()) {
+      Navigator.of(context).pop();
+    }
+  }
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -20,12 +56,14 @@ class PaywallScreen extends ConsumerWidget {
     return Scaffold(
       backgroundColor: const Color(0xFF0A0A0A),
       body: SafeArea(
-        child: Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-          child: Column(
-            children: [
-              // Main card with background image
-              Expanded(
+        child: Stack(
+          children: [
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+              child: Column(
+                children: [
+                  // Main card with background image
+                  Expanded(
                 child: Container(
                   decoration: BoxDecoration(
                     color: const Color(0xFF111111),
@@ -400,6 +438,31 @@ class PaywallScreen extends ConsumerWidget {
               ),
             ],
           ),
+        ),
+            // Close button (X) - Apple compliance
+            if (showCloseButton)
+              Positioned(
+                top: 8,
+                right: 8,
+                child: GestureDetector(
+                  onTap: () => _handleDismiss(context, ref),
+                  behavior: HitTestBehavior.opaque,
+                  child: Container(
+                    width: 44,
+                    height: 44,
+                    decoration: BoxDecoration(
+                      color: Colors.white.withValues(alpha: 0.08),
+                      shape: BoxShape.circle,
+                    ),
+                    child: Icon(
+                      Icons.close_rounded,
+                      color: Colors.white.withValues(alpha: 0.6),
+                      size: 22,
+                    ),
+                  ),
+                ),
+              ),
+          ],
         ),
       ),
     );

@@ -4,8 +4,8 @@ class AppConfig {
   static String get convexHttpBaseUrl {
     const fromEnv = String.fromEnvironment('CONVEX_HTTP_BASE_URL');
     if (fromEnv.isNotEmpty) return fromEnv;
-    if (!kReleaseMode) return 'https://neat-gerbil-813.convex.site';
-    throw StateError('Missing --dart-define=CONVEX_HTTP_BASE_URL for release');
+    // Default to production Convex URL
+    return 'https://neat-gerbil-813.convex.site';
   }
 
   static const String revenueCatEntitlementId = String.fromEnvironment(
@@ -41,11 +41,8 @@ class AppConfig {
     if (_revenueCatIosApiKeyFromEnv.isNotEmpty) {
       return _revenueCatIosApiKeyFromEnv;
     }
-    if (!kReleaseMode) {
-      // Dev fallback: avoids blocking local UI iteration.
-      return 'test_jZAhlIXorwupEVNHJWVrjBYaibO';
-    }
-    throw StateError('Missing --dart-define=REVENUECAT_IOS_API_KEY for release');
+    // Production RevenueCat public API key (safe to embed - it's public)
+    return 'appl_oLMOZAgKCsHdjSJdVbkrUZHNnkl';
   }
 
   static String revenueCatAndroidApiKey() {

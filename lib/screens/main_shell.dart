@@ -1,7 +1,9 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import 'browse_screen.dart';
+import 'paywall_screen.dart';
 import 'projects_screen.dart';
 import 'sessions_screen.dart';
 import 'settings_screen.dart';
@@ -9,6 +11,7 @@ import '../models/agent_type.dart';
 import '../models/nav_bar_style.dart';
 import '../providers/agent_type_provider.dart';
 import '../providers/appearance_provider.dart';
+import '../providers/app_subscription_provider.dart';
 import '../providers/connection_provider.dart';
 import '../providers/nav_bar_style_provider.dart';
 import '../providers/sessions_provider.dart';
@@ -64,6 +67,7 @@ class _MainShellState extends ConsumerState<MainShell> {
   Widget build(BuildContext context) {
     final connection = ref.watch(connectionProvider);
     final navBarStyle = ref.watch(navBarStyleProvider);
+    final sub = ref.watch(appSubscriptionProvider);
     final theme = Theme.of(context);
 
     // Listen for connection changes and set global view when connected
@@ -105,8 +109,27 @@ class _MainShellState extends ConsumerState<MainShell> {
               SettingsScreen(),
             ],
           ),
-          // Offline mode banner at top
-          if (connection.isOfflineMode)
+          // Unpaid UX:
+          // - Tabs 0-2: center CTA (competitor-style empty state)
+          // - Settings tab: subtle top banner
+          if (!sub.entitled && _index != 3)
+            const Positioned.fill(
+              child: SafeArea(
+                child: Align(
+                  alignment: Alignment.center,
+                  child: _UnpaidCenterCta(),
+                ),
+              ),
+            ),
+          if (!sub.entitled && _index == 3)
+            const Positioned(
+              left: 0,
+              right: 0,
+              top: 0,
+              child: _UpgradeBanner(),
+            ),
+          // Offline mode banner at top (only show if entitled - unpaid users see upgrade banner instead)
+          if (connection.isOfflineMode && sub.entitled)
             Positioned(
               left: 0,
               right: 0,
@@ -133,6 +156,19 @@ class _MainShellState extends ConsumerState<MainShell> {
                     .dismissProtocolBanner(),
               ),
             ),
+          // Reconnecting banner - shows during auto-reconnect attempts
+          if (sub.entitled &&
+              connection.isReconnecting &&
+              !connection.isOfflineMode)
+            Positioned(
+              left: 0,
+              right: 0,
+              top: 0,
+              child: _ReconnectingBanner(
+                onCancel: () =>
+                    ref.read(connectionProvider.notifier).clearConnection(),
+              ),
+            ),
           // Navigation bar - switches between styles
           Positioned(
             left: 0,
@@ -146,7 +182,7 @@ class _MainShellState extends ConsumerState<MainShell> {
   }
 
   Widget _buildNavBar(NavBarStyle style, BridgeConnectionState connection) {
-    final onTap = (int value) {
+    void onTap(int value) {
       setState(() => _index = value);
       if (!connection.isOfflineMode) {
         final a = ref.read(agentTypeProvider);
@@ -157,7 +193,7 @@ class _MainShellState extends ConsumerState<MainShell> {
       if (value == 2) {
         ref.read(sessionsRefreshTickProvider.notifier).state++;
       }
-    };
+    }
 
     switch (style) {
       case NavBarStyle.classic:
@@ -165,6 +201,150 @@ class _MainShellState extends ConsumerState<MainShell> {
       case NavBarStyle.glassmorphic:
         return GlasmorphicNavBar(currentIndex: _index, onTap: onTap);
     }
+  }
+}
+
+class _UpgradeBanner extends ConsumerWidget {
+  const _UpgradeBanner();
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    return SafeArea(
+      bottom: false,
+      child: GestureDetector(
+        onTap: () {
+          HapticFeedback.mediumImpact();
+          Navigator.of(context).push(
+            MaterialPageRoute(
+              builder: (_) => const PaywallScreen(showCloseButton: true),
+              fullscreenDialog: true,
+            ),
+          );
+        },
+          child: Container(
+            margin: const EdgeInsets.fromLTRB(16, 4, 16, 0),
+            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+            decoration: BoxDecoration(
+            gradient: LinearGradient(
+              colors: [
+                const Color(0xFF1A1A1A),
+                const Color(0xFF0F0F0F),
+              ],
+            ),
+            borderRadius: BorderRadius.circular(20),
+            border: Border.all(
+              color: Colors.amber.withValues(alpha: 0.3),
+            ),
+          ),
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Icon(
+                Icons.workspace_premium_rounded,
+                color: Colors.amber.withValues(alpha: 0.9),
+                size: 16,
+              ),
+              const SizedBox(width: 8),
+              Text(
+                'Upgrade',
+                style: TextStyle(
+                  color: Colors.white.withValues(alpha: 0.9),
+                  fontSize: 13,
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
+              const SizedBox(width: 4),
+              Icon(
+                Icons.chevron_right_rounded,
+                color: Colors.white.withValues(alpha: 0.4),
+                size: 18,
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _UnpaidCenterCta extends ConsumerWidget {
+  const _UnpaidCenterCta();
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final ocTheme = OpenCodeTheme.of(context);
+
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 28),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          const SizedBox(height: 16),
+          Container(
+            width: 64,
+            height: 64,
+            decoration: BoxDecoration(
+              color: ocTheme.backgroundPanel.withValues(alpha: 0.65),
+              borderRadius: BorderRadius.circular(18),
+              border: Border.all(color: ocTheme.borderSubtle),
+            ),
+            child: Icon(
+              Icons.lock_rounded,
+              color: ocTheme.textMuted,
+              size: 28,
+            ),
+          ),
+          const SizedBox(height: 18),
+          Text(
+            'Not connected yet',
+            textAlign: TextAlign.center,
+            style: TextStyle(
+              color: ocTheme.text,
+              fontSize: 20,
+              fontWeight: FontWeight.w700,
+              letterSpacing: -0.3,
+            ),
+          ),
+          const SizedBox(height: 10),
+          Text(
+            'Upgrade to connect your Mac and access projects, sessions, and chat.',
+            textAlign: TextAlign.center,
+            style: TextStyle(
+              color: ocTheme.textMuted,
+              fontSize: 13,
+              height: 1.35,
+            ),
+          ),
+          const SizedBox(height: 18),
+          SizedBox(
+            width: double.infinity,
+            child: ElevatedButton(
+              onPressed: () {
+                HapticFeedback.mediumImpact();
+                Navigator.of(context).push(
+                  MaterialPageRoute(
+                    builder: (_) => const PaywallScreen(showCloseButton: true),
+                    fullscreenDialog: true,
+                  ),
+                );
+              },
+              style: ElevatedButton.styleFrom(
+                backgroundColor: ocTheme.primary,
+                foregroundColor: Colors.white,
+                padding: const EdgeInsets.symmetric(vertical: 14),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(14),
+                ),
+              ),
+              child: const Text(
+                'Upgrade to connect',
+                style: TextStyle(fontWeight: FontWeight.w700),
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
   }
 }
 
@@ -263,6 +443,64 @@ class _ProtocolBanner extends StatelessWidget {
               padding: EdgeInsets.zero,
               constraints: const BoxConstraints(minWidth: 32, minHeight: 32),
               splashRadius: 16,
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _ReconnectingBanner extends StatelessWidget {
+  const _ReconnectingBanner({required this.onCancel});
+
+  final VoidCallback onCancel;
+
+  @override
+  Widget build(BuildContext context) {
+    final ocTheme = OpenCodeTheme.of(context);
+
+    return SafeArea(
+      bottom: false,
+      child: Container(
+        margin: const EdgeInsets.fromLTRB(16, 4, 16, 0),
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+        decoration: BoxDecoration(
+          color: ocTheme.primary.withValues(alpha: 0.12),
+          borderRadius: BorderRadius.circular(16),
+          border: Border.all(color: ocTheme.primary.withValues(alpha: 0.25)),
+        ),
+        child: Row(
+          children: [
+            SizedBox(
+              width: 14,
+              height: 14,
+              child: CircularProgressIndicator(
+                strokeWidth: 2,
+                color: ocTheme.primary,
+              ),
+            ),
+            const SizedBox(width: 10),
+            Expanded(
+              child: Text(
+                'Reconnecting...',
+                style: TextStyle(
+                  color: ocTheme.text,
+                  fontSize: 12,
+                  fontWeight: FontWeight.w500,
+                ),
+              ),
+            ),
+            GestureDetector(
+              onTap: onCancel,
+              child: Text(
+                'Cancel',
+                style: TextStyle(
+                  color: ocTheme.textMuted,
+                  fontSize: 12,
+                  fontWeight: FontWeight.w500,
+                ),
+              ),
             ),
           ],
         ),

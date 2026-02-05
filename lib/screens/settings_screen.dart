@@ -7,6 +7,7 @@ import '../models/project.dart';
 import '../providers/agent_type_provider.dart';
 import '../providers/app_info_provider.dart';
 import '../providers/app_auth_provider.dart';
+import '../widgets/upgrade_overlay.dart';
 import '../providers/connection_provider.dart';
 import '../providers/onboarding_provider.dart';
 import '../providers/selection_provider.dart';
@@ -81,6 +82,9 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                 ),
               ),
             ),
+
+            // Subscribe banner for unpaid users
+            const SliverToBoxAdapter(child: SubscribeBanner()),
 
             const SliverToBoxAdapter(child: _SectionDivider()),
             const SliverToBoxAdapter(child: SizedBox(height: 24)),

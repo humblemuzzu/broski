@@ -7,7 +7,12 @@ import '../services/convex_service.dart';
 import '../services/purchase_service.dart';
 import '../services/storage_service.dart';
 import 'app_auth_provider.dart';
+import 'connection_provider.dart';
 import 'service_providers.dart';
+
+/// Tracks whether the paywall was dismissed this session (resets on app restart).
+/// Used to show paywall on every app open for unpaid users.
+final paywallDismissedThisSessionProvider = StateProvider<bool>((ref) => false);
 
 class AppSubscriptionState {
   const AppSubscriptionState({
@@ -93,6 +98,11 @@ class AppSubscriptionNotifier extends StateNotifier<AppSubscriptionState> {
         managementUrl: info.managementURL,
       );
       await _syncToConvex(info, entitled: entitled);
+      
+      // After successful purchase, clear old connection so user gets fresh scanner
+      if (entitled) {
+        _ref.read(connectionProvider.notifier).clearConnection();
+      }
     } on PlatformException catch (e) {
       state = state.copyWith(isLoading: false, error: e.message ?? e.code);
     } catch (e) {
@@ -111,6 +121,11 @@ class AppSubscriptionNotifier extends StateNotifier<AppSubscriptionState> {
         managementUrl: info.managementURL,
       );
       await _syncToConvex(info, entitled: entitled);
+      
+      // After successful restore, clear old connection so user gets fresh scanner
+      if (entitled) {
+        _ref.read(connectionProvider.notifier).clearConnection();
+      }
     } catch (e) {
       state = state.copyWith(isLoading: false, error: e.toString());
     }

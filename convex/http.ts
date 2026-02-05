@@ -106,7 +106,7 @@ async function verifyGoogleIdToken(idToken: string) {
 }
 
 async function verifyAppleIdentityToken(identityToken: string) {
-  const audience = process.env.AUTH_APPLE_ID ?? "com.muzammil.broski.auth";
+  const audience = process.env.AUTH_APPLE_ID ?? "com.muzammil.broski";
 
   const { payload } = await jwtVerify(identityToken, appleJwks, {
     issuer: "https://appleid.apple.com",
@@ -421,6 +421,12 @@ http.route({
 
     const activeEntitlements = data?.subscriber?.entitlements?.active ?? {};
     const entitlement = activeEntitlements?.[entitlementId];
+    
+    // Debug: log all available entitlement keys
+    const availableEntitlementKeys = Object.keys(activeEntitlements);
+    console.log(`[RevenueCat Sync] Looking for entitlement: "${entitlementId}"`);
+    console.log(`[RevenueCat Sync] Available entitlements: ${JSON.stringify(availableEntitlementKeys)}`);
+    console.log(`[RevenueCat Sync] Found entitlement: ${entitlement ? 'yes' : 'no'}`);
 
     const parseNumber = (v: unknown): number | undefined => {
       if (typeof v === "number" && Number.isFinite(v)) return v;
@@ -474,6 +480,12 @@ http.route({
       expiresAtMs,
       store,
       environment,
+      // Debug info
+      _debug: {
+        lookedForEntitlement: entitlementId,
+        availableEntitlements: availableEntitlementKeys,
+        foundEntitlement: !!entitlement,
+      },
     });
   }),
 });
@@ -693,5 +705,71 @@ http.route({
 // NOTE: /hooks/bridge-install endpoint removed — unauthenticated, no rate
 // limiting, anyone could spam thousands of DB writes to exhaust Convex quota.
 // Re-add with auth or rate limiting when bridge binary distribution is live.
+
+// ─── Machine management ────────────────────────────────────────────────────
+
+http.route({
+  path: "/me/machines",
+  method: "GET",
+  handler: httpAction(async (ctx, req) => {
+    const auth = await requireSession(ctx, req);
+    if (!auth.ok) return auth.response;
+
+    const machines = await ctx.runQuery(internal.machines.listActiveByUser, {
+      userId: auth.user._id,
+    });
+
+    const maxMachines = getMaxMachines();
+
+    return json({
+      ok: true,
+      maxMachines,
+      machines: machines.map((m: any) => ({
+        id: m._id,
+        machineIdHash: m.machineIdHash,
+        firstSeenAt: m.firstSeenAtMs,
+        lastSeenAt: m.lastSeenAtMs,
+      })),
+    });
+  }),
+});
+
+http.route({
+  path: "/me/machines/revoke",
+  method: "POST",
+  handler: httpAction(async (ctx, req) => {
+    const auth = await requireSession(ctx, req);
+    if (!auth.ok) return auth.response;
+
+    let body: any;
+    try {
+      body = await req.json();
+    } catch {
+      return error("Invalid JSON body", 400);
+    }
+
+    const machineId = typeof body?.machineId === "string" ? body.machineId.trim() : "";
+    if (!machineId) {
+      return error("Missing machineId", 400);
+    }
+
+    // Verify machine belongs to user
+    const machines = await ctx.runQuery(internal.machines.listActiveByUser, {
+      userId: auth.user._id,
+    });
+
+    const machine = machines.find((m: any) => m._id === machineId);
+    if (!machine) {
+      return error("Machine not found", 404);
+    }
+
+    // Revoke the machine
+    await ctx.runMutation(internal.machines.revokeMachine, {
+      machineId,
+    });
+
+    return json({ ok: true });
+  }),
+});
 
 export default http;

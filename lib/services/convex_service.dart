@@ -118,6 +118,38 @@ class ConvexService {
     }
   }
 
+  /// Get list of machines registered to this account
+  Future<MachinesResponse> getMachines({required String sessionToken}) async {
+    final res = await _client.get(
+      _url('/me/machines'),
+      headers: {'authorization': 'Bearer $sessionToken'},
+    );
+    final json = _parseJson(res);
+    if (json['ok'] != true) {
+      throw Exception(json['error'] ?? 'Failed to load machines');
+    }
+    return MachinesResponse.fromJson(json);
+  }
+
+  /// Revoke a machine from this account
+  Future<void> revokeMachine({
+    required String sessionToken,
+    required String machineId,
+  }) async {
+    final res = await _client.post(
+      _url('/me/machines/revoke'),
+      headers: {
+        'authorization': 'Bearer $sessionToken',
+        'content-type': 'application/json',
+      },
+      body: jsonEncode({'machineId': machineId}),
+    );
+    final json = _parseJson(res);
+    if (json['ok'] != true) {
+      throw Exception(json['error'] ?? 'Failed to revoke machine');
+    }
+  }
+
   AuthSession _parseAuthSession(http.Response res) {
     final json = _parseJson(res);
     if (json['ok'] != true) {
@@ -143,4 +175,66 @@ class ConvexService {
       );
     }
   }
+}
+
+/// Response model for /me/machines endpoint
+class MachinesResponse {
+  MachinesResponse({
+    required this.maxMachines,
+    required this.machines,
+  });
+
+  final int maxMachines;
+  final List<MachineInfo> machines;
+
+  factory MachinesResponse.fromJson(Map<String, dynamic> json) {
+    final machinesList = (json['machines'] as List?)
+            ?.map((m) => MachineInfo.fromJson(m as Map<String, dynamic>))
+            .toList() ??
+        [];
+    return MachinesResponse(
+      maxMachines: json['maxMachines'] as int? ?? 3,
+      machines: machinesList,
+    );
+  }
+}
+
+/// Model for a registered machine
+class MachineInfo {
+  MachineInfo({
+    required this.id,
+    required this.machineIdHash,
+    required this.firstSeenAt,
+    required this.lastSeenAt,
+  });
+
+  final String id;
+  final String machineIdHash;
+  final DateTime firstSeenAt;
+  final DateTime lastSeenAt;
+
+  factory MachineInfo.fromJson(Map<String, dynamic> json) {
+    return MachineInfo(
+      id: json['id'] as String,
+      machineIdHash: json['machineIdHash'] as String,
+      firstSeenAt: DateTime.fromMillisecondsSinceEpoch(json['firstSeenAt'] as int),
+      lastSeenAt: DateTime.fromMillisecondsSinceEpoch(json['lastSeenAt'] as int),
+    );
+  }
+
+  /// Returns a human-readable time ago string
+  String get lastSeenAgo {
+    final now = DateTime.now();
+    final diff = now.difference(lastSeenAt);
+    if (diff.inMinutes < 1) return 'just now';
+    if (diff.inMinutes < 60) return '${diff.inMinutes}m ago';
+    if (diff.inHours < 24) return '${diff.inHours}h ago';
+    if (diff.inDays < 7) return '${diff.inDays}d ago';
+    return '${(diff.inDays / 7).floor()}w ago';
+  }
+
+  /// Returns a shortened machine ID for display
+  String get shortId => machineIdHash.length > 8 
+      ? '${machineIdHash.substring(0, 8)}...' 
+      : machineIdHash;
 }

@@ -58,3 +58,17 @@ export const upsertMachine = internalMutation({
   },
 });
 
+export const revokeMachine = internalMutation({
+  args: {
+    machineId: v.id("machines"),
+  },
+  handler: async (ctx, args) => {
+    const machine = await ctx.db.get(args.machineId);
+    if (!machine) {
+      throw new Error("Machine not found");
+    }
+    await ctx.db.patch(args.machineId, {
+      revokedAtMs: Date.now(),
+    });
+  },
+});

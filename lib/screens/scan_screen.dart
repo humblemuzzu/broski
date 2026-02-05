@@ -7,11 +7,13 @@ import 'package:image_picker/image_picker.dart';
 import 'package:mobile_scanner/mobile_scanner.dart';
 
 import '../models/connection.dart';
+
 import '../providers/connection_provider.dart';
 import '../providers/onboarding_provider.dart'
     show onboardingProvider, kDevBypassOnboarding;
 import '../widgets/chat/detail_sheet.dart';
 import '../widgets/onboarding_widgets.dart';
+
 
 class ScanScreen extends ConsumerStatefulWidget {
   const ScanScreen({super.key});

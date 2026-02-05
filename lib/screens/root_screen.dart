@@ -41,17 +41,48 @@ class RootScreen extends ConsumerWidget {
       return const OnboardingAuthScreen();
     }
 
-    // Ensure RevenueCat is configured and loaded once the user is signed in.
-    if (!kDevBypassOnboarding &&
-        !subState.isConfigured &&
-        !subState.isLoading) {
-      Future.microtask(
-        () => ref.read(appSubscriptionProvider.notifier).configureAndRefresh(),
-      );
-    }
+    // Subscription gate (paid vs unpaid) is a foundational routing decision.
+    // Prefer a loading screen until RevenueCat is configured so we don't
+    // accidentally enter connect/reconnect flows with unknown entitlement.
+    if (!kDevBypassOnboarding) {
+      if (!subState.isConfigured) {
+        if (!subState.isLoading && subState.error == null) {
+          Future.microtask(
+            () => ref
+                .read(appSubscriptionProvider.notifier)
+                .configureAndRefresh(),
+          );
+        }
+        if (subState.error != null) {
+          return _SubscriptionErrorScreen(
+            message: subState.error!,
+            onRetry: () =>
+                ref.read(appSubscriptionProvider.notifier).configureAndRefresh(),
+          );
+        }
+        return const _LoadingScreen();
+      }
 
-    if (!kDevBypassOnboarding && !subState.entitled) {
-      return const PaywallScreen();
+      // Show paywall on every app open for unpaid users (dismissible).
+      final paywallDismissed = ref.watch(paywallDismissedThisSessionProvider);
+      if (!subState.entitled && !paywallDismissed) {
+        return const PaywallScreen(showCloseButton: true);
+      }
+
+      // Unpaid preview mode: user can browse UI, but cannot scan/connect.
+      // Ensure we don't keep any saved connection or reconnect timers around.
+      if (!subState.entitled) {
+        if (!connectionState.isOfflineMode ||
+            connectionState.connection != null ||
+            connectionState.isConnected ||
+            connectionState.isConnecting ||
+            connectionState.isReconnecting) {
+          Future.microtask(
+            () => ref.read(connectionProvider.notifier).enterUnpaidPreviewMode(),
+          );
+        }
+        return const MainShell();
+      }
     }
 
     // DEV BYPASS: auto-enter offline mode so we land in MainShell
@@ -69,16 +100,34 @@ class RootScreen extends ConsumerWidget {
       return const MainShell();
     }
 
-    if (connectionState.isConnecting) {
-      return const _ConnectingScreen();
-    }
-
     if (connectionState.isConnected) {
       return const MainShell();
     }
 
+    // Initial connect (fresh scan) -> show connecting screen.
+    if (connectionState.isConnecting && !connectionState.isReconnecting) {
+      return const _ConnectingScreen();
+    }
+
+    // Auto-retry in progress: keep showing MainShell with banner.
+    if ((connectionState.isReconnecting || connectionState.isConnecting) &&
+        connectionState.connection != null) {
+      return const MainShell();
+    }
+
+    // We have a saved connection, but we're not currently trying to reconnect.
+    // Kick off a reconnect attempt automatically; show ConnectionLostScreen only
+    // when we have a real error (after attempts/timeouts).
     if (connectionState.connection != null) {
-      return const ConnectionLostScreen();
+      if (connectionState.error != null) {
+        return const ConnectionLostScreen();
+      }
+      Future.microtask(
+        () => ref
+            .read(connectionProvider.notifier)
+            .kickOffAutoReconnectIfNeeded(),
+      );
+      return const MainShell();
     }
 
     return const ScanScreen();
@@ -112,6 +161,71 @@ class _LoadingScreen extends StatelessWidget {
               style: TextStyle(color: theme.textMuted, fontSize: 14),
             ),
           ],
+        ),
+      ),
+    );
+  }
+}
+
+class _SubscriptionErrorScreen extends StatelessWidget {
+  const _SubscriptionErrorScreen({
+    required this.message,
+    required this.onRetry,
+  });
+
+  final String message;
+  final VoidCallback onRetry;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = OpenCodeTheme.of(context);
+
+    return Scaffold(
+      backgroundColor: theme.background,
+      body: SafeArea(
+        child: Center(
+          child: Padding(
+            padding: const EdgeInsets.all(24),
+            child: Column(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                Icon(Icons.error_outline_rounded, color: theme.error, size: 44),
+                const SizedBox(height: 14),
+                Text(
+                  'Subscription unavailable',
+                  style: TextStyle(
+                    color: theme.text,
+                    fontSize: 16,
+                    fontWeight: FontWeight.w700,
+                  ),
+                ),
+                const SizedBox(height: 8),
+                Text(
+                  message,
+                  textAlign: TextAlign.center,
+                  style: TextStyle(color: theme.textMuted, fontSize: 12),
+                  maxLines: 4,
+                  overflow: TextOverflow.ellipsis,
+                ),
+                const SizedBox(height: 18),
+                SizedBox(
+                  width: double.infinity,
+                  child: ElevatedButton(
+                    onPressed: onRetry,
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: theme.primary,
+                      foregroundColor: Colors.white,
+                      padding: const EdgeInsets.symmetric(vertical: 14),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                    ),
+                    child: const Text('Retry'),
+                  ),
+                ),
+              ],
+            ),
+          ),
         ),
       ),
     );

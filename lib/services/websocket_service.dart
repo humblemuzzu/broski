@@ -45,6 +45,15 @@ class WebSocketService {
   final List<Map<String, dynamic>> _reconnectQueue = [];
   static const _maxQueueSize = 50; // Prevent unbounded growth
   bool _isReconnecting = false;
+  bool _isHandshaking = false;
+
+  // During the cloud-auth handshake, the bridge only accepts a very small set
+  // of message types (until `auth_session_ok`). Everything else must be queued.
+  static const _handshakeAllowedTypes = {
+    'auth_session',
+    'client_ping',
+    'pong',
+  };
 
   // Ping/pong heartbeat state
   Timer? _pingTimer;
@@ -95,6 +104,37 @@ class WebSocketService {
   Stream<Map<String, dynamic>> get messages => _messageController.stream;
   Stream<ConnectionStatus> get statusStream => _statusController.stream;
   ConnectionStatus get status => _status;
+  bool get isHandshaking => _isHandshaking;
+
+  /// Start gating outgoing messages (queue everything except handshake types).
+  /// ConnectionProvider calls this before WS connect so early UI messages
+  /// cannot race ahead of cloud auth.
+  void beginHandshake() {
+    _isHandshaking = true;
+
+    // Never allow a batch to flush during handshake (a `batch` envelope is
+    // allowed, but its inner messages would be processed before auth).
+    _batchTimer?.cancel();
+    _batchTimer = null;
+    if (_pendingBatch.isNotEmpty) {
+      for (final msg in _pendingBatch) {
+        _queueForReconnect(msg);
+      }
+      _pendingBatch.clear();
+    }
+  }
+
+  /// End gating and flush queued messages now that cloud auth succeeded.
+  void endHandshake() {
+    _isHandshaking = false;
+    _flushReconnectQueue();
+  }
+
+  /// Cancel gating without flushing. Use this when the connection attempt
+  /// fails before auth completes.
+  void cancelHandshake() {
+    _isHandshaking = false;
+  }
 
   /// Whether the connection appears healthy (received pong recently).
   bool get isHealthy {
@@ -190,12 +230,15 @@ class WebSocketService {
       _startHeartbeat();
 
       // FIX: Flush any queued messages from during reconnection
-      _flushReconnectQueue();
+      if (!_isHandshaking) {
+        _flushReconnectQueue();
+      }
     } catch (e) {
       debugPrint('[WebSocket] Connection failed: $e');
       if (_connectionId != thisConnectionId) return; // Superseded
       _channel = null;
       _isReconnecting = false;
+      _isHandshaking = false;
       _setStatus(ConnectionStatus.disconnected);
       rethrow;
     }
@@ -234,13 +277,15 @@ class WebSocketService {
   /// Returns true if sent/queued successfully, false if dropped.
   bool send(Map<String, dynamic> message) {
     final channel = _channel;
+    final type = message['type'] as String? ?? '';
 
-    // FIX: Queue messages during reconnection instead of dropping
-    if (channel == null || _isReconnecting) {
+    // Queue while reconnecting or during handshake (except allowlisted types).
+    if (channel == null ||
+        _isReconnecting ||
+        (_isHandshaking && !_handshakeAllowedTypes.contains(type))) {
       return _queueForReconnect(message);
     }
 
-    final type = message['type'] as String? ?? '';
     final priority = _getPriority(type);
 
     // Immediate priority bypasses batching entirely
@@ -264,9 +309,12 @@ class WebSocketService {
   /// Returns true if sent successfully, false if queued or dropped.
   bool sendImmediate(Map<String, dynamic> message) {
     final channel = _channel;
+    final type = message['type'] as String? ?? '';
 
-    // FIX: Queue during reconnection
-    if (channel == null || _isReconnecting) {
+    // Queue during reconnection or handshake (except allowlisted types).
+    if (channel == null ||
+        _isReconnecting ||
+        (_isHandshaking && !_handshakeAllowedTypes.contains(type))) {
       return _queueForReconnect(message);
     }
 
@@ -385,6 +433,7 @@ class WebSocketService {
     await _channel?.sink.close();
     _channel = null;
     _isReconnecting = false;
+    _isHandshaking = false;
     _setStatus(ConnectionStatus.disconnected);
   }
 
@@ -401,6 +450,7 @@ class WebSocketService {
     _channel?.sink.close();
     _channel = null;
     _isReconnecting = false;
+    _isHandshaking = false;
     _setStatus(ConnectionStatus.disconnected);
   }
 

@@ -135,7 +135,7 @@ class BridgeService {
   // ============================================================
   Future<void> authSession({required String sessionToken}) async {
     final requestId = _generateRequestId();
-    _socket.send({
+    _socket.sendImmediate({
       'type': 'auth_session',
       'sessionToken': sessionToken,
       'requestId': requestId,

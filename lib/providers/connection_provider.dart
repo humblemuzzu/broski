@@ -13,6 +13,7 @@ import '../services/bridge_service.dart';
 import '../services/network_monitor_service.dart';
 import '../services/storage_service.dart';
 import '../services/websocket_service.dart';
+import 'app_subscription_provider.dart';
 import 'service_providers.dart';
 
 /// Event emitted when connection state changes significantly.
@@ -247,6 +248,7 @@ int computeBackoff(ReconnectPolicy policy, int attempt, Random random) {
 class ConnectionNotifier extends StateNotifier<BridgeConnectionState>
     with WidgetsBindingObserver {
   ConnectionNotifier(
+    this._ref,
     this._storage,
     this._socket,
     this._networkMonitor,
@@ -261,6 +263,7 @@ class ConnectionNotifier extends StateNotifier<BridgeConnectionState>
     WidgetsBinding.instance.addObserver(this);
   }
 
+  final Ref _ref;
   final StorageService _storage;
   final WebSocketService _socket;
   final NetworkMonitorService _networkMonitor;
@@ -293,6 +296,7 @@ class ConnectionNotifier extends StateNotifier<BridgeConnectionState>
   // App lifecycle tracking
   bool _wasBackgrounded = false;
   DateTime? _backgroundedAt;
+  bool _isBackgrounding = false; // Prevents reconnect scheduling during intentional background
 
   Future<void> _loadSavedConnection() async {
     final saved = await _storage.loadConnection();
@@ -302,7 +306,10 @@ class ConnectionNotifier extends StateNotifier<BridgeConnectionState>
       debugPrint('  - tailscaleIP: ${saved.tailscaleIP}');
       debugPrint('  - port: ${saved.port}');
       debugPrint('  - hasAuthToken: ${saved.authToken != null}');
-      await connect(saved);
+      // Only hydrate state here. RootScreen decides when/if to auto-connect.
+      // This prevents unpaid users from entering reconnect loops before the
+      // subscription state is fully known.
+      state = state.copyWith(connection: saved);
     } else {
       debugPrint('[Connection] No saved connection found');
     }
@@ -354,7 +361,9 @@ class ConnectionNotifier extends StateNotifier<BridgeConnectionState>
   }) async {
     if (_isConnecting) return;
     _isConnecting = true;
+    _isBackgrounding = false; // Clear backgrounding flag when starting new connection
     _reconnectTimer?.cancel();
+    _socket.beginHandshake();
 
     // Clear dedupe cache on new connection
     _sentMessages.clear();
@@ -374,7 +383,7 @@ class ConnectionNotifier extends StateNotifier<BridgeConnectionState>
         throw StateError('No valid endpoints available');
       }
 
-      // Try all endpoints concurrently (first success wins)
+      // Try endpoints (first success wins)
       final result = await _tryConnectConcurrent(endpoints, info);
 
       if (result == null || !result.success) {
@@ -414,19 +423,39 @@ class ConnectionNotifier extends StateNotifier<BridgeConnectionState>
         lastEvent: connectionEvent,
       );
 
+      final subState = _ref.read(appSubscriptionProvider);
       final sessionToken = await _storage.getAppSessionToken();
+
+      // If the user is locally entitled, cloud auth must be present.
+      // Without it, the bridge will (correctly) reject us, which otherwise
+      // looks like an infinite reconnect loop. Fail fast with a clear error.
+      if (subState.entitled && sessionToken == null) {
+        throw StateError(
+          'Invalid session (missing sign-in token). Please sign out and sign in again.',
+        );
+      }
+
       if (sessionToken != null) {
         await _bridge.authSession(sessionToken: sessionToken);
       }
+      _socket.endHandshake();
 
       await _registerThisDevice();
     } catch (error) {
+      // If we failed before completing auth, drop handshake gating to avoid
+      // permanently queuing messages.
+      _socket.cancelHandshake();
       _failureStreak++;
       final errString = '$error';
       final lower = errString.toLowerCase();
+      final isMissingSessionToken =
+          lower.contains('missing sign-in token') ||
+          lower.contains('missing session token');
       final isLicenseError =
           lower.contains('license_required') ||
-          lower.contains('license required');
+          lower.contains('license required') ||
+          lower.contains('license_expired');
+      final isTooManyMachines = lower.contains('too many machines');
       final isAuthError =
           errString.contains('401') ||
           lower.contains('unauthorized') ||
@@ -435,18 +464,66 @@ class ConnectionNotifier extends StateNotifier<BridgeConnectionState>
           isLicenseError;
       final isPinError =
           lower.contains('handshake') && lower.contains('certificate');
+
+      // For license errors, check if we have local entitlement
+      // If yes, this might be a sync delay - auto-retry after refresh
+      if (isLicenseError && !isTooManyMachines) {
+        final subState = _ref.read(appSubscriptionProvider);
+        if (subState.entitled) {
+          // User has local entitlement but bridge rejected - likely sync delay
+          // Refresh subscription status and retry
+          debugPrint('[Connection] License error but locally entitled - refreshing and retrying');
+          state = state.copyWith(
+            status: ConnectionStatus.disconnected,
+            error: 'Verifying subscription...',
+            lastEvent: ConnectionEvent.failed,
+            isReconnecting: true,
+          );
+          // Refresh subscription status
+          Future.microtask(() async {
+            try {
+              await _ref.read(appSubscriptionProvider.notifier).configureAndRefresh();
+              await Future.delayed(const Duration(seconds: 2));
+              // Retry connection if still have the same connection info
+              if (state.connection != null) {
+                connect(state.connection!);
+              }
+            } catch (_) {
+              // Refresh failed, show generic error
+              state = state.copyWith(
+                error: 'Subscription sync failed. Please try again.',
+              );
+            }
+          });
+          return;
+        }
+      }
+
+      // Determine error message
+      String errorMessage;
+      if (isTooManyMachines) {
+        errorMessage = 'Machine limit reached (3 max). Remove a device in Account settings.';
+      } else if (isMissingSessionToken) {
+        errorMessage = 'Sign-in expired. Please sign out and sign in again.';
+      } else if (isLicenseError) {
+        errorMessage = 'Subscription required. Subscribe to Pro in Settings.';
+      } else if (isAuthError) {
+        errorMessage = 'Authentication failed. Scan a new QR code.';
+      } else if (isPinError) {
+        errorMessage = 'Secure connection failed (certificate mismatch). Scan a new QR code.';
+      } else {
+        errorMessage = errString;
+      }
+
       state = state.copyWith(
         status: ConnectionStatus.disconnected,
-        error: isAuthError
-            ? (isLicenseError
-                  ? 'Subscription required. Please subscribe to Pro to use the bridge.'
-                  : 'Authentication failed. Scan a new QR code.')
-            : (isPinError
-                  ? 'Secure connection failed (certificate mismatch). Scan a new QR code.'
-                  : errString),
+        error: errorMessage,
         lastEvent: ConnectionEvent.failed,
+        isReconnecting:
+            !isAuthError && !isLicenseError && !isTooManyMachines,
       );
-      if (!isAuthError) {
+      // Don't auto-reconnect for auth/license errors - user needs to take action
+      if (!isAuthError && !isLicenseError && !isTooManyMachines) {
         _scheduleSmartReconnect();
       }
     } finally {
@@ -803,10 +880,35 @@ class ConnectionNotifier extends StateNotifier<BridgeConnectionState>
     await _socket.disconnect();
   }
 
+  /// Unpaid preview mode: allow browsing UI but prevent all connect/reconnect
+  /// flows and clear any saved bridge connection.
+  ///
+  /// This is intentionally idempotent and safe to call multiple times.
+  Future<void> enterUnpaidPreviewMode() async {
+    // Stop any reconnection activity immediately.
+    _reconnectTimer?.cancel();
+    _reconnectAttempts = 0;
+    _failureStreak = 0;
+    _sentMessages.clear();
+
+    // Clear connection state before disconnect to avoid reconnect scheduling.
+    await _storage.clearConnection();
+    state = state.copyWith(
+      clearConnection: true,
+      status: ConnectionStatus.disconnected,
+      isOfflineMode: true,
+      devBypassAutoOfflineEnabled: false,
+      isReconnecting: false,
+      error: null,
+    );
+
+    await _socket.disconnect();
+  }
+
   /// Enter offline/preview mode - allows browsing cached data without connection
   void enterOfflineMode() {
     _reconnectTimer?.cancel();
-    state = state.copyWith(isOfflineMode: true);
+    state = state.copyWith(isOfflineMode: true, isReconnecting: false);
   }
 
   /// Exit offline mode
@@ -826,15 +928,47 @@ class ConnectionNotifier extends StateNotifier<BridgeConnectionState>
     state = state.copyWith(protocolBannerDismissed: true);
   }
 
+  /// Ensure we attempt to reconnect automatically when we have a saved
+  /// connection and the user is entitled.
+  ///
+  /// RootScreen can call this when rendering the "connected app" surfaces,
+  /// to avoid a one-frame jump to ConnectionLostScreen on cold start.
+  void kickOffAutoReconnectIfNeeded() {
+    if (state.connection == null) return;
+    if (state.isOfflineMode) return;
+    if (_isConnecting) return;
+    if (state.isReconnecting) return;
+    if (_isBackgrounding) return;
+
+    final sub = _ref.read(appSubscriptionProvider);
+    if (!sub.entitled) return;
+
+    _reconnectTimer?.cancel();
+    _reconnectAttempts = max(_reconnectAttempts, 1);
+    state = state.copyWith(isReconnecting: true, error: null);
+    Future.microtask(
+      () => connect(state.connection!, preferredType: _lastSuccessfulType),
+    );
+  }
+
   void _handleStatus(ConnectionStatus status) {
     // Only schedule reconnect if we unexpectedly disconnected (not during intentional reconnect)
+    // Skip if we're intentionally backgrounding - we'll handle reconnect in _handleAppResumed
     if (status == ConnectionStatus.disconnected &&
         state.connection != null &&
-        !_isConnecting) {
+        !_isConnecting &&
+        !_isBackgrounding &&
+        !state.isOfflineMode) {
+      final sub = _ref.read(appSubscriptionProvider);
+      if (!sub.entitled) {
+        // Unpaid users should never enter reconnect loops.
+        state = state.copyWith(isReconnecting: false);
+        return;
+      }
       debugPrint(
         '[Connection] Disconnected unexpectedly, scheduling reconnect',
       );
-      _scheduleReconnect();
+      _scheduleSmartReconnect();
     }
 
     // Emit appropriate event
@@ -918,10 +1052,13 @@ class ConnectionNotifier extends StateNotifier<BridgeConnectionState>
     if (hasNetwork &&
         state.connection != null &&
         state.status == ConnectionStatus.disconnected &&
-        !_isConnecting) {
+        !_isConnecting &&
+        !state.isOfflineMode) {
+      final sub = _ref.read(appSubscriptionProvider);
+      if (!sub.entitled) return;
       // Reset failure streak since network change is a fresh start
       _failureStreak = 0;
-      _reconnectAttempts = 0;
+      _reconnectAttempts = max(_reconnectAttempts, 1);
 
       // Cancel any pending reconnect timer
       _reconnectTimer?.cancel();
@@ -947,33 +1084,14 @@ class ConnectionNotifier extends StateNotifier<BridgeConnectionState>
     }
   }
 
-  void _scheduleReconnect() {
-    if (state.connection == null) return;
-    if (_reconnectTimer?.isActive ?? false) return;
-
-    final baseDelaySeconds = min(30, pow(2, min(_reconnectAttempts, 4)) * 2);
-    final jitter = _random.nextDouble(); // 0-1s jitter to avoid thundering herd
-    final delaySeconds = (baseDelaySeconds + jitter).clamp(2, 30).toDouble();
-    _reconnectAttempts += 1;
-
-    state = state.copyWith(isReconnecting: true);
-
-    _reconnectTimer = Timer(
-      Duration(milliseconds: (delaySeconds * 1000).round()),
-      () {
-        final connection = state.connection;
-        if (connection != null) {
-          connect(connection);
-        }
-      },
-    );
-  }
-
   /// Smart reconnection that adapts strategy based on failure patterns.
   /// Uses Claudis-style exponential backoff with jitter for robust reconnection.
   void _scheduleSmartReconnect() {
     if (state.connection == null) return;
     if (_reconnectTimer?.isActive ?? false) return;
+    if (state.isOfflineMode) return;
+    final sub = _ref.read(appSubscriptionProvider);
+    if (!sub.entitled) return;
 
     // Select reconnection policy based on conditions
     _currentPolicy = _selectReconnectPolicy();
@@ -1037,13 +1155,18 @@ class ConnectionNotifier extends StateNotifier<BridgeConnectionState>
   void didChangeAppLifecycleState(AppLifecycleState state) {
     switch (state) {
       case AppLifecycleState.paused:
-      case AppLifecycleState.inactive:
         // App is going to background or becoming inactive
         _handleAppBackgrounded();
 
       case AppLifecycleState.resumed:
         // App is coming back to foreground
         _handleAppResumed();
+
+      case AppLifecycleState.inactive:
+        // iOS: Pulling notification shade / Control Center triggers `inactive`
+        // briefly while the app is still foreground-visible. We should not
+        // force-close the socket here; doing so causes reconnect loops.
+        break;
 
       case AppLifecycleState.detached:
       case AppLifecycleState.hidden:
@@ -1056,8 +1179,9 @@ class ConnectionNotifier extends StateNotifier<BridgeConnectionState>
   void _handleAppBackgrounded() {
     _wasBackgrounded = true;
     _backgroundedAt = DateTime.now();
+    _isBackgrounding = true; // Set BEFORE forceClose - _handleStatus checks this
 
-    // Cancel any pending reconnect timers since we'll handle this on resume
+    // Cancel any existing reconnect timer
     _reconnectTimer?.cancel();
 
     // If we have a connection, force close the socket to prevent stale state.
@@ -1067,11 +1191,16 @@ class ConnectionNotifier extends StateNotifier<BridgeConnectionState>
         state.status == ConnectionStatus.connected) {
       _socket.forceClose();
     }
+
+    // Clear reconnecting state since we'll handle it on resume
+    state = state.copyWith(isReconnecting: false);
+    // NOTE: Don't reset _isBackgrounding here - it's reset in _handleAppResumed
   }
 
   void _handleAppResumed() {
     if (!_wasBackgrounded) return;
     _wasBackgrounded = false;
+    _isBackgrounding = false; // Reset flag - safe to schedule reconnects again
 
     // Calculate how long we were backgrounded
     final backgroundDuration = _backgroundedAt != null
@@ -1083,7 +1212,7 @@ class ConnectionNotifier extends StateNotifier<BridgeConnectionState>
     if (connection != null && state.status != ConnectionStatus.connected) {
       // Reset failure streak since this is a fresh resume
       _failureStreak = 0;
-      _reconnectAttempts = 0;
+      _reconnectAttempts = max(_reconnectAttempts, 1);
 
       // For short background durations (<30s), the server might still have our session
       // For longer durations, we need a full reconnect
@@ -1100,7 +1229,7 @@ class ConnectionNotifier extends StateNotifier<BridgeConnectionState>
       if (!_socket.isHealthy) {
         _socket.forceClose();
         _failureStreak = 0;
-        _reconnectAttempts = 0;
+        _reconnectAttempts = max(_reconnectAttempts, 1);
         connect(connection, preferredType: _lastSuccessfulType);
       }
     }
@@ -1124,5 +1253,5 @@ final connectionProvider =
       final socket = ref.watch(webSocketServiceProvider);
       final networkMonitor = ref.watch(networkMonitorServiceProvider);
       final bridge = ref.watch(bridgeServiceProvider);
-      return ConnectionNotifier(storage, socket, networkMonitor, bridge);
+      return ConnectionNotifier(ref, storage, socket, networkMonitor, bridge);
     });

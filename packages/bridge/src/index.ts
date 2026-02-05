@@ -342,6 +342,104 @@ async function runShowToken(): Promise<void> {
   console.log('  Or run `broski qr` to generate a scannable QR code.')
 }
 
+async function runAccount(): Promise<void> {
+  const { loadLocalLicenseState, getLicenseCrypto } = await import('./license')
+  const { loadStoredLicense, getStoredLicensePath } = await import('./license/store')
+
+  console.log('')
+  console.log('  ╭─────────────────────────────────────────────╮')
+  console.log('  │            BROSKI ACCOUNT STATUS            │')
+  console.log('  ╰─────────────────────────────────────────────╯')
+  console.log('')
+
+  // Check if license file exists
+  const stored = await loadStoredLicense()
+  if (!stored) {
+    console.log('  Status: Not connected')
+    console.log('')
+    console.log('  No license found. Connect the Broski iOS app to activate.')
+    console.log('')
+    console.log('  Steps:')
+    console.log('    1. Run `broski` to start the bridge')
+    console.log('    2. Open the Broski app on your iPhone')
+    console.log('    3. Scan the QR code to connect')
+    console.log('')
+    return
+  }
+
+  // Try to load and decrypt the license
+  const license = await loadLocalLicenseState()
+  if (!license) {
+    console.log('  Status: License invalid or corrupted')
+    console.log('')
+    console.log('  The cached license could not be decrypted.')
+    console.log('  This can happen if the machine ID changed.')
+    console.log('')
+    console.log('  Reconnect via the Broski app to refresh your license.')
+    console.log('')
+    return
+  }
+
+  // Calculate expiry
+  const nowSec = Math.floor(Date.now() / 1000)
+  const expiresSec = license.exp
+  const expiresDate = new Date(expiresSec * 1000)
+  const daysRemaining = Math.ceil((expiresSec - nowSec) / (60 * 60 * 24))
+  const isExpired = nowSec > expiresSec
+
+  // Get machine ID
+  const crypto = getLicenseCrypto()
+  const machineIdHash = crypto.machineIdHash()
+  const machineIdShort = machineIdHash ? machineIdHash.slice(0, 12) + '...' : 'unknown'
+
+  // Display status
+  const statusEmoji = license.entitled ? (isExpired ? '⚠️' : '✓') : '✗'
+  const statusText = license.entitled 
+    ? (isExpired ? 'Expired' : 'Pro') 
+    : 'Not Subscribed'
+
+  console.log(`  Subscription: ${statusEmoji} ${statusText}`)
+  console.log('')
+  
+  if (license.entitled && !isExpired) {
+    console.log(`  Expires:      ${expiresDate.toLocaleDateString()} (${daysRemaining} days)`)
+  } else if (isExpired) {
+    console.log(`  Expired:      ${expiresDate.toLocaleDateString()}`)
+  }
+  
+  console.log(`  User ID:      ${license.appUserId}`)
+  console.log(`  Machine:      ${machineIdShort}`)
+  console.log('')
+
+  // Show last verified time from stored license
+  if (stored.updatedAtMs) {
+    const lastVerified = new Date(stored.updatedAtMs)
+    const minAgo = Math.floor((Date.now() - stored.updatedAtMs) / 60000)
+    const timeAgoText = minAgo < 1 ? 'just now' : minAgo < 60 ? `${minAgo} min ago` : `${Math.floor(minAgo / 60)} hours ago`
+    console.log(`  Last verified: ${timeAgoText}`)
+  }
+
+  console.log('')
+  console.log('  ─────────────────────────────────────────────')
+  console.log('')
+
+  if (!license.entitled) {
+    console.log('  To subscribe: Open the Broski app → Settings → Subscribe')
+    console.log('')
+  } else if (isExpired) {
+    console.log('  To renew: Open the Broski app → Settings → Manage Subscription')
+    console.log('')
+  } else {
+    console.log('  Manage subscription & devices in the Broski iOS app.')
+    console.log('')
+  }
+
+  // Show license file path for debugging
+  const licensePath = getStoredLicensePath()
+  console.log(`  License file: ${licensePath}`)
+  console.log('')
+}
+
 async function runStop(): Promise<void> {
   console.log('Stopping Broski bridge...\n')
 
@@ -937,6 +1035,11 @@ async function main() {
 
   if (cli.subCommand === 'show-token') {
     await runShowToken()
+    return
+  }
+
+  if (cli.subCommand === 'account') {
+    await runAccount()
     return
   }
 

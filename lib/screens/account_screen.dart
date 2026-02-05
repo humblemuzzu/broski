@@ -1,9 +1,12 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:url_launcher/url_launcher.dart';
 
 import '../providers/app_auth_provider.dart';
 import '../providers/app_subscription_provider.dart';
+import '../providers/service_providers.dart';
+import '../services/convex_service.dart';
 import '../theme/opencode_theme.dart';
 
 /// Dedicated account / personal-info screen.
@@ -163,6 +166,13 @@ class AccountScreen extends ConsumerWidget {
               ],
             ),
           ),
+
+          const SizedBox(height: 24),
+
+          // ── Registered Machines ───────────────────────────────────
+          _SectionLabel(title: 'Registered Devices'),
+          const SizedBox(height: 10),
+          const _MachinesSection(),
 
           const SizedBox(height: 24),
 
@@ -405,6 +415,311 @@ class _TileDivider extends StatelessWidget {
       indent: 16,
       endIndent: 16,
       color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.08),
+    );
+  }
+}
+
+// ─── Machines section ───────────────────────────────────────────────
+
+class _MachinesSection extends ConsumerStatefulWidget {
+  const _MachinesSection();
+
+  @override
+  ConsumerState<_MachinesSection> createState() => _MachinesSectionState();
+}
+
+class _MachinesSectionState extends ConsumerState<_MachinesSection> {
+  MachinesResponse? _machines;
+  bool _loading = true;
+  String? _error;
+
+  @override
+  void initState() {
+    super.initState();
+    _loadMachines();
+  }
+
+  Future<void> _loadMachines() async {
+    setState(() {
+      _loading = true;
+      _error = null;
+    });
+
+    try {
+      final storage = ref.read(storageServiceProvider);
+      final convex = ref.read(convexServiceProvider);
+      final token = await storage.getAppSessionToken();
+      if (token == null) {
+        setState(() {
+          _loading = false;
+          _error = 'Not signed in';
+        });
+        return;
+      }
+
+      final machines = await convex.getMachines(sessionToken: token);
+      if (mounted) {
+        setState(() {
+          _machines = machines;
+          _loading = false;
+        });
+      }
+    } catch (e) {
+      if (mounted) {
+        setState(() {
+          _loading = false;
+          _error = e.toString();
+        });
+      }
+    }
+  }
+
+  Future<void> _revokeMachine(MachineInfo machine) async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('Remove Device?'),
+        content: Text(
+          'Remove device ${machine.shortId}?\n\n'
+          'This will sign out the device. It can reconnect by scanning the QR code again.',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, false),
+            child: const Text('Cancel'),
+          ),
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, true),
+            style: TextButton.styleFrom(foregroundColor: Colors.red),
+            child: const Text('Remove'),
+          ),
+        ],
+      ),
+    );
+
+    if (confirmed != true || !mounted) return;
+
+    try {
+      final storage = ref.read(storageServiceProvider);
+      final convex = ref.read(convexServiceProvider);
+      final token = await storage.getAppSessionToken();
+      if (token == null) return;
+
+      await convex.revokeMachine(sessionToken: token, machineId: machine.id);
+      HapticFeedback.mediumImpact();
+      _loadMachines();
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Failed to remove device: $e'),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final ocTheme = OpenCodeTheme.of(context);
+
+    if (_loading) {
+      return Container(
+        padding: const EdgeInsets.all(24),
+        decoration: BoxDecoration(
+          color: theme.colorScheme.surface.withValues(alpha: 0.5),
+          borderRadius: BorderRadius.circular(16),
+          border: Border.all(color: ocTheme.borderSubtle),
+        ),
+        child: const Center(
+          child: SizedBox(
+            width: 24,
+            height: 24,
+            child: CircularProgressIndicator(strokeWidth: 2),
+          ),
+        ),
+      );
+    }
+
+    if (_error != null) {
+      return Container(
+        padding: const EdgeInsets.all(16),
+        decoration: BoxDecoration(
+          color: theme.colorScheme.surface.withValues(alpha: 0.5),
+          borderRadius: BorderRadius.circular(16),
+          border: Border.all(color: ocTheme.borderSubtle),
+        ),
+        child: Column(
+          children: [
+            Text(
+              'Unable to load devices',
+              style: TextStyle(color: ocTheme.textMuted),
+            ),
+            const SizedBox(height: 8),
+            TextButton(
+              onPressed: _loadMachines,
+              child: const Text('Retry'),
+            ),
+          ],
+        ),
+      );
+    }
+
+    final machines = _machines;
+    if (machines == null || machines.machines.isEmpty) {
+      return Container(
+        padding: const EdgeInsets.all(16),
+        decoration: BoxDecoration(
+          color: theme.colorScheme.surface.withValues(alpha: 0.5),
+          borderRadius: BorderRadius.circular(16),
+          border: Border.all(color: ocTheme.borderSubtle),
+        ),
+        child: Row(
+          children: [
+            Icon(Icons.devices_rounded, color: ocTheme.textMuted),
+            const SizedBox(width: 12),
+            Expanded(
+              child: Text(
+                'No devices registered yet',
+                style: TextStyle(color: ocTheme.textMuted),
+              ),
+            ),
+          ],
+        ),
+      );
+    }
+
+    return Container(
+      decoration: BoxDecoration(
+        color: theme.colorScheme.surface.withValues(alpha: 0.5),
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: ocTheme.borderSubtle),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          // Header with count
+          Padding(
+            padding: const EdgeInsets.fromLTRB(16, 12, 16, 8),
+            child: Row(
+              children: [
+                Icon(Icons.computer_rounded, size: 18, color: ocTheme.text),
+                const SizedBox(width: 8),
+                Text(
+                  '${machines.machines.length} of ${machines.maxMachines} devices',
+                  style: TextStyle(
+                    color: ocTheme.text,
+                    fontWeight: FontWeight.w600,
+                    fontSize: 14,
+                  ),
+                ),
+                const Spacer(),
+                GestureDetector(
+                  onTap: _loadMachines,
+                  child: Icon(
+                    Icons.refresh_rounded,
+                    size: 18,
+                    color: ocTheme.textMuted,
+                  ),
+                ),
+              ],
+            ),
+          ),
+          const Divider(height: 1),
+          // Machine list
+          ...machines.machines.asMap().entries.map((entry) {
+            final index = entry.key;
+            final machine = entry.value;
+            return Column(
+              children: [
+                _MachineRow(
+                  machine: machine,
+                  onRevoke: () => _revokeMachine(machine),
+                ),
+                if (index < machines.machines.length - 1)
+                  Divider(
+                    height: 1,
+                    indent: 16,
+                    endIndent: 16,
+                    color: ocTheme.borderSubtle,
+                  ),
+              ],
+            );
+          }),
+        ],
+      ),
+    );
+  }
+}
+
+class _MachineRow extends StatelessWidget {
+  const _MachineRow({
+    required this.machine,
+    required this.onRevoke,
+  });
+
+  final MachineInfo machine;
+  final VoidCallback onRevoke;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final ocTheme = OpenCodeTheme.of(context);
+
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+      child: Row(
+        children: [
+          Container(
+            width: 40,
+            height: 40,
+            decoration: BoxDecoration(
+              color: theme.colorScheme.primary.withValues(alpha: 0.1),
+              borderRadius: BorderRadius.circular(10),
+            ),
+            child: Icon(
+              Icons.laptop_mac_rounded,
+              color: theme.colorScheme.primary,
+              size: 20,
+            ),
+          ),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  'Device ${machine.shortId}',
+                  style: TextStyle(
+                    color: ocTheme.text,
+                    fontWeight: FontWeight.w500,
+                    fontSize: 14,
+                  ),
+                ),
+                const SizedBox(height: 2),
+                Text(
+                  'Last seen ${machine.lastSeenAgo}',
+                  style: TextStyle(
+                    color: ocTheme.textMuted,
+                    fontSize: 12,
+                  ),
+                ),
+              ],
+            ),
+          ),
+          IconButton(
+            onPressed: onRevoke,
+            icon: Icon(
+              Icons.remove_circle_outline_rounded,
+              color: theme.colorScheme.error.withValues(alpha: 0.7),
+              size: 22,
+            ),
+            tooltip: 'Remove device',
+          ),
+        ],
+      ),
     );
   }
 }
