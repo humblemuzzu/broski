@@ -1,5 +1,6 @@
 import { stdin as input, stdout as output } from 'node:process'
 import readline from 'node:readline/promises'
+import { isCompiledBinary } from './platform'
 
 export type OpencodeMode = 'managed' | 'manual' | 'attach'
 export type SubCommand = 'serve' | 'doctor' | 'setup-tailscale' | 'install' | 'uninstall' | 'status' | 'stop' | 'restart' | 'qr' | 'version' | 'update' | 'setup' | 'configure' | 'troubleshoot' | 'logs' | 'show-token' | 'account' | null
@@ -46,7 +47,7 @@ export function parseCli(argv: string[], env: NodeJS.ProcessEnv): CliOptions {
   let opencodeUrl: string | undefined = env.OPENCODE_BASE_URL
   let opencodeHostname = env.BROSKI_OPENCODE_HOSTNAME ?? '127.0.0.1'
   let opencodePort = parseNumber(env.BROSKI_OPENCODE_PORT, 0)
-  let verbose = env.BROSKI_VERBOSE === '1'
+  let verbose = false // Set below after arg parsing; gated by isCompiledBinary
   let help = false
   let enableFunnel = env.BROSKI_ENABLE_FUNNEL === '1'
   let newToken = false
@@ -114,7 +115,9 @@ export function parseCli(argv: string[], env: NodeJS.ProcessEnv): CliOptions {
       continue
     }
     if (arg === '--verbose' || arg === '-v') {
-      verbose = true
+      // Verbose mode is dev-only — silently ignore in compiled binaries
+      // to prevent leaking tokens, API keys, and internal state.
+      verbose = !isCompiledBinary()
       continue
     }
     if (arg === '--port' || arg === '--bridge-port') {
@@ -215,6 +218,11 @@ export function parseCli(argv: string[], env: NodeJS.ProcessEnv): CliOptions {
 
   if (opencodeUrl) {
     opencodeMode = 'manual'
+  }
+
+  // Allow BROSKI_VERBOSE env var only in dev mode
+  if (!verbose && env.BROSKI_VERBOSE === '1') {
+    verbose = !isCompiledBinary()
   }
 
   return {

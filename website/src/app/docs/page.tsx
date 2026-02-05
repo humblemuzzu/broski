@@ -61,7 +61,7 @@ export default function DocsPage() {
           <div className="text-center">
             <div className="px-4 py-3 bg-muted border border-border rounded-lg">
               <div className="font-semibold">Bridge</div>
-              <div className="text-xs text-muted-foreground">Node.js Server</div>
+              <div className="text-xs text-muted-foreground">Bun Server</div>
             </div>
             <div className="text-xs text-muted-foreground mt-1">Your Mac</div>
           </div>
@@ -176,7 +176,7 @@ export default function DocsPage() {
 
       {/* Next Steps */}
       <h2 id="next-steps" className="text-xl font-semibold mb-4 mt-10">Next Steps</h2>
-      
+
       <CardGrid>
         <Card
           href="/docs/setup"
@@ -197,6 +197,11 @@ export default function DocsPage() {
           href="/docs/backends"
           title="AI Backends"
           description="Claude Code, OpenCode, Codex setup guides."
+        />
+        <Card
+          href="/docs/security"
+          title="Security & Privacy"
+          description="Zero cloud, zero telemetry. How your data stays yours."
         />
       </CardGrid>
     </article>

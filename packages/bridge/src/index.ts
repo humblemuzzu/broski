@@ -1034,6 +1034,11 @@ async function main() {
   }
 
   if (cli.subCommand === 'show-token') {
+    if (isCompiledBinary()) {
+      console.log('This command is not available in production builds.')
+      console.log('Use `broski qr` to display the QR code for pairing instead.')
+      return
+    }
     await runShowToken()
     return
   }

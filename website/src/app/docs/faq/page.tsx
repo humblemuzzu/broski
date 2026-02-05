@@ -442,58 +442,108 @@ bun add -g broski`}</CodeBlock>
       {/* Privacy */}
       <section className="mb-12">
         <h2 id="privacy" className="text-2xl font-semibold mb-6">Privacy &amp; Security</h2>
-        
+
         <div className="space-y-6">
           <div className="border border-border/50 rounded-lg p-5">
             <h3 className="font-semibold mb-2">Does Broski send my code to the cloud?</h3>
             <p className="text-muted-foreground">
-              Only to your configured AI provider (Claude, OpenAI, etc.), and that&apos;s handled by 
-              OpenCode/Claude Code - not by Broski. Broski itself has no cloud servers and doesn&apos;t 
-              collect any data.
+              No. Your code stays on your Mac at all times. When you chat with AI, your prompts are sent to your
+              configured AI provider (Anthropic, OpenAI, etc.) by the agent running on your Mac &mdash; exactly
+              the same as if you used Claude Code or OpenCode directly in your terminal. Broski doesn&apos;t add,
+              intercept, or route anything through our servers. We don&apos;t operate servers that touch your code.
             </p>
           </div>
 
           <div className="border border-border/50 rounded-lg p-5">
             <h3 className="font-semibold mb-2">Is my connection encrypted?</h3>
-            <p className="text-muted-foreground">
-              Local WiFi: Traffic stays on your network. Tailscale: WireGuard encryption. 
-              Funnel: HTTPS + WireGuard. For sensitive work on untrusted networks, always use Tailscale.
+            <p className="text-muted-foreground mb-3">
+              Yes, always. The encryption depends on your connection type:
             </p>
+            <ul className="text-muted-foreground space-y-2">
+              <li>&#8226; <strong className="text-foreground">Local WiFi:</strong> TLS with certificate pinning. The bridge generates a self-signed cert, and your phone pins the SHA-256 fingerprint from the QR code. Even on untrusted WiFi, a man-in-the-middle attack is blocked.</li>
+              <li>&#8226; <strong className="text-foreground">Tailscale:</strong> WireGuard end-to-end encryption. Modern, audited cryptographic protocol &mdash; traffic is encrypted directly between your devices.</li>
+              <li>&#8226; <strong className="text-foreground">Funnel:</strong> HTTPS/TLS managed by Tailscale. Public endpoint with TLS termination at their edge.</li>
+            </ul>
           </div>
 
           <div className="border border-border/50 rounded-lg p-5">
-            <h3 className="font-semibold mb-2">Does Broski collect my data?</h3>
+            <h3 className="font-semibold mb-2">Does Broski collect analytics or telemetry?</h3>
             <p className="text-muted-foreground">
-              No. Broski uses peer-to-peer connections. Your code and conversations 
-              never pass through our servers. We don&apos;t collect analytics, usage data, 
-              or any personal information.
+              Zero. Not &ldquo;minimal&rdquo; or &ldquo;anonymous&rdquo; &mdash; zero. There is no Firebase, no Mixpanel,
+              no Amplitude, no Sentry, no Crashlytics, no Segment in the app or bridge. We don&apos;t track screen views,
+              tap events, session duration, or any behavioral data. If the app crashes, we don&apos;t know unless you email
+              us. Our revenue comes from subscriptions, not data.
             </p>
           </div>
 
           <div className="border border-border/50 rounded-lg p-5">
             <h3 className="font-semibold mb-2">Where is my data stored?</h3>
             <ul className="text-muted-foreground space-y-2">
-              <li>&#8226; <strong className="text-foreground">Connection credentials:</strong> Encrypted in iOS Keychain / Android EncryptedSharedPrefs</li>
-              <li>&#8226; <strong className="text-foreground">Cached sessions:</strong> On your device only</li>
-              <li>&#8226; <strong className="text-foreground">AI conversations:</strong> On your computer (handled by AI backend)</li>
+              <li>&#8226; <strong className="text-foreground">Connection credentials:</strong> Encrypted in iOS Keychain (hardware-backed) / Android EncryptedSharedPreferences (AES-256)</li>
+              <li>&#8226; <strong className="text-foreground">Cached sessions &amp; messages:</strong> On your phone only, in encrypted storage. For offline viewing.</li>
+              <li>&#8226; <strong className="text-foreground">AI conversations &amp; session history:</strong> On your computer only, managed by the AI backend.</li>
+              <li>&#8226; <strong className="text-foreground">API keys:</strong> On your Mac only, in macOS Keychain or local config files. Never sent through Broski.</li>
+              <li>&#8226; <strong className="text-foreground">Bridge auth token &amp; TLS cert:</strong> In <code className="px-1 py-0.5 bg-muted rounded text-sm">~/.broski/</code> on your Mac with restricted file permissions.</li>
             </ul>
           </div>
 
           <div className="border border-border/50 rounded-lg p-5">
             <h3 className="font-semibold mb-2">Can someone else access my bridge?</h3>
             <p className="text-muted-foreground">
-              Not without your authentication token. The bridge uses a cryptographically secure 24-byte 
-              token embedded in the QR code. Don&apos;t share QR code screenshots. To revoke access: 
-              <code className="px-1 py-0.5 bg-muted rounded text-sm">broski --new-token</code>
+              Not without your authentication token. The bridge generates a cryptographically secure token with 192 bits
+              of entropy, embedded in the QR code. Connections are validated using constant-time comparison to prevent
+              timing attacks. Without the token, the bridge rejects the connection at the HTTP level &mdash; before a
+              WebSocket is even established. To revoke access: <code className="px-1 py-0.5 bg-muted rounded text-sm">broski --new-token</code>
             </p>
           </div>
 
           <div className="border border-border/50 rounded-lg p-5">
-            <h3 className="font-semibold mb-2">How do I delete my data?</h3>
+            <h3 className="font-semibold mb-2">What third-party services does Broski use?</h3>
+            <p className="text-muted-foreground mb-3">
+              Exactly two:
+            </p>
+            <ul className="text-muted-foreground space-y-2">
+              <li>&#8226; <strong className="text-foreground">Authentication (Google/Apple Sign-In):</strong> Standard OAuth 2.0 for identity. Receives your name and email only &mdash; never code, conversations, or usage data.</li>
+              <li>&#8226; <strong className="text-foreground">Subscription (RevenueCat):</strong> Purchase verification via Apple/Google APIs. Receives transaction data and subscription status only &mdash; never code, conversations, or usage data.</li>
+            </ul>
+            <p className="text-muted-foreground mt-3 text-sm">
+              If you enable voice input, audio goes to Groq or OpenAI using your own API key. This is opt-in and off by default.
+            </p>
+          </div>
+
+          <div className="border border-border/50 rounded-lg p-5">
+            <h3 className="font-semibold mb-2">What happens if I cancel my subscription?</h3>
             <p className="text-muted-foreground">
-              Go to Settings &gt; Clear Cache to delete all cached data from the app. 
-              Uninstalling the app removes all data from your device. On your computer, 
-              delete <code className="px-1 py-0.5 bg-muted rounded text-sm">~/.broski</code> and <code className="px-1 py-0.5 bg-muted rounded text-sm">~/.opencode</code>.
+              Your pairing data is preserved. If you resubscribe later, the app reconnects to your Mac automatically
+              &mdash; no QR rescan needed. We don&apos;t delete your data or hold it hostage when you leave.
+            </p>
+          </div>
+
+          <div className="border border-border/50 rounded-lg p-5">
+            <h3 className="font-semibold mb-2">How do I delete all my data?</h3>
+            <p className="text-muted-foreground mb-3">
+              <strong className="text-foreground">Phone:</strong> Settings &gt; Clear Cache removes all cached data.
+              Uninstalling the app removes everything from your device.
+            </p>
+            <p className="text-muted-foreground mb-3">
+              <strong className="text-foreground">Mac:</strong> Delete <code className="px-1 py-0.5 bg-muted rounded text-sm">~/.broski</code> to
+              remove all bridge data (token, certs, config).
+            </p>
+            <p className="text-muted-foreground text-sm">
+              That&apos;s it. There&apos;s nothing on our end to delete because we never had your data in the first place.
+            </p>
+          </div>
+
+          <div className="border border-border/50 rounded-lg p-5">
+            <h3 className="font-semibold mb-2">Can I verify all of this myself?</h3>
+            <p className="text-muted-foreground">
+              Yes. Run <code className="px-1 py-0.5 bg-muted rounded text-sm">broski doctor</code> to run 30+
+              diagnostics on your setup (TLS certs, token status, port bindings, daemon health). Use Wireshark to
+              inspect network traffic &mdash; you&apos;ll see encrypted WebSocket frames between your phone and Mac,
+              and nothing going to any Broski endpoint. The bridge runs on your machine; you can inspect every line of traffic.
+            </p>
+            <p className="text-muted-foreground mt-2 text-sm">
+              For the full deep-dive, see our <a href="/docs/security" className="text-primary hover:underline">Security &amp; Privacy</a> documentation.
             </p>
           </div>
         </div>

@@ -17,8 +17,10 @@ import { loadLocalLicenseState, refreshLocalLicenseFromCloud, type LocalLicenseS
 
 const TOKEN_FILE_LEGACY = resolve(homedir(), '.broski', 'token')
 const TOKEN_FILE = resolve(homedir(), '.broski', 'token.json')
-const DEBUG_RTS = process.env.BROSKI_DEBUG_RTS === '1' // Real-Time Sync debugging
-const DEBUG_CX_GLOBAL = process.env.BROSKI_DEBUG_CX_GLOBAL === '1' // Forward noisy Codex global notifications
+// Debug flags are dev-only — disabled in compiled binaries to prevent leaking
+// session IDs, file paths, and internal state via raw console.log calls.
+const DEBUG_RTS = !isCompiledBinary() && process.env.BROSKI_DEBUG_RTS === '1'
+const DEBUG_CX_GLOBAL = !isCompiledBinary() && process.env.BROSKI_DEBUG_CX_GLOBAL === '1'
 const BRIDGE_PROTOCOL_VERSION = '1.0.0'
 
 function structuredPatchToUnifiedDiff(filePath: string, patches: unknown): string | null {
@@ -748,10 +750,12 @@ export async function createBridgeServer(options: BridgeServerOptions): Promise<
     /api[_-]?key[=:]\s*["']?[a-zA-Z0-9_-]+["']?/gi,
     /authorization[=:]\s*["']?[^"'\s]+["']?/gi,
   ]
-  const isDebugMode = process.env.BROSKI_DEBUG === '1' || process.env.BROSKI_VERBOSE === '1'
+  // Only allow debug mode in dev — compiled binaries always redact to
+  // prevent leaking tokens, API keys, and internal state in production.
+  const isDebugMode = !isCompiledBinary() && (process.env.BROSKI_DEBUG === '1' || process.env.BROSKI_VERBOSE === '1')
 
   function redactSensitive(message: string): string {
-    if (isDebugMode) return message // Don't redact in debug mode
+    if (isDebugMode) return message
     let result = message
     for (const pattern of SENSITIVE_PATTERNS) {
       result = result.replace(pattern, '[REDACTED]')
@@ -768,18 +772,27 @@ export async function createBridgeServer(options: BridgeServerOptions): Promise<
   const clientQueues = new Map<ServerWebSocket<unknown>, ClientQueue>()
   const cloudAuthTimers = new Map<ServerWebSocket<unknown>, Timer>()
   let localLicense: LocalLicenseState | null = null
-  const ENTITLEMENT_CACHE_TTL_MS = Math.max(
-    5_000,
-    Math.min(Number(options.cloud?.entitlementCacheTtlMs ?? process.env.BROSKI_ENTITLEMENT_CACHE_TTL_MS ?? '30000'), 10 * 60 * 1000),
-  )
-  const ENTITLEMENT_RECHECK_MS = Math.max(
-    60_000,
-    Math.min(Number(options.cloud?.entitlementRecheckMs ?? process.env.BROSKI_ENTITLEMENT_RECHECK_MS ?? String(30 * 60_000)), 24 * 60 * 60 * 1000),
-  )
-  const OFFLINE_GRACE_MS = Math.max(
-    0,
-    Math.min(Number(options.cloud?.offlineGraceHours ?? process.env.BROSKI_LICENSE_OFFLINE_GRACE_HOURS ?? '72') * 60 * 60 * 1000, 7 * 24 * 60 * 60 * 1000),
-  )
+  // In compiled binaries, ignore config/env overrides for security-critical timings.
+  // Users must not be able to extend cache or grace periods to bypass license checks.
+  const compiled = isCompiledBinary()
+  const ENTITLEMENT_CACHE_TTL_MS = compiled
+    ? 30_000 // 30 seconds — hardcoded for production
+    : Math.max(
+        5_000,
+        Math.min(Number(options.cloud?.entitlementCacheTtlMs ?? process.env.BROSKI_ENTITLEMENT_CACHE_TTL_MS ?? '30000'), 10 * 60 * 1000),
+      )
+  const ENTITLEMENT_RECHECK_MS = compiled
+    ? 30 * 60_000 // 30 minutes — hardcoded for production
+    : Math.max(
+        60_000,
+        Math.min(Number(options.cloud?.entitlementRecheckMs ?? process.env.BROSKI_ENTITLEMENT_RECHECK_MS ?? String(30 * 60_000)), 24 * 60 * 60 * 1000),
+      )
+  const OFFLINE_GRACE_MS = compiled
+    ? 72 * 60 * 60 * 1000 // 72 hours — hardcoded for production
+    : Math.max(
+        0,
+        Math.min(Number(options.cloud?.offlineGraceHours ?? process.env.BROSKI_LICENSE_OFFLINE_GRACE_HOURS ?? '72') * 60 * 60 * 1000, 7 * 24 * 60 * 60 * 1000),
+      )
   const entitlementCache = new Map<
     string,
     { checkedAt: number; appUserId: string; entitled: boolean; status?: string }
@@ -1119,7 +1132,6 @@ export async function createBridgeServer(options: BridgeServerOptions): Promise<
 	  let authState: AuthTokenState = options.auth
 	  let authToken = authState.token
 	  let authExpiresAt = authState.expiresAt
-	  const compiled = isCompiledBinary()
 	  // Never allow token-in-URL in production binaries.
 	  const allowTokenInUrl = !compiled && process.env.BROSKI_ALLOW_TOKEN_IN_URL === '1'
 	  // In production binaries, do not allow environment flags to weaken enforcement.

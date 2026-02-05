@@ -71,11 +71,16 @@ const navigation: NavItem[] = [
     ],
   },
   {
+    title: "Security & Privacy",
+    items: [
+      { title: "Overview", href: "/docs/security" },
+    ],
+  },
+  {
     title: "Reference",
     items: [
       { title: "CLI Commands", href: "/docs/reference/cli" },
       { title: "Environment Variables", href: "/docs/reference/env" },
-      { title: "Privacy & Security", href: "/docs/reference/privacy" },
     ],
   },
 ];

@@ -205,6 +205,26 @@ export default function SettingsPage() {
         ]}
       />
 
+      <h2 id="voice" className="text-xl font-semibold mb-4 mt-10">Voice Input</h2>
+      <p className="text-muted-foreground mb-4">
+        Use speech-to-text to dictate messages to your AI agent. Voice input is entirely optional and off by default.
+      </p>
+
+      <SimpleTable
+        headers={["Setting", "Description"]}
+        rows={[
+          ["STT Provider", "Choose Groq (fast, free tier) or OpenAI Whisper"],
+          ["API Key", "Your own API key for the chosen provider (stored encrypted on-device)"],
+          ["Test Key", "Validate your API key works before saving"],
+        ]}
+      />
+
+      <Callout type="info" title="Privacy Note">
+        Voice audio is sent directly from your phone to the STT provider you choose (Groq or OpenAI),
+        using your own API key. No audio data passes through Broski or the bridge. If you don&apos;t
+        configure voice input, no audio is ever recorded or sent anywhere.
+      </Callout>
+
       <h2 id="account" className="text-xl font-semibold mb-4 mt-10">Account Section</h2>
 
       <h3 id="subscription" className="text-lg font-medium mb-3 mt-6">Subscription Usage</h3>
