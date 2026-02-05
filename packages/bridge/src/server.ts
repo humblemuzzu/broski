@@ -844,7 +844,9 @@ export async function createBridgeServer(options: BridgeServerOptions): Promise<
 
     const tokenHash = createHash('sha256').update(sessionToken, 'utf8').digest('hex')
 	    const cached = entitlementCache.get(tokenHash)
-	    if (cached && now - cached.checkedAt <= ENTITLEMENT_CACHE_TTL_MS) {
+	    // Only use cache if entitled=true. If cache says NOT entitled, always do fresh check
+	    // (subscription might have just renewed, especially in sandbox where they renew every 5 min)
+	    if (cached && cached.entitled && now - cached.checkedAt <= ENTITLEMENT_CACHE_TTL_MS) {
 	      contexts.set(ws, {
 	        ...ctx,
 	        cloudAuthed: true,
@@ -855,13 +857,6 @@ export async function createBridgeServer(options: BridgeServerOptions): Promise<
 	        cloudSessionTokenHash: tokenHash,
 	        licenseExpSec: localLicense?.sessionTokenHash === tokenHash ? localLicense.exp : undefined,
 	      })
-	      if (!cached.entitled) {
-	        try {
-	          ws.close(4403, 'License required')
-	        } catch {
-	          // ignore
-	        }
-	      }
 	      return
 	    }
 
@@ -4129,11 +4124,12 @@ export async function createBridgeServer(options: BridgeServerOptions): Promise<
 	        connectedAt: Date.now(),
 	      }
 	      contexts.set(ws, baseCtx)
-	      log(`Client connected (${sockets.size} total)`)
+	      log(`[WS] Client CONNECTED (${sockets.size} total) - requireEntitlement=${requireEntitlement}`)
 	      scheduleCloudAuthDeadline(ws)
 	      void sendStatus(ws)
 		    },
-    close(ws: ServerWebSocket<unknown>) {
+    close(ws: ServerWebSocket<unknown>, code?: number, reason?: string) {
+      log(`[WS] Client DISCONNECTED - code=${code}, reason=${reason}`)
       const proxy = (ws as any).data && (ws as any).data.kind === 'proxy'
       if (proxy) {
         const upstream = (ws as any).__proxyUpstream as WebSocket | undefined
@@ -4147,6 +4143,7 @@ export async function createBridgeServer(options: BridgeServerOptions): Promise<
       }
       clearCloudAuthTimer(ws)
       const ctx = contexts.get(ws)
+      log(`[WS] Disconnect context - cloudAuthed=${ctx?.cloudAuthed}, cloudEntitled=${ctx?.cloudEntitled}, deviceId=${ctx?.deviceId}`)
       const disconnectedDeviceId = ctx?.deviceId
       const disconnectedDeviceName = ctx?.deviceName
       const prevKey = makeSessionKey(ctx?.viewAgent, ctx?.sessionId)
@@ -4483,8 +4480,10 @@ export async function createBridgeServer(options: BridgeServerOptions): Promise<
 
     switch (message.type) {
 	      case 'auth_session': {
+	        log(`[auth_session] START - requireEntitlement=${requireEntitlement}`)
 	        const sessionToken = safeString(message.sessionToken).trim()
 	        if (sessionToken.length < 10 || sessionToken.length > 1024) {
+	          log(`[auth_session] REJECT - invalid token length: ${sessionToken.length}`)
 	          reply({ type: 'error', message: 'Invalid sessionToken', code: 'INVALID_SESSION', requestId: message.requestId })
 	          try {
 	            ws.close(4401, 'Invalid session')
@@ -4538,7 +4537,10 @@ export async function createBridgeServer(options: BridgeServerOptions): Promise<
 	          break
 	        }
 
-	        if (cached && Date.now() - cached.checkedAt <= ENTITLEMENT_CACHE_TTL_MS) {
+	        // Only use cache if entitled=true. If cache says NOT entitled, always do fresh check
+	        // (subscription might have just renewed, especially in sandbox where they renew every 5 min)
+	        if (cached && cached.entitled && Date.now() - cached.checkedAt <= ENTITLEMENT_CACHE_TTL_MS) {
+	          log(`[auth_session] CACHE HIT - entitled=${cached.entitled}, cacheAge=${Date.now() - cached.checkedAt}ms`)
 	          contexts.set(ws, {
 	            ...(ctx ?? { lastPongAt: Date.now(), lastRttMs: 0, connectionType: 'unknown' as const, connectedAt: Date.now() }),
 	            cloudAuthed: true,
@@ -4551,6 +4553,7 @@ export async function createBridgeServer(options: BridgeServerOptions): Promise<
 	            licenseExpSec: localLicense?.sessionTokenHash === tokenHash ? localLicense.exp : undefined,
 	          })
           clearCloudAuthTimer(ws)
+          log(`[auth_session] CACHE HIT - SUCCESS, sending auth_session_ok`)
           reply({ type: 'auth_session_ok', data: { appUserId: cached.appUserId, entitled: cached.entitled, ...(cached.status ? { status: cached.status } : {}) }, requestId: message.requestId })
 	          if (cached.entitled && convexHttpBaseUrl) {
 	            void (async () => {
@@ -4562,13 +4565,6 @@ export async function createBridgeServer(options: BridgeServerOptions): Promise<
 	                localLicense = refreshed.state
 	              }
 	            })()
-	          }
-          if (requireEntitlement && !cached.entitled) {
-            try {
-              ws.close(4403, 'License required')
-            } catch {
-              // ignore
-            }
 	          }
 	          break
 	        }
@@ -4611,6 +4607,20 @@ export async function createBridgeServer(options: BridgeServerOptions): Promise<
 	          const record = { checkedAt: Date.now(), appUserId: refreshed.state.appUserId, entitled: refreshed.state.entitled, ...(refreshed.state.status ? { status: refreshed.state.status } : {}) }
 	          entitlementCache.set(tokenHash, record)
 
+	          log(`[auth_session] FRESH CHECK - entitled=${refreshed.state.entitled}, appUserId=${refreshed.state.appUserId}`)
+	          // FIX: Check entitlement BEFORE sending auth_session_ok to avoid
+	          // sending success then immediately closing (causes reconnect loops).
+	          if (requireEntitlement && !refreshed.state.entitled) {
+	            log(`[auth_session] FRESH CHECK - NOT ENTITLED, closing connection`)
+	            reply({ type: 'error', message: 'LICENSE_REQUIRED', code: 'LICENSE_REQUIRED', requestId: message.requestId })
+	            try {
+	              ws.close(4403, 'License required')
+	            } catch {
+	              // ignore
+	            }
+	            break
+	          }
+
 	          contexts.set(ws, {
 	            ...(ctx ?? { lastPongAt: Date.now(), lastRttMs: 0, connectionType: 'unknown' as const, connectedAt: Date.now() }),
 	            cloudAuthed: true,
@@ -4624,13 +4634,6 @@ export async function createBridgeServer(options: BridgeServerOptions): Promise<
 	          })
 	          clearCloudAuthTimer(ws)
 	          reply({ type: 'auth_session_ok', data: { appUserId: refreshed.state.appUserId, entitled: refreshed.state.entitled, ...(refreshed.state.status ? { status: refreshed.state.status } : {}) }, requestId: message.requestId })
-	          if (requireEntitlement && !refreshed.state.entitled) {
-	            try {
-	              ws.close(4403, 'License required')
-	            } catch {
-	              // ignore
-	            }
-	          }
 	        } catch (error) {
 	          // If a valid local license exists, do not hard-fail auth_session when the
 	          // cloud is unreachable (offline / transient DNS issues). We'll refresh on
@@ -7488,6 +7491,7 @@ export async function createBridgeServer(options: BridgeServerOptions): Promise<
 	      if (!allowed.has(message.type)) {
 	        const c = contexts.get(ws)
 	        if (!c?.cloudAuthed || !c.cloudEntitled) {
+	          log(`[MSG] BLOCKED ${message.type} - cloudAuthed=${c?.cloudAuthed}, cloudEntitled=${c?.cloudEntitled}`)
 	          reply({ type: 'error', message: 'LICENSE_REQUIRED', code: 'LICENSE_REQUIRED' })
 	          try {
 	            ws.close(4403, 'License required')

@@ -419,11 +419,12 @@ http.route({
       return error("Invalid RevenueCat response", 502);
     }
 
-    const activeEntitlements = data?.subscriber?.entitlements?.active ?? {};
-    const entitlement = activeEntitlements?.[entitlementId];
+    // RevenueCat API returns entitlements directly, NOT under an "active" sub-key
+    const allEntitlements = data?.subscriber?.entitlements ?? {};
+    const entitlement = allEntitlements?.[entitlementId];
     
     // Debug: log all available entitlement keys
-    const availableEntitlementKeys = Object.keys(activeEntitlements);
+    const availableEntitlementKeys = Object.keys(allEntitlements);
     console.log(`[RevenueCat Sync] Looking for entitlement: "${entitlementId}"`);
     console.log(`[RevenueCat Sync] Available entitlements: ${JSON.stringify(availableEntitlementKeys)}`);
     console.log(`[RevenueCat Sync] Found entitlement: ${entitlement ? 'yes' : 'no'}`);
@@ -436,11 +437,20 @@ http.route({
       }
       return undefined;
     };
+    
+    // Parse ISO date string to milliseconds
+    const parseIsoDate = (v: unknown): number | undefined => {
+      if (typeof v !== "string") return undefined;
+      const d = new Date(v);
+      return Number.isFinite(d.getTime()) ? d.getTime() : undefined;
+    };
 
+    // RevenueCat returns expires_date as ISO string, not milliseconds
     const expiresAtMs =
       parseNumber(entitlement?.expires_date_ms) ??
       parseNumber(entitlement?.expiration_at_ms) ??
-      parseNumber(entitlement?.expires_at_ms);
+      parseNumber(entitlement?.expires_at_ms) ??
+      parseIsoDate(entitlement?.expires_date);
 
     const productId =
       typeof entitlement?.product_identifier === "string"

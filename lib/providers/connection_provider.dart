@@ -276,6 +276,7 @@ class ConnectionNotifier extends StateNotifier<BridgeConnectionState>
   int _reconnectAttempts = 0;
   int _failureStreak = 0;
   bool _isConnecting = false;
+  bool _licenseRetryAttempted = false; // Prevents infinite license sync loop
   final _random = Random();
 
   // Current reconnection policy (can be adjusted based on conditions)
@@ -359,7 +360,11 @@ class ConnectionNotifier extends StateNotifier<BridgeConnectionState>
     ConnectionInfo info, {
     ConnectionType? preferredType,
   }) async {
-    if (_isConnecting) return;
+    debugPrint('[Connection] connect() called - _isConnecting: $_isConnecting, attempts: $_reconnectAttempts');
+    if (_isConnecting) {
+      debugPrint('[Connection] connect() SKIPPED - already connecting');
+      return;
+    }
     _isConnecting = true;
     _isBackgrounding = false; // Clear backgrounding flag when starting new connection
     _reconnectTimer?.cancel();
@@ -425,6 +430,7 @@ class ConnectionNotifier extends StateNotifier<BridgeConnectionState>
 
       final subState = _ref.read(appSubscriptionProvider);
       final sessionToken = await _storage.getAppSessionToken();
+      debugPrint('[Connection] Auth check - entitled: ${subState.entitled}, hasSessionToken: ${sessionToken != null}');
 
       // If the user is locally entitled, cloud auth must be present.
       // Without it, the bridge will (correctly) reject us, which otherwise
@@ -436,25 +442,34 @@ class ConnectionNotifier extends StateNotifier<BridgeConnectionState>
       }
 
       if (sessionToken != null) {
+        debugPrint('[Connection] Sending auth_session...');
         await _bridge.authSession(sessionToken: sessionToken);
+        debugPrint('[Connection] auth_session SUCCESS');
+        _licenseRetryAttempted = false; // Reset on successful auth
       }
       _socket.endHandshake();
+      debugPrint('[Connection] Handshake ended, queue flushed');
 
       await _registerThisDevice();
     } catch (error) {
+      debugPrint('[Connection] connect() FAILED: $error');
       // If we failed before completing auth, drop handshake gating to avoid
       // permanently queuing messages.
       _socket.cancelHandshake();
       _failureStreak++;
       final errString = '$error';
       final lower = errString.toLowerCase();
+      debugPrint('[Connection] Error analysis - isLicense: ${lower.contains('license')}, isAuth: ${lower.contains('401') || lower.contains('unauthorized')}');
       final isMissingSessionToken =
           lower.contains('missing sign-in token') ||
           lower.contains('missing session token');
       final isLicenseError =
           lower.contains('license_required') ||
           lower.contains('license required') ||
-          lower.contains('license_expired');
+          lower.contains('license_expired') ||
+          lower.contains('license signing') ||
+          lower.contains('cloud auth failed') ||
+          lower.contains('cloud_auth_failed');
       final isTooManyMachines = lower.contains('too many machines');
       final isAuthError =
           errString.contains('401') ||
@@ -465,33 +480,51 @@ class ConnectionNotifier extends StateNotifier<BridgeConnectionState>
       final isPinError =
           lower.contains('handshake') && lower.contains('certificate');
 
-      // For license errors, check if we have local entitlement
-      // If yes, this might be a sync delay - auto-retry after refresh
+      // For license errors: server is authoritative. 
+      // If server says LICENSE_REQUIRED, that's final - don't retry endlessly.
+      // Only try ONE sync refresh if locally entitled, then STOP.
       if (isLicenseError && !isTooManyMachines) {
         final subState = _ref.read(appSubscriptionProvider);
+        
+        if (_licenseRetryAttempted) {
+          // Already tried sync once - server still says no. STOP.
+          debugPrint('[Connection] License retry already attempted - STOPPING (server is authoritative)');
+          state = state.copyWith(
+            status: ConnectionStatus.disconnected,
+            error: 'Subscription not active on server. Please check your subscription status.',
+            lastEvent: ConnectionEvent.failed,
+            isReconnecting: false,
+          );
+          return;
+        }
+        
         if (subState.entitled) {
-          // User has local entitlement but bridge rejected - likely sync delay
-          // Refresh subscription status and retry
-          debugPrint('[Connection] License error but locally entitled - refreshing and retrying');
+          // Local says entitled, server says no - try ONE sync
+          _licenseRetryAttempted = true;
+          debugPrint('[Connection] License error but locally entitled - trying ONE sync (then stop)');
           state = state.copyWith(
             status: ConnectionStatus.disconnected,
             error: 'Verifying subscription...',
             lastEvent: ConnectionEvent.failed,
             isReconnecting: true,
           );
-          // Refresh subscription status
+          
           Future.microtask(() async {
             try {
               await _ref.read(appSubscriptionProvider.notifier).configureAndRefresh();
               await Future.delayed(const Duration(seconds: 2));
-              // Retry connection if still have the same connection info
+              
+              // After sync, try ONE more time - but flag is set so if it fails again we stop
+              debugPrint('[Connection] Sync done - trying ONE more connection');
               if (state.connection != null) {
                 connect(state.connection!);
               }
-            } catch (_) {
-              // Refresh failed, show generic error
+            } catch (e) {
+              debugPrint('[Connection] Subscription sync failed: $e');
               state = state.copyWith(
+                status: ConnectionStatus.disconnected,
                 error: 'Subscription sync failed. Please try again.',
+                isReconnecting: false,
               );
             }
           });
@@ -505,6 +538,9 @@ class ConnectionNotifier extends StateNotifier<BridgeConnectionState>
         errorMessage = 'Machine limit reached (3 max). Remove a device in Account settings.';
       } else if (isMissingSessionToken) {
         errorMessage = 'Sign-in expired. Please sign out and sign in again.';
+      } else if (lower.contains('license signing') || lower.contains('cloud auth failed')) {
+        // Server-side configuration issue - not a user problem
+        errorMessage = 'Server configuration error. Please contact support or try again later.';
       } else if (isLicenseError) {
         errorMessage = 'Subscription required. Subscribe to Pro in Settings.';
       } else if (isAuthError) {
@@ -864,6 +900,7 @@ class ConnectionNotifier extends StateNotifier<BridgeConnectionState>
     _reconnectAttempts = 0;
     _failureStreak = 0;
     _sentMessages.clear();
+    _licenseRetryAttempted = false; // Reset for fresh start
 
     // Clear connection state BEFORE disconnecting to prevent
     // _handleStatus from scheduling a reconnect
@@ -952,6 +989,7 @@ class ConnectionNotifier extends StateNotifier<BridgeConnectionState>
   }
 
   void _handleStatus(ConnectionStatus status) {
+    debugPrint('[Connection] _handleStatus: $status (current: ${state.status}, isConnecting: $_isConnecting, isBackgrounding: $_isBackgrounding, isReconnecting: ${state.isReconnecting})');
     // Only schedule reconnect if we unexpectedly disconnected (not during intentional reconnect)
     // Skip if we're intentionally backgrounding - we'll handle reconnect in _handleAppResumed
     if (status == ConnectionStatus.disconnected &&
@@ -960,8 +998,17 @@ class ConnectionNotifier extends StateNotifier<BridgeConnectionState>
         !_isBackgrounding &&
         !state.isOfflineMode) {
       final sub = _ref.read(appSubscriptionProvider);
-      if (!sub.entitled) {
-        // Unpaid users should never enter reconnect loops.
+      debugPrint('[Connection] Disconnected - entitled: ${sub.entitled}');
+      
+      // Don't reconnect if there was a license error (server is authoritative)
+      final errorLower = (state.error ?? '').toLowerCase();
+      final isLicenseError = errorLower.contains('subscription') || 
+                             errorLower.contains('license') ||
+                             _licenseRetryAttempted;
+      
+      if (!sub.entitled || isLicenseError) {
+        // Unpaid users or license errors should never enter reconnect loops.
+        debugPrint('[Connection] NOT scheduling reconnect - entitled: ${sub.entitled}, licenseError: $isLicenseError');
         state = state.copyWith(isReconnecting: false);
         return;
       }

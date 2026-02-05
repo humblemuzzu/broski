@@ -142,6 +142,11 @@ class _ScanScreenState extends ConsumerState<ScanScreen>
     final onboarding = ref.read(onboardingProvider);
     if (!onboarding.hasCompletedOnboarding) {
       ref.read(onboardingProvider.notifier).goBack();
+    } else {
+      // After onboarding complete, just pop the screen
+      if (Navigator.of(context).canPop()) {
+        Navigator.of(context).pop();
+      }
     }
   }
 

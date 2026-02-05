@@ -135,12 +135,15 @@ class BridgeService {
   // ============================================================
   Future<void> authSession({required String sessionToken}) async {
     final requestId = _generateRequestId();
+    developer.log('authSession: sending auth_session with requestId=$requestId', name: 'BridgeService');
     _socket.sendImmediate({
       'type': 'auth_session',
       'sessionToken': sessionToken,
       'requestId': requestId,
     });
+    developer.log('authSession: waiting for auth_session_ok...', name: 'BridgeService');
     await _waitFor('auth_session_ok', requestId: requestId);
+    developer.log('authSession: received auth_session_ok', name: 'BridgeService');
   }
 
   void _dispatchMessage(Map<String, dynamic> message) {

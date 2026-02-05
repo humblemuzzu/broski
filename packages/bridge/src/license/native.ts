@@ -61,26 +61,45 @@ function findNativeLibPath(): string | null {
   return null
 }
 
+// Helper to convert JS string to null-terminated Buffer for FFI
+function toCString(str: string): Buffer {
+  return Buffer.from(str + '\0', 'utf8')
+}
+
 export function loadNativeLicense(): NativeLicense | null {
+  // TEMPORARILY DISABLED: Native library has old public key baked in.
+  // After generating new key pair, we must use fallback.ts (which has the new public key)
+  // until the native library is rebuilt with the new key.
+  // TODO: Rebuild native library and re-enable this.
+  if (process.env.BROSKI_USE_NATIVE_LICENSE !== '1') {
+    return null
+  }
+
   const libPath = findNativeLibPath()
   if (!libPath) return null
 
-  const lib = dlopen(libPath, {
-    broski_machine_id_hash: { args: [], returns: FFIType.cstring },
-    broski_license_encrypt_jws: { args: [FFIType.cstring, FFIType.cstring], returns: FFIType.cstring },
-    broski_license_decrypt_jws: { args: [FFIType.cstring, FFIType.cstring], returns: FFIType.cstring },
-    broski_license_verify_jws: { args: [FFIType.cstring, FFIType.cstring], returns: FFIType.i32 },
-    broski_license_claims_json: { args: [FFIType.cstring, FFIType.cstring], returns: FFIType.cstring },
-    broski_verify_codesign: { args: [FFIType.cstring], returns: FFIType.i32 },
-  })
+  try {
+    const lib = dlopen(libPath, {
+      broski_machine_id_hash: { args: [], returns: FFIType.cstring },
+      broski_license_encrypt_jws: { args: [FFIType.ptr, FFIType.ptr], returns: FFIType.cstring },
+      broski_license_decrypt_jws: { args: [FFIType.ptr, FFIType.ptr], returns: FFIType.cstring },
+      broski_license_verify_jws: { args: [FFIType.ptr, FFIType.ptr], returns: FFIType.i32 },
+      broski_license_claims_json: { args: [FFIType.ptr, FFIType.ptr], returns: FFIType.cstring },
+      broski_verify_codesign: { args: [FFIType.ptr], returns: FFIType.i32 },
+    })
 
-  return {
-    libPath,
-    machineIdHash: () => String(lib.symbols.broski_machine_id_hash()),
-    encryptJws: (jws, machineIdHash) => String(lib.symbols.broski_license_encrypt_jws(jws, machineIdHash)),
-    decryptJws: (enc, machineIdHash) => String(lib.symbols.broski_license_decrypt_jws(enc, machineIdHash)),
-    verifyJws: (jws, machineIdHash) => Number(lib.symbols.broski_license_verify_jws(jws, machineIdHash)) === 1,
-    claimsJson: (jws, machineIdHash) => String(lib.symbols.broski_license_claims_json(jws, machineIdHash)),
-    verifyCodesign: (exePath) => Number(lib.symbols.broski_verify_codesign(exePath)) === 1,
+    return {
+      libPath,
+      machineIdHash: () => String(lib.symbols.broski_machine_id_hash()),
+      encryptJws: (jws, machineIdHash) => String(lib.symbols.broski_license_encrypt_jws(toCString(jws), toCString(machineIdHash))),
+      decryptJws: (enc, machineIdHash) => String(lib.symbols.broski_license_decrypt_jws(toCString(enc), toCString(machineIdHash))),
+      verifyJws: (jws, machineIdHash) => Number(lib.symbols.broski_license_verify_jws(toCString(jws), toCString(machineIdHash))) === 1,
+      claimsJson: (jws, machineIdHash) => String(lib.symbols.broski_license_claims_json(toCString(jws), toCString(machineIdHash))),
+      verifyCodesign: (exePath) => Number(lib.symbols.broski_verify_codesign(toCString(exePath))) === 1,
+    }
+  } catch (err) {
+    // If native library loading or FFI setup fails, fall back to pure-TS implementation
+    console.warn(`[License] Native library load failed, using fallback: ${err}`)
+    return null
   }
 }

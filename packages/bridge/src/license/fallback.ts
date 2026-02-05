@@ -8,7 +8,7 @@ const ENC_INFO = Buffer.from('broski-license-aes256gcm', 'utf8')
 // Public key (SPKI DER) base64url. Safe to ship.
 // Stored as chunks to avoid a single plaintext constant in the binary.
 const LICENSE_PUBLIC_KEY_SPKI_DER_B64URL = [
-  'MCowBQYDK2VwAyEAmJztoQK7jSP-KJAmaNn30hizv9NzOhc-QNbUMO1kWgc',
+  'MCowBQYDK2VwAyEARXrmjPy-wNpwAzbarnZIQc9hvmOFrVLv5dTuGK2j-eM',
 ].join('')
 
 const LICENSE_JWS_TYP = 'BRSK-LICENSE'
