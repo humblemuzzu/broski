@@ -67,13 +67,6 @@ function toCString(str: string): Buffer {
 }
 
 export function loadNativeLicense(): NativeLicense | null {
-  // TEMPORARILY DISABLED: Native library has old public key baked in.
-  // After generating new key pair, we must use fallback.ts (which has the new public key)
-  // until the native library is rebuilt with the new key.
-  // TODO: Rebuild native library and re-enable this.
-  if (process.env.BROSKI_USE_NATIVE_LICENSE !== '1') {
-    return null
-  }
 
   const libPath = findNativeLibPath()
   if (!libPath) return null

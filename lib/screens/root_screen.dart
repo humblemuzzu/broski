@@ -70,10 +70,10 @@ class RootScreen extends ConsumerWidget {
       }
 
       // Unpaid preview mode: user can browse UI, but cannot scan/connect.
-      // Ensure we don't keep any saved connection or reconnect timers around.
+      // Disconnect active connections but preserve saved pairing data
+      // so auto-reconnect works after subscription renewal.
       if (!subState.entitled) {
         if (!connectionState.isOfflineMode ||
-            connectionState.connection != null ||
             connectionState.isConnected ||
             connectionState.isConnecting ||
             connectionState.isReconnecting) {

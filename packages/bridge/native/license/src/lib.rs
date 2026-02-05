@@ -21,7 +21,7 @@ const CLOCK_SKEW_SEC: i64 = 30;
 // NOTE: This is a PUBLIC key (safe to ship). The corresponding private key
 // must be set in Convex env as BROSKI_LICENSE_PRIVATE_KEY_PKCS8_B64URL.
 const LICENSE_PUBLIC_KEY_SPKI_DER_B64URL: &str =
-    "MCowBQYDK2VwAyEAmJztoQK7jSP-KJAmaNn30hizv9NzOhc-QNbUMO1kWgc";
+    "MCowBQYDK2VwAyEARXrmjPy-wNpwAzbarnZIQc9hvmOFrVLv5dTuGK2j-eM";
 
 static VERIFYING_KEY: OnceLock<VerifyingKey> = OnceLock::new();
 static LAST_STRING: Mutex<Option<CString>> = Mutex::new(None);

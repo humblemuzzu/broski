@@ -489,6 +489,8 @@ class ConnectionNotifier extends StateNotifier<BridgeConnectionState>
         if (_licenseRetryAttempted) {
           // Already tried sync once - server still says no. STOP.
           debugPrint('[Connection] License retry already attempted - STOPPING (server is authoritative)');
+          // Server is authoritative — sync entitlement state so UI shows paywall
+          _ref.read(appSubscriptionProvider.notifier).seedEntitlement(false);
           state = state.copyWith(
             status: ConnectionStatus.disconnected,
             error: 'Subscription not active on server. Please check your subscription status.',
@@ -918,7 +920,8 @@ class ConnectionNotifier extends StateNotifier<BridgeConnectionState>
   }
 
   /// Unpaid preview mode: allow browsing UI but prevent all connect/reconnect
-  /// flows and clear any saved bridge connection.
+  /// flows. Preserves saved bridge connection so we can auto-reconnect when
+  /// the user regains entitlement (e.g. repurchase after expiry).
   ///
   /// This is intentionally idempotent and safe to call multiple times.
   Future<void> enterUnpaidPreviewMode() async {
@@ -928,10 +931,9 @@ class ConnectionNotifier extends StateNotifier<BridgeConnectionState>
     _failureStreak = 0;
     _sentMessages.clear();
 
-    // Clear connection state before disconnect to avoid reconnect scheduling.
-    await _storage.clearConnection();
+    // Disconnect socket and enter offline mode, but KEEP saved connection
+    // data in storage so auto-reconnect works after subscription renewal.
     state = state.copyWith(
-      clearConnection: true,
       status: ConnectionStatus.disconnected,
       isOfflineMode: true,
       devBypassAutoOfflineEnabled: false,
