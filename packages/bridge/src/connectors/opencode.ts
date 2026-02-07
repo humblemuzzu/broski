@@ -8,7 +8,7 @@ import {
 import { homedir } from 'os'
 import { basename, isAbsolute, join } from 'node:path'
 import { pathToFileURL } from 'node:url'
-import type { Agent, Command, FileAttachment, FileContent, FileStatusInfo, FormatterInfo, LspServerStatus, McpResource, McpServerStatus, PermissionRuleset, ProviderAuthMethod, ProviderInfo, ProjectSummary, PtySession, SessionContextInfo, SessionStatusInfo, SessionSummary, SymbolResult, TextSearchResult, Todo, ToolInfo, VcsInfo, Worktree } from '../types'
+import type { Agent, Command, FileAttachment, FileContent, FileStatusInfo, FormatterInfo, LspServerStatus, McpResource, McpServerStatus, PermissionRuleset, ProviderAuthAuthorization, ProviderAuthMethod, ProviderInfo, ProjectSummary, PtySession, SessionContextInfo, SessionStatusInfo, SessionSummary, SymbolResult, TextSearchResult, Todo, ToolInfo, VcsInfo, Worktree } from '../types'
 
 const DEFAULT_BASE_URL = 'http://localhost:4096'
 const DEBUG_RTS = process.env.BROSKI_DEBUG_RTS === '1'
@@ -81,7 +81,21 @@ export class OpenCodeConnector {
     return projects.map((project) => this.mapProject(project))
   }
 
-  async listSessions(directory?: string): Promise<SessionSummary[]> {
+  async listSessions(
+    directory?: string,
+    options?: { roots?: boolean; start?: number; search?: string; limit?: number },
+  ): Promise<SessionSummary[]> {
+    const hasFilters =
+      options?.roots !== undefined ||
+      options?.start !== undefined ||
+      ((options?.search?.trim().length ?? 0) > 0) ||
+      options?.limit !== undefined
+
+    // Avoid stale cache for filtered/paginated queries.
+    if (hasFilters) {
+      return this._listSessionsInternal(directory, options)
+    }
+
     const cacheKey = directory ?? '__all__'
     const now = Date.now()
     const cached = this.sessionCache.get(cacheKey)
@@ -90,7 +104,7 @@ export class OpenCodeConnector {
       return cached.data
     }
 
-    const result = await this._listSessionsInternal(directory)
+    const result = await this._listSessionsInternal(directory, options)
     this.sessionCache.set(cacheKey, { data: result, fetchedAt: now })
     return result
   }
@@ -102,12 +116,20 @@ export class OpenCodeConnector {
     this.sessionCache.delete('__all__')
   }
 
-  private async _listSessionsInternal(directory?: string): Promise<SessionSummary[]> {
+  private async _listSessionsInternal(
+    directory?: string,
+    options?: { roots?: boolean; start?: number; search?: string; limit?: number },
+  ): Promise<SessionSummary[]> {
     if (directory != null && directory.length > 0) {
-      // v2 SDK: first arg is parameters, second arg is options
       const sessions =
         (await this.client.session.list(
-          { directory },
+          {
+            directory,
+            ...(options?.roots !== undefined ? { roots: options.roots } : {}),
+            ...(options?.start !== undefined ? { start: options.start } : {}),
+            ...(options?.search ? { search: options.search } : {}),
+            ...(options?.limit !== undefined ? { limit: options.limit } : {}),
+          },
           { responseStyle: 'data' },
         )) ?? []
       return sessions.map((session) => this.mapSession(session))
@@ -127,7 +149,13 @@ export class OpenCodeConnector {
             // v2 SDK: first arg is parameters, second arg is options
             const sessions =
               (await this.client.session.list(
-                { directory: project.path },
+                {
+                  directory: project.path,
+                  ...(options?.roots !== undefined ? { roots: options.roots } : {}),
+                  ...(options?.start !== undefined ? { start: options.start } : {}),
+                  ...(options?.search ? { search: options.search } : {}),
+                  ...(options?.limit !== undefined ? { limit: options.limit } : {}),
+                },
                 { responseStyle: 'data' },
               )) ?? []
             for (const session of sessions) {
@@ -196,6 +224,9 @@ export class OpenCodeConnector {
     agent?: string,
     fileAttachments?: FileAttachment[],
     variant?: string,
+    noReply?: boolean,
+    tools?: Record<string, boolean>,
+    system?: string,
   ) {
     const parts: Array<{ type: string; text?: string; url?: string; filename?: string; mime?: string }> = [
       { type: 'text', text: content },
@@ -236,6 +267,9 @@ export class OpenCodeConnector {
         ...(model ? { model } : {}),
         ...(agent ? { agent } : {}),
         ...(variant ? { variant } : {}),
+        ...(noReply !== undefined ? { noReply } : {}),
+        ...(tools ? { tools } : {}),
+        ...(system ? { system } : {}),
         parts,
       },
       { responseStyle: 'data' },
@@ -254,6 +288,9 @@ export class OpenCodeConnector {
     agent?: string,
     fileAttachments?: FileAttachment[],
     variant?: string,
+    noReply?: boolean,
+    tools?: Record<string, boolean>,
+    system?: string,
   ) {
     const parts: Array<{ type: string; text?: string; url?: string; filename?: string; mime?: string }> = [
       { type: 'text', text: content },
@@ -293,6 +330,9 @@ export class OpenCodeConnector {
         ...(model ? { model } : {}),
         ...(agent ? { agent } : {}),
         ...(variant ? { variant } : {}),
+        ...(noReply !== undefined ? { noReply } : {}),
+        ...(tools ? { tools } : {}),
+        ...(system ? { system } : {}),
         parts,
       },
       { responseStyle: 'data' },
@@ -409,47 +449,15 @@ export class OpenCodeConnector {
 
   async replyToQuestion(requestId: string, answers: string[][], directory?: string): Promise<boolean> {
     try {
-      const url = new URL(`/question/${encodeURIComponent(requestId)}/reply`, this.baseUrl)
-      if (directory) {
-        url.searchParams.set('directory', directory)
-      }
-      const body = JSON.stringify({ answers })
-      if (DEBUG_RTS) {
-        console.log('[OC Connector] replyToQuestion:', {
-          requestId,
+      const result = await this.client.question.reply(
+        {
+          requestID: requestId,
           directory,
-          url: url.toString(),
-          body,
-        })
-      }
-      const res = await fetch(url.toString(), {
-        method: 'POST',
-        headers: { 'content-type': 'application/json' },
-        body,
-        signal: AbortSignal.timeout(10_000),
-      })
-      if (!res.ok) {
-        if (DEBUG_RTS) {
-          const text = await res.text().catch(() => '<no body>')
-          console.log('[OC Connector] replyToQuestion FAILED:', {
-            requestId,
-            status: res.status,
-            statusText: res.statusText,
-            body: text,
-          })
-        }
-        return false
-      }
-      const data = await res.json().catch(() => null)
-      if (DEBUG_RTS) {
-        console.log('[OC Connector] replyToQuestion response:', {
-          requestId,
-          data,
-          dataType: typeof data,
-          isTrue: data === true,
-        })
-      }
-      return data === true
+          answers,
+        },
+        { responseStyle: 'data' },
+      )
+      return result === true
     } catch (err) {
       if (DEBUG_RTS) {
         console.log('[OC Connector] replyToQuestion ERROR:', {
@@ -463,34 +471,14 @@ export class OpenCodeConnector {
 
   async rejectQuestion(requestId: string, directory?: string): Promise<boolean> {
     try {
-      const url = new URL(`/question/${encodeURIComponent(requestId)}/reject`, this.baseUrl)
-      if (directory) {
-        url.searchParams.set('directory', directory)
-      }
-      if (DEBUG_RTS) {
-        console.log('[OC Connector] rejectQuestion:', { requestId, directory, url: url.toString() })
-      }
-      const res = await fetch(url.toString(), {
-        method: 'POST',
-        signal: AbortSignal.timeout(10_000),
-      })
-      if (!res.ok) {
-        if (DEBUG_RTS) {
-          const text = await res.text().catch(() => '<no body>')
-          console.log('[OC Connector] rejectQuestion FAILED:', {
-            requestId,
-            status: res.status,
-            statusText: res.statusText,
-            body: text,
-          })
-        }
-        return false
-      }
-      const data = await res.json().catch(() => null)
-      if (DEBUG_RTS) {
-        console.log('[OC Connector] rejectQuestion response:', { requestId, data })
-      }
-      return data === true
+      const result = await this.client.question.reject(
+        {
+          requestID: requestId,
+          directory,
+        },
+        { responseStyle: 'data' },
+      )
+      return result === true
     } catch (err) {
       if (DEBUG_RTS) {
         console.log('[OC Connector] rejectQuestion ERROR:', {
@@ -651,16 +639,32 @@ export class OpenCodeConnector {
   // Feature 2: Slash Commands
   async listCommands(directory?: string): Promise<Command[]> {
     try {
-      // v2 SDK: first arg is parameters, second arg is options
       const commands = await this.client.command.list(
         { directory },
         { responseStyle: 'data' },
       )
-      return (commands ?? []).map((cmd: any) => ({
-        name: cmd.name ?? '',
-        description: cmd.description,
-        builtin: cmd.builtin ?? false,
-      }))
+
+      return (commands ?? []).map((cmd: any) => {
+        const source =
+          cmd.source === 'command' || cmd.source === 'mcp' || cmd.source === 'skill'
+            ? cmd.source
+            : undefined
+
+        return {
+          name: cmd.name ?? '',
+          description: cmd.description,
+          source,
+          agent: cmd.agent,
+          model: cmd.model,
+          template: cmd.template,
+          subtask: cmd.subtask ?? false,
+          hints: Array.isArray(cmd.hints)
+            ? cmd.hints
+                .map((h: unknown) => (typeof h === 'string' ? h : ''))
+                .filter((h: string) => h.length > 0)
+            : [],
+        }
+      })
     } catch {
       // Commands endpoint might not be available
       return []
@@ -674,9 +678,9 @@ export class OpenCodeConnector {
     directory?: string,
     agent?: string,
     model?: string,
+    variant?: string,
+    parts?: Array<{ id?: string; type: 'file'; mime: string; filename?: string; url: string; source?: Record<string, unknown> }>,
   ): Promise<unknown> {
-    // v2 SDK: first arg is parameters, second arg is options
-    // Note: v2 SDK uses sessionID (capital ID), not id
     return this.client.session.command(
       {
         sessionID: sessionId,
@@ -685,6 +689,8 @@ export class OpenCodeConnector {
         arguments: args,
         ...(agent ? { agent } : {}),
         ...(model ? { model } : {}),
+        ...(variant ? { variant } : {}),
+        ...(parts && parts.length > 0 ? { parts } : {}),
       },
       { responseStyle: 'data' },
     )
@@ -693,7 +699,6 @@ export class OpenCodeConnector {
   // Feature 3: Agent Switching
   async listAgents(directory?: string): Promise<Agent[]> {
     try {
-      // v2 SDK: first arg is parameters, second arg is options
       const agents = await this.client.app.agents(
         { directory },
         { responseStyle: 'data' },
@@ -703,6 +708,16 @@ export class OpenCodeConnector {
         description: agent.description,
         color: agent.color,
         mode: agent.mode ?? 'primary',
+        native: agent.native,
+        hidden: agent.hidden,
+        topP: agent.topP,
+        temperature: agent.temperature,
+        permission: Array.isArray(agent.permission) ? agent.permission : undefined,
+        model: agent.model,
+        variant: agent.variant,
+        prompt: agent.prompt,
+        options: agent.options,
+        steps: typeof agent.steps === 'number' ? agent.steps : undefined,
       }))
     } catch {
       // Agents endpoint might not be available
@@ -759,6 +774,19 @@ export class OpenCodeConnector {
       { responseStyle: 'data' },
     )
     return this.mapSession(session)
+  }
+
+  async listSessionChildren(sessionId: string, directory?: string): Promise<SessionSummary[]> {
+    try {
+      const children =
+        (await this.client.session.children(
+          { sessionID: sessionId, directory },
+          { responseStyle: 'data' },
+        )) ?? []
+      return children.map((session) => this.mapSession(session as Session))
+    } catch {
+      return []
+    }
   }
 
   // Feature 7: Message Revert (Undo)
@@ -853,17 +881,23 @@ export class OpenCodeConnector {
   // Feature 11: File Content Read
   async readFile(path: string, directory?: string): Promise<FileContent> {
     try {
-      // v2 SDK: first arg is parameters, second arg is options
       const result = await this.client.file.read(
         { path, directory },
         { responseStyle: 'data' },
       )
+      const mimeType = result?.mimeType ?? 'text/plain'
+
       return {
+        type: result?.type === 'binary' ? 'binary' : 'text',
         content: result?.content ?? '',
-        mime: result?.mime ?? 'text/plain',
+        mime: mimeType,
+        mimeType,
+        encoding: result?.encoding,
+        diff: result?.diff,
+        patch: result?.patch,
       }
     } catch {
-      return { content: '', mime: 'text/plain' }
+      return { type: 'text', content: '', mime: 'text/plain', mimeType: 'text/plain' }
     }
   }
 
@@ -898,12 +932,12 @@ export class OpenCodeConnector {
   // Feature 12: File Search - Find text in files (ripgrep)
   async findText(pattern: string, include?: string, directory?: string): Promise<TextSearchResult[]> {
     try {
-      // v2 SDK: first arg is parameters, second arg is options
       const result = await this.client.find.text(
-        { pattern, include, directory },
+        { pattern, directory },
         { responseStyle: 'data' },
       )
-      return (result ?? []).map((item: any) => ({
+
+      let mapped = (result ?? []).map((item: any) => ({
         path: item.path?.text ?? item.path ?? '',
         lineNumber: item.line_number ?? item.lineNumber ?? 0,
         lineText: item.lines?.text ?? '',
@@ -913,6 +947,15 @@ export class OpenCodeConnector {
           end: m.end ?? 0,
         })),
       }))
+
+      // `include` is not supported by SDK v2 find.text(); keep best-effort
+      // client-side filtering for backward compatibility.
+      if (include && include.trim().length > 0) {
+        const normalized = include.trim().toLowerCase()
+        mapped = mapped.filter((entry) => entry.path.toLowerCase().includes(normalized))
+      }
+
+      return mapped
     } catch {
       return []
     }
@@ -991,6 +1034,7 @@ export class OpenCodeConnector {
     args?: string[],
     cwd?: string,
     title?: string,
+    env?: Record<string, string>,
     directory?: string,
   ): Promise<PtySession | null> {
     try {
@@ -1004,6 +1048,7 @@ export class OpenCodeConnector {
           ...(args ? { args } : {}),
           ...(cwd ? { cwd } : {}),
           ...(title ? { title } : {}),
+          ...(env && Object.keys(env).length > 0 ? { env } : {}),
         },
         { responseStyle: 'data' },
       )
@@ -1096,7 +1141,36 @@ export class OpenCodeConnector {
         const s = status as any
         mapped[name] = {
           name,
-          status: s.status ?? 'disconnected',
+          status: typeof s.status === 'string' ? s.status : 'failed',
+          error: s.error,
+          tools: s.tools ?? [],
+          resources: s.resources ?? [],
+        }
+      }
+      return mapped
+    } catch {
+      return {}
+    }
+  }
+
+  // Feature 15: MCP Server Management - Add
+  async addMcp(
+    name: string,
+    config: Record<string, unknown>,
+    directory?: string,
+  ): Promise<Record<string, McpServerStatus>> {
+    try {
+      const result = await this.client.mcp.add(
+        { directory, name, config: config as any },
+        { responseStyle: 'data' },
+      )
+
+      const mapped: Record<string, McpServerStatus> = {}
+      for (const [serverName, status] of Object.entries(result ?? {})) {
+        const s = status as any
+        mapped[serverName] = {
+          name: serverName,
+          status: typeof s.status === 'string' ? s.status : 'failed',
           error: s.error,
           tools: s.tools ?? [],
           resources: s.resources ?? [],
@@ -1263,6 +1337,27 @@ export class OpenCodeConnector {
     }
   }
 
+  async resetWorktree(worktreeDirectory: string, directory?: string): Promise<boolean> {
+    try {
+      if (!directory || directory.length === 0) return false
+      const target = isAbsolute(worktreeDirectory)
+        ? worktreeDirectory
+        : join(directory, worktreeDirectory)
+
+      const result = await this.client.worktree.reset(
+        {
+          directory,
+          worktreeResetInput: { directory: target },
+        },
+        { responseStyle: 'data' },
+      )
+
+      return result === true
+    } catch {
+      return false
+    }
+  }
+
   async deleteWorktree(worktreeDirectory: string, directory?: string): Promise<boolean> {
     try {
       if (!directory || directory.length === 0) return false
@@ -1311,7 +1406,6 @@ export class OpenCodeConnector {
   // Feature 16: Full Provider Management - Get auth methods
   async getProviderAuth(directory?: string): Promise<Record<string, ProviderAuthMethod[]>> {
     try {
-      // v2 SDK: first arg is parameters, second arg is options
       const result = await this.client.provider.auth(
         { directory },
         { responseStyle: 'data' },
@@ -1320,7 +1414,8 @@ export class OpenCodeConnector {
       for (const [providerId, methods] of Object.entries(result ?? {})) {
         mapped[providerId] = (methods as any[]).map((m: any) => ({
           type: m.type ?? 'api',
-          name: m.name ?? '',
+          label: m.label,
+          name: m.name,
           description: m.description,
           url: m.url,
         }))
@@ -1328,6 +1423,53 @@ export class OpenCodeConnector {
       return mapped
     } catch {
       return {}
+    }
+  }
+
+  async providerOauthAuthorize(
+    providerId: string,
+    method: number,
+    directory?: string,
+  ): Promise<ProviderAuthAuthorization | null> {
+    try {
+      const result = await this.client.provider.oauth.authorize(
+        {
+          providerID: providerId,
+          directory,
+          method,
+        },
+        { responseStyle: 'data' },
+      )
+      if (!result) return null
+      return {
+        url: result.url ?? '',
+        method: result.method === 'code' ? 'code' : 'auto',
+        instructions: result.instructions ?? '',
+      }
+    } catch {
+      return null
+    }
+  }
+
+  async providerOauthCallback(
+    providerId: string,
+    method: number,
+    code?: string,
+    directory?: string,
+  ): Promise<boolean> {
+    try {
+      const result = await this.client.provider.oauth.callback(
+        {
+          providerID: providerId,
+          directory,
+          method,
+          ...(code ? { code } : {}),
+        },
+        { responseStyle: 'data' },
+      )
+      return result === true
+    } catch {
+      return false
     }
   }
 
@@ -1452,10 +1594,10 @@ export class OpenCodeConnector {
 
   private mapProject(project: Project): ProjectSummary {
     const path = project.worktree
-    const name = basename(path) || path
+    const fallbackName = basename(path) || path
     return {
       id: project.id,
-      name,
+      name: project.name ?? fallbackName,
       path,
       lastOpened: project.time?.initialized ?? project.time?.created,
     }
@@ -1464,14 +1606,16 @@ export class OpenCodeConnector {
   private mapSession(session: Session): SessionSummary {
     return {
       id: session.id,
+      slug: (session as any).slug ?? undefined,
       title: session.title,
       projectID: session.projectID,
       directory: session.directory,
-      parentID: (session as any).parentID,  // For forked sessions
+      parentID: session.parentID,
       time: session.time,
       summary: session.summary,
-      share: (session as any).share,  // Share URL if shared
-      revert: (session as any).revert ?? undefined,
+      share: session.share,
+      revert: session.revert ?? undefined,
+      permission: (session as any).permission ?? undefined,
     }
   }
 }

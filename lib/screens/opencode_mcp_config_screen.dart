@@ -3,6 +3,7 @@ import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../models/mcp.dart';
 import '../providers/selection_provider.dart';
 import '../providers/service_providers.dart';
 import '../theme/opencode_theme.dart';
@@ -18,10 +19,10 @@ class OpenCodeMcpConfigScreen extends ConsumerStatefulWidget {
 class _OpenCodeMcpConfigScreenState
     extends ConsumerState<OpenCodeMcpConfigScreen> {
   bool _loading = true;
-  // Config edits are disabled; this is kept to avoid larger refactors.
-  bool _dirty = false;
+  bool _loadingStatus = false;
   String? _error;
   Map<String, dynamic> _config = const {};
+  Map<String, McpServerStatus> _status = const {};
 
   @override
   void initState() {
@@ -39,9 +40,11 @@ class _OpenCodeMcpConfigScreenState
     try {
       final bridge = ref.read(bridgeServiceProvider);
       final cfg = await bridge.getConfig(projectPath: _projectPath);
+      final status = await bridge.getMcpStatus(projectPath: _projectPath);
       if (!mounted) return;
       setState(() {
         _config = cfg;
+        _status = status;
         _loading = false;
       });
     } catch (e) {
@@ -57,31 +60,6 @@ class _OpenCodeMcpConfigScreenState
     final m = _config['mcp'];
     if (m is Map) return m.cast<String, dynamic>();
     return {};
-  }
-
-  Future<void> _save() async {
-    final oc = OpenCodeTheme.of(context);
-    final mcp = _mcp();
-    try {
-      final bridge = ref.read(bridgeServiceProvider);
-      await bridge.setConfig({'mcp': mcp}, projectPath: _projectPath);
-      if (!mounted) return;
-      setState(() => _dirty = false);
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: const Text('Saved MCP config'),
-          backgroundColor: oc.backgroundPanel,
-        ),
-      );
-    } catch (e) {
-      if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text('Failed to save: $e'),
-          backgroundColor: oc.error,
-        ),
-      );
-    }
   }
 
   Future<void> _restart() async {
@@ -101,6 +79,56 @@ class _OpenCodeMcpConfigScreenState
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: Text('Restart failed: $e'),
+          backgroundColor: oc.error,
+        ),
+      );
+    }
+  }
+
+  Future<void> _refreshStatus() async {
+    setState(() => _loadingStatus = true);
+    try {
+      final bridge = ref.read(bridgeServiceProvider);
+      final status = await bridge.getMcpStatus(projectPath: _projectPath);
+      if (!mounted) return;
+      setState(() {
+        _status = status;
+        _loadingStatus = false;
+      });
+    } catch (_) {
+      if (!mounted) return;
+      setState(() => _loadingStatus = false);
+    }
+  }
+
+  Future<void> _toggleConnection(String name, bool connect) async {
+    final oc = OpenCodeTheme.of(context);
+    try {
+      final bridge = ref.read(bridgeServiceProvider);
+      final ok = connect
+          ? await bridge.connectMcp(name, projectPath: _projectPath)
+          : await bridge.disconnectMcp(name, projectPath: _projectPath);
+      if (!mounted) return;
+      if (!ok) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(
+              connect
+                  ? 'Failed to connect "$name"'
+                  : 'Failed to disconnect "$name"',
+            ),
+            backgroundColor: oc.error,
+          ),
+        );
+      }
+      await _refreshStatus();
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            connect ? 'Connect failed: $e' : 'Disconnect failed: $e',
+          ),
           backgroundColor: oc.error,
         ),
       );
@@ -131,6 +159,7 @@ class _OpenCodeMcpConfigScreenState
       ),
     );
     if (name == null || name.isEmpty) return;
+    if (!mounted) return;
 
     final json = const JsonEncoder.withIndent('  ').convert({
       'type': 'local',
@@ -144,57 +173,52 @@ class _OpenCodeMcpConfigScreenState
       ),
     );
     if (cfg == null) return;
-    final mcp = _mcp();
-    mcp[name] = cfg;
-    setState(() {
-      _config = {..._config, 'mcp': mcp};
-      _dirty = true;
-    });
+    if (!mounted) return;
+
+    final oc = OpenCodeTheme.of(context);
+    try {
+      final bridge = ref.read(bridgeServiceProvider);
+      final updated = await bridge.addMcpServer(
+        name: name,
+        config: cfg,
+        projectPath: _projectPath,
+      );
+      if (!mounted) return;
+      setState(() {
+        _status = updated;
+      });
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Added MCP server "$name"'),
+          backgroundColor: oc.backgroundPanel,
+        ),
+      );
+      await _load();
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Failed to add server: $e'),
+          backgroundColor: oc.error,
+        ),
+      );
+    }
   }
 
-  Future<void> _editServer(String name, Map<String, dynamic> cfg) async {
-    final json = const JsonEncoder.withIndent('  ').convert(cfg);
-    final updated = await Navigator.push<Map<String, dynamic>>(
-      context,
-      MaterialPageRoute(
-        builder: (_) => _JsonObjectEditorScreen(title: name, initialJson: json),
-      ),
-    );
-    if (updated == null) return;
-    final mcp = _mcp();
-    mcp[name] = updated;
-    setState(() {
-      _config = {..._config, 'mcp': mcp};
-      _dirty = true;
-    });
+  IconData _statusIcon(McpServerStatus? status) {
+    if (status == null) return Icons.cloud_outlined;
+    if (status.isConnected) return Icons.check_circle_outline_rounded;
+    if (status.isConnecting) return Icons.sync_rounded;
+    if (status.hasError) return Icons.error_outline_rounded;
+    return Icons.pause_circle_outline_rounded;
   }
 
-  Future<void> _deleteServer(String name) async {
-    final confirmed = await showDialog<bool>(
-      context: context,
-      builder: (ctx) => AlertDialog(
-        title: const Text('Remove MCP server'),
-        content: Text('Remove "$name" from OpenCode config?'),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(ctx, false),
-            child: const Text('Cancel'),
-          ),
-          TextButton(
-            onPressed: () => Navigator.pop(ctx, true),
-            style: TextButton.styleFrom(foregroundColor: Colors.red),
-            child: const Text('Remove'),
-          ),
-        ],
-      ),
-    );
-    if (confirmed != true) return;
-    final mcp = _mcp();
-    mcp.remove(name);
-    setState(() {
-      _config = {..._config, 'mcp': mcp};
-      _dirty = true;
-    });
+  Color _statusColor(OpenCodeTheme oc, McpServerStatus? status) {
+    if (status == null) return oc.textMuted;
+    if (status.isConnected) return oc.success;
+    if (status.isConnecting) return oc.info;
+    if (status.hasError) return oc.error;
+    return oc.warning;
   }
 
   @override
@@ -211,7 +235,21 @@ class _OpenCodeMcpConfigScreenState
         title: Text('MCP Config', style: TextStyle(color: oc.text)),
         iconTheme: IconThemeData(color: oc.text),
         actions: [
-          IconButton(icon: const Icon(Icons.refresh_rounded), onPressed: _load),
+          IconButton(
+            icon: const Icon(Icons.add_rounded),
+            tooltip: 'Add MCP server',
+            onPressed: _addServer,
+          ),
+          IconButton(
+            icon: _loadingStatus
+                ? const SizedBox(
+                    width: 18,
+                    height: 18,
+                    child: CircularProgressIndicator(strokeWidth: 2),
+                  )
+                : const Icon(Icons.refresh_rounded),
+            onPressed: _loadingStatus ? null : _load,
+          ),
         ],
       ),
       body: _loading
@@ -231,7 +269,7 @@ class _OpenCodeMcpConfigScreenState
                     children: [
                       Expanded(
                         child: Text(
-                          'Edit MCP config on your Mac. Broski does not modify config from mobile.',
+                          'View and control MCP servers. Add new servers from mobile and manage connection status.',
                           style: TextStyle(color: oc.textMuted, fontSize: 12),
                         ),
                       ),
@@ -263,7 +301,7 @@ class _OpenCodeMcpConfigScreenState
                                 ),
                                 const SizedBox(height: 8),
                                 Text(
-                                  'Add servers under the `mcp` key in OpenCode config.',
+                                  'Tap + to add your first MCP server.',
                                   textAlign: TextAlign.center,
                                   style: TextStyle(color: oc.textMuted),
                                 ),
@@ -276,7 +314,9 @@ class _OpenCodeMcpConfigScreenState
                           itemCount: names.length,
                           itemBuilder: (context, idx) {
                             final name = names[idx];
-                            final cfg = mcp[name];
+                            final status = _status[name];
+                            final isConnected = status?.isConnected ?? false;
+
                             return Card(
                               color: oc.backgroundElement,
                               margin: const EdgeInsets.only(bottom: 10),
@@ -285,6 +325,10 @@ class _OpenCodeMcpConfigScreenState
                                 side: BorderSide(color: oc.border),
                               ),
                               child: ListTile(
+                                leading: Icon(
+                                  _statusIcon(status),
+                                  color: _statusColor(oc, status),
+                                ),
                                 title: Text(
                                   name,
                                   style: TextStyle(
@@ -293,10 +337,21 @@ class _OpenCodeMcpConfigScreenState
                                   ),
                                 ),
                                 subtitle: Text(
-                                  'Configured in OpenCode config',
+                                  status?.statusDisplay ??
+                                      'Configured in OpenCode config',
                                   style: TextStyle(color: oc.textMuted),
                                 ),
-                                trailing: null,
+                                trailing: TextButton(
+                                  onPressed: status?.isConnecting == true
+                                      ? null
+                                      : () => _toggleConnection(
+                                          name,
+                                          !isConnected,
+                                        ),
+                                  child: Text(
+                                    isConnected ? 'Disconnect' : 'Connect',
+                                  ),
+                                ),
                               ),
                             );
                           },
@@ -340,8 +395,9 @@ class _JsonObjectEditorScreenState extends State<_JsonObjectEditorScreen> {
   void _done() {
     try {
       final decoded = jsonDecode(_json.text);
-      if (decoded is! Map)
+      if (decoded is! Map) {
         throw const FormatException('Config must be a JSON object');
+      }
       Navigator.pop(context, decoded.cast<String, dynamic>());
     } catch (e) {
       ScaffoldMessenger.of(

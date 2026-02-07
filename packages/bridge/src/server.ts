@@ -543,11 +543,19 @@ async function listFilesDirectly(
   }
 }
 
-async function readFileDirectly(filePath: string): Promise<{ content: string; mime: string }> {
+async function readFileDirectly(
+  filePath: string,
+): Promise<{
+  type: 'text' | 'binary'
+  content: string
+  mime: string
+  mimeType: string
+  encoding?: 'base64'
+}> {
   const securePath = await getSecurePath(filePath)
   if (!securePath) {
     console.error(`[readFileDirectly] Access denied: ${filePath}`)
-    return { content: '', mime: 'text/plain' }
+    return { type: 'text', content: '', mime: 'text/plain', mimeType: 'text/plain' }
   }
 
   try {
@@ -558,11 +566,11 @@ async function readFileDirectly(filePath: string): Promise<{ content: string; mi
       // Best-effort symlink refusal on platforms without O_NOFOLLOW.
       const lst = await lstat(securePath).catch(() => null)
       if (lst?.isSymbolicLink()) {
-        return { content: '', mime: 'text/plain' }
+        return { type: 'text', content: '', mime: 'text/plain', mimeType: 'text/plain' }
       }
     }
     const flags = fsConstants.O_RDONLY | noFollow
-    let fh = await open(securePath, flags).catch(async (err) => {
+    const fh = await open(securePath, flags).catch(async (err) => {
       // Fallback for platforms that don't support O_NOFOLLOW.
       if ((err as any)?.code === 'EINVAL' || (err as any)?.code === 'ENOTSUP') {
         return await open(securePath, 'r')
@@ -574,32 +582,39 @@ async function readFileDirectly(filePath: string): Promise<{ content: string; mi
       const file = Bun.file(securePath)
       const mime = file.type || 'application/octet-stream'
       const st = await fh.stat()
-      if (!st.isFile()) return { content: '', mime: 'text/plain' }
+      if (!st.isFile()) {
+        return { type: 'text', content: '', mime: 'text/plain', mimeType: 'text/plain' }
+      }
 
-    const isText =
-      mime.startsWith('text/') ||
-      mime.includes('json') ||
-      mime.includes('xml') ||
-      mime.includes('javascript') ||
-      mime.includes('typescript') ||
-      mime.includes('markdown')
+      const isText =
+        mime.startsWith('text/') ||
+        mime.includes('json') ||
+        mime.includes('xml') ||
+        mime.includes('javascript') ||
+        mime.includes('typescript') ||
+        mime.includes('markdown')
 
-    if (!isText) {
-      return { content: '', mime }
-    }
+      if (!isText) {
+        return { type: 'binary', content: '', mime, mimeType: mime }
+      }
 
       const text = await fh.readFile({ encoding: 'utf-8' })
-    const maxChars = 1_000_000
-    if (text.length > maxChars) {
-      return { content: `${text.slice(0, maxChars)}\n\n…(truncated)…`, mime }
-    }
-    return { content: text, mime }
+      const maxChars = 1_000_000
+      if (text.length > maxChars) {
+        return {
+          type: 'text',
+          content: `${text.slice(0, maxChars)}\n\n…(truncated)…`,
+          mime,
+          mimeType: mime,
+        }
+      }
+      return { type: 'text', content: text, mime, mimeType: mime }
     } finally {
       await fh.close().catch(() => {})
     }
   } catch (error) {
     console.error(`[readFileDirectly] Error reading ${securePath}:`, error)
-    return { content: '', mime: 'text/plain' }
+    return { type: 'text', content: '', mime: 'text/plain', mimeType: 'text/plain' }
   }
 }
 
@@ -731,6 +746,8 @@ const MESSAGE_PRIORITIES: Record<string, 'immediate' | 'high' | 'normal' | 'low'
   'session.error': 'immediate',
   'session.idle': 'high',
   'message.part.updated': 'high',
+  'message.part.removed': 'high',
+  'message.removed': 'high',
   'message.updated': 'normal',
   'session.diff': 'normal',
   'todo.updated': 'normal',
@@ -4890,7 +4907,12 @@ export async function createBridgeServer(options: BridgeServerOptions): Promise<
         }
         case 'list_sessions': {
           const oc = requireOpenCode()
-          const sessions = await oc.listSessions(message.projectPath)
+          const sessions = await oc.listSessions(message.projectPath, {
+            roots: (message as any).roots,
+            start: (message as any).start,
+            search: (message as any).search,
+            limit: (message as any).limit,
+          })
           reply({ type: 'sessions', data: sessions, projectPath: message.projectPath })
           break
         }
@@ -4979,6 +5001,9 @@ export async function createBridgeServer(options: BridgeServerOptions): Promise<
             message.agent,
             message.fileAttachments,
             message.variant,
+            (message as any).noReply,
+            (message as any).tools,
+            (message as any).system,
           )
           break
         }
@@ -5071,6 +5096,8 @@ export async function createBridgeServer(options: BridgeServerOptions): Promise<
             message.projectPath,
             message.agent,
             message.model,
+            (message as any).variant,
+            (message as any).parts,
           )
           reply({ type: 'command_executed', data: result, sessionId: message.sessionId })
           break
@@ -5110,6 +5137,15 @@ export async function createBridgeServer(options: BridgeServerOptions): Promise<
             message.projectPath,
           )
           reply({ type: 'session_forked', data: session })
+          break
+        }
+        case 'session_children': {
+          const oc = requireOpenCode()
+          const sessions = await oc.listSessionChildren(
+            message.sessionId,
+            message.projectPath,
+          )
+          reply({ type: 'session_children', data: sessions, sessionId: message.sessionId })
           break
         }
         // Feature 7: Message Revert (Undo)
@@ -5273,6 +5309,7 @@ export async function createBridgeServer(options: BridgeServerOptions): Promise<
               message.args,
               message.cwd,
               message.title,
+              (message as any).env,
               message.projectPath,
             )
             if (pty) {
@@ -5435,6 +5472,16 @@ export async function createBridgeServer(options: BridgeServerOptions): Promise<
           reply({ type: 'mcp_status', data: status })
           break
         }
+        case 'add_mcp': {
+          const oc = requireOpenCode()
+          const status = await oc.addMcp(
+            message.name,
+            (message as any).config ?? {},
+            message.projectPath,
+          )
+          reply({ type: 'mcp_added', data: status })
+          break
+        }
         case 'connect_mcp': {
           const oc = requireOpenCode()
           const connected = await oc.connectMcp(message.name, message.projectPath)
@@ -5474,6 +5521,19 @@ export async function createBridgeServer(options: BridgeServerOptions): Promise<
           }
           break
         }
+        case 'reset_worktree': {
+          const oc = requireOpenCode()
+          const success = await oc.resetWorktree(
+            (message as any).worktreeDirectory,
+            message.projectPath,
+          )
+          reply({
+            type: 'worktree_reset',
+            data: success,
+            worktreeDirectory: (message as any).worktreeDirectory,
+          })
+          break
+        }
         case 'delete_worktree': {
           const oc = requireOpenCode()
           const deleted = await oc.deleteWorktree(message.name, message.projectPath)
@@ -5491,6 +5551,35 @@ export async function createBridgeServer(options: BridgeServerOptions): Promise<
           const oc = requireOpenCode()
           const auth = await oc.getProviderAuth(message.projectPath)
           reply({ type: 'provider_auth', data: auth })
+          break
+        }
+        case 'provider_oauth_authorize': {
+          const oc = requireOpenCode()
+          const data = await oc.providerOauthAuthorize(
+            (message as any).providerId,
+            (message as any).method,
+            message.projectPath,
+          )
+          reply({
+            type: 'provider_oauth_authorized',
+            data,
+            providerId: (message as any).providerId,
+          })
+          break
+        }
+        case 'provider_oauth_callback': {
+          const oc = requireOpenCode()
+          const ok = await oc.providerOauthCallback(
+            (message as any).providerId,
+            (message as any).method,
+            (message as any).code,
+            message.projectPath,
+          )
+          reply({
+            type: 'provider_oauth_callback',
+            data: ok,
+            providerId: (message as any).providerId,
+          })
           break
         }
         // Feature 17: Tool List

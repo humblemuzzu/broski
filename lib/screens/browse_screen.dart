@@ -1,3 +1,5 @@
+import 'dart:convert';
+
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -203,7 +205,19 @@ class _BrowseScreenState extends ConsumerState<BrowseScreen>
         );
         if (mounted) {
           setState(() {
-            _viewingFileContent = content;
+            if (content.isBinary && content.encoding == 'base64') {
+              final decoded = _tryDecodeBase64(content.content);
+              if (decoded != null) {
+                _viewingBinaryData = decoded;
+                _viewingFileContent = null;
+              } else {
+                _viewingFileContent = content;
+                _viewingBinaryData = null;
+              }
+            } else {
+              _viewingFileContent = content;
+              _viewingBinaryData = null;
+            }
             _isLoadingFile = false;
           });
         }
@@ -221,6 +235,14 @@ class _BrowseScreenState extends ConsumerState<BrowseScreen>
           ),
         );
       }
+    }
+  }
+
+  Uint8List? _tryDecodeBase64(String content) {
+    try {
+      return base64Decode(content);
+    } catch (_) {
+      return null;
     }
   }
 

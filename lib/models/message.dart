@@ -59,6 +59,13 @@ class RetryPart extends MessagePart {
   final String? errorMessage;
 }
 
+class RetryInfo {
+  const RetryInfo({required this.attempt, this.errorMessage});
+
+  final int attempt;
+  final String? errorMessage;
+}
+
 class ChatMessage {
   const ChatMessage({
     required this.id,
@@ -66,6 +73,8 @@ class ChatMessage {
     required this.role,
     required this.createdAt,
     required this.text,
+    this.variant,
+    this.retryInfo,
     this.toolCalls = const [],
     this.diffs = const [],
     this.subtaskNotifications = const [],
@@ -80,6 +89,13 @@ class ChatMessage {
   final MessageRole role;
   final DateTime createdAt;
   final String text;
+
+  /// OpenCode/Codex message variant (e.g. thinking level)
+  final String? variant;
+
+  /// Latest retry metadata for this message, if any.
+  final RetryInfo? retryInfo;
+
   final List<ToolCall> toolCalls;
   final List<DiffEntry> diffs;
 
@@ -121,6 +137,8 @@ class ChatMessage {
 
   ChatMessage copyWith({
     String? text,
+    String? variant,
+    RetryInfo? retryInfo,
     List<ToolCall>? toolCalls,
     List<DiffEntry>? diffs,
     List<SubtaskNotification>? subtaskNotifications,
@@ -135,6 +153,8 @@ class ChatMessage {
       role: role,
       createdAt: createdAt,
       text: text ?? this.text,
+      variant: variant ?? this.variant,
+      retryInfo: retryInfo ?? this.retryInfo,
       toolCalls: toolCalls ?? this.toolCalls,
       diffs: diffs ?? this.diffs,
       subtaskNotifications: subtaskNotifications ?? this.subtaskNotifications,
@@ -299,6 +319,7 @@ class DiffEntry {
     required this.deletions,
     this.diff,
     this.partId,
+    this.status,
   });
 
   final String file;
@@ -312,6 +333,9 @@ class DiffEntry {
 
   /// Tool part ID (callID) that produced this diff, used for precise undo.
   final String? partId;
+
+  /// File change status from SDK: added/deleted/modified.
+  final String? status;
 }
 
 /// Represents model reasoning/thinking content.

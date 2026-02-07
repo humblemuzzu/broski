@@ -45,9 +45,12 @@ import '../services/haptics_service.dart';
 import '../services/image_picker_service.dart';
 import '../services/websocket_service.dart';
 import '../theme/opencode_theme.dart';
+import '../widgets/command_source_badge.dart';
 import '../widgets/diff_viewer.dart';
 import '../widgets/export_session_sheet.dart';
 import '../widgets/file_tagging.dart';
+import '../widgets/retry_indicator.dart';
+import '../widgets/variant_badge.dart';
 import '../widgets/message_bubble.dart';
 import '../widgets/chat/compact_thinking_card.dart';
 import '../widgets/chat/detail_sheet.dart';
@@ -6324,32 +6327,8 @@ Describe project-specific guidance for Codex here.
 
   /// Task 7: Build a muted retry indicator
   Widget _buildRetryIndicator(int attempt, String? errorMessage) {
-    final theme = OpenCodeTheme.of(context);
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-      decoration: BoxDecoration(
-        color: theme.warning.withValues(alpha: 0.08),
-        borderRadius: BorderRadius.circular(10),
-      ),
-      child: Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Icon(
-            Icons.warning_amber_rounded,
-            color: theme.warning.withValues(alpha: 0.7),
-            size: 16,
-          ),
-          const SizedBox(width: 8),
-          Flexible(
-            child: Text(
-              'Retry attempt #$attempt${errorMessage != null && errorMessage.isNotEmpty ? ': $errorMessage' : ''}',
-              style: TextStyle(color: theme.textMuted, fontSize: 13),
-              maxLines: 2,
-              overflow: TextOverflow.ellipsis,
-            ),
-          ),
-        ],
-      ),
+    return RetryIndicator(
+      retryInfo: RetryInfo(attempt: attempt, errorMessage: errorMessage),
     );
   }
 
@@ -8043,7 +8022,7 @@ class _FloatingHeader extends StatelessWidget {
                         width: 6,
                         height: 6,
                         decoration: BoxDecoration(
-                          color: current.displayColor,
+                          color: current.resolveColor(theme),
                           shape: BoxShape.circle,
                         ),
                       ),
@@ -8145,41 +8124,93 @@ class _FloatingHeader extends StatelessWidget {
   }
 
   void _showAgentPicker(BuildContext context) {
-    final primaryAgents = agents.where((a) => a.isPrimary).toList();
+    // Show all non-hidden agents, primary first
+    final visibleAgents = agents.where((a) => !a.hidden).toList()
+      ..sort((a, b) {
+        // Primary/all agents first, then subagents
+        final aPrimary = a.isPrimary ? 0 : 1;
+        final bPrimary = b.isPrimary ? 0 : 1;
+        if (aPrimary != bPrimary) return aPrimary - bPrimary;
+        return a.name.compareTo(b.name);
+      });
     final theme = OpenCodeTheme.of(context);
 
     DetailSheet.show(
       context: context,
       title: 'Select Agent',
-      initialSize: 0.4,
+      initialSize: 0.45,
       child: Column(
         mainAxisSize: MainAxisSize.min,
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           const SizedBox(height: 8),
-          for (final agent in primaryAgents)
+          for (final agent in visibleAgents)
             ListTile(
               contentPadding: const EdgeInsets.symmetric(horizontal: 16),
               leading: Container(
                 width: 10,
                 height: 10,
                 decoration: BoxDecoration(
-                  color: agent.displayColor,
+                  color: agent.resolveColor(theme),
                   shape: BoxShape.circle,
                 ),
               ),
-              title: Text(
-                agent.displayName,
-                style: TextStyle(
-                  color: theme.text,
-                  fontWeight: agent.name == currentAgent
-                      ? FontWeight.w600
-                      : FontWeight.w400,
-                ),
+              title: Row(
+                children: [
+                  Flexible(
+                    child: Text(
+                      agent.displayName,
+                      style: TextStyle(
+                        color: theme.text,
+                        fontWeight: agent.name == currentAgent
+                            ? FontWeight.w600
+                            : FontWeight.w400,
+                      ),
+                    ),
+                  ),
+                  if (agent.variant != null && agent.variant!.isNotEmpty) ...[
+                    const SizedBox(width: 6),
+                    VariantBadge.small(variant: agent.variant),
+                  ],
+                  if (!agent.isPrimary) ...[
+                    const SizedBox(width: 6),
+                    Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 1),
+                      decoration: BoxDecoration(
+                        color: theme.textMuted.withValues(alpha: 0.12),
+                        borderRadius: BorderRadius.circular(4),
+                      ),
+                      child: Text(
+                        'sub',
+                        style: TextStyle(
+                          fontSize: 9,
+                          fontWeight: FontWeight.w600,
+                          color: theme.textMuted,
+                        ),
+                      ),
+                    ),
+                  ],
+                ],
               ),
-              subtitle: Text(
-                agent.shortDescription,
-                style: TextStyle(color: theme.textMuted, fontSize: 12),
+              subtitle: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    agent.shortDescription,
+                    style: TextStyle(color: theme.textMuted, fontSize: 12),
+                  ),
+                  if (agent.model != null) ...[
+                    const SizedBox(height: 2),
+                    Text(
+                      agent.model!.displayName,
+                      style: TextStyle(
+                        color: theme.textMuted.withValues(alpha: 0.7),
+                        fontSize: 11,
+                        fontStyle: FontStyle.italic,
+                      ),
+                    ),
+                  ],
+                ],
               ),
               trailing: agent.name == currentAgent
                   ? Icon(Icons.check_rounded, color: theme.success, size: 20)
@@ -10003,7 +10034,7 @@ class _CliStyleInputBarState extends State<_CliStyleInputBar> {
     } else if (isClaudeCode) {
       agentColor = _getPermissionModeColor(widget.ccPermissionMode, theme);
     } else {
-      agentColor = agent?.displayColor ?? theme.primary;
+      agentColor = agent?.resolveColor(theme) ?? theme.primary;
     }
 
     // During streaming, hide the input bar
@@ -10670,7 +10701,7 @@ class _AgentAndPermissionContentState
                                       width: 8,
                                       height: 8,
                                       decoration: BoxDecoration(
-                                        color: agent.displayColor,
+                                        color: agent.resolveColor(widget.theme),
                                         shape: BoxShape.circle,
                                       ),
                                     ),
@@ -10680,15 +10711,26 @@ class _AgentAndPermissionContentState
                                         crossAxisAlignment:
                                             CrossAxisAlignment.start,
                                         children: [
-                                          Text(
-                                            agent.displayName,
-                                            style: TextStyle(
-                                              color: widget.theme.text,
-                                              fontSize: 14,
-                                              fontWeight: isSelected
-                                                  ? FontWeight.w600
-                                                  : FontWeight.w500,
-                                            ),
+                                          Row(
+                                            children: [
+                                              Flexible(
+                                                child: Text(
+                                                  agent.displayName,
+                                                  style: TextStyle(
+                                                    color: widget.theme.text,
+                                                    fontSize: 14,
+                                                    fontWeight: isSelected
+                                                        ? FontWeight.w600
+                                                        : FontWeight.w500,
+                                                  ),
+                                                ),
+                                              ),
+                                              if (agent.variant != null &&
+                                                  agent.variant!.isNotEmpty) ...[
+                                                const SizedBox(width: 6),
+                                                VariantBadge.small(variant: agent.variant),
+                                              ],
+                                            ],
                                           ),
                                           Text(
                                             agent.shortDescription,
@@ -10697,6 +10739,15 @@ class _AgentAndPermissionContentState
                                               fontSize: 12,
                                             ),
                                           ),
+                                          if (agent.model != null)
+                                            Text(
+                                              agent.model!.displayName,
+                                              style: TextStyle(
+                                                color: widget.theme.textMuted.withValues(alpha: 0.7),
+                                                fontSize: 11,
+                                                fontStyle: FontStyle.italic,
+                                              ),
+                                            ),
                                         ],
                                       ),
                                     ),
@@ -10841,11 +10892,11 @@ class _AgentCard extends StatelessWidget {
         padding: const EdgeInsets.all(14),
         decoration: BoxDecoration(
           color: isSelected
-              ? agent.displayColor.withValues(alpha: 0.12)
+              ? agent.resolveColor(theme).withValues(alpha: 0.12)
               : theme.backgroundPanel,
           borderRadius: BorderRadius.circular(14),
           border: Border.all(
-            color: isSelected ? agent.displayColor : theme.borderSubtle,
+            color: isSelected ? agent.resolveColor(theme) : theme.borderSubtle,
             width: isSelected ? 1.5 : 1,
           ),
         ),
@@ -10855,7 +10906,7 @@ class _AgentCard extends StatelessWidget {
               width: 10,
               height: 10,
               decoration: BoxDecoration(
-                color: agent.displayColor,
+                color: agent.resolveColor(theme),
                 shape: BoxShape.circle,
               ),
             ),
@@ -10864,13 +10915,24 @@ class _AgentCard extends StatelessWidget {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Text(
-                    agent.displayName,
-                    style: TextStyle(
-                      color: theme.text,
-                      fontSize: 15,
-                      fontWeight: FontWeight.w600,
-                    ),
+                  Row(
+                    children: [
+                      Flexible(
+                        child: Text(
+                          agent.displayName,
+                          style: TextStyle(
+                            color: theme.text,
+                            fontSize: 15,
+                            fontWeight: FontWeight.w600,
+                          ),
+                        ),
+                      ),
+                      if (agent.variant != null &&
+                          agent.variant!.isNotEmpty) ...[
+                        const SizedBox(width: 6),
+                        VariantBadge.small(variant: agent.variant),
+                      ],
+                    ],
                   ),
                   Text(
                     agent.shortDescription,
@@ -10878,13 +10940,22 @@ class _AgentCard extends StatelessWidget {
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
                   ),
+                  if (agent.model != null)
+                    Text(
+                      agent.model!.displayName,
+                      style: TextStyle(
+                        color: theme.textMuted.withValues(alpha: 0.7),
+                        fontSize: 10,
+                        fontStyle: FontStyle.italic,
+                      ),
+                    ),
                 ],
               ),
             ),
             if (isSelected)
               Icon(
                 Icons.check_circle_rounded,
-                color: agent.displayColor,
+                color: agent.resolveColor(theme),
                 size: 20,
               ),
           ],
@@ -11212,7 +11283,7 @@ class _CommandAutocomplete extends StatelessWidget {
       return const SizedBox.shrink();
     }
 
-    // Group commands by built-in vs custom
+    // Group commands by source (command / mcp / skill)
     final groups = CommandGroups.fromCommands(commands);
 
     return Container(
@@ -11235,16 +11306,16 @@ class _CommandAutocomplete extends StatelessWidget {
           shrinkWrap: true,
           padding: const EdgeInsets.symmetric(vertical: 8),
           children: [
-            // Built-in commands section
-            if (groups.hasBuiltIn) ...[
+            // Commands section (built-in / source == 'command')
+            if (groups.commands.isNotEmpty) ...[
               _buildSectionHeader(
-                'Built-in',
+                'Commands',
                 Icons.terminal,
                 kAccent,
                 kMuted,
-                groups.builtIn.length,
+                groups.commands.length,
               ),
-              ...groups.builtIn.map(
+              ...groups.commands.map(
                 (cmd) => _buildCommandTile(
                   cmd,
                   kOnBackground,
@@ -11255,17 +11326,39 @@ class _CommandAutocomplete extends StatelessWidget {
                 ),
               ),
             ],
-            // Custom commands section
-            if (groups.hasCustom) ...[
-              if (groups.hasBuiltIn) const SizedBox(height: 8),
+            // Skills section
+            if (groups.skillCommands.isNotEmpty) ...[
+              if (groups.commands.isNotEmpty) const SizedBox(height: 8),
               _buildSectionHeader(
-                'Custom',
+                'Skills',
+                Icons.auto_awesome,
+                kInfo,
+                kMuted,
+                groups.skillCommands.length,
+              ),
+              ...groups.skillCommands.map(
+                (cmd) => _buildCommandTile(
+                  cmd,
+                  kOnBackground,
+                  kMuted,
+                  kInfo,
+                  kSuccess,
+                  kInfo,
+                ),
+              ),
+            ],
+            // MCP commands section
+            if (groups.mcpCommands.isNotEmpty) ...[
+              if (groups.commands.isNotEmpty || groups.skillCommands.isNotEmpty)
+                const SizedBox(height: 8),
+              _buildSectionHeader(
+                'MCP',
                 Icons.extension,
                 kSuccess,
                 kMuted,
-                groups.custom.length,
+                groups.mcpCommands.length,
               ),
-              ...groups.custom.map(
+              ...groups.mcpCommands.map(
                 (cmd) => _buildCommandTile(
                   cmd,
                   kOnBackground,
@@ -11340,7 +11433,11 @@ class _CommandAutocomplete extends StatelessWidget {
                 borderRadius: BorderRadius.circular(8),
               ),
               child: Icon(
-                command.builtin ? Icons.terminal : Icons.extension,
+                command.source == CommandSource.mcp
+                    ? Icons.extension
+                    : command.source == CommandSource.skill
+                        ? Icons.auto_awesome
+                        : Icons.terminal,
                 size: 16,
                 color: accentColor,
               ),
@@ -11404,6 +11501,12 @@ class _CommandAutocomplete extends StatelessWidget {
                             ),
                           ),
                         ),
+                      ],
+                      // Source badge (MCP / SKILL)
+                      if (command.source != null &&
+                          command.source != CommandSource.command) ...[
+                        const SizedBox(width: 4),
+                        CommandSourceBadge(source: command.source),
                       ],
                       // Subtask badge
                       if (command.subtask) ...[

@@ -778,7 +778,11 @@ class _McpServersScreenState extends ConsumerState<McpServersScreen>
       case McpConnectionStatus.error:
         return theme.error;
       case McpConnectionStatus.disconnected:
+      case McpConnectionStatus.disabled:
         return theme.textMuted;
+      case McpConnectionStatus.needsAuth:
+      case McpConnectionStatus.needsClientRegistration:
+        return theme.warning;
     }
   }
 }
@@ -937,7 +941,11 @@ class _McpServerTile extends StatelessWidget {
       case McpConnectionStatus.error:
         return theme.error;
       case McpConnectionStatus.disconnected:
+      case McpConnectionStatus.disabled:
         return theme.textMuted;
+      case McpConnectionStatus.needsAuth:
+      case McpConnectionStatus.needsClientRegistration:
+        return theme.warning;
     }
   }
 }

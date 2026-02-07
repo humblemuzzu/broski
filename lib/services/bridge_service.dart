@@ -245,8 +245,15 @@ class BridgeService {
     });
   }
 
-  Future<List<SessionSummary>> listSessions({String? projectPath}) async {
-    final dedupeKey = 'list_sessions:${projectPath ?? 'all'}';
+  Future<List<SessionSummary>> listSessions({
+    String? projectPath,
+    bool? roots,
+    int? start,
+    String? search,
+    int? limit,
+  }) async {
+    final dedupeKey =
+        'list_sessions:${projectPath ?? 'all'}:${roots ?? 'null'}:${start ?? 'null'}:${search ?? ''}:${limit ?? 'null'}';
 
     // Check if request is already in-flight
     if (_inFlightRequests.containsKey(dedupeKey)) {
@@ -254,7 +261,13 @@ class BridgeService {
     }
 
     // Create the request future
-    final future = _listSessionsInternal(projectPath: projectPath);
+    final future = _listSessionsInternal(
+      projectPath: projectPath,
+      roots: roots,
+      start: start,
+      search: search,
+      limit: limit,
+    );
     _inFlightRequests[dedupeKey] = future;
 
     try {
@@ -266,6 +279,10 @@ class BridgeService {
 
   Future<List<SessionSummary>> _listSessionsInternal({
     String? projectPath,
+    bool? roots,
+    int? start,
+    String? search,
+    int? limit,
   }) async {
     return _timedRequest('list_sessions', () async {
       final requestId = _generateRequestId();
@@ -273,6 +290,10 @@ class BridgeService {
         'type': 'list_sessions',
         'requestId': requestId,
         if (projectPath != null) 'projectPath': projectPath,
+        if (roots != null) 'roots': roots,
+        if (start != null) 'start': start,
+        if (search != null && search.isNotEmpty) 'search': search,
+        if (limit != null) 'limit': limit,
       });
       final response = await _waitFor('sessions', requestId: requestId);
       final data = response['data'] as List<dynamic>? ?? [];
@@ -461,6 +482,9 @@ class BridgeService {
     String? agent,
     List<FileAttachment>? fileAttachments,
     String? variant,
+    bool? noReply,
+    Map<String, bool>? tools,
+    String? system,
   }) {
     // Guard against duplicate sends - use content hash to allow different messages
     // but prevent the exact same message from being sent twice
@@ -483,6 +507,9 @@ class BridgeService {
       if (fileAttachments != null && fileAttachments.isNotEmpty)
         'fileAttachments': fileAttachments.map((f) => f.toJson()).toList(),
       if (variant != null && variant.isNotEmpty) 'variant': variant,
+      if (noReply != null) 'noReply': noReply,
+      if (tools != null && tools.isNotEmpty) 'tools': tools,
+      if (system != null && system.isNotEmpty) 'system': system,
     });
   }
 
@@ -999,6 +1026,8 @@ class BridgeService {
     String? projectPath,
     String? agent,
     String? model,
+    String? variant,
+    List<Map<String, dynamic>>? parts,
   }) {
     // Guard against duplicate command executions
     final guardKey = 'command:$sessionId:$command:${arguments.hashCode}';
@@ -1015,6 +1044,8 @@ class BridgeService {
       if (projectPath != null) 'projectPath': projectPath,
       if (agent != null) 'agent': agent,
       if (model != null) 'model': model,
+      if (variant != null && variant.isNotEmpty) 'variant': variant,
+      if (parts != null && parts.isNotEmpty) 'parts': parts,
     });
   }
 
@@ -1147,6 +1178,24 @@ class BridgeService {
     });
     final response = await _waitFor('session_forked', requestId: requestId);
     return SessionSummary.fromJson(response['data'] as Map<String, dynamic>);
+  }
+
+  Future<List<SessionSummary>> sessionChildren(
+    String sessionId, {
+    String? projectPath,
+  }) async {
+    final requestId = _generateRequestId();
+    _socket.send({
+      'type': 'session_children',
+      'sessionId': sessionId,
+      'requestId': requestId,
+      if (projectPath != null) 'projectPath': projectPath,
+    });
+    final response = await _waitFor('session_children', requestId: requestId);
+    final data = response['data'] as List<dynamic>? ?? [];
+    return data
+        .map((item) => SessionSummary.fromJson(item as Map<String, dynamic>))
+        .toList();
   }
 
   // ============================================================
@@ -1526,6 +1575,7 @@ class BridgeService {
     List<String>? args,
     String? cwd,
     String? title,
+    Map<String, String>? env,
     String? projectPath,
   }) {
     // Dedupe by command + cwd to prevent duplicate terminals
@@ -1537,6 +1587,7 @@ class BridgeService {
         args: args,
         cwd: cwd,
         title: title,
+        env: env,
         projectPath: projectPath,
       ),
     );
@@ -1547,6 +1598,7 @@ class BridgeService {
     List<String>? args,
     String? cwd,
     String? title,
+    Map<String, String>? env,
     String? projectPath,
   }) async {
     final requestId = _generateRequestId();
@@ -1557,6 +1609,7 @@ class BridgeService {
       if (args != null) 'args': args,
       if (cwd != null) 'cwd': cwd,
       if (title != null) 'title': title,
+      if (env != null && env.isNotEmpty) 'env': env,
       if (projectPath != null) 'projectPath': projectPath,
     };
     developer.log('[PTY] Sending create_pty: $message', name: 'BridgeService');
@@ -1724,6 +1777,30 @@ class BridgeService {
     return result;
   }
 
+  Future<Map<String, McpServerStatus>> addMcpServer({
+    required String name,
+    required Map<String, dynamic> config,
+    String? projectPath,
+  }) async {
+    final requestId = _generateRequestId();
+    _socket.send({
+      'type': 'add_mcp',
+      'name': name,
+      'config': config,
+      'requestId': requestId,
+      if (projectPath != null) 'projectPath': projectPath,
+    });
+    final response = await _waitFor('mcp_added', requestId: requestId);
+    final data = response['data'] as Map<String, dynamic>? ?? {};
+    final result = <String, McpServerStatus>{};
+    for (final entry in data.entries) {
+      result[entry.key] = McpServerStatus.fromJson(
+        entry.value as Map<String, dynamic>,
+      );
+    }
+    return result;
+  }
+
   /// Connect to an MCP server (protected against duplicate connects)
   Future<bool> connectMcp(String name, {String? projectPath}) {
     final dedupeKey = 'connect_mcp:$name';
@@ -1829,6 +1906,21 @@ class BridgeService {
     return Worktree.fromJson(data);
   }
 
+  Future<bool> resetWorktree(
+    String worktreeDirectory, {
+    String? projectPath,
+  }) async {
+    final requestId = _generateRequestId();
+    _socket.send({
+      'type': 'reset_worktree',
+      'worktreeDirectory': worktreeDirectory,
+      'requestId': requestId,
+      if (projectPath != null) 'projectPath': projectPath,
+    });
+    final response = await _waitFor('worktree_reset', requestId: requestId);
+    return response['data'] as bool? ?? false;
+  }
+
   /// Delete a worktree
   Future<bool> deleteWorktree(String name, {String? projectPath}) async {
     final requestId = _generateRequestId();
@@ -1879,6 +1971,50 @@ class BridgeService {
       result[entry.key] = methods;
     }
     return result;
+  }
+
+  Future<ProviderAuthAuthorization?> providerOauthAuthorize({
+    required String providerId,
+    required int method,
+    String? projectPath,
+  }) async {
+    final requestId = _generateRequestId();
+    _socket.send({
+      'type': 'provider_oauth_authorize',
+      'providerId': providerId,
+      'method': method,
+      'requestId': requestId,
+      if (projectPath != null) 'projectPath': projectPath,
+    });
+    final response = await _waitFor(
+      'provider_oauth_authorized',
+      requestId: requestId,
+    );
+    final data = response['data'] as Map<String, dynamic>?;
+    if (data == null) return null;
+    return ProviderAuthAuthorization.fromJson(data);
+  }
+
+  Future<bool> providerOauthCallback({
+    required String providerId,
+    required int method,
+    String? code,
+    String? projectPath,
+  }) async {
+    final requestId = _generateRequestId();
+    _socket.send({
+      'type': 'provider_oauth_callback',
+      'providerId': providerId,
+      'method': method,
+      'requestId': requestId,
+      if (code != null && code.isNotEmpty) 'code': code,
+      if (projectPath != null) 'projectPath': projectPath,
+    });
+    final response = await _waitFor(
+      'provider_oauth_callback',
+      requestId: requestId,
+    );
+    return response['data'] as bool? ?? false;
   }
 
   // ============================================================
@@ -3081,10 +3217,7 @@ class BridgeService {
   /// List remote skills from public marketplace (skills/remote/read).
   Future<List<Map<String, dynamic>>> cxListRemoteSkills() async {
     final requestId = _generateRequestId();
-    _socket.send({
-      'type': 'cx_remote_skills_list',
-      'requestId': requestId,
-    });
+    _socket.send({'type': 'cx_remote_skills_list', 'requestId': requestId});
     final response = await _waitFor(
       'cx_remote_skills',
       requestId: requestId,
@@ -3180,10 +3313,7 @@ class BridgeService {
   /// List experimental features (experimentalFeature/list).
   Future<List<Map<String, dynamic>>> cxListExperimentalFeatures() async {
     final requestId = _generateRequestId();
-    _socket.send({
-      'type': 'cx_experimental_features',
-      'requestId': requestId,
-    });
+    _socket.send({'type': 'cx_experimental_features', 'requestId': requestId});
     final response = await _waitFor(
       'cx_experimental_features_list',
       requestId: requestId,

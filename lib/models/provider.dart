@@ -114,13 +114,13 @@ enum ProviderAuthType { api, oauth }
 
 class ProviderAuthMethod {
   final ProviderAuthType type;
-  final String name;
+  final String label;
   final String? description;
   final String? url;
 
   const ProviderAuthMethod({
     required this.type,
-    required this.name,
+    required this.label,
     this.description,
     this.url,
   });
@@ -130,12 +130,38 @@ class ProviderAuthMethod {
       type: json['type'] == 'oauth'
           ? ProviderAuthType.oauth
           : ProviderAuthType.api,
-      name: json['name'] as String? ?? '',
+      label:
+          (json['label'] as String?) ?? (json['name'] as String?) ?? 'Unknown',
       description: json['description'] as String?,
       url: json['url'] as String?,
     );
   }
 
+  // Backward-compatible alias
+  String get name => label;
+
   bool get isApiKey => type == ProviderAuthType.api;
   bool get isOAuth => type == ProviderAuthType.oauth;
+}
+
+class ProviderAuthAuthorization {
+  final String url;
+  final String method;
+  final String instructions;
+
+  const ProviderAuthAuthorization({
+    required this.url,
+    required this.method,
+    required this.instructions,
+  });
+
+  factory ProviderAuthAuthorization.fromJson(Map<String, dynamic> json) {
+    return ProviderAuthAuthorization(
+      url: json['url'] as String? ?? '',
+      method: json['method'] as String? ?? 'auto',
+      instructions: json['instructions'] as String? ?? '',
+    );
+  }
+
+  bool get requiresCode => method == 'code';
 }

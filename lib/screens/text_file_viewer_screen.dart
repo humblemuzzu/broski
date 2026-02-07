@@ -1,7 +1,11 @@
+import 'dart:convert';
+import 'dart:typed_data';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:google_fonts/google_fonts.dart';
 
+import '../models/file_content.dart';
 import '../providers/service_providers.dart';
 import '../theme/opencode_theme.dart';
 
@@ -18,13 +22,16 @@ class TextFileViewerScreen extends ConsumerStatefulWidget {
   final String? projectPath;
 
   @override
-  ConsumerState<TextFileViewerScreen> createState() => _TextFileViewerScreenState();
+  ConsumerState<TextFileViewerScreen> createState() =>
+      _TextFileViewerScreenState();
 }
 
 class _TextFileViewerScreenState extends ConsumerState<TextFileViewerScreen> {
   bool _loading = true;
   String? _error;
   String _content = '';
+  FileContent? _fileContent;
+  Uint8List? _binaryData;
 
   @override
   void initState() {
@@ -36,13 +43,31 @@ class _TextFileViewerScreenState extends ConsumerState<TextFileViewerScreen> {
     setState(() {
       _loading = true;
       _error = null;
+      _binaryData = null;
+      _fileContent = null;
     });
     try {
       final bridge = ref.read(bridgeServiceProvider);
-      final file = await bridge.readFile(widget.path, projectPath: widget.projectPath);
+      final file = await bridge.readFile(
+        widget.path,
+        projectPath: widget.projectPath,
+      );
       if (!mounted) return;
       setState(() {
-        _content = file.content;
+        _fileContent = file;
+        if (file.isBinary) {
+          // Try to decode base64 content for binary files
+          if (file.encoding == 'base64' && file.content.isNotEmpty) {
+            try {
+              _binaryData = base64Decode(file.content);
+            } catch (_) {
+              // Decoding failed
+            }
+          }
+          _content = '';
+        } else {
+          _content = file.content;
+        }
         _loading = false;
       });
     } catch (e) {
@@ -54,10 +79,121 @@ class _TextFileViewerScreenState extends ConsumerState<TextFileViewerScreen> {
     }
   }
 
+  String _formatBytes(int bytes) {
+    if (bytes < 1024) return '$bytes B';
+    if (bytes < 1024 * 1024) return '${(bytes / 1024).toStringAsFixed(1)} KB';
+    return '${(bytes / (1024 * 1024)).toStringAsFixed(1)} MB';
+  }
+
+  Widget _buildBinaryView(OpenCodeTheme oc) {
+    final file = _fileContent;
+    if (file == null) {
+      return Center(
+        child: Text(
+          'Binary file cannot be displayed.',
+          style: TextStyle(color: oc.textMuted),
+        ),
+      );
+    }
+
+    final fileName = widget.path.split('/').last;
+
+    // If we have decoded binary data and it's an image, show preview
+    if (_binaryData != null && file.isImage) {
+      return SingleChildScrollView(
+        padding: const EdgeInsets.all(16),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.center,
+          children: [
+            ClipRRect(
+              borderRadius: BorderRadius.circular(8),
+              child: Image.memory(
+                _binaryData!,
+                fit: BoxFit.contain,
+                errorBuilder: (_, __, ___) => _buildBinaryPlaceholder(
+                  oc,
+                  fileName: fileName,
+                  icon: Icons.broken_image_rounded,
+                  label: 'Failed to decode image',
+                ),
+              ),
+            ),
+            const SizedBox(height: 12),
+            Text(
+              '$fileName  ·  ${_formatBytes(_binaryData!.length)}',
+              style: GoogleFonts.inter(
+                fontSize: 12,
+                color: oc.textMuted,
+              ),
+            ),
+          ],
+        ),
+      );
+    }
+
+    // Non-image binary or no decoded data
+    return Center(
+      child: _buildBinaryPlaceholder(
+        oc,
+        fileName: fileName,
+        icon: Icons.insert_drive_file_rounded,
+        label: 'Binary file',
+        subtitle: _binaryData != null
+            ? _formatBytes(_binaryData!.length)
+            : file.mime,
+      ),
+    );
+  }
+
+  Widget _buildBinaryPlaceholder(
+    OpenCodeTheme oc, {
+    required String fileName,
+    required IconData icon,
+    required String label,
+    String? subtitle,
+  }) {
+    return Column(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Container(
+          width: 64,
+          height: 64,
+          decoration: BoxDecoration(
+            color: oc.borderSubtle.withValues(alpha: 0.3),
+            borderRadius: BorderRadius.circular(12),
+          ),
+          child: Icon(icon, size: 32, color: oc.textMuted),
+        ),
+        const SizedBox(height: 12),
+        Text(
+          label,
+          style: GoogleFonts.inter(
+            fontSize: 14,
+            fontWeight: FontWeight.w600,
+            color: oc.text,
+          ),
+        ),
+        const SizedBox(height: 4),
+        Text(
+          fileName,
+          style: GoogleFonts.inter(fontSize: 12, color: oc.textMuted),
+        ),
+        if (subtitle != null) ...[
+          const SizedBox(height: 2),
+          Text(
+            subtitle,
+            style: GoogleFonts.inter(fontSize: 11, color: oc.textMuted),
+          ),
+        ],
+      ],
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final oc = OpenCodeTheme.of(context);
     final title = widget.title ?? widget.path;
+    final isBinary = _fileContent?.isBinary ?? false;
 
     return Scaffold(
       backgroundColor: oc.background,
@@ -87,6 +223,8 @@ class _TextFileViewerScreenState extends ConsumerState<TextFileViewerScreen> {
                   child: Text(_error!, style: TextStyle(color: oc.textMuted)),
                 ),
               )
+            : isBinary
+            ? _buildBinaryView(oc)
             : Container(
                 width: double.infinity,
                 padding: const EdgeInsets.all(16),
@@ -103,4 +241,3 @@ class _TextFileViewerScreenState extends ConsumerState<TextFileViewerScreen> {
     );
   }
 }
-

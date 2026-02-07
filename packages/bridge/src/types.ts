@@ -21,14 +21,22 @@ export type Todo = {
 
 // Slash command from OpenCode SDK
 // See: https://opencode.ai/docs/commands
+export type CommandSource = 'command' | 'mcp' | 'skill'
+
 export type Command = {
   name: string
   description?: string
-  builtin: boolean
-  agent?: string    // Specific agent to use (e.g., "build", "plan")
-  model?: string    // Specific model to use (e.g., "anthropic/claude-sonnet-4")
-  template?: string // Command template (for custom commands)
+  source?: CommandSource
+  agent?: string // Specific agent to use (e.g., "build", "plan")
+  model?: string // Specific model to use (e.g., "anthropic/claude-sonnet-4")
+  template?: string // Command template
   subtask?: boolean // Run as background subtask
+  hints: string[] // Autocomplete hints
+}
+
+export type AgentModelRef = {
+  modelID: string
+  providerID: string
 }
 
 // Agent from OpenCode SDK
@@ -37,6 +45,16 @@ export type Agent = {
   description?: string
   color?: string
   mode: 'primary' | 'subagent' | 'all'
+  native?: boolean
+  hidden?: boolean
+  topP?: number
+  temperature?: number
+  permission?: PermissionRuleset
+  model?: AgentModelRef
+  variant?: string
+  prompt?: string
+  options?: Record<string, unknown>
+  steps?: number
 }
 
 // Agent type for multi-agent support
@@ -68,7 +86,7 @@ export type ClientMessage =
   | { type: 'list_devices' }
   | { type: 'disconnect_device'; deviceId: string }
   | { type: 'list_projects' }
-  | { type: 'list_sessions'; projectPath?: string }
+  | { type: 'list_sessions'; projectPath?: string; roots?: boolean; start?: number; search?: string; limit?: number }
   | { type: 'list_providers' }
   | { type: 'get_config'; projectPath?: string }
   | { type: 'set_config'; config: Record<string, any>; projectPath?: string }
@@ -76,7 +94,7 @@ export type ClientMessage =
   | { type: 'create_session'; projectPath?: string; title?: string; permission?: PermissionRuleset }
   | { type: 'get_session'; sessionId: string; projectPath?: string }
   | { type: 'get_session_messages'; sessionId: string; projectPath?: string; limit?: number }
-  | { type: 'chat'; sessionId: string; content: string; projectPath?: string; messageId?: string; model?: { providerID: string; modelID: string }; agent?: string; fileAttachments?: FileAttachment[]; variant?: string }
+  | { type: 'chat'; sessionId: string; content: string; projectPath?: string; messageId?: string; model?: { providerID: string; modelID: string }; agent?: string; fileAttachments?: FileAttachment[]; variant?: string; noReply?: boolean; tools?: Record<string, boolean>; system?: string }
   | { type: 'abort'; sessionId: string; projectPath?: string }
   | { type: 'diff'; sessionId: string; projectPath?: string; messageId?: string }
   | { type: 'browse'; path: string; projectPath?: string }
@@ -89,7 +107,17 @@ export type ClientMessage =
   | { type: 'get_todos'; sessionId: string; projectPath?: string }
   // Feature 2: Slash Commands
   | { type: 'list_commands'; projectPath?: string }
-  | { type: 'execute_command'; sessionId: string; command: string; arguments: string; projectPath?: string; agent?: string; model?: string }
+  | {
+      type: 'execute_command'
+      sessionId: string
+      command: string
+      arguments: string
+      projectPath?: string
+      agent?: string
+      model?: string
+      variant?: string
+      parts?: Array<{ id?: string; type: 'file'; mime: string; filename?: string; url: string; source?: Record<string, unknown> }>
+    }
   // Feature 3: Agent Switching
   | { type: 'list_agents'; projectPath?: string }
   // Feature 4: Session Delete
@@ -98,6 +126,7 @@ export type ClientMessage =
   | { type: 'update_session'; sessionId: string; title?: string; archived?: boolean; projectPath?: string }
   // Feature 6: Session Fork
   | { type: 'fork_session'; sessionId: string; messageId?: string; projectPath?: string }
+  | { type: 'session_children'; sessionId: string; projectPath?: string }
   // Feature 7: Message Revert (Undo)
   | { type: 'revert_message'; sessionId: string; messageId: string; partId?: string; projectPath?: string }
   | { type: 'unrevert_session'; sessionId: string; projectPath?: string }
@@ -121,7 +150,7 @@ export type ClientMessage =
   | { type: 'get_session_status'; projectPath?: string }
   // Feature 14: PTY Terminal Sessions
   | { type: 'list_pty'; projectPath?: string }
-  | { type: 'create_pty'; command?: string; args?: string[]; cwd?: string; title?: string; projectPath?: string }
+  | { type: 'create_pty'; command?: string; args?: string[]; cwd?: string; title?: string; env?: Record<string, string>; projectPath?: string }
   | { type: 'get_pty'; ptyId: string; projectPath?: string }
   | { type: 'update_pty'; ptyId: string; title?: string; rows?: number; cols?: number; projectPath?: string }
   | { type: 'delete_pty'; ptyId: string; projectPath?: string }
@@ -132,16 +161,20 @@ export type ClientMessage =
   | { type: 'pty_resize'; ptyId: string; rows: number; cols: number; projectPath?: string }
   // Feature 15: MCP Server Management
   | { type: 'get_mcp_status'; projectPath?: string }
+  | { type: 'add_mcp'; name: string; config: Record<string, unknown>; projectPath?: string }
   | { type: 'connect_mcp'; name: string; projectPath?: string }
   | { type: 'disconnect_mcp'; name: string; projectPath?: string }
   | { type: 'get_mcp_resources'; projectPath?: string }
   // Feature 23: Git Worktrees (SDK v1.1.1+ experimental)
   | { type: 'list_worktrees'; projectPath?: string }
   | { type: 'create_worktree'; name?: string; startCommand?: string; projectPath?: string }
+  | { type: 'reset_worktree'; worktreeDirectory: string; projectPath?: string }
   | { type: 'delete_worktree'; name: string; projectPath?: string }
   // Feature 16: Full Provider Management
   | { type: 'list_all_providers'; projectPath?: string }
   | { type: 'get_provider_auth'; projectPath?: string }
+  | { type: 'provider_oauth_authorize'; providerId: string; method: number; projectPath?: string }
+  | { type: 'provider_oauth_callback'; providerId: string; method: number; code?: string; projectPath?: string }
   // Feature 17: Tool List
   | { type: 'list_tool_ids'; projectPath?: string }
   | { type: 'list_tools'; provider: string; model: string; projectPath?: string }
@@ -325,6 +358,7 @@ export type ProjectSummary = {
 
 export type SessionSummary = {
   id: string
+  slug?: string // URL-friendly slug (SDK v1.1.53+)
   title: string
   projectID: string
   directory: string
@@ -345,12 +379,14 @@ export type SessionSummary = {
       after: string
       additions: number
       deletions: number
+      status?: 'added' | 'deleted' | 'modified'
     }>
   }
   share?: {  // Feature 8: Session sharing info
     url: string
   }
   revert?: { messageID: string; partID?: string; snapshot?: string; diff?: string }
+  permission?: PermissionRuleset // Session-level permissions (SDK v1.1.53+)
 }
 
 // VCS/Git information from OpenCode SDK
@@ -458,6 +494,7 @@ export type ServerMessage =
   | { type: 'session_updated'; data: SessionSummary; sessionId: string; requestId?: string }
   // Feature 6: Session Fork
   | { type: 'session_forked'; data: SessionSummary; requestId?: string }
+  | { type: 'session_children'; data: SessionSummary[]; sessionId: string; requestId?: string }
   // Feature 7: Message Revert (Undo)
   | { type: 'message_reverted'; data: SessionSummary; sessionId: string; requestId?: string }
   | { type: 'session_unreverted'; data: SessionSummary; sessionId: string; requestId?: string }
@@ -502,16 +539,20 @@ export type ServerMessage =
   | { type: 'pty_exit'; ptyId: string; exitCode?: number }
   // Feature 15: MCP Server Management
   | { type: 'mcp_status'; data: Record<string, McpServerStatus>; requestId?: string }
+  | { type: 'mcp_added'; data: Record<string, McpServerStatus>; requestId?: string }
   | { type: 'mcp_connected'; data: boolean; name: string; requestId?: string }
   | { type: 'mcp_disconnected'; data: boolean; name: string; requestId?: string }
   | { type: 'mcp_resources'; data: Record<string, McpResource>; requestId?: string }
   // Feature 23: Git Worktrees
   | { type: 'worktrees'; data: Worktree[]; requestId?: string }
   | { type: 'worktree_created'; data: Worktree; requestId?: string }
+  | { type: 'worktree_reset'; data: boolean; worktreeDirectory: string; requestId?: string }
   | { type: 'worktree_deleted'; data: boolean; name: string; requestId?: string }
   // Feature 16: Full Provider Management
   | { type: 'all_providers'; data: ProviderInfo; requestId?: string }
   | { type: 'provider_auth'; data: Record<string, ProviderAuthMethod[]>; requestId?: string }
+  | { type: 'provider_oauth_authorized'; data: ProviderAuthAuthorization | null; providerId: string; requestId?: string }
+  | { type: 'provider_oauth_callback'; data: boolean; providerId: string; requestId?: string }
   // Feature 17: Tool List
   | { type: 'tool_ids'; data: string[]; requestId?: string }
   | { type: 'tools'; data: ToolInfo[]; requestId?: string }
@@ -619,8 +660,13 @@ export type ServerMessage =
 
 // Feature 11: File Content
 export type FileContent = {
+  type: 'text' | 'binary'
   content: string
-  mime: string
+  mime?: string
+  mimeType?: string
+  encoding?: 'base64'
+  diff?: string
+  patch?: unknown
 }
 
 // Feature 21: Binary File Content (images, PDFs, etc.)
@@ -671,7 +717,16 @@ export type PtySession = {
 // Feature 15: MCP Server Status
 export type McpServerStatus = {
   name: string
-  status: 'connected' | 'disconnected' | 'connecting' | 'error'
+  status:
+    | 'connected'
+    | 'disabled'
+    | 'failed'
+    | 'needs_auth'
+    | 'needs_client_registration'
+    // Legacy values kept for backward compatibility
+    | 'disconnected'
+    | 'connecting'
+    | 'error'
   error?: string
   tools?: string[]
   resources?: string[]
@@ -696,6 +751,10 @@ export type Worktree = {
 export type WorktreeCreateInput = {
   name?: string
   startCommand?: string
+}
+
+export type WorktreeResetInput = {
+  directory: string
 }
 
 // Feature 16: Provider Info
@@ -723,9 +782,16 @@ export type ModelInfo = {
 
 export type ProviderAuthMethod = {
   type: 'api' | 'oauth'
-  name: string
+  label?: string
+  name?: string
   description?: string
   url?: string
+}
+
+export type ProviderAuthAuthorization = {
+  url: string
+  method: 'auto' | 'code'
+  instructions: string
 }
 
 // Feature 17: Tool Info

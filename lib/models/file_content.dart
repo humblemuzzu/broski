@@ -1,22 +1,38 @@
 class FileContent {
   final String content;
   final String mime;
+  final String type;
+  final String? encoding;
 
-  const FileContent({required this.content, required this.mime});
+  const FileContent({
+    required this.content,
+    required this.mime,
+    this.type = 'text',
+    this.encoding,
+  });
 
   factory FileContent.fromJson(Map<String, dynamic> json) {
+    final mime =
+        (json['mimeType'] as String?) ??
+        (json['mime'] as String?) ??
+        'text/plain';
     return FileContent(
       content: json['content'] as String? ?? '',
-      mime: json['mime'] as String? ?? 'text/plain',
+      mime: mime,
+      type: (json['type'] as String? ?? 'text'),
+      encoding: json['encoding'] as String?,
     );
   }
 
+  bool get isBinary => type == 'binary';
+
   bool get isText =>
-      mime.startsWith('text/') ||
-      mime.contains('json') ||
-      mime.contains('xml') ||
-      mime.contains('javascript') ||
-      mime.contains('typescript');
+      !isBinary &&
+      (mime.startsWith('text/') ||
+          mime.contains('json') ||
+          mime.contains('xml') ||
+          mime.contains('javascript') ||
+          mime.contains('typescript'));
 
   bool get isImage => mime.startsWith('image/');
 
@@ -49,7 +65,6 @@ class FileContent {
     return 'plaintext';
   }
 
-  /// Get language hint from file extension
   static String languageFromPath(String path) {
     final ext = path.split('.').last.toLowerCase();
     switch (ext) {

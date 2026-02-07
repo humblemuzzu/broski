@@ -5,6 +5,8 @@ import 'package:google_fonts/google_fonts.dart';
 import '../models/message.dart';
 import '../theme/opencode_theme.dart';
 import 'chat/detail_sheet.dart';
+import 'retry_indicator.dart';
+import 'variant_badge.dart';
 
 class MessageBubble extends StatelessWidget {
   const MessageBubble({
@@ -164,6 +166,27 @@ class MessageBubble extends StatelessWidget {
                       child: Padding(
                         padding: const EdgeInsets.only(bottom: 8),
                         child: _buildStreamingCursor(theme),
+                      ),
+                    ),
+
+                  // Variant + retry badges using dedicated widgets
+                  if ((message.variant != null &&
+                          message.variant!.isNotEmpty) ||
+                      message.retryInfo != null)
+                    Padding(
+                      padding: const EdgeInsets.only(bottom: 6),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          if (message.variant != null &&
+                              message.variant!.isNotEmpty)
+                            Padding(
+                              padding: const EdgeInsets.only(bottom: 4),
+                              child: VariantBadge(variant: message.variant),
+                            ),
+                          if (message.retryInfo != null)
+                            RetryIndicator(retryInfo: message.retryInfo),
+                        ],
                       ),
                     ),
 

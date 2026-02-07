@@ -4,6 +4,7 @@ import 'package:google_fonts/google_fonts.dart';
 import '../models/message.dart';
 import '../theme/opencode_theme.dart';
 import '../utils/diff_utils.dart';
+import 'diff_status_badge.dart';
 
 class DiffViewer extends StatefulWidget {
   const DiffViewer({
@@ -80,6 +81,11 @@ class _DiffViewerState extends State<DiffViewer> {
                         ),
                       ),
                       const SizedBox(width: 8),
+                      if (widget.diff.status != null &&
+                          widget.diff.status!.isNotEmpty) ...[
+                        DiffStatusBadge(status: widget.diff.status),
+                        const SizedBox(width: 6),
+                      ],
                       // Inline badges
                       if (additions > 0)
                         Text(

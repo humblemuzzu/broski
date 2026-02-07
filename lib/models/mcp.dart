@@ -1,5 +1,13 @@
 /// MCP (Model Context Protocol) Server Status
-enum McpConnectionStatus { connected, disconnected, connecting, error }
+enum McpConnectionStatus {
+  connected,
+  disconnected,
+  connecting,
+  error,
+  disabled,
+  needsAuth,
+  needsClientRegistration,
+}
 
 class McpServerStatus {
   final String name;
@@ -41,7 +49,14 @@ class McpServerStatus {
       case 'connecting':
         return McpConnectionStatus.connecting;
       case 'error':
+      case 'failed':
         return McpConnectionStatus.error;
+      case 'disabled':
+        return McpConnectionStatus.disabled;
+      case 'needs_auth':
+        return McpConnectionStatus.needsAuth;
+      case 'needs_client_registration':
+        return McpConnectionStatus.needsClientRegistration;
       default:
         return McpConnectionStatus.disconnected;
     }
@@ -63,6 +78,12 @@ class McpServerStatus {
         return 'Connecting...';
       case McpConnectionStatus.error:
         return error ?? 'Error';
+      case McpConnectionStatus.disabled:
+        return 'Disabled';
+      case McpConnectionStatus.needsAuth:
+        return 'Needs auth';
+      case McpConnectionStatus.needsClientRegistration:
+        return 'Needs client registration';
     }
   }
 

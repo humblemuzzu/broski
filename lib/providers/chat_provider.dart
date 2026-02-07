@@ -963,6 +963,7 @@ class ChatSessionNotifier extends StateNotifier<ChatSessionState> {
                 deletions: d['deletions'] as int? ?? 0,
                 diff: d['diff'] as String?,
                 partId: d['partId'] as String?,
+                status: d['status'] as String?,
               ),
             );
           }
@@ -1361,6 +1362,15 @@ class ChatSessionNotifier extends StateNotifier<ChatSessionState> {
       case 'message.part.updated':
         _handleMessagePartUpdated(payload);
         break;
+      case 'message.removed':
+        _handleMessageRemoved(payload);
+        break;
+      case 'message.part.removed':
+        _handleMessagePartRemoved(payload);
+        break;
+      case 'mcp.tools.changed':
+        _handleMcpToolsChanged(payload);
+        break;
       case 'permission.updated':
       case 'permission.asked':
         _handlePermissionUpdated(payload);
@@ -1461,6 +1471,7 @@ class ChatSessionNotifier extends StateNotifier<ChatSessionState> {
     final created =
         info['time']?['created'] as int? ??
         DateTime.now().millisecondsSinceEpoch;
+    final variant = info['variant'] as String?;
 
     _rolesByMessageId[messageId] = role;
 
@@ -1473,13 +1484,14 @@ class ChatSessionNotifier extends StateNotifier<ChatSessionState> {
           role: role,
           createdAt: DateTime.fromMillisecondsSinceEpoch(created),
           text: '',
+          variant: variant,
         ),
       );
       return;
     }
 
     if (existing.role != role) {
-      final updated = _copyWithRole(existing, role);
+      final updated = _copyWithRole(existing, role).copyWith(variant: variant);
       _updateMessage(messageId, updated);
 
       // If parts arrived before message.updated, we may already have the user text.
@@ -1515,6 +1527,10 @@ class ChatSessionNotifier extends StateNotifier<ChatSessionState> {
         );
       }
     }
+
+    if (variant != null && variant != existing.variant) {
+      _updateMessage(messageId, existing.copyWith(variant: variant));
+    }
   }
 
   void _handleMessagePartUpdated(Map<String, dynamic> payload) {
@@ -1549,6 +1565,93 @@ class ChatSessionNotifier extends StateNotifier<ChatSessionState> {
     }
 
     final partType = part['type'] as String? ?? '';
+
+    if (partType == 'retry') {
+      final attempt = (part['attempt'] as num?)?.toInt() ?? 0;
+      final error = part['error'] as Map<String, dynamic>?;
+      final errorData = error?['data'] as Map<String, dynamic>?;
+      final errorMessage =
+          errorData?['message'] as String? ??
+          error?['message'] as String? ??
+          error?['name'] as String?;
+
+      final current = _messages[messageId] ?? message;
+      _updateMessage(
+        messageId,
+        current.copyWith(
+          retryInfo: RetryInfo(attempt: attempt, errorMessage: errorMessage),
+        ),
+      );
+      return;
+    }
+
+    if (partType == 'step-start' || partType == 'step-finish') {
+      final current = _messages[messageId] ?? message;
+      _updateMessage(
+        messageId,
+        current.copyWith(isStreaming: partType == 'step-start'),
+      );
+      return;
+    }
+
+    if (partType == 'file') {
+      final partId = part['id'] as String? ?? '';
+      final fileName = part['filename'] as String?;
+      final mime = part['mime'] as String? ?? '';
+      final url = part['url'] as String? ?? '';
+      final callId = partId.isNotEmpty
+          ? 'attachment:$partId'
+          : 'attachment:${DateTime.now().microsecondsSinceEpoch}';
+
+      final current = _messages[messageId] ?? message;
+      final attachmentTool = ToolCall(
+        callId: callId,
+        partId: partId.isNotEmpty ? partId : callId,
+        name: 'attachment',
+        status: 'completed',
+        title: fileName ?? 'Attachment',
+        input: {
+          if (fileName != null) 'filename': fileName,
+          'mime': mime,
+          'url': url,
+        },
+        output: fileName ?? url,
+        metadata: const {'source': 'file_part'},
+      );
+
+      final updatedTools = [
+        for (final tool in current.toolCalls)
+          if (tool.callId != callId) tool,
+        attachmentTool,
+      ];
+
+      _updateMessage(messageId, current.copyWith(toolCalls: updatedTools));
+      return;
+    }
+
+    if (partType == 'agent') {
+      final subtask = SubtaskNotification(
+        id:
+            part['id'] as String? ??
+            'agent-${DateTime.now().microsecondsSinceEpoch}',
+        description: part['name'] as String? ?? 'Agent',
+        agent: part['name'] as String? ?? 'agent',
+        sessionId: sessionId,
+      );
+      final current = _messages[messageId] ?? message;
+      final exists = current.subtaskNotifications.any(
+        (s) => s.id == subtask.id,
+      );
+      if (!exists) {
+        _updateMessage(
+          messageId,
+          current.copyWith(
+            subtaskNotifications: [...current.subtaskNotifications, subtask],
+          ),
+        );
+      }
+      return;
+    }
 
     if (partType == 'text') {
       final isSynthetic = part['synthetic'] as bool? ?? false;
@@ -1767,6 +1870,118 @@ class ChatSessionNotifier extends StateNotifier<ChatSessionState> {
     }
   }
 
+  void _handleMessageRemoved(Map<String, dynamic> payload) {
+    final properties =
+        payload['properties'] as Map<String, dynamic>? ?? const {};
+    final info = properties['info'] as Map<String, dynamic>? ?? const {};
+    final sessionId =
+        info['sessionID'] as String? ??
+        info['sessionId'] as String? ??
+        properties['sessionID'] as String? ??
+        properties['sessionId'] as String? ??
+        '';
+    if (state.session?.id != sessionId) return;
+
+    final messageId =
+        info['id'] as String? ??
+        properties['messageID'] as String? ??
+        properties['messageId'] as String? ??
+        '';
+    if (messageId.isEmpty) return;
+
+    final removedFromMap = _messages.remove(messageId) != null;
+    final removedFromOrder = _order.remove(messageId);
+    _rolesByMessageId.remove(messageId);
+    _pendingTextBuffers.remove(messageId);
+
+    if (removedFromMap || removedFromOrder) {
+      if (_suppressEmit) {
+        _pendingEmitMessages = true;
+      } else {
+        _emitMessages();
+      }
+    }
+  }
+
+  void _handleMessagePartRemoved(Map<String, dynamic> payload) {
+    final properties =
+        payload['properties'] as Map<String, dynamic>? ?? const {};
+    final part = properties['part'] as Map<String, dynamic>? ?? const {};
+
+    final sessionId =
+        part['sessionID'] as String? ??
+        part['sessionId'] as String? ??
+        properties['sessionID'] as String? ??
+        properties['sessionId'] as String? ??
+        '';
+    if (state.session?.id != sessionId) return;
+
+    final messageId =
+        part['messageID'] as String? ??
+        part['messageId'] as String? ??
+        properties['messageID'] as String? ??
+        properties['messageId'] as String? ??
+        '';
+    final partId =
+        part['id'] as String? ??
+        properties['partID'] as String? ??
+        properties['partId'] as String? ??
+        '';
+    if (messageId.isEmpty || partId.isEmpty) return;
+
+    final existing = _messages[messageId];
+    if (existing == null) return;
+
+    final partType = part['type'] as String?;
+    final updatedTools = existing.toolCalls
+        .where((tool) => tool.partId != partId && tool.callId != partId)
+        .toList();
+    final updatedDiffs = existing.diffs
+        .where((diff) => diff.partId != partId)
+        .toList();
+    final updatedSubtasks = existing.subtaskNotifications
+        .where((subtask) => subtask.id != partId)
+        .toList();
+    final updatedReasoning = existing.reasoningParts
+        .where((reasoning) => reasoning.id != partId)
+        .toList();
+
+    var updated = existing.copyWith(
+      toolCalls: updatedTools,
+      diffs: updatedDiffs,
+      subtaskNotifications: updatedSubtasks,
+      reasoningParts: updatedReasoning,
+      retryInfo: partType == 'retry' ? null : existing.retryInfo,
+      text: existing.text,
+    );
+
+    if (partType == 'step-finish') {
+      updated = updated.copyWith(isStreaming: false);
+    }
+
+    _updateMessage(messageId, updated);
+  }
+
+  void _handleMcpToolsChanged(Map<String, dynamic> payload) {
+    final properties =
+        payload['properties'] as Map<String, dynamic>? ?? const {};
+    final sessionId =
+        properties['sessionID'] as String? ??
+        properties['sessionId'] as String?;
+    if (sessionId != null &&
+        sessionId.isNotEmpty &&
+        state.session?.id != sessionId) {
+      return;
+    }
+
+    // Refresh cached tool inventory; UI consumers can refetch from providers.
+    unawaited(
+      _bridge
+          .listToolIds(projectPath: state.projectPath)
+          .catchError((_) => const <String>[]),
+    );
+  }
+
   void _handlePermissionUpdated(Map<String, dynamic> payload) {
     final permission =
         payload['properties'] as Map<String, dynamic>? ?? const {};
@@ -1954,6 +2169,9 @@ class ChatSessionNotifier extends StateNotifier<ChatSessionState> {
             after: item['after'] as String? ?? '',
             additions: item['additions'] as int? ?? 0,
             deletions: item['deletions'] as int? ?? 0,
+            diff: item['diff'] as String?,
+            partId: item['partId'] as String?,
+            status: item['status'] as String?,
           ),
         )
         .toList();
@@ -1996,13 +2214,20 @@ class ChatSessionNotifier extends StateNotifier<ChatSessionState> {
     String file = '';
     String before = '';
     String after = '';
+    String? fileStatus;
     int additions = 0;
     int deletions = 0;
 
     if (filediff is Map<String, dynamic>) {
-      file = filediff['file'] as String? ?? '';
+      file =
+          filediff['file'] as String? ??
+          filediff['path'] as String? ??
+          filediff['after'] as String? ??
+          filediff['before'] as String? ??
+          '';
       before = filediff['before'] as String? ?? '';
       after = filediff['after'] as String? ?? '';
+      fileStatus = filediff['status'] as String?;
       additions = (filediff['additions'] as num?)?.toInt() ?? 0;
       deletions = (filediff['deletions'] as num?)?.toInt() ?? 0;
     }
@@ -2011,6 +2236,7 @@ class ChatSessionNotifier extends StateNotifier<ChatSessionState> {
         ? file
         : (tool.input['filePath'] as String? ??
               tool.input['path'] as String? ??
+              tool.input['file'] as String? ??
               '');
 
     // If we only have a unified diff text, derive +/- counts from it.
@@ -2038,6 +2264,7 @@ class ChatSessionNotifier extends StateNotifier<ChatSessionState> {
       deletions: deletions,
       diff: diffText,
       partId: tool.partId,
+      status: fileStatus,
     );
   }
 

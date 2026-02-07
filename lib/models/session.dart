@@ -5,21 +5,25 @@ class SessionSummary {
     required this.projectID,
     required this.directory,
     required this.time,
+    this.slug,
     this.parentID,
     this.summary,
     this.share,
     this.revert,
+    this.permission,
   });
 
   final String id;
   final String title;
   final String projectID;
   final String directory;
+  final String? slug; // URL-friendly slug for session (SDK v1.1.53+)
   final String? parentID; // For forked sessions
   final SessionTime time;
   final SessionSummaryStats? summary;
   final SessionShare? share; // Share URL if shared
   final SessionRevert? revert; // Active revert state (non-null when reverted)
+  final List<Map<String, dynamic>>? permission; // Session-level permissions (SDK v1.1.53+)
 
   /// Whether this is a background/subagent task (title contains @agent subagent pattern)
   bool get isBackgroundTask {
@@ -54,6 +58,7 @@ class SessionSummary {
       title: json['title'] as String? ?? 'Untitled',
       projectID: json['projectID'] as String? ?? '',
       directory: json['directory'] as String? ?? '',
+      slug: json['slug'] as String?,
       parentID: json['parentID'] as String?,
       time: SessionTime.fromJson(
         json['time'] as Map<String, dynamic>? ?? const {},
@@ -69,6 +74,9 @@ class SessionSummary {
       revert: json['revert'] == null
           ? null
           : SessionRevert.fromJson(json['revert'] as Map<String, dynamic>),
+      permission: (json['permission'] as List<dynamic>?)
+          ?.map((p) => p as Map<String, dynamic>)
+          .toList(),
     );
   }
 
@@ -77,37 +85,58 @@ class SessionSummary {
     String? title,
     String? projectID,
     String? directory,
+    String? slug,
     String? parentID,
     SessionTime? time,
     SessionSummaryStats? summary,
     SessionShare? share,
     SessionRevert? revert,
+    List<Map<String, dynamic>>? permission,
   }) {
     return SessionSummary(
       id: id ?? this.id,
       title: title ?? this.title,
       projectID: projectID ?? this.projectID,
       directory: directory ?? this.directory,
+      slug: slug ?? this.slug,
       parentID: parentID ?? this.parentID,
       time: time ?? this.time,
       summary: summary ?? this.summary,
       share: share ?? this.share,
       revert: revert ?? this.revert,
+      permission: permission ?? this.permission,
     );
   }
 }
 
-/// Revert state for a session (non-null when session has been reverted)
+/// Revert state for a session (non-null when session has been reverted).
+///
+/// Matches SDK `Session.revert`:
+///   `{ messageID: string; partID?: string; snapshot?: string; diff?: string }`
 class SessionRevert {
-  const SessionRevert({this.id, this.timestamp});
+  const SessionRevert({this.messageID, this.partID, this.snapshot, this.diff});
 
-  final String? id;
-  final int? timestamp;
+  /// The message ID that was reverted to.
+  final String? messageID;
+
+  /// Optional part ID (for per-tool undo).
+  final String? partID;
+
+  /// Snapshot state identifier.
+  final String? snapshot;
+
+  /// Diff text describing the revert.
+  final String? diff;
+
+  /// Whether there is a valid revert in progress.
+  bool get isActive => messageID != null && messageID!.isNotEmpty;
 
   factory SessionRevert.fromJson(Map<String, dynamic> json) {
     return SessionRevert(
-      id: json['id'] as String?,
-      timestamp: json['timestamp'] as int? ?? json['time'] as int?,
+      messageID: json['messageID'] as String? ?? json['id'] as String?,
+      partID: json['partID'] as String?,
+      snapshot: json['snapshot'] as String?,
+      diff: json['diff'] as String?,
     );
   }
 }
@@ -178,6 +207,7 @@ class SessionDiff {
     required this.after,
     required this.additions,
     required this.deletions,
+    this.status,
   });
 
   final String file;
@@ -185,6 +215,7 @@ class SessionDiff {
   final String after;
   final int additions;
   final int deletions;
+  final String? status;
 
   factory SessionDiff.fromJson(Map<String, dynamic> json) {
     return SessionDiff(
@@ -193,6 +224,7 @@ class SessionDiff {
       after: json['after'] as String? ?? '',
       additions: json['additions'] as int? ?? 0,
       deletions: json['deletions'] as int? ?? 0,
+      status: json['status'] as String?,
     );
   }
 }
