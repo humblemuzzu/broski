@@ -1,6 +1,7 @@
 import { createFallbackLicenseCrypto, type LicenseCrypto } from './fallback'
 import { loadNativeLicense } from './native'
 import { loadStoredLicense, saveStoredLicense } from './store'
+export { verifyBinaryIntegrity, startPeriodicIntegrityCheck, stopPeriodicIntegrityCheck, type IntegrityResult } from './integrity'
 
 export type LocalLicenseState = {
   entitled: boolean

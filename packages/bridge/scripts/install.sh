@@ -68,6 +68,15 @@ echo "  Downloading ${BINARY_NAME}..."
 curl -fSL "${BASE_URL}/${BINARY_NAME}" -o "${INSTALL_DIR}/broski"
 chmod +x "${INSTALL_DIR}/broski"
 echo "  Downloaded to ${INSTALL_DIR}/broski"
+
+# ── Download signature file (integrity verification) ──
+echo "  Downloading signature..."
+if curl -fSL "${BASE_URL}/${BINARY_NAME}.sig" -o "${INSTALL_DIR}/broski.sig" 2>/dev/null; then
+  echo "  Signature downloaded to ${INSTALL_DIR}/broski.sig"
+else
+  echo "  ⚠ Signature not available (binary will still work, sentinel check active)"
+  rm -f "${INSTALL_DIR}/broski.sig" 2>/dev/null
+fi
 echo ""
 
 # ── Add to PATH ──────────────────────────────

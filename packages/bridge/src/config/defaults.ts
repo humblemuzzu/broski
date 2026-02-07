@@ -27,7 +27,7 @@ export function getDefaultConfig(): BroskiConfig {
     security: {
       tls: true,
       tokenTtlDays: 7,
-      verifyCodeSignature: false,
+      verifyCodeSignature: true, // Legacy field; integrity checks are always-on in compiled binaries regardless of this value.
     },
     agents: {
       opencode: true,

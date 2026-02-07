@@ -55,6 +55,18 @@ try {
     exit 1
 }
 Write-Host "  Downloaded to $OutputPath"
+
+# ── Download signature file (integrity verification) ──
+$SigUrl = "$BaseUrl/$BinaryName.sig"
+$SigPath = "$InstallDir\broski.exe.sig"
+Write-Host "  Downloading signature..."
+try {
+    Invoke-WebRequest -Uri $SigUrl -OutFile $SigPath -UseBasicParsing
+    Write-Host "  Signature downloaded to $SigPath"
+} catch {
+    Write-Host "  Warning: Signature not available (binary will still work, sentinel check active)"
+    if (Test-Path $SigPath) { Remove-Item $SigPath -Force }
+}
 Write-Host ""
 
 # ── Add to PATH ──────────────────────────────

@@ -1136,6 +1136,11 @@ export async function createBridgeServer(options: BridgeServerOptions): Promise<
 	  const allowTokenInUrl = !compiled && process.env.BROSKI_ALLOW_TOKEN_IN_URL === '1'
 	  // In production binaries, do not allow environment flags to weaken enforcement.
 	  const requireEntitlement = compiled ? true : isTruthyEnv(process.env.BROSKI_REQUIRE_ENTITLEMENT, !!options.cloud?.requireEntitlement)
+	  // Defense-in-depth: if we're compiled but entitlement somehow got disabled, abort.
+	  // This catches scenarios where someone patches the `compiled` const or ternary above.
+	  if (compiled && !requireEntitlement) {
+	    throw new Error('FATAL: Entitlement enforcement disabled in compiled binary. Binary may be tampered.')
+	  }
 	  const convexHttpBaseUrlRaw = (
 	    compiled
 	      ? (options.cloud?.convexHttpBaseUrl ?? '')

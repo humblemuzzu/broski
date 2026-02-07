@@ -1098,15 +1098,42 @@ async function main() {
       ? config.network.port
       : port
 
-  if (cli.subCommand === 'serve' && isCompiledBinary() && config.security.verifyCodeSignature) {
-    const { getLicenseCrypto } = await import('./license')
-    const crypto = getLicenseCrypto()
-    const ok = crypto.verifyCodesign(process.execPath)
-    if (!ok) {
-      console.error('❌ Integrity check failed: code signature verification failed.')
-      console.error('   The binary may be modified or unsigned.')
+  // Binary integrity check — always runs in compiled mode, cannot be disabled.
+  // Verifies: platform code signature (macOS/Windows) + security sentinel
+  // (critical constants like Ed25519 pubkey and Convex domain haven't been patched).
+  if (cli.subCommand === 'serve' && isCompiledBinary()) {
+    const { verifyBinaryIntegrity, startPeriodicIntegrityCheck } = await import('./license')
+
+    const integrity = verifyBinaryIntegrity()
+    if (!integrity.ok) {
+      const reasons = [
+        integrity.checks.codesign.ok ? null : integrity.checks.codesign.reason,
+        integrity.checks.sentinel.ok ? null : integrity.checks.sentinel.reason,
+        integrity.checks.signedHash.ok ? null : integrity.checks.signedHash.reason,
+      ].filter(Boolean)
+      console.error('❌ Integrity check failed:')
+      for (const reason of reasons) {
+        console.error(`   • ${reason}`)
+      }
+      console.error('   The binary may have been modified. Download a fresh copy from the official source.')
       process.exit(1)
     }
+
+    // Re-verify every 5 minutes in the background.
+    // Catches post-startup tampering (debugger attach, memory patching).
+    startPeriodicIntegrityCheck((result) => {
+      const reasons = [
+        result.checks.codesign.ok ? null : result.checks.codesign.reason,
+        result.checks.sentinel.ok ? null : result.checks.sentinel.reason,
+        result.checks.signedHash.ok ? null : result.checks.signedHash.reason,
+      ].filter(Boolean)
+      console.error('❌ Runtime integrity check failed:')
+      for (const reason of reasons) {
+        console.error(`   • ${reason}`)
+      }
+      console.error('   Shutting down for security.')
+      process.exit(1)
+    })
   }
 
   let bootstrap: OpencodeBootstrap | null = null

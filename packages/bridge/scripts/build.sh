@@ -105,6 +105,39 @@ build_target() {
   fi
 }
 
+# ──────────────────────────────────────────────
+# Compute security sentinel (integrity check hash)
+# ──────────────────────────────────────────────
+echo "  Computing security sentinel..."
+SENTINEL=$(node -e "
+const crypto = require('crypto');
+const values = [
+  'MCowBQYDK2VwAyEARXrmjPy-wNpwAzbarnZIQc9hvmOFrVLv5dTuGK2j-eM',
+  'BRSK-LICENSE',
+  '.convex.site',
+  'EdDSA',
+  'v1',
+];
+process.stdout.write(crypto.createHash('sha256').update(values.join('\x00')).digest('hex'));
+")
+echo "  Sentinel: ${SENTINEL}"
+
+# Verify the sentinel matches what's hardcoded in integrity.ts
+# (catches dev mistakes where someone updates a value but forgets to update the hash)
+# Extract only the hex chunk lines (they're the lines with just hex strings in single quotes)
+EXPECTED_IN_CODE=$(sed -n '/EXPECTED_SENTINEL_CHUNKS/,/^\]/p' src/license/integrity.ts \
+  | grep -oE "'[0-9a-f]+'" | tr -d "'" | tr -d '\n')
+if [ -n "$EXPECTED_IN_CODE" ] && [ "$EXPECTED_IN_CODE" = "$SENTINEL" ]; then
+  echo "  ✓ Sentinel matches hardcoded value in integrity.ts"
+else
+  echo "  ⚠ WARNING: Sentinel mismatch!"
+  echo "    Computed: ${SENTINEL}"
+  echo "    In code:  ${EXPECTED_IN_CODE}"
+  echo "    If you changed security constants, update EXPECTED_SENTINEL_CHUNKS in integrity.ts"
+  echo ""
+fi
+echo ""
+
 TARGETS="
 darwin-arm64:broski-darwin-arm64
 darwin-x64:broski-darwin-x64
@@ -133,6 +166,50 @@ if [ "$BUILT" -eq 0 ]; then
   echo "  Error: No targets matched '${TARGET_FILTER}'"
   echo "  Valid targets: darwin-arm64, darwin-x64, linux-x64, linux-arm64, windows-x64"
   exit 1
+fi
+
+# ──────────────────────────────────────────────
+# Sign each binary (create .sig sidecar files)
+# ──────────────────────────────────────────────
+# The .sig file contains an Ed25519 signature of the binary's SHA-256 hash.
+# This is the primary tamper-protection on Linux (no OS codesign) and
+# defense-in-depth on macOS/Windows.
+#
+# Requires BROSKI_LICENSE_PRIVATE_KEY_PKCS8_B64URL env var (same key used
+# by Convex to sign licenses). In CI, set this as a secret.
+# If not set, binaries ship unsigned (sentinel check is still active).
+
+SIGN_KEY="${BROSKI_LICENSE_PRIVATE_KEY_PKCS8_B64URL:-}"
+if [ -n "$SIGN_KEY" ]; then
+  echo ""
+  echo "  Signing binaries..."
+  for binary in "$DIST"/broski-*; do
+    [ -f "$binary" ] || continue
+    SIG_FILE="${binary}.sig"
+    # Compute SHA-256 → sign with Ed25519 → base64url
+    node -e "
+      const crypto = require('crypto');
+      const fs = require('fs');
+      const privDerB64 = process.env.BROSKI_LICENSE_PRIVATE_KEY_PKCS8_B64URL;
+      const privDer = Buffer.from(privDerB64, 'base64url');
+      const privKey = crypto.createPrivateKey({ key: privDer, format: 'der', type: 'pkcs8' });
+      const binaryData = fs.readFileSync('${binary}');
+      const hash = crypto.createHash('sha256').update(binaryData).digest('hex');
+      const sig = crypto.sign(null, Buffer.from(hash, 'utf-8'), privKey);
+      fs.writeFileSync('${SIG_FILE}', sig.toString('base64url'));
+    " 2>/dev/null
+
+    if [ -f "$SIG_FILE" ]; then
+      echo "    ✓ Signed: $(basename "$binary") → $(basename "$SIG_FILE")"
+    else
+      echo "    ✗ Failed to sign: $(basename "$binary")"
+    fi
+  done
+else
+  echo ""
+  echo "  ⚠ Skipping binary signing (BROSKI_LICENSE_PRIVATE_KEY_PKCS8_B64URL not set)"
+  echo "    Set this env var in CI to enable .sig sidecar files."
+  echo "    Binaries will still work but without signed hash verification on Linux."
 fi
 
 # Print file sizes
