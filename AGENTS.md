@@ -365,6 +365,18 @@ To add `xx_list_widgets` for agent XX:
 - `guides/*.md` — 20 guides covering streaming, permissions, hooks, sessions, MCP, subagents, plugins, etc.
 - When working on the Claude Code bridge connector, READ these docs for the latest API patterns
 
+> **⚠️ TRUST ORDER FOR CLAUDE CODE SDK (read this before any SDK work):**
+>
+> **First: make sure the SDK is up to date!** Run `cd packages/bridge && npm update @anthropic-ai/claude-agent-sdk` before comparing types. We got burned comparing against stale `0.1.76` when latest was `0.2.34` — the docs were right, our package was old.
+>
+> Once the SDK package is current, these three sources should agree. If they don't:
+>
+> 1. 🥇 **`reference/cc-docs/`** — official API docs manually copied from https://platform.claude.com/docs/en/agent-sdk/. Best for types, patterns, and how-to guides. This is the **primary reference** for SDK work.
+> 2. 🥈 **Installed SDK `.d.ts` files** (`packages/bridge/node_modules/@anthropic-ai/claude-agent-sdk/sdk.d.ts`) — the actual compiled types. Use to **verify** when docs seem wrong or incomplete. If docs and `.d.ts` disagree and the package is current, trust `.d.ts` (docs may not have been updated yet for a recent release).
+> 3. 🥉 **`reference/claude-code/` CHANGELOG** — tells you what's new in the **Claude Code CLI app**, NOT necessarily the Agent SDK npm package. Features sometimes land in the CLI first. Relevant for filesystem features (hooks files, agent `.md` files, memory dirs, `.claude/` structure) since we read/write those directly.
+>
+> **Rule of thumb:** cc-docs for learning, `.d.ts` for verifying, CHANGELOG for CLI-only features.
+
 ### SDK Sync Workflow
 
 1. Run `./reference/sync-refs.sh --all` — pulls all SDK repos + auto-generates diff report

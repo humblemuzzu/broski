@@ -263,26 +263,9 @@ class CCConfigNotifier extends StateNotifier<AsyncValue<ClaudeCodeConfig>> {
     final current = state.valueOrNull;
     if (current == null) return;
 
-    // copyWith can't set model to null (uses ?? this.model).
-    // Construct a new config directly when clearing model.
-    final updated = ClaudeCodeConfig(
-      permissionMode: current.permissionMode,
-      allowedTools: current.allowedTools,
-      disallowedTools: current.disallowedTools,
-      model: model, // explicitly null when clearing
-      systemPrompt: current.systemPrompt,
-      maxTurns: current.maxTurns,
-      maxBudgetUsd: current.maxBudgetUsd,
-      betas: current.betas,
-      sandbox: current.sandbox,
-      outputFormat: current.outputFormat,
-      enableAgentTeams: current.enableAgentTeams,
-      language: current.language,
-      releaseChannel: current.releaseChannel,
-      respectGitignore: current.respectGitignore,
-      subagents: current.subagents,
-      activeSubagent: current.activeSubagent,
-    );
+    final updated = model == null
+        ? current.copyWith(clearModel: true)
+        : current.copyWith(model: model);
     await updateConfig(updated);
   }
 

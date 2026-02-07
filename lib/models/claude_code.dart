@@ -811,41 +811,69 @@ class ClaudeCodeConfig {
     };
   }
 
+  /// Sentinel used by [copyWith] so callers can explicitly set nullable fields
+  /// to `null`. Pass [clearModel] (etc.) to remove the value rather than keep
+  /// the old one.  Example:
+  /// ```dart
+  /// config.copyWith(model: null)   // keeps existing model (no-op)
+  /// config.copyWith(clearModel: true) // sets model to null
+  /// ```
   ClaudeCodeConfig copyWith({
     ClaudeCodePermissionMode? permissionMode,
     List<String>? allowedTools,
     List<String>? disallowedTools,
     String? model,
+    bool clearModel = false,
     ClaudeCodeSystemPrompt? systemPrompt,
+    bool clearSystemPrompt = false,
     int? maxTurns,
+    bool clearMaxTurns = false,
     double? maxBudgetUsd,
+    bool clearMaxBudgetUsd = false,
     List<String>? betas,
+    bool clearBetas = false,
     ClaudeCodeSandboxSettings? sandbox,
+    bool clearSandbox = false,
     ClaudeCodeOutputFormat? outputFormat,
+    bool clearOutputFormat = false,
     bool? enableAgentTeams,
+    bool clearEnableAgentTeams = false,
     String? language,
+    bool clearLanguage = false,
     String? releaseChannel,
+    bool clearReleaseChannel = false,
     bool? respectGitignore,
+    bool clearRespectGitignore = false,
     List<ClaudeCodeSubagent>? subagents,
     String? activeSubagent,
+    bool clearActiveSubagent = false,
   }) {
     return ClaudeCodeConfig(
       permissionMode: permissionMode ?? this.permissionMode,
       allowedTools: allowedTools ?? this.allowedTools,
       disallowedTools: disallowedTools ?? this.disallowedTools,
-      model: model ?? this.model,
-      systemPrompt: systemPrompt ?? this.systemPrompt,
-      maxTurns: maxTurns ?? this.maxTurns,
-      maxBudgetUsd: maxBudgetUsd ?? this.maxBudgetUsd,
-      betas: betas ?? this.betas,
-      sandbox: sandbox ?? this.sandbox,
-      outputFormat: outputFormat ?? this.outputFormat,
-      enableAgentTeams: enableAgentTeams ?? this.enableAgentTeams,
-      language: language ?? this.language,
-      releaseChannel: releaseChannel ?? this.releaseChannel,
-      respectGitignore: respectGitignore ?? this.respectGitignore,
+      model: clearModel ? null : (model ?? this.model),
+      systemPrompt:
+          clearSystemPrompt ? null : (systemPrompt ?? this.systemPrompt),
+      maxTurns: clearMaxTurns ? null : (maxTurns ?? this.maxTurns),
+      maxBudgetUsd:
+          clearMaxBudgetUsd ? null : (maxBudgetUsd ?? this.maxBudgetUsd),
+      betas: clearBetas ? null : (betas ?? this.betas),
+      sandbox: clearSandbox ? null : (sandbox ?? this.sandbox),
+      outputFormat:
+          clearOutputFormat ? null : (outputFormat ?? this.outputFormat),
+      enableAgentTeams: clearEnableAgentTeams
+          ? null
+          : (enableAgentTeams ?? this.enableAgentTeams),
+      language: clearLanguage ? null : (language ?? this.language),
+      releaseChannel:
+          clearReleaseChannel ? null : (releaseChannel ?? this.releaseChannel),
+      respectGitignore: clearRespectGitignore
+          ? null
+          : (respectGitignore ?? this.respectGitignore),
       subagents: subagents ?? this.subagents,
-      activeSubagent: activeSubagent ?? this.activeSubagent,
+      activeSubagent:
+          clearActiveSubagent ? null : (activeSubagent ?? this.activeSubagent),
     );
   }
 }
