@@ -299,8 +299,65 @@ function encodeProjectPath(path: string): string {
   // Normalize Windows backslashes to forward slashes for consistent encoding.
   // Claude Code encodes `/Users/me/repo` as `-Users-me-repo`.
   // On Windows, `C:\Users\me\repo` → `C:/Users/me/repo` → `-C:-Users-me-repo`.
+  // Claude Code also replaces spaces with dashes:
+  //   `/Users/me/Code stuff/repo` → `-Users-me-Code-stuff-repo`
   const normalized = path.replaceAll('\\', '/')
-  return normalized.replaceAll('/', '-')
+  return normalized.replaceAll('/', '-').replaceAll(' ', '-')
+}
+
+/**
+ * Reverse-decode a project directory name back to a real filesystem path.
+ *
+ * The encoding replaces both `/` and ` ` with `-`, making it lossy.
+ * We reconstruct the path greedily: starting from `/`, at each `-` boundary
+ * we try treating it as a directory separator first, then as a space, then as
+ * a literal dash.  We pick the interpretation where the directory actually
+ * exists on disk.  If nothing matches, we give up and return null.
+ */
+async function decodeProjectDirName(dirName: string): Promise<string | null> {
+  // Strip the leading dash that represents the root `/`
+  if (!dirName.startsWith('-')) return null
+  const rest = dirName.slice(1)
+  if (!rest) return '/'
+
+  const segments = rest.split('-')
+  if (segments.length === 0) return null
+
+  // Greedy path reconstruction with filesystem verification
+  async function resolve(idx: number, current: string): Promise<string | null> {
+    if (idx >= segments.length) {
+      // All segments consumed – verify the full path exists
+      return (await existsDir(current)) ? current : null
+    }
+
+    // Try building the next path component by joining successive segments
+    // with spaces first (longer match = fewer ambiguous decisions).
+    // For each candidate, recurse.
+    for (let end = segments.length; end > idx; end--) {
+      const component = segments.slice(idx, end).join(' ')
+      const candidateSep = current + '/' + component
+      if (await existsDir(candidateSep)) {
+        if (end >= segments.length) return candidateSep
+        const deeper = await resolve(end, candidateSep)
+        if (deeper) return deeper
+      }
+    }
+
+    // Also try joining with dashes (literal dashes in the original name)
+    for (let end = segments.length; end > idx + 1; end--) {
+      const component = segments.slice(idx, end).join('-')
+      const candidateSep = current + '/' + component
+      if (await existsDir(candidateSep)) {
+        if (end >= segments.length) return candidateSep
+        const deeper = await resolve(end, candidateSep)
+        if (deeper) return deeper
+      }
+    }
+
+    return null
+  }
+
+  return resolve(0, '')
 }
 
 async function existsDir(path: string): Promise<boolean> {
@@ -318,13 +375,22 @@ async function getProjectSessionsDir(cwd: string): Promise<string> {
   if (await existsDir(direct)) return direct
 
   // Fallback: scan and pick the directory with a name suffix match to reduce collisions.
+  // Match both the space-aware encoding AND any trailing segment.
   const base = encoded.replaceAll(/^-+/, '')
   try {
     const entries = await readdir(CLAUDE_PROJECTS_DIR, { withFileTypes: true })
     const candidates = entries
       .filter((e) => e.isDirectory())
       .map((e) => join(CLAUDE_PROJECTS_DIR, e.name))
-      .filter((p) => p.endsWith(base))
+      .filter((p) => {
+        const name = basename(p)
+        // Direct suffix match
+        if (name.endsWith(base)) return true
+        // Normalize both sides: collapse spaces and dashes for comparison
+        const normName = name.toLowerCase()
+        const normBase = base.toLowerCase()
+        return normName.endsWith(normBase)
+      })
     if (candidates.length > 0) return candidates[0]
   } catch {
     // ignore
@@ -557,9 +623,12 @@ export async function resolveSessionFilePath(sessionId: string, cwd?: string): P
 }
 
 export async function listProjects(): Promise<ProjectSummary[]> {
+  const seenPaths = new Set<string>()
+  const projects: ProjectSummary[] = []
+
+  // ── Source 1: ~/.claude/projects/ (central session store) ──────────────
   try {
     const entries = await readdir(CLAUDE_PROJECTS_DIR, { withFileTypes: true })
-    const projects: ProjectSummary[] = []
 
     for (const entry of entries) {
       if (!entry.isDirectory()) continue
@@ -586,22 +655,114 @@ export async function listProjects(): Promise<ProjectSummary[]> {
       }
 
       const preview = latestFile ? await readSessionPreview(latestFile.path) : {}
-      const cwd = preview.cwd
+      let cwd = preview.cwd
+
+      // If no .jsonl files or no cwd in preview, decode the directory name
+      // back to a real filesystem path.
+      if (!cwd) {
+        cwd = await decodeProjectDirName(entry.name)
+      }
+
       if (!cwd) continue
+      if (seenPaths.has(cwd)) continue
+      seenPaths.add(cwd)
 
       projects.push({
         id: cwd,
-        name: basename(cwd),
+        name: basename(cwd) || cwd,
         path: cwd,
         lastOpened: latestFile?.mtime ?? dirSt?.mtime?.getTime(),
       })
     }
-
-    // Most recently touched first
-    projects.sort((a, b) => (b.lastOpened ?? 0) - (a.lastOpened ?? 0))
-    return projects
   } catch {
-    return []
+    // ignore – projects dir may not exist yet
+  }
+
+  // ── Source 2: scan common directories for local .claude/ folders ───────
+  // Projects where Claude was initialized but may not have centrally-stored sessions.
+  const home = homedir()
+  const scanRoots = [
+    join(home, 'Documents'),
+    join(home, 'StudioProjects'),
+    join(home, 'Desktop'),
+    join(home, 'Projects'),
+    join(home, 'Developer'),
+    join(home, 'repos'),
+    join(home, 'src'),
+    join(home, 'code'),
+    join(home, 'Code'),
+    join(home, 'workspace'),
+    join(home, 'dev'),
+  ]
+
+  for (const root of scanRoots) {
+    try {
+      await discoverClaudeProjects(root, 0, 5, seenPaths, projects)
+    } catch {
+      // root doesn't exist or isn't readable – skip
+    }
+  }
+
+  // Most recently touched first
+  projects.sort((a, b) => (b.lastOpened ?? 0) - (a.lastOpened ?? 0))
+  return projects
+}
+
+/**
+ * Recursively scan a directory tree for folders containing `.claude/` with
+ * `settings.local.json` or a sibling `CLAUDE.md` — indicators that Claude
+ * Code was used in that project.  Skips node_modules, .git, etc.
+ */
+async function discoverClaudeProjects(
+  dir: string,
+  depth: number,
+  maxDepth: number,
+  seen: Set<string>,
+  out: ProjectSummary[],
+): Promise<void> {
+  if (depth > maxDepth) return
+
+  let entries: import('node:fs').Dirent[]
+  try {
+    entries = await readdir(dir, { withFileTypes: true })
+  } catch {
+    return
+  }
+
+  // Skip uninteresting directories
+  const dirBase = basename(dir)
+  if (['node_modules', '.git', '.svn', 'build', 'dist', '.cache', '.Trash'].includes(dirBase)) return
+
+  // Check if THIS directory has a .claude/ folder
+  const hasClaudeDir = entries.some((e) => e.isDirectory() && e.name === '.claude')
+  if (hasClaudeDir && !seen.has(dir)) {
+    // Verify the user actually ran Claude here by checking for local settings
+    // (settings.local.json is created by Claude Code when the user runs it).
+    // CLAUDE.md alone doesn't count — cloned repos may include it.
+    const claudeDir = join(dir, '.claude')
+    const isRealProject = await Promise.all([
+      stat(join(claudeDir, 'settings.local.json')).catch(() => null),
+      stat(join(claudeDir, 'settings.json')).catch(() => null),
+    ]).then(([a, b]) => a || b)
+
+    if (isRealProject) {
+      seen.add(dir)
+      const claudeSt = await stat(claudeDir).catch(() => null)
+      out.push({
+        id: dir,
+        name: basename(dir),
+        path: dir,
+        lastOpened: claudeSt?.mtime?.getTime(),
+      })
+    }
+  }
+
+  // Recurse into subdirectories
+  for (const entry of entries) {
+    if (!entry.isDirectory()) continue
+    if (entry.name.startsWith('.') && entry.name !== '.claude') continue
+    if (['node_modules', '.git', '.svn', 'build', 'dist', '.cache', '.Trash'].includes(entry.name)) continue
+    await discoverClaudeProjects(join(dir, entry.name), depth + 1, maxDepth, seen, out)
   }
 }
 
@@ -932,8 +1093,7 @@ export async function forkSession(sessionId: string, messageId?: string, cwd?: s
  */
 export async function renameSession(sessionId: string, name: string, cwd?: string): Promise<ClaudeCodeSession | null> {
   const projectPath = cwd || process.cwd()
-  const encodedPath = encodeProjectPath(projectPath)
-  const claudeDir = join(homedir(), '.claude', 'projects', encodedPath)
+  const claudeDir = await getProjectSessionsDir(projectPath)
   const sessionFile = join(claudeDir, `${sessionId}.jsonl`)
   
   try {
