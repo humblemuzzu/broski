@@ -162,6 +162,30 @@ final ccCommandsProvider =
       return bridge.ccListCommands(cwd: cwd);
     });
 
+final ccSupportedModelsProvider =
+    FutureProvider.family<List<ClaudeCodeSupportedModel>, String?>((
+      ref,
+      cwd,
+    ) async {
+      final bridge = ref.watch(bridgeServiceProvider);
+      return bridge.ccGetSupportedModels(cwd: cwd);
+    });
+
+final ccAccountInfoProvider =
+    FutureProvider.family<ClaudeCodeAccountInfo, String?>((ref, cwd) async {
+      final bridge = ref.watch(bridgeServiceProvider);
+      return bridge.ccGetAccountInfo(cwd: cwd);
+    });
+
+final ccMcpServerStatusProvider =
+    FutureProvider.family<List<ClaudeCodeMcpServerStatus>, String?>((
+      ref,
+      cwd,
+    ) async {
+      final bridge = ref.watch(bridgeServiceProvider);
+      return bridge.ccGetMcpServerStatus(cwd: cwd);
+    });
+
 final ccConfigProvider =
     StateNotifierProvider<CCConfigNotifier, AsyncValue<ClaudeCodeConfig>>((
       ref,
@@ -234,12 +258,31 @@ class CCConfigNotifier extends StateNotifier<AsyncValue<ClaudeCodeConfig>> {
     }
   }
 
-  /// Set the model for Claude Code (null for Auto)
+  /// Set the model for Claude Code (null for Default/Recommended)
   Future<void> setModel(String? model) async {
     final current = state.valueOrNull;
     if (current == null) return;
 
-    final updated = current.copyWith(model: model);
+    // copyWith can't set model to null (uses ?? this.model).
+    // Construct a new config directly when clearing model.
+    final updated = ClaudeCodeConfig(
+      permissionMode: current.permissionMode,
+      allowedTools: current.allowedTools,
+      disallowedTools: current.disallowedTools,
+      model: model, // explicitly null when clearing
+      systemPrompt: current.systemPrompt,
+      maxTurns: current.maxTurns,
+      maxBudgetUsd: current.maxBudgetUsd,
+      betas: current.betas,
+      sandbox: current.sandbox,
+      outputFormat: current.outputFormat,
+      enableAgentTeams: current.enableAgentTeams,
+      language: current.language,
+      releaseChannel: current.releaseChannel,
+      respectGitignore: current.respectGitignore,
+      subagents: current.subagents,
+      activeSubagent: current.activeSubagent,
+    );
     await updateConfig(updated);
   }
 

@@ -813,6 +813,7 @@ class StorageService {
         'contextWindow': c.tokens.contextWindow,
       },
       'cost': c.cost,
+      if (c.budgetLimitUsd != null) 'budgetLimitUsd': c.budgetLimitUsd,
       'lsp': c.lsp.map((l) => _lspServerToJson(l)).toList(),
       'modifiedFiles': c.modifiedFiles
           .map((f) => _modifiedFileToJson(f))

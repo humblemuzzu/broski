@@ -2355,6 +2355,19 @@ class ChatSessionNotifier extends StateNotifier<ChatSessionState> {
       return;
     }
 
+    if (message is CCCompactBoundary) {
+      final compactionMsg = ChatMessage(
+        id: 'cc-compaction-${DateTime.now().microsecondsSinceEpoch}',
+        sessionId: state.ccSessionId ?? '',
+        role: MessageRole.system,
+        createdAt: DateTime.now(),
+        text: 'Conversation compacted (${message.trigger})',
+        error: 'context_compacted',
+      );
+      _addMessage(compactionMsg);
+      return;
+    }
+
     if (message is CCPermissionRequest) {
       // Surface as the existing permission prompt UI (haptics + bottom sheet)
       final request = PermissionRequest(

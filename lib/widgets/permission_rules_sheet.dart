@@ -885,6 +885,10 @@ class _PermissionModeOption extends StatelessWidget {
         return 'Read-only research and planning';
       case ClaudeCodePermissionMode.bypassPermissions:
         return 'Skip all permission prompts';
+      case ClaudeCodePermissionMode.delegate:
+        return 'Delegate mode for teammate/task workflows';
+      case ClaudeCodePermissionMode.dontAsk:
+        return 'Never prompt; deny unapproved actions';
     }
   }
 
@@ -898,6 +902,10 @@ class _PermissionModeOption extends StatelessWidget {
         return Icons.description_outlined;
       case ClaudeCodePermissionMode.bypassPermissions:
         return Icons.speed_rounded;
+      case ClaudeCodePermissionMode.delegate:
+        return Icons.groups_rounded;
+      case ClaudeCodePermissionMode.dontAsk:
+        return Icons.block_rounded;
     }
   }
 
@@ -912,6 +920,10 @@ class _PermissionModeOption extends StatelessWidget {
         return theme.warning;
       case ClaudeCodePermissionMode.bypassPermissions:
         return theme.error;
+      case ClaudeCodePermissionMode.delegate:
+        return theme.info;
+      case ClaudeCodePermissionMode.dontAsk:
+        return theme.warning;
     }
   }
 

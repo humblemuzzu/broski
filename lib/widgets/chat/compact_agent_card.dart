@@ -39,9 +39,11 @@ class CompactAgentCard extends ConsumerWidget {
     if (_isNotification) {
       return _notification?.agent ?? 'general';
     }
+    final tool = _tool;
+    if (tool == null) return 'general';
     // Task tool input has 'subagent_type' or 'name' field
-    return _tool!.input['subagent_type'] as String? ??
-        _tool!.input['name'] as String? ??
+    return tool.input['subagent_type'] as String? ??
+        tool.input['name'] as String? ??
         'general';
   }
 
@@ -50,7 +52,9 @@ class CompactAgentCard extends ConsumerWidget {
     if (_isNotification) {
       return _notification!.description;
     }
-    return _tool!.input['description'] as String? ?? '';
+    final tool = _tool;
+    if (tool == null) return '';
+    return tool.input['description'] as String? ?? '';
   }
 
   /// Extract prompt
@@ -58,7 +62,9 @@ class CompactAgentCard extends ConsumerWidget {
     if (_isNotification) {
       return _notification!.prompt ?? '';
     }
-    return _tool!.input['prompt'] as String? ?? '';
+    final tool = _tool;
+    if (tool == null) return '';
+    return tool.input['prompt'] as String? ?? '';
   }
 
   /// Get status string
@@ -66,7 +72,9 @@ class CompactAgentCard extends ConsumerWidget {
     if (_isNotification) {
       return _notification!.isCompleted ? 'completed' : 'running';
     }
-    return _tool!.status;
+    final tool = _tool;
+    if (tool == null) return 'running';
+    return tool.status;
   }
 
   /// Get output
@@ -79,7 +87,7 @@ class CompactAgentCard extends ConsumerWidget {
       }
       return 'Completed';
     }
-    return _tool!.output;
+    return _tool?.output;
   }
 
   /// Get agent-specific icon
@@ -284,6 +292,19 @@ class CompactAgentCard extends ConsumerWidget {
               ),
             ),
 
+          if (nestedTools.isNotEmpty)
+            Padding(
+              padding: const EdgeInsets.only(bottom: 8),
+              child: Align(
+                alignment: Alignment.centerRight,
+                child: TextButton.icon(
+                  onPressed: () => _showFullActivitySheet(context, nestedTools),
+                  icon: const Icon(Icons.unfold_more_rounded, size: 16),
+                  label: const Text('Full activity'),
+                ),
+              ),
+            ),
+
           // Tool calls section (if any)
           if (nestedTools.isNotEmpty)
             DetailSection(
@@ -327,6 +348,76 @@ class CompactAgentCard extends ConsumerWidget {
                     styleSheet: _buildMarkdownStyle(theme),
                   ),
           ),
+        ],
+      ),
+    );
+  }
+
+  void _showFullActivitySheet(
+    BuildContext context,
+    List<Map<String, String>> nestedTools,
+  ) {
+    final theme = OpenCodeTheme.of(context);
+    DetailSheet.show(
+      context: context,
+      title: 'Agent Activity',
+      initialSize: 0.75,
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          for (int i = 0; i < nestedTools.length; i++) ...[
+            if (i > 0)
+              Divider(color: theme.borderSubtle.withValues(alpha: 0.35)),
+            const SizedBox(height: 8),
+            Row(
+              children: [
+                Icon(
+                  ToolStyle.getIcon(nestedTools[i]['name'] ?? 'tool'),
+                  color: ToolStyle.getColor(
+                    context,
+                    nestedTools[i]['name'] ?? 'tool',
+                  ),
+                  size: 14,
+                ),
+                const SizedBox(width: 8),
+                Expanded(
+                  child: Text(
+                    _capitalize(nestedTools[i]['name'] ?? 'tool'),
+                    style: TextStyle(
+                      color: theme.text,
+                      fontSize: 13,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                ),
+                Text(
+                  (nestedTools[i]['status'] ?? 'completed').toUpperCase(),
+                  style: TextStyle(
+                    color: theme.textMuted,
+                    fontSize: 10,
+                    fontWeight: FontWeight.w700,
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 6),
+            Container(
+              width: double.infinity,
+              padding: const EdgeInsets.all(10),
+              decoration: BoxDecoration(
+                color: theme.backgroundPanel,
+                borderRadius: BorderRadius.circular(10),
+                border: Border.all(color: theme.borderSubtle, width: 1),
+              ),
+              child: SelectableText(
+                (nestedTools[i]['output'] ?? '').isNotEmpty
+                    ? nestedTools[i]['output']!
+                    : (nestedTools[i]['preview'] ?? ''),
+                style: TextStyle(color: theme.text, fontSize: 12, height: 1.4),
+              ),
+            ),
+            const SizedBox(height: 6),
+          ],
         ],
       ),
     );
@@ -399,6 +490,7 @@ class CompactAgentCard extends ConsumerWidget {
                           ? '${t['output'].toString().substring(0, 80)}...'
                           : t['output'].toString()
                     : '',
+                'output': t['output']?.toString() ?? '',
               },
             )
             .toList();

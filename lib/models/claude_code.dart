@@ -4,7 +4,9 @@ enum ClaudeCodePermissionMode {
   defaultMode,
   acceptEdits,
   plan,
-  bypassPermissions;
+  bypassPermissions,
+  delegate,
+  dontAsk;
 
   String get wireValue {
     switch (this) {
@@ -16,6 +18,10 @@ enum ClaudeCodePermissionMode {
         return 'plan';
       case ClaudeCodePermissionMode.bypassPermissions:
         return 'bypassPermissions';
+      case ClaudeCodePermissionMode.delegate:
+        return 'delegate';
+      case ClaudeCodePermissionMode.dontAsk:
+        return 'dontAsk';
     }
   }
 
@@ -27,6 +33,10 @@ enum ClaudeCodePermissionMode {
         return ClaudeCodePermissionMode.plan;
       case 'bypassPermissions':
         return ClaudeCodePermissionMode.bypassPermissions;
+      case 'delegate':
+        return ClaudeCodePermissionMode.delegate;
+      case 'dontAsk':
+        return ClaudeCodePermissionMode.dontAsk;
       default:
         return ClaudeCodePermissionMode.defaultMode;
     }
@@ -42,6 +52,10 @@ enum ClaudeCodePermissionMode {
         return 'Plan Only';
       case ClaudeCodePermissionMode.bypassPermissions:
         return 'Bypass Permissions';
+      case ClaudeCodePermissionMode.delegate:
+        return 'Delegate';
+      case ClaudeCodePermissionMode.dontAsk:
+        return "Don't Ask";
     }
   }
 }
@@ -298,6 +312,278 @@ class ClaudeCodeSystemPrompt {
   }
 }
 
+class ClaudeCodeOutputFormat {
+  final String type;
+  final Map<String, dynamic> schema;
+
+  const ClaudeCodeOutputFormat({
+    this.type = 'json_schema',
+    required this.schema,
+  });
+
+  factory ClaudeCodeOutputFormat.fromJson(Map<String, dynamic> json) {
+    return ClaudeCodeOutputFormat(
+      type: json['type'] as String? ?? 'json_schema',
+      schema: json['schema'] is Map<String, dynamic>
+          ? json['schema'] as Map<String, dynamic>
+          : const <String, dynamic>{},
+    );
+  }
+
+  Map<String, dynamic> toJson() {
+    return {'type': type, 'schema': schema};
+  }
+}
+
+class ClaudeCodeSandboxNetworkConfig {
+  final List<String>? allowUnixSockets;
+  final bool? allowAllUnixSockets;
+  final bool? allowLocalBinding;
+  final int? httpProxyPort;
+  final int? socksProxyPort;
+
+  const ClaudeCodeSandboxNetworkConfig({
+    this.allowUnixSockets,
+    this.allowAllUnixSockets,
+    this.allowLocalBinding,
+    this.httpProxyPort,
+    this.socksProxyPort,
+  });
+
+  factory ClaudeCodeSandboxNetworkConfig.fromJson(Map<String, dynamic> json) {
+    return ClaudeCodeSandboxNetworkConfig(
+      allowUnixSockets: (json['allowUnixSockets'] as List<dynamic>?)
+          ?.map((e) => '$e')
+          .toList(),
+      allowAllUnixSockets: json['allowAllUnixSockets'] as bool?,
+      allowLocalBinding: json['allowLocalBinding'] as bool?,
+      httpProxyPort: (json['httpProxyPort'] as num?)?.toInt(),
+      socksProxyPort: (json['socksProxyPort'] as num?)?.toInt(),
+    );
+  }
+
+  Map<String, dynamic> toJson() {
+    return {
+      if (allowUnixSockets != null) 'allowUnixSockets': allowUnixSockets,
+      if (allowAllUnixSockets != null)
+        'allowAllUnixSockets': allowAllUnixSockets,
+      if (allowLocalBinding != null) 'allowLocalBinding': allowLocalBinding,
+      if (httpProxyPort != null) 'httpProxyPort': httpProxyPort,
+      if (socksProxyPort != null) 'socksProxyPort': socksProxyPort,
+    };
+  }
+}
+
+class ClaudeCodeSandboxSettings {
+  final bool? enabled;
+  final bool? autoAllowBashIfSandboxed;
+  final bool? allowUnsandboxedCommands;
+  final ClaudeCodeSandboxNetworkConfig? network;
+  final Map<String, List<String>>? ignoreViolations;
+  final bool? enableWeakerNestedSandbox;
+  final List<String>? excludedCommands;
+
+  const ClaudeCodeSandboxSettings({
+    this.enabled,
+    this.autoAllowBashIfSandboxed,
+    this.allowUnsandboxedCommands,
+    this.network,
+    this.ignoreViolations,
+    this.enableWeakerNestedSandbox,
+    this.excludedCommands,
+  });
+
+  factory ClaudeCodeSandboxSettings.fromJson(Map<String, dynamic> json) {
+    final ignoreRaw = json['ignoreViolations'];
+    final ignore = <String, List<String>>{};
+    if (ignoreRaw is Map) {
+      for (final entry in ignoreRaw.entries) {
+        final key = '${entry.key}';
+        final value = entry.value;
+        if (value is List) {
+          ignore[key] = value.map((e) => '$e').toList();
+        }
+      }
+    }
+
+    return ClaudeCodeSandboxSettings(
+      enabled: json['enabled'] as bool?,
+      autoAllowBashIfSandboxed: json['autoAllowBashIfSandboxed'] as bool?,
+      allowUnsandboxedCommands: json['allowUnsandboxedCommands'] as bool?,
+      network: json['network'] is Map<String, dynamic>
+          ? ClaudeCodeSandboxNetworkConfig.fromJson(
+              json['network'] as Map<String, dynamic>,
+            )
+          : json['network'] is Map
+          ? ClaudeCodeSandboxNetworkConfig.fromJson(
+              (json['network'] as Map).cast<String, dynamic>(),
+            )
+          : null,
+      ignoreViolations: ignore.isNotEmpty ? ignore : null,
+      enableWeakerNestedSandbox: json['enableWeakerNestedSandbox'] as bool?,
+      excludedCommands: (json['excludedCommands'] as List<dynamic>?)
+          ?.map((e) => '$e')
+          .toList(),
+    );
+  }
+
+  Map<String, dynamic> toJson() {
+    return {
+      if (enabled != null) 'enabled': enabled,
+      if (autoAllowBashIfSandboxed != null)
+        'autoAllowBashIfSandboxed': autoAllowBashIfSandboxed,
+      if (allowUnsandboxedCommands != null)
+        'allowUnsandboxedCommands': allowUnsandboxedCommands,
+      if (network != null) 'network': network!.toJson(),
+      if (ignoreViolations != null) 'ignoreViolations': ignoreViolations,
+      if (enableWeakerNestedSandbox != null)
+        'enableWeakerNestedSandbox': enableWeakerNestedSandbox,
+      if (excludedCommands != null) 'excludedCommands': excludedCommands,
+    };
+  }
+}
+
+/// A memory entry from ~/.claude/memory/ (user), .claude/memory/ (project),
+/// or ~/.claude/memory-local/ (local).
+class ClaudeCodeMemoryEntry {
+  final String scope; // 'user' | 'project' | 'local'
+  final String filename;
+  final String content;
+  final String? createdAt;
+  final String path;
+
+  const ClaudeCodeMemoryEntry({
+    required this.scope,
+    required this.filename,
+    required this.content,
+    this.createdAt,
+    required this.path,
+  });
+
+  factory ClaudeCodeMemoryEntry.fromJson(Map<String, dynamic> json) {
+    return ClaudeCodeMemoryEntry(
+      scope: json['scope'] as String? ?? 'user',
+      filename: json['filename'] as String? ?? '',
+      content: json['content'] as String? ?? '',
+      createdAt: json['createdAt'] as String?,
+      path: json['path'] as String? ?? '',
+    );
+  }
+}
+
+class ClaudeCodeSupportedModel {
+  final String value;
+  final String displayName;
+  final String description;
+
+  const ClaudeCodeSupportedModel({
+    required this.value,
+    required this.displayName,
+    required this.description,
+  });
+
+  factory ClaudeCodeSupportedModel.fromJson(Map<String, dynamic> json) {
+    final value = json['value'] as String? ?? '';
+    return ClaudeCodeSupportedModel(
+      value: value,
+      displayName: json['displayName'] as String? ?? value,
+      description: json['description'] as String? ?? '',
+    );
+  }
+
+  Map<String, dynamic> toJson() {
+    return {
+      'value': value,
+      'displayName': displayName,
+      'description': description,
+    };
+  }
+
+  bool get supportsOneMillionContext {
+    final normalized = value.toLowerCase();
+    return normalized.contains('sonnet') ||
+        normalized.contains('opus') ||
+        normalized.contains('claude-4');
+  }
+}
+
+class ClaudeCodeAccountInfo {
+  final String? email;
+  final String? organization;
+  final String? subscriptionType;
+  final String? tokenSource;
+  final String? apiKeySource;
+
+  const ClaudeCodeAccountInfo({
+    this.email,
+    this.organization,
+    this.subscriptionType,
+    this.tokenSource,
+    this.apiKeySource,
+  });
+
+  factory ClaudeCodeAccountInfo.fromJson(Map<String, dynamic> json) {
+    return ClaudeCodeAccountInfo(
+      email: json['email'] as String?,
+      organization: json['organization'] as String?,
+      subscriptionType: json['subscriptionType'] as String?,
+      tokenSource: json['tokenSource'] as String?,
+      apiKeySource: json['apiKeySource'] as String?,
+    );
+  }
+
+  Map<String, dynamic> toJson() {
+    return {
+      if (email != null) 'email': email,
+      if (organization != null) 'organization': organization,
+      if (subscriptionType != null) 'subscriptionType': subscriptionType,
+      if (tokenSource != null) 'tokenSource': tokenSource,
+      if (apiKeySource != null) 'apiKeySource': apiKeySource,
+    };
+  }
+}
+
+class ClaudeCodeMcpServerStatus {
+  final String name;
+  final String status;
+  final String? serverName;
+  final String? serverVersion;
+
+  const ClaudeCodeMcpServerStatus({
+    required this.name,
+    required this.status,
+    this.serverName,
+    this.serverVersion,
+  });
+
+  factory ClaudeCodeMcpServerStatus.fromJson(Map<String, dynamic> json) {
+    final infoRaw = json['serverInfo'];
+    final info = infoRaw is Map<String, dynamic>
+        ? infoRaw
+        : infoRaw is Map
+        ? infoRaw.cast<String, dynamic>()
+        : null;
+    return ClaudeCodeMcpServerStatus(
+      name: json['name'] as String? ?? '',
+      status: json['status'] as String? ?? '',
+      serverName: info?['name'] as String?,
+      serverVersion: info?['version'] as String?,
+    );
+  }
+
+  Map<String, dynamic> toJson() {
+    return {
+      'name': name,
+      'status': status,
+      if (serverName != null || serverVersion != null)
+        'serverInfo': {
+          if (serverName != null) 'name': serverName,
+          if (serverVersion != null) 'version': serverVersion,
+        },
+    };
+  }
+}
+
 /// Model for SDK subagent/custom agent definition.
 /// Subagents are separate agent instances that can be spawned to handle focused subtasks.
 enum ClaudeCodeSubagentModel {
@@ -422,6 +708,12 @@ class ClaudeCodeConfig {
   final List<String> disallowedTools;
   final String? model;
   final ClaudeCodeSystemPrompt? systemPrompt;
+  final int? maxTurns;
+  final double? maxBudgetUsd;
+  final List<String>? betas;
+  final ClaudeCodeSandboxSettings? sandbox;
+  final ClaudeCodeOutputFormat? outputFormat;
+  final bool? enableAgentTeams;
   final String? language;
   final String? releaseChannel; // 'stable' | 'latest'
   final bool? respectGitignore;
@@ -434,6 +726,12 @@ class ClaudeCodeConfig {
     required this.disallowedTools,
     this.model,
     this.systemPrompt,
+    this.maxTurns,
+    this.maxBudgetUsd,
+    this.betas,
+    this.sandbox,
+    this.outputFormat,
+    this.enableAgentTeams,
     this.language,
     this.releaseChannel,
     this.respectGitignore,
@@ -455,6 +753,28 @@ class ClaudeCodeConfig {
       systemPrompt: json['systemPrompt'] != null
           ? ClaudeCodeSystemPrompt.fromJson(json['systemPrompt'])
           : null,
+      maxTurns: (json['maxTurns'] as num?)?.toInt(),
+      maxBudgetUsd: (json['maxBudgetUsd'] as num?)?.toDouble(),
+      betas: (json['betas'] as List<dynamic>?)?.map((e) => '$e').toList(),
+      sandbox: json['sandbox'] is Map<String, dynamic>
+          ? ClaudeCodeSandboxSettings.fromJson(
+              json['sandbox'] as Map<String, dynamic>,
+            )
+          : json['sandbox'] is Map
+          ? ClaudeCodeSandboxSettings.fromJson(
+              (json['sandbox'] as Map).cast<String, dynamic>(),
+            )
+          : null,
+      outputFormat: json['outputFormat'] is Map<String, dynamic>
+          ? ClaudeCodeOutputFormat.fromJson(
+              json['outputFormat'] as Map<String, dynamic>,
+            )
+          : json['outputFormat'] is Map
+          ? ClaudeCodeOutputFormat.fromJson(
+              (json['outputFormat'] as Map).cast<String, dynamic>(),
+            )
+          : null,
+      enableAgentTeams: json['enableAgentTeams'] as bool?,
       language: json['language'] as String?,
       releaseChannel: json['releaseChannel'] as String?,
       respectGitignore: json['respectGitignore'] as bool?,
@@ -476,6 +796,12 @@ class ClaudeCodeConfig {
       'disallowedTools': disallowedTools,
       if (model != null) 'model': model,
       if (systemPrompt != null) 'systemPrompt': systemPrompt!.toJson(),
+      if (maxTurns != null) 'maxTurns': maxTurns,
+      if (maxBudgetUsd != null) 'maxBudgetUsd': maxBudgetUsd,
+      if (betas != null && betas!.isNotEmpty) 'betas': betas,
+      if (sandbox != null) 'sandbox': sandbox!.toJson(),
+      if (outputFormat != null) 'outputFormat': outputFormat!.toJson(),
+      if (enableAgentTeams != null) 'enableAgentTeams': enableAgentTeams,
       if (language != null) 'language': language,
       if (releaseChannel != null) 'releaseChannel': releaseChannel,
       if (respectGitignore != null) 'respectGitignore': respectGitignore,
@@ -491,6 +817,12 @@ class ClaudeCodeConfig {
     List<String>? disallowedTools,
     String? model,
     ClaudeCodeSystemPrompt? systemPrompt,
+    int? maxTurns,
+    double? maxBudgetUsd,
+    List<String>? betas,
+    ClaudeCodeSandboxSettings? sandbox,
+    ClaudeCodeOutputFormat? outputFormat,
+    bool? enableAgentTeams,
     String? language,
     String? releaseChannel,
     bool? respectGitignore,
@@ -503,6 +835,12 @@ class ClaudeCodeConfig {
       disallowedTools: disallowedTools ?? this.disallowedTools,
       model: model ?? this.model,
       systemPrompt: systemPrompt ?? this.systemPrompt,
+      maxTurns: maxTurns ?? this.maxTurns,
+      maxBudgetUsd: maxBudgetUsd ?? this.maxBudgetUsd,
+      betas: betas ?? this.betas,
+      sandbox: sandbox ?? this.sandbox,
+      outputFormat: outputFormat ?? this.outputFormat,
+      enableAgentTeams: enableAgentTeams ?? this.enableAgentTeams,
       language: language ?? this.language,
       releaseChannel: releaseChannel ?? this.releaseChannel,
       respectGitignore: respectGitignore ?? this.respectGitignore,
@@ -526,6 +864,8 @@ sealed class ClaudeCodeStreamMessage {
         return CCSessionCreated.fromJson(json);
       case 'session-init':
         return CCSessionInit.fromJson(json);
+      case 'compact-boundary':
+        return CCCompactBoundary.fromJson(json);
       case 'permission-request':
         return CCPermissionRequest.fromJson(json);
       case 'checkpoint-created':
@@ -583,6 +923,8 @@ class CCSessionInit extends ClaudeCodeStreamMessage {
   final List<String> skills;
   final List<Map<String, dynamic>> mcpServers;
   final List<Map<String, dynamic>> plugins;
+  final List<ClaudeCodeSupportedModel> supportedModels;
+  final ClaudeCodeAccountInfo? accountInfo;
   final String? apiKeySource;
   final String? claudeCodeVersion;
 
@@ -595,6 +937,8 @@ class CCSessionInit extends ClaudeCodeStreamMessage {
     required this.skills,
     required this.mcpServers,
     required this.plugins,
+    required this.supportedModels,
+    this.accountInfo,
     this.apiKeySource,
     this.claudeCodeVersion,
     super.parentToolUseId,
@@ -628,6 +972,21 @@ class CCSessionInit extends ClaudeCodeStreamMessage {
               ?.whereType<Map<String, dynamic>>()
               .toList() ??
           const [],
+      supportedModels:
+          (json['supportedModels'] as List<dynamic>?)
+              ?.whereType<Map<String, dynamic>>()
+              .map((item) => ClaudeCodeSupportedModel.fromJson(item))
+              .toList() ??
+          const [],
+      accountInfo: json['accountInfo'] is Map<String, dynamic>
+          ? ClaudeCodeAccountInfo.fromJson(
+              json['accountInfo'] as Map<String, dynamic>,
+            )
+          : json['accountInfo'] is Map
+          ? ClaudeCodeAccountInfo.fromJson(
+              (json['accountInfo'] as Map).cast<String, dynamic>(),
+            )
+          : null,
       apiKeySource: json['apiKeySource'] as String?,
       claudeCodeVersion: json['claudeCodeVersion'] as String?,
       parentToolUseId: json['parentToolUseId'] as String?,
@@ -850,12 +1209,66 @@ class CCSubagentInvocation extends ClaudeCodeStreamMessage {
   }
 }
 
+class CCCompactBoundary extends ClaudeCodeStreamMessage {
+  final String trigger;
+  final int preTokens;
+
+  const CCCompactBoundary({
+    required this.trigger,
+    required this.preTokens,
+    super.parentToolUseId,
+  });
+
+  factory CCCompactBoundary.fromJson(Map<String, dynamic> json) {
+    return CCCompactBoundary(
+      trigger: json['trigger'] as String? ?? 'auto',
+      preTokens: (json['preTokens'] as num?)?.toInt() ?? 0,
+      parentToolUseId: json['parentToolUseId'] as String?,
+    );
+  }
+}
+
+class CCModelUsage {
+  final int inputTokens;
+  final int outputTokens;
+  final int cacheReadInputTokens;
+  final int cacheCreationInputTokens;
+  final int webSearchRequests;
+  final double costUsd;
+  final int contextWindow;
+
+  const CCModelUsage({
+    required this.inputTokens,
+    required this.outputTokens,
+    required this.cacheReadInputTokens,
+    required this.cacheCreationInputTokens,
+    required this.webSearchRequests,
+    required this.costUsd,
+    required this.contextWindow,
+  });
+
+  factory CCModelUsage.fromJson(Map<String, dynamic> json) {
+    return CCModelUsage(
+      inputTokens: (json['inputTokens'] as num?)?.toInt() ?? 0,
+      outputTokens: (json['outputTokens'] as num?)?.toInt() ?? 0,
+      cacheReadInputTokens:
+          (json['cacheReadInputTokens'] as num?)?.toInt() ?? 0,
+      cacheCreationInputTokens:
+          (json['cacheCreationInputTokens'] as num?)?.toInt() ?? 0,
+      webSearchRequests: (json['webSearchRequests'] as num?)?.toInt() ?? 0,
+      costUsd: (json['costUSD'] as num?)?.toDouble() ?? 0.0,
+      contextWindow: (json['contextWindow'] as num?)?.toInt() ?? 0,
+    );
+  }
+}
+
 class CCTokenUsage extends ClaudeCodeStreamMessage {
   final int? inputTokens;
   final int? outputTokens;
   final int? cacheReadTokens;
   final int? cacheCreationTokens;
   final double? totalCostUsd;
+  final Map<String, CCModelUsage>? modelUsage;
   final String? messageId;
   // Context window tracking (SDK v2.1.6+)
   final int? contextWindow;
@@ -866,6 +1279,7 @@ class CCTokenUsage extends ClaudeCodeStreamMessage {
     this.cacheReadTokens,
     this.cacheCreationTokens,
     this.totalCostUsd,
+    this.modelUsage,
     this.messageId,
     this.contextWindow,
     super.parentToolUseId,
@@ -879,6 +1293,26 @@ class CCTokenUsage extends ClaudeCodeStreamMessage {
       cacheReadTokens: usage['cacheReadTokens'] as int?,
       cacheCreationTokens: usage['cacheCreationTokens'] as int?,
       totalCostUsd: (json['totalCostUsd'] as num?)?.toDouble(),
+      modelUsage: json['modelUsage'] is Map<String, dynamic>
+          ? (json['modelUsage'] as Map<String, dynamic>).map(
+              (key, value) => MapEntry(
+                key,
+                value is Map<String, dynamic>
+                    ? CCModelUsage.fromJson(value)
+                    : value is Map
+                    ? CCModelUsage.fromJson(value.cast<String, dynamic>())
+                    : const CCModelUsage(
+                        inputTokens: 0,
+                        outputTokens: 0,
+                        cacheReadInputTokens: 0,
+                        cacheCreationInputTokens: 0,
+                        webSearchRequests: 0,
+                        costUsd: 0.0,
+                        contextWindow: 0,
+                      ),
+              ),
+            )
+          : null,
       messageId: json['messageId'] as String?,
       contextWindow:
           usage['contextWindow'] as int? ?? json['contextWindow'] as int?,
@@ -886,12 +1320,18 @@ class CCTokenUsage extends ClaudeCodeStreamMessage {
     );
   }
 
-  /// Total tokens used (input + output + cache)
-  int get totalTokens =>
-      (inputTokens ?? 0) + (outputTokens ?? 0) + (cacheReadTokens ?? 0);
+  /// Fresh tokens consumed (input + output only, not cache reads)
+  int get totalTokens => (inputTokens ?? 0) + (outputTokens ?? 0);
 
   /// Effective context window (defaults to Claude 3.5 Sonnet's 200k)
-  int get effectiveContextWindow => contextWindow ?? 200000;
+  int get effectiveContextWindow {
+    if (contextWindow != null && contextWindow! > 0) return contextWindow!;
+    final firstFromModels = modelUsage?.values
+        .map((entry) => entry.contextWindow)
+        .firstWhere((entry) => entry > 0, orElse: () => 0);
+    if (firstFromModels != null && firstFromModels > 0) return firstFromModels;
+    return 200000;
+  }
 
   /// Context window used percentage (0-100)
   /// Based on input tokens as per SDK v2.1.6 `context_window.used_percentage`

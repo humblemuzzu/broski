@@ -16,6 +16,12 @@ import type {
   ClaudeCodeStreamMessage,
   ClaudeCodeTranscriptMessage,
   ClaudeCodeSubagent,
+  ClaudeCodeBeta,
+  ClaudeCodeOutputFormat,
+  ClaudeCodeSandboxSettings,
+  ClaudeCodeSupportedModel,
+  ClaudeCodeAccountInfo,
+  ClaudeCodeMcpServerStatus,
   FileAttachment,
 } from '../types'
 
@@ -32,6 +38,9 @@ type ActiveSession = {
 }
 
 const activeSessions = new Map<string, ActiveSession>()
+const ccSupportedModelsByCwd = new Map<string, ClaudeCodeSupportedModel[]>()
+const ccAccountInfoByCwd = new Map<string, ClaudeCodeAccountInfo>()
+const ccMcpStatusByCwd = new Map<string, ClaudeCodeMcpServerStatus[]>()
 
 let currentConfig: ClaudeCodeConfig = {
   permissionMode: 'default',
@@ -41,6 +50,8 @@ let currentConfig: ClaudeCodeConfig = {
   ],
   disallowedTools: [],
   model: 'sonnet',
+  betas: [],
+  enableAgentTeams: false,
   systemPrompt: { type: 'preset', preset: 'claude_code' },
   // Defaults: Claude Code itself defaults to respecting .gitignore in file pickers.
   // Leave language/releaseChannel unset unless the user configures them.
@@ -52,7 +63,11 @@ try {
   if (existsSync(CC_CONFIG_FILE)) {
     const raw = readFileSync(CC_CONFIG_FILE, 'utf-8')
     const parsed = JSON.parse(raw) as Partial<ClaudeCodeConfig>
-    currentConfig = { ...currentConfig, ...parsed }
+    currentConfig = {
+      ...currentConfig,
+      ...parsed,
+      ...(parsed.betas ? { betas: normalizeBetas(parsed.betas) } : {}),
+    }
   }
 } catch {
   // ignore (use defaults)
@@ -109,6 +124,41 @@ function applyProjectSettingsPatch(
   }
 
   return next
+}
+
+function cwdCacheKey(cwd?: string): string {
+  const normalized = (cwd || '').trim()
+  return normalized.length > 0 ? normalized : '__global__'
+}
+
+function normalizeBetas(betas?: string[] | ClaudeCodeBeta[]): ClaudeCodeBeta[] | undefined {
+  if (!Array.isArray(betas)) return undefined
+  const normalized = Array.from(new Set(
+    betas
+      .map((b) => String(b).trim())
+      .filter((b): b is ClaudeCodeBeta => b === 'context-1m-2025-08-07'),
+  ))
+  return normalized.length > 0 ? normalized : undefined
+}
+
+function fallbackSupportedModels(): ClaudeCodeSupportedModel[] {
+  return [
+    {
+      value: 'sonnet',
+      displayName: 'Claude Sonnet',
+      description: 'Balanced model for coding and reasoning',
+    },
+    {
+      value: 'opus',
+      displayName: 'Claude Opus',
+      description: 'High-capability model for complex tasks',
+    },
+    {
+      value: 'haiku',
+      displayName: 'Claude Haiku',
+      description: 'Fast and efficient model for lightweight tasks',
+    },
+  ]
 }
 
 function _sanitizeFilename(name: string): string {
@@ -197,8 +247,15 @@ export type ClaudeCodeQueryOptions = {
   disallowedTools?: string[]
   permissionMode?: ClaudeCodePermissionMode
   maxThinkingTokens?: number | null
+  maxTurns?: number
+  maxBudgetUsd?: number
+  betas?: ClaudeCodeBeta[]
   variant?: string  // Named thinking level (low/medium/high/max) - maps to maxThinkingTokens
   systemPrompt?: string | { type: 'preset'; preset: string; append?: string } | null
+  resumeSessionAt?: string
+  outputFormat?: ClaudeCodeOutputFormat
+  sandbox?: ClaudeCodeSandboxSettings
+  enableAgentTeams?: boolean
   enableFileCheckpointing?: boolean
   agents?: Record<string, ClaudeCodeSubagent>  // Custom subagent definitions
   activeSubagent?: string  // Name of the subagent to use for this query (prepends prompt hint)
@@ -1197,6 +1254,7 @@ function parseAgentFile(name: string, content: string): Omit<ClaudeCodeFilesyste
   let description: string | undefined
   let tools: string[] | undefined
   let model: string | undefined
+  let memory: 'user' | 'project' | 'local' | undefined
 
   // Parse YAML frontmatter if present
   const frontmatterMatch = content.match(/^---\n([\s\S]*?)\n---/)
@@ -1208,6 +1266,14 @@ function parseAgentFile(name: string, content: string): Omit<ClaudeCodeFilesyste
 
     const modelMatch = frontmatter.match(/model:\s*(.+)/)
     if (modelMatch) model = modelMatch[1].trim()
+
+    const memoryMatch = frontmatter.match(/memory:\s*(.+)/)
+    if (memoryMatch) {
+      const scope = memoryMatch[1].trim().replace(/['"]/g, '') as 'user' | 'project' | 'local'
+      if (scope === 'user' || scope === 'project' || scope === 'local') {
+        memory = scope
+      }
+    }
 
     // Tools can be comma-separated or YAML array
     const toolsMatch = frontmatter.match(/tools:\s*\[([^\]]*)\]/)
@@ -1237,7 +1303,7 @@ function parseAgentFile(name: string, content: string): Omit<ClaudeCodeFilesyste
   const promptStart = frontmatterMatch ? content.indexOf('---', 4) + 3 : 0
   const prompt = content.slice(promptStart).trim()
 
-  return { name, description, prompt: prompt || undefined, tools, model }
+  return { name, description, prompt: prompt || undefined, tools, model, memory }
 }
 
 export async function listAgents(cwd?: string): Promise<ClaudeCodeFilesystemAgent[]> {
@@ -1280,6 +1346,115 @@ export async function listAgents(cwd?: string): Promise<ClaudeCodeFilesystemAgen
   return agents
 }
 
+// ---------------------------------------------------------------------------
+// Memory: read from ~/.claude/memory/ (user), .claude/memory/ (project),
+// and ~/.claude/memory-local/ (local).
+// The SDK writes memories as individual .md files in these directories.
+// ---------------------------------------------------------------------------
+
+import type { ClaudeCodeMemoryEntry } from '../types'
+
+async function readMemoryDir(
+  dir: string,
+  scope: 'user' | 'project' | 'local',
+): Promise<ClaudeCodeMemoryEntry[]> {
+  const entries: ClaudeCodeMemoryEntry[] = []
+  try {
+    const files = await readdir(dir, { withFileTypes: true })
+    for (const file of files) {
+      if (!file.isFile()) continue
+      if (file.name.startsWith('.')) continue
+      const filePath = join(dir, file.name)
+      try {
+        const content = await readFile(filePath, 'utf-8')
+        // Try to extract date from filename (e.g. "2025-02-07T12-00-00.md")
+        const dateMatch = file.name.match(/^(\d{4}-\d{2}-\d{2})/)
+        entries.push({
+          scope,
+          filename: file.name,
+          content: content.trim(),
+          createdAt: dateMatch ? dateMatch[1] : undefined,
+          path: filePath,
+        })
+      } catch {
+        // Skip unreadable files
+      }
+    }
+  } catch {
+    // Directory doesn't exist — that's fine
+  }
+  return entries
+}
+
+export async function listMemories(
+  scope?: 'user' | 'project' | 'local',
+  cwd?: string,
+): Promise<ClaudeCodeMemoryEntry[]> {
+  const results: ClaudeCodeMemoryEntry[] = []
+  const home = homedir()
+
+  const dirs: Array<{ path: string; scope: 'user' | 'project' | 'local' }> = []
+  if (!scope || scope === 'user') {
+    dirs.push({ path: join(home, '.claude', 'memory'), scope: 'user' })
+  }
+  if (!scope || scope === 'project') {
+    if (cwd) {
+      dirs.push({ path: join(cwd, '.claude', 'memory'), scope: 'project' })
+    }
+  }
+  if (!scope || scope === 'local') {
+    dirs.push({ path: join(home, '.claude', 'memory-local'), scope: 'local' })
+  }
+
+  for (const { path, scope: s } of dirs) {
+    const memories = await readMemoryDir(path, s)
+    results.push(...memories)
+  }
+
+  // Sort newest first
+  results.sort((a, b) => (b.createdAt ?? '').localeCompare(a.createdAt ?? ''))
+  return results
+}
+
+export async function deleteMemory(
+  scope: 'user' | 'project' | 'local',
+  filename: string,
+  cwd?: string,
+): Promise<boolean> {
+  const home = homedir()
+  let dir: string
+  switch (scope) {
+    case 'user':
+      dir = join(home, '.claude', 'memory')
+      break
+    case 'project':
+      if (!cwd) return false
+      dir = join(cwd, '.claude', 'memory')
+      break
+    case 'local':
+      dir = join(home, '.claude', 'memory-local')
+      break
+  }
+
+  const filePath = join(dir, filename)
+  // Security: ensure the resolved path is inside the expected directory
+  const { realpath } = await import('fs/promises')
+  try {
+    const resolvedDir = await realpath(dir)
+    const resolvedFile = await realpath(filePath)
+    if (!resolvedFile.startsWith(resolvedDir)) return false
+  } catch {
+    return false
+  }
+
+  try {
+    await (await import('fs/promises')).unlink(filePath)
+    return true
+  } catch {
+    return false
+  }
+}
+
 export async function getConfig(cwd?: string): Promise<ClaudeCodeConfig> {
   const cfg: ClaudeCodeConfig = { ...currentConfig }
 
@@ -1300,7 +1475,19 @@ export async function getConfig(cwd?: string): Promise<ClaudeCodeConfig> {
 }
 
 export async function setConfig(config: Partial<ClaudeCodeConfig>, cwd?: string): Promise<ClaudeCodeConfig> {
-  currentConfig = { ...currentConfig, ...config }
+  const normalized: Partial<ClaudeCodeConfig> = {
+    ...config,
+    ...(config.betas ? { betas: normalizeBetas(config.betas) } : {}),
+  }
+
+  if ('maxTurns' in normalized && typeof normalized.maxTurns === 'number' && normalized.maxTurns <= 0) {
+    normalized.maxTurns = undefined
+  }
+  if ('maxBudgetUsd' in normalized && typeof normalized.maxBudgetUsd === 'number' && normalized.maxBudgetUsd <= 0) {
+    normalized.maxBudgetUsd = undefined
+  }
+
+  currentConfig = { ...currentConfig, ...normalized }
 
   // Persist our app-level defaults (allowedTools, systemPrompt, etc).
   // Fire-and-forget so the caller isn't blocked on IO.
@@ -1348,6 +1535,226 @@ function convertSubagentsToRecord(subagents: ClaudeCodeSubagent[]): Record<strin
   return record
 }
 
+function normalizeSupportedModels(models: unknown): ClaudeCodeSupportedModel[] {
+  if (!Array.isArray(models)) return []
+  const normalized = models
+    .map((item) => {
+      if (!item || typeof item !== 'object') return null
+      const value = String((item as any).value ?? '').trim()
+      if (!value) return null
+      return {
+        value,
+        displayName: String((item as any).displayName ?? value).trim() || value,
+        description: String((item as any).description ?? '').trim(),
+      } satisfies ClaudeCodeSupportedModel
+    })
+    .filter((item): item is ClaudeCodeSupportedModel => item != null)
+  return normalized
+}
+
+function normalizeAccountInfo(data: unknown): ClaudeCodeAccountInfo {
+  if (!data || typeof data !== 'object') return {}
+  const raw = data as Record<string, unknown>
+  return {
+    ...(typeof raw.email === 'string' ? { email: raw.email } : {}),
+    ...(typeof raw.organization === 'string' ? { organization: raw.organization } : {}),
+    ...(typeof raw.subscriptionType === 'string' ? { subscriptionType: raw.subscriptionType } : {}),
+    ...(typeof raw.tokenSource === 'string' ? { tokenSource: raw.tokenSource } : {}),
+    ...(typeof raw.apiKeySource === 'string' ? { apiKeySource: raw.apiKeySource } : {}),
+  }
+}
+
+function normalizeMcpServerStatuses(statuses: unknown): ClaudeCodeMcpServerStatus[] {
+  if (!Array.isArray(statuses)) return []
+  return statuses
+    .map((item) => {
+      if (!item || typeof item !== 'object') return null
+      const name = String((item as any).name ?? '').trim()
+      const status = String((item as any).status ?? '').trim()
+      if (!name) return null
+      if (status !== 'connected' && status !== 'failed' && status !== 'needs-auth' && status !== 'pending') {
+        return null
+      }
+      const info = (item as any).serverInfo
+      const serverInfo = info && typeof info === 'object'
+        ? {
+            name: String((info as any).name ?? '').trim(),
+            version: String((info as any).version ?? '').trim(),
+          }
+        : undefined
+      return {
+        name,
+        status,
+        ...(serverInfo && serverInfo.name && serverInfo.version ? { serverInfo } : {}),
+      } as ClaudeCodeMcpServerStatus
+    })
+    .filter((item): item is ClaudeCodeMcpServerStatus => item != null)
+}
+
+function normalizeModelUsage(
+  modelUsage: unknown,
+): Record<string, { inputTokens: number; outputTokens: number; cacheReadInputTokens: number; cacheCreationInputTokens: number; webSearchRequests: number; costUSD: number; contextWindow: number }> | undefined {
+  if (!modelUsage || typeof modelUsage !== 'object') return undefined
+  const entries = Object.entries(modelUsage as Record<string, unknown>)
+  if (entries.length === 0) return undefined
+
+  const normalizedEntries = entries
+    .map(([modelName, usage]) => {
+      if (!usage || typeof usage !== 'object') return null
+      const raw = usage as Record<string, unknown>
+      const normalized = {
+        inputTokens: Number(raw.inputTokens ?? 0) || 0,
+        outputTokens: Number(raw.outputTokens ?? 0) || 0,
+        cacheReadInputTokens: Number(raw.cacheReadInputTokens ?? 0) || 0,
+        cacheCreationInputTokens: Number(raw.cacheCreationInputTokens ?? 0) || 0,
+        webSearchRequests: Number(raw.webSearchRequests ?? 0) || 0,
+        costUSD: Number(raw.costUSD ?? 0) || 0,
+        contextWindow: Number(raw.contextWindow ?? 0) || 0,
+      }
+      return [modelName, normalized] as const
+    })
+    .filter((item): item is readonly [string, { inputTokens: number; outputTokens: number; cacheReadInputTokens: number; cacheCreationInputTokens: number; webSearchRequests: number; costUSD: number; contextWindow: number }] => item != null)
+
+  if (normalizedEntries.length === 0) return undefined
+  return Object.fromEntries(normalizedEntries)
+}
+
+function pickContextWindow(
+  modelUsage: Record<string, { contextWindow: number }> | undefined,
+  preferredModel?: string,
+): number | undefined {
+  if (!modelUsage || Object.keys(modelUsage).length === 0) return undefined
+  if (preferredModel && modelUsage[preferredModel]?.contextWindow) {
+    return modelUsage[preferredModel].contextWindow
+  }
+  const first = Object.values(modelUsage).find((entry) => entry.contextWindow > 0)
+  return first?.contextWindow
+}
+
+function cacheCapabilities(
+  cwd: string | undefined,
+  capabilities: {
+    supportedModels?: ClaudeCodeSupportedModel[]
+    accountInfo?: ClaudeCodeAccountInfo
+    mcpStatuses?: ClaudeCodeMcpServerStatus[]
+  },
+): void {
+  const key = cwdCacheKey(cwd)
+  if (capabilities.supportedModels && capabilities.supportedModels.length > 0) {
+    ccSupportedModelsByCwd.set(key, capabilities.supportedModels)
+  }
+  if (capabilities.accountInfo && Object.keys(capabilities.accountInfo).length > 0) {
+    ccAccountInfoByCwd.set(key, capabilities.accountInfo)
+  }
+  if (capabilities.mcpStatuses && capabilities.mcpStatuses.length > 0) {
+    ccMcpStatusByCwd.set(key, capabilities.mcpStatuses)
+  }
+}
+
+async function collectCapabilitiesFromQuery(
+  q: any,
+  cwd?: string,
+): Promise<{
+  supportedModels?: ClaudeCodeSupportedModel[]
+  accountInfo?: ClaudeCodeAccountInfo
+  mcpStatuses?: ClaudeCodeMcpServerStatus[]
+}> {
+  const [modelsResult, accountResult, mcpResult] = await Promise.allSettled([
+    typeof q?.supportedModels === 'function' ? q.supportedModels() : Promise.resolve([]),
+    typeof q?.accountInfo === 'function' ? q.accountInfo() : Promise.resolve({}),
+    typeof q?.mcpServerStatus === 'function' ? q.mcpServerStatus() : Promise.resolve([]),
+  ])
+
+  const supportedModels = modelsResult.status === 'fulfilled'
+    ? normalizeSupportedModels(modelsResult.value)
+    : []
+  const accountInfo = accountResult.status === 'fulfilled'
+    ? normalizeAccountInfo(accountResult.value)
+    : {}
+  const mcpStatuses = mcpResult.status === 'fulfilled'
+    ? normalizeMcpServerStatuses(mcpResult.value)
+    : []
+
+  cacheCapabilities(cwd, { supportedModels, accountInfo, mcpStatuses })
+
+  return {
+    ...(supportedModels.length > 0 ? { supportedModels } : {}),
+    ...(Object.keys(accountInfo).length > 0 ? { accountInfo } : {}),
+    ...(mcpStatuses.length > 0 ? { mcpStatuses } : {}),
+  }
+}
+
+async function callActiveSessionCapability<T>(
+  cwd: string | undefined,
+  method: (q: any) => Promise<T>,
+): Promise<T | undefined> {
+  const normalizedCwd = (cwd || '').trim()
+  for (const [, session] of activeSessions.entries()) {
+    if (normalizedCwd && session.cwd !== normalizedCwd) continue
+    const q = session.query as any
+    if (!q) continue
+    try {
+      return await method(q)
+    } catch {
+      continue
+    }
+  }
+  return undefined
+}
+
+export async function getSupportedModels(cwd?: string): Promise<ClaudeCodeSupportedModel[]> {
+  const key = cwdCacheKey(cwd)
+  const cached = ccSupportedModelsByCwd.get(key)
+  if (cached && cached.length > 0) return cached
+
+  const fromActive = await callActiveSessionCapability(cwd, async (q) => {
+    const normalized = normalizeSupportedModels(await q.supportedModels())
+    if (normalized.length > 0) {
+      ccSupportedModelsByCwd.set(key, normalized)
+    }
+    return normalized
+  })
+  if (Array.isArray(fromActive) && fromActive.length > 0) return fromActive
+
+  const fallback = fallbackSupportedModels()
+  ccSupportedModelsByCwd.set(key, fallback)
+  return fallback
+}
+
+export async function getAccountInfo(cwd?: string): Promise<ClaudeCodeAccountInfo> {
+  const key = cwdCacheKey(cwd)
+  const cached = ccAccountInfoByCwd.get(key)
+  if (cached) return cached
+
+  const fromActive = await callActiveSessionCapability(cwd, async (q) => {
+    const normalized = normalizeAccountInfo(await q.accountInfo())
+    if (Object.keys(normalized).length > 0) {
+      ccAccountInfoByCwd.set(key, normalized)
+    }
+    return normalized
+  })
+  if (fromActive && Object.keys(fromActive).length > 0) return fromActive
+
+  return {}
+}
+
+export async function getMcpServerStatus(cwd?: string): Promise<ClaudeCodeMcpServerStatus[]> {
+  const key = cwdCacheKey(cwd)
+  const cached = ccMcpStatusByCwd.get(key)
+  if (cached && cached.length > 0) return cached
+
+  const fromActive = await callActiveSessionCapability(cwd, async (q) => {
+    const normalized = normalizeMcpServerStatuses(await q.mcpServerStatus())
+    if (normalized.length > 0) {
+      ccMcpStatusByCwd.set(key, normalized)
+    }
+    return normalized
+  })
+  if (Array.isArray(fromActive) && fromActive.length > 0) return fromActive
+
+  return []
+}
+
 export async function queryClaudeCode(
   prompt: string,
   options: ClaudeCodeQueryOptions,
@@ -1371,6 +1778,17 @@ export async function queryClaudeCode(
   try {
     const systemPrompt = options.systemPrompt ?? currentConfig.systemPrompt
     const enableCheckpointing = options.enableFileCheckpointing ?? true // Default to true for undo support
+    const betas = normalizeBetas(options.betas ?? currentConfig.betas)
+    const maxTurns = typeof options.maxTurns === 'number'
+      ? options.maxTurns
+      : currentConfig.maxTurns
+    const maxBudgetUsd = typeof options.maxBudgetUsd === 'number'
+      ? options.maxBudgetUsd
+      : currentConfig.maxBudgetUsd
+    const sandbox = options.sandbox ?? currentConfig.sandbox
+    const outputFormat = options.outputFormat ?? currentConfig.outputFormat
+    const enableAgentTeams = options.enableAgentTeams ?? currentConfig.enableAgentTeams ?? false
+
     const sdkOptions: any = {
       cwd: options.cwd,
       model: options.model || currentConfig.model || 'sonnet',
@@ -1380,7 +1798,7 @@ export async function queryClaudeCode(
       // Required for real-time text deltas (SDK docs: default is false).
       includePartialMessages: true,
       abortController: controller,
-      settingSources: ['project'],
+      settingSources: ['project', 'local', 'user'],
       // File checkpointing: enable tracking of file changes for undo/rewind support
       // Note: The env option was removed as it causes the SDK to hang.
       // enableFileCheckpointing alone should be sufficient for undo support.
@@ -1388,6 +1806,31 @@ export async function queryClaudeCode(
         enableFileCheckpointing: true,
         extraArgs: { 'replay-user-messages': null }, // Required to get user message UUIDs
       }),
+    }
+
+    if (Array.isArray(betas) && betas.length > 0) {
+      sdkOptions.betas = betas
+    }
+    if (typeof maxTurns === 'number' && maxTurns > 0) {
+      sdkOptions.maxTurns = maxTurns
+    }
+    if (typeof maxBudgetUsd === 'number' && maxBudgetUsd > 0) {
+      sdkOptions.maxBudgetUsd = maxBudgetUsd
+    }
+    if (sandbox && typeof sandbox === 'object') {
+      sdkOptions.sandbox = sandbox
+    }
+    if (outputFormat && typeof outputFormat === 'object') {
+      sdkOptions.outputFormat = outputFormat
+    }
+    if (sdkOptions.permissionMode === 'bypassPermissions') {
+      sdkOptions.allowDangerouslySkipPermissions = true
+    }
+    if (enableAgentTeams) {
+      sdkOptions.env = {
+        ...(process.env as Record<string, string | undefined>),
+        CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS: '1',
+      }
     }
 
     if (systemPrompt) {
@@ -1434,6 +1877,9 @@ export async function queryClaudeCode(
 
     if (options.sessionId) {
       sdkOptions.resume = options.sessionId
+      if (options.resumeSessionAt) {
+        sdkOptions.resumeSessionAt = options.resumeSessionAt
+      }
     }
 
     if (onPermissionRequest) {
@@ -1513,6 +1959,29 @@ export async function queryClaudeCode(
           agent: 'claude-code',
           model: message.model || sdkOptions.model,
         })
+
+        const initMcpServers = Array.isArray(message.mcp_servers) ? message.mcp_servers : []
+        const initMcpStatuses = normalizeMcpServerStatuses(
+          initMcpServers.map((server: any) => ({
+            name: server?.name,
+            status: server?.status,
+          })),
+        )
+        cacheCapabilities(options.cwd, { mcpStatuses: initMcpStatuses })
+
+        let capabilities:
+          | {
+              supportedModels?: ClaudeCodeSupportedModel[]
+              accountInfo?: ClaudeCodeAccountInfo
+              mcpStatuses?: ClaudeCodeMcpServerStatus[]
+            }
+          | undefined
+        try {
+          capabilities = await collectCapabilitiesFromQuery(q, options.cwd)
+        } catch {
+          capabilities = undefined
+        }
+
         emit({
           type: 'session-init',
           sessionId,
@@ -1521,10 +1990,12 @@ export async function queryClaudeCode(
           tools: Array.isArray(message.tools) ? message.tools : [],
           slashCommands: Array.isArray(message.slash_commands) ? message.slash_commands : [],
           skills: Array.isArray(message.skills) ? message.skills : [],
-          mcpServers: Array.isArray(message.mcp_servers) ? message.mcp_servers : [],
+          mcpServers: capabilities?.mcpStatuses ?? initMcpServers,
           plugins: Array.isArray(message.plugins) ? message.plugins : [],
           apiKeySource: message.apiKeySource,
           claudeCodeVersion: message.claude_code_version,
+          supportedModels: capabilities?.supportedModels,
+          accountInfo: capabilities?.accountInfo,
         })
 
         // Set thinking tokens: prefer explicit maxThinkingTokens, fallback to variant mapping
@@ -1539,6 +2010,16 @@ export async function queryClaudeCode(
             // ignore (control requests may not be enabled depending on transport mode)
           }
         }
+      }
+
+      if (message?.type === 'system' && message?.subtype === 'compact_boundary') {
+        const trigger = message?.compact_metadata?.trigger === 'manual' ? 'manual' : 'auto'
+        const preTokens = Number(message?.compact_metadata?.pre_tokens ?? 0)
+        emit({
+          type: 'compact-boundary',
+          trigger,
+          preTokens: Number.isFinite(preTokens) ? preTokens : 0,
+        })
       }
 
       // Stream events: prefer these for real-time deltas (avoids double-emitting full assistant blocks)
@@ -1678,6 +2159,8 @@ export async function queryClaudeCode(
           emit({ type: 'assistant-message', content: message.result })
         }
         if (message.usage) {
+          const modelUsage = normalizeModelUsage(message.modelUsage)
+          const contextWindow = pickContextWindow(modelUsage, sdkOptions.model)
           emit({
             type: 'token-usage',
             usage: {
@@ -1685,9 +2168,11 @@ export async function queryClaudeCode(
               outputTokens: message.usage.output_tokens,
               cacheReadTokens: message.usage.cache_read_input_tokens,
               cacheCreationTokens: message.usage.cache_creation_input_tokens,
+              ...(typeof contextWindow === 'number' ? { contextWindow } : {}),
             },
             // Include cost if available (cumulative for entire session)
             totalCostUsd: message.usage.total_cost_usd,
+            ...(modelUsage ? { modelUsage } : {}),
           })
         }
       }

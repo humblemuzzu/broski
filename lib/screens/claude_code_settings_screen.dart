@@ -5,6 +5,7 @@ import '../models/claude_code.dart';
 import '../providers/selection_provider.dart';
 import '../providers/service_providers.dart';
 import '../theme/opencode_theme.dart';
+import 'claude_code_sandbox_screen.dart';
 
 class ClaudeCodeSettingsScreen extends ConsumerStatefulWidget {
   const ClaudeCodeSettingsScreen({super.key});
@@ -19,6 +20,8 @@ class _ClaudeCodeSettingsScreenState
   bool _loading = true;
   String? _error;
   ClaudeCodeConfig? _config;
+  List<ClaudeCodeSupportedModel> _supportedModels = const [];
+  ClaudeCodeAccountInfo? _accountInfo;
   // SDK v2.1.6: Search functionality in /config
   final _searchController = TextEditingController();
   String _searchQuery = '';
@@ -105,9 +108,23 @@ class _ClaudeCodeSettingsScreenState
     try {
       final bridge = ref.read(bridgeServiceProvider);
       final cfg = await bridge.ccGetConfig(cwd: cwd);
+      List<ClaudeCodeSupportedModel> models = const [];
+      ClaudeCodeAccountInfo? accountInfo;
+      try {
+        models = await bridge.ccGetSupportedModels(cwd: cwd);
+      } catch (_) {
+        models = const [];
+      }
+      try {
+        accountInfo = await bridge.ccGetAccountInfo(cwd: cwd);
+      } catch (_) {
+        accountInfo = null;
+      }
       if (!mounted) return;
       setState(() {
         _config = cfg;
+        _supportedModels = models;
+        _accountInfo = accountInfo;
         _loading = false;
       });
     } catch (e) {
@@ -238,6 +255,46 @@ class _ClaudeCodeSettingsScreenState
     }
   }
 
+  Future<String?> _showTextValueDialog({
+    required String title,
+    String? initialValue,
+    String? hintText,
+    bool multiline = false,
+    bool allowClear = false,
+  }) async {
+    final controller = TextEditingController(text: initialValue ?? '');
+    final result = await showDialog<String?>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: Text(title),
+        content: TextField(
+          controller: controller,
+          autofocus: true,
+          minLines: multiline ? 3 : 1,
+          maxLines: multiline ? 8 : 1,
+          decoration: InputDecoration(hintText: hintText),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, null),
+            child: const Text('Cancel'),
+          ),
+          if (allowClear)
+            TextButton(
+              onPressed: () => Navigator.pop(ctx, ''),
+              child: const Text('Clear'),
+            ),
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, controller.text),
+            child: const Text('Save'),
+          ),
+        ],
+      ),
+    );
+    controller.dispose();
+    return result;
+  }
+
   @override
   Widget build(BuildContext context) {
     final oc = OpenCodeTheme.of(context);
@@ -256,6 +313,10 @@ class _ClaudeCodeSettingsScreenState
     final releaseValue = (release == 'stable' || release == 'latest')
         ? release
         : null;
+    final systemPrompt = cfg?.systemPrompt ?? const ClaudeCodeSystemPrompt();
+    final systemPromptMode = systemPrompt.isEmpty
+        ? 'none'
+        : (systemPrompt.preset != null ? 'preset' : 'custom');
 
     return Scaffold(
       backgroundColor: oc.background,
@@ -373,7 +434,7 @@ class _ClaudeCodeSettingsScreenState
                       ),
                     ),
                   // Model override
-                  if (_matches('model sonnet opus haiku'))
+                  if (_matches('model sonnet opus haiku dynamic'))
                     _buildSettingCard(
                       oc: oc,
                       title: 'Model',
@@ -382,29 +443,454 @@ class _ClaudeCodeSettingsScreenState
                         decoration: const InputDecoration(
                           labelText: 'Default model',
                         ),
-                        items: const [
-                          DropdownMenuItem<String?>(
+                        items: [
+                          const DropdownMenuItem<String?>(
                             value: null,
                             child: Text('Default'),
                           ),
-                          DropdownMenuItem<String?>(
-                            value: 'sonnet',
-                            child: Text('Sonnet'),
-                          ),
-                          DropdownMenuItem<String?>(
-                            value: 'opus',
-                            child: Text('Opus'),
-                          ),
-                          DropdownMenuItem<String?>(
-                            value: 'haiku',
-                            child: Text('Haiku'),
-                          ),
+                          ...(_supportedModels.isNotEmpty
+                                  ? _supportedModels
+                                  : const <ClaudeCodeSupportedModel>[
+                                      ClaudeCodeSupportedModel(
+                                        value: 'sonnet',
+                                        displayName: 'Claude Sonnet',
+                                        description: '',
+                                      ),
+                                      ClaudeCodeSupportedModel(
+                                        value: 'opus',
+                                        displayName: 'Claude Opus',
+                                        description: '',
+                                      ),
+                                      ClaudeCodeSupportedModel(
+                                        value: 'haiku',
+                                        displayName: 'Claude Haiku',
+                                        description: '',
+                                      ),
+                                    ])
+                              .map(
+                                (model) => DropdownMenuItem<String?>(
+                                  value: model.value,
+                                  child: Text(model.displayName),
+                                ),
+                              ),
                         ],
                         onChanged: cfg == null
                             ? null
                             : (value) async {
                                 await _update(cfg.copyWith(model: value));
                               },
+                      ),
+                    ),
+                  if (_matches(
+                    'system prompt append preset custom instructions',
+                  ))
+                    _buildSettingCard(
+                      oc: oc,
+                      title: 'System Prompt',
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          DropdownButtonFormField<String>(
+                            value: systemPromptMode,
+                            decoration: const InputDecoration(
+                              labelText: 'Prompt mode',
+                            ),
+                            items: const [
+                              DropdownMenuItem(
+                                value: 'none',
+                                child: Text('None'),
+                              ),
+                              DropdownMenuItem(
+                                value: 'preset',
+                                child: Text('Claude Code preset'),
+                              ),
+                              DropdownMenuItem(
+                                value: 'custom',
+                                child: Text('Custom prompt'),
+                              ),
+                            ],
+                            onChanged: cfg == null
+                                ? null
+                                : (value) async {
+                                    if (value == null) return;
+                                    if (value == 'none') {
+                                      await _update(
+                                        cfg.copyWith(
+                                          systemPrompt:
+                                              const ClaudeCodeSystemPrompt(),
+                                        ),
+                                      );
+                                      return;
+                                    }
+                                    if (value == 'preset') {
+                                      final existingAppend =
+                                          cfg.systemPrompt?.preset != null
+                                          ? cfg.systemPrompt?.append
+                                          : null;
+                                      await _update(
+                                        cfg.copyWith(
+                                          systemPrompt: ClaudeCodeSystemPrompt(
+                                            preset: 'claude_code',
+                                            append: existingAppend,
+                                          ),
+                                        ),
+                                      );
+                                      return;
+                                    }
+                                    final customValue = await _showTextValueDialog(
+                                      title: 'Custom system prompt',
+                                      initialValue:
+                                          cfg.systemPrompt?.text ?? '',
+                                      hintText:
+                                          'Provide default instructions for Claude.',
+                                      multiline: true,
+                                    );
+                                    if (customValue == null) return;
+                                    final trimmed = customValue.trim();
+                                    await _update(
+                                      cfg.copyWith(
+                                        systemPrompt: trimmed.isEmpty
+                                            ? const ClaudeCodeSystemPrompt()
+                                            : ClaudeCodeSystemPrompt(
+                                                text: trimmed,
+                                              ),
+                                      ),
+                                    );
+                                  },
+                          ),
+                          if (systemPromptMode == 'preset') ...[
+                            const SizedBox(height: 8),
+                            ListTile(
+                              contentPadding: EdgeInsets.zero,
+                              title: const Text('Additional instructions'),
+                              subtitle: Text(
+                                (systemPrompt.append ?? '').trim().isEmpty
+                                    ? 'None'
+                                    : systemPrompt.append!,
+                              ),
+                              trailing: const Icon(
+                                Icons.edit_outlined,
+                                size: 18,
+                              ),
+                              onTap: cfg == null
+                                  ? null
+                                  : () async {
+                                      final appendValue =
+                                          await _showTextValueDialog(
+                                            title:
+                                                'Preset additional instructions',
+                                            initialValue:
+                                                systemPrompt.append ?? '',
+                                            hintText:
+                                                'Optional extra instruction text.',
+                                            multiline: true,
+                                            allowClear: true,
+                                          );
+                                      if (appendValue == null) return;
+                                      final trimmed = appendValue.trim();
+                                      await _update(
+                                        cfg.copyWith(
+                                          systemPrompt: ClaudeCodeSystemPrompt(
+                                            preset: 'claude_code',
+                                            append: trimmed.isEmpty
+                                                ? null
+                                                : trimmed,
+                                          ),
+                                        ),
+                                      );
+                                    },
+                            ),
+                          ],
+                          if (systemPromptMode == 'custom') ...[
+                            const SizedBox(height: 8),
+                            Text(
+                              (systemPrompt.text ?? '').trim().isEmpty
+                                  ? 'No custom prompt configured.'
+                                  : systemPrompt.text!,
+                              maxLines: 5,
+                              overflow: TextOverflow.ellipsis,
+                              style: TextStyle(
+                                color: oc.textMuted,
+                                fontSize: 12,
+                                height: 1.4,
+                              ),
+                            ),
+                            const SizedBox(height: 8),
+                            OutlinedButton.icon(
+                              onPressed: cfg == null
+                                  ? null
+                                  : () async {
+                                      final customValue =
+                                          await _showTextValueDialog(
+                                            title: 'Custom system prompt',
+                                            initialValue:
+                                                systemPrompt.text ?? '',
+                                            hintText:
+                                                'Provide default instructions for Claude.',
+                                            multiline: true,
+                                            allowClear: true,
+                                          );
+                                      if (customValue == null) return;
+                                      final trimmed = customValue.trim();
+                                      await _update(
+                                        cfg.copyWith(
+                                          systemPrompt: trimmed.isEmpty
+                                              ? const ClaudeCodeSystemPrompt()
+                                              : ClaudeCodeSystemPrompt(
+                                                  text: trimmed,
+                                                ),
+                                        ),
+                                      );
+                                    },
+                              icon: const Icon(Icons.edit_rounded, size: 16),
+                              label: const Text('Edit custom prompt'),
+                            ),
+                          ],
+                        ],
+                      ),
+                    ),
+                  if (_matches('1m context beta'))
+                    _buildSettingCard(
+                      oc: oc,
+                      title: 'Context Window',
+                      child: SwitchListTile(
+                        contentPadding: EdgeInsets.zero,
+                        value: (cfg?.betas ?? const <String>[]).contains(
+                          'context-1m-2025-08-07',
+                        ),
+                        title: const Text('Enable 1M context beta'),
+                        subtitle: const Text(
+                          'Adds beta header context-1m-2025-08-07 for supported models.',
+                        ),
+                        onChanged: cfg == null
+                            ? null
+                            : (enabled) async {
+                                final betas = <String>{
+                                  ...(cfg.betas ?? const <String>[]),
+                                };
+                                if (enabled) {
+                                  betas.add('context-1m-2025-08-07');
+                                } else {
+                                  betas.remove('context-1m-2025-08-07');
+                                }
+                                await _update(
+                                  cfg.copyWith(betas: betas.toList()),
+                                );
+                              },
+                      ),
+                    ),
+                  if (_matches('budget max budget usd'))
+                    _buildSettingCard(
+                      oc: oc,
+                      title: 'Budget',
+                      child: ListTile(
+                        contentPadding: EdgeInsets.zero,
+                        title: const Text('Max budget (USD)'),
+                        subtitle: Text(
+                          cfg?.maxBudgetUsd == null || cfg!.maxBudgetUsd! <= 0
+                              ? 'No limit'
+                              : '\$${cfg.maxBudgetUsd!.toStringAsFixed(2)} per turn',
+                        ),
+                        trailing: const Icon(Icons.edit_outlined, size: 18),
+                        onTap: cfg == null
+                            ? null
+                            : () async {
+                                final controller = TextEditingController(
+                                  text: cfg.maxBudgetUsd?.toString() ?? '',
+                                );
+                                final value = await showDialog<double?>(
+                                  context: context,
+                                  builder: (ctx) => AlertDialog(
+                                    title: const Text('Max budget (USD)'),
+                                    content: TextField(
+                                      controller: controller,
+                                      keyboardType:
+                                          const TextInputType.numberWithOptions(
+                                            decimal: true,
+                                          ),
+                                      decoration: const InputDecoration(
+                                        hintText: 'e.g. 10.0',
+                                      ),
+                                    ),
+                                    actions: [
+                                      TextButton(
+                                        onPressed: () =>
+                                            Navigator.pop(ctx, null),
+                                        child: const Text('Clear'),
+                                      ),
+                                      TextButton(
+                                        onPressed: () {
+                                          final parsed = double.tryParse(
+                                            controller.text.trim(),
+                                          );
+                                          Navigator.pop(ctx, parsed);
+                                        },
+                                        child: const Text('Save'),
+                                      ),
+                                    ],
+                                  ),
+                                );
+                                controller.dispose();
+                                await _update(
+                                  cfg.copyWith(
+                                    maxBudgetUsd: value != null && value > 0
+                                        ? value
+                                        : 0,
+                                  ),
+                                );
+                              },
+                      ),
+                    ),
+                  if (_matches('turn max turns'))
+                    _buildSettingCard(
+                      oc: oc,
+                      title: 'Turn Limit',
+                      child: ListTile(
+                        contentPadding: EdgeInsets.zero,
+                        title: const Text('Max turns'),
+                        subtitle: Text(
+                          cfg?.maxTurns == null || cfg!.maxTurns! <= 0
+                              ? 'No limit'
+                              : '${cfg.maxTurns} turns',
+                        ),
+                        trailing: const Icon(Icons.edit_outlined, size: 18),
+                        onTap: cfg == null
+                            ? null
+                            : () async {
+                                final controller = TextEditingController(
+                                  text: cfg.maxTurns?.toString() ?? '',
+                                );
+                                final value = await showDialog<int?>(
+                                  context: context,
+                                  builder: (ctx) => AlertDialog(
+                                    title: const Text('Max turns'),
+                                    content: TextField(
+                                      controller: controller,
+                                      keyboardType: TextInputType.number,
+                                      decoration: const InputDecoration(
+                                        hintText: 'e.g. 25',
+                                      ),
+                                    ),
+                                    actions: [
+                                      TextButton(
+                                        onPressed: () =>
+                                            Navigator.pop(ctx, null),
+                                        child: const Text('Clear'),
+                                      ),
+                                      TextButton(
+                                        onPressed: () {
+                                          final parsed = int.tryParse(
+                                            controller.text.trim(),
+                                          );
+                                          Navigator.pop(ctx, parsed);
+                                        },
+                                        child: const Text('Save'),
+                                      ),
+                                    ],
+                                  ),
+                                );
+                                controller.dispose();
+                                await _update(
+                                  cfg.copyWith(
+                                    maxTurns: value != null && value > 0
+                                        ? value
+                                        : 0,
+                                  ),
+                                );
+                              },
+                      ),
+                    ),
+                  if (_matches('agent teams teammate taskcompleted'))
+                    _buildSettingCard(
+                      oc: oc,
+                      title: 'Agent Teams',
+                      child: SwitchListTile(
+                        contentPadding: EdgeInsets.zero,
+                        value: cfg?.enableAgentTeams ?? false,
+                        title: const Text('Enable experimental agent teams'),
+                        subtitle: const Text(
+                          'Allows Claude to delegate work across teammate agents.',
+                        ),
+                        onChanged: cfg == null
+                            ? null
+                            : (enabled) async {
+                                await _update(
+                                  cfg.copyWith(enableAgentTeams: enabled),
+                                );
+                              },
+                      ),
+                    ),
+                  if (_matches('sandbox security excluded commands'))
+                    _buildSettingCard(
+                      oc: oc,
+                      title: 'Sandbox',
+                      child: ListTile(
+                        contentPadding: EdgeInsets.zero,
+                        leading: Icon(
+                          Icons.shield_outlined,
+                          color: (cfg?.sandbox?.enabled ?? false)
+                              ? oc.accent
+                              : oc.textMuted,
+                          size: 22,
+                        ),
+                        title: Text(
+                          (cfg?.sandbox?.enabled ?? false)
+                              ? 'Sandbox enabled'
+                              : 'Sandbox disabled',
+                          style: TextStyle(color: oc.text),
+                        ),
+                        subtitle: Text(
+                          'Configure sandbox mode, network, excluded commands.',
+                          style: TextStyle(color: oc.textMuted, fontSize: 12),
+                        ),
+                        trailing: Icon(
+                          Icons.chevron_right,
+                          color: oc.textMuted,
+                        ),
+                        onTap: () {
+                          Navigator.push(
+                            context,
+                            MaterialPageRoute(
+                              builder: (_) => const ClaudeCodeSandboxScreen(),
+                            ),
+                          ).then((_) => _load());
+                        },
+                      ),
+                    ),
+                  if (_matches('account usage organization token source'))
+                    _buildSettingCard(
+                      oc: oc,
+                      title: 'Account',
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            _accountInfo?.email ?? 'Unknown account',
+                            style: TextStyle(
+                              color: oc.text,
+                              fontWeight: FontWeight.w600,
+                              fontSize: 13,
+                            ),
+                          ),
+                          const SizedBox(height: 4),
+                          Text(
+                            [
+                              if ((_accountInfo?.organization ?? '')
+                                  .trim()
+                                  .isNotEmpty)
+                                'Org: ${_accountInfo!.organization}',
+                              if ((_accountInfo?.subscriptionType ?? '')
+                                  .trim()
+                                  .isNotEmpty)
+                                'Plan: ${_accountInfo!.subscriptionType}',
+                              if ((_accountInfo?.apiKeySource ?? '')
+                                  .trim()
+                                  .isNotEmpty)
+                                'Key source: ${_accountInfo!.apiKeySource}',
+                            ].join(' • '),
+                            style: TextStyle(color: oc.textMuted, fontSize: 12),
+                          ),
+                        ],
                       ),
                     ),
                   // Allowed Tools (SDK v2.1.0 wildcards)
@@ -663,7 +1149,16 @@ class _ClaudeCodeSettingsScreenState
                   // No results message
                   if (_searchQuery.isNotEmpty &&
                       !_matches('permission mode security') &&
-                      !_matches('model sonnet opus haiku') &&
+                      !_matches('model sonnet opus haiku dynamic') &&
+                      !_matches(
+                        'system prompt append preset custom instructions',
+                      ) &&
+                      !_matches('1m context beta') &&
+                      !_matches('budget max budget usd') &&
+                      !_matches('turn max turns') &&
+                      !_matches('agent teams teammate taskcompleted') &&
+                      !_matches('sandbox security excluded commands') &&
+                      !_matches('account usage organization token source') &&
                       !_matches('allowed tools permissions bash wildcard') &&
                       !_matches('disallowed blocked tools') &&
                       !_matches('language response') &&

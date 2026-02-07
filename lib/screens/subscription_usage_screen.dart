@@ -1,7 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../models/claude_code.dart';
 import '../models/subscription_usage.dart';
+import '../providers/service_providers.dart';
 import '../providers/subscription_usage_provider.dart';
 import '../theme/opencode_theme.dart';
 
@@ -19,13 +21,58 @@ class SubscriptionUsageScreen extends ConsumerStatefulWidget {
 
 class _SubscriptionUsageScreenState
     extends ConsumerState<SubscriptionUsageScreen> {
+  ClaudeCodeAccountInfo? _claudeAccountInfo;
+  bool _isRefreshingAccountInfo = false;
+
   @override
   void initState() {
     super.initState();
     // Fetch on screen open
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      ref.read(subscriptionUsageProvider.notifier).refresh();
+      _refreshAll();
     });
+  }
+
+  Future<void> _refreshAll() async {
+    await Future.wait([
+      ref.read(subscriptionUsageProvider.notifier).refresh(),
+      _refreshClaudeAccountInfo(),
+    ]);
+  }
+
+  Future<void> _refreshClaudeAccountInfo() async {
+    if (_isRefreshingAccountInfo) return;
+
+    setState(() {
+      _isRefreshingAccountInfo = true;
+    });
+
+    try {
+      final bridge = ref.read(bridgeServiceProvider);
+      final accountInfo = await bridge.ccGetAccountInfo();
+      if (!mounted) return;
+
+      final hasData =
+          (accountInfo.email ?? '').trim().isNotEmpty ||
+          (accountInfo.organization ?? '').trim().isNotEmpty ||
+          (accountInfo.subscriptionType ?? '').trim().isNotEmpty ||
+          (accountInfo.apiKeySource ?? '').trim().isNotEmpty;
+
+      setState(() {
+        _claudeAccountInfo = hasData ? accountInfo : null;
+      });
+    } catch (_) {
+      if (!mounted) return;
+      setState(() {
+        _claudeAccountInfo = null;
+      });
+    } finally {
+      if (mounted) {
+        setState(() {
+          _isRefreshingAccountInfo = false;
+        });
+      }
+    }
   }
 
   @override
@@ -51,7 +98,7 @@ class _SubscriptionUsageScreenState
           onPressed: () => Navigator.pop(context),
         ),
         actions: [
-          if (state.isLoading)
+          if (state.isLoading || _isRefreshingAccountInfo)
             Padding(
               padding: const EdgeInsets.all(16),
               child: SizedBox(
@@ -66,14 +113,13 @@ class _SubscriptionUsageScreenState
           else
             IconButton(
               icon: Icon(Icons.refresh_rounded, color: ocTheme.text),
-              onPressed: () =>
-                  ref.read(subscriptionUsageProvider.notifier).refresh(),
+              onPressed: _refreshAll,
               tooltip: 'Refresh',
             ),
         ],
       ),
       body: RefreshIndicator(
-        onRefresh: () => ref.read(subscriptionUsageProvider.notifier).refresh(),
+        onRefresh: _refreshAll,
         color: ocTheme.primary,
         child: _buildBody(context, state),
       ),
@@ -112,8 +158,7 @@ class _SubscriptionUsageScreenState
               ),
               const SizedBox(height: 24),
               ElevatedButton.icon(
-                onPressed: () =>
-                    ref.read(subscriptionUsageProvider.notifier).refresh(),
+                onPressed: _refreshAll,
                 icon: const Icon(Icons.refresh_rounded),
                 label: const Text('Try Again'),
               ),
@@ -160,6 +205,10 @@ class _SubscriptionUsageScreenState
     return ListView(
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
       children: [
+        if (_claudeAccountInfo != null) ...[
+          _ClaudeAccountCard(accountInfo: _claudeAccountInfo!),
+          const SizedBox(height: 12),
+        ],
         // Last updated
         Padding(
           padding: const EdgeInsets.only(bottom: 16),
@@ -203,6 +252,86 @@ class _SubscriptionUsageScreenState
         const SizedBox(height: 16),
         _SkeletonProviderCard(),
       ],
+    );
+  }
+}
+
+class _ClaudeAccountCard extends StatelessWidget {
+  const _ClaudeAccountCard({required this.accountInfo});
+
+  final ClaudeCodeAccountInfo accountInfo;
+
+  @override
+  Widget build(BuildContext context) {
+    final ocTheme = OpenCodeTheme.of(context);
+    final details = <String>[
+      if ((accountInfo.organization ?? '').trim().isNotEmpty)
+        'Org: ${accountInfo.organization}',
+      if ((accountInfo.subscriptionType ?? '').trim().isNotEmpty)
+        'Plan: ${accountInfo.subscriptionType}',
+      if ((accountInfo.apiKeySource ?? '').trim().isNotEmpty)
+        'Key source: ${accountInfo.apiKeySource}',
+    ];
+
+    return Container(
+      decoration: BoxDecoration(
+        color: ocTheme.backgroundPanel,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: ocTheme.borderSubtle),
+      ),
+      padding: const EdgeInsets.all(14),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Container(
+            width: 38,
+            height: 38,
+            decoration: BoxDecoration(
+              color: ocTheme.primary.withValues(alpha: 0.12),
+              borderRadius: BorderRadius.circular(10),
+            ),
+            child: Icon(
+              Icons.verified_user_rounded,
+              color: ocTheme.primary,
+              size: 20,
+            ),
+          ),
+          const SizedBox(width: 10),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  'Claude Account',
+                  style: TextStyle(
+                    color: ocTheme.text,
+                    fontSize: 13,
+                    fontWeight: FontWeight.w700,
+                  ),
+                ),
+                const SizedBox(height: 4),
+                Text(
+                  (accountInfo.email ?? '').trim().isNotEmpty
+                      ? accountInfo.email!
+                      : 'Authenticated account',
+                  style: TextStyle(
+                    color: ocTheme.text,
+                    fontSize: 12,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+                if (details.isNotEmpty) ...[
+                  const SizedBox(height: 4),
+                  Text(
+                    details.join(' • '),
+                    style: TextStyle(color: ocTheme.textMuted, fontSize: 11),
+                  ),
+                ],
+              ],
+            ),
+          ),
+        ],
+      ),
     );
   }
 }

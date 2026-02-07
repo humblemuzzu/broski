@@ -38,7 +38,12 @@ class _SubagentsScreenState extends ConsumerState<SubagentsScreen> {
       if (mounted) {
         setState(() {
           _filesystemAgents = agents
-              .where((a) => a['source'] == 'filesystem')
+              .where(
+                (a) =>
+                    a['source'] == 'filesystem' ||
+                    a['source'] == 'project' ||
+                    a['source'] == 'user',
+              )
               .toList();
           _loadingFsAgents = false;
         });
@@ -172,6 +177,8 @@ class _SubagentsScreenState extends ConsumerState<SubagentsScreen> {
                   _FilesystemAgentCard(
                     name: agent['name'] as String? ?? 'Unknown',
                     description: agent['description'] as String? ?? '',
+                    source: agent['source'] as String? ?? 'filesystem',
+                    memoryScope: agent['memory'] as String?,
                   ),
               ],
 
@@ -450,8 +457,15 @@ class _SubagentCard extends StatelessWidget {
 class _FilesystemAgentCard extends StatelessWidget {
   final String name;
   final String description;
+  final String source;
+  final String? memoryScope;
 
-  const _FilesystemAgentCard({required this.name, required this.description});
+  const _FilesystemAgentCard({
+    required this.name,
+    required this.description,
+    required this.source,
+    this.memoryScope,
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -499,7 +513,7 @@ class _FilesystemAgentCard extends StatelessWidget {
                           borderRadius: BorderRadius.circular(4),
                         ),
                         child: Text(
-                          'FILESYSTEM',
+                          source.toUpperCase(),
                           style: TextStyle(
                             color: oc.textMuted,
                             fontSize: 9,
@@ -517,6 +531,23 @@ class _FilesystemAgentCard extends StatelessWidget {
                       style: TextStyle(color: oc.textMuted, fontSize: 13),
                       maxLines: 2,
                       overflow: TextOverflow.ellipsis,
+                    ),
+                  ],
+                  if ((memoryScope ?? '').isNotEmpty) ...[
+                    const SizedBox(height: 6),
+                    Row(
+                      children: [
+                        Icon(Icons.memory_rounded, size: 12, color: oc.accent),
+                        const SizedBox(width: 4),
+                        Text(
+                          'Memory: $memoryScope',
+                          style: TextStyle(
+                            color: oc.accent,
+                            fontSize: 11,
+                            fontWeight: FontWeight.w600,
+                          ),
+                        ),
+                      ],
                     ),
                   ],
                 ],

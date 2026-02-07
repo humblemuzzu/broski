@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import '../models/agent_type.dart';
 import '../models/project.dart';
 import '../screens/claude_code_commands_screen.dart';
+import '../screens/claude_code_memory_screen.dart';
 import '../screens/claude_code_mcp_screen.dart';
 import '../screens/claude_code_settings_screen.dart';
 import '../screens/codex_agents_screen.dart';
@@ -290,6 +291,14 @@ class _ProjectToolsContent extends StatelessWidget {
             title: 'Subagents',
             subtitle: 'Custom subagent definitions',
             onTap: () => _closeAndPush(context, const SubagentsScreen()),
+          ),
+          _tile(
+            context,
+            theme,
+            icon: Icons.memory_rounded,
+            title: 'Memory',
+            subtitle: 'Agent memory scopes and status',
+            onTap: () => _closeAndPush(context, const ClaudeCodeMemoryScreen()),
           ),
           _tile(
             context,

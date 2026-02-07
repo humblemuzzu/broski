@@ -61,6 +61,108 @@ Broski is a **mobile app that gives you full remote control of AI coding agents 
 - Keep widgets small and composable; prefer extracting reusable UI into separate widgets.
 - Lint rules come from `analysis_options.yaml` via `flutter_lints`.
 
+## Modular Code Architecture (MANDATORY for all new code)
+
+The codebase has legacy monster files (`server.ts` ~7500 lines, `chat_screen.dart` ~10000 lines). We are NOT doing a full migration right now. But ALL new code MUST follow modular structure. AND when you edit an existing function (bug fix, SDK update, feature change), extract it into its own file at the same time. This is gradual migration — every edit makes the codebase more modular.
+
+**The "Touch It, Move It" Rule:** If you're editing a function that lives in a monster file, extract it to a new file WHILE you edit it. Don't just fix the bug in place — fix AND extract. Two birds, one stone. By the time we do a full migration, most of the work will already be done.
+
+The goal: each file does ONE thing, AI agents only read what they need, bugs are isolated to small files.
+
+### Bridge (TypeScript) — Modular Rules
+
+**New message handlers** — DO NOT add more `case` blocks to `server.ts`. Instead:
+
+1. Create a handler file: `packages/bridge/src/handlers/{agent}_{feature}.ts`
+2. Export a single function: `export function handle(message, reply, context)`
+3. Import and register it in `server.ts` with ONE line
+
+```typescript
+// packages/bridge/src/handlers/cc_plugins.ts
+import * as claudeCode from '../connectors/claude-code'
+import type { ServerContext } from '../types'
+
+export async function handle(message: any, reply: Function, ctx: ServerContext) {
+  switch (message.type) {
+    case 'cc_list_plugins': {
+      const plugins = await claudeCode.listPlugins(message.cwd)
+      reply({ type: 'cc_plugins', data: plugins })
+      break
+    }
+    case 'cc_toggle_plugin': {
+      // ...
+      break
+    }
+  }
+}
+
+// Then in server.ts, just add:
+// import * as ccPlugins from './handlers/cc_plugins'
+// In processSingleMessage: if (message.type.startsWith('cc_plugin')) return ccPlugins.handle(message, reply, ctx)
+```
+
+**New connector features** — If adding 100+ lines to a connector, create a sub-module:
+
+```
+packages/bridge/src/connectors/
+  claude-code.ts              ← existing (keep as-is)
+  claude-code-plugins.ts      ← new: plugin-specific logic
+  claude-code-custom-tools.ts ← new: custom tool logic
+  codex.ts                    ← existing
+  codex-fs.ts                 ← existing (already modular!)
+```
+
+**New types** — Group related types in separate files:
+
+```
+packages/bridge/src/types/
+  index.ts          ← re-exports everything (backward compatible)
+  messages.ts       ← ClientMessage + ServerMessage unions
+  claude-code.ts    ← ClaudeCode* types
+  codex.ts          ← Codex* types  
+  opencode.ts       ← OpenCode* types
+  shared.ts         ← shared types (FileAttachment, etc.)
+```
+
+### Flutter (Dart) — Modular Rules
+
+**New screens/sheets** — DO NOT add more methods to `chat_screen.dart`. Instead:
+
+```
+lib/screens/
+  chat_screen.dart         ← existing (keep as-is)
+  sheets/
+    cc_skills_sheet.dart   ← _showClaudeCodeSkillsSheet() extracted
+    cc_plugins_sheet.dart  ← new feature
+    cx_model_sheet.dart    ← _showCodexModelSheet() extracted
+```
+
+**New widgets** — One widget per file:
+
+```
+lib/widgets/
+  provider_icon.dart     ← existing
+  model_picker.dart      ← new: model selection widget
+  permission_dialog.dart ← new: permission request UI
+```
+
+**New providers** — Already modular (one file per agent). Keep it that way.
+
+### The Rule
+
+> **If a file is over 500 lines, don't add to it. Create a new file next to it.**
+> 
+> **If a function is over 50 lines, it probably belongs in its own file.**
+> 
+> **Name files by what they DO, not what they ARE.** `cc_plugins_handler.ts` not `utils2.ts`.
+
+### Why This Matters
+
+- AI agents read only the file they need (200 lines) instead of the whole monster (7500 lines)
+- Bugs are isolated: a broken plugin handler can't crash session management
+- Multiple AI agents can work on different features simultaneously without merge conflicts
+- You can hand an AI agent ONE file and say "fix this" instead of "find the bug in this 10K line file"
+
 ## Testing Guidelines
 - Tests use `flutter_test`; write new tests in `test/` with `*_test.dart` naming.
 - Prefer `testWidgets` for UI behavior and keep tests deterministic.
@@ -249,6 +351,19 @@ To add `xx_list_widgets` for agent XX:
 - **Claude Code SDK** (`@anthropic-ai/claude-agent-sdk`): Uses model aliases `sonnet/opus/haiku`. New version of same tier = no code change. New tier = add to `types.ts` model union, `claude_code.dart` enum, `chat_screen.dart` model picker, `claude_code_settings_screen.dart` dropdown.
 - **OpenCode SDK** (`@opencode-ai/sdk/v2`): Fully dynamic models from `provider.list()`. SDK returns `{ data, error }` wrapper — always destructure `.data` before using. If SDK types change, fix `connectors/opencode.ts`.
 - **Codex** (spawned as `codex app-server` child process): JSON-RPC over stdio. Bridge talks via `request(method, params)` and `notify(method, params)`. If wire protocol changes, update `connectors/codex.ts`.
+
+### Where to find SDK code and docs
+
+| SDK | Source code | API docs | What syncs automatically |
+|-----|-----------|----------|--------------------------|
+| **Codex** | `reference/codex/sdk/typescript/src/` | In the source itself | `sync-refs.sh` pulls from GitHub |
+| **OpenCode** | `reference/opencode/packages/sdk/js/src/` | In the source itself | `sync-refs.sh` pulls from GitHub |
+| **Claude Code** | `node_modules/@anthropic-ai/claude-agent-sdk/` (closed source, npm) | `reference/cc-docs/` (manually maintained) | `sync-refs.sh` pulls CHANGELOG + plugins from GitHub. **SDK docs must be manually updated** from https://platform.claude.com/docs/en/agent-sdk/ into `reference/cc-docs/` |
+
+**Claude Code SDK docs** (`reference/cc-docs/`): These are manually copied from the Claude platform docs website. Key files:
+- `01-overview.md` through `06-migration-guide.md` — core SDK reference
+- `guides/*.md` — 20 guides covering streaming, permissions, hooks, sessions, MCP, subagents, plugins, etc.
+- When working on the Claude Code bridge connector, READ these docs for the latest API patterns
 
 ### SDK Sync Workflow
 

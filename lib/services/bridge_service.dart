@@ -135,15 +135,24 @@ class BridgeService {
   // ============================================================
   Future<void> authSession({required String sessionToken}) async {
     final requestId = _generateRequestId();
-    developer.log('authSession: sending auth_session with requestId=$requestId', name: 'BridgeService');
+    developer.log(
+      'authSession: sending auth_session with requestId=$requestId',
+      name: 'BridgeService',
+    );
     _socket.sendImmediate({
       'type': 'auth_session',
       'sessionToken': sessionToken,
       'requestId': requestId,
     });
-    developer.log('authSession: waiting for auth_session_ok...', name: 'BridgeService');
+    developer.log(
+      'authSession: waiting for auth_session_ok...',
+      name: 'BridgeService',
+    );
     await _waitFor('auth_session_ok', requestId: requestId);
-    developer.log('authSession: received auth_session_ok', name: 'BridgeService');
+    developer.log(
+      'authSession: received auth_session_ok',
+      name: 'BridgeService',
+    );
   }
 
   void _dispatchMessage(Map<String, dynamic> message) {
@@ -2297,8 +2306,15 @@ class BridgeService {
     List<String>? allowedTools,
     List<String>? disallowedTools,
     int? maxThinkingTokens,
+    int? maxTurns,
+    double? maxBudgetUsd,
+    List<String>? betas,
     String? variant,
     String? activeSubagent,
+    String? resumeSessionAt,
+    ClaudeCodeOutputFormat? outputFormat,
+    ClaudeCodeSandboxSettings? sandbox,
+    bool? enableAgentTeams,
     List<FileAttachment>? fileAttachments,
   }) {
     final guardKey = 'cc_chat:${sessionId ?? 'new'}:${prompt.hashCode}';
@@ -2316,8 +2332,16 @@ class BridgeService {
       if (allowedTools != null) 'allowedTools': allowedTools,
       if (disallowedTools != null) 'disallowedTools': disallowedTools,
       if (maxThinkingTokens != null) 'maxThinkingTokens': maxThinkingTokens,
+      if (maxTurns != null) 'maxTurns': maxTurns,
+      if (maxBudgetUsd != null) 'maxBudgetUsd': maxBudgetUsd,
+      if (betas != null && betas.isNotEmpty) 'betas': betas,
       if (variant != null && variant.isNotEmpty) 'variant': variant,
       if (activeSubagent != null) 'activeSubagent': activeSubagent,
+      if (resumeSessionAt != null && resumeSessionAt.isNotEmpty)
+        'resumeSessionAt': resumeSessionAt,
+      if (outputFormat != null) 'outputFormat': outputFormat.toJson(),
+      if (sandbox != null) 'sandbox': sandbox.toJson(),
+      if (enableAgentTeams != null) 'enableAgentTeams': enableAgentTeams,
       if (fileAttachments != null)
         'fileAttachments': fileAttachments.map((a) => a.toJson()).toList(),
     });
@@ -3318,6 +3342,44 @@ class BridgeService {
         .toList();
   }
 
+  /// List memory entries from ~/.claude/memory/ directories
+  Future<List<ClaudeCodeMemoryEntry>> ccListMemories({
+    String? scope,
+    String? cwd,
+  }) async {
+    final requestId = _generateRequestId();
+    _socket.send({
+      'type': 'cc_list_memories',
+      'requestId': requestId,
+      if (scope != null) 'scope': scope,
+      if (cwd != null) 'cwd': cwd,
+    });
+    final response = await _waitFor('cc_memories', requestId: requestId);
+    final data = response['data'] as List<dynamic>? ?? [];
+    return data
+        .whereType<Map<String, dynamic>>()
+        .map((item) => ClaudeCodeMemoryEntry.fromJson(item))
+        .toList();
+  }
+
+  /// Delete a specific memory entry
+  Future<bool> ccDeleteMemory({
+    required String scope,
+    required String filename,
+    String? cwd,
+  }) async {
+    final requestId = _generateRequestId();
+    _socket.send({
+      'type': 'cc_delete_memory',
+      'requestId': requestId,
+      'scope': scope,
+      'filename': filename,
+      if (cwd != null) 'cwd': cwd,
+    });
+    final response = await _waitFor('cc_memory_deleted', requestId: requestId);
+    return (response['data'] as Map<String, dynamic>?)?['ok'] == true;
+  }
+
   Future<({bool ok, String path, String content})> ccGetCommandFile({
     required String name,
     required SkillSource source,
@@ -3418,6 +3480,64 @@ class BridgeService {
     final response = await _waitFor('cc_config_updated', requestId: requestId);
     final data = response['data'] as Map<String, dynamic>? ?? {};
     return ClaudeCodeConfig.fromJson(data);
+  }
+
+  Future<List<ClaudeCodeSupportedModel>> ccGetSupportedModels({
+    String? cwd,
+  }) async {
+    final requestId = _generateRequestId();
+    _socket.send({
+      'type': 'cc_get_supported_models',
+      if (cwd != null) 'cwd': cwd,
+      'requestId': requestId,
+    });
+    final response = await _waitFor(
+      'cc_supported_models',
+      requestId: requestId,
+    );
+    final data = response['data'] as List<dynamic>? ?? [];
+    return data
+        .whereType<Map>()
+        .map(
+          (item) =>
+              ClaudeCodeSupportedModel.fromJson(item.cast<String, dynamic>()),
+        )
+        .toList();
+  }
+
+  Future<ClaudeCodeAccountInfo> ccGetAccountInfo({String? cwd}) async {
+    final requestId = _generateRequestId();
+    _socket.send({
+      'type': 'cc_get_account_info',
+      if (cwd != null) 'cwd': cwd,
+      'requestId': requestId,
+    });
+    final response = await _waitFor('cc_account_info', requestId: requestId);
+    final data = response['data'] as Map<String, dynamic>? ?? {};
+    return ClaudeCodeAccountInfo.fromJson(data);
+  }
+
+  Future<List<ClaudeCodeMcpServerStatus>> ccGetMcpServerStatus({
+    String? cwd,
+  }) async {
+    final requestId = _generateRequestId();
+    _socket.send({
+      'type': 'cc_get_mcp_server_status',
+      if (cwd != null) 'cwd': cwd,
+      'requestId': requestId,
+    });
+    final response = await _waitFor(
+      'cc_mcp_server_status',
+      requestId: requestId,
+    );
+    final data = response['data'] as List<dynamic>? ?? [];
+    return data
+        .whereType<Map>()
+        .map(
+          (item) =>
+              ClaudeCodeMcpServerStatus.fromJson(item.cast<String, dynamic>()),
+        )
+        .toList();
   }
 
   // ============================================================

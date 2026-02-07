@@ -7,12 +7,14 @@ class SessionContext {
     required this.cost,
     required this.lsp,
     required this.modifiedFiles,
+    this.budgetLimitUsd,
   });
 
   final TokenUsage tokens;
   final double cost;
   final List<LspServer> lsp;
   final List<ModifiedFile> modifiedFiles;
+  final double? budgetLimitUsd;
 
   factory SessionContext.fromJson(Map<String, dynamic> json) {
     return SessionContext(
@@ -26,16 +28,24 @@ class SessionContext {
       modifiedFiles: (json['modifiedFiles'] as List<dynamic>? ?? [])
           .map((item) => ModifiedFile.fromJson(item as Map<String, dynamic>))
           .toList(),
+      budgetLimitUsd: (json['budgetLimitUsd'] as num?)?.toDouble(),
     );
   }
 
   /// Empty context for initial state
   factory SessionContext.empty() {
     return const SessionContext(
-      tokens: TokenUsage(input: 0, output: 0, total: 0, contextWindow: 200000),
+      tokens: TokenUsage(
+        input: 0,
+        output: 0,
+        total: 0,
+        contextTokens: 0,
+        contextWindow: 200000,
+      ),
       cost: 0.0,
       lsp: [],
       modifiedFiles: [],
+      budgetLimitUsd: null,
     );
   }
 
@@ -49,15 +59,20 @@ class SessionContext {
     int cacheWriteTokens = 0,
     int reasoningTokens = 0,
     double? totalCostUsd,
+    double? budgetLimitUsd,
     List<ModifiedFile> modifiedFiles = const [],
     int contextWindow = 200000, // SDK v2.1.6+: Allow custom context window
   }) {
-    final total = inputTokens + outputTokens + cacheReadTokens;
+    // total = fresh tokens only (what the user sees as "usage")
+    // contextTokens = everything occupying the context window (for % bar)
+    final total = inputTokens + outputTokens;
+    final contextTokens = inputTokens + cacheReadTokens + cacheWriteTokens;
     return SessionContext(
       tokens: TokenUsage(
         input: inputTokens,
         output: outputTokens,
         total: total,
+        contextTokens: contextTokens,
         // Claude's context window varies by model, use passed value or 200K default
         contextWindow: contextWindow,
         reasoning: reasoningTokens > 0 ? reasoningTokens : null,
@@ -67,19 +82,34 @@ class SessionContext {
       cost: totalCostUsd ?? 0.0,
       lsp: const [], // Claude Code doesn't have LSP
       modifiedFiles: modifiedFiles,
+      budgetLimitUsd: budgetLimitUsd,
     );
   }
 
   /// Percentage of context window used (0-100)
+  /// Based on contextTokens (input + cache reads + cache writes) which actually
+  /// occupy the context window, NOT the total (which is just fresh tokens).
   double get contextUsagePercent {
     if (tokens.contextWindow == 0) return 0;
-    return (tokens.total / tokens.contextWindow * 100).clamp(0, 100);
+    return (tokens.contextTokens / tokens.contextWindow * 100).clamp(0, 100);
   }
 
   /// Formatted cost string
   String get formattedCost {
     if (cost < 0.01) return '\$0.00';
     return '\$${cost.toStringAsFixed(2)}';
+  }
+
+  double? get budgetRemainingUsd {
+    final limit = budgetLimitUsd;
+    if (limit == null) return null;
+    return (limit - cost).clamp(0.0, limit);
+  }
+
+  String get formattedBudgetRemaining {
+    final remaining = budgetRemainingUsd;
+    if (remaining == null) return '';
+    return '\$${remaining.toStringAsFixed(2)}';
   }
 }
 
@@ -88,6 +118,7 @@ class TokenUsage {
     required this.input,
     required this.output,
     required this.total,
+    this.contextTokens = 0,
     required this.contextWindow,
     this.reasoning,
     this.cacheRead,
@@ -96,21 +127,31 @@ class TokenUsage {
 
   final int input;
   final int output;
+
+  /// Fresh tokens only: input + output (what the user actually consumed)
   final int total;
+
+  /// Tokens occupying the context window: input + cacheRead + cacheWrite
+  /// Used for the context usage % bar
+  final int contextTokens;
   final int contextWindow;
   final int? reasoning;
   final int? cacheRead;
   final int? cacheWrite;
 
   factory TokenUsage.fromJson(Map<String, dynamic> json) {
+    final input = json['input'] as int? ?? 0;
+    final cacheRead = json['cacheRead'] as int?;
+    final cacheWrite = json['cacheWrite'] as int?;
     return TokenUsage(
-      input: json['input'] as int? ?? 0,
+      input: input,
       output: json['output'] as int? ?? 0,
       total: json['total'] as int? ?? 0,
+      contextTokens: input + (cacheRead ?? 0) + (cacheWrite ?? 0),
       contextWindow: json['contextWindow'] as int? ?? 200000,
       reasoning: json['reasoning'] as int?,
-      cacheRead: json['cacheRead'] as int?,
-      cacheWrite: json['cacheWrite'] as int?,
+      cacheRead: cacheRead,
+      cacheWrite: cacheWrite,
     );
   }
 

@@ -119,6 +119,22 @@ class CompactTodosCard extends ConsumerWidget {
               ),
             ),
 
+            // Progress bar
+            Padding(
+              padding: const EdgeInsets.fromLTRB(12, 8, 12, 0),
+              child: ClipRRect(
+                borderRadius: BorderRadius.circular(2),
+                child: LinearProgressIndicator(
+                  value: todos.isEmpty ? 0 : completed / todos.length,
+                  minHeight: 3,
+                  backgroundColor: theme.borderSubtle.withValues(alpha: 0.3),
+                  valueColor: AlwaysStoppedAnimation(
+                    completed == todos.length ? theme.success : theme.info,
+                  ),
+                ),
+              ),
+            ),
+
             // Todo items
             Padding(
               padding: const EdgeInsets.symmetric(horizontal: 12),

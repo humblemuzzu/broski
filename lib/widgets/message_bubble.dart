@@ -11,6 +11,7 @@ class MessageBubble extends StatelessWidget {
     super.key,
     required this.message,
     this.onForkFromHere,
+    this.onResumeFromHere,
     this.onRollback,
   });
 
@@ -18,6 +19,7 @@ class MessageBubble extends StatelessWidget {
 
   /// Feature 6: Callback for forking from this message
   final void Function(String messageId)? onForkFromHere;
+  final void Function(String messageId)? onResumeFromHere;
   final VoidCallback? onRollback;
 
   @override
@@ -129,7 +131,9 @@ class MessageBubble extends StatelessWidget {
     // Feature 6/CodeX: Long press actions
     return GestureDetector(
       onLongPress:
-          (onForkFromHere != null || onRollback != null) &&
+          (onForkFromHere != null ||
+                  onResumeFromHere != null ||
+                  onRollback != null) &&
               message.id.isNotEmpty
           ? () => _showForkMenu(context, theme)
           : null,
@@ -306,8 +310,30 @@ class MessageBubble extends StatelessWidget {
                 onForkFromHere?.call(message.id);
               },
             ),
-          if (onRollback != null) ...[
+          if (onResumeFromHere != null) ...[
             if (onForkFromHere != null)
+              Divider(height: 1, color: theme.borderSubtle),
+            ListTile(
+              leading: Icon(Icons.play_arrow_rounded, color: theme.accent),
+              title: Text(
+                'Resume from here',
+                style: TextStyle(
+                  color: theme.text,
+                  fontWeight: FontWeight.w500,
+                ),
+              ),
+              subtitle: Text(
+                'Continue the session from this message on next send',
+                style: TextStyle(color: theme.textMuted, fontSize: 12),
+              ),
+              onTap: () {
+                Navigator.pop(context);
+                onResumeFromHere?.call(message.id);
+              },
+            ),
+          ],
+          if (onRollback != null) ...[
+            if (onForkFromHere != null || onResumeFromHere != null)
               Divider(height: 1, color: theme.borderSubtle),
             ListTile(
               leading: Icon(Icons.history_rounded, color: theme.warning),

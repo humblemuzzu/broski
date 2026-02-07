@@ -173,7 +173,9 @@ class SessionSidebar extends StatelessWidget {
       theme: theme,
       title: 'Context',
       trailing: Text(
-        '${ctx.tokens.formatCount(ctx.tokens.total)} tokens',
+        ctx.tokens.contextTokens > 0
+            ? '${ctx.tokens.formatCount(ctx.tokens.contextTokens)} in window'
+            : '${ctx.tokens.formatCount(ctx.tokens.total)} tokens',
         style: TextStyle(
           fontSize: 12,
           color: theme.textMuted,
@@ -226,8 +228,69 @@ class SessionSidebar extends StatelessWidget {
               sublabel: 'spent',
               icon: Icons.attach_money,
             ),
+            if (ctx.budgetRemainingUsd != null) ...[
+              const SizedBox(width: 16),
+              _StatItem(
+                theme: theme,
+                label: ctx.formattedBudgetRemaining,
+                sublabel: 'remaining',
+                icon: Icons.account_balance_wallet_outlined,
+              ),
+            ],
           ],
         ),
+
+        // Token breakdown (collapsed by default)
+        if (ctx.tokens.input > 0 || ctx.tokens.output > 0) ...[
+          const SizedBox(height: 10),
+          Container(
+            padding: const EdgeInsets.all(10),
+            decoration: BoxDecoration(
+              color: theme.background,
+              borderRadius: BorderRadius.circular(8),
+              border: Border.all(
+                color: theme.borderSubtle.withValues(alpha: 0.2),
+              ),
+            ),
+            child: Column(
+              children: [
+                _TokenRow(
+                  theme: theme,
+                  label: 'Input',
+                  value: ctx.tokens.formatCount(ctx.tokens.input),
+                  color: theme.info,
+                ),
+                _TokenRow(
+                  theme: theme,
+                  label: 'Output',
+                  value: ctx.tokens.formatCount(ctx.tokens.output),
+                  color: theme.accent,
+                ),
+                if (ctx.tokens.cacheRead != null && ctx.tokens.cacheRead! > 0)
+                  _TokenRow(
+                    theme: theme,
+                    label: 'Cache Read',
+                    value: ctx.tokens.formatCount(ctx.tokens.cacheRead!),
+                    color: theme.success,
+                  ),
+                if (ctx.tokens.cacheWrite != null && ctx.tokens.cacheWrite! > 0)
+                  _TokenRow(
+                    theme: theme,
+                    label: 'Cache Write',
+                    value: ctx.tokens.formatCount(ctx.tokens.cacheWrite!),
+                    color: theme.warning,
+                  ),
+                if (ctx.tokens.reasoning != null && ctx.tokens.reasoning! > 0)
+                  _TokenRow(
+                    theme: theme,
+                    label: 'Reasoning',
+                    value: ctx.tokens.formatCount(ctx.tokens.reasoning!),
+                    color: theme.textMuted,
+                  ),
+              ],
+            ),
+          ),
+        ],
       ],
     );
   }
@@ -320,6 +383,22 @@ class SessionSidebar extends StatelessWidget {
                   value: init.claudeCodeVersion!,
                 ),
               ],
+              if (init.accountInfo != null &&
+                  ((init.accountInfo!.subscriptionType ?? '').isNotEmpty ||
+                      (init.accountInfo!.apiKeySource ?? '').isNotEmpty)) ...[
+                Divider(height: 1, color: theme.borderSubtle),
+                _InfoRow(
+                  theme: theme,
+                  icon: Icons.account_circle_outlined,
+                  label: 'Account',
+                  value: [
+                    if ((init.accountInfo!.subscriptionType ?? '').isNotEmpty)
+                      init.accountInfo!.subscriptionType!,
+                    if ((init.accountInfo!.apiKeySource ?? '').isNotEmpty)
+                      init.accountInfo!.apiKeySource!,
+                  ].join(' • '),
+                ),
+              ],
             ],
           ),
         ),
@@ -352,7 +431,10 @@ class SessionSidebar extends StatelessWidget {
     );
   }
 
-  Widget _buildClaudeCodeSkillsSection(BuildContext context, OpenCodeTheme theme) {
+  Widget _buildClaudeCodeSkillsSection(
+    BuildContext context,
+    OpenCodeTheme theme,
+  ) {
     final init = ccInit;
     final skills = init?.skills ?? const <String>[];
     return _SidebarSection(
@@ -366,7 +448,10 @@ class SessionSidebar extends StatelessWidget {
           children: [
             for (final s in skills.take(16))
               Container(
-                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 10,
+                  vertical: 6,
+                ),
                 decoration: BoxDecoration(
                   color: theme.backgroundElement,
                   borderRadius: BorderRadius.circular(999),
@@ -844,10 +929,7 @@ class _McpServerRow extends StatelessWidget {
           Container(
             width: 8,
             height: 8,
-            decoration: BoxDecoration(
-              color: color,
-              shape: BoxShape.circle,
-            ),
+            decoration: BoxDecoration(color: color, shape: BoxShape.circle),
           ),
           const SizedBox(width: 10),
           Expanded(
@@ -1144,5 +1226,54 @@ class _TodoItem extends StatelessWidget {
       default:
         return theme.textMuted;
     }
+  }
+}
+
+/// Compact token breakdown row for the context section.
+class _TokenRow extends StatelessWidget {
+  const _TokenRow({
+    required this.theme,
+    required this.label,
+    required this.value,
+    required this.color,
+  });
+
+  final OpenCodeTheme theme;
+  final String label;
+  final String value;
+  final Color color;
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 2),
+      child: Row(
+        children: [
+          Container(
+            width: 8,
+            height: 8,
+            decoration: BoxDecoration(
+              color: color.withValues(alpha: 0.7),
+              borderRadius: BorderRadius.circular(2),
+            ),
+          ),
+          const SizedBox(width: 8),
+          Expanded(
+            child: Text(
+              label,
+              style: TextStyle(color: theme.textMuted, fontSize: 11),
+            ),
+          ),
+          Text(
+            value,
+            style: TextStyle(
+              color: theme.text,
+              fontSize: 11,
+              fontWeight: FontWeight.w600,
+            ),
+          ),
+        ],
+      ),
+    );
   }
 }

@@ -6844,8 +6844,15 @@ export async function createBridgeServer(options: BridgeServerOptions): Promise<
               allowedTools,
               disallowedTools,
               maxThinkingTokens: message.maxThinkingTokens,
+              maxTurns: message.maxTurns ?? cfg.maxTurns,
+              maxBudgetUsd: message.maxBudgetUsd ?? cfg.maxBudgetUsd,
+              betas: message.betas ?? cfg.betas,
               variant: message.variant,
               systemPrompt: message.systemPrompt ?? cfg.systemPrompt,
+              resumeSessionAt: message.resumeSessionAt,
+              outputFormat: message.outputFormat ?? cfg.outputFormat,
+              sandbox: message.sandbox ?? cfg.sandbox,
+              enableAgentTeams: message.enableAgentTeams ?? cfg.enableAgentTeams,
               activeSubagent: message.activeSubagent,
             },
             (streamMsg) => {
@@ -7160,6 +7167,16 @@ export async function createBridgeServer(options: BridgeServerOptions): Promise<
           reply({ type: 'cc_agents', data: agents })
           break
         }
+        case 'cc_list_memories': {
+          const memories = await claudeCode.listMemories(message.scope, message.cwd)
+          reply({ type: 'cc_memories', data: memories })
+          break
+        }
+        case 'cc_delete_memory': {
+          const ok = await claudeCode.deleteMemory(message.scope, message.filename, message.cwd)
+          reply({ type: 'cc_memory_deleted', data: { ok, filename: message.filename, scope: message.scope } })
+          break
+        }
         case 'cc_get_command': {
           const name = safeString(message.name)
           const source = message.source
@@ -7343,6 +7360,21 @@ export async function createBridgeServer(options: BridgeServerOptions): Promise<
         case 'cc_set_config': {
           const config = await claudeCode.setConfig(message.config, message.cwd)
           reply({ type: 'cc_config_updated', data: config })
+          break
+        }
+        case 'cc_get_supported_models': {
+          const models = await claudeCode.getSupportedModels(message.cwd)
+          reply({ type: 'cc_supported_models', data: models })
+          break
+        }
+        case 'cc_get_account_info': {
+          const accountInfo = await claudeCode.getAccountInfo(message.cwd)
+          reply({ type: 'cc_account_info', data: accountInfo })
+          break
+        }
+        case 'cc_get_mcp_server_status': {
+          const statuses = await claudeCode.getMcpServerStatus(message.cwd)
+          reply({ type: 'cc_mcp_server_status', data: statuses })
           break
         }
         // Claude Code File Checkpointing (Undo/Revert)

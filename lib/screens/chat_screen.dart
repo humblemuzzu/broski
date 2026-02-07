@@ -65,6 +65,7 @@ import '../widgets/power_sheet.dart';
 import '../widgets/project_tools_sheet.dart';
 import '../widgets/voice_input_button.dart';
 import 'subagents_screen.dart';
+import 'claude_code_memory_screen.dart';
 import 'custom_tools_screen.dart';
 import 'plugins_screen.dart';
 import 'sessions_screen.dart';
@@ -281,6 +282,7 @@ class _ChatScreenState extends ConsumerState<ChatScreen>
   // Feature 3: Agent Switching
   List<Agent> _agents = [];
   String? _selectedAgent;
+  String? _ccResumeSessionAtMessageId;
 
   // Feature 10: VCS/Git info
   VcsInfo _vcsInfo = const VcsInfo();
@@ -1008,12 +1010,16 @@ class _ChatScreenState extends ConsumerState<ChatScreen>
     if (widget.isClaudeCode) {
       final chatState = ref.read(chatSessionProvider);
       final tokenUsage = chatState.ccTokenUsage;
+      final ccConfig = ref.read(ccConfigProvider).valueOrNull;
 
       final context = SessionContext.fromClaudeCode(
         inputTokens: tokenUsage?.inputTokens ?? 0,
         outputTokens: tokenUsage?.outputTokens ?? 0,
         cacheReadTokens: tokenUsage?.cacheReadTokens ?? 0,
+        cacheWriteTokens: tokenUsage?.cacheCreationTokens ?? 0,
+        reasoningTokens: 0, // SDK doesn't report reasoning in cumulative usage
         totalCostUsd: tokenUsage?.totalCostUsd,
+        budgetLimitUsd: ccConfig?.maxBudgetUsd,
         // SDK v2.1.6+: Use context window from token usage if available
         contextWindow: tokenUsage?.effectiveContextWindow ?? 200000,
         // Avoid client-side "made up" file summaries for Claude Code.
@@ -1321,6 +1327,21 @@ class _ChatScreenState extends ConsumerState<ChatScreen>
         ),
       );
     }
+  }
+
+  void _setClaudeResumeFromHere(String messageId) {
+    if (messageId.isEmpty) return;
+    _haptics.lightImpact();
+    setState(() => _ccResumeSessionAtMessageId = messageId);
+    final theme = OpenCodeTheme.of(context);
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: const Text(
+          'Claude will resume from this message on your next send.',
+        ),
+        backgroundColor: theme.backgroundPanel,
+      ),
+    );
   }
 
   // Feature 7: Revert/Undo changes
@@ -1937,6 +1958,76 @@ class _ChatScreenState extends ConsumerState<ChatScreen>
     });
   }
 
+  void _insertMemoryPromptTemplate(String scope) {
+    final template = switch (scope) {
+      'user' => 'When this is useful later, store it in user memory: ',
+      'project' =>
+        'If this should persist for the project, store it in project memory: ',
+      'local' =>
+        'If this should remain local to this machine, store it in local memory: ',
+      _ => 'Store this memory appropriately: ',
+    };
+    final currentText = _controller.text;
+    final prefix = currentText.trim().isEmpty
+        ? template
+        : '$currentText\n$template';
+    _controller.text = prefix;
+    _controller.selection = TextSelection.collapsed(
+      offset: _controller.text.length,
+    );
+    _inputFocusNode.requestFocus();
+  }
+
+  void _showMemoryScopePicker() {
+    final theme = OpenCodeTheme.of(context);
+    DetailSheet.show(
+      context: context,
+      title: 'Memory Scope',
+      initialSize: 0.35,
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          ListTile(
+            leading: Icon(Icons.person_outline_rounded, color: theme.info),
+            title: Text('User memory', style: TextStyle(color: theme.text)),
+            subtitle: Text(
+              'Persists across projects for your account.',
+              style: TextStyle(color: theme.textMuted, fontSize: 12),
+            ),
+            onTap: () {
+              Navigator.pop(context);
+              _insertMemoryPromptTemplate('user');
+            },
+          ),
+          ListTile(
+            leading: Icon(Icons.work_outline_rounded, color: theme.accent),
+            title: Text('Project memory', style: TextStyle(color: theme.text)),
+            subtitle: Text(
+              'Shared context for this project.',
+              style: TextStyle(color: theme.textMuted, fontSize: 12),
+            ),
+            onTap: () {
+              Navigator.pop(context);
+              _insertMemoryPromptTemplate('project');
+            },
+          ),
+          ListTile(
+            leading: Icon(Icons.computer_rounded, color: theme.warning),
+            title: Text('Local memory', style: TextStyle(color: theme.text)),
+            subtitle: Text(
+              'Only for this machine/workspace.',
+              style: TextStyle(color: theme.textMuted, fontSize: 12),
+            ),
+            onTap: () {
+              Navigator.pop(context);
+              _insertMemoryPromptTemplate('local');
+            },
+          ),
+        ],
+      ),
+    );
+  }
+
   /// Call setState and restore focus if it was previously focused.
   /// This is the KEY fix - we always restore focus after setState if the
   /// input had focus before the text change. This prevents focus loss
@@ -2131,6 +2222,38 @@ class _ChatScreenState extends ConsumerState<ChatScreen>
                       ),
                     ),
 
+                    const SizedBox(height: 12),
+
+                    _buildSettingsRow(
+                      theme,
+                      'Sandbox',
+                      Switch.adaptive(
+                        value: config.sandbox?.enabled ?? false,
+                        onChanged: (enabled) {
+                          final sandbox =
+                              config.sandbox ??
+                              const ClaudeCodeSandboxSettings();
+                          updateConfig(
+                            config.copyWith(
+                              sandbox: ClaudeCodeSandboxSettings(
+                                enabled: enabled,
+                                autoAllowBashIfSandboxed:
+                                    sandbox.autoAllowBashIfSandboxed,
+                                allowUnsandboxedCommands:
+                                    sandbox.allowUnsandboxedCommands,
+                                network: sandbox.network,
+                                ignoreViolations: sandbox.ignoreViolations,
+                                enableWeakerNestedSandbox:
+                                    sandbox.enableWeakerNestedSandbox,
+                                excludedCommands: sandbox.excludedCommands,
+                              ),
+                            ),
+                          );
+                        },
+                        activeColor: theme.accent,
+                      ),
+                    ),
+
                     const SizedBox(height: 16),
 
                     // System prompt
@@ -2236,6 +2359,41 @@ class _ChatScreenState extends ConsumerState<ChatScreen>
                                 context,
                                 MaterialPageRoute(
                                   builder: (_) => const SubagentsScreen(),
+                                ),
+                              );
+                            },
+                          ),
+                        ],
+                      ),
+                    ),
+
+                    const SizedBox(height: 12),
+
+                    _buildSettingsTile(
+                      theme: theme,
+                      icon: Icons.memory_rounded,
+                      iconColor: theme.accent,
+                      title: 'Memory',
+                      subtitle: 'Scopes and prompt helpers',
+                      trailing: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          _buildSettingsIconButton(
+                            theme: theme,
+                            icon: Icons.add_comment_rounded,
+                            onTap: _showMemoryScopePicker,
+                          ),
+                          const SizedBox(width: 4),
+                          _buildSettingsIconButton(
+                            theme: theme,
+                            icon: Icons.chevron_right_rounded,
+                            onTap: () {
+                              Navigator.pop(context);
+                              Navigator.push(
+                                context,
+                                MaterialPageRoute(
+                                  builder: (_) =>
+                                      const ClaudeCodeMemoryScreen(),
                                 ),
                               );
                             },
@@ -2915,32 +3073,51 @@ class _ChatScreenState extends ConsumerState<ChatScreen>
       initialSize: 0.5,
       child: Consumer(
         builder: (context, ref, _) {
-          final init = ref.watch(chatSessionProvider).ccInit;
-          final servers = init?.mcpServers ?? const [];
+          final chatState = ref.watch(chatSessionProvider);
+          final init = chatState.ccInit;
+          final cwd =
+              chatState.ccCwd ?? widget.ccSession?.cwd ?? widget.ccDraftCwd;
+          final statusesAsync = ref.watch(ccMcpServerStatusProvider(cwd));
+          final initServers = init?.mcpServers ?? const [];
 
           return Padding(
             padding: const EdgeInsets.symmetric(horizontal: 16),
-            child: servers.isEmpty
-                ? Padding(
-                    padding: const EdgeInsets.only(top: 8),
-                    child: Text(
-                      'No MCP servers reported yet (start a turn to initialize).',
-                      style: TextStyle(color: theme.textMuted, fontSize: 13),
-                    ),
-                  )
-                : Column(
+            child: statusesAsync.when(
+              data: (statuses) {
+                if (statuses.isNotEmpty) {
+                  return Column(
                     mainAxisSize: MainAxisSize.min,
-                    children: servers
+                    children: statuses
                         .map(
-                          (s) => ListTile(
+                          (status) => ListTile(
                             dense: true,
                             contentPadding: EdgeInsets.zero,
+                            leading: Icon(
+                              status.status == 'connected'
+                                  ? Icons.check_circle_rounded
+                                  : status.status == 'needs-auth'
+                                  ? Icons.lock_outline_rounded
+                                  : status.status == 'pending'
+                                  ? Icons.pending_rounded
+                                  : Icons.error_outline_rounded,
+                              color: status.status == 'connected'
+                                  ? theme.success
+                                  : status.status == 'needs-auth'
+                                  ? theme.warning
+                                  : status.status == 'pending'
+                                  ? theme.accent
+                                  : theme.error,
+                              size: 18,
+                            ),
                             title: Text(
-                              s['name']?.toString() ?? 'server',
+                              status.name,
                               style: TextStyle(color: theme.text, fontSize: 13),
                             ),
                             subtitle: Text(
-                              s['status']?.toString() ?? '',
+                              status.serverName != null &&
+                                      status.serverVersion != null
+                                  ? '${status.status} • ${status.serverName} ${status.serverVersion}'
+                                  : status.status,
                               style: TextStyle(
                                 color: theme.textMuted,
                                 fontSize: 12,
@@ -2949,7 +3126,54 @@ class _ChatScreenState extends ConsumerState<ChatScreen>
                           ),
                         )
                         .toList(),
-                  ),
+                  );
+                }
+                if (initServers.isEmpty) {
+                  return Padding(
+                    padding: const EdgeInsets.only(top: 8),
+                    child: Text(
+                      'No MCP servers reported yet (start a turn to initialize).',
+                      style: TextStyle(color: theme.textMuted, fontSize: 13),
+                    ),
+                  );
+                }
+                return Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: initServers
+                      .map(
+                        (s) => ListTile(
+                          dense: true,
+                          contentPadding: EdgeInsets.zero,
+                          title: Text(
+                            s['name']?.toString() ?? 'server',
+                            style: TextStyle(color: theme.text, fontSize: 13),
+                          ),
+                          subtitle: Text(
+                            s['status']?.toString() ?? '',
+                            style: TextStyle(
+                              color: theme.textMuted,
+                              fontSize: 12,
+                            ),
+                          ),
+                        ),
+                      )
+                      .toList(),
+                );
+              },
+              loading: () => Padding(
+                padding: const EdgeInsets.only(top: 12),
+                child: Center(
+                  child: CircularProgressIndicator(color: theme.accent),
+                ),
+              ),
+              error: (_, __) => Padding(
+                padding: const EdgeInsets.only(top: 8),
+                child: Text(
+                  'Unable to load MCP server status.',
+                  style: TextStyle(color: theme.textMuted, fontSize: 13),
+                ),
+              ),
+            ),
           );
         },
       ),
@@ -4167,11 +4391,16 @@ Describe project-specific guidance for Codex here.
     DetailSheet.show(
       context: context,
       title: 'Claude Code Model',
-      initialSize: 0.4,
+      initialSize: 0.5,
       child: Consumer(
         builder: (context, ref, _) {
           final chatState = ref.watch(chatSessionProvider);
           final init = chatState.ccInit;
+          final cwd =
+              chatState.ccCwd ?? widget.ccSession?.cwd ?? widget.ccDraftCwd;
+          final supportedModelsAsync = ref.watch(
+            ccSupportedModelsProvider(cwd),
+          );
           final configAsync = ref.watch(ccConfigProvider);
           final config =
               configAsync.valueOrNull ??
@@ -4182,23 +4411,38 @@ Describe project-specific guidance for Codex here.
                 model: init?.model,
               );
 
-          final current =
-              config.model ??
+          // null = default/recommended (SDK picks latest)
+          final current = config.model ??
               chatState.ccModel ??
               init?.model ??
               widget.ccSession?.model ??
-              widget.ccDraftModel ??
-              'sonnet';
+              widget.ccDraftModel;
+          final isDefaultModel = current == null;
+          final currentBetas = <String>{...(config.betas ?? const <String>[])};
+          final oneMillionBeta = 'context-1m-2025-08-07';
+          final oneMillionEnabled = currentBetas.contains(oneMillionBeta);
 
-          Future<void> setModel(String model) async {
+          Future<void> setModel(String? model) async {
             await ref
                 .read(ccConfigProvider.notifier)
-                .updateConfig(config.copyWith(model: model));
-            ref.read(chatSessionProvider.notifier).setCCModel(model);
+                .setModel(model);
+            ref.read(chatSessionProvider.notifier).setCCModel(model ?? '');
           }
 
-          Widget modelTile(String model, String label) {
-            final selected = current == model;
+          Future<void> setOneMillionContext(bool enabled) async {
+            final nextBetas = <String>{...currentBetas};
+            if (enabled) {
+              nextBetas.add(oneMillionBeta);
+            } else {
+              nextBetas.remove(oneMillionBeta);
+            }
+            await ref
+                .read(ccConfigProvider.notifier)
+                .updateConfig(config.copyWith(betas: nextBetas.toList()));
+          }
+
+          Widget modelTile(ClaudeCodeSupportedModel model) {
+            final selected = current == model.value;
             return ListTile(
               dense: true,
               contentPadding: EdgeInsets.zero,
@@ -4209,37 +4453,158 @@ Describe project-specific guidance for Codex here.
                 size: 18,
                 color: selected ? theme.accent : theme.textMuted,
               ),
-              title: Text(
-                label,
-                style: TextStyle(color: theme.text, fontSize: 13),
+              title: Row(
+                children: [
+                  Expanded(
+                    child: Text(
+                      model.displayName,
+                      style: TextStyle(color: theme.text, fontSize: 13),
+                    ),
+                  ),
+                  if (model.supportsOneMillionContext)
+                    Container(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 6,
+                        vertical: 2,
+                      ),
+                      decoration: BoxDecoration(
+                        color: theme.accent.withValues(alpha: 0.14),
+                        borderRadius: BorderRadius.circular(999),
+                      ),
+                      child: Text(
+                        '1M',
+                        style: TextStyle(
+                          color: theme.accent,
+                          fontSize: 10,
+                          fontWeight: FontWeight.w700,
+                        ),
+                      ),
+                    ),
+                ],
               ),
               subtitle: Text(
-                model,
+                model.value,
                 style: TextStyle(color: theme.textMuted, fontSize: 12),
               ),
               onTap: () async {
-                await setModel(model);
+                await setModel(model.value);
                 if (!mounted) return;
                 Navigator.pop(context);
               },
             );
           }
 
-          return Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 16),
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  'Select the model used for Claude Code turns.',
-                  style: TextStyle(color: theme.textMuted, fontSize: 13),
+          return supportedModelsAsync.when(
+            data: (models) {
+              final fallback = const <ClaudeCodeSupportedModel>[
+                ClaudeCodeSupportedModel(
+                  value: 'sonnet',
+                  displayName: 'Claude Sonnet',
+                  description: 'Balanced model for coding and reasoning',
                 ),
-                const SizedBox(height: 14),
-                modelTile('sonnet', 'Sonnet'),
-                modelTile('opus', 'Opus'),
-                modelTile('haiku', 'Haiku'),
-              ],
+                ClaudeCodeSupportedModel(
+                  value: 'opus',
+                  displayName: 'Claude Opus',
+                  description: 'High-capability model for complex tasks',
+                ),
+                ClaudeCodeSupportedModel(
+                  value: 'haiku',
+                  displayName: 'Claude Haiku',
+                  description: 'Fast and efficient model for lightweight tasks',
+                ),
+              ];
+              final list = models.isNotEmpty ? models : fallback;
+              final supportsOneMillion = list.any(
+                (model) => model.supportsOneMillionContext,
+              );
+
+              return Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 16),
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      'Select the model used for Claude Code turns.',
+                      style: TextStyle(color: theme.textMuted, fontSize: 13),
+                    ),
+                    const SizedBox(height: 14),
+                    // Default (Recommended) — lets the SDK pick the latest model
+                    ListTile(
+                      dense: true,
+                      contentPadding: EdgeInsets.zero,
+                      leading: Icon(
+                        isDefaultModel
+                            ? Icons.radio_button_checked_rounded
+                            : Icons.radio_button_off_rounded,
+                        size: 18,
+                        color: isDefaultModel ? theme.accent : theme.textMuted,
+                      ),
+                      title: Text(
+                        'Default (Recommended)',
+                        style: TextStyle(
+                          color: theme.text,
+                          fontSize: 13,
+                          fontWeight:
+                              isDefaultModel ? FontWeight.w600 : FontWeight.normal,
+                        ),
+                      ),
+                      subtitle: Text(
+                        'Uses the latest recommended model',
+                        style: TextStyle(color: theme.textMuted, fontSize: 12),
+                      ),
+                      onTap: () async {
+                        await setModel(null);
+                        if (!mounted) return;
+                        Navigator.pop(context);
+                      },
+                    ),
+                    Divider(
+                      color: theme.borderSubtle.withValues(alpha: 0.3),
+                      height: 8,
+                    ),
+                    ...list.map(modelTile),
+                    if (supportsOneMillion) ...[
+                      const SizedBox(height: 12),
+                      Divider(color: theme.borderSubtle.withValues(alpha: 0.3)),
+                      SwitchListTile(
+                        dense: true,
+                        contentPadding: EdgeInsets.zero,
+                        value: oneMillionEnabled,
+                        onChanged: (value) => setOneMillionContext(value),
+                        title: Text(
+                          'Enable 1M context (beta)',
+                          style: TextStyle(
+                            color: theme.text,
+                            fontSize: 13,
+                            fontWeight: FontWeight.w600,
+                          ),
+                        ),
+                        subtitle: Text(
+                          'Uses beta header for expanded Claude context window.',
+                          style: TextStyle(
+                            color: theme.textMuted,
+                            fontSize: 12,
+                          ),
+                        ),
+                      ),
+                    ],
+                  ],
+                ),
+              );
+            },
+            loading: () => Padding(
+              padding: const EdgeInsets.only(top: 20),
+              child: Center(
+                child: CircularProgressIndicator(color: theme.accent),
+              ),
+            ),
+            error: (_, __) => Padding(
+              padding: const EdgeInsets.only(top: 8),
+              child: Text(
+                'Unable to load model list.',
+                style: TextStyle(color: theme.textMuted, fontSize: 13),
+              ),
             ),
           );
         },
@@ -6156,6 +6521,10 @@ Describe project-specific guidance for Codex here.
                 onForkFromHere: message.role == MessageRole.assistant
                     ? (messageId) => _forkSession(messageId: messageId)
                     : null,
+                onResumeFromHere:
+                    widget.isClaudeCode && message.role == MessageRole.assistant
+                    ? (messageId) => _setClaudeResumeFromHere(messageId)
+                    : null,
                 onRollback: widget.isCodex ? _showCodexRollbackSheet : null,
               ),
 
@@ -6243,6 +6612,11 @@ Describe project-specific guidance for Codex here.
                   onForkFromHere: message.role == MessageRole.assistant
                       ? (messageId) => _forkSession(messageId: message.id)
                       : null,
+                  onResumeFromHere:
+                      widget.isClaudeCode &&
+                          message.role == MessageRole.assistant
+                      ? (messageId) => _setClaudeResumeFromHere(message.id)
+                      : null,
                   onRollback: widget.isCodex ? _showCodexRollbackSheet : null,
                 ),
               ),
@@ -6294,6 +6668,10 @@ Describe project-specific guidance for Codex here.
             message: message,
             onForkFromHere: message.role == MessageRole.assistant
                 ? (messageId) => _forkSession(messageId: message.id)
+                : null,
+            onResumeFromHere:
+                widget.isClaudeCode && message.role == MessageRole.assistant
+                ? (messageId) => _setClaudeResumeFromHere(messageId)
                 : null,
             onRollback: widget.isCodex ? _showCodexRollbackSheet : null,
           ),
@@ -6687,10 +7065,18 @@ Describe project-specific guidance for Codex here.
         permissionMode: ccConfig?.permissionMode,
         allowedTools: ccConfig?.allowedTools,
         disallowedTools: ccConfig?.disallowedTools,
+        maxTurns: ccConfig?.maxTurns,
+        maxBudgetUsd: ccConfig?.maxBudgetUsd,
+        betas: ccConfig?.betas,
         variant: ccVariant,
         activeSubagent: activeSubagent,
+        resumeSessionAt: _ccResumeSessionAtMessageId,
+        outputFormat: ccConfig?.outputFormat,
+        sandbox: ccConfig?.sandbox,
+        enableAgentTeams: ccConfig?.enableAgentTeams,
         fileAttachments: hasAttachments ? _attachedFiles : null,
       );
+      _ccResumeSessionAtMessageId = null;
       _controller.clear();
       setState(() => _attachedFiles.clear());
       _userHasScrolledUp = false;
@@ -9534,6 +9920,10 @@ class _CliStyleInputBarState extends State<_CliStyleInputBar> {
         return theme.warning; // Plan mode - amber/yellow
       case ClaudeCodePermissionMode.bypassPermissions:
         return theme.error; // Dangerous mode - red
+      case ClaudeCodePermissionMode.delegate:
+        return theme.info;
+      case ClaudeCodePermissionMode.dontAsk:
+        return theme.warning;
       case null:
         return theme.primary;
     }

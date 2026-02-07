@@ -182,10 +182,30 @@ export type ClientMessage =
   | { type: 'cc_list_sessions'; cwd?: string }
   | { type: 'cc_get_session'; sessionId: string; cwd?: string }
   | { type: 'cc_get_session_messages'; sessionId: string; cwd?: string; limit?: number }
-  | { type: 'cc_create_session'; cwd: string; model?: string }
   | { type: 'cc_delete_session'; sessionId: string; cwd?: string }
   | { type: 'cc_fork_session'; sessionId: string; messageId?: string; cwd?: string }
-  | { type: 'cc_chat'; sessionId?: string; prompt: string; cwd?: string; model?: string; permissionMode?: ClaudeCodePermissionMode; allowedTools?: string[]; disallowedTools?: string[]; maxThinkingTokens?: number | null; variant?: string; systemPrompt?: ClaudeCodeSystemPrompt; activeSubagent?: string; fileAttachments?: FileAttachment[] }
+  | {
+      type: 'cc_chat'
+      sessionId?: string
+      prompt: string
+      cwd?: string
+      model?: string
+      permissionMode?: ClaudeCodePermissionMode
+      allowedTools?: string[]
+      disallowedTools?: string[]
+      maxThinkingTokens?: number | null
+      maxTurns?: number
+      maxBudgetUsd?: number
+      betas?: ClaudeCodeBeta[]
+      variant?: string
+      systemPrompt?: ClaudeCodeSystemPrompt
+      activeSubagent?: string
+      fileAttachments?: FileAttachment[]
+      resumeSessionAt?: string
+      outputFormat?: ClaudeCodeOutputFormat
+      sandbox?: ClaudeCodeSandboxSettings
+      enableAgentTeams?: boolean
+    }
   | { type: 'cc_abort'; sessionId: string }
   | { type: 'cc_permission_response'; sessionId: string; toolUseId: string; response: PermissionResponse }
   | { type: 'cc_list_skills'; cwd?: string }
@@ -203,7 +223,12 @@ export type ClientMessage =
   | { type: 'cc_delete_command'; name: string; source: 'project' | 'user'; cwd?: string }
   | { type: 'cc_get_config'; cwd?: string }
   | { type: 'cc_set_config'; config: Partial<ClaudeCodeConfig>; cwd?: string }
+  | { type: 'cc_get_supported_models'; cwd?: string }
+  | { type: 'cc_get_account_info'; cwd?: string }
+  | { type: 'cc_get_mcp_server_status'; cwd?: string }
   | { type: 'cc_list_agents'; cwd?: string; projectPath?: string }
+  | { type: 'cc_list_memories'; scope?: 'user' | 'project' | 'local'; cwd?: string }
+  | { type: 'cc_delete_memory'; scope: 'user' | 'project' | 'local'; filename: string; cwd?: string }
   | { type: 'cc_get_active_sessions' }
   | { type: 'cc_rename_session'; sessionId: string; name: string; cwd?: string }
   | { type: 'cc_background_session'; sessionId: string; cwd?: string }
@@ -489,7 +514,6 @@ export type ServerMessage =
   | { type: 'cc_projects'; data: ProjectSummary[]; requestId?: string }
   | { type: 'cc_sessions'; data: ClaudeCodeSession[]; requestId?: string }
   | { type: 'cc_session'; data: ClaudeCodeSession; requestId?: string }
-  | { type: 'cc_session_created'; data: ClaudeCodeSession; requestId?: string }
   | { type: 'cc_session_deleted'; data: boolean; sessionId: string; requestId?: string }
   | { type: 'cc_session_forked'; data: ClaudeCodeSession | null; requestId?: string }
   | { type: 'cc_session_renamed'; data: ClaudeCodeSession | null; requestId?: string }
@@ -506,12 +530,17 @@ export type ServerMessage =
   | { type: 'cc_mcp_file_written'; data: { ok: boolean; path: string }; requestId?: string }
   | { type: 'cc_commands'; data: ClaudeCodeCommand[]; requestId?: string }
   | { type: 'cc_agents'; data: ClaudeCodeFilesystemAgent[]; requestId?: string }
+  | { type: 'cc_memories'; data: ClaudeCodeMemoryEntry[]; requestId?: string }
+  | { type: 'cc_memory_deleted'; data: { ok: boolean; filename: string; scope: string }; requestId?: string }
   | { type: 'cc_active_sessions'; data: Array<{ id: string; cwd: string; startedAt?: number }>; requestId?: string }
   | { type: 'cc_command_file'; data: { ok: boolean; name: string; source: 'project' | 'user' | 'plugin'; path: string; content: string }; requestId?: string }
   | { type: 'cc_command_saved'; data: { ok: boolean; name: string; source: 'project' | 'user'; path?: string }; requestId?: string }
   | { type: 'cc_command_deleted'; data: { ok: boolean; name: string; source: 'project' | 'user' }; requestId?: string }
   | { type: 'cc_config'; data: ClaudeCodeConfig; requestId?: string }
   | { type: 'cc_config_updated'; data: ClaudeCodeConfig; requestId?: string }
+  | { type: 'cc_supported_models'; data: ClaudeCodeSupportedModel[]; requestId?: string }
+  | { type: 'cc_account_info'; data: ClaudeCodeAccountInfo; requestId?: string }
+  | { type: 'cc_mcp_server_status'; data: ClaudeCodeMcpServerStatus[]; requestId?: string }
   | { type: 'cc_checkpoint_rewound'; data: { success: boolean; sessionId: string; checkpointUuid: string }; requestId?: string }
   | { type: 'cc_fs_changed'; data: { kind: 'skills' | 'plugins' | 'hooks' | 'commands' | 'mcp'; dir: string; cwd?: string; file?: string }; requestId?: string }
   | { type: 'cc_stream'; data: ClaudeCodeStreamMessage; sessionId: string }
@@ -736,6 +765,8 @@ export type ClaudeCodeHookEvent =
   | 'UserPromptSubmit'
   | 'SubagentStart'
   | 'SubagentStop'
+  | 'TeammateIdle'
+  | 'TaskCompleted'
   | 'PreCompact'
   | 'Setup'
 
@@ -775,12 +806,43 @@ export type ClaudeCodeCommand = {
 }
 
 // Claude Code Permission Mode
-export type ClaudeCodePermissionMode = 'default' | 'acceptEdits' | 'plan' | 'bypassPermissions'
+export type ClaudeCodePermissionMode =
+  | 'default'
+  | 'acceptEdits'
+  | 'plan'
+  | 'bypassPermissions'
+  | 'delegate'
+  | 'dontAsk'
+
+export type ClaudeCodeBeta = 'context-1m-2025-08-07'
 
 export type ClaudeCodeSystemPrompt = 
   | string 
   | { type: 'preset'; preset: 'claude_code'; append?: string }
   | null
+
+export type ClaudeCodeOutputFormat = {
+  type: 'json_schema'
+  schema: Record<string, unknown>
+}
+
+export type ClaudeCodeSandboxNetworkConfig = {
+  allowUnixSockets?: string[]
+  allowAllUnixSockets?: boolean
+  allowLocalBinding?: boolean
+  httpProxyPort?: number
+  socksProxyPort?: number
+}
+
+export type ClaudeCodeSandboxSettings = {
+  enabled?: boolean
+  autoAllowBashIfSandboxed?: boolean
+  allowUnsandboxedCommands?: boolean
+  network?: ClaudeCodeSandboxNetworkConfig
+  ignoreViolations?: Record<string, string[]>
+  enableWeakerNestedSandbox?: boolean
+  excludedCommands?: string[]
+}
 
 // Claude Code Filesystem Agent (discovered from .claude/agents/*.md)
 export type ClaudeCodeFilesystemAgent = {
@@ -789,8 +851,18 @@ export type ClaudeCodeFilesystemAgent = {
   prompt?: string                // Full markdown content (the agent's instructions)
   tools?: string[]               // From frontmatter 'tools' field
   model?: string                 // From frontmatter 'model' field
+  memory?: 'user' | 'project' | 'local' // From frontmatter 'memory' field
   source: 'project' | 'user'    // Project-level (.claude/agents/) or user-level (~/.claude/agents/)
   path: string                   // Absolute path to the .md file
+}
+
+// Claude Code Memory Entry (from ~/.claude/memory/ or .claude/memory/)
+export type ClaudeCodeMemoryEntry = {
+  scope: 'user' | 'project' | 'local'
+  filename: string                     // e.g. "2025-02-07T12-00-00.md"
+  content: string                      // Full markdown content
+  createdAt?: string                   // ISO date from filename or stat
+  path: string                         // Absolute path to the file
 }
 
 // Claude Code Subagent Definition (matches SDK AgentDefinition)
@@ -907,6 +979,12 @@ export type ClaudeCodeConfig = {
   disallowedTools: string[]
   model?: string
   systemPrompt?: ClaudeCodeSystemPrompt
+  maxTurns?: number
+  maxBudgetUsd?: number
+  betas?: ClaudeCodeBeta[]
+  sandbox?: ClaudeCodeSandboxSettings
+  outputFormat?: ClaudeCodeOutputFormat
+  enableAgentTeams?: boolean
   // Project/user settings (persisted in Claude Code settings.json)
   language?: string
   releaseChannel?: 'stable' | 'latest'
@@ -915,10 +993,64 @@ export type ClaudeCodeConfig = {
   activeSubagent?: string                     // Currently selected subagent name
 }
 
+export type ClaudeCodeSupportedModel = {
+  value: string
+  displayName: string
+  description: string
+}
+
+export type ClaudeCodeAccountInfo = {
+  email?: string
+  organization?: string
+  subscriptionType?: string
+  tokenSource?: string
+  apiKeySource?: string
+}
+
+export type ClaudeCodeMcpServerStatus = {
+  name: string
+  status: 'connected' | 'failed' | 'needs-auth' | 'pending'
+  serverInfo?: {
+    name: string
+    version: string
+  }
+}
+
+export type ClaudeCodeModelUsage = {
+  inputTokens: number
+  outputTokens: number
+  cacheReadInputTokens: number
+  cacheCreationInputTokens: number
+  webSearchRequests: number
+  costUSD: number
+  contextWindow: number
+}
+
 // Claude Code Message (for streaming)
 export type ClaudeCodeStreamMessage = 
   | { type: 'session-created'; sessionId: string; agent: 'claude-code'; model?: string; parentToolUseId?: string }
-  | { type: 'session-init'; sessionId: string; model: string; permissionMode: ClaudeCodePermissionMode; tools: string[]; slashCommands: string[]; skills: string[]; mcpServers: Array<{ name: string; status: string }>; plugins: Array<{ name: string; path: string }>; apiKeySource?: string; claudeCodeVersion?: string; parentToolUseId?: string }
+  | {
+      type: 'session-init'
+      sessionId: string
+      model: string
+      permissionMode: ClaudeCodePermissionMode
+      tools: string[]
+      slashCommands: string[]
+      skills: string[]
+      mcpServers: Array<{ name: string; status: string }>
+      plugins: Array<{ name: string; path: string }>
+      apiKeySource?: string
+      claudeCodeVersion?: string
+      supportedModels?: ClaudeCodeSupportedModel[]
+      accountInfo?: ClaudeCodeAccountInfo
+      parentToolUseId?: string
+    }
+  | {
+      type: 'compact-boundary'
+      trigger: 'manual' | 'auto'
+      preTokens: number
+      parentToolUseId?: string
+    }
   | { type: 'permission-request'; sessionId: string; toolUseId: string; tool: string; input: Record<string, unknown>; decisionReason?: string; blockedPath?: string; hasSuggestions?: boolean; parentToolUseId?: string }
   | { type: 'checkpoint-created'; sessionId: string; checkpointUuid: string; timestamp: number; parentToolUseId?: string }
   | { type: 'assistant-message'; content: string; messageId?: string; parentToolUseId?: string }
@@ -927,7 +1059,22 @@ export type ClaudeCodeStreamMessage =
   | { type: 'tool-call'; tool: string; input: any; toolUseId?: string; status: 'running' | 'completed' | 'failed'; messageId?: string; parentToolUseId?: string }
   | { type: 'tool-result'; toolUseId?: string; result: any; toolUseResult?: any; messageId?: string; parentToolUseId?: string }
   | { type: 'subagent-invocation'; subagentName: string; toolUseId?: string; prompt?: string; description?: string; messageId?: string; parentToolUseId?: string }
-  | { type: 'token-usage'; usage: { inputTokens?: number; outputTokens?: number; cacheReadTokens?: number; cacheWriteTokens?: number; reasoningTokens?: number }; messageId?: string; parentToolUseId?: string }
+  | {
+      type: 'token-usage'
+      usage: {
+        inputTokens?: number
+        outputTokens?: number
+        cacheReadTokens?: number
+        cacheCreationTokens?: number
+        cacheWriteTokens?: number
+        reasoningTokens?: number
+        contextWindow?: number
+      }
+      totalCostUsd?: number
+      modelUsage?: Record<string, ClaudeCodeModelUsage>
+      messageId?: string
+      parentToolUseId?: string
+    }
   | { type: 'error'; message: string; code?: string; parentToolUseId?: string }
 
 export type ClaudeCodeTranscriptToolCall = {

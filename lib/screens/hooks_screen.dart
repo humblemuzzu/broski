@@ -423,6 +423,8 @@ class _HookEditorScreenState extends State<HookEditorScreen> {
     'UserPromptSubmit',
     'SubagentStart',
     'SubagentStop',
+    'TeammateIdle',
+    'TaskCompleted',
     'PreCompact',
     'Setup',
   ];
