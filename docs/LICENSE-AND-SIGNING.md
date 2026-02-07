@@ -413,18 +413,13 @@ jobs:
 
 ## Testing & Verification
 
-### Test locally (before CI is set up):
+### Test locally (dev mode — no signing needed):
 
 ```bash
 cd packages/bridge
 
-# Build without signing (for local testing only):
-export BROSKI_SKIP_SIG_CHECK=1   # ← TEMPORARY, remove once CI is live
-sh scripts/build.sh --target darwin-arm64
-
-# Run the compiled binary:
-./dist/broski-darwin-arm64 serve
-# Should see: no integrity errors
+# In dev mode, just run from source — all integrity checks are skipped:
+bun src/index.ts serve
 ```
 
 ### Test with signing:
@@ -434,7 +429,6 @@ cd packages/bridge
 
 # Build WITH signing:
 export BROSKI_LICENSE_PRIVATE_KEY_PKCS8_B64URL="<your-key>"
-unset BROSKI_SKIP_SIG_CHECK    # ← Make sure this is NOT set
 sh scripts/build.sh --target darwin-arm64
 
 # Run — should pass all integrity checks:
@@ -474,7 +468,7 @@ console.log(valid ? '✓ Signature valid' : '✗ Signature INVALID');
 ### "Binary signature file missing"
 The `.sig` sidecar file is not next to the binary. Either:
 - Build with `BROSKI_LICENSE_PRIVATE_KEY_PKCS8_B64URL` set
-- Or for local testing: `export BROSKI_SKIP_SIG_CHECK=1`
+- For local dev testing: run from source (`bun src/index.ts serve`) — integrity checks skip in dev mode
 
 ### "Binary integrity check failed: security constants modified"
 Sentinel mismatch. Someone (or you) changed a critical constant without
@@ -536,8 +530,10 @@ packages/bridge/src/license/
 │                     # Contains: PUBLIC KEY, JWS verification, machine ID
 ├── native.ts         # Optional Rust FFI for license ops (harder to reverse)
 ├── store.ts          # Read/write ~/.broski/license.enc (encrypted license)
-└── integrity.ts      # Binary integrity verification (THIS IS THE NEW FILE)
-                      # Contains: sentinel, signed hash, codesign, periodic check
+└── integrity.ts      # Binary integrity verification
+                      # Contains: sentinel, signed hash, codesign, native
+                      # sidecar hash check, redundant compiled-binary
+                      # detection, periodic re-check
 ```
 
 ### What happens at runtime:
@@ -545,19 +541,25 @@ packages/bridge/src/license/
 ```
 Binary starts
   │
-  ├─ isCompiledBinary()? ──NO──→ Dev mode, all checks skipped
+  ├─ looksLikeCompiledBinary()? (redundant 3-check detection)
+  │   ├─ isCompiledBinary()? (process.execPath === process.argv[1])
+  │   ├─ .sig file exists next to binary?
+  │   └─ Native lib hash placeholder replaced by build script?
   │
-  YES
+  ├─ ALL THREE = NO ──→ Dev mode, all checks skipped
+  │
+  ANY = YES
   │
   ├─ verifyBinaryIntegrity()
   │   ├─ macOS? → codesign --verify
   │   ├─ Windows? → Get-AuthenticodeSignature
   │   ├─ Sentinel check (hash of critical constants)
-  │   └─ .sig file check (Ed25519 signature of binary SHA-256)
+  │   ├─ .sig file check (Ed25519 signature of binary SHA-256)
+  │   └─ Native sidecar check (SHA-256 of .dylib/.so/.dll vs baked hash)
   │
   ├─ ANY FAIL? → print error, process.exit(1)
   │
-  ├─ startPeriodicIntegrityCheck() → re-run every ~5 min
+  ├─ startPeriodicIntegrityCheck() → re-run every ~5 min (jittered)
   │
   ├─ createBridgeServer()
   │   ├─ requireEntitlement = true (hardcoded, compiled)
@@ -576,7 +578,9 @@ Binary starts
 3. Delete .sig → ❌ binary refuses to start
 4. Forge new .sig → ❌ needs private key (in Convex, never shipped)
 5. Patch the .sig check code → ❌ sentinel detects (binary hash changed + codesign on macOS)
-6. All of the above simultaneously → still need own Convex backend
+6. Swap native .dylib/.so/.dll → ❌ native sidecar hash check detects (hash baked into binary at build time)
+7. Patch isCompiledBinary() → ❌ redundant detection via .sig existence + native hash placeholder check
+8. All of the above simultaneously → still need own Convex backend
 
 ---
 
@@ -656,16 +660,14 @@ is hardcoded to `true` and env vars are ignored.
 ### When you want to test the compiled binary locally:
 
 ```bash
-# Build for your platform:
-sh scripts/build.sh --target darwin-arm64
-
-# Run without .sig (temporary, while CI isn't set up):
-BROSKI_SKIP_SIG_CHECK=1 ./dist/broski-darwin-arm64 serve
-
-# Run with .sig (full production simulation):
+# You MUST sign now — there is no skip mechanism (by design).
+# Set the signing key and build:
 export BROSKI_LICENSE_PRIVATE_KEY_PKCS8_B64URL="<your-key>"
 sh scripts/build.sh --target darwin-arm64   # builds + signs
 ./dist/broski-darwin-arm64 serve            # full integrity checks
+
+# If you just need to test code, use dev mode instead:
+bun src/index.ts serve                      # no signing needed
 ```
 
 ### Running tests:
@@ -701,7 +703,7 @@ Before flipping the switch:
 - [ ] Test fresh install: `curl -fsSL https://broskiapp.com/install.sh | sh`
 - [ ] Test `broski serve` starts without integrity errors
 - [ ] Test tampering: modify binary → verify it refuses to start
-- [ ] Remove `BROSKI_SKIP_SIG_CHECK` from any deployed environments
+- [ ] Verify no `BROSKI_SKIP_SIG_CHECK` references remain in codebase (removed in hardening pass)
 - [ ] RevenueCat webhook is connected to Convex
 - [ ] Test purchase flow: subscribe → bridge accepts connection
 - [ ] Test revocation: cancel subscription → bridge disconnects within 30 min

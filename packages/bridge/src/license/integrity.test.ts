@@ -13,6 +13,7 @@ describe('integrity — dev mode', () => {
     expect(result.checks.codesign.skipped).toBe(true)
     expect(result.checks.sentinel.skipped).toBe(true)
     expect(result.checks.signedHash.skipped).toBe(true)
+    expect(result.checks.nativeSidecar.skipped).toBe(true)
   })
 
   test('startPeriodicIntegrityCheck is a no-op in dev mode', () => {

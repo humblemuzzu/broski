@@ -169,8 +169,54 @@ if [ "$BUILT" -eq 0 ]; then
 fi
 
 # ──────────────────────────────────────────────
+# Hash native sidecar library (if present)
+# ──────────────────────────────────────────────
+# ⚠️ ORDER MATTERS: This MUST run BEFORE signing because it modifies the binary.
+#
+# Bake the SHA-256 of the native .dylib/.so/.dll into each compiled binary.
+# This prevents an attacker from swapping the sidecar with a fake one that
+# always returns "license valid". Without this, Ghidra users could:
+#   1. Write a fake libbroski_license.dylib with verify_jws → always return 1
+#   2. Drop it next to the binary
+#   3. The binary would load it via FFI and trust it blindly
+#
+# The hash replaces %%NATIVE_LIB_HASH_PLACEHOLDER%% in the compiled output.
+
+echo ""
+echo "  Baking native sidecar hashes..."
+for binary in "$DIST"/broski-*; do
+  [ -f "$binary" ] || continue
+  # Skip .sig files
+  case "$binary" in *.sig) continue ;; esac
+
+  # Determine which native lib this binary would load
+  case "$binary" in
+    *darwin*)  NATIVE_LIB="${DIST}/libbroski_license.dylib" ;;
+    *linux*)   NATIVE_LIB="${DIST}/libbroski_license.so" ;;
+    *windows*) NATIVE_LIB="${DIST}/broski_license.dll" ;;
+    *)         NATIVE_LIB="" ;;
+  esac
+
+  if [ -n "$NATIVE_LIB" ] && [ -f "$NATIVE_LIB" ]; then
+    NATIVE_HASH=$(shasum -a 256 "$NATIVE_LIB" | awk '{print $1}')
+    echo "    ✓ $(basename "$binary"): ${NATIVE_HASH:0:16}..."
+
+    # Replace placeholder in the compiled binary.
+    # The placeholder is a fixed-length string so the binary size doesn't change.
+    # We use perl for in-place binary-safe replacement.
+    perl -pi -e "s/%%NATIVE_LIB_HASH_PLACEHOLDER%%/${NATIVE_HASH}/g" "$binary"
+  else
+    echo "    - $(basename "$binary"): no native lib (placeholder stays, check skipped at runtime)"
+  fi
+done
+
+# ──────────────────────────────────────────────
 # Sign each binary (create .sig sidecar files)
 # ──────────────────────────────────────────────
+# ⚠️ ORDER MATTERS: This MUST run AFTER native hash baking (above) and AFTER
+# macOS codesign (if applicable) because both modify the binary. The .sig is
+# a signature of the FINAL binary.
+#
 # The .sig file contains an Ed25519 signature of the binary's SHA-256 hash.
 # This is the primary tamper-protection on Linux (no OS codesign) and
 # defense-in-depth on macOS/Windows.
@@ -185,6 +231,8 @@ if [ -n "$SIGN_KEY" ]; then
   echo "  Signing binaries..."
   for binary in "$DIST"/broski-*; do
     [ -f "$binary" ] || continue
+    # Skip .sig files and native libs
+    case "$binary" in *.sig|*.dylib|*.so|*.dll) continue ;; esac
     SIG_FILE="${binary}.sig"
     # Compute SHA-256 → sign with Ed25519 → base64url
     node -e "

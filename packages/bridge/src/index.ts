@@ -1110,6 +1110,7 @@ async function main() {
         integrity.checks.codesign.ok ? null : integrity.checks.codesign.reason,
         integrity.checks.sentinel.ok ? null : integrity.checks.sentinel.reason,
         integrity.checks.signedHash.ok ? null : integrity.checks.signedHash.reason,
+        integrity.checks.nativeSidecar.ok ? null : integrity.checks.nativeSidecar.reason,
       ].filter(Boolean)
       console.error('❌ Integrity check failed:')
       for (const reason of reasons) {
@@ -1126,6 +1127,7 @@ async function main() {
         result.checks.codesign.ok ? null : result.checks.codesign.reason,
         result.checks.sentinel.ok ? null : result.checks.sentinel.reason,
         result.checks.signedHash.ok ? null : result.checks.signedHash.reason,
+        result.checks.nativeSidecar.ok ? null : result.checks.nativeSidecar.reason,
       ].filter(Boolean)
       console.error('❌ Runtime integrity check failed:')
       for (const reason of reasons) {
