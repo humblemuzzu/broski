@@ -12,6 +12,10 @@ import '../models/agent.dart';
 import '../models/agent_type.dart';
 import '../models/claude_code.dart';
 import '../models/codex.dart';
+import 'sheets/cx_apps_sheet.dart';
+import 'sheets/cx_remote_skills_sheet.dart';
+import '../widgets/chat/cx_steer_bar.dart';
+import 'sheets/cx_skills_sheet_content.dart';
 import '../models/command.dart';
 import '../models/file_attachment.dart';
 import '../models/message.dart';
@@ -3241,7 +3245,23 @@ class _ChatScreenState extends ConsumerState<ChatScreen>
       case 'cx_feedback':
         _showCodexFeedbackSheet();
         break;
+      case 'cx_apps':
+        _showCodexAppsSheet();
+        break;
+      case 'cx_remote_skills':
+        _showCodexRemoteSkillsSheet();
+        break;
     }
+  }
+
+  void _showCodexAppsSheet() {
+    // Delegate to modular sheet
+    CxAppsSheet.show(context);
+  }
+
+  void _showCodexRemoteSkillsSheet() {
+    // Delegate to modular sheet
+    CxRemoteSkillsSheet.show(context);
   }
 
   void _showCodexAgentsSheet() {
@@ -3934,6 +3954,22 @@ Describe project-specific guidance for Codex here.
                   ),
                   activeColor: theme.primary,
                 ),
+                const SizedBox(height: 12),
+                chipGroup<CodexPersonality>(
+                  label: 'Personality',
+                  values: CodexPersonality.values,
+                  selected: settings.personality,
+                  display: (v) => v.displayName,
+                  onSelected: notifier.setPersonality,
+                ),
+                const SizedBox(height: 16),
+                chipGroup<CodexCollaborationMode>(
+                  label: 'Collaboration mode',
+                  values: CodexCollaborationMode.values,
+                  selected: settings.collaborationMode,
+                  display: (v) => v.displayName,
+                  onSelected: notifier.setCollaborationMode,
+                ),
               ],
             ),
           );
@@ -3950,117 +3986,13 @@ Describe project-specific guidance for Codex here.
       context: context,
       title: 'Codex Skills',
       initialSize: 0.6,
-      child: FutureBuilder<List<Map<String, dynamic>>>(
-        future: ref.read(bridgeServiceProvider).cxListSkills(cwd: cwd),
-        builder: (context, snapshot) {
-          final loading = snapshot.connectionState == ConnectionState.waiting;
-          final data = snapshot.data ?? const <Map<String, dynamic>>[];
-
-          return Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 16),
-            child: loading
-                ? const Padding(
-                    padding: EdgeInsets.symmetric(vertical: 24),
-                    child: Center(child: CircularProgressIndicator()),
-                  )
-                : snapshot.hasError
-                ? Padding(
-                    padding: const EdgeInsets.symmetric(vertical: 16),
-                    child: Text(
-                      'Failed to load skills: ${snapshot.error}',
-                      style: TextStyle(color: theme.textMuted, fontSize: 12),
-                    ),
-                  )
-                : data.isEmpty
-                ? Padding(
-                    padding: const EdgeInsets.symmetric(vertical: 16),
-                    child: Text(
-                      'No skills found for this project.',
-                      style: TextStyle(color: theme.textMuted, fontSize: 13),
-                    ),
-                  )
-                : Column(
-                    mainAxisSize: MainAxisSize.min,
-                    children: data.map((entry) {
-                      final cwdLabel = (entry['cwd'] ?? '').toString();
-                      final skills =
-                          (entry['skills'] as List<dynamic>? ?? const [])
-                              .whereType<Map<String, dynamic>>()
-                              .toList();
-                      final errors =
-                          (entry['errors'] as List<dynamic>? ?? const [])
-                              .whereType<Map<String, dynamic>>()
-                              .toList();
-
-                      return Padding(
-                        padding: const EdgeInsets.only(bottom: 12),
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            if (cwdLabel.isNotEmpty)
-                              Text(
-                                cwdLabel,
-                                style: TextStyle(
-                                  color: theme.textMuted,
-                                  fontSize: 12,
-                                  fontWeight: FontWeight.w600,
-                                ),
-                              ),
-                            const SizedBox(height: 8),
-                            for (final s in skills)
-                              ListTile(
-                                dense: true,
-                                contentPadding: EdgeInsets.zero,
-                                leading: Icon(
-                                  Icons.auto_awesome_rounded,
-                                  size: 18,
-                                  color: theme.primary,
-                                ),
-                                title: Text(
-                                  (s['name'] ?? 'skill').toString(),
-                                  style: TextStyle(
-                                    color: theme.text,
-                                    fontSize: 13,
-                                    fontWeight: FontWeight.w600,
-                                  ),
-                                ),
-                                subtitle: Text(
-                                  (s['description'] ??
-                                          s['shortDescription'] ??
-                                          '')
-                                      .toString(),
-                                  maxLines: 2,
-                                  overflow: TextOverflow.ellipsis,
-                                  style: TextStyle(
-                                    color: theme.textMuted,
-                                    fontSize: 12,
-                                  ),
-                                ),
-                                trailing: Text(
-                                  (s['scope'] ?? '').toString(),
-                                  style: TextStyle(
-                                    color: theme.textMuted,
-                                    fontSize: 11,
-                                  ),
-                                ),
-                              ),
-                            for (final e in errors)
-                              Padding(
-                                padding: const EdgeInsets.only(top: 6),
-                                child: Text(
-                                  'Error: ${(e['message'] ?? '').toString()}',
-                                  style: TextStyle(
-                                    color: theme.error,
-                                    fontSize: 12,
-                                  ),
-                                ),
-                              ),
-                          ],
-                        ),
-                      );
-                    }).toList(),
-                  ),
-          );
+      child: CxSkillsSheetContent(
+        bridge: ref.read(bridgeServiceProvider),
+        cwd: cwd,
+        theme: theme,
+        onBrowseRemote: () {
+          Navigator.pop(context); // close current sheet
+          CxRemoteSkillsSheet.show(context);
         },
       ),
     );
@@ -5891,17 +5823,39 @@ Describe project-specific guidance for Codex here.
           ),
 
           // Floating input bar at bottom (style based on settings)
+          // When Codex is streaming, show a steer bar above the main input
           Positioned(
             key: const ValueKey('chat-input-bar'),
             left: 0,
             right: 0,
             bottom: 0,
-            child: _buildInputBarWithParams(
-              connection: connection,
-              messages: messages,
-              ccIsStreaming: ccIsStreaming,
-              ccInit: ccInit,
-              ccModel: ccModel,
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                if (widget.isCodex && cxIsStreaming)
+                  CxSteerBar(
+                    onSteer: (prompt) {
+                      final threadId = ref.read(chatSessionProvider).cxThreadId;
+                      if (threadId != null && threadId.isNotEmpty) {
+                        ref.read(bridgeServiceProvider).cxSteer(
+                          threadId: threadId,
+                          prompt: prompt,
+                        );
+                      }
+                    },
+                    primaryColor: OpenCodeTheme.of(context).primary,
+                    textColor: OpenCodeTheme.of(context).text,
+                    mutedColor: OpenCodeTheme.of(context).textMuted,
+                    surfaceColor: OpenCodeTheme.of(context).backgroundPanel,
+                  ),
+                _buildInputBarWithParams(
+                  connection: connection,
+                  messages: messages,
+                  ccIsStreaming: ccIsStreaming,
+                  ccInit: ccInit,
+                  ccModel: ccModel,
+                ),
+              ],
             ),
           ),
 
@@ -7212,6 +7166,115 @@ Describe project-specific guidance for Codex here.
         return;
       }
 
+      if (text.startsWith('/personality')) {
+        final arg = text.replaceFirst('/personality', '').trim().toLowerCase();
+        final p = switch (arg) {
+          'none' => CodexPersonality.none,
+          'friendly' => CodexPersonality.friendly,
+          'pragmatic' || '' => CodexPersonality.pragmatic,
+          _ => CodexPersonality.pragmatic,
+        };
+        chat.appendUserMessage(text);
+        ref.read(codexSettingsProvider.notifier).setPersonality(p);
+        chat.appendLocalAssistantMessage('Personality set to: ${p.displayName}');
+        _controller.clear();
+        _userHasScrolledUp = false;
+        _scrollToBottom();
+        return;
+      }
+
+      if (text.startsWith('/collab')) {
+        final arg = text.replaceFirst('/collab', '').trim().toLowerCase();
+        final mode = switch (arg) {
+          'plan' => CodexCollaborationMode.plan,
+          'default' || '' => CodexCollaborationMode.defaultMode,
+          _ => CodexCollaborationMode.defaultMode,
+        };
+        chat.appendUserMessage(text);
+        ref.read(codexSettingsProvider.notifier).setCollaborationMode(mode);
+        chat.appendLocalAssistantMessage('Collaboration mode set to: ${mode.displayName}');
+        _controller.clear();
+        _userHasScrolledUp = false;
+        _scrollToBottom();
+        return;
+      }
+
+      if (text.startsWith('/rename')) {
+        final name = text.replaceFirst('/rename', '').trim();
+        final threadId = chatState.cxThreadId;
+        chat.appendUserMessage(text);
+        if (threadId == null || threadId.isEmpty) {
+          chat.appendLocalAssistantMessage('No Codex thread yet to rename.');
+        } else if (name.isEmpty) {
+          chat.appendLocalAssistantMessage('Usage: /rename <name>');
+        } else {
+          () async {
+            try {
+              await ref.read(bridgeServiceProvider).cxRenameThread(
+                threadId: threadId,
+                name: name,
+              );
+              if (mounted) {
+                chat.appendLocalAssistantMessage('Thread renamed to: $name');
+              }
+            } catch (e) {
+              if (mounted) {
+                chat.appendLocalAssistantMessage('Rename failed: $e');
+              }
+            }
+          }();
+        }
+        _controller.clear();
+        _userHasScrolledUp = false;
+        _scrollToBottom();
+        return;
+      }
+
+      if (text == '/fork') {
+        final threadId = chatState.cxThreadId;
+        chat.appendUserMessage(text);
+        if (threadId == null || threadId.isEmpty) {
+          chat.appendLocalAssistantMessage('No Codex thread yet to fork.');
+        } else {
+          () async {
+            try {
+              final forked = await ref.read(bridgeServiceProvider).cxThreadFork(
+                threadId: threadId,
+              );
+              if (mounted) {
+                chat.appendLocalAssistantMessage('Thread forked! New thread: ${forked.displayTitle}');
+              }
+            } catch (e) {
+              if (mounted) {
+                chat.appendLocalAssistantMessage('Fork failed: $e');
+              }
+            }
+          }();
+        }
+        _controller.clear();
+        _userHasScrolledUp = false;
+        _scrollToBottom();
+        return;
+      }
+
+      if (text == '/apps') {
+        chat.appendUserMessage(text);
+        _showCodexAppsSheet();
+        _controller.clear();
+        _userHasScrolledUp = false;
+        _scrollToBottom();
+        return;
+      }
+
+      if (text == '/remote-skills') {
+        chat.appendUserMessage(text);
+        _showCodexRemoteSkillsSheet();
+        _controller.clear();
+        _userHasScrolledUp = false;
+        _scrollToBottom();
+        return;
+      }
+
       if (text.startsWith('/review')) {
         _controller.clear();
         _userHasScrolledUp = false;
@@ -7311,6 +7374,7 @@ Describe project-specific guidance for Codex here.
                   codexSettings.networkAccessEnabled,
           },
           collaborationMode: codexSettings.collaborationMode.wireValue,
+          personality: codexSettings.personality.wireValue,
         );
         _controller.clear();
         _userHasScrolledUp = false;
@@ -7514,6 +7578,7 @@ Describe your project here.
         config: config,
         fileAttachments: hasAttachments ? _attachedFiles : null,
         collaborationMode: codexSettings.collaborationMode.wireValue,
+        personality: codexSettings.personality.wireValue,
       );
 
       _controller.clear();
@@ -9025,6 +9090,13 @@ class _CodexActionsContent extends StatelessWidget {
                     theme: theme,
                     onTap: () => onAction('cx_auth'),
                   ),
+                  const SizedBox(width: 10),
+                  _ActionTile(
+                    icon: Icons.extension_rounded,
+                    label: 'Apps',
+                    theme: theme,
+                    onTap: () => onAction('cx_apps'),
+                  ),
                 ],
               ),
 
@@ -9872,16 +9944,10 @@ class _CliStyleInputBarState extends State<_CliStyleInputBar> {
     switch (mode) {
       case CodexCollaborationMode.plan:
         return 'Plan';
-      case CodexCollaborationMode.code:
-        return 'Code';
-      case CodexCollaborationMode.pairProgramming:
-        return 'Pair';
-      case CodexCollaborationMode.execute:
-        return 'Exec';
-      case CodexCollaborationMode.custom:
-        return 'Custom';
+      case CodexCollaborationMode.defaultMode:
+        return 'Default';
       case null:
-        return 'Pair';
+        return 'Default';
     }
   }
 
@@ -9893,14 +9959,8 @@ class _CliStyleInputBarState extends State<_CliStyleInputBar> {
     switch (mode) {
       case CodexCollaborationMode.plan:
         return theme.warning; // Planning mode - amber
-      case CodexCollaborationMode.code:
-        return theme.info; // Code mode - cyan/blue
-      case CodexCollaborationMode.pairProgramming:
-        return theme.primary; // Default interactive - primary
-      case CodexCollaborationMode.execute:
-        return theme.success; // Autonomous execution - green
-      case CodexCollaborationMode.custom:
-        return theme.accent; // Custom - accent
+      case CodexCollaborationMode.defaultMode:
+        return theme.primary; // Default coding mode - primary
       case null:
         return theme.primary;
     }

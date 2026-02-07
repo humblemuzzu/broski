@@ -3110,12 +3110,25 @@ class ChatSessionNotifier extends StateNotifier<ChatSessionState> {
 
     if (method == 'turn/plan/updated') {
       final plan = params['plan'];
+      final explanation = params['explanation']?.toString();
       if (plan is List) {
         final todos = <Todo>[];
+        // If the SDK sends a plan explanation, show it as a header todo
+        if (explanation != null && explanation.trim().isNotEmpty) {
+          todos.add(
+            Todo(
+              id: 'cx-plan-explanation',
+              content: '📋 ${explanation.trim()}',
+              status: TodoStatus.completed,
+              priority: TodoPriority.high,
+            ),
+          );
+        }
         for (var i = 0; i < plan.length; i++) {
           final entry = plan[i];
           if (entry is! Map<String, dynamic>) continue;
           final step = entry['step']?.toString() ?? '';
+          // SDK TurnPlanStepStatus: "pending" | "inProgress" | "completed"
           final status = entry['status']?.toString() ?? 'pending';
           final mappedStatus = status == 'inProgress'
               ? 'in_progress'

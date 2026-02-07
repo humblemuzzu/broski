@@ -236,8 +236,8 @@ export type ClientMessage =
   | { type: 'cx_list_projects'; refresh?: boolean }
   | { type: 'cx_list_threads'; cwd?: string; cursor?: string | null; limit?: number | null; refresh?: boolean }
   | { type: 'cx_warmup' }
-  | { type: 'cx_start_thread'; cwd?: string; model?: string; approvalPolicy?: string; sandbox?: string }
-  | { type: 'cx_resume_thread'; threadId: string }
+  | { type: 'cx_start_thread'; cwd?: string; model?: string; approvalPolicy?: string; sandbox?: string; personality?: 'none' | 'friendly' | 'pragmatic' }
+  | { type: 'cx_resume_thread'; threadId: string; personality?: 'none' | 'friendly' | 'pragmatic' }
   | { type: 'cx_archive_thread'; threadId: string }
   | { type: 'cx_get_thread_messages'; threadId: string }
   | {
@@ -255,8 +255,10 @@ export type ClientMessage =
       baseInstructions?: string
       developerInstructions?: string
       fileAttachments?: FileAttachment[]
-      // Official protocol values are snake_case; keep legacy variants for backward compatibility.
-      collaborationMode?: 'plan' | 'code' | 'pair_programming' | 'pairprogramming' | 'pairProgramming' | 'execute' | 'custom'
+      // SDK ModeKind: "plan" | "default". Legacy values accepted for backward compat and mapped to "default".
+      collaborationMode?: 'plan' | 'default' | 'code' | 'pair_programming' | 'pairprogramming' | 'pairProgramming' | 'execute' | 'custom'
+      // SDK Personality: "none" | "friendly" | "pragmatic" (default: pragmatic)
+      personality?: 'none' | 'friendly' | 'pragmatic'
     }
   | { type: 'cx_abort'; threadId: string; turnId?: string }
   | { type: 'cx_permission_response'; requestId: string; response: PermissionResponse; execpolicyAmendment?: any }
@@ -283,6 +285,17 @@ export type ClientMessage =
   | { type: 'cx_undo_files'; threadId: string; count?: number }
   | { type: 'cx_agents_read'; cwd: string }
   | { type: 'cx_agents_write'; cwd: string; content: string }
+  // Codex new features (mid-2026 SDK update)
+  | { type: 'cx_steer'; threadId: string; prompt: string; turnId?: string }
+  | { type: 'cx_thread_rename'; threadId: string; name: string }
+  | { type: 'cx_thread_unarchive'; threadId: string }
+  | { type: 'cx_thread_compact'; threadId: string }
+  | { type: 'cx_remote_skills_list' }
+  | { type: 'cx_remote_skill_install'; hazelnutId: string; isPreload?: boolean }
+  | { type: 'cx_skill_config_write'; path: string; enabled: boolean }
+  | { type: 'cx_apps_list'; cursor?: string | null; limit?: number | null }
+  | { type: 'cx_command_exec'; command: string[]; timeoutMs?: number; cwd?: string }
+  | { type: 'cx_experimental_features'; cursor?: string | null; limit?: number | null }
   // Claude Code File Checkpointing (Undo/Revert)
   | { type: 'cc_rewind_checkpoint'; sessionId: string; checkpointUuid: string; cwd: string }
   // Claude Code Custom Tools
@@ -574,6 +587,17 @@ export type ServerMessage =
   | { type: 'cx_undo_result'; data: { ok: boolean; revertedPaths: string[]; error?: string }; requestId?: string }
   | { type: 'cx_agents'; data: { exists: boolean; path: string; content: string }; requestId?: string }
   | { type: 'cx_agents_written'; data: { ok: boolean; path: string }; requestId?: string }
+  // Codex new features (mid-2026 SDK update)
+  | { type: 'cx_steered'; data: any; requestId?: string }
+  | { type: 'cx_thread_renamed'; data: any; requestId?: string }
+  | { type: 'cx_thread_unarchived'; data: any; requestId?: string }
+  | { type: 'cx_thread_compacted'; data: any; requestId?: string }
+  | { type: 'cx_remote_skills'; data: CodexRemoteSkill[]; requestId?: string }
+  | { type: 'cx_remote_skill_installed'; data: any; requestId?: string }
+  | { type: 'cx_skill_config_written'; data: any; requestId?: string }
+  | { type: 'cx_apps'; data: CodexAppInfo[]; nextCursor?: string | null; requestId?: string }
+  | { type: 'cx_command_result'; data: { exitCode?: number; stdout?: string; stderr?: string }; requestId?: string }
+  | { type: 'cx_experimental_features_list'; data: any[]; requestId?: string }
   | { type: 'cx_stream'; data: CodexStreamMessage; threadId: string }
   // Claude Code Custom Tools
   | { type: 'cc_custom_tools'; data: ClaudeCodeCustomTool[]; requestId?: string }
@@ -1295,3 +1319,32 @@ export type SubscriptionUsage = {
   providers: ProviderUsage[]
   fetchedAt: number
 }
+
+// ============================================================================
+// CODEX NEW SDK TYPES (mid-2026)
+// ============================================================================
+
+/** Remote skill from the public skills marketplace */
+export type CodexRemoteSkill = {
+  id: string
+  name: string
+  description: string
+}
+
+/** App/connector from Codex marketplace */
+export type CodexAppInfo = {
+  id: string
+  name: string
+  description: string | null
+  logoUrl: string | null
+  logoUrlDark: string | null
+  distributionChannel: string | null
+  installUrl: string | null
+  isAccessible: boolean
+}
+
+/** SDK Personality type */
+export type CodexPersonality = 'none' | 'friendly' | 'pragmatic'
+
+/** SDK ModeKind type */
+export type CodexModeKind = 'plan' | 'default'

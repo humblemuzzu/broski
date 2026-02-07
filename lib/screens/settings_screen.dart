@@ -22,6 +22,7 @@ import 'customization_screen.dart';
 import 'device_manager_screen.dart';
 import 'mcp_servers_screen.dart';
 
+import 'sheets/cx_apps_sheet.dart';
 import 'subscription_usage_screen.dart';
 import 'subagents_screen.dart';
 import 'terminal_screen.dart';
@@ -923,6 +924,13 @@ class _PowerFeaturesExpandedCard extends StatelessWidget {
               context,
               MaterialPageRoute(builder: (_) => const CodexMcpScreen()),
             ),
+          ),
+          _Divider(),
+          _SettingsTile(
+            title: 'Apps',
+            subtitle: 'Connectors & integrations',
+            icon: Icons.extension_rounded,
+            onTap: () => CxAppsSheet.show(context),
           ),
         ];
     }

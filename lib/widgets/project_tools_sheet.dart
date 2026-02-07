@@ -8,6 +8,7 @@ import '../screens/claude_code_mcp_screen.dart';
 import '../screens/claude_code_settings_screen.dart';
 import '../screens/codex_agents_screen.dart';
 import '../screens/codex_mcp_screen.dart';
+import '../screens/sheets/cx_apps_sheet.dart';
 import '../screens/hooks_screen.dart';
 import '../screens/mcp_servers_screen.dart';
 import '../screens/opencode_agents_screen.dart';
@@ -354,6 +355,17 @@ class _ProjectToolsContent extends StatelessWidget {
             title: 'MCP',
             subtitle: 'Servers and config',
             onTap: () => _closeAndPush(context, const CodexMcpScreen()),
+          ),
+          _tile(
+            context,
+            theme,
+            icon: Icons.extension_rounded,
+            title: 'Apps',
+            subtitle: 'Connectors & integrations',
+            onTap: () {
+              Navigator.pop(context);
+              CxAppsSheet.show(context);
+            },
           ),
         ],
         const SizedBox(height: 18),

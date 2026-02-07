@@ -2950,8 +2950,8 @@ class BridgeService {
     Map<String, dynamic>? sandboxPolicy,
     Map<String, dynamic>? config,
     List<FileAttachment>? fileAttachments,
-    String?
-    collaborationMode, // SDK v0.87.0+: 'plan', 'code', 'pair_programming', 'execute', 'custom'
+    String? collaborationMode, // SDK ModeKind: 'plan' | 'default'
+    String? personality, // SDK Personality: 'none' | 'friendly' | 'pragmatic'
   }) {
     _socket.send({
       'type': 'cx_chat',
@@ -2968,6 +2968,7 @@ class BridgeService {
       if (fileAttachments != null)
         'fileAttachments': fileAttachments.map((a) => a.toJson()).toList(),
       if (collaborationMode != null) 'collaborationMode': collaborationMode,
+      if (personality != null) 'personality': personality,
     });
   }
 
@@ -3005,6 +3006,191 @@ class BridgeService {
       'requestId': requestId,
       'answers': answers,
     });
+  }
+
+  // ============================================================
+  // Codex — New SDK Features (mid-2026)
+  // ============================================================
+
+  /// Steer/nudge the agent while a turn is active (turn/steer).
+  void cxSteer({
+    required String threadId,
+    required String prompt,
+    String? turnId,
+  }) {
+    _socket.send({
+      'type': 'cx_steer',
+      'threadId': threadId,
+      'prompt': prompt,
+      if (turnId != null) 'turnId': turnId,
+    });
+  }
+
+  /// Rename a thread (thread/name/set).
+  Future<bool> cxRenameThread({
+    required String threadId,
+    required String name,
+  }) async {
+    final requestId = _generateRequestId();
+    _socket.send({
+      'type': 'cx_thread_rename',
+      'requestId': requestId,
+      'threadId': threadId,
+      'name': name,
+    });
+    await _waitFor(
+      'cx_thread_renamed',
+      requestId: requestId,
+      timeoutSeconds: _codexTimeoutSeconds,
+    );
+    return true;
+  }
+
+  /// Unarchive a thread (thread/unarchive).
+  Future<bool> cxUnarchiveThread({required String threadId}) async {
+    final requestId = _generateRequestId();
+    _socket.send({
+      'type': 'cx_thread_unarchive',
+      'requestId': requestId,
+      'threadId': threadId,
+    });
+    await _waitFor(
+      'cx_thread_unarchived',
+      requestId: requestId,
+      timeoutSeconds: _codexTimeoutSeconds,
+    );
+    return true;
+  }
+
+  /// Trigger context compaction for a thread (thread/compact/start).
+  Future<bool> cxCompactThread({required String threadId}) async {
+    final requestId = _generateRequestId();
+    _socket.send({
+      'type': 'cx_thread_compact',
+      'requestId': requestId,
+      'threadId': threadId,
+    });
+    await _waitFor(
+      'cx_thread_compacted',
+      requestId: requestId,
+      timeoutSeconds: _codexTimeoutSeconds,
+    );
+    return true;
+  }
+
+  /// List remote skills from public marketplace (skills/remote/read).
+  Future<List<Map<String, dynamic>>> cxListRemoteSkills() async {
+    final requestId = _generateRequestId();
+    _socket.send({
+      'type': 'cx_remote_skills_list',
+      'requestId': requestId,
+    });
+    final response = await _waitFor(
+      'cx_remote_skills',
+      requestId: requestId,
+      timeoutSeconds: _codexTimeoutSeconds,
+    );
+    final data = response['data'] as List<dynamic>? ?? [];
+    return data.whereType<Map<String, dynamic>>().toList();
+  }
+
+  /// Install a remote skill by hazelnut ID (skills/remote/write).
+  Future<bool> cxInstallRemoteSkill({
+    required String hazelnutId,
+    bool isPreload = false,
+  }) async {
+    final requestId = _generateRequestId();
+    _socket.send({
+      'type': 'cx_remote_skill_install',
+      'requestId': requestId,
+      'hazelnutId': hazelnutId,
+      'isPreload': isPreload,
+    });
+    await _waitFor(
+      'cx_remote_skill_installed',
+      requestId: requestId,
+      timeoutSeconds: _codexTimeoutSeconds,
+    );
+    return true;
+  }
+
+  /// Enable/disable a specific skill (skills/config/write).
+  Future<bool> cxSetSkillEnabled({
+    required String path,
+    required bool enabled,
+  }) async {
+    final requestId = _generateRequestId();
+    _socket.send({
+      'type': 'cx_skill_config_write',
+      'requestId': requestId,
+      'path': path,
+      'enabled': enabled,
+    });
+    await _waitFor(
+      'cx_skill_config_written',
+      requestId: requestId,
+      timeoutSeconds: _codexTimeoutSeconds,
+    );
+    return true;
+  }
+
+  /// List apps/connectors from Codex marketplace (app/list).
+  Future<List<Map<String, dynamic>>> cxListApps({
+    String? cursor,
+    int? limit,
+  }) async {
+    final requestId = _generateRequestId();
+    _socket.send({
+      'type': 'cx_apps_list',
+      'requestId': requestId,
+      if (cursor != null) 'cursor': cursor,
+      if (limit != null) 'limit': limit,
+    });
+    final response = await _waitFor(
+      'cx_apps',
+      requestId: requestId,
+      timeoutSeconds: _codexTimeoutSeconds,
+    );
+    final data = response['data'] as List<dynamic>? ?? [];
+    return data.whereType<Map<String, dynamic>>().toList();
+  }
+
+  /// Execute a one-off command via Codex (command/exec).
+  Future<Map<String, dynamic>> cxCommandExec({
+    required List<String> command,
+    int? timeoutMs,
+    String? cwd,
+  }) async {
+    final requestId = _generateRequestId();
+    _socket.send({
+      'type': 'cx_command_exec',
+      'requestId': requestId,
+      'command': command,
+      if (timeoutMs != null) 'timeoutMs': timeoutMs,
+      if (cwd != null) 'cwd': cwd,
+    });
+    final response = await _waitFor(
+      'cx_command_result',
+      requestId: requestId,
+      timeoutSeconds: _codexTimeoutSeconds,
+    );
+    return response['data'] as Map<String, dynamic>? ?? {};
+  }
+
+  /// List experimental features (experimentalFeature/list).
+  Future<List<Map<String, dynamic>>> cxListExperimentalFeatures() async {
+    final requestId = _generateRequestId();
+    _socket.send({
+      'type': 'cx_experimental_features',
+      'requestId': requestId,
+    });
+    final response = await _waitFor(
+      'cx_experimental_features_list',
+      requestId: requestId,
+      timeoutSeconds: _codexTimeoutSeconds,
+    );
+    final data = response['data'] as List<dynamic>? ?? [];
+    return data.whereType<Map<String, dynamic>>().toList();
   }
 
   // ============================================================

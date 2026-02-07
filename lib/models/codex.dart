@@ -121,7 +121,8 @@ class CodexSettings {
     this.reasoningSummary = CodexReasoningSummary.auto,
     this.webSearchMode = CodexWebSearchMode.disabled,
     this.skillsEnabled = false,
-    this.collaborationMode = CodexCollaborationMode.pairProgramming,
+    this.collaborationMode = CodexCollaborationMode.defaultMode,
+    this.personality = CodexPersonality.pragmatic,
   });
 
   final CodexApprovalPolicy approvalPolicy;
@@ -132,6 +133,7 @@ class CodexSettings {
   final CodexWebSearchMode webSearchMode;
   final bool skillsEnabled;
   final CodexCollaborationMode collaborationMode;
+  final CodexPersonality personality;
 
   CodexSettings copyWith({
     CodexApprovalPolicy? approvalPolicy,
@@ -142,6 +144,7 @@ class CodexSettings {
     CodexWebSearchMode? webSearchMode,
     bool? skillsEnabled,
     CodexCollaborationMode? collaborationMode,
+    CodexPersonality? personality,
   }) {
     return CodexSettings(
       approvalPolicy: approvalPolicy ?? this.approvalPolicy,
@@ -152,6 +155,7 @@ class CodexSettings {
       webSearchMode: webSearchMode ?? this.webSearchMode,
       skillsEnabled: skillsEnabled ?? this.skillsEnabled,
       collaborationMode: collaborationMode ?? this.collaborationMode,
+      personality: personality ?? this.personality,
     );
   }
 
@@ -236,6 +240,9 @@ class CodexSettings {
       collaborationMode: CodexCollaborationMode.fromString(
         json['collaborationMode'] as String?,
       ),
+      personality: CodexPersonality.fromString(
+        json['personality'] as String?,
+      ),
     );
   }
 
@@ -249,6 +256,7 @@ class CodexSettings {
       'webSearchMode': webSearchMode.wireValue,
       'skillsEnabled': skillsEnabled,
       'collaborationMode': collaborationMode.wireValue,
+      'personality': personality.wireValue,
     };
   }
 }
@@ -263,6 +271,7 @@ class CodexThread {
   final String? cliVersion;
   final String? source;
   final String? gitBranch;
+  final String? threadName; // SDK thread/name/set (mid-2026)
 
   const CodexThread({
     required this.id,
@@ -274,6 +283,7 @@ class CodexThread {
     this.cliVersion,
     this.source,
     this.gitBranch,
+    this.threadName,
   }) : updatedAt = updatedAt ?? createdAt;
 
   factory CodexThread.fromJson(Map<String, dynamic> json) {
@@ -289,6 +299,7 @@ class CodexThread {
       cliVersion: json['cliVersion'] as String?,
       source: json['source'] as String?,
       gitBranch: gitInfo?['branch'] as String?,
+      threadName: json['threadName'] as String?,
     );
   }
 
@@ -303,11 +314,17 @@ class CodexThread {
       if (cliVersion != null) 'cliVersion': cliVersion,
       if (source != null) 'source': source,
       if (gitBranch != null) 'gitInfo': {'branch': gitBranch},
+      if (threadName != null) 'threadName': threadName,
     };
   }
 
+  /// Display title: prefer threadName, then preview, then truncated ID.
   String get displayTitle =>
-      preview.trim().isNotEmpty ? preview : 'Thread ${id.substring(0, 8)}';
+      (threadName ?? '').trim().isNotEmpty
+          ? threadName!
+          : preview.trim().isNotEmpty
+              ? preview
+              : 'Thread ${id.substring(0, 8)}';
 
   DateTime get createdAtDateTime =>
       DateTime.fromMillisecondsSinceEpoch(createdAt * 1000);
@@ -572,6 +589,54 @@ class CodexUnknownMessage extends CodexStreamMessage {
 // CODEX SDK v0.87.0+ NEW TYPES
 // ============================================================================
 
+/// Personality setting for Codex sessions.
+///
+/// Controls the agent's communication style. Matches the SDK `Personality` type:
+///   • `none`       – no personality overlay
+///   • `friendly`   – warm, conversational tone
+///   • `pragmatic`  – direct, efficient (SDK default since mid-2026)
+enum CodexPersonality {
+  none,
+  friendly,
+  pragmatic;
+
+  String get wireValue => name;
+
+  String get displayName {
+    switch (this) {
+      case CodexPersonality.none:
+        return 'None';
+      case CodexPersonality.friendly:
+        return 'Friendly';
+      case CodexPersonality.pragmatic:
+        return 'Pragmatic';
+    }
+  }
+
+  String get description {
+    switch (this) {
+      case CodexPersonality.none:
+        return 'No personality overlay';
+      case CodexPersonality.friendly:
+        return 'Warm, conversational';
+      case CodexPersonality.pragmatic:
+        return 'Direct, efficient';
+    }
+  }
+
+  factory CodexPersonality.fromString(String? v) {
+    switch ((v ?? '').trim().toLowerCase()) {
+      case 'none':
+        return CodexPersonality.none;
+      case 'friendly':
+        return CodexPersonality.friendly;
+      case 'pragmatic':
+      default:
+        return CodexPersonality.pragmatic;
+    }
+  }
+}
+
 /// WebSearchMode replaces webSearchEnabled boolean (SDK v0.87.0+)
 enum CodexWebSearchMode {
   disabled,
@@ -592,36 +657,28 @@ enum CodexWebSearchMode {
   }
 }
 
-/// Collaboration mode for Codex sessions (SDK v0.87.0+)
-/// Controls how the agent interacts: research/planning, pair coding, or autonomous execution.
+/// Collaboration mode for Codex sessions.
+///
+/// The Codex SDK (as of mid-2026) supports exactly two modes:
+///   • `plan`    – agent proposes a plan before executing
+///   • `default` – normal coding mode (balanced between discussion and action)
+///
+/// Legacy modes (code, pair_programming, execute, custom) are no longer valid
+/// in the protocol and are mapped to `default` for backward compatibility.
 enum CodexCollaborationMode {
-  /// Research and planning mode - restricted file edits, more discussion
+  /// Agent proposes a plan before executing — restricted file edits, more discussion
   plan,
 
-  /// Code-focused mode - optimized for implementation with less discussion
-  code,
+  /// Normal coding mode — balanced between discussion and action (SDK default)
+  defaultMode;
 
-  /// Interactive coding together - balanced between discussion and action (default)
-  pairProgramming,
-
-  /// Autonomous execution - agent completes tasks with minimal interaction
-  execute,
-
-  /// Custom collaboration mode (advanced / experimental)
-  custom;
-
+  /// Wire value sent to Codex app-server (matches `ModeKind` in SDK schema)
   String get wireValue {
     switch (this) {
       case CodexCollaborationMode.plan:
         return 'plan';
-      case CodexCollaborationMode.code:
-        return 'code';
-      case CodexCollaborationMode.pairProgramming:
-        return 'pair_programming';
-      case CodexCollaborationMode.execute:
-        return 'execute';
-      case CodexCollaborationMode.custom:
-        return 'custom';
+      case CodexCollaborationMode.defaultMode:
+        return 'default';
     }
   }
 
@@ -629,53 +686,41 @@ enum CodexCollaborationMode {
     switch (this) {
       case CodexCollaborationMode.plan:
         return 'Plan';
-      case CodexCollaborationMode.code:
-        return 'Code';
-      case CodexCollaborationMode.pairProgramming:
-        return 'Pair';
-      case CodexCollaborationMode.execute:
-        return 'Execute';
-      case CodexCollaborationMode.custom:
-        return 'Custom';
+      case CodexCollaborationMode.defaultMode:
+        return 'Default';
     }
   }
 
   String get description {
     switch (this) {
       case CodexCollaborationMode.plan:
-        return 'Research & planning mode';
-      case CodexCollaborationMode.code:
-        return 'Code-focused mode';
-      case CodexCollaborationMode.pairProgramming:
-        return 'Interactive pair coding';
-      case CodexCollaborationMode.execute:
-        return 'Autonomous execution';
-      case CodexCollaborationMode.custom:
-        return 'Custom mode (advanced)';
+        return 'Propose plan before executing';
+      case CodexCollaborationMode.defaultMode:
+        return 'Normal coding mode';
     }
   }
 
+  /// Parse from wire/storage string. Legacy values map to [defaultMode].
   factory CodexCollaborationMode.fromString(String? v) {
     final raw = (v ?? '').trim();
-    if (raw.isEmpty) return CodexCollaborationMode.pairProgramming;
+    if (raw.isEmpty) return CodexCollaborationMode.defaultMode;
 
-    // Normalize legacy and variant spellings.
     final key = raw.replaceAll(RegExp(r'[-_]'), '').toLowerCase();
     switch (key) {
       case 'plan':
         return CodexCollaborationMode.plan;
+      // Legacy modes → default
       case 'code':
-        return CodexCollaborationMode.code;
-      case 'execute':
-      case 'exec':
-        return CodexCollaborationMode.execute;
-      case 'custom':
-        return CodexCollaborationMode.custom;
       case 'pairprogramming':
       case 'pair':
       case 'pp':
+      case 'execute':
+      case 'exec':
+      case 'custom':
+      case 'default':
+      case 'defaultmode':
       default:
-        return CodexCollaborationMode.pairProgramming;
+        return CodexCollaborationMode.defaultMode;
     }
   }
 }
@@ -689,16 +734,18 @@ enum CodexCollabAgentStatus {
   shutdown,
   notFound;
 
-  factory CodexCollabAgentStatus.fromJson(Map<String, dynamic> json) {
-    final type = json['type'] as String? ?? 'pending_init';
-    return switch (type) {
-      'running' => CodexCollabAgentStatus.running,
-      'completed' => CodexCollabAgentStatus.completed,
-      'errored' => CodexCollabAgentStatus.errored,
-      'shutdown' => CodexCollabAgentStatus.shutdown,
-      'not_found' => CodexCollabAgentStatus.notFound,
-      _ => CodexCollabAgentStatus.pendingInit,
-    };
+  /// Parse from JSON. The SDK v2 `CollabAgentStatus` is a plain string enum
+  /// ("pendingInit" | "running" | "completed" | "errored" | "shutdown" | "notFound"),
+  /// but older/bridge formats may wrap it as `{ type: "running" }`.
+  factory CodexCollabAgentStatus.fromJson(dynamic json) {
+    // Handle plain string (SDK v2 format)
+    if (json is String) return CodexCollabAgentStatus.fromString(json);
+    // Handle map format (legacy/bridge format)
+    if (json is Map<String, dynamic>) {
+      final type = json['type'] as String? ?? 'pending_init';
+      return CodexCollabAgentStatus.fromString(type);
+    }
+    return CodexCollabAgentStatus.pendingInit;
   }
 
   factory CodexCollabAgentStatus.fromString(String? s) {
@@ -708,6 +755,7 @@ enum CodexCollabAgentStatus {
       'errored' => CodexCollabAgentStatus.errored,
       'shutdown' => CodexCollabAgentStatus.shutdown,
       'not_found' || 'notFound' => CodexCollabAgentStatus.notFound,
+      'pending_init' || 'pendingInit' => CodexCollabAgentStatus.pendingInit,
       _ => CodexCollabAgentStatus.pendingInit,
     };
   }

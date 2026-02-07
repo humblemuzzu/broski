@@ -3674,6 +3674,26 @@ class _CodexThreadsViewState extends ConsumerState<_CodexThreadsView> {
             },
           ),
           ListTile(
+            leading: Icon(Icons.edit_outlined, color: ocTheme.text),
+            title: Text('Rename', style: TextStyle(color: ocTheme.text)),
+            onTap: () {
+              Navigator.pop(context);
+              _renameThread(thread);
+            },
+          ),
+          ListTile(
+            leading: Icon(Icons.fork_right_outlined, color: ocTheme.text),
+            title: Text('Fork', style: TextStyle(color: ocTheme.text)),
+            subtitle: Text(
+              'Create a copy of this thread',
+              style: TextStyle(color: ocTheme.textMuted, fontSize: 12),
+            ),
+            onTap: () {
+              Navigator.pop(context);
+              _forkThread(thread);
+            },
+          ),
+          ListTile(
             leading: Icon(Icons.archive_outlined, color: ocTheme.error),
             title: Text('Archive', style: TextStyle(color: ocTheme.error)),
             onTap: () async {
@@ -3684,6 +3704,65 @@ class _CodexThreadsViewState extends ConsumerState<_CodexThreadsView> {
         ],
       ),
     );
+  }
+
+  void _renameThread(CodexThread thread) {
+    final controller = TextEditingController(text: thread.threadName ?? '');
+    showDialog(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('Rename Thread'),
+        content: TextField(
+          controller: controller,
+          autofocus: true,
+          decoration: const InputDecoration(hintText: 'Thread name'),
+        ),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('Cancel')),
+          TextButton(
+            onPressed: () async {
+              final name = controller.text.trim();
+              if (name.isEmpty) return;
+              Navigator.pop(ctx);
+              try {
+                await ref.read(bridgeServiceProvider).cxRenameThread(
+                  threadId: thread.id,
+                  name: name,
+                );
+                widget.onRefresh();
+              } catch (e) {
+                if (mounted) {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    SnackBar(content: Text('Rename failed: $e')),
+                  );
+                }
+              }
+            },
+            child: const Text('Rename'),
+          ),
+        ],
+      ),
+    );
+  }
+
+  void _forkThread(CodexThread thread) async {
+    try {
+      final forked = await ref.read(bridgeServiceProvider).cxThreadFork(
+        threadId: thread.id,
+      );
+      widget.onRefresh();
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Forked: ${forked.displayTitle}')),
+        );
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Fork failed: $e')),
+        );
+      }
+    }
   }
 
   /// Stop/abort a Codex thread

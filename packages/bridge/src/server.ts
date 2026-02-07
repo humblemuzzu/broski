@@ -10,6 +10,7 @@ import * as claudeCode from './connectors/claude-code'
 import * as codexFs from './connectors/codex-fs'
 import * as fileSearch from './file-search'
 import { CodexAppServerClient, checkCodexAvailable } from './connectors/codex'
+import { handleCodexFeature } from './handlers/codex_features'
 import { headTailTruncate } from './utils'
 import { ensureTlsMaterial, isTlsEnabledByEnv, type TlsMaterial } from './tls'
 import { getDefaultAllowedPaths, IS_WINDOWS, isCompiledBinary } from './platform'
@@ -145,10 +146,12 @@ function _countDiffAddsDels(diff: string): { adds: number; dels: number } {
   return { adds, dels }
 }
 
-function mapCodexThread(thread: any): CodexThread {
+function mapCodexThread(thread: any, nameOverride?: string): CodexThread & { threadName?: string } {
   const gitInfo = thread?.gitInfo && typeof thread.gitInfo === 'object'
     ? { branch: safeString(thread.gitInfo.branch) || undefined }
     : null
+  // Prefer explicit override (from cxThreadNames Map), then any field on the thread object itself
+  const threadName = nameOverride || safeString(thread?.threadName ?? thread?.thread_name).trim() || undefined
   return {
     id: safeString(thread?.id),
     preview: safeString(thread?.preview),
@@ -159,6 +162,7 @@ function mapCodexThread(thread: any): CodexThread {
     cliVersion: safeString(thread?.cliVersion) || undefined,
     source: safeString(thread?.source) || undefined,
     gitInfo,
+    ...(threadName ? { threadName } : {}),
   }
 }
 
@@ -1033,6 +1037,7 @@ export async function createBridgeServer(options: BridgeServerOptions): Promise<
   const cxActiveTurns = new Map<string, string>()
   const cxItemCache = new Map<string, any>() // key: `${threadId}:${turnId}:${itemId}` -> item
   const cxThreadCwds = new Map<string, string>() // threadId -> absolute cwd
+  const cxThreadNames = new Map<string, string>() // threadId -> custom name (from thread/name/updated)
   const cxFileChangeSnapshots = new Map<string, string>() // `${threadId}:${turnId}:${itemId}` -> manifestPath
   const cxUndoStackByThread = new Map<string, string[]>() // threadId -> snapshot keys (LIFO)
 
@@ -1471,6 +1476,19 @@ export async function createBridgeServer(options: BridgeServerOptions): Promise<
                 .catch(() => {})
             }
             if (id && !threadId) threadId = id
+          }
+
+          // Track thread names from thread/name/updated notifications (SDK ThreadNameUpdatedNotification)
+          if (n.method === 'thread/name/updated') {
+            const nameThreadId = safeString(params.threadId)
+            const threadName = safeString(params.threadName).trim()
+            if (nameThreadId) {
+              if (threadName) {
+                cxThreadNames.set(nameThreadId, threadName)
+              } else {
+                cxThreadNames.delete(nameThreadId) // name cleared
+              }
+            }
           }
 
           if (!threadId && params.turn?.threadId) {
@@ -5610,17 +5628,32 @@ export async function createBridgeServer(options: BridgeServerOptions): Promise<
         const cached = cxThreadCache.get(cacheKey)
         if (!forceRefresh && !message.cursor && cached && (now - cached.fetchedAt) < CODEX_THREAD_CACHE_TTL_MS) {
           console.log(`[cx_list_threads] Cache hit for ${cacheKey}, returning cached data`)
-          reply({ type: 'cx_threads', data: cached.data, nextCursor: cached.nextCursor })
+          // Merge latest thread names into cached response (names may have changed since caching)
+          const cachedData = cxThreadNames.size > 0
+            ? cached.data.map((t: any) => {
+                const name = cxThreadNames.get(t.id)
+                return name ? { ...t, threadName: name } : t
+              })
+            : cached.data
+          reply({ type: 'cx_threads', data: cachedData, nextCursor: cached.nextCursor })
           break
         }
         
         console.log(`[cx_list_threads] ${forceRefresh ? 'Refresh requested' : 'Cache miss'}, reading from filesystem...`)
         const threads = await codexFs.listThreadsFromFs(message.cwd ?? undefined)
         
+        // Merge any known thread names from thread/name/updated notifications
+        const threadsWithNames = cxThreadNames.size > 0
+          ? threads.map((t: any) => {
+              const name = cxThreadNames.get(t.id)
+              return name ? { ...t, threadName: name } : t
+            })
+          : threads
+        
         // Update cache (filesystem reads don't have pagination)
-        cxThreadCache.set(cacheKey, { data: threads, fetchedAt: Date.now(), nextCursor: null })
-        console.log(`[cx_list_threads] Done, cached ${threads.length} threads (filesystem read)`)
-        reply({ type: 'cx_threads', data: threads, nextCursor: null })
+        cxThreadCache.set(cacheKey, { data: threadsWithNames, fetchedAt: Date.now(), nextCursor: null })
+        console.log(`[cx_list_threads] Done, cached ${threadsWithNames.length} threads (filesystem read)`)
+        reply({ type: 'cx_threads', data: threadsWithNames, nextCursor: null })
         break
       }
       case 'cx_warmup': {
@@ -5654,13 +5687,20 @@ export async function createBridgeServer(options: BridgeServerOptions): Promise<
           reply({ type: 'error', message: 'Missing cwd' })
           break
         }
+        const personalityVal = safeString(message.personality).trim().toLowerCase()
+        const personality = personalityVal === 'none' || personalityVal === 'friendly' || personalityVal === 'pragmatic'
+          ? personalityVal
+          : null
         const result: any = await client.request('thread/start', {
           cwd,
           model: message.model ?? null,
           approvalPolicy: message.approvalPolicy ?? null,
           sandbox: message.sandbox ?? null,
+          ...(personality ? { personality } : {}),
+          experimentalRawEvents: false,
         })
-        const thread = mapCodexThread(result?.thread)
+        const threadId_start = safeString(result?.thread?.id)
+        const thread = mapCodexThread(result?.thread, cxThreadNames.get(threadId_start))
         if (thread.id && thread.cwd) {
           const secureThreadCwd = await getSecurePath(thread.cwd)
           if (secureThreadCwd) cxThreadCwds.set(thread.id, secureThreadCwd)
@@ -5672,10 +5712,15 @@ export async function createBridgeServer(options: BridgeServerOptions): Promise<
       }
       case 'cx_resume_thread': {
         const client = await ensureCodexClient()
+        const personalityResume = safeString(message.personality).trim().toLowerCase()
+        const personalityResumeVal = personalityResume === 'none' || personalityResume === 'friendly' || personalityResume === 'pragmatic'
+          ? personalityResume
+          : null
         const result: any = await client.request('thread/resume', {
           threadId: message.threadId,
+          ...(personalityResumeVal ? { personality: personalityResumeVal } : {}),
         })
-        const thread = mapCodexThread(result?.thread)
+        const thread = mapCodexThread(result?.thread, cxThreadNames.get(message.threadId))
         if (thread.id && thread.cwd) {
           const secureThreadCwd = await getSecurePath(thread.cwd)
           if (secureThreadCwd) cxThreadCwds.set(thread.id, secureThreadCwd)
@@ -5863,6 +5908,10 @@ export async function createBridgeServer(options: BridgeServerOptions): Promise<
             cxThreadCwds.set(threadId, cwd)
           }
         } else {
+          const personalityReview = safeString(message.personality).trim().toLowerCase()
+          const personalityReviewVal = personalityReview === 'none' || personalityReview === 'friendly' || personalityReview === 'pragmatic'
+            ? personalityReview
+            : null
           await client.request('thread/resume', {
             threadId,
             model: message.model ?? null,
@@ -5870,6 +5919,7 @@ export async function createBridgeServer(options: BridgeServerOptions): Promise<
             approvalPolicy: message.approvalPolicy ?? null,
             sandbox: message.sandbox ?? null,
             config: message.config ?? null,
+            ...(personalityReviewVal ? { personality: personalityReviewVal } : {}),
           })
         }
 
@@ -6050,6 +6100,12 @@ export async function createBridgeServer(options: BridgeServerOptions): Promise<
 
         let resolvedModel = safeString(message.model).trim()
         let threadId = existingThreadId || null
+        // Resolve personality (SDK Personality: "none" | "friendly" | "pragmatic")
+        const personalityRaw = safeString(message.personality).trim().toLowerCase()
+        const personality = personalityRaw === 'none' || personalityRaw === 'friendly' || personalityRaw === 'pragmatic'
+          ? personalityRaw
+          : null
+
         if (!threadId) {
           const startRes: any = await client.request('thread/start', {
             cwd,
@@ -6059,6 +6115,8 @@ export async function createBridgeServer(options: BridgeServerOptions): Promise<
             config: message.config ?? null,
             baseInstructions: message.baseInstructions ?? null,
             developerInstructions: message.developerInstructions ?? null,
+            ...(personality ? { personality } : {}),
+            experimentalRawEvents: false,
           })
           threadId = safeString(startRes?.thread?.id)
           if (!resolvedModel) {
@@ -6083,6 +6141,7 @@ export async function createBridgeServer(options: BridgeServerOptions): Promise<
             config: message.config ?? null,
             baseInstructions: message.baseInstructions ?? null,
             developerInstructions: message.developerInstructions ?? null,
+            ...(personality ? { personality } : {}),
           })
           if (!resolvedModel) {
             resolvedModel = safeString(resumeRes?.model).trim()
@@ -6102,7 +6161,8 @@ export async function createBridgeServer(options: BridgeServerOptions): Promise<
           cxThreadCwds.set(threadId, cwd)
 
         // Prepare input (text + optional local images written to disk).
-        const input: Array<any> = [{ type: 'text', text: message.prompt }]
+        // SDK UserInput type requires text_elements field (Array<TextElement>)
+        const input: Array<any> = [{ type: 'text', text: message.prompt, text_elements: [] }]
         if (message.fileAttachments && message.fileAttachments.length > 0) {
           const attachmentsDir = resolve(cwd, '.broski', 'codex-attachments')
           await mkdir(attachmentsDir, { recursive: true })
@@ -6117,8 +6177,8 @@ export async function createBridgeServer(options: BridgeServerOptions): Promise<
               const fileName = `${Date.now()}_${token}${ext}`
               const outPath = resolve(attachmentsDir, fileName)
                await writeFile(outPath, Buffer.from(a.base64Data, 'base64'))
-               // Codex expects snake_case input types.
-               input.push({ type: 'local_image', path: outPath })
+               // Codex v2 UserInput uses camelCase type tags.
+               input.push({ type: 'localImage', path: outPath })
              } else if (a.path) {
                // File/directory references via prompt hint
                const ref = a.path.startsWith('@') ? a.path : `@${a.path}`
@@ -6128,26 +6188,18 @@ export async function createBridgeServer(options: BridgeServerOptions): Promise<
          }
 
         // Build collaboration mode object if specified.
-        // Codex protocol expects: { mode: "pair_programming"|..., settings: { model, reasoning_effort?, developer_instructions? } }
+        // Codex SDK ModeKind: "plan" | "default" (legacy code/pair_programming/execute/custom → "default")
+        // CollaborationMode = { mode: ModeKind, settings: { model, reasoning_effort?, developer_instructions? } }
         let collaborationMode: any = null
         const collabModeRaw = safeString(message.collaborationMode).trim()
         if (collabModeRaw) {
           const collabKey = collabModeRaw.replace(/[-_]/g, '').toLowerCase()
-          const normalizedMode =
-            collabKey === 'plan'
-              ? 'plan'
-              : collabKey === 'code'
-                ? 'code'
-                : collabKey === 'pairprogramming'
-                  ? 'pair_programming'
-                  : collabKey === 'execute'
-                    ? 'execute'
-                    : collabKey === 'custom'
-                      ? 'custom'
-                      : null
+          // Map to SDK ModeKind: only "plan" and "default" are valid
+          const normalizedMode: 'plan' | 'default' =
+            collabKey === 'plan' ? 'plan' : 'default'
 
           const model = resolvedModel
-          if (normalizedMode && model) {
+          if (model) {
             const effortRaw = safeString(message.effort).trim().toLowerCase()
             const reasoningEffort =
               effortRaw === 'none' ||
@@ -6164,14 +6216,12 @@ export async function createBridgeServer(options: BridgeServerOptions): Promise<
               mode: normalizedMode,
               settings: {
                 model,
-                ...(reasoningEffort ? { reasoning_effort: reasoningEffort } : {}),
-                ...(developerInstructions ? { developer_instructions: developerInstructions } : {}),
+                reasoning_effort: reasoningEffort ?? null,
+                developer_instructions: developerInstructions || null,
               },
             }
-          } else if (!model) {
-            console.warn('[Codex cx_chat] collaborationMode ignored (missing model)')
           } else {
-            console.warn(`[Codex cx_chat] collaborationMode ignored (unknown mode: ${collabModeRaw})`)
+            console.warn('[Codex cx_chat] collaborationMode ignored (missing model)')
           }
         }
 
@@ -6189,6 +6239,7 @@ export async function createBridgeServer(options: BridgeServerOptions): Promise<
             summary: message.summary ?? null,
             approvalPolicy: message.approvalPolicy ?? null,
             sandboxPolicy: message.sandboxPolicy ?? null,
+            ...(personality ? { personality } : {}),
             collaborationMode,
           })
 
@@ -6318,7 +6369,8 @@ export async function createBridgeServer(options: BridgeServerOptions): Promise<
               if (secureThreadCwd) cxThreadCwds.set(id, secureThreadCwd)
             }
           }
-          reply({ type: 'cx_thread_forked', data: mapCodexThread(thread) })
+          const forkedId = safeString(thread?.id)
+          reply({ type: 'cx_thread_forked', data: mapCodexThread(thread, cxThreadNames.get(forkedId)) })
         } else {
           reply({ type: 'error', message: 'Fork failed' })
         }
@@ -6332,7 +6384,7 @@ export async function createBridgeServer(options: BridgeServerOptions): Promise<
         })
         const thread = result?.thread
         if (thread) {
-          reply({ type: 'cx_thread_rolled_back', data: mapCodexThread(thread) })
+          reply({ type: 'cx_thread_rolled_back', data: mapCodexThread(thread, cxThreadNames.get(message.threadId)) })
         } else {
           reply({ type: 'error', message: 'Rollback failed' })
         }
@@ -6357,6 +6409,28 @@ export async function createBridgeServer(options: BridgeServerOptions): Promise<
           clearTimeout(waiter.timer)
           cxApprovalWaiters.delete(message.requestId)
           waiter.resolve({ answers: message.answers })
+        }
+        break
+      }
+      // New Codex features (mid-2026 SDK) — delegated to modular handler
+      case 'cx_steer':
+      case 'cx_thread_rename':
+      case 'cx_thread_unarchive':
+      case 'cx_thread_compact':
+      case 'cx_remote_skills_list':
+      case 'cx_remote_skill_install':
+      case 'cx_skill_config_write':
+      case 'cx_apps_list':
+      case 'cx_command_exec':
+      case 'cx_experimental_features': {
+        const handled = await handleCodexFeature(message, reply, {
+          ensureCodexClient,
+          cxActiveTurns,
+          cxThreadNames,
+          safeString,
+        })
+        if (!handled) {
+          reply({ type: 'error', message: `Unhandled Codex feature: ${message.type}` })
         }
         break
       }

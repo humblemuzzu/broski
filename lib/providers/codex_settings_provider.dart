@@ -60,6 +60,11 @@ class CodexSettingsNotifier extends StateNotifier<CodexSettings> {
     await _save();
   }
 
+  Future<void> setPersonality(CodexPersonality personality) async {
+    state = state.copyWith(personality: personality);
+    await _save();
+  }
+
   void cycleCollaborationMode() {
     final modes = CodexCollaborationMode.values;
     final currentIndex = modes.indexOf(state.collaborationMode);
