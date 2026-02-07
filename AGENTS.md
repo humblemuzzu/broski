@@ -1,5 +1,45 @@
 # Repository Guidelines
 
+## What Broski Actually Is (READ THIS BEFORE ANY SECURITY WORK)
+
+Broski is a **mobile app that gives you full remote control of AI coding agents running on your computer**. Think of it as SSH-for-AI-agents from your phone. The entire point is that you can read files, run commands, chat with AI, and manage terminal sessions on your dev machine from anywhere.
+
+### Core features that are INTENTIONAL, not vulnerabilities:
+- **PTY / terminal access from the phone.** This is a primary feature. Users open terminal sessions, type commands, see output. Do NOT flag this as a security issue or suggest blocking it.
+- **Command execution from the app.** The app sends commands to AI agents (Claude Code, Codex, OpenCode) and to the shell. This is the product. Do NOT suggest removing or restricting command execution.
+- **File reading/writing from the phone.** Users browse, read, and edit files on their dev machine through the app. This is intentional.
+- **AI agent control.** Users chat with AI agents, approve/reject permission prompts, and manage coding sessions. The bridge is the relay between phone and agents.
+- **QR code pairing.** The QR code displayed in the user's terminal contains the auth token + connection info. This is the pairing mechanism (like SSH keys). The QR is only visible on the user's own screen.
+
+### The architecture (so you understand the threat model):
+- **Bridge** (`packages/bridge/`) = TypeScript server running on the user's own dev machine. It connects to local AI agents and exposes a WebSocket + HTTP API.
+- **Flutter app** (`lib/`) = iOS/Android app that connects to the bridge over TLS WebSocket. Authenticated via token from QR code + cloud session (Convex).
+- **Connection methods:** Local WiFi, Tailscale (private mesh VPN), Tailscale Funnel (public HTTPS via .ts.net).
+- **Auth layers:** Bridge auth token (from QR), cloud session token (from Convex/RevenueCat entitlement), TLS cert pinning (SHA-256 fingerprint from QR).
+
+### Security context for audits:
+- This is a **personal dev tool**, not a multi-tenant SaaS. The user owns both the phone and the machine.
+- Bearer token auth is standard for this category (same as VS Code tunnels, ngrok, SSH keys).
+- The bridge deliberately has broad filesystem and process access because that is its job.
+- Web app (`web-app/`) exists but is NOT launched yet. Bridge serves its static assets without auth (standard SPA behavior) but all API/WS endpoints require auth.
+- Compiled production binaries disable all debug flags, force TLS, hardcode entitlement timings, and ignore env overrides that could weaken security.
+
+### What IS worth auditing:
+- Auth token lifecycle (rotation, storage, transmission security)
+- TLS enforcement and cert pinning correctness
+- Path traversal protections (realpath, symlink defense, base path checks)
+- License/entitlement bypass attempts
+- Input validation and injection (prototype pollution, message size limits)
+- Rate limiting and DoS protection
+
+### What is NOT a vulnerability (stop flagging these):
+- PTY/terminal access existing at all
+- Command execution from the app
+- File read/write from the app
+- QR code containing the auth token (it's the pairing mechanism)
+- Bridge having access to AI agent credentials (it's the relay, that's its job)
+- Localhost proxy to dev server ports (authenticated, loopback-only)
+
 ## Project Structure & Module Organization
 - `lib/` holds the Flutter application code (currently `lib/main.dart`).
 - `test/` contains Flutter tests (see `test/widget_test.dart`).
@@ -64,6 +104,159 @@ Maintain a single Continuity Ledger for this workspace in "CONTINUITY md'. The l
 - Working set (files/ids/commands) :
 
 ### Don't use mgrep use your own file search and read or whatever tools but not mgrep
+
+## SDK Update System
+
+Broski sits on top of 3 AI SDKs. When they update, the bridge and flutter app need to match. This section tells you how everything is wired so you can update correctly.
+
+### SDK → Bridge → Flutter: The 5-Layer Flow
+
+```
+types.ts → server.ts → connector → bridge_service.dart → model → provider → screen
+```
+
+| Layer | File | What goes here |
+|-------|------|---------------|
+| 1. Wire types | `packages/bridge/src/types.ts` | ClientMessage + ServerMessage union members, data types |
+| 2. Handler | `packages/bridge/src/server.ts` | `case 'xx_verb_noun':` inside `processSingleMessage()` |
+| 3. Connector | `packages/bridge/src/connectors/{agent}.ts` | Exported function that calls the SDK |
+| 4. Dart service | `lib/services/bridge_service.dart` | Method that sends WS message + awaits response |
+| 5. Dart model | `lib/models/{agent}.dart` | Class with `factory fromJson()` + `toJson()` |
+| 6. Provider | `lib/providers/{agent}_provider.dart` | Riverpod provider (FutureProvider or StateNotifier) |
+| 7. UI | `lib/screens/chat_screen.dart` | Bottom sheet or inline widget |
+
+### Message Naming Conventions
+
+Prefix by agent:
+- **OpenCode:** no prefix (`list_sessions`, `chat`) or `oc_` (`oc_list_skills`)
+- **Claude Code:** `cc_` (`cc_list_skills`, `cc_chat`, `cc_abort`)
+- **Codex:** `cx_` (`cx_chat`, `cx_list_threads`)
+
+Request → Response:
+- **List:** `cc_list_skills` → `cc_skills` (response = noun plural)
+- **Mutate:** `cc_save_skill` → `cc_skill_saved` (response = noun_past_tense)
+- **Stream:** `cc_chat` → `cc_stream` (response = prefix_stream)
+
+### Bridge Handler Pattern (server.ts)
+
+```typescript
+case 'xx_list_things': {
+  const result = await connector.listThings(message.cwd)
+  reply({ type: 'xx_things', data: result })
+  break
+}
+// Errors propagate to outer try/catch → reply({ type: 'error', message: ... })
+```
+
+### Flutter Bridge Service Patterns
+
+```dart
+// REQUEST/RESPONSE (returns data):
+Future<List<Thing>> xxListThings({String? cwd}) async {
+  final requestId = _generateRequestId();
+  _socket.send({'type': 'xx_list_things', 'requestId': requestId, if (cwd != null) 'cwd': cwd});
+  final response = await _waitFor('xx_things', requestId: requestId);
+  final data = response['data'] as List<dynamic>? ?? [];
+  return data.map((item) => Thing.fromJson(item as Map<String, dynamic>)).toList();
+}
+
+// FIRE-AND-FORGET (streaming):
+void xxChat({required String prompt, ...}) {
+  _socket.send({'type': 'xx_chat', 'prompt': prompt, ...});
+}
+
+// STREAM LISTENER:
+Stream<XxStreamMessage> get xxStreamMessages =>
+    _socket.messages.where((m) => m['type'] == 'xx_stream')
+        .map((m) => XxStreamMessage.fromJson(m['data'] ?? {}));
+```
+
+### Flutter Model Pattern
+
+```dart
+class Thing {
+  final String name;
+  final String? description;
+  const Thing({required this.name, this.description});
+  factory Thing.fromJson(Map<String, dynamic> json) {
+    return Thing(
+      name: json['name'] as String? ?? '',         // defensive: ?? default
+      description: json['description'] as String?, // nullable: no default
+    );
+  }
+  Map<String, dynamic> toJson() => {
+    'name': name,
+    if (description != null) 'description': description,  // omit nulls
+  };
+}
+// Enums always have: wireValue, fromWireValue(String), displayName
+// Sealed classes use switch-on-type for polymorphic fromJson()
+```
+
+### Riverpod Provider Patterns
+
+| Use Case | Provider Type |
+|----------|--------------|
+| Read-only list (parameterized) | `FutureProvider.family<List<T>, String?>` |
+| Mutable CRUD list | `StateNotifierProvider` wrapping `AsyncValue<List<T>>` |
+| Config with edits | `StateNotifierProvider` wrapping `AsyncValue<T>` |
+| Streaming chat state | `StateNotifierProvider` wrapping plain state class |
+| Simple filter | `StateProvider<T>` |
+
+StateNotifier always: `load()` checks `_connection.isOfflineMode` → cache fallback. On success: cache via `_storage.cacheX()`. On error: fall back to `_storage.getCachedX()`.
+
+### Bottom Sheet UI Pattern
+
+```dart
+void _showXxThingsSheet() {
+  DetailSheet.show(
+    context: context,
+    title: 'Things',
+    initialSize: 0.5,
+    child: Consumer(builder: (context, ref, _) {
+      final cwd = ref.watch(chatSessionProvider).cwd;
+      final thingsAsync = ref.watch(xxThingsProvider(cwd));
+      return thingsAsync.when(
+        data: (items) => Column(children: items.map((i) => ListTile(
+          dense: true,
+          title: Text(i.name),
+          subtitle: i.description != null ? Text(i.description!) : null,
+        )).toList()),
+        loading: () => CircularProgressIndicator(),
+        error: (e, _) => Text('Error: $e'),
+      );
+    }),
+  );
+}
+```
+
+### New Feature Checklist (all 9 steps)
+
+To add `xx_list_widgets` for agent XX:
+
+1. **`types.ts`**: Add `| { type: 'xx_list_widgets'; cwd?: string }` to ClientMessage
+2. **`types.ts`**: Add `| { type: 'xx_widgets'; data: XxWidget[]; requestId?: string }` to ServerMessage
+3. **`types.ts`**: Define `export type XxWidget = { ... }` if new type
+4. **`connectors/xx.ts`**: Add `export async function listWidgets(cwd?: string): Promise<XxWidget[]>`
+5. **`server.ts`**: Add `case 'xx_list_widgets': { reply({ type: 'xx_widgets', data: await xx.listWidgets(msg.cwd) }) }`
+6. **`lib/models/xx.dart`**: Add `class XxWidget` with `factory fromJson()`
+7. **`lib/services/bridge_service.dart`**: Add `Future<List<XxWidget>> xxListWidgets({String? cwd})`
+8. **`lib/providers/xx_provider.dart`**: Add `final xxWidgetsProvider = FutureProvider.family<...>`
+9. **`lib/screens/chat_screen.dart`**: Add `_showXxWidgetsSheet()` using DetailSheet.show + Consumer
+
+### SDK-Specific Notes
+
+- **Claude Code SDK** (`@anthropic-ai/claude-agent-sdk`): Uses model aliases `sonnet/opus/haiku`. New version of same tier = no code change. New tier = add to `types.ts` model union, `claude_code.dart` enum, `chat_screen.dart` model picker, `claude_code_settings_screen.dart` dropdown.
+- **OpenCode SDK** (`@opencode-ai/sdk/v2`): Fully dynamic models from `provider.list()`. SDK returns `{ data, error }` wrapper — always destructure `.data` before using. If SDK types change, fix `connectors/opencode.ts`.
+- **Codex** (spawned as `codex app-server` child process): JSON-RPC over stdio. Bridge talks via `request(method, params)` and `notify(method, params)`. If wire protocol changes, update `connectors/codex.ts`.
+
+### SDK Sync Workflow
+
+1. Run `./reference/sync-refs.sh --all` — pulls all SDK repos + auto-generates diff report
+2. Report saved to `reference/YYYY-MM-DD_HHMM_sdk-diff.md`
+3. Report has 4 parts: SDK changes (categorized), your code inventory (dynamic), conventions, AI instructions
+4. State tracked in `reference/.sdk-state` (last-synced commit per SDK)
+5. Hand report to AI agent or just say "I synced the SDKs, update bridge + flutter"
 
 ## Demo Prompt: "Explain to the X community"
 
