@@ -155,3 +155,66 @@ class CodexThreadsNotifier
     }
   }
 }
+
+/// Codex models provider — cache-first, background refresh.
+///
+/// First open: returns cached models instantly (if any), then refreshes
+/// in the background. The list is cached in L1 memory + L2 secure storage
+/// so subsequent opens are instant. Models rarely change, so a stale-while-
+/// revalidate approach keeps the UI snappy.
+final codexModelsProvider =
+    StateNotifierProvider<CodexModelsNotifier, AsyncValue<List<CodexModel>>>((
+      ref,
+    ) {
+      final bridge = ref.watch(bridgeServiceProvider);
+      final storage = ref.watch(storageServiceProvider);
+      final connection = ref.read(connectionProvider);
+      final notifier = CodexModelsNotifier(bridge, storage, connection);
+      notifier.load();
+      return notifier;
+    });
+
+class CodexModelsNotifier
+    extends StateNotifier<AsyncValue<List<CodexModel>>> {
+  CodexModelsNotifier(this._bridge, this._storage, this._connection)
+    : super(const AsyncValue.loading());
+
+  final BridgeService _bridge;
+  final StorageService _storage;
+  final BridgeConnectionState _connection;
+
+  Future<void> load() async {
+    // 1. Serve from cache instantly
+    final cached = await _storage.getCachedCodexModels();
+    if (cached.isNotEmpty) {
+      state = AsyncValue.data(cached.map(CodexModel.fromJson).toList());
+    }
+
+    // 2. If offline, stop here
+    if (_connection.isOfflineMode) {
+      if (cached.isEmpty) {
+        state = const AsyncValue.data([]);
+      }
+      return;
+    }
+
+    // 3. Background refresh from bridge
+    try {
+      final raw = await _bridge.cxListModels();
+      if (raw.isNotEmpty) {
+        await _storage.cacheCodexModels(raw);
+      }
+      if (!mounted) return;
+      state = AsyncValue.data(raw.map(CodexModel.fromJson).toList());
+    } catch (e, st) {
+      // If we already have cached data showing, keep it — don't flash an error
+      if (!mounted) return;
+      if (!state.hasValue || (state.valueOrNull?.isEmpty ?? true)) {
+        state = AsyncValue.error(e, st);
+      }
+    }
+  }
+
+  /// Force a full refresh (e.g. pull-to-refresh).
+  Future<void> refresh() => load();
+}

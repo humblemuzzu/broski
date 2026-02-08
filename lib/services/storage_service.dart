@@ -82,6 +82,7 @@ class StorageService {
   static const _cachedPtySessionsKey = 'broski_cached_pty_sessions';
   static const _cachedCCSessionsKey = 'broski_cached_cc_sessions';
   static const _cachedCCMessagesPrefix = 'broski_cached_cc_messages_';
+  static const _cachedCodexModelsKey = 'broski_cached_codex_models';
   static const _cachedCodexProjectsKey = 'broski_cached_codex_projects';
   static const _cachedCodexThreadsKey = 'broski_cached_codex_threads';
   static const _cachedCodexMessagesPrefix = 'broski_cached_codex_messages_';
@@ -128,6 +129,7 @@ class StorageService {
       _cachedProviderAuthKey,
       _cachedPtySessionsKey,
       _cachedCCSessionsKey,
+      _cachedCodexModelsKey,
       _cachedCodexProjectsKey,
       _cachedCodexThreadsKey,
       _cachedSubagentsKey,
@@ -625,6 +627,32 @@ class StorageService {
       // Promote to L1 cache for next read
       _memoryCache[_cachedProjectsKey] = projects;
       return projects;
+    } catch (_) {
+      return [];
+    }
+  }
+
+  /// Cache Codex models returned by `model/list`.
+  Future<void> cacheCodexModels(List<Map<String, dynamic>> models) async {
+    _memoryCache[_cachedCodexModelsKey] = models;
+    _updateCacheTimestamp(_cachedCodexModelsKey);
+    final json = jsonEncode(models);
+    await _storage.write(key: _cachedCodexModelsKey, value: json);
+  }
+
+  /// Load cached Codex models. L1 memory → L2 secure storage.
+  Future<List<Map<String, dynamic>>> getCachedCodexModels() async {
+    final memCached = _memoryCache[_cachedCodexModelsKey];
+    if (memCached != null && memCached is List<Map<String, dynamic>>) {
+      return memCached;
+    }
+    final raw = await _storage.read(key: _cachedCodexModelsKey);
+    if (raw == null) return [];
+    try {
+      final List<dynamic> list = jsonDecode(raw);
+      final models = list.whereType<Map<String, dynamic>>().toList();
+      _memoryCache[_cachedCodexModelsKey] = models;
+      return models;
     } catch (_) {
       return [];
     }
