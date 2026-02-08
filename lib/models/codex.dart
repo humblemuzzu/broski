@@ -1,3 +1,50 @@
+/// A model returned by the Codex `model/list` JSON-RPC endpoint.
+///
+/// Mirrors the SDK `Model` type from `app-server-protocol/schema/typescript/v2/Model.ts`.
+class CodexModel {
+  final String id;
+  final String model;
+  final String? upgrade;
+  final String displayName;
+  final String description;
+  final bool isDefault;
+  final bool supportsPersonality;
+  final List<String> supportedReasoningEfforts;
+  final String defaultReasoningEffort;
+
+  const CodexModel({
+    required this.id,
+    required this.model,
+    this.upgrade,
+    required this.displayName,
+    required this.description,
+    this.isDefault = false,
+    this.supportsPersonality = false,
+    this.supportedReasoningEfforts = const [],
+    this.defaultReasoningEffort = 'medium',
+  });
+
+  factory CodexModel.fromJson(Map<String, dynamic> json) {
+    return CodexModel(
+      id: json['id'] as String? ?? json['model'] as String? ?? '',
+      model: json['model'] as String? ?? json['id'] as String? ?? '',
+      upgrade: json['upgrade'] as String?,
+      displayName: json['displayName'] as String? ?? json['model'] as String? ?? '',
+      description: json['description'] as String? ?? '',
+      isDefault: json['isDefault'] as bool? ?? false,
+      supportsPersonality: json['supportsPersonality'] as bool? ?? false,
+      supportedReasoningEfforts: (json['supportedReasoningEfforts'] as List<dynamic>?)
+              ?.map((e) {
+                if (e is Map<String, dynamic>) return e['effort'] as String? ?? '';
+                return e.toString();
+              })
+              .toList() ??
+          const [],
+      defaultReasoningEffort: json['defaultReasoningEffort'] as String? ?? 'medium',
+    );
+  }
+}
+
 enum CodexApprovalPolicy {
   unlessTrusted,
   onFailure,

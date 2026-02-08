@@ -13,6 +13,7 @@ import '../models/agent_type.dart';
 import '../models/claude_code.dart';
 import '../models/codex.dart';
 import 'sheets/cx_apps_sheet.dart';
+import 'sheets/cx_model_sheet.dart';
 import 'sheets/cx_remote_skills_sheet.dart';
 import '../widgets/chat/cx_steer_bar.dart';
 import 'sheets/cx_skills_sheet_content.dart';
@@ -4243,82 +4244,8 @@ Describe project-specific guidance for Codex here.
   }
 
   void _showCodexModelSheet() {
-    final theme = OpenCodeTheme.of(context);
-    DetailSheet.show(
-      context: context,
-      title: 'Codex Model',
-      initialSize: 0.5,
-      child: Consumer(
-        builder: (context, ref, _) {
-          final chatState = ref.watch(chatSessionProvider);
-          final current = chatState.cxModel ?? 'gpt-5.2-codex';
-
-          Widget modelTile(String model, String label, String desc) {
-            final selected = current == model;
-            return ListTile(
-              dense: true,
-              contentPadding: EdgeInsets.zero,
-              leading: Icon(
-                selected
-                    ? Icons.radio_button_checked_rounded
-                    : Icons.radio_button_off_rounded,
-                size: 18,
-                color: selected ? theme.primary : theme.textMuted,
-              ),
-              title: Text(
-                label,
-                style: TextStyle(color: theme.text, fontSize: 13),
-              ),
-              subtitle: Text(
-                desc,
-                style: TextStyle(color: theme.textMuted, fontSize: 12),
-              ),
-              onTap: () {
-                ref.read(chatSessionProvider.notifier).setCodexModel(model);
-                if (!mounted) return;
-                Navigator.pop(context);
-              },
-            );
-          }
-
-          return Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 16),
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  'Select the model used for Codex turns.',
-                  style: TextStyle(color: theme.textMuted, fontSize: 13),
-                ),
-                const SizedBox(height: 14),
-                // Codex SDK models (from model_presets.rs - show_in_picker: true)
-                modelTile(
-                  'gpt-5.2-codex',
-                  'gpt-5.2-codex',
-                  'Latest frontier agentic coding model',
-                ),
-                modelTile(
-                  'gpt-5.1-codex-max',
-                  'gpt-5.1-codex-max',
-                  'Codex-optimized flagship for deep and fast reasoning',
-                ),
-                modelTile(
-                  'gpt-5.1-codex-mini',
-                  'gpt-5.1-codex-mini',
-                  'Optimized for codex. Cheaper, faster, less capable',
-                ),
-                modelTile(
-                  'gpt-5.2',
-                  'gpt-5.2',
-                  'Latest frontier model with improvements across knowledge, reasoning and coding',
-                ),
-              ],
-            ),
-          );
-        },
-      ),
-    );
+    // Delegate to modular dynamic sheet (fetches from Codex model/list API)
+    CxModelSheet.show(context);
   }
 
   void _showClaudeCodeModelSheet() {
