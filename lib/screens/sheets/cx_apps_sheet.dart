@@ -109,7 +109,7 @@ class _CxAppsSheetState extends ConsumerState<CxAppsSheet> {
             trailing: app.installUrl != null
                 ? const Icon(Icons.open_in_new, size: 18)
                 : app.isAccessible
-                    ? const Icon(Icons.check_circle_outline, size: 18, color: Colors.green)
+                    ? Icon(Icons.check_circle_outline, size: 18, color: theme.colorScheme.primary)
                     : const Icon(Icons.lock_outline, size: 18),
             onTap: app.installUrl != null
                 ? () {

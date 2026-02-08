@@ -411,7 +411,7 @@ class _PermissionPromptState extends State<PermissionPrompt> {
                                     onPressed: widget.onAlwaysAllow,
                                     style: ElevatedButton.styleFrom(
                                       backgroundColor: theme.accent,
-                                      foregroundColor: Colors.white,
+                                      foregroundColor: theme.selectedListItemText,
                                     ),
                                     child: Text(widget.approveAlwaysLabel),
                                   ),
@@ -533,7 +533,7 @@ class _RejectFeedbackSection extends StatelessWidget {
                 onPressed: onConfirm,
                 style: ElevatedButton.styleFrom(
                   backgroundColor: theme.error,
-                  foregroundColor: Colors.white,
+                  foregroundColor: theme.selectedListItemText,
                 ),
                 child: const Text('Send Rejection'),
               ),

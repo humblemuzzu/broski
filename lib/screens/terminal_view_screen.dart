@@ -357,7 +357,7 @@ class _TerminalViewScreenState extends ConsumerState<TerminalViewScreen> {
               label: const Text('Retry'),
               style: ElevatedButton.styleFrom(
                 backgroundColor: ocTheme.primary,
-                foregroundColor: Colors.white,
+                foregroundColor: ocTheme.selectedListItemText,
               ),
             ),
           ],

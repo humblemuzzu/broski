@@ -322,7 +322,7 @@ class _TerminalScreenState extends ConsumerState<TerminalScreen> {
       floatingActionButton: FloatingActionButton(
         onPressed: _createSession,
         backgroundColor: ocTheme.primary,
-        child: const Icon(Icons.add, color: Colors.white),
+        child: Icon(Icons.add, color: ocTheme.selectedListItemText),
       ),
     );
   }
@@ -354,7 +354,7 @@ class _TerminalScreenState extends ConsumerState<TerminalScreen> {
               onPressed: _loadSessions,
               style: ElevatedButton.styleFrom(
                 backgroundColor: ocTheme.primary,
-                foregroundColor: Colors.white,
+                foregroundColor: ocTheme.selectedListItemText,
               ),
               child: const Text('Retry'),
             ),
@@ -391,7 +391,7 @@ class _TerminalScreenState extends ConsumerState<TerminalScreen> {
               label: const Text('New Terminal'),
               style: ElevatedButton.styleFrom(
                 backgroundColor: ocTheme.primary,
-                foregroundColor: Colors.white,
+                foregroundColor: ocTheme.selectedListItemText,
                 padding: const EdgeInsets.symmetric(
                   horizontal: 24,
                   vertical: 12,
@@ -530,7 +530,7 @@ class _TerminalScreenState extends ConsumerState<TerminalScreen> {
                     label: const Text('Open Terminal'),
                     style: ElevatedButton.styleFrom(
                       backgroundColor: ocTheme.primary,
-                      foregroundColor: Colors.white,
+                      foregroundColor: ocTheme.selectedListItemText,
                       padding: const EdgeInsets.symmetric(vertical: 14),
                     ),
                   ),
@@ -564,7 +564,7 @@ class _TerminalScreenState extends ConsumerState<TerminalScreen> {
                     label: const Text('Delete'),
                     style: ElevatedButton.styleFrom(
                       backgroundColor: ocTheme.error,
-                      foregroundColor: Colors.white,
+                      foregroundColor: ocTheme.selectedListItemText,
                       padding: const EdgeInsets.symmetric(vertical: 14),
                     ),
                   ),
@@ -857,7 +857,7 @@ class _CreatePtyDialogState extends State<_CreatePtyDialog> {
           },
           style: ElevatedButton.styleFrom(
             backgroundColor: ocTheme.primary,
-            foregroundColor: Colors.white,
+            foregroundColor: ocTheme.selectedListItemText,
           ),
           child: const Text('Create'),
         ),

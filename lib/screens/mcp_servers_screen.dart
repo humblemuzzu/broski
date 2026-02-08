@@ -335,7 +335,7 @@ class _McpServersScreenState extends ConsumerState<McpServersScreen>
               onPressed: _loadServers,
               style: ElevatedButton.styleFrom(
                 backgroundColor: theme.primary,
-                foregroundColor: Colors.white,
+                foregroundColor: theme.selectedListItemText,
               ),
               child: const Text('Retry'),
             ),
@@ -440,7 +440,7 @@ class _McpServersScreenState extends ConsumerState<McpServersScreen>
               onPressed: _loadResources,
               style: ElevatedButton.styleFrom(
                 backgroundColor: theme.primary,
-                foregroundColor: Colors.white,
+                foregroundColor: theme.selectedListItemText,
               ),
               child: const Text('Retry'),
             ),
@@ -758,7 +758,7 @@ class _McpServersScreenState extends ConsumerState<McpServersScreen>
                       label: const Text('Connect'),
                       style: ElevatedButton.styleFrom(
                         backgroundColor: sheetTheme.primary,
-                        foregroundColor: Colors.white,
+                        foregroundColor: sheetTheme.selectedListItemText,
                         padding: const EdgeInsets.symmetric(vertical: 14),
                       ),
                     ),

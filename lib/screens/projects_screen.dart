@@ -993,7 +993,7 @@ class _OpenCodeWarning extends StatelessWidget {
                   onPressed: onStart,
                   style: ElevatedButton.styleFrom(
                     backgroundColor: ocTheme.primary,
-                    foregroundColor: Colors.white,
+                    foregroundColor: ocTheme.selectedListItemText,
                     padding: const EdgeInsets.symmetric(vertical: 12),
                     shape: RoundedRectangleBorder(
                       borderRadius: BorderRadius.circular(10),

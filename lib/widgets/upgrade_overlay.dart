@@ -4,6 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../providers/app_subscription_provider.dart';
 import '../screens/paywall_screen.dart';
+import '../theme/opencode_theme.dart';
 
 /// Overlay widget that shows "Upgrade to Pro" for unpaid users.
 /// Wraps content and shows a lock overlay when user is not entitled.
@@ -74,8 +75,10 @@ class _LockOverlay extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final ocTheme = OpenCodeTheme.of(context);
+
     return Container(
-      color: const Color(0xFF0A0A0A),
+      color: ocTheme.background,
       child: SafeArea(
         child: Center(
           child: Padding(
@@ -89,25 +92,25 @@ class _LockOverlay extends StatelessWidget {
                   height: 80,
                   decoration: BoxDecoration(
                     shape: BoxShape.circle,
-                    color: Colors.white.withValues(alpha: 0.05),
+                    color: ocTheme.bgHover,
                     border: Border.all(
-                      color: Colors.white.withValues(alpha: 0.1),
+                      color: ocTheme.borderSubtle,
                       width: 1,
                     ),
                   ),
                   child: Icon(
                     Icons.lock_outline_rounded,
                     size: 36,
-                    color: Colors.white.withValues(alpha: 0.6),
+                    color: ocTheme.textMuted,
                   ),
                 ),
                 const SizedBox(height: 28),
 
                 // Title
-                const Text(
+                Text(
                   'Upgrade to Pro',
                   style: TextStyle(
-                    color: Colors.white,
+                    color: ocTheme.text,
                     fontSize: 26,
                     fontWeight: FontWeight.w700,
                     letterSpacing: -0.5,
@@ -120,7 +123,7 @@ class _LockOverlay extends StatelessWidget {
                   message,
                   textAlign: TextAlign.center,
                   style: TextStyle(
-                    color: Colors.white.withValues(alpha: 0.5),
+                    color: ocTheme.textMuted,
                     fontSize: 15,
                     height: 1.4,
                   ),
@@ -156,6 +159,8 @@ class _SubscribeButton extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
+    final ocTheme = OpenCodeTheme.of(context);
+
     return GestureDetector(
       onTap: isLoading
           ? null
@@ -173,11 +178,11 @@ class _SubscribeButton extends ConsumerWidget {
         constraints: const BoxConstraints(maxWidth: 300),
         height: 56,
         decoration: BoxDecoration(
-          color: Colors.white,
+          color: ocTheme.primary,
           borderRadius: BorderRadius.circular(28),
           boxShadow: [
             BoxShadow(
-              color: Colors.white.withValues(alpha: 0.1),
+              color: ocTheme.primary.withValues(alpha: 0.2),
               blurRadius: 20,
               offset: const Offset(0, 4),
             ),
@@ -185,12 +190,12 @@ class _SubscribeButton extends ConsumerWidget {
         ),
         child: Center(
           child: isLoading
-              ? const SizedBox(
+              ? SizedBox(
                   width: 24,
                   height: 24,
                   child: CircularProgressIndicator(
                     strokeWidth: 2.5,
-                    color: Color(0xFF111111),
+                    color: ocTheme.selectedListItemText,
                   ),
                 )
               : Row(
@@ -198,17 +203,17 @@ class _SubscribeButton extends ConsumerWidget {
                   children: [
                     Text(
                       'Subscribe - $priceText/mo',
-                      style: const TextStyle(
-                        color: Color(0xFF111111),
+                      style: TextStyle(
+                        color: ocTheme.selectedListItemText,
                         fontSize: 16,
                         fontWeight: FontWeight.w700,
                         letterSpacing: 0.2,
                       ),
                     ),
                     const SizedBox(width: 8),
-                    const Icon(
+                    Icon(
                       Icons.arrow_forward_rounded,
-                      color: Color(0xFF111111),
+                      color: ocTheme.selectedListItemText,
                       size: 18,
                     ),
                   ],
@@ -226,6 +231,8 @@ class _RestorePurchasesLink extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final sub = ref.watch(appSubscriptionProvider);
 
+    final ocTheme = OpenCodeTheme.of(context);
+
     return GestureDetector(
       onTap: sub.isLoading
           ? null
@@ -236,10 +243,10 @@ class _RestorePurchasesLink extends ConsumerWidget {
       child: Text(
         'Restore Purchases',
         style: TextStyle(
-          color: Colors.white.withValues(alpha: 0.4),
+          color: ocTheme.textMuted,
           fontSize: 14,
           decoration: TextDecoration.underline,
-          decorationColor: Colors.white.withValues(alpha: 0.2),
+          decorationColor: ocTheme.textMuted.withValues(alpha: 0.5),
         ),
       ),
     );
@@ -269,71 +276,67 @@ class SubscribeBanner extends ConsumerWidget {
           ),
         );
       },
-      child: Container(
-        margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-        padding: const EdgeInsets.all(16),
-        decoration: BoxDecoration(
-          gradient: LinearGradient(
-            begin: Alignment.topLeft,
-            end: Alignment.bottomRight,
-            colors: [
-              const Color(0xFF1A1A1A),
-              const Color(0xFF0F0F0F),
-            ],
+      child: Builder(builder: (context) {
+        final ocTheme = OpenCodeTheme.of(context);
+        return Container(
+          margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+          padding: const EdgeInsets.all(16),
+          decoration: BoxDecoration(
+            color: ocTheme.backgroundPanel,
+            borderRadius: BorderRadius.circular(16),
+            border: Border.all(
+              color: ocTheme.borderSubtle,
+              width: 1,
+            ),
           ),
-          borderRadius: BorderRadius.circular(16),
-          border: Border.all(
-            color: Colors.white.withValues(alpha: 0.08),
-            width: 1,
-          ),
-        ),
-        child: Row(
-          children: [
-            Container(
-              width: 44,
-              height: 44,
-              decoration: BoxDecoration(
-                color: Colors.white.withValues(alpha: 0.08),
-                borderRadius: BorderRadius.circular(12),
+          child: Row(
+            children: [
+              Container(
+                width: 44,
+                height: 44,
+                decoration: BoxDecoration(
+                  color: ocTheme.bgHighlight,
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                child: Icon(
+                  Icons.workspace_premium_rounded,
+                  color: ocTheme.warning,
+                  size: 24,
+                ),
               ),
-              child: Icon(
-                Icons.workspace_premium_rounded,
-                color: Colors.amber.withValues(alpha: 0.8),
+              const SizedBox(width: 14),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      'Upgrade to Pro',
+                      style: TextStyle(
+                        color: ocTheme.text,
+                        fontSize: 15,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                    const SizedBox(height: 2),
+                    Text(
+                      'Unlock all features • ${sub.monthlyPriceText ?? '\$20'}/mo',
+                      style: TextStyle(
+                        color: ocTheme.textMuted,
+                        fontSize: 13,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              Icon(
+                Icons.chevron_right_rounded,
+                color: ocTheme.textMuted,
                 size: 24,
               ),
-            ),
-            const SizedBox(width: 14),
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  const Text(
-                    'Upgrade to Pro',
-                    style: TextStyle(
-                      color: Colors.white,
-                      fontSize: 15,
-                      fontWeight: FontWeight.w600,
-                    ),
-                  ),
-                  const SizedBox(height: 2),
-                  Text(
-                    'Unlock all features • ${sub.monthlyPriceText ?? '\$20'}/mo',
-                    style: TextStyle(
-                      color: Colors.white.withValues(alpha: 0.5),
-                      fontSize: 13,
-                    ),
-                  ),
-                ],
-              ),
-            ),
-            Icon(
-              Icons.chevron_right_rounded,
-              color: Colors.white.withValues(alpha: 0.3),
-              size: 24,
-            ),
-          ],
-        ),
-      ),
+            ],
+          ),
+        );
+      }),
     );
   }
 }

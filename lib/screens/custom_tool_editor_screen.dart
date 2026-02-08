@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../models/claude_code.dart';
 import '../providers/claude_code_provider.dart';
+import '../theme/opencode_theme.dart';
 
 class CustomToolEditorScreen extends ConsumerStatefulWidget {
   final ClaudeCodeCustomTool? tool;
@@ -267,17 +268,16 @@ class _CustomToolEditorScreenState
               const SizedBox(height: 24),
               _SectionHeader(title: 'Test Result'),
               const SizedBox(height: 12),
-              Container(
+              Builder(builder: (context) {
+              final ocTheme = OpenCodeTheme.of(context);
+              final statusColor = _testSuccess ? ocTheme.success : ocTheme.error;
+              return Container(
                 padding: const EdgeInsets.all(16),
                 decoration: BoxDecoration(
-                  color: _testSuccess
-                      ? Colors.green.withValues(alpha: 0.1)
-                      : Colors.red.withValues(alpha: 0.1),
+                  color: statusColor.withValues(alpha: 0.1),
                   borderRadius: BorderRadius.circular(12),
                   border: Border.all(
-                    color: _testSuccess
-                        ? Colors.green.withValues(alpha: 0.3)
-                        : Colors.red.withValues(alpha: 0.3),
+                    color: statusColor.withValues(alpha: 0.3),
                   ),
                 ),
                 child: Column(
@@ -289,14 +289,14 @@ class _CustomToolEditorScreenState
                           _testSuccess
                               ? Icons.check_circle_rounded
                               : Icons.error_rounded,
-                          color: _testSuccess ? Colors.green : Colors.red,
+                          color: statusColor,
                           size: 20,
                         ),
                         const SizedBox(width: 8),
                         Text(
                           _testSuccess ? 'Success' : 'Failed',
                           style: theme.textTheme.titleSmall?.copyWith(
-                            color: _testSuccess ? Colors.green : Colors.red,
+                            color: statusColor,
                             fontWeight: FontWeight.w600,
                           ),
                         ),
@@ -311,7 +311,8 @@ class _CustomToolEditorScreenState
                     ),
                   ],
                 ),
-              ),
+              );
+              }),
             ],
 
             const SizedBox(height: 100),

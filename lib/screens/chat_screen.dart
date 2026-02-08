@@ -1607,7 +1607,7 @@ class _ChatScreenState extends ConsumerState<ChatScreen>
                     label: const Text('Share'),
                     style: ElevatedButton.styleFrom(
                       backgroundColor: theme.primary,
-                      foregroundColor: Colors.white,
+                      foregroundColor: theme.selectedListItemText,
                       padding: const EdgeInsets.symmetric(vertical: 14),
                     ),
                   ),
@@ -4511,7 +4511,7 @@ Describe project-specific guidance for Codex here.
         behavior: SnackBarBehavior.floating,
         action: SnackBarAction(
           label: 'OK',
-          textColor: Colors.white,
+          textColor: OpenCodeTheme.of(context).selectedListItemText,
           onPressed: () {},
         ),
       ),
@@ -5206,7 +5206,7 @@ Describe project-specific guidance for Codex here.
               child: Icon(
                 isUser ? Icons.person : Icons.smart_toy,
                 size: 16,
-                color: Colors.white,
+                color: theme.selectedListItemText,
               ),
             ),
             title: Text(
@@ -5281,7 +5281,7 @@ Describe project-specific guidance for Codex here.
                   child: Icon(
                     isUser ? Icons.person : Icons.smart_toy,
                     size: 16,
-                    color: Colors.white,
+                    color: theme.selectedListItemText,
                   ),
                 ),
                 title: Text(
@@ -5411,7 +5411,7 @@ Describe project-specific guidance for Codex here.
                   backgroundColor: isSelected ? theme.primary : theme.bgDeep,
                   child: Icon(
                     Icons.smart_toy,
-                    color: isSelected ? Colors.white : theme.textMuted,
+                    color: isSelected ? theme.selectedListItemText : theme.textMuted,
                     size: 20,
                   ),
                 ),
@@ -6556,7 +6556,7 @@ Describe project-specific guidance for Codex here.
       color: theme.backgroundPanel,
       borderRadius: BorderRadius.circular(24),
       elevation: 8,
-      shadowColor: Colors.black.withValues(alpha: 0.3),
+      shadowColor: theme.bgDeep.withValues(alpha: 0.4),
       child: InkWell(
         onTap: () => _showStopConfirmation(context),
         borderRadius: BorderRadius.circular(24),
@@ -11221,7 +11221,7 @@ class _CommandAutocomplete extends StatelessWidget {
         border: Border.all(color: kBorder),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withValues(alpha: 0.3),
+            color: theme.bgDeep.withValues(alpha: 0.4),
             blurRadius: 16,
             offset: const Offset(0, 4),
           ),
@@ -11544,7 +11544,7 @@ class _CustomToolAutocomplete extends ConsumerWidget {
             border: Border.all(color: kBorder),
             boxShadow: [
               BoxShadow(
-                color: Colors.black.withValues(alpha: 0.3),
+                color: theme.bgDeep.withValues(alpha: 0.4),
                 blurRadius: 16,
                 offset: const Offset(0, 4),
               ),

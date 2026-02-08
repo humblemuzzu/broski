@@ -309,7 +309,7 @@ class _ExportSessionSheetContentState
                   },
                   style: ElevatedButton.styleFrom(
                     backgroundColor: oc.primary,
-                    foregroundColor: Colors.white,
+                    foregroundColor: oc.selectedListItemText,
                   ),
                   icon: const Icon(Icons.share_rounded, size: 18),
                   label: const Text('Share'),

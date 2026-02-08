@@ -158,15 +158,15 @@ class _RollbackSheetContentState extends State<_RollbackSheetContent> {
                         },
                   style: ElevatedButton.styleFrom(
                     backgroundColor: theme.error,
-                    foregroundColor: Colors.white,
+                    foregroundColor: theme.selectedListItemText,
                   ),
                   child: _working
-                      ? const SizedBox(
+                      ? SizedBox(
                           width: 18,
                           height: 18,
                           child: CircularProgressIndicator(
                             strokeWidth: 2,
-                            color: Colors.white,
+                            color: theme.selectedListItemText,
                           ),
                         )
                       : const Text('Rollback'),

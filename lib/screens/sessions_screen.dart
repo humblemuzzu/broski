@@ -135,7 +135,7 @@ class _SessionsScreenState extends ConsumerState<SessionsScreen> {
                       },
                       style: ElevatedButton.styleFrom(
                         backgroundColor: ocTheme.primary,
-                        foregroundColor: Colors.white,
+                        foregroundColor: ocTheme.selectedListItemText,
                         padding: const EdgeInsets.symmetric(
                           horizontal: 16,
                           vertical: 12,
@@ -2389,9 +2389,9 @@ class _HighlightedSessionCard extends StatelessWidget {
             color: ocTheme.error,
             borderRadius: BorderRadius.circular(10),
           ),
-          child: const Icon(
+          child: Icon(
             Icons.delete_outline_rounded,
-            color: Colors.white,
+            color: ocTheme.selectedListItemText,
             size: 24,
           ),
         ),
@@ -2720,9 +2720,9 @@ class _SessionCard extends StatelessWidget {
             color: ocTheme.error,
             borderRadius: BorderRadius.circular(10),
           ),
-          child: const Icon(
+          child: Icon(
             Icons.delete_outline_rounded,
-            color: Colors.white,
+            color: ocTheme.selectedListItemText,
             size: 24,
           ),
         ),
@@ -3561,7 +3561,7 @@ class _CodexThreadsViewState extends ConsumerState<_CodexThreadsView> {
                       },
                       style: ElevatedButton.styleFrom(
                         backgroundColor: ocTheme.primary,
-                        foregroundColor: Colors.white,
+                        foregroundColor: ocTheme.selectedListItemText,
                         padding: const EdgeInsets.symmetric(
                           horizontal: 16,
                           vertical: 12,
@@ -4687,7 +4687,7 @@ class _ClaudeCodeSessionsViewState
                       },
                       style: ElevatedButton.styleFrom(
                         backgroundColor: ocTheme.primary,
-                        foregroundColor: Colors.white,
+                        foregroundColor: ocTheme.selectedListItemText,
                         padding: const EdgeInsets.symmetric(
                           horizontal: 16,
                           vertical: 12,
@@ -5537,9 +5537,9 @@ class _CCHighlightedSessionCard extends ConsumerWidget {
           color: ocTheme.error,
           borderRadius: BorderRadius.circular(10),
         ),
-        child: const Icon(
+        child: Icon(
           Icons.delete_outline_rounded,
-          color: Colors.white,
+          color: ocTheme.selectedListItemText,
           size: 24,
         ),
       ),
@@ -5772,9 +5772,9 @@ class _CCSessionCard extends ConsumerWidget {
           color: ocTheme.error,
           borderRadius: BorderRadius.circular(10),
         ),
-        child: const Icon(
+        child: Icon(
           Icons.delete_outline_rounded,
-          color: Colors.white,
+          color: ocTheme.selectedListItemText,
           size: 24,
         ),
       ),
@@ -6165,7 +6165,7 @@ class _CCMessageBubble extends StatelessWidget {
                   Text(
                     message.text,
                     style: TextStyle(
-                      color: isUser ? Colors.white : ocTheme.text,
+                      color: isUser ? ocTheme.selectedListItemText : ocTheme.text,
                       fontSize: 15,
                       height: 1.4,
                     ),
@@ -6406,7 +6406,7 @@ class _CCInputBar extends StatelessWidget {
                 ),
                 child: Icon(
                   isStreaming ? Icons.stop_rounded : Icons.arrow_upward_rounded,
-                  color: Colors.white,
+                  color: ocTheme.selectedListItemText,
                   size: 22,
                 ),
               ),

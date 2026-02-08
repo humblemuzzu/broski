@@ -221,47 +221,45 @@ class _UpgradeBanner extends ConsumerWidget {
             ),
           );
         },
-          child: Container(
-            margin: const EdgeInsets.fromLTRB(16, 4, 16, 0),
-            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
-            decoration: BoxDecoration(
-            gradient: LinearGradient(
-              colors: [
-                const Color(0xFF1A1A1A),
-                const Color(0xFF0F0F0F),
-              ],
-            ),
-            borderRadius: BorderRadius.circular(20),
-            border: Border.all(
-              color: Colors.amber.withValues(alpha: 0.3),
-            ),
-          ),
-          child: Row(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Icon(
-                Icons.workspace_premium_rounded,
-                color: Colors.amber.withValues(alpha: 0.9),
-                size: 16,
-              ),
-              const SizedBox(width: 8),
-              Text(
-                'Upgrade',
-                style: TextStyle(
-                  color: Colors.white.withValues(alpha: 0.9),
-                  fontSize: 13,
-                  fontWeight: FontWeight.w600,
+          child: Builder(builder: (context) {
+            final ocTheme = OpenCodeTheme.of(context);
+            return Container(
+              margin: const EdgeInsets.fromLTRB(16, 4, 16, 0),
+              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+              decoration: BoxDecoration(
+                color: ocTheme.backgroundPanel,
+                borderRadius: BorderRadius.circular(20),
+                border: Border.all(
+                  color: ocTheme.warning.withValues(alpha: 0.3),
                 ),
               ),
-              const SizedBox(width: 4),
-              Icon(
-                Icons.chevron_right_rounded,
-                color: Colors.white.withValues(alpha: 0.4),
-                size: 18,
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Icon(
+                    Icons.workspace_premium_rounded,
+                    color: ocTheme.warning,
+                    size: 16,
+                  ),
+                  const SizedBox(width: 8),
+                  Text(
+                    'Upgrade',
+                    style: TextStyle(
+                      color: ocTheme.text,
+                      fontSize: 13,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                  const SizedBox(width: 4),
+                  Icon(
+                    Icons.chevron_right_rounded,
+                    color: ocTheme.textMuted,
+                    size: 18,
+                  ),
+                ],
               ),
-            ],
-          ),
-        ),
+            );
+          }),
       ),
     );
   }
@@ -330,7 +328,7 @@ class _UnpaidCenterCta extends ConsumerWidget {
               },
               style: ElevatedButton.styleFrom(
                 backgroundColor: ocTheme.primary,
-                foregroundColor: Colors.white,
+                foregroundColor: ocTheme.selectedListItemText,
                 padding: const EdgeInsets.symmetric(vertical: 14),
                 shape: RoundedRectangleBorder(
                   borderRadius: BorderRadius.circular(14),
@@ -531,7 +529,7 @@ class _ModernBottomNav extends StatelessWidget {
         ),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withValues(alpha: 0.4),
+            color: ocTheme.bgDeep.withValues(alpha: 0.5),
             blurRadius: 16,
             offset: const Offset(0, 4),
           ),

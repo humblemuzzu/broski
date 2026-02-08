@@ -1420,7 +1420,7 @@ class _VoiceSectionState extends State<_VoiceSection>
           ),
           const SizedBox(height: 8),
           Text(
-            'Dictate complex logic. The bridge parses\nnatural language into syntax.',
+            "Skip the keyboard. Just speak and let\nyour agent turn words into code.",
             style: TextStyle(
               fontSize: 18,
               color: Colors.white.withValues(alpha: 0.55),
@@ -2371,7 +2371,7 @@ class _SafetyNetPageState extends State<_SafetyNetPage>
                   curve: const Interval(0.35, 0.85, curve: Curves.easeOut),
                 ),
                 child: Text(
-                  'Fearless experimentation. We snapshot every agent action so you can revert instantly. No broken builds.',
+                  'See what changed, undo what shouldn\'t have. Full history of every agent session at your fingertips.',
                   style: TextStyle(
                     fontSize: 16,
                     color: Colors.white.withValues(alpha: 0.55),
@@ -2400,7 +2400,7 @@ class _SafetyNetPageState extends State<_SafetyNetPage>
                     ),
                     child: const Center(
                       child: Text(
-                        'Get The Safety Net',
+                        'Continue',
                         style: TextStyle(
                           fontSize: 17,
                           fontWeight: FontWeight.w600,
@@ -2812,7 +2812,7 @@ class _ZeroTelemetryPageState extends State<_ZeroTelemetryPage>
                               ),
                             ),
                         child: const Text(
-                          'Zero Telemetry.',
+                          'Fully Private.',
                           style: TextStyle(
                             fontSize: 38,
                             fontWeight: FontWeight.w900,
@@ -2832,9 +2832,9 @@ class _ZeroTelemetryPageState extends State<_ZeroTelemetryPage>
                       ),
                       child: _FeatureRow(
                         icon: Icons.computer_rounded,
-                        title: 'Local Execution',
+                        title: 'Runs Locally',
                         subtitle:
-                            'Code lives on your machine. We just\nprovide the window.',
+                            'Your code, files, and terminal never leave\nyour machine. We just connect your\nphone to it.',
                       ),
                     ),
                     const SizedBox(height: 24),
@@ -2846,13 +2846,13 @@ class _ZeroTelemetryPageState extends State<_ZeroTelemetryPage>
                       ),
                       child: _FeatureRow(
                         icon: Icons.visibility_off_rounded,
-                        title: 'No Training Data',
+                        title: 'No Data Collection',
                         subtitle:
-                            'Your intellectual property is never used to\ntrain our models.',
+                            'We have zero access to your code or\nprojects. Never needed to.',
                       ),
                     ),
                     const Spacer(),
-                    // ── "Acknowledge & Continue" button (dark gray pill)
+                    // ── "Let's Go" button (dark gray pill)
                     FadeTransition(
                       opacity: CurvedAnimation(
                         parent: _controller,
@@ -2867,19 +2867,16 @@ class _ZeroTelemetryPageState extends State<_ZeroTelemetryPage>
                           width: double.infinity,
                           height: 58,
                           decoration: BoxDecoration(
-                            color: const Color(0xFF2A2A2A),
+                            color: Colors.white,
                             borderRadius: BorderRadius.circular(29),
-                            border: Border.all(
-                              color: Colors.white.withValues(alpha: 0.08),
-                            ),
                           ),
                           child: const Center(
                             child: Text(
-                              'Acknowledge & Continue',
+                              'Let\'s Go',
                               style: TextStyle(
                                 fontSize: 17,
                                 fontWeight: FontWeight.w600,
-                                color: Colors.white,
+                                color: Colors.black,
                                 letterSpacing: 0.2,
                               ),
                             ),

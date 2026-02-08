@@ -124,7 +124,7 @@ class _SubagentsScreenState extends ConsumerState<SubagentsScreen> {
                     label: const Text('Add Subagent'),
                     style: ElevatedButton.styleFrom(
                       backgroundColor: oc.primary,
-                      foregroundColor: Colors.white,
+                      foregroundColor: oc.selectedListItemText,
                     ),
                   ),
                 ],
@@ -271,7 +271,7 @@ class _SubagentsScreenState extends ConsumerState<SubagentsScreen> {
           ),
           TextButton(
             onPressed: () => Navigator.pop(ctx, true),
-            style: TextButton.styleFrom(foregroundColor: Colors.red),
+            style: TextButton.styleFrom(foregroundColor: Theme.of(ctx).extension<OpenCodeTheme>()!.error),
             child: const Text('Delete'),
           ),
         ],
@@ -407,17 +407,17 @@ class _SubagentCard extends StatelessWidget {
                           ],
                         ),
                       ),
-                      const PopupMenuItem(
+                      PopupMenuItem(
                         value: 'delete',
                         child: Row(
                           children: [
                             Icon(
                               Icons.delete_outline,
                               size: 20,
-                              color: Colors.red,
+                              color: oc.error,
                             ),
-                            SizedBox(width: 8),
-                            Text('Delete', style: TextStyle(color: Colors.red)),
+                            const SizedBox(width: 8),
+                            Text('Delete', style: TextStyle(color: oc.error)),
                           ],
                         ),
                       ),

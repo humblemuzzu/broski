@@ -196,7 +196,7 @@ class _SkillsScreenState extends ConsumerState<SkillsScreen> {
           ),
           TextButton(
             onPressed: () => Navigator.pop(ctx, true),
-            style: TextButton.styleFrom(foregroundColor: Colors.red),
+            style: TextButton.styleFrom(foregroundColor: Theme.of(ctx).extension<OpenCodeTheme>()!.error),
             child: const Text('Delete'),
           ),
         ],

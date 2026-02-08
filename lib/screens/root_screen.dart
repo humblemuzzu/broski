@@ -214,7 +214,7 @@ class _SubscriptionErrorScreen extends StatelessWidget {
                     onPressed: onRetry,
                     style: ElevatedButton.styleFrom(
                       backgroundColor: theme.primary,
-                      foregroundColor: Colors.white,
+                      foregroundColor: theme.selectedListItemText,
                       padding: const EdgeInsets.symmetric(vertical: 14),
                       shape: RoundedRectangleBorder(
                         borderRadius: BorderRadius.circular(12),
@@ -240,8 +240,10 @@ class _ConnectingScreen extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final state = ref.watch(connectionProvider);
 
+    final ocTheme = OpenCodeTheme.of(context);
+
     return Scaffold(
-      backgroundColor: Colors.black,
+      backgroundColor: ocTheme.background,
       body: SafeArea(
         child: Center(
           child: Padding(
@@ -254,16 +256,16 @@ class _ConnectingScreen extends ConsumerWidget {
                   height: 48,
                   child: CircularProgressIndicator(
                     strokeWidth: 2.5,
-                    color: Colors.white.withValues(alpha: 0.6),
+                    color: ocTheme.primary,
                   ),
                 ),
                 const SizedBox(height: 24),
-                const Text(
+                Text(
                   'Connecting...',
                   style: TextStyle(
                     fontSize: 20,
                     fontWeight: FontWeight.w600,
-                    color: Colors.white,
+                    color: ocTheme.text,
                   ),
                 ),
                 if (state.connection != null) ...[
@@ -272,7 +274,7 @@ class _ConnectingScreen extends ConsumerWidget {
                     '${state.connection!.localIP ?? ''}:${state.connection!.port}',
                     style: TextStyle(
                       fontSize: 14,
-                      color: Colors.white.withValues(alpha: 0.4),
+                      color: ocTheme.textMuted,
                       fontFamily: 'monospace',
                     ),
                   ),
@@ -282,17 +284,17 @@ class _ConnectingScreen extends ConsumerWidget {
                   Container(
                     padding: const EdgeInsets.all(16),
                     decoration: BoxDecoration(
-                      color: Colors.red.withValues(alpha: 0.1),
+                      color: ocTheme.error.withValues(alpha: 0.1),
                       borderRadius: BorderRadius.circular(12),
                       border: Border.all(
-                        color: Colors.red.withValues(alpha: 0.2),
+                        color: ocTheme.error.withValues(alpha: 0.2),
                       ),
                     ),
                     child: Text(
                       state.error!,
                       textAlign: TextAlign.center,
                       style: TextStyle(
-                        color: Colors.red.withValues(alpha: 0.8),
+                        color: ocTheme.error,
                         fontSize: 13,
                       ),
                     ),
@@ -305,10 +307,10 @@ class _ConnectingScreen extends ConsumerWidget {
                   child: Text(
                     'Scan Different QR',
                     style: TextStyle(
-                      color: Colors.white.withValues(alpha: 0.5),
+                      color: ocTheme.textMuted,
                       fontSize: 14,
                       decoration: TextDecoration.underline,
-                      decorationColor: Colors.white.withValues(alpha: 0.3),
+                      decorationColor: ocTheme.textMuted.withValues(alpha: 0.5),
                     ),
                   ),
                 ),
@@ -457,33 +459,36 @@ class _DevSwipeWrapperState extends ConsumerState<_DevSwipeWrapper> {
                 HapticFeedback.mediumImpact();
                 ref.read(onboardingProvider.notifier).completeOnboarding();
               },
-              child: Container(
-                padding: const EdgeInsets.symmetric(
-                  horizontal: 14,
-                  vertical: 8,
-                ),
-                decoration: BoxDecoration(
-                  color: Colors.red.withValues(alpha: 0.15),
-                  borderRadius: BorderRadius.circular(20),
-                  border: Border.all(color: Colors.red.withValues(alpha: 0.3)),
-                ),
-                child: const Row(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    Text(
-                      'DEV SKIP',
-                      style: TextStyle(
-                        color: Colors.red,
-                        fontSize: 11,
-                        fontWeight: FontWeight.w700,
-                        letterSpacing: 0.5,
+              child: Builder(builder: (context) {
+                final ocTheme = OpenCodeTheme.of(context);
+                return Container(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 14,
+                    vertical: 8,
+                  ),
+                  decoration: BoxDecoration(
+                    color: ocTheme.error.withValues(alpha: 0.15),
+                    borderRadius: BorderRadius.circular(20),
+                    border: Border.all(color: ocTheme.error.withValues(alpha: 0.3)),
+                  ),
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Text(
+                        'DEV SKIP',
+                        style: TextStyle(
+                          color: ocTheme.error,
+                          fontSize: 11,
+                          fontWeight: FontWeight.w700,
+                          letterSpacing: 0.5,
+                        ),
                       ),
-                    ),
-                    SizedBox(width: 4),
-                    Icon(Icons.skip_next_rounded, color: Colors.red, size: 16),
-                  ],
-                ),
-              ),
+                      const SizedBox(width: 4),
+                      Icon(Icons.skip_next_rounded, color: ocTheme.error, size: 16),
+                    ],
+                  ),
+                );
+              }),
             ),
           ),
           // Edge swipe hint indicators (subtle arrows)
@@ -492,11 +497,14 @@ class _DevSwipeWrapperState extends ConsumerState<_DevSwipeWrapper> {
             top: 0,
             bottom: 0,
             child: Center(
-              child: Icon(
-                Icons.chevron_left_rounded,
-                color: Colors.white.withValues(alpha: 0.08),
-                size: 28,
-              ),
+              child: Builder(builder: (context) {
+                final ocTheme = OpenCodeTheme.of(context);
+                return Icon(
+                  Icons.chevron_left_rounded,
+                  color: ocTheme.textMuted.withValues(alpha: 0.15),
+                  size: 28,
+                );
+              }),
             ),
           ),
           Positioned(
@@ -504,11 +512,14 @@ class _DevSwipeWrapperState extends ConsumerState<_DevSwipeWrapper> {
             top: 0,
             bottom: 0,
             child: Center(
-              child: Icon(
-                Icons.chevron_right_rounded,
-                color: Colors.white.withValues(alpha: 0.08),
-                size: 28,
-              ),
+              child: Builder(builder: (context) {
+                final ocTheme = OpenCodeTheme.of(context);
+                return Icon(
+                  Icons.chevron_right_rounded,
+                  color: ocTheme.textMuted.withValues(alpha: 0.15),
+                  size: 28,
+                );
+              }),
             ),
           ),
         ],

@@ -25,17 +25,17 @@ class GlasmorphicNavBar extends StatelessWidget {
         color: ocTheme.backgroundPanel.withValues(alpha: 0.7),
         borderRadius: BorderRadius.circular(24),
         border: Border.all(
-          color: Colors.white.withValues(alpha: 0.1),
+          color: ocTheme.borderSubtle.withValues(alpha: 0.3),
           width: 1,
         ),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withValues(alpha: 0.4),
+            color: ocTheme.bgDeep.withValues(alpha: 0.5),
             blurRadius: 32,
             offset: const Offset(0, 8),
           ),
           BoxShadow(
-            color: Colors.black.withValues(alpha: 0.2),
+            color: ocTheme.bgDeep.withValues(alpha: 0.3),
             blurRadius: 16,
             offset: const Offset(0, 4),
           ),

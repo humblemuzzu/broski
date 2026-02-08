@@ -51,17 +51,17 @@ class _DeviceManagerScreenState extends ConsumerState<DeviceManagerScreen> {
   Future<void> _disconnectDevice(DeviceInfo device) async {
     final confirmed = await showDialog<bool>(
       context: context,
-      builder: (context) => AlertDialog(
+      builder: (ctx) => AlertDialog(
         title: const Text('Disconnect Device'),
         content: Text('Disconnect ${device.deviceName}?'),
         actions: [
           TextButton(
-            onPressed: () => Navigator.pop(context, false),
+            onPressed: () => Navigator.pop(ctx, false),
             child: const Text('Cancel'),
           ),
           TextButton(
-            onPressed: () => Navigator.pop(context, true),
-            style: TextButton.styleFrom(foregroundColor: Colors.red),
+            onPressed: () => Navigator.pop(ctx, true),
+            style: TextButton.styleFrom(foregroundColor: Theme.of(ctx).extension<OpenCodeTheme>()!.error),
             child: const Text('Disconnect'),
           ),
         ],

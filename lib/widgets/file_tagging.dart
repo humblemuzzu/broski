@@ -16,7 +16,7 @@ void showImagePreview(BuildContext context, FileAttachment attachment) {
 
   showDialog(
     context: context,
-    barrierColor: Colors.black87,
+    barrierColor: const Color(0xDD000000),
     builder: (ctx) => Dialog(
       backgroundColor: Colors.transparent,
       insetPadding: const EdgeInsets.all(16),
@@ -98,7 +98,7 @@ class FileAutocomplete extends ConsumerWidget {
             border: Border.all(color: theme.borderSubtle),
             boxShadow: [
               BoxShadow(
-                color: Colors.black.withValues(alpha: 0.2),
+                color: theme.bgDeep.withValues(alpha: 0.3),
                 blurRadius: 8,
                 offset: const Offset(0, -2),
               ),
@@ -122,7 +122,7 @@ class FileAutocomplete extends ConsumerWidget {
             border: Border.all(color: theme.borderSubtle),
             boxShadow: [
               BoxShadow(
-                color: Colors.black.withValues(alpha: 0.2),
+                color: theme.bgDeep.withValues(alpha: 0.3),
                 blurRadius: 8,
                 offset: const Offset(0, -2),
               ),
@@ -161,7 +161,7 @@ class FileAutocomplete extends ConsumerWidget {
           border: Border.all(color: theme.borderSubtle),
           boxShadow: [
             BoxShadow(
-              color: Colors.black.withValues(alpha: 0.2),
+              color: theme.bgDeep.withValues(alpha: 0.3),
               blurRadius: 8,
               offset: const Offset(0, -2),
             ),
@@ -435,7 +435,7 @@ class AgentAutocomplete extends StatelessWidget {
             border: Border.all(color: theme.borderSubtle),
             boxShadow: [
               BoxShadow(
-                color: Colors.black.withValues(alpha: 0.2),
+                color: theme.bgDeep.withValues(alpha: 0.3),
                 blurRadius: 8,
                 offset: const Offset(0, -2),
               ),
@@ -465,7 +465,7 @@ class AgentAutocomplete extends StatelessWidget {
           border: Border.all(color: theme.borderSubtle),
           boxShadow: [
             BoxShadow(
-              color: Colors.black.withValues(alpha: 0.25),
+              color: theme.bgDeep.withValues(alpha: 0.35),
               blurRadius: 12,
               offset: const Offset(0, -4),
             ),

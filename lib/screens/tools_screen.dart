@@ -233,7 +233,7 @@ class _ToolsScreenState extends ConsumerState<ToolsScreen> {
             onPressed: _loadData,
             style: ElevatedButton.styleFrom(
               backgroundColor: theme.primary,
-              foregroundColor: Colors.white,
+              foregroundColor: theme.selectedListItemText,
             ),
             child: const Text('Retry'),
           ),

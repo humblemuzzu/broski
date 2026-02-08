@@ -166,7 +166,7 @@ class _ConnectionLostScreenState extends ConsumerState<ConnectionLostScreen> {
                   label: Text(_hasCachedData ? 'Browse Offline' : 'Preview UI'),
                   style: ElevatedButton.styleFrom(
                     backgroundColor: ocTheme.primary,
-                    foregroundColor: Colors.white,
+                    foregroundColor: ocTheme.selectedListItemText,
                     padding: const EdgeInsets.symmetric(vertical: 14),
                     shape: RoundedRectangleBorder(
                       borderRadius: BorderRadius.circular(12),

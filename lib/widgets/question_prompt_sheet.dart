@@ -590,7 +590,7 @@ class _FooterButton extends StatelessWidget {
           label,
           style: TextStyle(
             color: isPrimary && enabled
-                ? Colors.white
+                ? theme.selectedListItemText
                 : enabled
                 ? theme.text
                 : theme.textMuted.withValues(alpha: 0.4),

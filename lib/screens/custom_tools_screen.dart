@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../models/claude_code.dart';
 import '../providers/claude_code_provider.dart';
+import '../theme/opencode_theme.dart';
 import 'custom_tool_editor_screen.dart';
 import '../widgets/claude_code_help.dart';
 
@@ -477,13 +478,14 @@ class _ToolCard extends StatelessWidget {
   }
 
   Color _getHandlerColor(CustomToolHandlerType handler, ThemeData theme) {
+    final oc = theme.extension<OpenCodeTheme>();
     switch (handler) {
       case CustomToolHandlerType.http:
-        return Colors.blue;
+        return oc?.info ?? theme.colorScheme.primary;
       case CustomToolHandlerType.script:
-        return Colors.orange;
+        return oc?.warning ?? theme.colorScheme.tertiary;
       case CustomToolHandlerType.builtin:
-        return theme.colorScheme.secondary;
+        return oc?.secondary ?? theme.colorScheme.secondary;
     }
   }
 }

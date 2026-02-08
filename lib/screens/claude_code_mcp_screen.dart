@@ -198,7 +198,7 @@ class _ClaudeCodeMcpScreenState extends ConsumerState<ClaudeCodeMcpScreen> {
           TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('Cancel')),
           TextButton(
             onPressed: () => Navigator.pop(ctx, true),
-            style: TextButton.styleFrom(foregroundColor: Colors.red),
+            style: TextButton.styleFrom(foregroundColor: Theme.of(ctx).extension<OpenCodeTheme>()!.error),
             child: const Text('Remove'),
           ),
         ],

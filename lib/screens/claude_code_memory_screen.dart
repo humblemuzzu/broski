@@ -71,7 +71,7 @@ class _ClaudeCodeMemoryScreenState
           ),
           TextButton(
             onPressed: () => Navigator.pop(ctx, true),
-            child: const Text('Delete', style: TextStyle(color: Colors.red)),
+            child: Text('Delete', style: TextStyle(color: Theme.of(ctx).extension<OpenCodeTheme>()!.error)),
           ),
         ],
       ),

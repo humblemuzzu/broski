@@ -6,15 +6,17 @@ import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../providers/stt_provider.dart';
+import '../theme/opencode_theme.dart';
 
 /// Shows a modern voice recording overlay and returns the transcribed text.
 ///
 /// Returns null if cancelled or failed.
 Future<String?> showVoiceRecordingSheet(BuildContext context) async {
+  final ocTheme = OpenCodeTheme.of(context);
   return showGeneralDialog<String>(
     context: context,
     barrierDismissible: false,
-    barrierColor: Colors.black54,
+    barrierColor: ocTheme.bgDeep.withValues(alpha: 0.54),
     transitionDuration: const Duration(milliseconds: 300),
     pageBuilder: (context, animation, secondaryAnimation) {
       return const _VoiceRecordingOverlay();
@@ -184,6 +186,8 @@ class _VoiceRecordingOverlayState extends ConsumerState<_VoiceRecordingOverlay>
         sttState.recordingState == RecordingState.transcribing || _isProcessing;
     final hasError = _localError != null;
 
+    final ocTheme = OpenCodeTheme.of(context);
+
     return Scaffold(
       backgroundColor: Colors.transparent,
       body: Center(
@@ -194,15 +198,15 @@ class _VoiceRecordingOverlayState extends ConsumerState<_VoiceRecordingOverlay>
             child: Container(
               constraints: const BoxConstraints(maxWidth: 360),
               decoration: BoxDecoration(
-                color: const Color(0xFF1A1A1A),
+                color: ocTheme.backgroundPanel,
                 borderRadius: BorderRadius.circular(28),
                 border: Border.all(
-                  color: Colors.white.withValues(alpha: 0.08),
+                  color: ocTheme.borderSubtle,
                   width: 1,
                 ),
                 boxShadow: [
                   BoxShadow(
-                    color: Colors.black.withValues(alpha: 0.4),
+                    color: ocTheme.bgDeep.withValues(alpha: 0.4),
                     blurRadius: 40,
                     spreadRadius: 10,
                   ),
@@ -221,8 +225,8 @@ class _VoiceRecordingOverlayState extends ConsumerState<_VoiceRecordingOverlay>
                         _CircleButton(
                           icon: Icons.close_rounded,
                           onTap: isTranscribing ? null : _cancel,
-                          backgroundColor: Colors.white.withValues(alpha: 0.1),
-                          iconColor: Colors.white.withValues(alpha: 0.7),
+                          backgroundColor: ocTheme.bgHighlight,
+                          iconColor: ocTheme.textMuted,
                         ),
                         // Confirm button
                         _CircleButton(
@@ -231,11 +235,11 @@ class _VoiceRecordingOverlayState extends ConsumerState<_VoiceRecordingOverlay>
                               ? _stopAndTranscribe
                               : null,
                           backgroundColor: isTranscribing
-                              ? Colors.white.withValues(alpha: 0.1)
-                              : const Color(0xFFF5F5DC), // Cream/beige color
+                              ? ocTheme.bgHighlight
+                              : ocTheme.primary,
                           iconColor: isTranscribing
-                              ? Colors.white.withValues(alpha: 0.3)
-                              : const Color(0xFF1A1A1A),
+                              ? ocTheme.textMuted
+                              : ocTheme.selectedListItemText,
                           isLoading: isTranscribing,
                         ),
                       ],
@@ -260,7 +264,7 @@ class _VoiceRecordingOverlayState extends ConsumerState<_VoiceRecordingOverlay>
                       _AnimatedWaveform(
                         levels: _audioLevels,
                         isActive: isRecording,
-                        color: const Color(0xFFF5F5DC), // Cream/beige color
+                        color: ocTheme.primary,
                       ),
 
                     const SizedBox(height: 32),
@@ -271,16 +275,16 @@ class _VoiceRecordingOverlayState extends ConsumerState<_VoiceRecordingOverlay>
                         Container(
                           padding: const EdgeInsets.all(8),
                           decoration: BoxDecoration(
-                            color: Colors.white.withValues(alpha: 0.05),
+                            color: ocTheme.bgHover,
                             shape: BoxShape.circle,
                             border: Border.all(
-                              color: Colors.white.withValues(alpha: 0.15),
+                              color: ocTheme.borderSubtle,
                               width: 1,
                             ),
                           ),
                           child: Icon(
                             Icons.language_rounded,
-                            color: Colors.white.withValues(alpha: 0.6),
+                            color: ocTheme.textMuted,
                             size: 18,
                           ),
                         ),
@@ -292,7 +296,7 @@ class _VoiceRecordingOverlayState extends ConsumerState<_VoiceRecordingOverlay>
                               Text(
                                 sttState.settings.provider.displayName,
                                 style: TextStyle(
-                                  color: Colors.white.withValues(alpha: 0.8),
+                                  color: ocTheme.text,
                                   fontSize: 12,
                                   fontWeight: FontWeight.w600,
                                 ),
@@ -301,8 +305,8 @@ class _VoiceRecordingOverlayState extends ConsumerState<_VoiceRecordingOverlay>
                                 _formatDuration(_duration),
                                 style: TextStyle(
                                   color: isRecording
-                                      ? const Color(0xFFFF6B6B)
-                                      : Colors.white.withValues(alpha: 0.4),
+                                      ? ocTheme.error
+                                      : ocTheme.textMuted,
                                   fontSize: 11,
                                   fontWeight: FontWeight.w500,
                                   fontFeatures: const [
@@ -319,13 +323,11 @@ class _VoiceRecordingOverlayState extends ConsumerState<_VoiceRecordingOverlay>
                             width: 8,
                             height: 8,
                             decoration: BoxDecoration(
-                              color: const Color(0xFFFF6B6B),
+                              color: ocTheme.error,
                               shape: BoxShape.circle,
                               boxShadow: [
                                 BoxShadow(
-                                  color: const Color(
-                                    0xFFFF6B6B,
-                                  ).withValues(alpha: 0.5),
+                                  color: ocTheme.error.withValues(alpha: 0.5),
                                   blurRadius: 8,
                                   spreadRadius: 2,
                                 ),
@@ -378,10 +380,6 @@ class _CircleButton extends StatelessWidget {
         decoration: BoxDecoration(
           color: backgroundColor,
           shape: BoxShape.circle,
-          border: Border.all(
-            color: Colors.white.withValues(alpha: 0.1),
-            width: 1,
-          ),
         ),
         child: Center(
           child: isLoading
@@ -457,13 +455,15 @@ class _ErrorDisplay extends StatelessWidget {
   Widget build(BuildContext context) {
     return Column(
       children: [
-        Container(
+        Builder(builder: (context) {
+        final ocTheme = OpenCodeTheme.of(context);
+        return Container(
           padding: const EdgeInsets.all(16),
           decoration: BoxDecoration(
-            color: const Color(0xFFFF6B6B).withValues(alpha: 0.1),
+            color: ocTheme.error.withValues(alpha: 0.1),
             borderRadius: BorderRadius.circular(16),
             border: Border.all(
-              color: const Color(0xFFFF6B6B).withValues(alpha: 0.3),
+              color: ocTheme.error.withValues(alpha: 0.3),
               width: 1,
             ),
           ),
@@ -471,7 +471,7 @@ class _ErrorDisplay extends StatelessWidget {
             children: [
               Icon(
                 Icons.error_outline_rounded,
-                color: const Color(0xFFFF6B6B),
+                color: ocTheme.error,
                 size: 32,
               ),
               const SizedBox(height: 12),
@@ -479,7 +479,7 @@ class _ErrorDisplay extends StatelessWidget {
                 error,
                 textAlign: TextAlign.center,
                 style: TextStyle(
-                  color: Colors.white.withValues(alpha: 0.8),
+                  color: ocTheme.text,
                   fontSize: 13,
                 ),
               ),
@@ -492,7 +492,7 @@ class _ErrorDisplay extends StatelessWidget {
                     vertical: 10,
                   ),
                   decoration: BoxDecoration(
-                    color: Colors.white.withValues(alpha: 0.1),
+                    color: ocTheme.bgHighlight,
                     borderRadius: BorderRadius.circular(20),
                   ),
                   child: Row(
@@ -500,14 +500,14 @@ class _ErrorDisplay extends StatelessWidget {
                     children: [
                       Icon(
                         Icons.refresh_rounded,
-                        color: Colors.white.withValues(alpha: 0.8),
+                        color: ocTheme.text,
                         size: 18,
                       ),
                       const SizedBox(width: 8),
                       Text(
                         'Try Again',
                         style: TextStyle(
-                          color: Colors.white.withValues(alpha: 0.8),
+                          color: ocTheme.text,
                           fontSize: 13,
                           fontWeight: FontWeight.w600,
                         ),
@@ -518,7 +518,8 @@ class _ErrorDisplay extends StatelessWidget {
               ),
             ],
           ),
-        ),
+        );
+        }),
       ],
     );
   }

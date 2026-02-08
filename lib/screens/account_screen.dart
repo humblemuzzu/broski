@@ -490,7 +490,7 @@ class _MachinesSectionState extends ConsumerState<_MachinesSection> {
           ),
           TextButton(
             onPressed: () => Navigator.pop(ctx, true),
-            style: TextButton.styleFrom(foregroundColor: Colors.red),
+            style: TextButton.styleFrom(foregroundColor: Theme.of(ctx).extension<OpenCodeTheme>()!.error),
             child: const Text('Remove'),
           ),
         ],
@@ -513,7 +513,7 @@ class _MachinesSectionState extends ConsumerState<_MachinesSection> {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             content: Text('Failed to remove device: $e'),
-            backgroundColor: Colors.red,
+            backgroundColor: OpenCodeTheme.of(context).error,
           ),
         );
       }

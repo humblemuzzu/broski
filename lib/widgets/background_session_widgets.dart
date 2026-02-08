@@ -263,7 +263,7 @@ class FloatingActiveIndicator extends ConsumerWidget {
             border: Border.all(color: ocTheme.info.withValues(alpha: 0.4)),
             boxShadow: [
               BoxShadow(
-                color: Colors.black.withValues(alpha: 0.2),
+                color: ocTheme.bgDeep.withValues(alpha: 0.3),
                 blurRadius: 12,
                 offset: const Offset(0, 4),
               ),
