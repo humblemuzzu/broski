@@ -556,39 +556,63 @@ export class OpenCodeConnector {
     // Get LSP status
     const lsp = await this.getLspStatus(directory)
     
-    // Compute token totals from assistant messages
-    let inputTokens = 0
-    let outputTokens = 0
-    let reasoningTokens = 0
-    let cacheReadTokens = 0
-    let cacheWriteTokens = 0
+    // Compute token usage from assistant messages
+    // OpenCode SDK AssistantMessage shape:
+    //   cost: number (per-message cost, cumulative per-message NOT per-token)
+    //   tokens: { input, output, reasoning, cache: { read, write } }
+    //   modelID: string, providerID: string
+    //
+    // IMPORTANT: Each assistant message's tokens represent that API call's full
+    // token usage (including the full conversation history as input). So we:
+    //   - SUM cost across all messages (each msg.cost is incremental)
+    //   - Use LAST assistant message's tokens for context window usage
+    //     (matches official OpenCode TUI: session-context-metrics.ts)
     let totalCost = 0
     let contextWindow = 200000 // Default fallback
+    
+    // Track the last assistant message (for current context window usage)
+    let lastAssistant: any = null
     
     for (const msg of (messages ?? [])) {
       const info = msg?.info
       if (info?.role === 'assistant') {
-        const tokens = info.tokens
-        if (tokens) {
-          inputTokens += tokens.input ?? 0
-          outputTokens += tokens.output ?? 0
-          reasoningTokens += tokens.reasoning ?? 0
-          // Cache tokens may be nested under tokens.cache
-          const cache = tokens.cache
-          if (cache && typeof cache === 'object') {
-            cacheReadTokens += cache.read ?? 0
-            cacheWriteTokens += cache.write ?? 0
-          }
-        }
+        // Per-message cost from OpenCode SDK (sum across all messages)
         totalCost += info.cost ?? 0
-        // Extract context window from model metadata if available
-        const modelMeta = info.model ?? info.metadata?.model
-        if (modelMeta && typeof modelMeta === 'object') {
-          const cw = modelMeta.contextWindow ?? modelMeta.context_window
+        // Track last assistant message with actual token data
+        const tokens = info.tokens
+        if (tokens && ((tokens.input ?? 0) + (tokens.output ?? 0) > 0)) {
+          lastAssistant = info
+        }
+      }
+    }
+    
+    // Extract token breakdown from the LAST assistant message
+    // This represents the current context window state
+    const lastTokens = lastAssistant?.tokens
+    const lastCache = lastTokens?.cache
+    const inputTokens = lastTokens?.input ?? 0
+    const outputTokens = lastTokens?.output ?? 0
+    const reasoningTokens = lastTokens?.reasoning ?? 0
+    const cacheReadTokens = (lastCache && typeof lastCache === 'object') ? (lastCache.read ?? 0) : 0
+    const cacheWriteTokens = (lastCache && typeof lastCache === 'object') ? (lastCache.write ?? 0) : 0
+    const lastProviderID: string | undefined = lastAssistant?.providerID
+    const lastModelID: string | undefined = lastAssistant?.modelID
+    
+    // Look up context window from provider model list
+    // After listAllProviders mapping: models[modelID].contextWindow
+    if (lastProviderID && lastModelID) {
+      try {
+        const providers = await this.listAllProviders(directory)
+        const provider = providers.all.find((p) => p.id === lastProviderID)
+        if (provider?.models) {
+          const model = provider.models[lastModelID]
+          const cw = model?.contextWindow
           if (typeof cw === 'number' && cw > 0) {
             contextWindow = cw
           }
         }
+      } catch {
+        // Fall back to default if provider list fails
       }
     }
     
@@ -599,11 +623,17 @@ export class OpenCodeConnector {
       deletions: diff.deletions ?? 0,
     }))
     
+    // contextTokens = total tokens for the last API call (matches OpenCode TUI)
+    // OpenCode official app uses: input + output + reasoning + cache.read + cache.write
+    // divided by model context limit for the usage percentage
+    const contextTokens = inputTokens + outputTokens + reasoningTokens + cacheReadTokens + cacheWriteTokens
+    
     return {
       tokens: {
         input: inputTokens,
         output: outputTokens,
         total: inputTokens + outputTokens,
+        contextTokens,
         contextWindow,
         reasoning: reasoningTokens || undefined,
         cacheRead: cacheReadTokens || undefined,
@@ -1390,11 +1420,29 @@ export class OpenCodeConnector {
         { responseStyle: 'data' },
       )
       return {
-        all: (result?.all ?? []).map((p: any) => ({
-          id: p.id ?? '',
-          name: p.name ?? p.id ?? '',
-          models: p.models ?? {},
-        })),
+        all: (result?.all ?? []).map((p: any) => {
+          // Map SDK model shape to our ModelInfo type
+          // SDK model: { id, name, limit: { context, output }, cost: { input, output, cache: { read, write } } }
+          const rawModels = p.models ?? {}
+          const mappedModels: Record<string, any> = {}
+          for (const [modelId, model] of Object.entries(rawModels)) {
+            const m = model as any
+            mappedModels[modelId] = {
+              id: m.id ?? modelId,
+              name: m.name ?? modelId,
+              contextWindow: m.limit?.context ?? undefined,
+              pricing: m.cost ? {
+                input: m.cost.input ?? 0,
+                output: m.cost.output ?? 0,
+              } : undefined,
+            }
+          }
+          return {
+            id: p.id ?? '',
+            name: p.name ?? p.id ?? '',
+            models: mappedModels,
+          }
+        }),
         default: result?.default ?? {},
         connected: result?.connected ?? [],
       }

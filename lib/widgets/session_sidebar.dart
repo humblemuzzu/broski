@@ -22,6 +22,7 @@ class SessionSidebar extends StatelessWidget {
     this.sessionDiffs = const [],
     this.onOpenDiff,
     this.isClaudeCode = false,
+    this.isCodex = false,
     this.ccInit,
   });
 
@@ -35,6 +36,8 @@ class SessionSidebar extends StatelessWidget {
   final void Function(DiffEntry diff)? onOpenDiff;
   // Claude Code mode
   final bool isClaudeCode;
+  // Codex mode
+  final bool isCodex;
   final CCSessionInit? ccInit;
 
   @override
@@ -74,7 +77,12 @@ class SessionSidebar extends StatelessWidget {
                     ],
                     _buildPlanSection(context, theme),
                     const SizedBox(height: 20),
+                  ] else if (isCodex) ...[
+                    // Codex: Plan (from turn/plan/updated) + changes, no LSP
+                    _buildPlanSection(context, theme),
+                    const SizedBox(height: 20),
                   ] else ...[
+                    // OpenCode: Plan + LSP
                     _buildPlanSection(context, theme),
                     const SizedBox(height: 20),
                     _buildLspSection(context, theme),
@@ -168,13 +176,16 @@ class SessionSidebar extends StatelessWidget {
   Widget _buildContextSection(BuildContext context, OpenCodeTheme theme) {
     final ctx = sessionContext;
     final usagePercent = ctx.contextUsagePercent;
+    final remainingTokens = ctx.tokens.contextWindow - ctx.tokens.contextTokens;
+    // Codex SDK doesn't provide cost data — only show cost for Claude Code and OpenCode
+    final showCost = !isCodex;
 
     return _SidebarSection(
       theme: theme,
       title: 'Context',
       trailing: Text(
         ctx.tokens.contextTokens > 0
-            ? '${ctx.tokens.formatCount(ctx.tokens.contextTokens)} in window'
+            ? '${ctx.tokens.formatCount(ctx.tokens.contextTokens)} / ${ctx.tokens.formatCount(ctx.tokens.contextWindow)}'
             : '${ctx.tokens.formatCount(ctx.tokens.total)} tokens',
         style: TextStyle(
           fontSize: 12,
@@ -196,7 +207,7 @@ class SessionSidebar extends StatelessWidget {
                 children: [
                   AnimatedContainer(
                     duration: const Duration(milliseconds: 300),
-                    width: constraints.maxWidth * (usagePercent / 100),
+                    width: constraints.maxWidth * (usagePercent / 100).clamp(0.0, 1.0),
                     decoration: BoxDecoration(
                       color: usagePercent > 80
                           ? theme.error
@@ -213,34 +224,43 @@ class SessionSidebar extends StatelessWidget {
         ),
         const SizedBox(height: 12),
 
-        // Stats row
-        Row(
+        // Stats row - adapt to available data per backend
+        Wrap(
+          spacing: 10,
+          runSpacing: 8,
           children: [
             _StatItem(
               theme: theme,
               label: '${usagePercent.toStringAsFixed(0)}% used',
               icon: Icons.memory_outlined,
             ),
-            const SizedBox(width: 16),
-            _StatItem(
-              theme: theme,
-              label: ctx.formattedCost,
-              sublabel: 'spent',
-              icon: Icons.attach_money,
-            ),
-            if (ctx.budgetRemainingUsd != null) ...[
-              const SizedBox(width: 16),
+            if (remainingTokens > 0)
+              _StatItem(
+                theme: theme,
+                label: ctx.tokens.formatCount(remainingTokens.clamp(0, ctx.tokens.contextWindow)),
+                sublabel: 'remaining',
+                icon: Icons.data_usage_outlined,
+              ),
+            // Cost: only show for backends that report it (Claude Code, OpenCode)
+            if (showCost)
+              _StatItem(
+                theme: theme,
+                label: ctx.formattedCost,
+                sublabel: 'spent',
+                icon: Icons.attach_money,
+              ),
+            // Budget remaining: only for Claude Code (maxBudgetUsd)
+            if (ctx.budgetRemainingUsd != null)
               _StatItem(
                 theme: theme,
                 label: ctx.formattedBudgetRemaining,
-                sublabel: 'remaining',
+                sublabel: 'budget left',
                 icon: Icons.account_balance_wallet_outlined,
               ),
-            ],
           ],
         ),
 
-        // Token breakdown (collapsed by default)
+        // Token breakdown
         if (ctx.tokens.input > 0 || ctx.tokens.output > 0) ...[
           const SizedBox(height: 10),
           Container(

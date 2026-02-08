@@ -2330,8 +2330,9 @@ export async function queryClaudeCode(
               cacheCreationTokens: message.usage.cache_creation_input_tokens,
               ...(typeof contextWindow === 'number' ? { contextWindow } : {}),
             },
-            // Include cost if available (cumulative for entire session)
-            totalCostUsd: message.usage.total_cost_usd,
+            // CC SDK: total_cost_usd is on the result message itself, NOT inside usage
+            // SDKResultSuccess/SDKResultError both have top-level total_cost_usd
+            totalCostUsd: message.total_cost_usd,
             ...(modelUsage ? { modelUsage } : {}),
           })
         }

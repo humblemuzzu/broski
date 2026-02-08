@@ -409,6 +409,7 @@ export type SessionContextInfo = {
     input: number
     output: number
     total: number
+    contextTokens?: number // Tokens actually occupying the context window (input + cache)
     contextWindow: number // Model's max context
     reasoning?: number
     cacheRead?: number

@@ -1049,22 +1049,36 @@ class _ChatScreenState extends ConsumerState<ChatScreen>
     }
 
     // Codex mode - build context from stream token usage
+    // Codex SDK provides TokenUsageBreakdown with:
+    //   totalTokens, inputTokens, cachedInputTokens, outputTokens, reasoningOutputTokens
+    // and ThreadTokenUsage with:
+    //   total (cumulative), last (last turn), modelContextWindow
+    // NOTE: Codex SDK does NOT provide cost information.
     if (widget.isCodex) {
       final chatState = ref.read(chatSessionProvider);
       final tokenUsage = chatState.cxTokenUsage;
 
       final total = tokenUsage?.total;
+      final last = tokenUsage?.last;
       final contextWindow = tokenUsage?.modelContextWindow ?? 200000;
-      final context = SessionContext(
-        tokens: TokenUsage(
-          input: total?.inputTokens ?? 0,
-          output: total?.outputTokens ?? 0,
-          total: total?.totalTokens ?? 0,
-          contextWindow: contextWindow,
-        ),
-        cost: 0.0,
-        lsp: const [],
-        modifiedFiles: const [],
+      // Cumulative totals across the thread (for display)
+      final inputTokens = total?.inputTokens ?? 0;
+      final outputTokens = total?.outputTokens ?? 0;
+      final cachedInputTokens = total?.cachedInputTokens ?? 0;
+      final reasoningTokens = total?.reasoningOutputTokens ?? 0;
+      final cacheWriteTokens = total?.cacheWriteTokens ?? 0;
+      // Context tokens = LAST turn's input tokens (what's currently in the window)
+      // Codex SDK: inputTokens includes cachedInputTokens (OpenAI convention)
+      // Using last turn since it reflects the current context state
+      final contextTokens = last?.inputTokens ?? inputTokens;
+      final context = SessionContext.fromCodex(
+        inputTokens: inputTokens,
+        outputTokens: outputTokens,
+        cachedInputTokens: cachedInputTokens,
+        reasoningTokens: reasoningTokens,
+        cacheWriteTokens: cacheWriteTokens,
+        contextWindow: contextWindow,
+        contextTokens: contextTokens,
       );
 
       final threadId = chatState.cxThreadId ?? widget.cxThread?.id ?? '';
@@ -5517,7 +5531,9 @@ Describe project-specific guidance for Codex here.
             ? (widget.ccSession?.displayTitle ??
                   widget.ccDraftTitle ??
                   'Claude Code')
-            : widget.session.title,
+            : widget.isCodex
+                ? (widget.cxThread?.displayTitle ?? 'Codex')
+                : widget.session.title,
         sessionContext: _sessionContext,
         todos: todos, // Both OC and CC have todos (CC via TodoWrite tool)
         onClose: _closeSidebar,
@@ -5525,6 +5541,7 @@ Describe project-specific guidance for Codex here.
         sessionDiffs: sessionDiffs,
         onOpenDiff: (diff) => _openDiffView(diff),
         isClaudeCode: widget.isClaudeCode,
+        isCodex: widget.isCodex,
         ccInit: widget.isClaudeCode ? ccInit : null,
       ),
       onEndDrawerChanged: (isOpen) {

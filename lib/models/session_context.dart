@@ -86,6 +86,38 @@ class SessionContext {
     );
   }
 
+  /// Create context from Codex token usage (cumulative from SDK stream)
+  /// Codex SDK provides: totalTokens, inputTokens, cachedInputTokens,
+  /// outputTokens, reasoningOutputTokens, modelContextWindow
+  /// NOTE: Codex SDK does NOT provide cost information.
+  factory SessionContext.fromCodex({
+    int inputTokens = 0,
+    int outputTokens = 0,
+    int cachedInputTokens = 0,
+    int reasoningTokens = 0,
+    int cacheWriteTokens = 0,
+    int contextWindow = 200000,
+    int contextTokens = 0,
+  }) {
+    final total = inputTokens + outputTokens;
+    return SessionContext(
+      tokens: TokenUsage(
+        input: inputTokens,
+        output: outputTokens,
+        total: total,
+        contextTokens: contextTokens,
+        contextWindow: contextWindow,
+        reasoning: reasoningTokens > 0 ? reasoningTokens : null,
+        cacheRead: cachedInputTokens > 0 ? cachedInputTokens : null,
+        cacheWrite: cacheWriteTokens > 0 ? cacheWriteTokens : null,
+      ),
+      // Codex SDK does not provide cost data
+      cost: 0.0,
+      lsp: const [],
+      modifiedFiles: const [],
+    );
+  }
+
   /// Percentage of context window used (0-100)
   /// Based on contextTokens (input + cache reads + cache writes) which actually
   /// occupy the context window, NOT the total (which is just fresh tokens).
@@ -143,11 +175,14 @@ class TokenUsage {
     final input = json['input'] as int? ?? 0;
     final cacheRead = json['cacheRead'] as int?;
     final cacheWrite = json['cacheWrite'] as int?;
+    // Prefer server-computed contextTokens if available; fall back to local calc
+    final serverContextTokens = json['contextTokens'] as int?;
+    final computedContextTokens = input + (cacheRead ?? 0) + (cacheWrite ?? 0);
     return TokenUsage(
       input: input,
       output: json['output'] as int? ?? 0,
       total: json['total'] as int? ?? 0,
-      contextTokens: input + (cacheRead ?? 0) + (cacheWrite ?? 0),
+      contextTokens: serverContextTokens ?? computedContextTokens,
       contextWindow: json['contextWindow'] as int? ?? 200000,
       reasoning: json['reasoning'] as int?,
       cacheRead: cacheRead,
