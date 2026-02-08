@@ -7,6 +7,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../models/claude_code.dart';
 import '../models/codex.dart';
+import '../models/file_attachment.dart';
 import '../models/message.dart';
 import '../models/question.dart';
 import '../models/session.dart';
@@ -64,6 +65,11 @@ class ChatSessionState {
     this.ocAgentMode = 'build',
     // OpenCode MCP OAuth pending (SDK v1.1.23+)
     this.mcpOAuthPending,
+    // Claude Code client-side message queue
+    // When CC is streaming and user sends, we hold the message locally
+    // and auto-send when the turn completes (ccIsStreaming → false).
+    this.pendingCCMessage,
+    this.pendingCCAttachments,
   });
 
   final SessionSummary? session;
@@ -113,6 +119,11 @@ class ChatSessionState {
   // When MCP OAuth browser open fails in headless mode, URL stored here
   final McpOAuthPending? mcpOAuthPending;
 
+  // Claude Code client-side message queue
+  // Held locally while CC is streaming, auto-sent when turn completes.
+  final String? pendingCCMessage;
+  final List<FileAttachment>? pendingCCAttachments;
+
   /// Get the effective session ID (works for both OC and CC)
   String? get effectiveSessionId => isClaudeCode
       ? ccSessionId
@@ -156,6 +167,8 @@ class ChatSessionState {
     int? contentLength,
     String? ocAgentMode,
     McpOAuthPending? mcpOAuthPending,
+    String? pendingCCMessage,
+    List<FileAttachment>? pendingCCAttachments,
   }) {
     return ChatSessionState(
       session: session ?? this.session,
@@ -186,6 +199,8 @@ class ChatSessionState {
       contentLength: contentLength ?? this.contentLength,
       ocAgentMode: ocAgentMode ?? this.ocAgentMode,
       mcpOAuthPending: mcpOAuthPending ?? this.mcpOAuthPending,
+      pendingCCMessage: pendingCCMessage ?? this.pendingCCMessage,
+      pendingCCAttachments: pendingCCAttachments ?? this.pendingCCAttachments,
     );
   }
 }
@@ -466,6 +481,8 @@ class ChatSessionNotifier extends StateNotifier<ChatSessionState> {
       contentLength: state.contentLength,
       ocAgentMode: state.ocAgentMode,
       mcpOAuthPending: state.mcpOAuthPending,
+      pendingCCMessage: state.pendingCCMessage,
+      pendingCCAttachments: state.pendingCCAttachments,
     );
   }
 
@@ -2920,6 +2937,60 @@ class ChatSessionNotifier extends StateNotifier<ChatSessionState> {
   /// Set CC streaming state (called when sending a message)
   void setCCStreaming(bool isStreaming) {
     state = state.copyWith(ccIsStreaming: isStreaming);
+  }
+
+  /// Queue a message for auto-send when the CC turn completes.
+  /// Called when user sends while CC is streaming.
+  void setPendingCCMessage(String? text, {List<FileAttachment>? attachments}) {
+    if (text == null || text.isEmpty) {
+      clearPendingCCMessage();
+      return;
+    }
+    state = state.copyWith(
+      pendingCCMessage: text,
+      pendingCCAttachments: attachments,
+    );
+  }
+
+  /// Clear the pending CC message queue (cancel or after auto-send).
+  /// Uses full reconstruction because copyWith can't set nullable fields to null.
+  void clearPendingCCMessage() {
+    if (state.pendingCCMessage == null && state.pendingCCAttachments == null) {
+      return;
+    }
+    state = ChatSessionState(
+      session: state.session,
+      projectPath: state.projectPath,
+      messages: state.messages,
+      permissions: state.permissions,
+      sessionDiffs: state.sessionDiffs,
+      todos: state.todos,
+      vcsInfo: state.vcsInfo,
+      isCompacting: state.isCompacting,
+      sessionStatus: state.sessionStatus,
+      isClaudeCode: state.isClaudeCode,
+      ccSessionId: state.ccSessionId,
+      ccCwd: state.ccCwd,
+      ccModel: state.ccModel,
+      ccInit: state.ccInit,
+      ccTokenUsage: state.ccTokenUsage,
+      ccIsStreaming: state.ccIsStreaming,
+      isCodex: state.isCodex,
+      cxThreadId: state.cxThreadId,
+      cxCwd: state.cxCwd,
+      cxModel: state.cxModel,
+      cxTokenUsage: state.cxTokenUsage,
+      cxIsStreaming: state.cxIsStreaming,
+      cxCollabTree: state.cxCollabTree,
+      cxPendingUserInput: state.cxPendingUserInput,
+      pendingQuestion: state.pendingQuestion,
+      contentLength: state.contentLength,
+      ocAgentMode: state.ocAgentMode,
+      mcpOAuthPending: state.mcpOAuthPending,
+      // Explicitly cleared:
+      pendingCCMessage: null,
+      pendingCCAttachments: null,
+    );
   }
 
   /// Mark all streaming messages as complete (for abort/unstick scenarios)

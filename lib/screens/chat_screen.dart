@@ -15,6 +15,7 @@ import '../models/codex.dart';
 import 'sheets/cx_apps_sheet.dart';
 import 'sheets/cx_model_sheet.dart';
 import 'sheets/cx_remote_skills_sheet.dart';
+import '../widgets/chat/cc_queue_bar.dart';
 import '../widgets/chat/cx_steer_bar.dart';
 import 'sheets/cx_skills_sheet_content.dart';
 import '../models/command.dart';
@@ -321,6 +322,8 @@ class _ChatScreenState extends ConsumerState<ChatScreen>
   ProviderSubscription<BridgeConnectionState>? _connectionSubscription;
   ProviderSubscription<ChatSessionState>? _chatSubscription;
   ProviderSubscription<AsyncValue<ClaudeCodeConfig>>? _ccConfigSubscription;
+  // CC queue: listen for ccIsStreaming true→false to auto-send pending message
+  ProviderSubscription<bool>? _ccQueueSubscription;
 
   @override
   void initState() {
@@ -469,6 +472,17 @@ class _ChatScreenState extends ConsumerState<ChatScreen>
           _agents = subagentAgents;
         });
       });
+
+      // CC queue: auto-send pending message when turn completes
+      _ccQueueSubscription = ref.listenManual(
+        chatSessionProvider.select((s) => s.ccIsStreaming),
+        (previous, next) {
+          // Detect transition from streaming → idle
+          if (previous == true && next == false) {
+            _autoSendPendingCCMessage();
+          }
+        },
+      );
     }
   }
 
@@ -5468,6 +5482,7 @@ Describe project-specific guidance for Codex here.
     _connectionSubscription?.close();
     _chatSubscription?.close();
     _ccConfigSubscription?.close();
+    _ccQueueSubscription?.close();
     ref.read(bridgeServiceProvider).setView(projectPath: 'global');
     _controller.dispose();
     _scrollController.dispose();
@@ -5795,6 +5810,29 @@ Describe project-specific guidance for Codex here.
                     mutedColor: OpenCodeTheme.of(context).textMuted,
                     surfaceColor: OpenCodeTheme.of(context).backgroundPanel,
                   ),
+                // Claude Code: show queued message bar when a message is pending
+                if (widget.isClaudeCode && ccIsStreaming)
+                  Consumer(
+                    builder: (context, ref, _) {
+                      final pending = ref.watch(
+                        chatSessionProvider.select((s) => s.pendingCCMessage),
+                      );
+                      if (pending == null) return const SizedBox.shrink();
+                      final theme = OpenCodeTheme.of(context);
+                      return CCQueueBar(
+                        pendingMessage: pending,
+                        onCancel: () {
+                          ref
+                              .read(chatSessionProvider.notifier)
+                              .clearPendingCCMessage();
+                        },
+                        primaryColor: theme.primary,
+                        textColor: theme.text,
+                        mutedColor: theme.textMuted,
+                        surfaceColor: theme.backgroundPanel,
+                      );
+                    },
+                  ),
                 _buildInputBarWithParams(
                   connection: connection,
                   messages: messages,
@@ -5909,9 +5947,18 @@ Describe project-specific guidance for Codex here.
     String? ccModel,
   }) {
     final inputStyle = ref.watch(inputStyleProvider);
+    // Busy logic per agent:
+    // - CC: busy only if streaming AND already has a queued message (allow 1 queue)
+    // - Codex: busy when streaming (has CxSteerBar for mid-turn)
+    // - OpenCode: never busy — SDK's promptAsync() queues server-side
+    final pendingCCMessage = widget.isClaudeCode
+        ? ref.watch(chatSessionProvider.select((s) => s.pendingCCMessage))
+        : null;
     final isBusy = widget.isClaudeCode
-        ? ccIsStreaming
-        : _hasStreamingMessage(messages);
+        ? (ccIsStreaming && pendingCCMessage != null)
+        : widget.isCodex
+            ? ref.watch(chatSessionProvider.select((s) => s.cxIsStreaming))
+            : false;
     final hasContent =
         _controller.text.trim().isNotEmpty || _attachedFiles.isNotEmpty;
     final canSend =
@@ -6831,6 +6878,82 @@ Describe project-specific guidance for Codex here.
     );
   }
 
+  /// Auto-send a pending CC message when the turn completes.
+  /// Uses the same CC send flow as _sendMessage (config, model, sessionId, etc.)
+  void _autoSendPendingCCMessage() {
+    if (!widget.isClaudeCode || !mounted) return;
+
+    final chat = ref.read(chatSessionProvider.notifier);
+    final chatState = ref.read(chatSessionProvider);
+    final pendingText = chatState.pendingCCMessage;
+    final pendingAttachments = chatState.pendingCCAttachments;
+
+    if (pendingText == null || pendingText.isEmpty) return;
+
+    // Clear pending state first to prevent re-entry
+    chat.clearPendingCCMessage();
+
+    // Read all the same config values that _sendMessage reads for CC
+    final bridge = ref.read(bridgeServiceProvider);
+    final ccConfig = ref.read(ccConfigProvider).valueOrNull;
+    final cwd =
+        chatState.ccCwd ?? widget.ccSession?.cwd ?? widget.ccDraftCwd;
+    final model =
+        ccConfig?.model ??
+        chatState.ccModel ??
+        chatState.ccInit?.model ??
+        widget.ccSession?.model ??
+        widget.ccDraftModel;
+    final activeSubagent = ccConfig?.activeSubagent;
+
+    final hasAttachments =
+        pendingAttachments != null && pendingAttachments.isNotEmpty;
+
+    // Build display message with file attachments
+    String displayText = pendingText;
+    if (hasAttachments) {
+      final attachmentLabels = <String>[];
+      int imageCount = 0;
+      for (final f in pendingAttachments) {
+        if (f.isImage) {
+          imageCount++;
+          attachmentLabels.add('[Image $imageCount]');
+        } else {
+          attachmentLabels.add(f.displayPath);
+        }
+      }
+      if (attachmentLabels.isNotEmpty) {
+        displayText = '$pendingText\n${attachmentLabels.join(' ')}';
+      }
+    }
+
+    chat.appendUserMessage(displayText);
+    chat.setCCStreaming(true);
+
+    final ccVariant = ref.read(claudeCodeVariantProvider).selectedVariant;
+    bridge.ccChat(
+      sessionId: chatState.ccSessionId,
+      prompt: pendingText,
+      cwd: cwd,
+      model: model,
+      permissionMode: ccConfig?.permissionMode,
+      allowedTools: ccConfig?.allowedTools,
+      disallowedTools: ccConfig?.disallowedTools,
+      maxTurns: ccConfig?.maxTurns,
+      maxBudgetUsd: ccConfig?.maxBudgetUsd,
+      betas: ccConfig?.betas,
+      variant: ccVariant,
+      activeSubagent: activeSubagent,
+      outputFormat: ccConfig?.outputFormat,
+      sandbox: ccConfig?.sandbox,
+      enableAgentTeams: ccConfig?.enableAgentTeams,
+      fileAttachments: hasAttachments ? pendingAttachments : null,
+    );
+
+    _userHasScrolledUp = false;
+    _scrollToBottom();
+  }
+
   // PERF: Version that takes individual params, used with select()
   void _sendMessageWithParams(
     BridgeConnectionState connection,
@@ -6862,14 +6985,26 @@ Describe project-specific guidance for Codex here.
     if (text.isEmpty && !hasAttachments) return;
     if (!connection.isConnected) return;
 
-    // Check for streaming state (different for CC vs OC)
+    // Check for streaming state (different per agent)
     if (widget.isClaudeCode) {
-      if (chatState.ccIsStreaming) return;
+      if (chatState.ccIsStreaming) {
+        // CC SDK single-message mode doesn't support mid-turn queuing.
+        // Queue the message locally and auto-send when the turn completes.
+        final chat = ref.read(chatSessionProvider.notifier);
+        chat.setPendingCCMessage(
+          text,
+          attachments: hasAttachments ? _attachedFiles.toList() : null,
+        );
+        _controller.clear();
+        setState(() => _attachedFiles.clear());
+        return;
+      }
     } else if (widget.isCodex) {
+      // Codex has its own CxSteerBar for mid-turn messages.
       if (chatState.cxIsStreaming) return;
-    } else {
-      if (_hasStreamingMessage(chatState.messages)) return;
     }
+    // OpenCode: no block — SDK's promptAsync() returns 204 immediately
+    // and the server queues messages internally.
 
     final bridge = ref.read(bridgeServiceProvider);
     final chat = ref.read(chatSessionProvider.notifier);
