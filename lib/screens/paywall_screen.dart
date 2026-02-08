@@ -300,36 +300,59 @@ class PaywallScreen extends ConsumerWidget {
                               borderRadius: BorderRadius.circular(32),
                             ),
                             child: Center(
-                              child: sub.isLoading
-                                  ? const SizedBox(
-                                      width: 24,
-                                      height: 24,
-                                      child: CircularProgressIndicator(
-                                        strokeWidth: 2.5,
-                                        color: Color(0xFF111111),
-                                      ),
-                                    )
-                                  : Row(
-                                      mainAxisAlignment:
-                                          MainAxisAlignment.center,
-                                      children: [
-                                        const Text(
-                                          "I'm In",
-                                          style: TextStyle(
-                                            color: Color(0xFF111111),
-                                            fontSize: 17,
-                                            fontWeight: FontWeight.w700,
-                                            letterSpacing: 0.3,
+                              child: AnimatedSwitcher(
+                                duration: const Duration(milliseconds: 250),
+                                child: sub.isLoading
+                                    ? Row(
+                                        key: const ValueKey('loading'),
+                                        mainAxisAlignment:
+                                            MainAxisAlignment.center,
+                                        children: [
+                                          SizedBox(
+                                            width: 18,
+                                            height: 18,
+                                            child: CircularProgressIndicator(
+                                              strokeWidth: 2,
+                                              color: const Color(
+                                                0xFF111111,
+                                              ).withValues(alpha: 0.6),
+                                            ),
                                           ),
-                                        ),
-                                        const SizedBox(width: 10),
-                                        Icon(
-                                          Icons.arrow_forward_rounded,
-                                          color: const Color(0xFF111111),
-                                          size: 20,
-                                        ),
-                                      ],
-                                    ),
+                                          const SizedBox(width: 10),
+                                          const Text(
+                                            'Hold tight...',
+                                            style: TextStyle(
+                                              color: Color(0xFF111111),
+                                              fontSize: 16,
+                                              fontWeight: FontWeight.w600,
+                                              letterSpacing: 0.2,
+                                            ),
+                                          ),
+                                        ],
+                                      )
+                                    : Row(
+                                        key: const ValueKey('cta'),
+                                        mainAxisAlignment:
+                                            MainAxisAlignment.center,
+                                        children: [
+                                          const Text(
+                                            "I'm In",
+                                            style: TextStyle(
+                                              color: Color(0xFF111111),
+                                              fontSize: 17,
+                                              fontWeight: FontWeight.w700,
+                                              letterSpacing: 0.3,
+                                            ),
+                                          ),
+                                          const SizedBox(width: 10),
+                                          Icon(
+                                            Icons.arrow_forward_rounded,
+                                            color: const Color(0xFF111111),
+                                            size: 20,
+                                          ),
+                                        ],
+                                      ),
+                              ),
                             ),
                           ),
                         ),
