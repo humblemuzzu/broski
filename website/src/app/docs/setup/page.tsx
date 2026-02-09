@@ -113,13 +113,13 @@ broski doctor --profile agents`}</CodeBlock>
           rows={[
             [
               <strong key="ios">iOS</strong>,
-              <a key="ios-link" href="https://apps.apple.com/app/broski" className="text-primary hover:underline">App Store</a>,
+              "App Store (coming soon)",
               "iOS 15.0+"
             ],
             [
               <strong key="android">Android</strong>,
-              <a key="android-link" href="https://play.google.com/store/apps/details?id=com.broski" className="text-primary hover:underline">Play Store</a>,
-              "Android 8.0+ (API 26)"
+              "Coming soon",
+              "In development"
             ],
           ]}
         />
@@ -131,9 +131,9 @@ broski doctor --profile agents`}</CodeBlock>
             description="Detailed setup for iPhone and iPad"
           />
           <Card
-            href="/docs/setup/android"
+            href="#"
             title="Android Setup Guide"
-            description="Detailed setup for Android devices"
+            description="Coming soon (currently in development)"
           />
         </CardGrid>
       </section>

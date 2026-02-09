@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import { notFound } from "next/navigation";
 import { CodeBlock } from "@/components/docs/code-block";
 import { Callout } from "@/components/docs/callout";
 import { SimpleTable } from "@/components/docs/docs-table";
@@ -10,6 +11,8 @@ export const metadata: Metadata = {
 };
 
 export default function AndroidSetupPage() {
+  notFound();
+
   return (
     <article className="max-w-3xl">
       <h1 className="text-4xl font-bold mb-4">Android Setup</h1>

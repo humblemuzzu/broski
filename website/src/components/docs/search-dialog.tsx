@@ -52,9 +52,6 @@ const searchIndex: SearchResult[] = [
   { title: "iOS Setup", href: "/docs/setup/ios", section: "Requirements", content: "iOS 15.0+, iPhone 8 or newer, iPad 6th generation or newer", category: "Get Started" },
   { title: "iOS Setup", href: "/docs/setup/ios", section: "Permissions", content: "Camera for QR scanning, Local Network for bridge connection, Notifications optional", category: "Get Started" },
   { title: "iOS Setup", href: "/docs/setup/ios", section: "Tailscale", content: "Remote access setup with Tailscale VPN on iOS", category: "Get Started" },
-  { title: "Android Setup", href: "/docs/setup/android", section: "Requirements", content: "Android 8.0+ API 26, arm64-v8a armeabi-v7a x86_64 architecture", category: "Get Started" },
-  { title: "Android Setup", href: "/docs/setup/android", section: "APK Sideload", content: "Install APK manually without Play Store, enable unknown sources", category: "Get Started" },
-  { title: "Android Setup", href: "/docs/setup/android", section: "Battery Optimization", content: "Disable battery optimization for reliable background connections", category: "Get Started" },
   
   // Bridge
   { title: "Bridge Installation", href: "/docs/bridge", section: "Installation", content: "bunx broski, npx broski, bun install -g broski, npm install -g broski", category: "Bridge" },

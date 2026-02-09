@@ -81,21 +81,19 @@ export default function DocsLayout({
             <div className="flex w-full max-w-5xl">
               {/* Main Content - responsive padding */}
               <div className="flex-1 px-4 sm:px-6 md:px-8 lg:px-12 py-6 md:py-10 min-w-0">
-                {/* Breadcrumbs + Copy Button */}
-                <div className="mb-2 flex items-start gap-4">
-                  <div className="min-w-0 flex-1">
-                    <Breadcrumbs />
-                  </div>
-                  <div className="ml-auto hidden sm:block">
-                    <CopyPageButton />
-                  </div>
+                {/* Breadcrumbs */}
+                <div className="mb-2 min-w-0">
+                  <Breadcrumbs />
                 </div>
-                
+
                 {/* Mobile TOC - shows on screens smaller than xl */}
                 <MobileTableOfContents />
-                
-                {/* Content */}
-                <div className="max-w-2xl">
+
+                {/* Content + Copy Button aligned to H1 line */}
+                <div className="relative max-w-2xl sm:pr-32">
+                  <div className="absolute right-0 top-0 hidden sm:block">
+                    <CopyPageButton />
+                  </div>
                   {children}
                 </div>
 

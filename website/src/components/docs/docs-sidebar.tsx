@@ -20,7 +20,6 @@ const navigation: NavItem[] = [
       { title: "Introduction", href: "/docs" },
       { title: "Quick Start", href: "/docs/setup" },
       { title: "iOS Setup", href: "/docs/setup/ios" },
-      { title: "Android Setup", href: "/docs/setup/android" },
       { title: "FAQ", href: "/docs/faq" },
     ],
   },
