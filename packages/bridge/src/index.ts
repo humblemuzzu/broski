@@ -50,6 +50,19 @@ async function sleep(ms: number): Promise<void> {
   await new Promise((resolve) => setTimeout(resolve, ms))
 }
 
+const FALLBACK_PORT = 18274
+
+/** Read the configured bridge port (from config.json), falling back to 18274. */
+async function getConfiguredPort(): Promise<number> {
+  try {
+    const { readConfig } = await import('./config')
+    const cfg = await readConfig()
+    return cfg.network.port || FALLBACK_PORT
+  } catch {
+    return FALLBACK_PORT
+  }
+}
+
 // ============================================================================
 // Daemon Management (Always On Mode)
 // ============================================================================
@@ -184,9 +197,10 @@ async function runStatus(): Promise<void> {
     }
   }
 
-  // Check if port 18274 is in use
-  const portInUse = await checkPortInUse(18274)
-  console.log(`\nDefault port 18274: ${portInUse ? '  In use (bridge is listening)' : '  Not in use'}`)
+  // Check if the configured port is in use
+  const configuredPort = await getConfiguredPort()
+  const portInUse = await checkPortInUse(configuredPort)
+  console.log(`\nPort ${configuredPort}: ${portInUse ? '  In use (bridge is listening)' : '  Not in use'}`)
 
   // Show log file location
   console.log(`\nLog files:          ${BROSKI_LOG_DIR}/`)
@@ -260,11 +274,11 @@ async function runQR(detectHotspot: boolean): Promise<void> {
   }
 
   // Check if bridge is actually running
-  const port = 18274 // Default port
+  const port = await getConfiguredPort()
   const bridgeRunning = await checkPortInUse(port)
 
   if (!bridgeRunning) {
-    console.log('⚠️  Bridge is not running on port 18274.')
+    console.log(`⚠️  Bridge is not running on port ${port}.`)
     console.log('   Start it with `broski` or `broski install` first.')
     console.log('')
   }
@@ -467,7 +481,7 @@ async function runStop(): Promise<void> {
 
 async function runRestart(): Promise<void> {
   console.log('Restarting Broski bridge...\n')
-  const DEFAULT_PORT = 18274
+  const port = await getConfiguredPort()
 
   const status = await getDaemonStatus()
   if (!status.installed) {
@@ -482,7 +496,7 @@ async function runRestart(): Promise<void> {
 
   // Kill ALL broski processes on the port
   for (let i = 0; i < 5; i++) {
-    const proc = await getProcessOnPort(DEFAULT_PORT)
+    const proc = await getProcessOnPort(port)
     if (!proc) break
     killProcess(proc.pid)
     await sleep(300)
@@ -498,7 +512,7 @@ async function runRestart(): Promise<void> {
   // Wait for port to be truly free
   let portFree = false
   for (let i = 0; i < 6; i++) {
-    if (!(await checkPortInUse(DEFAULT_PORT))) {
+    if (!(await checkPortInUse(port))) {
       portFree = true
       break
     }
@@ -506,7 +520,7 @@ async function runRestart(): Promise<void> {
   }
 
   if (!portFree) {
-    console.log(`  Failed to free port. Try: ${getKillPortHint(DEFAULT_PORT)}`)
+    console.log(`  Failed to free port. Try: ${getKillPortHint(port)}`)
     return
   }
 
@@ -519,7 +533,7 @@ async function runRestart(): Promise<void> {
   for (let i = 0; i < 30; i++) {
     await sleep(500)
     process.stdout.write('.')
-    if (await checkPortInUse(DEFAULT_PORT)) {
+    if (await checkPortInUse(port)) {
       ready = true
       break
     }
@@ -528,7 +542,7 @@ async function runRestart(): Promise<void> {
 
   if (ready) {
     console.log('  Bridge restarted successfully')
-    console.log(`  Listening on port ${DEFAULT_PORT}`)
+    console.log(`  Listening on port ${port}`)
   } else {
     console.log('   Service started but port not yet listening')
     console.log(`   Check: ${getTailLogsHint()}`)

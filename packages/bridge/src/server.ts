@@ -1061,6 +1061,7 @@ export async function createBridgeServer(options: BridgeServerOptions): Promise<
   >()
   const ccSessionOwners = new Map<string, ServerWebSocket<unknown>>()
   const cxThreadOwners = new Map<string, ServerWebSocket<unknown>>()
+  const ocSessionOwners = new Map<string, ServerWebSocket<unknown>>()
   const cxActiveTurns = new Map<string, string>()
   const cxItemCache = new Map<string, any>() // key: `${threadId}:${turnId}:${itemId}` -> item
   const cxThreadCwds = new Map<string, string>() // threadId -> absolute cwd
@@ -1158,7 +1159,25 @@ export async function createBridgeServer(options: BridgeServerOptions): Promise<
     }
   }
   
+  // Default agent is detected from what's available, not hardcoded.
+  // The Flutter app also auto-selects on connect, so this is just the
+  // server-side default until the first client sets it explicitly.
   let currentAgent: AgentType = options.currentAgent || 'opencode'
+  
+  // Detect actual default after backends probe (async, runs once)
+  void (async () => {
+    try {
+      const backends = await getBackendsStatus()
+      // Only override if no client has set an agent yet and the current default isn't available
+      if (!backends[currentAgent]?.available) {
+        if (backends['claude-code']?.available) currentAgent = 'claude-code'
+        else if (backends.opencode?.available) currentAgent = 'opencode'
+        else if (backends.codex?.available) currentAgent = 'codex'
+      }
+    } catch {
+      // keep default
+    }
+  })()
   const lastGitBranchByProject = new Map<string, string>()
   
 	  let authState: AuthTokenState = options.auth
@@ -3318,10 +3337,16 @@ export async function createBridgeServer(options: BridgeServerOptions): Promise<
     }
 
     if (agent === 'opencode') {
-      // OpenCode external tail: poll session messages API when TUI is running externally
-      // The TUI runs in a Bun Worker and events don't reach global.event() stream
+      // OpenCode external tail: poll session messages API when TUI is running externally.
+      // When the bridge itself owns the session (sent a prompt via the SDK), the global
+      // SSE event stream already delivers events — running the polling tail at the same
+      // time would cause every event to be emitted twice (the double-send bug).
+      const owner = ocSessionOwners.get(id) ?? null
       const projectPath = ocSessionProjectPaths.get(id)
-      const shouldRun = watcherCount > 0 && !!opencode && !!projectPath
+      const shouldRun = watcherCount > 0 && !owner && !!opencode && !!projectPath
+      if (DEBUG_RTS) {
+        logDebug(`[RTS] syncExternalTail(OC): id=${id}, watchers=${watcherCount}, owner=${!!owner}, shouldRun=${shouldRun}, alreadyRunning=${ocExternalTails.has(id)}`)
+      }
       if (shouldRun) {
         if (!ocExternalTails.has(id)) {
           ocExternalTails.set(id, startOpenCodeExternalTail(id, projectPath))
@@ -3611,6 +3636,24 @@ export async function createBridgeServer(options: BridgeServerOptions): Promise<
         if (payloadType === 'vcs.branch.updated' && directory) {
           const branch = safeString(e?.payload?.properties?.branch)
           if (branch) lastGitBranchByProject.set(directory, branch)
+        }
+
+        // Release OpenCode session ownership when the session goes idle.
+        // This allows the external polling tail to resume for picking up
+        // activity from the TUI or other external sources.
+        if (payloadType === 'session.idle' || payloadType === 'session.status') {
+          const props = e?.payload?.properties
+          const sid = safeString(props?.sessionID)
+          const isIdle =
+            payloadType === 'session.idle' ||
+            (props?.status?.type === 'idle')
+          if (sid && isIdle && ocSessionOwners.has(sid)) {
+            ocSessionOwners.delete(sid)
+            syncExternalTailForKey(makeSessionKey('opencode', sid))
+            if (DEBUG_RTS) {
+              logDebug(`[RTS] OC owner released on idle for session ${sid}, external tail may resume`)
+            }
+          }
         }
       } catch (err) {
         logError('[server] Failed to process SDK event microtask:', err)
@@ -4213,8 +4256,8 @@ export async function createBridgeServer(options: BridgeServerOptions): Promise<
       const prevKey = makeSessionKey(ctx?.viewAgent, ctx?.sessionId)
       updateSessionWatchers(ws, prevKey, null)
 
-	      // If this socket owned any CC/Codex sessions, release ownership so watchers can fall back
-	      // to external tailing (or another owner) correctly.
+	      // If this socket owned any CC/Codex/OpenCode sessions, release ownership so watchers
+	      // can fall back to external tailing (or another owner) correctly.
 	      const releasedKeys: Array<{ agent: AgentType; id: string }> = []
 	      for (const [sid, owner] of ccSessionOwners.entries()) {
 	        if (owner === ws) {
@@ -4226,6 +4269,12 @@ export async function createBridgeServer(options: BridgeServerOptions): Promise<
 	        if (owner === ws) {
 	          cxThreadOwners.delete(tid)
 	          releasedKeys.push({ agent: 'codex', id: tid })
+	        }
+	      }
+	      for (const [sid, owner] of ocSessionOwners.entries()) {
+	        if (owner === ws) {
+	          ocSessionOwners.delete(sid)
+	          releasedKeys.push({ agent: 'opencode', id: sid })
 	        }
 	      }
 	      for (const k of releasedKeys) {
@@ -4842,7 +4891,7 @@ export async function createBridgeServer(options: BridgeServerOptions): Promise<
           const nextAgent =
             message.agent ??
             existing.viewAgent ??
-            (message.projectPath || message.sessionId ? 'opencode' : undefined)
+            (message.projectPath || message.sessionId ? currentAgent : undefined)
           const nextSessionId = message.sessionId || undefined
 
           if (DEBUG_RTS) {
@@ -5005,6 +5054,12 @@ export async function createBridgeServer(options: BridgeServerOptions): Promise<
                 if (t < cutoff) recentChatMessageIds.delete(k)
               }
             }
+          }
+          // Mark this WS as the owner so the external polling tail is suppressed
+          // while the global SSE event stream delivers events for this session.
+          if (message.sessionId) {
+            ocSessionOwners.set(message.sessionId, ws)
+            syncExternalTailForKey(makeSessionKey('opencode', message.sessionId))
           }
           await oc.sendPromptAsync(
             message.sessionId,
