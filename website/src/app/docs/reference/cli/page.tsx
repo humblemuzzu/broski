@@ -3,7 +3,7 @@ import { CodeBlock } from "@/components/docs/code-block";
 
 export const metadata: Metadata = {
   title: "CLI Reference - Broski",
-  description: "Complete reference for all broski command-line options",
+  description: "Complete reference for Broski binary commands",
 };
 
 export default function CLIReferencePage() {
@@ -11,147 +11,121 @@ export default function CLIReferencePage() {
     <article className="max-w-3xl">
       <h1 id="cli-reference" className="text-4xl font-bold mb-4">CLI Reference</h1>
       <p className="text-xl text-muted-foreground mb-8">
-        Complete reference for all broski command-line options.
+        Core commands for the Broski binary.
       </p>
 
-      {/* Basic Usage */}
       <section className="mb-12">
         <h2 id="usage" className="text-2xl font-semibold mb-4">Basic Usage</h2>
         <CodeBlock language="bash">{`broski [command] [options]`}</CodeBlock>
       </section>
 
-      {/* Commands */}
       <section className="mb-12">
-        <h2 id="commands" className="text-2xl font-semibold mb-4">Commands</h2>
-        
-        <div className="space-y-6">
-          <div className="border border-border rounded-lg p-4">
-            <h3 className="font-mono font-medium mb-2">broski</h3>
-            <p className="text-sm text-muted-foreground mb-3">
-              Start the bridge server (default command).
-            </p>
-            <CodeBlock language="bash">{`broski [options]`}</CodeBlock>
-          </div>
+        <h2 id="core-commands" className="text-2xl font-semibold mb-4">Core Commands</h2>
+        <CodeBlock language="bash">{`# Start bridge (default)
+broski
 
-          <div className="border border-border rounded-lg p-4">
-            <h3 className="font-mono font-medium mb-2">broski doctor</h3>
-            <p className="text-sm text-muted-foreground mb-3">
-              Run diagnostics to check system requirements and configuration.
-            </p>
-            <CodeBlock language="bash">{`broski doctor`}</CodeBlock>
-            <p className="text-sm text-muted-foreground mt-3">
-              Checks: AI backend installation, local IP, port availability, Tailscale status.
-            </p>
-          </div>
+# Setup / config
+broski setup
+broski configure
 
-          <div className="border border-border rounded-lg p-4">
-            <h3 className="font-mono font-medium mb-2">broski setup-tailscale</h3>
-            <p className="text-sm text-muted-foreground mb-3">
-              Interactive wizard to install and configure Tailscale.
-            </p>
-            <CodeBlock language="bash">{`broski setup-tailscale`}</CodeBlock>
-          </div>
-        </div>
+# Diagnostics
+broski doctor
+broski doctor --fix
+broski doctor --profile pairing
+broski doctor --export
+
+# Guided troubleshooting
+broski troubleshoot
+
+# Logs
+broski logs
+broski logs --follow
+broski logs --export
+
+# Pairing
+broski qr
+broski qr --new-token
+
+# Background service
+broski install
+broski status
+broski stop
+broski restart
+broski uninstall`}</CodeBlock>
       </section>
 
-      {/* Options */}
       <section className="mb-12">
-        <h2 id="options" className="text-2xl font-semibold mb-4">Options</h2>
-        
-        <div className="overflow-x-auto">
-          <table className="w-full text-sm border border-border rounded-lg">
-            <thead className="bg-muted/30">
-              <tr>
-                <th className="text-left p-3 border-b border-border">Option</th>
-                <th className="text-left p-3 border-b border-border">Description</th>
-                <th className="text-left p-3 border-b border-border">Default</th>
-              </tr>
-            </thead>
-            <tbody>
-              <tr>
-                <td className="p-3 border-b border-border/50 font-mono text-xs">--port &lt;n&gt;</td>
-                <td className="p-3 border-b border-border/50">WebSocket port for the bridge</td>
-                <td className="p-3 border-b border-border/50">18274</td>
-              </tr>
+        <h2 id="doctor-options" className="text-2xl font-semibold mb-4">Doctor Options</h2>
+        <CodeBlock language="bash">{`# Full diagnostic run
+broski doctor
 
-              <tr>
-                <td className="p-3 border-b border-border/50 font-mono text-xs">--funnel</td>
-                <td className="p-3 border-b border-border/50">Enable Tailscale Funnel (public HTTPS)</td>
-                <td className="p-3 border-b border-border/50">false</td>
-              </tr>
-              <tr>
-                <td className="p-3 border-b border-border/50 font-mono text-xs">--new-token</td>
-                <td className="p-3 border-b border-border/50">Generate new auth token</td>
-                <td className="p-3 border-b border-border/50">false</td>
-              </tr>
-              <tr>
-                <td className="p-3 border-b border-border/50 font-mono text-xs">--managed</td>
-                <td className="p-3 border-b border-border/50">Start and manage OpenCode (default)</td>
-                <td className="p-3 border-b border-border/50">true</td>
-              </tr>
-              <tr>
-                <td className="p-3 border-b border-border/50 font-mono text-xs">--manual</td>
-                <td className="p-3 border-b border-border/50">Connect to existing OpenCode server</td>
-                <td className="p-3 border-b border-border/50">false</td>
-              </tr>
-              <tr>
-                <td className="p-3 border-b border-border/50 font-mono text-xs">--attach</td>
-                <td className="p-3 border-b border-border/50">Scan and attach to running OpenCode</td>
-                <td className="p-3 border-b border-border/50">false</td>
-              </tr>
-              <tr>
-                <td className="p-3 border-b border-border/50 font-mono text-xs">--opencode-url &lt;url&gt;</td>
-                <td className="p-3 border-b border-border/50">URL of existing OpenCode server</td>
-                <td className="p-3 border-b border-border/50">-</td>
-              </tr>
-              <tr>
-                <td className="p-3 font-mono text-xs">--help, -h</td>
-                <td className="p-3">Show help message</td>
-                <td className="p-3">-</td>
-              </tr>
-            </tbody>
-          </table>
-        </div>
+# Apply safe automatic fixes
+broski doctor --fix
+
+# Focused profiles
+broski doctor --profile network
+broski doctor --profile pairing
+broski doctor --profile agents
+broski doctor --profile daemon
+broski doctor --profile security
+
+# Deep checks + machine-readable output
+broski doctor --deep
+broski doctor --json
+
+# Export redacted diagnostics bundle
+broski doctor --export`}</CodeBlock>
       </section>
 
-      {/* Examples */}
       <section className="mb-12">
-        <h2 id="examples" className="text-2xl font-semibold mb-4">Examples</h2>
-        
-        <div className="space-y-4">
-          <div className="border border-border rounded-lg p-4">
-            <h4 className="font-medium mb-2">Start with defaults</h4>
-            <CodeBlock language="bash">{`broski`}</CodeBlock>
-          </div>
+        <h2 id="logs-options" className="text-2xl font-semibold mb-4">Logs Options</h2>
+        <CodeBlock language="bash">{`# Show recent logs
+broski logs
 
-          <div className="border border-border rounded-lg p-4">
-            <h4 className="font-medium mb-2">Custom port</h4>
-            <CodeBlock language="bash">{`broski --port 8080`}</CodeBlock>
-          </div>
+# Stream logs live
+broski logs --follow
 
-          <div className="border border-border rounded-lg p-4">
-            <h4 className="font-medium mb-2">Enable Tailscale Funnel</h4>
-            <CodeBlock language="bash">{`broski --funnel`}</CodeBlock>
-          </div>
+# JSON output (for tooling)
+broski logs --json --follow
 
-          <div className="border border-border rounded-lg p-4">
-            <h4 className="font-medium mb-2">Connect to existing OpenCode</h4>
-            <CodeBlock language="bash">{`broski --opencode-url http://localhost:4096`}</CodeBlock>
-          </div>
-        </div>
+# Include only latest N lines
+broski logs --lines 300
+
+# Export redacted diagnostics bundle
+broski logs --export
+
+# Power-user controls
+broski logs --no-errors
+broski logs --redact
+broski logs --no-redact`}</CodeBlock>
       </section>
 
-      {/* Next Steps */}
+      <section className="mb-12">
+        <h2 id="serve-options" className="text-2xl font-semibold mb-4">Serve Options</h2>
+        <CodeBlock language="bash">{`# Custom bridge port
+broski --port 8080
+
+# Tailscale Funnel public URL
+broski --funnel
+
+# Hotspot-friendly IP prioritization
+broski --hotspot
+
+# OpenCode attach/manual modes
+broski --attach
+broski --manual --opencode-url http://localhost:4096`}</CodeBlock>
+      </section>
+
       <section className="mt-12 pt-8 border-t border-border">
-        <h2 id="next-steps" className="text-lg font-semibold mb-4">Related</h2>
+        <h2 id="related" className="text-lg font-semibold mb-4">Related</h2>
         <div className="grid gap-4 sm:grid-cols-2">
-          <a href="/docs/reference/env" className="block p-4 rounded-lg border border-border hover:border-primary/50 hover:bg-muted/30 transition-colors">
-            <h3 className="font-medium mb-1">Environment Variables</h3>
-            <p className="text-sm text-muted-foreground">All environment variable options</p>
+          <a href="/docs/troubleshooting" className="block p-4 rounded-lg border border-border hover:border-primary/50 hover:bg-muted/30 transition-colors">
+            <h3 className="font-medium mb-1">Troubleshooting</h3>
+            <p className="text-sm text-muted-foreground">Fix connection, pairing, backend, and daemon issues</p>
           </a>
           <a href="/docs/bridge/configuration" className="block p-4 rounded-lg border border-border hover:border-primary/50 hover:bg-muted/30 transition-colors">
-            <h3 className="font-medium mb-1">Configuration</h3>
-            <p className="text-sm text-muted-foreground">Full configuration reference</p>
+            <h3 className="font-medium mb-1">Bridge Configuration</h3>
+            <p className="text-sm text-muted-foreground">Service, network, and runtime behavior</p>
           </a>
         </div>
       </section>

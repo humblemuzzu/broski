@@ -21,19 +21,29 @@ export default function TroubleshootingPage() {
       <section className="mb-12">
         <h2 id="quick-diagnostics" className="text-2xl font-semibold mb-4">Quick Diagnostics</h2>
         <p className="text-muted-foreground mb-4">
-          Start with the <code className="bg-muted/50 px-1.5 py-0.5 rounded text-sm">broski doctor</code> command 
-          to check your system for common issues:
+          Start with <code className="bg-muted/50 px-1.5 py-0.5 rounded text-sm">broski doctor</code>, then run a focused profile if needed:
         </p>
-        <CodeBlock language="bash">{`broski doctor`}</CodeBlock>
+        <CodeBlock language="bash">{`# Full diagnostic run
+broski doctor
+
+# Focused diagnostics
+broski doctor --profile pairing
+broski doctor --profile network
+broski doctor --profile agents
+broski doctor --profile daemon
+
+# Apply safe fixes + export bundle
+broski doctor --fix
+broski doctor --export`}</CodeBlock>
 
         <h3 id="what-doctor-checks" className="text-lg font-semibold mt-6 mb-3">What Doctor Checks</h3>
         <SimpleTable
-          headers={["Check", "What It Means", "If It Fails"]}
+          headers={["Category", "Examples", "Useful Command"]}
           rows={[
-            ["OpenCode", "AI coding assistant backend", "Install: bun add -g opencode-ai"],
-            ["Local IP", "Network connectivity for local connections", "Check WiFi, network interfaces"],
-            ["Port 18274", "Default bridge port availability", "Kill existing process or use --port 0"],
-            ["Tailscale", "Remote access VPN (optional)", "Install from tailscale.com"],
+            ["Pairing", "Token validity, TLS cert/fingerprint, QR readiness", "broski doctor --profile pairing"],
+            ["Network", "Local IP, port conflicts, Tailscale status", "broski doctor --profile network"],
+            ["Agents", "OpenCode / Claude / Codex availability", "broski doctor --profile agents"],
+            ["Daemon", "Background service state and config", "broski doctor --profile daemon"],
           ]}
         />
 
@@ -41,43 +51,35 @@ export default function TroubleshootingPage() {
         <SimpleTable
           headers={["Symbol", "Status", "Meaning"]}
           rows={[
-            [<code key="ok" className="text-[#7fd88f]">[OK]</code>, "Passed", "Check passed, no action needed"],
-            [<code key="warn" className="text-amber-500">[!]</code>, "Warning", "Works but may have issues"],
-            [<code key="err" className="text-red-500">[X]</code>, "Error", "Must be fixed before using Broski"],
+            [<code key="ok" className="text-[#7fd88f]">✓</code>, "Passed", "Check passed, no action needed"],
+            [<code key="warn" className="text-amber-500">!</code>, "Warning", "Works but may degrade reliability"],
+            [<code key="err" className="text-red-500">✗</code>, "Error", "Needs fixing before reliable use"],
+            [<code key="info" className="text-muted-foreground">ℹ</code>, "Info", "Informational context"],
           ]}
         />
-
-        <h3 id="example-output" className="text-lg font-semibold mt-6 mb-3">Example Output</h3>
-        <CodeBlock language="text">{`DEPENDENCIES
---------------------------------------------------
-  [OK] OpenCode v0.2.0
-
-NETWORK
---------------------------------------------------
-  [OK] Local IP: 192.168.1.100
-  [OK] Port 18274 available
-  [OK] Tailscale installed
-  [OK] Tailscale running
-  [OK] Tailscale IP: 100.100.100.1`}</CodeBlock>
       </section>
 
       {/* Quick Health Check Commands */}
       <section className="mb-12">
         <h2 id="health-check-commands" className="text-2xl font-semibold mb-4">Health Check Commands</h2>
         <p className="text-muted-foreground mb-4">
-          Run these commands manually to diagnose specific issues:
+          Run these commands for fast targeted checks:
         </p>
-        <CodeBlock language="bash">{`# Check if bridge is running
-curl http://localhost:18274/
+        <CodeBlock language="bash">{`# Pairing + auth path
+broski doctor --profile pairing
 
-# Check OpenCode directly
-curl http://localhost:4096/path
+# Network path
+broski doctor --profile network
 
-# Check Tailscale status
-tailscale status
+# Backend path
+broski doctor --profile agents
 
-# Check what's using the bridge port
-lsof -nP -iTCP:18274 -sTCP:LISTEN`}</CodeBlock>
+# Daemon/service path
+broski doctor --profile daemon
+
+# Live logs + exportable bundle
+broski logs --follow
+broski logs --export`}</CodeBlock>
       </section>
 
       {/* Common Issues Quick Links */}
@@ -110,9 +112,9 @@ lsof -nP -iTCP:18274 -sTCP:LISTEN`}</CodeBlock>
           headers={["Problem", "Quick Fix"]}
           rows={[
             ["Can't connect", "Restart bridge, re-scan QR"],
-            ["Port in use", <><code className="text-xs">lsof -nP -iTCP:18274</code> then <code className="text-xs">kill &lt;PID&gt;</code></>],
+            ["Port in use", <><code className="text-xs">lsof -nP -iTCP:18274</code> (macOS/Linux) or <code className="text-xs">netstat -ano | findstr :18274</code> (Windows) then kill the PID</>],
             ["Auth failed", <code key="auth" className="text-xs">broski --new-token</code>],
-            ["OpenCode missing", <code key="oc" className="text-xs">bun add -g opencode-ai</code>],
+            ["OpenCode missing", <code key="oc" className="text-xs">curl -fsSL https://opencode.ai/install | bash</code>],
             ["Everything broken", <><code className="text-xs">rm -rf ~/.broski/</code> and restart</>],
           ]}
         />
@@ -207,11 +209,14 @@ broski         # Start bridge`}</CodeBlock>
         <CodeBlock language="bash">{`# Bridge version
 broski --version
 
-# Doctor output
-broski doctor
+# Focused diagnostics + safe fixes
+broski doctor --profile pairing
+broski doctor --fix
 
-# Tail live logs
-broski logs
+# Export support bundle (redacted)
+broski doctor --export
+# or
+broski logs --export
 
 # Interactive troubleshooter
 broski troubleshoot`}</CodeBlock>
@@ -220,8 +225,8 @@ broski troubleshoot`}</CodeBlock>
         <SimpleTable
           headers={["Component", "Location"]}
           rows={[
-            ["Bridge logs", "broski logs (or check ~/.broski/broski.log)"],
-            ["Auth token", "~/.broski/token"],
+            ["Bridge logs", "broski logs (or check ~/.broski/logs/bridge.log)"],
+            ["Auth token", "~/.broski/token.json"],
             ["OpenCode logs", "Terminal output"],
             ["Claude Code sessions", "~/.claude/projects/"],
             ["iOS app logs", "Xcode Console or Analytics Data"],

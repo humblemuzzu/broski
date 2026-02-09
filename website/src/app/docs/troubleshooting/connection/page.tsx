@@ -23,18 +23,17 @@ export default function ConnectionTroubleshootingPage() {
         <p className="text-muted-foreground mb-4">
           Run these commands to check your setup:
         </p>
-        <CodeBlock language="bash">{`# Check if bridge is running
-curl http://localhost:18274/
-# Expected: {"status":"ok"}
+        <CodeBlock language="bash">{`# Pairing path (token + TLS + QR readiness)
+broski doctor --profile pairing
 
-# Check what's using the port
-lsof -nP -iTCP:18274 -sTCP:LISTEN
+# Network path (IP + port + Tailscale)
+broski doctor --profile network
 
-# Check Tailscale status (if using)
-tailscale status
+# Apply safe automatic fixes
+broski doctor --fix
 
-# Run full diagnostics
-broski doctor`}</CodeBlock>
+# Export diagnostics bundle
+broski doctor --export`}</CodeBlock>
       </section>
 
       {/* Connection State Machine */}
@@ -93,11 +92,11 @@ broski doctor`}</CodeBlock>
               title: "Is the bridge running?",
               content: (
                 <>
-                  <CodeBlock language="bash">{`ps aux | grep broski`}</CodeBlock>
-                  <p className="text-sm text-muted-foreground mt-2">
-                    If nothing shows up, start the bridge:
-                  </p>
-                  <CodeBlock language="bash">{`broski`}</CodeBlock>
+                  <CodeBlock language="bash">{`# Background service status
+broski status
+
+# If not running, start bridge
+broski`}</CodeBlock>
                 </>
               ),
             },
@@ -105,8 +104,8 @@ broski doctor`}</CodeBlock>
               title: "Is the bridge healthy?",
               content: (
                 <>
-                  <CodeBlock language="bash">{`curl http://localhost:18274/
-# Expected: {"status":"ok","version":"..."}`}</CodeBlock>
+                  <CodeBlock language="bash">{`broski doctor --profile pairing
+broski doctor --profile network`}</CodeBlock>
                 </>
               ),
             },
@@ -118,12 +117,18 @@ broski doctor`}</CodeBlock>
               title: "Is the firewall blocking connections?",
               content: (
                 <CodeBlock language="bash">{`# macOS: Check firewall status
-/usr/libexec/ApplicationFirewall/socketfilterfw --getglobalstate`}</CodeBlock>
+/usr/libexec/ApplicationFirewall/socketfilterfw --getglobalstate
+
+# Windows: Check firewall status
+netsh advfirewall show allprofiles state
+
+# Linux (UFW): Check firewall status
+sudo ufw status`}</CodeBlock>
               ),
             },
             {
               title: "Is the auth token correct?",
-              description: "Re-scan the QR code to get a fresh token, or run broski --new-token",
+              description: "Re-scan the QR code to get a fresh token. To regenerate: run broski --new-token, then broski qr to display the new QR code.",
             },
           ]}
         />
@@ -135,7 +140,7 @@ broski doctor`}</CodeBlock>
             ["Bridge not running", <code key="1">broski</code>],
             ["Wrong network", "Connect phone to same WiFi as computer"],
             ["Firewall blocking", "Add exception for port 18274"],
-            ["Token mismatch", "Re-scan QR code or run --new-token"],
+            ["Token mismatch", "Run broski --new-token to regenerate, then broski qr to re-scan"],
             ["Stale connection", "Force quit app and reconnect"],
           ]}
         />
@@ -150,10 +155,13 @@ broski doctor`}</CodeBlock>
         </Callout>
 
         <h3 id="diagnose-port" className="text-lg font-semibold mt-4 mb-3">Diagnosis</h3>
-        <CodeBlock language="bash">{`# Find what's using the port
+        <CodeBlock language="bash">{`# macOS/Linux: Find what's using the port
 lsof -nP -iTCP:18274 -sTCP:LISTEN
 
-# Example output:
+# Windows: Find what's using the port
+netstat -ano | findstr :18274
+
+# Example output (macOS/Linux):
 # COMMAND   PID   USER   FD   TYPE   DEVICE
 # broski-b  1234  user   12u  IPv4   0x1234`}</CodeBlock>
 
@@ -161,11 +169,14 @@ lsof -nP -iTCP:18274 -sTCP:LISTEN
         <div className="space-y-4">
           <div className="border border-border rounded-lg p-4">
             <div className="font-medium mb-2">Option 1: Kill the existing process</div>
-            <CodeBlock language="bash">{`# Get the PID from lsof output, then:
+            <CodeBlock language="bash">{`# macOS/Linux: Get the PID from lsof output, then:
 kill <PID>
 
-# Or kill all processes on the port:
-lsof -nP -iTCP:18274 -sTCP:LISTEN | awk 'NR>1 {print $2}' | xargs kill`}</CodeBlock>
+# macOS/Linux: Or kill all processes on the port:
+lsof -nP -iTCP:18274 -sTCP:LISTEN | awk 'NR>1 {print $2}' | xargs kill
+
+# Windows: Get the PID from netstat output, then:
+taskkill /PID <PID> /F`}</CodeBlock>
           </div>
           
           <div className="border border-border rounded-lg p-4">
@@ -214,8 +225,8 @@ broski --port 18275`}</CodeBlock>
           the connection is considered dead and closed. The app will then attempt to reconnect automatically.
         </Callout>
 
-        <CodeBlock language="bash">{`# Check bridge logs for heartbeat issues
-broski logs`}</CodeBlock>
+        <CodeBlock language="bash">{`# Follow bridge logs for heartbeat/connectivity issues
+broski logs --follow`}</CodeBlock>
       </section>
 
       {/* Connection Drops */}
@@ -315,7 +326,7 @@ sudo firewall-cmd --list-ports`}</CodeBlock>
           <li>In the app, go to Settings → Connection → Manual Connect</li>
           <li>Enter the bridge URL shown in terminal</li>
         </ol>
-        <CodeBlock language="text">{`ws://192.168.1.x:18274?token=YOUR_TOKEN`}</CodeBlock>
+        <CodeBlock language="text">{`wss://192.168.1.x:18274?token=YOUR_TOKEN`}</CodeBlock>
       </section>
 
       {/* Still Having Issues */}
@@ -325,7 +336,8 @@ sudo firewall-cmd --list-ports`}</CodeBlock>
           Collect this debug info before contacting support:
         </p>
         <CodeBlock language="bash">{`broski --version
-broski doctor`}</CodeBlock>
+broski doctor --profile pairing
+broski doctor --export`}</CodeBlock>
         <p className="text-muted-foreground mt-4">
           Email: <a href="mailto:broskiappp@gmail.com" className="text-primary hover:underline">broskiappp@gmail.com</a>
         </p>

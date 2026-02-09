@@ -61,7 +61,7 @@ export default function ErrorsPage() {
               <strong>Source:</strong> Bridge startup
             </p>
             <p className="text-sm text-muted-foreground mb-3">
-              <strong>Cause:</strong> Another process (often a previous broski-bridge instance) is using the port. 
+              <strong>Cause:</strong> Another process (often a previous broski instance) is using the port. 
               This commonly happens when a previous bridge was suspended with Ctrl+Z instead of Ctrl+C.
             </p>
             <CodeBlock language="bash">{`# Find the process using the port
@@ -254,7 +254,7 @@ broski doctor
               <strong>Cause:</strong> No authentication token was provided in the connection request.
             </p>
             <CodeBlock language="text">{`# Token should be in URL:
-ws://<ip>:18274?token=<your-token>`}</CodeBlock>
+wss://<ip>:18274?token=<your-token>`}</CodeBlock>
           </div>
 
           <div className="border border-border rounded-lg p-4">
@@ -263,7 +263,7 @@ ws://<ip>:18274?token=<your-token>`}</CodeBlock>
               <strong>Source:</strong> Token storage
             </p>
             <p className="text-sm text-muted-foreground mb-3">
-              <strong>Cause:</strong> Couldn&apos;t save token to <code>~/.broski/token</code>. QR codes will change on every restart.
+              <strong>Cause:</strong> Couldn&apos;t save token to <code>~/.broski/token.json</code>. QR codes may rotate between restarts.
             </p>
             <CodeBlock language="bash">{`# Check permissions
 ls -la ~/.broski/
@@ -624,8 +624,9 @@ broski`}</CodeBlock>
         
         <Callout type="info" title="If you can't find your error">
           <ol className="list-decimal list-inside space-y-2 mt-2">
-            <li>Run <code className="bg-muted/50 px-1 rounded">broski logs</code> to see live logs</li>
-            <li>Run <code className="bg-muted/50 px-1 rounded">broski doctor</code> for diagnostics</li>
+            <li>Run <code className="bg-muted/50 px-1 rounded">broski logs --follow</code> while reproducing the issue</li>
+            <li>Run <code className="bg-muted/50 px-1 rounded">broski doctor --profile pairing</code> (or network/agents/daemon)</li>
+            <li>Export a support bundle: <code className="bg-muted/50 px-1 rounded">broski logs --export</code></li>
             <li>Check the <a href="/docs/troubleshooting" className="text-primary hover:underline">troubleshooting guide</a></li>
             <li>Contact support at <a href="mailto:broskiappp@gmail.com" className="text-primary hover:underline">broskiappp@gmail.com</a></li>
           </ol>

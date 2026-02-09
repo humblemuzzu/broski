@@ -25,7 +25,7 @@ export default function RemoteAccessPage() {
           headers={["Feature", "Local WiFi", "Tailscale VPN", "Tailscale Funnel"]}
           rows={[
             ["Latency", "1-30ms (fastest)", "30-100ms", "Variable (higher)"],
-            ["Encryption", "None (local only)", "WireGuard", "TLS 1.3"],
+            ["Encryption", "TLS + Certificate Pinning", "WireGuard", "TLS 1.3"],
             ["Phone app required", "Broski only", "Broski + Tailscale", "Broski only"],
             ["Public URL", "No", "No", "Yes"],
             ["Setup complexity", "None", "Install on both devices", "Enable in admin console"],
@@ -84,7 +84,7 @@ export default function RemoteAccessPage() {
                 <div className="text-xs text-muted-foreground">192.168.1.x:18274</div>
                 <div className="text-xs text-green-500">Fast, local only</div>
               </div>
-              <div className="px-3 py-2 bg-muted border border-border rounded text-sm">Mac</div>
+              <div className="px-3 py-2 bg-muted border border-border rounded text-sm">System</div>
             </div>
           </div>
           
@@ -102,7 +102,7 @@ export default function RemoteAccessPage() {
                 <div className="text-xs text-blue-500">WireGuard encrypted</div>
               </div>
               <div className="px-3 py-2 bg-muted border border-border rounded text-sm text-center">
-                <div>Mac</div>
+                <div>System</div>
                 <div className="text-xs text-muted-foreground">home</div>
               </div>
             </div>
@@ -126,7 +126,7 @@ export default function RemoteAccessPage() {
               </div>
               <div className="text-muted-foreground">→</div>
               <div className="px-3 py-2 bg-muted border border-border rounded text-sm text-center">
-                <div>Mac</div>
+                <div>System</div>
                 <div className="text-xs text-muted-foreground">home</div>
               </div>
             </div>
@@ -146,7 +146,7 @@ export default function RemoteAccessPage() {
         <Steps
           steps={[
             { 
-              title: "Install Tailscale on your Mac/PC", 
+              title: "Install Tailscale on your system", 
               description: "Download from tailscale.com or use the command below"
             },
             { 
@@ -155,7 +155,7 @@ export default function RemoteAccessPage() {
             },
             { 
               title: "Verify connection", 
-              description: "Your Mac will get a Tailscale IP like 100.x.x.x"
+              description: "Your system will get a Tailscale IP like 100.x.x.x"
             },
           ]}
         />
@@ -235,7 +235,7 @@ tailscale ip -4
         </div>
 
         <Callout type="warning" title="Important">
-          You must sign in with the <strong>same Tailscale account</strong> on both your Mac and phone. 
+          You must sign in with the <strong>same Tailscale account</strong> on both your system and phone. 
           Different accounts cannot see each other.
         </Callout>
       </section>
@@ -346,7 +346,7 @@ tailscale ip -4
           </div>
 
           <div className="border border-border/50 rounded-lg p-4">
-            <h3 className="font-semibold mb-2">Mac not showing Tailscale IP</h3>
+            <h3 className="font-semibold mb-2">System not showing Tailscale IP</h3>
             <p className="text-muted-foreground text-sm mb-2">
               Verify Tailscale is running:
             </p>
@@ -378,7 +378,7 @@ tailscale ip -4
             <ul className="text-muted-foreground text-sm space-y-2">
               <li>&#8226; Open the Tailscale app on your phone</li>
               <li>&#8226; Ensure VPN is enabled (toggle should be on)</li>
-              <li>&#8226; You should see your Mac in the device list</li>
+              <li>&#8226; You should see your system in the device list</li>
               <li>&#8226; Try signing out and back in with the same account</li>
             </ul>
           </div>

@@ -78,9 +78,12 @@ broski qr --hotspot  # Prioritize hotspot IP`}</CodeBlock>
 
           <div className="border border-border rounded-lg p-4">
             <h4 className="font-mono font-medium mb-2">broski doctor</h4>
-            <p className="text-muted-foreground text-sm mb-3">Check system requirements and diagnose issues.</p>
-            <CodeBlock language="bash">{`broski doctor`}</CodeBlock>
-            <p className="text-sm text-muted-foreground mt-3">Checks: AI backend installation, network IP, port availability, Tailscale status.</p>
+            <p className="text-muted-foreground text-sm mb-3">Run diagnostics, apply safe fixes, and export support bundles.</p>
+            <CodeBlock language="bash">{`broski doctor
+broski doctor --fix
+broski doctor --profile pairing
+broski doctor --export`}</CodeBlock>
+            <p className="text-sm text-muted-foreground mt-3">Profiles: all, network, pairing, agents, daemon, security.</p>
           </div>
 
           <div className="border border-border rounded-lg p-4">
@@ -135,7 +138,7 @@ broski --port 0`}</CodeBlock>
             <p className="text-muted-foreground text-sm mb-3">Generate a new authentication token.</p>
             <CodeBlock language="bash">{`# Generate new token (invalidates old QR codes)
 broski --new-token`}</CodeBlock>
-            <p className="text-sm text-muted-foreground mt-3">Use if you suspect your token has been compromised. New token is persisted to ~/.broski/token.</p>
+            <p className="text-sm text-muted-foreground mt-3">Use if you suspect your token has been compromised. New token is persisted to ~/.broski/token.json.</p>
           </div>
 
           <div className="border border-border rounded-lg p-4">
@@ -143,7 +146,7 @@ broski --new-token`}</CodeBlock>
             <p className="text-muted-foreground text-sm mb-3">Detect and prioritize hotspot IP for mobile tethering.</p>
             <CodeBlock language="bash">{`broski --hotspot
 broski qr --hotspot`}</CodeBlock>
-            <p className="text-sm text-muted-foreground mt-3">Useful when your phone is providing internet to your Mac via hotspot and you want to connect Broski over that same connection.</p>
+            <p className="text-sm text-muted-foreground mt-3">Useful when your phone is providing internet to your system via hotspot and you want to connect Broski over that same connection.</p>
           </div>
         </div>
       </section>
@@ -189,20 +192,20 @@ OPENCODE_BASE_URL=http://localhost:4096 broski`}</CodeBlock>
         
         <div className="space-y-6">
           <div className="border border-border rounded-lg p-4">
-            <h3 className="font-mono font-medium mb-2">~/.broski/token</h3>
-            <p className="text-muted-foreground text-sm mb-3">Persistent authentication token for QR code scanning.</p>
+            <h3 className="font-mono font-medium mb-2">~/.broski/token.json</h3>
+            <p className="text-muted-foreground text-sm mb-3">Persistent authentication state used for QR pairing and manual connection.</p>
             <SimpleTable
               headers={["Property", "Value"]}
               rows={[
-                ["Format", "Plain text, base64url encoded"],
+                ["Format", "JSON (version, token, createdAt, expiresAt, lastUsedAt)"],
                 ["Permissions", "0600 (owner read/write only)"],
-                ["Length", "24 bytes (32 characters encoded)"],
+                ["Token", "Base64url random token"],
                 ["Created", "Automatically on first run"],
               ]}
             />
             <Callout type="warning" title="Security">
               This file contains your auth token. Never share it or commit it to version control.
-              To invalidate: run <code>broski --new-token</code> or delete the file.
+              To invalidate: run <code>broski --new-token</code> (or <code>broski qr --new-token</code>).
             </Callout>
           </div>
 
@@ -301,7 +304,6 @@ OPENCODE_BASE_URL=http://localhost:4096 broski`}</CodeBlock>
           <div className="border border-border rounded-lg p-4">
             <h4 className="font-medium mb-2">Manual OpenCode Connection</h4>
             <CodeBlock language="bash">{`# Start OpenCode separately
-# Start OpenCode separately
 opencode serve --port 4096
 
 # Connect Broski to it
@@ -321,7 +323,7 @@ broski`}</CodeBlock>
 
           <div className="border border-border rounded-lg p-4">
             <h4 className="font-medium mb-2">Mobile Hotspot</h4>
-            <CodeBlock language="bash">{`# When your phone provides internet to your Mac
+            <CodeBlock language="bash">{`# When your phone provides internet to your system
 broski --hotspot`}</CodeBlock>
           </div>
 

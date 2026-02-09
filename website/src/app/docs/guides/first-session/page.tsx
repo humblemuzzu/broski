@@ -26,7 +26,7 @@ export default function FirstSessionPage() {
         <SimpleTable
           headers={["Requirement", "How to Check"]}
           rows={[
-            ["Bridge running on Mac", "Terminal shows QR code and \"Bridge listening on port 18274\""],
+            ["Bridge running on your system", "Terminal shows QR code and \"Bridge listening on port 18274\""],
             ["Phone connected", "Green connection indicator in the app"],
             ["AI backend configured", "OpenCode or Claude Code with valid API key"],
           ]}
@@ -49,7 +49,7 @@ export default function FirstSessionPage() {
             },
             {
               title: "Find your project",
-              description: "Projects from your Mac's home directory appear here. Scroll or use the search bar.",
+              description: "Projects from your system's home directory appear here. Scroll or use the search bar.",
             },
             {
               title: "Tap to open",
@@ -261,7 +261,7 @@ export default function FirstSessionPage() {
             <li>• Token usage statistics</li>
           </ul>
           <p className="mt-2 text-xs">
-            Note: The actual file changes on your Mac are persistent - they&apos;re saved to disk as they happen.
+            Note: The actual file changes on your system are persistent - they&apos;re saved to disk as they happen.
           </p>
         </Callout>
       </section>

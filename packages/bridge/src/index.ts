@@ -783,7 +783,7 @@ async function bootstrapManagedOpenCode(hostname: string, port: number, verbose:
         continue
       }
       console.error('Failed to start managed OpenCode server after all retries:', error)
-      console.log('  Ensure OpenCode is installed and on PATH (e.g. `bun install -g opencode`)')
+      console.log('  Ensure OpenCode is installed and on PATH (install: curl -fsSL https://opencode.ai/install | bash  or  bun add -g opencode-ai)')
       throw error
     }
   }
@@ -949,7 +949,13 @@ async function main() {
   }
 
   if (cli.subCommand === 'doctor') {
-    await runDoctor()
+    await runDoctor({
+      json: cli.doctorJson,
+      fix: cli.doctorFix,
+      deep: cli.doctorDeep,
+      profile: cli.doctorProfile as 'all' | 'network' | 'pairing' | 'agents' | 'daemon' | 'security',
+      export: cli.doctorExport,
+    })
     return
   }
 

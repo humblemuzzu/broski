@@ -1,6 +1,6 @@
 import type { WizardPrompter } from '../prompter'
 import { getLocalIP, getTailscaleIP, getHotspotIP, isTailscaleConnected } from '../../network'
-import { isTailscaleInstalled, getTailscaleInstallHint } from '../../platform'
+import { isTailscaleInstalled, getTailscaleInstallHint, checkPortInUse, getProcessOnPort } from '../../platform'
 import { success, warning, muted, bold, brand } from '../palette'
 
 export type NetworkResult = {
@@ -132,6 +132,17 @@ export async function runNetworkStep(
   })
 
   const port = Number(portStr)
+
+  const busy = await checkPortInUse(port)
+  if (busy) {
+    const proc = await getProcessOnPort(port)
+    const procLabel = proc ? `${proc.name} (PID ${proc.pid})` : 'another process'
+    await prompter.note(
+      `${warning('⚠')} Port ${bold(String(port))} is already in use by ${procLabel}.\n` +
+      `${muted('You can continue, but bridge startup may fail until that process is stopped.')}`,
+      'Port Check',
+    )
+  }
 
   return { port, mode, enableFunnel }
 }

@@ -6,7 +6,7 @@ import { isCompiledBinary } from './platform'
 import packageMeta from '../package.json'
 import { redactSensitiveText } from './logging/redact'
 
-type LogsRunOptions = Pick<
+export type LogsRunOptions = Pick<
   CliOptions,
   'logsFollow' | 'logsJson' | 'logsPlain' | 'logsLines' | 'logsIntervalMs' | 'logsExport' | 'logsIncludeErrors' | 'logsRedact'
 >
@@ -126,7 +126,7 @@ function detectLikelyIssues(lines: string[]): string[] {
   const text = lines.join('\n').toLowerCase()
   const issues: string[] = []
 
-  if (text.includes('eaddrinuse') || text.includes('port') && text.includes('already in use')) {
+  if (text.includes('eaddrinuse') || (text.includes('port') && text.includes('already in use'))) {
     issues.push('Port conflict detected: another process may already be using the bridge port.')
   }
   if (text.includes('tailscale not connected') || text.includes('funnel requires tailscale')) {
@@ -238,6 +238,21 @@ async function pollUpdates(cursors: FileCursor[], opts: LogsRunOptions): Promise
       // ignore disappearing files during follow
     }
   }
+}
+
+export async function exportLogsDiagnosticsBundle(options?: Partial<LogsRunOptions>): Promise<string> {
+  const opts = mergeOptions({
+    logsFollow: false,
+    logsJson: false,
+    logsPlain: false,
+    logsExport: true,
+    ...options,
+  })
+  const files = await getLogFiles(opts.logsIncludeErrors)
+  if (files.length === 0) {
+    throw new Error(`No logs found in ${LOG_DIR}`)
+  }
+  return await exportDiagnostics(files, opts)
 }
 
 export async function runLogs(options?: Partial<LogsRunOptions>): Promise<void> {

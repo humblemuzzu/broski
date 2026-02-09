@@ -1,9 +1,7 @@
 import type { WizardPrompter } from './prompter'
 import { WizardCancelledError } from './errors'
-import { runDoctor } from '../doctor'
+import { runDoctor, type DoctorProfile } from '../doctor'
 import { brand, muted, bold, warning, header } from './palette'
-import { homedir } from 'node:os'
-import { resolve } from 'node:path'
 
 type Problem =
   | 'phone-cant-connect'
@@ -12,6 +10,23 @@ type Problem =
   | 'agent-not-responding'
   | 'qr-not-working'
   | 'something-else'
+
+function profileForProblem(problem: Problem): DoctorProfile {
+  switch (problem) {
+    case 'phone-cant-connect':
+      return 'network'
+    case 'sessions-not-showing':
+      return 'agents'
+    case 'bridge-crashing':
+      return 'daemon'
+    case 'agent-not-responding':
+      return 'agents'
+    case 'qr-not-working':
+      return 'pairing'
+    case 'something-else':
+      return 'all'
+  }
+}
 
 export async function runTroubleshootWizard(
   prompter: WizardPrompter,
@@ -22,32 +37,47 @@ export async function runTroubleshootWizard(
     const problem = await prompter.select<Problem>({
       message: 'What\'s the problem?',
       options: [
-        { value: 'phone-cant-connect', label: 'Phone can\'t connect', hint: 'most common' },
-        { value: 'sessions-not-showing', label: 'Sessions not showing up' },
-        { value: 'bridge-crashing', label: 'Bridge keeps crashing' },
-        { value: 'agent-not-responding', label: 'Agent not responding' },
-        { value: 'qr-not-working', label: 'QR code not working' },
-        { value: 'something-else', label: 'Something else' },
+        { value: 'phone-cant-connect', label: 'Phone can\'t connect', hint: 'network / pairing path' },
+        { value: 'sessions-not-showing', label: 'Sessions not showing up', hint: 'backend/session discovery path' },
+        { value: 'bridge-crashing', label: 'Bridge keeps crashing', hint: 'daemon/runtime path' },
+        { value: 'agent-not-responding', label: 'Agent not responding', hint: 'backend path' },
+        { value: 'qr-not-working', label: 'QR code not working', hint: 'token / tls / scan path' },
+        { value: 'something-else', label: 'Something else', hint: 'full diagnostic path' },
       ],
     })
 
-    // Show context-specific guidance
     await showDiagnosis(prompter, problem)
 
-    // Offer to run full doctor
-    const runFull = await prompter.confirm({
-      message: 'Run a full system check? (broski doctor)',
+    const profile = profileForProblem(problem)
+    const runFocused = await prompter.confirm({
+      message: `Run focused diagnostics now? (broski doctor --profile ${profile})`,
       initialValue: true,
     })
 
-    if (runFull) {
-      await prompter.note(muted('Running diagnostics...'), 'System Check')
-      await runDoctor()
+    if (runFocused) {
+      await prompter.note(muted(`Running doctor profile: ${profile}...`), 'Diagnostics')
+      await runDoctor({ profile })
+
+      const runFix = await prompter.confirm({
+        message: 'Try safe auto-fixes now? (broski doctor --fix)',
+        initialValue: true,
+      })
+      if (runFix) {
+        await runDoctor({ profile, fix: true })
+      }
     }
 
-    // Follow-up
+    const exportBundle = await prompter.confirm({
+      message: 'Export diagnostics bundle for support/AI help?',
+      initialValue: true,
+    })
+
+    if (exportBundle) {
+      await runDoctor({ profile, export: true })
+    }
+
     const helped = await prompter.confirm({
-      message: 'Did this help resolve your issue?',
+      message: 'Did this resolve your issue?',
       initialValue: true,
     })
 
@@ -55,14 +85,15 @@ export async function runTroubleshootWizard(
       await prompter.outro(brand('Great! Happy vibe coding.'))
     } else {
       await prompter.note(
-        `${bold('Still stuck? Try these:')}\n\n` +
-        `  ${brand('broski doctor')}    ${muted('— Full diagnostic with auto-fix')}\n` +
-        `  ${brand('broski logs')}      ${muted('— View bridge logs')}\n` +
-        `  ${brand('broski restart')}   ${muted('— Restart the bridge')}\n\n` +
-        `${muted('Report bugs at: https://github.com/humblemuzzu/broski/issues')}`,
-        'More Help',
+        `${bold('Still stuck? Run these in order:')}\n\n` +
+        `  ${brand('broski doctor --deep --profile ' + profile)}\n` +
+        `  ${brand('broski doctor --fix --profile ' + profile)}\n` +
+        `  ${brand('broski logs --follow')}\n` +
+        `  ${brand('broski logs --export')}\n\n` +
+        `${muted('Then share the diagnostics export with support or your AI assistant.')}`,
+        'Escalation Path',
       )
-      await prompter.outro(muted('Good luck! We\'re here to help.'))
+      await prompter.outro(muted('You can rerun this anytime with `broski troubleshoot`.'))
     }
   } catch (err) {
     if (err instanceof WizardCancelledError) {
@@ -79,94 +110,72 @@ async function showDiagnosis(prompter: WizardPrompter, problem: Problem): Promis
   switch (problem) {
     case 'phone-cant-connect':
       await prompter.note(
-        `${bold('Common causes:')}\n\n` +
-        `  ${bold('1.')} Bridge isn't running\n` +
-        `     ${muted('Fix:')} Run ${brand('broski')} to start the bridge\n\n` +
-        `  ${bold('2.')} Phone and computer on different networks\n` +
-        `     ${muted('Fix:')} Connect both to the same Wi-Fi network\n` +
-        `     ${muted('Or:')}  Use ${brand('broski setup-tailscale')} for remote access\n\n` +
-        `  ${bold('3.')} Firewall blocking port 18274\n` +
-        `     ${muted('Fix:')} Allow incoming connections on port 18274\n\n` +
-        `  ${bold('4.')} TLS certificate mismatch\n` +
-        `     ${muted('Fix:')} Scan a fresh QR code with ${brand('broski qr')}\n\n` +
-        `  ${bold('5.')} Auth token expired\n` +
-        `     ${muted('Fix:')} Run ${brand('broski qr --new-token')} to generate a new one`,
+        `${bold('Most likely causes:')}\n\n` +
+        `  ${bold('1.')} Bridge is not running\n` +
+        `     ${muted('Run:')} ${brand('broski')}\n\n` +
+        `  ${bold('2.')} Phone and computer are on different networks\n` +
+        `     ${muted('Use same Wi-Fi or Tailscale')}\n\n` +
+        `  ${bold('3.')} Firewall blocks bridge port\n` +
+        `     ${muted('Allow configured bridge port in firewall')}\n\n` +
+        `  ${bold('4.')} Token/cert mismatch\n` +
+        `     ${muted('Run:')} ${brand('broski qr --new-token')}`,
         'Phone Connection Issues',
       )
       break
 
     case 'sessions-not-showing':
       await prompter.note(
-        `${bold('Common causes:')}\n\n` +
-        `  ${bold('1.')} No agent is running\n` +
-        `     ${muted('Fix:')} Start an agent (opencode, claude, codex) in a terminal\n\n` +
-        `  ${bold('2.')} Agent not detected by bridge\n` +
-        `     ${muted('Fix:')} Check ${brand('broski doctor')} for agent status\n\n` +
-        `  ${bold('3.')} Bridge needs restart to pick up new sessions\n` +
-        `     ${muted('Fix:')} Run ${brand('broski restart')}\n\n` +
-        `  ${bold('4.')} Wrong project directory\n` +
-        `     ${muted('Fix:')} The bridge discovers sessions from your home directory`,
+        `${bold('Most likely causes:')}\n\n` +
+        `  ${bold('1.')} Backend binary not installed\n` +
+        `  ${bold('2.')} Backend process not running\n` +
+        `  ${bold('3.')} Bridge needs refresh/restart\n\n` +
+        `${muted('Run:')} ${brand('broski doctor --profile agents')}`,
         'Missing Sessions',
       )
       break
 
     case 'bridge-crashing':
       await prompter.note(
-        `${bold('Debugging steps:')}\n\n` +
-        `  ${bold('1.')} Check the logs:\n` +
-        `     ${brand(`cat ${resolve(homedir(), '.broski', 'logs', 'bridge.log')}`)}\n` +
-        `     ${muted('Or run:')} ${brand('broski logs')}\n\n` +
-        `  ${bold('2.')} Check for port conflicts:\n` +
-        `     ${muted('Another process may be using port 18274')}\n` +
-        `     ${muted('Fix:')} Run ${brand('broski --port 18275')} to use a different port\n\n` +
-        `  ${bold('3.')} Check system resources:\n` +
-        `     ${muted('Ensure you have enough RAM and disk space')}\n\n` +
-        `  ${bold('4.')} Update to latest version:\n` +
-        `     ${muted('Fix:')} Run ${brand('broski update')}`,
+        `${bold('Fast path:')}\n\n` +
+        `  ${brand('broski doctor --profile daemon')}\n` +
+        `  ${brand('broski logs --follow')}\n\n` +
+        `${muted('If port conflicts appear, doctor output will show exact kill command.')}`,
         'Bridge Crashes',
       )
       break
 
     case 'agent-not-responding':
       await prompter.note(
-        `${bold('Common causes:')}\n\n` +
-        `  ${bold('1.')} Agent binary not installed\n` +
-        `     ${muted('OpenCode:')}    ${brand('npm i -g opencode')}\n` +
-        `     ${muted('Claude Code:')} ${brand('npm i -g @anthropic-ai/claude-code')}\n` +
-        `     ${muted('Codex:')}       ${brand('npm i -g @openai/codex')}\n\n` +
-        `  ${bold('2.')} Agent process crashed\n` +
-        `     ${muted('Fix:')} Restart the agent in your terminal\n\n` +
-        `  ${bold('3.')} API key not set\n` +
-        `     ${muted('Ensure your ANTHROPIC_API_KEY or OPENAI_API_KEY is set')}\n\n` +
-        `  ${bold('4.')} Bridge lost connection to agent\n` +
-        `     ${muted('Fix:')} Run ${brand('broski restart')}`,
+        `${bold('Install commands (official):')}\n\n` +
+        `  ${muted('OpenCode:')}    ${brand('curl -fsSL https://opencode.ai/install | bash')}\n` +
+        `  ${muted('Claude Code:')} ${brand('curl -fsSL https://claude.ai/install.sh | bash')}\n` +
+        `  ${muted('Codex:')}       ${brand('npm i -g @openai/codex')}\n\n` +
+        `${muted('Then run:')} ${brand('broski doctor --profile agents')}`,
         'Agent Issues',
       )
       break
 
     case 'qr-not-working':
       await prompter.note(
-        `${bold('Common causes:')}\n\n` +
-        `  ${bold('1.')} QR code is outdated\n` +
-        `     ${muted('Fix:')} Generate a fresh one with ${brand('broski qr')}\n\n` +
-        `  ${bold('2.')} Auth token expired\n` +
-        `     ${muted('Fix:')} Run ${brand('broski qr --new-token')}\n\n` +
-        `  ${bold('3.')} Bridge not running\n` +
-        `     ${muted('Fix:')} Start with ${brand('broski')}, then scan the QR code\n\n` +
-        `  ${bold('4.')} Terminal too small for QR code\n` +
-        `     ${muted('Fix: Make your terminal window wider, or zoom out')}\n\n` +
-        `  ${bold('5.')} Camera can\'t focus\n` +
-        `     ${muted('Fix: Try holding your phone further from the screen')}`,
+        `${bold('Most likely causes:')}\n\n` +
+        `  ${bold('1.')} Old/expired token\n` +
+        `     ${muted('Run:')} ${brand('broski qr --new-token')}\n\n` +
+        `  ${bold('2.')} Bridge not running\n` +
+        `     ${muted('Run:')} ${brand('broski')}\n\n` +
+        `  ${bold('3.')} TLS fingerprint mismatch after cert rotation\n` +
+        `     ${muted('Re-scan fresh QR from same machine')}\n\n` +
+        `${muted('Run:')} ${brand('broski doctor --profile pairing')}`,
         'QR Code Issues',
       )
       break
 
     case 'something-else':
       await prompter.note(
-        `${bold('Let\'s run a full system check to find the issue.')}\n\n` +
-        `${muted('The doctor will check:')} system, dependencies, network,\n` +
-        `security, daemon, agents, and connectivity.\n\n` +
-        `${muted('It can also auto-fix common issues.')}`,
+        `${bold('No problem — run full diagnostics.')}
+
+` +
+        `${muted('Recommended:')} ${brand('broski doctor --deep')}\n` +
+        `${muted('Then:')} ${brand('broski logs --export')}`,
         'Full Diagnosis',
       )
       break

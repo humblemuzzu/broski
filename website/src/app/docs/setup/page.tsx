@@ -68,31 +68,22 @@ export default function SetupPage() {
       <section className="mb-12">
         <h2 id="step-2-verify" className="text-2xl font-semibold mb-4">Step 2: Verify Installation</h2>
         <p className="text-muted-foreground mb-4">
-          Run the diagnostic command to verify everything is set up correctly:
+          Run diagnostics to verify setup, then apply safe fixes if needed:
         </p>
         
-        <CodeBlock language="bash">{`broski doctor`}</CodeBlock>
+        <CodeBlock language="bash">{`broski doctor
+broski doctor --fix`}</CodeBlock>
 
-        <p className="text-muted-foreground mt-4 mb-2">Expected output (all checks passing):</p>
-        <CodeBlock language="terminal">{`DEPENDENCIES
---------------------------------------------------
-  ✓ OpenCode x.x.x (or Claude Code / Codex)
+        <p className="text-muted-foreground mt-4 mb-2">Common focused checks:</p>
+        <CodeBlock language="bash">{`# Pairing readiness (token + TLS + QR)
+broski doctor --profile pairing
 
-NETWORK
---------------------------------------------------
-  ✓ Local IP: 192.168.x.x
-  ✓ Port 18274 available
-  ✓ Tailscale installed
-  ✓ Tailscale running
-  ✓ Tailscale IP: 100.x.x.x
-
---------------------------------------------------
-✓ All checks passed!
-
-Run \`broski\` to start.`}</CodeBlock>
+# Backend readiness (OpenCode/Claude/Codex)
+broski doctor --profile agents`}</CodeBlock>
 
         <Callout type="warning" title="Failed checks?">
-          If any checks fail, see the <a href="/docs/troubleshooting" className="text-primary hover:underline">Troubleshooting Guide</a> for solutions.
+          Run <code className="bg-muted/50 px-1 rounded">broski doctor --fix</code>, then export diagnostics if still stuck:
+          <CodeBlock language="bash">{`broski doctor --export`}</CodeBlock>
         </Callout>
       </section>
 
@@ -198,9 +189,12 @@ broski --port 8080`}</CodeBlock>
           <div className="border border-border/50 rounded-lg p-4">
             <h3 className="font-semibold mb-2">&quot;Connection failed&quot;</h3>
             <p className="text-muted-foreground text-sm mb-2">
-              Check if your firewall is blocking port 18274:
+              Run focused diagnostics first, then apply firewall rules if needed:
             </p>
-            <CodeBlock language="bash">{`# macOS: Allow incoming connections
+            <CodeBlock language="bash">{`broski doctor --profile pairing
+broski doctor --profile network
+
+# macOS: allow incoming connections
 sudo /usr/libexec/ApplicationFirewall/socketfilterfw --add $(which broski)
 
 # Linux (UFW)

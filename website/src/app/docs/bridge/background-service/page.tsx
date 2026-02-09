@@ -89,10 +89,10 @@ broski uninstall`}</CodeBlock>
     <true/>
     
     <key>StandardOutPath</key>
-    <string>/Users/YOUR_USERNAME/.broski/broski.log</string>
+    <string>/Users/YOUR_USERNAME/.broski/logs/bridge.log</string>
     
     <key>StandardErrorPath</key>
-    <string>/Users/YOUR_USERNAME/.broski/broski.error.log</string>
+    <string>/Users/YOUR_USERNAME/.broski/logs/bridge.error.log</string>
 </dict>
 </plist>`}</CodeBlock>
 
@@ -119,8 +119,8 @@ launchctl start com.broski.bridge
 launchctl unload ~/Library/LaunchAgents/com.broski.bridge.plist
 
 # View logs
-tail -f ~/.broski/broski.log
-tail -f ~/.broski/broski.error.log`}</CodeBlock>
+tail -f ~/.broski/logs/bridge.log
+tail -f ~/.broski/logs/bridge.error.log`}</CodeBlock>
       </section>
 
       {/* macOS Homebrew Services */}
@@ -256,7 +256,7 @@ Unregister-ScheduledTask -TaskName "Broski Bridge" -Confirm:$false`}</CodeBlock>
         </p>
         <CodeBlock language="powershell">{`# Create a batch script at %USERPROFILE%\\broski-start.bat
 @echo off
-%USERPROFILE%\\.broski\\bin\\broski.exe >> %USERPROFILE%\\.broski\\broski.log 2>&1`}</CodeBlock>
+%USERPROFILE%\\.broski\\bin\\broski.exe >> %USERPROFILE%\\.broski\\logs\\bridge.log 2>&1`}</CodeBlock>
         <p className="text-sm text-muted-foreground mt-2">
           Then point the scheduled task to this batch script instead.
         </p>
@@ -269,21 +269,21 @@ Unregister-ScheduledTask -TaskName "Broski Bridge" -Confirm:$false`}</CodeBlock>
         <SimpleTable
           headers={["Platform", "Standard Output", "Error Output"]}
           rows={[
-            ["macOS (LaunchAgent)", "~/.broski/broski.log", "~/.broski/broski.error.log"],
+            ["macOS (LaunchAgent)", "~/.broski/logs/bridge.log", "~/.broski/logs/bridge.error.log"],
             ["Linux (systemd)", "journalctl --user -u broski", "journalctl --user -u broski"],
-            ["Windows", "%USERPROFILE%\\.broski\\broski.log", "(combined with stdout)"],
+            ["Windows", "%USERPROFILE%\\.broski\\logs\\bridge.log", "(combined with stdout)"],
           ]}
         />
 
         <h3 className="text-lg font-medium mt-6 mb-3">View Logs</h3>
         <CodeBlock language="bash">{`# macOS
-tail -f ~/.broski/broski.log
+tail -f ~/.broski/logs/bridge.log
 
 # Linux
 journalctl --user -u broski -f
 
 # Windows (PowerShell)
-Get-Content -Path "$env:USERPROFILE\\.broski\\broski.log" -Wait`}</CodeBlock>
+Get-Content -Path "$env:USERPROFILE\\.broski\\logs\\bridge.log" -Wait`}</CodeBlock>
       </section>
 
       {/* Auto-Restart on Failure */}
@@ -380,7 +380,7 @@ broski install`}</CodeBlock>
             <h3 className="font-medium mb-2">Option 3: Use saved connection</h3>
             <p className="text-sm text-muted-foreground">
               Once you&apos;ve scanned the QR code, your phone remembers the connection. 
-              As long as the token in <code className="bg-muted/50 px-1 rounded">~/.broski/token</code> doesn&apos;t change, 
+              As long as the token in <code className="bg-muted/50 px-1 rounded">~/.broski/token.json</code> doesn&apos;t change, 
               the app will reconnect automatically.
             </p>
           </div>
@@ -395,7 +395,7 @@ broski install`}</CodeBlock>
           <div className="border border-border rounded-lg p-4">
             <h3 className="font-medium mb-2">Service not starting</h3>
             <ul className="text-sm text-muted-foreground space-y-1">
-              <li>Check logs: <code className="bg-muted/50 px-1 rounded">tail ~/.broski/broski.error.log</code></li>
+              <li>Check logs: <code className="bg-muted/50 px-1 rounded">tail ~/.broski/logs/bridge.error.log</code></li>
               <li>Verify the path to broski is correct</li>
               <li>Ensure broski is installed: <code className="bg-muted/50 px-1 rounded">broski --help</code></li>
               <li>Run <code className="bg-muted/50 px-1 rounded">broski doctor</code> to check requirements</li>

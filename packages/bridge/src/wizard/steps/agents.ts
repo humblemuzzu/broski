@@ -72,12 +72,12 @@ export async function runAgentsStep(
       {
         value: 'opencode',
         label: `OpenCode ${detected.opencode.found ? success('(detected)') : warning('(not found)')}`,
-        hint: detected.opencode.found ? detected.opencode.path ?? undefined : 'npm i -g opencode',
+        hint: detected.opencode.found ? detected.opencode.path ?? undefined : 'curl -fsSL https://opencode.ai/install | bash',
       },
       {
         value: 'claudeCode',
         label: `Claude Code ${detected.claudeCode.found ? success('(detected)') : warning('(not found)')}`,
-        hint: detected.claudeCode.found ? detected.claudeCode.path ?? undefined : 'npm i -g @anthropic-ai/claude-code',
+        hint: detected.claudeCode.found ? detected.claudeCode.path ?? undefined : 'curl -fsSL https://claude.ai/install.sh | bash',
       },
       {
         value: 'codex',
@@ -90,10 +90,10 @@ export async function runAgentsStep(
   // Show warnings for selected but not-found agents
   const warnings: string[] = []
   if (selected.includes('opencode') && !detected.opencode.found) {
-    warnings.push(`  ${warning('⚠')} OpenCode not found. Install: ${bold('npm i -g opencode')}`)
+    warnings.push(`  ${warning('⚠')} OpenCode not found. Install: ${bold('curl -fsSL https://opencode.ai/install | bash')}`)
   }
   if (selected.includes('claudeCode') && !detected.claudeCode.found) {
-    warnings.push(`  ${warning('⚠')} Claude Code not found. Install: ${bold('npm i -g @anthropic-ai/claude-code')}`)
+    warnings.push(`  ${warning('⚠')} Claude Code not found. Install: ${bold('curl -fsSL https://claude.ai/install.sh | bash')}`)
   }
   if (selected.includes('codex') && !detected.codex.found) {
     warnings.push(`  ${warning('⚠')} Codex not found. Install: ${bold('npm i -g @openai/codex')}`)

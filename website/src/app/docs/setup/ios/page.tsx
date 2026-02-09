@@ -52,7 +52,7 @@ export default function IOSSetupPage() {
           >
             Download on the App Store
           </a>
-          <p className="text-sm text-muted-foreground mt-3">Free - iOS 15.0+</p>
+          <p className="text-sm text-muted-foreground mt-3">Requires iOS 15.0+ &bull; Subscription required</p>
         </div>
       </section>
 
@@ -68,7 +68,7 @@ export default function IOSSetupPage() {
           rows={[
             [
               <strong key="camera">Camera</strong>,
-              "Scan QR code to connect to your Mac",
+              "Scan QR code to connect to your system",
               "Yes"
             ],
             [
@@ -90,7 +90,7 @@ export default function IOSSetupPage() {
         />
 
         <Callout type="warning" title="Local Network Permission">
-          If you deny the Local Network permission, you won&apos;t be able to connect to your Mac 
+          If you deny the Local Network permission, you won&apos;t be able to connect to your system 
           over WiFi. You can still use Tailscale for remote connections.
         </Callout>
 
@@ -121,7 +121,7 @@ export default function IOSSetupPage() {
             },
             {
               title: "Local Network Permission",
-              description: "iOS will ask to allow Broski to find devices on your network. Tap \"Allow\" to connect to your Mac.",
+              description: "iOS will ask to allow Broski to find devices on your network. Tap \"Allow\" to connect to your system.",
             },
             {
               title: "Scan QR Code",
@@ -155,7 +155,7 @@ export default function IOSSetupPage() {
             },
             {
               title: "Sign In",
-              description: "Open Tailscale and sign in with the same account you use on your Mac.",
+              description: "Open Tailscale and sign in with the same account you use on your system.",
             },
             {
               title: "Enable VPN",
@@ -163,7 +163,7 @@ export default function IOSSetupPage() {
             },
             {
               title: "Verify Connection",
-              description: "In Broski, your Mac should now be reachable via its Tailscale IP (100.x.x.x).",
+              description: "In Broski, your system should now be reachable via its Tailscale IP (100.x.x.x).",
             },
           ]}
         />

@@ -36,13 +36,15 @@ export default function BridgePage() {
 
       <h2 id="commands" className="text-2xl font-semibold mb-4 mt-10">Commands</h2>
       
-      <CodeBlock language="bash">{`broski                # Start server (default)
-broski install        # Install as background service
-broski uninstall      # Remove background service
-broski status         # Check if bridge is running
-broski stop           # Stop background service
-broski qr             # Show QR code to pair phone
-broski doctor         # Check system requirements
+      <CodeBlock language="bash">{`broski                 # Start server (default)
+broski install         # Install as background service
+broski uninstall       # Remove background service
+broski status          # Check if bridge is running
+broski stop            # Stop background service
+broski qr              # Show QR code to pair phone
+broski doctor          # Full diagnostics
+broski doctor --fix    # Apply safe fixes
+broski logs --export   # Export diagnostics bundle
 broski setup-tailscale # Set up Tailscale for remote access`}</CodeBlock>
 
       <h2 id="architecture" className="text-2xl font-semibold mb-4 mt-10">Architecture</h2>
@@ -155,7 +157,7 @@ broski setup-tailscale # Set up Tailscale for remote access`}</CodeBlock>
       
       <Steps
         steps={[
-          { title: "Bridge starts", description: "WebSocket server runs on your Mac with a QR code containing connection info" },
+          { title: "Bridge starts", description: "WebSocket server runs on your system with a QR code containing connection info" },
           { title: "Phone scans QR", description: "Broski app extracts host, port, and auth token from the QR code payload" },
           { title: "Connection established", description: "Phone connects via WebSocket (local WiFi, Tailscale, or Funnel)" },
           { title: "Messages relay", description: "Your messages go to AI agent, responses and tool calls stream back in real-time" },
@@ -200,7 +202,7 @@ broski setup-tailscale # Set up Tailscale for remote access`}</CodeBlock>
       
       <Callout type="tip" title="Privacy by Design">
         All traffic stays on your local network or encrypted Tailscale tunnel. No data is sent to 
-        Broski servers. Connection secured with a cryptographically random 24-byte token on each start.
+        Broski servers. Connection is secured with a cryptographically random token stored locally on your machine.
       </Callout>
 
       <SimpleTable
@@ -208,7 +210,7 @@ broski setup-tailscale # Set up Tailscale for remote access`}</CodeBlock>
         rows={[
           ["Auth Token", "24 bytes (192 bits) cryptographically random, base64url encoded"],
           ["Token Validation", "Timing-safe comparison to prevent timing attacks"],
-          ["Token Storage", "~/.broski/token with 0600 permissions (owner read/write only)"],
+          ["Token Storage", "~/.broski/token.json with 0600 permissions (owner read/write only)"],
           ["Local WiFi", "Unencrypted but local-only (trusted network)"],
           ["Tailscale", "WireGuard encryption (military-grade)"],
           ["Funnel", "TLS 1.3 HTTPS (public but encrypted)"],

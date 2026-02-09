@@ -53,9 +53,11 @@ export async function runFinalizeStep(
   await prompter.note(
     `  ${brand('broski')}              ${muted('— Start the bridge')}\n` +
     `  ${brand('broski qr')}           ${muted('— Show QR code to pair your phone')}\n` +
-    `  ${brand('broski doctor')}       ${muted('— Diagnose issues')}\n` +
+    `  ${brand('broski doctor')}       ${muted('— Run diagnostics')}\n` +
+    `  ${brand('broski doctor --fix')} ${muted('— Apply safe fixes')}\n` +
+    `  ${brand('broski logs --export')} ${muted('— Export support bundle')}\n` +
     `  ${brand('broski configure')}    ${muted('— Change settings')}\n` +
-    `  ${brand('broski troubleshoot')} ${muted('— Fix problems')}`,
+    `  ${brand('broski troubleshoot')} ${muted('— Guided troubleshooting')}`,
     'Next Steps',
   )
 

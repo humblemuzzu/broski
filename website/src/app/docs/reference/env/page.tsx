@@ -107,7 +107,7 @@ export default function EnvVariablesPage() {
                 <td className="p-3 border-b border-border/50">OpenAI API key</td>
               </tr>
               <tr>
-                <td className="p-3 border-b border-border/50 font-mono text-xs">GOOGLE_API_KEY</td>
+                <td className="p-3 border-b border-border/50 font-mono text-xs">GOOGLE_AI_API_KEY</td>
                 <td className="p-3 border-b border-border/50">OpenCode</td>
                 <td className="p-3 border-b border-border/50">Google Gemini API key</td>
               </tr>
@@ -127,7 +127,6 @@ export default function EnvVariablesPage() {
         
         <h3 id="temporary" className="text-xl font-medium mb-3 mt-6">Temporary (Current Session)</h3>
         <CodeBlock language="bash">{`# Set for this command only
-# Set for this command only
 BROSKI_PORT=8080 broski
 
 # Or export for current session

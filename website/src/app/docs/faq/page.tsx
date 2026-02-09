@@ -23,16 +23,17 @@ export default function FAQPage() {
             <h3 className="font-semibold mb-2">What is Broski?</h3>
             <p className="text-muted-foreground">
               Broski is a mobile companion app that turns your phone into a remote control for AI coding agents. 
-              It connects to Claude Code, OpenCode, or Codex running on your Mac, letting you chat with AI, 
+              It connects to Claude Code, OpenCode, or Codex running on your system, letting you chat with AI, 
               view code changes, and approve actions from anywhere.
             </p>
           </div>
 
           <div className="border border-border/50 rounded-lg p-5">
-            <h3 className="font-semibold mb-2">Is Broski free?</h3>
+            <h3 className="font-semibold mb-2">How much does Broski cost?</h3>
             <p className="text-muted-foreground">
-              Yes, Broski is completely free. However, you&apos;ll need your own AI provider subscription 
-              (Claude Pro, OpenAI API key, etc.) configured in your AI backend - Broski doesn&apos;t handle AI authentication.
+              Broski requires a subscription. The app is free to download, but a subscription is
+              required to use it. You&apos;ll also need your own AI provider subscription
+              (Claude Pro, OpenAI API key, etc.) configured in your AI backend &mdash; Broski doesn&apos;t handle AI authentication.
             </p>
           </div>
 
@@ -62,7 +63,7 @@ export default function FAQPage() {
             </p>
             <ol className="text-muted-foreground space-y-1 list-decimal ml-4">
               <li><strong className="text-foreground">Phone App</strong> - Displays UI, captures input</li>
-              <li><strong className="text-foreground">Bridge Server</strong> - Runs on your Mac, translates messages</li>
+              <li><strong className="text-foreground">Bridge Server</strong> - Runs on your system, translates messages</li>
               <li><strong className="text-foreground">AI Backend</strong> - Does reasoning, executes tools</li>
             </ol>
           </div>
@@ -93,9 +94,8 @@ export default function FAQPage() {
             </p>
             <CodeBlock language="bash">{`broski`}</CodeBlock>
             <p className="text-muted-foreground text-sm mt-2">
-              Or with npm:
+              This starts the bridge server and displays a QR code to pair with your phone.
             </p>
-            <CodeBlock language="bash">{`broski`}</CodeBlock>
           </div>
 
           <div className="border border-border/50 rounded-lg p-5">
@@ -110,7 +110,7 @@ export default function FAQPage() {
           <div className="border border-border/50 rounded-lg p-5">
             <h3 className="font-semibold mb-2">Why can&apos;t I scan the QR code?</h3>
             <ul className="text-muted-foreground space-y-2">
-              <li>&#8226; Make sure your phone and Mac are on the same WiFi network</li>
+              <li>&#8226; Make sure your phone and system are on the same WiFi network</li>
               <li>&#8226; Check that the bridge is still running in your terminal</li>
               <li>&#8226; Try increasing terminal brightness</li>
               <li>&#8226; Move closer to the screen for better camera focus</li>
@@ -164,7 +164,7 @@ export default function FAQPage() {
             <h3 className="font-semibold mb-2">What is Tailscale and why do I need it?</h3>
             <p className="text-muted-foreground">
               Tailscale is a free VPN that creates a secure connection between your devices. 
-              Without it, you can only use Broski when connected to the same WiFi as your Mac. 
+               Without it, you can only use Broski when connected to the same WiFi as your system.
               With Tailscale, you can use Broski from a coffee shop, airport, or anywhere in the world.
             </p>
           </div>
@@ -357,7 +357,7 @@ export default function FAQPage() {
             <h3 className="font-semibold mb-2">What happens to my sessions when I disconnect?</h3>
             <p className="text-muted-foreground">
               Sessions persist on your computer - they&apos;re not stored on your phone. When you reconnect, 
-              all sessions reload from your Mac. Any in-progress AI responses will have completed (or failed). 
+              all sessions reload from your system. Any in-progress AI responses will have completed (or failed). 
               Recent messages are cached for offline viewing.
             </p>
           </div>
@@ -416,7 +416,6 @@ BROSKI_PORT=8080 broski`}</CodeBlock>
             <ul className="text-muted-foreground text-sm space-y-1">
               <li>&#8226; <code className="px-1 py-0.5 bg-muted rounded">BROSKI_PORT</code> - Port number</li>
               <li>&#8226; <code className="px-1 py-0.5 bg-muted rounded">BROSKI_ENABLE_FUNNEL</code> - Enable Tailscale Funnel</li>
-              <li>&#8226; <code className="px-1 py-0.5 bg-muted rounded">BROSKI_ENABLE_FUNNEL</code> - Enable Tailscale Funnel</li>
               <li>&#8226; <code className="px-1 py-0.5 bg-muted rounded">OPENCODE_BASE_URL</code> - OpenCode server URL</li>
             </ul>
           </div>
@@ -443,8 +442,8 @@ rm -rf ~/.opencode`}</CodeBlock>
           <div className="border border-border/50 rounded-lg p-5">
             <h3 className="font-semibold mb-2">Does Broski send my code to the cloud?</h3>
             <p className="text-muted-foreground">
-              No. Your code stays on your Mac at all times. When you chat with AI, your prompts are sent to your
-              configured AI provider (Anthropic, OpenAI, etc.) by the agent running on your Mac &mdash; exactly
+              No. Your code stays on your system at all times. When you chat with AI, your prompts are sent to your
+              configured AI provider (Anthropic, OpenAI, etc.) by the agent running on your system &mdash; exactly
               the same as if you used Claude Code or OpenCode directly in your terminal. Broski doesn&apos;t add,
               intercept, or route anything through our servers. We don&apos;t operate servers that touch your code.
             </p>
@@ -478,8 +477,8 @@ rm -rf ~/.opencode`}</CodeBlock>
               <li>&#8226; <strong className="text-foreground">Connection credentials:</strong> Encrypted in iOS Keychain (hardware-backed) / Android EncryptedSharedPreferences (AES-256)</li>
               <li>&#8226; <strong className="text-foreground">Cached sessions &amp; messages:</strong> On your phone only, in encrypted storage. For offline viewing.</li>
               <li>&#8226; <strong className="text-foreground">AI conversations &amp; session history:</strong> On your computer only, managed by the AI backend.</li>
-              <li>&#8226; <strong className="text-foreground">API keys:</strong> On your Mac only, in macOS Keychain or local config files. Never sent through Broski.</li>
-              <li>&#8226; <strong className="text-foreground">Bridge auth token &amp; TLS cert:</strong> In <code className="px-1 py-0.5 bg-muted rounded text-sm">~/.broski/</code> on your Mac with restricted file permissions.</li>
+              <li>&#8226; <strong className="text-foreground">API keys:</strong> On your system only, in the OS keychain (macOS Keychain / Windows Credential Manager / Linux keyring) or local config files. Never sent through Broski.</li>
+              <li>&#8226; <strong className="text-foreground">Bridge auth token &amp; TLS cert:</strong> In <code className="px-1 py-0.5 bg-muted rounded text-sm">~/.broski/</code> on your system with restricted file permissions.</li>
             </ul>
           </div>
 
@@ -510,7 +509,7 @@ rm -rf ~/.opencode`}</CodeBlock>
           <div className="border border-border/50 rounded-lg p-5">
             <h3 className="font-semibold mb-2">What happens if I cancel my subscription?</h3>
             <p className="text-muted-foreground">
-              Your pairing data is preserved. If you resubscribe later, the app reconnects to your Mac automatically
+              Your pairing data is preserved. If you resubscribe later, the app reconnects to your system automatically
               &mdash; no QR rescan needed. We don&apos;t delete your data or hold it hostage when you leave.
             </p>
           </div>
@@ -522,7 +521,7 @@ rm -rf ~/.opencode`}</CodeBlock>
               Uninstalling the app removes everything from your device.
             </p>
             <p className="text-muted-foreground mb-3">
-              <strong className="text-foreground">Mac:</strong> Delete <code className="px-1 py-0.5 bg-muted rounded text-sm">~/.broski</code> to
+              <strong className="text-foreground">System:</strong> Delete <code className="px-1 py-0.5 bg-muted rounded text-sm">~/.broski</code> to
               remove all bridge data (token, certs, config).
             </p>
             <p className="text-muted-foreground text-sm">
@@ -589,7 +588,8 @@ broski --port 8080`}</CodeBlock>
 which opencode
 
 # If not found, install it
-bun add -g opencode-ai
+curl -fsSL https://opencode.ai/install | bash
+# or: bun add -g opencode-ai
 
 # Try manual mode
 opencode serve
@@ -599,8 +599,11 @@ broski --opencode-url http://localhost:4096`}</CodeBlock>
 
           <div className="border border-border/50 rounded-lg p-5">
             <h3 className="font-semibold mb-2">How do I see debug logs?</h3>
-            <CodeBlock language="bash">{`# Tail live bridge logs
-broski logs
+            <CodeBlock language="bash">{`# Follow logs live
+broski logs --follow
+
+# Export diagnostics bundle
+broski logs --export
 
 # Run interactive troubleshooter
 broski troubleshoot`}</CodeBlock>

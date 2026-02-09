@@ -49,7 +49,7 @@ export default function SecurityPage() {
               <span>
                 <strong className="text-foreground">No data collection.</strong>{" "}
                 Your conversations, code, files, and terminal output stay
-                between your phone and your Mac. Period.
+                between your phone and your system. Period.
               </span>
             </li>
             <li className="flex items-start gap-2">
@@ -98,7 +98,7 @@ export default function SecurityPage() {
           </div>
           <div className="text-center">
             <div className="px-4 py-3 bg-muted border border-border rounded-lg">
-              <div className="font-semibold text-sm">Your Mac</div>
+              <div className="font-semibold text-sm">Your System</div>
               <div className="text-xs text-muted-foreground">Bridge Server</div>
             </div>
           </div>
@@ -110,7 +110,7 @@ export default function SecurityPage() {
             <div className="px-4 py-3 bg-muted border border-border rounded-lg">
               <div className="font-semibold text-sm">AI Agent</div>
               <div className="text-xs text-muted-foreground">
-                On Your Mac
+                On Your System
               </div>
             </div>
           </div>
@@ -125,7 +125,7 @@ export default function SecurityPage() {
 
         <Callout type="info" title="What about the AI itself?">
           When you chat with the AI, your prompts are sent to the AI provider
-          (Anthropic, OpenAI, etc.) by the agent running on your Mac &mdash;
+          (Anthropic, OpenAI, etc.) by the agent running on your system &mdash;
           exactly the same as if you were using the agent directly in your
           terminal. Broski doesn&apos;t add, modify, or intercept anything in that
           pipeline.
@@ -161,7 +161,7 @@ export default function SecurityPage() {
               </li>
               <li className="flex items-start gap-2">
                 <span className="text-green-500 shrink-0">&#8226;</span>
-                Your API keys and credentials (in macOS Keychain or local config
+                Your API keys and credentials (in the OS keychain (macOS Keychain, Windows Credential Manager, or Linux keyring) or local config
                 files)
               </li>
               <li className="flex items-start gap-2">
@@ -221,7 +221,7 @@ export default function SecurityPage() {
             </ul>
             <p className="text-xs text-muted-foreground mt-3">
               This is handled by the AI agent (Claude Code, OpenCode, Codex) on
-              your Mac &mdash; exactly the same data that would be sent if you
+              your system &mdash; exactly the same data that would be sent if you
               used the agent directly in your terminal. Broski doesn&apos;t add
               anything extra.
             </p>
@@ -273,7 +273,7 @@ export default function SecurityPage() {
             [
               "Local WiFi",
               "TLS + Certificate Pinning",
-              "Self-signed cert generated on your Mac. Your phone pins the certificate hash from the QR code, preventing man-in-the-middle attacks even on untrusted WiFi.",
+              "Self-signed cert generated on your system. Your phone pins the certificate hash from the QR code, preventing man-in-the-middle attacks even on untrusted WiFi.",
             ],
             [
               "Tailscale VPN",
@@ -556,13 +556,13 @@ export default function SecurityPage() {
         </p>
 
         <p className="text-muted-foreground">
-          On your Mac, the bridge stores its auth token and TLS certificate in{" "}
+          On your system, the bridge stores its auth token and TLS certificate in{" "}
           <code className="px-1 py-0.5 bg-muted rounded text-xs">
             ~/.broski/
           </code>{" "}
           with restricted file permissions (owner read/write only). Your AI
-          agent&apos;s credentials stay in their own secure storage (macOS
-          Keychain for Claude Code, config files for OpenCode).
+          agent&apos;s credentials stay in their own secure storage (the OS keychain (macOS
+          Keychain, Windows Credential Manager, or Linux keyring) for Claude Code, config files for OpenCode).
         </p>
       </section>
 
@@ -775,7 +775,7 @@ export default function SecurityPage() {
                 Inspect network traffic
               </strong>{" "}
               &mdash; Use Wireshark or Charles Proxy. You&apos;ll see encrypted
-              WebSocket frames between your phone and Mac, and nothing going to
+               WebSocket frames between your phone and your system, and nothing going to
               any Broski endpoint.
             </span>
           </li>
@@ -815,7 +815,7 @@ export default function SecurityPage() {
               Broski the company? No. The Broski app on your phone? Only what
               you explicitly open in the file browser or what the AI agent
               sends during a session. All of this stays between your phone and
-              your Mac.
+              your system.
             </p>
           </div>
 
@@ -848,7 +848,7 @@ export default function SecurityPage() {
             </h3>
             <p className="text-muted-foreground">
               Your pairing data is preserved. If you resubscribe later, the app
-              automatically reconnects to your Mac without needing to rescan the
+              automatically reconnects to your system without needing to rescan the
               QR code. We don&apos;t hold your data hostage or delete anything
               when you leave.
             </p>
@@ -863,7 +863,7 @@ export default function SecurityPage() {
               &gt; Clear Cache removes all cached data. Uninstalling removes
               everything.
               <br />
-              <strong className="text-foreground">Mac:</strong> Delete{" "}
+              <strong className="text-foreground">System:</strong> Delete{" "}
               <code className="px-1 py-0.5 bg-muted rounded text-xs">
                 ~/.broski
               </code>{" "}

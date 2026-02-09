@@ -92,7 +92,7 @@ export default function FilesPage() {
 
       <Callout type="tip" title="Git Status">
         Git status is only shown when browsing within a project directory. The status 
-        is fetched from your Mac and updates when you refresh.
+        is fetched from your system and updates when you refresh.
       </Callout>
 
       <h2 id="search" className="text-xl font-semibold mb-4 mt-10">Search</h2>

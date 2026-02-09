@@ -52,7 +52,7 @@ export default function AndroidSetupPage() {
           >
             Get it on Google Play
           </a>
-          <p className="text-sm text-muted-foreground mt-3">Free - Android 8.0+</p>
+          <p className="text-sm text-muted-foreground mt-3">Requires Android 8.0+ &bull; Subscription required</p>
         </div>
       </section>
 
@@ -69,9 +69,9 @@ export default function AndroidSetupPage() {
               title: "Download the APK",
               description: (
                 <span>
-                  Download the latest APK from the{" "}
-                  <a href="https://github.com/broski-app/broski/releases" className="text-primary hover:underline">
-                    GitHub Releases page
+                  Download the latest APK from the official Broski website at{" "}
+                  <a href="https://broskiapp.com" className="text-primary hover:underline">
+                    broskiapp.com
                   </a>.
                 </span>
               ),
@@ -92,7 +92,7 @@ export default function AndroidSetupPage() {
         />
 
         <Callout type="warning" title="Security Note">
-          Only download APKs from official sources (GitHub releases). Third-party APK sites 
+          Only download APKs from official sources (broskiapp.com). Third-party APK sites 
           may distribute modified or malicious versions.
         </Callout>
       </section>

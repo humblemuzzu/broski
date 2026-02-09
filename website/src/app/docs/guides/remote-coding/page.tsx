@@ -28,7 +28,7 @@ export default function RemoteCodingPage() {
           <li>• Leave the house for coffee and want to keep coding?</li>
           <li>• Travel and need to check on a long-running task?</li>
           <li>• Work from multiple locations throughout the day?</li>
-          <li>• Want to approve a command while away from your Mac?</li>
+           <li>• Want to approve a command while away from your system?</li>
         </ul>
         <p className="text-muted-foreground mt-4">
           <strong className="text-foreground">Without remote access, you lose connection as soon as you leave your network.</strong>
@@ -61,19 +61,26 @@ export default function RemoteCodingPage() {
         <Steps
           steps={[
             {
-              title: "Install Tailscale on your Mac",
+              title: "Install Tailscale on your system",
               content: (
                 <>
                   <p className="text-sm text-muted-foreground mb-2">Use the bridge&apos;s built-in wizard:</p>
                   <CodeBlock language="bash">{`broski setup-tailscale`}</CodeBlock>
                   <p className="text-sm text-muted-foreground mt-2">Or install manually:</p>
-                  <CodeBlock language="bash">{`brew install --cask tailscale`}</CodeBlock>
+                  <CodeBlock language="bash">{`# macOS:
+brew install --cask tailscale
+
+# Windows:
+# Download from https://tailscale.com/download/windows
+
+# Linux:
+# curl -fsSL https://tailscale.com/install.sh | sh`}</CodeBlock>
                 </>
               ),
             },
             {
-              title: "Sign in on your Mac",
-              description: "Open Tailscale from Applications, click the menu bar icon, and sign in with Google, GitHub, or Microsoft.",
+              title: "Sign in on your system",
+              description: "Open Tailscale and sign in with Google, GitHub, or Microsoft.",
             },
             {
               title: "Install Tailscale on your phone",
@@ -86,7 +93,7 @@ export default function RemoteCodingPage() {
             },
             {
               title: "Sign in on your phone",
-              description: "Use the same account you used on your Mac. Both devices should now be on your \"tailnet\".",
+              description: "Use the same account you used on your system. Both devices should now be on your \"tailnet\".",
             },
             {
               title: "Start the bridge",
@@ -169,7 +176,7 @@ export default function RemoteCodingPage() {
         <SimpleTable
           headers={["Connection Type", "Typical Latency", "Experience"]}
           rows={[
-            ["Local WiFi", "~10ms", "Instant, like being at your Mac"],
+            ["Local WiFi", "~10ms", "Instant, like being at your desk"],
             ["Tailscale (same city)", "~30-50ms", "Smooth, barely noticeable"],
             ["Tailscale (cross-country)", "~50-100ms", "Good, slight delay on typing"],
             ["Tailscale Funnel", "~100-200ms", "Usable, some buffering on streams"],
@@ -189,12 +196,18 @@ export default function RemoteCodingPage() {
         
         <div className="space-y-4">
           <div className="border border-border rounded-lg p-4">
-            <div className="font-medium mb-2">Keep your Mac awake</div>
+            <div className="font-medium mb-2">Keep your system awake</div>
             <p className="text-sm text-muted-foreground">
-              Your Mac needs to stay awake for the bridge to work. Adjust Energy Saver settings or use:
+              Your system needs to stay awake for the bridge to work. Adjust power/sleep settings or use:
             </p>
-            <CodeBlock language="bash">{`# Keep Mac awake while bridge runs
-caffeinate -i broski`}</CodeBlock>
+            <CodeBlock language="bash">{`# macOS: Keep system awake while bridge runs
+caffeinate -i broski
+
+# Linux:
+# systemd-inhibit --what=idle broski
+
+# Windows: Use the background service to keep it running
+# broski install`}</CodeBlock>
           </div>
 
           <div className="border border-border rounded-lg p-4">
@@ -217,7 +230,7 @@ caffeinate -i broski`}</CodeBlock>
           <div className="border border-border rounded-lg p-4">
             <div className="font-medium mb-2">Use local when possible</div>
             <p className="text-sm text-muted-foreground">
-              When you&apos;re back on the same network as your Mac, Broski will automatically use the faster local connection.
+              When you&apos;re back on the same network as your system, Broski will automatically use the faster local connection.
             </p>
           </div>
 

@@ -41,7 +41,7 @@ export default function ApproveCommandsPage() {
             <span className="text-primary">●</span>
             <div>
               <strong className="text-foreground">Awareness:</strong> See exactly what&apos;s happening on your 
-              Mac, even when you&apos;re not at your desk
+              system, even when you&apos;re not at your desk
             </div>
           </li>
         </ul>
@@ -56,7 +56,7 @@ export default function ApproveCommandsPage() {
         <SimpleTable
           headers={["Action", "Why It Needs Approval", "Risk Level"]}
           rows={[
-            ["Bash commands", "Can run any shell command on your Mac", "High"],
+            ["Bash commands", "Can run any shell command on your system", "High"],
             ["File edits", "Modifies existing code (configurable)", "Medium"],
             ["File creation", "Creates new files in your project", "Low"],
             ["Git operations", "Commits, pushes, or modifies git history", "High"],

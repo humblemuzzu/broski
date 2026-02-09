@@ -226,7 +226,10 @@ echo $PATH`}</CodeBlock>
         Another process is using OpenCode&apos;s default port.
       </Callout>
       <CodeBlock language="bash">{`# Check what's using the port
+# macOS/Linux:
 lsof -i :4096
+# Windows:
+# netstat -ano | findstr :4096
 
 # Use a different port
 OPENCODE_PORT=4097 opencode`}</CodeBlock>

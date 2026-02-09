@@ -25,7 +25,7 @@ export default function PrivacySecurityPage() {
               <span className="text-green-500 mt-0.5 shrink-0">&#10003;</span>
               <span>
                 <strong className="text-foreground">No cloud servers.</strong>{" "}
-                Your phone connects directly to your Mac.
+                Your phone connects directly to your system.
               </span>
             </li>
             <li className="flex items-start gap-2">

@@ -37,7 +37,7 @@ export default function SettingsPage() {
 
       <h3 id="device-manager" className="text-lg font-medium mb-3 mt-6">Device Manager</h3>
       <ul className="list-disc list-inside text-muted-foreground space-y-1 mb-6">
-        <li><strong>Paired Macs</strong> - List of known devices</li>
+        <li><strong>Paired Systems</strong> - List of known devices</li>
         <li><strong>Connection History</strong> - Previous connections</li>
       </ul>
 

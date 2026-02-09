@@ -3,7 +3,7 @@ import { CardGrid, Card, SimpleTable, Callout } from "@/components/docs";
 
 export const metadata: Metadata = {
   title: "Mobile App - Broski",
-  description: "Using the Broski mobile app for iOS",
+  description: "Using the Broski mobile app for iOS and Android",
 };
 
 export default function AppOverviewPage() {
@@ -67,7 +67,7 @@ export default function AppOverviewPage() {
       <SimpleTable
         headers={["Status", "Description"]}
         rows={[
-          ["4 bars (green)", "Excellent connection (<50ms latency)"],
+          ["4 bars (green)", "Excellent connection (<30ms latency)"],
           ["3 bars (green)", "Good connection (50-100ms)"],
           ["2 bars (yellow)", "Fair connection (100-200ms)"],
           ["1 bar (red)", "Poor connection (>200ms)"],

@@ -25,8 +25,8 @@ export default function DocsPage() {
         <div className="mb-6">
           <h3 className="text-base font-medium mb-2 text-muted-foreground">The Problem</h3>
           <p className="text-muted-foreground mb-4">
-            You&apos;re working with an AI coding agent like Claude Code or OpenCode on your Mac. 
-            It&apos;s powerful, but you have to be at your Mac to use it. What if you want to:
+            You&apos;re working with an AI coding agent like Claude Code or OpenCode on your system. 
+            It&apos;s powerful, but you have to be at your system to use it. What if you want to:
           </p>
           <ul className="text-muted-foreground space-y-1 ml-4 list-disc">
             <li>Review code changes while on the couch?</li>
@@ -39,7 +39,7 @@ export default function DocsPage() {
           <h3 className="text-base font-medium mb-2 text-muted-foreground">The Solution</h3>
           <p className="text-muted-foreground">
             <strong className="text-foreground">Broski turns your phone into a remote control for your AI coding agent.</strong>{" "}
-            Your Mac does all the heavy lifting (running AI, executing code, managing files). 
+            Your system does all the heavy lifting (running AI, executing code, managing files). 
             Your phone is simply a convenient interface that lets you interact with your AI assistant from anywhere.
           </p>
         </div>
@@ -63,7 +63,7 @@ export default function DocsPage() {
               <div className="font-semibold">Bridge</div>
               <div className="text-xs text-muted-foreground">Server</div>
             </div>
-            <div className="text-xs text-muted-foreground mt-1">Your Mac</div>
+            <div className="text-xs text-muted-foreground mt-1">Your System</div>
           </div>
           <div className="text-muted-foreground text-lg">⟷</div>
           <div className="text-center">
@@ -71,12 +71,12 @@ export default function DocsPage() {
               <div className="font-semibold">AI Agent</div>
               <div className="text-xs text-muted-foreground">Claude/OpenCode</div>
             </div>
-            <div className="text-xs text-muted-foreground mt-1">Your Mac</div>
+            <div className="text-xs text-muted-foreground mt-1">Your System</div>
           </div>
         </div>
 
         <ol className="text-muted-foreground space-y-2">
-          <li><strong className="text-foreground">1. Bridge Server</strong> runs on your Mac alongside your AI coding assistant</li>
+          <li><strong className="text-foreground">1. Bridge Server</strong> runs on your system alongside your AI coding assistant</li>
           <li><strong className="text-foreground">2. Broski App</strong> connects to the bridge via WebSocket (local WiFi or Tailscale)</li>
           <li><strong className="text-foreground">3. Full Sync</strong> - all messages, tool calls, and session state flow bidirectionally</li>
         </ol>
@@ -129,7 +129,7 @@ export default function DocsPage() {
         steps={[
           {
             title: "Install the Bridge",
-            description: "Run the bridge server on your Mac:",
+            description: "Run the bridge server on your system:",
             content: <CodeBlock language="bash">broski</CodeBlock>,
           },
           {

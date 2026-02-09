@@ -30,7 +30,8 @@ export default function AIBackendsTroubleshootingPage() {
 which opencode && opencode --version
 
 # If not found, install it
-bun add -g opencode-ai
+curl -fsSL https://opencode.ai/install | bash
+# or: bun add -g opencode-ai
 
 # Then reload your shell
 source ~/.bashrc  # or ~/.zshrc`}</CodeBlock>
@@ -78,14 +79,17 @@ cat ~/.config/opencode/opencode.jsonc`}</CodeBlock>
               <li>Check system resources (RAM, CPU)</li>
               <li>Look for error messages in bridge logs</li>
             </ul>
-            <CodeBlock language="bash">{`# Check OpenCode process
+            <CodeBlock language="bash">{`# Run backend-focused diagnostics
+broski doctor --profile agents
+
+# Check OpenCode process
 ps aux | grep opencode
 
 # Test OpenCode health directly
 curl http://localhost:4096/path
 
-# Tail live bridge logs
-broski logs`}</CodeBlock>
+# Follow logs while reproducing issue
+broski logs --follow`}</CodeBlock>
           </div>
         </div>
 
@@ -270,7 +274,6 @@ codex
             [<code key="2" className="text-xs">OPENAI_API_KEY</code>, "OpenCode (Codex)", "OpenAI API key"],
             [<code key="3" className="text-xs">GOOGLE_AI_API_KEY</code>, "OpenCode", "Google Gemini API key"],
             [<code key="4" className="text-xs">OPENCODE_PORT</code>, "OpenCode", "Server port (default: 4096)"],
-            [<code key="5" className="text-xs">BROSKI_AGENT</code>, "Bridge", "Select default backend"],
           ]}
         />
 
@@ -304,8 +307,14 @@ source ~/.zshrc`}</CodeBlock>
       {/* General Debugging */}
       <section className="mb-12">
         <h2 id="debugging" className="text-2xl font-semibold mb-4">General Debugging</h2>
-        <CodeBlock language="bash">{`# Tail live bridge logs
-broski logs
+        <CodeBlock language="bash">{`# Backend-focused diagnostics
+broski doctor --profile agents
+
+# Follow bridge logs
+broski logs --follow
+
+# Export diagnostics bundle for support/AI
+broski logs --export
 
 # Check backend directly
 # For OpenCode:
@@ -316,7 +325,7 @@ claude --version
 cat ~/.claude/settings.json | head -5
 
 # Check what processes are running
-ps aux | grep -E "(opencode|claude|broski)"`}</CodeBlock>
+ps aux | grep -E "(opencode|claude|codex|broski)"`}</CodeBlock>
       </section>
 
       {/* Next Steps */}

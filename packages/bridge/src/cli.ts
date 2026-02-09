@@ -28,6 +28,11 @@ export type CliOptions = {
   setupNoTls: boolean
   setupTokenTtl: number | null
   setupNoDaemon: boolean
+  doctorJson: boolean
+  doctorFix: boolean
+  doctorDeep: boolean
+  doctorProfile: string
+  doctorExport: boolean
   logsFollow: boolean
   logsJson: boolean
   logsPlain: boolean
@@ -71,6 +76,11 @@ export function parseCli(argv: string[], env: NodeJS.ProcessEnv): CliOptions {
   let setupNoTls = false
   let setupTokenTtl: number | null = null
   let setupNoDaemon = false
+  let doctorJson = false
+  let doctorFix = false
+  let doctorDeep = false
+  let doctorProfile = 'all'
+  let doctorExport = false
   let logsFollow = false
   let logsJson = false
   let logsPlain = false
@@ -235,7 +245,8 @@ export function parseCli(argv: string[], env: NodeJS.ProcessEnv): CliOptions {
       continue
     }
     if (arg === '--json') {
-      logsJson = true
+      if (subCommand === 'doctor') doctorJson = true
+      else logsJson = true
       continue
     }
     if (arg === '--plain') {
@@ -253,7 +264,21 @@ export function parseCli(argv: string[], env: NodeJS.ProcessEnv): CliOptions {
       continue
     }
     if (arg === '--export') {
-      logsExport = true
+      if (subCommand === 'doctor') doctorExport = true
+      else logsExport = true
+      continue
+    }
+    if (arg === '--fix' || arg === '--repair') {
+      doctorFix = true
+      continue
+    }
+    if (arg === '--deep') {
+      doctorDeep = true
+      continue
+    }
+    if (arg === '--profile') {
+      doctorProfile = (args[i + 1] ?? 'all').trim() || 'all'
+      i++
       continue
     }
     if (arg === '--no-errors') {
@@ -302,6 +327,11 @@ export function parseCli(argv: string[], env: NodeJS.ProcessEnv): CliOptions {
     setupNoTls,
     setupTokenTtl,
     setupNoDaemon,
+    doctorJson,
+    doctorFix,
+    doctorDeep,
+    doctorProfile,
+    doctorExport,
     logsFollow,
     logsJson,
     logsPlain,
@@ -357,6 +387,13 @@ Setup (non-interactive):
   --token-ttl DAYS            Auth token TTL in days (default: 7)
   --no-daemon                 Don't install background service
 
+Doctor:
+  --fix, --repair             Apply safe auto-fixes
+  --deep                      Run deeper diagnostics checks
+  --json                      JSON output (machine-readable report)
+  --profile NAME              all|network|pairing|agents|daemon|security
+  --export                    Export redacted diagnostics bundle
+
 Logs:
   --follow                    Follow logs in real-time
   --json                      Emit logs as JSON objects
@@ -386,6 +423,9 @@ Examples:
   broski restart                 Restart the background service
   broski uninstall               Remove background service
   broski doctor                  Check if everything is set up correctly
+  broski doctor --fix            Apply safe automatic fixes
+  broski doctor --profile network Diagnose connection/network issues only
+  broski doctor --export         Export diagnostics bundle
   broski setup-tailscale         Set up Tailscale for remote access
   broski update                  Update to the latest version
   broski logs                    Show recent bridge logs

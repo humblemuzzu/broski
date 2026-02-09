@@ -18,7 +18,7 @@ export default function BackendsOverviewPage() {
 
       <h2 id="what-is-backend" className="text-xl font-semibold mb-4">What is an AI Backend?</h2>
       <p className="text-sm text-muted-foreground mb-4">
-        An AI backend is the coding agent that runs on your Mac or PC. It handles communication with AI models 
+        An AI backend is the coding agent that runs on your system. It handles communication with AI models 
         (Claude, GPT, etc.), executes tools like file edits and shell commands, and manages your coding sessions.
       </p>
       <p className="text-sm text-muted-foreground mb-6">
@@ -175,13 +175,12 @@ export default function BackendsOverviewPage() {
 broski
 
 # The backend is selected in the app settings
-# Or set via environment variable:
-BROSKI_AGENT=claude-code broski`}</CodeBlock>
+# Switch backends from Settings → AI Backend in the app`}</CodeBlock>
         </div>
       </div>
 
       <Callout type="tip">
-        Make sure the backend CLI is installed on your Mac before selecting it in the app. 
+        Make sure the backend CLI is installed on your system before selecting it in the app. 
         See individual backend pages for installation instructions.
       </Callout>
     </article>

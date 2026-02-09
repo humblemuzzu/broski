@@ -6,7 +6,7 @@ import { Steps } from "@/components/docs/steps";
 
 export const metadata: Metadata = {
   title: "Network Issues - Broski",
-  description: "Diagnose and fix network connectivity problems between your phone and Mac",
+  description: "Diagnose and fix network connectivity problems between your phone and your system",
 };
 
 export default function NetworkTroubleshootingPage() {
@@ -14,18 +14,20 @@ export default function NetworkTroubleshootingPage() {
     <article className="max-w-3xl">
       <h1 id="network-issues" className="text-4xl font-bold mb-4">Network Issues</h1>
       <p className="text-xl text-muted-foreground mb-8">
-        Diagnose and fix network connectivity problems between your phone and Mac.
+        Diagnose and fix network connectivity problems between your phone and your system.
       </p>
 
       {/* Diagnostics First */}
       <section className="mb-12">
         <h2 id="diagnostics" className="text-2xl font-semibold mb-4">Run Diagnostics First</h2>
         <p className="text-muted-foreground mb-4">
-          Always start by running the doctor command:
+          Always start with focused doctor profiles:
         </p>
-        <CodeBlock language="bash">{`broski doctor`}</CodeBlock>
+        <CodeBlock language="bash">{`broski doctor --profile network
+broski doctor --profile pairing
+broski doctor --fix`}</CodeBlock>
         <p className="text-sm text-muted-foreground mt-3">
-          This checks: dependencies, local IP, port availability, and Tailscale status.
+          This checks local IP, configured port conflicts, Tailscale status, token/TLS pairing readiness, and suggests fixes.
         </p>
       </section>
 
@@ -38,7 +40,7 @@ export default function NetworkTroubleshootingPage() {
             <div className="font-medium mb-2">Can&apos;t connect on local network</div>
             <p className="text-sm text-muted-foreground mb-3">Most common issues:</p>
             <ol className="text-sm space-y-2 list-decimal list-inside">
-              <li><strong>Different networks:</strong> Ensure phone and Mac are on the same WiFi network</li>
+              <li><strong>Different networks:</strong> Ensure phone and system are on the same WiFi network</li>
               <li><strong>5GHz vs 2.4GHz:</strong> Some routers isolate these bands - try connecting both devices to the same band</li>
               <li><strong>Firewall blocking:</strong> macOS firewall may block incoming connections</li>
               <li><strong>Client isolation:</strong> Some routers isolate wireless clients from each other</li>
@@ -46,18 +48,15 @@ export default function NetworkTroubleshootingPage() {
           </div>
 
           <div className="border border-border rounded-lg p-4">
-            <div className="font-medium mb-2">Test connectivity manually</div>
-            <CodeBlock language="bash">{`# Get your Mac's local IP
-ifconfig | grep "inet " | grep -v 127.0.0.1
+            <div className="font-medium mb-2">Test connectivity quickly</div>
+            <CodeBlock language="bash">{`# Network diagnostics
+broski doctor --profile network
 
-# Test bridge from Mac
-curl http://localhost:18274/
+# Pairing readiness (token + TLS)
+broski doctor --profile pairing
 
-# Test from another device on the network
-curl http://192.168.1.100:18274/
-
-# Check if port is listening
-lsof -nP -iTCP:18274 -sTCP:LISTEN`}</CodeBlock>
+# Live logs while reproducing issue
+broski logs --follow`}</CodeBlock>
           </div>
         </div>
       </section>
@@ -84,11 +83,11 @@ lsof -nP -iTCP:18274 -sTCP:LISTEN`}</CodeBlock>
             <p className="text-sm text-muted-foreground mb-2">
               Tailscale creates an encrypted tunnel that bypasses corporate restrictions:
             </p>
-            <CodeBlock language="bash">{`# Install Tailscale on Mac
-brew install --cask tailscale
+            <CodeBlock language="bash">{`# Guided install/configure
+broski setup-tailscale
 
-# Start bridge (Tailscale IP will be included in QR code)
-broski`}</CodeBlock>
+# Then verify network path
+broski doctor --profile network`}</CodeBlock>
             <p className="text-sm text-muted-foreground mt-2">
               Install Tailscale on your phone and log in with the same account.
             </p>
@@ -105,7 +104,7 @@ broski`}</CodeBlock>
           <div className="border border-border rounded-lg p-4">
             <div className="font-medium mb-2">Option 3: Use mobile hotspot</div>
             <p className="text-sm text-muted-foreground">
-              Create a mobile hotspot from your phone and connect your Mac to it. 
+              Create a mobile hotspot from your phone and connect your system to it. 
               This bypasses corporate network entirely.
             </p>
           </div>
@@ -117,7 +116,7 @@ broski`}</CodeBlock>
         <h2 id="vpn-conflicts" className="text-2xl font-semibold mb-4">VPN Conflicts</h2>
         
         <Callout type="info" title="VPNs can interfere with local connections">
-          When a VPN is active, your Mac&apos;s local IP may change or become unreachable from your phone.
+          When a VPN is active, your system&apos;s local IP may change or become unreachable from your phone.
         </Callout>
 
         <h3 id="vpn-symptoms" className="text-lg font-semibold mt-6 mb-3">Symptoms</h3>
@@ -140,13 +139,28 @@ broski`}</CodeBlock>
 
         <h3 id="check-vpn-status" className="text-lg font-semibold mt-6 mb-3">Check VPN Status</h3>
         <CodeBlock language="bash">{`# Check active network interfaces
+# macOS:
 ifconfig | grep -A 2 "utun"  # VPN tunnels are usually utun*
+# Windows:
+# ipconfig
+# Linux:
+# ip addr show
 
 # Check routing table for VPN routes
+# macOS:
 netstat -nr | grep -i utun
+# Windows:
+# route print
+# Linux:
+# ip route show
 
 # See all network interfaces
-networksetup -listallnetworkservices`}</CodeBlock>
+# macOS:
+networksetup -listallnetworkservices
+# Windows:
+# netsh interface show interface
+# Linux:
+# nmcli device status`}</CodeBlock>
       </section>
 
       {/* Tailscale Issues */}
@@ -172,7 +186,7 @@ tailscale status --json | jq '.Self.Online'`}</CodeBlock>
           <div className="border border-border rounded-lg p-4">
             <div className="font-medium mb-2">Both devices must be on Tailscale</div>
             <p className="text-sm text-muted-foreground mb-3">
-              For Tailscale to work, both your Mac and phone must:
+              For Tailscale to work, both your system and phone must:
             </p>
             <ul className="text-sm text-muted-foreground space-y-1 list-disc list-inside">
               <li>Have Tailscale installed</li>
@@ -210,8 +224,13 @@ tailscale status
         <Steps
           steps={[
             {
-              title: "Find your Mac's local IP",
-              content: <CodeBlock language="bash">{`ifconfig | grep "inet " | grep -v 127.0.0.1`}</CodeBlock>,
+              title: "Find your system's local IP",
+              content: <CodeBlock language="bash">{`# macOS:
+ifconfig | grep "inet " | grep -v 127.0.0.1
+# Windows:
+# ipconfig
+# Linux:
+# ip addr show | grep "inet " | grep -v 127.0.0.1`}</CodeBlock>,
             },
             {
               title: "Log into your router's admin panel",
@@ -223,7 +242,7 @@ tailscale status
             },
             {
               title: "Create a port forward rule",
-              description: "External port: 18274, Internal port: 18274, Internal IP: your Mac's IP, Protocol: TCP",
+              description: "External port: 18274, Internal port: 18274, Internal IP: your system's IP, Protocol: TCP",
             },
             {
               title: "Find your public IP",
@@ -245,24 +264,20 @@ tailscale status
       {/* Testing Connectivity */}
       <section className="mb-12">
         <h2 id="testing" className="text-2xl font-semibold mb-4">Testing Connectivity</h2>
-        <CodeBlock language="bash">{`# 1. Check bridge is running
-curl http://localhost:18274/
+        <CodeBlock language="bash">{`# 1) Baseline diagnostics
+broski doctor --profile network
 
-# 2. Get your local IP
-ifconfig | grep "inet " | grep -v 127.0.0.1
+# 2) Pairing path diagnostics
+broski doctor --profile pairing
 
-# 3. Test from another device on same network
-curl http://<your-local-ip>:18274/
+# 3) Apply safe fixes
+broski doctor --fix --profile network
 
-# 4. Check Tailscale IP (if using)
-tailscale ip
-curl http://<tailscale-ip>:18274/
+# 4) Follow logs while reproducing issue
+broski logs --follow
 
-# 5. Test network latency
-ping -c 5 <target-ip>
-
-# 6. Run full diagnostics
-broski doctor`}</CodeBlock>
+# 5) Export diagnostics for support/AI
+broski logs --export`}</CodeBlock>
       </section>
 
       {/* Connection Drops */}
@@ -277,7 +292,7 @@ broski doctor`}</CodeBlock>
               headers={["Cause", "Solution"]}
               rows={[
                 ["WiFi switching", "Lock your phone to a specific WiFi network"],
-                ["Sleep mode", "Prevent Mac from sleeping while using Broski"],
+                ["Sleep mode", "Prevent your system from sleeping while using Broski"],
                 ["App backgrounded", "Keep Broski in foreground on iOS"],
                 ["Network instability", "Move closer to router or use wired connection"],
                 ["High latency", "Switch from Funnel to Tailscale direct"],

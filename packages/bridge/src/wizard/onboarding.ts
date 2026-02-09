@@ -287,10 +287,24 @@ export async function runOnboardingWizard(
     // 9. Write config
     await writeConfig(finalConfig)
 
-    // 10. Connectivity step (informational)
+    // 10. Connectivity step (pair-ready QR + guidance)
     await runConnectivityStep(prompter, finalConfig)
 
-    // 11. Finalize
+    // 11. Validate setup
+    const runValidation = await prompter.confirm({
+      message: 'Run post-setup validation now? (recommended)',
+      initialValue: true,
+    })
+
+    if (runValidation) {
+      const { runDoctor } = await import('../doctor')
+      await runDoctor({ profile: 'pairing' })
+      if (finalConfig.agents.opencode || finalConfig.agents.claudeCode || finalConfig.agents.codex) {
+        await runDoctor({ profile: 'agents' })
+      }
+    }
+
+    // 12. Finalize
     await runFinalizeStep(prompter, finalConfig)
   } catch (err) {
     if (err instanceof WizardCancelledError) {
