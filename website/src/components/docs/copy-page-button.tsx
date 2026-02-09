@@ -222,7 +222,7 @@ export function CopyPageButton({ title }: CopyPageButtonProps) {
             onClick={() => openInModel("chatgpt")}
             className="flex w-full items-center gap-3 rounded-lg px-3 py-2.5 text-left text-sm hover:bg-muted/50 transition-colors"
           >
-            <Image src="/logos/openai.svg" alt="OpenAI" width={18} height={18} className="shrink-0" />
+            <Image src="/logos/codex-icon.png" alt="ChatGPT" width={18} height={18} className="shrink-0" />
             <div>
               <p className="font-medium">Open in ChatGPT</p>
               <p className="text-xs text-muted-foreground">Open with a prefilled page prompt</p>
@@ -233,7 +233,7 @@ export function CopyPageButton({ title }: CopyPageButtonProps) {
             onClick={() => openInModel("claude")}
             className="flex w-full items-center gap-3 rounded-lg px-3 py-2.5 text-left text-sm hover:bg-muted/50 transition-colors"
           >
-            <Image src="/logos/anthropic.svg" alt="Anthropic Claude" width={18} height={18} className="shrink-0" />
+            <Image src="/logos/cc-real.png" alt="Claude" width={18} height={18} className="shrink-0" />
             <div>
               <p className="font-medium">Open in Claude</p>
               <p className="text-xs text-muted-foreground">Open with a prefilled page prompt</p>
