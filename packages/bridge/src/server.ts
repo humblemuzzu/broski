@@ -15,11 +15,14 @@ import { headTailTruncate } from './utils'
 import { ensureTlsMaterial, isTlsEnabledByEnv, type TlsMaterial } from './tls'
 import { getDefaultAllowedPaths, IS_WINDOWS, isCompiledBinary } from './platform'
 import { loadLocalLicenseState, refreshLocalLicenseFromCloud, type LocalLicenseState } from './license'
+import type { BridgeLogger } from './logging/logger'
 
 const TOKEN_FILE_LEGACY = resolve(homedir(), '.broski', 'token')
 const TOKEN_FILE = resolve(homedir(), '.broski', 'token.json')
 // Debug flags are dev-only — disabled in compiled binaries to prevent leaking
-// session IDs, file paths, and internal state via raw console.log calls.
+// session IDs, file paths, and internal state in production console output.
+// All log calls go through the leveled logger (logUser/logInfo/logDebug/logError)
+// which writes to the log file always and filters console output by level.
 const DEBUG_RTS = !isCompiledBinary() && process.env.BROSKI_DEBUG_RTS === '1'
 const DEBUG_CX_GLOBAL = !isCompiledBinary() && process.env.BROSKI_DEBUG_CX_GLOBAL === '1'
 const BRIDGE_PROTOCOL_VERSION = '1.0.0'
@@ -508,7 +511,7 @@ async function listFilesDirectly(
 ): Promise<Array<{ name: string; type: 'file' | 'directory'; path: string; absolute: string }>> {
   const securePath = await getSecurePath(filePath)
   if (!securePath) {
-    console.error(`[listFilesDirectly] Access denied: ${filePath}`)
+    logError(`[listFilesDirectly] Access denied: ${filePath}`)
     return []
   }
 
@@ -538,7 +541,7 @@ async function listFilesDirectly(
 
     return items
   } catch (error) {
-    console.error(`[listFilesDirectly] Error listing ${securePath}:`, error)
+    logError(`[listFilesDirectly] Error listing ${securePath}:`, error)
     return []
   }
 }
@@ -554,7 +557,7 @@ async function readFileDirectly(
 }> {
   const securePath = await getSecurePath(filePath)
   if (!securePath) {
-    console.error(`[readFileDirectly] Access denied: ${filePath}`)
+    logError(`[readFileDirectly] Access denied: ${filePath}`)
     return { type: 'text', content: '', mime: 'text/plain', mimeType: 'text/plain' }
   }
 
@@ -613,7 +616,7 @@ async function readFileDirectly(
       await fh.close().catch(() => {})
     }
   } catch (error) {
-    console.error(`[readFileDirectly] Error reading ${securePath}:`, error)
+    logError(`[readFileDirectly] Error reading ${securePath}:`, error)
     return { type: 'text', content: '', mime: 'text/plain', mimeType: 'text/plain' }
   }
 }
@@ -624,7 +627,7 @@ async function readFileBinaryDirectly(
 ): Promise<{ base64: string; mime: string; size: number } | { error: 'not_found' | 'too_large' | 'access_denied'; size?: number }> {
   const securePath = await getSecurePath(filePath)
   if (!securePath) {
-    console.error(`[readFileBinaryDirectly] Access denied: ${filePath}`)
+    logError(`[readFileBinaryDirectly] Access denied: ${filePath}`)
     return { error: 'access_denied' }
   }
 
@@ -662,7 +665,7 @@ async function readFileBinaryDirectly(
       await fh.close().catch(() => {})
     }
   } catch (error) {
-    console.error(`[readFileBinaryDirectly] Error reading ${securePath}:`, error)
+    logError(`[readFileBinaryDirectly] Error reading ${securePath}:`, error)
     return { error: 'not_found' }
   }
 }
@@ -687,7 +690,10 @@ export type BridgeServerOptions = {
    */
   enableLoopbackInsecureServer?: boolean
   restartOpenCode?: () => Promise<boolean>
+  /** @deprecated Use bridgeLogger instead. Kept for backward compat. */
   logger?: (message: string) => void
+  /** Leveled logger. If not provided, falls back to legacy `logger` as info-level. */
+  bridgeLogger?: BridgeLogger
 }
 
 export type BridgeServer = {
@@ -762,31 +768,35 @@ const MESSAGE_PRIORITIES: Record<string, 'immediate' | 'high' | 'normal' | 'low'
 export async function createBridgeServer(options: BridgeServerOptions): Promise<BridgeServer> {
   const { opencode, version, logger } = options
 
-  // Security: Redact sensitive information from logs in production
-  const SENSITIVE_PATTERNS = [
-    /token[=:]\s*["']?[a-zA-Z0-9_-]{16,}["']?/gi,
-    /bearer\s+[a-zA-Z0-9_.-]+/gi,
-    /password[=:]\s*["']?[^"'\s]+["']?/gi,
-    /secret[=:]\s*["']?[^"'\s]+["']?/gi,
-    /api[_-]?key[=:]\s*["']?[a-zA-Z0-9_-]+["']?/gi,
-    /authorization[=:]\s*["']?[^"'\s]+["']?/gi,
-  ]
-  // Only allow debug mode in dev — compiled binaries always redact to
-  // prevent leaking tokens, API keys, and internal state in production.
-  const isDebugMode = !isCompiledBinary() && (process.env.BROSKI_DEBUG === '1' || process.env.BROSKI_VERBOSE === '1')
+  // ── Leveled logging ──────────────────────────────────────────────────
+  // If a BridgeLogger was provided, use it directly (it handles its own
+  // redaction, file writing, and console-level filtering).
+  // Otherwise fall back to the legacy `logger` callback wrapped as info-level.
+  const _bl = options.bridgeLogger
+  const _legacyLog = logger ? (msg: string) => logger(msg) : undefined
 
-  function redactSensitive(message: string): string {
-    if (isDebugMode) return message
-    let result = message
-    for (const pattern of SENSITIVE_PATTERNS) {
-      result = result.replace(pattern, '[REDACTED]')
-    }
-    return result
+  /** Always visible on user's console (compiled or dev). */
+  function logUser(message: string): void {
+    if (_bl) { _bl.user(message); return }
+    _legacyLog?.(message)
   }
-
-  function log(message: string): void {
-    logger?.(redactSensitive(message))
+  /** Visible in dev console; hidden in binary console. Always in log file. */
+  function logInfo(message: string): void {
+    if (_bl) { _bl.info(message); return }
+    _legacyLog?.(message)
   }
+  /** Visible only with --verbose / DEBUG in dev console. Always in log file. */
+  function logDebug(message: string): void {
+    if (_bl) { _bl.debug(message); return }
+    _legacyLog?.(message)
+  }
+  /** Always visible on stderr + error log file. */
+  function logError(message: string, ...args: unknown[]): void {
+    if (_bl) { _bl.error(message, ...args); return }
+    if (args.length > 0) { console.error(message, ...args) } else { console.error(message) }
+  }
+  // Backward-compat alias — existing `log(...)` calls become info-level.
+  const log = logInfo
 
   const sockets = new Set<ServerWebSocket<unknown>>()
   const contexts = new Map<ServerWebSocket<unknown>, ConnectionContext>()
@@ -1538,7 +1548,7 @@ export async function createBridgeServer(options: BridgeServerOptions): Promise<
               // Handle context compaction events
               if (safeString(item?.type) === 'contextCompaction') {
                 const compactionStatus = n.method === 'item/started' ? 'started' : 'completed'
-                console.log(`[Codex] context compaction ${compactionStatus}: threadId=${threadId}`)
+                logInfo(`[Codex] context compaction ${compactionStatus}: threadId=${threadId}`)
               }
             }
           }
@@ -1560,12 +1570,12 @@ export async function createBridgeServer(options: BridgeServerOptions): Promise<
 
           // Log turn lifecycle events for debugging
           if (n.method === 'turn/started') {
-            console.log(`[Codex] turn/started: threadId=${threadId}, turnId=${turnId}`)
+            logInfo(`[Codex] turn/started: threadId=${threadId}, turnId=${turnId}`)
           }
           if (n.method === 'turn/completed') {
             const turnStatus = safeString(params.turn?.status).toLowerCase()
             const turnError = params.turn?.error
-            console.log(`[Codex] turn/completed: threadId=${threadId}, turnId=${turnId}, status=${turnStatus}`)
+            logInfo(`[Codex] turn/completed: threadId=${threadId}, turnId=${turnId}, status=${turnStatus}`)
             
             // Handle turn/completed with failed status (different from turn/failed notification)
             if (turnStatus === 'failed' && turnError && threadId) {
@@ -1574,7 +1584,7 @@ export async function createBridgeServer(options: BridgeServerOptions): Promise<
                 : turnError?.message ?? turnError?.additionalDetails ?? JSON.stringify(turnError)
               const errorCode = turnError?.codexErrorInfo ?? turnError?.code ?? 'turn_failed'
               
-              console.error(`[Codex] turn/completed with failed status:`, JSON.stringify(turnError, null, 2))
+              logError(`[Codex] turn/completed with failed status:`, JSON.stringify(turnError, null, 2))
               
               // Extract ModelCap info if present
               const codexErrorInfoTC = turnError?.codexErrorInfo ?? turnError?.details?.codexErrorInfo
@@ -1602,7 +1612,7 @@ export async function createBridgeServer(options: BridgeServerOptions): Promise<
           if (n.method === 'turn/failed' || n.method === 'error') {
             const turn = params.turn
             const error = turn?.error ?? params.error ?? params
-            console.error(`[Codex] ${n.method}: threadId=${threadId}`, JSON.stringify(error, null, 2))
+            logError(`[Codex] ${n.method}: threadId=${threadId}`, JSON.stringify(error, null, 2))
             if (threadId) {
               cxActiveTurns.delete(threadId)
               
@@ -1649,7 +1659,7 @@ export async function createBridgeServer(options: BridgeServerOptions): Promise<
           }
           // Handle thread/compacted (deprecated notification)
           if (n.method === 'thread/compacted') {
-            console.log(`[Codex] thread/compacted (deprecated): threadId=${threadId}`)
+            logInfo(`[Codex] thread/compacted (deprecated): threadId=${threadId}`)
             if (threadId) {
               emitCxStream(threadId, { type: 'notification', method: 'thread/compacted', params }, owner)
             }
@@ -1660,7 +1670,7 @@ export async function createBridgeServer(options: BridgeServerOptions): Promise<
             const item = params.item
             const itemType = safeString(item?.type)
             const itemId = safeString(item?.id)
-            console.log(`[Codex] ${n.method}: threadId=${threadId}, itemType=${itemType}, itemId=${itemId}`)
+            logInfo(`[Codex] ${n.method}: threadId=${threadId}, itemType=${itemType}, itemId=${itemId}`)
           }
 
           // Multi-Agent Collaboration Events (Codex SDK v0.87.0+)
@@ -1792,7 +1802,7 @@ export async function createBridgeServer(options: BridgeServerOptions): Promise<
         },
         // Handle app-server crash - notify all affected clients
         onExit: (code, signal) => {
-          console.error(`[Codex] App-server crashed! code=${code}, signal=${signal}`)
+          logError(`[Codex] App-server crashed! code=${code}, signal=${signal}`)
           
           // Notify all thread owners that the server crashed
           for (const [threadId, owner] of cxThreadOwners.entries()) {
@@ -1831,7 +1841,7 @@ export async function createBridgeServer(options: BridgeServerOptions): Promise<
           codexClient = null
         },
         onError: (error) => {
-          console.error(`[Codex] App-server error:`, error.message)
+          logError(`[Codex] App-server error:`, error.message)
           
           // Broadcast error to all connected clients
           for (const ws of sockets) {
@@ -1955,11 +1965,11 @@ export async function createBridgeServer(options: BridgeServerOptions): Promise<
         // Debug: Log raw status response on first few polls or when it changes
         if (DEBUG_RTS && (idleCount < 3 || newStatus !== lastSessionStatus)) {
           const sessionIds = Object.keys(statusMap)
-          console.log(`[RTS] OC External: getSessionStatus returned ${sessionIds.length} sessions: ${sessionIds.join(', ') || '(none)'}`)
+          logDebug(`[RTS] OC External: getSessionStatus returned ${sessionIds.length} sessions: ${sessionIds.join(', ') || '(none)'}`)
           if (status) {
-            console.log(`[RTS] OC External: Session ${sessionId} raw status: ${JSON.stringify(status)}`)
+            logDebug(`[RTS] OC External: Session ${sessionId} raw status: ${JSON.stringify(status)}`)
           } else {
-            console.log(`[RTS] OC External: Session ${sessionId} NOT in status map, defaulting to idle`)
+            logDebug(`[RTS] OC External: Session ${sessionId} NOT in status map, defaulting to idle`)
           }
         }
         
@@ -1972,7 +1982,7 @@ export async function createBridgeServer(options: BridgeServerOptions): Promise<
         
         if (newStatus !== lastSessionStatus) {
           if (DEBUG_RTS) {
-            console.log(`[RTS] OC External: Session ${sessionId} status changed: ${lastSessionStatus} -> ${newStatus}`)
+            logDebug(`[RTS] OC External: Session ${sessionId} status changed: ${lastSessionStatus} -> ${newStatus}`)
           }
           lastSessionStatus = newStatus
           
@@ -2007,7 +2017,7 @@ export async function createBridgeServer(options: BridgeServerOptions): Promise<
             if (initialSyncDone) {
               hadChanges = true
               if (DEBUG_RTS) {
-                console.log(`[RTS] OC External: New message ${msgId} in session ${sessionId}`)
+                logDebug(`[RTS] OC External: New message ${msgId} in session ${sessionId}`)
               }
               
               enqueueSdkEvent({
@@ -2049,7 +2059,7 @@ export async function createBridgeServer(options: BridgeServerOptions): Promise<
                     : undefined
                   
                   if (DEBUG_RTS) {
-                    console.log(`[RTS] OC External: Text part ${partId} updated, delta=${delta?.length ?? 'full'}`)
+                    logDebug(`[RTS] OC External: Text part ${partId} updated, delta=${delta?.length ?? 'full'}`)
                   }
                   
                   enqueueSdkEvent({
@@ -2083,7 +2093,7 @@ export async function createBridgeServer(options: BridgeServerOptions): Promise<
                 if (initialSyncDone) {
                   hadChanges = true
                   if (DEBUG_RTS) {
-                    console.log(`[RTS] OC External: Tool part ${partId} state changed to ${part.state.status}`)
+                    logDebug(`[RTS] OC External: Tool part ${partId} state changed to ${part.state.status}`)
                   }
                   
                   enqueueSdkEvent({
@@ -2132,7 +2142,7 @@ export async function createBridgeServer(options: BridgeServerOptions): Promise<
         if (!initialSyncDone) {
           initialSyncDone = true
           if (DEBUG_RTS) {
-            console.log(`[RTS] OC External: Initial sync complete for session ${sessionId}, ${seenMessageIds.size} messages, ${seenPartIds.size} parts`)
+            logDebug(`[RTS] OC External: Initial sync complete for session ${sessionId}, ${seenMessageIds.size} messages, ${seenPartIds.size} parts`)
           }
         }
 
@@ -2146,7 +2156,7 @@ export async function createBridgeServer(options: BridgeServerOptions): Promise<
             wasEverBusy = true
             lastEmittedStatus = 'busy'
             if (DEBUG_RTS) {
-              console.log(`[RTS] OC External: Content changes detected, emitting busy status`)
+              logDebug(`[RTS] OC External: Content changes detected, emitting busy status`)
             }
             enqueueSdkEvent({
               directory: projectPath,
@@ -2166,7 +2176,7 @@ export async function createBridgeServer(options: BridgeServerOptions): Promise<
         const timeSinceLastChange = Date.now() - lastChangeTime
         if (wasEverBusy && lastEmittedStatus === 'busy' && timeSinceLastChange > 1500 && !hadChanges) {
           if (DEBUG_RTS) {
-            console.log(`[RTS] OC External: Fallback idle detection - no changes for ${timeSinceLastChange}ms, emitting idle status`)
+            logDebug(`[RTS] OC External: Fallback idle detection - no changes for ${timeSinceLastChange}ms, emitting idle status`)
           }
           lastEmittedStatus = 'idle'
           enqueueSdkEvent({
@@ -2182,7 +2192,7 @@ export async function createBridgeServer(options: BridgeServerOptions): Promise<
         }
       } catch (err) {
         if (DEBUG_RTS) {
-          console.log(`[RTS] OC External: Poll error for session ${sessionId}:`, err)
+          logDebug(`[RTS] OC External: Poll error for session ${sessionId}:`, err)
         }
       }
     }
@@ -2201,7 +2211,7 @@ export async function createBridgeServer(options: BridgeServerOptions): Promise<
     void poll().then(scheduleNextPoll)
 
     if (DEBUG_RTS) {
-      console.log(`[RTS] OC External: Started polling for session ${sessionId} in ${projectPath}`)
+      logDebug(`[RTS] OC External: Started polling for session ${sessionId} in ${projectPath}`)
     }
 
     return {
@@ -2212,7 +2222,7 @@ export async function createBridgeServer(options: BridgeServerOptions): Promise<
           pollTimer = null
         }
         if (DEBUG_RTS) {
-          console.log(`[RTS] OC External: Stopped polling for session ${sessionId}`)
+          logDebug(`[RTS] OC External: Stopped polling for session ${sessionId}`)
         }
       },
     }
@@ -2373,7 +2383,7 @@ export async function createBridgeServer(options: BridgeServerOptions): Promise<
           }
           
           if (DEBUG_RTS) {
-            console.log(`[RTS] CC Bootstrap: Built baseline for session ${sessionId}: ` +
+            logDebug(`[RTS] CC Bootstrap: Built baseline for session ${sessionId}: ` +
               `${lastTextByMessageId.size} texts, ${lastThinkingByMessageId.size} thinking, ${emittedToolCalls.size} tool calls`)
           }
         } finally {
@@ -2491,7 +2501,7 @@ export async function createBridgeServer(options: BridgeServerOptions): Promise<
         })
         
         if (DEBUG_RTS) {
-          console.log(`[RTS] CC External: Emitted tool-call ${tool.name} (${tool.id}) for session ${sessionId}`)
+          logDebug(`[RTS] CC External: Emitted tool-call ${tool.name} (${tool.id}) for session ${sessionId}`)
         }
       }
     }
@@ -2511,7 +2521,7 @@ export async function createBridgeServer(options: BridgeServerOptions): Promise<
         })
         
         if (DEBUG_RTS) {
-          console.log(`[RTS] CC External: Emitted tool-result for ${result.toolUseId} for session ${sessionId}`)
+          logDebug(`[RTS] CC External: Emitted tool-result for ${result.toolUseId} for session ${sessionId}`)
         }
       }
     }
@@ -2561,12 +2571,12 @@ export async function createBridgeServer(options: BridgeServerOptions): Promise<
       const resolved = await claudeCode.resolveSessionFilePath(sessionId)
       if (!resolved) {
         if (DEBUG_RTS) {
-          console.log(`[RTS] CC External: Could not resolve file for session ${sessionId}`)
+          logDebug(`[RTS] CC External: Could not resolve file for session ${sessionId}`)
         }
         return false
       }
       if (DEBUG_RTS) {
-        console.log(`[RTS] CC External: Resolved file for session ${sessionId}: ${resolved}`)
+        logDebug(`[RTS] CC External: Resolved file for session ${sessionId}: ${resolved}`)
       }
       filePath = resolved
       try {
@@ -2619,7 +2629,7 @@ export async function createBridgeServer(options: BridgeServerOptions): Promise<
         // Check for file rotation (inode changed)
         if (lastIno !== 0 && ino !== lastIno) {
           if (DEBUG_RTS) {
-            console.log(`[RTS] CC External: File rotated for session ${sessionId}`)
+            logDebug(`[RTS] CC External: File rotated for session ${sessionId}`)
           }
           await closeHandle()
           offset = 0
@@ -2633,7 +2643,7 @@ export async function createBridgeServer(options: BridgeServerOptions): Promise<
         // Check for truncation
         if (size < offset) {
           if (DEBUG_RTS) {
-            console.log(`[RTS] CC External: File truncated for session ${sessionId}`)
+            logDebug(`[RTS] CC External: File truncated for session ${sessionId}`)
           }
           offset = 0
           buffer = ''
@@ -2726,13 +2736,13 @@ export async function createBridgeServer(options: BridgeServerOptions): Promise<
         if (!initialSyncDone) {
           initialSyncDone = true
           if (DEBUG_RTS) {
-            console.log(`[RTS] CC External: Initial sync done for session ${sessionId}, will now emit events`)
+            logDebug(`[RTS] CC External: Initial sync done for session ${sessionId}, will now emit events`)
           }
         }
       } catch (err) {
         // If the file was rotated/deleted, reset and retry.
         if (DEBUG_RTS) {
-          console.log(`[RTS] CC External: Error in pump for session ${sessionId}:`, err)
+          logDebug(`[RTS] CC External: Error in pump for session ${sessionId}:`, err)
         }
         await closeHandle()
         filePath = null
@@ -2785,7 +2795,7 @@ export async function createBridgeServer(options: BridgeServerOptions): Promise<
       })
       
       if (DEBUG_RTS) {
-        console.log(`[RTS] CC External: Started tailing session ${sessionId}`)
+        logDebug(`[RTS] CC External: Started tailing session ${sessionId}`)
       }
     }
 
@@ -2813,7 +2823,7 @@ export async function createBridgeServer(options: BridgeServerOptions): Promise<
         void closeHandle()
         
         if (DEBUG_RTS) {
-          console.log(`[RTS] CC External: Stopped tailing session ${sessionId}`)
+          logDebug(`[RTS] CC External: Stopped tailing session ${sessionId}`)
         }
       },
     }
@@ -2882,12 +2892,12 @@ export async function createBridgeServer(options: BridgeServerOptions): Promise<
       const resolved = await resolveCodexExternalSessionFile(threadId)
       if (!resolved) {
         if (DEBUG_RTS) {
-          console.log(`[RTS] CX External: Could not resolve file for thread ${threadId}`)
+          logDebug(`[RTS] CX External: Could not resolve file for thread ${threadId}`)
         }
         return false
       }
       if (DEBUG_RTS) {
-        console.log(`[RTS] CX External: Resolved file for thread ${threadId}: ${resolved}`)
+        logDebug(`[RTS] CX External: Resolved file for thread ${threadId}: ${resolved}`)
       }
       filePath = resolved
       try {
@@ -2943,7 +2953,7 @@ export async function createBridgeServer(options: BridgeServerOptions): Promise<
           }
           
           if (DEBUG_RTS) {
-            console.log(`[RTS] CX Bootstrap: Built baseline for thread ${threadId}: ${emittedItems.size} items tracked`)
+            logDebug(`[RTS] CX Bootstrap: Built baseline for thread ${threadId}: ${emittedItems.size} items tracked`)
           }
         } finally {
           await fh.close().catch(() => {})
@@ -2986,7 +2996,7 @@ export async function createBridgeServer(options: BridgeServerOptions): Promise<
         // Check for file rotation (inode changed)
         if (lastIno !== 0 && ino !== lastIno) {
           if (DEBUG_RTS) {
-            console.log(`[RTS] CX External: File rotated for thread ${threadId}`)
+            logDebug(`[RTS] CX External: File rotated for thread ${threadId}`)
           }
           await closeHandle()
           offset = 0
@@ -2999,7 +3009,7 @@ export async function createBridgeServer(options: BridgeServerOptions): Promise<
         // Check for truncation
         if (size < offset) {
           if (DEBUG_RTS) {
-            console.log(`[RTS] CX External: File truncated for thread ${threadId}`)
+            logDebug(`[RTS] CX External: File truncated for thread ${threadId}`)
           }
           offset = 0
           buffer = ''
@@ -3046,7 +3056,7 @@ export async function createBridgeServer(options: BridgeServerOptions): Promise<
                 turnInProgress = true
                 emit('turn/started', {})
                 if (DEBUG_RTS) {
-                  console.log(`[RTS] CX External: turn/started for thread ${threadId}`)
+                  logDebug(`[RTS] CX External: turn/started for thread ${threadId}`)
                 }
               }
               continue
@@ -3075,7 +3085,7 @@ export async function createBridgeServer(options: BridgeServerOptions): Promise<
                   turnInProgress = false
                   emit('turn/completed', {})
                   if (DEBUG_RTS) {
-                    console.log(`[RTS] CX External: turn/completed for thread ${threadId}`)
+                    logDebug(`[RTS] CX External: turn/completed for thread ${threadId}`)
                   }
                 }
               }
@@ -3088,7 +3098,7 @@ export async function createBridgeServer(options: BridgeServerOptions): Promise<
                 turnInProgress = false
                 emit('turn/completed', { usage: payload?.usage })
                 if (DEBUG_RTS) {
-                  console.log(`[RTS] CX External: turn/completed (explicit) for thread ${threadId}`)
+                  logDebug(`[RTS] CX External: turn/completed (explicit) for thread ${threadId}`)
                 }
               }
               continue
@@ -3122,7 +3132,7 @@ export async function createBridgeServer(options: BridgeServerOptions): Promise<
               })
               
               if (DEBUG_RTS) {
-                console.log(`[RTS] CX External: item/started (function_call) ${name} for thread ${threadId}`)
+                logDebug(`[RTS] CX External: item/started (function_call) ${name} for thread ${threadId}`)
               }
               continue
             }
@@ -3141,7 +3151,7 @@ export async function createBridgeServer(options: BridgeServerOptions): Promise<
               })
               
               if (DEBUG_RTS) {
-                console.log(`[RTS] CX External: item/completed (function_call_output) for thread ${threadId}`)
+                logDebug(`[RTS] CX External: item/completed (function_call_output) for thread ${threadId}`)
               }
               continue
             }
@@ -3161,7 +3171,7 @@ export async function createBridgeServer(options: BridgeServerOptions): Promise<
               })
               
               if (DEBUG_RTS) {
-                console.log(`[RTS] CX External: item/started (fileChange) for thread ${threadId}`)
+                logDebug(`[RTS] CX External: item/started (fileChange) for thread ${threadId}`)
               }
               continue
             }
@@ -3173,12 +3183,12 @@ export async function createBridgeServer(options: BridgeServerOptions): Promise<
         if (!initialSyncDone) {
           initialSyncDone = true
           if (DEBUG_RTS) {
-            console.log(`[RTS] CX External: Initial sync done for thread ${threadId}, will now emit events`)
+            logDebug(`[RTS] CX External: Initial sync done for thread ${threadId}, will now emit events`)
           }
         }
       } catch (err) {
         if (DEBUG_RTS) {
-          console.log(`[RTS] CX External: Error in pump for thread ${threadId}:`, err)
+          logDebug(`[RTS] CX External: Error in pump for thread ${threadId}:`, err)
         }
         await closeHandle()
         filePath = null
@@ -3230,7 +3240,7 @@ export async function createBridgeServer(options: BridgeServerOptions): Promise<
     })
     
     if (DEBUG_RTS) {
-      console.log(`[RTS] CX External: Started tailing thread ${threadId}`)
+      logDebug(`[RTS] CX External: Started tailing thread ${threadId}`)
     }
 
     return {
@@ -3255,7 +3265,7 @@ export async function createBridgeServer(options: BridgeServerOptions): Promise<
         void closeHandle()
         
         if (DEBUG_RTS) {
-          console.log(`[RTS] CX External: Stopped tailing thread ${threadId}`)
+          logDebug(`[RTS] CX External: Stopped tailing thread ${threadId}`)
         }
       },
     }
@@ -3273,12 +3283,12 @@ export async function createBridgeServer(options: BridgeServerOptions): Promise<
       const owner = ccSessionOwners.get(id) ?? null
       const shouldRun = watcherCount > 0 && !owner
       if (DEBUG_RTS) {
-        console.log(`[RTS] syncExternalTail(CC): id=${id}, watchers=${watcherCount}, owner=${!!owner}, shouldRun=${shouldRun}, alreadyRunning=${ccExternalTails.has(id)}`)
+        logDebug(`[RTS] syncExternalTail(CC): id=${id}, watchers=${watcherCount}, owner=${!!owner}, shouldRun=${shouldRun}, alreadyRunning=${ccExternalTails.has(id)}`)
       }
       if (shouldRun) {
         if (!ccExternalTails.has(id)) {
           if (DEBUG_RTS) {
-            console.log(`[RTS] Starting Claude Code external tail for session ${id}`)
+            logDebug(`[RTS] Starting Claude Code external tail for session ${id}`)
           }
           ccExternalTails.set(id, startClaudeCodeExternalTail(id))
         }
@@ -3292,12 +3302,12 @@ export async function createBridgeServer(options: BridgeServerOptions): Promise<
       const owner = cxThreadOwners.get(id) ?? null
       const shouldRun = watcherCount > 0 && !owner
       if (DEBUG_RTS) {
-        console.log(`[RTS] syncExternalTail(CX): id=${id}, watchers=${watcherCount}, owner=${!!owner}, shouldRun=${shouldRun}, alreadyRunning=${cxExternalTails.has(id)}`)
+        logDebug(`[RTS] syncExternalTail(CX): id=${id}, watchers=${watcherCount}, owner=${!!owner}, shouldRun=${shouldRun}, alreadyRunning=${cxExternalTails.has(id)}`)
       }
       if (shouldRun) {
         if (!cxExternalTails.has(id)) {
           if (DEBUG_RTS) {
-            console.log(`[RTS] Starting Codex external tail for thread ${id}`)
+            logDebug(`[RTS] Starting Codex external tail for thread ${id}`)
           }
           cxExternalTails.set(id, startCodexExternalTail(id))
         }
@@ -3316,7 +3326,7 @@ export async function createBridgeServer(options: BridgeServerOptions): Promise<
         if (!ocExternalTails.has(id)) {
           ocExternalTails.set(id, startOpenCodeExternalTail(id, projectPath))
           if (DEBUG_RTS) {
-            console.log(`[RTS] Starting OpenCode external tail for session ${id}`)
+            logDebug(`[RTS] Starting OpenCode external tail for session ${id}`)
           }
         }
       } else {
@@ -3377,7 +3387,7 @@ export async function createBridgeServer(options: BridgeServerOptions): Promise<
     
     if (DEBUG_RTS) {
       const msgType = (streamMsg as any)?.type ?? 'unknown'
-      console.log(`[RTS] emitCcStream: session=${sessionId}, msgType=${msgType}, owner=${!!resolvedOwner}, watchers=${watchers?.size ?? 0}`)
+      logDebug(`[RTS] emitCcStream: session=${sessionId}, msgType=${msgType}, owner=${!!resolvedOwner}, watchers=${watchers?.size ?? 0}`)
     }
     
     if (resolvedOwner) {
@@ -3398,7 +3408,7 @@ export async function createBridgeServer(options: BridgeServerOptions): Promise<
     
     if (DEBUG_RTS) {
       const msgType = (streamMsg as any)?.type ?? (streamMsg as any)?.method ?? 'unknown'
-      console.log(`[RTS] emitCxStream: thread=${threadId}, msgType=${msgType}, owner=${!!resolvedOwner}, watchers=${watchers?.size ?? 0}`)
+      logDebug(`[RTS] emitCxStream: thread=${threadId}, msgType=${msgType}, owner=${!!resolvedOwner}, watchers=${watchers?.size ?? 0}`)
     }
     
     if (resolvedOwner) {
@@ -3464,7 +3474,7 @@ export async function createBridgeServer(options: BridgeServerOptions): Promise<
     const ctx = contexts.get(ws)
     if (!ctx || (!ctx.projectPath && !ctx.sessionId)) {
       if (DEBUG_RTS) {
-        console.log('[RTS] filterEventForSocket: No context, passing through')
+        logDebug('[RTS] filterEventForSocket: No context, passing through')
       }
       return true
     }
@@ -3488,7 +3498,7 @@ export async function createBridgeServer(options: BridgeServerOptions): Promise<
     if (ctx.projectPath === 'global') {
       // Global view = receive ALL events (enables multi-device real-time sync)
       if (DEBUG_RTS) {
-        console.log('[RTS] filterEventForSocket: Global view, passing all events')
+        logDebug('[RTS] filterEventForSocket: Global view, passing all events')
       }
       return true
     }
@@ -3501,7 +3511,7 @@ export async function createBridgeServer(options: BridgeServerOptions): Promise<
         const match = sid === ctx.sessionId
         if (DEBUG_RTS) {
           const eventType = getEventType(event)
-          console.log(`[RTS] filterEventForSocket: Session match check - eventSessionId=${sid}, ctxSessionId=${ctx.sessionId}, match=${match}, eventType=${eventType}`)
+          logDebug(`[RTS] filterEventForSocket: Session match check - eventSessionId=${sid}, ctxSessionId=${ctx.sessionId}, match=${match}, eventType=${eventType}`)
         }
         return match
       }
@@ -3509,13 +3519,13 @@ export async function createBridgeServer(options: BridgeServerOptions): Promise<
 
     if (projectPath && directory !== 'global' && directory !== projectPath) {
       if (DEBUG_RTS) {
-        console.log(`[RTS] filterEventForSocket: Directory mismatch - eventDir=${directory}, ctxDir=${projectPath}`)
+        logDebug(`[RTS] filterEventForSocket: Directory mismatch - eventDir=${directory}, ctxDir=${projectPath}`)
       }
       return false
     }
 
     if (DEBUG_RTS) {
-      console.log('[RTS] filterEventForSocket: Passing through (default)')
+      logDebug('[RTS] filterEventForSocket: Passing through (default)')
     }
     return true
   }
@@ -3572,7 +3582,7 @@ export async function createBridgeServer(options: BridgeServerOptions): Promise<
       const sid = extractSessionId(event)
       const e = event as any
       const directory = typeof e?.directory === 'string' ? e.directory : 'global'
-      console.log(`[RTS] enqueueSdkEvent: type=${eventType}, sessionId=${sid || 'none'}, dir=${directory}, priority=${priority}, sockets=${sockets.size}`)
+      logDebug(`[RTS] enqueueSdkEvent: type=${eventType}, sessionId=${sid || 'none'}, dir=${directory}, priority=${priority}, sockets=${sockets.size}`)
     }
 
     let deliveredCount = 0
@@ -3588,7 +3598,7 @@ export async function createBridgeServer(options: BridgeServerOptions): Promise<
     }
     
     if (DEBUG_RTS && deliveredCount === 0 && sockets.size > 0) {
-      console.log(`[RTS] enqueueSdkEvent: WARNING - Event not delivered to any socket!`)
+      logDebug(`[RTS] enqueueSdkEvent: WARNING - Event not delivered to any socket!`)
     }
 
     // Keep the hot path lean: forward SDK events first, then do any heavier work.
@@ -3603,7 +3613,7 @@ export async function createBridgeServer(options: BridgeServerOptions): Promise<
           if (branch) lastGitBranchByProject.set(directory, branch)
         }
       } catch (err) {
-        console.warn('[server] Failed to process SDK event microtask:', err)
+        logError('[server] Failed to process SDK event microtask:', err)
       }
     })
   }
@@ -3688,7 +3698,7 @@ export async function createBridgeServer(options: BridgeServerOptions): Promise<
       }
       // Security: Only allow proxying to known dev server ports
       if (!isAllowedProxyPort(port)) {
-        log(`[Security] Proxy blocked: port ${port} not in allowlist`)
+        logUser(`[Security] Proxy blocked: port ${port} not in allowlist`)
         return publicJson({ error: 'Port not allowed for proxy' }, 403)
       }
       const upstreamPath = slashIdx === -1 ? '/' : `/${rest.slice(slashIdx + 1)}`
@@ -4087,7 +4097,7 @@ export async function createBridgeServer(options: BridgeServerOptions): Promise<
     authState = await createNewAuthState(now, options.tokenTtlDays)
     authToken = authState.token
     authExpiresAt = authState.expiresAt
-    log('[Auth] Token expired; rotated. Run `broski qr` to re-pair (old QR codes invalid).')
+    logUser('[Auth] Token expired; rotated. Run `broski qr` to re-pair (old QR codes invalid).')
     // Drop existing connections; they are no longer authorized.
     for (const ws of sockets) {
       try {
@@ -4176,12 +4186,14 @@ export async function createBridgeServer(options: BridgeServerOptions): Promise<
 	        connectedAt: Date.now(),
 	      }
 	      contexts.set(ws, baseCtx)
-	      log(`[WS] Client CONNECTED (${sockets.size} total) - requireEntitlement=${requireEntitlement}`)
+	      logUser(`Client connected (${sockets.size} active)`)
+	      logInfo(`[WS] Client CONNECTED (${sockets.size} total) - requireEntitlement=${requireEntitlement}`)
 	      scheduleCloudAuthDeadline(ws)
 	      void sendStatus(ws)
 		    },
     close(ws: ServerWebSocket<unknown>, code?: number, reason?: string) {
-      log(`[WS] Client DISCONNECTED - code=${code}, reason=${reason}`)
+      logUser(`Client disconnected`)
+      logInfo(`[WS] Client DISCONNECTED - code=${code}, reason=${reason}`)
       const proxy = (ws as any).data && (ws as any).data.kind === 'proxy'
       if (proxy) {
         const upstream = (ws as any).__proxyUpstream as WebSocket | undefined
@@ -4195,7 +4207,7 @@ export async function createBridgeServer(options: BridgeServerOptions): Promise<
       }
       clearCloudAuthTimer(ws)
       const ctx = contexts.get(ws)
-      log(`[WS] Disconnect context - cloudAuthed=${ctx?.cloudAuthed}, cloudEntitled=${ctx?.cloudEntitled}, deviceId=${ctx?.deviceId}`)
+      logInfo(`[WS] Disconnect context - cloudAuthed=${ctx?.cloudAuthed}, cloudEntitled=${ctx?.cloudEntitled}, deviceId=${ctx?.deviceId}`)
       const disconnectedDeviceId = ctx?.deviceId
       const disconnectedDeviceName = ctx?.deviceName
       const prevKey = makeSessionKey(ctx?.viewAgent, ctx?.sessionId)
@@ -4305,13 +4317,13 @@ export async function createBridgeServer(options: BridgeServerOptions): Promise<
         const isProxyWs = url.pathname.startsWith('/proxy-ws/')
         if (!isProxyWs) {
           if (sockets.size >= MAX_CLIENTS) {
-            log(`[Security] WS rejected: too many clients (${sockets.size} >= ${MAX_CLIENTS})`)
+            logUser(`[Security] WS rejected: too many clients (${sockets.size} >= ${MAX_CLIENTS})`)
             return new Response('Too many clients', { status: 429 })
           }
         }
         const origin = request.headers.get('origin')
         if (!isAllowedOrigin(origin)) {
-          log(`[Security] WS rejected (origin): ${origin}`)
+          logUser(`[Security] WS rejected (origin): ${origin}`)
           return new Response('Forbidden', { status: 403 })
         }
       }
@@ -4351,7 +4363,7 @@ export async function createBridgeServer(options: BridgeServerOptions): Promise<
         }
         // Security: Only allow proxying to known dev server ports
         if (!isAllowedProxyPort(port)) {
-          log(`[Security] WS Proxy blocked: port ${port} not in allowlist`)
+          logUser(`[Security] WS Proxy blocked: port ${port} not in allowlist`)
           return new Response('Port not allowed for proxy', { status: 403 })
         }
         const upstreamPath = slashIdx === -1 ? '/' : `/${rest.slice(slashIdx + 1)}`
@@ -4385,7 +4397,7 @@ export async function createBridgeServer(options: BridgeServerOptions): Promise<
 
       if (isWebSocketUpgrade) {
         if (!isValidToken) {
-          log(`[Security] WS rejected (auth) via ${serverLabel}`)
+          logUser(`[Security] WS rejected (auth) via ${serverLabel}`)
           return new Response('Unauthorized', { status: 401 })
         }
         if (serverInstance.upgrade(request)) return
@@ -4663,7 +4675,8 @@ export async function createBridgeServer(options: BridgeServerOptions): Promise<
 	          // FIX: Check entitlement BEFORE sending auth_session_ok to avoid
 	          // sending success then immediately closing (causes reconnect loops).
 	          if (requireEntitlement && !refreshed.state.entitled) {
-	            log(`[auth_session] FRESH CHECK - NOT ENTITLED, closing connection`)
+	            logUser(`Session rejected: device not entitled`)
+	            logInfo(`[auth_session] FRESH CHECK - NOT ENTITLED, closing connection`)
 	            reply({ type: 'error', message: 'LICENSE_REQUIRED', code: 'LICENSE_REQUIRED', requestId: message.requestId })
 	            try {
 	              ws.close(4403, 'License required')
@@ -4790,7 +4803,7 @@ export async function createBridgeServer(options: BridgeServerOptions): Promise<
           reply({ type: 'device_registered', data: deviceInfo, protocolVersion: BRIDGE_PROTOCOL_VERSION })
           broadcast({ type: 'device_connected', data: deviceInfo })
         }
-        log(`Device registered: ${message.deviceName} (${message.platform})`)
+        logUser(`Device registered: ${message.deviceName} (${message.platform})`)
         void sendStatus(ws)
         break
       }
@@ -4833,7 +4846,7 @@ export async function createBridgeServer(options: BridgeServerOptions): Promise<
           const nextSessionId = message.sessionId || undefined
 
           if (DEBUG_RTS) {
-            console.log(`[RTS] set_view: agent=${nextAgent}, sessionId=${nextSessionId}, projectPath=${message.projectPath}, prevKey=${prevKey}`)
+            logDebug(`[RTS] set_view: agent=${nextAgent}, sessionId=${nextSessionId}, projectPath=${message.projectPath}, prevKey=${prevKey}`)
           }
 
           if (nextAgent === 'claude-code') {
@@ -4860,7 +4873,7 @@ export async function createBridgeServer(options: BridgeServerOptions): Promise<
           if (nextAgent === 'opencode' && nextSessionId && message.projectPath) {
             ocSessionProjectPaths.set(nextSessionId, message.projectPath)
             if (DEBUG_RTS) {
-              console.log(`[RTS] set_view: Stored projectPath for OpenCode session ${nextSessionId}: ${message.projectPath}`)
+              logDebug(`[RTS] set_view: Stored projectPath for OpenCode session ${nextSessionId}: ${message.projectPath}`)
             }
           }
 
@@ -4869,7 +4882,7 @@ export async function createBridgeServer(options: BridgeServerOptions): Promise<
           
           if (DEBUG_RTS) {
             const watchers = sessionWatchers.get(nextKey ?? '')
-            console.log(`[RTS] set_view: nextKey=${nextKey}, watchers=${watchers?.size ?? 0}`)
+            logDebug(`[RTS] set_view: nextKey=${nextKey}, watchers=${watchers?.size ?? 0}`)
           }
           
           void sendStatus(ws)
@@ -5035,7 +5048,7 @@ export async function createBridgeServer(options: BridgeServerOptions): Promise<
           const normalized: 'once' | 'always' | 'reject' =
             raw === 'once' || raw === 'always' || raw === 'reject' ? raw : 'reject'
           if (raw !== normalized) {
-            console.warn('[permission_response] Invalid OpenCode permission response, forcing reject:', raw)
+            logError('[permission_response] Invalid OpenCode permission response, forcing reject:', raw)
           }
           // Use the new permission.reply() API - permissionId is now requestId
           await oc.respondToPermission(
@@ -5692,17 +5705,17 @@ export async function createBridgeServer(options: BridgeServerOptions): Promise<
         
         // Check cache first (unless explicit refresh requested)
         if (!forceRefresh && cxProjectCache && (now - cxProjectCache.fetchedAt) < CODEX_PROJECT_CACHE_TTL_MS) {
-          console.log('[cx_list_projects] Cache hit, returning cached data')
+          logInfo('[cx_list_projects] Cache hit, returning cached data')
           reply({ type: 'cx_projects', data: cxProjectCache.data })
           break
         }
         
-        console.log(`[cx_list_projects] ${forceRefresh ? 'Refresh requested' : 'Cache miss'}, reading from filesystem...`)
+        logInfo(`[cx_list_projects] ${forceRefresh ? 'Refresh requested' : 'Cache miss'}, reading from filesystem...`)
         const projects = await codexFs.listProjectsFromFs()
         
         // Update cache
         cxProjectCache = { data: projects, fetchedAt: Date.now() }
-        console.log(`[cx_list_projects] Done, cached ${projects.length} projects (filesystem read)`)
+        logInfo(`[cx_list_projects] Done, cached ${projects.length} projects (filesystem read)`)
         reply({ type: 'cx_projects', data: projects })
         break
       }
@@ -5716,7 +5729,7 @@ export async function createBridgeServer(options: BridgeServerOptions): Promise<
         // Check cache first (unless explicit refresh or cursor-based pagination)
         const cached = cxThreadCache.get(cacheKey)
         if (!forceRefresh && !message.cursor && cached && (now - cached.fetchedAt) < CODEX_THREAD_CACHE_TTL_MS) {
-          console.log(`[cx_list_threads] Cache hit for ${cacheKey}, returning cached data`)
+          logInfo(`[cx_list_threads] Cache hit for ${cacheKey}, returning cached data`)
           // Merge latest thread names into cached response (names may have changed since caching)
           const cachedData = cxThreadNames.size > 0
             ? cached.data.map((t: any) => {
@@ -5728,7 +5741,7 @@ export async function createBridgeServer(options: BridgeServerOptions): Promise<
           break
         }
         
-        console.log(`[cx_list_threads] ${forceRefresh ? 'Refresh requested' : 'Cache miss'}, reading from filesystem...`)
+        logInfo(`[cx_list_threads] ${forceRefresh ? 'Refresh requested' : 'Cache miss'}, reading from filesystem...`)
         const threads = await codexFs.listThreadsFromFs(message.cwd ?? undefined)
         
         // Merge any known thread names from thread/name/updated notifications
@@ -5741,14 +5754,14 @@ export async function createBridgeServer(options: BridgeServerOptions): Promise<
         
         // Update cache (filesystem reads don't have pagination)
         cxThreadCache.set(cacheKey, { data: threadsWithNames, fetchedAt: Date.now(), nextCursor: null })
-        console.log(`[cx_list_threads] Done, cached ${threadsWithNames.length} threads (filesystem read)`)
+        logInfo(`[cx_list_threads] Done, cached ${threadsWithNames.length} threads (filesystem read)`)
         reply({ type: 'cx_threads', data: threadsWithNames, nextCursor: null })
         break
       }
       case 'cx_warmup': {
         // Pre-populate caches from filesystem for instant loading
         // No app-server spawn needed for listing - just file I/O
-        console.log('[cx_warmup] Starting Codex warmup (filesystem)...')
+        logInfo('[cx_warmup] Starting Codex warmup (filesystem)...')
         reply({ type: 'cx_warmup_started' })
         
         // Fire-and-forget: pre-warm caches from filesystem
@@ -5757,14 +5770,14 @@ export async function createBridgeServer(options: BridgeServerOptions): Promise<
             // Pre-fetch projects from filesystem
             const projects = await codexFs.listProjectsFromFs()
             cxProjectCache = { data: projects, fetchedAt: Date.now() }
-            console.log(`[cx_warmup] Pre-cached ${projects.length} projects from filesystem`)
+            logInfo(`[cx_warmup] Pre-cached ${projects.length} projects from filesystem`)
             
             // Pre-fetch all threads from filesystem
             const threads = await codexFs.listThreadsFromFs()
             cxThreadCache.set('__all__', { data: threads, fetchedAt: Date.now(), nextCursor: null })
-            console.log(`[cx_warmup] Pre-cached ${threads.length} threads from filesystem`)
+            logInfo(`[cx_warmup] Pre-cached ${threads.length} threads from filesystem`)
           } catch (e) {
-            console.error('[cx_warmup] Error:', e)
+            logError('[cx_warmup] Error:', e)
           }
         })()
         break
@@ -5830,9 +5843,9 @@ export async function createBridgeServer(options: BridgeServerOptions): Promise<
       case 'cx_get_thread_messages': {
         // FAST PATH: Read messages directly from filesystem (no app-server needed!)
         // Same pattern as listing - instant file I/O instead of slow subprocess
-        console.log(`[cx_get_thread_messages] Reading messages for thread ${message.threadId} from filesystem...`)
+        logInfo(`[cx_get_thread_messages] Reading messages for thread ${message.threadId} from filesystem...`)
         const transcript = await codexFs.getThreadMessagesFromFs(message.threadId)
-        console.log(`[cx_get_thread_messages] Found ${transcript.length} messages`)
+        logInfo(`[cx_get_thread_messages] Found ${transcript.length} messages`)
         reply({
           type: 'cx_thread_messages',
           data: transcript,
@@ -6182,7 +6195,7 @@ export async function createBridgeServer(options: BridgeServerOptions): Promise<
 	          break
 	        }
 	        if (DEBUG_CX_GLOBAL) {
-	          console.log(
+	          logDebug(
 	            `[Codex cx_chat] model=${message.model ?? 'default'}, threadId=${message.threadId ?? 'new'}`,
 	          )
 	        }
@@ -6212,12 +6225,12 @@ export async function createBridgeServer(options: BridgeServerOptions): Promise<
             resolvedModel = safeString(startRes?.model).trim()
           }
 	          if (DEBUG_CX_GLOBAL) {
-	            console.log(`[Codex cx_chat] thread/start result: threadId=${threadId}`)
+	            logInfo(`[Codex cx_chat] thread/start result: threadId=${threadId}`)
 	          }
           if (threadId) {
             reply({ type: 'cx_thread_created', data: mapCodexThread(startRes.thread) })
           } else {
-	            console.error(`[Codex cx_chat] thread/start failed - no threadId returned`)
+	            logError(`[Codex cx_chat] thread/start failed - no threadId returned`)
           }
         } else {
           // Ensure we are subscribed to events for this thread.
@@ -6310,12 +6323,12 @@ export async function createBridgeServer(options: BridgeServerOptions): Promise<
               },
             }
           } else {
-            console.warn('[Codex cx_chat] collaborationMode ignored (missing model)')
+            logInfo('[Codex cx_chat] collaborationMode ignored (missing model)')
           }
         }
 
 	        if (DEBUG_CX_GLOBAL) {
-	          console.log(`[Codex cx_chat] Starting turn for threadId=${threadId}`)
+	          logInfo(`[Codex cx_chat] Starting turn for threadId=${threadId}`)
 	        }
         
         try {
@@ -6337,7 +6350,7 @@ export async function createBridgeServer(options: BridgeServerOptions): Promise<
           const turnError = turnRes?.turn?.error ?? turnRes?.error
           
 	          if (DEBUG_CX_GLOBAL) {
-	            console.log(`[Codex cx_chat] turn/start result: turnId=${turnId}, status=${turnStatus}`)
+	            logInfo(`[Codex cx_chat] turn/start result: turnId=${turnId}, status=${turnStatus}`)
 	          }
           
           // Check if turn started with an error
@@ -6347,10 +6360,10 @@ export async function createBridgeServer(options: BridgeServerOptions): Promise<
               : turnError?.message ?? turnError?.additionalDetails ?? 'Turn failed to start'
             const errorCode = turnError?.codexErrorInfo ?? turnError?.code ?? 'turn_start_failed'
             
-	            console.error(`[Codex cx_chat] turn/start failed`)
+	            logError(`[Codex cx_chat] turn/start failed`)
 	            if (DEBUG_CX_GLOBAL) {
 	              try {
-	                console.error(JSON.stringify(turnError ?? turnRes, null, 2))
+	                logError(JSON.stringify(turnError ?? turnRes, null, 2))
 	              } catch {
 	                // ignore
 	              }
@@ -6381,10 +6394,10 @@ export async function createBridgeServer(options: BridgeServerOptions): Promise<
           }
           
 	          if (!turnId) {
-	            console.error(`[Codex cx_chat] turn/start returned no turnId`)
+	            logError(`[Codex cx_chat] turn/start returned no turnId`)
 	            if (DEBUG_CX_GLOBAL) {
 	              try {
-	                console.error(JSON.stringify(turnRes, null, 2))
+	                logError(JSON.stringify(turnRes, null, 2))
 	              } catch {
 	                // ignore
 	              }
@@ -6406,7 +6419,7 @@ export async function createBridgeServer(options: BridgeServerOptions): Promise<
         } catch (err: any) {
           // Handle request-level errors (network, timeout, app-server crash, etc.)
           const errorMessage = err?.message ?? String(err)
-          console.error(`[Codex cx_chat] turn/start threw error:`, errorMessage)
+          logError(`[Codex cx_chat] turn/start threw error:`, errorMessage)
           
           send(ws, {
             type: 'cx_stream',
@@ -6568,18 +6581,18 @@ export async function createBridgeServer(options: BridgeServerOptions): Promise<
 
           // Validate inputs
           if (!questionId || typeof questionId !== 'string') {
-            console.error('[OC Question] Reply FAILED: Invalid or missing questionId:', questionId)
+            logError('[OC Question] Reply FAILED: Invalid or missing questionId:', questionId)
             reply({ type: 'oc_question_replied', data: false })
             break
           }
           if (!Array.isArray(answers)) {
-            console.error('[OC Question] Reply FAILED: Invalid answers format (not array):', typeof answers, answers)
+            logError('[OC Question] Reply FAILED: Invalid answers format (not array):', typeof answers, answers)
             reply({ type: 'oc_question_replied', data: false })
             break
           }
 
           if (DEBUG_RTS) {
-            console.log('[OC Question] Reply received:', {
+            logInfo('[OC Question] Reply received:', {
               questionId,
               answers,
               answersType: typeof answers,
@@ -6591,10 +6604,10 @@ export async function createBridgeServer(options: BridgeServerOptions): Promise<
 
           const ok = await oc.replyToQuestion(questionId, answers, directory)
           if (DEBUG_RTS) {
-            console.log('[OC Question] Reply result:', { questionId, ok })
+            logInfo('[OC Question] Reply result:', { questionId, ok })
           }
           if (!ok) {
-            console.warn('[OC Question] Reply returned false - question may have been already answered or expired')
+            logInfo('[OC Question] Reply returned false - question may have been already answered or expired')
           }
           reply({ type: 'oc_question_replied', data: ok })
           break
@@ -6603,11 +6616,11 @@ export async function createBridgeServer(options: BridgeServerOptions): Promise<
           const oc = requireOpenCode()
           const directory = message.projectPath
           if (DEBUG_RTS) {
-            console.log('[OC Question] Reject received:', { questionId: message.questionId, directory })
+            logInfo('[OC Question] Reject received:', { questionId: message.questionId, directory })
           }
           const ok = await oc.rejectQuestion(message.questionId, directory)
           if (DEBUG_RTS) {
-            console.log('[OC Question] Reject result:', { questionId: message.questionId, ok })
+            logInfo('[OC Question] Reject result:', { questionId: message.questionId, ok })
           }
           reply({ type: 'oc_question_rejected', data: ok })
           break

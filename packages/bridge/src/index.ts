@@ -21,6 +21,7 @@ import {
 } from './platform'
 import packageMeta from '../package.json'
 import { startupUpdateCheck, startPeriodicUpdateCheck, stopPeriodicUpdateCheck, performUpdate } from './updater'
+import { createBridgeLogger, type BridgeLogger } from './logging/logger'
 
 // Daemon (Always On mode) configuration
 const BROSKI_LOG_DIR = resolve(homedir(), '.broski', 'logs')
@@ -618,6 +619,7 @@ const extraEventStreamControllers: AbortController[] = []
 let healthTimer: Timer | null = null
 let opencodeConnector: OpenCodeConnector | null = null
 let restartInFlight = false
+let activeBridgeLogger: BridgeLogger | null = null
 let managedHostname = '127.0.0.1'
 let managedPort = 0
 let verboseMode = false
@@ -684,6 +686,11 @@ async function shutdown(signal: string) {
     opencodeServer = null
   } else if (opencodeServer) {
     console.log('OpenCode server is external - leaving it running')
+  }
+
+  // Flush log file streams before exiting
+  if (activeBridgeLogger) {
+    await activeBridgeLogger.flush().catch(() => {})
   }
 
   console.log('Shutdown complete. Goodbye!')
@@ -1222,6 +1229,14 @@ async function main() {
   }
 
   if (cli.daemon) console.log('[daemon] Creating bridge server...')
+
+  // Create leveled logger — binary users see only important events;
+  // dev mode shows everything; all levels always go to the log file.
+  const bridgeLogger = createBridgeLogger({
+    verbose: cli.verbose,
+  })
+  activeBridgeLogger = bridgeLogger
+
   // Create bridge server
   try {
     const willEnableFunnel = cli.enableFunnel && tailscaleConnected
@@ -1240,7 +1255,7 @@ async function main() {
        },
        enableLoopbackInsecureServer: willEnableFunnel,
        restartOpenCode: restartManagedOpenCode,
-       logger: (message) => console.log(message),
+       bridgeLogger,
      })
   } catch (error: any) {
     if (error?.code === 'EADDRINUSE') {
