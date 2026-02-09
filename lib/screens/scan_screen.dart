@@ -1,5 +1,6 @@
 import 'dart:io';
 
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -341,8 +342,8 @@ class _ScanScreenState extends ConsumerState<ScanScreen>
                         ),
                       ],
                     ),
-                    // DEV BYPASS: skip scan step
-                    if (kDevBypassOnboarding) ...[
+                    // DEV BYPASS: skip scan step (only in debug builds)
+                    if (kDebugMode && kDevBypassOnboarding) ...[
                       const SizedBox(height: 14),
                       GestureDetector(
                         onTap: () {

@@ -1,4 +1,4 @@
-import                                                                                                                                                       Flutter
+import Flutter
 import UIKit
 import UserNotifications
 
@@ -8,15 +8,11 @@ import UserNotifications
     _ application: UIApplication,
     didFinishLaunchingWithOptions launchOptions: [UIApplication.LaunchOptionsKey: Any]?
   ) -> Bool {
-    // Register for push notifications
+    // Set notification delegate for foreground display.
+    // NOTE: Do NOT request permissions here — Apple rejects apps that
+    // request notification permissions on first launch without context.
+    // Permissions are requested from Flutter when the user first needs them.
     UNUserNotificationCenter.current().delegate = self
-    UNUserNotificationCenter.current().requestAuthorization(options: [.alert, .badge, .sound]) { granted, error in
-      if granted {
-        DispatchQueue.main.async {
-          UIApplication.shared.registerForRemoteNotifications()
-        }
-      }
-    }
 
     GeneratedPluginRegistrant.register(with: self)
     return super.application(application, didFinishLaunchingWithOptions: launchOptions)
@@ -37,10 +33,6 @@ import UserNotifications
     willPresent notification: UNNotification,
     withCompletionHandler completionHandler: @escaping (UNNotificationPresentationOptions) -> Void
   ) {
-    if #available(iOS 14.0, *) {
-      completionHandler([.banner, .badge, .sound])
-    } else {
-      completionHandler([.alert, .badge, .sound])
-    }
+    completionHandler([.banner, .badge, .sound])
   }
 }

@@ -1,6 +1,7 @@
 import 'dart:io';
 import 'dart:math' as math;
 
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -244,8 +245,8 @@ class _OnboardingAuthScreenState extends ConsumerState<OnboardingAuthScreen>
                   textAlign: TextAlign.center,
                 ),
               ),
-              // DEV BYPASS: skip auth button
-              if (kDevBypassOnboarding) ...[
+              // DEV BYPASS: skip auth button (only in debug builds)
+              if (kDebugMode && kDevBypassOnboarding) ...[
                 const SizedBox(height: 16),
                 GestureDetector(
                   onTap: () {

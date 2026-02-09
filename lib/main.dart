@@ -1,4 +1,6 @@
-  import 'package:flutter/material.dart';
+import 'dart:ui';
+
+import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import 'providers/theme_provider.dart';
@@ -8,6 +10,20 @@ import 'services/storage_service.dart';
 import 'theme/theme.dart';
 
 void main() {
+  // REQUIRED: must be called before any plugin or platform channel usage
+  WidgetsFlutterBinding.ensureInitialized();
+
+  // Global error handlers — prevent unhandled exceptions from crashing the app
+  FlutterError.onError = (details) {
+    FlutterError.presentError(details);
+    // In release mode, silently log instead of crashing
+    debugPrint('FlutterError: ${details.exceptionAsString()}');
+  };
+  PlatformDispatcher.instance.onError = (error, stack) {
+    debugPrint('PlatformError: $error\n$stack');
+    return true; // Handled — don't crash
+  };
+
   // Pre-warm caches in the background for instant perceived load
   _prewarmCaches();
 
@@ -16,6 +32,10 @@ void main() {
 
 /// Pre-load cached data from secure storage into memory.
 /// This runs in the background so the first cache read is instant.
+///
+/// NOTE: Notification permissions are NOT requested here — they are deferred
+/// until the user interacts with a feature that needs them (Apple requires
+/// contextual permission requests).
 void _prewarmCaches() {
   Future.microtask(() async {
     final storage = StorageService();
@@ -27,9 +47,9 @@ void _prewarmCaches() {
       storage.getCachedSessions(),
     ]);
 
-    // Initialize notification service for background session alerts
+    // Initialize notification plugin (registers channels, etc.)
+    // but do NOT request permissions yet — that happens in-context.
     await NotificationService.instance.initialize();
-    await NotificationService.instance.requestPermissions();
   });
 }
 

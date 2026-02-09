@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -85,8 +86,8 @@ class RootScreen extends ConsumerWidget {
       }
     }
 
-    // DEV BYPASS: auto-enter offline mode so we land in MainShell
-    if (kDevBypassOnboarding &&
+    // DEV BYPASS: auto-enter offline mode so we land in MainShell (debug only)
+    if (kDebugMode && kDevBypassOnboarding &&
         connectionState.devBypassAutoOfflineEnabled &&
         !connectionState.isOfflineMode &&
         !connectionState.isConnected &&
@@ -377,8 +378,8 @@ class _OnboardingFlow extends ConsumerWidget {
       child: _buildCurrentScreen(state),
     );
 
-    // DEV BYPASS: wrap with edge-swipe detection + skip button overlay
-    if (kDevBypassOnboarding) {
+    // DEV BYPASS: wrap with edge-swipe detection + skip button overlay (debug only)
+    if (kDebugMode && kDevBypassOnboarding) {
       content = _DevSwipeWrapper(child: content);
     }
 

@@ -17,6 +17,9 @@ class NotificationService {
 
   bool _initialized = false;
 
+  /// Whether we've already requested OS-level notification permissions
+  bool _permissionsRequested = false;
+
   /// Whether notifications are enabled (controlled by settings)
   bool _enabled = true;
 
@@ -41,10 +44,14 @@ class NotificationService {
       );
 
       // iOS/macOS initialization settings
+      // NOTE: Do NOT auto-request permissions here. Apple rejects apps that
+      // request notification permissions without user context. Permissions are
+      // requested later via requestPermissions() when the user enables
+      // notifications or when a notification is first needed.
       const darwinSettings = DarwinInitializationSettings(
-        requestAlertPermission: true,
-        requestBadgePermission: true,
-        requestSoundPermission: true,
+        requestAlertPermission: false,
+        requestBadgePermission: false,
+        requestSoundPermission: false,
       );
 
       final settings = InitializationSettings(
@@ -119,6 +126,14 @@ class NotificationService {
 
     if (!_initialized) {
       await initialize();
+    }
+
+    // Request permissions on first notification attempt (contextual request).
+    // This ensures the OS permission dialog only appears when the user has
+    // a clear reason to see it (their AI session just completed).
+    if (!_permissionsRequested) {
+      _permissionsRequested = true;
+      await requestPermissions();
     }
 
     // Build the body with context

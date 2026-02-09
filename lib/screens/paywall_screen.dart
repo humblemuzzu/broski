@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -357,17 +358,19 @@ class PaywallScreen extends ConsumerWidget {
                           ),
                         ),
                         const SizedBox(height: 14),
-                        // Restore + disclaimer row
+                        // Subscription disclosure + legal links (Apple 3.1.2)
+                        Text(
+                          'Auto-renews. Cancel anytime in Settings.',
+                          textAlign: TextAlign.center,
+                          style: TextStyle(
+                            color: Colors.white.withValues(alpha: 0.3),
+                            fontSize: 10,
+                          ),
+                        ),
+                        const SizedBox(height: 6),
                         Row(
                           mainAxisAlignment: MainAxisAlignment.center,
                           children: [
-                            Text(
-                              'Payment charged to your Apple ID. ',
-                              style: TextStyle(
-                                color: Colors.white.withValues(alpha: 0.35),
-                                fontSize: 12,
-                              ),
-                            ),
                             GestureDetector(
                               onTap: () => launchUrl(
                                 Uri.parse('https://broskiapp.com/legal/terms'),
@@ -377,7 +380,7 @@ class PaywallScreen extends ConsumerWidget {
                                 'Terms',
                                 style: TextStyle(
                                   color: Colors.white.withValues(alpha: 0.45),
-                                  fontSize: 12,
+                                  fontSize: 11,
                                   decoration: TextDecoration.underline,
                                   decorationColor: Colors.white.withValues(
                                     alpha: 0.3,
@@ -386,10 +389,10 @@ class PaywallScreen extends ConsumerWidget {
                               ),
                             ),
                             Text(
-                              ' & ',
+                              '  •  ',
                               style: TextStyle(
-                                color: Colors.white.withValues(alpha: 0.35),
-                                fontSize: 12,
+                                color: Colors.white.withValues(alpha: 0.25),
+                                fontSize: 11,
                               ),
                             ),
                             GestureDetector(
@@ -403,7 +406,7 @@ class PaywallScreen extends ConsumerWidget {
                                 'Privacy',
                                 style: TextStyle(
                                   color: Colors.white.withValues(alpha: 0.45),
-                                  fontSize: 12,
+                                  fontSize: 11,
                                   decoration: TextDecoration.underline,
                                   decorationColor: Colors.white.withValues(
                                     alpha: 0.3,
@@ -412,10 +415,29 @@ class PaywallScreen extends ConsumerWidget {
                               ),
                             ),
                             Text(
-                              ' apply.',
+                              '  •  ',
                               style: TextStyle(
-                                color: Colors.white.withValues(alpha: 0.35),
-                                fontSize: 12,
+                                color: Colors.white.withValues(alpha: 0.25),
+                                fontSize: 11,
+                              ),
+                            ),
+                            GestureDetector(
+                              onTap: () => launchUrl(
+                                Uri.parse(
+                                  'https://www.apple.com/legal/internet-services/itunes/dev/stdeula/',
+                                ),
+                                mode: LaunchMode.externalApplication,
+                              ),
+                              child: Text(
+                                'EULA',
+                                style: TextStyle(
+                                  color: Colors.white.withValues(alpha: 0.45),
+                                  fontSize: 11,
+                                  decoration: TextDecoration.underline,
+                                  decorationColor: Colors.white.withValues(
+                                    alpha: 0.3,
+                                  ),
+                                ),
                               ),
                             ),
                           ],
@@ -471,8 +493,8 @@ class PaywallScreen extends ConsumerWidget {
                           ],
                         ),
                         const SizedBox(height: 8),
-                        // DEV BYPASS: skip paywall button
-                        if (kDevBypassOnboarding) ...[
+                        // DEV BYPASS: skip paywall button (only in debug builds)
+                        if (kDebugMode && kDevBypassOnboarding) ...[
                           const SizedBox(height: 8),
                           Center(
                             child: GestureDetector(
