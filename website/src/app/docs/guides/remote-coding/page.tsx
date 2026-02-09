@@ -65,7 +65,7 @@ export default function RemoteCodingPage() {
               content: (
                 <>
                   <p className="text-sm text-muted-foreground mb-2">Use the bridge&apos;s built-in wizard:</p>
-                  <CodeBlock language="bash">{`bunx broski setup-tailscale`}</CodeBlock>
+                  <CodeBlock language="bash">{`broski setup-tailscale`}</CodeBlock>
                   <p className="text-sm text-muted-foreground mt-2">Or install manually:</p>
                   <CodeBlock language="bash">{`brew install --cask tailscale`}</CodeBlock>
                 </>
@@ -92,7 +92,7 @@ export default function RemoteCodingPage() {
               title: "Start the bridge",
               content: (
                 <>
-                  <CodeBlock language="bash">{`bunx broski`}</CodeBlock>
+                  <CodeBlock language="bash">{`broski`}</CodeBlock>
                   <p className="text-sm text-muted-foreground mt-2">
                     The QR code now includes your Tailscale IP. Scan it with Broski.
                   </p>
@@ -137,7 +137,7 @@ export default function RemoteCodingPage() {
             },
             {
               title: "Start bridge with Funnel",
-              content: <CodeBlock language="bash">{`bunx broski --funnel`}</CodeBlock>,
+              content: <CodeBlock language="bash">{`broski --funnel`}</CodeBlock>,
             },
             {
               title: "Scan the QR code",
@@ -194,7 +194,7 @@ export default function RemoteCodingPage() {
               Your Mac needs to stay awake for the bridge to work. Adjust Energy Saver settings or use:
             </p>
             <CodeBlock language="bash">{`# Keep Mac awake while bridge runs
-caffeinate -i bunx broski`}</CodeBlock>
+caffeinate -i broski`}</CodeBlock>
           </div>
 
           <div className="border border-border rounded-lg p-4">

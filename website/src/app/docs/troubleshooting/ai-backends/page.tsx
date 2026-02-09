@@ -30,13 +30,9 @@ export default function AIBackendsTroubleshootingPage() {
 which opencode && opencode --version
 
 # If not found, install it
-bun install -g opencode
+bun add -g opencode-ai
 
-# Verify Bun is in PATH
-which bun && bun --version
-
-# If Bun not found
-curl -fsSL https://bun.sh/install | bash
+# Then reload your shell
 source ~/.bashrc  # or ~/.zshrc`}</CodeBlock>
           </div>
 
@@ -52,7 +48,7 @@ opencode serve
 lsof -i :4096
 
 # Try manual mode with explicit URL
-bunx broski --manual --opencode-url http://localhost:4096`}</CodeBlock>
+broski --manual --opencode-url http://localhost:4096`}</CodeBlock>
           </div>
 
           <div className="border border-border rounded-lg p-4">
@@ -88,8 +84,8 @@ ps aux | grep opencode
 # Test OpenCode health directly
 curl http://localhost:4096/path
 
-# Run bridge with verbose logging
-bunx broski --verbose`}</CodeBlock>
+# Tail live bridge logs
+broski logs`}</CodeBlock>
           </div>
         </div>
 
@@ -118,7 +114,7 @@ bunx broski --verbose`}</CodeBlock>
             </p>
             <CodeBlock language="bash">{`# Option 1: Set API Key
 export ANTHROPIC_API_KEY=sk-ant-...
-bunx broski
+broski
 
 # Option 2: Login via Claude CLI
 claude login
@@ -182,7 +178,7 @@ claude login`}</CodeBlock>
           rows={[
             ["Using wrong API key format", "Must start with sk-ant-"],
             ["API key not exported", "Add to shell config or pass via env"],
-            ["Claude CLI not installed", "npm install -g @anthropic-ai/claude-code"],
+            ["Claude CLI not installed", "curl -fsSL https://claude.ai/install.sh | bash"],
             ["Expired OAuth token", "Run claude login again"],
             ["Denying all permissions", "Allow some tools or use auto-edit mode"],
           ]}
@@ -308,8 +304,8 @@ source ~/.zshrc`}</CodeBlock>
       {/* General Debugging */}
       <section className="mb-12">
         <h2 id="debugging" className="text-2xl font-semibold mb-4">General Debugging</h2>
-        <CodeBlock language="bash">{`# Run bridge with verbose logging
-bunx broski --verbose
+        <CodeBlock language="bash">{`# Tail live bridge logs
+broski logs
 
 # Check backend directly
 # For OpenCode:

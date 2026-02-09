@@ -51,7 +51,7 @@ export default function ClaudeCodePage() {
       
       <h3 id="installation" className="text-base font-medium mb-3 mt-6">Installation</h3>
       <CodeBlock language="bash">{`# Install Claude Code CLI
-npm install -g @anthropic-ai/claude-code
+curl -fsSL https://claude.ai/install.sh | bash
 
 # Verify installation
 claude --version`}</CodeBlock>
@@ -67,7 +67,7 @@ claude --version`}</CodeBlock>
 export ANTHROPIC_API_KEY=sk-ant-your-key-here
 
 # Then start the bridge
-bunx broski`}</CodeBlock>
+broski`}</CodeBlock>
 
       <Callout type="note" title="Option B: OAuth Login">
         Use browser-based authentication. Convenient for personal use.
@@ -76,7 +76,7 @@ bunx broski`}</CodeBlock>
 claude login
 
 # Then start the bridge
-bunx broski`}</CodeBlock>
+broski`}</CodeBlock>
 
       <h2 id="permission-modes" className="text-xl font-semibold mb-4 mt-10">Permission Modes</h2>
       

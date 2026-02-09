@@ -34,8 +34,8 @@ export default function ErrorsPage() {
           rows={[
             ["Unauthorized", "Auth", "Re-scan QR code"],
             ["Port in use", "Bridge", <><code className="text-xs">kill &lt;PID&gt;</code> or <code className="text-xs">--port 0</code></>],
-            ["OpenCode not found", "OpenCode", <code key="oc" className="text-xs">bun install -g opencode</code>],
-            ["Bun not found", "OpenCode", <code key="bun" className="text-xs">curl -fsSL https://bun.sh/install | bash</code>],
+            ["OpenCode not found", "OpenCode", <code key="oc" className="text-xs">bun add -g opencode-ai</code>],
+
             ["Claude Code auth missing", "Claude Code", <><code key="cc" className="text-xs">export ANTHROPIC_API_KEY=...</code> or <code className="text-xs">claude login</code></>],
             ["Tailscale not connected", "Tailscale", "Click Tailscale icon and connect"],
             ["Funnel not enabled", "Tailscale", "Enable in admin console"],
@@ -44,7 +44,7 @@ export default function ErrorsPage() {
             ["Access denied", "Files", "Use paths under ~ or /tmp"],
             ["Rate limited (429)", "API", "Wait 1 minute, retry"],
             ["OAuth token expired", "Auth", <><code key="login" className="text-xs">claude login</code> or <code className="text-xs">codex</code></>],
-            ["FTS5 unavailable", "Artifacts", <code key="fts" className="text-xs">bun upgrade</code>],
+
             ["Scan timeout", "File Search", "Informational, cached results used"],
           ]}
         />
@@ -71,7 +71,7 @@ lsof -nP -iTCP:18274 -sTCP:LISTEN
 kill <PID>
 
 # Or use random port
-bunx broski --port 0`}</CodeBlock>
+broski --port 0`}</CodeBlock>
           </div>
 
           <div className="border border-border rounded-lg p-4">
@@ -80,15 +80,13 @@ bunx broski --port 0`}</CodeBlock>
               <strong>Source:</strong> OpenCode bootstrap
             </p>
             <p className="text-sm text-muted-foreground mb-3">
-              <strong>Cause:</strong> OpenCode is not installed, not in PATH, or Bun is missing.
+              <strong>Cause:</strong> OpenCode is not installed or not in PATH.
             </p>
-            <CodeBlock language="bash">{`# Verify installations
+            <CodeBlock language="bash">{`# Verify installation
 which opencode && opencode --version
-which bun && bun --version
 
 # Install if missing
-curl -fsSL https://bun.sh/install | bash
-bun install -g opencode`}</CodeBlock>
+bun add -g opencode-ai`}</CodeBlock>
           </div>
 
           <div className="border border-border rounded-lg p-4">
@@ -103,7 +101,7 @@ bun install -g opencode`}</CodeBlock>
 opencode serve
 
 # Try manual mode
-bunx broski --manual --opencode-url http://localhost:4096`}</CodeBlock>
+broski --manual --opencode-url http://localhost:4096`}</CodeBlock>
           </div>
 
           <div className="border border-border rounded-lg p-4">
@@ -118,7 +116,7 @@ bunx broski --manual --opencode-url http://localhost:4096`}</CodeBlock>
 opencode serve
 
 # Or use managed mode (default)
-bunx broski`}</CodeBlock>
+broski`}</CodeBlock>
           </div>
 
           <div className="border border-border rounded-lg p-4">
@@ -129,10 +127,10 @@ bunx broski`}</CodeBlock>
             <p className="text-sm text-muted-foreground mb-3">
               <strong>Cause:</strong> You specified <code>--manual</code> without providing the OpenCode server URL.
             </p>
-            <CodeBlock language="bash">{`bunx broski --manual --opencode-url http://localhost:4096
+            <CodeBlock language="bash">{`broski --manual --opencode-url http://localhost:4096
 
 # Or via environment variable
-OPENCODE_BASE_URL=http://localhost:4096 bunx broski --manual`}</CodeBlock>
+OPENCODE_BASE_URL=http://localhost:4096 broski --manual`}</CodeBlock>
           </div>
         </div>
       </section>
@@ -220,7 +218,7 @@ curl http://<ip>:18274/
               <strong>Cause:</strong> App tried all available endpoints (local IP, Tailscale IP, MagicDNS) but none succeeded.
             </p>
             <CodeBlock language="bash">{`# Verify bridge is running
-bunx broski doctor
+broski doctor
 
 # Check firewall settings
 # For local: ensure same WiFi
@@ -283,18 +281,15 @@ chmod 700 ~/.broski`}</CodeBlock>
         
         <div className="space-y-6">
           <div className="border border-border rounded-lg p-4">
-            <div className="font-mono font-medium mb-2 text-red-400">&quot;OpenCode not found&quot; / &quot;Bun not found&quot;</div>
+            <div className="font-mono font-medium mb-2 text-red-400">&quot;OpenCode not found&quot;</div>
             <p className="text-sm text-muted-foreground mb-2">
               <strong>Source:</strong> Doctor check
             </p>
             <p className="text-sm text-muted-foreground mb-3">
-              <strong>Cause:</strong> The command is not found in your PATH.
+              <strong>Cause:</strong> OpenCode is not installed or not in your PATH.
             </p>
-            <CodeBlock language="bash">{`# For Bun
-curl -fsSL https://bun.sh/install | bash
-
-# For OpenCode
-bun install -g opencode
+            <CodeBlock language="bash">{`# Install OpenCode
+bun add -g opencode-ai
 
 # Reload shell
 source ~/.bashrc  # or ~/.zshrc`}</CodeBlock>
@@ -310,7 +305,7 @@ source ~/.bashrc  # or ~/.zshrc`}</CodeBlock>
             </p>
             <CodeBlock language="bash">{`# Restart bridge (it will restart OpenCode)
 # Press Ctrl+C, then:
-bunx broski
+broski
 
 # Or test OpenCode directly
 opencode serve`}</CodeBlock>
@@ -333,7 +328,7 @@ opencode serve`}</CodeBlock>
             </p>
             <CodeBlock language="bash">{`# Option 1: Set API Key
 export ANTHROPIC_API_KEY=sk-ant-...
-bunx broski
+broski
 
 # Option 2: Login via Claude CLI
 claude login`}</CodeBlock>
@@ -383,7 +378,7 @@ claude login`}</CodeBlock>
               <strong>Cause:</strong> Tailscale app is not found on your system.
             </p>
             <CodeBlock language="bash">{`# Run the setup wizard
-bunx broski setup-tailscale
+broski setup-tailscale
 
 # Or install manually
 brew install --cask tailscale  # macOS`}</CodeBlock>
@@ -433,7 +428,7 @@ tailscale status
 
 # Check Funnel is enabled in admin console
 # Try without Funnel first
-bunx broski`}</CodeBlock>
+broski`}</CodeBlock>
           </div>
         </div>
       </section>
@@ -629,8 +624,8 @@ bunx broski`}</CodeBlock>
         
         <Callout type="info" title="If you can't find your error">
           <ol className="list-decimal list-inside space-y-2 mt-2">
-            <li>Run <code className="bg-muted/50 px-1 rounded">bunx broski --verbose</code> for detailed logs</li>
-            <li>Run <code className="bg-muted/50 px-1 rounded">bunx broski doctor</code> for diagnostics</li>
+            <li>Run <code className="bg-muted/50 px-1 rounded">broski logs</code> to see live logs</li>
+            <li>Run <code className="bg-muted/50 px-1 rounded">broski doctor</code> for diagnostics</li>
             <li>Check the <a href="/docs/troubleshooting" className="text-primary hover:underline">troubleshooting guide</a></li>
             <li>Contact support at <a href="mailto:broskiappp@gmail.com" className="text-primary hover:underline">broskiappp@gmail.com</a></li>
           </ol>

@@ -17,7 +17,7 @@ export default function CLIReferencePage() {
       {/* Basic Usage */}
       <section className="mb-12">
         <h2 id="usage" className="text-2xl font-semibold mb-4">Basic Usage</h2>
-        <CodeBlock language="bash">{`bunx broski [command] [options]`}</CodeBlock>
+        <CodeBlock language="bash">{`broski [command] [options]`}</CodeBlock>
       </section>
 
       {/* Commands */}
@@ -30,7 +30,7 @@ export default function CLIReferencePage() {
             <p className="text-sm text-muted-foreground mb-3">
               Start the bridge server (default command).
             </p>
-            <CodeBlock language="bash">{`bunx broski [options]`}</CodeBlock>
+            <CodeBlock language="bash">{`broski [options]`}</CodeBlock>
           </div>
 
           <div className="border border-border rounded-lg p-4">
@@ -38,9 +38,9 @@ export default function CLIReferencePage() {
             <p className="text-sm text-muted-foreground mb-3">
               Run diagnostics to check system requirements and configuration.
             </p>
-            <CodeBlock language="bash">{`bunx broski doctor`}</CodeBlock>
+            <CodeBlock language="bash">{`broski doctor`}</CodeBlock>
             <p className="text-sm text-muted-foreground mt-3">
-              Checks: Bun version, OpenCode installation, local IP, port availability, Tailscale status.
+              Checks: AI backend installation, local IP, port availability, Tailscale status.
             </p>
           </div>
 
@@ -49,7 +49,7 @@ export default function CLIReferencePage() {
             <p className="text-sm text-muted-foreground mb-3">
               Interactive wizard to install and configure Tailscale.
             </p>
-            <CodeBlock language="bash">{`bunx broski setup-tailscale`}</CodeBlock>
+            <CodeBlock language="bash">{`broski setup-tailscale`}</CodeBlock>
           </div>
         </div>
       </section>
@@ -73,11 +73,7 @@ export default function CLIReferencePage() {
                 <td className="p-3 border-b border-border/50">WebSocket port for the bridge</td>
                 <td className="p-3 border-b border-border/50">18274</td>
               </tr>
-              <tr>
-                <td className="p-3 border-b border-border/50 font-mono text-xs">--verbose, -v</td>
-                <td className="p-3 border-b border-border/50">Enable debug logging</td>
-                <td className="p-3 border-b border-border/50">false</td>
-              </tr>
+
               <tr>
                 <td className="p-3 border-b border-border/50 font-mono text-xs">--funnel</td>
                 <td className="p-3 border-b border-border/50">Enable Tailscale Funnel (public HTTPS)</td>
@@ -125,22 +121,22 @@ export default function CLIReferencePage() {
         <div className="space-y-4">
           <div className="border border-border rounded-lg p-4">
             <h4 className="font-medium mb-2">Start with defaults</h4>
-            <CodeBlock language="bash">{`bunx broski`}</CodeBlock>
+            <CodeBlock language="bash">{`broski`}</CodeBlock>
           </div>
 
           <div className="border border-border rounded-lg p-4">
-            <h4 className="font-medium mb-2">Custom port with verbose logging</h4>
-            <CodeBlock language="bash">{`bunx broski --port 8080 --verbose`}</CodeBlock>
+            <h4 className="font-medium mb-2">Custom port</h4>
+            <CodeBlock language="bash">{`broski --port 8080`}</CodeBlock>
           </div>
 
           <div className="border border-border rounded-lg p-4">
             <h4 className="font-medium mb-2">Enable Tailscale Funnel</h4>
-            <CodeBlock language="bash">{`bunx broski --funnel`}</CodeBlock>
+            <CodeBlock language="bash">{`broski --funnel`}</CodeBlock>
           </div>
 
           <div className="border border-border rounded-lg p-4">
             <h4 className="font-medium mb-2">Connect to existing OpenCode</h4>
-            <CodeBlock language="bash">{`bunx broski --opencode-url http://localhost:4096`}</CodeBlock>
+            <CodeBlock language="bash">{`broski --opencode-url http://localhost:4096`}</CodeBlock>
           </div>
         </div>
       </section>

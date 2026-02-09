@@ -37,19 +37,19 @@ export default function BackgroundServicePage() {
         </p>
         
         <CodeBlock language="bash">{`# Install as background service
-bunx broski install
+broski install
 
 # Check status
-bunx broski status
+broski status
 
 # View QR code to pair your phone
-bunx broski qr
+broski qr
 
 # Stop the service
-bunx broski stop
+broski stop
 
 # Remove the service
-bunx broski uninstall`}</CodeBlock>
+broski uninstall`}</CodeBlock>
 
         <Callout type="tip" title="Recommended Workflow">
           Use <code>broski install</code> once, then use <code>broski qr</code> to get the QR code 
@@ -79,8 +79,7 @@ bunx broski uninstall`}</CodeBlock>
     
     <key>ProgramArguments</key>
     <array>
-        <string>/Users/YOUR_USERNAME/.bun/bin/bunx</string>
-        <string>broski</string>
+        <string>/Users/YOUR_USERNAME/.broski/bin/broski</string>
     </array>
     
     <key>RunAtLoad</key>
@@ -94,12 +93,6 @@ bunx broski uninstall`}</CodeBlock>
     
     <key>StandardErrorPath</key>
     <string>/Users/YOUR_USERNAME/.broski/broski.error.log</string>
-    
-    <key>EnvironmentVariables</key>
-    <dict>
-        <key>PATH</key>
-        <string>/usr/local/bin:/usr/bin:/bin:/Users/YOUR_USERNAME/.bun/bin</string>
-    </dict>
 </dict>
 </plist>`}</CodeBlock>
 
@@ -131,27 +124,7 @@ tail -f ~/.broski/broski.error.log`}</CodeBlock>
       </section>
 
       {/* macOS Homebrew Services */}
-      <section className="mb-12">
-        <h2 id="homebrew-services" className="text-2xl font-semibold mb-4">macOS Homebrew Services (Alternative)</h2>
-        <p className="text-muted-foreground mb-4">
-          If you installed Broski via Homebrew, you can use Homebrew services:
-        </p>
-        
-        <CodeBlock language="bash">{`# Install broski (if not already)
-brew install broski
-
-# Start as background service
-brew services start broski
-
-# Check status
-brew services list | grep broski
-
-# Stop the service
-brew services stop broski
-
-# Restart the service
-brew services restart broski`}</CodeBlock>
-      </section>
+      {/* Homebrew services section removed — Broski is distributed as a standalone binary */}
 
       {/* With Tailscale Funnel */}
       <section className="mb-12">
@@ -161,8 +134,7 @@ brew services restart broski`}</CodeBlock>
         </p>
         <CodeBlock language="xml">{`<key>ProgramArguments</key>
 <array>
-    <string>/Users/YOUR_USERNAME/.bun/bin/bunx</string>
-    <string>broski</string>
+    <string>/Users/YOUR_USERNAME/.broski/bin/broski</string>
     <string>--funnel</string>
 </array>`}</CodeBlock>
 
@@ -171,8 +143,6 @@ brew services restart broski`}</CodeBlock>
         </p>
         <CodeBlock language="xml">{`<key>EnvironmentVariables</key>
 <dict>
-    <key>PATH</key>
-    <string>/usr/local/bin:/usr/bin:/bin:/Users/YOUR_USERNAME/.bun/bin</string>
     <key>BROSKI_ENABLE_FUNNEL</key>
     <string>1</string>
 </dict>`}</CodeBlock>
@@ -195,10 +165,10 @@ After=network.target
 
 [Service]
 Type=simple
-ExecStart=%h/.bun/bin/bunx broski
+ExecStart=%h/.broski/bin/broski
 Restart=always
 RestartSec=10
-Environment="PATH=%h/.bun/bin:/usr/local/bin:/usr/bin:/bin"
+Environment="PATH=%h/.broski/bin:/usr/local/bin:/usr/bin:/bin"
 
 [Install]
 WantedBy=default.target`}</CodeBlock>
@@ -253,7 +223,7 @@ systemctl --user disable broski`}</CodeBlock>
             { title: "Name the task", description: "Name: 'Broski Bridge', Description: 'Broski bridge server'" },
             { title: "Set trigger", description: "Choose 'When I log on'" },
             { title: "Set action", description: "Choose 'Start a program'" },
-            { title: "Configure program", description: "Program: %USERPROFILE%\\.bun\\bin\\bunx.cmd, Arguments: broski" },
+            { title: "Configure program", description: "Program: %USERPROFILE%\\.broski\\bin\\broski.exe" },
             { title: "Configure options", description: "Check 'Open the Properties dialog' and click Finish" },
             { title: "Set to run hidden", description: "In Properties > General, check 'Run whether user is logged on or not'" },
           ]}
@@ -261,7 +231,7 @@ systemctl --user disable broski`}</CodeBlock>
 
         <h3 id="windows-powershell" className="text-xl font-medium mb-3 mt-6">Method 2: PowerShell (Command Line)</h3>
         <CodeBlock language="powershell">{`# Create scheduled task
-$action = New-ScheduledTaskAction -Execute "$env:USERPROFILE\\.bun\\bin\\bunx.cmd" -Argument "broski"
+$action = New-ScheduledTaskAction -Execute "$env:USERPROFILE\\.broski\\bin\\broski.exe"
 $trigger = New-ScheduledTaskTrigger -AtLogon
 $settings = New-ScheduledTaskSettingsSet -AllowStartIfOnBatteries -DontStopIfGoingOnBatteries -StartWhenAvailable
 $principal = New-ScheduledTaskPrincipal -UserId $env:USERNAME -RunLevel Limited
@@ -286,7 +256,7 @@ Unregister-ScheduledTask -TaskName "Broski Bridge" -Confirm:$false`}</CodeBlock>
         </p>
         <CodeBlock language="powershell">{`# Create a batch script at %USERPROFILE%\\broski-start.bat
 @echo off
-%USERPROFILE%\\.bun\\bin\\bunx.cmd broski >> %USERPROFILE%\\.broski\\broski.log 2>&1`}</CodeBlock>
+%USERPROFILE%\\.broski\\bin\\broski.exe >> %USERPROFILE%\\.broski\\broski.log 2>&1`}</CodeBlock>
         <p className="text-sm text-muted-foreground mt-2">
           Then point the scheduled task to this batch script instead.
         </p>
@@ -300,7 +270,6 @@ Unregister-ScheduledTask -TaskName "Broski Bridge" -Confirm:$false`}</CodeBlock>
           headers={["Platform", "Standard Output", "Error Output"]}
           rows={[
             ["macOS (LaunchAgent)", "~/.broski/broski.log", "~/.broski/broski.error.log"],
-            ["macOS (Homebrew)", "/usr/local/var/log/broski.log", "/usr/local/var/log/broski.error.log"],
             ["Linux (systemd)", "journalctl --user -u broski", "journalctl --user -u broski"],
             ["Windows", "%USERPROFILE%\\.broski\\broski.log", "(combined with stdout)"],
           ]}
@@ -371,9 +340,8 @@ StartLimitBurst=5`}</CodeBlock>
         <SimpleTable
           headers={["Platform", "Check Status Command"]}
           rows={[
-            ["All platforms (recommended)", "bunx broski status"],
+            ["All platforms (recommended)", "broski status"],
             ["macOS (LaunchAgent)", "launchctl list | grep broski"],
-            ["macOS (Homebrew)", "brew services list | grep broski"],
             ["Linux (systemd)", "systemctl --user status broski"],
             ["Windows", "Get-ScheduledTask -TaskName 'Broski Bridge'"],
           ]}
@@ -390,7 +358,7 @@ StartLimitBurst=5`}</CodeBlock>
         <div className="space-y-4">
           <div className="border border-border rounded-lg p-4">
             <h3 className="font-medium mb-2">Option 1: Use the qr command (Recommended)</h3>
-            <CodeBlock language="bash">{`bunx broski qr`}</CodeBlock>
+            <CodeBlock language="bash">{`broski qr`}</CodeBlock>
             <p className="text-sm text-muted-foreground mt-2">
               Shows the QR code while the background service is running.
             </p>
@@ -399,13 +367,13 @@ StartLimitBurst=5`}</CodeBlock>
           <div className="border border-border rounded-lg p-4">
             <h3 className="font-medium mb-2">Option 2: Run temporarily in foreground</h3>
             <CodeBlock language="bash">{`# Stop the service temporarily
-bunx broski stop
+broski stop
 
 # Run in foreground to see QR
-bunx broski
+broski
 
 # Scan QR, then Ctrl+C and restart service
-bunx broski install`}</CodeBlock>
+broski install`}</CodeBlock>
           </div>
 
           <div className="border border-border rounded-lg p-4">
@@ -428,8 +396,8 @@ bunx broski install`}</CodeBlock>
             <h3 className="font-medium mb-2">Service not starting</h3>
             <ul className="text-sm text-muted-foreground space-y-1">
               <li>Check logs: <code className="bg-muted/50 px-1 rounded">tail ~/.broski/broski.error.log</code></li>
-              <li>Verify the path to bunx is correct</li>
-              <li>Ensure broski is installed: <code className="bg-muted/50 px-1 rounded">bunx broski --help</code></li>
+              <li>Verify the path to broski is correct</li>
+              <li>Ensure broski is installed: <code className="bg-muted/50 px-1 rounded">broski --help</code></li>
               <li>Run <code className="bg-muted/50 px-1 rounded">broski doctor</code> to check requirements</li>
             </ul>
           </div>
@@ -437,10 +405,10 @@ bunx broski install`}</CodeBlock>
           <div className="border border-border rounded-lg p-4">
             <h3 className="font-medium mb-2">Can&apos;t connect from phone</h3>
             <ul className="text-sm text-muted-foreground space-y-1">
-              <li>Run <code className="bg-muted/50 px-1 rounded">bunx broski status</code> to check if running</li>
+              <li>Run <code className="bg-muted/50 px-1 rounded">broski status</code> to check if running</li>
               <li>Verify the service is running in logs</li>
               <li>Check firewall isn&apos;t blocking port 18274</li>
-              <li>Try <code className="bg-muted/50 px-1 rounded">bunx broski qr</code> to get current QR code</li>
+              <li>Try <code className="bg-muted/50 px-1 rounded">broski qr</code> to get current QR code</li>
             </ul>
           </div>
 
@@ -450,7 +418,7 @@ bunx broski install`}</CodeBlock>
               <li>Check error logs for crash reason</li>
               <li>Verify OpenCode is installed: <code className="bg-muted/50 px-1 rounded">opencode --version</code></li>
               <li>Check if port 18274 is in use by another process</li>
-              <li>Try running manually first: <code className="bg-muted/50 px-1 rounded">bunx broski --verbose</code></li>
+              <li>Try running manually first: <code className="bg-muted/50 px-1 rounded">broski</code> in a terminal</li>
             </ul>
           </div>
 
@@ -459,7 +427,7 @@ bunx broski install`}</CodeBlock>
             <ul className="text-sm text-muted-foreground space-y-1">
               <li>Ensure the service runs as your user, not root</li>
               <li>Check file permissions on <code className="bg-muted/50 px-1 rounded">~/.broski/</code></li>
-              <li>Verify bunx is executable: <code className="bg-muted/50 px-1 rounded">ls -la ~/.bun/bin/bunx</code></li>
+              <li>Verify broski is executable: <code className="bg-muted/50 px-1 rounded">ls -la ~/.broski/bin/broski</code></li>
             </ul>
           </div>
         </div>

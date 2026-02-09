@@ -61,7 +61,7 @@ export default function DocsPage() {
           <div className="text-center">
             <div className="px-4 py-3 bg-muted border border-border rounded-lg">
               <div className="font-semibold">Bridge</div>
-              <div className="text-xs text-muted-foreground">Bun Server</div>
+              <div className="text-xs text-muted-foreground">Server</div>
             </div>
             <div className="text-xs text-muted-foreground mt-1">Your Mac</div>
           </div>
@@ -130,7 +130,7 @@ export default function DocsPage() {
           {
             title: "Install the Bridge",
             description: "Run the bridge server on your Mac:",
-            content: <CodeBlock language="bash">bunx broski</CodeBlock>,
+            content: <CodeBlock language="bash">broski</CodeBlock>,
           },
           {
             title: "Download Broski",

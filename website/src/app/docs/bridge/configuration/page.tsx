@@ -27,7 +27,7 @@ export default function ConfigurationPage() {
           <li><strong>Default values</strong> - Built-in fallbacks</li>
         </ol>
         <CodeBlock language="bash">{`# CLI overrides env var
-BROSKI_PORT=8080 bunx broski --port 9090
+BROSKI_PORT=8080 broski --port 9090
 # Result: Port 9090 is used`}</CodeBlock>
       </section>
 
@@ -38,7 +38,7 @@ BROSKI_PORT=8080 bunx broski --port 9090
           headers={["Setting", "CLI Flag", "Env Variable", "Default"]}
           rows={[
             ["Bridge Port", "--port", "BROSKI_PORT", "18274"],
-            ["Verbose Mode", "--verbose, -v", "BROSKI_VERBOSE=1", "false"],
+
             ["Tailscale Funnel", "--funnel", "BROSKI_ENABLE_FUNNEL=1", "false"],
             ["New Token", "--new-token", "-", "false"],
             ["Detect Hotspot", "--hotspot", "-", "false"],
@@ -59,42 +59,42 @@ BROSKI_PORT=8080 bunx broski --port 9090
           <div className="border border-border rounded-lg p-4">
             <h4 className="font-mono font-medium mb-2">broski (default)</h4>
             <p className="text-muted-foreground text-sm mb-3">Start the bridge server.</p>
-            <CodeBlock language="bash">{`bunx broski [options]`}</CodeBlock>
+            <CodeBlock language="bash">{`broski [options]`}</CodeBlock>
           </div>
 
           <div className="border border-border rounded-lg p-4">
             <h4 className="font-mono font-medium mb-2">broski install</h4>
             <p className="text-muted-foreground text-sm mb-3">Install as a background service that runs on login.</p>
-            <CodeBlock language="bash">{`bunx broski install`}</CodeBlock>
+            <CodeBlock language="bash">{`broski install`}</CodeBlock>
             <p className="text-sm text-muted-foreground mt-3">Creates a LaunchAgent (macOS) or systemd service (Linux).</p>
           </div>
 
           <div className="border border-border rounded-lg p-4">
             <h4 className="font-mono font-medium mb-2">broski qr</h4>
             <p className="text-muted-foreground text-sm mb-3">Show the QR code to pair your phone (works with background service).</p>
-            <CodeBlock language="bash">{`bunx broski qr
-bunx broski qr --hotspot  # Prioritize hotspot IP`}</CodeBlock>
+            <CodeBlock language="bash">{`broski qr
+broski qr --hotspot  # Prioritize hotspot IP`}</CodeBlock>
           </div>
 
           <div className="border border-border rounded-lg p-4">
             <h4 className="font-mono font-medium mb-2">broski doctor</h4>
             <p className="text-muted-foreground text-sm mb-3">Check system requirements and diagnose issues.</p>
-            <CodeBlock language="bash">{`bunx broski doctor`}</CodeBlock>
-            <p className="text-sm text-muted-foreground mt-3">Checks: Bun installation, OpenCode installation, network IP, port availability, Tailscale status.</p>
+            <CodeBlock language="bash">{`broski doctor`}</CodeBlock>
+            <p className="text-sm text-muted-foreground mt-3">Checks: AI backend installation, network IP, port availability, Tailscale status.</p>
           </div>
 
           <div className="border border-border rounded-lg p-4">
             <h4 className="font-mono font-medium mb-2">broski setup-tailscale</h4>
             <p className="text-muted-foreground text-sm mb-3">Interactive wizard to install and configure Tailscale for remote access.</p>
-            <CodeBlock language="bash">{`bunx broski setup-tailscale`}</CodeBlock>
+            <CodeBlock language="bash">{`broski setup-tailscale`}</CodeBlock>
           </div>
 
           <div className="border border-border rounded-lg p-4">
             <h4 className="font-mono font-medium mb-2">broski status / stop / uninstall</h4>
             <p className="text-muted-foreground text-sm mb-3">Manage the background service.</p>
-            <CodeBlock language="bash">{`bunx broski status     # Check if running
-bunx broski stop       # Stop the service
-bunx broski uninstall  # Remove the service`}</CodeBlock>
+            <CodeBlock language="bash">{`broski status     # Check if running
+broski stop       # Stop the service
+broski uninstall  # Remove the service`}</CodeBlock>
           </div>
         </div>
       </section>
@@ -113,10 +113,10 @@ bunx broski uninstall  # Remove the service`}</CodeBlock>
               <li><span className="text-muted-foreground">Special:</span> <code className="bg-muted/50 px-1 rounded">0</code> = random free port</li>
             </ul>
             <CodeBlock language="bash">{`# Use custom port
-bunx broski --port 8080
+broski --port 8080
 
 # Use random available port
-bunx broski --port 0`}</CodeBlock>
+broski --port 0`}</CodeBlock>
           </div>
 
           <div className="border border-border rounded-lg p-4">
@@ -126,7 +126,7 @@ bunx broski --port 0`}</CodeBlock>
               <li><span className="text-muted-foreground">Requires:</span> Tailscale connected, Funnel enabled in admin console</li>
               <li><span className="text-muted-foreground">Env:</span> <code className="bg-muted/50 px-1 rounded">BROSKI_ENABLE_FUNNEL=1</code></li>
             </ul>
-            <CodeBlock language="bash">{`bunx broski --funnel`}</CodeBlock>
+            <CodeBlock language="bash">{`broski --funnel`}</CodeBlock>
             <p className="text-sm text-muted-foreground mt-3">Creates a public HTTPS URL (e.g., https://machine.tailnet-name.ts.net). No VPN required on phone.</p>
           </div>
 
@@ -134,15 +134,15 @@ bunx broski --port 0`}</CodeBlock>
             <h3 className="font-mono font-medium mb-2">--new-token</h3>
             <p className="text-muted-foreground text-sm mb-3">Generate a new authentication token.</p>
             <CodeBlock language="bash">{`# Generate new token (invalidates old QR codes)
-bunx broski --new-token`}</CodeBlock>
+broski --new-token`}</CodeBlock>
             <p className="text-sm text-muted-foreground mt-3">Use if you suspect your token has been compromised. New token is persisted to ~/.broski/token.</p>
           </div>
 
           <div className="border border-border rounded-lg p-4">
             <h3 className="font-mono font-medium mb-2">--hotspot</h3>
             <p className="text-muted-foreground text-sm mb-3">Detect and prioritize hotspot IP for mobile tethering.</p>
-            <CodeBlock language="bash">{`bunx broski --hotspot
-bunx broski qr --hotspot`}</CodeBlock>
+            <CodeBlock language="bash">{`broski --hotspot
+broski qr --hotspot`}</CodeBlock>
             <p className="text-sm text-muted-foreground mt-3">Useful when your phone is providing internet to your Mac via hotspot and you want to connect Broski over that same connection.</p>
           </div>
         </div>
@@ -168,16 +168,16 @@ bunx broski qr --hotspot`}</CodeBlock>
             <h3 className="font-mono font-medium mb-2">--manual</h3>
             <p className="text-muted-foreground text-sm mb-3">Connect to an existing OpenCode server (requires URL).</p>
             <CodeBlock language="bash">{`# Manual mode with explicit URL
-bunx broski --manual --opencode-url http://localhost:4096
+broski --manual --opencode-url http://localhost:4096
 
 # Via environment variable
-OPENCODE_BASE_URL=http://localhost:4096 bunx broski`}</CodeBlock>
+OPENCODE_BASE_URL=http://localhost:4096 broski`}</CodeBlock>
           </div>
 
           <div className="border border-border rounded-lg p-4">
             <h3 className="font-mono font-medium mb-2">--attach</h3>
             <p className="text-muted-foreground text-sm mb-3">Scan for running OpenCode servers and interactively choose one.</p>
-            <CodeBlock language="bash">{`bunx broski --attach`}</CodeBlock>
+            <CodeBlock language="bash">{`broski --attach`}</CodeBlock>
             <p className="text-sm text-muted-foreground mt-3">Scans common ports (4096, 64864-65119, 49152-49407). If multiple found, presents interactive selection menu.</p>
           </div>
         </div>
@@ -252,7 +252,6 @@ OPENCODE_BASE_URL=http://localhost:4096 bunx broski`}</CodeBlock>
           headers={["Variable", "Type", "Default", "Description"]}
           rows={[
             ["BROSKI_PORT", "number", "18274", "Bridge WebSocket port"],
-            ["BROSKI_VERBOSE", "1 or unset", "unset", "Enable debug logging"],
             ["BROSKI_ENABLE_FUNNEL", "1 or unset", "unset", "Enable Tailscale Funnel"],
           ]}
         />
@@ -284,53 +283,53 @@ OPENCODE_BASE_URL=http://localhost:4096 bunx broski`}</CodeBlock>
         <div className="space-y-4">
           <div className="border border-border rounded-lg p-4">
             <h4 className="font-medium mb-2">Minimal Setup</h4>
-            <CodeBlock language="bash">{`bunx broski`}</CodeBlock>
+            <CodeBlock language="bash">{`broski`}</CodeBlock>
             <p className="text-sm text-muted-foreground mt-2">Uses all defaults: port 18274, managed OpenCode, no funnel.</p>
           </div>
 
           <div className="border border-border rounded-lg p-4">
             <h4 className="font-medium mb-2">Custom Port</h4>
-            <CodeBlock language="bash">{`bunx broski --port 8080`}</CodeBlock>
+            <CodeBlock language="bash">{`broski --port 8080`}</CodeBlock>
           </div>
 
           <div className="border border-border rounded-lg p-4">
             <h4 className="font-medium mb-2">Tailscale with Funnel</h4>
-            <CodeBlock language="bash">{`bunx broski --funnel --verbose`}</CodeBlock>
-            <p className="text-sm text-muted-foreground mt-2">Public HTTPS access with debug logging.</p>
+            <CodeBlock language="bash">{`broski --funnel`}</CodeBlock>
+            <p className="text-sm text-muted-foreground mt-2">Public HTTPS access via Tailscale Funnel.</p>
           </div>
 
           <div className="border border-border rounded-lg p-4">
             <h4 className="font-medium mb-2">Manual OpenCode Connection</h4>
             <CodeBlock language="bash">{`# Start OpenCode separately
+# Start OpenCode separately
 opencode serve --port 4096
 
-# Connect Broski
-bunx broski --opencode-url http://localhost:4096`}</CodeBlock>
+# Connect Broski to it
+broski --opencode-url http://localhost:4096`}</CodeBlock>
           </div>
 
           <div className="border border-border rounded-lg p-4">
             <h4 className="font-medium mb-2">Claude Code Backend</h4>
             <CodeBlock language="bash">{`# With API key
 export ANTHROPIC_API_KEY=sk-ant-api03-...
-bunx broski --verbose
+broski
 
 # Or with Claude login
 claude login
-bunx broski`}</CodeBlock>
+broski`}</CodeBlock>
           </div>
 
           <div className="border border-border rounded-lg p-4">
             <h4 className="font-medium mb-2">Mobile Hotspot</h4>
             <CodeBlock language="bash">{`# When your phone provides internet to your Mac
-bunx broski --hotspot`}</CodeBlock>
+broski --hotspot`}</CodeBlock>
           </div>
 
           <div className="border border-border rounded-lg p-4">
             <h4 className="font-medium mb-2">Production Setup with Environment</h4>
             <CodeBlock language="bash">{`export BROSKI_PORT=18274
 export BROSKI_ENABLE_FUNNEL=1
-export BROSKI_VERBOSE=1
-bunx broski`}</CodeBlock>
+broski`}</CodeBlock>
           </div>
         </div>
       </section>

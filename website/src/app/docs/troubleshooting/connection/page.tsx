@@ -34,7 +34,7 @@ lsof -nP -iTCP:18274 -sTCP:LISTEN
 tailscale status
 
 # Run full diagnostics
-bunx broski doctor`}</CodeBlock>
+broski doctor`}</CodeBlock>
       </section>
 
       {/* Connection State Machine */}
@@ -97,7 +97,7 @@ bunx broski doctor`}</CodeBlock>
                   <p className="text-sm text-muted-foreground mt-2">
                     If nothing shows up, start the bridge:
                   </p>
-                  <CodeBlock language="bash">{`bunx broski`}</CodeBlock>
+                  <CodeBlock language="bash">{`broski`}</CodeBlock>
                 </>
               ),
             },
@@ -123,7 +123,7 @@ bunx broski doctor`}</CodeBlock>
             },
             {
               title: "Is the auth token correct?",
-              description: "Re-scan the QR code to get a fresh token, or run bunx broski --new-token",
+              description: "Re-scan the QR code to get a fresh token, or run broski --new-token",
             },
           ]}
         />
@@ -132,7 +132,7 @@ bunx broski doctor`}</CodeBlock>
         <SimpleTable
           headers={["Cause", "Solution"]}
           rows={[
-            ["Bridge not running", <code key="1">bunx broski</code>],
+            ["Bridge not running", <code key="1">broski</code>],
             ["Wrong network", "Connect phone to same WiFi as computer"],
             ["Firewall blocking", "Add exception for port 18274"],
             ["Token mismatch", "Re-scan QR code or run --new-token"],
@@ -184,10 +184,10 @@ fg
           <div className="border border-border rounded-lg p-4">
             <div className="font-medium mb-2">Option 3: Use a different port</div>
             <CodeBlock language="bash">{`# Random free port
-bunx broski --port 0
+broski --port 0
 
 # Specific port
-bunx broski --port 18275`}</CodeBlock>
+broski --port 18275`}</CodeBlock>
           </div>
         </div>
       </section>
@@ -215,7 +215,7 @@ bunx broski --port 18275`}</CodeBlock>
         </Callout>
 
         <CodeBlock language="bash">{`# Check bridge logs for heartbeat issues
-bunx broski --verbose 2>&1 | grep -i heartbeat`}</CodeBlock>
+broski logs`}</CodeBlock>
       </section>
 
       {/* Connection Drops */}
@@ -249,7 +249,7 @@ bunx broski --verbose 2>&1 | grep -i heartbeat`}</CodeBlock>
             <ol className="text-sm text-muted-foreground space-y-1 list-decimal list-inside">
               <li>System Settings → Network → Firewall</li>
               <li>Click &quot;Options...&quot;</li>
-              <li>Add Bun or Node.js to allowed applications</li>
+              <li>Add the broski binary to allowed applications</li>
               <li>Or enable &quot;Automatically allow built-in software&quot;</li>
             </ol>
           </div>
@@ -258,8 +258,8 @@ bunx broski --verbose 2>&1 | grep -i heartbeat`}</CodeBlock>
             <CodeBlock language="bash">{`# Check firewall status
 /usr/libexec/ApplicationFirewall/socketfilterfw --getglobalstate
 
-# Add exception for Bun
-sudo /usr/libexec/ApplicationFirewall/socketfilterfw --add $(which bun)
+# Add exception for Broski
+sudo /usr/libexec/ApplicationFirewall/socketfilterfw --add $(which broski)
 
 # Or disable firewall temporarily (not recommended for production)
 sudo /usr/libexec/ApplicationFirewall/socketfilterfw --setglobalstate off`}</CodeBlock>
@@ -271,7 +271,7 @@ sudo /usr/libexec/ApplicationFirewall/socketfilterfw --setglobalstate off`}</Cod
           <ol className="text-sm text-muted-foreground space-y-1 list-decimal list-inside">
             <li>Open Windows Security → Firewall &amp; network protection</li>
             <li>Click &quot;Allow an app through firewall&quot;</li>
-            <li>Add <code className="bg-muted/50 px-1 rounded">bun.exe</code> or allow port 18274</li>
+            <li>Add <code className="bg-muted/50 px-1 rounded">broski.exe</code> or allow port 18274</li>
             <li>Ensure both Private and Public are checked</li>
           </ol>
         </div>
@@ -301,7 +301,7 @@ sudo firewall-cmd --list-ports`}</CodeBlock>
           rows={[
             ["Camera won't focus", "Ensure adequate lighting, clean camera lens"],
             ["Code too small", "Move closer or increase terminal font size"],
-            ["Invalid QR error", "Regenerate with bunx broski --new-token"],
+            ["Invalid QR error", "Regenerate with broski --new-token"],
             ["Partial scan", "Hold phone steady for 2-3 seconds"],
             ["Old QR code", "Token may have changed, regenerate"],
           ]}
@@ -324,10 +324,8 @@ sudo firewall-cmd --list-ports`}</CodeBlock>
         <p className="text-muted-foreground mb-4">
           Collect this debug info before contacting support:
         </p>
-        <CodeBlock language="bash">{`bunx broski --version
-bunx broski doctor
-bun --version && node --version
-sw_vers # macOS only`}</CodeBlock>
+        <CodeBlock language="bash">{`broski --version
+broski doctor`}</CodeBlock>
         <p className="text-muted-foreground mt-4">
           Email: <a href="mailto:broskiappp@gmail.com" className="text-primary hover:underline">broskiappp@gmail.com</a>
         </p>

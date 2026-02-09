@@ -23,7 +23,7 @@ export default function NetworkTroubleshootingPage() {
         <p className="text-muted-foreground mb-4">
           Always start by running the doctor command:
         </p>
-        <CodeBlock language="bash">{`bunx broski doctor`}</CodeBlock>
+        <CodeBlock language="bash">{`broski doctor`}</CodeBlock>
         <p className="text-sm text-muted-foreground mt-3">
           This checks: dependencies, local IP, port availability, and Tailscale status.
         </p>
@@ -88,7 +88,7 @@ lsof -nP -iTCP:18274 -sTCP:LISTEN`}</CodeBlock>
 brew install --cask tailscale
 
 # Start bridge (Tailscale IP will be included in QR code)
-bunx broski`}</CodeBlock>
+broski`}</CodeBlock>
             <p className="text-sm text-muted-foreground mt-2">
               Install Tailscale on your phone and log in with the same account.
             </p>
@@ -238,7 +238,7 @@ tailscale status
 
         <Callout type="tip" title="Better alternative: Tailscale Funnel">
           Instead of port forwarding, use Tailscale Funnel for secure public access:
-          <CodeBlock language="bash">{`bunx broski --funnel`}</CodeBlock>
+          <CodeBlock language="bash">{`broski --funnel`}</CodeBlock>
         </Callout>
       </section>
 
@@ -262,7 +262,7 @@ curl http://<tailscale-ip>:18274/
 ping -c 5 <target-ip>
 
 # 6. Run full diagnostics
-bunx broski doctor`}</CodeBlock>
+broski doctor`}</CodeBlock>
       </section>
 
       {/* Connection Drops */}

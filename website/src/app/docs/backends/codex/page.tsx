@@ -56,7 +56,7 @@ export default function CodexPage() {
       <h2 id="setup" className="text-xl font-semibold mb-4 mt-10">Setup</h2>
       
       <h3 id="step-1" className="text-base font-medium mb-3 mt-6">1. Install Codex</h3>
-      <CodeBlock language="bash">{`npm install -g @openai/codex`}</CodeBlock>
+      <CodeBlock language="bash">{`npm i -g @openai/codex`}</CodeBlock>
 
       <h3 id="step-2" className="text-base font-medium mb-3 mt-6">2. Authenticate</h3>
       <p className="text-sm text-muted-foreground mb-3">
@@ -70,7 +70,7 @@ codex
 export OPENAI_API_KEY=sk-your-key-here`}</CodeBlock>
 
       <h3 id="step-3" className="text-base font-medium mb-3 mt-6">3. Start Broski</h3>
-      <CodeBlock language="bash">{`bunx broski`}</CodeBlock>
+      <CodeBlock language="bash">{`broski`}</CodeBlock>
       <p className="text-sm text-muted-foreground mt-3">
         Select Codex as your backend in the Broski app settings.
       </p>

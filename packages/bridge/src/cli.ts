@@ -28,6 +28,14 @@ export type CliOptions = {
   setupNoTls: boolean
   setupTokenTtl: number | null
   setupNoDaemon: boolean
+  logsFollow: boolean
+  logsJson: boolean
+  logsPlain: boolean
+  logsLines: number
+  logsIntervalMs: number
+  logsExport: boolean
+  logsIncludeErrors: boolean
+  logsRedact: boolean
 }
 
 const DEFAULT_BRIDGE_PORT = 18274
@@ -63,6 +71,14 @@ export function parseCli(argv: string[], env: NodeJS.ProcessEnv): CliOptions {
   let setupNoTls = false
   let setupTokenTtl: number | null = null
   let setupNoDaemon = false
+  let logsFollow = false
+  let logsJson = false
+  let logsPlain = false
+  let logsLines = 200
+  let logsIntervalMs = 1000
+  let logsExport = false
+  let logsIncludeErrors = true
+  let logsRedact = isCompiledBinary()
 
   const firstArg = args[0]
   if (firstArg === 'doctor') {
@@ -214,6 +230,44 @@ export function parseCli(argv: string[], env: NodeJS.ProcessEnv): CliOptions {
       setupNoDaemon = true
       continue
     }
+    if (arg === '--follow') {
+      logsFollow = true
+      continue
+    }
+    if (arg === '--json') {
+      logsJson = true
+      continue
+    }
+    if (arg === '--plain') {
+      logsPlain = true
+      continue
+    }
+    if (arg === '--lines') {
+      logsLines = Math.max(1, parseNumber(args[i + 1], logsLines))
+      i++
+      continue
+    }
+    if (arg === '--interval') {
+      logsIntervalMs = Math.max(100, parseNumber(args[i + 1], logsIntervalMs))
+      i++
+      continue
+    }
+    if (arg === '--export') {
+      logsExport = true
+      continue
+    }
+    if (arg === '--no-errors') {
+      logsIncludeErrors = false
+      continue
+    }
+    if (arg === '--redact') {
+      logsRedact = true
+      continue
+    }
+    if (arg === '--no-redact') {
+      logsRedact = false
+      continue
+    }
   }
 
   if (opencodeUrl) {
@@ -248,6 +302,14 @@ export function parseCli(argv: string[], env: NodeJS.ProcessEnv): CliOptions {
     setupNoTls,
     setupTokenTtl,
     setupNoDaemon,
+    logsFollow,
+    logsJson,
+    logsPlain,
+    logsLines,
+    logsIntervalMs,
+    logsExport,
+    logsIncludeErrors,
+    logsRedact,
   }
 }
 
@@ -295,6 +357,16 @@ Setup (non-interactive):
   --token-ttl DAYS            Auth token TTL in days (default: 7)
   --no-daemon                 Don't install background service
 
+Logs:
+  --follow                    Follow logs in real-time
+  --json                      Emit logs as JSON objects
+  --plain                     Plain text output (no formatting)
+  --lines N                   Number of recent lines to show (default: 200)
+  --interval MS               Poll interval while following (default: 1000)
+  --export                    Export redacted diagnostics bundle to file
+  --no-errors                 Exclude bridge.error.log
+  --redact / --no-redact      Force log redaction on/off
+
 OpenCode:
   --managed                 Force managed mode (default)
   --manual                  Force manual/attach mode (requires --opencode-url or OPENCODE_BASE_URL)
@@ -316,6 +388,9 @@ Examples:
   broski doctor                  Check if everything is set up correctly
   broski setup-tailscale         Set up Tailscale for remote access
   broski update                  Update to the latest version
+  broski logs                    Show recent bridge logs
+  broski logs --follow           Follow logs in real-time
+  broski logs --export           Export redacted diagnostics bundle
   broski --verbose               Start with debug logging
   broski --hotspot               Prioritize hotspot IP (for mobile tethering)
 `.trim())

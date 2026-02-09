@@ -28,14 +28,10 @@ export default function BridgePage() {
 
       <h2 id="install" className="text-2xl font-semibold mb-4 mt-10">Installation</h2>
       
-      <CodeBlock language="bash">{`bunx broski`}</CodeBlock>
-      
-      <p className="text-sm text-muted-foreground mt-2 mb-4">
-        Alternative: <code className="text-foreground">npx broski</code> or <code className="text-foreground">bun add -g broski && broski</code>
-      </p>
+      <CodeBlock language="bash">{`broski`}</CodeBlock>
 
-      <Callout type="info" title="Requirements">
-        Bun 1.0+ or Node.js 18+. Run <code>broski doctor</code> to verify your setup.
+      <Callout type="info" title="Verify your setup">
+        Run <code>broski doctor</code> to check that everything is configured correctly.
       </Callout>
 
       <h2 id="commands" className="text-2xl font-semibold mb-4 mt-10">Commands</h2>
@@ -191,8 +187,7 @@ broski setup-tailscale # Set up Tailscale for remote access`}</CodeBlock>
       <SimpleTable
         headers={["Component", "Minimum Version", "Recommended"]}
         rows={[
-          ["Bun", "1.0+", "Latest"],
-          ["Node.js (alternative)", "18+", "20+"],
+
           ["OpenCode", "Latest", "Latest"],
           ["Claude Code CLI", "Latest", "Latest"],
           ["macOS", "12 (Monterey)", "14+ (Sonoma)"],

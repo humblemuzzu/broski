@@ -994,7 +994,7 @@ async function main() {
 
   if (cli.subCommand === 'logs') {
     const { runLogs } = await import('./logs')
-    await runLogs()
+    await runLogs(cli)
     return
   }
 

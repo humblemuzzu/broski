@@ -61,9 +61,8 @@ export default function OpenCodePage() {
       <CodeBlock language="bash">{`# Install script (recommended)
 curl -fsSL https://opencode.ai/install | bash
 
-# Or via npm/bun
-npm install -g opencode-ai
-bun install -g opencode-ai
+# Or via bun
+bun add -g opencode-ai
 
 # Verify installation
 opencode --version`}</CodeBlock>
@@ -217,7 +216,7 @@ opencode config set model "anthropic/claude-sonnet-4-20250514"`}</CodeBlock>
 opencode --version
 
 # If not found, reinstall:
-npm install -g opencode
+bun add -g opencode-ai
 
 # Or check your PATH:
 echo $PATH`}</CodeBlock>
@@ -256,7 +255,7 @@ curl -H "x-api-key: $ANTHROPIC_API_KEY" \\
 pkill opencode
 
 # Restart the bridge
-bunx broski
+broski
 
 # Or check if OpenCode is running
 ps aux | grep opencode`}</CodeBlock>

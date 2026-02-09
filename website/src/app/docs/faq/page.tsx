@@ -78,7 +78,7 @@ export default function FAQPage() {
             <h3 className="font-semibold mb-2">What do I need to get started?</h3>
             <ul className="text-muted-foreground space-y-2">
               <li>&#8226; A Mac, Windows PC, or Linux machine</li>
-              <li>&#8226; Node.js 18+ or Bun installed</li>
+              <li>&#8226; Broski bridge installed on your computer</li>
               <li>&#8226; Claude Code, OpenCode, or Codex CLI installed</li>
               <li>&#8226; An AI provider account (Claude, OpenAI, etc.)</li>
               <li>&#8226; An iPhone/iPad (iOS 15+) or Android device (8.0+)</li>
@@ -91,11 +91,11 @@ export default function FAQPage() {
             <p className="text-muted-foreground mb-3">
               Run one of these commands in your terminal:
             </p>
-            <CodeBlock language="bash">{`bunx broski`}</CodeBlock>
+            <CodeBlock language="bash">{`broski`}</CodeBlock>
             <p className="text-muted-foreground text-sm mt-2">
               Or with npm:
             </p>
-            <CodeBlock language="bash">{`npx broski`}</CodeBlock>
+            <CodeBlock language="bash">{`broski`}</CodeBlock>
           </div>
 
           <div className="border border-border/50 rounded-lg p-5">
@@ -121,8 +121,7 @@ export default function FAQPage() {
           <div className="border border-border/50 rounded-lg p-5">
             <h3 className="font-semibold mb-2">How do I update Broski?</h3>
             <p className="text-muted-foreground mb-2">
-              <strong className="text-foreground">Bridge:</strong> If using bunx/npx, it automatically uses the latest version. 
-              For global install: <code className="px-1 py-0.5 bg-muted rounded text-sm">bun add -g broski</code>
+              <strong className="text-foreground">Bridge:</strong> Download and install the latest version for your platform.
             </p>
             <p className="text-muted-foreground">
               <strong className="text-foreground">App:</strong> Update from App Store (iOS) or Play Store (Android).
@@ -416,7 +415,7 @@ BROSKI_PORT=8080 broski`}</CodeBlock>
             </p>
             <ul className="text-muted-foreground text-sm space-y-1">
               <li>&#8226; <code className="px-1 py-0.5 bg-muted rounded">BROSKI_PORT</code> - Port number</li>
-              <li>&#8226; <code className="px-1 py-0.5 bg-muted rounded">BROSKI_VERBOSE</code> - Enable verbose logging</li>
+              <li>&#8226; <code className="px-1 py-0.5 bg-muted rounded">BROSKI_ENABLE_FUNNEL</code> - Enable Tailscale Funnel</li>
               <li>&#8226; <code className="px-1 py-0.5 bg-muted rounded">BROSKI_ENABLE_FUNNEL</code> - Enable Tailscale Funnel</li>
               <li>&#8226; <code className="px-1 py-0.5 bg-muted rounded">OPENCODE_BASE_URL</code> - OpenCode server URL</li>
             </ul>
@@ -428,10 +427,7 @@ BROSKI_PORT=8080 broski`}</CodeBlock>
 rm -rf ~/.broski
 
 # Clear OpenCode data (deletes all sessions!)
-rm -rf ~/.opencode
-
-# Reinstall bridge
-bun add -g broski`}</CodeBlock>
+rm -rf ~/.opencode`}</CodeBlock>
             <p className="text-muted-foreground text-sm mt-2">
               On your phone: Settings &gt; Clear Cache, or uninstall and reinstall the app.
             </p>
@@ -593,7 +589,7 @@ broski --port 8080`}</CodeBlock>
 which opencode
 
 # If not found, install it
-bun install -g opencode
+bun add -g opencode-ai
 
 # Try manual mode
 opencode serve
@@ -603,11 +599,11 @@ broski --opencode-url http://localhost:4096`}</CodeBlock>
 
           <div className="border border-border/50 rounded-lg p-5">
             <h3 className="font-semibold mb-2">How do I see debug logs?</h3>
-            <CodeBlock language="bash">{`# Verbose mode
-broski --verbose
+            <CodeBlock language="bash">{`# Tail live bridge logs
+broski logs
 
-# Save to file
-broski --verbose 2>&1 | tee bridge.log`}</CodeBlock>
+# Run interactive troubleshooter
+broski troubleshoot`}</CodeBlock>
           </div>
         </div>
       </section>

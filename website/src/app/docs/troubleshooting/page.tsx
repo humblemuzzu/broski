@@ -24,14 +24,13 @@ export default function TroubleshootingPage() {
           Start with the <code className="bg-muted/50 px-1.5 py-0.5 rounded text-sm">broski doctor</code> command 
           to check your system for common issues:
         </p>
-        <CodeBlock language="bash">{`bunx broski doctor`}</CodeBlock>
+        <CodeBlock language="bash">{`broski doctor`}</CodeBlock>
 
         <h3 id="what-doctor-checks" className="text-lg font-semibold mt-6 mb-3">What Doctor Checks</h3>
         <SimpleTable
           headers={["Check", "What It Means", "If It Fails"]}
           rows={[
-            ["Bun", "Runtime for the bridge server", "Install Bun: curl -fsSL https://bun.sh/install | bash"],
-            ["OpenCode", "AI coding assistant backend", "Install: bun install -g opencode"],
+            ["OpenCode", "AI coding assistant backend", "Install: bun add -g opencode-ai"],
             ["Local IP", "Network connectivity for local connections", "Check WiFi, network interfaces"],
             ["Port 18274", "Default bridge port availability", "Kill existing process or use --port 0"],
             ["Tailscale", "Remote access VPN (optional)", "Install from tailscale.com"],
@@ -51,7 +50,6 @@ export default function TroubleshootingPage() {
         <h3 id="example-output" className="text-lg font-semibold mt-6 mb-3">Example Output</h3>
         <CodeBlock language="text">{`DEPENDENCIES
 --------------------------------------------------
-  [OK] Bun v1.1.0
   [OK] OpenCode v0.2.0
 
 NETWORK
@@ -113,8 +111,8 @@ lsof -nP -iTCP:18274 -sTCP:LISTEN`}</CodeBlock>
           rows={[
             ["Can't connect", "Restart bridge, re-scan QR"],
             ["Port in use", <><code className="text-xs">lsof -nP -iTCP:18274</code> then <code className="text-xs">kill &lt;PID&gt;</code></>],
-            ["Auth failed", <code key="auth" className="text-xs">bunx broski --new-token</code>],
-            ["OpenCode missing", <code key="oc" className="text-xs">bun install -g opencode</code>],
+            ["Auth failed", <code key="auth" className="text-xs">broski --new-token</code>],
+            ["OpenCode missing", <code key="oc" className="text-xs">bun add -g opencode-ai</code>],
             ["Everything broken", <><code className="text-xs">rm -rf ~/.broski/</code> and restart</>],
           ]}
         />
@@ -160,11 +158,8 @@ lsof -nP -iTCP:18274 -sTCP:LISTEN`}</CodeBlock>
 # Remove all Broski data
 rm -rf ~/.broski/
 
-# Reinstall bridge
-bun install -g @broski/bridge
-
 # Start fresh (generates new token)
-bunx broski`}</CodeBlock>
+broski`}</CodeBlock>
 
         <h3 id="complete-reinstall" className="text-lg font-semibold mt-6 mb-3">Complete Reinstall</h3>
         <Steps
@@ -172,13 +167,12 @@ bunx broski`}</CodeBlock>
             {
               title: "Remove bridge",
               content: (
-                <CodeBlock language="bash">{`rm -rf ~/.broski/
-bun remove -g @broski/bridge`}</CodeBlock>
+                <CodeBlock language="bash">{`rm -rf ~/.broski/`}</CodeBlock>
               ),
             },
             {
               title: "Reinstall bridge",
-              content: <CodeBlock language="bash">{`bun install -g @broski/bridge`}</CodeBlock>,
+              description: "Download and install the bridge again for your platform.",
             },
             {
               title: "Remove and reinstall mobile app",
@@ -190,8 +184,8 @@ bun remove -g @broski/bridge`}</CodeBlock>
             {
               title: "Start fresh",
               content: (
-                <CodeBlock language="bash">{`bunx broski doctor  # Verify setup
-bunx broski         # Start bridge`}</CodeBlock>
+                <CodeBlock language="bash">{`broski doctor  # Verify setup
+broski         # Start bridge`}</CodeBlock>
               ),
             },
             {
@@ -211,23 +205,22 @@ bunx broski         # Start bridge`}</CodeBlock>
           Before reporting an issue, collect this information:
         </p>
         <CodeBlock language="bash">{`# Bridge version
-bunx broski --version
+broski --version
 
 # Doctor output
-bunx broski doctor
+broski doctor
 
-# Verbose logs (reproduce the issue while this runs)
-bunx broski --verbose 2>&1 | tee broski-debug.log
+# Tail live logs
+broski logs
 
-# System info
-sw_vers  # macOS
-uname -a # Linux`}</CodeBlock>
+# Interactive troubleshooter
+broski troubleshoot`}</CodeBlock>
 
         <h3 id="log-locations" className="text-lg font-semibold mt-6 mb-3">Log Locations</h3>
         <SimpleTable
           headers={["Component", "Location"]}
           rows={[
-            ["Bridge logs", "Terminal output (use --verbose)"],
+            ["Bridge logs", "broski logs (or check ~/.broski/broski.log)"],
             ["Auth token", "~/.broski/token"],
             ["OpenCode logs", "Terminal output"],
             ["Claude Code sessions", "~/.claude/projects/"],

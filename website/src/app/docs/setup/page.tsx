@@ -25,11 +25,7 @@ export default function SetupPage() {
           <ul className="space-y-3 text-muted-foreground">
             <li className="flex items-start gap-3">
               <span className="text-primary mt-1">&#10003;</span>
-              <span>A computer (macOS 12+, Windows 10+ with WSL2, or Linux)</span>
-            </li>
-            <li className="flex items-start gap-3">
-              <span className="text-primary mt-1">&#10003;</span>
-              <span>Node.js 18+ or <a href="https://bun.sh" className="text-primary hover:underline">Bun</a> installed</span>
+              <span>A computer (macOS 12+, Windows 10+, or Linux)</span>
             </li>
             <li className="flex items-start gap-3">
               <span className="text-primary mt-1">&#10003;</span>
@@ -51,62 +47,21 @@ export default function SetupPage() {
           AI coding agents. Choose your platform below.
         </p>
 
+        <p className="text-muted-foreground mb-4">
+          Download and install the Broski bridge for your platform, then run it from your terminal:
+        </p>
+
         {/* macOS */}
         <h3 id="macos" className="text-lg font-semibold mb-3">macOS</h3>
-        <p className="text-sm text-muted-foreground mb-2">Install Bun (if you haven&apos;t already):</p>
-        <CodeBlock language="bash">{`curl -fsSL https://bun.sh/install | bash`}</CodeBlock>
-        
-        <p className="text-sm text-muted-foreground mb-2 mt-4">Run the bridge:</p>
-        <CodeBlock language="bash">{`bunx broski`}</CodeBlock>
-
-        <Callout type="tip" title="Alternative with npm">
-          If you prefer npm: <code className="px-1 py-0.5 bg-muted rounded text-sm">npx broski</code>
-        </Callout>
+        <CodeBlock language="bash">{`broski`}</CodeBlock>
 
         {/* Windows */}
-        <h3 id="windows" className="text-lg font-semibold mb-3 mt-8">Windows (WSL2)</h3>
-        <p className="text-sm text-muted-foreground mb-2">
-          Broski runs best on Windows via WSL2. First, install WSL2 if you haven&apos;t:
-        </p>
-        <CodeBlock language="bash">{`wsl --install`}</CodeBlock>
-        
-        <p className="text-sm text-muted-foreground mb-2 mt-4">Open WSL and install Bun:</p>
-        <CodeBlock language="bash">{`curl -fsSL https://bun.sh/install | bash`}</CodeBlock>
-        
-        <p className="text-sm text-muted-foreground mb-2 mt-4">Run the bridge:</p>
-        <CodeBlock language="bash">{`bunx broski`}</CodeBlock>
-
-        <Callout type="info" title="Native Windows">
-          For native Windows (without WSL2), install Bun via PowerShell:{" "}
-          <code className="px-1 py-0.5 bg-muted rounded text-sm">powershell -c &quot;irm bun.sh/install.ps1 | iex&quot;</code>
-        </Callout>
+        <h3 id="windows" className="text-lg font-semibold mb-3 mt-8">Windows</h3>
+        <CodeBlock language="bash">{`broski`}</CodeBlock>
 
         {/* Linux */}
         <h3 id="linux" className="text-lg font-semibold mb-3 mt-8">Linux</h3>
-        
-        <p className="text-sm text-muted-foreground mb-2"><strong>Ubuntu / Debian:</strong></p>
-        <CodeBlock language="bash">{`# Install dependencies
-sudo apt update && sudo apt install -y curl unzip
-
-# Install Bun
-curl -fsSL https://bun.sh/install | bash
-
-# Add to PATH (restart terminal or run this)
-source ~/.bashrc
-
-# Run bridge
-bunx broski`}</CodeBlock>
-
-        <p className="text-sm text-muted-foreground mb-2 mt-4"><strong>Fedora / RHEL:</strong></p>
-        <CodeBlock language="bash">{`sudo dnf install -y curl unzip
-curl -fsSL https://bun.sh/install | bash
-source ~/.bashrc
-bunx broski`}</CodeBlock>
-
-        <p className="text-sm text-muted-foreground mb-2 mt-4"><strong>Arch Linux:</strong></p>
-        <CodeBlock language="bash">{`curl -fsSL https://bun.sh/install | bash
-source ~/.bashrc
-bunx broski`}</CodeBlock>
+        <CodeBlock language="bash">{`broski`}</CodeBlock>
       </section>
 
       {/* Step 2: Verify Installation */}
@@ -121,8 +76,7 @@ bunx broski`}</CodeBlock>
         <p className="text-muted-foreground mt-4 mb-2">Expected output (all checks passing):</p>
         <CodeBlock language="terminal">{`DEPENDENCIES
 --------------------------------------------------
-  ✓ Bun v1.1.x
-  ✓ OpenCode x.x.x (or Claude Code)
+  ✓ OpenCode x.x.x (or Claude Code / Codex)
 
 NETWORK
 --------------------------------------------------
@@ -247,7 +201,7 @@ broski --port 8080`}</CodeBlock>
               Check if your firewall is blocking port 18274:
             </p>
             <CodeBlock language="bash">{`# macOS: Allow incoming connections
-sudo /usr/libexec/ApplicationFirewall/socketfilterfw --add $(which bun)
+sudo /usr/libexec/ApplicationFirewall/socketfilterfw --add $(which broski)
 
 # Linux (UFW)
 sudo ufw allow 18274/tcp`}</CodeBlock>
@@ -267,10 +221,10 @@ which codex     # Codex CLI`}</CodeBlock>
           <div className="border border-border/50 rounded-lg p-4">
             <h3 className="font-semibold mb-2">&quot;broski: command not found&quot;</h3>
             <p className="text-muted-foreground text-sm mb-2">
-              Make sure Bun&apos;s bin directory is in your PATH:
+              Make sure the Broski bin directory is in your PATH:
             </p>
             <CodeBlock language="bash">{`# Add to your shell profile (~/.bashrc or ~/.zshrc)
-export PATH="$HOME/.bun/bin:$PATH"
+export PATH="$HOME/.broski/bin:$PATH"
 
 # Then reload
 source ~/.bashrc  # or source ~/.zshrc`}</CodeBlock>

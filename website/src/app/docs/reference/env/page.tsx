@@ -34,12 +34,7 @@ export default function EnvVariablesPage() {
                 <td className="p-3 border-b border-border/50">18274</td>
                 <td className="p-3 border-b border-border/50">Bridge WebSocket port</td>
               </tr>
-              <tr>
-                <td className="p-3 border-b border-border/50 font-mono text-xs">BROSKI_VERBOSE</td>
-                <td className="p-3 border-b border-border/50">1 or unset</td>
-                <td className="p-3 border-b border-border/50">unset</td>
-                <td className="p-3 border-b border-border/50">Enable debug logging</td>
-              </tr>
+
               <tr>
                 <td className="p-3 font-mono text-xs">BROSKI_ENABLE_FUNNEL</td>
                 <td className="p-3">1 or unset</td>
@@ -132,11 +127,12 @@ export default function EnvVariablesPage() {
         
         <h3 id="temporary" className="text-xl font-medium mb-3 mt-6">Temporary (Current Session)</h3>
         <CodeBlock language="bash">{`# Set for this command only
-BROSKI_VERBOSE=1 bunx broski
+# Set for this command only
+BROSKI_PORT=8080 broski
 
 # Or export for current session
 export ANTHROPIC_API_KEY=sk-ant-...
-bunx broski`}</CodeBlock>
+broski`}</CodeBlock>
 
         <h3 id="permanent" className="text-xl font-medium mb-3 mt-6">Permanent (Shell Profile)</h3>
         <CodeBlock language="bash">{`# Add to ~/.bashrc, ~/.zshrc, or ~/.profile

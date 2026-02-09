@@ -1,95 +1,292 @@
-/**
- * Log tailing for `broski logs` command.
- *
- * Reads the last N lines of the bridge log file, then polls for new content.
- */
+import { homedir, platform, release } from 'node:os'
+import { mkdir, open, stat, writeFile } from 'node:fs/promises'
+import { resolve, basename } from 'node:path'
+import type { CliOptions } from './cli'
+import { isCompiledBinary } from './platform'
+import packageMeta from '../package.json'
+import { redactSensitiveText } from './logging/redact'
 
-import { homedir } from 'node:os'
-import { resolve } from 'node:path'
-import { stat } from 'node:fs/promises'
+type LogsRunOptions = Pick<
+  CliOptions,
+  'logsFollow' | 'logsJson' | 'logsPlain' | 'logsLines' | 'logsIntervalMs' | 'logsExport' | 'logsIncludeErrors' | 'logsRedact'
+>
 
-const LOG_FILE = resolve(homedir(), '.broski', 'logs', 'bridge.log')
-const TAIL_LINES = 50
-const POLL_INTERVAL_MS = 500
+type FileCursor = {
+  path: string
+  size: number
+}
 
-/**
- * Read the last `n` lines from a file using Bun.file().
- */
-async function readLastLines(path: string, n: number): Promise<{ text: string; size: number }> {
-  const file = Bun.file(path)
-  const content = await file.text()
-  const lines = content.split('\n')
+const LOG_DIR = resolve(homedir(), '.broski', 'logs')
+const PRIMARY_LOG = resolve(LOG_DIR, 'bridge.log')
+const ERROR_LOG = resolve(LOG_DIR, 'bridge.error.log')
+const EXPORT_DIR = resolve(LOG_DIR, 'exports')
 
-  // Remove trailing empty line if present
-  if (lines.length > 0 && lines[lines.length - 1] === '') {
-    lines.pop()
-  }
+function formatNow(): string {
+  return new Date().toISOString()
+}
 
-  const lastN = lines.slice(-n)
+function compactTimestamp(iso: string): string {
+  return iso.replace(/[:.]/g, '-').replace('T', '_').replace('Z', '')
+}
+
+function defaultOptions(): LogsRunOptions {
   return {
-    text: lastN.join('\n'),
-    size: content.length,
+    logsFollow: false,
+    logsJson: false,
+    logsPlain: false,
+    logsLines: 200,
+    logsIntervalMs: 1000,
+    logsExport: false,
+    logsIncludeErrors: true,
+    logsRedact: isCompiledBinary(),
   }
 }
 
-/**
- * Tail the bridge log file: print last 50 lines, then watch for new content.
- * Exits on Ctrl+C (handled by the caller's signal handlers).
- */
-export async function runLogs(): Promise<void> {
-  // Check if log file exists
+function mergeOptions(options?: Partial<LogsRunOptions>): LogsRunOptions {
+  const defaults = defaultOptions()
+  return {
+    ...defaults,
+    ...(options ?? {}),
+    logsLines: Math.max(1, Number(options?.logsLines ?? defaults.logsLines)),
+    logsIntervalMs: Math.max(100, Number(options?.logsIntervalMs ?? defaults.logsIntervalMs)),
+  }
+}
+
+async function fileExists(path: string): Promise<boolean> {
   try {
-    await stat(LOG_FILE)
+    await stat(path)
+    return true
   } catch {
-    console.log(`No logs found at ${LOG_FILE}`)
-    console.log('Run `broski install` to enable daemon logging,')
-    console.log('or start the bridge with `broski` first.')
+    return false
+  }
+}
+
+async function getLogFiles(includeErrors: boolean): Promise<string[]> {
+  const files: string[] = []
+  if (await fileExists(PRIMARY_LOG)) files.push(PRIMARY_LOG)
+  if (includeErrors && (await fileExists(ERROR_LOG))) files.push(ERROR_LOG)
+  return files
+}
+
+async function readTail(path: string, lines: number, maxBytes = 256_000): Promise<{ size: number; lines: string[] }> {
+  const fileStat = await stat(path)
+  const size = fileStat.size
+  if (size <= 0) return { size: 0, lines: [] }
+
+  const start = Math.max(0, size - maxBytes)
+  const fh = await open(path, 'r')
+  try {
+    const length = size - start
+    const buffer = Buffer.alloc(length)
+    const { bytesRead } = await fh.read(buffer, 0, length, start)
+    let text = buffer.toString('utf8', 0, bytesRead)
+
+    if (start > 0) {
+      const prefix = Buffer.alloc(1)
+      const { bytesRead: pb } = await fh.read(prefix, 0, 1, start - 1)
+      if (pb === 1 && prefix.toString('utf8', 0, 1) !== '\n') {
+        const firstNewline = text.indexOf('\n')
+        text = firstNewline >= 0 ? text.slice(firstNewline + 1) : ''
+      }
+    }
+
+    const split = text
+      .split('\n')
+      .filter((line, i, arr) => !(i === arr.length - 1 && line === ''))
+      .filter((line) => line.trim().length > 0)
+    return { size, lines: split.slice(-lines) }
+  } finally {
+    await fh.close()
+  }
+}
+
+function renderLine(path: string, line: string, opts: LogsRunOptions): string {
+  const value = opts.logsRedact ? redactSensitiveText(line) : line
+  if (opts.logsPlain) return value
+  const source = basename(path)
+  return `[${source}] ${value}`
+}
+
+function emitLine(path: string, line: string, opts: LogsRunOptions): void {
+  if (opts.logsJson) {
+    const payload = {
+      type: 'log',
+      source: basename(path),
+      raw: line,
+      message: opts.logsRedact ? redactSensitiveText(line) : line,
+      time: formatNow(),
+    }
+    process.stdout.write(JSON.stringify(payload) + '\n')
+    return
+  }
+  process.stdout.write(renderLine(path, line, opts) + '\n')
+}
+
+function detectLikelyIssues(lines: string[]): string[] {
+  const text = lines.join('\n').toLowerCase()
+  const issues: string[] = []
+
+  if (text.includes('eaddrinuse') || text.includes('port') && text.includes('already in use')) {
+    issues.push('Port conflict detected: another process may already be using the bridge port.')
+  }
+  if (text.includes('tailscale not connected') || text.includes('funnel requires tailscale')) {
+    issues.push('Tailscale appears disconnected: remote access/Funnel may not work until reconnect.')
+  }
+  if (text.includes('auth_session') && text.includes('not entitled')) {
+    issues.push('Entitlement check failed for at least one session.')
+  }
+  if (text.includes('ws rejected')) {
+    issues.push('WebSocket connection rejected events found (auth/origin/client-limit).')
+  }
+  if (text.includes('proxy blocked')) {
+    issues.push('Proxy request was blocked by allowlist/security checks.')
+  }
+  if (text.includes('opencode not available') || text.includes('opencode not detected')) {
+    issues.push('OpenCode backend not available in current runtime.')
+  }
+
+  return issues
+}
+
+async function exportDiagnostics(files: string[], opts: LogsRunOptions): Promise<string> {
+  await mkdir(EXPORT_DIR, { recursive: true })
+  const now = new Date().toISOString()
+  const filename = `broski-diagnostics-${compactTimestamp(now)}.txt`
+  const outPath = resolve(EXPORT_DIR, filename)
+
+  const sections: string[] = []
+  const allLines: string[] = []
+
+  sections.push('Broski Diagnostics Bundle')
+  sections.push(`Generated: ${now}`)
+  sections.push(`Version: ${packageMeta.version ?? 'unknown'}`)
+  sections.push(`Platform: ${platform()} ${release()}`)
+  sections.push(`Compiled binary: ${isCompiledBinary() ? 'yes' : 'no'}`)
+  sections.push(`Redaction: ${opts.logsRedact ? 'enabled' : 'disabled'}`)
+  sections.push('')
+
+  for (const file of files) {
+    sections.push(`===== ${basename(file)} =====`)
+    try {
+      const tail = await readTail(file, Math.max(opts.logsLines, 300), 512_000)
+      if (tail.lines.length === 0) {
+        sections.push('(empty)')
+      } else {
+        for (const line of tail.lines) {
+          const output = opts.logsRedact ? redactSensitiveText(line) : line
+          sections.push(output)
+          allLines.push(output)
+        }
+      }
+    } catch (err: any) {
+      sections.push(`(failed to read: ${err?.message ?? String(err)})`)
+    }
+    sections.push('')
+  }
+
+  const likelyIssues = detectLikelyIssues(allLines)
+  sections.push('===== likely-issues =====')
+  if (likelyIssues.length === 0) {
+    sections.push('- No obvious issues auto-detected from recent logs.')
+  } else {
+    for (const issue of likelyIssues) sections.push(`- ${issue}`)
+  }
+  sections.push('')
+
+  sections.push('===== quick-help =====')
+  sections.push('- Re-run checks: broski doctor')
+  sections.push('- Interactive troubleshooting: broski troubleshoot')
+  sections.push('- Live log tail: broski logs --follow')
+  sections.push('- Regenerate QR token: broski qr --new-token')
+  sections.push('')
+
+  await writeFile(outPath, sections.join('\n'), 'utf8')
+  return outPath
+}
+
+async function pollUpdates(cursors: FileCursor[], opts: LogsRunOptions): Promise<void> {
+  for (const cursor of cursors) {
+    try {
+      const current = await stat(cursor.path)
+      if (current.size === cursor.size) continue
+
+      if (current.size < cursor.size) {
+        cursor.size = 0
+        if (!opts.logsJson) process.stdout.write(`[${basename(cursor.path)}] --- log rotated ---\n`)
+      }
+
+      const start = cursor.size
+      const fh = await open(cursor.path, 'r')
+      try {
+        const length = Math.max(0, current.size - start)
+        if (length <= 0) {
+          cursor.size = current.size
+          continue
+        }
+        const buffer = Buffer.alloc(length)
+        const { bytesRead } = await fh.read(buffer, 0, length, start)
+        const text = buffer.toString('utf8', 0, bytesRead)
+        const lines = text.split('\n').filter((line) => line.length > 0)
+        for (const line of lines) {
+          emitLine(cursor.path, line, opts)
+        }
+        cursor.size = current.size
+      } finally {
+        await fh.close()
+      }
+    } catch {
+      // ignore disappearing files during follow
+    }
+  }
+}
+
+export async function runLogs(options?: Partial<LogsRunOptions>): Promise<void> {
+  const opts = mergeOptions(options)
+  const files = await getLogFiles(opts.logsIncludeErrors)
+
+  if (files.length === 0) {
+    console.log(`No logs found in ${LOG_DIR}`)
+    console.log('Run `broski install` for background logs, or start the bridge with `broski`.')
     return
   }
 
-  console.log(`Tailing ${LOG_FILE}\n${'='.repeat(60)}\n`)
-
-  // Read and print last N lines
-  const { text, size } = await readLastLines(LOG_FILE, TAIL_LINES)
-  if (text) {
-    process.stdout.write(text + '\n')
+  if (opts.logsExport) {
+    const exportPath = await exportDiagnostics(files, opts)
+    console.log(`Diagnostics exported: ${exportPath}`)
+    if (!opts.logsFollow) return
   }
 
-  // Poll for new content
-  let lastSize = size
+  const cursors: FileCursor[] = []
 
-  const poll = async () => {
-    try {
-      const file = Bun.file(LOG_FILE)
-      const currentSize = file.size
+  if (!opts.logsJson) {
+    console.log(`Broski logs (${files.map((f) => basename(f)).join(', ')})`)
+    console.log('='.repeat(64))
+  }
 
-      if (currentSize > lastSize) {
-        // Read only the new content
-        const newContent = await file.slice(lastSize, currentSize).text()
-        if (newContent) {
-          process.stdout.write(newContent)
-        }
-        lastSize = currentSize
-      } else if (currentSize < lastSize) {
-        // File was truncated/rotated — re-read from start
-        const content = await file.text()
-        process.stdout.write('\n--- log rotated ---\n')
-        process.stdout.write(content)
-        lastSize = content.length
-      }
-    } catch {
-      // File may have been deleted, ignore
+  for (const file of files) {
+    const tail = await readTail(file, opts.logsLines)
+    for (const line of tail.lines) {
+      emitLine(file, line, opts)
     }
+    cursors.push({ path: file, size: tail.size })
   }
 
-  const timer = setInterval(poll, POLL_INTERVAL_MS)
+  if (!opts.logsFollow) return
 
-  // Keep the process alive until killed
-  await new Promise<void>((resolve) => {
+  if (!opts.logsJson) {
+    console.log('')
+    console.log(`Following logs (poll ${opts.logsIntervalMs}ms). Press Ctrl+C to stop.`)
+  }
+
+  const timer = setInterval(() => {
+    void pollUpdates(cursors, opts)
+  }, opts.logsIntervalMs)
+
+  await new Promise<void>((resolvePromise) => {
     const onSignal = () => {
       clearInterval(timer)
-      console.log('\n')
-      resolve()
+      if (!opts.logsJson) process.stdout.write('\n')
+      resolvePromise()
     }
     process.on('SIGINT', onSignal)
     process.on('SIGTERM', onSignal)

@@ -286,7 +286,7 @@ tailscale ip -4
         </ol>
 
         <h3 className="text-lg font-medium mt-4 mb-3">Start Bridge with Funnel</h3>
-        <CodeBlock language="bash">{`bunx broski --funnel`}</CodeBlock>
+        <CodeBlock language="bash">{`broski --funnel`}</CodeBlock>
 
         <p className="text-muted-foreground mt-4 mb-4">
           The QR code will now include a public HTTPS URL like <code>https://macbook.tail1234.ts.net</code>.

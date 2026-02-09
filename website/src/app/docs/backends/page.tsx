@@ -172,11 +172,11 @@ export default function BackendsOverviewPage() {
         <div className="p-4 rounded-lg border border-border/40 bg-card/30">
           <div className="font-medium mb-2 text-sm">From the Command Line</div>
           <CodeBlock language="bash">{`# Default (OpenCode)
-bunx broski
+broski
 
 # The backend is selected in the app settings
 # Or set via environment variable:
-BROSKI_AGENT=claude-code bunx broski`}</CodeBlock>
+BROSKI_AGENT=claude-code broski`}</CodeBlock>
         </div>
       </div>
 
