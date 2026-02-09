@@ -11,6 +11,8 @@ import * as codexFs from './connectors/codex-fs'
 import * as fileSearch from './file-search'
 import { CodexAppServerClient, checkCodexAvailable } from './connectors/codex'
 import { handleCodexFeature } from './handlers/codex_features'
+import { PtyManager } from './pty/manager'
+import { PtyRuntime } from './pty/runtime'
 import { headTailTruncate } from './utils'
 import { ensureTlsMaterial, isTlsEnabledByEnv, type TlsMaterial } from './tls'
 import { getDefaultAllowedPaths, IS_WINDOWS, isCompiledBinary } from './platform'
@@ -1034,13 +1036,7 @@ export async function createBridgeServer(options: BridgeServerOptions): Promise<
 	  }
   // Dedupe chat prompts (prevents resend storms on flaky networks).
   const recentChatMessageIds = new Map<string, number>() // key: `${sessionId}:${messageId}` -> tsMs
-  const ptyConnections = new Map<string, WebSocket>()
-  const ptyListeners = new Map<string, Set<ServerWebSocket<unknown>>>()
-  const ptyOutputBuffers = new Map<string, { buffer: string; timer: Timer | null }>()
-  const ptyHealth = new Map<
-    string,
-    { lastInputTime: number; lastOutputTime: number; bytesIn: number; bytesOut: number }
-  >()
+  const ptyManager = new PtyManager(opencode)
   const sessionWatchers = new Map<string, Set<ServerWebSocket<unknown>>>()
   const ccExternalTails = new Map<string, { stop: () => void }>() // sessionId -> tailer
   const cxExternalTails = new Map<string, { stop: () => void }>() // threadId -> tailer
@@ -1261,88 +1257,12 @@ export async function createBridgeServer(options: BridgeServerOptions): Promise<
     }
   }
 
-  const getPtyListeners = (ptyId: string) => {
-    const existing = ptyListeners.get(ptyId)
-    if (existing) return existing
-    const created = new Set<ServerWebSocket<unknown>>()
-    ptyListeners.set(ptyId, created)
-    return created
-  }
-
-  const ensurePtyBuffer = (ptyId: string) => {
-    const existing = ptyOutputBuffers.get(ptyId)
-    if (existing) return existing
-    const created = { buffer: '', timer: null as Timer | null }
-    ptyOutputBuffers.set(ptyId, created)
-    return created
-  }
-
-  const ensurePtyHealth = (ptyId: string) => {
-    const existing = ptyHealth.get(ptyId)
-    if (existing) return existing
-    const now = Date.now()
-    const created = { lastInputTime: now, lastOutputTime: now, bytesIn: 0, bytesOut: 0 }
-    ptyHealth.set(ptyId, created)
-    return created
-  }
-
-  const flushPtyOutput = (ptyId: string) => {
-    const state = ptyOutputBuffers.get(ptyId)
-    if (!state || state.buffer.length === 0) {
-      if (state) state.timer = null
-      return
-    }
-
-    const data = state.buffer
-    state.buffer = ''
-    state.timer = null
-
-    const listeners = ptyListeners.get(ptyId)
-    if (!listeners || listeners.size === 0) return
-    for (const client of listeners) {
-      send(client, { type: 'pty_output', ptyId, data })
-    }
-  }
-
-  const closePtyIfNoListeners = (ptyId: string) => {
-    const listeners = ptyListeners.get(ptyId)
-    if (listeners && listeners.size > 0) return
-
-    const buf = ptyOutputBuffers.get(ptyId)
-    if (buf?.timer) clearTimeout(buf.timer)
-    ptyOutputBuffers.delete(ptyId)
-    ptyHealth.delete(ptyId)
-    ptyListeners.delete(ptyId)
-
-    const ptyWs = ptyConnections.get(ptyId)
-    if (ptyWs) {
-      try {
-        ptyWs.close()
-      } catch {}
-      ptyConnections.delete(ptyId)
-    }
-  }
-
-  // Periodic PTY health snapshots (best-effort; cheap + optional UI)
-  setInterval(() => {
-    const now = Date.now()
-    for (const [ptyId, health] of ptyHealth.entries()) {
-      const listeners = ptyListeners.get(ptyId)
-      if (!listeners || listeners.size === 0) continue
-      const isResponsive = now - health.lastOutputTime < 5000
-      for (const client of listeners) {
-        send(client, {
-          type: 'pty_health',
-          ptyId,
-          lastInputTime: health.lastInputTime,
-          lastOutputTime: health.lastOutputTime,
-          bytesIn: health.bytesIn,
-          bytesOut: health.bytesOut,
-          isResponsive,
-        })
-      }
-    }
-  }, 1000)
+  const ptyRuntime = new PtyRuntime({
+    ptyManager,
+    send,
+    log,
+    resolveSecurePath: getSecurePath,
+  })
 
   // Watch user-scope Claude Code skills (best-effort).
   ensureClaudeWatchDir(join(homedir(), '.claude', 'skills'), 'skills')
@@ -4290,13 +4210,8 @@ export async function createBridgeServer(options: BridgeServerOptions): Promise<
 	      }
 	      clientQueues.delete(ws)
 
-        // Remove from any PTY listener sets; close PTYs that have no listeners.
-        for (const [ptyId, listeners] of ptyListeners.entries()) {
-          if (!listeners.delete(ws)) continue
-          if (listeners.size === 0) {
-            closePtyIfNoListeners(ptyId)
-          }
-        }
+        // Remove client from active PTY subscriptions.
+        ptyRuntime.onClientDisconnected(ws)
         log(`Client disconnected (${sockets.size} total)`)
         
         if (disconnectedDeviceId) {
@@ -5354,183 +5269,17 @@ export async function createBridgeServer(options: BridgeServerOptions): Promise<
           reply({ type: 'session_status', data: status })
           break
         }
-        // Feature 14: PTY Terminal Sessions
-        case 'list_pty': {
-          try {
-            const oc = requireOpenCode()
-            log(`[PTY] Listing PTY sessions for projectPath: ${message.projectPath ?? '(none)'}`)
-            const ptys = await oc.listPty(message.projectPath)
-            log(`[PTY] Found ${ptys.length} PTY sessions`)
-            reply({ type: 'pty_list', data: ptys })
-          } catch (error) {
-            log(`[PTY] list_pty error: ${error}`)
-            reply({ type: 'error', message: 'PTY list failed' })
-          }
-          break
-        }
-        case 'create_pty': {
-          try {
-            const oc = requireOpenCode()
-	          log(`[PTY] Creating PTY session: title=${safeString(message.title)}, projectPath=${safeString(message.projectPath) || '(none)'}`)
-            const pty = await oc.createPty(
-              message.command,
-              message.args,
-              message.cwd,
-              message.title,
-              (message as any).env,
-              message.projectPath,
-            )
-            if (pty) {
-		        log('[PTY] Created PTY session')
-              reply({ type: 'pty_created', data: pty })
-            } else {
-              log(`[PTY] createPty returned null`)
-              reply({ type: 'error', message: 'Failed to create PTY session - OpenCode returned null' })
-            }
-          } catch (error) {
-            log(`[PTY] create_pty error: ${error}`)
-            reply({ type: 'error', message: 'PTY create failed' })
-          }
-          break
-        }
-        case 'get_pty': {
-          const oc = requireOpenCode()
-          const pty = await oc.getPty(message.ptyId, message.projectPath)
-          if (pty) {
-            reply({ type: 'pty', data: pty })
-          } else {
-            reply({ type: 'error', message: 'PTY session not found' })
-          }
-          break
-        }
-        case 'update_pty': {
-          const oc = requireOpenCode()
-          const pty = await oc.updatePty(
-            message.ptyId,
-            message.title,
-            message.rows,
-            message.cols,
-            message.projectPath,
-          )
-          if (pty) {
-            reply({ type: 'pty_updated', data: pty })
-          } else {
-            reply({ type: 'error', message: 'Failed to update PTY session' })
-          }
-          break
-        }
-        case 'delete_pty': {
-          const oc = requireOpenCode()
-          const deleted = await oc.deletePty(message.ptyId, message.projectPath)
-          reply({ type: 'pty_deleted', data: deleted, ptyId: message.ptyId })
-          break
-        }
-      case 'pty_connect': {
-          const oc = requireOpenCode()
-          const ptyId = message.ptyId
-          getPtyListeners(ptyId).add(ws)
-          const existingWs = ptyConnections.get(ptyId)
-          if (existingWs) {
-            reply({ type: 'pty_connected', data: { ptyId } })
-            break
-          }
-          
-          const ptyWsUrl = oc.getPtyWebSocketUrl(ptyId, message.projectPath)
-          
-          try {
-            const ptyWs = new WebSocket(ptyWsUrl)
-            
-            ptyWs.addEventListener('open', () => {
-              ptyConnections.set(ptyId, ptyWs)
-              ensurePtyHealth(ptyId)
-              reply({ type: 'pty_connected', data: { ptyId } })
-            })
-            
-            ptyWs.addEventListener('message', (event) => {
-              const data = typeof event.data === 'string' ? event.data : event.data.toString()
-              const health = ensurePtyHealth(ptyId)
-              health.lastOutputTime = Date.now()
-              health.bytesOut += data.length
-
-              const buf = ensurePtyBuffer(ptyId)
-              buf.buffer += data
-
-              // Flush at ~60fps to avoid flooding clients.
-              if (!buf.timer) {
-                buf.timer = setTimeout(() => flushPtyOutput(ptyId), 16)
-              }
-
-              // Safety valve: if output is huge in one burst, flush early.
-              if (buf.buffer.length >= 256 * 1024) {
-                flushPtyOutput(ptyId)
-              }
-            })
-            
-            ptyWs.addEventListener('error', () => {
-              const listeners = ptyListeners.get(ptyId)
-              if (listeners && listeners.size > 0) {
-                for (const client of listeners) {
-                  send(client, { type: 'pty_error', ptyId, error: 'PTY connection failed' })
-                }
-              } else {
-                send(ws, { type: 'pty_error', ptyId, error: 'PTY connection failed' })
-              }
-            })
-            
-            ptyWs.addEventListener('close', (event) => {
-              ptyConnections.delete(ptyId)
-              const buf = ptyOutputBuffers.get(ptyId)
-              if (buf?.timer) clearTimeout(buf.timer)
-              flushPtyOutput(ptyId)
-              ptyOutputBuffers.delete(ptyId)
-
-              ptyHealth.delete(ptyId)
-
-              const listeners = ptyListeners.get(ptyId)
-              if (listeners && listeners.size > 0) {
-                for (const client of listeners) {
-                  send(client, { type: 'pty_exit', ptyId, exitCode: event.code })
-                }
-              }
-              ptyListeners.delete(ptyId)
-            })
-          } catch (error) {
-            log(`[PTY] pty_connect error: ${error}`)
-            reply({ type: 'error', message: 'PTY connect failed' })
-          }
-          break
-        }
-        case 'pty_input': {
-          const data = typeof message.data === 'string' ? message.data : ''
-          if (data.length > 10000) {
-            send(ws, { type: 'pty_error', ptyId: message.ptyId, error: 'Input too large (max 10KB)' })
-            break
-          }
-
-          const health = ensurePtyHealth(message.ptyId)
-          health.lastInputTime = Date.now()
-          health.bytesIn += data.length
-
-          const ptyWs = ptyConnections.get(message.ptyId)
-          if (ptyWs && ptyWs.readyState === WebSocket.OPEN) {
-            ptyWs.send(data)
-          } else {
-            send(ws, { type: 'pty_error', ptyId: message.ptyId, error: 'PTY is not connected' })
-          }
-          break
-        }
-        case 'pty_disconnect': {
-          const listeners = ptyListeners.get(message.ptyId)
-          listeners?.delete(ws)
-          if (listeners && listeners.size === 0) {
-            closePtyIfNoListeners(message.ptyId)
-          }
-          reply({ type: 'pty_disconnected', data: { ptyId: message.ptyId } })
-          break
-        }
+        // Feature 14: PTY Terminal Sessions (OpenCode when available, native fallback otherwise)
+        case 'list_pty':
+        case 'create_pty':
+        case 'get_pty':
+        case 'update_pty':
+        case 'delete_pty':
+        case 'pty_connect':
+        case 'pty_input':
+        case 'pty_disconnect':
         case 'pty_resize': {
-          const oc = requireOpenCode()
-          await oc.updatePty(message.ptyId, undefined, message.rows, message.cols, message.projectPath)
+          await ptyRuntime.handleMessage(ws, message, reply)
           break
         }
         // Feature 15: MCP Server Management
@@ -7856,6 +7605,9 @@ export async function createBridgeServer(options: BridgeServerOptions): Promise<
         }
       }
       ccFsWatchers.clear()
+      void ptyRuntime.stop().catch((error) => {
+        logError(`[PTY] stop cleanup failed: ${toErrorMessage(error)}`)
+      })
       try {
         secureServer.stop(force)
       } catch {

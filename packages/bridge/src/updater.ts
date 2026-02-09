@@ -82,6 +82,53 @@ function getPlatformKey(): string {
   return `${os}-${arch}`
 }
 
+function getPtySidecarFilename(): string | null {
+  if (CURRENT_PLATFORM === 'darwin') return 'libbroski_pty.dylib'
+  if (CURRENT_PLATFORM === 'linux') return 'libbroski_pty.so'
+  return null
+}
+
+async function tryUpdatePtySidecar(binaryUrl: string, binaryDir: string, logger: (msg: string) => void): Promise<void> {
+  const sidecarName = getPtySidecarFilename()
+  if (!sidecarName) return
+
+  let sidecarUrl = ''
+  try {
+    const base = new URL(binaryUrl)
+    base.pathname = base.pathname.replace(/\/[^/]*$/, `/${sidecarName}`)
+    sidecarUrl = base.toString()
+  } catch {
+    return
+  }
+
+  const tmpPath = resolve(binaryDir, `.${sidecarName}.tmp`)
+  const finalPath = resolve(binaryDir, sidecarName)
+
+  try {
+    const res = await fetch(sidecarUrl, {
+      signal: AbortSignal.timeout(30_000),
+      headers: { 'User-Agent': 'broski-bridge' },
+    })
+    if (!res.ok || !res.body) return
+
+    const bytes = Buffer.from(await res.arrayBuffer())
+    if (bytes.length < 1024) return
+
+    await writeFile(tmpPath, bytes)
+    await chmod(tmpPath, 0o755)
+    await rename(tmpPath, finalPath)
+    logger(`  Updated PTY sidecar (${sidecarName}).`)
+  } catch {
+    // Best-effort only. Keep existing sidecar if download failed.
+  } finally {
+    try {
+      if (existsSync(tmpPath)) await unlink(tmpPath)
+    } catch {
+      // ignore
+    }
+  }
+}
+
 // ============================================================================
 // Manifest Fetch
 // ============================================================================
@@ -343,7 +390,10 @@ export async function performUpdate(
       throw err
     }
 
-    // Step 7: Clean up backup (best-effort)
+    // Step 7: Best-effort sidecar update (native PTY helper)
+    await tryUpdatePtySidecar(result.binaryInfo.url, binaryDir, logger)
+
+    // Step 8: Clean up backup (best-effort)
     try {
       await unlink(backupPath)
     } catch {
@@ -352,7 +402,7 @@ export async function performUpdate(
 
     logger(`  Updated to v${result.latestVersion}!`)
 
-    // Step 8: Restart daemon if running as a service
+    // Step 9: Restart daemon if running as a service
     const status = await getDaemonStatus()
     if (status.installed && status.running) {
       logger('  Restarting daemon...')

@@ -42,6 +42,72 @@ done
 rm -rf "$DIST"
 mkdir -p "$DIST"
 
+detect_host_platform() {
+  HOST_OS=$(uname -s | tr '[:upper:]' '[:lower:]')
+  HOST_ARCH_RAW=$(uname -m)
+  HOST_ARCH=""
+
+  case "$HOST_ARCH_RAW" in
+    arm64|aarch64)
+      HOST_ARCH="arm64"
+      ;;
+    x86_64|amd64)
+      HOST_ARCH="x64"
+      ;;
+    *)
+      HOST_ARCH="$HOST_ARCH_RAW"
+      ;;
+  esac
+
+  case "$HOST_OS" in
+    darwin*) echo "darwin-${HOST_ARCH}" ;;
+    linux*) echo "linux-${HOST_ARCH}" ;;
+    mingw*|msys*|cygwin*) echo "windows-${HOST_ARCH}" ;;
+    *) echo "${HOST_OS}-${HOST_ARCH}" ;;
+  esac
+}
+
+HOST_PLATFORM=$(detect_host_platform)
+
+build_pty_helper() {
+  PLATFORM="$1"
+  PTY_SRC="native/pty/pty_helper.c"
+
+  if [ ! -f "$PTY_SRC" ]; then
+    echo "  Native PTY helper source not found; skipping"
+    return 0
+  fi
+
+  if [ "$PLATFORM" != "$HOST_PLATFORM" ]; then
+    echo "  Skipping native PTY helper for ${PLATFORM} (host=${HOST_PLATFORM})"
+    return 0
+  fi
+
+  echo "  Building native PTY helper (${PLATFORM})..."
+
+  case "$PLATFORM" in
+    darwin-*)
+      OUTPUT="${DIST}/libbroski_pty.dylib"
+      if cc -dynamiclib -o "$OUTPUT" "$PTY_SRC" 2>/dev/null; then
+        echo "    ✓ Built libbroski_pty.dylib"
+      else
+        echo "    ⚠ Failed to build libbroski_pty.dylib"
+      fi
+      ;;
+    linux-*)
+      OUTPUT="${DIST}/libbroski_pty.so"
+      if cc -shared -fPIC -o "$OUTPUT" "$PTY_SRC" -lutil 2>/dev/null; then
+        echo "    ✓ Built libbroski_pty.so"
+      else
+        echo "    ⚠ Failed to build libbroski_pty.so"
+      fi
+      ;;
+    *)
+      echo "  Native PTY helper not supported on ${PLATFORM}"
+      ;;
+  esac
+}
+
 # Define targets: bun-target → output-name
 build_target() {
   BUN_TARGET="$1"
@@ -51,6 +117,8 @@ build_target() {
   echo "  Building ${OUTPUT_NAME} (${BUN_TARGET})..."
   bun build --compile --target="$BUN_TARGET" "$ENTRY" --outfile "${DIST}/${OUTPUT_NAME}"
   echo "    Done."
+
+  build_pty_helper "$PLATFORM"
 
   # Build native license library (best-effort).
   # Disabled by default because it adds Rust as a build dependency and may require network access.
@@ -207,6 +275,31 @@ for binary in "$DIST"/broski-*; do
     perl -pi -e "s/%%NATIVE_LIB_HASH_PLACEHOLDER%%/${NATIVE_HASH}/g" "$binary"
   else
     echo "    - $(basename "$binary"): no native lib (placeholder stays, check skipped at runtime)"
+  fi
+done
+
+# ──────────────────────────────────────────────
+# Hash PTY sidecar library (if present)
+# ──────────────────────────────────────────────
+
+echo ""
+echo "  Baking PTY sidecar hashes..."
+for binary in "$DIST"/broski-*; do
+  [ -f "$binary" ] || continue
+  case "$binary" in *.sig|*.dylib|*.so|*.dll) continue ;; esac
+
+  case "$binary" in
+    *darwin*) PTY_LIB="${DIST}/libbroski_pty.dylib" ;;
+    *linux*) PTY_LIB="${DIST}/libbroski_pty.so" ;;
+    *) PTY_LIB="" ;;
+  esac
+
+  if [ -n "$PTY_LIB" ] && [ -f "$PTY_LIB" ]; then
+    PTY_HASH=$(shasum -a 256 "$PTY_LIB" | awk '{print $1}')
+    echo "    ✓ $(basename "$binary"): ${PTY_HASH}"
+    perl -pi -e "s/%%PTY_LIB_HASH_PLACEHOLDER%%/${PTY_HASH}/g" "$binary"
+  else
+    echo "    - $(basename "$binary"): no PTY lib (placeholder stays)"
   fi
 done
 
