@@ -1,9 +1,130 @@
 "use client";
 
-import { useState, useRef, useEffect } from "react";
+import Image from "next/image";
+import { useEffect, useRef, useState } from "react";
 
 interface CopyPageButtonProps {
   title?: string;
+}
+
+function cleanText(text: string) {
+  return text.replace(/\s+/g, " ").trim();
+}
+
+function escapeMarkdown(text: string) {
+  return text.replace(/([`*_#[\]()])/g, "\\$1");
+}
+
+function getLanguageFromCodeElement(code: HTMLElement) {
+  const className = code.className || "";
+  const match = className.match(/language-([\w-]+)/);
+  return match?.[1] ?? "text";
+}
+
+function tableToMarkdown(table: HTMLTableElement) {
+  const rows = Array.from(table.querySelectorAll("tr"));
+  if (rows.length === 0) return "";
+
+  const rowCells = rows.map((row) =>
+    Array.from(row.querySelectorAll("th, td")).map((cell) => cleanText(cell.textContent ?? "")),
+  );
+
+  const maxCols = Math.max(...rowCells.map((r) => r.length), 0);
+  if (maxCols === 0) return "";
+
+  const padded = rowCells.map((r) => [...r, ...Array.from({ length: maxCols - r.length }, () => "")]);
+  const header = padded[0];
+  const separator = Array.from({ length: maxCols }, () => "---");
+  const body = padded.slice(1);
+
+  const lines = [
+    `| ${header.join(" | ")} |`,
+    `| ${separator.join(" | ")} |`,
+    ...body.map((r) => `| ${r.join(" | ")} |`),
+  ];
+
+  return `${lines.join("\n")}\n\n`;
+}
+
+function nodeToMarkdown(node: Node, listDepth = 0): string {
+  if (node.nodeType === Node.TEXT_NODE) {
+    return escapeMarkdown(cleanText(node.textContent ?? ""));
+  }
+
+  if (node.nodeType !== Node.ELEMENT_NODE) return "";
+
+  const el = node as HTMLElement;
+  const tag = el.tagName.toLowerCase();
+
+  if (tag === "script" || tag === "style" || tag === "button") return "";
+
+  if (tag === "pre") {
+    const code = el.querySelector("code") as HTMLElement | null;
+    const codeText = cleanText(code?.textContent ?? el.textContent ?? "");
+    const language = code ? getLanguageFromCodeElement(code) : "text";
+    return `\n\n\
+\`\`\`${language}\n${codeText}\n\`\`\`\n\n`;
+  }
+
+  if (tag === "code") {
+    return `\`${cleanText(el.textContent ?? "")}\``;
+  }
+
+  if (tag === "table") {
+    return tableToMarkdown(el as HTMLTableElement);
+  }
+
+  const childMarkdown = Array.from(el.childNodes)
+    .map((child) => nodeToMarkdown(child, listDepth + (tag === "ul" || tag === "ol" ? 1 : 0)))
+    .join("")
+    .replace(/\n{3,}/g, "\n\n")
+    .trim();
+
+  switch (tag) {
+    case "h1":
+      return `# ${cleanText(el.textContent ?? childMarkdown)}\n\n`;
+    case "h2":
+      return `## ${cleanText(el.textContent ?? childMarkdown)}\n\n`;
+    case "h3":
+      return `### ${cleanText(el.textContent ?? childMarkdown)}\n\n`;
+    case "h4":
+      return `#### ${cleanText(el.textContent ?? childMarkdown)}\n\n`;
+    case "p":
+      return `${childMarkdown || cleanText(el.textContent ?? "")}\n\n`;
+    case "blockquote":
+      return `${(childMarkdown || cleanText(el.textContent ?? ""))
+        .split("\n")
+        .filter(Boolean)
+        .map((line) => `> ${line}`)
+        .join("\n")}\n\n`;
+    case "ul":
+      return `${Array.from(el.children)
+        .map((li) => nodeToMarkdown(li, listDepth + 1))
+        .join("")}\n`;
+    case "ol":
+      return `${Array.from(el.children)
+        .map((li, index) => {
+          const liText = cleanText(li.textContent ?? "");
+          return `${"  ".repeat(Math.max(listDepth - 1, 0))}${index + 1}. ${liText}\n`;
+        })
+        .join("")}\n`;
+    case "li": {
+      const liText = cleanText(el.textContent ?? childMarkdown);
+      return `${"  ".repeat(Math.max(listDepth - 1, 0))}- ${liText}\n`;
+    }
+    case "a": {
+      const href = el.getAttribute("href") ?? "";
+      const text = cleanText(el.textContent ?? "Link");
+      if (!href) return text;
+      return `[${text}](${href})`;
+    }
+    case "article":
+    case "section":
+    case "div":
+      return `${childMarkdown}\n\n`;
+    default:
+      return childMarkdown ? `${childMarkdown}\n` : cleanText(el.textContent ?? "");
+  }
 }
 
 export function CopyPageButton({ title }: CopyPageButtonProps) {
@@ -21,148 +142,103 @@ export function CopyPageButton({ title }: CopyPageButtonProps) {
     return () => document.removeEventListener("mousedown", handleClickOutside);
   }, []);
 
-  const getPageContent = () => {
+  const getPageMarkdown = () => {
     const article = document.querySelector("article");
     if (!article) return "";
-    
-    // Convert to markdown-like format
-    let content = `# ${title || document.title}\n\n`;
-    content += `URL: ${window.location.href}\n\n`;
-    content += article.innerText;
-    return content;
+
+    const pageTitle = title || document.title.replace(/\s*-\s*Broski\s*$/i, "").trim();
+    const body = nodeToMarkdown(article)
+      .replace(/\n{3,}/g, "\n\n")
+      .trim();
+
+    return `# ${pageTitle}\n\nSource: ${window.location.href}\n\n${body}`;
+  };
+
+  const getAiPrompt = () => {
+    const markdown = getPageMarkdown();
+    const compact = markdown.length > 7000 ? `${markdown.slice(0, 7000)}\n\n[truncated]` : markdown;
+
+    return `You are helping me understand a Broski docs page.\n\nPlease:\n1) Summarize the key points in 6 bullets.\n2) Give a practical setup/checklist from this page.\n3) Call out common mistakes to avoid.\n4) Provide 3 follow-up questions I should ask next.\n\n--- PAGE CONTENT (Markdown) ---\n${compact}`;
   };
 
   const handleCopy = async () => {
-    const content = getPageContent();
+    const content = getPageMarkdown();
     await navigator.clipboard.writeText(content);
     setCopied(true);
     setTimeout(() => {
       setCopied(false);
       setIsOpen(false);
-    }, 1500);
+    }, 1400);
   };
 
-  const handleOpenInChatGPT = () => {
-    const content = encodeURIComponent(getPageContent());
-    window.open(`https://chat.openai.com/?q=${content.slice(0, 2000)}`, "_blank");
-    setIsOpen(false);
-  };
+  const openInModel = (provider: "chatgpt" | "claude") => {
+    const prompt = encodeURIComponent(getAiPrompt());
+    const url =
+      provider === "chatgpt"
+        ? `https://chatgpt.com/?q=${prompt}`
+        : `https://claude.ai/new?q=${prompt}`;
 
-  const handleOpenInClaude = () => {
-    const content = encodeURIComponent(getPageContent());
-    window.open(`https://claude.ai/new?q=${content.slice(0, 2000)}`, "_blank");
+    window.open(url, "_blank", "noopener,noreferrer");
     setIsOpen(false);
   };
 
   return (
     <div className="relative" ref={dropdownRef}>
-      <button
-        onClick={() => setIsOpen(!isOpen)}
-        className="flex items-center gap-2 px-3 py-1.5 text-sm border border-border/50 rounded-lg hover:bg-card transition-colors"
-      >
-        <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z" />
-        </svg>
-        <span>Copy page</span>
-        <svg className={`w-4 h-4 transition-transform ${isOpen ? "rotate-180" : ""}`} fill="none" viewBox="0 0 24 24" stroke="currentColor">
-          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
-        </svg>
-      </button>
+      <div className="inline-flex items-stretch">
+        <button
+          onClick={handleCopy}
+          className="inline-flex items-center gap-2 rounded-l-lg border border-r-0 border-border/70 bg-background px-3 py-1.5 text-sm text-foreground hover:bg-muted/40 transition-colors"
+        >
+          <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              strokeWidth={1.5}
+              d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z"
+            />
+          </svg>
+          <span>{copied ? "Copied" : "Copy page"}</span>
+        </button>
+
+        <button
+          onClick={() => setIsOpen(!isOpen)}
+          aria-label="Open AI options"
+          className="inline-flex items-center rounded-r-lg border border-border/70 bg-background px-2.5 py-1.5 text-foreground hover:bg-muted/40 transition-colors"
+        >
+          <svg
+            className={`h-4 w-4 transition-transform ${isOpen ? "rotate-180" : ""}`}
+            fill="none"
+            viewBox="0 0 24 24"
+            stroke="currentColor"
+          >
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+          </svg>
+        </button>
+      </div>
 
       {isOpen && (
-        <div className="absolute right-0 top-full mt-2 w-64 bg-card border border-border/50 rounded-lg shadow-xl z-50 py-2">
+        <div className="absolute right-0 top-full z-50 mt-2 w-72 rounded-xl border border-border/70 bg-card p-1.5 shadow-xl">
           <button
-            onClick={handleCopy}
-            className="w-full flex items-center gap-3 px-4 py-2.5 text-sm hover:bg-muted/50 transition-colors text-left"
+            onClick={() => openInModel("chatgpt")}
+            className="flex w-full items-center gap-3 rounded-lg px-3 py-2.5 text-left text-sm hover:bg-muted/50 transition-colors"
           >
-            <svg className="w-4 h-4 text-muted-foreground" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z" />
-            </svg>
-            <div>
-              <p className="font-medium">{copied ? "Copied!" : "Copy page"}</p>
-              <p className="text-xs text-muted-foreground">Copy page as Markdown for LLMs</p>
-            </div>
-          </button>
-
-          <div className="border-t border-border/50 my-1" />
-
-          <button
-            onClick={handleOpenInChatGPT}
-            className="w-full flex items-center gap-3 px-4 py-2.5 text-sm hover:bg-muted/50 transition-colors text-left"
-          >
-            <div className="w-5 h-5 rounded bg-[#10A37F] flex items-center justify-center shrink-0">
-              <svg className="w-3.5 h-3.5 text-white" viewBox="0 0 24 24" fill="currentColor">
-                <path d="M22.282 9.821a5.985 5.985 0 0 0-.516-4.91 6.046 6.046 0 0 0-6.51-2.9A6.065 6.065 0 0 0 4.981 4.18a5.985 5.985 0 0 0-3.998 2.9 6.046 6.046 0 0 0 .743 7.097 5.98 5.98 0 0 0 .51 4.911 6.051 6.051 0 0 0 6.515 2.9A5.985 5.985 0 0 0 13.26 24a6.056 6.056 0 0 0 5.772-4.206 5.99 5.99 0 0 0 3.997-2.9 6.056 6.056 0 0 0-.747-7.073zM13.26 22.43a4.476 4.476 0 0 1-2.876-1.04l.141-.081 4.779-2.758a.795.795 0 0 0 .392-.681v-6.737l2.02 1.168a.071.071 0 0 1 .038.052v5.583a4.504 4.504 0 0 1-4.494 4.494zM3.6 18.304a4.47 4.47 0 0 1-.535-3.014l.142.085 4.783 2.759a.771.771 0 0 0 .78 0l5.843-3.369v2.332a.08.08 0 0 1-.033.062L9.74 19.95a4.5 4.5 0 0 1-6.14-1.646zM2.34 7.896a4.485 4.485 0 0 1 2.366-1.973V11.6a.766.766 0 0 0 .388.676l5.815 3.355-2.02 1.168a.076.076 0 0 1-.071 0l-4.83-2.786A4.504 4.504 0 0 1 2.34 7.872zm16.597 3.855l-5.833-3.387L15.119 7.2a.076.076 0 0 1 .071 0l4.83 2.791a4.494 4.494 0 0 1-.676 8.105v-5.678a.79.79 0 0 0-.407-.667zm2.01-3.023l-.141-.085-4.774-2.782a.776.776 0 0 0-.785 0L9.409 9.23V6.897a.066.066 0 0 1 .028-.061l4.83-2.787a4.5 4.5 0 0 1 6.68 4.66zm-12.64 4.135l-2.02-1.164a.08.08 0 0 1-.038-.057V6.075a4.5 4.5 0 0 1 7.375-3.453l-.142.08L8.704 5.46a.795.795 0 0 0-.393.681zm1.097-2.365l2.602-1.5 2.607 1.5v2.999l-2.597 1.5-2.607-1.5z"/>
-              </svg>
-            </div>
+            <Image src="/logos/openai.svg" alt="OpenAI" width={18} height={18} className="shrink-0" />
             <div>
               <p className="font-medium">Open in ChatGPT</p>
-              <p className="text-xs text-muted-foreground">Ask questions about this page</p>
+              <p className="text-xs text-muted-foreground">Open with a prefilled page prompt</p>
             </div>
-            <svg className="w-3 h-3 text-muted-foreground ml-auto" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
-            </svg>
           </button>
 
           <button
-            onClick={handleOpenInClaude}
-            className="w-full flex items-center gap-3 px-4 py-2.5 text-sm hover:bg-muted/50 transition-colors text-left"
+            onClick={() => openInModel("claude")}
+            className="flex w-full items-center gap-3 rounded-lg px-3 py-2.5 text-left text-sm hover:bg-muted/50 transition-colors"
           >
-            <div className="w-5 h-5 rounded bg-[#D97757] flex items-center justify-center shrink-0">
-              <svg className="w-3 h-3 text-white" viewBox="0 0 40 40" fill="currentColor">
-                <path d="M26.9568 9.88184H22.1265L30.7753 31.7848H35.4917L26.9568 9.88184ZM13.028 9.88184L4.4917 31.7848H9.32203L11.2305 27.1793H20.2166L22.0126 31.6724H26.8444L18.0832 9.88184H13.028ZM12.5783 23.1361L15.4987 15.3853L18.5315 23.1361H12.5783Z"/>
-              </svg>
-            </div>
+            <Image src="/logos/anthropic.svg" alt="Anthropic Claude" width={18} height={18} className="shrink-0" />
             <div>
               <p className="font-medium">Open in Claude</p>
-              <p className="text-xs text-muted-foreground">Ask questions about this page</p>
+              <p className="text-xs text-muted-foreground">Open with a prefilled page prompt</p>
             </div>
-            <svg className="w-3 h-3 text-muted-foreground ml-auto" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
-            </svg>
           </button>
-
-          <div className="border-t border-border/50 my-1" />
-
-          <a
-            href="https://cursor.com"
-            target="_blank"
-            rel="noopener noreferrer"
-            className="w-full flex items-center gap-3 px-4 py-2.5 text-sm hover:bg-muted/50 transition-colors text-left"
-          >
-            <div className="w-5 h-5 rounded bg-[#1A1A1A] flex items-center justify-center shrink-0">
-              <svg className="w-2.5 h-2.5 text-white" viewBox="0 0 16 16" fill="currentColor">
-                <path d="M0 0L16 8L0 16L5 8L0 0Z"/>
-              </svg>
-            </div>
-            <div>
-              <p className="font-medium">Connect to Cursor</p>
-              <p className="text-xs text-muted-foreground">Install MCP Server on Cursor</p>
-            </div>
-            <svg className="w-3 h-3 text-muted-foreground ml-auto" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
-            </svg>
-          </a>
-
-          <a
-            href="https://code.visualstudio.com"
-            target="_blank"
-            rel="noopener noreferrer"
-            className="w-full flex items-center gap-3 px-4 py-2.5 text-sm hover:bg-muted/50 transition-colors text-left"
-          >
-            <div className="w-5 h-5 rounded bg-[#007ACC] flex items-center justify-center shrink-0">
-              <svg className="w-3 h-3 text-white" viewBox="0 0 24 24" fill="currentColor">
-                <path d="M23.15 2.587L18.21.21a1.494 1.494 0 0 0-1.705.29l-9.46 8.63-4.12-3.128a.999.999 0 0 0-1.276.057L.327 7.261A1 1 0 0 0 .326 8.74L3.899 12 .326 15.26a1 1 0 0 0 .001 1.479L1.65 17.94a.999.999 0 0 0 1.276.057l4.12-3.128 9.46 8.63a1.492 1.492 0 0 0 1.704.29l4.942-2.377A1.5 1.5 0 0 0 24 20.06V3.939a1.5 1.5 0 0 0-.85-1.352zm-5.146 14.861L10.826 12l7.178-5.448v10.896z"/>
-              </svg>
-            </div>
-            <div>
-              <p className="font-medium">Connect to VS Code</p>
-              <p className="text-xs text-muted-foreground">Install MCP Server on VS Code</p>
-            </div>
-            <svg className="w-3 h-3 text-muted-foreground ml-auto" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
-            </svg>
-          </a>
         </div>
       )}
     </div>
