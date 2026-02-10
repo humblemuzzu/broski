@@ -1,3 +1,4 @@
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
@@ -5,36 +6,29 @@ import '../models/connection_quality.dart';
 import '../providers/connection_provider.dart';
 import '../theme/design_tokens.dart';
 import '../theme/opencode_theme.dart';
-
+import 'package:broski/theme/app_icons.dart';
 class ConnectionQualityIndicator extends ConsumerWidget {
   const ConnectionQualityIndicator({super.key, this.compact = false});
-
   final bool compact;
-
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final state = ref.watch(connectionProvider);
     final theme = Theme.of(context).extension<OpenCodeTheme>()!;
-
     if (!state.isConnected) {
       return _buildDisconnectedIndicator(theme);
     }
-
     final rttMs = state.rttMs ?? 0;
     final quality = ConnectionMetrics.calculateQuality(rttMs);
     final type = state.connectionType;
-
     final metrics = ConnectionMetrics(
       type: type,
       rttMs: rttMs,
       quality: quality,
       lastPingAt: DateTime.now(),
     );
-
     if (compact) {
       return _buildCompactIndicator(metrics, theme);
     }
-
     return Container(
       padding: Insets.chip,
       decoration: BoxDecoration(
@@ -61,7 +55,6 @@ class ConnectionQualityIndicator extends ConsumerWidget {
       ),
     );
   }
-
   Widget _buildCompactIndicator(
     ConnectionMetrics metrics,
     OpenCodeTheme theme,
@@ -86,7 +79,6 @@ class ConnectionQualityIndicator extends ConsumerWidget {
       ],
     );
   }
-
   Widget _buildDisconnectedIndicator(OpenCodeTheme theme) {
     return Container(
       padding: Insets.chip,
@@ -98,7 +90,7 @@ class ConnectionQualityIndicator extends ConsumerWidget {
       child: Row(
         mainAxisSize: MainAxisSize.min,
         children: [
-          Icon(Icons.signal_cellular_off, size: 14, color: theme.error),
+          Icon(AppIcons.signalOff, size: 14, color: theme.error),
           SizedBox(width: Spacing.xs),
           Text(
             'Disconnected',
@@ -113,22 +105,18 @@ class ConnectionQualityIndicator extends ConsumerWidget {
     );
   }
 }
-
 class _SignalBars extends StatelessWidget {
   const _SignalBars({
     required this.bars,
     required this.color,
     this.height = 18,
   });
-
   final int bars;
   final Color color;
   final double height;
-
   @override
   Widget build(BuildContext context) {
     final barHeights = [height * 0.33, height * 0.55, height * 0.77, height];
-
     return Row(
       mainAxisSize: MainAxisSize.min,
       crossAxisAlignment: CrossAxisAlignment.end,
@@ -149,43 +137,36 @@ class _SignalBars extends StatelessWidget {
     );
   }
 }
-
 class ConnectionTypeBadge extends ConsumerWidget {
   const ConnectionTypeBadge({super.key});
-
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final state = ref.watch(connectionProvider);
     final theme = Theme.of(context).extension<OpenCodeTheme>()!;
-
     if (!state.isConnected) {
       return const SizedBox.shrink();
     }
-
     final type = state.connectionType;
     final rttMs = state.rttMs ?? 0;
-
     String label = 'Connected';
-    IconData icon = Icons.signal_cellular_alt;
-
+    IconData icon = AppIcons.signal;
     switch (type) {
       case ConnectionType.local:
         label = 'Local';
-        icon = Icons.wifi;
+        icon = AppIcons.wifi;
       case ConnectionType.hotspot:
         label = 'Hotspot';
-        icon = Icons.network_wifi;
+        icon = AppIcons.network;
       case ConnectionType.tailscale:
         label = 'Tailscale';
-        icon = Icons.vpn_lock;
+        icon = AppIcons.vpn;
       case ConnectionType.magicDNS:
         label = 'MagicDNS';
-        icon = Icons.dns;
+        icon = AppIcons.dns;
       case ConnectionType.unknown:
         label = 'Connected';
-        icon = Icons.signal_cellular_alt;
+        icon = AppIcons.signal;
     }
-
     return Container(
       padding: Insets.chip,
       decoration: BoxDecoration(

@@ -1,3 +1,4 @@
+
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -11,7 +12,7 @@ import '../../theme/opencode_theme.dart';
 import '../../widgets/git/git_diff_inline.dart';
 import '../../widgets/git/git_file_tile.dart';
 import 'git_commit_sheet.dart';
-
+import 'package:broski/theme/app_icons.dart';
 class GitPanelSheet extends ConsumerStatefulWidget {
   const GitPanelSheet({
     super.key,
@@ -19,11 +20,9 @@ class GitPanelSheet extends ConsumerStatefulWidget {
     this.projectName,
     required this.scrollController,
   });
-
   final String projectPath;
   final String? projectName;
   final ScrollController scrollController;
-
   static Future<void> show({
     required BuildContext context,
     required String projectPath,
@@ -48,41 +47,34 @@ class GitPanelSheet extends ConsumerStatefulWidget {
       ),
     );
   }
-
   @override
   ConsumerState<GitPanelSheet> createState() => _GitPanelSheetState();
 }
-
 class _GitPanelSheetState extends ConsumerState<GitPanelSheet> {
   int _selectedTab = 0;
   GitHubItemState _githubState = GitHubItemState.open;
   bool _busy = false;
   final _branchController = TextEditingController();
   bool _creatingBranch = false;
-
   @override
   void dispose() {
     _branchController.dispose();
     super.dispose();
   }
-
   GitStatusNotifier get _notifier =>
       ref.read(gitStatusProvider(widget.projectPath).notifier);
-
   void _showError(Object error) {
     if (!mounted) return;
     ScaffoldMessenger.of(
       context,
     ).showSnackBar(SnackBar(content: Text('Error: $error')));
   }
-
   void _showInfo(String message) {
     if (!mounted) return;
     ScaffoldMessenger.of(
       context,
     ).showSnackBar(SnackBar(content: Text(message)));
   }
-
   Future<void> _runAction(Future<void> Function() action) async {
     if (_busy) return;
     setState(() => _busy = true);
@@ -94,7 +86,6 @@ class _GitPanelSheetState extends ConsumerState<GitPanelSheet> {
       if (mounted) setState(() => _busy = false);
     }
   }
-
   Future<void> _viewDiff({required String path, required bool staged}) async {
     try {
       final bridge = ref.read(bridgeServiceProvider);
@@ -113,21 +104,18 @@ class _GitPanelSheetState extends ConsumerState<GitPanelSheet> {
       _showError(e);
     }
   }
-
   Future<void> _copyIssuePrompt(GitHubIssue issue) async {
     final text =
         'Fix issue #${issue.number}: ${issue.title}\n\n${issue.body ?? ''}';
     await Clipboard.setData(ClipboardData(text: text));
     _showInfo('Issue prompt copied to clipboard');
   }
-
   Future<void> _copyPrPrompt(GitHubPR pr) async {
     final text =
         'Review PR #${pr.number}: ${pr.title}\n\nHead: ${pr.headBranch}\nBase: ${pr.baseBranch}';
     await Clipboard.setData(ClipboardData(text: text));
     _showInfo('PR prompt copied to clipboard');
   }
-
   String _formatTimestamp(DateTime timestamp) {
     final local = timestamp.toLocal();
     final month = local.month.toString().padLeft(2, '0');
@@ -136,7 +124,6 @@ class _GitPanelSheetState extends ConsumerState<GitPanelSheet> {
     final minute = local.minute.toString().padLeft(2, '0');
     return '${local.year}-$month-$day $hour:$minute';
   }
-
   @override
   Widget build(BuildContext context) {
     final theme = OpenCodeTheme.of(context);
@@ -150,7 +137,6 @@ class _GitPanelSheetState extends ConsumerState<GitPanelSheet> {
     );
     final issuesAsync = ref.watch(githubIssuesProvider(githubRequest));
     final prsAsync = ref.watch(githubPrsProvider(githubRequest));
-
     return Container(
       decoration: BoxDecoration(
         color: theme.backgroundPanel,
@@ -170,7 +156,6 @@ class _GitPanelSheetState extends ConsumerState<GitPanelSheet> {
               ),
             ),
           ),
-
           // Header
           Padding(
             padding: Insets.listItemDense,
@@ -190,7 +175,7 @@ class _GitPanelSheetState extends ConsumerState<GitPanelSheet> {
                   alignment: Alignment.centerLeft,
                   child: IconButton(
                     onPressed: () => Navigator.of(context).pop(),
-                    icon: Icon(Icons.close, color: theme.textMuted, size: 24),
+                    icon: Icon(AppIcons.close, color: theme.textMuted, size: 24),
                     padding: EdgeInsets.zero,
                     constraints: const BoxConstraints(),
                   ),
@@ -202,7 +187,7 @@ class _GitPanelSheetState extends ConsumerState<GitPanelSheet> {
                         ? null
                         : () => _runAction(() => _notifier.refresh()),
                     icon: Icon(
-                      Icons.refresh_rounded,
+                      AppIcons.refresh,
                       color: _busy
                           ? theme.textMuted.withValues(alpha: 0.4)
                           : theme.textMuted,
@@ -215,12 +200,9 @@ class _GitPanelSheetState extends ConsumerState<GitPanelSheet> {
               ],
             ),
           ),
-
           // Segmented tab bar
           _buildSegmentedBar(theme),
-
           Divider(height: 1, color: theme.borderSubtle),
-
           // Tab content
           Expanded(
             child: SingleChildScrollView(
@@ -241,11 +223,9 @@ class _GitPanelSheetState extends ConsumerState<GitPanelSheet> {
       ),
     );
   }
-
   // ═══════════════════════════════════════════════════════════════════════════
   // Segmented bar
   // ═══════════════════════════════════════════════════════════════════════════
-
   Widget _buildSegmentedBar(OpenCodeTheme theme) {
     const labels = ['Changes', 'GitHub', 'History'];
     return Padding(
@@ -288,11 +268,9 @@ class _GitPanelSheetState extends ConsumerState<GitPanelSheet> {
       ),
     );
   }
-
   // ═══════════════════════════════════════════════════════════════════════════
   // Tab content router
   // ═══════════════════════════════════════════════════════════════════════════
-
   Widget _buildTabContent({
     required OpenCodeTheme theme,
     required AsyncValue<GitStatusResult> statusAsync,
@@ -313,11 +291,9 @@ class _GitPanelSheetState extends ConsumerState<GitPanelSheet> {
         return const SizedBox.shrink();
     }
   }
-
   // ═══════════════════════════════════════════════════════════════════════════
   // Changes tab
   // ═══════════════════════════════════════════════════════════════════════════
-
   Widget _buildChangesTab(
     OpenCodeTheme theme,
     AsyncValue<GitStatusResult> statusAsync,
@@ -332,15 +308,12 @@ class _GitPanelSheetState extends ConsumerState<GitPanelSheet> {
           error: (error, _) => _buildErrorCard(theme, error),
         ),
         SizedBox(height: Spacing.md),
-
         // Primary action buttons
         _buildPrimaryActions(theme, statusAsync.hasValue),
         SizedBox(height: Spacing.xxs),
-
         // Secondary action buttons
         _buildSecondaryActions(theme, statusAsync.hasValue),
         SizedBox(height: Spacing.md),
-
         // File changes
         if (statusAsync.hasValue)
           _buildChangesSection(theme, statusAsync.value!),
@@ -348,7 +321,6 @@ class _GitPanelSheetState extends ConsumerState<GitPanelSheet> {
       ],
     );
   }
-
   Widget _buildStatusCard(OpenCodeTheme theme, GitStatusResult status) {
     return Container(
       width: double.infinity,
@@ -363,7 +335,7 @@ class _GitPanelSheetState extends ConsumerState<GitPanelSheet> {
         children: [
           Row(
             children: [
-              Icon(Icons.call_split_rounded, size: 16, color: theme.primary),
+              Icon(AppIcons.callSplit, size: 16, color: theme.primary),
               const SizedBox(width: 6),
               Expanded(
                 child: Text(
@@ -414,7 +386,6 @@ class _GitPanelSheetState extends ConsumerState<GitPanelSheet> {
       ),
     );
   }
-
   Widget _buildErrorCard(OpenCodeTheme theme, Object error) {
     return Container(
       width: double.infinity,
@@ -430,7 +401,6 @@ class _GitPanelSheetState extends ConsumerState<GitPanelSheet> {
       ),
     );
   }
-
   Widget _buildPrimaryActions(OpenCodeTheme theme, bool hasStatus) {
     // Check if there are unstaged/untracked files but nothing staged
     final status = hasStatus ? ref.read(gitStatusProvider(widget.projectPath)).value : null;
@@ -438,7 +408,6 @@ class _GitPanelSheetState extends ConsumerState<GitPanelSheet> {
         (status.unstaged.isNotEmpty || status.untracked.isNotEmpty);
     final hasStagedChanges = status != null && status.staged.isNotEmpty;
     final hasAnyChanges = hasUnstagedChanges || hasStagedChanges;
-
     return Row(
       children: [
         Expanded(
@@ -459,7 +428,7 @@ class _GitPanelSheetState extends ConsumerState<GitPanelSheet> {
                       },
                     );
                   },
-            icon: const Icon(Icons.check_rounded, size: 18),
+            icon: const Icon(AppIcons.check, size: 18),
             label: Text(
               !hasStagedChanges && hasUnstagedChanges
                   ? 'Stage All & Commit'
@@ -494,7 +463,6 @@ class _GitPanelSheetState extends ConsumerState<GitPanelSheet> {
       ],
     );
   }
-
   Widget _buildSecondaryActions(OpenCodeTheme theme, bool hasStatus) {
     return Row(
       mainAxisAlignment: MainAxisAlignment.center,
@@ -520,7 +488,6 @@ class _GitPanelSheetState extends ConsumerState<GitPanelSheet> {
       ],
     );
   }
-
   Widget _secondaryButton({
     required String label,
     required VoidCallback? onPressed,
@@ -538,7 +505,6 @@ class _GitPanelSheetState extends ConsumerState<GitPanelSheet> {
       child: Text(label),
     );
   }
-
   Widget _buildChangesSection(OpenCodeTheme theme, GitStatusResult status) {
     return Container(
       decoration: BoxDecoration(
@@ -579,7 +545,6 @@ class _GitPanelSheetState extends ConsumerState<GitPanelSheet> {
                   )
                   .toList(),
             ),
-
           // Unstaged
           if (status.unstaged.isNotEmpty)
             _buildFileSubsection(
@@ -613,7 +578,6 @@ class _GitPanelSheetState extends ConsumerState<GitPanelSheet> {
                   )
                   .toList(),
             ),
-
           // Untracked
           if (status.untracked.isNotEmpty)
             _buildFileSubsection(
@@ -652,7 +616,6 @@ class _GitPanelSheetState extends ConsumerState<GitPanelSheet> {
                   )
                   .toList(),
             ),
-
           // Clean state
           if (status.changedFileCount == 0)
             Padding(
@@ -668,7 +631,6 @@ class _GitPanelSheetState extends ConsumerState<GitPanelSheet> {
       ),
     );
   }
-
   Widget _buildFileSubsection({
     required OpenCodeTheme theme,
     required String title,
@@ -699,11 +661,9 @@ class _GitPanelSheetState extends ConsumerState<GitPanelSheet> {
       ],
     );
   }
-
   // ═══════════════════════════════════════════════════════════════════════════
   // GitHub tab
   // ═══════════════════════════════════════════════════════════════════════════
-
   Widget _buildGitHubTab(
     OpenCodeTheme theme,
     AsyncValue<GitHubRemote?> remoteAsync,
@@ -723,7 +683,7 @@ class _GitPanelSheetState extends ConsumerState<GitPanelSheet> {
               : Row(
                   children: [
                     Icon(
-                      Icons.cloud_outlined,
+                      AppIcons.cloud,
                       size: 16,
                       color: theme.textMuted,
                     ),
@@ -749,7 +709,6 @@ class _GitPanelSheetState extends ConsumerState<GitPanelSheet> {
           ),
         ),
         const SizedBox(height: 10),
-
         // Filter dropdown
         Row(
           children: [
@@ -787,7 +746,6 @@ class _GitPanelSheetState extends ConsumerState<GitPanelSheet> {
           ],
         ),
         const SizedBox(height: 14),
-
         // Issues
         _buildGitHubListSection<GitHubIssue>(
           theme: theme,
@@ -810,12 +768,11 @@ class _GitPanelSheetState extends ConsumerState<GitPanelSheet> {
             trailing: IconButton(
               tooltip: 'Copy prompt',
               onPressed: () => _copyIssuePrompt(issue),
-              icon: Icon(Icons.copy_rounded, size: 16, color: theme.textMuted),
+              icon: Icon(AppIcons.copy, size: 16, color: theme.textMuted),
             ),
           ),
         ),
         const SizedBox(height: 14),
-
         // PRs
         _buildGitHubListSection<GitHubPR>(
           theme: theme,
@@ -838,7 +795,7 @@ class _GitPanelSheetState extends ConsumerState<GitPanelSheet> {
             trailing: IconButton(
               tooltip: 'Copy prompt',
               onPressed: () => _copyPrPrompt(pr),
-              icon: Icon(Icons.copy_rounded, size: 16, color: theme.textMuted),
+              icon: Icon(AppIcons.copy, size: 16, color: theme.textMuted),
             ),
           ),
         ),
@@ -846,7 +803,6 @@ class _GitPanelSheetState extends ConsumerState<GitPanelSheet> {
       ],
     );
   }
-
   Widget _buildGitHubListSection<T>({
     required OpenCodeTheme theme,
     required String title,
@@ -893,11 +849,9 @@ class _GitPanelSheetState extends ConsumerState<GitPanelSheet> {
       ],
     );
   }
-
   // ═══════════════════════════════════════════════════════════════════════════
   // History tab
   // ═══════════════════════════════════════════════════════════════════════════
-
   Widget _buildHistoryTab(
     OpenCodeTheme theme,
     AsyncValue<List<GitLogEntry>> logAsync,
@@ -909,7 +863,6 @@ class _GitPanelSheetState extends ConsumerState<GitPanelSheet> {
         // New branch input
         _buildNewBranchRow(theme),
         const SizedBox(height: 14),
-
         // Recent commits
         Text(
           'Recent Commits',
@@ -922,7 +875,6 @@ class _GitPanelSheetState extends ConsumerState<GitPanelSheet> {
         const SizedBox(height: 6),
         _buildCommitsList(theme, logAsync),
         const SizedBox(height: 14),
-
         // Local branches
         Text(
           'Local Branches',
@@ -938,7 +890,6 @@ class _GitPanelSheetState extends ConsumerState<GitPanelSheet> {
       ],
     );
   }
-
   Widget _buildNewBranchRow(OpenCodeTheme theme) {
     return Row(
       children: [
@@ -994,7 +945,6 @@ class _GitPanelSheetState extends ConsumerState<GitPanelSheet> {
       ],
     );
   }
-
   Widget _buildCommitsList(
     OpenCodeTheme theme,
     AsyncValue<List<GitLogEntry>> logAsync,
@@ -1068,7 +1018,6 @@ class _GitPanelSheetState extends ConsumerState<GitPanelSheet> {
       ),
     );
   }
-
   Widget _buildBranchesList(
     OpenCodeTheme theme,
     AsyncValue<List<GitBranch>> branchesAsync,
@@ -1096,8 +1045,8 @@ class _GitPanelSheetState extends ConsumerState<GitPanelSheet> {
                 dense: true,
                 leading: Icon(
                   branch.isCurrent
-                      ? Icons.check_circle_rounded
-                      : Icons.circle_outlined,
+                      ? AppIcons.checkCircle
+                      : AppIcons.circleOutlined,
                   size: 18,
                   color: branch.isCurrent ? theme.primary : theme.textMuted,
                 ),

@@ -1,3 +1,4 @@
+
 import 'package:flutter/material.dart';
 import '../theme/app_typography.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -7,39 +8,33 @@ import '../providers/selection_provider.dart';
 import '../providers/service_providers.dart';
 import '../theme/design_tokens.dart';
 import '../theme/opencode_theme.dart';
-
+import 'package:broski/theme/app_icons.dart';
 /// Memory viewer for Claude Code.
 /// Shows actual memory entries from ~/.claude/memory/ (user),
 /// .claude/memory/ (project), and ~/.claude/memory-local/ (local).
 class ClaudeCodeMemoryScreen extends ConsumerStatefulWidget {
   const ClaudeCodeMemoryScreen({super.key});
-
   @override
   ConsumerState<ClaudeCodeMemoryScreen> createState() =>
       _ClaudeCodeMemoryScreenState();
 }
-
 class _ClaudeCodeMemoryScreenState
     extends ConsumerState<ClaudeCodeMemoryScreen> {
   bool _loading = true;
   String? _error;
   List<ClaudeCodeMemoryEntry> _memories = const [];
   String _filterScope = 'all'; // 'all', 'user', 'project', 'local'
-
   @override
   void initState() {
     super.initState();
     _load();
   }
-
   Future<void> _load() async {
     setState(() {
       _loading = true;
       _error = null;
     });
-
     final cwd = ref.read(selectionProvider).project?.path;
-
     try {
       final bridge = ref.read(bridgeServiceProvider);
       final memories = await bridge.ccListMemories(
@@ -59,7 +54,6 @@ class _ClaudeCodeMemoryScreenState
       });
     }
   }
-
   Future<void> _deleteMemory(ClaudeCodeMemoryEntry entry) async {
     final confirmed = await showDialog<bool>(
       context: context,
@@ -79,7 +73,6 @@ class _ClaudeCodeMemoryScreenState
       ),
     );
     if (confirmed != true) return;
-
     final cwd = ref.read(selectionProvider).project?.path;
     try {
       final bridge = ref.read(bridgeServiceProvider);
@@ -97,20 +90,16 @@ class _ClaudeCodeMemoryScreenState
       }
     }
   }
-
   @override
   Widget build(BuildContext context) {
     final theme = OpenCodeTheme.of(context);
-
     // Count by scope for filter badges
     final userCount = _memories.where((m) => m.scope == 'user').length;
     final projectCount = _memories.where((m) => m.scope == 'project').length;
     final localCount = _memories.where((m) => m.scope == 'local').length;
-
     final filtered = _filterScope == 'all'
         ? _memories
         : _memories.where((m) => m.scope == _filterScope).toList();
-
     return Scaffold(
       backgroundColor: theme.background,
       appBar: AppBar(
@@ -120,7 +109,7 @@ class _ClaudeCodeMemoryScreenState
         actions: [
           IconButton(
             onPressed: _loading ? null : _load,
-            icon: const Icon(Icons.refresh_rounded),
+            icon: const Icon(AppIcons.refresh),
             tooltip: 'Refresh',
           ),
         ],
@@ -142,7 +131,7 @@ class _ClaudeCodeMemoryScreenState
               child: Row(
                 children: [
                   Icon(
-                    Icons.psychology_outlined,
+                    AppIcons.psychology,
                     color: theme.accent,
                     size: 20,
                   ),
@@ -159,7 +148,6 @@ class _ClaudeCodeMemoryScreenState
               ),
             ),
           ),
-
           // Scope filter chips
           Padding(
             padding: const EdgeInsets.fromLTRB(16, 12, 16, 4),
@@ -175,7 +163,6 @@ class _ClaudeCodeMemoryScreenState
               ],
             ),
           ),
-
           // Content
           Expanded(
             child: _loading
@@ -197,7 +184,7 @@ class _ClaudeCodeMemoryScreenState
                       mainAxisSize: MainAxisSize.min,
                       children: [
                         Icon(
-                          Icons.memory_outlined,
+                          AppIcons.memory,
                           color: theme.textMuted,
                           size: 48,
                         ),
@@ -233,7 +220,6 @@ class _ClaudeCodeMemoryScreenState
       ),
     );
   }
-
   Widget _scopeChip(
     OpenCodeTheme theme,
     String scope,
@@ -266,25 +252,20 @@ class _ClaudeCodeMemoryScreenState
     );
   }
 }
-
 class _MemoryCard extends StatefulWidget {
   const _MemoryCard({
     required this.theme,
     required this.entry,
     required this.onDelete,
   });
-
   final OpenCodeTheme theme;
   final ClaudeCodeMemoryEntry entry;
   final VoidCallback onDelete;
-
   @override
   State<_MemoryCard> createState() => _MemoryCardState();
 }
-
 class _MemoryCardState extends State<_MemoryCard> {
   bool _expanded = false;
-
   Color _scopeColor(String scope) {
     switch (scope) {
       case 'user':
@@ -297,31 +278,27 @@ class _MemoryCardState extends State<_MemoryCard> {
         return widget.theme.textMuted;
     }
   }
-
   IconData _scopeIcon(String scope) {
     switch (scope) {
       case 'user':
-        return Icons.person_outline;
+        return AppIcons.person;
       case 'project':
-        return Icons.folder_outlined;
+        return AppIcons.folder;
       case 'local':
-        return Icons.computer_outlined;
+        return AppIcons.computer;
       default:
-        return Icons.memory_outlined;
+        return AppIcons.memory;
     }
   }
-
   @override
   Widget build(BuildContext context) {
     final theme = widget.theme;
     final entry = widget.entry;
     final scopeColor = _scopeColor(entry.scope);
-
     // Show first ~150 chars as preview
     final preview = entry.content.length > 150
         ? '${entry.content.substring(0, 150)}…'
         : entry.content;
-
     return Card(
       color: theme.backgroundPanel,
       shape: RoundedRectangleBorder(
@@ -368,8 +345,8 @@ class _MemoryCardState extends State<_MemoryCard> {
                   const Spacer(),
                   Icon(
                     _expanded
-                        ? Icons.expand_less_rounded
-                        : Icons.expand_more_rounded,
+                        ? AppIcons.expandLess
+                        : AppIcons.expandMore,
                     color: theme.textMuted,
                     size: 20,
                   ),
@@ -377,7 +354,7 @@ class _MemoryCardState extends State<_MemoryCard> {
                   GestureDetector(
                     onTap: widget.onDelete,
                     child: Icon(
-                      Icons.delete_outline_rounded,
+                      AppIcons.delete,
                       color: theme.textMuted,
                       size: 18,
                     ),

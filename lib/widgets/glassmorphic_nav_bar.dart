@@ -1,10 +1,11 @@
+
 import 'dart:ui';
 
 import 'package:flutter/material.dart';
 
 import '../theme/design_tokens.dart';
 import '../theme/opencode_theme.dart';
-
+import 'package:broski/theme/app_icons.dart';
 /// Glassmorphic floating island navigation bar
 class GlasmorphicNavBar extends StatelessWidget {
   const GlasmorphicNavBar({
@@ -12,14 +13,11 @@ class GlasmorphicNavBar extends StatelessWidget {
     required this.onTap,
     super.key,
   });
-
   final int currentIndex;
   final ValueChanged<int> onTap;
-
   @override
   Widget build(BuildContext context) {
     final ocTheme = OpenCodeTheme.of(context);
-
     return Container(
       margin: const EdgeInsets.fromLTRB(20, 0, 20, 16),
       decoration: BoxDecoration(
@@ -52,25 +50,25 @@ class GlasmorphicNavBar extends StatelessWidget {
               mainAxisAlignment: MainAxisAlignment.spaceAround,
               children: [
                 _GlassNavItem(
-                  icon: Icons.dashboard_rounded,
+                  icon: AppIcons.dashboard,
                   label: 'Projects',
                   isSelected: currentIndex == 0,
                   onTap: () => onTap(0),
                 ),
                 _GlassNavItem(
-                  icon: Icons.folder_open_rounded,
+                  icon: AppIcons.folderOpen,
                   label: 'Browse',
                   isSelected: currentIndex == 1,
                   onTap: () => onTap(1),
                 ),
                 _GlassNavItem(
-                  icon: Icons.chat_bubble_rounded,
+                  icon: AppIcons.chatBubble,
                   label: 'Sessions',
                   isSelected: currentIndex == 2,
                   onTap: () => onTap(2),
                 ),
                 _GlassNavItem(
-                  icon: Icons.settings_rounded,
+                  icon: AppIcons.settings,
                   label: 'Settings',
                   isSelected: currentIndex == 3,
                   onTap: () => onTap(3),
@@ -83,7 +81,6 @@ class GlasmorphicNavBar extends StatelessWidget {
     );
   }
 }
-
 class _GlassNavItem extends StatefulWidget {
   const _GlassNavItem({
     required this.icon,
@@ -91,21 +88,17 @@ class _GlassNavItem extends StatefulWidget {
     required this.isSelected,
     required this.onTap,
   });
-
   final IconData icon;
   final String label;
   final bool isSelected;
   final VoidCallback onTap;
-
   @override
   State<_GlassNavItem> createState() => _GlassNavItemState();
 }
-
 class _GlassNavItemState extends State<_GlassNavItem>
     with SingleTickerProviderStateMixin {
   late AnimationController _controller;
   late Animation<double> _scaleAnimation;
-
   @override
   void initState() {
     super.initState();
@@ -118,29 +111,23 @@ class _GlassNavItemState extends State<_GlassNavItem>
       end: 0.95,
     ).animate(CurvedAnimation(parent: _controller, curve: Curves.easeInOut));
   }
-
   @override
   void dispose() {
     _controller.dispose();
     super.dispose();
   }
-
   void _handleTapDown(TapDownDetails details) {
     _controller.forward();
   }
-
   void _handleTapUp(TapUpDetails details) {
     _controller.reverse();
   }
-
   void _handleTapCancel() {
     _controller.reverse();
   }
-
   @override
   Widget build(BuildContext context) {
     final ocTheme = OpenCodeTheme.of(context);
-
     return Expanded(
       child: GestureDetector(
         onTap: widget.onTap,

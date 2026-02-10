@@ -1,3 +1,4 @@
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../theme/app_typography.dart';
@@ -6,17 +7,14 @@ import '../theme/design_tokens.dart';
 import '../models/claude_code.dart';
 import '../providers/claude_code_provider.dart';
 import '../theme/opencode_theme.dart';
-
+import 'package:broski/theme/app_icons.dart';
 class CustomToolEditorScreen extends ConsumerStatefulWidget {
   final ClaudeCodeCustomTool? tool;
-
   const CustomToolEditorScreen({super.key, this.tool});
-
   @override
   ConsumerState<CustomToolEditorScreen> createState() =>
       _CustomToolEditorScreenState();
 }
-
 class _CustomToolEditorScreenState
     extends ConsumerState<CustomToolEditorScreen> {
   late final _nameController = TextEditingController();
@@ -24,32 +22,26 @@ class _CustomToolEditorScreenState
   late CustomToolHandlerType _handlerType;
   late List<CustomToolParameter> _parameters;
   late bool _enabled;
-
   // HTTP handler
   late final _urlController = TextEditingController();
   late HttpMethod _httpMethod;
   late final _headersController = TextEditingController();
   late final _bodyTemplateController = TextEditingController();
-
   // Script handler
   late final _commandController = TextEditingController();
   late final _argsController = TextEditingController();
   late final _cwdController = TextEditingController();
   late final _timeoutController = TextEditingController();
-
   bool _isSaving = false;
   bool _isTesting = false;
   String? _testResult;
   bool _testSuccess = false;
-
   bool get _isEditing => widget.tool != null;
-
   @override
   void initState() {
     super.initState();
     _initializeForm();
   }
-
   void _initializeForm() {
     final tool = widget.tool;
     if (tool != null) {
@@ -58,7 +50,6 @@ class _CustomToolEditorScreenState
       _handlerType = tool.handler;
       _parameters = List.from(tool.parameters);
       _enabled = tool.enabled;
-
       if (tool.handler == CustomToolHandlerType.http &&
           tool.httpConfig != null) {
         _urlController.text = tool.httpConfig!.url;
@@ -83,7 +74,6 @@ class _CustomToolEditorScreenState
       _httpMethod = HttpMethod.get;
     }
   }
-
   @override
   void dispose() {
     _nameController.dispose();
@@ -97,11 +87,9 @@ class _CustomToolEditorScreenState
     _timeoutController.dispose();
     super.dispose();
   }
-
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-
     return Scaffold(
       backgroundColor: theme.colorScheme.surface,
       appBar: AppBar(
@@ -166,7 +154,6 @@ class _CustomToolEditorScreenState
               contentPadding: EdgeInsets.zero,
             ),
             SizedBox(height: Spacing.xxl),
-
             // Handler Type Section
             _SectionHeader(title: 'Handler Type'),
             SizedBox(height: Spacing.md),
@@ -181,8 +168,8 @@ class _CustomToolEditorScreenState
                       label: Text(type.displayName),
                       icon: Icon(
                         type == CustomToolHandlerType.http
-                            ? Icons.http_rounded
-                            : Icons.terminal_rounded,
+                            ? AppIcons.http
+                            : AppIcons.terminal,
                       ),
                     );
                   }).toList(),
@@ -199,7 +186,6 @@ class _CustomToolEditorScreenState
               ),
             ),
             SizedBox(height: Spacing.xxl),
-
             // Handler Config Section
             if (_handlerType == CustomToolHandlerType.http)
               _HttpConfigSection(
@@ -219,14 +205,12 @@ class _CustomToolEditorScreenState
               )
             else
               const SizedBox.shrink(),
-
             SizedBox(height: Spacing.xxl),
-
             // Parameters Section
             _SectionHeader(
               title: 'Parameters',
               action: IconButton(
-                icon: const Icon(Icons.add_circle_outline_rounded),
+                icon: const Icon(AppIcons.add),
                 onPressed: _addParameter,
                 tooltip: 'Add Parameter',
               ),
@@ -264,7 +248,6 @@ class _CustomToolEditorScreenState
                   );
                 }).toList(),
               ),
-
             // Test Result
             if (_testResult != null) ...[
               SizedBox(height: Spacing.xxl),
@@ -289,8 +272,8 @@ class _CustomToolEditorScreenState
                       children: [
                         Icon(
                           _testSuccess
-                              ? Icons.check_circle_rounded
-                              : Icons.error_rounded,
+                              ? AppIcons.checkCircle
+                              : AppIcons.error,
                           color: statusColor,
                           size: 20,
                         ),
@@ -314,14 +297,12 @@ class _CustomToolEditorScreenState
               );
               }),
             ],
-
             const SizedBox(height: 100),
           ],
         ),
       ),
     );
   }
-
   ClaudeCodeCustomTool _buildTool() {
     final dynamic handlerConfig;
     if (_handlerType == CustomToolHandlerType.http) {
@@ -337,7 +318,6 @@ class _CustomToolEditorScreenState
           }
         }
       }
-
       handlerConfig = HttpHandlerConfig(
         url: _urlController.text.trim(),
         method: _httpMethod,
@@ -351,7 +331,6 @@ class _CustomToolEditorScreenState
       final args = _argsController.text.trim().isEmpty
           ? null
           : _argsController.text.trim().split(' ');
-
       handlerConfig = ScriptHandlerConfig(
         command: _commandController.text.trim(),
         args: args,
@@ -363,7 +342,6 @@ class _CustomToolEditorScreenState
             : int.tryParse(_timeoutController.text.trim()),
       );
     }
-
     return ClaudeCodeCustomTool(
       id: widget.tool?.id ?? '',
       name: _nameController.text.trim(),
@@ -376,11 +354,9 @@ class _CustomToolEditorScreenState
       updatedAt: 0,
     );
   }
-
   Future<void> _saveTool() async {
     final tool = _buildTool();
     final errors = tool.validate();
-
     if (errors.isNotEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
@@ -391,14 +367,11 @@ class _CustomToolEditorScreenState
       );
       return;
     }
-
     setState(() => _isSaving = true);
-
     try {
       final saved = await ref
           .read(ccCustomToolsProvider.notifier)
           .saveTool(tool);
-
       if (saved != null && mounted) {
         Navigator.pop(context);
         ScaffoldMessenger.of(context).showSnackBar(
@@ -425,11 +398,9 @@ class _CustomToolEditorScreenState
       }
     }
   }
-
   Future<void> _testTool() async {
     final tool = _buildTool();
     final errors = tool.validate();
-
     if (errors.isNotEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
@@ -440,12 +411,10 @@ class _CustomToolEditorScreenState
       );
       return;
     }
-
     setState(() {
       _isTesting = true;
       _testResult = null;
     });
-
     try {
       // Build test args from parameters with default values
       final testArgs = <String, dynamic>{};
@@ -473,11 +442,9 @@ class _CustomToolEditorScreenState
           }
         }
       }
-
       final result = await ref
           .read(ccCustomToolsProvider.notifier)
           .testTool(tool, testArgs);
-
       setState(() {
         _testSuccess = result.success;
         _testResult = result.success
@@ -490,21 +457,17 @@ class _CustomToolEditorScreenState
       }
     }
   }
-
   void _addParameter() {
     _showParameterDialog(null, null);
   }
-
   void _editParameter(int index) {
     _showParameterDialog(index, _parameters[index]);
   }
-
   void _deleteParameter(int index) {
     setState(() {
       _parameters.removeAt(index);
     });
   }
-
   void _showParameterDialog(int? index, CustomToolParameter? existing) {
     final nameController = TextEditingController(text: existing?.name ?? '');
     final descController = TextEditingController(
@@ -512,7 +475,6 @@ class _CustomToolEditorScreenState
     );
     var type = existing?.type ?? CustomToolParameterType.string;
     var required = existing?.required ?? false;
-
     showDialog(
       context: context,
       builder: (context) => StatefulBuilder(
@@ -582,7 +544,6 @@ class _CustomToolEditorScreenState
                   );
                   return;
                 }
-
                 final param = CustomToolParameter(
                   name: nameController.text.trim(),
                   type: type,
@@ -591,7 +552,6 @@ class _CustomToolEditorScreenState
                       : descController.text.trim(),
                   required: required,
                 );
-
                 setState(() {
                   if (index != null) {
                     _parameters[index] = param;
@@ -599,7 +559,6 @@ class _CustomToolEditorScreenState
                     _parameters.add(param);
                   }
                 });
-
                 Navigator.pop(context);
               },
               child: const Text('Save'),
@@ -610,17 +569,13 @@ class _CustomToolEditorScreenState
     );
   }
 }
-
 class _SectionHeader extends StatelessWidget {
   final String title;
   final Widget? action;
-
   const _SectionHeader({required this.title, this.action});
-
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-
     return Row(
       children: [
         Text(
@@ -635,14 +590,12 @@ class _SectionHeader extends StatelessWidget {
     );
   }
 }
-
 class _HttpConfigSection extends StatelessWidget {
   final TextEditingController urlController;
   final HttpMethod method;
   final void Function(HttpMethod) onMethodChanged;
   final TextEditingController headersController;
   final TextEditingController bodyTemplateController;
-
   const _HttpConfigSection({
     required this.urlController,
     required this.method,
@@ -650,7 +603,6 @@ class _HttpConfigSection extends StatelessWidget {
     required this.headersController,
     required this.bodyTemplateController,
   });
-
   @override
   Widget build(BuildContext context) {
     return Column(
@@ -711,20 +663,17 @@ class _HttpConfigSection extends StatelessWidget {
     );
   }
 }
-
 class _ScriptConfigSection extends StatelessWidget {
   final TextEditingController commandController;
   final TextEditingController argsController;
   final TextEditingController cwdController;
   final TextEditingController timeoutController;
-
   const _ScriptConfigSection({
     required this.commandController,
     required this.argsController,
     required this.cwdController,
     required this.timeoutController,
   });
-
   @override
   Widget build(BuildContext context) {
     return Column(
@@ -769,22 +718,18 @@ class _ScriptConfigSection extends StatelessWidget {
     );
   }
 }
-
 class _ParameterCard extends StatelessWidget {
   final CustomToolParameter parameter;
   final VoidCallback onEdit;
   final VoidCallback onDelete;
-
   const _ParameterCard({
     required this.parameter,
     required this.onEdit,
     required this.onDelete,
   });
-
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-
     return Card(
       margin: Insets.bottomSm,
       child: ListTile(
@@ -832,13 +777,13 @@ class _ParameterCard extends StatelessWidget {
           mainAxisSize: MainAxisSize.min,
           children: [
             IconButton(
-              icon: const Icon(Icons.edit_outlined, size: 20),
+              icon: const Icon(AppIcons.edit, size: 20),
               onPressed: onEdit,
               visualDensity: VisualDensity.compact,
             ),
             IconButton(
               icon: Icon(
-                Icons.delete_outline_rounded,
+                AppIcons.delete,
                 size: 20,
                 color: theme.colorScheme.error,
               ),

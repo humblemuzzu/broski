@@ -1,3 +1,4 @@
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
@@ -9,38 +10,31 @@ import '../theme/design_tokens.dart';
 import '../theme/opencode_theme.dart';
 import '../widgets/chat/detail_sheet.dart';
 import 'markdown_file_editor_screen.dart';
-
+import 'package:broski/theme/app_icons.dart';
 class OpenCodeAgentsScreen extends ConsumerStatefulWidget {
   const OpenCodeAgentsScreen({super.key});
-
   @override
   ConsumerState<OpenCodeAgentsScreen> createState() =>
       _OpenCodeAgentsScreenState();
 }
-
 class _OpenCodeAgentsScreenState extends ConsumerState<OpenCodeAgentsScreen> {
   List<OpenCodeMarkdownFile> _files = const [];
   bool _isLoading = true;
   String? _error;
-
   static final _nameRe = RegExp(r'^[a-z0-9]+(-[a-z0-9]+)*$');
-
   @override
   void initState() {
     super.initState();
     _load();
   }
-
   Future<void> _load() async {
     setState(() {
       _isLoading = true;
       _error = null;
     });
-
     final selection = ref.read(selectionProvider);
     final cwd = selection.project?.path;
     final bridge = ref.read(bridgeServiceProvider);
-
     try {
       final files = await bridge.ocListAgentFiles(cwd: cwd);
       if (!mounted) return;
@@ -56,12 +50,10 @@ class _OpenCodeAgentsScreenState extends ConsumerState<OpenCodeAgentsScreen> {
       });
     }
   }
-
   Future<void> _open(OpenCodeMarkdownFile file) async {
     final selection = ref.read(selectionProvider);
     final cwd = selection.project?.path;
     final bridge = ref.read(bridgeServiceProvider);
-
     try {
       final res = await bridge.ocGetAgentFile(
         name: file.name,
@@ -104,16 +96,13 @@ class _OpenCodeAgentsScreenState extends ConsumerState<OpenCodeAgentsScreen> {
       ).showSnackBar(SnackBar(content: Text('Failed to load agent: $e')));
     }
   }
-
   Future<void> _create() async {
     final selection = ref.read(selectionProvider);
     final cwd = selection.project?.path;
-
     final sources = <SkillSource>[
       if (cwd != null) SkillSource.project,
       SkillSource.user,
     ];
-
     final source = await DetailSheet.show<SkillSource>(
       context: context,
       title: 'Add Agent',
@@ -134,8 +123,8 @@ class _OpenCodeAgentsScreenState extends ConsumerState<OpenCodeAgentsScreen> {
             ListTile(
               leading: Icon(
                 s == SkillSource.project
-                    ? Icons.folder_outlined
-                    : Icons.person_outline_rounded,
+                    ? AppIcons.folder
+                    : AppIcons.person,
               ),
               title: Text(s.displayName),
               onTap: () => Navigator.pop(context, s),
@@ -143,10 +132,8 @@ class _OpenCodeAgentsScreenState extends ConsumerState<OpenCodeAgentsScreen> {
         ],
       ),
     );
-
     if (source == null) return;
     final bridge = ref.read(bridgeServiceProvider);
-
     if (!mounted) return;
     final changed = await Navigator.push<bool>(
       context,
@@ -178,17 +165,14 @@ class _OpenCodeAgentsScreenState extends ConsumerState<OpenCodeAgentsScreen> {
     );
     if (changed == true) await _load();
   }
-
   @override
   Widget build(BuildContext context) {
     final oc = OpenCodeTheme.of(context);
     final selection = ref.watch(selectionProvider);
-
     final bySource = <SkillSource, List<OpenCodeMarkdownFile>>{};
     for (final f in _files) {
       bySource.putIfAbsent(f.source, () => []).add(f);
     }
-
     return Scaffold(
       backgroundColor: oc.background,
       appBar: AppBar(
@@ -199,12 +183,12 @@ class _OpenCodeAgentsScreenState extends ConsumerState<OpenCodeAgentsScreen> {
           IconButton(
             tooltip: 'Refresh',
             onPressed: _isLoading ? null : _load,
-            icon: const Icon(Icons.refresh_rounded),
+            icon: const Icon(AppIcons.refresh),
           ),
           IconButton(
             tooltip: 'Add',
             onPressed: _create,
-            icon: const Icon(Icons.add_rounded),
+            icon: const Icon(AppIcons.add),
           ),
         ],
       ),
@@ -276,7 +260,7 @@ class _OpenCodeAgentsScreenState extends ConsumerState<OpenCodeAgentsScreen> {
                                   style: TextStyle(color: oc.textMuted),
                                 ),
                                 trailing: Icon(
-                                  Icons.chevron_right_rounded,
+                                  AppIcons.chevronRight,
                                   color: oc.textMuted,
                                 ),
                                 onTap: () => _open(f),

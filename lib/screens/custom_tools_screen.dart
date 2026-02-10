@@ -1,3 +1,4 @@
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
@@ -7,14 +8,12 @@ import '../theme/design_tokens.dart';
 import '../theme/opencode_theme.dart';
 import 'custom_tool_editor_screen.dart';
 import '../widgets/claude_code_help.dart';
-
+import 'package:broski/theme/app_icons.dart';
 class CustomToolsScreen extends ConsumerStatefulWidget {
   const CustomToolsScreen({super.key});
-
   @override
   ConsumerState<CustomToolsScreen> createState() => _CustomToolsScreenState();
 }
-
 class _CustomToolsScreenState extends ConsumerState<CustomToolsScreen> {
   @override
   void initState() {
@@ -24,12 +23,10 @@ class _CustomToolsScreenState extends ConsumerState<CustomToolsScreen> {
       ref.read(ccCustomToolsProvider.notifier).load();
     });
   }
-
   @override
   Widget build(BuildContext context) {
     final toolsAsync = ref.watch(ccCustomToolsProvider);
     final theme = Theme.of(context);
-
     return Scaffold(
       backgroundColor: theme.colorScheme.surface,
       appBar: AppBar(
@@ -37,7 +34,7 @@ class _CustomToolsScreenState extends ConsumerState<CustomToolsScreen> {
         title: const Text('Custom Tools'),
         actions: [
           IconButton(
-            icon: const Icon(Icons.help_outline_rounded),
+            icon: const Icon(AppIcons.help),
             onPressed: () => showClaudeCodeHelpSheet(
               context,
               topic: ClaudeCodeHelpTopic.customTools,
@@ -45,7 +42,7 @@ class _CustomToolsScreenState extends ConsumerState<CustomToolsScreen> {
             tooltip: 'Help',
           ),
           IconButton(
-            icon: const Icon(Icons.refresh_rounded),
+            icon: const Icon(AppIcons.refresh),
             onPressed: () => ref.read(ccCustomToolsProvider.notifier).refresh(),
             tooltip: 'Refresh',
           ),
@@ -53,7 +50,7 @@ class _CustomToolsScreenState extends ConsumerState<CustomToolsScreen> {
       ),
       floatingActionButton: FloatingActionButton(
         onPressed: () => _createNewTool(context),
-        child: const Icon(Icons.add),
+        child: const Icon(AppIcons.add),
       ),
       body: toolsAsync.when(
         data: (tools) => tools.isEmpty
@@ -72,14 +69,12 @@ class _CustomToolsScreenState extends ConsumerState<CustomToolsScreen> {
       ),
     );
   }
-
   void _createNewTool(BuildContext context) {
     Navigator.push(
       context,
       MaterialPageRoute(builder: (_) => const CustomToolEditorScreen()),
     );
   }
-
   void _editTool(BuildContext context, ClaudeCodeCustomTool tool) {
     if (tool.handler == CustomToolHandlerType.builtin) {
       ScaffoldMessenger.of(context).showSnackBar(
@@ -95,12 +90,10 @@ class _CustomToolsScreenState extends ConsumerState<CustomToolsScreen> {
       MaterialPageRoute(builder: (_) => CustomToolEditorScreen(tool: tool)),
     );
   }
-
   Future<void> _toggleTool(ClaudeCodeCustomTool tool, bool enabled) async {
     final success = await ref
         .read(ccCustomToolsProvider.notifier)
         .toggleTool(tool.id, enabled);
-
     if (!success && mounted) {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
@@ -110,7 +103,6 @@ class _CustomToolsScreenState extends ConsumerState<CustomToolsScreen> {
       );
     }
   }
-
   void _confirmDeleteTool(BuildContext context, ClaudeCodeCustomTool tool) {
     if (tool.handler == CustomToolHandlerType.builtin) {
       ScaffoldMessenger.of(context).showSnackBar(
@@ -139,7 +131,6 @@ class _CustomToolsScreenState extends ConsumerState<CustomToolsScreen> {
               final success = await ref
                   .read(ccCustomToolsProvider.notifier)
                   .deleteTool(tool.id);
-
               if (!success && mounted) {
                 ScaffoldMessenger.of(context).showSnackBar(
                   const SnackBar(
@@ -160,16 +151,12 @@ class _CustomToolsScreenState extends ConsumerState<CustomToolsScreen> {
     );
   }
 }
-
 class _EmptyState extends StatelessWidget {
   final VoidCallback onCreateTool;
-
   const _EmptyState({required this.onCreateTool});
-
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-
     return Center(
       child: Padding(
         padding: Insets.xxxl,
@@ -177,7 +164,7 @@ class _EmptyState extends StatelessWidget {
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
             Icon(
-              Icons.extension_rounded,
+              AppIcons.extension_,
               size: 64,
               color: theme.colorScheme.primary.withValues(alpha: 0.5),
             ),
@@ -199,7 +186,7 @@ class _EmptyState extends StatelessWidget {
             SizedBox(height: Spacing.xxl),
             ElevatedButton.icon(
               onPressed: onCreateTool,
-              icon: const Icon(Icons.add),
+              icon: const Icon(AppIcons.add),
               label: const Text('Create Tool'),
             ),
           ],
@@ -208,17 +195,13 @@ class _EmptyState extends StatelessWidget {
     );
   }
 }
-
 class _ErrorState extends StatelessWidget {
   final String error;
   final VoidCallback onRetry;
-
   const _ErrorState({required this.error, required this.onRetry});
-
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-
     return Center(
       child: Padding(
         padding: Insets.xxxl,
@@ -226,7 +209,7 @@ class _ErrorState extends StatelessWidget {
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
             Icon(
-              Icons.error_outline_rounded,
+              AppIcons.error,
               size: 64,
               color: theme.colorScheme.error.withValues(alpha: 0.5),
             ),
@@ -248,7 +231,7 @@ class _ErrorState extends StatelessWidget {
             SizedBox(height: Spacing.xxl),
             ElevatedButton.icon(
               onPressed: onRetry,
-              icon: const Icon(Icons.refresh_rounded),
+              icon: const Icon(AppIcons.refresh),
               label: const Text('Retry'),
             ),
           ],
@@ -257,24 +240,20 @@ class _ErrorState extends StatelessWidget {
     );
   }
 }
-
 class _ToolsList extends StatelessWidget {
   final List<ClaudeCodeCustomTool> tools;
   final void Function(ClaudeCodeCustomTool) onEditTool;
   final void Function(ClaudeCodeCustomTool, bool) onToggleTool;
   final void Function(ClaudeCodeCustomTool) onDeleteTool;
-
   const _ToolsList({
     required this.tools,
     required this.onEditTool,
     required this.onToggleTool,
     required this.onDeleteTool,
   });
-
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-
     return ListView.builder(
       padding: Insets.card,
       itemCount: tools.length + 1, // +1 for header
@@ -296,7 +275,7 @@ class _ToolsList extends StatelessWidget {
               child: Row(
                 children: [
                   Icon(
-                    Icons.info_outline_rounded,
+                    AppIcons.info,
                     color: theme.colorScheme.primary,
                     size: 20,
                   ),
@@ -314,7 +293,6 @@ class _ToolsList extends StatelessWidget {
             ),
           );
         }
-
         final tool = tools[index - 1];
         return _ToolCard(
           tool: tool,
@@ -326,24 +304,20 @@ class _ToolsList extends StatelessWidget {
     );
   }
 }
-
 class _ToolCard extends StatelessWidget {
   final ClaudeCodeCustomTool tool;
   final VoidCallback onEdit;
   final void Function(bool) onToggle;
   final VoidCallback onDelete;
-
   const _ToolCard({
     required this.tool,
     required this.onEdit,
     required this.onToggle,
     required this.onDelete,
   });
-
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-
     return Card(
       margin: Insets.bottomMd,
       child: InkWell(
@@ -439,7 +413,7 @@ class _ToolCard extends StatelessWidget {
                   // Delete button
                   IconButton(
                     icon: Icon(
-                      Icons.delete_outline_rounded,
+                      AppIcons.delete,
                       color: theme.colorScheme.error.withValues(alpha: 0.7),
                       size: 20,
                     ),
@@ -450,7 +424,7 @@ class _ToolCard extends StatelessWidget {
                   // Edit button
                   IconButton(
                     icon: Icon(
-                      Icons.edit_outlined,
+                      AppIcons.edit,
                       color: theme.colorScheme.primary,
                       size: 20,
                     ),
@@ -466,18 +440,16 @@ class _ToolCard extends StatelessWidget {
       ),
     );
   }
-
   IconData _getHandlerIcon(CustomToolHandlerType handler) {
     switch (handler) {
       case CustomToolHandlerType.http:
-        return Icons.http_rounded;
+        return AppIcons.http;
       case CustomToolHandlerType.script:
-        return Icons.terminal_rounded;
+        return AppIcons.terminal;
       case CustomToolHandlerType.builtin:
-        return Icons.extension_rounded;
+        return AppIcons.extension_;
     }
   }
-
   Color _getHandlerColor(CustomToolHandlerType handler, ThemeData theme) {
     final oc = theme.extension<OpenCodeTheme>();
     switch (handler) {

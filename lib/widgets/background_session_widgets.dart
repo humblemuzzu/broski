@@ -1,3 +1,4 @@
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
@@ -5,43 +6,36 @@ import '../models/session.dart';
 import '../providers/sessions_provider.dart';
 import '../theme/design_tokens.dart';
 import '../theme/opencode_theme.dart';
-
+import 'package:broski/theme/app_icons.dart';
 // ============================================================
 // Active Sessions Section
 // ============================================================
 // Shows sessions that are currently running (busy status).
 // Displays at the top of the sessions list.
-
 class ActiveSessionsSection extends ConsumerWidget {
   const ActiveSessionsSection({
     super.key,
     this.onSessionTap,
     this.currentSessionId,
   });
-
   final void Function(SessionSummary session)? onSessionTap;
   final String? currentSessionId; // Exclude current session from list
-
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final sessionStatuses = ref.watch(globalSessionStatusProvider);
     final sessionsAsync = ref.watch(sessionsListProvider);
     final sessions = sessionsAsync.valueOrNull ?? [];
-
     // Find sessions that are busy or retrying
     final activeSessions = sessions.where((session) {
       if (session.id == currentSessionId) return false; // Exclude current
       final status = sessionStatuses[session.id];
       return status != null && (status.isBusy || status.isRetry);
     }).toList();
-
     // Don't show if no active sessions
     if (activeSessions.isEmpty) {
       return const SizedBox.shrink();
     }
-
     final ocTheme = OpenCodeTheme.of(context);
-
     return Container(
       margin: const EdgeInsets.fromLTRB(20, 0, 20, 16),
       padding: Insets.card,
@@ -59,7 +53,7 @@ class ActiveSessionsSection extends ConsumerWidget {
             children: [
               _PulsingIcon(
                 color: ocTheme.info,
-                icon: Icons.play_circle_rounded,
+                icon: AppIcons.play,
               ),
               SizedBox(width: Spacing.md),
               Expanded(
@@ -103,29 +97,23 @@ class ActiveSessionsSection extends ConsumerWidget {
     );
   }
 }
-
 // ============================================================
 // Active Session Card
 // ============================================================
 // Compact card for a running session.
-
 class _ActiveSessionCard extends StatelessWidget {
   const _ActiveSessionCard({required this.session, this.status, this.onTap});
-
   final SessionSummary session;
   final SessionStatus? status;
   final VoidCallback? onTap;
-
   String _getProjectName() {
     return session.directory.split('/').where((item) => item.isNotEmpty).last;
   }
-
   @override
   Widget build(BuildContext context) {
     final ocTheme = OpenCodeTheme.of(context);
     final isRetry = status?.isRetry ?? false;
     final statusColor = isRetry ? ocTheme.warning : ocTheme.info;
-
     return GestureDetector(
       onTap: onTap,
       child: Container(
@@ -207,7 +195,7 @@ class _ActiveSessionCard extends StatelessWidget {
             ),
             // Arrow
             Icon(
-              Icons.chevron_right_rounded,
+              AppIcons.chevronRight,
               color: ocTheme.textMuted.withValues(alpha: 0.5),
               size: 18,
             ),
@@ -217,39 +205,31 @@ class _ActiveSessionCard extends StatelessWidget {
     );
   }
 }
-
 // ============================================================
 // Floating Active Indicator
 // ============================================================
 // Mini-player style bar that appears when there are active sessions
 // (other than the one currently being viewed).
-
 class FloatingActiveIndicator extends ConsumerWidget {
   const FloatingActiveIndicator({
     super.key,
     required this.onTap,
     this.currentSessionId,
   });
-
   final VoidCallback onTap;
   final String? currentSessionId; // Exclude from count
-
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final sessionStatuses = ref.watch(globalSessionStatusProvider);
-
     // Count active sessions excluding current
     final activeCount = sessionStatuses.entries.where((entry) {
       if (entry.key == currentSessionId) return false;
       return entry.value.isBusy || entry.value.isRetry;
     }).length;
-
     if (activeCount == 0) {
       return const SizedBox.shrink();
     }
-
     final ocTheme = OpenCodeTheme.of(context);
-
     return Positioned(
       left: 16,
       right: 16,
@@ -275,7 +255,7 @@ class FloatingActiveIndicator extends ConsumerWidget {
               // Pulsing indicator
               _PulsingIcon(
                 color: ocTheme.info,
-                icon: Icons.play_circle_rounded,
+                icon: AppIcons.play,
               ),
               SizedBox(width: Spacing.md),
               // Text
@@ -300,7 +280,7 @@ class FloatingActiveIndicator extends ConsumerWidget {
                 ),
               ),
               // Arrow
-              Icon(Icons.arrow_forward_rounded, color: ocTheme.info, size: 20),
+              Icon(AppIcons.forward, color: ocTheme.info, size: 20),
             ],
           ),
         ),
@@ -308,27 +288,21 @@ class FloatingActiveIndicator extends ConsumerWidget {
     );
   }
 }
-
 // ============================================================
 // Helper Widgets
 // ============================================================
-
 /// Pulsing icon widget for active sessions
 class _PulsingIcon extends StatefulWidget {
   const _PulsingIcon({required this.color, required this.icon});
-
   final Color color;
   final IconData icon;
-
   @override
   State<_PulsingIcon> createState() => _PulsingIconState();
 }
-
 class _PulsingIconState extends State<_PulsingIcon>
     with SingleTickerProviderStateMixin {
   late AnimationController _controller;
   late Animation<double> _animation;
-
   @override
   void initState() {
     super.initState();
@@ -341,13 +315,11 @@ class _PulsingIconState extends State<_PulsingIcon>
       end: 1.0,
     ).animate(CurvedAnimation(parent: _controller, curve: Curves.easeInOut));
   }
-
   @override
   void dispose() {
     _controller.dispose();
     super.dispose();
   }
-
   @override
   Widget build(BuildContext context) {
     return AnimatedBuilder(

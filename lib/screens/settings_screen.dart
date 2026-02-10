@@ -1,3 +1,4 @@
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:url_launcher/url_launcher.dart';
@@ -44,17 +45,14 @@ import 'permission_rules_screen.dart';
 import 'codex_agents_screen.dart';
 import 'scan_screen.dart';
 import 'voice_settings_screen.dart';
-
+import 'package:broski/theme/app_icons.dart';
 class SettingsScreen extends ConsumerStatefulWidget {
   const SettingsScreen({super.key});
-
   @override
   ConsumerState<SettingsScreen> createState() => _SettingsScreenState();
 }
-
 class _SettingsScreenState extends ConsumerState<SettingsScreen> {
   bool _powerFeaturesExpanded = false;
-
   @override
   Widget build(BuildContext context) {
     final connection = ref.watch(connectionProvider);
@@ -65,7 +63,6 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
     final selection = ref.watch(selectionProvider);
     final theme = Theme.of(context);
     final ocTheme = OpenCodeTheme.of(context);
-
     return Scaffold(
       backgroundColor: Colors.transparent,
       body: SafeArea(
@@ -85,16 +82,12 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                 ),
               ),
             ),
-
             // Subscribe banner for unpaid users
             const SliverToBoxAdapter(child: SubscribeBanner()),
-
             const SliverToBoxAdapter(child: _SectionDivider()),
             const SliverToBoxAdapter(child: SizedBox(height: Spacing.xxl)),
-
             SliverToBoxAdapter(child: SectionHeader(title: 'Connection')),
             const SliverToBoxAdapter(child: SizedBox(height: Spacing.md)),
-
             if (connection.connection != null && connection.isConnected) ...[
               SliverToBoxAdapter(
                 child: Padding(
@@ -110,7 +103,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                     child: _SettingsTile(
                       title: 'No Connection',
                       subtitle: 'Connect to a Mac to use Broski',
-                      icon: Icons.link_off_rounded,
+                      icon: AppIcons.unlink,
                       onTap: () {
                         Navigator.push(
                           context,
@@ -121,7 +114,6 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                   ),
                 ),
               ),
-
             const SliverToBoxAdapter(child: SizedBox(height: Spacing.xxxl)),
             SliverToBoxAdapter(child: SectionHeader(title: 'AI')),
             const SliverToBoxAdapter(child: SizedBox(height: Spacing.md)),
@@ -134,7 +126,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                       _SettingsTile(
                         title: 'AI Backend',
                         subtitle: currentAgent.displayName,
-                        icon: Icons.smart_toy_rounded,
+                        icon: AppIcons.agent,
                         trailing: Row(
                           mainAxisSize: MainAxisSize.min,
                           children: [
@@ -164,7 +156,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                             ),
                             SizedBox(width: Spacing.sm),
                             Icon(
-                              Icons.chevron_right_rounded,
+                              AppIcons.chevronRight,
                               size: 20,
                               color: theme.colorScheme.onSurface.withValues(
                                 alpha: 0.5,
@@ -206,7 +198,6 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                 duration: const Duration(milliseconds: 200),
               ),
             ),
-
             const SliverToBoxAdapter(child: SizedBox(height: Spacing.xxxl)),
             SliverToBoxAdapter(child: SectionHeader(title: 'Project')),
             const SliverToBoxAdapter(child: SizedBox(height: Spacing.md)),
@@ -221,7 +212,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                         subtitle: selection.project == null
                             ? 'Pick a project for project-scoped power features'
                             : '${selection.project!.name} • ${selection.project!.path}',
-                        icon: Icons.folder_rounded,
+                        icon: AppIcons.folder,
                         trailing: Row(
                           mainAxisSize: MainAxisSize.min,
                           children: [
@@ -232,14 +223,14 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                                     .read(selectionProvider.notifier)
                                     .clearProject(),
                                 icon: Icon(
-                                  Icons.close_rounded,
+                                  AppIcons.close,
                                   color: theme.colorScheme.onSurface.withValues(
                                     alpha: 0.6,
                                   ),
                                 ),
                               ),
                             Icon(
-                              Icons.chevron_right_rounded,
+                              AppIcons.chevronRight,
                               size: 20,
                               color: theme.colorScheme.onSurface.withValues(
                                 alpha: 0.5,
@@ -268,7 +259,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                         subtitle: selection.project == null
                             ? 'Select a project first'
                             : 'Status, commits, branches, PRs, issues',
-                        icon: Icons.source_rounded,
+                        icon: AppIcons.sourceCode,
                         onTap: () async {
                           final selected = selection.project;
                           if (selected == null) {
@@ -291,7 +282,6 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                 ),
               ),
             ),
-
             const SliverToBoxAdapter(child: SizedBox(height: Spacing.xxxl)),
             SliverToBoxAdapter(child: SectionHeader(title: 'Personalization')),
             const SliverToBoxAdapter(child: SizedBox(height: Spacing.md)),
@@ -304,7 +294,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                       _SettingsTile(
                         title: 'Customization',
                         subtitle: 'Theme, input bar, navigation',
-                        icon: Icons.palette_rounded,
+                        icon: AppIcons.palette,
                         trailing: Row(
                           mainAxisSize: MainAxisSize.min,
                           children: [
@@ -325,7 +315,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                             ),
                             SizedBox(width: Spacing.sm),
                             Icon(
-                              Icons.chevron_right_rounded,
+                              AppIcons.chevronRight,
                               size: 20,
                               color: theme.colorScheme.onSurface.withValues(
                                 alpha: 0.5,
@@ -344,7 +334,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                       _SettingsTile(
                         title: 'Voice Input',
                         subtitle: 'Speech-to-text settings',
-                        icon: Icons.mic_rounded,
+                        icon: AppIcons.mic,
                         onTap: () => Navigator.push(
                           context,
                           MaterialPageRoute(
@@ -357,7 +347,6 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                 ),
               ),
             ),
-
             // ── Account ─────────────────────────────────────────
             const SliverToBoxAdapter(child: SizedBox(height: Spacing.xxxl)),
             SliverToBoxAdapter(child: SectionHeader(title: 'Account')),
@@ -374,7 +363,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                     subtitle: appAuth.user != null
                         ? 'Subscription, sign out, and more'
                         : 'Sign in to manage your account',
-                    icon: Icons.person_rounded,
+                    icon: AppIcons.person,
                     trailing: Row(
                       mainAxisSize: MainAxisSize.min,
                       children: [
@@ -389,7 +378,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                           ),
                         SizedBox(width: Spacing.sm),
                         Icon(
-                          Icons.chevron_right_rounded,
+                          AppIcons.chevronRight,
                           size: 20,
                           color: theme.colorScheme.onSurface.withValues(
                             alpha: 0.5,
@@ -405,7 +394,6 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                 ),
               ),
             ),
-
             // ── App ───────────────────────────────────────────────
             const SliverToBoxAdapter(child: SizedBox(height: Spacing.xxxl)),
             SliverToBoxAdapter(child: SectionHeader(title: 'App')),
@@ -419,14 +407,14 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                       _SettingsTile(
                         title: 'Clear Cache',
                         subtitle: 'Delete cached sessions & offline data',
-                        icon: Icons.delete_outline_rounded,
+                        icon: AppIcons.delete,
                         onTap: () => _showClearCacheDialog(context, ref),
                       ),
                       _Divider(),
                       _SettingsTile(
                         title: 'Replay Onboarding',
                         subtitle: 'Re-run the first-launch setup',
-                        icon: Icons.replay_rounded,
+                        icon: AppIcons.replay,
                         onTap: () => _replayOnboarding(context, ref),
                       ),
                     ],
@@ -434,7 +422,6 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                 ),
               ),
             ),
-
             // ── Support ──────────────────────────────────────────
             const SliverToBoxAdapter(child: SizedBox(height: Spacing.xxxl)),
             SliverToBoxAdapter(child: SectionHeader(title: 'Support')),
@@ -448,7 +435,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                       _SettingsTile(
                         title: 'Setup Guide',
                         subtitle: 'How to connect your Mac',
-                        icon: Icons.menu_book_rounded,
+                        icon: AppIcons.menuBook,
                         onTap: () => launchUrl(
                           Uri.parse('https://broskiapp.com/docs/setup'),
                           mode: LaunchMode.externalApplication,
@@ -458,7 +445,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                       _SettingsTile(
                         title: 'Contact Support',
                         subtitle: 'broskiappp@gmail.com',
-                        icon: Icons.help_outline_rounded,
+                        icon: AppIcons.help,
                         onTap: () =>
                             launchUrl(Uri.parse('mailto:broskiappp@gmail.com')),
                       ),
@@ -467,7 +454,6 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                 ),
               ),
             ),
-
             // ── Legal ────────────────────────────────────────────
             const SliverToBoxAdapter(child: SizedBox(height: Spacing.xxl)),
             SliverToBoxAdapter(child: SectionHeader(title: 'Legal')),
@@ -487,19 +473,19 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                     children: [
                       _LinkTile(
                         title: 'Privacy Policy',
-                        icon: Icons.privacy_tip_outlined,
+                        icon: AppIcons.privacy,
                         url: 'https://broskiapp.com/legal/privacy',
                       ),
                       _Divider(),
                       _LinkTile(
                         title: 'Terms of Service',
-                        icon: Icons.description_outlined,
+                        icon: AppIcons.description,
                         url: 'https://broskiapp.com/legal/terms',
                       ),
                       _Divider(),
                       _LinkTile(
                         title: 'EULA',
-                        icon: Icons.gavel_rounded,
+                        icon: AppIcons.gavel,
                         url:
                             'https://www.apple.com/legal/internet-services/itunes/dev/stdeula/',
                       ),
@@ -508,7 +494,6 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                 ),
               ),
             ),
-
             // ── Version (bottom) ─────────────────────────────────
             const SliverToBoxAdapter(child: SizedBox(height: Spacing.xxxl)),
             SliverToBoxAdapter(
@@ -534,7 +519,6 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
       ),
     );
   }
-
   void _replayOnboarding(BuildContext context, WidgetRef ref) {
     showDialog(
       context: context,
@@ -560,7 +544,6 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
       ),
     );
   }
-
   void _showClearCacheDialog(BuildContext context, WidgetRef ref) {
     showDialog(
       context: context,
@@ -595,23 +578,19 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
     );
   }
 }
-
 class _PowerFeaturesTile extends StatelessWidget {
   const _PowerFeaturesTile({
     required this.currentAgent,
     required this.isExpanded,
     required this.onToggle,
   });
-
   final AgentType currentAgent;
   final bool isExpanded;
   final VoidCallback onToggle;
-
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final featureCount = _getFeatureCount(currentAgent);
-
     return InkWell(
       onTap: onToggle,
       borderRadius: Radii.brLg,
@@ -620,7 +599,7 @@ class _PowerFeaturesTile extends StatelessWidget {
         child: Row(
           children: [
             Icon(
-              Icons.bolt_rounded,
+              AppIcons.bolt,
               color: theme.colorScheme.primary,
               size: 22,
             ),
@@ -677,7 +656,7 @@ class _PowerFeaturesTile extends StatelessWidget {
               turns: isExpanded ? 0.5 : 0,
               duration: const Duration(milliseconds: 200),
               child: Icon(
-                Icons.keyboard_arrow_down_rounded,
+                AppIcons.chevronDown,
                 color: theme.colorScheme.onSurface.withValues(alpha: 0.5),
                 size: 24,
               ),
@@ -687,7 +666,6 @@ class _PowerFeaturesTile extends StatelessWidget {
       ),
     );
   }
-
   int _getFeatureCount(AgentType agent) {
     switch (agent) {
       case AgentType.opencode:
@@ -699,12 +677,9 @@ class _PowerFeaturesTile extends StatelessWidget {
     }
   }
 }
-
 class _PowerFeaturesExpandedCard extends StatelessWidget {
   const _PowerFeaturesExpandedCard({required this.currentAgent});
-
   final AgentType currentAgent;
-
   List<Widget> _getPowerFeatures(BuildContext context, AgentType agent) {
     switch (agent) {
       case AgentType.opencode:
@@ -712,7 +687,7 @@ class _PowerFeaturesExpandedCard extends StatelessWidget {
           _SettingsTile(
             title: 'AI Usage',
             subtitle: 'Your AI provider limits & credits',
-            icon: Icons.data_usage_rounded,
+            icon: AppIcons.dataUsage,
             onTap: () => Navigator.push(
               context,
               MaterialPageRoute(
@@ -724,7 +699,7 @@ class _PowerFeaturesExpandedCard extends StatelessWidget {
           _SettingsTile(
             title: 'Terminal Sessions',
             subtitle: 'PTY terminal sessions',
-            icon: Icons.terminal_rounded,
+            icon: AppIcons.terminal,
             onTap: () => Navigator.push(
               context,
               MaterialPageRoute(builder: (_) => const TerminalScreen()),
@@ -734,7 +709,7 @@ class _PowerFeaturesExpandedCard extends StatelessWidget {
           _SettingsTile(
             title: 'Skills',
             subtitle: 'SKILL.md management',
-            icon: Icons.auto_fix_high_rounded,
+            icon: AppIcons.autoFix,
             onTap: () => Navigator.push(
               context,
               MaterialPageRoute(
@@ -746,7 +721,7 @@ class _PowerFeaturesExpandedCard extends StatelessWidget {
           _SettingsTile(
             title: 'Commands',
             subtitle: '.opencode/command/*.md',
-            icon: Icons.code_rounded,
+            icon: AppIcons.code,
             onTap: () => Navigator.push(
               context,
               MaterialPageRoute(builder: (_) => const OpenCodeCommandsScreen()),
@@ -756,7 +731,7 @@ class _PowerFeaturesExpandedCard extends StatelessWidget {
           _SettingsTile(
             title: 'Agents',
             subtitle: '.opencode/agent/*.md',
-            icon: Icons.smart_toy_outlined,
+            icon: AppIcons.agent,
             onTap: () => Navigator.push(
               context,
               MaterialPageRoute(builder: (_) => const OpenCodeAgentsScreen()),
@@ -766,7 +741,7 @@ class _PowerFeaturesExpandedCard extends StatelessWidget {
           _SettingsTile(
             title: 'Plugins',
             subtitle: '.opencode/plugin hooks',
-            icon: Icons.extension_rounded,
+            icon: AppIcons.extension_,
             onTap: () => Navigator.push(
               context,
               MaterialPageRoute(builder: (_) => const OpenCodePluginsScreen()),
@@ -776,7 +751,7 @@ class _PowerFeaturesExpandedCard extends StatelessWidget {
           _SettingsTile(
             title: 'MCP Servers',
             subtitle: 'Model Context Protocol',
-            icon: Icons.dns_rounded,
+            icon: AppIcons.dns,
             onTap: () => Navigator.push(
               context,
               MaterialPageRoute(builder: (_) => const McpServersScreen()),
@@ -786,7 +761,7 @@ class _PowerFeaturesExpandedCard extends StatelessWidget {
           _SettingsTile(
             title: 'Tools',
             subtitle: 'AI tools configuration',
-            icon: Icons.build_rounded,
+            icon: AppIcons.build,
             onTap: () => Navigator.push(
               context,
               MaterialPageRoute(builder: (_) => const ToolsScreen()),
@@ -796,20 +771,19 @@ class _PowerFeaturesExpandedCard extends StatelessWidget {
           _SettingsTile(
             title: 'Permission Rules',
             subtitle: 'Default session permissions',
-            icon: Icons.security_rounded,
+            icon: AppIcons.security,
             onTap: () => Navigator.push(
               context,
               MaterialPageRoute(builder: (_) => const PermissionRulesScreen()),
             ),
           ),
         ];
-
       case AgentType.claudeCode:
         return [
           _SettingsTile(
             title: 'AI Usage',
             subtitle: 'Your AI provider limits & credits',
-            icon: Icons.data_usage_rounded,
+            icon: AppIcons.dataUsage,
             onTap: () => Navigator.push(
               context,
               MaterialPageRoute(
@@ -821,7 +795,7 @@ class _PowerFeaturesExpandedCard extends StatelessWidget {
           _SettingsTile(
             title: 'Terminal Sessions',
             subtitle: 'PTY terminal sessions',
-            icon: Icons.terminal_rounded,
+            icon: AppIcons.terminal,
             onTap: () => Navigator.push(
               context,
               MaterialPageRoute(builder: (_) => const TerminalScreen()),
@@ -831,7 +805,7 @@ class _PowerFeaturesExpandedCard extends StatelessWidget {
           _SettingsTile(
             title: 'Settings',
             subtitle: 'Language, gitignore, channel',
-            icon: Icons.tune_rounded,
+            icon: AppIcons.tune,
             onTap: () => Navigator.push(
               context,
               MaterialPageRoute(
@@ -843,7 +817,7 @@ class _PowerFeaturesExpandedCard extends StatelessWidget {
           _SettingsTile(
             title: 'Skills',
             subtitle: 'SKILL.md management',
-            icon: Icons.auto_fix_high_rounded,
+            icon: AppIcons.autoFix,
             onTap: () => Navigator.push(
               context,
               MaterialPageRoute(
@@ -856,7 +830,7 @@ class _PowerFeaturesExpandedCard extends StatelessWidget {
           _SettingsTile(
             title: 'Commands',
             subtitle: '.claude/commands/*.md',
-            icon: Icons.code_rounded,
+            icon: AppIcons.code,
             onTap: () => Navigator.push(
               context,
               MaterialPageRoute(
@@ -868,7 +842,7 @@ class _PowerFeaturesExpandedCard extends StatelessWidget {
           _SettingsTile(
             title: 'Hooks',
             subtitle: 'hooks.json management',
-            icon: Icons.bolt_rounded,
+            icon: AppIcons.bolt,
             onTap: () => Navigator.push(
               context,
               MaterialPageRoute(builder: (_) => const HooksScreen()),
@@ -878,7 +852,7 @@ class _PowerFeaturesExpandedCard extends StatelessWidget {
           _SettingsTile(
             title: 'MCP',
             subtitle: '.mcp.json configuration',
-            icon: Icons.dns_rounded,
+            icon: AppIcons.dns,
             onTap: () => Navigator.push(
               context,
               MaterialPageRoute(builder: (_) => const ClaudeCodeMcpScreen()),
@@ -888,7 +862,7 @@ class _PowerFeaturesExpandedCard extends StatelessWidget {
           _SettingsTile(
             title: 'Subagents',
             subtitle: 'Custom subagent definitions',
-            icon: Icons.smart_toy_outlined,
+            icon: AppIcons.agent,
             onTap: () => Navigator.push(
               context,
               MaterialPageRoute(builder: (_) => const SubagentsScreen()),
@@ -898,7 +872,7 @@ class _PowerFeaturesExpandedCard extends StatelessWidget {
           _SettingsTile(
             title: 'Custom Tools',
             subtitle: 'HTTP APIs, scripts, and more',
-            icon: Icons.extension_rounded,
+            icon: AppIcons.extension_,
             onTap: () => Navigator.push(
               context,
               MaterialPageRoute(builder: (_) => const CustomToolsScreen()),
@@ -908,20 +882,19 @@ class _PowerFeaturesExpandedCard extends StatelessWidget {
           _SettingsTile(
             title: 'Plugins',
             subtitle: 'Commands, skills, hooks, MCP',
-            icon: Icons.extension_off_rounded,
+            icon: AppIcons.extensionOff,
             onTap: () => Navigator.push(
               context,
               MaterialPageRoute(builder: (_) => const PluginsScreen()),
             ),
           ),
         ];
-
       case AgentType.codex:
         return [
           _SettingsTile(
             title: 'AI Usage',
             subtitle: 'Your AI provider limits & credits',
-            icon: Icons.data_usage_rounded,
+            icon: AppIcons.dataUsage,
             onTap: () => Navigator.push(
               context,
               MaterialPageRoute(
@@ -933,7 +906,7 @@ class _PowerFeaturesExpandedCard extends StatelessWidget {
           _SettingsTile(
             title: 'Terminal Sessions',
             subtitle: 'PTY terminal sessions',
-            icon: Icons.terminal_rounded,
+            icon: AppIcons.terminal,
             onTap: () => Navigator.push(
               context,
               MaterialPageRoute(builder: (_) => const TerminalScreen()),
@@ -943,7 +916,7 @@ class _PowerFeaturesExpandedCard extends StatelessWidget {
           _SettingsTile(
             title: 'Skills',
             subtitle: 'SKILL.md management',
-            icon: Icons.auto_fix_high_rounded,
+            icon: AppIcons.autoFix,
             onTap: () => Navigator.push(
               context,
               MaterialPageRoute(
@@ -955,7 +928,7 @@ class _PowerFeaturesExpandedCard extends StatelessWidget {
           _SettingsTile(
             title: 'Agents',
             subtitle: 'AGENTS.md',
-            icon: Icons.smart_toy_outlined,
+            icon: AppIcons.agent,
             onTap: () => Navigator.push(
               context,
               MaterialPageRoute(builder: (_) => const CodexAgentsScreen()),
@@ -965,7 +938,7 @@ class _PowerFeaturesExpandedCard extends StatelessWidget {
           _SettingsTile(
             title: 'MCP',
             subtitle: 'Servers and config',
-            icon: Icons.dns_rounded,
+            icon: AppIcons.dns,
             onTap: () => Navigator.push(
               context,
               MaterialPageRoute(builder: (_) => const CodexMcpScreen()),
@@ -975,19 +948,17 @@ class _PowerFeaturesExpandedCard extends StatelessWidget {
           _SettingsTile(
             title: 'Apps',
             subtitle: 'Connectors & integrations',
-            icon: Icons.extension_rounded,
+            icon: AppIcons.extension_,
             onTap: () => CxAppsSheet.show(context),
           ),
         ];
     }
   }
-
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final ocTheme = OpenCodeTheme.of(context);
     final features = _getPowerFeatures(context, currentAgent);
-
     return Padding(
       padding: Insets.screenH,
       child: Container(
@@ -1003,12 +974,9 @@ class _PowerFeaturesExpandedCard extends StatelessWidget {
     );
   }
 }
-
 class SectionHeader extends StatelessWidget {
   const SectionHeader({super.key, required this.title});
-
   final String title;
-
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
@@ -1026,10 +994,8 @@ class SectionHeader extends StatelessWidget {
     );
   }
 }
-
 class _SectionDivider extends StatelessWidget {
   const _SectionDivider();
-
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
@@ -1048,23 +1014,18 @@ class _SectionDivider extends StatelessWidget {
     );
   }
 }
-
 class _ProjectPickerContent extends ConsumerStatefulWidget {
   const _ProjectPickerContent({required this.onSelect});
-
   final void Function(ProjectSummary) onSelect;
-
   @override
   ConsumerState<_ProjectPickerContent> createState() =>
       _ProjectPickerContentState();
 }
-
 class _ProjectPickerContentState extends ConsumerState<_ProjectPickerContent> {
   final TextEditingController _search = TextEditingController();
   List<ProjectSummary> _projects = const [];
   bool _loading = true;
   String? _error;
-
   @override
   void initState() {
     super.initState();
@@ -1073,22 +1034,18 @@ class _ProjectPickerContentState extends ConsumerState<_ProjectPickerContent> {
     });
     _load();
   }
-
   @override
   void dispose() {
     _search.dispose();
     super.dispose();
   }
-
   Future<void> _load() async {
     setState(() {
       _loading = true;
       _error = null;
     });
-
     final connection = ref.read(connectionProvider);
     final storage = ref.read(storageServiceProvider);
-
     try {
       List<ProjectSummary> projects;
       if (connection.isOfflineMode) {
@@ -1100,7 +1057,6 @@ class _ProjectPickerContentState extends ConsumerState<_ProjectPickerContent> {
           await storage.cacheProjects(projects);
         }
       }
-
       projects.sort((a, b) {
         final aLast = a.lastOpened ?? 0;
         final bLast = b.lastOpened ?? 0;
@@ -1108,7 +1064,6 @@ class _ProjectPickerContentState extends ConsumerState<_ProjectPickerContent> {
         if (c != 0) return c;
         return a.name.compareTo(b.name);
       });
-
       if (!mounted) return;
       setState(() {
         _projects = projects;
@@ -1135,7 +1090,6 @@ class _ProjectPickerContentState extends ConsumerState<_ProjectPickerContent> {
       }
     }
   }
-
   List<ProjectSummary> get _filtered {
     final q = _search.text.trim().toLowerCase();
     if (q.isEmpty) return _projects;
@@ -1147,12 +1101,10 @@ class _ProjectPickerContentState extends ConsumerState<_ProjectPickerContent> {
         )
         .toList(growable: false);
   }
-
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final items = _filtered;
-
     return Column(
       mainAxisSize: MainAxisSize.min,
       children: [
@@ -1162,7 +1114,7 @@ class _ProjectPickerContentState extends ConsumerState<_ProjectPickerContent> {
             controller: _search,
             decoration: const InputDecoration(
               hintText: 'Search projects',
-              prefixIcon: Icon(Icons.search_rounded),
+              prefixIcon: Icon(AppIcons.search),
             ),
           ),
         ),
@@ -1183,7 +1135,7 @@ class _ProjectPickerContentState extends ConsumerState<_ProjectPickerContent> {
         else
           ...items.map(
             (p) => ListTile(
-              leading: const Icon(Icons.folder_outlined),
+              leading: const Icon(AppIcons.folder),
               title: Text(
                 p.name.isEmpty ? p.path : p.name,
                 maxLines: 1,
@@ -1201,27 +1153,21 @@ class _ProjectPickerContentState extends ConsumerState<_ProjectPickerContent> {
     );
   }
 }
-
 class _ActiveConnectionCard extends ConsumerStatefulWidget {
   const _ActiveConnectionCard({required this.connection});
-
   final BridgeConnectionState connection;
-
   @override
   ConsumerState<_ActiveConnectionCard> createState() =>
       _ActiveConnectionCardState();
 }
-
 class _ActiveConnectionCardState extends ConsumerState<_ActiveConnectionCard> {
   bool _isExpanded = false;
-
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final ocTheme = OpenCodeTheme.of(context);
     final connection = widget.connection;
     final isConnected = connection.isConnected;
-
     return GestureDetector(
       onTap: () => setState(() => _isExpanded = !_isExpanded),
       child: AnimatedContainer(
@@ -1243,7 +1189,7 @@ class _ActiveConnectionCardState extends ConsumerState<_ActiveConnectionCard> {
                     shape: BoxShape.circle,
                   ),
                   child: Icon(
-                    Icons.laptop_mac_rounded,
+                    AppIcons.laptop,
                     color: theme.colorScheme.primary,
                     size: 28,
                   ),
@@ -1270,7 +1216,7 @@ class _ActiveConnectionCardState extends ConsumerState<_ActiveConnectionCard> {
                   turns: _isExpanded ? 0.5 : 0,
                   duration: const Duration(milliseconds: 200),
                   child: Icon(
-                    Icons.keyboard_arrow_down_rounded,
+                    AppIcons.chevronDown,
                     color: theme.colorScheme.onSurface.withValues(alpha: 0.5),
                     size: 24,
                   ),
@@ -1296,7 +1242,7 @@ class _ActiveConnectionCardState extends ConsumerState<_ActiveConnectionCard> {
                           child: _ConnectionStat(
                             label: 'Local IP',
                             value: connection.connection!.localIP ?? 'N/A',
-                            icon: Icons.wifi_rounded,
+                            icon: AppIcons.wifi,
                           ),
                         ),
                         Container(
@@ -1310,7 +1256,7 @@ class _ActiveConnectionCardState extends ConsumerState<_ActiveConnectionCard> {
                           child: _ConnectionStat(
                             label: 'Port',
                             value: '${connection.connection!.port}',
-                            icon: Icons.settings_ethernet_rounded,
+                            icon: AppIcons.settings,
                           ),
                         ),
                       ],
@@ -1332,7 +1278,7 @@ class _ActiveConnectionCardState extends ConsumerState<_ActiveConnectionCard> {
                               child: _ConnectionStat(
                                 label: 'Tailscale IP',
                                 value: connection.connection!.tailscaleIP!,
-                                icon: Icons.vpn_lock_rounded,
+                                icon: AppIcons.vpn,
                               ),
                             ),
                           if (connection.connection!.tailscaleIP != null &&
@@ -1349,7 +1295,7 @@ class _ActiveConnectionCardState extends ConsumerState<_ActiveConnectionCard> {
                               child: _ConnectionStat(
                                 label: 'Latency',
                                 value: '${connection.rttMs}ms',
-                                icon: Icons.speed_rounded,
+                                icon: AppIcons.speed,
                               ),
                             ),
                         ],
@@ -1364,7 +1310,7 @@ class _ActiveConnectionCardState extends ConsumerState<_ActiveConnectionCard> {
                 children: [
                   Expanded(
                     child: _ConnectionActionButton(
-                      icon: Icons.devices_rounded,
+                      icon: AppIcons.devices,
                       label: 'Device Manager',
                       onTap: () => Navigator.push(
                         context,
@@ -1377,7 +1323,7 @@ class _ActiveConnectionCardState extends ConsumerState<_ActiveConnectionCard> {
                   const SizedBox(width: 10),
                   Expanded(
                     child: _ConnectionActionButton(
-                      icon: Icons.link_off_rounded,
+                      icon: AppIcons.unlink,
                       label: 'Disconnect',
                       isDestructive: true,
                       onTap: () =>
@@ -1393,7 +1339,6 @@ class _ActiveConnectionCardState extends ConsumerState<_ActiveConnectionCard> {
     );
   }
 }
-
 /// Compact action button for connection card expanded section
 class _ConnectionActionButton extends StatelessWidget {
   const _ConnectionActionButton({
@@ -1402,19 +1347,16 @@ class _ConnectionActionButton extends StatelessWidget {
     required this.onTap,
     this.isDestructive = false,
   });
-
   final IconData icon;
   final String label;
   final VoidCallback onTap;
   final bool isDestructive;
-
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final color = isDestructive
         ? theme.colorScheme.error
         : theme.colorScheme.primary;
-
     return GestureDetector(
       onTap: onTap,
       child: Container(
@@ -1443,22 +1385,18 @@ class _ConnectionActionButton extends StatelessWidget {
     );
   }
 }
-
 class _ConnectionStat extends StatelessWidget {
   const _ConnectionStat({
     required this.label,
     required this.value,
     required this.icon,
   });
-
   final String label;
   final String value;
   final IconData icon;
-
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-
     return Column(
       children: [
         Icon(icon, color: theme.colorScheme.primary, size: 18),
@@ -1486,18 +1424,14 @@ class _ConnectionStat extends StatelessWidget {
     );
   }
 }
-
 class _SettingsCard extends StatelessWidget {
   const _SettingsCard({required this.child, this.decoration});
-
   final Widget child;
   final BoxDecoration? decoration;
-
   @override
   Widget build(BuildContext context) {
     final ocTheme = OpenCodeTheme.of(context);
     final themeData = Theme.of(context);
-
     return Container(
       decoration:
           decoration ??
@@ -1510,7 +1444,6 @@ class _SettingsCard extends StatelessWidget {
     );
   }
 }
-
 class _SettingsTile extends StatelessWidget {
   const _SettingsTile({
     required this.title,
@@ -1519,17 +1452,14 @@ class _SettingsTile extends StatelessWidget {
     required this.onTap,
     this.trailing,
   });
-
   final String title;
   final String subtitle;
   final IconData icon;
   final VoidCallback onTap;
   final Widget? trailing;
-
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-
     return InkWell(
       onTap: onTap,
       borderRadius: Radii.brLg,
@@ -1564,7 +1494,7 @@ class _SettingsTile extends StatelessWidget {
             ),
             trailing ??
                 Icon(
-                  Icons.chevron_right_rounded,
+                  AppIcons.chevronRight,
                   size: 20,
                   color: theme.colorScheme.onSurface.withValues(alpha: 0.5),
                 ),
@@ -1574,18 +1504,14 @@ class _SettingsTile extends StatelessWidget {
     );
   }
 }
-
 class _LinkTile extends StatelessWidget {
   const _LinkTile({required this.title, required this.icon, required this.url});
-
   final String title;
   final IconData icon;
   final String url;
-
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-
     return InkWell(
       onTap: () =>
           launchUrl(Uri.parse(url), mode: LaunchMode.externalApplication),
@@ -1611,7 +1537,7 @@ class _LinkTile extends StatelessWidget {
               ),
             ),
             Icon(
-              Icons.open_in_new_rounded,
+              AppIcons.openExternal,
               size: 18,
               color: theme.colorScheme.onSurface.withValues(alpha: 0.4),
             ),
@@ -1621,10 +1547,8 @@ class _LinkTile extends StatelessWidget {
     );
   }
 }
-
 class _Divider extends StatelessWidget {
   const _Divider();
-
   @override
   Widget build(BuildContext context) {
     return Divider(

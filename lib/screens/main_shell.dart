@@ -1,3 +1,4 @@
+
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -21,17 +22,14 @@ import '../theme/design_tokens.dart';
 import '../theme/opencode_theme.dart';
 import '../widgets/app_background.dart';
 import '../widgets/glassmorphic_nav_bar.dart';
-
+import 'package:broski/theme/app_icons.dart';
 class MainShell extends ConsumerStatefulWidget {
   const MainShell({super.key});
-
   @override
   ConsumerState<MainShell> createState() => _MainShellState();
 }
-
 class _MainShellState extends ConsumerState<MainShell> {
   int _index = 0;
-
   /// Get the screen ID for the current tab index
   String _getScreenId(int index) {
     switch (index) {
@@ -47,7 +45,6 @@ class _MainShellState extends ConsumerState<MainShell> {
         return AppScreen.projects;
     }
   }
-
   @override
   void initState() {
     super.initState();
@@ -63,14 +60,12 @@ class _MainShellState extends ConsumerState<MainShell> {
           .setView(projectPath: 'global', agent: agent.wireValue);
     });
   }
-
   @override
   Widget build(BuildContext context) {
     final connection = ref.watch(connectionProvider);
     final navBarStyle = ref.watch(navBarStyleProvider);
     final sub = ref.watch(appSubscriptionProvider);
     final theme = Theme.of(context);
-
     // Listen for connection changes and set global view when connected
     ref.listen(connectionProvider, (previous, next) {
       final wasConnected = previous?.status == ConnectionStatus.connected;
@@ -82,7 +77,6 @@ class _MainShellState extends ConsumerState<MainShell> {
             .setView(projectPath: 'global', agent: a.wireValue);
       }
     });
-
     // Keep bridge view agent aligned with selected backend.
     ref.listen<AgentType>(agentTypeProvider, (previous, next) {
       if (previous == next) return;
@@ -93,7 +87,6 @@ class _MainShellState extends ConsumerState<MainShell> {
           .read(bridgeServiceProvider)
           .setView(projectPath: 'global', agent: next.wireValue);
     });
-
     return Scaffold(
       backgroundColor: theme.scaffoldBackgroundColor,
       extendBody: true,
@@ -140,7 +133,6 @@ class _MainShellState extends ConsumerState<MainShell> {
                     ref.read(connectionProvider.notifier).exitOfflineMode(),
               ),
             ),
-
           // Protocol mismatch banner (soft warning; never blocks usage)
           if (!connection.isOfflineMode &&
               connection.hasProtocolMismatch &&
@@ -181,7 +173,6 @@ class _MainShellState extends ConsumerState<MainShell> {
       ),
     );
   }
-
   Widget _buildNavBar(NavBarStyle style, BridgeConnectionState connection) {
     void onTap(int value) {
       setState(() => _index = value);
@@ -195,7 +186,6 @@ class _MainShellState extends ConsumerState<MainShell> {
         ref.read(sessionsRefreshTickProvider.notifier).state++;
       }
     }
-
     switch (style) {
       case NavBarStyle.classic:
         return _ModernBottomNav(currentIndex: _index, onTap: onTap);
@@ -204,10 +194,8 @@ class _MainShellState extends ConsumerState<MainShell> {
     }
   }
 }
-
 class _UpgradeBanner extends ConsumerWidget {
   const _UpgradeBanner();
-
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     return SafeArea(
@@ -238,7 +226,7 @@ class _UpgradeBanner extends ConsumerWidget {
                 mainAxisSize: MainAxisSize.min,
                 children: [
                   Icon(
-                    Icons.workspace_premium_rounded,
+                    AppIcons.subscription,
                     color: ocTheme.warning,
                     size: 16,
                   ),
@@ -253,7 +241,7 @@ class _UpgradeBanner extends ConsumerWidget {
                   ),
                   SizedBox(width: Spacing.xs),
                   Icon(
-                    Icons.chevron_right_rounded,
+                    AppIcons.chevronRight,
                     color: ocTheme.textMuted,
                     size: 18,
                   ),
@@ -265,14 +253,11 @@ class _UpgradeBanner extends ConsumerWidget {
     );
   }
 }
-
 class _UnpaidCenterCta extends ConsumerWidget {
   const _UnpaidCenterCta();
-
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final ocTheme = OpenCodeTheme.of(context);
-
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 28),
       child: Column(
@@ -288,7 +273,7 @@ class _UnpaidCenterCta extends ConsumerWidget {
               border: Border.all(color: ocTheme.borderSubtle),
             ),
             child: Icon(
-              Icons.lock_rounded,
+              AppIcons.lock,
               color: ocTheme.textMuted,
               size: 28,
             ),
@@ -346,16 +331,12 @@ class _UnpaidCenterCta extends ConsumerWidget {
     );
   }
 }
-
 class _OfflineBanner extends StatelessWidget {
   const _OfflineBanner({required this.onExit});
-
   final VoidCallback onExit;
-
   @override
   Widget build(BuildContext context) {
     final ocTheme = OpenCodeTheme.of(context);
-
     // Subtle, minimal offline indicator - not intrusive
     return SafeArea(
       bottom: false,
@@ -372,7 +353,7 @@ class _OfflineBanner extends StatelessWidget {
           child: Row(
             mainAxisSize: MainAxisSize.min,
             children: [
-              Icon(Icons.cloud_off_rounded, color: ocTheme.textMuted, size: 14),
+              Icon(AppIcons.cloudOff, color: ocTheme.textMuted, size: 14),
               const SizedBox(width: 6),
               Text(
                 'Offline',
@@ -383,7 +364,7 @@ class _OfflineBanner extends StatelessWidget {
                 ),
               ),
               SizedBox(width: Spacing.sm),
-              Icon(Icons.refresh_rounded, color: ocTheme.textMuted, size: 14),
+              Icon(AppIcons.refresh, color: ocTheme.textMuted, size: 14),
             ],
           ),
         ),
@@ -391,22 +372,18 @@ class _OfflineBanner extends StatelessWidget {
     );
   }
 }
-
 class _ProtocolBanner extends StatelessWidget {
   const _ProtocolBanner({
     required this.bridgeVersion,
     required this.appVersion,
     required this.onDismiss,
   });
-
   final String bridgeVersion;
   final String appVersion;
   final VoidCallback onDismiss;
-
   @override
   Widget build(BuildContext context) {
     final ocTheme = OpenCodeTheme.of(context);
-
     return SafeArea(
       bottom: false,
       child: Container(
@@ -419,7 +396,7 @@ class _ProtocolBanner extends StatelessWidget {
         ),
         child: Row(
           children: [
-            Icon(Icons.warning_amber_rounded, color: ocTheme.warning, size: 16),
+            Icon(AppIcons.warning, color: ocTheme.warning, size: 16),
             SizedBox(width: Spacing.sm),
             Expanded(
               child: Text(
@@ -435,7 +412,7 @@ class _ProtocolBanner extends StatelessWidget {
             IconButton(
               onPressed: onDismiss,
               icon: Icon(
-                Icons.close_rounded,
+                AppIcons.close,
                 color: ocTheme.textMuted,
                 size: 18,
               ),
@@ -449,16 +426,12 @@ class _ProtocolBanner extends StatelessWidget {
     );
   }
 }
-
 class _ReconnectingBanner extends StatelessWidget {
   const _ReconnectingBanner({required this.onCancel});
-
   final VoidCallback onCancel;
-
   @override
   Widget build(BuildContext context) {
     final ocTheme = OpenCodeTheme.of(context);
-
     return SafeArea(
       bottom: false,
       child: Container(
@@ -507,17 +480,13 @@ class _ReconnectingBanner extends StatelessWidget {
     );
   }
 }
-
 class _ModernBottomNav extends StatelessWidget {
   const _ModernBottomNav({required this.currentIndex, required this.onTap});
-
   final int currentIndex;
   final ValueChanged<int> onTap;
-
   @override
   Widget build(BuildContext context) {
     final ocTheme = OpenCodeTheme.of(context);
-
     return Container(
       margin: const EdgeInsets.fromLTRB(16, 0, 16, 16),
       padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 6),
@@ -540,25 +509,25 @@ class _ModernBottomNav extends StatelessWidget {
         mainAxisAlignment: MainAxisAlignment.spaceAround,
         children: [
           _NavItem(
-            icon: Icons.grid_view_rounded,
+            icon: AppIcons.gridView,
             label: 'Projects',
             isSelected: currentIndex == 0,
             onTap: () => onTap(0),
           ),
           _NavItem(
-            icon: Icons.folder_rounded,
+            icon: AppIcons.folder,
             label: 'Browse',
             isSelected: currentIndex == 1,
             onTap: () => onTap(1),
           ),
           _NavItem(
-            icon: Icons.history_rounded,
+            icon: AppIcons.history,
             label: 'Sessions',
             isSelected: currentIndex == 2,
             onTap: () => onTap(2),
           ),
           _NavItem(
-            icon: Icons.tune_rounded,
+            icon: AppIcons.tune,
             label: 'Settings',
             isSelected: currentIndex == 3,
             onTap: () => onTap(3),
@@ -568,7 +537,6 @@ class _ModernBottomNav extends StatelessWidget {
     );
   }
 }
-
 class _NavItem extends StatelessWidget {
   const _NavItem({
     required this.icon,
@@ -576,16 +544,13 @@ class _NavItem extends StatelessWidget {
     required this.isSelected,
     required this.onTap,
   });
-
   final IconData icon;
   final String label;
   final bool isSelected;
   final VoidCallback onTap;
-
   @override
   Widget build(BuildContext context) {
     final ocTheme = OpenCodeTheme.of(context);
-
     return Expanded(
       child: GestureDetector(
         onTap: onTap,

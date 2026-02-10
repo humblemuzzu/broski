@@ -1,3 +1,4 @@
+
 import 'package:flutter/material.dart';
 import 'package:flutter_markdown/flutter_markdown.dart';
 import '../models/message.dart';
@@ -7,7 +8,7 @@ import '../theme/opencode_theme.dart';
 import 'chat/detail_sheet.dart';
 import 'retry_indicator.dart';
 import 'variant_badge.dart';
-
+import 'package:broski/theme/app_icons.dart';
 class MessageBubble extends StatelessWidget {
   const MessageBubble({
     super.key,
@@ -16,40 +17,32 @@ class MessageBubble extends StatelessWidget {
     this.onResumeFromHere,
     this.onRollback,
   });
-
   final ChatMessage message;
-
   /// Feature 6: Callback for forking from this message
   final void Function(String messageId)? onForkFromHere;
   final void Function(String messageId)? onResumeFromHere;
   final VoidCallback? onRollback;
-
   @override
   Widget build(BuildContext context) {
     final theme = OpenCodeTheme.of(context);
     final isUser = message.role == MessageRole.user;
     final isSystem = message.role == MessageRole.system;
     final isError = message.error != null;
-
     // Error messages get red styling
     if (isError) {
       return _buildErrorMessage(context, theme);
     }
-
     // System messages - skip if just diff data
     if (isSystem && message.text.isEmpty) {
       return const SizedBox.shrink();
     }
-
     // User messages - right aligned, primary accent
     if (isUser) {
       return _buildUserMessage(context, theme);
     }
-
     // AI messages - left aligned, subtle styling with markdown support
     return _buildAssistantMessage(context, theme);
   }
-
   Widget _buildErrorMessage(BuildContext context, OpenCodeTheme theme) {
     return Align(
       alignment: Alignment.centerLeft,
@@ -72,7 +65,7 @@ class MessageBubble extends StatelessWidget {
             Row(
               mainAxisSize: MainAxisSize.min,
               children: [
-                Icon(Icons.error_outline, color: theme.error, size: 18),
+                Icon(AppIcons.error, color: theme.error, size: 18),
                 SizedBox(width: Spacing.sm),
                 Text(
                   message.error ?? 'Error',
@@ -96,7 +89,6 @@ class MessageBubble extends StatelessWidget {
       ),
     );
   }
-
   Widget _buildUserMessage(BuildContext context, OpenCodeTheme theme) {
     return Align(
       alignment: Alignment.centerRight,
@@ -129,7 +121,6 @@ class MessageBubble extends StatelessWidget {
       ),
     );
   }
-
   Widget _buildAssistantMessage(BuildContext context, OpenCodeTheme theme) {
     // Feature 6/CodeX: Long press actions
     return GestureDetector(
@@ -169,7 +160,6 @@ class MessageBubble extends StatelessWidget {
                         child: _buildStreamingCursor(theme),
                       ),
                     ),
-
                   // Variant + retry badges using dedicated widgets
                   if ((message.variant != null &&
                           message.variant!.isNotEmpty) ||
@@ -190,7 +180,6 @@ class MessageBubble extends StatelessWidget {
                         ],
                       ),
                     ),
-
                   // Message text with markdown - full width, no box
                   // Show placeholder only while streaming; avoid persisting empty
                   // bubbles (e.g., tool-only messages) after completion.
@@ -238,7 +227,6 @@ class MessageBubble extends StatelessWidget {
       ),
     );
   }
-
   MarkdownStyleSheet _buildMarkdownStyle(OpenCodeTheme theme) {
     return MarkdownStyleSheet(
       p: TextStyle(
@@ -310,7 +298,6 @@ class MessageBubble extends StatelessWidget {
       blockSpacing: Spacing.lg,
     );
   }
-
   // Feature 6: Show fork menu on long press
   void _showForkMenu(BuildContext context, OpenCodeTheme theme) {
     DetailSheet.show(
@@ -322,7 +309,7 @@ class MessageBubble extends StatelessWidget {
         children: [
           if (onForkFromHere != null)
             ListTile(
-              leading: Icon(Icons.call_split_rounded, color: theme.primary),
+              leading: Icon(AppIcons.callSplit, color: theme.primary),
               title: Text(
                 'Fork from here',
                 style: TextStyle(
@@ -343,7 +330,7 @@ class MessageBubble extends StatelessWidget {
             if (onForkFromHere != null)
               Divider(height: 1, color: theme.borderSubtle),
             ListTile(
-              leading: Icon(Icons.play_arrow_rounded, color: theme.accent),
+              leading: Icon(AppIcons.play, color: theme.accent),
               title: Text(
                 'Resume from here',
                 style: TextStyle(
@@ -365,7 +352,7 @@ class MessageBubble extends StatelessWidget {
             if (onForkFromHere != null || onResumeFromHere != null)
               Divider(height: 1, color: theme.borderSubtle),
             ListTile(
-              leading: Icon(Icons.history_rounded, color: theme.warning),
+              leading: Icon(AppIcons.history, color: theme.warning),
               title: Text(
                 'Rollback…',
                 style: TextStyle(
@@ -387,24 +374,18 @@ class MessageBubble extends StatelessWidget {
       ),
     );
   }
-
   Widget _buildStreamingCursor(OpenCodeTheme theme) =>
       _StreamingCursor(color: theme.info);
 }
-
 class _StreamingCursor extends StatefulWidget {
   const _StreamingCursor({required this.color});
-
   final Color color;
-
   @override
   State<_StreamingCursor> createState() => _StreamingCursorState();
 }
-
 class _StreamingCursorState extends State<_StreamingCursor>
     with SingleTickerProviderStateMixin {
   late final AnimationController _controller;
-
   @override
   void initState() {
     super.initState();
@@ -413,13 +394,11 @@ class _StreamingCursorState extends State<_StreamingCursor>
       duration: const Duration(milliseconds: 800),
     )..repeat();
   }
-
   @override
   void dispose() {
     _controller.dispose();
     super.dispose();
   }
-
   @override
   Widget build(BuildContext context) {
     return AnimatedBuilder(

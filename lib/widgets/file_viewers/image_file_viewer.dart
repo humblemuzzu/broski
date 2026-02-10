@@ -1,3 +1,4 @@
+
 import 'dart:typed_data';
 
 import 'package:flutter/material.dart';
@@ -5,21 +6,18 @@ import '../../theme/design_tokens.dart';
 import 'package:photo_view/photo_view.dart';
 
 import '../../theme/opencode_theme.dart';
-
+import 'package:broski/theme/app_icons.dart';
 class ImageFileViewer extends StatelessWidget {
   const ImageFileViewer({
     super.key,
     required this.data,
     required this.filename,
   });
-
   final Uint8List data;
   final String filename;
-
   @override
   Widget build(BuildContext context) {
     final theme = OpenCodeTheme.of(context);
-
     return Container(
       color: theme.background,
       child: PhotoView(
@@ -41,7 +39,7 @@ class ImageFileViewer extends StatelessWidget {
           child: Column(
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
-              Icon(Icons.broken_image, size: 64, color: theme.error),
+              Icon(AppIcons.imageOff, size: 64, color: theme.error),
               SizedBox(height: Spacing.lg),
               Text(
                 'Failed to load image',

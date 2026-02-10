@@ -1,6 +1,7 @@
 import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
+import 'package:broski/theme/app_icons.dart';
 
 enum ConnectionType { local, hotspot, tailscale, magicDNS, unknown }
 
@@ -91,15 +92,15 @@ class ConnectionMetrics {
   IconData get typeIcon {
     switch (type) {
       case ConnectionType.local:
-        return Icons.wifi;
+        return AppIcons.wifi;
       case ConnectionType.hotspot:
-        return Icons.network_wifi;
+        return AppIcons.network;
       case ConnectionType.tailscale:
-        return Icons.vpn_lock;
+        return AppIcons.vpn;
       case ConnectionType.magicDNS:
-        return Icons.dns;
+        return AppIcons.dns;
       case ConnectionType.unknown:
-        return Icons.signal_cellular_alt;
+        return AppIcons.signal;
     }
   }
 

@@ -1,3 +1,4 @@
+
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -8,60 +9,49 @@ import '../providers/connection_provider.dart';
 import '../providers/onboarding_provider.dart';
 import '../providers/service_providers.dart';
 import '../theme/design_tokens.dart';
-
+import 'package:broski/theme/app_icons.dart';
 /// "System Linked" screen shown after successful QR scan connection.
 /// Displays connection stats and detected projects/sessions/agents.
 class SystemLinkedScreen extends ConsumerStatefulWidget {
   const SystemLinkedScreen({super.key});
-
   @override
   ConsumerState<SystemLinkedScreen> createState() => _SystemLinkedScreenState();
 }
-
 class _SystemLinkedScreenState extends ConsumerState<SystemLinkedScreen>
     with TickerProviderStateMixin {
   late AnimationController _entryController;
   late AnimationController _checkController;
   late AnimationController _pulseController;
-
   // Detected counts
   int _projectCount = 0;
   int _sessionCount = 0;
   int _agentCount = 0;
   bool _loaded = false;
-
   @override
   void initState() {
     super.initState();
-
     _entryController = AnimationController(
       vsync: this,
       duration: const Duration(milliseconds: 800),
     )..forward();
-
     _checkController = AnimationController(
       vsync: this,
       duration: const Duration(milliseconds: 600),
     );
-
     // Subtle pulse on the check circle
     _pulseController = AnimationController(
       vsync: this,
       duration: const Duration(milliseconds: 2000),
     )..repeat(reverse: true);
-
     // Delay check animation for dramatic effect
     Future.delayed(const Duration(milliseconds: 300), () {
       if (mounted) _checkController.forward();
     });
-
     _loadStats();
   }
-
   Future<void> _loadStats() async {
     try {
       final bridge = ref.read(bridgeServiceProvider);
-
       // Load projects from all backends
       var ocProjects = <ProjectSummary>[];
       var ccProjects = <ProjectSummary>[];
@@ -75,7 +65,6 @@ class _SystemLinkedScreenState extends ConsumerState<SystemLinkedScreen>
       try {
         cxProjects = await bridge.cxListProjects();
       } catch (_) {}
-
       // Deduplicate projects by path
       final allProjectPaths = <String>{};
       for (final p in ocProjects) {
@@ -87,7 +76,6 @@ class _SystemLinkedScreenState extends ConsumerState<SystemLinkedScreen>
       for (final p in cxProjects) {
         allProjectPaths.add(p.path);
       }
-
       // Load sessions from all backends
       int totalSessions = 0;
       for (final p in ocProjects) {
@@ -108,7 +96,6 @@ class _SystemLinkedScreenState extends ConsumerState<SystemLinkedScreen>
           totalSessions += threads.length;
         } catch (_) {}
       }
-
       // Load agents (OpenCode only)
       int agentCount = 0;
       for (final p in ocProjects) {
@@ -118,7 +105,6 @@ class _SystemLinkedScreenState extends ConsumerState<SystemLinkedScreen>
           break; // Only need one project's agents
         } catch (_) {}
       }
-
       if (mounted) {
         setState(() {
           _projectCount = allProjectPaths.length;
@@ -133,7 +119,6 @@ class _SystemLinkedScreenState extends ConsumerState<SystemLinkedScreen>
       }
     }
   }
-
   @override
   void dispose() {
     _entryController.dispose();
@@ -141,12 +126,10 @@ class _SystemLinkedScreenState extends ConsumerState<SystemLinkedScreen>
     _pulseController.dispose();
     super.dispose();
   }
-
   void _enterWorkspace() {
     HapticFeedback.mediumImpact();
     ref.read(onboardingProvider.notifier).completeOnboarding();
   }
-
   @override
   Widget build(BuildContext context) {
     final connectionState = ref.watch(connectionProvider);
@@ -158,13 +141,11 @@ class _SystemLinkedScreenState extends ConsumerState<SystemLinkedScreen>
       parent: _checkController,
       curve: Curves.elasticOut,
     );
-
     final ipAddress =
         connectionState.connectedHost ??
         connectionState.connection?.localIP ??
         '—';
     final latency = connectionState.rttMs;
-
     return Scaffold(
       backgroundColor: Colors.black,
       body: SafeArea(
@@ -199,7 +180,7 @@ class _SystemLinkedScreenState extends ConsumerState<SystemLinkedScreen>
                       ),
                       child: const Center(
                         child: Icon(
-                          Icons.check_rounded,
+                          AppIcons.check,
                           color: Color(0xFF2ECB71),
                           size: 44,
                         ),
@@ -339,7 +320,6 @@ class _SystemLinkedScreenState extends ConsumerState<SystemLinkedScreen>
       ),
     );
   }
-
   String _getDeviceName(BridgeConnectionState state) {
     if (state.connectionType == ConnectionType.tailscale ||
         state.connectionType == ConnectionType.magicDNS) {
@@ -347,7 +327,6 @@ class _SystemLinkedScreenState extends ConsumerState<SystemLinkedScreen>
     }
     return 'MacBook Pro';
   }
-
   Widget _divider() {
     return Padding(
       padding: Insets.cardV,
@@ -355,14 +334,11 @@ class _SystemLinkedScreenState extends ConsumerState<SystemLinkedScreen>
     );
   }
 }
-
 class _StatRow extends StatelessWidget {
   const _StatRow({required this.label, required this.value, this.valueColor});
-
   final String label;
   final String value;
   final Color? valueColor;
-
   @override
   Widget build(BuildContext context) {
     return Row(

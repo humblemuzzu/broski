@@ -1,3 +1,4 @@
+
 import 'dart:async';
 import 'dart:math' as math;
 
@@ -8,7 +9,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../providers/stt_provider.dart';
 import '../theme/design_tokens.dart';
 import '../theme/opencode_theme.dart';
-
+import 'package:broski/theme/app_icons.dart';
 /// Shows a modern voice recording overlay and returns the transcribed text.
 ///
 /// Returns null if cancelled or failed.
@@ -33,55 +34,44 @@ Future<String?> showVoiceRecordingSheet(BuildContext context) async {
     },
   );
 }
-
 /// Modern voice recording overlay with waveform visualization
 class _VoiceRecordingOverlay extends ConsumerStatefulWidget {
   const _VoiceRecordingOverlay();
-
   @override
   ConsumerState<_VoiceRecordingOverlay> createState() =>
       _VoiceRecordingOverlayState();
 }
-
 class _VoiceRecordingOverlayState extends ConsumerState<_VoiceRecordingOverlay>
     with TickerProviderStateMixin {
   Timer? _durationTimer;
   Duration _duration = Duration.zero;
   bool _isProcessing = false;
   String? _localError;
-
   // Animation controllers
   late AnimationController _pulseController;
   late AnimationController _waveController;
   late Animation<double> _pulseAnimation;
-
   // Audio levels for waveform (simulated based on recording state)
   final List<double> _audioLevels = List.filled(24, 0.1);
   final math.Random _random = math.Random();
-
   @override
   void initState() {
     super.initState();
-
     _pulseController = AnimationController(
       duration: const Duration(milliseconds: 1500),
       vsync: this,
     )..repeat(reverse: true);
-
     _pulseAnimation = Tween<double>(begin: 0.95, end: 1.05).animate(
       CurvedAnimation(parent: _pulseController, curve: Curves.easeInOut),
     );
-
     _waveController = AnimationController(
       duration: const Duration(milliseconds: 100),
       vsync: this,
     )..addListener(_updateWaveform);
-
     WidgetsBinding.instance.addPostFrameCallback((_) {
       _startRecording();
     });
   }
-
   @override
   void dispose() {
     _durationTimer?.cancel();
@@ -89,12 +79,10 @@ class _VoiceRecordingOverlayState extends ConsumerState<_VoiceRecordingOverlay>
     _waveController.dispose();
     super.dispose();
   }
-
   void _updateWaveform() {
     if (!mounted) return;
     final sttState = ref.read(sttProvider);
     final isRecording = sttState.recordingState == RecordingState.recording;
-
     setState(() {
       for (int i = 0; i < _audioLevels.length; i++) {
         if (isRecording) {
@@ -108,19 +96,14 @@ class _VoiceRecordingOverlayState extends ConsumerState<_VoiceRecordingOverlay>
       }
     });
   }
-
   Future<void> _startRecording() async {
     final notifier = ref.read(sttProvider.notifier);
     final success = await notifier.startRecording();
-
     if (!mounted) return;
-
     if (success) {
       HapticFeedback.mediumImpact();
-
       // Start waveform animation
       _waveController.repeat();
-
       _durationTimer = Timer.periodic(const Duration(milliseconds: 100), (_) {
         if (!mounted) return;
         setState(() {
@@ -136,24 +119,18 @@ class _VoiceRecordingOverlayState extends ConsumerState<_VoiceRecordingOverlay>
       HapticFeedback.heavyImpact();
     }
   }
-
   Future<void> _stopAndTranscribe() async {
     if (_isProcessing) return;
-
     setState(() {
       _isProcessing = true;
       _localError = null;
     });
-
     _durationTimer?.cancel();
     _waveController.stop();
     HapticFeedback.lightImpact();
-
     final notifier = ref.read(sttProvider.notifier);
     final result = await notifier.stopAndTranscribe();
-
     if (!mounted) return;
-
     if (result != null && result.isSuccess && result.text.trim().isNotEmpty) {
       HapticFeedback.heavyImpact();
       Navigator.of(context).pop(result.text.trim());
@@ -165,20 +142,16 @@ class _VoiceRecordingOverlayState extends ConsumerState<_VoiceRecordingOverlay>
       HapticFeedback.heavyImpact();
     }
   }
-
   Future<void> _cancel() async {
     _durationTimer?.cancel();
     _waveController.stop();
     HapticFeedback.lightImpact();
-
     final notifier = ref.read(sttProvider.notifier);
     await notifier.cancelRecording();
-
     if (mounted) {
       Navigator.of(context).pop(null);
     }
   }
-
   @override
   Widget build(BuildContext context) {
     final sttState = ref.watch(sttProvider);
@@ -186,9 +159,7 @@ class _VoiceRecordingOverlayState extends ConsumerState<_VoiceRecordingOverlay>
     final isTranscribing =
         sttState.recordingState == RecordingState.transcribing || _isProcessing;
     final hasError = _localError != null;
-
     final ocTheme = OpenCodeTheme.of(context);
-
     return Scaffold(
       backgroundColor: Colors.transparent,
       body: Center(
@@ -224,14 +195,14 @@ class _VoiceRecordingOverlayState extends ConsumerState<_VoiceRecordingOverlay>
                       children: [
                         // Cancel button
                         _CircleButton(
-                          icon: Icons.close_rounded,
+                          icon: AppIcons.close,
                           onTap: isTranscribing ? null : _cancel,
                           backgroundColor: ocTheme.bgHighlight,
                           iconColor: ocTheme.textMuted,
                         ),
                         // Confirm button
                         _CircleButton(
-                          icon: Icons.check_rounded,
+                          icon: AppIcons.check,
                           onTap: (isRecording && _duration.inMilliseconds > 300)
                               ? _stopAndTranscribe
                               : null,
@@ -245,9 +216,7 @@ class _VoiceRecordingOverlayState extends ConsumerState<_VoiceRecordingOverlay>
                         ),
                       ],
                     ),
-
                     SizedBox(height: Spacing.xxxl),
-
                     // Waveform visualization
                     if (hasError)
                       _ErrorDisplay(
@@ -267,9 +236,7 @@ class _VoiceRecordingOverlayState extends ConsumerState<_VoiceRecordingOverlay>
                         isActive: isRecording,
                         color: ocTheme.primary,
                       ),
-
                     SizedBox(height: Spacing.xxxl),
-
                     // Bottom row: Language indicator
                     Row(
                       children: [
@@ -284,7 +251,7 @@ class _VoiceRecordingOverlayState extends ConsumerState<_VoiceRecordingOverlay>
                             ),
                           ),
                           child: Icon(
-                            Icons.language_rounded,
+                            AppIcons.globe,
                             color: ocTheme.textMuted,
                             size: 18,
                           ),
@@ -346,14 +313,12 @@ class _VoiceRecordingOverlayState extends ConsumerState<_VoiceRecordingOverlay>
       ),
     );
   }
-
   String _formatDuration(Duration d) {
     final minutes = d.inMinutes;
     final seconds = d.inSeconds % 60;
     return '${minutes.toString().padLeft(2, '0')}:${seconds.toString().padLeft(2, '0')}';
   }
 }
-
 /// Circular action button with optional loading state
 class _CircleButton extends StatelessWidget {
   const _CircleButton({
@@ -363,13 +328,11 @@ class _CircleButton extends StatelessWidget {
     required this.iconColor,
     this.isLoading = false,
   });
-
   final IconData icon;
   final VoidCallback? onTap;
   final Color backgroundColor;
   final Color iconColor;
   final bool isLoading;
-
   @override
   Widget build(BuildContext context) {
     return GestureDetector(
@@ -398,7 +361,6 @@ class _CircleButton extends StatelessWidget {
     );
   }
 }
-
 /// Animated waveform visualization with vertical bars
 class _AnimatedWaveform extends StatelessWidget {
   const _AnimatedWaveform({
@@ -406,11 +368,9 @@ class _AnimatedWaveform extends StatelessWidget {
     required this.isActive,
     required this.color,
   });
-
   final List<double> levels;
   final bool isActive;
   final Color color;
-
   @override
   Widget build(BuildContext context) {
     return SizedBox(
@@ -425,7 +385,6 @@ class _AnimatedWaveform extends StatelessWidget {
               1 - (distanceFromCenter / (levels.length / 2)) * 0.3;
           final level = isActive ? levels[index] : 0.15;
           final height = (level * baseHeight * 60).clamp(4.0, 60.0);
-
           return Padding(
             padding: const EdgeInsets.symmetric(horizontal: 2),
             child: AnimatedContainer(
@@ -444,14 +403,11 @@ class _AnimatedWaveform extends StatelessWidget {
     );
   }
 }
-
 /// Error display with retry option
 class _ErrorDisplay extends StatelessWidget {
   const _ErrorDisplay({required this.error, required this.onRetry});
-
   final String error;
   final VoidCallback onRetry;
-
   @override
   Widget build(BuildContext context) {
     return Column(
@@ -471,7 +427,7 @@ class _ErrorDisplay extends StatelessWidget {
           child: Column(
             children: [
               Icon(
-                Icons.error_outline_rounded,
+                AppIcons.error,
                 color: ocTheme.error,
                 size: 32,
               ),
@@ -500,7 +456,7 @@ class _ErrorDisplay extends StatelessWidget {
                     mainAxisSize: MainAxisSize.min,
                     children: [
                       Icon(
-                        Icons.refresh_rounded,
+                        AppIcons.refresh,
                         color: ocTheme.text,
                         size: 18,
                       ),

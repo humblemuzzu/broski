@@ -1,3 +1,4 @@
+
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -9,26 +10,23 @@ import '../providers/service_providers.dart';
 import '../services/convex_service.dart';
 import '../theme/design_tokens.dart';
 import '../theme/opencode_theme.dart';
-
+import 'package:broski/theme/app_icons.dart';
 /// Dedicated account / personal-info screen.
 ///
 /// Contains: profile header, manage subscription, restore purchases,
 /// sign-out, and delete-account.
 class AccountScreen extends ConsumerWidget {
   const AccountScreen({super.key});
-
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final appAuth = ref.watch(appAuthProvider);
     final appSub = ref.watch(appSubscriptionProvider);
     final theme = Theme.of(context);
     final ocTheme = OpenCodeTheme.of(context);
-
     final user = appAuth.user;
     final displayName = user?.displayName ?? 'Broski User';
     final email = user?.email;
     final provider = user?.provider; // 'google' | 'apple'
-
     return Scaffold(
       backgroundColor: ocTheme.background,
       appBar: AppBar(
@@ -43,7 +41,7 @@ class AccountScreen extends ConsumerWidget {
           ),
         ),
         leading: IconButton(
-          icon: Icon(Icons.arrow_back_rounded, color: ocTheme.text),
+          icon: Icon(AppIcons.back, color: ocTheme.text),
           onPressed: () => Navigator.pop(context),
         ),
       ),
@@ -117,9 +115,7 @@ class AccountScreen extends ConsumerWidget {
               ],
             ),
           ),
-
           SizedBox(height: Spacing.xxl),
-
           // ── Subscription section ──────────────────────────────────
           _SectionLabel(title: 'Subscription'),
           const SizedBox(height: 10),
@@ -135,7 +131,7 @@ class AccountScreen extends ConsumerWidget {
                   _Tile(
                     title: 'Manage Subscription',
                     subtitle: 'Billing, plan changes, cancel anytime',
-                    icon: Icons.credit_card_rounded,
+                    icon: AppIcons.creditCard,
                     onTap: () => launchUrl(
                       Uri.parse(appSub.managementUrl!),
                       mode: LaunchMode.externalApplication,
@@ -146,7 +142,7 @@ class AccountScreen extends ConsumerWidget {
                 _Tile(
                   title: 'Restore Purchases',
                   subtitle: 'Reinstalled or switched devices',
-                  icon: Icons.restore_rounded,
+                  icon: AppIcons.restore,
                   onTap: () {
                     if (appSub.isLoading) return;
                     ref
@@ -167,16 +163,12 @@ class AccountScreen extends ConsumerWidget {
               ],
             ),
           ),
-
           SizedBox(height: Spacing.xxl),
-
           // ── Registered Machines ───────────────────────────────────
           _SectionLabel(title: 'Registered Devices'),
           const SizedBox(height: 10),
           const _MachinesSection(),
-
           SizedBox(height: Spacing.xxl),
-
           // ── Sign out ──────────────────────────────────────────────
           _SectionLabel(title: 'Session'),
           const SizedBox(height: 10),
@@ -189,7 +181,7 @@ class AccountScreen extends ConsumerWidget {
             child: _Tile(
               title: 'Sign Out',
               subtitle: 'Remove this device from your account',
-              icon: Icons.logout_rounded,
+              icon: AppIcons.logout,
               onTap: () async {
                 final confirmed = await _confirmSignOut(context);
                 if (!confirmed || !context.mounted) return;
@@ -200,9 +192,7 @@ class AccountScreen extends ConsumerWidget {
               },
             ),
           ),
-
           SizedBox(height: Spacing.xxl),
-
           // ── Danger zone ───────────────────────────────────────────
           _SectionLabel(title: 'Danger Zone'),
           const SizedBox(height: 10),
@@ -217,21 +207,18 @@ class AccountScreen extends ConsumerWidget {
             child: _Tile(
               title: 'Delete Account',
               subtitle: 'Permanently delete all your data',
-              icon: Icons.delete_forever_rounded,
+              icon: AppIcons.delete,
               iconColor: theme.colorScheme.error,
               titleColor: theme.colorScheme.error,
               onTap: () => _showDeleteAccountDialog(context),
             ),
           ),
-
           const SizedBox(height: 60),
         ],
       ),
     );
   }
-
   // ── Helpers ──────────────────────────────────────────────────────
-
   String _initials(String name, String? email) {
     if (name.isNotEmpty && name != 'Broski User') {
       final parts = name.trim().split(RegExp(r'\s+'));
@@ -245,7 +232,6 @@ class AccountScreen extends ConsumerWidget {
     }
     return 'B';
   }
-
   Future<bool> _confirmSignOut(BuildContext context) async {
     return await showDialog<bool>(
           context: context,
@@ -268,7 +254,6 @@ class AccountScreen extends ConsumerWidget {
         ) ??
         false;
   }
-
   void _showDeleteAccountDialog(BuildContext context) {
     showDialog(
       context: context,
@@ -277,13 +262,10 @@ class AccountScreen extends ConsumerWidget {
     );
   }
 }
-
 // ─── Shared widgets ─────────────────────────────────────────────────
-
 class _SignInBadge extends StatelessWidget {
   const _SignInBadge({this.provider});
   final String? provider;
-
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
@@ -293,10 +275,9 @@ class _SignInBadge extends StatelessWidget {
       _ => 'Signed in',
     };
     final icon = switch (provider) {
-      'apple' => Icons.apple_rounded,
-      _ => Icons.verified_user_outlined,
+      'apple' => AppIcons.apple,
+      _ => AppIcons.shieldCheck,
     };
-
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
       decoration: BoxDecoration(
@@ -321,11 +302,9 @@ class _SignInBadge extends StatelessWidget {
     );
   }
 }
-
 class _SectionLabel extends StatelessWidget {
   const _SectionLabel({required this.title});
   final String title;
-
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
@@ -340,7 +319,6 @@ class _SectionLabel extends StatelessWidget {
     );
   }
 }
-
 class _Tile extends StatelessWidget {
   const _Tile({
     required this.title,
@@ -350,14 +328,12 @@ class _Tile extends StatelessWidget {
     this.iconColor,
     this.titleColor,
   });
-
   final String title;
   final String subtitle;
   final IconData icon;
   final VoidCallback onTap;
   final Color? iconColor;
   final Color? titleColor;
-
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
@@ -394,7 +370,7 @@ class _Tile extends StatelessWidget {
               ),
             ),
             Icon(
-              Icons.chevron_right_rounded,
+              AppIcons.chevronRight,
               size: 20,
               color: theme.colorScheme.onSurface.withValues(alpha: 0.5),
             ),
@@ -404,10 +380,8 @@ class _Tile extends StatelessWidget {
     );
   }
 }
-
 class _TileDivider extends StatelessWidget {
   const _TileDivider();
-
   @override
   Widget build(BuildContext context) {
     return Divider(
@@ -419,33 +393,26 @@ class _TileDivider extends StatelessWidget {
     );
   }
 }
-
 // ─── Machines section ───────────────────────────────────────────────
-
 class _MachinesSection extends ConsumerStatefulWidget {
   const _MachinesSection();
-
   @override
   ConsumerState<_MachinesSection> createState() => _MachinesSectionState();
 }
-
 class _MachinesSectionState extends ConsumerState<_MachinesSection> {
   MachinesResponse? _machines;
   bool _loading = true;
   String? _error;
-
   @override
   void initState() {
     super.initState();
     _loadMachines();
   }
-
   Future<void> _loadMachines() async {
     setState(() {
       _loading = true;
       _error = null;
     });
-
     try {
       final storage = ref.read(storageServiceProvider);
       final convex = ref.read(convexServiceProvider);
@@ -457,7 +424,6 @@ class _MachinesSectionState extends ConsumerState<_MachinesSection> {
         });
         return;
       }
-
       final machines = await convex.getMachines(sessionToken: token);
       if (mounted) {
         setState(() {
@@ -474,7 +440,6 @@ class _MachinesSectionState extends ConsumerState<_MachinesSection> {
       }
     }
   }
-
   Future<void> _revokeMachine(MachineInfo machine) async {
     final confirmed = await showDialog<bool>(
       context: context,
@@ -497,15 +462,12 @@ class _MachinesSectionState extends ConsumerState<_MachinesSection> {
         ],
       ),
     );
-
     if (confirmed != true || !mounted) return;
-
     try {
       final storage = ref.read(storageServiceProvider);
       final convex = ref.read(convexServiceProvider);
       final token = await storage.getAppSessionToken();
       if (token == null) return;
-
       await convex.revokeMachine(sessionToken: token, machineId: machine.id);
       HapticFeedback.mediumImpact();
       _loadMachines();
@@ -520,12 +482,10 @@ class _MachinesSectionState extends ConsumerState<_MachinesSection> {
       }
     }
   }
-
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final ocTheme = OpenCodeTheme.of(context);
-
     if (_loading) {
       return Container(
         padding: Insets.cardLg,
@@ -543,7 +503,6 @@ class _MachinesSectionState extends ConsumerState<_MachinesSection> {
         ),
       );
     }
-
     if (_error != null) {
       return Container(
         padding: Insets.card,
@@ -567,7 +526,6 @@ class _MachinesSectionState extends ConsumerState<_MachinesSection> {
         ),
       );
     }
-
     final machines = _machines;
     if (machines == null || machines.machines.isEmpty) {
       return Container(
@@ -579,7 +537,7 @@ class _MachinesSectionState extends ConsumerState<_MachinesSection> {
         ),
         child: Row(
           children: [
-            Icon(Icons.devices_rounded, color: ocTheme.textMuted),
+            Icon(AppIcons.devices, color: ocTheme.textMuted),
             SizedBox(width: Spacing.md),
             Expanded(
               child: Text(
@@ -591,7 +549,6 @@ class _MachinesSectionState extends ConsumerState<_MachinesSection> {
         ),
       );
     }
-
     return Container(
       decoration: BoxDecoration(
         color: theme.colorScheme.surface.withValues(alpha: 0.5),
@@ -606,7 +563,7 @@ class _MachinesSectionState extends ConsumerState<_MachinesSection> {
             padding: const EdgeInsets.fromLTRB(16, 12, 16, 8),
             child: Row(
               children: [
-                Icon(Icons.computer_rounded, size: 18, color: ocTheme.text),
+                Icon(AppIcons.computer, size: 18, color: ocTheme.text),
                 SizedBox(width: Spacing.sm),
                 Text(
                   '${machines.machines.length} of ${machines.maxMachines} devices',
@@ -620,7 +577,7 @@ class _MachinesSectionState extends ConsumerState<_MachinesSection> {
                 GestureDetector(
                   onTap: _loadMachines,
                   child: Icon(
-                    Icons.refresh_rounded,
+                    AppIcons.refresh,
                     size: 18,
                     color: ocTheme.textMuted,
                   ),
@@ -654,21 +611,17 @@ class _MachinesSectionState extends ConsumerState<_MachinesSection> {
     );
   }
 }
-
 class _MachineRow extends StatelessWidget {
   const _MachineRow({
     required this.machine,
     required this.onRevoke,
   });
-
   final MachineInfo machine;
   final VoidCallback onRevoke;
-
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final ocTheme = OpenCodeTheme.of(context);
-
     return Padding(
       padding: Insets.section,
       child: Row(
@@ -681,7 +634,7 @@ class _MachineRow extends StatelessWidget {
               borderRadius: Radii.brMd,
             ),
             child: Icon(
-              Icons.laptop_mac_rounded,
+              AppIcons.laptop,
               color: theme.colorScheme.primary,
               size: 20,
             ),
@@ -713,7 +666,7 @@ class _MachineRow extends StatelessWidget {
           IconButton(
             onPressed: onRevoke,
             icon: Icon(
-              Icons.remove_circle_outline_rounded,
+              AppIcons.remove,
               color: theme.colorScheme.error.withValues(alpha: 0.7),
               size: 22,
             ),
@@ -724,24 +677,19 @@ class _MachineRow extends StatelessWidget {
     );
   }
 }
-
 // ─── Delete account dialog (moved from settings_screen) ─────────────
-
 class _DeleteAccountDialog extends ConsumerStatefulWidget {
   const _DeleteAccountDialog();
-
   @override
   ConsumerState<_DeleteAccountDialog> createState() =>
       _DeleteAccountDialogState();
 }
-
 class _DeleteAccountDialogState extends ConsumerState<_DeleteAccountDialog> {
   final _confirmController = TextEditingController();
   final _feedbackController = TextEditingController();
   String? _selectedReason;
   bool _isDeleting = false;
   String? _error;
-
   static const _reasons = [
     'No longer need it',
     'Too expensive',
@@ -750,24 +698,20 @@ class _DeleteAccountDialogState extends ConsumerState<_DeleteAccountDialog> {
     'Technical issues',
     'Other',
   ];
-
   bool get _canDelete =>
       _confirmController.text.trim().toUpperCase() == 'DELETE';
-
   @override
   void dispose() {
     _confirmController.dispose();
     _feedbackController.dispose();
     super.dispose();
   }
-
   Future<void> _performDelete() async {
     if (!_canDelete || _isDeleting) return;
     setState(() {
       _isDeleting = true;
       _error = null;
     });
-
     try {
       await ref.read(appSubscriptionProvider.notifier).signOut();
       await ref
@@ -778,7 +722,6 @@ class _DeleteAccountDialogState extends ConsumerState<_DeleteAccountDialog> {
                 ? _feedbackController.text.trim()
                 : null,
           );
-
       if (mounted) {
         Navigator.of(context).pop();
         Navigator.of(context).popUntil((route) => route.isFirst);
@@ -792,15 +735,13 @@ class _DeleteAccountDialogState extends ConsumerState<_DeleteAccountDialog> {
       }
     }
   }
-
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-
     return AlertDialog(
       title: Row(
         children: [
-          Icon(Icons.warning_amber_rounded, color: theme.colorScheme.error),
+          Icon(AppIcons.warning, color: theme.colorScheme.error),
           SizedBox(width: Spacing.sm),
           Text(
             'Delete Account',
@@ -933,7 +874,6 @@ class _DeleteAccountDialogState extends ConsumerState<_DeleteAccountDialog> {
       ],
     );
   }
-
   Widget _bulletPoint(String text, ThemeData theme) {
     return Padding(
       padding: const EdgeInsets.only(left: 8, bottom: 4),

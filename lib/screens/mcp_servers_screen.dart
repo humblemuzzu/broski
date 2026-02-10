@@ -1,3 +1,4 @@
+
 import 'package:flutter/material.dart';
 import '../theme/app_typography.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -14,7 +15,7 @@ import '../theme/opencode_theme.dart';
 import '../widgets/chat/detail_sheet.dart';
 import '../widgets/connection_indicator.dart';
 import 'opencode_mcp_config_screen.dart';
-
+import 'package:broski/theme/app_icons.dart';
 /// MCP (Model Context Protocol) Servers Management Screen
 ///
 /// Allows users to view, connect, and disconnect MCP servers that provide
@@ -22,11 +23,9 @@ import 'opencode_mcp_config_screen.dart';
 /// to browse MCP resources (SDK v1.1.1+).
 class McpServersScreen extends ConsumerStatefulWidget {
   const McpServersScreen({super.key});
-
   @override
   ConsumerState<McpServersScreen> createState() => _McpServersScreenState();
 }
-
 class _McpServersScreenState extends ConsumerState<McpServersScreen>
     with SingleTickerProviderStateMixin {
   late TabController _tabController;
@@ -36,7 +35,6 @@ class _McpServersScreenState extends ConsumerState<McpServersScreen>
   bool _isLoadingResources = false;
   String? _error;
   String? _resourcesError;
-
   @override
   void initState() {
     super.initState();
@@ -44,14 +42,12 @@ class _McpServersScreenState extends ConsumerState<McpServersScreen>
     _tabController.addListener(_onTabChanged);
     _loadServers();
   }
-
   @override
   void dispose() {
     _tabController.removeListener(_onTabChanged);
     _tabController.dispose();
     super.dispose();
   }
-
   void _onTabChanged() {
     if (_tabController.index == 1 &&
         _resources.isEmpty &&
@@ -59,16 +55,13 @@ class _McpServersScreenState extends ConsumerState<McpServersScreen>
       _loadResources();
     }
   }
-
   Future<void> _loadServers() async {
     setState(() {
       _isLoading = true;
       _error = null;
     });
-
     final storage = StorageService();
     final connection = ref.read(connectionProvider);
-
     // If offline, use cached data
     if (connection.isOfflineMode) {
       final cached = await storage.getCachedMcpServers();
@@ -83,19 +76,16 @@ class _McpServersScreenState extends ConsumerState<McpServersScreen>
       }
       return;
     }
-
     try {
       final bridge = ref.read(bridgeServiceProvider);
       final selection = ref.read(selectionProvider);
       final servers = await bridge.getMcpStatus(
         projectPath: selection.project?.path,
       );
-
       // Cache for offline use
       if (servers.isNotEmpty) {
         await storage.cacheMcpServers(servers);
       }
-
       if (mounted) {
         setState(() {
           _servers = servers;
@@ -120,15 +110,12 @@ class _McpServersScreenState extends ConsumerState<McpServersScreen>
       }
     }
   }
-
   Future<void> _loadResources() async {
     setState(() {
       _isLoadingResources = true;
       _resourcesError = null;
     });
-
     final connection = ref.read(connectionProvider);
-
     // Resources not available offline
     if (connection.isOfflineMode) {
       if (mounted) {
@@ -139,14 +126,12 @@ class _McpServersScreenState extends ConsumerState<McpServersScreen>
       }
       return;
     }
-
     try {
       final bridge = ref.read(bridgeServiceProvider);
       final selection = ref.read(selectionProvider);
       final resources = await bridge.getMcpResources(
         projectPath: selection.project?.path,
       );
-
       if (mounted) {
         setState(() {
           _resources = resources;
@@ -162,7 +147,6 @@ class _McpServersScreenState extends ConsumerState<McpServersScreen>
       }
     }
   }
-
   Future<void> _connectServer(String name) async {
     try {
       final bridge = ref.read(bridgeServiceProvider);
@@ -171,7 +155,6 @@ class _McpServersScreenState extends ConsumerState<McpServersScreen>
         name,
         projectPath: selection.project?.path,
       );
-
       if (success && mounted) {
         final theme = OpenCodeTheme.of(context);
         ScaffoldMessenger.of(context).showSnackBar(
@@ -199,7 +182,6 @@ class _McpServersScreenState extends ConsumerState<McpServersScreen>
       }
     }
   }
-
   Future<void> _disconnectServer(String name) async {
     try {
       final bridge = ref.read(bridgeServiceProvider);
@@ -208,7 +190,6 @@ class _McpServersScreenState extends ConsumerState<McpServersScreen>
         name,
         projectPath: selection.project?.path,
       );
-
       if (success && mounted) {
         final theme = OpenCodeTheme.of(context);
         ScaffoldMessenger.of(context).showSnackBar(
@@ -236,17 +217,14 @@ class _McpServersScreenState extends ConsumerState<McpServersScreen>
       }
     }
   }
-
   @override
   Widget build(BuildContext context) {
     final theme = OpenCodeTheme.of(context);
     final connection = ref.watch(connectionProvider);
     final agentType = ref.watch(agentTypeProvider);
-
     final agentAvailable =
         connection.backends?.forType(agentType).available ??
         (agentType == AgentType.opencode ? connection.opencodeRunning : true);
-
     return Scaffold(
       backgroundColor: theme.background,
       appBar: AppBar(
@@ -266,13 +244,13 @@ class _McpServersScreenState extends ConsumerState<McpServersScreen>
           unselectedLabelColor: theme.textMuted,
           indicatorColor: theme.primary,
           tabs: const [
-            Tab(text: 'Servers', icon: Icon(Icons.extension, size: 18)),
-            Tab(text: 'Resources', icon: Icon(Icons.folder_outlined, size: 18)),
+            Tab(text: 'Servers', icon: Icon(AppIcons.extension_, size: 18)),
+            Tab(text: 'Resources', icon: Icon(AppIcons.folder, size: 18)),
           ],
         ),
         actions: [
           IconButton(
-            icon: Icon(Icons.settings_rounded, color: theme.text),
+            icon: Icon(AppIcons.settings, color: theme.text),
             tooltip: 'Edit MCP config',
             onPressed: () => Navigator.push(
               context,
@@ -282,7 +260,7 @@ class _McpServersScreenState extends ConsumerState<McpServersScreen>
             ),
           ),
           IconButton(
-            icon: Icon(Icons.refresh, color: theme.text),
+            icon: Icon(AppIcons.refresh, color: theme.text),
             onPressed: () {
               if (_tabController.index == 0) {
                 _loadServers();
@@ -309,18 +287,16 @@ class _McpServersScreenState extends ConsumerState<McpServersScreen>
       ),
     );
   }
-
   Widget _buildServersTab(OpenCodeTheme theme) {
     if (_isLoading) {
       return Center(child: CircularProgressIndicator(color: theme.primary));
     }
-
     if (_error != null) {
       return Center(
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            Icon(Icons.error_outline, size: 48, color: theme.error),
+            Icon(AppIcons.error, size: 48, color: theme.error),
             SizedBox(height: Spacing.lg),
             Text(
               'Failed to load MCP servers',
@@ -345,13 +321,12 @@ class _McpServersScreenState extends ConsumerState<McpServersScreen>
         ),
       );
     }
-
     if (_servers.isEmpty) {
       return Center(
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            Icon(Icons.extension_off, size: 64, color: theme.textMuted),
+            Icon(AppIcons.extensionOff, size: 64, color: theme.textMuted),
             SizedBox(height: Spacing.xl),
             Text(
               'No MCP Servers',
@@ -370,7 +345,7 @@ class _McpServersScreenState extends ConsumerState<McpServersScreen>
             SizedBox(height: Spacing.xxl),
             OutlinedButton.icon(
               onPressed: _loadServers,
-              icon: const Icon(Icons.refresh, size: 20),
+              icon: const Icon(AppIcons.refresh, size: 20),
               label: const Text('Refresh'),
               style: OutlinedButton.styleFrom(
                 foregroundColor: theme.text,
@@ -385,7 +360,6 @@ class _McpServersScreenState extends ConsumerState<McpServersScreen>
         ),
       );
     }
-
     final serverList = _servers.entries.toList();
     serverList.sort((a, b) {
       // Sort by connection status (connected first)
@@ -394,7 +368,6 @@ class _McpServersScreenState extends ConsumerState<McpServersScreen>
       }
       return a.key.compareTo(b.key);
     });
-
     return RefreshIndicator(
       onRefresh: _loadServers,
       color: theme.primary,
@@ -414,18 +387,16 @@ class _McpServersScreenState extends ConsumerState<McpServersScreen>
       ),
     );
   }
-
   Widget _buildResourcesTab(OpenCodeTheme theme) {
     if (_isLoadingResources) {
       return Center(child: CircularProgressIndicator(color: theme.primary));
     }
-
     if (_resourcesError != null) {
       return Center(
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            Icon(Icons.error_outline, size: 48, color: theme.error),
+            Icon(AppIcons.error, size: 48, color: theme.error),
             SizedBox(height: Spacing.lg),
             Text(
               'Failed to load MCP resources',
@@ -450,13 +421,12 @@ class _McpServersScreenState extends ConsumerState<McpServersScreen>
         ),
       );
     }
-
     if (_resources.isEmpty) {
       return Center(
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            Icon(Icons.folder_off_outlined, size: 64, color: theme.textMuted),
+            Icon(AppIcons.folderOff, size: 64, color: theme.textMuted),
             SizedBox(height: Spacing.xl),
             Text(
               'No MCP Resources',
@@ -475,7 +445,7 @@ class _McpServersScreenState extends ConsumerState<McpServersScreen>
             SizedBox(height: Spacing.xxl),
             OutlinedButton.icon(
               onPressed: _loadResources,
-              icon: const Icon(Icons.refresh, size: 20),
+              icon: const Icon(AppIcons.refresh, size: 20),
               label: const Text('Refresh'),
               style: OutlinedButton.styleFrom(
                 foregroundColor: theme.text,
@@ -490,14 +460,12 @@ class _McpServersScreenState extends ConsumerState<McpServersScreen>
         ),
       );
     }
-
     // Group resources by client (MCP server)
     final resourcesByClient = <String, List<MapEntry<String, McpResource>>>{};
     for (final entry in _resources.entries) {
       final client = entry.value.client;
       resourcesByClient.putIfAbsent(client, () => []).add(entry);
     }
-
     return RefreshIndicator(
       onRefresh: _loadResources,
       color: theme.primary,
@@ -515,7 +483,6 @@ class _McpServersScreenState extends ConsumerState<McpServersScreen>
       ),
     );
   }
-
   void _showResourceDetails(McpResource resource) {
     final sheetTheme = OpenCodeTheme.of(context);
     DetailSheet.show(
@@ -552,14 +519,11 @@ class _McpServersScreenState extends ConsumerState<McpServersScreen>
               ],
             ),
             SizedBox(height: Spacing.xl),
-
             // URI
             _DetailRow(label: 'URI', value: resource.uri),
-
             // MIME Type
             if (resource.mimeType != null)
               _DetailRow(label: 'Type', value: resource.mimeType!),
-
             // Description
             if (resource.description != null &&
                 resource.description!.isNotEmpty) ...[
@@ -583,16 +547,14 @@ class _McpServersScreenState extends ConsumerState<McpServersScreen>
       ),
     );
   }
-
   IconData _getResourceIcon(String? mimeType) {
-    if (mimeType == null) return Icons.folder_outlined;
-    if (mimeType.startsWith('text/')) return Icons.description_outlined;
-    if (mimeType.startsWith('image/')) return Icons.image_outlined;
-    if (mimeType.startsWith('application/json')) return Icons.data_object;
-    if (mimeType.contains('directory')) return Icons.folder_outlined;
-    return Icons.insert_drive_file_outlined;
+    if (mimeType == null) return AppIcons.folder;
+    if (mimeType.startsWith('text/')) return AppIcons.description;
+    if (mimeType.startsWith('image/')) return AppIcons.image;
+    if (mimeType.startsWith('application/json')) return AppIcons.dataObject;
+    if (mimeType.contains('directory')) return AppIcons.folder;
+    return AppIcons.file;
   }
-
   void _showServerDetails(String name, McpServerStatus status) {
     final sheetTheme = OpenCodeTheme.of(context);
     DetailSheet.show(
@@ -617,7 +579,7 @@ class _McpServersScreenState extends ConsumerState<McpServersScreen>
                     borderRadius: Radii.brMd,
                   ),
                   child: Icon(
-                    Icons.extension,
+                    AppIcons.extension_,
                     color: _getStatusColor(status.status, sheetTheme),
                     size: 24,
                   ),
@@ -648,7 +610,6 @@ class _McpServersScreenState extends ConsumerState<McpServersScreen>
               ],
             ),
             SizedBox(height: Spacing.xxl),
-
             // Tools
             if (status.tools.isNotEmpty) ...[
               Text(
@@ -667,14 +628,13 @@ class _McpServersScreenState extends ConsumerState<McpServersScreen>
                     .map(
                       (tool) => _CapabilityChip(
                         label: tool,
-                        icon: Icons.build_outlined,
+                        icon: AppIcons.build,
                       ),
                     )
                     .toList(),
               ),
               SizedBox(height: Spacing.lg),
             ],
-
             // Resources
             if (status.resources.isNotEmpty) ...[
               Text(
@@ -693,14 +653,13 @@ class _McpServersScreenState extends ConsumerState<McpServersScreen>
                     .map(
                       (resource) => _CapabilityChip(
                         label: resource,
-                        icon: Icons.folder_outlined,
+                        icon: AppIcons.folder,
                       ),
                     )
                     .toList(),
               ),
               SizedBox(height: Spacing.lg),
             ],
-
             // Error message
             if (status.error != null && status.error!.isNotEmpty) ...[
               Container(
@@ -715,7 +674,7 @@ class _McpServersScreenState extends ConsumerState<McpServersScreen>
                 child: Row(
                   children: [
                     Icon(
-                      Icons.error_outline,
+                      AppIcons.error,
                       color: sheetTheme.error,
                       size: 20,
                     ),
@@ -731,9 +690,7 @@ class _McpServersScreenState extends ConsumerState<McpServersScreen>
               ),
               SizedBox(height: Spacing.lg),
             ],
-
             SizedBox(height: Spacing.sm),
-
             // Action button
             SizedBox(
               width: double.infinity,
@@ -743,7 +700,7 @@ class _McpServersScreenState extends ConsumerState<McpServersScreen>
                         Navigator.pop(context);
                         _disconnectServer(name);
                       },
-                      icon: const Icon(Icons.link_off, size: 18),
+                      icon: const Icon(AppIcons.unlink, size: 18),
                       label: const Text('Disconnect'),
                       style: OutlinedButton.styleFrom(
                         foregroundColor: sheetTheme.error,
@@ -756,7 +713,7 @@ class _McpServersScreenState extends ConsumerState<McpServersScreen>
                         Navigator.pop(context);
                         _connectServer(name);
                       },
-                      icon: const Icon(Icons.link, size: 18),
+                      icon: const Icon(AppIcons.link, size: 18),
                       label: const Text('Connect'),
                       style: ElevatedButton.styleFrom(
                         backgroundColor: sheetTheme.primary,
@@ -770,7 +727,6 @@ class _McpServersScreenState extends ConsumerState<McpServersScreen>
       ),
     );
   }
-
   Color _getStatusColor(McpConnectionStatus status, OpenCodeTheme theme) {
     switch (status) {
       case McpConnectionStatus.connected:
@@ -788,7 +744,6 @@ class _McpServersScreenState extends ConsumerState<McpServersScreen>
     }
   }
 }
-
 class _McpServerTile extends StatelessWidget {
   const _McpServerTile({
     required this.name,
@@ -797,13 +752,11 @@ class _McpServerTile extends StatelessWidget {
     required this.onDisconnect,
     required this.onTap,
   });
-
   final String name;
   final McpServerStatus status;
   final VoidCallback onConnect;
   final VoidCallback onDisconnect;
   final VoidCallback onTap;
-
   @override
   Widget build(BuildContext context) {
     final theme = OpenCodeTheme.of(context);
@@ -838,7 +791,7 @@ class _McpServerTile extends StatelessWidget {
                     children: [
                       Center(
                         child: Icon(
-                          Icons.extension,
+                          AppIcons.extension_,
                           color: _getStatusColor(status.status, theme),
                           size: 24,
                         ),
@@ -908,13 +861,13 @@ class _McpServerTile extends StatelessWidget {
                 if (status.isConnected)
                   IconButton(
                     onPressed: onDisconnect,
-                    icon: Icon(Icons.link_off, color: theme.error),
+                    icon: Icon(AppIcons.unlink, color: theme.error),
                     tooltip: 'Disconnect',
                   )
                 else if (!status.isConnecting)
                   IconButton(
                     onPressed: onConnect,
-                    icon: Icon(Icons.link, color: theme.primary),
+                    icon: Icon(AppIcons.link, color: theme.primary),
                     tooltip: 'Connect',
                   )
                 else
@@ -933,7 +886,6 @@ class _McpServerTile extends StatelessWidget {
       ),
     );
   }
-
   Color _getStatusColor(McpConnectionStatus status, OpenCodeTheme theme) {
     switch (status) {
       case McpConnectionStatus.connected:
@@ -951,13 +903,10 @@ class _McpServerTile extends StatelessWidget {
     }
   }
 }
-
 class _CapabilityChip extends StatelessWidget {
   const _CapabilityChip({required this.label, required this.icon});
-
   final String label;
   final IconData icon;
-
   @override
   Widget build(BuildContext context) {
     final theme = OpenCodeTheme.of(context);
@@ -986,7 +935,6 @@ class _CapabilityChip extends StatelessWidget {
     );
   }
 }
-
 /// Widget to display a group of MCP resources from a single server
 class _McpResourceGroup extends StatelessWidget {
   const _McpResourceGroup({
@@ -994,11 +942,9 @@ class _McpResourceGroup extends StatelessWidget {
     required this.resources,
     required this.onResourceTap,
   });
-
   final String clientName;
   final List<MapEntry<String, McpResource>> resources;
   final void Function(McpResource) onResourceTap;
-
   @override
   Widget build(BuildContext context) {
     final theme = OpenCodeTheme.of(context);
@@ -1017,7 +963,7 @@ class _McpResourceGroup extends StatelessWidget {
             padding: Insets.card,
             child: Row(
               children: [
-                Icon(Icons.extension, color: theme.primary, size: 20),
+                Icon(AppIcons.extension_, color: theme.primary, size: 20),
                 SizedBox(width: Spacing.sm),
                 Text(
                   clientName,
@@ -1062,24 +1008,20 @@ class _McpResourceGroup extends StatelessWidget {
     );
   }
 }
-
 /// Widget to display a single MCP resource
 class _McpResourceTile extends StatelessWidget {
   const _McpResourceTile({required this.resource, required this.onTap});
-
   final McpResource resource;
   final VoidCallback onTap;
-
   IconData _getIcon() {
     final mimeType = resource.mimeType;
-    if (mimeType == null) return Icons.folder_outlined;
-    if (mimeType.startsWith('text/')) return Icons.description_outlined;
-    if (mimeType.startsWith('image/')) return Icons.image_outlined;
-    if (mimeType.startsWith('application/json')) return Icons.data_object;
-    if (mimeType.contains('directory')) return Icons.folder_outlined;
-    return Icons.insert_drive_file_outlined;
+    if (mimeType == null) return AppIcons.folder;
+    if (mimeType.startsWith('text/')) return AppIcons.description;
+    if (mimeType.startsWith('image/')) return AppIcons.image;
+    if (mimeType.startsWith('application/json')) return AppIcons.dataObject;
+    if (mimeType.contains('directory')) return AppIcons.folder;
+    return AppIcons.file;
   }
-
   @override
   Widget build(BuildContext context) {
     final theme = OpenCodeTheme.of(context);
@@ -1116,7 +1058,7 @@ class _McpResourceTile extends StatelessWidget {
                   ],
                 ),
               ),
-              Icon(Icons.chevron_right, color: theme.textMuted, size: 20),
+              Icon(AppIcons.chevronRight, color: theme.textMuted, size: 20),
             ],
           ),
         ),
@@ -1124,14 +1066,11 @@ class _McpResourceTile extends StatelessWidget {
     );
   }
 }
-
 /// Widget to display a detail row in the resource details sheet
 class _DetailRow extends StatelessWidget {
   const _DetailRow({required this.label, required this.value});
-
   final String label;
   final String value;
-
   @override
   Widget build(BuildContext context) {
     final theme = OpenCodeTheme.of(context);

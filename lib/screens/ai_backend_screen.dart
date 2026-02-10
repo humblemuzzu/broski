@@ -1,3 +1,4 @@
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
@@ -6,17 +7,15 @@ import '../providers/agent_type_provider.dart';
 import '../providers/service_providers.dart';
 import '../theme/design_tokens.dart';
 import '../theme/opencode_theme.dart';
-
+import 'package:broski/theme/app_icons.dart';
 /// Screen for selecting the AI backend (OpenCode vs Claude Code vs Codex)
 class AIBackendScreen extends ConsumerWidget {
   const AIBackendScreen({super.key});
-
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final theme = Theme.of(context);
     final ocTheme = OpenCodeTheme.of(context);
     final currentAgent = ref.watch(agentTypeProvider);
-
     return Scaffold(
       backgroundColor: theme.scaffoldBackgroundColor,
       appBar: AppBar(
@@ -32,7 +31,7 @@ class AIBackendScreen extends ConsumerWidget {
         ),
         leading: IconButton(
           icon: Icon(
-            Icons.arrow_back_rounded,
+            AppIcons.back,
             color: theme.colorScheme.onSurface,
           ),
           onPressed: () => Navigator.pop(context),
@@ -52,7 +51,7 @@ class AIBackendScreen extends ConsumerWidget {
             child: Row(
               children: [
                 Icon(
-                  Icons.info_outline_rounded,
+                  AppIcons.info,
                   color: theme.colorScheme.primary,
                   size: 20,
                 ),
@@ -70,14 +69,12 @@ class AIBackendScreen extends ConsumerWidget {
               ],
             ),
           ),
-
           SizedBox(height: Spacing.xxl),
-
           // OpenCode Option
           _AgentCard(
             agentType: AgentType.opencode,
             isSelected: currentAgent == AgentType.opencode,
-            icon: Icons.code_rounded,
+            icon: AppIcons.code,
             title: 'OpenCode',
             subtitle: 'Open source AI coding agent',
             features: const [
@@ -88,14 +85,12 @@ class AIBackendScreen extends ConsumerWidget {
             ],
             onTap: () => _selectAgent(ref, AgentType.opencode),
           ),
-
           SizedBox(height: Spacing.lg),
-
           // Claude Code Option
           _AgentCard(
             agentType: AgentType.claudeCode,
             isSelected: currentAgent == AgentType.claudeCode,
-            icon: Icons.auto_awesome_rounded,
+            icon: AppIcons.autoAwesome,
             title: 'Claude Code',
             subtitle: 'Anthropic Claude Code SDK',
             features: const [
@@ -106,14 +101,12 @@ class AIBackendScreen extends ConsumerWidget {
             ],
             onTap: () => _selectAgent(ref, AgentType.claudeCode),
           ),
-
           SizedBox(height: Spacing.lg),
-
           // Codex Option
           _AgentCard(
             agentType: AgentType.codex,
             isSelected: currentAgent == AgentType.codex,
-            icon: Icons.terminal_rounded,
+            icon: AppIcons.terminal,
             title: 'Codex',
             subtitle: 'OpenAI Codex app-server',
             features: const [
@@ -124,9 +117,7 @@ class AIBackendScreen extends ConsumerWidget {
             ],
             onTap: () => _selectAgent(ref, AgentType.codex),
           ),
-
           SizedBox(height: Spacing.xxxl),
-
           // Current selection indicator
           Container(
             padding: Insets.card,
@@ -140,7 +131,7 @@ class AIBackendScreen extends ConsumerWidget {
             child: Row(
               children: [
                 Icon(
-                  Icons.check_circle_rounded,
+                  AppIcons.checkCircle,
                   color: theme.colorScheme.primary,
                   size: 20,
                 ),
@@ -163,20 +154,17 @@ class AIBackendScreen extends ConsumerWidget {
               ],
             ),
           ),
-
           const SizedBox(height: 100),
         ],
       ),
     );
   }
-
   void _selectAgent(WidgetRef ref, AgentType type) {
     ref.read(agentTypeProvider.notifier).setAgentType(type);
     final bridge = ref.read(bridgeServiceProvider);
     bridge.setAgent(type);
   }
 }
-
 class _AgentCard extends StatelessWidget {
   const _AgentCard({
     required this.agentType,
@@ -187,7 +175,6 @@ class _AgentCard extends StatelessWidget {
     required this.features,
     required this.onTap,
   });
-
   final AgentType agentType;
   final bool isSelected;
   final IconData icon;
@@ -195,12 +182,10 @@ class _AgentCard extends StatelessWidget {
   final String subtitle;
   final List<String> features;
   final VoidCallback onTap;
-
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final ocTheme = OpenCodeTheme.of(context);
-
     return InkWell(
       onTap: onTap,
       borderRadius: Radii.brLg,
@@ -285,7 +270,7 @@ class _AgentCard extends StatelessWidget {
                   ),
                   child: isSelected
                       ? Icon(
-                          Icons.check,
+                          AppIcons.check,
                           size: 16,
                           color: theme.colorScheme.onPrimary,
                         )
@@ -293,9 +278,7 @@ class _AgentCard extends StatelessWidget {
                 ),
               ],
             ),
-
             SizedBox(height: Spacing.lg),
-
             // Features list
             ...features.map(
               (feature) => Padding(
@@ -303,7 +286,7 @@ class _AgentCard extends StatelessWidget {
                 child: Row(
                   children: [
                     Icon(
-                      Icons.check_circle_outline_rounded,
+                      AppIcons.checkCircle,
                       size: 16,
                       color: isSelected
                           ? theme.colorScheme.primary

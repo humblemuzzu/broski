@@ -1,9 +1,10 @@
+
 import 'package:flutter/material.dart';
 
 import '../../models/git.dart';
 import '../../widgets/chat/detail_sheet.dart';
 import '../../theme/design_tokens.dart';
-
+import 'package:broski/theme/app_icons.dart';
 class GitBranchSheet extends StatefulWidget {
   const GitBranchSheet({
     super.key,
@@ -11,11 +12,9 @@ class GitBranchSheet extends StatefulWidget {
     required this.onCheckout,
     required this.onCreateBranch,
   });
-
   final List<GitBranch> branches;
   final Future<void> Function(String branch) onCheckout;
   final Future<void> Function(String name) onCreateBranch;
-
   static Future<void> show({
     required BuildContext context,
     required List<GitBranch> branches,
@@ -33,25 +32,20 @@ class GitBranchSheet extends StatefulWidget {
       ),
     );
   }
-
   @override
   State<GitBranchSheet> createState() => _GitBranchSheetState();
 }
-
 class _GitBranchSheetState extends State<GitBranchSheet> {
   final _controller = TextEditingController();
   bool _creating = false;
-
   @override
   void dispose() {
     _controller.dispose();
     super.dispose();
   }
-
   Future<void> _create() async {
     final name = _controller.text.trim();
     if (name.isEmpty) return;
-
     setState(() => _creating = true);
     try {
       await widget.onCreateBranch(name);
@@ -60,11 +54,9 @@ class _GitBranchSheetState extends State<GitBranchSheet> {
       if (mounted) setState(() => _creating = false);
     }
   }
-
   @override
   Widget build(BuildContext context) {
     final local = widget.branches.where((b) => !b.isRemote).toList();
-
     return Padding(
       padding: Insets.cardSm,
       child: Column(
@@ -96,8 +88,8 @@ class _GitBranchSheetState extends State<GitBranchSheet> {
               subtitle: branch.tracking != null ? Text(branch.tracking!) : null,
               leading: Icon(
                 branch.isCurrent
-                    ? Icons.check_circle_rounded
-                    : Icons.circle_outlined,
+                    ? AppIcons.checkCircle
+                    : AppIcons.circleOutlined,
                 size: 18,
               ),
               onTap: branch.isCurrent

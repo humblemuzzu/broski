@@ -1,28 +1,24 @@
+
 import 'package:flutter/material.dart';
 import '../models/message.dart';
 import '../theme/app_typography.dart';
 import '../theme/design_tokens.dart';
 import '../theme/opencode_theme.dart';
-
+import 'package:broski/theme/app_icons.dart';
 /// A collapsible card that displays model reasoning/thinking content.
 /// Collapsed by default, tap to expand and see the full thinking process.
 class ThinkingCard extends StatefulWidget {
   const ThinkingCard({super.key, required this.message});
-
   final ChatMessage message;
-
   @override
   State<ThinkingCard> createState() => _ThinkingCardState();
 }
-
 class _ThinkingCardState extends State<ThinkingCard>
     with SingleTickerProviderStateMixin {
   bool _isExpanded = false;
-
   late AnimationController _controller;
   late Animation<double> _heightFactor;
   late Animation<double> _iconTurns;
-
   @override
   void initState() {
     super.initState();
@@ -38,13 +34,11 @@ class _ThinkingCardState extends State<ThinkingCard>
       ).chain(CurveTween(curve: Curves.easeInOut)),
     );
   }
-
   @override
   void dispose() {
     _controller.dispose();
     super.dispose();
   }
-
   void _toggle() {
     setState(() {
       _isExpanded = !_isExpanded;
@@ -55,17 +49,14 @@ class _ThinkingCardState extends State<ThinkingCard>
       }
     });
   }
-
   @override
   Widget build(BuildContext context) {
     final theme = OpenCodeTheme.of(context);
     final message = widget.message;
     final isStreaming = message.isReasoningStreaming;
     final durationMs = message.reasoningDurationMs;
-
     // Use dedicated toolThinking color for cognitive/reasoning displays
     final thinkingColor = theme.toolThinking;
-
     return Container(
       margin: const EdgeInsets.symmetric(vertical: 6),
       decoration: BoxDecoration(
@@ -132,7 +123,7 @@ class _ThinkingCardState extends State<ThinkingCard>
                   RotationTransition(
                     turns: _iconTurns,
                     child: Icon(
-                      Icons.expand_more_rounded,
+                      AppIcons.expandMore,
                       size: 20,
                       color: theme.textMuted,
                     ),
@@ -141,7 +132,6 @@ class _ThinkingCardState extends State<ThinkingCard>
               ),
             ),
           ),
-
           // Expanded content - reasoning text
           ClipRect(
             child: AnimatedBuilder(
@@ -160,7 +150,6 @@ class _ThinkingCardState extends State<ThinkingCard>
       ),
     );
   }
-
   Widget _buildThinkingIcon(
     OpenCodeTheme theme,
     Color thinkingColor,
@@ -185,19 +174,16 @@ class _ThinkingCardState extends State<ThinkingCard>
                   ),
                 ),
               )
-            : Icon(Icons.psychology_rounded, size: 14, color: thinkingColor),
+            : Icon(AppIcons.psychology, size: 14, color: thinkingColor),
       ),
     );
   }
-
   Widget _buildExpandedContent(OpenCodeTheme theme, Color thinkingColor) {
     final message = widget.message;
     final reasoningText = message.reasoningText;
-
     if (reasoningText.isEmpty) {
       return const SizedBox.shrink();
     }
-
     return Container(
       padding: const EdgeInsets.fromLTRB(12, 0, 12, 12),
       child: Column(
@@ -225,7 +211,6 @@ class _ThinkingCardState extends State<ThinkingCard>
       ),
     );
   }
-
   String _formatDuration(int ms) {
     if (ms < 1000) return '${ms}ms';
     final seconds = ms / 1000;
@@ -234,7 +219,6 @@ class _ThinkingCardState extends State<ThinkingCard>
     return '${minutes.toStringAsFixed(1)}m';
   }
 }
-
 /// A compact inline version of the thinking indicator for tight spaces.
 class ThinkingChip extends StatelessWidget {
   const ThinkingChip({
@@ -243,17 +227,14 @@ class ThinkingChip extends StatelessWidget {
     this.durationMs,
     this.onTap,
   });
-
   final bool isStreaming;
   final int? durationMs;
   final VoidCallback? onTap;
-
   @override
   Widget build(BuildContext context) {
     final theme = OpenCodeTheme.of(context);
     // Use dedicated toolThinking color
     final thinkingColor = theme.toolThinking;
-
     return InkWell(
       onTap: onTap,
       borderRadius: Radii.brSm,
@@ -279,7 +260,7 @@ class ThinkingChip extends StatelessWidget {
                 ),
               )
             else
-              Icon(Icons.psychology_rounded, size: 14, color: thinkingColor),
+              Icon(AppIcons.psychology, size: 14, color: thinkingColor),
             const SizedBox(width: 6),
             Text(
               isStreaming ? 'Thinking...' : 'Thinking',
@@ -304,7 +285,6 @@ class ThinkingChip extends StatelessWidget {
       ),
     );
   }
-
   String _formatDuration(int ms) {
     if (ms < 1000) return '${ms}ms';
     final seconds = ms / 1000;

@@ -1,3 +1,4 @@
+
 import 'dart:typed_data';
 
 import 'package:flutter/material.dart';
@@ -6,26 +7,21 @@ import 'package:pdfrx/pdfrx.dart';
 
 import '../../theme/design_tokens.dart';
 import '../../theme/opencode_theme.dart';
-
+import 'package:broski/theme/app_icons.dart';
 class PdfFileViewer extends StatefulWidget {
   const PdfFileViewer({super.key, required this.data, required this.filename});
-
   final Uint8List data;
   final String filename;
-
   @override
   State<PdfFileViewer> createState() => _PdfFileViewerState();
 }
-
 class _PdfFileViewerState extends State<PdfFileViewer> {
   final _controller = PdfViewerController();
   int _currentPage = 1;
   int _totalPages = 0;
-
   @override
   Widget build(BuildContext context) {
     final theme = OpenCodeTheme.of(context);
-
     return Column(
       children: [
         if (_totalPages > 0)
@@ -36,7 +32,7 @@ class _PdfFileViewerState extends State<PdfFileViewer> {
               mainAxisAlignment: MainAxisAlignment.center,
               children: [
                 IconButton(
-                  icon: Icon(Icons.chevron_left, color: theme.text),
+                  icon: Icon(AppIcons.chevronLeft, color: theme.text),
                   onPressed: _currentPage > 1
                       ? () => _controller.goToPage(pageNumber: _currentPage - 1)
                       : null,
@@ -46,7 +42,7 @@ class _PdfFileViewerState extends State<PdfFileViewer> {
                   style: AppTypography.labelLarge(color: theme.text),
                 ),
                 IconButton(
-                  icon: Icon(Icons.chevron_right, color: theme.text),
+                  icon: Icon(AppIcons.chevronRight, color: theme.text),
                   onPressed: _currentPage < _totalPages
                       ? () => _controller.goToPage(pageNumber: _currentPage + 1)
                       : null,
@@ -70,7 +66,7 @@ class _PdfFileViewerState extends State<PdfFileViewer> {
                   child: Column(
                     mainAxisAlignment: MainAxisAlignment.center,
                     children: [
-                      Icon(Icons.error_outline, size: 64, color: theme.error),
+                      Icon(AppIcons.error, size: 64, color: theme.error),
                       SizedBox(height: Spacing.lg),
                       Text(
                         'Failed to load PDF',

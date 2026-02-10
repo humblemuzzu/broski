@@ -1,3 +1,4 @@
+
 import 'package:flutter/material.dart';
 import '../theme/app_typography.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -6,36 +7,30 @@ import '../models/claude_code.dart';
 import '../providers/claude_code_provider.dart';
 import '../theme/design_tokens.dart';
 import '../theme/opencode_theme.dart';
-
+import 'package:broski/theme/app_icons.dart';
 /// Dedicated Sandbox configuration screen for Claude Code.
 /// Surfaces all fields from SDK SandboxSettings + NetworkSandboxSettings.
 class ClaudeCodeSandboxScreen extends ConsumerStatefulWidget {
   const ClaudeCodeSandboxScreen({super.key});
-
   @override
   ConsumerState<ClaudeCodeSandboxScreen> createState() =>
       _ClaudeCodeSandboxScreenState();
 }
-
 class _ClaudeCodeSandboxScreenState
     extends ConsumerState<ClaudeCodeSandboxScreen> {
   bool _saving = false;
-
   ClaudeCodeSandboxSettings _sandbox = const ClaudeCodeSandboxSettings();
-
   @override
   void initState() {
     super.initState();
     _loadCurrent();
   }
-
   void _loadCurrent() {
     final config = ref.read(ccConfigProvider).valueOrNull;
     if (config?.sandbox != null) {
       setState(() => _sandbox = config!.sandbox!);
     }
   }
-
   Future<void> _save(ClaudeCodeSandboxSettings next) async {
     setState(() {
       _sandbox = next;
@@ -52,7 +47,6 @@ class _ClaudeCodeSandboxScreenState
       if (mounted) setState(() => _saving = false);
     }
   }
-
   /// Helper: create a new sandbox settings preserving all current values.
   ClaudeCodeSandboxSettings _with({
     bool? enabled,
@@ -75,11 +69,9 @@ class _ClaudeCodeSandboxScreenState
       excludedCommands: excludedCommands ?? _sandbox.excludedCommands,
     );
   }
-
   @override
   Widget build(BuildContext context) {
     final theme = OpenCodeTheme.of(context);
-
     return Scaffold(
       backgroundColor: theme.background,
       appBar: AppBar(
@@ -113,7 +105,7 @@ class _ClaudeCodeSandboxScreenState
             ),
             child: Row(
               children: [
-                Icon(Icons.shield_outlined, color: theme.accent, size: 20),
+                Icon(AppIcons.security, color: theme.accent, size: 20),
                 const SizedBox(width: 10),
                 Expanded(
                   child: Text(
@@ -126,7 +118,6 @@ class _ClaudeCodeSandboxScreenState
             ),
           ),
           SizedBox(height: Spacing.lg),
-
           // Enable sandbox
           _buildCard(
             theme: theme,
@@ -145,7 +136,6 @@ class _ClaudeCodeSandboxScreenState
               onChanged: (v) => _save(_with(enabled: v)),
             ),
           ),
-
           // Auto-allow bash if sandboxed
           _buildCard(
             theme: theme,
@@ -164,7 +154,6 @@ class _ClaudeCodeSandboxScreenState
               onChanged: (v) => _save(_with(autoAllowBashIfSandboxed: v)),
             ),
           ),
-
           // Allow unsandboxed commands
           _buildCard(
             theme: theme,
@@ -184,7 +173,6 @@ class _ClaudeCodeSandboxScreenState
               onChanged: (v) => _save(_with(allowUnsandboxedCommands: v)),
             ),
           ),
-
           // Weaker nested sandbox
           _buildCard(
             theme: theme,
@@ -203,7 +191,6 @@ class _ClaudeCodeSandboxScreenState
               onChanged: (v) => _save(_with(enableWeakerNestedSandbox: v)),
             ),
           ),
-
           // Excluded commands
           _buildCard(
             theme: theme,
@@ -240,7 +227,6 @@ class _ClaudeCodeSandboxScreenState
               ],
             ),
           ),
-
           // Network configuration
           _buildCard(
             theme: theme,
@@ -312,7 +298,6 @@ class _ClaudeCodeSandboxScreenState
       ),
     );
   }
-
   Widget _buildCard({
     required OpenCodeTheme theme,
     required String title,
@@ -346,7 +331,6 @@ class _ClaudeCodeSandboxScreenState
       ),
     );
   }
-
   Widget _buildChipList({
     required OpenCodeTheme theme,
     required List<String> items,
@@ -366,7 +350,7 @@ class _ClaudeCodeSandboxScreenState
             backgroundColor: theme.backgroundPanel,
             side: BorderSide(color: theme.borderSubtle.withValues(alpha: 0.3)),
             deleteIcon: Icon(
-              Icons.close_rounded,
+              AppIcons.close,
               size: 16,
               color: theme.textMuted,
             ),
@@ -374,7 +358,7 @@ class _ClaudeCodeSandboxScreenState
           ),
         ),
         ActionChip(
-          avatar: Icon(Icons.add_rounded, size: 16, color: theme.accent),
+          avatar: Icon(AppIcons.add, size: 16, color: theme.accent),
           label: Text(
             'Add',
             style: AppTypography.label(color: theme.accent),
@@ -386,7 +370,6 @@ class _ClaudeCodeSandboxScreenState
       ],
     );
   }
-
   void _showAddItemDialog(
     OpenCodeTheme theme, {
     required String title,

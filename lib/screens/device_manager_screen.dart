@@ -1,3 +1,4 @@
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
@@ -5,32 +6,27 @@ import '../models/device.dart';
 import '../providers/connection_provider.dart';
 import '../theme/design_tokens.dart';
 import '../theme/opencode_theme.dart';
-
+import 'package:broski/theme/app_icons.dart';
 class DeviceManagerScreen extends ConsumerStatefulWidget {
   const DeviceManagerScreen({super.key});
-
   @override
   ConsumerState<DeviceManagerScreen> createState() =>
       _DeviceManagerScreenState();
 }
-
 class _DeviceManagerScreenState extends ConsumerState<DeviceManagerScreen> {
   List<DeviceInfo>? _devices;
   bool _loading = true;
   String? _error;
-
   @override
   void initState() {
     super.initState();
     _loadDevices();
   }
-
   Future<void> _loadDevices() async {
     setState(() {
       _loading = true;
       _error = null;
     });
-
     try {
       final devices = await ref.read(connectionProvider.notifier).listDevices();
       if (mounted) {
@@ -48,7 +44,6 @@ class _DeviceManagerScreenState extends ConsumerState<DeviceManagerScreen> {
       }
     }
   }
-
   Future<void> _disconnectDevice(DeviceInfo device) async {
     final confirmed = await showDialog<bool>(
       context: context,
@@ -68,34 +63,30 @@ class _DeviceManagerScreenState extends ConsumerState<DeviceManagerScreen> {
         ],
       ),
     );
-
     if (confirmed == true) {
       ref.read(connectionProvider.notifier).disconnectDevice(device.deviceId);
       await Future.delayed(const Duration(milliseconds: 300));
       _loadDevices();
     }
   }
-
   @override
   Widget build(BuildContext context) {
     final connection = ref.watch(connectionProvider);
     final theme = Theme.of(context);
     final ocTheme = OpenCodeTheme.of(context);
     final thisDeviceId = connection.thisDevice?.deviceId;
-
     return Scaffold(
       backgroundColor: ocTheme.background,
       appBar: AppBar(
         title: const Text('Devices'),
         backgroundColor: Colors.transparent,
         actions: [
-          IconButton(icon: const Icon(Icons.refresh), onPressed: _loadDevices),
+          IconButton(icon: const Icon(AppIcons.refresh), onPressed: _loadDevices),
         ],
       ),
       body: _buildBody(theme, ocTheme, thisDeviceId),
     );
   }
-
   Widget _buildBody(
     ThemeData theme,
     OpenCodeTheme ocTheme,
@@ -104,13 +95,12 @@ class _DeviceManagerScreenState extends ConsumerState<DeviceManagerScreen> {
     if (_loading) {
       return const Center(child: CircularProgressIndicator());
     }
-
     if (_error != null) {
       return Center(
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            Icon(Icons.error_outline, size: 48, color: ocTheme.error),
+            Icon(AppIcons.error, size: 48, color: ocTheme.error),
             SizedBox(height: Spacing.lg),
             Text(
               'Failed to load devices',
@@ -127,13 +117,12 @@ class _DeviceManagerScreenState extends ConsumerState<DeviceManagerScreen> {
         ),
       );
     }
-
     if (_devices == null || _devices!.isEmpty) {
       return Center(
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            Icon(Icons.devices, size: 48, color: ocTheme.textMuted),
+            Icon(AppIcons.devices, size: 48, color: ocTheme.textMuted),
             SizedBox(height: Spacing.lg),
             Text(
               'No devices connected',
@@ -143,14 +132,12 @@ class _DeviceManagerScreenState extends ConsumerState<DeviceManagerScreen> {
         ),
       );
     }
-
     final sortedDevices = List<DeviceInfo>.from(_devices!);
     sortedDevices.sort((a, b) {
       if (a.deviceId == thisDeviceId) return -1;
       if (b.deviceId == thisDeviceId) return 1;
       return a.connectedAt.compareTo(b.connectedAt);
     });
-
     return RefreshIndicator(
       onRefresh: _loadDevices,
       child: ListView.builder(
@@ -170,7 +157,6 @@ class _DeviceManagerScreenState extends ConsumerState<DeviceManagerScreen> {
     );
   }
 }
-
 class _DeviceCard extends StatelessWidget {
   const _DeviceCard({
     required this.device,
@@ -178,31 +164,28 @@ class _DeviceCard extends StatelessWidget {
     required this.onDisconnect,
     required this.ocTheme,
   });
-
   final DeviceInfo device;
   final bool isThisDevice;
   final VoidCallback? onDisconnect;
   final OpenCodeTheme ocTheme;
-
   IconData _getPlatformIcon() {
     switch (device.platform.toLowerCase()) {
       case 'ios':
-        return Icons.phone_iphone;
+        return AppIcons.phone;
       case 'android':
-        return Icons.phone_android;
+        return AppIcons.phone;
       case 'macos':
-        return Icons.laptop_mac;
+        return AppIcons.laptop;
       case 'windows':
-        return Icons.laptop_windows;
+        return AppIcons.laptop;
       case 'linux':
-        return Icons.computer;
+        return AppIcons.computer;
       case 'web':
-        return Icons.web;
+        return AppIcons.globe;
       default:
-        return Icons.devices;
+        return AppIcons.devices;
     }
   }
-
   Color _getConnectionColor() {
     switch (device.connectionType.toLowerCase()) {
       case 'local':
@@ -213,7 +196,6 @@ class _DeviceCard extends StatelessWidget {
         return ocTheme.textMuted;
     }
   }
-
   @override
   Widget build(BuildContext context) {
     return Card(
@@ -336,7 +318,7 @@ class _DeviceCard extends StatelessWidget {
             ),
             if (onDisconnect != null)
               IconButton(
-                icon: Icon(Icons.close, color: ocTheme.error),
+                icon: Icon(AppIcons.close, color: ocTheme.error),
                 onPressed: onDisconnect,
                 tooltip: 'Disconnect',
               ),

@@ -1,3 +1,4 @@
+
 import 'dart:async';
 
 import 'package:flutter/material.dart';
@@ -12,22 +13,18 @@ import '../providers/selection_provider.dart';
 import '../providers/service_providers.dart';
 import '../theme/opencode_theme.dart';
 import '../widgets/chat/detail_sheet.dart';
-
+import 'package:broski/theme/app_icons.dart';
 class SkillsScreen extends ConsumerStatefulWidget {
   const SkillsScreen({required this.backend, super.key});
-
   final AgentType backend;
-
   @override
   ConsumerState<SkillsScreen> createState() => _SkillsScreenState();
 }
-
 class _SkillsScreenState extends ConsumerState<SkillsScreen> {
   List<Skill> _skills = const [];
   bool _isLoading = true;
   String? _error;
   StreamSubscription<Map<String, dynamic>>? _fsSub;
-
   @override
   void initState() {
     super.initState();
@@ -39,14 +36,12 @@ class _SkillsScreenState extends ConsumerState<SkillsScreen> {
         final data = msg['data'];
         if (data is! Map) return;
         if (data['kind'] != 'skills') return;
-
         final selection = ref.read(selectionProvider);
         final cwd = selection.project?.path;
         final eventCwd = data['cwd']?.toString();
         if (eventCwd != null && eventCwd.isNotEmpty && cwd != eventCwd) {
           return;
         }
-
         ScaffoldMessenger.of(
           context,
         ).showSnackBar(const SnackBar(content: Text('Skills updated')));
@@ -55,22 +50,18 @@ class _SkillsScreenState extends ConsumerState<SkillsScreen> {
     }
     _load();
   }
-
   @override
   void dispose() {
     _fsSub?.cancel();
     super.dispose();
   }
-
   Future<void> _load({bool forceReload = false}) async {
     setState(() {
       _isLoading = true;
       _error = null;
     });
-
     final selection = ref.read(selectionProvider);
     final cwd = selection.project?.path;
-
     try {
       final bridge = ref.read(bridgeServiceProvider);
       final skills = await bridge.listSkills(
@@ -91,12 +82,10 @@ class _SkillsScreenState extends ConsumerState<SkillsScreen> {
       });
     }
   }
-
   Future<void> _openSkill(Skill summary) async {
     final selection = ref.read(selectionProvider);
     final cwd = selection.project?.path;
     final bridge = ref.read(bridgeServiceProvider);
-
     try {
       final loaded = await bridge.getSkill(skill: summary, cwd: cwd);
       if (!mounted || loaded == null) return;
@@ -119,16 +108,13 @@ class _SkillsScreenState extends ConsumerState<SkillsScreen> {
       ).showSnackBar(SnackBar(content: Text('Failed to load skill: $e')));
     }
   }
-
   Future<void> _createSkill() async {
     final selection = ref.read(selectionProvider);
     final cwd = selection.project?.path;
-
     final sources = <SkillSource>[
       if (cwd != null) SkillSource.project,
       SkillSource.user,
     ];
-
     final source = await DetailSheet.show<SkillSource>(
       context: context,
       title: 'Add Skill',
@@ -149,8 +135,8 @@ class _SkillsScreenState extends ConsumerState<SkillsScreen> {
             ListTile(
               leading: Icon(
                 s == SkillSource.project
-                    ? Icons.folder_outlined
-                    : Icons.person_outline_rounded,
+                    ? AppIcons.folder
+                    : AppIcons.person,
               ),
               title: Text('${s.displayName} skill'),
               subtitle: Text(
@@ -163,9 +149,7 @@ class _SkillsScreenState extends ConsumerState<SkillsScreen> {
         ],
       ),
     );
-
     if (source == null || !mounted) return;
-
     await Navigator.push<void>(
       context,
       MaterialPageRoute(
@@ -176,14 +160,11 @@ class _SkillsScreenState extends ConsumerState<SkillsScreen> {
         ),
       ),
     );
-
     await _load();
   }
-
   Future<void> _deleteSkill(Skill skill) async {
     final selection = ref.read(selectionProvider);
     final cwd = selection.project?.path;
-
     final confirmed = await showDialog<bool>(
       context: context,
       builder: (ctx) => AlertDialog(
@@ -204,9 +185,7 @@ class _SkillsScreenState extends ConsumerState<SkillsScreen> {
         ],
       ),
     );
-
     if (confirmed != true || !mounted) return;
-
     try {
       final bridge = ref.read(bridgeServiceProvider);
       final ok = await bridge.deleteSkill(
@@ -229,17 +208,14 @@ class _SkillsScreenState extends ConsumerState<SkillsScreen> {
       ).showSnackBar(SnackBar(content: Text('Failed to delete skill: $e')));
     }
   }
-
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final oc = theme.extension<OpenCodeTheme>()!;
-
     final grouped = <SkillSource, List<Skill>>{};
     for (final s in _skills) {
       grouped.putIfAbsent(s.source, () => []).add(s);
     }
-
     List<SkillSource> orderedSources = [
       SkillSource.project,
       SkillSource.user,
@@ -248,7 +224,6 @@ class _SkillsScreenState extends ConsumerState<SkillsScreen> {
       SkillSource.admin,
     ];
     orderedSources = orderedSources.where(grouped.containsKey).toList();
-
     return Scaffold(
       backgroundColor: oc.background,
       appBar: AppBar(
@@ -258,13 +233,13 @@ class _SkillsScreenState extends ConsumerState<SkillsScreen> {
         iconTheme: IconThemeData(color: oc.text),
         actions: [
           IconButton(
-            icon: const Icon(Icons.refresh_rounded),
+            icon: const Icon(AppIcons.refresh),
             onPressed: () =>
                 _load(forceReload: widget.backend == AgentType.codex),
             tooltip: 'Refresh',
           ),
           IconButton(
-            icon: const Icon(Icons.add_rounded),
+            icon: const Icon(AppIcons.add),
             onPressed: _createSkill,
             tooltip: 'Create Skill',
           ),
@@ -280,7 +255,7 @@ class _SkillsScreenState extends ConsumerState<SkillsScreen> {
                   mainAxisAlignment: MainAxisAlignment.center,
                   children: [
                     Icon(
-                      Icons.error_outline_rounded,
+                      AppIcons.error,
                       color: oc.error,
                       size: 48,
                     ),
@@ -298,7 +273,7 @@ class _SkillsScreenState extends ConsumerState<SkillsScreen> {
                     SizedBox(height: Spacing.lg),
                     ElevatedButton.icon(
                       onPressed: _load,
-                      icon: const Icon(Icons.refresh_rounded),
+                      icon: const Icon(AppIcons.refresh),
                       label: const Text('Retry'),
                     ),
                   ],
@@ -313,7 +288,7 @@ class _SkillsScreenState extends ConsumerState<SkillsScreen> {
                   mainAxisAlignment: MainAxisAlignment.center,
                   children: [
                     Icon(
-                      Icons.extension_rounded,
+                      AppIcons.extension_,
                       color: oc.textMuted,
                       size: 56,
                     ),
@@ -328,7 +303,7 @@ class _SkillsScreenState extends ConsumerState<SkillsScreen> {
                     SizedBox(height: Spacing.lg),
                     ElevatedButton.icon(
                       onPressed: _createSkill,
-                      icon: const Icon(Icons.add_rounded),
+                      icon: const Icon(AppIcons.add),
                       label: const Text('Create Skill'),
                     ),
                   ],
@@ -423,7 +398,6 @@ class _SkillsScreenState extends ConsumerState<SkillsScreen> {
     );
   }
 }
-
 class SkillEditorScreen extends ConsumerStatefulWidget {
   const SkillEditorScreen({
     required this.backend,
@@ -432,16 +406,13 @@ class SkillEditorScreen extends ConsumerStatefulWidget {
     this.createSource,
     super.key,
   });
-
   final AgentType backend;
   final String? cwd;
   final Skill? existing;
   final SkillSource? createSource;
-
   @override
   ConsumerState<SkillEditorScreen> createState() => _SkillEditorScreenState();
 }
-
 class _SkillEditorScreenState extends ConsumerState<SkillEditorScreen>
     with SingleTickerProviderStateMixin {
   late final TabController _tabs;
@@ -449,9 +420,7 @@ class _SkillEditorScreenState extends ConsumerState<SkillEditorScreen>
   late final TextEditingController _content;
   bool _isSaving = false;
   String? _loadError;
-
   bool get _isCreate => widget.existing == null;
-
   @override
   void initState() {
     super.initState();
@@ -467,7 +436,6 @@ class _SkillEditorScreenState extends ConsumerState<SkillEditorScreen>
       _loadExisting();
     }
   }
-
   @override
   void dispose() {
     _tabs.dispose();
@@ -475,7 +443,6 @@ class _SkillEditorScreenState extends ConsumerState<SkillEditorScreen>
     _content.dispose();
     super.dispose();
   }
-
   String _template({required String name, required String description}) {
     return '''---
 name: $name
@@ -483,17 +450,13 @@ description: $description
 # agent: my-agent  # Optional: agent type for execution (SDK v2.1.0)
 # context: fork    # Optional: run in forked sub-agent context (SDK v2.1.0)
 ---
-
 # $name
-
 ## When to use
 - …
-
 ## How to use
 - …
 ''';
   }
-
   String _stripFrontmatter(String raw) {
     final match = RegExp(
       r'^---\n[\s\S]*?\n---\n?',
@@ -502,7 +465,6 @@ description: $description
     if (match == null) return raw;
     return raw.substring(match.end);
   }
-
   Future<void> _loadExisting() async {
     setState(() => _loadError = null);
     try {
@@ -517,12 +479,10 @@ description: $description
       setState(() => _loadError = e.toString());
     }
   }
-
   Future<void> _save() async {
     final theme = OpenCodeTheme.of(context);
     final selection = ref.read(selectionProvider);
     final cwd = widget.cwd ?? selection.project?.path;
-
     final name = _isCreate ? _name.text.trim() : widget.existing!.name;
     if (name.isEmpty) {
       ScaffoldMessenger.of(
@@ -540,7 +500,6 @@ description: $description
       );
       return;
     }
-
     final source = _isCreate ? widget.createSource : widget.existing!.source;
     if (source == null) return;
     if (!source.isEditable) {
@@ -555,7 +514,6 @@ description: $description
       );
       return;
     }
-
     if (_isCreate) {
       final raw = _content.text;
       final fm = RegExp(
@@ -565,7 +523,6 @@ description: $description
       final fmName = fm != null
           ? RegExp(r'(?m)^name:\s*(.+?)\s*$').firstMatch(fm)?.group(1)?.trim()
           : null;
-
       if (fmName != null && fmName != name) {
         final fix = await showDialog<bool>(
           context: context,
@@ -595,7 +552,6 @@ description: $description
         }
       }
     }
-
     setState(() => _isSaving = true);
     try {
       final bridge = ref.read(bridgeServiceProvider);
@@ -629,16 +585,13 @@ description: $description
       if (mounted) setState(() => _isSaving = false);
     }
   }
-
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final oc = theme.extension<OpenCodeTheme>()!;
-
     final existing = widget.existing;
     final source = existing?.source ?? widget.createSource;
     final readOnly = existing != null && !existing.source.isEditable;
-
     return Scaffold(
       backgroundColor: oc.background,
       appBar: AppBar(
@@ -784,15 +737,11 @@ description: $description
     );
   }
 }
-
 enum ChipTone { normal, warn }
-
 class _Chip extends StatelessWidget {
   const _Chip({required this.label, this.tone = ChipTone.normal});
-
   final String label;
   final ChipTone tone;
-
   @override
   Widget build(BuildContext context) {
     final oc = Theme.of(context).extension<OpenCodeTheme>()!;
@@ -815,12 +764,9 @@ class _Chip extends StatelessWidget {
     );
   }
 }
-
 class _BackendHeader extends StatelessWidget {
   const _BackendHeader({required this.backend});
-
   final AgentType backend;
-
   @override
   Widget build(BuildContext context) {
     final oc = Theme.of(context).extension<OpenCodeTheme>()!;
@@ -833,7 +779,7 @@ class _BackendHeader extends StatelessWidget {
       ),
       child: Row(
         children: [
-          Icon(Icons.auto_fix_high_rounded, color: oc.primary, size: 18),
+          Icon(AppIcons.autoFix, color: oc.primary, size: 18),
           const SizedBox(width: 10),
           Expanded(
             child: Text(
@@ -854,12 +800,9 @@ class _BackendHeader extends StatelessWidget {
     );
   }
 }
-
 class _SectionHeader extends StatelessWidget {
   const _SectionHeader({required this.title});
-
   final String title;
-
   @override
   Widget build(BuildContext context) {
     final oc = Theme.of(context).extension<OpenCodeTheme>()!;

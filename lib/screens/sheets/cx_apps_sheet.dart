@@ -1,3 +1,4 @@
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
@@ -5,11 +6,10 @@ import '../../models/codex_app_info.dart';
 import '../../providers/service_providers.dart';
 import '../../widgets/chat/detail_sheet.dart';
 import '../../theme/design_tokens.dart';
-
+import 'package:broski/theme/app_icons.dart';
 /// Bottom sheet to browse Codex apps/connectors marketplace.
 class CxAppsSheet extends ConsumerStatefulWidget {
   const CxAppsSheet({super.key});
-
   static void show(BuildContext context) {
     DetailSheet.show(
       context: context,
@@ -18,22 +18,18 @@ class CxAppsSheet extends ConsumerStatefulWidget {
       child: const CxAppsSheet(),
     );
   }
-
   @override
   ConsumerState<CxAppsSheet> createState() => _CxAppsSheetState();
 }
-
 class _CxAppsSheetState extends ConsumerState<CxAppsSheet> {
   List<CodexAppInfo>? _apps;
   bool _loading = true;
   String? _error;
-
   @override
   void initState() {
     super.initState();
     _load();
   }
-
   Future<void> _load() async {
     setState(() {
       _loading = true;
@@ -55,15 +51,12 @@ class _CxAppsSheetState extends ConsumerState<CxAppsSheet> {
       });
     }
   }
-
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-
     if (_loading) {
       return const Center(child: CircularProgressIndicator());
     }
-
     if (_error != null) {
       return Center(
         child: Column(
@@ -76,12 +69,10 @@ class _CxAppsSheetState extends ConsumerState<CxAppsSheet> {
         ),
       );
     }
-
     final apps = _apps ?? [];
     if (apps.isEmpty) {
       return const Center(child: Text('No apps available.'));
     }
-
     return RefreshIndicator(
       onRefresh: _load,
       child: ListView.separated(
@@ -99,19 +90,19 @@ class _CxAppsSheetState extends ConsumerState<CxAppsSheet> {
                       app.logoUrl!,
                       width: 28,
                       height: 28,
-                      errorBuilder: (_, __, ___) => const Icon(Icons.extension, size: 24),
+                      errorBuilder: (_, __, ___) => const Icon(AppIcons.extension_, size: 24),
                     ),
                   )
-                : const Icon(Icons.extension, size: 24),
+                : const Icon(AppIcons.extension_, size: 24),
             title: Text(app.name, style: const TextStyle(fontWeight: FontWeight.w600)),
             subtitle: app.description != null && app.description!.isNotEmpty
                 ? Text(app.description!, maxLines: 2, overflow: TextOverflow.ellipsis)
                 : null,
             trailing: app.installUrl != null
-                ? const Icon(Icons.open_in_new, size: 18)
+                ? const Icon(AppIcons.openExternal, size: 18)
                 : app.isAccessible
-                    ? Icon(Icons.check_circle_outline, size: 18, color: theme.colorScheme.primary)
-                    : const Icon(Icons.lock_outline, size: 18),
+                    ? Icon(AppIcons.checkCircle, size: 18, color: theme.colorScheme.primary)
+                    : const Icon(AppIcons.lock, size: 18),
             onTap: app.installUrl != null
                 ? () {
                     // Could open URL in browser

@@ -1,3 +1,4 @@
+
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import '../theme/app_typography.dart';
@@ -5,7 +6,7 @@ import '../theme/design_tokens.dart';
 
 import '../models/skill.dart';
 import '../theme/opencode_theme.dart';
-
+import 'package:broski/theme/app_icons.dart';
 class MarkdownFileEditorScreen extends StatefulWidget {
   const MarkdownFileEditorScreen({
     super.key,
@@ -20,7 +21,6 @@ class MarkdownFileEditorScreen extends StatefulWidget {
     this.namePattern,
     this.nameHint,
   });
-
   final String title;
   final SkillSource source;
   final String initialName;
@@ -29,40 +29,33 @@ class MarkdownFileEditorScreen extends StatefulWidget {
   final bool readOnly;
   final RegExp? namePattern;
   final String? nameHint;
-
   final Future<bool> Function({
     required String name,
     required SkillSource source,
     required String content,
   })
   onSave;
-
   final Future<bool> Function()? onDelete;
-
   @override
   State<MarkdownFileEditorScreen> createState() =>
       _MarkdownFileEditorScreenState();
 }
-
 class _MarkdownFileEditorScreenState extends State<MarkdownFileEditorScreen> {
   late final TextEditingController _nameCtrl;
   late final TextEditingController _contentCtrl;
   bool _saving = false;
-
   @override
   void initState() {
     super.initState();
     _nameCtrl = TextEditingController(text: widget.initialName);
     _contentCtrl = TextEditingController(text: widget.initialContent);
   }
-
   @override
   void dispose() {
     _nameCtrl.dispose();
     _contentCtrl.dispose();
     super.dispose();
   }
-
   Future<void> _save() async {
     if (widget.readOnly) return;
     final name = _nameCtrl.text.trim();
@@ -81,7 +74,6 @@ class _MarkdownFileEditorScreenState extends State<MarkdownFileEditorScreen> {
       );
       return;
     }
-
     setState(() => _saving = true);
     try {
       final ok = await widget.onSave(
@@ -106,12 +98,10 @@ class _MarkdownFileEditorScreenState extends State<MarkdownFileEditorScreen> {
       if (mounted) setState(() => _saving = false);
     }
   }
-
   Future<void> _delete() async {
     if (widget.readOnly) return;
     final onDelete = widget.onDelete;
     if (onDelete == null) return;
-
     final confirmed = await showDialog<bool>(
       context: context,
       builder: (context) => AlertDialog(
@@ -129,9 +119,7 @@ class _MarkdownFileEditorScreenState extends State<MarkdownFileEditorScreen> {
         ],
       ),
     );
-
     if (confirmed != true) return;
-
     setState(() => _saving = true);
     try {
       final ok = await onDelete();
@@ -152,12 +140,10 @@ class _MarkdownFileEditorScreenState extends State<MarkdownFileEditorScreen> {
       if (mounted) setState(() => _saving = false);
     }
   }
-
   @override
   Widget build(BuildContext context) {
     final oc = OpenCodeTheme.of(context);
     final nameReadOnly = widget.readOnly || widget.initialName.isNotEmpty;
-
     return Scaffold(
       backgroundColor: oc.background,
       appBar: AppBar(
@@ -176,19 +162,19 @@ class _MarkdownFileEditorScreenState extends State<MarkdownFileEditorScreen> {
                       const SnackBar(content: Text('Path copied')),
                     );
                   },
-            icon: const Icon(Icons.copy_rounded),
+            icon: const Icon(AppIcons.copy),
           ),
           if (!widget.readOnly && widget.onDelete != null)
             IconButton(
               tooltip: 'Delete',
               onPressed: _saving ? null : _delete,
-              icon: const Icon(Icons.delete_outline_rounded),
+              icon: const Icon(AppIcons.delete),
             ),
           if (!widget.readOnly)
             IconButton(
               tooltip: 'Save',
               onPressed: _saving ? null : _save,
-              icon: const Icon(Icons.save_rounded),
+              icon: const Icon(AppIcons.save),
             ),
         ],
       ),

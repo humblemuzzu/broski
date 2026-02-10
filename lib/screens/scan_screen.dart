@@ -1,3 +1,4 @@
+
 import 'dart:io';
 
 import 'package:flutter/foundation.dart';
@@ -15,42 +16,34 @@ import '../providers/onboarding_provider.dart'
 import '../widgets/chat/detail_sheet.dart';
 import '../widgets/onboarding_widgets.dart';
 import '../theme/design_tokens.dart';
-
-
+import 'package:broski/theme/app_icons.dart';
 class ScanScreen extends ConsumerStatefulWidget {
   const ScanScreen({super.key});
-
   @override
   ConsumerState<ScanScreen> createState() => _ScanScreenState();
 }
-
 class _ScanScreenState extends ConsumerState<ScanScreen>
     with TickerProviderStateMixin {
   final MobileScannerController _scannerController = MobileScannerController();
   bool _handledScan = false;
   bool _flashOn = false;
   bool _processingImage = false;
-
   late AnimationController _scanLineController;
   late AnimationController _cornerPulseController;
-
   @override
   void initState() {
     super.initState();
-
     // Scan line animation - bounces up and down
     _scanLineController = AnimationController(
       vsync: this,
       duration: const Duration(milliseconds: 2500),
     )..repeat(reverse: true);
-
     // Corner bracket pulse
     _cornerPulseController = AnimationController(
       vsync: this,
       duration: const Duration(milliseconds: 2000),
     )..repeat(reverse: true);
   }
-
   @override
   void dispose() {
     _scannerController.dispose();
@@ -58,7 +51,6 @@ class _ScanScreenState extends ConsumerState<ScanScreen>
     _cornerPulseController.dispose();
     super.dispose();
   }
-
   void _handleScan(String raw) {
     if (_handledScan) return;
     final info = ConnectionInfo.parseQrPayload(raw);
@@ -67,17 +59,14 @@ class _ScanScreenState extends ConsumerState<ScanScreen>
     HapticFeedback.mediumImpact();
     ref.read(connectionProvider.notifier).connect(info);
   }
-
   void _toggleFlash() {
     _scannerController.toggleTorch();
     HapticFeedback.lightImpact();
     setState(() => _flashOn = !_flashOn);
   }
-
   Future<void> _pickFromGallery() async {
     if (_processingImage) return;
     setState(() => _processingImage = true);
-
     try {
       final picker = ImagePicker();
       final image = await picker.pickImage(
@@ -85,18 +74,15 @@ class _ScanScreenState extends ConsumerState<ScanScreen>
         maxWidth: 1920,
         maxHeight: 1920,
       );
-
       if (image == null) {
         if (mounted) setState(() => _processingImage = false);
         return;
       }
-
       final file = File(image.path);
       if (!file.existsSync()) {
         if (mounted) setState(() => _processingImage = false);
         return;
       }
-
       // Use MobileScanner to analyze the image
       final barcodeCapture = await _scannerController.analyzeImage(image.path);
       if (barcodeCapture != null && barcodeCapture.barcodes.isNotEmpty) {
@@ -107,7 +93,6 @@ class _ScanScreenState extends ConsumerState<ScanScreen>
           return;
         }
       }
-
       // No QR code found in image
       if (mounted) {
         setState(() => _processingImage = false);
@@ -138,7 +123,6 @@ class _ScanScreenState extends ConsumerState<ScanScreen>
       }
     }
   }
-
   void _dismiss() {
     // If in onboarding flow, go back to bridge setup
     final onboarding = ref.read(onboardingProvider);
@@ -151,7 +135,6 @@ class _ScanScreenState extends ConsumerState<ScanScreen>
       }
     }
   }
-
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -230,8 +213,8 @@ class _ScanScreenState extends ConsumerState<ScanScreen>
                         // Flash toggle
                         _ControlButton(
                           icon: _flashOn
-                              ? Icons.flash_on_rounded
-                              : Icons.flash_off_rounded,
+                              ? AppIcons.flashOn
+                              : AppIcons.flashOff,
                           onTap: _toggleFlash,
                           isActive: _flashOn,
                         ),
@@ -259,7 +242,7 @@ class _ScanScreenState extends ConsumerState<ScanScreen>
                         SizedBox(width: Spacing.lg),
                         // Close / back button
                         _ControlButton(
-                          icon: Icons.close_rounded,
+                          icon: AppIcons.close,
                           onTap: _dismiss,
                         ),
                       ],
@@ -296,7 +279,7 @@ class _ScanScreenState extends ConsumerState<ScanScreen>
                                     )
                                   else
                                     Icon(
-                                      Icons.photo_library_outlined,
+                                      AppIcons.photoLibrary,
                                       color: Colors.white.withValues(
                                         alpha: 0.6,
                                       ),
@@ -335,7 +318,7 @@ class _ScanScreenState extends ConsumerState<ScanScreen>
                               ),
                             ),
                             child: Icon(
-                              Icons.keyboard_rounded,
+                              AppIcons.keyboard,
                               color: Colors.white.withValues(alpha: 0.5),
                               size: 22,
                             ),
@@ -372,14 +355,12 @@ class _ScanScreenState extends ConsumerState<ScanScreen>
       ),
     );
   }
-
   Future<void> _showManualEntry(BuildContext context) async {
     final hostController = TextEditingController();
     final portController = TextEditingController(text: '18274');
     final tokenController = TextEditingController();
     bool useTls = false;
     String? parseError;
-
     // Try to parse QR JSON data from clipboard or pasted text
     void tryParseQrJson(String text, void Function(void Function()) setState) {
       final info = ConnectionInfo.parseQrPayload(text);
@@ -401,7 +382,6 @@ class _ScanScreenState extends ConsumerState<ScanScreen>
         setState(() => parseError = 'Could not parse QR data');
       }
     }
-
     final result = await DetailSheet.show<ConnectionInfo>(
       context: context,
       title: 'Manual Connection',
@@ -440,7 +420,7 @@ class _ScanScreenState extends ConsumerState<ScanScreen>
                     mainAxisAlignment: MainAxisAlignment.center,
                     children: [
                       Icon(
-                        Icons.content_paste_rounded,
+                        AppIcons.paste,
                         color: const Color(0xFF2ECB71),
                         size: 18,
                       ),
@@ -535,7 +515,7 @@ class _ScanScreenState extends ConsumerState<ScanScreen>
                   child: Row(
                     children: [
                       Icon(
-                        useTls ? Icons.lock_rounded : Icons.lock_open_rounded,
+                        useTls ? AppIcons.lock : AppIcons.lockOpen,
                         color: useTls
                             ? const Color(0xFF2ECB71)
                             : Colors.white.withValues(alpha: 0.5),
@@ -616,12 +596,10 @@ class _ScanScreenState extends ConsumerState<ScanScreen>
         ),
       ),
     );
-
     if (result != null) {
       ref.read(connectionProvider.notifier).connect(result);
     }
   }
-
   Widget _buildTextField({
     required TextEditingController controller,
     required String label,
@@ -665,20 +643,16 @@ class _ScanScreenState extends ConsumerState<ScanScreen>
     );
   }
 }
-
 // =============================================================================
 // SCAN OVERLAY WITH ANIMATED LINE AND CORNER BRACKETS
 // =============================================================================
-
 class _ScanOverlay extends StatelessWidget {
   const _ScanOverlay({
     required this.scanLineAnimation,
     required this.cornerPulseAnimation,
   });
-
   final AnimationController scanLineAnimation;
   final AnimationController cornerPulseAnimation;
-
   @override
   Widget build(BuildContext context) {
     final size = MediaQuery.of(context).size;
@@ -686,7 +660,6 @@ class _ScanOverlay extends StatelessWidget {
     final scanSize = size.width * 0.65;
     final scanLeft = (size.width - scanSize) / 2;
     final scanTop = (size.height - scanSize) / 2 - 20;
-
     return Stack(
       children: [
         // Dark overlay with cutout
@@ -770,19 +743,14 @@ class _ScanOverlay extends StatelessWidget {
     );
   }
 }
-
 class _OverlayPainter extends CustomPainter {
   _OverlayPainter({required this.scanRect});
-
   final Rect scanRect;
-
   @override
   void paint(Canvas canvas, Size size) {
     final paint = Paint()..color = Colors.black.withValues(alpha: 0.6);
-
     // Draw full overlay
     canvas.drawRect(Rect.fromLTWH(0, 0, size.width, size.height), paint);
-
     // Cut out the scan area with rounded corners
     final clearPaint = Paint()..blendMode = BlendMode.clear;
     canvas.saveLayer(Rect.fromLTWH(0, 0, size.width, size.height), Paint());
@@ -793,18 +761,14 @@ class _OverlayPainter extends CustomPainter {
     );
     canvas.restore();
   }
-
   @override
   bool shouldRepaint(covariant _OverlayPainter oldDelegate) =>
       oldDelegate.scanRect != scanRect;
 }
-
 class _CornerBracket extends StatelessWidget {
   const _CornerBracket({required this.opacity, required this.rotation});
-
   final double opacity;
   final int rotation; // 0=top-left, 1=top-right, 2=bottom-right, 3=bottom-left
-
   @override
   Widget build(BuildContext context) {
     return SizedBox(
@@ -819,13 +783,10 @@ class _CornerBracket extends StatelessWidget {
     );
   }
 }
-
 class _CornerBracketPainter extends CustomPainter {
   _CornerBracketPainter({required this.color, required this.rotation});
-
   final Color color;
   final int rotation;
-
   @override
   void paint(Canvas canvas, Size size) {
     final paint = Paint()
@@ -833,10 +794,8 @@ class _CornerBracketPainter extends CustomPainter {
       ..strokeWidth = 3
       ..strokeCap = StrokeCap.round
       ..style = PaintingStyle.stroke;
-
     final path = Path();
     const len = 28.0;
-
     switch (rotation) {
       case 0: // top-left
         path.moveTo(0, len);
@@ -859,26 +818,21 @@ class _CornerBracketPainter extends CustomPainter {
         path.lineTo(0, size.height - len);
         break;
     }
-
     canvas.drawPath(path, paint);
   }
-
   @override
   bool shouldRepaint(covariant _CornerBracketPainter old) =>
       old.color != color || old.rotation != rotation;
 }
-
 class _ControlButton extends StatelessWidget {
   const _ControlButton({
     required this.icon,
     required this.onTap,
     this.isActive = false,
   });
-
   final IconData icon;
   final VoidCallback onTap;
   final bool isActive;
-
   @override
   Widget build(BuildContext context) {
     return GestureDetector(

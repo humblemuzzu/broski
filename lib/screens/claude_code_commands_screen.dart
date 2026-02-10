@@ -1,3 +1,4 @@
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
@@ -9,29 +10,24 @@ import '../theme/design_tokens.dart';
 import '../theme/opencode_theme.dart';
 import '../widgets/chat/detail_sheet.dart';
 import 'markdown_file_editor_screen.dart';
-
+import 'package:broski/theme/app_icons.dart';
 class ClaudeCodeCommandsScreen extends ConsumerStatefulWidget {
   const ClaudeCodeCommandsScreen({super.key});
-
   @override
   ConsumerState<ClaudeCodeCommandsScreen> createState() =>
       _ClaudeCodeCommandsScreenState();
 }
-
 class _ClaudeCodeCommandsScreenState
     extends ConsumerState<ClaudeCodeCommandsScreen> {
   List<ClaudeCodeCommand> _commands = const [];
   bool _isLoading = true;
   String? _error;
-
   static final _nameRe = RegExp(r'^[^/\\\s]+$');
-
   @override
   void initState() {
     super.initState();
     _load();
   }
-
   SkillSource _sourceFor(ClaudeCodeCommand c) {
     final s = (c.source ?? '').trim();
     if (s == 'project') return SkillSource.project;
@@ -39,17 +35,14 @@ class _ClaudeCodeCommandsScreenState
     if (s == 'plugin') return SkillSource.plugin;
     return SkillSource.user;
   }
-
   Future<void> _load() async {
     setState(() {
       _isLoading = true;
       _error = null;
     });
-
     final selection = ref.read(selectionProvider);
     final cwd = selection.project?.path;
     final bridge = ref.read(bridgeServiceProvider);
-
     try {
       final commands = await bridge.ccListCommands(cwd: cwd);
       if (!mounted) return;
@@ -65,13 +58,11 @@ class _ClaudeCodeCommandsScreenState
       });
     }
   }
-
   Future<void> _open(ClaudeCodeCommand command) async {
     final selection = ref.read(selectionProvider);
     final cwd = selection.project?.path;
     final bridge = ref.read(bridgeServiceProvider);
     final source = _sourceFor(command);
-
     try {
       final res = await bridge.ccGetCommandFile(
         name: command.name,
@@ -80,7 +71,6 @@ class _ClaudeCodeCommandsScreenState
         path: command.path,
       );
       if (!mounted) return;
-
       final readOnly = source == SkillSource.plugin;
       final changed = await Navigator.push<bool>(
         context,
@@ -121,16 +111,13 @@ class _ClaudeCodeCommandsScreenState
       ).showSnackBar(SnackBar(content: Text('Failed to load command: $e')));
     }
   }
-
   Future<void> _create() async {
     final selection = ref.read(selectionProvider);
     final cwd = selection.project?.path;
-
     final sources = <SkillSource>[
       if (cwd != null) SkillSource.project,
       SkillSource.user,
     ];
-
     final source = await DetailSheet.show<SkillSource>(
       context: context,
       title: 'Add Command',
@@ -151,8 +138,8 @@ class _ClaudeCodeCommandsScreenState
             ListTile(
               leading: Icon(
                 s == SkillSource.project
-                    ? Icons.folder_outlined
-                    : Icons.person_outline_rounded,
+                    ? AppIcons.folder
+                    : AppIcons.person,
               ),
               title: Text(s.displayName),
               onTap: () => Navigator.pop(context, s),
@@ -160,10 +147,8 @@ class _ClaudeCodeCommandsScreenState
         ],
       ),
     );
-
     if (source == null) return;
     final bridge = ref.read(bridgeServiceProvider);
-
     if (!mounted) return;
     final changed = await Navigator.push<bool>(
       context,
@@ -197,17 +182,14 @@ class _ClaudeCodeCommandsScreenState
     );
     if (changed == true) await _load();
   }
-
   @override
   Widget build(BuildContext context) {
     final oc = OpenCodeTheme.of(context);
     final selection = ref.watch(selectionProvider);
-
     final bySource = <SkillSource, List<ClaudeCodeCommand>>{};
     for (final c in _commands) {
       bySource.putIfAbsent(_sourceFor(c), () => []).add(c);
     }
-
     return Scaffold(
       backgroundColor: oc.background,
       appBar: AppBar(
@@ -218,12 +200,12 @@ class _ClaudeCodeCommandsScreenState
           IconButton(
             tooltip: 'Refresh',
             onPressed: _isLoading ? null : _load,
-            icon: const Icon(Icons.refresh_rounded),
+            icon: const Icon(AppIcons.refresh),
           ),
           IconButton(
             tooltip: 'Add',
             onPressed: _create,
-            icon: const Icon(Icons.add_rounded),
+            icon: const Icon(AppIcons.add),
           ),
         ],
       ),
@@ -297,8 +279,8 @@ class _ClaudeCodeCommandsScreenState
                                 ),
                                 trailing: Icon(
                                   entry == SkillSource.plugin
-                                      ? Icons.lock_outline_rounded
-                                      : Icons.chevron_right_rounded,
+                                      ? AppIcons.lock
+                                      : AppIcons.chevronRight,
                                   color: oc.textMuted,
                                 ),
                                 onTap: () => _open(c),

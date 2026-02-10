@@ -1,6 +1,7 @@
+
 import 'package:flutter/material.dart';
 import '../../theme/design_tokens.dart';
-
+import 'package:broski/theme/app_icons.dart';
 /// A secondary input bar shown above the main prompt when the Codex agent is
 /// actively working. Lets the user "steer" (nudge) the agent mid-turn without
 /// aborting.
@@ -13,22 +14,18 @@ class CxSteerBar extends StatefulWidget {
     required this.mutedColor,
     required this.surfaceColor,
   });
-
   /// Called with the steer prompt text when the user taps Send.
   final ValueChanged<String> onSteer;
   final Color primaryColor;
   final Color textColor;
   final Color mutedColor;
   final Color surfaceColor;
-
   @override
   State<CxSteerBar> createState() => _CxSteerBarState();
 }
-
 class _CxSteerBarState extends State<CxSteerBar> {
   final _controller = TextEditingController();
   final _focusNode = FocusNode();
-
   void _submit() {
     final text = _controller.text.trim();
     if (text.isEmpty) return;
@@ -36,14 +33,12 @@ class _CxSteerBarState extends State<CxSteerBar> {
     _controller.clear();
     _focusNode.requestFocus();
   }
-
   @override
   void dispose() {
     _controller.dispose();
     _focusNode.dispose();
     super.dispose();
   }
-
   @override
   Widget build(BuildContext context) {
     return Container(
@@ -63,7 +58,7 @@ class _CxSteerBarState extends State<CxSteerBar> {
           // Status label
           Row(
             children: [
-              Icon(Icons.bolt_rounded, size: 14, color: widget.primaryColor),
+              Icon(AppIcons.bolt, size: 14, color: widget.primaryColor),
               SizedBox(width: Spacing.xs),
               Text(
                 'Agent is working — steer or abort',
@@ -129,7 +124,7 @@ class _CxSteerBarState extends State<CxSteerBar> {
                 child: IconButton(
                   onPressed: _submit,
                   icon: Icon(
-                    Icons.send_rounded,
+                    AppIcons.send,
                     size: 18,
                     color: widget.primaryColor,
                   ),

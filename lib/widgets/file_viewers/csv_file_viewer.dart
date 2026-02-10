@@ -1,61 +1,53 @@
+
 import 'package:csv/csv.dart';
 import 'package:flutter/material.dart';
 import '../../theme/app_typography.dart';
 
 import '../../theme/design_tokens.dart';
 import '../../theme/opencode_theme.dart';
-
+import 'package:broski/theme/app_icons.dart';
 class CsvFileViewer extends StatefulWidget {
   const CsvFileViewer({
     super.key,
     required this.content,
     required this.filename,
   });
-
   final String content;
   final String filename;
-
   @override
   State<CsvFileViewer> createState() => _CsvFileViewerState();
 }
-
 class _CsvFileViewerState extends State<CsvFileViewer> {
   late List<List<dynamic>> _rows;
   bool _hasHeader = true;
-
   @override
   void initState() {
     super.initState();
     _parseCSV();
   }
-
   void _parseCSV() {
     const converter = CsvToListConverter();
     _rows = converter.convert(widget.content);
   }
-
   @override
   Widget build(BuildContext context) {
     final theme = OpenCodeTheme.of(context);
-
     if (_rows.isEmpty) {
       return Center(
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            Icon(Icons.table_chart_outlined, size: 64, color: theme.textMuted),
+            Icon(AppIcons.table, size: 64, color: theme.textMuted),
             SizedBox(height: Spacing.lg),
             Text('Empty CSV file', style: TextStyle(color: theme.textMuted)),
           ],
         ),
       );
     }
-
     final headerRow = _hasHeader && _rows.isNotEmpty ? _rows.first : null;
     final dataRows = _hasHeader && _rows.isNotEmpty
         ? _rows.skip(1).toList()
         : _rows;
-
     return Container(
       color: theme.background,
       child: Column(
@@ -65,7 +57,7 @@ class _CsvFileViewerState extends State<CsvFileViewer> {
             color: theme.backgroundPanel,
             child: Row(
               children: [
-                Icon(Icons.table_chart, size: 16, color: theme.textMuted),
+                Icon(AppIcons.table, size: 16, color: theme.textMuted),
                 SizedBox(width: Spacing.sm),
                 Text(
                   '${_rows.length} rows × ${_rows.isNotEmpty ? _rows.first.length : 0} columns',

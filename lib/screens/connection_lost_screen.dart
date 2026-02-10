@@ -1,3 +1,4 @@
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../theme/app_typography.dart';
@@ -6,25 +7,21 @@ import '../theme/design_tokens.dart';
 import '../providers/connection_provider.dart';
 import '../providers/service_providers.dart';
 import '../theme/opencode_theme.dart';
-
+import 'package:broski/theme/app_icons.dart';
 class ConnectionLostScreen extends ConsumerStatefulWidget {
   const ConnectionLostScreen({super.key});
-
   @override
   ConsumerState<ConnectionLostScreen> createState() =>
       _ConnectionLostScreenState();
 }
-
 class _ConnectionLostScreenState extends ConsumerState<ConnectionLostScreen> {
   bool _hasCachedData = false;
   bool _checkingCache = true;
-
   @override
   void initState() {
     super.initState();
     _checkCachedData();
   }
-
   Future<void> _checkCachedData() async {
     final storage = ref.read(storageServiceProvider);
     final hasData = await storage.hasCachedData();
@@ -35,16 +32,13 @@ class _ConnectionLostScreenState extends ConsumerState<ConnectionLostScreen> {
       });
     }
   }
-
   @override
   Widget build(BuildContext context) {
     final connection = ref.watch(connectionProvider);
     final theme = Theme.of(context);
     final ocTheme = OpenCodeTheme.of(context);
-
     // Show reconnecting state with animated indicator
     final isReconnecting = connection.isReconnecting;
-
     return Scaffold(
       backgroundColor: ocTheme.background,
       body: SafeArea(
@@ -64,7 +58,7 @@ class _ConnectionLostScreenState extends ConsumerState<ConnectionLostScreen> {
                   ),
                 ),
               ] else ...[
-                Icon(Icons.wifi_off, size: 48, color: ocTheme.error),
+                Icon(AppIcons.wifiOff, size: 48, color: ocTheme.error),
               ],
               SizedBox(height: Spacing.lg),
               Text(
@@ -157,8 +151,8 @@ class _ConnectionLostScreenState extends ConsumerState<ConnectionLostScreen> {
                         },
                   icon: Icon(
                     _hasCachedData
-                        ? Icons.cloud_off_rounded
-                        : Icons.visibility_rounded,
+                        ? AppIcons.cloudOff
+                        : AppIcons.visibility,
                     size: 20,
                   ),
                   label: Text(_hasCachedData ? 'Browse Offline' : 'Preview UI'),

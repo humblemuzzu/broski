@@ -1,19 +1,18 @@
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../providers/terminal_settings_provider.dart';
 import '../theme/design_tokens.dart';
 import '../theme/opencode_theme.dart';
-
+import 'package:broski/theme/app_icons.dart';
 class TerminalSettingsScreen extends ConsumerWidget {
   const TerminalSettingsScreen({super.key});
-
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final ocTheme = OpenCodeTheme.of(context);
     final settings = ref.watch(terminalSettingsProvider);
     final notifier = ref.read(terminalSettingsProvider.notifier);
-
     return Scaffold(
       backgroundColor: ocTheme.background,
       appBar: AppBar(
@@ -35,7 +34,7 @@ class TerminalSettingsScreen extends ConsumerWidget {
             ),
             child: Row(
               children: [
-                Icon(Icons.bolt, color: ocTheme.success, size: 20),
+                Icon(AppIcons.bolt, color: ocTheme.success, size: 20),
                 SizedBox(width: Spacing.md),
                 Expanded(
                   child: Text(
@@ -120,7 +119,6 @@ class TerminalSettingsScreen extends ConsumerWidget {
       ),
     );
   }
-
   String _formatNumber(int n) {
     if (n >= 1000) {
       return '${(n / 1000).toStringAsFixed(n % 1000 == 0 ? 0 : 1)}k';
@@ -128,13 +126,10 @@ class TerminalSettingsScreen extends ConsumerWidget {
     return n.toString();
   }
 }
-
 class _Section extends StatelessWidget {
   const _Section({required this.title, required this.children});
-
   final String title;
   final List<Widget> children;
-
   @override
   Widget build(BuildContext context) {
     final ocTheme = OpenCodeTheme.of(context);
@@ -164,7 +159,6 @@ class _Section extends StatelessWidget {
     );
   }
 }
-
 class _SwitchTile extends StatelessWidget {
   const _SwitchTile({
     required this.title,
@@ -172,12 +166,10 @@ class _SwitchTile extends StatelessWidget {
     required this.onChanged,
     this.subtitle,
   });
-
   final String title;
   final String? subtitle;
   final bool value;
   final ValueChanged<bool> onChanged;
-
   @override
   Widget build(BuildContext context) {
     final ocTheme = OpenCodeTheme.of(context);
@@ -197,7 +189,6 @@ class _SwitchTile extends StatelessWidget {
     );
   }
 }
-
 class _SliderTile extends StatelessWidget {
   const _SliderTile({
     required this.title,
@@ -208,7 +199,6 @@ class _SliderTile extends StatelessWidget {
     required this.onChanged,
     required this.label,
   });
-
   final String title;
   final double value;
   final double min;
@@ -216,7 +206,6 @@ class _SliderTile extends StatelessWidget {
   final int divisions;
   final ValueChanged<double> onChanged;
   final String label;
-
   @override
   Widget build(BuildContext context) {
     final ocTheme = OpenCodeTheme.of(context);

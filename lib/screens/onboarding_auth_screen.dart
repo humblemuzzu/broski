@@ -1,3 +1,4 @@
+
 import 'dart:io';
 import 'dart:math' as math;
 
@@ -10,23 +11,20 @@ import '../theme/design_tokens.dart';
 import 'package:url_launcher/url_launcher.dart';
 
 import '../providers/app_auth_provider.dart';
+import 'package:broski/theme/app_icons.dart';
 import '../providers/onboarding_provider.dart'
     show onboardingProvider, kDevBypassOnboarding;
-
 /// Standalone "Identify Yourself" auth screen used during onboarding.
 /// Auto-advances to the paywall step once the user signs in.
 class OnboardingAuthScreen extends ConsumerStatefulWidget {
   const OnboardingAuthScreen({super.key});
-
   @override
   ConsumerState<OnboardingAuthScreen> createState() =>
       _OnboardingAuthScreenState();
 }
-
 class _OnboardingAuthScreenState extends ConsumerState<OnboardingAuthScreen>
     with SingleTickerProviderStateMixin {
   late AnimationController _scanController;
-
   @override
   void initState() {
     super.initState();
@@ -35,32 +33,27 @@ class _OnboardingAuthScreenState extends ConsumerState<OnboardingAuthScreen>
       duration: const Duration(milliseconds: 2400),
     )..repeat(reverse: true);
   }
-
   @override
   void dispose() {
     _scanController.dispose();
     super.dispose();
   }
-
   Future<void> _launchUrl(String url) async {
     final uri = Uri.parse(url);
     if (await canLaunchUrl(uri)) {
       await launchUrl(uri, mode: LaunchMode.externalApplication);
     }
   }
-
   @override
   Widget build(BuildContext context) {
     final state = ref.watch(appAuthProvider);
     final screenWidth = MediaQuery.of(context).size.width;
-
     // Auto-advance when signed in
     if (state.isSignedIn) {
       Future.microtask(() {
         ref.read(onboardingProvider.notifier).finishAuth();
       });
     }
-
     return Scaffold(
       backgroundColor: const Color(0xFF0A0A0A),
       body: SafeArea(
@@ -70,7 +63,6 @@ class _OnboardingAuthScreenState extends ConsumerState<OnboardingAuthScreen>
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               const SizedBox(height: 48),
-
               // -- SYSTEM ONLINE indicator --
               Row(
                 children: [
@@ -100,7 +92,6 @@ class _OnboardingAuthScreenState extends ConsumerState<OnboardingAuthScreen>
                 ],
               ),
               SizedBox(height: Spacing.lg),
-
               // -- "Identify\nYourself." heading --
               Text.rich(
                 TextSpan(
@@ -130,9 +121,7 @@ class _OnboardingAuthScreenState extends ConsumerState<OnboardingAuthScreen>
                   ],
                 ),
               ),
-
               const Spacer(flex: 2),
-
               // -- Scanning image box --
               Center(
                 child: _ScanBox(
@@ -140,9 +129,7 @@ class _OnboardingAuthScreenState extends ConsumerState<OnboardingAuthScreen>
                   boxWidth: math.min(screenWidth - 56, 320),
                 ),
               ),
-
               const Spacer(flex: 2),
-
               // -- Error display --
               if (state.error != null) ...[
                 Container(
@@ -165,12 +152,11 @@ class _OnboardingAuthScreenState extends ConsumerState<OnboardingAuthScreen>
                 ),
                 SizedBox(height: Spacing.lg),
               ],
-
               // -- Continue with Apple button (iOS only) --
               if (Platform.isIOS) ...[
                 _AuthButton(
                   label: 'Continue with Apple',
-                  icon: Icons.apple,
+                  icon: AppIcons.apple,
                   isLoading: state.isLoading,
                   onPressed: () {
                     HapticFeedback.lightImpact();
@@ -179,11 +165,10 @@ class _OnboardingAuthScreenState extends ConsumerState<OnboardingAuthScreen>
                 ),
                 const SizedBox(height: 14),
               ],
-
               // -- Continue with Google button --
               _AuthButton(
                 label: 'Continue with Google',
-                icon: Icons.g_mobiledata_rounded,
+                icon: AppIcons.apple,
                 iconAsset: 'docs/assets/google-logo.png',
                 isLoading: state.isLoading,
                 outlined: true,
@@ -193,7 +178,6 @@ class _OnboardingAuthScreenState extends ConsumerState<OnboardingAuthScreen>
                 },
               ),
               SizedBox(height: Spacing.xl),
-
               // -- Terms and Privacy Policy --
               Center(
                 child: Text.rich(
@@ -266,21 +250,16 @@ class _OnboardingAuthScreenState extends ConsumerState<OnboardingAuthScreen>
     );
   }
 }
-
 // =============================================================================
 // SCAN BOX
 // =============================================================================
-
 class _ScanBox extends StatelessWidget {
   const _ScanBox({required this.scanController, required this.boxWidth});
-
   final AnimationController scanController;
   final double boxWidth;
-
   @override
   Widget build(BuildContext context) {
     final boxHeight = boxWidth * 0.88;
-
     return SizedBox(
       width: boxWidth,
       height: boxHeight,
@@ -338,16 +317,14 @@ class _ScanBox extends StatelessWidget {
               ),
             ),
           ),
-
           // Fingerprint icon (centered)
           Center(
             child: Icon(
-              Icons.fingerprint_rounded,
+              AppIcons.fingerprint,
               size: 56,
               color: Colors.white.withValues(alpha: 0.65),
             ),
           ),
-
           // Scanning line animation
           AnimatedBuilder(
             animation: scanController,
@@ -375,7 +352,6 @@ class _ScanBox extends StatelessWidget {
               );
             },
           ),
-
           // Subtle glow around scan line
           AnimatedBuilder(
             animation: scanController,
@@ -402,7 +378,6 @@ class _ScanBox extends StatelessWidget {
               );
             },
           ),
-
           // "ID: UNKNOWN" and "ACCESS: PENDING"
           Positioned(
             left: 16,
@@ -428,7 +403,6 @@ class _ScanBox extends StatelessWidget {
               ],
             ),
           ),
-
           // Corner bracket marks
           Positioned(
             top: 0,
@@ -467,13 +441,10 @@ class _ScanBox extends StatelessWidget {
     );
   }
 }
-
 class _CornerBracket extends StatelessWidget {
   const _CornerBracket({required this.rotation, required this.color});
-
   final double rotation;
   final Color color;
-
   @override
   Widget build(BuildContext context) {
     return Transform.rotate(
@@ -486,12 +457,9 @@ class _CornerBracket extends StatelessWidget {
     );
   }
 }
-
 class _CornerBracketPainter extends CustomPainter {
   _CornerBracketPainter({required this.color});
-
   final Color color;
-
   @override
   void paint(Canvas canvas, Size size) {
     final paint = Paint()
@@ -499,23 +467,18 @@ class _CornerBracketPainter extends CustomPainter {
       ..strokeWidth = 1.5
       ..style = PaintingStyle.stroke
       ..strokeCap = StrokeCap.round;
-
     final path = Path()
       ..moveTo(0, size.height * 0.45)
       ..lineTo(0, 0)
       ..lineTo(size.width * 0.45, 0);
-
     canvas.drawPath(path, paint);
   }
-
   @override
   bool shouldRepaint(covariant CustomPainter oldDelegate) => false;
 }
-
 // =============================================================================
 // AUTH BUTTON
 // =============================================================================
-
 class _AuthButton extends StatelessWidget {
   const _AuthButton({
     required this.label,
@@ -525,14 +488,12 @@ class _AuthButton extends StatelessWidget {
     this.outlined = false,
     this.iconAsset,
   });
-
   final String label;
   final IconData icon;
   final bool isLoading;
   final VoidCallback onPressed;
   final bool outlined;
   final String? iconAsset;
-
   @override
   Widget build(BuildContext context) {
     return GestureDetector(

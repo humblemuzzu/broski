@@ -53,7 +53,7 @@ class AppScreen {
 /// Appearance settings state
 class AppearanceSettings {
   const AppearanceSettings({
-    this.iconPack = IconPack.material,
+    this.iconPack = IconPack.standard,
     this.useToolColors = true,
     this.showToolBorders = true,
     this.cardBorderRadius = 12.0,
@@ -159,7 +159,7 @@ class AppearanceSettings {
   factory AppearanceSettings.fromMap(Map<String, dynamic> map) {
     final enabledScreensList = map['enabledScreens'] as List<dynamic>?;
     return AppearanceSettings(
-      iconPack: IconPack.values[map['iconPack'] as int? ?? 0],
+      iconPack: IconPack.values[(map['iconPack'] as int? ?? 0).clamp(0, IconPack.values.length - 1)],
       useToolColors: map['useToolColors'] as bool? ?? true,
       showToolBorders: map['showToolBorders'] as bool? ?? true,
       cardBorderRadius: (map['cardBorderRadius'] as num?)?.toDouble() ?? 12.0,
@@ -356,7 +356,7 @@ class AppearanceNotifier extends StateNotifier<AppearanceSettings> {
     // Clear background image first
     await clearBackground();
     state = const AppearanceSettings();
-    ToolStyle.setIconPack(IconPack.material);
+    ToolStyle.setIconPack(IconPack.standard);
     await _saveSettings();
   }
 }

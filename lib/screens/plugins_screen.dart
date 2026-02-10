@@ -1,3 +1,4 @@
+
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -8,14 +9,12 @@ import '../models/claude_code.dart';
 import '../providers/claude_code_provider.dart';
 import '../widgets/chat/detail_sheet.dart';
 import '../widgets/claude_code_help.dart';
-
+import 'package:broski/theme/app_icons.dart';
 class PluginsScreen extends ConsumerStatefulWidget {
   const PluginsScreen({super.key});
-
   @override
   ConsumerState<PluginsScreen> createState() => _PluginsScreenState();
 }
-
 class _PluginsScreenState extends ConsumerState<PluginsScreen> {
   @override
   void initState() {
@@ -25,12 +24,10 @@ class _PluginsScreenState extends ConsumerState<PluginsScreen> {
       ref.read(ccPluginsProvider.notifier).load();
     });
   }
-
   @override
   Widget build(BuildContext context) {
     final pluginsAsync = ref.watch(ccPluginsProvider);
     final theme = Theme.of(context);
-
     return Scaffold(
       backgroundColor: theme.colorScheme.surface,
       appBar: AppBar(
@@ -38,7 +35,7 @@ class _PluginsScreenState extends ConsumerState<PluginsScreen> {
         title: const Text('Plugins'),
         actions: [
           IconButton(
-            icon: const Icon(Icons.help_outline_rounded),
+            icon: const Icon(AppIcons.help),
             onPressed: () => showClaudeCodeHelpSheet(
               context,
               topic: ClaudeCodeHelpTopic.plugins,
@@ -46,7 +43,7 @@ class _PluginsScreenState extends ConsumerState<PluginsScreen> {
             tooltip: 'Help',
           ),
           IconButton(
-            icon: const Icon(Icons.refresh_rounded),
+            icon: const Icon(AppIcons.refresh),
             onPressed: () => ref.read(ccPluginsProvider.notifier).reload(),
             tooltip: 'Reload Plugins',
           ),
@@ -55,7 +52,7 @@ class _PluginsScreenState extends ConsumerState<PluginsScreen> {
       floatingActionButton: FloatingActionButton(
         onPressed: () => _addPluginPath(context),
         tooltip: 'Add Plugin Path',
-        child: const Icon(Icons.add),
+        child: const Icon(AppIcons.add),
       ),
       body: pluginsAsync.when(
         data: (plugins) => plugins.isEmpty
@@ -74,12 +71,10 @@ class _PluginsScreenState extends ConsumerState<PluginsScreen> {
       ),
     );
   }
-
   Future<void> _togglePlugin(ClaudeCodePlugin plugin, bool enabled) async {
     final success = await ref
         .read(ccPluginsProvider.notifier)
         .togglePlugin(plugin.name, enabled: enabled);
-
     if (!success && mounted) {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
@@ -89,11 +84,9 @@ class _PluginsScreenState extends ConsumerState<PluginsScreen> {
       );
     }
   }
-
   void _addPluginPath(BuildContext context) {
     final controller = TextEditingController();
     final theme = Theme.of(context);
-
     showDialog(
       context: context,
       builder: (context) => AlertDialog(
@@ -114,7 +107,7 @@ class _PluginsScreenState extends ConsumerState<PluginsScreen> {
               decoration: const InputDecoration(
                 labelText: 'Plugin Path',
                 hintText: '/path/to/plugin',
-                prefixIcon: Icon(Icons.folder_outlined),
+                prefixIcon: Icon(AppIcons.folder),
               ),
               autofocus: true,
             ),
@@ -136,12 +129,10 @@ class _PluginsScreenState extends ConsumerState<PluginsScreen> {
             onPressed: () async {
               final path = controller.text.trim();
               if (path.isEmpty) return;
-
               Navigator.pop(context);
               final success = await ref
                   .read(ccPluginsProvider.notifier)
                   .addPluginPath(path);
-
               if (mounted) {
                 ScaffoldMessenger.of(context).showSnackBar(
                   SnackBar(
@@ -161,7 +152,6 @@ class _PluginsScreenState extends ConsumerState<PluginsScreen> {
       ),
     );
   }
-
   void _showPluginDetails(BuildContext context, ClaudeCodePlugin plugin) {
     DetailSheet.show(
       context: context,
@@ -176,7 +166,6 @@ class _PluginsScreenState extends ConsumerState<PluginsScreen> {
           final success = await ref
               .read(ccPluginsProvider.notifier)
               .removePluginPath(plugin.path);
-
           if (mounted) {
             ScaffoldMessenger.of(context).showSnackBar(
               SnackBar(
@@ -194,16 +183,12 @@ class _PluginsScreenState extends ConsumerState<PluginsScreen> {
     );
   }
 }
-
 class _EmptyState extends StatelessWidget {
   final VoidCallback onAddPlugin;
-
   const _EmptyState({required this.onAddPlugin});
-
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-
     return Center(
       child: Padding(
         padding: Insets.xxxl,
@@ -211,7 +196,7 @@ class _EmptyState extends StatelessWidget {
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
             Icon(
-              Icons.extension_rounded,
+              AppIcons.extension_,
               size: 64,
               color: theme.colorScheme.primary.withValues(alpha: 0.5),
             ),
@@ -241,7 +226,7 @@ class _EmptyState extends StatelessWidget {
             SizedBox(height: Spacing.xxl),
             ElevatedButton.icon(
               onPressed: onAddPlugin,
-              icon: const Icon(Icons.add),
+              icon: const Icon(AppIcons.add),
               label: const Text('Add Plugin Path'),
             ),
           ],
@@ -250,17 +235,13 @@ class _EmptyState extends StatelessWidget {
     );
   }
 }
-
 class _ErrorState extends StatelessWidget {
   final String error;
   final VoidCallback onRetry;
-
   const _ErrorState({required this.error, required this.onRetry});
-
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-
     return Center(
       child: Padding(
         padding: Insets.xxxl,
@@ -268,7 +249,7 @@ class _ErrorState extends StatelessWidget {
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
             Icon(
-              Icons.error_outline_rounded,
+              AppIcons.error,
               size: 64,
               color: theme.colorScheme.error.withValues(alpha: 0.5),
             ),
@@ -290,7 +271,7 @@ class _ErrorState extends StatelessWidget {
             SizedBox(height: Spacing.xxl),
             ElevatedButton.icon(
               onPressed: onRetry,
-              icon: const Icon(Icons.refresh_rounded),
+              icon: const Icon(AppIcons.refresh),
               label: const Text('Retry'),
             ),
           ],
@@ -299,22 +280,18 @@ class _ErrorState extends StatelessWidget {
     );
   }
 }
-
 class _PluginsList extends StatelessWidget {
   final List<ClaudeCodePlugin> plugins;
   final void Function(ClaudeCodePlugin, bool) onTogglePlugin;
   final void Function(ClaudeCodePlugin) onViewDetails;
-
   const _PluginsList({
     required this.plugins,
     required this.onTogglePlugin,
     required this.onViewDetails,
   });
-
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-
     // Separate enabled and disabled plugins
     final enabledPlugins = plugins
         .where((p) => p.status == ClaudeCodePluginStatus.enabled)
@@ -322,7 +299,6 @@ class _PluginsList extends StatelessWidget {
     final disabledPlugins = plugins
         .where((p) => p.status == ClaudeCodePluginStatus.disabled)
         .toList();
-
     return ListView(
       padding: Insets.card,
       children: [
@@ -339,7 +315,7 @@ class _PluginsList extends StatelessWidget {
           child: Row(
             children: [
               Icon(
-                Icons.info_outline_rounded,
+                AppIcons.info,
                 color: theme.colorScheme.primary,
                 size: 20,
               ),
@@ -356,7 +332,6 @@ class _PluginsList extends StatelessWidget {
           ),
         ),
         SizedBox(height: Spacing.xxl),
-
         // Enabled plugins section
         if (enabledPlugins.isNotEmpty) ...[
           _SectionHeader(
@@ -374,7 +349,6 @@ class _PluginsList extends StatelessWidget {
           ),
           SizedBox(height: Spacing.xxl),
         ],
-
         // Disabled plugins section
         if (disabledPlugins.isNotEmpty) ...[
           _SectionHeader(
@@ -391,29 +365,24 @@ class _PluginsList extends StatelessWidget {
             ),
           ),
         ],
-
         // Footer spacing for FAB
         const SizedBox(height: 80),
       ],
     );
   }
 }
-
 class _SectionHeader extends StatelessWidget {
   final String title;
   final int count;
   final Color color;
-
   const _SectionHeader({
     required this.title,
     required this.count,
     required this.color,
   });
-
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-
     return Row(
       children: [
         Text(
@@ -442,24 +411,20 @@ class _SectionHeader extends StatelessWidget {
     );
   }
 }
-
 class _PluginCard extends StatelessWidget {
   final ClaudeCodePlugin plugin;
   final void Function(bool) onToggle;
   final VoidCallback onTap;
-
   const _PluginCard({
     required this.plugin,
     required this.onToggle,
     required this.onTap,
   });
-
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final manifest = plugin.manifest;
     final isEnabled = plugin.status == ClaudeCodePluginStatus.enabled;
-
     return Card(
       margin: Insets.bottomMd,
       child: InkWell(
@@ -487,7 +452,7 @@ class _PluginCard extends StatelessWidget {
                       borderRadius: Radii.brMd,
                     ),
                     child: Icon(
-                      Icons.extension_rounded,
+                      AppIcons.extension_,
                       color: isEnabled
                           ? theme.colorScheme.primary
                           : theme.colorScheme.onSurface.withValues(alpha: 0.5),
@@ -544,27 +509,27 @@ class _PluginCard extends StatelessWidget {
                 children: [
                   if (plugin.commands != null && plugin.commands!.isNotEmpty)
                     _ComponentBadge(
-                      icon: Icons.terminal_rounded,
+                      icon: AppIcons.terminal,
                       label: '${plugin.commands!.length} commands',
                     ),
                   if (plugin.agents != null && plugin.agents!.isNotEmpty)
                     _ComponentBadge(
-                      icon: Icons.smart_toy_outlined,
+                      icon: AppIcons.agent,
                       label: '${plugin.agents!.length} agents',
                     ),
                   if (plugin.skills != null && plugin.skills!.isNotEmpty)
                     _ComponentBadge(
-                      icon: Icons.psychology_outlined,
+                      icon: AppIcons.psychology,
                       label: '${plugin.skills!.length} skills',
                     ),
                   if (plugin.hasHooks == true)
                     const _ComponentBadge(
-                      icon: Icons.webhook_outlined,
+                      icon: AppIcons.webhook,
                       label: 'hooks',
                     ),
                   if (plugin.hasMcpServers == true)
                     const _ComponentBadge(
-                      icon: Icons.dns_outlined,
+                      icon: AppIcons.dns,
                       label: 'MCP',
                     ),
                 ],
@@ -576,17 +541,13 @@ class _PluginCard extends StatelessWidget {
     );
   }
 }
-
 class _ComponentBadge extends StatelessWidget {
   final IconData icon;
   final String label;
-
   const _ComponentBadge({required this.icon, required this.label});
-
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-
     return Container(
       padding: Insets.chip,
       decoration: BoxDecoration(
@@ -613,21 +574,17 @@ class _ComponentBadge extends StatelessWidget {
     );
   }
 }
-
 class _PluginDetailsContent extends StatelessWidget {
   final ClaudeCodePlugin plugin;
   final VoidCallback onRemovePath;
-
   const _PluginDetailsContent({
     required this.plugin,
     required this.onRemovePath,
   });
-
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final manifest = plugin.manifest;
-
     return Padding(
       padding: Insets.screenAll,
       child: Column(
@@ -652,7 +609,6 @@ class _PluginDetailsContent extends StatelessWidget {
                 ),
               ),
             ),
-
           // Description
           if (manifest?.description != null &&
               manifest!.description!.isNotEmpty) ...[
@@ -665,7 +621,6 @@ class _PluginDetailsContent extends StatelessWidget {
             ),
             SizedBox(height: Spacing.xl),
           ],
-
           // Path
           _DetailSection(
             title: 'Path',
@@ -678,7 +633,7 @@ class _PluginDetailsContent extends StatelessWidget {
                   ),
                 ),
                 IconButton(
-                  icon: const Icon(Icons.copy_rounded, size: 18),
+                  icon: const Icon(AppIcons.copy, size: 18),
                   onPressed: () {
                     Clipboard.setData(ClipboardData(text: plugin.path));
                     ScaffoldMessenger.of(context).showSnackBar(
@@ -696,7 +651,6 @@ class _PluginDetailsContent extends StatelessWidget {
             ),
           ),
           SizedBox(height: Spacing.xl),
-
           // Author
           if (manifest?.authorName != null) ...[
             _DetailSection(
@@ -708,7 +662,6 @@ class _PluginDetailsContent extends StatelessWidget {
             ),
             SizedBox(height: Spacing.xl),
           ],
-
           // Commands
           if (plugin.commands != null && plugin.commands!.isNotEmpty) ...[
             _DetailSection(
@@ -719,7 +672,7 @@ class _PluginDetailsContent extends StatelessWidget {
                 children: plugin.commands!
                     .map(
                       (cmd) => _ComponentChip(
-                        icon: Icons.terminal_rounded,
+                        icon: AppIcons.terminal,
                         label: '/$cmd',
                       ),
                     )
@@ -728,7 +681,6 @@ class _PluginDetailsContent extends StatelessWidget {
             ),
             SizedBox(height: Spacing.xl),
           ],
-
           // Agents
           if (plugin.agents != null && plugin.agents!.isNotEmpty) ...[
             _DetailSection(
@@ -739,7 +691,7 @@ class _PluginDetailsContent extends StatelessWidget {
                 children: plugin.agents!
                     .map(
                       (agent) => _ComponentChip(
-                        icon: Icons.smart_toy_outlined,
+                        icon: AppIcons.agent,
                         label: '@$agent',
                       ),
                     )
@@ -748,7 +700,6 @@ class _PluginDetailsContent extends StatelessWidget {
             ),
             SizedBox(height: Spacing.xl),
           ],
-
           // Skills
           if (plugin.skills != null && plugin.skills!.isNotEmpty) ...[
             _DetailSection(
@@ -759,7 +710,7 @@ class _PluginDetailsContent extends StatelessWidget {
                 children: plugin.skills!
                     .map(
                       (skill) => _ComponentChip(
-                        icon: Icons.psychology_outlined,
+                        icon: AppIcons.psychology,
                         label: skill,
                       ),
                     )
@@ -768,7 +719,6 @@ class _PluginDetailsContent extends StatelessWidget {
             ),
             SizedBox(height: Spacing.xl),
           ],
-
           // Other components
           if (plugin.hasHooks == true ||
               plugin.hasMcpServers == true) ...[
@@ -780,12 +730,12 @@ class _PluginDetailsContent extends StatelessWidget {
                 children: [
                   if (plugin.hasHooks == true)
                     const _ComponentChip(
-                      icon: Icons.webhook_outlined,
+                      icon: AppIcons.webhook,
                       label: 'Hooks',
                     ),
                   if (plugin.hasMcpServers == true)
                     const _ComponentChip(
-                      icon: Icons.dns_outlined,
+                      icon: AppIcons.dns,
                       label: 'MCP Servers',
                     ),
                 ],
@@ -793,14 +743,13 @@ class _PluginDetailsContent extends StatelessWidget {
             ),
             SizedBox(height: Spacing.xl),
           ],
-
           // Remove button (only for custom paths)
           // Note: We can't easily tell if it's a custom path vs built-in,
           // but we offer the option anyway since the bridge validates
           OutlinedButton.icon(
             onPressed: onRemovePath,
             icon: Icon(
-              Icons.remove_circle_outline_rounded,
+              AppIcons.remove,
               color: theme.colorScheme.error,
             ),
             label: Text(
@@ -818,17 +767,13 @@ class _PluginDetailsContent extends StatelessWidget {
     );
   }
 }
-
 class _DetailSection extends StatelessWidget {
   final String title;
   final Widget child;
-
   const _DetailSection({required this.title, required this.child});
-
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -845,17 +790,13 @@ class _DetailSection extends StatelessWidget {
     );
   }
 }
-
 class _ComponentChip extends StatelessWidget {
   final IconData icon;
   final String label;
-
   const _ComponentChip({required this.icon, required this.label});
-
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
       decoration: BoxDecoration(

@@ -1,3 +1,4 @@
+
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -20,35 +21,29 @@ import '../theme/opencode_theme.dart';
 import '../widgets/chat/detail_sheet.dart';
 import '../widgets/connection_quality_indicator.dart';
 import 'chat_screen.dart';
-
+import 'package:broski/theme/app_icons.dart';
 class ProjectsScreen extends ConsumerStatefulWidget {
   const ProjectsScreen({super.key});
-
   @override
   ConsumerState<ProjectsScreen> createState() => _ProjectsScreenState();
 }
-
 /// State provider for expanded projects (showing worktrees)
 final _expandedProjectsProvider = StateProvider.autoDispose<Set<String>>(
   (ref) => {},
 );
-
 /// Cache provider for loaded worktrees per project path
 final _projectWorktreesProvider =
     StateProvider.autoDispose<Map<String, List<Worktree>>>((ref) => {});
-
 class _ProjectsScreenState extends ConsumerState<ProjectsScreen> {
   late Future<List<ProjectSummary>> _projectsFuture;
   late AgentType _agentType;
   late final ProviderSubscription<AgentType> _agentTypeSub;
   String? _creatingWorktreeForPath;
-
   @override
   void initState() {
     super.initState();
     _agentType = ref.read(agentTypeProvider);
     _projectsFuture = _loadProjects(_agentType);
-
     _agentTypeSub = ref.listenManual<AgentType>(agentTypeProvider, (
       previous,
       next,
@@ -61,23 +56,19 @@ class _ProjectsScreenState extends ConsumerState<ProjectsScreen> {
       });
     });
   }
-
   @override
   void dispose() {
     _agentTypeSub.close();
     super.dispose();
   }
-
   Future<List<ProjectSummary>> _loadProjects(AgentType agentType) async {
     final connection = ref.read(connectionProvider);
     final storage = ref.read(storageServiceProvider);
-
     // In offline mode, return cached projects
     if (connection.isOfflineMode) {
       if (agentType == AgentType.opencode) return storage.getCachedProjects();
       if (agentType == AgentType.codex) return storage.getCachedCodexProjects();
     }
-
     // Try live data first, fallback to cache on failure
     try {
       final bridge = ref.read(bridgeServiceProvider);
@@ -86,7 +77,6 @@ class _ProjectsScreenState extends ConsumerState<ProjectsScreen> {
         AgentType.codex => await bridge.cxListProjects(),
         _ => await bridge.listProjects(),
       };
-
       // Cache for offline use
       if (projects.isNotEmpty) {
         if (agentType == AgentType.opencode) {
@@ -95,7 +85,6 @@ class _ProjectsScreenState extends ConsumerState<ProjectsScreen> {
           await storage.cacheCodexProjects(projects);
         }
       }
-
       return projects;
     } catch (e) {
       // On any error (timeout, connection issues), try cached data
@@ -111,23 +100,19 @@ class _ProjectsScreenState extends ConsumerState<ProjectsScreen> {
       rethrow;
     }
   }
-
   Future<void> _refresh() async {
     setState(() {
       _projectsFuture = _loadProjects(_agentType);
     });
     await _projectsFuture;
   }
-
   void _toggleHighlight(ProjectSummary project) {
     ref.read(highlightsProvider.notifier).toggleProject(project.id);
   }
-
   /// Toggle expansion state for a project to show/hide worktrees
   Future<void> _toggleProjectExpansion(ProjectSummary project) async {
     final expanded = ref.read(_expandedProjectsProvider);
     final isExpanded = expanded.contains(project.path);
-
     if (isExpanded) {
       // Collapse
       ref.read(_expandedProjectsProvider.notifier).state = {...expanded}
@@ -138,7 +123,6 @@ class _ProjectsScreenState extends ConsumerState<ProjectsScreen> {
         ...expanded,
         project.path,
       };
-
       // Load worktrees if not already cached
       final worktreesCache = ref.read(_projectWorktreesProvider);
       if (!worktreesCache.containsKey(project.path)) {
@@ -146,7 +130,6 @@ class _ProjectsScreenState extends ConsumerState<ProjectsScreen> {
       }
     }
   }
-
   /// Load worktrees for a project
   Future<void> _loadWorktreesFor(ProjectSummary project) async {
     final bridge = ref.read(bridgeServiceProvider);
@@ -168,7 +151,6 @@ class _ProjectsScreenState extends ConsumerState<ProjectsScreen> {
       }
     }
   }
-
   /// Open a session in a specific worktree
   Future<void> _openWorktreeSession(
     BuildContext context,
@@ -180,21 +162,17 @@ class _ProjectsScreenState extends ConsumerState<ProjectsScreen> {
     final baseRules = ref.read(permissionRulesProvider).effectiveRuleset;
     final disabledTools = ref.read(toolSettingsProvider).disabledTools;
     final permissionRules = applyDisabledToolsToRuleset(baseRules, disabledTools);
-
     try {
       final session = await bridge.createSession(
         projectPath: worktree.directory,
         permission: permissionRules,
       );
-
       final worktreeProject = ProjectSummary(
         id: project.id,
         name: worktree.displayName,
         path: worktree.directory,
       );
-
       chat.setSession(session, projectPath: worktree.directory);
-
       if (!mounted) return;
       Navigator.push(
         context,
@@ -213,12 +191,10 @@ class _ProjectsScreenState extends ConsumerState<ProjectsScreen> {
       );
     }
   }
-
   Future<void> _showCreateWorktreeSheet(ProjectSummary project) async {
     final ocTheme = OpenCodeTheme.of(context);
     final nameController = TextEditingController();
     final cmdController = TextEditingController();
-
     String? currentBranch;
     try {
       final bridge = ref.read(bridgeServiceProvider);
@@ -227,7 +203,6 @@ class _ProjectsScreenState extends ConsumerState<ProjectsScreen> {
     } catch (_) {
       currentBranch = null;
     }
-
     if (!mounted) return;
     await DetailSheet.show<void>(
       context: context,
@@ -275,7 +250,7 @@ class _ProjectsScreenState extends ConsumerState<ProjectsScreen> {
             Row(
               children: [
                 Icon(
-                  Icons.call_split_rounded,
+                  AppIcons.callSplit,
                   size: 18,
                   color: ocTheme.textMuted,
                 ),
@@ -325,7 +300,6 @@ class _ProjectsScreenState extends ConsumerState<ProjectsScreen> {
       ),
     );
   }
-
   Future<void> _createWorktree(
     ProjectSummary project, {
     required String? name,
@@ -339,7 +313,6 @@ class _ProjectsScreenState extends ConsumerState<ProjectsScreen> {
         startCommand: startCommand,
         projectPath: project.path,
       );
-
       if (created != null && mounted) {
         final current = ref.read(_projectWorktreesProvider)[project.path] ?? [];
         final updated = [...current];
@@ -365,7 +338,6 @@ class _ProjectsScreenState extends ConsumerState<ProjectsScreen> {
       if (mounted) setState(() => _creatingWorktreeForPath = null);
     }
   }
-
   Future<void> _deleteWorktree(
     ProjectSummary project,
     Worktree worktree,
@@ -376,7 +348,6 @@ class _ProjectsScreenState extends ConsumerState<ProjectsScreen> {
         worktree.directory,
         projectPath: project.path,
       );
-
       if (!mounted) return;
       if (!ok) {
         ScaffoldMessenger.of(context).showSnackBar(
@@ -387,7 +358,6 @@ class _ProjectsScreenState extends ConsumerState<ProjectsScreen> {
         );
         return;
       }
-
       final current = ref.read(_projectWorktreesProvider)[project.path] ?? [];
       ref.read(_projectWorktreesProvider.notifier).state = {
         ...ref.read(_projectWorktreesProvider),
@@ -395,7 +365,6 @@ class _ProjectsScreenState extends ConsumerState<ProjectsScreen> {
             .where((w) => w.directory != worktree.directory)
             .toList(),
       };
-
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: const Text('Worktree deleted'),
@@ -412,14 +381,12 @@ class _ProjectsScreenState extends ConsumerState<ProjectsScreen> {
       );
     }
   }
-
   Future<void> _showWorktreeOptions(
     ProjectSummary project,
     Worktree worktree,
   ) async {
     final ocTheme = OpenCodeTheme.of(context);
     if (!mounted) return;
-
     await DetailSheet.show<void>(
       context: context,
       title: worktree.displayName,
@@ -428,7 +395,7 @@ class _ProjectsScreenState extends ConsumerState<ProjectsScreen> {
         mainAxisSize: MainAxisSize.min,
         children: [
           ListTile(
-            leading: Icon(Icons.open_in_new_rounded, color: ocTheme.textMuted),
+            leading: Icon(AppIcons.openExternal, color: ocTheme.textMuted),
             title: Text('Open', style: TextStyle(color: ocTheme.text)),
             onTap: () {
               Navigator.pop(context);
@@ -436,7 +403,7 @@ class _ProjectsScreenState extends ConsumerState<ProjectsScreen> {
             },
           ),
           ListTile(
-            leading: Icon(Icons.copy_rounded, color: ocTheme.textMuted),
+            leading: Icon(AppIcons.copy, color: ocTheme.textMuted),
             title: Text('Copy path', style: TextStyle(color: ocTheme.text)),
             onTap: () async {
               await Clipboard.setData(ClipboardData(text: worktree.directory));
@@ -451,7 +418,7 @@ class _ProjectsScreenState extends ConsumerState<ProjectsScreen> {
             },
           ),
           ListTile(
-            leading: Icon(Icons.delete_outline_rounded, color: ocTheme.error),
+            leading: Icon(AppIcons.delete, color: ocTheme.error),
             title: Text('Delete', style: TextStyle(color: ocTheme.error)),
             onTap: () async {
               Navigator.pop(context);
@@ -462,7 +429,6 @@ class _ProjectsScreenState extends ConsumerState<ProjectsScreen> {
       ),
     );
   }
-
   @override
   Widget build(BuildContext context) {
     final agentType = ref.watch(agentTypeProvider);
@@ -472,7 +438,6 @@ class _ProjectsScreenState extends ConsumerState<ProjectsScreen> {
     final projectWorktrees = ref.watch(_projectWorktreesProvider);
     final theme = Theme.of(context);
     final ocTheme = OpenCodeTheme.of(context);
-
     return Scaffold(
       backgroundColor: Colors.transparent,
       body: SafeArea(
@@ -484,14 +449,13 @@ class _ProjectsScreenState extends ConsumerState<ProjectsScreen> {
                 child: CircularProgressIndicator(color: ocTheme.primary),
               );
             }
-
             if (snapshot.hasError) {
               return Center(
                 child: Column(
                   mainAxisAlignment: MainAxisAlignment.center,
                   children: [
                     Icon(
-                      Icons.error_outline_rounded,
+                      AppIcons.error,
                       color: ocTheme.error,
                       size: 48,
                     ),
@@ -514,9 +478,7 @@ class _ProjectsScreenState extends ConsumerState<ProjectsScreen> {
                 ),
               );
             }
-
             final projects = snapshot.data ?? [];
-
             // Separate highlighted and non-highlighted projects
             final highlightedProjects = projects
                 .where((p) => highlights.isProjectHighlighted(p.id))
@@ -524,7 +486,6 @@ class _ProjectsScreenState extends ConsumerState<ProjectsScreen> {
             final regularProjects = projects
                 .where((p) => !highlights.isProjectHighlighted(p.id))
                 .toList();
-
             return RefreshIndicator(
               onRefresh: _refresh,
               color: theme.colorScheme.primary,
@@ -542,7 +503,6 @@ class _ProjectsScreenState extends ConsumerState<ProjectsScreen> {
                           : null,
                     ),
                   ),
-
                   // OpenCode warning if not running
                   if (agentType == AgentType.opencode &&
                       !connection.opencodeRunning)
@@ -552,7 +512,6 @@ class _ProjectsScreenState extends ConsumerState<ProjectsScreen> {
                         onRefresh: _refresh,
                       ),
                     ),
-
                   // Highlighted Projects section
                   if (highlightedProjects.isNotEmpty) ...[
                     SliverToBoxAdapter(
@@ -561,7 +520,7 @@ class _ProjectsScreenState extends ConsumerState<ProjectsScreen> {
                         child: Row(
                           children: [
                             Icon(
-                              Icons.star_rounded,
+                              AppIcons.star,
                               size: 14,
                               color: highlights.color.forBrightness(
                                 theme.brightness,
@@ -603,7 +562,6 @@ class _ProjectsScreenState extends ConsumerState<ProjectsScreen> {
                       ),
                     ),
                   ],
-
                   // All Repositories section
                   if (regularProjects.isNotEmpty) ...[
                     SliverToBoxAdapter(
@@ -632,7 +590,6 @@ class _ProjectsScreenState extends ConsumerState<ProjectsScreen> {
                           );
                           final worktrees = projectWorktrees[project.path];
                           final isLoading = isExpanded && worktrees == null;
-
                           return _ExpandableProjectItem(
                             project: project,
                             isExpanded: isExpanded,
@@ -664,7 +621,6 @@ class _ProjectsScreenState extends ConsumerState<ProjectsScreen> {
                       ),
                     ),
                   ],
-
                   // Empty state
                   if (projects.isEmpty)
                     SliverFillRemaining(
@@ -673,7 +629,7 @@ class _ProjectsScreenState extends ConsumerState<ProjectsScreen> {
                           mainAxisAlignment: MainAxisAlignment.center,
                           children: [
                             Icon(
-                              Icons.folder_open_rounded,
+                              AppIcons.folderOpen,
                               size: 64,
                               color: ocTheme.textMuted.withValues(alpha: 0.5),
                             ),
@@ -706,7 +662,6 @@ class _ProjectsScreenState extends ConsumerState<ProjectsScreen> {
       ),
     );
   }
-
   Future<void> _openProject(
     BuildContext context,
     ProjectSummary project,
@@ -724,16 +679,13 @@ class _ProjectsScreenState extends ConsumerState<ProjectsScreen> {
     final selection = ref.read(selectionProvider.notifier);
     final chat = ref.read(chatSessionProvider.notifier);
     final storage = ref.read(storageServiceProvider);
-
     selection.selectProject(project);
-
     // In offline mode, try to find a cached session for this project
     if (connection.isOfflineMode) {
       final cachedSessions = await storage.getCachedSessions();
       final projectSessions = cachedSessions
           .where((s) => s.directory == project.path)
           .toList();
-
       if (projectSessions.isEmpty) {
         if (!mounted) return;
         ScaffoldMessenger.of(context).showSnackBar(
@@ -745,14 +697,11 @@ class _ProjectsScreenState extends ConsumerState<ProjectsScreen> {
         );
         return;
       }
-
       // Use the most recent session
       projectSessions.sort((a, b) => b.time.updated - a.time.updated);
       final session = projectSessions.first;
-
       selection.selectSession(session);
       chat.setSession(session, projectPath: project.path);
-
       if (!mounted) return;
       Navigator.push(
         context,
@@ -762,7 +711,6 @@ class _ProjectsScreenState extends ConsumerState<ProjectsScreen> {
       );
       return;
     }
-
     final bridge = ref.read(bridgeServiceProvider);
     final baseRules = ref.read(permissionRulesProvider).effectiveRuleset;
     final disabledTools = ref.read(toolSettingsProvider).disabledTools;
@@ -771,10 +719,8 @@ class _ProjectsScreenState extends ConsumerState<ProjectsScreen> {
       projectPath: project.path,
       permission: permissionRules,
     );
-
     selection.selectSession(session);
     chat.setSession(session, projectPath: project.path);
-
     if (!mounted) return;
     Navigator.push(
       context,
@@ -783,13 +729,11 @@ class _ProjectsScreenState extends ConsumerState<ProjectsScreen> {
       ),
     );
   }
-
   Future<void> _openClaudeProject(
     BuildContext context,
     ProjectSummary project,
   ) async {
     ref.read(selectionProvider.notifier).selectProject(project);
-
     if (!mounted) return;
     Navigator.push(
       context,
@@ -799,13 +743,11 @@ class _ProjectsScreenState extends ConsumerState<ProjectsScreen> {
       ),
     );
   }
-
   Future<void> _openCodexProject(
     BuildContext context,
     ProjectSummary project,
   ) async {
     ref.read(selectionProvider.notifier).selectProject(project);
-
     if (!mounted) return;
     Navigator.push(
       context,
@@ -815,12 +757,10 @@ class _ProjectsScreenState extends ConsumerState<ProjectsScreen> {
       ),
     );
   }
-
   Future<void> _startOpenCode(BuildContext context) async {
     final bridge = ref.read(bridgeServiceProvider);
     final messenger = ScaffoldMessenger.of(context);
     final surfaceColor = Theme.of(context).colorScheme.surface;
-
     messenger.showSnackBar(
       SnackBar(
         content: const Text('Restarting OpenCode...'),
@@ -828,7 +768,6 @@ class _ProjectsScreenState extends ConsumerState<ProjectsScreen> {
         behavior: SnackBarBehavior.floating,
       ),
     );
-
     final ok = await bridge.restartOpenCode();
     if (!mounted) return;
     messenger.showSnackBar(
@@ -839,7 +778,6 @@ class _ProjectsScreenState extends ConsumerState<ProjectsScreen> {
       ),
     );
   }
-
   void _showAddProject() {
     final theme = Theme.of(context);
     ScaffoldMessenger.of(context).showSnackBar(
@@ -851,7 +789,6 @@ class _ProjectsScreenState extends ConsumerState<ProjectsScreen> {
     );
   }
 }
-
 // Modern header with title and add button
 class _ModernHeader extends StatelessWidget {
   const _ModernHeader({
@@ -859,15 +796,12 @@ class _ModernHeader extends StatelessWidget {
     required this.onRefresh,
     this.onAddProject,
   });
-
   final BridgeConnectionState connection;
   final VoidCallback onRefresh;
   final VoidCallback? onAddProject;
-
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-
     return Padding(
       padding: const EdgeInsets.fromLTRB(20, 16, 20, 0),
       child: Column(
@@ -902,7 +836,7 @@ class _ModernHeader extends StatelessWidget {
                         ),
                       ),
                       child: Icon(
-                        Icons.create_new_folder_rounded,
+                        AppIcons.folderPlus,
                         color: theme.colorScheme.onSurface,
                         size: 24,
                       ),
@@ -928,19 +862,15 @@ class _ModernHeader extends StatelessWidget {
     );
   }
 }
-
 // OpenCode warning card
 class _OpenCodeWarning extends StatelessWidget {
   const _OpenCodeWarning({required this.onStart, required this.onRefresh});
-
   final VoidCallback onStart;
   final VoidCallback onRefresh;
-
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final ocTheme = OpenCodeTheme.of(context);
-
     return Container(
       margin: const EdgeInsets.fromLTRB(20, 20, 20, 0),
       padding: Insets.card,
@@ -963,7 +893,7 @@ class _OpenCodeWarning extends StatelessWidget {
                   borderRadius: Radii.brSm,
                 ),
                 child: Icon(
-                  Icons.warning_amber_rounded,
+                  AppIcons.warning,
                   color: ocTheme.error,
                   size: 20,
                 ),
@@ -1032,7 +962,6 @@ class _OpenCodeWarning extends StatelessWidget {
     );
   }
 }
-
 // Highlighted project card with accent border
 class _HighlightedProjectCard extends StatelessWidget {
   const _HighlightedProjectCard({
@@ -1041,12 +970,10 @@ class _HighlightedProjectCard extends StatelessWidget {
     required this.onTap,
     required this.onLongPress,
   });
-
   final ProjectSummary project;
   final HighlightColor highlightColor;
   final VoidCallback onTap;
   final VoidCallback onLongPress;
-
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
@@ -1055,7 +982,6 @@ class _HighlightedProjectCard extends StatelessWidget {
       theme.brightness,
       themePrimary: ocTheme.primary,
     );
-
     return GestureDetector(
       onTap: onTap,
       onLongPress: onLongPress,
@@ -1091,7 +1017,7 @@ class _HighlightedProjectCard extends StatelessWidget {
         ),
         child: Row(
           children: [
-            Icon(Icons.star_rounded, color: color, size: 20),
+            Icon(AppIcons.star, color: color, size: 20),
             SizedBox(width: Spacing.md),
             Expanded(
               child: Column(
@@ -1128,7 +1054,6 @@ class _HighlightedProjectCard extends StatelessWidget {
     );
   }
 }
-
 /// Expandable project item showing worktrees when expanded
 class _ExpandableProjectItem extends StatelessWidget {
   const _ExpandableProjectItem({
@@ -1145,7 +1070,6 @@ class _ExpandableProjectItem extends StatelessWidget {
     this.onCreateWorktree,
     this.isCreatingWorktree = false,
   });
-
   final ProjectSummary project;
   final bool isExpanded;
   final bool isLoading;
@@ -1158,13 +1082,11 @@ class _ExpandableProjectItem extends StatelessWidget {
   final void Function(Worktree)? onWorktreeDelete;
   final VoidCallback? onCreateWorktree;
   final bool isCreatingWorktree;
-
   @override
   Widget build(BuildContext context) {
     final ocTheme = OpenCodeTheme.of(context);
     final hasWorktrees = worktrees.isNotEmpty;
     final showExpander = onToggleExpand != null;
-
     return Padding(
       padding: Insets.bottomSm,
       child: Column(
@@ -1189,7 +1111,7 @@ class _ExpandableProjectItem extends StatelessWidget {
               child: Row(
                 children: [
                   Icon(
-                    Icons.account_tree_rounded,
+                    AppIcons.gitBranch,
                     color: ocTheme.textMuted,
                     size: 20,
                   ),
@@ -1220,7 +1142,7 @@ class _ExpandableProjectItem extends StatelessWidget {
                                   ),
                                 )
                               : Icon(
-                                  Icons.more_vert_rounded,
+                                  AppIcons.moreVertical,
                                   color: ocTheme.textMuted,
                                   size: 20,
                                 ),
@@ -1249,8 +1171,8 @@ class _ExpandableProjectItem extends StatelessWidget {
                               )
                             : Icon(
                                 isExpanded
-                                    ? Icons.expand_less_rounded
-                                    : Icons.expand_more_rounded,
+                                    ? AppIcons.expandLess
+                                    : AppIcons.expandMore,
                                 color: ocTheme.textMuted,
                                 size: 20,
                               ),
@@ -1301,7 +1223,6 @@ class _ExpandableProjectItem extends StatelessWidget {
                     onLongPress: () => onWorktreeLongPress?.call(worktree),
                   );
                   if (onWorktreeDelete == null) return child;
-
                   return Dismissible(
                     key: ValueKey(worktree.directory),
                     direction: DismissDirection.endToStart,
@@ -1336,7 +1257,7 @@ class _ExpandableProjectItem extends StatelessWidget {
                       padding: const EdgeInsets.only(right: 20),
                       color: ocTheme.error.withValues(alpha: 0.2),
                       child: Icon(
-                        Icons.delete_outline_rounded,
+                        AppIcons.delete,
                         color: ocTheme.error,
                       ),
                     ),
@@ -1350,7 +1271,6 @@ class _ExpandableProjectItem extends StatelessWidget {
     );
   }
 }
-
 /// Worktree list item (shown under expanded project)
 class _WorktreeListItem extends StatelessWidget {
   const _WorktreeListItem({
@@ -1358,15 +1278,12 @@ class _WorktreeListItem extends StatelessWidget {
     required this.onTap,
     this.onLongPress,
   });
-
   final Worktree worktree;
   final VoidCallback onTap;
   final VoidCallback? onLongPress;
-
   @override
   Widget build(BuildContext context) {
     final ocTheme = OpenCodeTheme.of(context);
-
     return GestureDetector(
       onTap: onTap,
       onLongPress: onLongPress,
@@ -1377,7 +1294,7 @@ class _WorktreeListItem extends StatelessWidget {
           children: [
             SizedBox(width: Spacing.sm), // Indent
             Icon(
-              Icons.alt_route_rounded,
+              AppIcons.altRoute,
               color: ocTheme.primary.withValues(alpha: 0.7),
               size: 16,
             ),
@@ -1405,7 +1322,7 @@ class _WorktreeListItem extends StatelessWidget {
               ),
             ),
             Icon(
-              Icons.chevron_right_rounded,
+              AppIcons.chevronRight,
               color: ocTheme.textMuted,
               size: 18,
             ),

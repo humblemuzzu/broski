@@ -1,25 +1,23 @@
+
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import '../../theme/app_typography.dart';
 import '../../theme/design_tokens.dart';
 
 import '../../theme/opencode_theme.dart';
-
+import 'package:broski/theme/app_icons.dart';
 class TextFileViewer extends StatelessWidget {
   const TextFileViewer({
     super.key,
     required this.content,
     required this.filename,
   });
-
   final String content;
   final String filename;
-
   @override
   Widget build(BuildContext context) {
     final theme = OpenCodeTheme.of(context);
     final lines = content.split('\n');
-
     return Container(
       color: theme.background,
       child: Column(
@@ -29,7 +27,7 @@ class TextFileViewer extends StatelessWidget {
             color: theme.backgroundPanel,
             child: Row(
               children: [
-                Icon(Icons.description, size: 16, color: theme.textMuted),
+                Icon(AppIcons.description, size: 16, color: theme.textMuted),
                 SizedBox(width: Spacing.sm),
                 Text(
                   '${lines.length} lines',
@@ -37,7 +35,7 @@ class TextFileViewer extends StatelessWidget {
                 ),
                 const Spacer(),
                 IconButton(
-                  icon: Icon(Icons.copy, size: 18, color: theme.textMuted),
+                  icon: Icon(AppIcons.copy, size: 18, color: theme.textMuted),
                   onPressed: () {
                     Clipboard.setData(ClipboardData(text: content));
                     ScaffoldMessenger.of(context).showSnackBar(

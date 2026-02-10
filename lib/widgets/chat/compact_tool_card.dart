@@ -1,3 +1,4 @@
+
 import 'dart:convert';
 
 import 'package:flutter/material.dart';
@@ -11,7 +12,7 @@ import '../../theme/design_tokens.dart';
 import '../../theme/opencode_theme.dart';
 import '../../theme/tool_style.dart';
 import 'detail_sheet.dart';
-
+import 'package:broski/theme/app_icons.dart';
 /// A compact single-line card for tool calls.
 /// Tapping opens DetailSheet with full tool information.
 ///
@@ -21,14 +22,12 @@ class CompactToolCard extends ConsumerWidget {
   final ToolCall tool;
   final String? messageId;
   final void Function(String messageId, String? partId)? onUndo;
-
   const CompactToolCard({
     super.key,
     required this.tool,
     this.messageId,
     this.onUndo,
   });
-
   /// Get display name: strip mcp_ prefix and capitalize first letter
   String _getDisplayName() {
     var name = tool.name;
@@ -42,11 +41,9 @@ class CompactToolCard extends ConsumerWidget {
     }
     return name;
   }
-
   /// Get preview text based on tool type
   String _getPreview() {
     final name = tool.name.toLowerCase();
-
     // Read tool: extract filename from path
     if (name.contains('read')) {
       final path =
@@ -56,7 +53,6 @@ class CompactToolCard extends ConsumerWidget {
           '';
       return _extractFilename(path);
     }
-
     // Write tool: extract filename from path (shouldn't reach here - uses CompactWriteCard)
     if (name.contains('write')) {
       final path =
@@ -66,7 +62,6 @@ class CompactToolCard extends ConsumerWidget {
           '';
       return _extractFilename(path);
     }
-
     // Bash/Shell: first 50 chars of command
     if (name.contains('bash') || name.contains('shell')) {
       final command = tool.input['command'] as String? ?? '';
@@ -75,22 +70,18 @@ class CompactToolCard extends ConsumerWidget {
       }
       return command;
     }
-
     // Glob: the pattern
     if (name.contains('glob')) {
       return tool.input['pattern'] as String? ?? '';
     }
-
     // Grep: the search pattern
     if (name.contains('grep')) {
       return tool.input['pattern'] as String? ?? '';
     }
-
     // WebFetch: the URL
     if (name.contains('webfetch') || name.contains('fetch')) {
       return tool.input['url'] as String? ?? '';
     }
-
     // Other/generic: status or first 50 chars of JSON input
     if (tool.input.isNotEmpty) {
       try {
@@ -105,68 +96,55 @@ class CompactToolCard extends ConsumerWidget {
     }
     return tool.status;
   }
-
   /// Extract filename from path (last segment after /)
   String _extractFilename(String path) {
     if (path.isEmpty) return 'file';
     final parts = path.split('/');
     return parts.last.isNotEmpty ? parts.last : 'file';
   }
-
   void _showDetailSheet(BuildContext context) {
     final theme = OpenCodeTheme.of(context);
     final toolName = _getDisplayName();
-
     DetailSheet.show(
       context: context,
       title: toolName,
       child: _buildSheetContent(theme),
     );
   }
-
   Widget _buildSheetContent(OpenCodeTheme theme) {
     final name = tool.name.toLowerCase();
-
     // Read tool
     if (name.contains('read')) {
       return _buildReadContent(theme);
     }
-
     // Write tool
     if (name.contains('write')) {
       return _buildWriteContent(theme);
     }
-
     // Bash/Shell tool
     if (name.contains('bash') || name.contains('shell')) {
       return _buildBashContent(theme);
     }
-
     // Glob tool
     if (name.contains('glob')) {
       return _buildGlobContent(theme);
     }
-
     // Grep tool
     if (name.contains('grep')) {
       return _buildGrepContent(theme);
     }
-
     // WebFetch tool
     if (name.contains('webfetch') || name.contains('fetch')) {
       return _buildWebFetchContent(theme);
     }
-
     // Generic/other tools
     return _buildGenericContent(theme);
   }
-
   Widget _buildReadContent(OpenCodeTheme theme) {
     final path =
         tool.input['path'] as String? ??
         tool.input['filePath'] as String? ??
         'Unknown';
-
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -187,14 +165,12 @@ class CompactToolCard extends ConsumerWidget {
       ],
     );
   }
-
   Widget _buildWriteContent(OpenCodeTheme theme) {
     final path =
         tool.input['filePath'] as String? ??
         tool.input['path'] as String? ??
         'Unknown';
     final content = tool.input['content'] as String? ?? '';
-
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -224,10 +200,8 @@ class CompactToolCard extends ConsumerWidget {
       ],
     );
   }
-
   Widget _buildBashContent(OpenCodeTheme theme) {
     final command = tool.input['command'] as String? ?? '';
-
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -252,7 +226,7 @@ class CompactToolCard extends ConsumerWidget {
             padding: Insets.screen,
             child: Row(
               children: [
-                Icon(Icons.error_outline, color: theme.error, size: 16),
+                Icon(AppIcons.error, color: theme.error, size: 16),
                 SizedBox(width: Spacing.sm),
                 Text('Error', style: TextStyle(color: theme.error)),
               ],
@@ -261,10 +235,8 @@ class CompactToolCard extends ConsumerWidget {
       ],
     );
   }
-
   Widget _buildGlobContent(OpenCodeTheme theme) {
     final pattern = tool.input['pattern'] as String? ?? '';
-
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -285,11 +257,9 @@ class CompactToolCard extends ConsumerWidget {
       ],
     );
   }
-
   Widget _buildGrepContent(OpenCodeTheme theme) {
     final pattern = tool.input['pattern'] as String? ?? '';
     final include = tool.input['include'] as String?;
-
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -318,11 +288,9 @@ class CompactToolCard extends ConsumerWidget {
       ],
     );
   }
-
   Widget _buildWebFetchContent(OpenCodeTheme theme) {
     final url = tool.input['url'] as String? ?? '';
     final isLoading = tool.output == null || tool.status == 'running';
-
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -362,7 +330,6 @@ class CompactToolCard extends ConsumerWidget {
       ],
     );
   }
-
   /// Build markdown style for content rendering
   MarkdownStyleSheet _buildMarkdownStyle(OpenCodeTheme theme) {
     return MarkdownStyleSheet(
@@ -410,7 +377,6 @@ class CompactToolCard extends ConsumerWidget {
       tableCellsPadding: EdgeInsets.all(Spacing.sm),
     );
   }
-
   Widget _buildGenericContent(OpenCodeTheme theme) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -433,7 +399,6 @@ class CompactToolCard extends ConsumerWidget {
       ],
     );
   }
-
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final theme = OpenCodeTheme.of(context);
@@ -442,11 +407,9 @@ class CompactToolCard extends ConsumerWidget {
     final icon = ToolStyle.getIcon(tool.name);
     final isRunning = tool.status == 'running';
     final hasError = tool.status == 'error';
-
     // Determine colors based on card style settings
     final Color headerBg;
     final Color borderColor;
-
     switch (cardStyle.headerStyle) {
       case CardHeaderStyle.solid:
         headerBg = theme.cardHeaderBg;
@@ -455,7 +418,6 @@ class CompactToolCard extends ConsumerWidget {
       case CardHeaderStyle.minimal:
         headerBg = theme.bgRaised;
     }
-
     switch (cardStyle.borderVisibility) {
       case CardBorderVisibility.subtle:
         borderColor = theme.cardBorderSubtle;
@@ -464,7 +426,6 @@ class CompactToolCard extends ConsumerWidget {
       case CardBorderVisibility.accent:
         borderColor = toolColor.withValues(alpha: 0.5);
     }
-
     return GestureDetector(
       onTap: () => _showDetailSheet(context),
       child: Container(
@@ -489,7 +450,6 @@ class CompactToolCard extends ConsumerWidget {
               // Icon with 6px spacing
               Icon(icon, size: 16, color: hasError ? theme.error : toolColor),
               SizedBox(width: 6),
-
               // Tool name (bold) - using cardHeaderText
               Text(
                 _getDisplayName(),
@@ -500,7 +460,6 @@ class CompactToolCard extends ConsumerWidget {
                 ),
               ),
               SizedBox(width: Spacing.sm),
-
               // Preview text (muted, truncated, flexible)
               Expanded(
                 child: Text(
@@ -511,7 +470,6 @@ class CompactToolCard extends ConsumerWidget {
                 ),
               ),
               SizedBox(width: Spacing.sm),
-
               // Arrow or spinner
               if (isRunning)
                 SizedBox(
@@ -524,7 +482,7 @@ class CompactToolCard extends ConsumerWidget {
                 )
               else
                 Icon(
-                  Icons.chevron_right,
+                  AppIcons.chevronRight,
                   size: 18,
                   color: theme.textMuted.withValues(alpha: 0.5),
                 ),

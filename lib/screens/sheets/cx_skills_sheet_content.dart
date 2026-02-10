@@ -1,10 +1,11 @@
+
 import 'package:flutter/material.dart';
 import '../../theme/app_typography.dart';
 
 import '../../services/bridge_service.dart';
 import '../../theme/design_tokens.dart';
 import '../../theme/opencode_theme.dart';
-
+import 'package:broski/theme/app_icons.dart';
 /// Content widget for the Codex Skills sheet.
 ///
 /// Shows per-skill enable/disable toggles and a "Browse Remote" button at top.
@@ -16,29 +17,24 @@ class CxSkillsSheetContent extends StatefulWidget {
     required this.theme,
     required this.onBrowseRemote,
   });
-
   final BridgeService bridge;
   final String? cwd;
   final OpenCodeTheme theme;
   final VoidCallback onBrowseRemote;
-
   @override
   State<CxSkillsSheetContent> createState() => _CxSkillsSheetContentState();
 }
-
 class _CxSkillsSheetContentState extends State<CxSkillsSheetContent> {
   List<Map<String, dynamic>>? _data;
   bool _loading = true;
   String? _error;
   // Track toggling state per skill path
   final Set<String> _toggling = {};
-
   @override
   void initState() {
     super.initState();
     _load();
   }
-
   Future<void> _load() async {
     setState(() {
       _loading = true;
@@ -59,7 +55,6 @@ class _CxSkillsSheetContentState extends State<CxSkillsSheetContent> {
       });
     }
   }
-
   Future<void> _toggleSkill(String path, bool currentEnabled) async {
     setState(() => _toggling.add(path));
     try {
@@ -79,11 +74,9 @@ class _CxSkillsSheetContentState extends State<CxSkillsSheetContent> {
       if (mounted) setState(() => _toggling.remove(path));
     }
   }
-
   @override
   Widget build(BuildContext context) {
     final theme = widget.theme;
-
     return Padding(
       padding: Insets.screenH,
       child: Column(
@@ -96,7 +89,7 @@ class _CxSkillsSheetContentState extends State<CxSkillsSheetContent> {
               alignment: Alignment.centerRight,
               child: TextButton.icon(
                 onPressed: widget.onBrowseRemote,
-                icon: Icon(Icons.explore_rounded, size: 16, color: theme.primary),
+                icon: Icon(AppIcons.explore, size: 16, color: theme.primary),
                 label: Text(
                   'Browse Remote',
                   style: AppTypography.bodySmall(color: theme.primary),
@@ -135,7 +128,6 @@ class _CxSkillsSheetContentState extends State<CxSkillsSheetContent> {
               final errors = (entry['errors'] as List<dynamic>? ?? const [])
                   .whereType<Map<String, dynamic>>()
                   .toList();
-
               return Padding(
                 padding: Insets.bottomMd,
                 child: Column(
@@ -169,7 +161,6 @@ class _CxSkillsSheetContentState extends State<CxSkillsSheetContent> {
       ),
     );
   }
-
   Widget _buildSkillTile(Map<String, dynamic> s, OpenCodeTheme theme) {
     final name = (s['name'] ?? 'skill').toString();
     final description = (s['description'] ?? s['shortDescription'] ?? '').toString();
@@ -178,12 +169,11 @@ class _CxSkillsSheetContentState extends State<CxSkillsSheetContent> {
     // SDK SkillsListEntry has `enabled` field — default to true if absent
     final enabled = s['enabled'] as bool? ?? true;
     final isToggling = _toggling.contains(path);
-
     return ListTile(
       dense: true,
       contentPadding: EdgeInsets.zero,
       leading: Icon(
-        Icons.auto_awesome_rounded,
+        AppIcons.autoAwesome,
         size: 18,
         color: enabled ? theme.primary : theme.textMuted,
       ),

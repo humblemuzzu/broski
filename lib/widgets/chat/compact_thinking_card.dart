@@ -1,3 +1,4 @@
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../models/card_style.dart';
@@ -7,16 +8,14 @@ import '../../theme/app_typography.dart';
 import '../../theme/design_tokens.dart';
 import '../../theme/opencode_theme.dart';
 import 'detail_sheet.dart';
-
+import 'package:broski/theme/app_icons.dart';
 /// A compact single-line card for thinking/reasoning display.
 /// Tapping opens DetailSheet with full thinking content.
 ///
 /// Matches the aesthetic of CompactToolCard, CompactEditCard, etc.
 class CompactThinkingCard extends ConsumerWidget {
   final ChatMessage message;
-
   const CompactThinkingCard({super.key, required this.message});
-
   String _formatDuration(int ms) {
     if (ms < 1000) return '${ms}ms';
     final seconds = ms / 1000;
@@ -24,11 +23,9 @@ class CompactThinkingCard extends ConsumerWidget {
     final minutes = seconds / 60;
     return '${minutes.toStringAsFixed(1)}m';
   }
-
   void _showDetailSheet(BuildContext context) {
     final theme = OpenCodeTheme.of(context);
     final reasoningText = message.reasoningText;
-
     DetailSheet.show(
       context: context,
       title: 'Thinking',
@@ -42,7 +39,7 @@ class CompactThinkingCard extends ConsumerWidget {
             if (message.reasoningDurationMs != null) ...[
               Row(
                 children: [
-                  Icon(Icons.timer_outlined, size: 14, color: theme.textMuted),
+                  Icon(AppIcons.timer, size: 14, color: theme.textMuted),
                   SizedBox(width: 6),
                   Text(
                     'Completed in ${_formatDuration(message.reasoningDurationMs!)}',
@@ -52,7 +49,6 @@ class CompactThinkingCard extends ConsumerWidget {
               ),
               SizedBox(height: Spacing.lg),
             ],
-
             // Thinking content box
             Container(
               width: double.infinity,
@@ -79,7 +75,6 @@ class CompactThinkingCard extends ConsumerWidget {
       ),
     );
   }
-
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final theme = OpenCodeTheme.of(context);
@@ -87,7 +82,6 @@ class CompactThinkingCard extends ConsumerWidget {
     final isStreaming = message.isReasoningStreaming;
     final durationMs = message.reasoningDurationMs;
     final thinkingColor = theme.toolThinking;
-
     // Get preview text (first 60 chars of thinking)
     final reasoningText = message.reasoningText;
     String preview = '';
@@ -98,11 +92,9 @@ class CompactThinkingCard extends ConsumerWidget {
           ? '${cleaned.substring(0, 60)}...'
           : cleaned;
     }
-
     // Determine colors based on card style settings
     final Color headerBg;
     final Color borderColor;
-
     switch (cardStyle.headerStyle) {
       case CardHeaderStyle.solid:
         headerBg = theme.cardHeaderBg;
@@ -111,7 +103,6 @@ class CompactThinkingCard extends ConsumerWidget {
       case CardHeaderStyle.minimal:
         headerBg = theme.bgRaised;
     }
-
     switch (cardStyle.borderVisibility) {
       case CardBorderVisibility.subtle:
         borderColor = theme.cardBorderSubtle;
@@ -120,7 +111,6 @@ class CompactThinkingCard extends ConsumerWidget {
       case CardBorderVisibility.accent:
         borderColor = thinkingColor.withValues(alpha: 0.5);
     }
-
     return GestureDetector(
       onTap: reasoningText.isNotEmpty ? () => _showDetailSheet(context) : null,
       child: Container(
@@ -155,9 +145,8 @@ class CompactThinkingCard extends ConsumerWidget {
                   ),
                 )
               else
-                Icon(Icons.psychology_rounded, size: 16, color: thinkingColor),
+                Icon(AppIcons.psychology, size: 16, color: thinkingColor),
               SizedBox(width: 6),
-
               // "Thinking" label
               Text(
                 isStreaming ? 'Thinking...' : 'Thinking',
@@ -167,7 +156,6 @@ class CompactThinkingCard extends ConsumerWidget {
                   fontWeight: FontWeight.w600,
                 ),
               ),
-
               // Duration badge (when complete)
               if (durationMs != null && !isStreaming) ...[
                 SizedBox(width: Spacing.sm),
@@ -190,9 +178,7 @@ class CompactThinkingCard extends ConsumerWidget {
                   ),
                 ),
               ],
-
               SizedBox(width: Spacing.sm),
-
               // Preview text (muted, truncated)
               Expanded(
                 child: Text(
@@ -202,12 +188,11 @@ class CompactThinkingCard extends ConsumerWidget {
                   overflow: TextOverflow.ellipsis,
                 ),
               ),
-
               // Chevron (only if we have content to show)
               if (reasoningText.isNotEmpty && !isStreaming) ...[
                 SizedBox(width: Spacing.sm),
                 Icon(
-                  Icons.chevron_right,
+                  AppIcons.chevronRight,
                   size: 18,
                   color: theme.textMuted.withValues(alpha: 0.5),
                 ),

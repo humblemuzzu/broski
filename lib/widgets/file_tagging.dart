@@ -1,3 +1,4 @@
+
 import 'dart:convert';
 
 import 'package:flutter/material.dart';
@@ -9,13 +10,11 @@ import '../models/file_attachment.dart';
 import '../providers/file_search_provider.dart';
 import '../theme/design_tokens.dart';
 import '../theme/opencode_theme.dart';
-
+import 'package:broski/theme/app_icons.dart';
 void showImagePreview(BuildContext context, FileAttachment attachment) {
   if (!attachment.isImage || attachment.base64Data == null) return;
-
   final theme = OpenCodeTheme.of(context);
   final imageBytes = base64Decode(attachment.base64Data!);
-
   showDialog(
     context: context,
     barrierColor: const Color(0xDD000000),
@@ -42,7 +41,7 @@ void showImagePreview(BuildContext context, FileAttachment attachment) {
               style: IconButton.styleFrom(
                 backgroundColor: theme.backgroundPanel.withValues(alpha: 0.8),
               ),
-              icon: Icon(Icons.close_rounded, color: theme.text),
+              icon: Icon(AppIcons.close, color: theme.text),
             ),
           ),
           Positioned(
@@ -71,24 +70,19 @@ void showImagePreview(BuildContext context, FileAttachment attachment) {
     ),
   );
 }
-
 class FileAutocomplete extends ConsumerWidget {
   const FileAutocomplete({
     super.key,
     required this.onSelect,
     required this.visible,
   });
-
   final void Function(FileAttachment attachment) onSelect;
   final bool visible;
-
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     if (!visible) return const SizedBox.shrink();
-
     final theme = OpenCodeTheme.of(context);
     final state = ref.watch(fileSearchProvider);
-
     // ExcludeFocus on all states to prevent focus stealing from TextField
     if (state.results.isEmpty && !state.isSearching) {
       return ExcludeFocus(
@@ -113,7 +107,6 @@ class FileAutocomplete extends ConsumerWidget {
         ),
       );
     }
-
     if (state.isSearching && state.results.isEmpty) {
       return ExcludeFocus(
         child: Container(
@@ -151,7 +144,6 @@ class FileAutocomplete extends ConsumerWidget {
         ),
       );
     }
-
     // ExcludeFocus prevents the ListView from stealing focus from the TextField
     // This is critical for mobile where focus can be easily lost during widget rebuilds
     return ExcludeFocus(
@@ -178,7 +170,6 @@ class FileAutocomplete extends ConsumerWidget {
             final isSelected = index == state.selectedIndex;
             final isDirectory = path.endsWith('/');
             final attachment = FileAttachment.fromPath(path);
-
             return _FileAutocompleteItem(
               path: path,
               directory: attachment.directory,
@@ -193,7 +184,6 @@ class FileAutocomplete extends ConsumerWidget {
     );
   }
 }
-
 class _FileAutocompleteItem extends StatelessWidget {
   const _FileAutocompleteItem({
     required this.path,
@@ -203,18 +193,15 @@ class _FileAutocompleteItem extends StatelessWidget {
     required this.isSelected,
     required this.onTap,
   });
-
   final String path;
   final String directory;
   final String filename;
   final bool isDirectory;
   final bool isSelected;
   final VoidCallback onTap;
-
   @override
   Widget build(BuildContext context) {
     final theme = OpenCodeTheme.of(context);
-
     return InkWell(
       onTap: onTap,
       child: Container(
@@ -223,7 +210,7 @@ class _FileAutocompleteItem extends StatelessWidget {
         child: Row(
           children: [
             Icon(
-              isDirectory ? Icons.folder_rounded : Icons.description_outlined,
+              isDirectory ? AppIcons.folder : AppIcons.description,
               size: 16,
               color: isDirectory ? theme.warning : theme.info,
             ),
@@ -256,23 +243,18 @@ class _FileAutocompleteItem extends StatelessWidget {
     );
   }
 }
-
 class AttachedFilesChips extends StatelessWidget {
   const AttachedFilesChips({
     super.key,
     required this.attachments,
     required this.onRemove,
   });
-
   final List<FileAttachment> attachments;
   final void Function(FileAttachment attachment) onRemove;
-
   @override
   Widget build(BuildContext context) {
     if (attachments.isEmpty) return const SizedBox.shrink();
-
     final theme = OpenCodeTheme.of(context);
-
     int imageIndex = 0;
     return Container(
       width: double.infinity,
@@ -297,7 +279,6 @@ class AttachedFilesChips extends StatelessWidget {
     );
   }
 }
-
 class _AttachedFileChip extends StatelessWidget {
   const _AttachedFileChip({
     required this.attachment,
@@ -305,18 +286,15 @@ class _AttachedFileChip extends StatelessWidget {
     required this.theme,
     this.imageLabel,
   });
-
   final FileAttachment attachment;
   final VoidCallback onRemove;
   final OpenCodeTheme theme;
   final String? imageLabel;
-
   @override
   Widget build(BuildContext context) {
     final isDirectory = attachment.isDirectory;
     final isImage = attachment.isImage;
     final displayText = imageLabel ?? attachment.displayPath;
-
     return GestureDetector(
       onTap: isImage ? () => showImagePreview(context, attachment) : null,
       child: Container(
@@ -349,7 +327,7 @@ class _AttachedFileChip extends StatelessWidget {
               Padding(
                 padding: const EdgeInsets.only(left: 4),
                 child: Icon(
-                  Icons.image_rounded,
+                  AppIcons.image,
                   size: 14,
                   color: theme.primary,
                 ),
@@ -359,8 +337,8 @@ class _AttachedFileChip extends StatelessWidget {
                 padding: const EdgeInsets.only(left: 4),
                 child: Icon(
                   isDirectory
-                      ? Icons.folder_rounded
-                      : Icons.description_outlined,
+                      ? AppIcons.folder
+                      : AppIcons.description,
                   size: 14,
                   color: isDirectory ? theme.warning : theme.info,
                 ),
@@ -381,7 +359,7 @@ class _AttachedFileChip extends StatelessWidget {
               child: Padding(
                 padding: const EdgeInsets.all(2),
                 child: Icon(
-                  Icons.close_rounded,
+                  AppIcons.close,
                   size: 14,
                   color: theme.textMuted,
                 ),
@@ -393,11 +371,9 @@ class _AttachedFileChip extends StatelessWidget {
     );
   }
 }
-
 // =============================================================================
 // Agent @ mention autocomplete
 // =============================================================================
-
 /// Autocomplete dropdown for @agent mentions
 class AgentAutocomplete extends StatelessWidget {
   const AgentAutocomplete({
@@ -407,26 +383,21 @@ class AgentAutocomplete extends StatelessWidget {
     required this.onSelect,
     required this.visible,
   });
-
   final List<Agent> agents;
   final String query;
   final void Function(Agent agent) onSelect;
   final bool visible;
-
   @override
   Widget build(BuildContext context) {
     if (!visible || agents.isEmpty) return const SizedBox.shrink();
-
     final theme = OpenCodeTheme.of(context);
     final lowerQuery = query.toLowerCase();
-
     // Filter agents by query (name or description)
     final filtered = agents.where((a) {
       if (lowerQuery.isEmpty) return true;
       return a.name.toLowerCase().contains(lowerQuery) ||
           (a.description?.toLowerCase().contains(lowerQuery) ?? false);
     }).toList();
-
     if (filtered.isEmpty) {
       return ExcludeFocus(
         child: Container(
@@ -450,13 +421,11 @@ class AgentAutocomplete extends StatelessWidget {
         ),
       );
     }
-
     // Group by primary vs subagent
     final primaryAgents = filtered.where((a) => a.isPrimary).toList();
     final subAgents = filtered
         .where((a) => a.mode == AgentMode.subagent)
         .toList();
-
     // ExcludeFocus prevents the ListView from stealing focus from the TextField
     return ExcludeFocus(
       child: Container(
@@ -483,7 +452,7 @@ class AgentAutocomplete extends StatelessWidget {
               if (primaryAgents.isNotEmpty) ...[
                 _buildSectionHeader(
                   'Primary Agents',
-                  Icons.person_rounded,
+                  AppIcons.person,
                   theme.primary,
                   theme.textMuted,
                   primaryAgents.length,
@@ -500,7 +469,7 @@ class AgentAutocomplete extends StatelessWidget {
                 if (primaryAgents.isNotEmpty) SizedBox(height: Spacing.xs),
                 _buildSectionHeader(
                   'Subagents',
-                  Icons.smart_toy_outlined,
+                  AppIcons.agent,
                   theme.info,
                   theme.textMuted,
                   subAgents.length,
@@ -518,7 +487,6 @@ class AgentAutocomplete extends StatelessWidget {
       ),
     );
   }
-
   Widget _buildSectionHeader(
     String title,
     IconData icon,
@@ -554,18 +522,14 @@ class AgentAutocomplete extends StatelessWidget {
     );
   }
 }
-
 class _AgentAutocompleteItem extends StatelessWidget {
   const _AgentAutocompleteItem({required this.agent, required this.onTap});
-
   final Agent agent;
   final VoidCallback onTap;
-
   @override
   Widget build(BuildContext context) {
     final theme = OpenCodeTheme.of(context);
     final agentColor = agent.displayColor;
-
     return InkWell(
       onTap: onTap,
       child: Container(
@@ -582,8 +546,8 @@ class _AgentAutocompleteItem extends StatelessWidget {
               ),
               child: Icon(
                 agent.isPrimary
-                    ? Icons.person_rounded
-                    : Icons.smart_toy_outlined,
+                    ? AppIcons.person
+                    : AppIcons.agent,
                 size: 14,
                 color: agentColor,
               ),

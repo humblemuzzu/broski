@@ -1,3 +1,4 @@
+
 import 'dart:io';
 import 'dart:math' as math;
 
@@ -9,25 +10,21 @@ import '../theme/design_tokens.dart';
 import 'package:url_launcher/url_launcher.dart';
 
 import '../providers/app_auth_provider.dart';
+import 'package:broski/theme/app_icons.dart';
 import '../providers/onboarding_provider.dart'
     show onboardingProvider, kDevBypassOnboarding;
-
 /// Premium onboarding experience for Broski.
 /// Inspired by modern mobile app onboarding patterns with developer-focused content.
 class OnboardingScreen extends ConsumerStatefulWidget {
   const OnboardingScreen({super.key});
-
   @override
   ConsumerState<OnboardingScreen> createState() => _OnboardingScreenState();
 }
-
 class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
   int _currentPage = 0;
   final PageController _pageController = PageController();
-
   // Total pages: Splash(0), Architecture(1), Feature1(2), Feature2(3), Terminal(4), SafetyNet(5), ZeroTelemetry(6)
   static const int _totalPages = 7;
-
   void _goToPage(int page) {
     if (page < 0 || page >= _totalPages) return;
     _pageController.animateToPage(
@@ -36,23 +33,19 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
       curve: Curves.easeOutCubic,
     );
   }
-
   void _nextPage() {
     if (_currentPage < _totalPages - 1) {
       _goToPage(_currentPage + 1);
     }
   }
-
   void _finishIntro() {
     ref.read(onboardingProvider.notifier).finishIntro();
   }
-
   @override
   void dispose() {
     _pageController.dispose();
     super.dispose();
   }
-
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -67,42 +60,36 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
         children: [
           // Page 0: Code From The Couch
           _CodeFromCouchPage(onContinue: _nextPage),
-
           // Page 1: Architecture Diagram
           _ArchitecturePage(
             currentPage: _currentPage,
             totalPages: _totalPages,
             onContinue: _nextPage,
           ),
-
           // Page 2: Unified Intelligence
           _UnifiedIntelligencePage(
             currentPage: _currentPage,
             totalPages: _totalPages,
             onContinue: _nextPage,
           ),
-
           // Page 3: Superpowers (Instant Alerts + Voice to Code)
           _SuperpowersPage(
             currentPage: _currentPage,
             totalPages: _totalPages,
             onContinue: _nextPage,
           ),
-
           // Page 4: Full Terminal
           _FullTerminalPage(
             currentPage: _currentPage,
             totalPages: _totalPages,
             onContinue: _nextPage,
           ),
-
           // Page 5: Safety Net (Rollback / Undo)
           _SafetyNetPage(
             currentPage: _currentPage,
             totalPages: _totalPages,
             onContinue: _nextPage,
           ),
-
           // Page 6: Zero Telemetry (last page — transitions to auth step)
           _ZeroTelemetryPage(
             currentPage: _currentPage,
@@ -114,24 +101,19 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
     );
   }
 }
-
 // =============================================================================
 // STEP DOTS INDICATOR
 // =============================================================================
-
 class _StepDots extends StatelessWidget {
   const _StepDots({required this.currentPage, required this.totalPages});
-
   final int currentPage;
   final int totalPages;
-
   @override
   Widget build(BuildContext context) {
     // Don't show on splash page or auth page
     if (currentPage == 0 || currentPage >= totalPages - 1) {
       return const SizedBox.shrink();
     }
-
     // Dots for pages 1..totalPages-2 (exclude splash at 0 and auth at last)
     final dotCount = totalPages - 2;
     return Row(
@@ -141,7 +123,6 @@ class _StepDots extends StatelessWidget {
         final pageIndex = index + 1;
         final isActive = pageIndex == currentPage;
         final isCompleted = pageIndex < currentPage;
-
         return AnimatedContainer(
           duration: const Duration(milliseconds: 300),
           curve: Curves.easeOutCubic,
@@ -159,24 +140,18 @@ class _StepDots extends StatelessWidget {
     );
   }
 }
-
 // =============================================================================
 // PAGE 0: CODE FROM THE COUCH
 // =============================================================================
-
 class _CodeFromCouchPage extends StatefulWidget {
   const _CodeFromCouchPage({required this.onContinue});
-
   final VoidCallback onContinue;
-
   @override
   State<_CodeFromCouchPage> createState() => _CodeFromCouchPageState();
 }
-
 class _CodeFromCouchPageState extends State<_CodeFromCouchPage>
     with SingleTickerProviderStateMixin {
   late AnimationController _controller;
-
   @override
   void initState() {
     super.initState();
@@ -185,13 +160,11 @@ class _CodeFromCouchPageState extends State<_CodeFromCouchPage>
       duration: const Duration(milliseconds: 1200),
     )..forward();
   }
-
   @override
   void dispose() {
     _controller.dispose();
     super.dispose();
   }
-
   @override
   Widget build(BuildContext context) {
     return Container(
@@ -385,18 +358,15 @@ class _CodeFromCouchPageState extends State<_CodeFromCouchPage>
     );
   }
 }
-
 /// Draws subtle concentric circles for the background effect
 class _ConcentricCirclesPainter extends CustomPainter {
   @override
   void paint(Canvas canvas, Size size) {
     final center = Offset(size.width / 2, size.height / 2);
     final maxRadius = size.width / 2;
-
     final paint = Paint()
       ..style = PaintingStyle.stroke
       ..strokeWidth = 1.0;
-
     // 4 evenly spaced concentric circles, subtle gray
     final radii = [
       maxRadius * 0.3,
@@ -404,40 +374,32 @@ class _ConcentricCirclesPainter extends CustomPainter {
       maxRadius * 0.7,
       maxRadius * 0.9,
     ];
-
     for (var i = 0; i < radii.length; i++) {
       paint.color = Color.fromRGBO(255, 255, 255, 0.10 - (i * 0.015));
       canvas.drawCircle(center, radii[i], paint);
     }
   }
-
   @override
   bool shouldRepaint(covariant CustomPainter oldDelegate) => false;
 }
-
 // =============================================================================
 // PAGE 1: ARCHITECTURE DIAGRAM
 // =============================================================================
-
 class _ArchitecturePage extends StatefulWidget {
   const _ArchitecturePage({
     required this.currentPage,
     required this.totalPages,
     required this.onContinue,
   });
-
   final int currentPage;
   final int totalPages;
   final VoidCallback onContinue;
-
   @override
   State<_ArchitecturePage> createState() => _ArchitecturePageState();
 }
-
 class _ArchitecturePageState extends State<_ArchitecturePage>
     with SingleTickerProviderStateMixin {
   late AnimationController _controller;
-
   @override
   void initState() {
     super.initState();
@@ -446,7 +408,6 @@ class _ArchitecturePageState extends State<_ArchitecturePage>
       duration: const Duration(milliseconds: 800),
     );
   }
-
   @override
   void didUpdateWidget(_ArchitecturePage oldWidget) {
     super.didUpdateWidget(oldWidget);
@@ -454,21 +415,17 @@ class _ArchitecturePageState extends State<_ArchitecturePage>
       _controller.forward(from: 0);
     }
   }
-
   @override
   void dispose() {
     _controller.dispose();
     super.dispose();
   }
-
   @override
   Widget build(BuildContext context) {
     final isTablet = MediaQuery.of(context).size.width > 600;
-
     if (widget.currentPage == 1 && !_controller.isAnimating) {
       _controller.forward(from: 0);
     }
-
     return Container(
       color: Colors.black,
       child: SafeArea(
@@ -579,7 +536,7 @@ class _ArchitecturePageState extends State<_ArchitecturePage>
                       ),
                     ),
                     child: Icon(
-                      Icons.arrow_back_rounded,
+                      AppIcons.back,
                       color: Colors.white.withValues(alpha: 0.75),
                       size: 22,
                     ),
@@ -609,7 +566,7 @@ class _ArchitecturePageState extends State<_ArchitecturePage>
                       shape: BoxShape.circle,
                     ),
                     child: const Icon(
-                      Icons.arrow_forward_rounded,
+                      AppIcons.forward,
                       color: Colors.black,
                       size: 26,
                     ),
@@ -623,18 +580,14 @@ class _ArchitecturePageState extends State<_ArchitecturePage>
     );
   }
 }
-
 // Architecture diagram visualization
 class _ArchitectureDiagram extends StatelessWidget {
   const _ArchitectureDiagram({required this.isTablet});
-
   final bool isTablet;
-
   @override
   Widget build(BuildContext context) {
     final cardWidth = isTablet ? 190.0 : 160.0;
     final cardHeight = isTablet ? 115.0 : 100.0;
-
     return Column(
       mainAxisAlignment: MainAxisAlignment.spaceBetween,
       children: [
@@ -642,7 +595,7 @@ class _ArchitectureDiagram extends StatelessWidget {
         _SystemCard(
           width: cardWidth,
           height: cardHeight,
-          icon: Icons.computer_rounded,
+          icon: AppIcons.computer,
           label: 'LOCALHOST',
           isTablet: isTablet,
           isBright: false,
@@ -673,7 +626,7 @@ class _ArchitectureDiagram extends StatelessWidget {
         _SystemCard(
           width: cardWidth,
           height: cardHeight,
-          icon: Icons.smartphone_rounded,
+          icon: AppIcons.smartphone,
           label: 'REMOTE',
           isTablet: isTablet,
           isBright: true,
@@ -682,7 +635,6 @@ class _ArchitectureDiagram extends StatelessWidget {
     );
   }
 }
-
 // System card component
 class _SystemCard extends StatelessWidget {
   const _SystemCard({
@@ -693,21 +645,18 @@ class _SystemCard extends StatelessWidget {
     required this.isTablet,
     this.isBright = false,
   });
-
   final double width;
   final double height;
   final IconData icon;
   final String label;
   final bool isTablet;
   final bool isBright;
-
   @override
   Widget build(BuildContext context) {
     final iconAlpha = isBright ? 0.95 : 0.35;
     final labelAlpha = isBright ? 0.85 : 0.3;
     final bgAlpha = isBright ? 0.06 : 0.03;
     final borderAlpha = isBright ? 0.12 : 0.06;
-
     return Container(
       width: width,
       height: height,
@@ -742,19 +691,15 @@ class _SystemCard extends StatelessWidget {
     );
   }
 }
-
 // Fixed-count dashed line (exactly N dashes, evenly spaced vertically)
 class _FixedDashLine extends StatelessWidget {
   const _FixedDashLine({required this.dashCount, required this.isTablet});
-
   final int dashCount;
   final bool isTablet;
-
   @override
   Widget build(BuildContext context) {
     final dashHeight = isTablet ? 8.0 : 7.0;
     final dashSpace = isTablet ? 7.0 : 6.0;
-
     return Column(
       mainAxisSize: MainAxisSize.min,
       children: List.generate(dashCount * 2 - 1, (index) {
@@ -776,31 +721,25 @@ class _FixedDashLine extends StatelessWidget {
     );
   }
 }
-
 // =============================================================================
 // PAGE 2: UNIFIED INTELLIGENCE
 // =============================================================================
-
 class _UnifiedIntelligencePage extends StatefulWidget {
   const _UnifiedIntelligencePage({
     required this.currentPage,
     required this.totalPages,
     required this.onContinue,
   });
-
   final int currentPage;
   final int totalPages;
   final VoidCallback onContinue;
-
   @override
   State<_UnifiedIntelligencePage> createState() =>
       _UnifiedIntelligencePageState();
 }
-
 class _UnifiedIntelligencePageState extends State<_UnifiedIntelligencePage>
     with SingleTickerProviderStateMixin {
   late AnimationController _controller;
-
   @override
   void initState() {
     super.initState();
@@ -809,7 +748,6 @@ class _UnifiedIntelligencePageState extends State<_UnifiedIntelligencePage>
       duration: const Duration(milliseconds: 800),
     );
   }
-
   @override
   void didUpdateWidget(_UnifiedIntelligencePage oldWidget) {
     super.didUpdateWidget(oldWidget);
@@ -817,19 +755,16 @@ class _UnifiedIntelligencePageState extends State<_UnifiedIntelligencePage>
       _controller.forward(from: 0);
     }
   }
-
   @override
   void dispose() {
     _controller.dispose();
     super.dispose();
   }
-
   @override
   Widget build(BuildContext context) {
     if (widget.currentPage == 2 && !_controller.isAnimating) {
       _controller.forward(from: 0);
     }
-
     return Container(
       color: Colors.black,
       child: SafeArea(
@@ -1017,14 +952,11 @@ class _UnifiedIntelligencePageState extends State<_UnifiedIntelligencePage>
     );
   }
 }
-
 /// Agent row card for the Unified Intelligence page
 class _AgentCard extends StatelessWidget {
   const _AgentCard({required this.iconWidget, required this.name});
-
   final Widget iconWidget;
   final String name;
-
   @override
   Widget build(BuildContext context) {
     return Container(
@@ -1088,7 +1020,6 @@ class _AgentCard extends StatelessWidget {
     );
   }
 }
-
 /// 3 staggered vertical accent lines — each with its own start/end and fade.
 /// Inspired by the Figma: lines connect through the card region at different heights.
 class _GridLinesPainter extends CustomPainter {
@@ -1096,17 +1027,13 @@ class _GridLinesPainter extends CustomPainter {
   void paint(Canvas canvas, Size size) {
     final h = size.height;
     final w = size.width;
-
     // Line 1 (left ~30% x): starts near subtitle text, ends just before Continue button
     _drawFadedLine(canvas, size, x: w * 0.30, startY: h * 0.18, endY: h * 0.88);
-
     // Line 2 (center ~50% x): starts a bit below line 1, ends at roughly the same bottom
     _drawFadedLine(canvas, size, x: w * 0.50, startY: h * 0.24, endY: h * 0.90);
-
     // Line 3 (right ~70% x): starts highest (around "We" in subtitle), goes to bottom
     _drawFadedLine(canvas, size, x: w * 0.70, startY: h * 0.14, endY: h * 0.92);
   }
-
   void _drawFadedLine(
     Canvas canvas,
     Size size, {
@@ -1129,37 +1056,29 @@ class _GridLinesPainter extends CustomPainter {
         ],
         stops: const [0.0, 0.08, 0.92, 1.0],
       ).createShader(Rect.fromLTWH(x, startY, 1, lineHeight));
-
     canvas.drawLine(Offset(x, startY), Offset(x, endY), paint);
   }
-
   @override
   bool shouldRepaint(covariant CustomPainter oldDelegate) => false;
 }
-
 // =============================================================================
 // PAGE 3: SUPERPOWERS (Instant Alerts + Voice to Code)
 // =============================================================================
-
 class _SuperpowersPage extends StatefulWidget {
   const _SuperpowersPage({
     required this.currentPage,
     required this.totalPages,
     required this.onContinue,
   });
-
   final int currentPage;
   final int totalPages;
   final VoidCallback onContinue;
-
   @override
   State<_SuperpowersPage> createState() => _SuperpowersPageState();
 }
-
 class _SuperpowersPageState extends State<_SuperpowersPage>
     with SingleTickerProviderStateMixin {
   late AnimationController _controller;
-
   @override
   void initState() {
     super.initState();
@@ -1168,7 +1087,6 @@ class _SuperpowersPageState extends State<_SuperpowersPage>
       duration: const Duration(milliseconds: 800),
     );
   }
-
   @override
   void didUpdateWidget(_SuperpowersPage oldWidget) {
     super.didUpdateWidget(oldWidget);
@@ -1176,19 +1094,16 @@ class _SuperpowersPageState extends State<_SuperpowersPage>
       _controller.forward(from: 0);
     }
   }
-
   @override
   void dispose() {
     _controller.dispose();
     super.dispose();
   }
-
   @override
   Widget build(BuildContext context) {
     if (widget.currentPage == 3 && !_controller.isAnimating) {
       _controller.forward(from: 0);
     }
-
     return Container(
       color: Colors.black,
       child: SafeArea(
@@ -1349,21 +1264,16 @@ class _SuperpowersPageState extends State<_SuperpowersPage>
     );
   }
 }
-
 /// Bottom half — waveform centered + title/subtitle + Next button
 class _VoiceSection extends StatefulWidget {
   const _VoiceSection({required this.onContinue});
-
   final VoidCallback onContinue;
-
   @override
   State<_VoiceSection> createState() => _VoiceSectionState();
 }
-
 class _VoiceSectionState extends State<_VoiceSection>
     with SingleTickerProviderStateMixin {
   late AnimationController _waveController;
-
   @override
   void initState() {
     super.initState();
@@ -1372,13 +1282,11 @@ class _VoiceSectionState extends State<_VoiceSection>
       duration: const Duration(milliseconds: 1400),
     )..repeat(reverse: true);
   }
-
   @override
   void dispose() {
     _waveController.dispose();
     super.dispose();
   }
-
   @override
   Widget build(BuildContext context) {
     return Padding(
@@ -1461,68 +1369,53 @@ class _VoiceSectionState extends State<_VoiceSection>
     );
   }
 }
-
 /// Waveform: ~11 bars, wave starts from outside edges and moves inward.
 /// Outer bars tall, dip in middle, center bars tall — animates smoothly.
 class _WaveformPainter extends CustomPainter {
   _WaveformPainter({required this.progress});
-
   final double progress;
-
   static const _barCount = 11;
   static const _pi = 3.14159265;
-
   @override
   void paint(Canvas canvas, Size size) {
     final totalWidth = size.width;
     final barSpacing = totalWidth / (_barCount + 1);
     final maxH = size.height * 0.92;
     final minH = size.height * 0.12;
-
     final paint = Paint()
       ..strokeCap = StrokeCap.round
       ..strokeWidth = 4.0;
-
     for (var i = 0; i < _barCount; i++) {
       // Phase offset: outer bars lead, inner bars follow — wave travels inward
       final center = (_barCount - 1) / 2.0;
       final distFromEdge =
           (center - (i - center).abs()) / center; // 0 at edge, 1 at center
       final phase = distFromEdge * _pi * 1.2; // inner bars are delayed
-
       final t = progress * _pi * 2 + phase;
       final wave = ((_sin(t) + 1) / 2); // 0..1
-
       final barHeight = minH + (maxH - minH) * wave;
-
       final x = barSpacing * (i + 1);
       final y1 = (size.height - barHeight) / 2;
       final y2 = y1 + barHeight;
-
       // Bright silver — high-alpha base with shiny peak on taller bars
       final alpha = 0.55 + 0.45 * wave;
       paint.color = const Color(0xFFD4D8E0).withValues(alpha: alpha);
-
       canvas.drawLine(Offset(x, y1), Offset(x, y2), paint);
     }
   }
-
   double _sin(double x) {
     final xMod = x % (2 * _pi);
     final norm = xMod < _pi ? xMod : (2 * _pi - xMod);
     final t = norm / _pi;
     return 4 * t * (1 - t) * (xMod < _pi ? 1 : -1);
   }
-
   @override
   bool shouldRepaint(covariant _WaveformPainter oldDelegate) =>
       oldDelegate.progress != progress;
 }
-
 // =============================================================================
 // FEATURE PAGES (4)
 // =============================================================================
-
 class _FeaturePage extends StatefulWidget {
   const _FeaturePage({
     required this.pageIndex,
@@ -1535,7 +1428,6 @@ class _FeaturePage extends StatefulWidget {
     required this.mockupChild,
     required this.onContinue,
   });
-
   final int pageIndex;
   final int currentPage;
   final int totalPages;
@@ -1545,15 +1437,12 @@ class _FeaturePage extends StatefulWidget {
   final String subtitle;
   final Widget mockupChild;
   final VoidCallback onContinue;
-
   @override
   State<_FeaturePage> createState() => _FeaturePageState();
 }
-
 class _FeaturePageState extends State<_FeaturePage>
     with SingleTickerProviderStateMixin {
   late AnimationController _controller;
-
   @override
   void initState() {
     super.initState();
@@ -1562,7 +1451,6 @@ class _FeaturePageState extends State<_FeaturePage>
       duration: const Duration(milliseconds: 800),
     );
   }
-
   @override
   void didUpdateWidget(_FeaturePage oldWidget) {
     super.didUpdateWidget(oldWidget);
@@ -1572,23 +1460,19 @@ class _FeaturePageState extends State<_FeaturePage>
       _controller.forward(from: 0);
     }
   }
-
   @override
   void dispose() {
     _controller.dispose();
     super.dispose();
   }
-
   @override
   Widget build(BuildContext context) {
     final screenSize = MediaQuery.of(context).size;
     final isTablet = screenSize.width > 600;
-
     // Start animation if this is the current page
     if (widget.currentPage == widget.pageIndex && !_controller.isAnimating) {
       _controller.forward(from: 0);
     }
-
     return SafeArea(
       child: Column(
         children: [
@@ -1707,30 +1591,24 @@ class _FeaturePageState extends State<_FeaturePage>
     );
   }
 }
-
 // =============================================================================
 // PAGE 4: FULL TERMINAL
 // =============================================================================
-
 class _FullTerminalPage extends StatefulWidget {
   const _FullTerminalPage({
     required this.currentPage,
     required this.totalPages,
     required this.onContinue,
   });
-
   final int currentPage;
   final int totalPages;
   final VoidCallback onContinue;
-
   @override
   State<_FullTerminalPage> createState() => _FullTerminalPageState();
 }
-
 class _FullTerminalPageState extends State<_FullTerminalPage>
     with SingleTickerProviderStateMixin {
   late AnimationController _controller;
-
   @override
   void initState() {
     super.initState();
@@ -1739,7 +1617,6 @@ class _FullTerminalPageState extends State<_FullTerminalPage>
       duration: const Duration(milliseconds: 800),
     );
   }
-
   @override
   void didUpdateWidget(_FullTerminalPage oldWidget) {
     super.didUpdateWidget(oldWidget);
@@ -1747,19 +1624,16 @@ class _FullTerminalPageState extends State<_FullTerminalPage>
       _controller.forward(from: 0);
     }
   }
-
   @override
   void dispose() {
     _controller.dispose();
     super.dispose();
   }
-
   @override
   Widget build(BuildContext context) {
     if (widget.currentPage == 4 && !_controller.isAnimating) {
       _controller.forward(from: 0);
     }
-
     return Container(
       color: Colors.black,
       child: SafeArea(
@@ -1902,19 +1776,15 @@ class _FullTerminalPageState extends State<_FullTerminalPage>
     );
   }
 }
-
 /// macOS-style terminal window card with colored output lines + blinking cursor.
 class _TerminalWindowCard extends StatefulWidget {
   const _TerminalWindowCard();
-
   @override
   State<_TerminalWindowCard> createState() => _TerminalWindowCardState();
 }
-
 class _TerminalWindowCardState extends State<_TerminalWindowCard>
     with SingleTickerProviderStateMixin {
   late AnimationController _cursorController;
-
   @override
   void initState() {
     super.initState();
@@ -1923,13 +1793,11 @@ class _TerminalWindowCardState extends State<_TerminalWindowCard>
       duration: const Duration(milliseconds: 600),
     )..repeat(reverse: true);
   }
-
   @override
   void dispose() {
     _cursorController.dispose();
     super.dispose();
   }
-
   // ── Figma-matched palette ──
   static const _termBg = Color(0xFF2A2421);
   static const _titleBarBg = Color(0xFF322D29);
@@ -1940,7 +1808,6 @@ class _TerminalWindowCardState extends State<_TerminalWindowCard>
   static const _blue = Color(0xFF8BE9FD);
   static const _red = Color(0xFFFF6E6E);
   static const _checkGreen = Color(0xFF50FA7B);
-
   @override
   Widget build(BuildContext context) {
     return Container(
@@ -2055,7 +1922,6 @@ class _TerminalWindowCardState extends State<_TerminalWindowCard>
       ),
     );
   }
-
   /// Prompt line: "-> ~/project command"
   Widget _tPromptLine(String dir, String cmd) {
     return Padding(
@@ -2093,7 +1959,6 @@ class _TerminalWindowCardState extends State<_TerminalWindowCard>
       ),
     );
   }
-
   /// Prompt line with a blinking block cursor at the end.
   Widget _tPromptLineWithCursor(String dir, String cmd) {
     return Padding(
@@ -2146,7 +2011,6 @@ class _TerminalWindowCardState extends State<_TerminalWindowCard>
       ),
     );
   }
-
   /// Plain text line with optional color override.
   Widget _tLine(String text, Color? color) {
     return Padding(
@@ -2161,7 +2025,6 @@ class _TerminalWindowCardState extends State<_TerminalWindowCard>
       ),
     );
   }
-
   /// Two-part colored line (e.g. checkmark + message).
   Widget _tColorLine(
     String prefix,
@@ -2195,7 +2058,6 @@ class _TerminalWindowCardState extends State<_TerminalWindowCard>
       ),
     );
   }
-
   /// File + size line (white filename, muted size).
   Widget _tSizeLine(String filename, String size) {
     return Padding(
@@ -2226,30 +2088,24 @@ class _TerminalWindowCardState extends State<_TerminalWindowCard>
     );
   }
 }
-
 // =============================================================================
 // PAGE 5: SAFETY NET (ROLLBACK / UNDO)
 // =============================================================================
-
 class _SafetyNetPage extends StatefulWidget {
   const _SafetyNetPage({
     required this.currentPage,
     required this.totalPages,
     required this.onContinue,
   });
-
   final int currentPage;
   final int totalPages;
   final VoidCallback onContinue;
-
   @override
   State<_SafetyNetPage> createState() => _SafetyNetPageState();
 }
-
 class _SafetyNetPageState extends State<_SafetyNetPage>
     with SingleTickerProviderStateMixin {
   late AnimationController _controller;
-
   @override
   void initState() {
     super.initState();
@@ -2258,7 +2114,6 @@ class _SafetyNetPageState extends State<_SafetyNetPage>
       duration: const Duration(milliseconds: 800),
     );
   }
-
   @override
   void didUpdateWidget(_SafetyNetPage oldWidget) {
     super.didUpdateWidget(oldWidget);
@@ -2266,19 +2121,16 @@ class _SafetyNetPageState extends State<_SafetyNetPage>
       _controller.forward(from: 0);
     }
   }
-
   @override
   void dispose() {
     _controller.dispose();
     super.dispose();
   }
-
   @override
   Widget build(BuildContext context) {
     if (widget.currentPage == 5 && !_controller.isAnimating) {
       _controller.forward(from: 0);
     }
-
     return Container(
       color: Colors.black,
       child: SafeArea(
@@ -2421,11 +2273,9 @@ class _SafetyNetPageState extends State<_SafetyNetPage>
     );
   }
 }
-
 /// Floating session history card with red/green glow and rollback entries.
 class _SessionHistoryCard extends StatelessWidget {
   const _SessionHistoryCard();
-
   @override
   Widget build(BuildContext context) {
     return Stack(
@@ -2625,7 +2475,7 @@ class _SessionHistoryCard extends StatelessWidget {
                     mainAxisAlignment: MainAxisAlignment.center,
                     children: [
                       Icon(
-                        Icons.replay_rounded,
+                        AppIcons.replay,
                         size: 18,
                         color: Colors.white.withValues(alpha: 0.8),
                       ),
@@ -2649,30 +2499,24 @@ class _SessionHistoryCard extends StatelessWidget {
     );
   }
 }
-
 // =============================================================================
 // PAGE 6: ZERO TELEMETRY
 // =============================================================================
-
 class _ZeroTelemetryPage extends StatefulWidget {
   const _ZeroTelemetryPage({
     required this.currentPage,
     required this.totalPages,
     required this.onContinue,
   });
-
   final int currentPage;
   final int totalPages;
   final VoidCallback onContinue;
-
   @override
   State<_ZeroTelemetryPage> createState() => _ZeroTelemetryPageState();
 }
-
 class _ZeroTelemetryPageState extends State<_ZeroTelemetryPage>
     with SingleTickerProviderStateMixin {
   late AnimationController _controller;
-
   @override
   void initState() {
     super.initState();
@@ -2681,7 +2525,6 @@ class _ZeroTelemetryPageState extends State<_ZeroTelemetryPage>
       duration: const Duration(milliseconds: 800),
     );
   }
-
   @override
   void didUpdateWidget(_ZeroTelemetryPage oldWidget) {
     super.didUpdateWidget(oldWidget);
@@ -2689,19 +2532,16 @@ class _ZeroTelemetryPageState extends State<_ZeroTelemetryPage>
       _controller.forward(from: 0);
     }
   }
-
   @override
   void dispose() {
     _controller.dispose();
     super.dispose();
   }
-
   @override
   Widget build(BuildContext context) {
     if (widget.currentPage == 6 && !_controller.isAnimating) {
       _controller.forward(from: 0);
     }
-
     return Container(
       color: Colors.black,
       child: SafeArea(
@@ -2832,7 +2672,7 @@ class _ZeroTelemetryPageState extends State<_ZeroTelemetryPage>
                         curve: const Interval(0.3, 0.7, curve: Curves.easeOut),
                       ),
                       child: _FeatureRow(
-                        icon: Icons.computer_rounded,
+                        icon: AppIcons.computer,
                         title: 'Runs Locally',
                         subtitle:
                             'Your code, files, and terminal never leave\nyour machine. We just connect your\nphone to it.',
@@ -2846,7 +2686,7 @@ class _ZeroTelemetryPageState extends State<_ZeroTelemetryPage>
                         curve: const Interval(0.4, 0.8, curve: Curves.easeOut),
                       ),
                       child: _FeatureRow(
-                        icon: Icons.visibility_off_rounded,
+                        icon: AppIcons.visibilityOff,
                         title: 'No Data Collection',
                         subtitle:
                             'We have zero access to your code or\nprojects. Never needed to.',
@@ -2896,7 +2736,6 @@ class _ZeroTelemetryPageState extends State<_ZeroTelemetryPage>
     );
   }
 }
-
 /// Icon-circle + title + subtitle row used in the Zero Telemetry page.
 class _FeatureRow extends StatelessWidget {
   const _FeatureRow({
@@ -2904,11 +2743,9 @@ class _FeatureRow extends StatelessWidget {
     required this.title,
     required this.subtitle,
   });
-
   final IconData icon;
   final String title;
   final String subtitle;
-
   @override
   Widget build(BuildContext context) {
     return Row(
@@ -2958,11 +2795,9 @@ class _FeatureRow extends StatelessWidget {
     );
   }
 }
-
 // =============================================================================
 // PAGE 7: GET STARTED
 // =============================================================================
-
 class _GetStartedPage extends StatefulWidget {
   const _GetStartedPage({
     required this.currentPage,
@@ -2970,20 +2805,16 @@ class _GetStartedPage extends StatefulWidget {
     required this.onSetupNeeded,
     required this.onAlreadySetup,
   });
-
   final int currentPage;
   final int totalPages;
   final VoidCallback onSetupNeeded;
   final VoidCallback onAlreadySetup;
-
   @override
   State<_GetStartedPage> createState() => _GetStartedPageState();
 }
-
 class _GetStartedPageState extends State<_GetStartedPage>
     with SingleTickerProviderStateMixin {
   late AnimationController _controller;
-
   @override
   void initState() {
     super.initState();
@@ -2992,10 +2823,8 @@ class _GetStartedPageState extends State<_GetStartedPage>
       duration: const Duration(milliseconds: 800),
     );
   }
-
   // GetStarted is page 7 (fixed index, not totalPages-1)
   static const _pageIndex = 7;
-
   @override
   void didUpdateWidget(_GetStartedPage oldWidget) {
     super.didUpdateWidget(oldWidget);
@@ -3004,22 +2833,18 @@ class _GetStartedPageState extends State<_GetStartedPage>
       _controller.forward(from: 0);
     }
   }
-
   @override
   void dispose() {
     _controller.dispose();
     super.dispose();
   }
-
   @override
   Widget build(BuildContext context) {
     final screenSize = MediaQuery.of(context).size;
     final isTablet = screenSize.width > 600;
-
     if (widget.currentPage == _pageIndex && !_controller.isAnimating) {
       _controller.forward(from: 0);
     }
-
     return SafeArea(
       child: Column(
         children: [
@@ -3104,16 +2929,12 @@ class _GetStartedPageState extends State<_GetStartedPage>
     );
   }
 }
-
 // =============================================================================
 // MOCKUPS & ILLUSTRATIONS
 // =============================================================================
-
 class _PhoneMockup extends StatelessWidget {
   const _PhoneMockup({required this.child});
-
   final Widget child;
-
   @override
   Widget build(BuildContext context) {
     return Container(
@@ -3137,10 +2958,8 @@ class _PhoneMockup extends StatelessWidget {
     );
   }
 }
-
 class _ChatMockup extends StatelessWidget {
   const _ChatMockup();
-
   @override
   Widget build(BuildContext context) {
     return Container(
@@ -3160,7 +2979,7 @@ class _ChatMockup extends StatelessWidget {
                   color: const Color(0xFF6366F1),
                   borderRadius: Radii.brMd,
                 ),
-                child: const Icon(Icons.code, color: Colors.white, size: 18),
+                child: const Icon(AppIcons.code, color: Colors.white, size: 18),
               ),
               SizedBox(width: Spacing.md),
               Column(
@@ -3242,7 +3061,7 @@ class _ChatMockup extends StatelessWidget {
             child: Row(
               children: [
                 Icon(
-                  Icons.add_rounded,
+                  AppIcons.add,
                   color: Colors.white.withValues(alpha: 0.4),
                   size: 22,
                 ),
@@ -3263,7 +3082,7 @@ class _ChatMockup extends StatelessWidget {
                     borderRadius: Radii.brMd,
                   ),
                   child: const Icon(
-                    Icons.arrow_upward_rounded,
+                    AppIcons.arrowUp,
                     color: Colors.white,
                     size: 18,
                   ),
@@ -3277,13 +3096,10 @@ class _ChatMockup extends StatelessWidget {
     );
   }
 }
-
 class _MockChatBubble extends StatelessWidget {
   const _MockChatBubble({required this.text, required this.isUser});
-
   final String text;
   final bool isUser;
-
   @override
   Widget build(BuildContext context) {
     return Align(
@@ -3307,10 +3123,8 @@ class _MockChatBubble extends StatelessWidget {
     );
   }
 }
-
 class _TerminalMockup extends StatelessWidget {
   const _TerminalMockup();
-
   @override
   Widget build(BuildContext context) {
     return Container(
@@ -3337,7 +3151,7 @@ class _TerminalMockup extends StatelessWidget {
                 child: Row(
                   children: [
                     const Icon(
-                      Icons.warning_amber_rounded,
+                      AppIcons.warning,
                       color: Color(0xFFF59E0B),
                       size: 16,
                     ),
@@ -3371,7 +3185,7 @@ class _TerminalMockup extends StatelessWidget {
                 Row(
                   children: [
                     Icon(
-                      Icons.terminal_rounded,
+                      AppIcons.terminal,
                       color: Colors.white.withValues(alpha: 0.5),
                       size: 16,
                     ),
@@ -3463,10 +3277,8 @@ class _TerminalMockup extends StatelessWidget {
     );
   }
 }
-
 class _DiffMockup extends StatelessWidget {
   const _DiffMockup();
-
   @override
   Widget build(BuildContext context) {
     return Container(
@@ -3486,7 +3298,7 @@ class _DiffMockup extends StatelessWidget {
             child: Row(
               children: [
                 const Icon(
-                  Icons.description_outlined,
+                  AppIcons.description,
                   color: Color(0xFFF59E0B),
                   size: 18,
                 ),
@@ -3577,20 +3389,16 @@ class _DiffMockup extends StatelessWidget {
     );
   }
 }
-
 enum _DiffType { added, removed, context }
-
 class _DiffLine extends StatelessWidget {
   const _DiffLine({
     required this.lineNum,
     required this.text,
     required this.type,
   });
-
   final String lineNum;
   final String text;
   final _DiffType type;
-
   @override
   Widget build(BuildContext context) {
     final (bgColor, textColor, prefix) = switch (type) {
@@ -3610,7 +3418,6 @@ class _DiffLine extends StatelessWidget {
         ' ',
       ),
     };
-
     return Container(
       margin: const EdgeInsets.only(bottom: 2),
       padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
@@ -3657,16 +3464,12 @@ class _DiffLine extends StatelessWidget {
     );
   }
 }
-
 class _ConnectionIllustration extends StatelessWidget {
   const _ConnectionIllustration({required this.isTablet});
-
   final bool isTablet;
-
   @override
   Widget build(BuildContext context) {
     final size = isTablet ? 180.0 : 140.0;
-
     return SizedBox(
       height: size * 1.2,
       child: Stack(
@@ -3799,7 +3602,7 @@ class _ConnectionIllustration extends StatelessWidget {
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
                   const Icon(
-                    Icons.laptop_mac_rounded,
+                    AppIcons.laptop,
                     color: Color(0xFF10B981),
                     size: 36,
                   ),
@@ -3820,26 +3623,20 @@ class _ConnectionIllustration extends StatelessWidget {
     );
   }
 }
-
 // =============================================================================
 // BUTTONS
 // =============================================================================
-
 class _PrimaryButton extends StatefulWidget {
   const _PrimaryButton({required this.label, required this.onPressed});
-
   final String label;
   final VoidCallback onPressed;
-
   @override
   State<_PrimaryButton> createState() => _PrimaryButtonState();
 }
-
 class _PrimaryButtonState extends State<_PrimaryButton>
     with SingleTickerProviderStateMixin {
   late AnimationController _controller;
   late Animation<double> _scaleAnimation;
-
   @override
   void initState() {
     super.initState();
@@ -3852,13 +3649,11 @@ class _PrimaryButtonState extends State<_PrimaryButton>
       end: 0.97,
     ).animate(CurvedAnimation(parent: _controller, curve: Curves.easeInOut));
   }
-
   @override
   void dispose() {
     _controller.dispose();
     super.dispose();
   }
-
   @override
   Widget build(BuildContext context) {
     return GestureDetector(
@@ -3904,13 +3699,10 @@ class _PrimaryButtonState extends State<_PrimaryButton>
     );
   }
 }
-
 class _SecondaryButton extends StatelessWidget {
   const _SecondaryButton({required this.label, required this.onPressed});
-
   final String label;
   final VoidCallback onPressed;
-
   @override
   Widget build(BuildContext context) {
     return GestureDetector(
@@ -3939,29 +3731,23 @@ class _SecondaryButton extends StatelessWidget {
     );
   }
 }
-
 // =============================================================================
 // PAGE 8: IDENTIFY YOURSELF (AUTH)
 // =============================================================================
-
 class _IdentifyYourselfPage extends ConsumerStatefulWidget {
   const _IdentifyYourselfPage({
     required this.currentPage,
     required this.totalPages,
   });
-
   final int currentPage;
   final int totalPages;
-
   @override
   ConsumerState<_IdentifyYourselfPage> createState() =>
       _IdentifyYourselfPageState();
 }
-
 class _IdentifyYourselfPageState extends ConsumerState<_IdentifyYourselfPage>
     with SingleTickerProviderStateMixin {
   late AnimationController _scanController;
-
   @override
   void initState() {
     super.initState();
@@ -3970,25 +3756,21 @@ class _IdentifyYourselfPageState extends ConsumerState<_IdentifyYourselfPage>
       duration: const Duration(milliseconds: 2400),
     )..repeat(reverse: true);
   }
-
   @override
   void dispose() {
     _scanController.dispose();
     super.dispose();
   }
-
   Future<void> _launchUrl(String url) async {
     final uri = Uri.parse(url);
     if (await canLaunchUrl(uri)) {
       await launchUrl(uri, mode: LaunchMode.externalApplication);
     }
   }
-
   @override
   Widget build(BuildContext context) {
     final state = ref.watch(appAuthProvider);
     final screenWidth = MediaQuery.of(context).size.width;
-
     return Container(
       color: const Color(0xFF0A0A0A),
       child: SafeArea(
@@ -3998,7 +3780,6 @@ class _IdentifyYourselfPageState extends ConsumerState<_IdentifyYourselfPage>
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               const SizedBox(height: 48),
-
               // -- SYSTEM ONLINE indicator --
               Row(
                 children: [
@@ -4028,7 +3809,6 @@ class _IdentifyYourselfPageState extends ConsumerState<_IdentifyYourselfPage>
                 ],
               ),
               SizedBox(height: Spacing.lg),
-
               // -- "Identify\nYourself." heading --
               Text.rich(
                 TextSpan(
@@ -4058,9 +3838,7 @@ class _IdentifyYourselfPageState extends ConsumerState<_IdentifyYourselfPage>
                   ],
                 ),
               ),
-
               const Spacer(flex: 2),
-
               // -- Scanning image box --
               Center(
                 child: _OnboardingScanBox(
@@ -4068,9 +3846,7 @@ class _IdentifyYourselfPageState extends ConsumerState<_IdentifyYourselfPage>
                   boxWidth: math.min(screenWidth - 56, 320),
                 ),
               ),
-
               const Spacer(flex: 2),
-
               // -- Error display --
               if (state.error != null) ...[
                 Container(
@@ -4093,12 +3869,11 @@ class _IdentifyYourselfPageState extends ConsumerState<_IdentifyYourselfPage>
                 ),
                 SizedBox(height: Spacing.lg),
               ],
-
               // -- Continue with Apple button (iOS only, on top) --
               if (Platform.isIOS) ...[
                 _OnboardingAuthButton(
                   label: 'Continue with Apple',
-                  icon: Icons.apple,
+                  icon: AppIcons.apple,
                   isLoading: state.isLoading,
                   onPressed: () {
                     HapticFeedback.lightImpact();
@@ -4107,11 +3882,10 @@ class _IdentifyYourselfPageState extends ConsumerState<_IdentifyYourselfPage>
                 ),
                 const SizedBox(height: 14),
               ],
-
               // -- Continue with Google button --
               _OnboardingAuthButton(
                 label: 'Continue with Google',
-                icon: Icons.g_mobiledata_rounded,
+                icon: AppIcons.apple,
                 iconAsset: 'docs/assets/google-logo.png',
                 isLoading: state.isLoading,
                 outlined: true,
@@ -4121,7 +3895,6 @@ class _IdentifyYourselfPageState extends ConsumerState<_IdentifyYourselfPage>
                 },
               ),
               SizedBox(height: Spacing.xl),
-
               // -- Terms and Privacy Policy --
               Center(
                 child: Text.rich(
@@ -4176,24 +3949,19 @@ class _IdentifyYourselfPageState extends ConsumerState<_IdentifyYourselfPage>
     );
   }
 }
-
 // =============================================================================
 // ONBOARDING SCAN BOX (reusable within onboarding)
 // =============================================================================
-
 class _OnboardingScanBox extends StatelessWidget {
   const _OnboardingScanBox({
     required this.scanController,
     required this.boxWidth,
   });
-
   final AnimationController scanController;
   final double boxWidth;
-
   @override
   Widget build(BuildContext context) {
     final boxHeight = boxWidth * 0.88;
-
     return SizedBox(
       width: boxWidth,
       height: boxHeight,
@@ -4235,16 +4003,14 @@ class _OnboardingScanBox extends StatelessWidget {
               ),
             ),
           ),
-
           // -- Fingerprint icon (centered) --
           Center(
             child: Icon(
-              Icons.fingerprint_rounded,
+              AppIcons.fingerprint,
               size: 56,
               color: Colors.white.withValues(alpha: 0.65),
             ),
           ),
-
           // -- Scanning line animation --
           AnimatedBuilder(
             animation: scanController,
@@ -4272,7 +4038,6 @@ class _OnboardingScanBox extends StatelessWidget {
               );
             },
           ),
-
           // -- Subtle glow around scan line --
           AnimatedBuilder(
             animation: scanController,
@@ -4299,7 +4064,6 @@ class _OnboardingScanBox extends StatelessWidget {
               );
             },
           ),
-
           // -- "ID: UNKNOWN" and "ACCESS: PENDING" --
           Positioned(
             left: 16,
@@ -4325,7 +4089,6 @@ class _OnboardingScanBox extends StatelessWidget {
               ],
             ),
           ),
-
           // -- Corner bracket marks --
           Positioned(
             top: 0,
@@ -4364,13 +4127,10 @@ class _OnboardingScanBox extends StatelessWidget {
     );
   }
 }
-
 class _OnboardingCornerBracket extends StatelessWidget {
   const _OnboardingCornerBracket({required this.rotation, required this.color});
-
   final double rotation;
   final Color color;
-
   @override
   Widget build(BuildContext context) {
     return Transform.rotate(
@@ -4383,12 +4143,9 @@ class _OnboardingCornerBracket extends StatelessWidget {
     );
   }
 }
-
 class _OnboardingCornerPainter extends CustomPainter {
   _OnboardingCornerPainter({required this.color});
-
   final Color color;
-
   @override
   void paint(Canvas canvas, Size size) {
     final paint = Paint()
@@ -4396,23 +4153,18 @@ class _OnboardingCornerPainter extends CustomPainter {
       ..strokeWidth = 1.5
       ..style = PaintingStyle.stroke
       ..strokeCap = StrokeCap.round;
-
     final path = Path()
       ..moveTo(0, size.height * 0.45)
       ..lineTo(0, 0)
       ..lineTo(size.width * 0.45, 0);
-
     canvas.drawPath(path, paint);
   }
-
   @override
   bool shouldRepaint(covariant CustomPainter oldDelegate) => false;
 }
-
 // =============================================================================
 // ONBOARDING AUTH BUTTON
 // =============================================================================
-
 class _OnboardingAuthButton extends StatelessWidget {
   const _OnboardingAuthButton({
     required this.label,
@@ -4422,14 +4174,12 @@ class _OnboardingAuthButton extends StatelessWidget {
     this.outlined = false,
     this.iconAsset,
   });
-
   final String label;
   final IconData icon;
   final bool isLoading;
   final VoidCallback onPressed;
   final bool outlined;
   final String? iconAsset;
-
   @override
   Widget build(BuildContext context) {
     return GestureDetector(

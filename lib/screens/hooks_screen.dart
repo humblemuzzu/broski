@@ -1,3 +1,4 @@
+
 import 'dart:convert';
 
 import 'package:flutter/material.dart';
@@ -9,14 +10,12 @@ import '../models/skill.dart';
 import '../providers/selection_provider.dart';
 import '../providers/service_providers.dart';
 import '../theme/opencode_theme.dart';
-
+import 'package:broski/theme/app_icons.dart';
 class HooksScreen extends ConsumerStatefulWidget {
   const HooksScreen({super.key});
-
   @override
   ConsumerState<HooksScreen> createState() => _HooksScreenState();
 }
-
 class _HooksScreenState extends ConsumerState<HooksScreen>
     with SingleTickerProviderStateMixin {
   late final TabController _tabs;
@@ -25,7 +24,6 @@ class _HooksScreenState extends ConsumerState<HooksScreen>
   String? _error;
   Map<String, dynamic> _root = const {};
   bool _dirty = false;
-
   @override
   void initState() {
     super.initState();
@@ -33,23 +31,19 @@ class _HooksScreenState extends ConsumerState<HooksScreen>
     _tabs.addListener(_onTabChanged);
     _load();
   }
-
   @override
   void dispose() {
     _tabs.removeListener(_onTabChanged);
     _tabs.dispose();
     super.dispose();
   }
-
   void _onTabChanged() {
     final next = _tabs.index == 0 ? SkillSource.project : SkillSource.user;
     if (next == _source) return;
     _source = next;
     _load();
   }
-
   String? _cwd() => ref.read(selectionProvider).project?.path;
-
   Future<void> _load() async {
     final cwd = _cwd();
     if (_source == SkillSource.project && cwd == null) {
@@ -61,13 +55,11 @@ class _HooksScreenState extends ConsumerState<HooksScreen>
       });
       return;
     }
-
     setState(() {
       _loading = true;
       _error = null;
       _dirty = false;
     });
-
     try {
       final bridge = ref.read(bridgeServiceProvider);
       final content = await bridge.ccReadHooksFile(source: _source, cwd: cwd);
@@ -88,13 +80,11 @@ class _HooksScreenState extends ConsumerState<HooksScreen>
       });
     }
   }
-
   Map<String, dynamic> _hooksMap() {
     final hooks = _root['hooks'];
     if (hooks is Map) return hooks.cast<String, dynamic>();
     return {};
   }
-
   List<_HookRow> _rows() {
     final hooks = _hooksMap();
     final rows = <_HookRow>[];
@@ -123,7 +113,6 @@ class _HooksScreenState extends ConsumerState<HooksScreen>
     });
     return rows;
   }
-
   Future<void> _addHook() async {
     final created = await Navigator.push<_HookEditResult>(
       context,
@@ -132,7 +121,6 @@ class _HooksScreenState extends ConsumerState<HooksScreen>
     if (created == null) return;
     _applyEdit(null, created);
   }
-
   Future<void> _editHook(_HookRow row) async {
     final edited = await Navigator.push<_HookEditResult>(
       context,
@@ -146,28 +134,23 @@ class _HooksScreenState extends ConsumerState<HooksScreen>
     if (edited == null) return;
     _applyEdit(row, edited);
   }
-
   void _applyEdit(_HookRow? existing, _HookEditResult next) {
     final hooks = _hooksMap();
     final updated = <String, dynamic>{..._root, 'hooks': hooks};
-
     if (existing != null) {
       final list = hooks[existing.event];
       if (list is List && existing.index >= 0 && existing.index < list.length) {
         list.removeAt(existing.index);
       }
     }
-
     hooks.putIfAbsent(next.event, () => <dynamic>[]);
     final list = hooks[next.event];
     if (list is List) list.add(next.value);
-
     setState(() {
       _root = updated;
       _dirty = true;
     });
   }
-
   Future<void> _deleteHook(_HookRow row) async {
     final confirmed = await showDialog<bool>(
       context: context,
@@ -190,7 +173,6 @@ class _HooksScreenState extends ConsumerState<HooksScreen>
       ),
     );
     if (confirmed != true) return;
-
     final hooks = _hooksMap();
     final updated = <String, dynamic>{..._root, 'hooks': hooks};
     final list = hooks[row.event];
@@ -202,12 +184,10 @@ class _HooksScreenState extends ConsumerState<HooksScreen>
       _dirty = true;
     });
   }
-
   Future<void> _save() async {
     final cwd = _cwd();
     final oc = OpenCodeTheme.of(context);
     if (_source == SkillSource.project && cwd == null) return;
-
     final content = const JsonEncoder.withIndent(
       '  ',
     ).convert(_root.isEmpty ? {'hooks': {}} : _root);
@@ -245,14 +225,11 @@ class _HooksScreenState extends ConsumerState<HooksScreen>
       );
     }
   }
-
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final oc = theme.extension<OpenCodeTheme>()!;
-
     final rows = _rows();
-
     return Scaffold(
       backgroundColor: oc.background,
       appBar: AppBar(
@@ -262,12 +239,12 @@ class _HooksScreenState extends ConsumerState<HooksScreen>
         iconTheme: IconThemeData(color: oc.text),
         actions: [
           IconButton(
-            icon: const Icon(Icons.refresh_rounded),
+            icon: const Icon(AppIcons.refresh),
             onPressed: _dirty ? null : _load,
             tooltip: 'Reload',
           ),
           IconButton(
-            icon: const Icon(Icons.add_rounded),
+            icon: const Icon(AppIcons.add),
             onPressed: _addHook,
             tooltip: 'Add Hook',
           ),
@@ -309,7 +286,7 @@ class _HooksScreenState extends ConsumerState<HooksScreen>
                 child: Column(
                   mainAxisAlignment: MainAxisAlignment.center,
                   children: [
-                    Icon(Icons.bolt_rounded, color: oc.textMuted, size: 56),
+                    Icon(AppIcons.bolt, color: oc.textMuted, size: 56),
                     SizedBox(height: Spacing.md),
                     Text(
                       'No hooks configured',
@@ -324,7 +301,7 @@ class _HooksScreenState extends ConsumerState<HooksScreen>
                     SizedBox(height: Spacing.lg),
                     ElevatedButton.icon(
                       onPressed: _addHook,
-                      icon: const Icon(Icons.add_rounded),
+                      icon: const Icon(AppIcons.add),
                       label: const Text('Add Hook'),
                     ),
                   ],
@@ -377,13 +354,11 @@ class _HooksScreenState extends ConsumerState<HooksScreen>
     );
   }
 }
-
 class _HookRow {
   final String event;
   final int index;
   final String? matcher;
   final Map<String, dynamic> value;
-
   const _HookRow({
     required this.event,
     required this.index,
@@ -391,28 +366,21 @@ class _HookRow {
     required this.value,
   });
 }
-
 class _HookEditResult {
   final String event;
   final Map<String, dynamic> value;
-
   const _HookEditResult({required this.event, required this.value});
 }
-
 class HookEditorScreen extends StatefulWidget {
   const HookEditorScreen({this.initialEvent, this.initialJson, super.key});
-
   final String? initialEvent;
   final String? initialJson;
-
   @override
   State<HookEditorScreen> createState() => _HookEditorScreenState();
 }
-
 class _HookEditorScreenState extends State<HookEditorScreen> {
   late String _selectedEvent;
   late final TextEditingController _json;
-
   static const _hookEvents = <String>[
     'PreToolUse',
     'PostToolUse',
@@ -430,7 +398,6 @@ class _HookEditorScreenState extends State<HookEditorScreen> {
     'PreCompact',
     'Setup',
   ];
-
   @override
   void initState() {
     super.initState();
@@ -443,13 +410,11 @@ class _HookEditorScreenState extends State<HookEditorScreen> {
           ).convert({'matcher': '', 'hooks': []}),
     );
   }
-
   @override
   void dispose() {
     _json.dispose();
     super.dispose();
   }
-
   void _save() {
     final event = _selectedEvent;
     if (event.isEmpty) return;
@@ -467,7 +432,6 @@ class _HookEditorScreenState extends State<HookEditorScreen> {
       ).showSnackBar(SnackBar(content: Text('Invalid JSON: $e')));
     }
   }
-
   @override
   Widget build(BuildContext context) {
     final oc = OpenCodeTheme.of(context);

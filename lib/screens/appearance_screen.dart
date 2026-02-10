@@ -1,3 +1,4 @@
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../theme/app_typography.dart';
@@ -8,15 +9,13 @@ import '../providers/appearance_provider.dart';
 import '../providers/card_style_provider.dart';
 import '../theme/opencode_theme.dart';
 import '../theme/tool_style.dart';
-
+import 'package:broski/theme/app_icons.dart';
 class AppearanceScreen extends ConsumerWidget {
   const AppearanceScreen({super.key});
-
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final theme = Theme.of(context);
     final settings = ref.watch(appearanceProvider);
-
     return Scaffold(
       backgroundColor: theme.scaffoldBackgroundColor,
       appBar: AppBar(
@@ -32,7 +31,7 @@ class AppearanceScreen extends ConsumerWidget {
         ),
         leading: IconButton(
           icon: Icon(
-            Icons.arrow_back_rounded,
+            AppIcons.back,
             color: theme.colorScheme.onSurface,
           ),
           onPressed: () => Navigator.pop(context),
@@ -58,16 +57,12 @@ class AppearanceScreen extends ConsumerWidget {
           _SectionHeader(title: 'Preview'),
           SizedBox(height: Spacing.md),
           _ToolPreviewCard(settings: settings),
-
           SizedBox(height: Spacing.xxxl),
-
           // Icon Pack Section
           _SectionHeader(title: 'Icon Style'),
           SizedBox(height: Spacing.md),
           _IconPackSelector(settings: settings),
-
           SizedBox(height: Spacing.xxxl),
-
           // Tool Colors Toggle
           _SectionHeader(title: 'Colors'),
           SizedBox(height: Spacing.md),
@@ -93,9 +88,7 @@ class AppearanceScreen extends ConsumerWidget {
               ],
             ),
           ),
-
           SizedBox(height: Spacing.xxxl),
-
           // Card Style Section
           _SectionHeader(title: 'Card Style'),
           SizedBox(height: Spacing.md),
@@ -123,34 +116,26 @@ class AppearanceScreen extends ConsumerWidget {
               ],
             ),
           ),
-
           SizedBox(height: Spacing.xxxl),
-
           // Card Header Section
           _SectionHeader(title: 'Card Headers'),
           SizedBox(height: Spacing.md),
           const _CardHeaderStyleSelector(),
-
           SizedBox(height: Spacing.xxxl),
-
           // Tool Color Reference
           _SectionHeader(title: 'Tool Color Reference'),
           SizedBox(height: Spacing.md),
           _ToolColorGrid(),
-
           const SizedBox(height: 100),
         ],
       ),
     );
   }
 }
-
 // Section header widget
 class _SectionHeader extends StatelessWidget {
   const _SectionHeader({required this.title});
-
   final String title;
-
   @override
   Widget build(BuildContext context) {
     return Text(
@@ -164,17 +149,13 @@ class _SectionHeader extends StatelessWidget {
     );
   }
 }
-
 // Settings card container
 class _SettingsCard extends StatelessWidget {
   const _SettingsCard({required this.child});
-
   final Widget child;
-
   @override
   Widget build(BuildContext context) {
     final ocTheme = OpenCodeTheme.of(context);
-
     return Container(
       decoration: BoxDecoration(
         color: ocTheme.backgroundPanel,
@@ -185,18 +166,14 @@ class _SettingsCard extends StatelessWidget {
     );
   }
 }
-
 // Live preview of all tool types
 class _ToolPreviewCard extends StatelessWidget {
   const _ToolPreviewCard({required this.settings});
-
   final AppearanceSettings settings;
-
   @override
   Widget build(BuildContext context) {
     final ocTheme = OpenCodeTheme.of(context);
     final theme = Theme.of(context);
-
     // Show a sample of tool types
     final previewTools = [
       ('thinking', 'Thinking...', true), // running
@@ -204,7 +181,6 @@ class _ToolPreviewCard extends StatelessWidget {
       ('bash', 'Running npm install', false),
       ('read', 'Reading config.json', false),
     ];
-
     return Container(
       padding: Insets.card,
       decoration: BoxDecoration(
@@ -219,7 +195,7 @@ class _ToolPreviewCard extends StatelessWidget {
           Row(
             children: [
               Icon(
-                Icons.visibility_rounded,
+                AppIcons.visibility,
                 size: 14,
                 color: theme.colorScheme.onSurface.withValues(alpha: 0.5),
               ),
@@ -252,7 +228,6 @@ class _ToolPreviewCard extends StatelessWidget {
     );
   }
 }
-
 // Mini tool card for preview
 class _MiniToolCard extends StatelessWidget {
   const _MiniToolCard({
@@ -261,12 +236,10 @@ class _MiniToolCard extends StatelessWidget {
     required this.isRunning,
     required this.settings,
   });
-
   final String toolName;
   final String title;
   final bool isRunning;
   final AppearanceSettings settings;
-
   @override
   Widget build(BuildContext context) {
     final ocTheme = OpenCodeTheme.of(context);
@@ -275,7 +248,6 @@ class _MiniToolCard extends StatelessWidget {
         ? ToolStyle.getColor(context, toolName)
         : ocTheme.textMuted;
     final icon = ToolStyle.getIcon(toolName, settings.iconPack);
-
     return Container(
       padding: EdgeInsets.all(settings.compactMode ? 10 : 14),
       decoration: BoxDecoration(
@@ -334,23 +306,20 @@ class _MiniToolCard extends StatelessWidget {
               ),
             )
           else
-            Icon(Icons.check_circle_rounded, size: 16, color: ocTheme.success),
+            Icon(AppIcons.checkCircle, size: 16, color: ocTheme.success),
         ],
       ),
     );
   }
 }
-
-// Icon pack selector grid
+// Icon pack selector — lets users choose between 3 Lucide icon sets
 class _IconPackSelector extends StatelessWidget {
   const _IconPackSelector({required this.settings});
-
   final AppearanceSettings settings;
 
   @override
   Widget build(BuildContext context) {
     final ocTheme = OpenCodeTheme.of(context);
-
     return Container(
       decoration: BoxDecoration(
         color: ocTheme.backgroundPanel,
@@ -362,7 +331,6 @@ class _IconPackSelector extends StatelessWidget {
           final index = entry.key;
           final pack = entry.value;
           final isSelected = settings.iconPack == pack.id;
-
           return Column(
             children: [
               if (index > 0) _Divider(),
@@ -378,7 +346,6 @@ class _IconPackSelector extends StatelessWidget {
 // Icon pack tile with preview icons
 class _IconPackTile extends ConsumerWidget {
   const _IconPackTile({required this.pack, required this.isSelected});
-
   final IconPackInfo pack;
   final bool isSelected;
 
@@ -386,15 +353,13 @@ class _IconPackTile extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final theme = Theme.of(context);
     final ocTheme = OpenCodeTheme.of(context);
-
-    // Sample icons from this pack
+    // Sample tool types to preview
     final sampleTypes = [
       ToolType.thinking,
       ToolType.edit,
       ToolType.bash,
       ToolType.search,
     ];
-
     return InkWell(
       onTap: () => ref.read(appearanceProvider.notifier).setIconPack(pack.id),
       borderRadius: Radii.brLg,
@@ -402,7 +367,6 @@ class _IconPackTile extends ConsumerWidget {
         padding: Insets.card,
         child: Row(
           children: [
-            // Radio button
             Radio<IconPack>(
               value: pack.id,
               groupValue: isSelected ? pack.id : null,
@@ -413,7 +377,6 @@ class _IconPackTile extends ConsumerWidget {
               },
             ),
             SizedBox(width: Spacing.sm),
-            // Text info
             Expanded(
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
@@ -468,16 +431,13 @@ class _ToggleTile extends StatelessWidget {
     required this.value,
     required this.onChanged,
   });
-
   final String title;
   final String subtitle;
   final bool value;
   final ValueChanged<bool> onChanged;
-
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-
     return InkWell(
       onTap: () => onChanged(!value),
       child: Padding(
@@ -514,7 +474,6 @@ class _ToggleTile extends StatelessWidget {
     );
   }
 }
-
 // Slider tile widget
 class _SliderTile extends StatelessWidget {
   const _SliderTile({
@@ -525,18 +484,15 @@ class _SliderTile extends StatelessWidget {
     required this.divisions,
     required this.onChanged,
   });
-
   final String title;
   final double value;
   final double min;
   final double max;
   final int divisions;
   final ValueChanged<double> onChanged;
-
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-
     return Padding(
       padding: Insets.card,
       child: Column(
@@ -586,7 +542,6 @@ class _SliderTile extends StatelessWidget {
     );
   }
 }
-
 // Divider
 class _Divider extends StatelessWidget {
   @override
@@ -600,14 +555,12 @@ class _Divider extends StatelessWidget {
     );
   }
 }
-
 // Tool color reference grid
 class _ToolColorGrid extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final ocTheme = OpenCodeTheme.of(context);
     final theme = Theme.of(context);
-
     final tools = [
       (ToolType.thinking, 'Thinking', 'AI reasoning'),
       (ToolType.edit, 'Edit', 'File changes'),
@@ -618,7 +571,6 @@ class _ToolColorGrid extends StatelessWidget {
       (ToolType.todo, 'Todo', 'Task tracking'),
       (ToolType.subtask, 'Subtask', 'Agent delegation'),
     ];
-
     return Container(
       decoration: BoxDecoration(
         color: ocTheme.backgroundPanel,
@@ -630,7 +582,6 @@ class _ToolColorGrid extends StatelessWidget {
           final tool = entry.value;
           final config = ToolStyle.getConfig(tool.$1);
           final color = config.colorGetter(ocTheme);
-
           return SizedBox(
             width: MediaQuery.of(context).size.width / 2 - 28,
             child: Padding(
@@ -685,16 +636,13 @@ class _ToolColorGrid extends StatelessWidget {
     );
   }
 }
-
 /// Card header style selector - lets users choose header and border styles
 class _CardHeaderStyleSelector extends ConsumerWidget {
   const _CardHeaderStyleSelector();
-
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final theme = Theme.of(context);
     final cardStyle = ref.watch(cardStyleProvider);
-
     return _SettingsCard(
       child: Column(
         children: [
@@ -707,7 +655,7 @@ class _CardHeaderStyleSelector extends ConsumerWidget {
                 Row(
                   children: [
                     Icon(
-                      Icons.layers_rounded,
+                      AppIcons.layers,
                       size: 16,
                       color: theme.colorScheme.primary,
                     ),
@@ -752,7 +700,7 @@ class _CardHeaderStyleSelector extends ConsumerWidget {
                 Row(
                   children: [
                     Icon(
-                      Icons.border_style_rounded,
+                      AppIcons.borderStyle,
                       size: 16,
                       color: theme.colorScheme.primary,
                     ),
@@ -797,7 +745,7 @@ class _CardHeaderStyleSelector extends ConsumerWidget {
                 Row(
                   children: [
                     Icon(
-                      Icons.visibility_rounded,
+                      AppIcons.visibility,
                       size: 14,
                       color: theme.colorScheme.onSurface.withValues(alpha: 0.5),
                     ),
@@ -824,7 +772,6 @@ class _CardHeaderStyleSelector extends ConsumerWidget {
     );
   }
 }
-
 /// Option chip for style selection
 class _StyleOptionChip extends StatelessWidget {
   const _StyleOptionChip({
@@ -833,17 +780,14 @@ class _StyleOptionChip extends StatelessWidget {
     required this.isSelected,
     required this.onTap,
   });
-
   final String label;
   final String description;
   final bool isSelected;
   final VoidCallback onTap;
-
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final ocTheme = OpenCodeTheme.of(context);
-
     return GestureDetector(
       onTap: onTap,
       child: AnimatedContainer(
@@ -881,7 +825,7 @@ class _StyleOptionChip extends StatelessWidget {
                 if (isSelected) ...[
                   const SizedBox(width: 6),
                   Icon(
-                    Icons.check_circle,
+                    AppIcons.checkCircle,
                     size: 14,
                     color: theme.colorScheme.primary,
                   ),
@@ -902,23 +846,18 @@ class _StyleOptionChip extends StatelessWidget {
     );
   }
 }
-
 /// Preview card showing current header/border style
 class _CardStylePreview extends StatelessWidget {
   const _CardStylePreview({required this.cardStyle});
-
   final CardStyleSettings cardStyle;
-
   @override
   Widget build(BuildContext context) {
     final ocTheme = OpenCodeTheme.of(context);
     final theme = Theme.of(context);
-
     // Determine colors based on style
     final Color headerBg;
     final Color borderColor;
     final toolColor = ocTheme.toolEdit; // Use edit tool color for preview
-
     switch (cardStyle.headerStyle) {
       case CardHeaderStyle.solid:
         headerBg = ocTheme.cardHeaderBg;
@@ -927,7 +866,6 @@ class _CardStylePreview extends StatelessWidget {
       case CardHeaderStyle.minimal:
         headerBg = Colors.transparent;
     }
-
     switch (cardStyle.borderVisibility) {
       case CardBorderVisibility.subtle:
         borderColor = ocTheme.cardBorderSubtle;
@@ -936,7 +874,6 @@ class _CardStylePreview extends StatelessWidget {
       case CardBorderVisibility.accent:
         borderColor = toolColor.withValues(alpha: 0.6);
     }
-
     return Container(
       decoration: BoxDecoration(
         color: ocTheme.bgRaised,
@@ -958,7 +895,7 @@ class _CardStylePreview extends StatelessWidget {
             ),
             child: Row(
               children: [
-                Icon(Icons.edit_rounded, size: 14, color: toolColor),
+                Icon(AppIcons.edit, size: 14, color: toolColor),
                 SizedBox(width: Spacing.sm),
                 Text(
                   'Edit',
@@ -1041,7 +978,6 @@ class _CardStylePreview extends StatelessWidget {
     );
   }
 }
-
 class _DiffPreviewLine extends StatelessWidget {
   const _DiffPreviewLine({
     required this.text,
@@ -1049,12 +985,10 @@ class _DiffPreviewLine extends StatelessWidget {
     required this.addedColor,
     required this.removedColor,
   });
-
   final String text;
   final bool isRemoved;
   final Color addedColor;
   final Color removedColor;
-
   @override
   Widget build(BuildContext context) {
     final color = isRemoved ? removedColor : addedColor;

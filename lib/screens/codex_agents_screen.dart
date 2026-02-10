@@ -1,3 +1,4 @@
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../theme/app_typography.dart';
@@ -6,39 +7,33 @@ import '../theme/design_tokens.dart';
 import '../providers/selection_provider.dart';
 import '../providers/service_providers.dart';
 import '../theme/opencode_theme.dart';
-
+import 'package:broski/theme/app_icons.dart';
 class CodexAgentsScreen extends ConsumerStatefulWidget {
   const CodexAgentsScreen({super.key});
-
   @override
   ConsumerState<CodexAgentsScreen> createState() => _CodexAgentsScreenState();
 }
-
 class _CodexAgentsScreenState extends ConsumerState<CodexAgentsScreen> {
   final _ctrl = TextEditingController();
   bool _loading = true;
   bool _saving = false;
   String? _path;
   String? _error;
-
   @override
   void initState() {
     super.initState();
     _load();
   }
-
   @override
   void dispose() {
     _ctrl.dispose();
     super.dispose();
   }
-
   Future<void> _load() async {
     setState(() {
       _loading = true;
       _error = null;
     });
-
     final selection = ref.read(selectionProvider);
     final cwd = selection.project?.path;
     if (cwd == null || cwd.isEmpty) {
@@ -49,7 +44,6 @@ class _CodexAgentsScreenState extends ConsumerState<CodexAgentsScreen> {
       });
       return;
     }
-
     try {
       final bridge = ref.read(bridgeServiceProvider);
       final data = await bridge.cxReadAgentsMd(cwd);
@@ -67,13 +61,11 @@ class _CodexAgentsScreenState extends ConsumerState<CodexAgentsScreen> {
       });
     }
   }
-
   Future<void> _save() async {
     if (_saving) return;
     final selection = ref.read(selectionProvider);
     final cwd = selection.project?.path;
     if (cwd == null || cwd.isEmpty) return;
-
     setState(() => _saving = true);
     try {
       final bridge = ref.read(bridgeServiceProvider);
@@ -97,13 +89,11 @@ class _CodexAgentsScreenState extends ConsumerState<CodexAgentsScreen> {
       if (mounted) setState(() => _saving = false);
     }
   }
-
   @override
   Widget build(BuildContext context) {
     final oc = OpenCodeTheme.of(context);
     final selection = ref.watch(selectionProvider);
     final hasProject = selection.project?.path.isNotEmpty == true;
-
     return Scaffold(
       backgroundColor: oc.background,
       appBar: AppBar(
@@ -114,12 +104,12 @@ class _CodexAgentsScreenState extends ConsumerState<CodexAgentsScreen> {
           IconButton(
             tooltip: 'Refresh',
             onPressed: _loading ? null : _load,
-            icon: const Icon(Icons.refresh_rounded),
+            icon: const Icon(AppIcons.refresh),
           ),
           IconButton(
             tooltip: 'Save',
             onPressed: _loading || _saving || !hasProject ? null : _save,
-            icon: const Icon(Icons.save_rounded),
+            icon: const Icon(AppIcons.save),
           ),
         ],
       ),

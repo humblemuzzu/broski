@@ -1,3 +1,4 @@
+
 import 'dart:async';
 
 import 'package:flutter/material.dart';
@@ -15,21 +16,18 @@ import '../utils/input_batcher.dart' show SmartInputBatcher;
 import '../utils/terminal_output_throttler.dart' show SmartOutputThrottler;
 import '../widgets/terminal_quick_toolbar.dart';
 import '../widgets/terminal_selection_overlay.dart';
-
+import 'package:broski/theme/app_icons.dart';
 class TerminalViewScreen extends ConsumerStatefulWidget {
   const TerminalViewScreen({
     super.key,
     required this.ptyId,
     required this.title,
   });
-
   final String ptyId;
   final String title;
-
   @override
   ConsumerState<TerminalViewScreen> createState() => _TerminalViewScreenState();
 }
-
 class _TerminalViewScreenState extends ConsumerState<TerminalViewScreen> {
   late Terminal _terminal;
   late final TerminalController _terminalController;
@@ -39,18 +37,14 @@ class _TerminalViewScreenState extends ConsumerState<TerminalViewScreen> {
   bool _isConnected = false;
   bool _isConnecting = true;
   String? _error;
-
   late SmartInputBatcher _inputBatcher;
   late SmartOutputThrottler _outputThrottler;
-
   Timer? _resizeDebounce;
   int? _lastSentRows;
   int? _lastSentCols;
   Map<String, dynamic>? _lastHealth;
-
   TerminalSettings? _appliedSettings;
   bool _normalizeSmartQuotesEnabled = true;
-
   @override
   void initState() {
     super.initState();
@@ -63,7 +57,6 @@ class _TerminalViewScreenState extends ConsumerState<TerminalViewScreen> {
     _outputThrottler = SmartOutputThrottler(onFlush: _terminal.write);
     _connectToPty();
   }
-
   @override
   void dispose() {
     _outputSubscription?.cancel();
@@ -74,20 +67,16 @@ class _TerminalViewScreenState extends ConsumerState<TerminalViewScreen> {
     _terminalFocusNode.dispose();
     super.dispose();
   }
-
   Future<void> _connectToPty() async {
     setState(() {
       _isConnecting = true;
       _error = null;
     });
-
     try {
       final bridge = ref.read(bridgeServiceProvider);
       final selection = ref.read(selectionProvider);
-
       _outputSubscription = bridge.ptyEvents.listen((event) {
         if (event['ptyId'] != widget.ptyId) return;
-
         if (event['type'] == 'pty_output') {
           final data = event['data'] as String? ?? '';
           if (data.isNotEmpty) {
@@ -111,12 +100,10 @@ class _TerminalViewScreenState extends ConsumerState<TerminalViewScreen> {
           if (mounted) setState(() {});
         }
       });
-
       final connected = await bridge.connectPty(
         widget.ptyId,
         projectPath: selection.project?.path,
       );
-
       if (mounted) {
         setState(() {
           _isConnected = connected;
@@ -125,7 +112,6 @@ class _TerminalViewScreenState extends ConsumerState<TerminalViewScreen> {
             _error = 'Failed to connect to terminal';
           }
         });
-
         if (connected) {
           WidgetsBinding.instance.addPostFrameCallback((_) {
             _terminalFocusNode.requestFocus();
@@ -142,23 +128,19 @@ class _TerminalViewScreenState extends ConsumerState<TerminalViewScreen> {
       }
     }
   }
-
   void _disconnectPty() {
     final bridge = ref.read(bridgeServiceProvider);
     bridge.disconnectPty(widget.ptyId);
   }
-
   void _sendInput(String data) {
     if (!_isConnected || data.isEmpty) return;
     final bridge = ref.read(bridgeServiceProvider);
     bridge.sendPtyInput(widget.ptyId, data);
   }
-
   void _scheduleResize(int rows, int cols) {
     if (!_isConnected) return;
     if (rows <= 0 || cols <= 0) return;
     if (_lastSentRows == rows && _lastSentCols == cols) return;
-
     _resizeDebounce?.cancel();
     _resizeDebounce = Timer(const Duration(milliseconds: 100), () {
       if (!_isConnected) return;
@@ -175,11 +157,9 @@ class _TerminalViewScreenState extends ConsumerState<TerminalViewScreen> {
       );
     });
   }
-
   void _applySettings(TerminalSettings settings) {
     _appliedSettings = settings;
     _normalizeSmartQuotesEnabled = settings.normalizeSmartQuotes;
-
     // Recreate terminal if maxLines changed
     if (_terminal.maxLines != settings.maxLines) {
       _outputThrottler.flush();
@@ -191,14 +171,12 @@ class _TerminalViewScreenState extends ConsumerState<TerminalViewScreen> {
       _outputThrottler = SmartOutputThrottler(onFlush: _terminal.write);
       if (mounted) setState(() {});
     }
-
     // Smart batchers are self-tuning - no manual config needed!
     // They automatically:
     // - Send single keystrokes INSTANTLY
     // - Batch only during rapid typing or paste
     // - Throttle output only during floods (cat bigfile, npm install)
   }
-
   String _normalizeTerminalInput(String data) {
     if (!_normalizeSmartQuotesEnabled || data.isEmpty) return data;
     // iOS smart punctuation can emit curly quotes which break shells.
@@ -208,7 +186,6 @@ class _TerminalViewScreenState extends ConsumerState<TerminalViewScreen> {
         .replaceAll('\u2018', "'")
         .replaceAll('\u2019', "'");
   }
-
   @override
   Widget build(BuildContext context) {
     final ocTheme = OpenCodeTheme.of(context);
@@ -216,19 +193,18 @@ class _TerminalViewScreenState extends ConsumerState<TerminalViewScreen> {
     if (_appliedSettings != terminalSettings) {
       _applySettings(terminalSettings);
     }
-
     return Scaffold(
       backgroundColor: ocTheme.background,
       appBar: AppBar(
         backgroundColor: ocTheme.background,
         elevation: 0,
         leading: IconButton(
-          icon: Icon(Icons.arrow_back, color: ocTheme.text),
+          icon: Icon(AppIcons.back, color: ocTheme.text),
           onPressed: () => Navigator.of(context).pop(),
         ),
         title: Row(
           children: [
-            Icon(Icons.terminal, size: 20, color: ocTheme.primary),
+            Icon(AppIcons.terminal, size: 20, color: ocTheme.primary),
             SizedBox(width: Spacing.sm),
             Expanded(
               child: Text(
@@ -289,12 +265,12 @@ class _TerminalViewScreenState extends ConsumerState<TerminalViewScreen> {
         actions: [
           if (_isConnected)
             IconButton(
-              icon: Icon(Icons.refresh, color: ocTheme.textMuted),
+              icon: Icon(AppIcons.refresh, color: ocTheme.textMuted),
               onPressed: _connectToPty,
               tooltip: 'Reconnect',
             ),
           IconButton(
-            icon: Icon(Icons.tune, color: ocTheme.textMuted),
+            icon: Icon(AppIcons.tune, color: ocTheme.textMuted),
             onPressed: () {
               Navigator.of(context).push(
                 MaterialPageRoute(
@@ -309,7 +285,6 @@ class _TerminalViewScreenState extends ConsumerState<TerminalViewScreen> {
       body: _buildBody(ocTheme, terminalSettings),
     );
   }
-
   Widget _buildBody(OpenCodeTheme ocTheme, TerminalSettings settings) {
     if (_isConnecting) {
       return Center(
@@ -326,13 +301,12 @@ class _TerminalViewScreenState extends ConsumerState<TerminalViewScreen> {
         ),
       );
     }
-
     if (_error != null && !_isConnected) {
       return Center(
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            Icon(Icons.error_outline, size: 48, color: ocTheme.error),
+            Icon(AppIcons.error, size: 48, color: ocTheme.error),
             SizedBox(height: Spacing.lg),
             Text(
               'Connection Failed',
@@ -354,7 +328,7 @@ class _TerminalViewScreenState extends ConsumerState<TerminalViewScreen> {
             SizedBox(height: Spacing.xxl),
             ElevatedButton.icon(
               onPressed: _connectToPty,
-              icon: const Icon(Icons.refresh, size: 18),
+              icon: const Icon(AppIcons.refresh, size: 18),
               label: const Text('Retry'),
               style: ElevatedButton.styleFrom(
                 backgroundColor: ocTheme.primary,
@@ -365,9 +339,7 @@ class _TerminalViewScreenState extends ConsumerState<TerminalViewScreen> {
         ),
       );
     }
-
     final bottomOverlayPadding = settings.showQuickToolbar ? 56.0 : 0.0;
-
     return Column(
       children: [
         Expanded(
@@ -407,7 +379,6 @@ class _TerminalViewScreenState extends ConsumerState<TerminalViewScreen> {
       ],
     );
   }
-
   TerminalTheme _buildTerminalTheme(OpenCodeTheme ocTheme) {
     return TerminalTheme(
       background: ocTheme.background,

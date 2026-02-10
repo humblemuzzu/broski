@@ -1,4 +1,6 @@
 import 'package:flutter/material.dart';
+import 'package:lucide_icons/lucide_icons.dart';
+import 'package:broski/theme/app_icons.dart';
 import 'opencode_theme.dart';
 
 /// Tool type enumeration for consistent styling
@@ -16,10 +18,9 @@ enum ToolType {
 
 /// Available icon packs for tool icons
 enum IconPack {
-  material, // Default Material icons (outlined)
-  materialFilled, // Material icons (filled)
-  minimal, // Simple, minimal icons
-  rounded, // Rounded style icons
+  standard, // Default Lucide — clear, literal icons
+  minimal, // Lighter, more abstract metaphors
+  technical, // Developer / code-centric icons
 }
 
 /// Icon pack metadata for settings UI
@@ -38,24 +39,19 @@ class IconPackInfo {
 /// All available icon packs
 const allIconPacks = [
   IconPackInfo(
-    id: IconPack.material,
-    name: 'Material Outlined',
-    description: 'Clean outlined icons (default)',
-  ),
-  IconPackInfo(
-    id: IconPack.materialFilled,
-    name: 'Material Filled',
-    description: 'Solid filled icons',
+    id: IconPack.standard,
+    name: 'Standard',
+    description: 'Clear, literal icons for each tool',
   ),
   IconPackInfo(
     id: IconPack.minimal,
     name: 'Minimal',
-    description: 'Simple, lightweight icons',
+    description: 'Lighter, abstract metaphors',
   ),
   IconPackInfo(
-    id: IconPack.rounded,
-    name: 'Rounded',
-    description: 'Soft rounded icons',
+    id: IconPack.technical,
+    name: 'Technical',
+    description: 'Developer-centric, code-focused',
   ),
 ];
 
@@ -64,10 +60,9 @@ class ToolStyleConfig {
   const ToolStyleConfig({
     required this.label,
     required this.colorGetter,
-    required this.materialIcon,
-    required this.materialFilledIcon,
+    required this.standardIcon,
     required this.minimalIcon,
-    required this.roundedIcon,
+    required this.technicalIcon,
   });
 
   /// Human-readable label
@@ -77,22 +72,19 @@ class ToolStyleConfig {
   final Color Function(OpenCodeTheme theme) colorGetter;
 
   /// Icons for each pack
-  final IconData materialIcon;
-  final IconData materialFilledIcon;
+  final IconData standardIcon;
   final IconData minimalIcon;
-  final IconData roundedIcon;
+  final IconData technicalIcon;
 
   /// Get icon for a specific pack
   IconData getIcon(IconPack pack) {
     switch (pack) {
-      case IconPack.material:
-        return materialIcon;
-      case IconPack.materialFilled:
-        return materialFilledIcon;
+      case IconPack.standard:
+        return standardIcon;
       case IconPack.minimal:
         return minimalIcon;
-      case IconPack.rounded:
-        return roundedIcon;
+      case IconPack.technical:
+        return technicalIcon;
     }
   }
 }
@@ -179,7 +171,7 @@ class ToolStyle {
   }
 
   /// Current icon pack (can be changed via settings)
-  static IconPack _currentIconPack = IconPack.material;
+  static IconPack _currentIconPack = IconPack.standard;
 
   /// Get the current icon pack
   static IconPack get currentIconPack => _currentIconPack;
@@ -190,88 +182,84 @@ class ToolStyle {
   }
 
   /// Get style configuration for a tool type
+  ///
+  /// Each tool has 3 Lucide icon variants:
+  /// - Standard: clear, literal (brain, pencil, terminal)
+  /// - Minimal: lighter, abstract (lightbulb, penTool, code)
+  /// - Technical: dev-centric (brainCircuit, fileEdit, terminalSquare)
   static ToolStyleConfig getConfig(ToolType type) {
     switch (type) {
       case ToolType.thinking:
         return ToolStyleConfig(
           label: 'Thinking',
           colorGetter: (t) => t.toolThinking,
-          materialIcon: Icons.psychology_outlined,
-          materialFilledIcon: Icons.psychology,
-          minimalIcon: Icons.lightbulb_outline,
-          roundedIcon: Icons.psychology_rounded,
+          standardIcon: AppIcons.psychology, // brain
+          minimalIcon: LucideIcons.lightbulb,
+          technicalIcon: LucideIcons.brainCircuit,
         );
       case ToolType.edit:
         return ToolStyleConfig(
           label: 'Edit',
           colorGetter: (t) => t.toolEdit,
-          materialIcon: Icons.edit_outlined,
-          materialFilledIcon: Icons.edit,
-          minimalIcon: Icons.create_outlined,
-          roundedIcon: Icons.edit_rounded,
+          standardIcon: AppIcons.edit, // pencil
+          minimalIcon: LucideIcons.penTool,
+          technicalIcon: LucideIcons.fileEdit,
         );
       case ToolType.read:
         return ToolStyleConfig(
           label: 'Read',
           colorGetter: (t) => t.toolRead,
-          materialIcon: Icons.article_outlined,
-          materialFilledIcon: Icons.article,
-          minimalIcon: Icons.description_outlined,
-          roundedIcon: Icons.article_rounded,
+          standardIcon: AppIcons.description, // fileText
+          minimalIcon: LucideIcons.eye,
+          technicalIcon: LucideIcons.bookOpen,
         );
       case ToolType.write:
         return ToolStyleConfig(
           label: 'Write',
           colorGetter: (t) => t.toolWrite,
-          materialIcon: Icons.add_box_outlined,
-          materialFilledIcon: Icons.add_box,
-          minimalIcon: Icons.note_add_outlined,
-          roundedIcon: Icons.add_box_rounded,
+          standardIcon: AppIcons.filePlus,
+          minimalIcon: LucideIcons.plus,
+          technicalIcon: LucideIcons.fileOutput,
         );
       case ToolType.bash:
         return ToolStyleConfig(
           label: 'Command',
           colorGetter: (t) => t.toolBash,
-          materialIcon: Icons.terminal_outlined,
-          materialFilledIcon: Icons.terminal,
-          minimalIcon: Icons.code_outlined,
-          roundedIcon: Icons.terminal_rounded,
+          standardIcon: AppIcons.terminal,
+          minimalIcon: LucideIcons.code,
+          technicalIcon: LucideIcons.terminalSquare,
         );
       case ToolType.search:
         return ToolStyleConfig(
           label: 'Search',
           colorGetter: (t) => t.toolSearch,
-          materialIcon: Icons.search_outlined,
-          materialFilledIcon: Icons.search,
-          minimalIcon: Icons.manage_search_outlined,
-          roundedIcon: Icons.search_rounded,
+          standardIcon: AppIcons.search,
+          minimalIcon: LucideIcons.fileScan,
+          technicalIcon: LucideIcons.searchCode,
         );
       case ToolType.todo:
         return ToolStyleConfig(
           label: 'Todo',
           colorGetter: (t) => t.toolTodo,
-          materialIcon: Icons.checklist_outlined,
-          materialFilledIcon: Icons.checklist,
-          minimalIcon: Icons.task_alt_outlined,
-          roundedIcon: Icons.checklist_rounded,
+          standardIcon: AppIcons.checklist, // listChecks
+          minimalIcon: LucideIcons.checkSquare,
+          technicalIcon: LucideIcons.listTodo,
         );
       case ToolType.subtask:
         return ToolStyleConfig(
           label: 'Subtask',
           colorGetter: (t) => t.toolSubtask,
-          materialIcon: Icons.account_tree_outlined,
-          materialFilledIcon: Icons.account_tree,
-          minimalIcon: Icons.share_outlined,
-          roundedIcon: Icons.account_tree_rounded,
+          standardIcon: AppIcons.gitBranch,
+          minimalIcon: LucideIcons.split,
+          technicalIcon: LucideIcons.network,
         );
       case ToolType.unknown:
         return ToolStyleConfig(
           label: 'Tool',
           colorGetter: (t) => t.textMuted,
-          materialIcon: Icons.build_outlined,
-          materialFilledIcon: Icons.build,
-          minimalIcon: Icons.settings_outlined,
-          roundedIcon: Icons.build_rounded,
+          standardIcon: AppIcons.build, // hammer
+          minimalIcon: LucideIcons.wrench,
+          technicalIcon: LucideIcons.settings,
         );
     }
   }

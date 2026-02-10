@@ -1,3 +1,4 @@
+
 import 'package:flutter/material.dart';
 import '../../theme/app_typography.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -7,14 +8,13 @@ import '../../providers/codex_provider.dart';
 import '../../theme/design_tokens.dart';
 import '../../theme/opencode_theme.dart';
 import '../../widgets/chat/detail_sheet.dart';
-
+import 'package:broski/theme/app_icons.dart';
 /// Bottom sheet that shows available Codex models via a cache-first provider.
 ///
 /// First open with no cache: brief loading spinner, then list.
 /// Subsequent opens: instant from cache, background refresh picks up new models.
 class CxModelSheet extends ConsumerWidget {
   const CxModelSheet({super.key});
-
   static void show(BuildContext context) {
     DetailSheet.show(
       context: context,
@@ -23,7 +23,6 @@ class CxModelSheet extends ConsumerWidget {
       child: const CxModelSheet(),
     );
   }
-
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final theme = OpenCodeTheme.of(context);
@@ -31,7 +30,6 @@ class CxModelSheet extends ConsumerWidget {
     final chatState = ref.watch(chatSessionProvider);
     final current = chatState.cxModel ?? '';
     final isUsingDefault = current.isEmpty;
-
     return modelsAsync.when(
       data: (models) {
         if (models.isEmpty) {
@@ -45,7 +43,6 @@ class CxModelSheet extends ConsumerWidget {
             ),
           );
         }
-
         return Padding(
           padding: Insets.screenH,
           child: Column(
@@ -66,8 +63,8 @@ class CxModelSheet extends ConsumerWidget {
                   contentPadding: EdgeInsets.zero,
                   leading: Icon(
                     selected
-                        ? Icons.radio_button_checked_rounded
-                        : Icons.radio_button_off_rounded,
+                        ? AppIcons.radioChecked
+                        : AppIcons.radioUnchecked,
                     size: 18,
                     color: selected ? theme.primary : theme.textMuted,
                   ),
@@ -130,7 +127,7 @@ class CxModelSheet extends ConsumerWidget {
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            Icon(Icons.error_outline_rounded, color: theme.error, size: 32),
+            Icon(AppIcons.error, color: theme.error, size: 32),
             SizedBox(height: Spacing.sm),
             Text(
               'Failed to load models',

@@ -1,3 +1,4 @@
+
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_highlight/flutter_highlight.dart';
@@ -6,7 +7,7 @@ import '../../theme/app_typography.dart';
 import '../../theme/design_tokens.dart';
 
 import '../../theme/opencode_theme.dart';
-
+import 'package:broski/theme/app_icons.dart';
 class CodeFileViewer extends StatelessWidget {
   const CodeFileViewer({
     super.key,
@@ -14,16 +15,13 @@ class CodeFileViewer extends StatelessWidget {
     required this.language,
     required this.filename,
   });
-
   final String content;
   final String language;
   final String filename;
-
   @override
   Widget build(BuildContext context) {
     final theme = OpenCodeTheme.of(context);
     final lines = content.split('\n');
-
     return Container(
       color: theme.background,
       child: Column(
@@ -33,7 +31,7 @@ class CodeFileViewer extends StatelessWidget {
             color: theme.backgroundPanel,
             child: Row(
               children: [
-                Icon(Icons.code, size: 16, color: theme.textMuted),
+                Icon(AppIcons.code, size: 16, color: theme.textMuted),
                 SizedBox(width: Spacing.sm),
                 Text(
                   '${lines.length} lines',
@@ -60,7 +58,7 @@ class CodeFileViewer extends StatelessWidget {
                 ),
                 SizedBox(width: Spacing.sm),
                 IconButton(
-                  icon: Icon(Icons.copy, size: 18, color: theme.textMuted),
+                  icon: Icon(AppIcons.copy, size: 18, color: theme.textMuted),
                   onPressed: () {
                     Clipboard.setData(ClipboardData(text: content));
                     ScaffoldMessenger.of(context).showSnackBar(

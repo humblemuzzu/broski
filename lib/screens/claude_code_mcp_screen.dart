@@ -1,3 +1,4 @@
+
 import 'dart:async';
 import 'dart:convert';
 
@@ -9,23 +10,19 @@ import '../theme/design_tokens.dart';
 import '../providers/selection_provider.dart';
 import '../providers/service_providers.dart';
 import '../theme/opencode_theme.dart';
-
+import 'package:broski/theme/app_icons.dart';
 class ClaudeCodeMcpScreen extends ConsumerStatefulWidget {
   const ClaudeCodeMcpScreen({super.key});
-
   @override
   ConsumerState<ClaudeCodeMcpScreen> createState() => _ClaudeCodeMcpScreenState();
 }
-
 class _ClaudeCodeMcpScreenState extends ConsumerState<ClaudeCodeMcpScreen> {
   bool _loading = true;
   bool _dirty = false;
   String? _error;
   Map<String, dynamic> _root = const {};
   StreamSubscription<Map<String, dynamic>>? _fsSub;
-
   String? get _cwd => ref.read(selectionProvider).project?.path;
-
   @override
   void initState() {
     super.initState();
@@ -50,13 +47,11 @@ class _ClaudeCodeMcpScreenState extends ConsumerState<ClaudeCodeMcpScreen> {
     });
     _load();
   }
-
   @override
   void dispose() {
     _fsSub?.cancel();
     super.dispose();
   }
-
   Future<void> _load() async {
     final cwd = _cwd;
     if (cwd == null) {
@@ -68,13 +63,11 @@ class _ClaudeCodeMcpScreenState extends ConsumerState<ClaudeCodeMcpScreen> {
       });
       return;
     }
-
     setState(() {
       _loading = true;
       _error = null;
       _dirty = false;
     });
-
     try {
       final bridge = ref.read(bridgeServiceProvider);
       final content = await bridge.ccReadMcpFile(cwd: cwd);
@@ -93,13 +86,11 @@ class _ClaudeCodeMcpScreenState extends ConsumerState<ClaudeCodeMcpScreen> {
       });
     }
   }
-
   Map<String, dynamic> _servers() {
     final v = _root['mcpServers'];
     if (v is Map) return v.cast<String, dynamic>();
     return {};
   }
-
   Future<void> _save() async {
     final cwd = _cwd;
     if (cwd == null) return;
@@ -127,7 +118,6 @@ class _ClaudeCodeMcpScreenState extends ConsumerState<ClaudeCodeMcpScreen> {
       );
     }
   }
-
   Future<void> _addServer() async {
     final nameController = TextEditingController();
     final name = await showDialog<String>(
@@ -149,7 +139,6 @@ class _ClaudeCodeMcpScreenState extends ConsumerState<ClaudeCodeMcpScreen> {
       ),
     );
     if (name == null || name.isEmpty) return;
-
     final config = await Navigator.push<Map<String, dynamic>>(
       context,
       MaterialPageRoute(
@@ -162,7 +151,6 @@ class _ClaudeCodeMcpScreenState extends ConsumerState<ClaudeCodeMcpScreen> {
       ),
     );
     if (config == null) return;
-
     final servers = _servers();
     servers[name] = config;
     setState(() {
@@ -170,7 +158,6 @@ class _ClaudeCodeMcpScreenState extends ConsumerState<ClaudeCodeMcpScreen> {
       _dirty = true;
     });
   }
-
   Future<void> _editServer(String name, Map<String, dynamic> cfg) async {
     final config = await Navigator.push<Map<String, dynamic>>(
       context,
@@ -189,7 +176,6 @@ class _ClaudeCodeMcpScreenState extends ConsumerState<ClaudeCodeMcpScreen> {
       _dirty = true;
     });
   }
-
   Future<void> _deleteServer(String name) async {
     final confirmed = await showDialog<bool>(
       context: context,
@@ -214,13 +200,11 @@ class _ClaudeCodeMcpScreenState extends ConsumerState<ClaudeCodeMcpScreen> {
       _dirty = true;
     });
   }
-
   @override
   Widget build(BuildContext context) {
     final oc = OpenCodeTheme.of(context);
     final servers = _servers();
     final names = servers.keys.toList()..sort();
-
     return Scaffold(
       backgroundColor: oc.background,
       appBar: AppBar(
@@ -230,12 +214,12 @@ class _ClaudeCodeMcpScreenState extends ConsumerState<ClaudeCodeMcpScreen> {
         iconTheme: IconThemeData(color: oc.text),
         actions: [
           IconButton(
-            icon: const Icon(Icons.refresh_rounded),
+            icon: const Icon(AppIcons.refresh),
             onPressed: _dirty ? null : _load,
             tooltip: 'Reload',
           ),
           IconButton(
-            icon: const Icon(Icons.add_rounded),
+            icon: const Icon(AppIcons.add),
             onPressed: _addServer,
             tooltip: 'Add server',
           ),
@@ -267,7 +251,7 @@ class _ClaudeCodeMcpScreenState extends ConsumerState<ClaudeCodeMcpScreen> {
                 child: Column(
                   mainAxisAlignment: MainAxisAlignment.center,
                   children: [
-                    Icon(Icons.dns_rounded, color: oc.textMuted, size: 56),
+                    Icon(AppIcons.dns, color: oc.textMuted, size: 56),
                     SizedBox(height: Spacing.md),
                     Text('No MCP servers', style: TextStyle(color: oc.text)),
                     SizedBox(height: Spacing.sm),
@@ -279,7 +263,7 @@ class _ClaudeCodeMcpScreenState extends ConsumerState<ClaudeCodeMcpScreen> {
                     SizedBox(height: Spacing.lg),
                     ElevatedButton.icon(
                       onPressed: _addServer,
-                      icon: const Icon(Icons.add_rounded),
+                      icon: const Icon(AppIcons.add),
                       label: const Text('Add server'),
                     ),
                   ],
@@ -325,32 +309,25 @@ class _ClaudeCodeMcpScreenState extends ConsumerState<ClaudeCodeMcpScreen> {
     );
   }
 }
-
 class _McpServerEditorScreen extends StatefulWidget {
   const _McpServerEditorScreen({required this.title, required this.initialJson});
-
   final String title;
   final String initialJson;
-
   @override
   State<_McpServerEditorScreen> createState() => _McpServerEditorScreenState();
 }
-
 class _McpServerEditorScreenState extends State<_McpServerEditorScreen> {
   late final TextEditingController _json;
-
   @override
   void initState() {
     super.initState();
     _json = TextEditingController(text: widget.initialJson);
   }
-
   @override
   void dispose() {
     _json.dispose();
     super.dispose();
   }
-
   void _done() {
     try {
       final decoded = jsonDecode(_json.text);
@@ -362,7 +339,6 @@ class _McpServerEditorScreenState extends State<_McpServerEditorScreen> {
       );
     }
   }
-
   @override
   Widget build(BuildContext context) {
     final oc = OpenCodeTheme.of(context);

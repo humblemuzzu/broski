@@ -1,3 +1,4 @@
+
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -5,29 +6,24 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../theme/app_typography.dart';
 import '../theme/design_tokens.dart';
 
+import 'package:broski/theme/app_icons.dart';
 import '../providers/onboarding_provider.dart'
     show onboardingProvider, kDevBypassOnboarding;
-
 /// "Run the Bridge" screen shown after paywall during onboarding.
 /// Pixel-perfect terminal mockup matching Figma design.
 class BridgeSetupScreen extends ConsumerStatefulWidget {
   const BridgeSetupScreen({super.key});
-
   @override
   ConsumerState<BridgeSetupScreen> createState() => _BridgeSetupScreenState();
 }
-
 class _BridgeSetupScreenState extends ConsumerState<BridgeSetupScreen>
     with TickerProviderStateMixin {
   late AnimationController _cursorController;
   late AnimationController _entryController;
-
   int _copiedIndex = -1;
-
   static const _installCmd = 'curl -fsSL https://broskiapp.com/install | sh';
   static const _wizardCmd = 'broski';
   static const _daemonCmd = 'broski install';
-
   @override
   void initState() {
     super.initState();
@@ -40,14 +36,12 @@ class _BridgeSetupScreenState extends ConsumerState<BridgeSetupScreen>
       duration: const Duration(milliseconds: 600),
     )..forward();
   }
-
   @override
   void dispose() {
     _cursorController.dispose();
     _entryController.dispose();
     super.dispose();
   }
-
   void _copyCommand(int index, String command) {
     Clipboard.setData(ClipboardData(text: command));
     HapticFeedback.lightImpact();
@@ -56,14 +50,12 @@ class _BridgeSetupScreenState extends ConsumerState<BridgeSetupScreen>
       if (mounted) setState(() => _copiedIndex = -1);
     });
   }
-
   @override
   Widget build(BuildContext context) {
     final entry = CurvedAnimation(
       parent: _entryController,
       curve: Curves.easeOutCubic,
     );
-
     return Scaffold(
       backgroundColor: const Color(0xFF0A0A0A),
       body: SafeArea(
@@ -114,9 +106,7 @@ class _BridgeSetupScreenState extends ConsumerState<BridgeSetupScreen>
                               command: _installCmd,
                             ),
                           ),
-
                           SizedBox(height: Spacing.xxxl),
-
                           // ── Step 2: Run
                           FadeTransition(
                             opacity: entry,
@@ -160,9 +150,7 @@ class _BridgeSetupScreenState extends ConsumerState<BridgeSetupScreen>
                               command: _daemonCmd,
                             ),
                           ),
-
                           SizedBox(height: Spacing.xxl),
-
                           // ── Info hint
                           FadeTransition(
                             opacity: entry,
@@ -181,7 +169,7 @@ class _BridgeSetupScreenState extends ConsumerState<BridgeSetupScreen>
                               child: Row(
                                 children: [
                                   Icon(
-                                    Icons.info_outline_rounded,
+                                    AppIcons.info,
                                     color: Colors.white.withValues(alpha: 0.3),
                                     size: 20,
                                   ),
@@ -208,9 +196,7 @@ class _BridgeSetupScreenState extends ConsumerState<BridgeSetupScreen>
                   ),
                 ),
               ),
-
               SizedBox(height: Spacing.xl),
-
               // ── CTA button
               FadeTransition(
                 opacity: entry,
@@ -240,7 +226,6 @@ class _BridgeSetupScreenState extends ConsumerState<BridgeSetupScreen>
                   ),
                 ),
               ),
-
               // DEV BYPASS (only in debug builds)
               if (kDebugMode && kDevBypassOnboarding) ...[
                 const SizedBox(height: 14),
@@ -268,11 +253,9 @@ class _BridgeSetupScreenState extends ConsumerState<BridgeSetupScreen>
       ),
     );
   }
-
   // ---------------------------------------------------------------------------
   // Widgets
   // ---------------------------------------------------------------------------
-
   /// Step number circle + title row.
   Widget _stepHeader(String number, String title) {
     return Row(
@@ -308,7 +291,6 @@ class _BridgeSetupScreenState extends ConsumerState<BridgeSetupScreen>
       ],
     );
   }
-
   /// Full terminal card with traffic lights, prompt, command, and cursor.
   Widget _terminalCard({
     required int index,
@@ -317,7 +299,6 @@ class _BridgeSetupScreenState extends ConsumerState<BridgeSetupScreen>
     required String command,
   }) {
     final isCopied = _copiedIndex == index;
-
     return Container(
       decoration: BoxDecoration(
         color: const Color(0xFF1A1A1A),
@@ -369,7 +350,7 @@ class _BridgeSetupScreenState extends ConsumerState<BridgeSetupScreen>
                       child: AnimatedSwitcher(
                         duration: const Duration(milliseconds: 200),
                         child: Icon(
-                          isCopied ? Icons.check_rounded : Icons.copy_rounded,
+                          isCopied ? AppIcons.check : AppIcons.copy,
                           key: ValueKey('c_${index}_$isCopied'),
                           color: isCopied
                               ? const Color(0xFF2ECB71)
@@ -431,7 +412,6 @@ class _BridgeSetupScreenState extends ConsumerState<BridgeSetupScreen>
       ),
     );
   }
-
   /// Compact option card for step 2 choices (wizard vs daemon).
   Widget _optionCard({
     required int index,
@@ -442,7 +422,6 @@ class _BridgeSetupScreenState extends ConsumerState<BridgeSetupScreen>
     required String command,
   }) {
     final isCopied = _copiedIndex == index;
-
     return Container(
       padding: Insets.card,
       decoration: BoxDecoration(
@@ -483,7 +462,7 @@ class _BridgeSetupScreenState extends ConsumerState<BridgeSetupScreen>
                 child: AnimatedSwitcher(
                   duration: const Duration(milliseconds: 200),
                   child: Icon(
-                    isCopied ? Icons.check_rounded : Icons.copy_rounded,
+                    isCopied ? AppIcons.check : AppIcons.copy,
                     key: ValueKey('c_${index}_$isCopied'),
                     color: isCopied
                         ? const Color(0xFF2ECB71)
@@ -542,7 +521,6 @@ class _BridgeSetupScreenState extends ConsumerState<BridgeSetupScreen>
       ),
     );
   }
-
   Widget _dot(Color color) {
     return Container(
       width: 12,

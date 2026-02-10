@@ -1,3 +1,4 @@
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
@@ -7,15 +8,13 @@ import '../providers/permission_rules_provider.dart';
 import '../theme/design_tokens.dart';
 import '../theme/opencode_theme.dart';
 import '../widgets/permission_rules_sheet.dart';
-
+import 'package:broski/theme/app_icons.dart';
 class PermissionRulesScreen extends ConsumerWidget {
   const PermissionRulesScreen({super.key});
-
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final oc = OpenCodeTheme.of(context);
     final state = ref.watch(permissionRulesProvider);
-
     return Scaffold(
       backgroundColor: oc.background,
       appBar: AppBar(
@@ -102,7 +101,7 @@ class PermissionRulesScreen extends ConsumerWidget {
                                   ref,
                                   initial: state.effectiveRuleset,
                                 ),
-                                icon: const Icon(Icons.edit_rounded),
+                                icon: const Icon(AppIcons.edit),
                                 label: const Text('Edit rules'),
                               ),
                               const Spacer(),
@@ -121,7 +120,6 @@ class PermissionRulesScreen extends ConsumerWidget {
       ),
     );
   }
-
   Future<void> _openEditor(
     BuildContext context,
     WidgetRef ref, {

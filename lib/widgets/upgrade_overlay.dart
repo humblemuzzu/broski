@@ -1,3 +1,4 @@
+
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -6,7 +7,7 @@ import '../providers/app_subscription_provider.dart';
 import '../screens/paywall_screen.dart';
 import '../theme/design_tokens.dart';
 import '../theme/opencode_theme.dart';
-
+import 'package:broski/theme/app_icons.dart';
 /// Overlay widget that shows "Upgrade to Pro" for unpaid users.
 /// Wraps content and shows a lock overlay when user is not entitled.
 ///
@@ -23,25 +24,19 @@ class UpgradeOverlay extends ConsumerWidget {
     this.message = 'Subscribe to Pro to unlock this feature',
     this.showChild = false,
   });
-
   /// The child widget to show underneath (blurred/dimmed when locked)
   final Widget child;
-
   /// Custom message to show on the overlay
   final String message;
-
   /// If true, shows child behind the overlay (dimmed). If false, replaces entirely.
   final bool showChild;
-
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final sub = ref.watch(appSubscriptionProvider);
-
     // If entitled, just show the child
     if (sub.entitled) {
       return child;
     }
-
     // Not entitled - show locked overlay
     return Stack(
       children: [
@@ -51,7 +46,6 @@ class UpgradeOverlay extends ConsumerWidget {
             opacity: 0.15,
             child: IgnorePointer(child: child),
           ),
-
         // Lock overlay
         _LockOverlay(
           message: message,
@@ -62,22 +56,18 @@ class UpgradeOverlay extends ConsumerWidget {
     );
   }
 }
-
 class _LockOverlay extends StatelessWidget {
   const _LockOverlay({
     required this.message,
     required this.priceText,
     required this.isLoading,
   });
-
   final String message;
   final String priceText;
   final bool isLoading;
-
   @override
   Widget build(BuildContext context) {
     final ocTheme = OpenCodeTheme.of(context);
-
     return Container(
       color: ocTheme.background,
       child: SafeArea(
@@ -100,13 +90,12 @@ class _LockOverlay extends StatelessWidget {
                     ),
                   ),
                   child: Icon(
-                    Icons.lock_outline_rounded,
+                    AppIcons.lock,
                     size: 36,
                     color: ocTheme.textMuted,
                   ),
                 ),
                 const SizedBox(height: 28),
-
                 // Title
                 Text(
                   'Upgrade to Pro',
@@ -118,7 +107,6 @@ class _LockOverlay extends StatelessWidget {
                   ),
                 ),
                 SizedBox(height: Spacing.md),
-
                 // Message
                 Text(
                   message,
@@ -130,14 +118,12 @@ class _LockOverlay extends StatelessWidget {
                   ),
                 ),
                 SizedBox(height: Spacing.xxxl),
-
                 // Subscribe button
                 _SubscribeButton(
                   priceText: priceText,
                   isLoading: isLoading,
                 ),
                 SizedBox(height: Spacing.lg),
-
                 // Restore purchases link
                 const _RestorePurchasesLink(),
               ],
@@ -148,20 +134,16 @@ class _LockOverlay extends StatelessWidget {
     );
   }
 }
-
 class _SubscribeButton extends ConsumerWidget {
   const _SubscribeButton({
     required this.priceText,
     required this.isLoading,
   });
-
   final String priceText;
   final bool isLoading;
-
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final ocTheme = OpenCodeTheme.of(context);
-
     return GestureDetector(
       onTap: isLoading
           ? null
@@ -213,7 +195,7 @@ class _SubscribeButton extends ConsumerWidget {
                     ),
                     SizedBox(width: Spacing.sm),
                     Icon(
-                      Icons.arrow_forward_rounded,
+                      AppIcons.forward,
                       color: ocTheme.selectedListItemText,
                       size: 18,
                     ),
@@ -224,16 +206,12 @@ class _SubscribeButton extends ConsumerWidget {
     );
   }
 }
-
 class _RestorePurchasesLink extends ConsumerWidget {
   const _RestorePurchasesLink();
-
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final sub = ref.watch(appSubscriptionProvider);
-
     final ocTheme = OpenCodeTheme.of(context);
-
     return GestureDetector(
       onTap: sub.isLoading
           ? null
@@ -253,20 +231,16 @@ class _RestorePurchasesLink extends ConsumerWidget {
     );
   }
 }
-
 /// A simpler inline banner for settings screen
 class SubscribeBanner extends ConsumerWidget {
   const SubscribeBanner({super.key});
-
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final sub = ref.watch(appSubscriptionProvider);
-
     // Don't show if already entitled
     if (sub.entitled) {
       return const SizedBox.shrink();
     }
-
     return GestureDetector(
       onTap: () {
         HapticFeedback.mediumImpact();
@@ -300,7 +274,7 @@ class SubscribeBanner extends ConsumerWidget {
                   borderRadius: Radii.brMd,
                 ),
                 child: Icon(
-                  Icons.workspace_premium_rounded,
+                  AppIcons.subscription,
                   color: ocTheme.warning,
                   size: 24,
                 ),
@@ -330,7 +304,7 @@ class SubscribeBanner extends ConsumerWidget {
                 ),
               ),
               Icon(
-                Icons.chevron_right_rounded,
+                AppIcons.chevronRight,
                 color: ocTheme.textMuted,
                 size: 24,
               ),

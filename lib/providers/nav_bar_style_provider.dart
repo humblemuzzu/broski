@@ -11,7 +11,7 @@ final navBarStyleProvider =
     );
 
 class NavBarStyleNotifier extends StateNotifier<NavBarStyle> {
-  NavBarStyleNotifier(this._storage) : super(NavBarStyle.classic) {
+  NavBarStyleNotifier(this._storage) : super(NavBarStyle.glassmorphic) {
     _load();
   }
 
@@ -23,7 +23,7 @@ class NavBarStyleNotifier extends StateNotifier<NavBarStyle> {
     if (value != null) {
       final style = NavBarStyle.values.firstWhere(
         (s) => s.name == value,
-        orElse: () => NavBarStyle.classic,
+        orElse: () => NavBarStyle.glassmorphic,
       );
       state = style;
     }

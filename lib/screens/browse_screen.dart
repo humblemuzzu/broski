@@ -1,3 +1,4 @@
+
 import 'dart:convert';
 
 import 'package:flutter/material.dart';
@@ -18,23 +19,19 @@ import '../theme/design_tokens.dart';
 import '../theme/opencode_theme.dart';
 import '../widgets/connection_indicator.dart';
 import '../widgets/file_viewers/file_viewers.dart';
-
+import 'package:broski/theme/app_icons.dart';
 class BrowseScreen extends ConsumerStatefulWidget {
   const BrowseScreen({super.key, this.initialPath});
-
   final String? initialPath;
-
   @override
   ConsumerState<BrowseScreen> createState() => _BrowseScreenState();
 }
-
 class _BrowseScreenState extends ConsumerState<BrowseScreen>
     with SingleTickerProviderStateMixin {
   late String _path;
   late Future<List<dynamic>> _itemsFuture;
   bool _userHasNavigated = false;
   String? _lastSeenProjectPath;
-
   // Search state
   final TextEditingController _searchController = TextEditingController();
   bool _showSearch = false;
@@ -43,17 +40,14 @@ class _BrowseScreenState extends ConsumerState<BrowseScreen>
   List<TextSearchResult>? _textResults;
   List<SymbolResult>? _symbolResults;
   bool _isSearching = false;
-
   // File viewer state
   String? _viewingFilePath;
   FileContent? _viewingFileContent;
   Uint8List? _viewingBinaryData;
   bool _isLoadingFile = false;
   String? _fileTooLargeMessage;
-
   // Feature 18: File status (git)
   Map<String, FileStatusInfo>? _fileStatusMap;
-
   @override
   void initState() {
     super.initState();
@@ -62,19 +56,16 @@ class _BrowseScreenState extends ConsumerState<BrowseScreen>
     _loadInitialPath();
     _loadFileStatus();
   }
-
   void _handleSelectionChange(SelectionState? previous, SelectionState next) {
     final nextProjectPath = next.project?.path;
     if (nextProjectPath == null || nextProjectPath.isEmpty) return;
     if (_lastSeenProjectPath == nextProjectPath) return;
     _lastSeenProjectPath = nextProjectPath;
     if (_userHasNavigated) return;
-
     // When a project is selected elsewhere (Projects → Chat), keep Browse in sync.
     // This matches the "tap project, later Browse shows that project" expectation.
     _setPath(nextProjectPath, persist: false, userInitiated: false);
   }
-
   Future<void> _loadInitialPath() async {
     if (widget.initialPath != null) return;
     // If a project is already selected, prefer showing it in Browse (unless user navigated).
@@ -87,7 +78,6 @@ class _BrowseScreenState extends ConsumerState<BrowseScreen>
       _setPath(selectedProjectPath, persist: false, userInitiated: false);
       return;
     }
-
     final storage = ref.read(storageServiceProvider);
     final saved = await storage.loadLastBrowsePath();
     if (!mounted) return;
@@ -99,12 +89,10 @@ class _BrowseScreenState extends ConsumerState<BrowseScreen>
     });
     _loadFileStatus();
   }
-
   Future<void> _persistPath(String path) async {
     final storage = ref.read(storageServiceProvider);
     await storage.saveLastBrowsePath(path);
   }
-
   void _setPath(
     String path, {
     required bool persist,
@@ -121,7 +109,6 @@ class _BrowseScreenState extends ConsumerState<BrowseScreen>
     }
     _loadFileStatus();
   }
-
   // Feature 18: Load git file status
   Future<void> _loadFileStatus() async {
     try {
@@ -130,7 +117,6 @@ class _BrowseScreenState extends ConsumerState<BrowseScreen>
       final projectPath = selection.project?.path;
       if (projectPath == null) return;
       if (!_path.startsWith(projectPath)) return;
-
       final fileStatus = await bridge.getFileStatus(projectPath: projectPath);
       if (mounted) {
         setState(() {
@@ -141,25 +127,21 @@ class _BrowseScreenState extends ConsumerState<BrowseScreen>
       // File status might not be available
     }
   }
-
   @override
   void dispose() {
     _searchController.dispose();
     super.dispose();
   }
-
   Future<List<dynamic>> _loadItems() {
     final bridge = ref.read(bridgeServiceProvider);
     return bridge.browse(_path);
   }
-
   Future<void> _refresh() async {
     setState(() {
       _itemsFuture = _loadItems();
     });
     await _itemsFuture;
   }
-
   Future<void> _viewFile(String filePath) async {
     setState(() {
       _viewingFilePath = filePath;
@@ -168,15 +150,12 @@ class _BrowseScreenState extends ConsumerState<BrowseScreen>
       _fileTooLargeMessage = null;
       _isLoadingFile = true;
     });
-
     try {
       final bridge = ref.read(bridgeServiceProvider);
       final isBinary = FileContent.isBinaryPath(filePath);
-
       if (isBinary) {
         final result = await bridge.readFileBinary(filePath);
         if (!mounted) return;
-
         switch (result) {
           case FileBinarySuccess(:final content):
             setState(() {
@@ -197,7 +176,6 @@ class _BrowseScreenState extends ConsumerState<BrowseScreen>
             projectPath != null &&
             projectPath.isNotEmpty &&
             filePath.startsWith(projectPath);
-
         final requestPath = withinProject
             ? filePath.substring(projectPath.length).replaceFirst('/', '')
             : filePath;
@@ -239,7 +217,6 @@ class _BrowseScreenState extends ConsumerState<BrowseScreen>
       }
     }
   }
-
   Uint8List? _tryDecodeBase64(String content) {
     try {
       return base64Decode(content);
@@ -247,7 +224,6 @@ class _BrowseScreenState extends ConsumerState<BrowseScreen>
       return null;
     }
   }
-
   void _closeFileViewer() {
     setState(() {
       _viewingFilePath = null;
@@ -256,12 +232,10 @@ class _BrowseScreenState extends ConsumerState<BrowseScreen>
       _fileTooLargeMessage = null;
     });
   }
-
   // Feature 12: Search
   Future<void> _performSearch() async {
     final query = _searchController.text.trim();
     if (query.isEmpty) return;
-
     final selection = ref.read(selectionProvider);
     final projectPath = selection.project?.path;
     if (projectPath == null) {
@@ -279,17 +253,14 @@ class _BrowseScreenState extends ConsumerState<BrowseScreen>
       }
       return;
     }
-
     setState(() {
       _isSearching = true;
       _fileResults = null;
       _textResults = null;
       _symbolResults = null;
     });
-
     try {
       final bridge = ref.read(bridgeServiceProvider);
-
       switch (_searchType) {
         case SearchType.files:
           final results = await bridge.findFiles(
@@ -341,7 +312,6 @@ class _BrowseScreenState extends ConsumerState<BrowseScreen>
       }
     }
   }
-
   void _clearSearch() {
     setState(() {
       _searchController.clear();
@@ -350,38 +320,32 @@ class _BrowseScreenState extends ConsumerState<BrowseScreen>
       _symbolResults = null;
     });
   }
-
   bool _handleBackNavigation() {
     if (_viewingFilePath != null) {
       _closeFileViewer();
       return true;
     }
-
     if (_showSearch) {
       setState(() => _showSearch = false);
       _clearSearch();
       return true;
     }
-
     if (_path != '~') {
       _goUp();
       return true;
     }
-
     return false;
   }
-
   Widget _buildFileViewerScreen(OpenCodeTheme theme) {
     final filename = _viewingFilePath!.split('/').last;
     final language = FileContent.languageFromPath(_viewingFilePath!);
-
     return Scaffold(
       backgroundColor: Colors.transparent,
       appBar: AppBar(
         backgroundColor: Colors.transparent,
         elevation: 0,
         leading: IconButton(
-          icon: Icon(Icons.arrow_back_rounded, color: theme.text),
+          icon: Icon(AppIcons.back, color: theme.text),
           onPressed: _closeFileViewer,
         ),
         title: Column(
@@ -405,7 +369,7 @@ class _BrowseScreenState extends ConsumerState<BrowseScreen>
           if (_viewingFileContent != null &&
               _viewingFileContent!.content.isNotEmpty)
             IconButton(
-              icon: Icon(Icons.copy, color: theme.text),
+              icon: Icon(AppIcons.copy, color: theme.text),
               onPressed: () {
                 Clipboard.setData(
                   ClipboardData(text: _viewingFileContent!.content),
@@ -423,18 +387,16 @@ class _BrowseScreenState extends ConsumerState<BrowseScreen>
       body: _buildFileViewerBody(theme),
     );
   }
-
   Widget _buildFileViewerBody(OpenCodeTheme theme) {
     if (_isLoadingFile) {
       return Center(child: CircularProgressIndicator(color: theme.primary));
     }
-
     if (_fileTooLargeMessage != null) {
       return Center(
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            Icon(Icons.error_outline, size: 64, color: theme.warning),
+            Icon(AppIcons.error, size: 64, color: theme.warning),
             SizedBox(height: Spacing.lg),
             Text(
               _fileTooLargeMessage!,
@@ -445,7 +407,6 @@ class _BrowseScreenState extends ConsumerState<BrowseScreen>
         ),
       );
     }
-
     if (_viewingFilePath == null) {
       return Center(
         child: Text(
@@ -454,7 +415,6 @@ class _BrowseScreenState extends ConsumerState<BrowseScreen>
         ),
       );
     }
-
     return UnifiedFileViewer(
       filePath: _viewingFilePath!,
       textContent: _viewingFileContent?.content,
@@ -462,7 +422,6 @@ class _BrowseScreenState extends ConsumerState<BrowseScreen>
       mimeType: _viewingFileContent?.mime,
     );
   }
-
   @override
   Widget build(BuildContext context) {
     final theme = OpenCodeTheme.of(context);
@@ -470,14 +429,11 @@ class _BrowseScreenState extends ConsumerState<BrowseScreen>
     final agentType = ref.watch(agentTypeProvider);
     final selection = ref.watch(selectionProvider);
     final selectedProjectPath = selection.project?.path;
-
     final agentAvailable =
         connection.backends?.forType(agentType).available ??
         (agentType == AgentType.opencode ? connection.opencodeRunning : true);
-
     // Listen for selection changes to sync Browse path with selected project
     ref.listen(selectionProvider, _handleSelectionChange);
-
     // Show file viewer if viewing a file
     if (_viewingFilePath != null) {
       return PopScope(
@@ -490,7 +446,6 @@ class _BrowseScreenState extends ConsumerState<BrowseScreen>
         child: _buildFileViewerScreen(theme),
       );
     }
-
     return PopScope(
       canPop: _path == '~' && !_showSearch,
       onPopInvokedWithResult: (didPop, _) {
@@ -504,7 +459,7 @@ class _BrowseScreenState extends ConsumerState<BrowseScreen>
           backgroundColor: Colors.transparent,
           elevation: 0,
           leading: IconButton(
-            icon: Icon(Icons.arrow_back_rounded, color: theme.text),
+            icon: Icon(AppIcons.back, color: theme.text),
             onPressed: () {
               final handled = _handleBackNavigation();
               if (!handled) {
@@ -540,7 +495,7 @@ class _BrowseScreenState extends ConsumerState<BrowseScreen>
                   PopupMenuItem(
                     value: SearchType.files,
                     child: _SearchTypeItem(
-                      icon: Icons.description_outlined,
+                      icon: AppIcons.description,
                       label: 'Files',
                       isSelected: _searchType == SearchType.files,
                     ),
@@ -548,7 +503,7 @@ class _BrowseScreenState extends ConsumerState<BrowseScreen>
                   PopupMenuItem(
                     value: SearchType.text,
                     child: _SearchTypeItem(
-                      icon: Icons.text_fields,
+                      icon: AppIcons.textFields,
                       label: 'Text',
                       isSelected: _searchType == SearchType.text,
                     ),
@@ -556,7 +511,7 @@ class _BrowseScreenState extends ConsumerState<BrowseScreen>
                   PopupMenuItem(
                     value: SearchType.symbols,
                     child: _SearchTypeItem(
-                      icon: Icons.code,
+                      icon: AppIcons.code,
                       label: 'Symbols',
                       isSelected: _searchType == SearchType.symbols,
                     ),
@@ -566,13 +521,13 @@ class _BrowseScreenState extends ConsumerState<BrowseScreen>
             // Search button (when not searching)
             if (!_showSearch)
               IconButton(
-                icon: Icon(Icons.search, color: theme.text),
+                icon: Icon(AppIcons.search, color: theme.text),
                 onPressed: () => setState(() => _showSearch = true),
               ),
             if (!_showSearch && selectedProjectPath != null)
               IconButton(
                 tooltip: 'Current project',
-                icon: Icon(Icons.folder_open_rounded, color: theme.text),
+                icon: Icon(AppIcons.folderOpen, color: theme.text),
                 onPressed: () {
                   _lastSeenProjectPath = selectedProjectPath;
                   _setPath(
@@ -601,7 +556,6 @@ class _BrowseScreenState extends ConsumerState<BrowseScreen>
       ),
     );
   }
-
   String _getDisplayPath() {
     final parts = _path.split('/');
     if (parts.length > 2) {
@@ -609,7 +563,6 @@ class _BrowseScreenState extends ConsumerState<BrowseScreen>
     }
     return _path;
   }
-
   void _showPathBreadcrumb() {
     final theme = OpenCodeTheme.of(context);
     showModalBottomSheet(
@@ -645,7 +598,7 @@ class _BrowseScreenState extends ConsumerState<BrowseScreen>
                     },
                   ),
                   for (var i = 0; i < parts.length; i++) ...[
-                    Icon(Icons.chevron_right, color: theme.textMuted, size: 20),
+                    Icon(AppIcons.chevronRight, color: theme.textMuted, size: 20),
                     _PathChip(
                       label: parts[i],
                       onTap: () {
@@ -664,7 +617,6 @@ class _BrowseScreenState extends ConsumerState<BrowseScreen>
       },
     );
   }
-
   Widget _buildSearchBar(OpenCodeTheme theme) {
     return TextField(
       controller: _searchController,
@@ -676,7 +628,7 @@ class _BrowseScreenState extends ConsumerState<BrowseScreen>
         border: InputBorder.none,
         suffixIcon: _searchController.text.isNotEmpty
             ? IconButton(
-                icon: Icon(Icons.clear, color: theme.textMuted),
+                icon: Icon(AppIcons.close, color: theme.textMuted),
                 onPressed: _clearSearch,
               )
             : null,
@@ -684,7 +636,6 @@ class _BrowseScreenState extends ConsumerState<BrowseScreen>
       onSubmitted: (_) => _performSearch(),
     );
   }
-
   String _getSearchHint() {
     switch (_searchType) {
       case SearchType.files:
@@ -695,35 +646,29 @@ class _BrowseScreenState extends ConsumerState<BrowseScreen>
         return 'Search symbols...';
     }
   }
-
   IconData _getSearchTypeIcon() {
     switch (_searchType) {
       case SearchType.files:
-        return Icons.description_outlined;
+        return AppIcons.description;
       case SearchType.text:
-        return Icons.text_fields;
+        return AppIcons.textFields;
       case SearchType.symbols:
-        return Icons.code;
+        return AppIcons.code;
     }
   }
-
   Widget _buildSearchResults(OpenCodeTheme theme) {
     if (_isSearching) {
       return Center(child: CircularProgressIndicator(color: theme.primary));
     }
-
     if (_fileResults != null) {
       return _buildFileSearchResults(theme);
     }
-
     if (_textResults != null) {
       return _buildTextSearchResults(theme);
     }
-
     if (_symbolResults != null) {
       return _buildSymbolSearchResults(theme);
     }
-
     return Center(
       child: Column(
         mainAxisAlignment: MainAxisAlignment.center,
@@ -738,14 +683,12 @@ class _BrowseScreenState extends ConsumerState<BrowseScreen>
       ),
     );
   }
-
   Widget _buildFileSearchResults(OpenCodeTheme theme) {
     if (_fileResults!.isEmpty) {
       return Center(
         child: Text('No files found', style: TextStyle(color: theme.textMuted)),
       );
     }
-
     return ListView.builder(
       padding: Insets.card,
       itemCount: _fileResults!.length,
@@ -760,7 +703,6 @@ class _BrowseScreenState extends ConsumerState<BrowseScreen>
       },
     );
   }
-
   Widget _buildTextSearchResults(OpenCodeTheme theme) {
     if (_textResults!.isEmpty) {
       return Center(
@@ -770,7 +712,6 @@ class _BrowseScreenState extends ConsumerState<BrowseScreen>
         ),
       );
     }
-
     return ListView.builder(
       padding: Insets.card,
       itemCount: _textResults!.length,
@@ -783,7 +724,6 @@ class _BrowseScreenState extends ConsumerState<BrowseScreen>
       },
     );
   }
-
   Widget _buildSymbolSearchResults(OpenCodeTheme theme) {
     if (_symbolResults!.isEmpty) {
       return Center(
@@ -793,7 +733,6 @@ class _BrowseScreenState extends ConsumerState<BrowseScreen>
         ),
       );
     }
-
     return ListView.builder(
       padding: Insets.card,
       itemCount: _symbolResults!.length,
@@ -806,7 +745,6 @@ class _BrowseScreenState extends ConsumerState<BrowseScreen>
       },
     );
   }
-
   Widget _buildFileBrowser(OpenCodeTheme theme) {
     return RefreshIndicator(
       onRefresh: _refresh,
@@ -824,7 +762,7 @@ class _BrowseScreenState extends ConsumerState<BrowseScreen>
               child: Column(
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
-                  Icon(Icons.error_outline, size: 48, color: theme.error),
+                  Icon(AppIcons.error, size: 48, color: theme.error),
                   SizedBox(height: Spacing.lg),
                   Text(
                     'Failed to browse:\n${snapshot.error}',
@@ -835,14 +773,13 @@ class _BrowseScreenState extends ConsumerState<BrowseScreen>
               ),
             );
           }
-
           final items = snapshot.data ?? [];
           if (items.isEmpty) {
             return Center(
               child: Column(
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
-                  Icon(Icons.folder_open, size: 48, color: theme.textMuted),
+                  Icon(AppIcons.folderOpen, size: 48, color: theme.textMuted),
                   SizedBox(height: Spacing.lg),
                   Text(
                     'Empty folder',
@@ -852,7 +789,6 @@ class _BrowseScreenState extends ConsumerState<BrowseScreen>
               ),
             );
           }
-
           // Sort: directories first, then files, alphabetically
           items.sort((a, b) {
             final aType = a['type'] as String? ?? 'file';
@@ -864,7 +800,6 @@ class _BrowseScreenState extends ConsumerState<BrowseScreen>
             final bName = (b['name'] as String? ?? '').toLowerCase();
             return aName.compareTo(bName);
           });
-
           return ListView.builder(
             padding: Insets.card,
             itemCount: items.length + (_path != '~' ? 1 : 0),
@@ -872,14 +807,13 @@ class _BrowseScreenState extends ConsumerState<BrowseScreen>
               // Go up option
               if (_path != '~' && index == 0) {
                 return _FileTile(
-                  icon: Icons.arrow_upward_rounded,
+                  icon: AppIcons.arrowUp,
                   iconColor: theme.primary,
                   name: '..',
                   subtitle: 'Go up',
                   onTap: _goUp,
                 );
               }
-
               final itemIndex = _path != '~' ? index - 1 : index;
               final item = items[itemIndex] as Map<String, dynamic>;
               final type = item['type'] as String? ?? 'file';
@@ -889,13 +823,11 @@ class _BrowseScreenState extends ConsumerState<BrowseScreen>
               final nextPath = resolvedNextPath.isNotEmpty
                   ? resolvedNextPath
                   : _joinPath(_path, name);
-
               // Feature 18: Get file status
               final fileStatus = _fileStatusFor(nextPath);
-
               return _FileTile(
                 icon: type == 'directory'
-                    ? Icons.folder_rounded
+                    ? AppIcons.folder
                     : _getFileIcon(name),
                 iconColor: type == 'directory'
                     ? theme.warning
@@ -917,37 +849,35 @@ class _BrowseScreenState extends ConsumerState<BrowseScreen>
       ),
     );
   }
-
   IconData _getFileIcon(String name) {
     final ext = name.split('.').last.toLowerCase();
     switch (ext) {
       case 'dart':
-        return Icons.code;
+        return AppIcons.code;
       case 'ts':
       case 'tsx':
       case 'js':
       case 'jsx':
-        return Icons.javascript;
+        return AppIcons.javascript;
       case 'json':
-        return Icons.data_object;
+        return AppIcons.dataObject;
       case 'yaml':
       case 'yml':
-        return Icons.settings;
+        return AppIcons.settings;
       case 'md':
-        return Icons.description;
+        return AppIcons.description;
       case 'png':
       case 'jpg':
       case 'jpeg':
       case 'gif':
       case 'svg':
-        return Icons.image;
+        return AppIcons.image;
       case 'pdf':
-        return Icons.picture_as_pdf;
+        return AppIcons.pdf;
       default:
-        return Icons.insert_drive_file_outlined;
+        return AppIcons.file;
     }
   }
-
   String _getFileSize(Map<String, dynamic> item) {
     final size = item['size'] as int?;
     if (size == null) return 'File';
@@ -955,12 +885,10 @@ class _BrowseScreenState extends ConsumerState<BrowseScreen>
     if (size < 1024 * 1024) return '${(size / 1024).toStringAsFixed(1)} KB';
     return '${(size / (1024 * 1024)).toStringAsFixed(1)} MB';
   }
-
   void _navigate(String nextPath) {
     if (nextPath.isEmpty) return;
     _setPath(nextPath, persist: true, userInitiated: true);
   }
-
   void _goUp() {
     if (_path == '~') return;
     if (_path.startsWith('~/')) {
@@ -976,7 +904,6 @@ class _BrowseScreenState extends ConsumerState<BrowseScreen>
       _navigate('~/${parts.sublist(1, parts.length - 1).join('/')}');
       return;
     }
-
     final parts = _path.split('/').where((p) => p.isNotEmpty).toList();
     if (parts.length <= 1) {
       _navigate('~');
@@ -984,14 +911,12 @@ class _BrowseScreenState extends ConsumerState<BrowseScreen>
     }
     _navigate('/${parts.sublist(0, parts.length - 1).join('/')}');
   }
-
   String _joinPath(String base, String name) {
     if (base.isEmpty || base == '~') return '~/$name';
     if (base == '/') return '/$name';
     if (base.endsWith('/')) return '$base$name';
     return '$base/$name';
   }
-
   FileStatusInfo? _fileStatusFor(String absolutePath) {
     final selection = ref.read(selectionProvider);
     final projectPath = selection.project?.path;
@@ -1005,7 +930,6 @@ class _BrowseScreenState extends ConsumerState<BrowseScreen>
     return _fileStatusMap?[relative];
   }
 }
-
 // File tile widget
 class _FileTile extends StatelessWidget {
   const _FileTile({
@@ -1016,7 +940,6 @@ class _FileTile extends StatelessWidget {
     required this.onTap,
     this.fileStatus,
   });
-
   final IconData icon;
   final Color iconColor;
   final String name;
@@ -1024,7 +947,6 @@ class _FileTile extends StatelessWidget {
   final VoidCallback onTap;
   // Feature 18: Git file status
   final FileStatusInfo? fileStatus;
-
   @override
   Widget build(BuildContext context) {
     final theme = OpenCodeTheme.of(context);
@@ -1071,18 +993,15 @@ class _FileTile extends StatelessWidget {
           subtitle,
           style: AppTypography.label(color: theme.textMuted),
         ),
-        trailing: Icon(Icons.chevron_right, color: theme.textMuted, size: 20),
+        trailing: Icon(AppIcons.chevronRight, color: theme.textMuted, size: 20),
       ),
     );
   }
 }
-
 // Feature 18: Git file status badge
 class _FileStatusBadge extends StatelessWidget {
   const _FileStatusBadge({required this.status});
-
   final FileStatusInfo status;
-
   @override
   Widget build(BuildContext context) {
     final theme = OpenCodeTheme.of(context);
@@ -1095,7 +1014,6 @@ class _FileStatusBadge extends StatelessWidget {
       FileStatusType.untracked => ('?', theme.textMuted),
       FileStatusType.ignored => ('!', theme.textMuted),
     };
-
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
       decoration: BoxDecoration(
@@ -1114,14 +1032,11 @@ class _FileStatusBadge extends StatelessWidget {
     );
   }
 }
-
 // Path chip for breadcrumb
 class _PathChip extends StatelessWidget {
   const _PathChip({required this.label, required this.onTap});
-
   final String label;
   final VoidCallback onTap;
-
   @override
   Widget build(BuildContext context) {
     final theme = OpenCodeTheme.of(context);
@@ -1146,7 +1061,6 @@ class _PathChip extends StatelessWidget {
     );
   }
 }
-
 // Search type item
 class _SearchTypeItem extends StatelessWidget {
   const _SearchTypeItem({
@@ -1154,11 +1068,9 @@ class _SearchTypeItem extends StatelessWidget {
     required this.label,
     required this.isSelected,
   });
-
   final IconData icon;
   final String label;
   final bool isSelected;
-
   @override
   Widget build(BuildContext context) {
     final theme = OpenCodeTheme.of(context);
@@ -1178,12 +1090,11 @@ class _SearchTypeItem extends StatelessWidget {
           ),
         ),
         const Spacer(),
-        if (isSelected) Icon(Icons.check, color: theme.primary, size: 18),
+        if (isSelected) Icon(AppIcons.check, color: theme.primary, size: 18),
       ],
     );
   }
 }
-
 // File search result tile
 class _FileResultTile extends StatelessWidget {
   const _FileResultTile({
@@ -1191,11 +1102,9 @@ class _FileResultTile extends StatelessWidget {
     required this.path,
     required this.onTap,
   });
-
   final String filename;
   final String path;
   final VoidCallback onTap;
-
   @override
   Widget build(BuildContext context) {
     final theme = OpenCodeTheme.of(context);
@@ -1216,7 +1125,7 @@ class _FileResultTile extends StatelessWidget {
             color: theme.primary.withValues(alpha: 0.15),
             borderRadius: Radii.brMd,
           ),
-          child: Icon(Icons.description, color: theme.primary, size: 20),
+          child: Icon(AppIcons.description, color: theme.primary, size: 20),
         ),
         title: Text(
           filename,
@@ -1236,14 +1145,11 @@ class _FileResultTile extends StatelessWidget {
     );
   }
 }
-
 // Text search result tile
 class _TextResultTile extends StatelessWidget {
   const _TextResultTile({required this.result, required this.onTap});
-
   final TextSearchResult result;
   final VoidCallback onTap;
-
   @override
   Widget build(BuildContext context) {
     final theme = OpenCodeTheme.of(context);
@@ -1298,14 +1204,11 @@ class _TextResultTile extends StatelessWidget {
     );
   }
 }
-
 // Symbol search result tile
 class _SymbolResultTile extends StatelessWidget {
   const _SymbolResultTile({required this.result, required this.onTap});
-
   final SymbolResult result;
   final VoidCallback onTap;
-
   @override
   Widget build(BuildContext context) {
     final theme = OpenCodeTheme.of(context);
@@ -1363,7 +1266,6 @@ class _SymbolResultTile extends StatelessWidget {
       ),
     );
   }
-
   Color _getSymbolColor(String kind, OpenCodeTheme theme) {
     switch (kind.toLowerCase()) {
       case 'class':

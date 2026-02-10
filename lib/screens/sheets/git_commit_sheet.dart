@@ -1,19 +1,18 @@
+
 import 'package:flutter/material.dart';
 import '../../theme/app_typography.dart';
 
 import '../../theme/design_tokens.dart';
 import '../../theme/opencode_theme.dart';
-
+import 'package:broski/theme/app_icons.dart';
 class GitCommitSheet extends StatefulWidget {
   const GitCommitSheet({
     super.key,
     this.initialMessage,
     required this.onCommit,
   });
-
   final String? initialMessage;
   final Future<void> Function(String message) onCommit;
-
   static Future<void> show({
     required BuildContext context,
     String? initialMessage,
@@ -34,31 +33,25 @@ class GitCommitSheet extends StatefulWidget {
       ),
     );
   }
-
   @override
   State<GitCommitSheet> createState() => _GitCommitSheetState();
 }
-
 class _GitCommitSheetState extends State<GitCommitSheet> {
   late final TextEditingController _controller;
   bool _saving = false;
-
   @override
   void initState() {
     super.initState();
     _controller = TextEditingController(text: widget.initialMessage ?? '');
   }
-
   @override
   void dispose() {
     _controller.dispose();
     super.dispose();
   }
-
   Future<void> _commit() async {
     final msg = _controller.text.trim();
     if (msg.isEmpty) return;
-
     setState(() => _saving = true);
     try {
       await widget.onCommit(msg);
@@ -85,11 +78,9 @@ class _GitCommitSheetState extends State<GitCommitSheet> {
       if (mounted) setState(() => _saving = false);
     }
   }
-
   @override
   Widget build(BuildContext context) {
     final theme = OpenCodeTheme.of(context);
-
     return GestureDetector(
       onTap: () => FocusScope.of(context).unfocus(),
       child: Container(
@@ -112,7 +103,6 @@ class _GitCommitSheetState extends State<GitCommitSheet> {
                 ),
               ),
             ),
-
             // Header
             Padding(
               padding: Insets.listItemDense,
@@ -132,7 +122,7 @@ class _GitCommitSheetState extends State<GitCommitSheet> {
                     alignment: Alignment.centerRight,
                     child: IconButton(
                       onPressed: () => Navigator.of(context).pop(),
-                      icon: Icon(Icons.close, color: theme.textMuted, size: 24),
+                      icon: Icon(AppIcons.close, color: theme.textMuted, size: 24),
                       padding: EdgeInsets.zero,
                       constraints: const BoxConstraints(),
                     ),
@@ -140,7 +130,6 @@ class _GitCommitSheetState extends State<GitCommitSheet> {
                 ],
               ),
             ),
-
             // Content
             Padding(
               padding: const EdgeInsets.fromLTRB(16, 8, 16, 16),

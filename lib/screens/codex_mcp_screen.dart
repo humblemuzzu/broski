@@ -1,3 +1,4 @@
+
 import 'dart:convert';
 
 import 'package:flutter/material.dart';
@@ -7,14 +8,12 @@ import '../theme/design_tokens.dart';
 
 import '../providers/service_providers.dart';
 import '../theme/opencode_theme.dart';
-
+import 'package:broski/theme/app_icons.dart';
 class CodexMcpScreen extends ConsumerStatefulWidget {
   const CodexMcpScreen({super.key});
-
   @override
   ConsumerState<CodexMcpScreen> createState() => _CodexMcpScreenState();
 }
-
 class _CodexMcpScreenState extends ConsumerState<CodexMcpScreen>
     with SingleTickerProviderStateMixin {
   late final TabController _tabs;
@@ -23,20 +22,17 @@ class _CodexMcpScreenState extends ConsumerState<CodexMcpScreen>
   String? _error;
   Map<String, dynamic> _config = const {};
   List<Map<String, dynamic>> _status = const [];
-
   @override
   void initState() {
     super.initState();
     _tabs = TabController(length: 2, vsync: this);
     _load();
   }
-
   @override
   void dispose() {
     _tabs.dispose();
     super.dispose();
   }
-
   Future<void> _load() async {
     setState(() {
       _loading = true;
@@ -61,7 +57,6 @@ class _CodexMcpScreenState extends ConsumerState<CodexMcpScreen>
       });
     }
   }
-
   Map<String, dynamic> _mcpServers() {
     final cfg = _config['config'];
     if (cfg is Map) {
@@ -71,7 +66,6 @@ class _CodexMcpScreenState extends ConsumerState<CodexMcpScreen>
     }
     return {};
   }
-
   Future<void> _save() async {
     final oc = OpenCodeTheme.of(context);
     final servers = _mcpServers();
@@ -101,7 +95,6 @@ class _CodexMcpScreenState extends ConsumerState<CodexMcpScreen>
       );
     }
   }
-
   /// Hot reload MCP server config (Codex SDK feature)
   Future<void> _hotReload() async {
     final oc = OpenCodeTheme.of(context);
@@ -126,7 +119,6 @@ class _CodexMcpScreenState extends ConsumerState<CodexMcpScreen>
       );
     }
   }
-
   Future<void> _addServer() async {
     final nameController = TextEditingController();
     final name = await showDialog<String>(
@@ -151,7 +143,6 @@ class _CodexMcpScreenState extends ConsumerState<CodexMcpScreen>
       ),
     );
     if (name == null || name.isEmpty) return;
-
     final json = const JsonEncoder.withIndent('  ').convert({
       'transport': {
         'type': 'stdio',
@@ -167,7 +158,6 @@ class _CodexMcpScreenState extends ConsumerState<CodexMcpScreen>
       ),
     );
     if (cfg == null) return;
-
     final servers = _mcpServers();
     servers[name] = cfg;
     setState(() {
@@ -181,7 +171,6 @@ class _CodexMcpScreenState extends ConsumerState<CodexMcpScreen>
       _dirty = true;
     });
   }
-
   Future<void> _editServer(String name, Map<String, dynamic> cfg) async {
     final json = const JsonEncoder.withIndent('  ').convert(cfg);
     final updated = await Navigator.push<Map<String, dynamic>>(
@@ -205,7 +194,6 @@ class _CodexMcpScreenState extends ConsumerState<CodexMcpScreen>
       _dirty = true;
     });
   }
-
   Future<void> _deleteServer(String name) async {
     final confirmed = await showDialog<bool>(
       context: context,
@@ -239,13 +227,11 @@ class _CodexMcpScreenState extends ConsumerState<CodexMcpScreen>
       _dirty = true;
     });
   }
-
   @override
   Widget build(BuildContext context) {
     final oc = OpenCodeTheme.of(context);
     final servers = _mcpServers();
     final names = servers.keys.toList()..sort();
-
     return Scaffold(
       backgroundColor: oc.background,
       appBar: AppBar(
@@ -255,7 +241,7 @@ class _CodexMcpScreenState extends ConsumerState<CodexMcpScreen>
         iconTheme: IconThemeData(color: oc.text),
         actions: [
           IconButton(
-            icon: const Icon(Icons.refresh_rounded),
+            icon: const Icon(AppIcons.refresh),
             onPressed: _load,
             tooltip: 'Refresh Status',
           ),
@@ -327,12 +313,9 @@ class _CodexMcpScreenState extends ConsumerState<CodexMcpScreen>
     );
   }
 }
-
 class _CodexMcpStatusList extends StatelessWidget {
   const _CodexMcpStatusList({required this.status});
-
   final List<Map<String, dynamic>> status;
-
   @override
   Widget build(BuildContext context) {
     final oc = OpenCodeTheme.of(context);
@@ -377,37 +360,30 @@ class _CodexMcpStatusList extends StatelessWidget {
     );
   }
 }
-
 class _CodexMcpServerEditorScreen extends StatefulWidget {
   const _CodexMcpServerEditorScreen({
     required this.title,
     required this.initialJson,
   });
-
   final String title;
   final String initialJson;
-
   @override
   State<_CodexMcpServerEditorScreen> createState() =>
       _CodexMcpServerEditorScreenState();
 }
-
 class _CodexMcpServerEditorScreenState
     extends State<_CodexMcpServerEditorScreen> {
   late final TextEditingController _json;
-
   @override
   void initState() {
     super.initState();
     _json = TextEditingController(text: widget.initialJson);
   }
-
   @override
   void dispose() {
     _json.dispose();
     super.dispose();
   }
-
   void _done() {
     try {
       final decoded = jsonDecode(_json.text);
@@ -420,7 +396,6 @@ class _CodexMcpServerEditorScreenState
       ).showSnackBar(SnackBar(content: Text('Invalid JSON: $e')));
     }
   }
-
   @override
   Widget build(BuildContext context) {
     final oc = OpenCodeTheme.of(context);

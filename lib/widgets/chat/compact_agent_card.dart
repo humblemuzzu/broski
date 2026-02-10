@@ -1,3 +1,4 @@
+
 import 'package:flutter/material.dart';
 import 'package:flutter_markdown/flutter_markdown.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -9,7 +10,7 @@ import '../../theme/design_tokens.dart';
 import '../../theme/opencode_theme.dart';
 import '../../theme/tool_style.dart';
 import 'detail_sheet.dart';
-
+import 'package:broski/theme/app_icons.dart';
 /// A compact card for Task/subagent tool calls and subtask notifications.
 /// Shows agent name and brief description.
 /// Tapping opens sheet with prompt, tool calls, and output.
@@ -17,12 +18,10 @@ class CompactAgentCard extends ConsumerWidget {
   final ToolCall? _tool;
   final SubtaskNotification? _notification;
   final String? messageId;
-
   /// Create from a ToolCall (Task tool)
   const CompactAgentCard({super.key, required ToolCall tool, this.messageId})
     : _tool = tool,
       _notification = null;
-
   /// Create from a SubtaskNotification (background task completion)
   const CompactAgentCard.fromNotification({
     super.key,
@@ -30,10 +29,8 @@ class CompactAgentCard extends ConsumerWidget {
     this.messageId,
   }) : _notification = notification,
        _tool = null;
-
   /// Whether this card is for a notification (vs a tool call)
   bool get _isNotification => _notification != null;
-
   /// Extract agent type
   String get _agentType {
     if (_isNotification) {
@@ -46,7 +43,6 @@ class CompactAgentCard extends ConsumerWidget {
         tool.input['name'] as String? ??
         'general';
   }
-
   /// Extract description
   String get _description {
     if (_isNotification) {
@@ -56,7 +52,6 @@ class CompactAgentCard extends ConsumerWidget {
     if (tool == null) return '';
     return tool.input['description'] as String? ?? '';
   }
-
   /// Extract prompt
   String get _prompt {
     if (_isNotification) {
@@ -66,7 +61,6 @@ class CompactAgentCard extends ConsumerWidget {
     if (tool == null) return '';
     return tool.input['prompt'] as String? ?? '';
   }
-
   /// Get status string
   String get _status {
     if (_isNotification) {
@@ -76,7 +70,6 @@ class CompactAgentCard extends ConsumerWidget {
     if (tool == null) return 'running';
     return tool.status;
   }
-
   /// Get output
   String? get _output {
     if (_isNotification) {
@@ -89,29 +82,27 @@ class CompactAgentCard extends ConsumerWidget {
     }
     return _tool?.output;
   }
-
   /// Get agent-specific icon
   IconData _getAgentIcon() {
     switch (_agentType.toLowerCase()) {
       case 'explore':
-        return Icons.search_rounded;
+        return AppIcons.search;
       case 'code-reviewer':
-        return Icons.rate_review_rounded;
+        return AppIcons.rateReview;
       case 'test-writer':
-        return Icons.science_rounded;
+        return AppIcons.science;
       case 'refactor-expert':
-        return Icons.construction_rounded;
+        return AppIcons.construction;
       case 'general':
-        return Icons.auto_awesome_rounded;
+        return AppIcons.autoAwesome;
       case 'librarian':
-        return Icons.menu_book_rounded;
+        return AppIcons.menuBook;
       case 'oracle':
-        return Icons.psychology_rounded;
+        return AppIcons.psychology;
       default:
-        return Icons.smart_toy_rounded;
+        return AppIcons.agent;
     }
   }
-
   /// Get agent-specific color
   Color _getAgentColor(OpenCodeTheme theme) {
     switch (_agentType.toLowerCase()) {
@@ -131,12 +122,10 @@ class CompactAgentCard extends ConsumerWidget {
         return theme.info;
     }
   }
-
   String _capitalize(String s) {
     if (s.isEmpty) return s;
     return s[0].toUpperCase() + s.substring(1);
   }
-
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final theme = OpenCodeTheme.of(context);
@@ -144,11 +133,9 @@ class CompactAgentCard extends ConsumerWidget {
     final isRunning = _status == 'running';
     final isError = _status == 'error';
     final agentColor = _getAgentColor(theme);
-
     // Determine colors based on card style settings
     final Color headerBg;
     final Color borderColor;
-
     switch (cardStyle.headerStyle) {
       case CardHeaderStyle.solid:
         headerBg = theme.cardHeaderBg;
@@ -157,7 +144,6 @@ class CompactAgentCard extends ConsumerWidget {
       case CardHeaderStyle.minimal:
         headerBg = theme.bgRaised;
     }
-
     switch (cardStyle.borderVisibility) {
       case CardBorderVisibility.subtle:
         borderColor = theme.cardBorderSubtle;
@@ -166,7 +152,6 @@ class CompactAgentCard extends ConsumerWidget {
       case CardBorderVisibility.accent:
         borderColor = agentColor.withValues(alpha: 0.5);
     }
-
     return GestureDetector(
       onTap: () => _showDetailSheet(context),
       child: Container(
@@ -195,7 +180,6 @@ class CompactAgentCard extends ConsumerWidget {
                 color: isError ? theme.error : agentColor,
               ),
               SizedBox(width: 6),
-
               // Agent type name (bold)
               Text(
                 _capitalize(_agentType),
@@ -206,7 +190,6 @@ class CompactAgentCard extends ConsumerWidget {
                 ),
               ),
               SizedBox(width: Spacing.sm),
-
               // Description as preview (muted, truncated)
               Expanded(
                 child: Text(
@@ -216,7 +199,6 @@ class CompactAgentCard extends ConsumerWidget {
                   style: AppTypography.label(color: theme.textMuted),
                 ),
               ),
-
               // Nested tool count badge (when tool has nested calls)
               if (!_isNotification &&
                   (_tool?.metadata['nestedToolCount'] is int))
@@ -241,9 +223,7 @@ class CompactAgentCard extends ConsumerWidget {
                     ),
                   ),
                 ),
-
               SizedBox(width: Spacing.xxs),
-
               // Running spinner or chevron
               if (isRunning)
                 SizedBox(
@@ -256,7 +236,7 @@ class CompactAgentCard extends ConsumerWidget {
                 )
               else
                 Icon(
-                  Icons.chevron_right,
+                  AppIcons.chevronRight,
                   size: 18,
                   color: theme.textMuted.withValues(alpha: 0.5),
                 ),
@@ -266,16 +246,13 @@ class CompactAgentCard extends ConsumerWidget {
       ),
     );
   }
-
   void _showDetailSheet(BuildContext context) {
     final theme = OpenCodeTheme.of(context);
     final isRunning = _status == 'running';
-
     // Try to parse nested tool calls from output (only for tool calls)
     final nestedTools = _isNotification
         ? <Map<String, String>>[]
         : _parseNestedToolCalls();
-
     DetailSheet.show(
       context: context,
       title: _capitalize(_agentType),
@@ -291,7 +268,6 @@ class CompactAgentCard extends ConsumerWidget {
                 style: AppTypography.bodySmall(color: theme.text),
               ),
             ),
-
           if (nestedTools.isNotEmpty)
             Padding(
               padding: EdgeInsets.only(bottom: Spacing.sm),
@@ -299,12 +275,11 @@ class CompactAgentCard extends ConsumerWidget {
                 alignment: Alignment.centerRight,
                 child: TextButton.icon(
                   onPressed: () => _showFullActivitySheet(context, nestedTools),
-                  icon: const Icon(Icons.unfold_more_rounded, size: 16),
+                  icon: const Icon(AppIcons.unfoldMore, size: 16),
                   label: const Text('Full activity'),
                 ),
               ),
             ),
-
           // Tool calls section (if any)
           if (nestedTools.isNotEmpty)
             DetailSection(
@@ -320,7 +295,6 @@ class CompactAgentCard extends ConsumerWidget {
                     .toList(),
               ),
             ),
-
           // Output section - rendered with markdown like main chat
           DetailSection(
             label: 'Output',
@@ -352,7 +326,6 @@ class CompactAgentCard extends ConsumerWidget {
       ),
     );
   }
-
   void _showFullActivitySheet(
     BuildContext context,
     List<Map<String, String>> nestedTools,
@@ -422,7 +395,6 @@ class CompactAgentCard extends ConsumerWidget {
       ),
     );
   }
-
   /// Build markdown style matching the main chat
   MarkdownStyleSheet _buildMarkdownStyle(OpenCodeTheme theme) {
     return MarkdownStyleSheet(
@@ -470,13 +442,11 @@ class CompactAgentCard extends ConsumerWidget {
       tableCellsPadding: EdgeInsets.all(Spacing.sm),
     );
   }
-
   /// Parse nested tool calls from tool metadata (populated by chat_provider)
   List<Map<String, String>> _parseNestedToolCalls() {
     try {
       final metadata = _tool?.metadata;
       if (metadata == null) return [];
-
       // Read from metadata['nestedToolCalls'] populated by chat_provider
       final nestedRaw = metadata['nestedToolCalls'];
       if (nestedRaw is List) {
@@ -496,25 +466,20 @@ class CompactAgentCard extends ConsumerWidget {
             )
             .toList();
       }
-
       return [];
     } catch (e) {
       return [];
     }
   }
 }
-
 /// A row displaying a nested tool call within the agent detail sheet
 class _NestedToolRow extends StatelessWidget {
   final String toolName;
   final String preview;
-
   const _NestedToolRow({required this.toolName, required this.preview});
-
   @override
   Widget build(BuildContext context) {
     final theme = OpenCodeTheme.of(context);
-
     return Padding(
       padding: Insets.chipV,
       child: Row(
@@ -546,7 +511,6 @@ class _NestedToolRow extends StatelessWidget {
       ),
     );
   }
-
   String _capitalize(String s) {
     if (s.isEmpty) return s;
     return s[0].toUpperCase() + s.substring(1);

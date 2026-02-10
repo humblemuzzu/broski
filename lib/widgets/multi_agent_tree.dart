@@ -1,8 +1,9 @@
+
 import 'package:flutter/material.dart';
 import '../models/codex.dart';
 import '../theme/design_tokens.dart';
 import '../theme/opencode_theme.dart';
-
+import 'package:broski/theme/app_icons.dart';
 /// Displays a tree visualization of multi-agent collaboration in Codex.
 /// Shows: main thread -> spawned agents with status indicators.
 ///
@@ -18,21 +19,17 @@ class MultiAgentTreeWidget extends StatelessWidget {
     this.onAgentTap,
     this.compact = false,
   });
-
   final CodexCollabAgentTree tree;
   final void Function(String threadId)? onAgentTap;
   final bool compact;
-
   @override
   Widget build(BuildContext context) {
     final root = tree.getNode(tree.rootThreadId);
     if (root == null && tree.allNodes.isEmpty) {
       return const SizedBox.shrink();
     }
-
     final theme = Theme.of(context);
     final ocTheme = OpenCodeTheme.of(context);
-
     return Container(
       padding: EdgeInsets.all(compact ? 8 : 12),
       decoration: BoxDecoration(
@@ -50,7 +47,7 @@ class MultiAgentTreeWidget extends StatelessWidget {
           Row(
             children: [
               Icon(
-                Icons.account_tree_outlined,
+                AppIcons.gitBranch,
                 size: compact ? 14 : 16,
                 color: theme.colorScheme.primary,
               ),
@@ -84,7 +81,6 @@ class MultiAgentTreeWidget extends StatelessWidget {
       ),
     );
   }
-
   Widget _buildAgentNode(
     BuildContext context,
     CodexCollabAgentNode node,
@@ -92,7 +88,6 @@ class MultiAgentTreeWidget extends StatelessWidget {
   ) {
     final children = tree.getChildren(node.threadId);
     final ocTheme = OpenCodeTheme.of(context);
-
     return Padding(
       padding: EdgeInsets.only(left: depth * (compact ? 16.0 : 20.0)),
       child: Column(
@@ -178,7 +173,6 @@ class MultiAgentTreeWidget extends StatelessWidget {
       ),
     );
   }
-
   Color _getStatusColor(OpenCodeTheme theme, CodexCollabAgentStatus status) {
     switch (status) {
       case CodexCollabAgentStatus.pendingInit:
@@ -195,14 +189,13 @@ class MultiAgentTreeWidget extends StatelessWidget {
         return theme.textMuted;
     }
   }
-
   Widget _getStatusIcon(BuildContext context, CodexCollabAgentStatus status) {
     final size = compact ? 14.0 : 16.0;
     final ocTheme = OpenCodeTheme.of(context);
     switch (status) {
       case CodexCollabAgentStatus.pendingInit:
         return Icon(
-          Icons.hourglass_empty,
+          AppIcons.hourglass,
           size: size,
           color: ocTheme.textMuted,
         );
@@ -213,37 +206,32 @@ class MultiAgentTreeWidget extends StatelessWidget {
           child: CircularProgressIndicator(strokeWidth: 2, color: ocTheme.info),
         );
       case CodexCollabAgentStatus.completed:
-        return Icon(Icons.check_circle, size: size, color: ocTheme.success);
+        return Icon(AppIcons.checkCircle, size: size, color: ocTheme.success);
       case CodexCollabAgentStatus.errored:
-        return Icon(Icons.error, size: size, color: ocTheme.error);
+        return Icon(AppIcons.error, size: size, color: ocTheme.error);
       case CodexCollabAgentStatus.shutdown:
         return Icon(
-          Icons.stop_circle_outlined,
+          AppIcons.stop,
           size: size,
           color: ocTheme.warning,
         );
       case CodexCollabAgentStatus.notFound:
-        return Icon(Icons.help_outline, size: size, color: ocTheme.textMuted);
+        return Icon(AppIcons.help, size: size, color: ocTheme.textMuted);
     }
   }
 }
-
 /// A compact indicator showing multi-agent status (for message bubbles)
 class MultiAgentIndicator extends StatelessWidget {
   const MultiAgentIndicator({super.key, required this.tree, this.onTap});
-
   final CodexCollabAgentTree tree;
   final VoidCallback? onTap;
-
   @override
   Widget build(BuildContext context) {
     if (tree.totalAgents <= 1) return const SizedBox.shrink();
-
     final theme = Theme.of(context);
     final running = tree.runningAgents;
     final completed = tree.completedAgents;
     final total = tree.totalAgents;
-
     return GestureDetector(
       onTap: onTap,
       child: Container(
@@ -256,7 +244,7 @@ class MultiAgentIndicator extends StatelessWidget {
           mainAxisSize: MainAxisSize.min,
           children: [
             Icon(
-              Icons.account_tree_outlined,
+              AppIcons.gitBranch,
               size: 12,
               color: theme.colorScheme.primary,
             ),
@@ -271,7 +259,7 @@ class MultiAgentIndicator extends StatelessWidget {
                 ),
               )
             else
-              Icon(Icons.check, size: 12, color: OpenCodeTheme.of(context).success),
+              Icon(AppIcons.check, size: 12, color: OpenCodeTheme.of(context).success),
             SizedBox(width: Spacing.xs),
             Text(
               '$completed/$total',

@@ -1,3 +1,4 @@
+
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import '../theme/app_typography.dart';
@@ -6,7 +7,7 @@ import '../theme/design_tokens.dart';
 import '../models/message.dart';
 import '../theme/opencode_theme.dart';
 import '../utils/diff_utils.dart';
-
+import 'package:broski/theme/app_icons.dart';
 class DiffViewScreen extends StatefulWidget {
   const DiffViewScreen({
     super.key,
@@ -14,33 +15,25 @@ class DiffViewScreen extends StatefulWidget {
     this.onUndo,
     this.messageId,
   });
-
   final DiffEntry diff;
-
   /// Undo handler (calls session.revert with messageID/partID).
   final void Function(String messageId, String partId)? onUndo;
-
   /// Message ID owning this diff (needed for undo).
   final String? messageId;
-
   @override
   State<DiffViewScreen> createState() => _DiffViewScreenState();
 }
-
 class _DiffViewScreenState extends State<DiffViewScreen> {
   late String _diffText;
   late List<DiffLine> _lines;
-
   double _fontSize = 12.5;
   double _scaleStartFont = 12.5;
-
   @override
   void initState() {
     super.initState();
     _diffText = _resolveDiffText();
     _lines = UnifiedDiff.parse(_diffText);
   }
-
   String _resolveDiffText() {
     final d = widget.diff;
     if (d.diff != null && d.diff!.trim().isNotEmpty) {
@@ -53,7 +46,6 @@ class _DiffViewScreenState extends State<DiffViewScreen> {
       after: d.after,
     );
   }
-
   @override
   Widget build(BuildContext context) {
     final ocTheme = OpenCodeTheme.of(context);
@@ -63,17 +55,14 @@ class _DiffViewScreenState extends State<DiffViewScreen> {
         widget.messageId != null &&
         widget.diff.partId != null &&
         widget.diff.partId!.isNotEmpty;
-
     final maxNew = _maxLine(_lines.map((l) => l.newLine));
     final gutterDigits = _digits(maxNew);
-
     // Filter out metadata lines for cleaner view
     final contentLines = _lines
         .where(
           (l) => l.kind != DiffLineKind.header && l.kind != DiffLineKind.meta,
         )
         .toList();
-
     return Scaffold(
       backgroundColor: ocTheme.background,
       appBar: AppBar(
@@ -122,13 +111,13 @@ class _DiffViewScreenState extends State<DiffViewScreen> {
           IconButton(
             tooltip: 'Copy diff',
             onPressed: () => _copy(context),
-            icon: Icon(Icons.copy_rounded, size: 20, color: ocTheme.textMuted),
+            icon: Icon(AppIcons.copy, size: 20, color: ocTheme.textMuted),
           ),
           IconButton(
             tooltip: 'Reset zoom',
             onPressed: () => setState(() => _fontSize = 12.5),
             icon: Icon(
-              Icons.text_fields_rounded,
+              AppIcons.textFields,
               size: 20,
               color: ocTheme.textMuted,
             ),
@@ -138,7 +127,7 @@ class _DiffViewScreenState extends State<DiffViewScreen> {
               tooltip: 'Undo',
               onPressed: () =>
                   widget.onUndo!(widget.messageId!, widget.diff.partId!),
-              icon: Icon(Icons.undo_rounded, size: 20, color: ocTheme.warning),
+              icon: Icon(AppIcons.undo, size: 20, color: ocTheme.warning),
             ),
         ],
       ),
@@ -174,7 +163,6 @@ class _DiffViewScreenState extends State<DiffViewScreen> {
       ),
     );
   }
-
   Future<void> _copy(BuildContext context) async {
     await Clipboard.setData(ClipboardData(text: _diffText));
     if (!context.mounted) return;
@@ -188,13 +176,11 @@ class _DiffViewScreenState extends State<DiffViewScreen> {
       ),
     );
   }
-
   String _fileName(String path) {
     if (path.isEmpty) return 'file';
     final parts = path.split('/');
     return parts.isNotEmpty ? parts.last : path;
   }
-
   int _maxLine(Iterable<int?> values) {
     var maxValue = 0;
     for (final v in values) {
@@ -203,24 +189,20 @@ class _DiffViewScreenState extends State<DiffViewScreen> {
     }
     return maxValue;
   }
-
   int _digits(int value) {
     if (value <= 0) return 1;
     return value.toString().length;
   }
 }
-
 class _DiffRow extends StatelessWidget {
   const _DiffRow({
     required this.line,
     required this.fontSize,
     required this.gutterDigits,
   });
-
   final DiffLine line;
   final double fontSize;
   final int gutterDigits;
-
   @override
   Widget build(BuildContext context) {
     final ocTheme = OpenCodeTheme.of(context);
@@ -228,7 +210,6 @@ class _DiffRow extends StatelessWidget {
     final fg = _foreground(line.kind, ocTheme);
     final showGutter = line.kind != DiffLineKind.hunk;
     final isHunk = line.kind == DiffLineKind.hunk;
-
     // For hunk lines, show them muted and compact
     if (isHunk) {
       return Container(
@@ -243,14 +224,12 @@ class _DiffRow extends StatelessWidget {
         ),
       );
     }
-
     // Prefix character for added/removed lines
     final prefix = switch (line.kind) {
       DiffLineKind.added => '+',
       DiffLineKind.removed => '-',
       _ => ' ',
     };
-
     return Container(
       color: bg,
       padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 1),
@@ -294,7 +273,6 @@ class _DiffRow extends StatelessWidget {
       ),
     );
   }
-
   Color _background(DiffLineKind kind, OpenCodeTheme ocTheme) {
     switch (kind) {
       case DiffLineKind.added:
@@ -309,7 +287,6 @@ class _DiffRow extends StatelessWidget {
         return Colors.transparent;
     }
   }
-
   Color _foreground(DiffLineKind kind, OpenCodeTheme ocTheme) {
     switch (kind) {
       case DiffLineKind.added:

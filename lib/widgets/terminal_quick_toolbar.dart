@@ -1,3 +1,4 @@
+
 import 'package:flutter/material.dart';
 import '../theme/app_typography.dart';
 import 'package:flutter/services.dart';
@@ -5,16 +6,13 @@ import 'package:xterm/xterm.dart';
 
 import '../theme/design_tokens.dart';
 import '../theme/opencode_theme.dart';
-
+import 'package:broski/theme/app_icons.dart';
 class TerminalQuickToolbar extends StatelessWidget {
   const TerminalQuickToolbar({super.key, required this.terminal});
-
   final Terminal terminal;
-
   @override
   Widget build(BuildContext context) {
     final ocTheme = OpenCodeTheme.of(context);
-
     return Container(
       color: ocTheme.backgroundPanel,
       padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
@@ -35,19 +33,19 @@ class TerminalQuickToolbar extends StatelessWidget {
               onTap: () => terminal.keyInput(TerminalKey.enter),
             ),
             _KeyButton(
-              icon: Icons.arrow_upward,
+              icon: AppIcons.arrowUp,
               onTap: () => terminal.keyInput(TerminalKey.arrowUp),
             ),
             _KeyButton(
-              icon: Icons.arrow_downward,
+              icon: AppIcons.arrowDown,
               onTap: () => terminal.keyInput(TerminalKey.arrowDown),
             ),
             _KeyButton(
-              icon: Icons.arrow_back,
+              icon: AppIcons.back,
               onTap: () => terminal.keyInput(TerminalKey.arrowLeft),
             ),
             _KeyButton(
-              icon: Icons.arrow_forward,
+              icon: AppIcons.forward,
               onTap: () => terminal.keyInput(TerminalKey.arrowRight),
             ),
             _KeyButton(
@@ -77,14 +75,11 @@ class TerminalQuickToolbar extends StatelessWidget {
     );
   }
 }
-
 class _KeyButton extends StatelessWidget {
   const _KeyButton({this.label, this.icon, required this.onTap});
-
   final String? label;
   final IconData? icon;
   final VoidCallback onTap;
-
   @override
   Widget build(BuildContext context) {
     final ocTheme = OpenCodeTheme.of(context);

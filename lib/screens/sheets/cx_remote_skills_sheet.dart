@@ -1,3 +1,4 @@
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
@@ -5,11 +6,10 @@ import '../../models/codex_remote_skill.dart';
 import '../../providers/service_providers.dart';
 import '../../widgets/chat/detail_sheet.dart';
 import '../../theme/design_tokens.dart';
-
+import 'package:broski/theme/app_icons.dart';
 /// Bottom sheet to browse and install skills from the Codex public skills marketplace.
 class CxRemoteSkillsSheet extends ConsumerStatefulWidget {
   const CxRemoteSkillsSheet({super.key});
-
   static void show(BuildContext context) {
     DetailSheet.show(
       context: context,
@@ -18,24 +18,20 @@ class CxRemoteSkillsSheet extends ConsumerStatefulWidget {
       child: const CxRemoteSkillsSheet(),
     );
   }
-
   @override
   ConsumerState<CxRemoteSkillsSheet> createState() =>
       _CxRemoteSkillsSheetState();
 }
-
 class _CxRemoteSkillsSheetState extends ConsumerState<CxRemoteSkillsSheet> {
   List<CodexRemoteSkill>? _skills;
   bool _loading = true;
   String? _error;
   final Set<String> _installing = {};
-
   @override
   void initState() {
     super.initState();
     _load();
   }
-
   Future<void> _load() async {
     setState(() {
       _loading = true;
@@ -57,7 +53,6 @@ class _CxRemoteSkillsSheetState extends ConsumerState<CxRemoteSkillsSheet> {
       });
     }
   }
-
   Future<void> _install(CodexRemoteSkill skill) async {
     setState(() => _installing.add(skill.id));
     try {
@@ -76,15 +71,12 @@ class _CxRemoteSkillsSheetState extends ConsumerState<CxRemoteSkillsSheet> {
       if (mounted) setState(() => _installing.remove(skill.id));
     }
   }
-
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-
     if (_loading) {
       return const Center(child: CircularProgressIndicator());
     }
-
     if (_error != null) {
       return Center(
         child: Column(
@@ -97,12 +89,10 @@ class _CxRemoteSkillsSheetState extends ConsumerState<CxRemoteSkillsSheet> {
         ),
       );
     }
-
     final skills = _skills ?? [];
     if (skills.isEmpty) {
       return const Center(child: Text('No remote skills available.'));
     }
-
     return RefreshIndicator(
       onRefresh: _load,
       child: ListView.separated(
@@ -114,13 +104,13 @@ class _CxRemoteSkillsSheetState extends ConsumerState<CxRemoteSkillsSheet> {
           final isInstalling = _installing.contains(skill.id);
           return ListTile(
             dense: true,
-            leading: const Icon(Icons.auto_awesome, size: 20),
+            leading: const Icon(AppIcons.autoAwesome, size: 20),
             title: Text(skill.name, style: const TextStyle(fontWeight: FontWeight.w600)),
             subtitle: skill.description.isNotEmpty ? Text(skill.description, maxLines: 2, overflow: TextOverflow.ellipsis) : null,
             trailing: isInstalling
                 ? const SizedBox(width: 20, height: 20, child: CircularProgressIndicator(strokeWidth: 2))
                 : IconButton(
-                    icon: const Icon(Icons.download, size: 20),
+                    icon: const Icon(AppIcons.download, size: 20),
                     onPressed: () => _install(skill),
                     tooltip: 'Install',
                   ),

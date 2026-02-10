@@ -1,3 +1,4 @@
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../models/agent_type.dart';
@@ -11,11 +12,10 @@ import '../theme/app_typography.dart';
 import '../theme/design_tokens.dart';
 import '../theme/opencode_theme.dart';
 import 'chat/detail_sheet.dart';
-
+import 'package:broski/theme/app_icons.dart';
 // =============================================================================
 // PUBLIC API
 // =============================================================================
-
 /// Shows the unified permission rules sheet for any backend.
 ///
 /// For OpenCode: shows permission rule editor (presets + custom rules).
@@ -41,7 +41,6 @@ Future<void> showPermissionRulesSheet({
     ),
   );
 }
-
 /// Legacy widget for backwards compatibility.
 /// Prefer using [showPermissionRulesSheet] instead.
 class PermissionRulesSheet extends StatefulWidget {
@@ -50,14 +49,11 @@ class PermissionRulesSheet extends StatefulWidget {
     required this.initialRules,
     required this.onApply,
   });
-
   final PermissionRuleset initialRules;
   final void Function(PermissionRuleset rules) onApply;
-
   @override
   State<PermissionRulesSheet> createState() => _PermissionRulesSheetState();
 }
-
 class _PermissionRulesSheetState extends State<PermissionRulesSheet> {
   @override
   Widget build(BuildContext context) {
@@ -72,22 +68,18 @@ class _PermissionRulesSheetState extends State<PermissionRulesSheet> {
     );
   }
 }
-
 // =============================================================================
 // UNIFIED CONTENT - Routes to correct backend UI
 // =============================================================================
-
 class _UnifiedPermissionContent extends ConsumerWidget {
   const _UnifiedPermissionContent({
     required this.backend,
     this.initialRules,
     this.onApply,
   });
-
   final AgentType backend;
   final PermissionRuleset? initialRules;
   final void Function(PermissionRuleset rules)? onApply;
-
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     switch (backend) {
@@ -110,25 +102,20 @@ class _UnifiedPermissionContent extends ConsumerWidget {
     }
   }
 }
-
 // =============================================================================
 // CLAUDE CODE PERMISSION CONTENT
 // =============================================================================
-
 class _ClaudeCodePermissionContent extends ConsumerStatefulWidget {
   const _ClaudeCodePermissionContent();
-
   @override
   ConsumerState<_ClaudeCodePermissionContent> createState() =>
       _ClaudeCodePermissionContentState();
 }
-
 class _ClaudeCodePermissionContentState
     extends ConsumerState<_ClaudeCodePermissionContent> {
   late List<String> _allowedTools;
   late List<String> _disallowedTools;
   bool _dirty = false;
-
   /// Well-known Claude Code tools
   static const _knownTools = [
     'Read',
@@ -147,7 +134,6 @@ class _ClaudeCodePermissionContentState
     'NotebookRead',
     'NotebookEdit',
   ];
-
   @override
   void initState() {
     super.initState();
@@ -155,7 +141,6 @@ class _ClaudeCodePermissionContentState
     _allowedTools = List.from(config?.allowedTools ?? []);
     _disallowedTools = List.from(config?.disallowedTools ?? []);
   }
-
   void _save() {
     final notifier = ref.read(ccConfigProvider.notifier);
     final existing = ref.read(ccConfigProvider).valueOrNull;
@@ -168,7 +153,6 @@ class _ClaudeCodePermissionContentState
     );
     setState(() => _dirty = false);
   }
-
   void _addToolToList(List<String> list, String tool) {
     if (tool.isNotEmpty && !list.contains(tool)) {
       setState(() {
@@ -177,14 +161,12 @@ class _ClaudeCodePermissionContentState
       });
     }
   }
-
   void _removeToolFromList(List<String> list, String tool) {
     setState(() {
       list.remove(tool);
       _dirty = true;
     });
   }
-
   void _showAddToolDialog({required bool isAllowed}) {
     final theme = OpenCodeTheme.of(context);
     // Filter out tools already in the target list
@@ -192,7 +174,6 @@ class _ClaudeCodePermissionContentState
     final available = _knownTools
         .where((t) => !targetList.contains(t))
         .toList();
-
     showModalBottomSheet(
       context: context,
       backgroundColor: theme.backgroundPanel,
@@ -214,7 +195,6 @@ class _ClaudeCodePermissionContentState
       ),
     );
   }
-
   @override
   Widget build(BuildContext context) {
     final theme = OpenCodeTheme.of(context);
@@ -222,7 +202,6 @@ class _ClaudeCodePermissionContentState
     final config = configAsync.valueOrNull;
     final permissionMode =
         config?.permissionMode ?? ClaudeCodePermissionMode.defaultMode;
-
     return Padding(
       padding: const EdgeInsets.fromLTRB(20, 8, 20, 20),
       child: Column(
@@ -232,7 +211,6 @@ class _ClaudeCodePermissionContentState
           // Backend indicator
           _BackendBadge(label: 'Claude Code', theme: theme),
           SizedBox(height: Spacing.lg),
-
           // ── PERMISSION MODE ──
           _SectionLabel(text: 'PERMISSION MODE', theme: theme),
           const SizedBox(height: 10),
@@ -248,7 +226,6 @@ class _ClaudeCodePermissionContentState
             ),
           ),
           SizedBox(height: Spacing.xl),
-
           // ── ALLOWED TOOLS ──
           _SectionLabel(text: 'ALLOWED TOOLS', theme: theme),
           SizedBox(height: Spacing.xs),
@@ -271,7 +248,6 @@ class _ClaudeCodePermissionContentState
             onTap: () => _showAddToolDialog(isAllowed: true),
           ),
           SizedBox(height: Spacing.xl),
-
           // ── DISALLOWED TOOLS ──
           _SectionLabel(text: 'DISALLOWED TOOLS', theme: theme),
           SizedBox(height: Spacing.xs),
@@ -293,7 +269,6 @@ class _ClaudeCodePermissionContentState
             theme: theme,
             onTap: () => _showAddToolDialog(isAllowed: false),
           ),
-
           // ── SAVE ──
           if (_dirty) ...[
             SizedBox(height: Spacing.xl),
@@ -304,20 +279,16 @@ class _ClaudeCodePermissionContentState
     );
   }
 }
-
 // =============================================================================
 // CODEX PERMISSION CONTENT
 // =============================================================================
-
 class _CodexPermissionContent extends ConsumerWidget {
   const _CodexPermissionContent();
-
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final theme = OpenCodeTheme.of(context);
     final settings = ref.watch(codexSettingsProvider);
     final notifier = ref.read(codexSettingsProvider.notifier);
-
     return Padding(
       padding: const EdgeInsets.fromLTRB(20, 8, 20, 20),
       child: Column(
@@ -326,7 +297,6 @@ class _CodexPermissionContent extends ConsumerWidget {
         children: [
           _BackendBadge(label: 'Codex', theme: theme),
           SizedBox(height: Spacing.lg),
-
           // ── APPROVAL POLICY ──
           _SectionLabel(text: 'APPROVAL POLICY', theme: theme),
           SizedBox(height: Spacing.xs),
@@ -344,7 +314,6 @@ class _CodexPermissionContent extends ConsumerWidget {
             ),
           ),
           SizedBox(height: Spacing.xl),
-
           // ── SANDBOX MODE ──
           _SectionLabel(text: 'SANDBOX MODE', theme: theme),
           SizedBox(height: Spacing.xs),
@@ -362,7 +331,6 @@ class _CodexPermissionContent extends ConsumerWidget {
             ),
           ),
           SizedBox(height: Spacing.xl),
-
           // ── NETWORK ACCESS ──
           _SectionLabel(text: 'NETWORK ACCESS', theme: theme),
           const SizedBox(height: 10),
@@ -374,7 +342,6 @@ class _CodexPermissionContent extends ConsumerWidget {
             onChanged: (v) => notifier.setNetworkAccessEnabled(v),
           ),
           SizedBox(height: Spacing.xl),
-
           // ── INFO BOX ──
           Container(
             padding: Insets.cardSm,
@@ -386,7 +353,7 @@ class _CodexPermissionContent extends ConsumerWidget {
             child: Row(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Icon(Icons.info_outline_rounded, size: 16, color: theme.info),
+                Icon(AppIcons.info, size: 16, color: theme.info),
                 const SizedBox(width: 10),
                 Expanded(
                   child: Text(
@@ -407,27 +374,21 @@ class _CodexPermissionContent extends ConsumerWidget {
     );
   }
 }
-
 // =============================================================================
 // OPENCODE RULES CONTENT (preserved from original)
 // =============================================================================
-
 class _OpenCodeRulesContent extends StatefulWidget {
   const _OpenCodeRulesContent({
     required this.initialRules,
     required this.onApply,
   });
-
   final PermissionRuleset initialRules;
   final void Function(PermissionRuleset rules) onApply;
-
   @override
   State<_OpenCodeRulesContent> createState() => _OpenCodeRulesContentState();
 }
-
 class _OpenCodeRulesContentState extends State<_OpenCodeRulesContent> {
   late List<PermissionRule> _rules;
-
   @override
   void initState() {
     super.initState();
@@ -447,7 +408,6 @@ class _OpenCodeRulesContentState extends State<_OpenCodeRulesContent> {
       ];
     }
   }
-
   void _addRule() {
     setState(() {
       _rules.add(
@@ -459,30 +419,25 @@ class _OpenCodeRulesContentState extends State<_OpenCodeRulesContent> {
       );
     });
   }
-
   void _removeRule(int index) {
     setState(() {
       _rules.removeAt(index);
     });
   }
-
   void _updateRule(int index, PermissionRule rule) {
     setState(() {
       _rules[index] = rule;
     });
   }
-
   void _applyPreset(PermissionPreset preset) {
     if (preset == PermissionPreset.custom) return;
     setState(() {
       _rules = List.from(preset.toRuleset());
     });
   }
-
   @override
   Widget build(BuildContext context) {
     final theme = OpenCodeTheme.of(context);
-
     return Padding(
       padding: const EdgeInsets.fromLTRB(20, 8, 20, 20),
       child: Column(
@@ -491,7 +446,6 @@ class _OpenCodeRulesContentState extends State<_OpenCodeRulesContent> {
         children: [
           _BackendBadge(label: 'OpenCode', theme: theme),
           SizedBox(height: Spacing.lg),
-
           // Quick presets section
           _SectionLabel(text: 'QUICK PRESETS', theme: theme),
           const SizedBox(height: 10),
@@ -513,9 +467,7 @@ class _OpenCodeRulesContentState extends State<_OpenCodeRulesContent> {
                   .toList(),
             ),
           ),
-
           SizedBox(height: Spacing.xl),
-
           // Rules section header
           Row(
             children: [
@@ -527,9 +479,7 @@ class _OpenCodeRulesContentState extends State<_OpenCodeRulesContent> {
               ),
             ],
           ),
-
           const SizedBox(height: 10),
-
           // Pattern hint
           Container(
             padding: Insets.cardXs,
@@ -541,7 +491,7 @@ class _OpenCodeRulesContentState extends State<_OpenCodeRulesContent> {
             child: Row(
               children: [
                 Icon(
-                  Icons.lightbulb_outline_rounded,
+                  AppIcons.lightbulb,
                   size: 14,
                   color: theme.info,
                 ),
@@ -560,9 +510,7 @@ class _OpenCodeRulesContentState extends State<_OpenCodeRulesContent> {
               ],
             ),
           ),
-
           SizedBox(height: Spacing.md),
-
           // Rules list
           ...List.generate(_rules.length, (index) {
             return _RuleCard(
@@ -573,15 +521,12 @@ class _OpenCodeRulesContentState extends State<_OpenCodeRulesContent> {
               onDelete: () => _removeRule(index),
             );
           }),
-
           // Add rule button
           Padding(
             padding: Insets.topSm,
             child: _AddButton(label: 'Add Rule', theme: theme, onTap: _addRule),
           ),
-
           SizedBox(height: Spacing.lg),
-
           // Apply button
           _ApplyButton(
             label: 'Apply Rules',
@@ -596,18 +541,14 @@ class _OpenCodeRulesContentState extends State<_OpenCodeRulesContent> {
     );
   }
 }
-
 // =============================================================================
 // SHARED HELPER WIDGETS
 // =============================================================================
-
 /// Small badge showing which backend the permissions are for.
 class _BackendBadge extends StatelessWidget {
   const _BackendBadge({required this.label, required this.theme});
-
   final String label;
   final OpenCodeTheme theme;
-
   @override
   Widget build(BuildContext context) {
     return Container(
@@ -626,14 +567,11 @@ class _BackendBadge extends StatelessWidget {
     );
   }
 }
-
 /// Uppercase section label.
 class _SectionLabel extends StatelessWidget {
   const _SectionLabel({required this.text, required this.theme});
-
   final String text;
   final OpenCodeTheme theme;
-
   @override
   Widget build(BuildContext context) {
     return Text(
@@ -647,7 +585,6 @@ class _SectionLabel extends StatelessWidget {
     );
   }
 }
-
 /// Full-width primary action button.
 class _ApplyButton extends StatelessWidget {
   const _ApplyButton({
@@ -655,11 +592,9 @@ class _ApplyButton extends StatelessWidget {
     required this.theme,
     required this.onTap,
   });
-
   final String label;
   final OpenCodeTheme theme;
   final VoidCallback onTap;
-
   @override
   Widget build(BuildContext context) {
     return SizedBox(
@@ -687,7 +622,6 @@ class _ApplyButton extends StatelessWidget {
     );
   }
 }
-
 /// Dashed-border add button.
 class _AddButton extends StatelessWidget {
   const _AddButton({
@@ -695,11 +629,9 @@ class _AddButton extends StatelessWidget {
     required this.theme,
     required this.onTap,
   });
-
   final String label;
   final OpenCodeTheme theme;
   final VoidCallback onTap;
-
   @override
   Widget build(BuildContext context) {
     return GestureDetector(
@@ -714,7 +646,7 @@ class _AddButton extends StatelessWidget {
         child: Row(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            Icon(Icons.add_rounded, size: 18, color: theme.primary),
+            Icon(AppIcons.add, size: 18, color: theme.primary),
             SizedBox(width: Spacing.sm),
             Text(
               label,
@@ -730,7 +662,6 @@ class _AddButton extends StatelessWidget {
     );
   }
 }
-
 /// A row of removable tool chips.
 class _ToolChipList extends StatelessWidget {
   const _ToolChipList({
@@ -740,13 +671,11 @@ class _ToolChipList extends StatelessWidget {
     required this.theme,
     required this.onRemove,
   });
-
   final List<String> tools;
   final String emptyText;
   final Color color;
   final OpenCodeTheme theme;
   final void Function(String) onRemove;
-
   @override
   Widget build(BuildContext context) {
     if (tools.isEmpty) {
@@ -783,7 +712,7 @@ class _ToolChipList extends StatelessWidget {
               GestureDetector(
                 onTap: () => onRemove(tool),
                 child: Icon(
-                  Icons.close_rounded,
+                  AppIcons.close,
                   size: 14,
                   color: color.withValues(alpha: 0.7),
                 ),
@@ -795,7 +724,6 @@ class _ToolChipList extends StatelessWidget {
     );
   }
 }
-
 /// Toggle row with label, description, and switch.
 class _ToggleRow extends StatelessWidget {
   const _ToggleRow({
@@ -805,13 +733,11 @@ class _ToggleRow extends StatelessWidget {
     required this.theme,
     required this.onChanged,
   });
-
   final String label;
   final String description;
   final bool value;
   final OpenCodeTheme theme;
   final void Function(bool) onChanged;
-
   @override
   Widget build(BuildContext context) {
     return Container(
@@ -853,11 +779,9 @@ class _ToggleRow extends StatelessWidget {
     );
   }
 }
-
 // =============================================================================
 // CLAUDE CODE SPECIFIC WIDGETS
 // =============================================================================
-
 class _PermissionModeOption extends StatelessWidget {
   const _PermissionModeOption({
     required this.mode,
@@ -865,12 +789,10 @@ class _PermissionModeOption extends StatelessWidget {
     required this.theme,
     required this.onTap,
   });
-
   final ClaudeCodePermissionMode mode;
   final bool isSelected;
   final OpenCodeTheme theme;
   final VoidCallback onTap;
-
   String get _description {
     switch (mode) {
       case ClaudeCodePermissionMode.defaultMode:
@@ -887,24 +809,22 @@ class _PermissionModeOption extends StatelessWidget {
         return 'Never prompt; deny unapproved actions';
     }
   }
-
   IconData get _icon {
     switch (mode) {
       case ClaudeCodePermissionMode.defaultMode:
-        return Icons.shield_outlined;
+        return AppIcons.security;
       case ClaudeCodePermissionMode.acceptEdits:
-        return Icons.edit_note_rounded;
+        return AppIcons.edit;
       case ClaudeCodePermissionMode.plan:
-        return Icons.description_outlined;
+        return AppIcons.description;
       case ClaudeCodePermissionMode.bypassPermissions:
-        return Icons.speed_rounded;
+        return AppIcons.speed;
       case ClaudeCodePermissionMode.delegate:
-        return Icons.groups_rounded;
+        return AppIcons.group;
       case ClaudeCodePermissionMode.dontAsk:
-        return Icons.block_rounded;
+        return AppIcons.block;
     }
   }
-
   Color get _iconColor {
     if (!isSelected) return theme.textMuted;
     switch (mode) {
@@ -922,7 +842,6 @@ class _PermissionModeOption extends StatelessWidget {
         return theme.warning;
     }
   }
-
   @override
   Widget build(BuildContext context) {
     return Padding(
@@ -972,7 +891,7 @@ class _PermissionModeOption extends StatelessWidget {
                 ),
               ),
               if (isSelected)
-                Icon(Icons.check_rounded, size: 18, color: theme.primary),
+                Icon(AppIcons.check, size: 18, color: theme.primary),
             ],
           ),
         ),
@@ -980,7 +899,6 @@ class _PermissionModeOption extends StatelessWidget {
     );
   }
 }
-
 /// Bottom sheet for selecting a tool from known tools or entering a custom one.
 class _ToolPickerSheet extends StatefulWidget {
   const _ToolPickerSheet({
@@ -990,26 +908,21 @@ class _ToolPickerSheet extends StatefulWidget {
     required this.onSelect,
     required this.onCustom,
   });
-
   final String title;
   final List<String> availableTools;
   final OpenCodeTheme theme;
   final void Function(String) onSelect;
   final void Function(String) onCustom;
-
   @override
   State<_ToolPickerSheet> createState() => _ToolPickerSheetState();
 }
-
 class _ToolPickerSheetState extends State<_ToolPickerSheet> {
   final _controller = TextEditingController();
-
   @override
   void dispose() {
     _controller.dispose();
     super.dispose();
   }
-
   @override
   Widget build(BuildContext context) {
     return Padding(
@@ -1111,7 +1024,7 @@ class _ToolPickerSheetState extends State<_ToolPickerSheet> {
                   final val = _controller.text.trim();
                   if (val.isNotEmpty) widget.onCustom(val);
                 },
-                icon: Icon(Icons.check_rounded, color: widget.theme.primary),
+                icon: Icon(AppIcons.check, color: widget.theme.primary),
               ),
             ],
           ),
@@ -1120,11 +1033,9 @@ class _ToolPickerSheetState extends State<_ToolPickerSheet> {
     );
   }
 }
-
 // =============================================================================
 // CODEX SPECIFIC WIDGETS
 // =============================================================================
-
 class _CodexPolicyOption extends StatelessWidget {
   const _CodexPolicyOption({
     required this.policy,
@@ -1132,12 +1043,10 @@ class _CodexPolicyOption extends StatelessWidget {
     required this.theme,
     required this.onTap,
   });
-
   final CodexApprovalPolicy policy;
   final bool isSelected;
   final OpenCodeTheme theme;
   final VoidCallback onTap;
-
   String get _displayName {
     switch (policy) {
       case CodexApprovalPolicy.unlessTrusted:
@@ -1150,7 +1059,6 @@ class _CodexPolicyOption extends StatelessWidget {
         return 'Never';
     }
   }
-
   String get _description {
     switch (policy) {
       case CodexApprovalPolicy.unlessTrusted:
@@ -1163,20 +1071,18 @@ class _CodexPolicyOption extends StatelessWidget {
         return 'Never ask — full autonomy';
     }
   }
-
   IconData get _icon {
     switch (policy) {
       case CodexApprovalPolicy.unlessTrusted:
-        return Icons.verified_user_outlined;
+        return AppIcons.shieldCheck;
       case CodexApprovalPolicy.onFailure:
-        return Icons.warning_amber_rounded;
+        return AppIcons.warning;
       case CodexApprovalPolicy.onRequest:
-        return Icons.shield_outlined;
+        return AppIcons.security;
       case CodexApprovalPolicy.never:
-        return Icons.speed_rounded;
+        return AppIcons.speed;
     }
   }
-
   Color get _iconColor {
     if (!isSelected) return theme.textMuted;
     switch (policy) {
@@ -1190,7 +1096,6 @@ class _CodexPolicyOption extends StatelessWidget {
         return theme.error;
     }
   }
-
   @override
   Widget build(BuildContext context) {
     return Padding(
@@ -1240,7 +1145,7 @@ class _CodexPolicyOption extends StatelessWidget {
                 ),
               ),
               if (isSelected)
-                Icon(Icons.check_rounded, size: 18, color: theme.primary),
+                Icon(AppIcons.check, size: 18, color: theme.primary),
             ],
           ),
         ),
@@ -1248,7 +1153,6 @@ class _CodexPolicyOption extends StatelessWidget {
     );
   }
 }
-
 class _CodexSandboxOption extends StatelessWidget {
   const _CodexSandboxOption({
     required this.mode,
@@ -1256,12 +1160,10 @@ class _CodexSandboxOption extends StatelessWidget {
     required this.theme,
     required this.onTap,
   });
-
   final CodexSandboxMode mode;
   final bool isSelected;
   final OpenCodeTheme theme;
   final VoidCallback onTap;
-
   String get _displayName {
     switch (mode) {
       case CodexSandboxMode.readOnly:
@@ -1272,7 +1174,6 @@ class _CodexSandboxOption extends StatelessWidget {
         return 'Full Access';
     }
   }
-
   String get _description {
     switch (mode) {
       case CodexSandboxMode.readOnly:
@@ -1283,18 +1184,16 @@ class _CodexSandboxOption extends StatelessWidget {
         return 'Unrestricted filesystem access';
     }
   }
-
   IconData get _icon {
     switch (mode) {
       case CodexSandboxMode.readOnly:
-        return Icons.lock_outline_rounded;
+        return AppIcons.lock;
       case CodexSandboxMode.workspaceWrite:
-        return Icons.folder_outlined;
+        return AppIcons.folder;
       case CodexSandboxMode.dangerFullAccess:
-        return Icons.lock_open_rounded;
+        return AppIcons.lockOpen;
     }
   }
-
   Color get _iconColor {
     if (!isSelected) return theme.textMuted;
     switch (mode) {
@@ -1306,7 +1205,6 @@ class _CodexSandboxOption extends StatelessWidget {
         return theme.error;
     }
   }
-
   @override
   Widget build(BuildContext context) {
     return Padding(
@@ -1356,7 +1254,7 @@ class _CodexSandboxOption extends StatelessWidget {
                 ),
               ),
               if (isSelected)
-                Icon(Icons.check_rounded, size: 18, color: theme.primary),
+                Icon(AppIcons.check, size: 18, color: theme.primary),
             ],
           ),
         ),
@@ -1364,22 +1262,18 @@ class _CodexSandboxOption extends StatelessWidget {
     );
   }
 }
-
 // =============================================================================
 // OPENCODE RULE CARD (preserved from original)
 // =============================================================================
-
 class _PresetChip extends StatelessWidget {
   const _PresetChip({
     required this.preset,
     required this.theme,
     required this.onTap,
   });
-
   final PermissionPreset preset;
   final OpenCodeTheme theme;
   final VoidCallback onTap;
-
   @override
   Widget build(BuildContext context) {
     return GestureDetector(
@@ -1403,7 +1297,6 @@ class _PresetChip extends StatelessWidget {
     );
   }
 }
-
 class _RuleCard extends StatelessWidget {
   const _RuleCard({
     required this.index,
@@ -1412,13 +1305,11 @@ class _RuleCard extends StatelessWidget {
     required this.onUpdate,
     required this.onDelete,
   });
-
   final int index;
   final PermissionRule rule;
   final OpenCodeTheme theme;
   final void Function(PermissionRule) onUpdate;
   final VoidCallback onDelete;
-
   Color _getPermissionColor() {
     switch (rule.permission) {
       case 'edit':
@@ -1436,32 +1327,29 @@ class _RuleCard extends StatelessWidget {
         return theme.textMuted;
     }
   }
-
   IconData _getPermissionIcon() {
     switch (rule.permission) {
       case 'edit':
-        return Icons.edit_outlined;
+        return AppIcons.edit;
       case 'bash':
-        return Icons.terminal_rounded;
+        return AppIcons.terminal;
       case 'read':
-        return Icons.visibility_outlined;
+        return AppIcons.visibility;
       case 'glob':
-        return Icons.search_rounded;
+        return AppIcons.search;
       case 'grep':
-        return Icons.find_in_page_outlined;
+        return AppIcons.search;
       case 'list':
-        return Icons.folder_open_outlined;
+        return AppIcons.folderOpen;
       case 'write':
-        return Icons.save_outlined;
+        return AppIcons.save;
       default:
-        return Icons.settings_outlined;
+        return AppIcons.settings;
     }
   }
-
   @override
   Widget build(BuildContext context) {
     final permColor = _getPermissionColor();
-
     return Container(
       margin: const EdgeInsets.only(bottom: 10),
       decoration: BoxDecoration(
@@ -1496,7 +1384,7 @@ class _RuleCard extends StatelessWidget {
                 const Spacer(),
                 IconButton(
                   icon: Icon(
-                    Icons.delete_outline_rounded,
+                    AppIcons.delete,
                     color: theme.error.withValues(alpha: 0.7),
                     size: 20,
                   ),
@@ -1511,7 +1399,6 @@ class _RuleCard extends StatelessWidget {
               ],
             ),
           ),
-
           // Rule fields
           Padding(
             padding: const EdgeInsets.fromLTRB(14, 0, 14, 14),
@@ -1541,7 +1428,6 @@ class _RuleCard extends StatelessWidget {
                   ),
                 ),
                 const SizedBox(width: 10),
-
                 // Pattern field
                 Expanded(
                   flex: 4,
@@ -1554,7 +1440,6 @@ class _RuleCard extends StatelessWidget {
                   ),
                 ),
                 const SizedBox(width: 10),
-
                 // Action dropdown
                 Expanded(
                   flex: 3,
@@ -1581,7 +1466,6 @@ class _RuleCard extends StatelessWidget {
     );
   }
 }
-
 class _StyledDropdown extends StatelessWidget {
   const _StyledDropdown({
     required this.label,
@@ -1590,13 +1474,11 @@ class _StyledDropdown extends StatelessWidget {
     required this.theme,
     required this.onChanged,
   });
-
   final String label;
   final String value;
   final List<String> items;
   final OpenCodeTheme theme;
   final void Function(String) onChanged;
-
   @override
   Widget build(BuildContext context) {
     return Column(
@@ -1626,7 +1508,7 @@ class _StyledDropdown extends StatelessWidget {
             dropdownColor: theme.backgroundPanel,
             style: AppTypography.bodySmall(color: theme.text),
             icon: Icon(
-              Icons.keyboard_arrow_down_rounded,
+              AppIcons.chevronDown,
               color: theme.textMuted,
               size: 18,
             ),
@@ -1642,7 +1524,6 @@ class _StyledDropdown extends StatelessWidget {
     );
   }
 }
-
 class _StyledTextField extends StatelessWidget {
   const _StyledTextField({
     required this.label,
@@ -1650,12 +1531,10 @@ class _StyledTextField extends StatelessWidget {
     required this.theme,
     required this.onChanged,
   });
-
   final String label;
   final String value;
   final OpenCodeTheme theme;
   final void Function(String) onChanged;
-
   @override
   Widget build(BuildContext context) {
     return Column(

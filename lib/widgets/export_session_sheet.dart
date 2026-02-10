@@ -1,3 +1,4 @@
+
 import 'dart:convert';
 
 import 'package:flutter/material.dart';
@@ -7,9 +8,8 @@ import '../models/message.dart';
 import '../theme/design_tokens.dart';
 import '../theme/opencode_theme.dart';
 import 'chat/detail_sheet.dart';
-
+import 'package:broski/theme/app_icons.dart';
 enum ExportFormat { markdown, json, text }
-
 /// Shows an export session sheet using DetailSheet.
 Future<void> showExportSessionSheet({
   required BuildContext context,
@@ -25,7 +25,6 @@ Future<void> showExportSessionSheet({
     child: _ExportSessionSheetContent(title: title, messages: messages),
   );
 }
-
 /// Legacy widget for backwards compatibility.
 /// Prefer using [showExportSessionSheet] instead.
 class ExportSessionSheet extends StatefulWidget {
@@ -34,14 +33,11 @@ class ExportSessionSheet extends StatefulWidget {
     required this.title,
     required this.messages,
   });
-
   final String title;
   final List<ChatMessage> messages;
-
   @override
   State<ExportSessionSheet> createState() => _ExportSessionSheetState();
 }
-
 class _ExportSessionSheetState extends State<ExportSessionSheet> {
   @override
   Widget build(BuildContext context) {
@@ -56,47 +52,39 @@ class _ExportSessionSheetState extends State<ExportSessionSheet> {
     );
   }
 }
-
 /// The actual content of the export session sheet.
 class _ExportSessionSheetContent extends StatefulWidget {
   const _ExportSessionSheetContent({
     required this.title,
     required this.messages,
   });
-
   final String title;
   final List<ChatMessage> messages;
-
   @override
   State<_ExportSessionSheetContent> createState() =>
       _ExportSessionSheetContentState();
 }
-
 class _ExportSessionSheetContentState
     extends State<_ExportSessionSheetContent> {
   final _filenameCtrl = TextEditingController();
   ExportFormat _format = ExportFormat.markdown;
-
   bool _includeUsers = true;
   bool _includeAssistants = true;
   bool _includeThinking = false;
   bool _includeToolCalls = true;
   bool _includeToolOutputs = false;
   bool _includeMetadata = false;
-
   @override
   void initState() {
     super.initState();
     final ts = DateTime.now().toIso8601String().replaceAll(':', '-');
     _filenameCtrl.text = 'session-$ts.md';
   }
-
   @override
   void dispose() {
     _filenameCtrl.dispose();
     super.dispose();
   }
-
   List<ChatMessage> get _filtered {
     return widget.messages.where((m) {
       if (m.role == MessageRole.user) return _includeUsers;
@@ -104,7 +92,6 @@ class _ExportSessionSheetContentState
       return true;
     }).toList();
   }
-
   String _toMarkdown() {
     final buf = StringBuffer();
     buf.writeln('# ${widget.title}');
@@ -156,7 +143,6 @@ class _ExportSessionSheetContentState
     }
     return buf.toString();
   }
-
   String _toText() {
     final buf = StringBuffer();
     buf.writeln(widget.title);
@@ -173,7 +159,6 @@ class _ExportSessionSheetContentState
     }
     return buf.toString();
   }
-
   String _toJson() {
     final payload = {
       'title': widget.title,
@@ -204,7 +189,6 @@ class _ExportSessionSheetContentState
     };
     return const JsonEncoder.withIndent('  ').convert(payload);
   }
-
   String _render() {
     return switch (_format) {
       ExportFormat.markdown => _toMarkdown(),
@@ -212,11 +196,9 @@ class _ExportSessionSheetContentState
       ExportFormat.json => _toJson(),
     };
   }
-
   @override
   Widget build(BuildContext context) {
     final oc = OpenCodeTheme.of(context);
-
     return Padding(
       padding: const EdgeInsets.fromLTRB(20, 8, 20, 20),
       child: Column(
@@ -312,7 +294,7 @@ class _ExportSessionSheetContentState
                     backgroundColor: oc.primary,
                     foregroundColor: oc.selectedListItemText,
                   ),
-                  icon: const Icon(Icons.share_rounded, size: 18),
+                  icon: const Icon(AppIcons.share, size: 18),
                   label: const Text('Share'),
                 ),
               ),
@@ -323,18 +305,15 @@ class _ExportSessionSheetContentState
     );
   }
 }
-
 class _FormatChip extends StatelessWidget {
   const _FormatChip({
     required this.label,
     required this.selected,
     required this.onTap,
   });
-
   final String label;
   final bool selected;
   final VoidCallback onTap;
-
   @override
   Widget build(BuildContext context) {
     final oc = OpenCodeTheme.of(context);

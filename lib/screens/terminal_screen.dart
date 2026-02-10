@@ -1,3 +1,4 @@
+
 import 'package:flutter/material.dart';
 import '../theme/app_typography.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -13,38 +14,32 @@ import '../theme/opencode_theme.dart';
 import '../widgets/chat/detail_sheet.dart';
 import '../widgets/connection_indicator.dart';
 import 'terminal_view_screen.dart';
-
+import 'package:broski/theme/app_icons.dart';
 /// PTY Terminal Sessions Screen
 ///
 /// Manages PTY terminal sessions - allows creating, viewing, and managing
 /// terminal sessions that run on the remote machine.
 class TerminalScreen extends ConsumerStatefulWidget {
   const TerminalScreen({super.key});
-
   @override
   ConsumerState<TerminalScreen> createState() => _TerminalScreenState();
 }
-
 class _TerminalScreenState extends ConsumerState<TerminalScreen> {
   List<Map<String, dynamic>> _ptySessions = [];
   bool _isLoading = true;
   String? _error;
-
   @override
   void initState() {
     super.initState();
     _loadSessions();
   }
-
   Future<void> _loadSessions() async {
     setState(() {
       _isLoading = true;
       _error = null;
     });
-
     final storage = StorageService();
     final connection = ref.read(connectionProvider);
-
     // If offline, use cached data
     if (connection.isOfflineMode) {
       final cached = await storage.getCachedPtySessions();
@@ -59,19 +54,16 @@ class _TerminalScreenState extends ConsumerState<TerminalScreen> {
       }
       return;
     }
-
     try {
       final bridge = ref.read(bridgeServiceProvider);
       final selection = ref.read(selectionProvider);
       final sessions = await bridge.listPty(
         projectPath: selection.project?.path,
       );
-
       // Cache for offline use
       if (sessions.isNotEmpty) {
         await storage.cachePtySessions(sessions);
       }
-
       if (mounted) {
         setState(() {
           _ptySessions = sessions;
@@ -96,15 +88,12 @@ class _TerminalScreenState extends ConsumerState<TerminalScreen> {
       }
     }
   }
-
   Future<void> _createSession() async {
     final result = await showDialog<Map<String, String?>>(
       context: context,
       builder: (context) => const _CreatePtyDialog(),
     );
-
     if (result == null) return;
-
     try {
       final bridge = ref.read(bridgeServiceProvider);
       final selection = ref.read(selectionProvider);
@@ -114,7 +103,6 @@ class _TerminalScreenState extends ConsumerState<TerminalScreen> {
         cwd: result['cwd'],
         projectPath: selection.project?.path,
       );
-
       if (pty != null && mounted) {
         final ocTheme = OpenCodeTheme.of(context);
         ScaffoldMessenger.of(context).showSnackBar(
@@ -137,7 +125,6 @@ class _TerminalScreenState extends ConsumerState<TerminalScreen> {
       }
     }
   }
-
   Future<void> _deleteSession(String ptyId, String title) async {
     final ocTheme = OpenCodeTheme.of(context);
     final confirm = await showDialog<bool>(
@@ -167,9 +154,7 @@ class _TerminalScreenState extends ConsumerState<TerminalScreen> {
         );
       },
     );
-
     if (confirm != true) return;
-
     try {
       final bridge = ref.read(bridgeServiceProvider);
       final selection = ref.read(selectionProvider);
@@ -177,7 +162,6 @@ class _TerminalScreenState extends ConsumerState<TerminalScreen> {
         ptyId,
         projectPath: selection.project?.path,
       );
-
       if (mounted) {
         if (success) {
           ScaffoldMessenger.of(context).showSnackBar(
@@ -207,7 +191,6 @@ class _TerminalScreenState extends ConsumerState<TerminalScreen> {
       }
     }
   }
-
   Future<void> _renameSession(String ptyId, String currentTitle) async {
     final controller = TextEditingController(text: currentTitle);
     final newTitle = await showDialog<String>(
@@ -257,11 +240,9 @@ class _TerminalScreenState extends ConsumerState<TerminalScreen> {
       },
     );
     controller.dispose();
-
     if (newTitle == null || newTitle.isEmpty || newTitle == currentTitle) {
       return;
     }
-
     try {
       final bridge = ref.read(bridgeServiceProvider);
       final selection = ref.read(selectionProvider);
@@ -283,17 +264,14 @@ class _TerminalScreenState extends ConsumerState<TerminalScreen> {
       }
     }
   }
-
   @override
   Widget build(BuildContext context) {
     final connection = ref.watch(connectionProvider);
     final agentType = ref.watch(agentTypeProvider);
     final ocTheme = OpenCodeTheme.of(context);
-
     final agentAvailable =
         connection.backends?.forType(agentType).available ??
         (agentType == AgentType.opencode ? connection.opencodeRunning : true);
-
     return Scaffold(
       backgroundColor: ocTheme.background,
       appBar: AppBar(
@@ -324,22 +302,20 @@ class _TerminalScreenState extends ConsumerState<TerminalScreen> {
       floatingActionButton: FloatingActionButton(
         onPressed: _createSession,
         backgroundColor: ocTheme.primary,
-        child: Icon(Icons.add, color: ocTheme.selectedListItemText),
+        child: Icon(AppIcons.add, color: ocTheme.selectedListItemText),
       ),
     );
   }
-
   Widget _buildBody(OpenCodeTheme ocTheme) {
     if (_isLoading) {
       return Center(child: CircularProgressIndicator(color: ocTheme.primary));
     }
-
     if (_error != null) {
       return Center(
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            Icon(Icons.error_outline, size: 48, color: ocTheme.error),
+            Icon(AppIcons.error, size: 48, color: ocTheme.error),
             SizedBox(height: Spacing.lg),
             Text(
               'Failed to load terminals',
@@ -364,13 +340,12 @@ class _TerminalScreenState extends ConsumerState<TerminalScreen> {
         ),
       );
     }
-
     if (_ptySessions.isEmpty) {
       return Center(
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            Icon(Icons.terminal, size: 64, color: ocTheme.textMuted),
+            Icon(AppIcons.terminal, size: 64, color: ocTheme.textMuted),
             SizedBox(height: Spacing.xl),
             Text(
               'No Terminals',
@@ -389,7 +364,7 @@ class _TerminalScreenState extends ConsumerState<TerminalScreen> {
             SizedBox(height: Spacing.xxl),
             ElevatedButton.icon(
               onPressed: _createSession,
-              icon: const Icon(Icons.add, size: 20),
+              icon: const Icon(AppIcons.add, size: 20),
               label: const Text('New Terminal'),
               style: ElevatedButton.styleFrom(
                 backgroundColor: ocTheme.primary,
@@ -404,7 +379,6 @@ class _TerminalScreenState extends ConsumerState<TerminalScreen> {
         ),
       );
     }
-
     return RefreshIndicator(
       onRefresh: _loadSessions,
       color: ocTheme.primary,
@@ -430,12 +404,10 @@ class _TerminalScreenState extends ConsumerState<TerminalScreen> {
       ),
     );
   }
-
   void _openTerminal(Map<String, dynamic> pty) {
     final id = pty['id'] as String? ?? '';
     final title = pty['title'] as String? ?? 'Terminal';
     final status = pty['status'] as String? ?? 'unknown';
-
     if (status != 'running') {
       final ocTheme = OpenCodeTheme.of(context);
       ScaffoldMessenger.of(context).showSnackBar(
@@ -446,14 +418,12 @@ class _TerminalScreenState extends ConsumerState<TerminalScreen> {
       );
       return;
     }
-
     Navigator.of(context).push(
       MaterialPageRoute(
         builder: (context) => TerminalViewScreen(ptyId: id, title: title),
       ),
     );
   }
-
   void _showSessionDetails(Map<String, dynamic> pty) {
     final id = pty['id'] as String? ?? '';
     final title = pty['title'] as String? ?? 'Terminal';
@@ -461,9 +431,7 @@ class _TerminalScreenState extends ConsumerState<TerminalScreen> {
     final cwd = pty['cwd'] as String? ?? '';
     final status = pty['status'] as String? ?? 'unknown';
     final pid = pty['pid'] as int? ?? 0;
-
     final ocTheme = OpenCodeTheme.of(context);
-
     DetailSheet.show(
       context: context,
       title: title,
@@ -482,7 +450,7 @@ class _TerminalScreenState extends ConsumerState<TerminalScreen> {
                     color: ocTheme.primary.withValues(alpha: 0.15),
                     borderRadius: Radii.brMd,
                   ),
-                  child: Icon(Icons.terminal, color: ocTheme.primary, size: 24),
+                  child: Icon(AppIcons.terminal, color: ocTheme.primary, size: 24),
                 ),
                 SizedBox(width: Spacing.lg),
                 Row(
@@ -528,7 +496,7 @@ class _TerminalScreenState extends ConsumerState<TerminalScreen> {
                       Navigator.pop(context);
                       _openTerminal(pty);
                     },
-                    icon: const Icon(Icons.open_in_new, size: 18),
+                    icon: const Icon(AppIcons.openExternal, size: 18),
                     label: const Text('Open Terminal'),
                     style: ElevatedButton.styleFrom(
                       backgroundColor: ocTheme.primary,
@@ -546,7 +514,7 @@ class _TerminalScreenState extends ConsumerState<TerminalScreen> {
                       Navigator.pop(context);
                       _renameSession(id, title);
                     },
-                    icon: const Icon(Icons.edit, size: 18),
+                    icon: const Icon(AppIcons.edit, size: 18),
                     label: const Text('Rename'),
                     style: OutlinedButton.styleFrom(
                       foregroundColor: ocTheme.text,
@@ -562,7 +530,7 @@ class _TerminalScreenState extends ConsumerState<TerminalScreen> {
                       Navigator.pop(context);
                       _deleteSession(id, title);
                     },
-                    icon: const Icon(Icons.delete_outline, size: 18),
+                    icon: const Icon(AppIcons.delete, size: 18),
                     label: const Text('Delete'),
                     style: ElevatedButton.styleFrom(
                       backgroundColor: ocTheme.error,
@@ -579,7 +547,6 @@ class _TerminalScreenState extends ConsumerState<TerminalScreen> {
     );
   }
 }
-
 class _PtySessionTile extends StatelessWidget {
   const _PtySessionTile({
     required this.pty,
@@ -588,13 +555,11 @@ class _PtySessionTile extends StatelessWidget {
     required this.onDelete,
     this.onLongPress,
   });
-
   final Map<String, dynamic> pty;
   final VoidCallback onTap;
   final VoidCallback? onLongPress;
   final VoidCallback onRename;
   final VoidCallback onDelete;
-
   @override
   Widget build(BuildContext context) {
     final ocTheme = OpenCodeTheme.of(context);
@@ -602,10 +567,8 @@ class _PtySessionTile extends StatelessWidget {
     final status = pty['status'] as String? ?? 'unknown';
     final command = pty['command'] as String? ?? '';
     final cwd = pty['cwd'] as String? ?? '';
-
     final isRunning = status == 'running';
     final statusColor = isRunning ? ocTheme.success : ocTheme.textMuted;
-
     return Container(
       margin: Insets.bottomMd,
       decoration: BoxDecoration(
@@ -635,7 +598,7 @@ class _PtySessionTile extends StatelessWidget {
                     children: [
                       Center(
                         child: Icon(
-                          Icons.terminal,
+                          AppIcons.terminal,
                           color: statusColor,
                           size: 24,
                         ),
@@ -690,7 +653,7 @@ class _PtySessionTile extends StatelessWidget {
                 ),
                 // Actions
                 PopupMenuButton<String>(
-                  icon: Icon(Icons.more_vert, color: ocTheme.textMuted),
+                  icon: Icon(AppIcons.moreVertical, color: ocTheme.textMuted),
                   color: ocTheme.backgroundPanel,
                   shape: RoundedRectangleBorder(
                     borderRadius: Radii.brMd,
@@ -712,7 +675,7 @@ class _PtySessionTile extends StatelessWidget {
                         value: 'rename',
                         child: Row(
                           children: [
-                            Icon(Icons.edit, size: 20, color: menuTheme.text),
+                            Icon(AppIcons.edit, size: 20, color: menuTheme.text),
                             SizedBox(width: Spacing.md),
                             const Text('Rename'),
                           ],
@@ -723,7 +686,7 @@ class _PtySessionTile extends StatelessWidget {
                         child: Row(
                           children: [
                             Icon(
-                              Icons.delete_outline,
+                              AppIcons.delete,
                               size: 20,
                               color: menuTheme.error,
                             ),
@@ -746,13 +709,10 @@ class _PtySessionTile extends StatelessWidget {
     );
   }
 }
-
 class _DetailRow extends StatelessWidget {
   const _DetailRow({required this.label, required this.value});
-
   final String label;
   final String value;
-
   @override
   Widget build(BuildContext context) {
     final ocTheme = OpenCodeTheme.of(context);
@@ -783,19 +743,15 @@ class _DetailRow extends StatelessWidget {
     );
   }
 }
-
 class _CreatePtyDialog extends StatefulWidget {
   const _CreatePtyDialog();
-
   @override
   State<_CreatePtyDialog> createState() => _CreatePtyDialogState();
 }
-
 class _CreatePtyDialogState extends State<_CreatePtyDialog> {
   final _titleController = TextEditingController(text: 'Terminal');
   final _commandController = TextEditingController();
   final _cwdController = TextEditingController();
-
   @override
   void dispose() {
     _titleController.dispose();
@@ -803,7 +759,6 @@ class _CreatePtyDialogState extends State<_CreatePtyDialog> {
     _cwdController.dispose();
     super.dispose();
   }
-
   @override
   Widget build(BuildContext context) {
     final ocTheme = OpenCodeTheme.of(context);
@@ -866,7 +821,6 @@ class _CreatePtyDialogState extends State<_CreatePtyDialog> {
       ],
     );
   }
-
   Widget _buildTextField({
     required TextEditingController controller,
     required String label,

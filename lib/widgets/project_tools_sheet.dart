@@ -1,3 +1,4 @@
+
 import 'package:flutter/material.dart';
 import '../theme/app_typography.dart';
 
@@ -24,7 +25,7 @@ import '../screens/tools_screen.dart';
 import '../theme/design_tokens.dart';
 import '../theme/opencode_theme.dart';
 import 'chat/detail_sheet.dart';
-
+import 'package:broski/theme/app_icons.dart';
 /// Shows a project tools sheet using DetailSheet.
 Future<void> showProjectToolsSheet({
   required BuildContext context,
@@ -42,7 +43,6 @@ Future<void> showProjectToolsSheet({
     child: _ProjectToolsContent(backend: backend, project: project),
   );
 }
-
 /// Legacy widget for backwards compatibility.
 /// Prefer using [showProjectToolsSheet] instead.
 class ProjectToolsSheet extends StatelessWidget {
@@ -51,10 +51,8 @@ class ProjectToolsSheet extends StatelessWidget {
     required this.project,
     super.key,
   });
-
   final AgentType backend;
   final ProjectSummary project;
-
   @override
   Widget build(BuildContext context) {
     final backendLabel = backend.displayName;
@@ -67,14 +65,11 @@ class ProjectToolsSheet extends StatelessWidget {
     );
   }
 }
-
 /// The actual content of the project tools sheet.
 class _ProjectToolsContent extends StatelessWidget {
   const _ProjectToolsContent({required this.backend, required this.project});
-
   final AgentType backend;
   final ProjectSummary project;
-
   void _closeAndPush(BuildContext context, Widget screen) {
     final nav = Navigator.of(context);
     nav.pop();
@@ -82,7 +77,6 @@ class _ProjectToolsContent extends StatelessWidget {
       nav.push(MaterialPageRoute(builder: (_) => screen));
     });
   }
-
   Widget _sectionLabel(OpenCodeTheme theme, String text) {
     return Padding(
       padding: const EdgeInsets.fromLTRB(16, 18, 16, 10),
@@ -97,7 +91,6 @@ class _ProjectToolsContent extends StatelessWidget {
       ),
     );
   }
-
   Widget _tile(
     BuildContext context,
     OpenCodeTheme theme, {
@@ -154,7 +147,7 @@ class _ProjectToolsContent extends StatelessWidget {
                 ),
               ),
               Icon(
-                Icons.chevron_right_rounded,
+                AppIcons.chevronRight,
                 size: 20,
                 color: theme.textMuted,
               ),
@@ -164,12 +157,10 @@ class _ProjectToolsContent extends StatelessWidget {
       ),
     );
   }
-
   @override
   Widget build(BuildContext context) {
     final theme = OpenCodeTheme.of(context);
     final projectPath = project.path;
-
     return Column(
       mainAxisSize: MainAxisSize.min,
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -189,7 +180,7 @@ class _ProjectToolsContent extends StatelessWidget {
         _tile(
           context,
           theme,
-          icon: Icons.folder_open_rounded,
+          icon: AppIcons.folderOpen,
           title: 'Projects',
           subtitle: 'Open your project list',
           onTap: () => _closeAndPush(context, const ProjectsScreen()),
@@ -201,7 +192,7 @@ class _ProjectToolsContent extends StatelessWidget {
           _tile(
             context,
             theme,
-            icon: Icons.auto_fix_high_rounded,
+            icon: AppIcons.autoFix,
             title: 'Skills',
             subtitle: 'Project + user skills',
             onTap: () => _closeAndPush(
@@ -212,7 +203,7 @@ class _ProjectToolsContent extends StatelessWidget {
           _tile(
             context,
             theme,
-            icon: Icons.bolt_rounded,
+            icon: AppIcons.bolt,
             title: 'Commands',
             subtitle: '.opencode/commands',
             onTap: () => _closeAndPush(context, const OpenCodeCommandsScreen()),
@@ -220,7 +211,7 @@ class _ProjectToolsContent extends StatelessWidget {
           _tile(
             context,
             theme,
-            icon: Icons.smart_toy_outlined,
+            icon: AppIcons.agent,
             title: 'Agents',
             subtitle: '.opencode/agent',
             onTap: () => _closeAndPush(context, const OpenCodeAgentsScreen()),
@@ -228,7 +219,7 @@ class _ProjectToolsContent extends StatelessWidget {
           _tile(
             context,
             theme,
-            icon: Icons.dns_rounded,
+            icon: AppIcons.dns,
             title: 'MCP Servers',
             subtitle: 'Model Context Protocol',
             onTap: () => _closeAndPush(context, const McpServersScreen()),
@@ -236,7 +227,7 @@ class _ProjectToolsContent extends StatelessWidget {
           _tile(
             context,
             theme,
-            icon: Icons.handyman_rounded,
+            icon: AppIcons.handyman,
             title: 'Tools',
             subtitle: 'Enabled tools + formatters',
             onTap: () => _closeAndPush(context, const ToolsScreen()),
@@ -244,7 +235,7 @@ class _ProjectToolsContent extends StatelessWidget {
           _tile(
             context,
             theme,
-            icon: Icons.extension_rounded,
+            icon: AppIcons.extension_,
             title: 'Plugins',
             subtitle: '.opencode/plugin',
             onTap: () => _closeAndPush(context, const OpenCodePluginsScreen()),
@@ -254,7 +245,7 @@ class _ProjectToolsContent extends StatelessWidget {
           _tile(
             context,
             theme,
-            icon: Icons.auto_fix_high_rounded,
+            icon: AppIcons.autoFix,
             title: 'Skills',
             subtitle: 'Project + user skills',
             onTap: () => _closeAndPush(
@@ -265,7 +256,7 @@ class _ProjectToolsContent extends StatelessWidget {
           _tile(
             context,
             theme,
-            icon: Icons.bolt_rounded,
+            icon: AppIcons.bolt,
             title: 'Commands',
             subtitle: '.claude/commands',
             onTap: () =>
@@ -274,7 +265,7 @@ class _ProjectToolsContent extends StatelessWidget {
           _tile(
             context,
             theme,
-            icon: Icons.link_rounded,
+            icon: AppIcons.link,
             title: 'Hooks',
             subtitle: 'Project + user hooks',
             onTap: () => _closeAndPush(context, const HooksScreen()),
@@ -282,7 +273,7 @@ class _ProjectToolsContent extends StatelessWidget {
           _tile(
             context,
             theme,
-            icon: Icons.hub_rounded,
+            icon: AppIcons.hub,
             title: 'MCP',
             subtitle: 'Project + user MCP config',
             onTap: () => _closeAndPush(context, const ClaudeCodeMcpScreen()),
@@ -290,7 +281,7 @@ class _ProjectToolsContent extends StatelessWidget {
           _tile(
             context,
             theme,
-            icon: Icons.smart_toy_outlined,
+            icon: AppIcons.agent,
             title: 'Subagents',
             subtitle: 'Custom subagent definitions',
             onTap: () => _closeAndPush(context, const SubagentsScreen()),
@@ -298,7 +289,7 @@ class _ProjectToolsContent extends StatelessWidget {
           _tile(
             context,
             theme,
-            icon: Icons.memory_rounded,
+            icon: AppIcons.memory,
             title: 'Memory',
             subtitle: 'Agent memory scopes and status',
             onTap: () => _closeAndPush(context, const ClaudeCodeMemoryScreen()),
@@ -306,7 +297,7 @@ class _ProjectToolsContent extends StatelessWidget {
           _tile(
             context,
             theme,
-            icon: Icons.extension_rounded,
+            icon: AppIcons.extension_,
             title: 'Custom Tools',
             subtitle: 'HTTP APIs, scripts, and more',
             onTap: () => _closeAndPush(context, const CustomToolsScreen()),
@@ -314,7 +305,7 @@ class _ProjectToolsContent extends StatelessWidget {
           _tile(
             context,
             theme,
-            icon: Icons.extension_off_rounded,
+            icon: AppIcons.extensionOff,
             title: 'Plugins',
             subtitle: 'Commands, skills, hooks, MCP',
             onTap: () => _closeAndPush(context, const PluginsScreen()),
@@ -323,7 +314,7 @@ class _ProjectToolsContent extends StatelessWidget {
           _tile(
             context,
             theme,
-            icon: Icons.tune_rounded,
+            icon: AppIcons.tune,
             title: 'Claude Code Settings',
             subtitle: 'Tools, permissions, system prompt',
             onTap: () =>
@@ -334,7 +325,7 @@ class _ProjectToolsContent extends StatelessWidget {
           _tile(
             context,
             theme,
-            icon: Icons.auto_fix_high_rounded,
+            icon: AppIcons.autoFix,
             title: 'Skills',
             subtitle: 'Repo + user skills',
             onTap: () => _closeAndPush(
@@ -345,7 +336,7 @@ class _ProjectToolsContent extends StatelessWidget {
           _tile(
             context,
             theme,
-            icon: Icons.smart_toy_outlined,
+            icon: AppIcons.agent,
             title: 'Agents',
             subtitle: 'AGENTS.md',
             onTap: () => _closeAndPush(context, const CodexAgentsScreen()),
@@ -353,7 +344,7 @@ class _ProjectToolsContent extends StatelessWidget {
           _tile(
             context,
             theme,
-            icon: Icons.dns_rounded,
+            icon: AppIcons.dns,
             title: 'MCP',
             subtitle: 'Servers and config',
             onTap: () => _closeAndPush(context, const CodexMcpScreen()),
@@ -361,7 +352,7 @@ class _ProjectToolsContent extends StatelessWidget {
           _tile(
             context,
             theme,
-            icon: Icons.extension_rounded,
+            icon: AppIcons.extension_,
             title: 'Apps',
             subtitle: 'Connectors & integrations',
             onTap: () {

@@ -1,10 +1,11 @@
+
 import 'package:flutter/material.dart';
 import '../theme/app_typography.dart';
 
 import '../theme/design_tokens.dart';
 import '../theme/opencode_theme.dart';
 import 'chat/detail_sheet.dart';
-
+import 'package:broski/theme/app_icons.dart';
 /// Shows a rollback sheet using DetailSheet.
 /// Returns Future that completes when the sheet is dismissed.
 Future<void> showRollbackSheet({
@@ -21,7 +22,6 @@ Future<void> showRollbackSheet({
     child: _RollbackSheetContent(maxTurns: maxTurns, onRollback: onRollback),
   );
 }
-
 /// Legacy widget for backwards compatibility.
 /// Prefer using [showRollbackSheet] instead.
 class RollbackSheet extends StatefulWidget {
@@ -30,14 +30,11 @@ class RollbackSheet extends StatefulWidget {
     required this.maxTurns,
     required this.onRollback,
   });
-
   final int maxTurns;
   final Future<void> Function(int numTurns) onRollback;
-
   @override
   State<RollbackSheet> createState() => _RollbackSheetState();
 }
-
 class _RollbackSheetState extends State<RollbackSheet> {
   @override
   Widget build(BuildContext context) {
@@ -53,37 +50,30 @@ class _RollbackSheetState extends State<RollbackSheet> {
     );
   }
 }
-
 /// The actual content of the rollback sheet.
 class _RollbackSheetContent extends StatefulWidget {
   const _RollbackSheetContent({
     required this.maxTurns,
     required this.onRollback,
   });
-
   final int maxTurns;
   final Future<void> Function(int numTurns) onRollback;
-
   @override
   State<_RollbackSheetContent> createState() => _RollbackSheetContentState();
 }
-
 class _RollbackSheetContentState extends State<_RollbackSheetContent> {
   int _turns = 1;
   bool _working = false;
-
   @override
   void initState() {
     super.initState();
     _turns = widget.maxTurns < 1 ? 1 : 1;
   }
-
   @override
   Widget build(BuildContext context) {
     final theme = OpenCodeTheme.of(context);
     final max = widget.maxTurns < 1 ? 1 : widget.maxTurns;
     final turns = _turns.clamp(1, max);
-
     return Padding(
       padding: const EdgeInsets.fromLTRB(20, 8, 20, 20),
       child: Column(
@@ -101,7 +91,7 @@ class _RollbackSheetContentState extends State<_RollbackSheetContent> {
                 onPressed: _working || turns <= 1
                     ? null
                     : () => setState(() => _turns = turns - 1),
-                icon: const Icon(Icons.remove_circle_outline_rounded),
+                icon: const Icon(AppIcons.remove),
                 color: theme.textMuted,
               ),
               Expanded(
@@ -121,7 +111,7 @@ class _RollbackSheetContentState extends State<_RollbackSheetContent> {
                 onPressed: _working || turns >= max
                     ? null
                     : () => setState(() => _turns = turns + 1),
-                icon: const Icon(Icons.add_circle_outline_rounded),
+                icon: const Icon(AppIcons.add),
                 color: theme.textMuted,
               ),
             ],

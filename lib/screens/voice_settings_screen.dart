@@ -1,3 +1,4 @@
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:url_launcher/url_launcher.dart';
@@ -6,15 +7,13 @@ import '../models/stt_settings.dart';
 import '../providers/stt_provider.dart';
 import '../theme/design_tokens.dart';
 import '../theme/opencode_theme.dart';
-
+import 'package:broski/theme/app_icons.dart';
 class VoiceSettingsScreen extends ConsumerStatefulWidget {
   const VoiceSettingsScreen({super.key});
-
   @override
   ConsumerState<VoiceSettingsScreen> createState() =>
       _VoiceSettingsScreenState();
 }
-
 class _VoiceSettingsScreenState extends ConsumerState<VoiceSettingsScreen> {
   final _groqKeyController = TextEditingController();
   final _openaiKeyController = TextEditingController();
@@ -22,7 +21,6 @@ class _VoiceSettingsScreenState extends ConsumerState<VoiceSettingsScreen> {
   bool _showOpenaiKey = false;
   bool _testingKey = false;
   String? _testResult;
-
   @override
   void initState() {
     super.initState();
@@ -33,35 +31,28 @@ class _VoiceSettingsScreenState extends ConsumerState<VoiceSettingsScreen> {
       _openaiKeyController.text = settings.openaiApiKey ?? '';
     });
   }
-
   @override
   void dispose() {
     _groqKeyController.dispose();
     _openaiKeyController.dispose();
     super.dispose();
   }
-
   Future<void> _testApiKey(SttProvider provider) async {
     final controller = provider == SttProvider.groq
         ? _groqKeyController
         : _openaiKeyController;
     final key = controller.text.trim();
-
     if (key.isEmpty) {
       setState(() => _testResult = 'Please enter an API key');
       return;
     }
-
     setState(() {
       _testingKey = true;
       _testResult = null;
     });
-
     final notifier = ref.read(sttProvider.notifier);
     final error = await notifier.testSpecificApiKey(provider, key);
-
     if (!mounted) return;
-
     setState(() {
       _testingKey = false;
       if (error == null) {
@@ -72,27 +63,23 @@ class _VoiceSettingsScreenState extends ConsumerState<VoiceSettingsScreen> {
         _testResult = error;
       }
     });
-
     // Clear result after 3 seconds
     Future.delayed(const Duration(seconds: 3), () {
       if (mounted) setState(() => _testResult = null);
     });
   }
-
   Future<void> _openProviderDocs(SttProvider provider) async {
     final url = provider == SttProvider.groq
         ? 'https://console.groq.com/keys'
         : 'https://platform.openai.com/api-keys';
     await launchUrl(Uri.parse(url), mode: LaunchMode.externalApplication);
   }
-
   @override
   Widget build(BuildContext context) {
     final ocTheme = OpenCodeTheme.of(context);
     final sttState = ref.watch(sttProvider);
     final settings = sttState.settings;
     final notifier = ref.read(sttProvider.notifier);
-
     return Scaffold(
       backgroundColor: ocTheme.background,
       appBar: AppBar(
@@ -114,7 +101,7 @@ class _VoiceSettingsScreenState extends ConsumerState<VoiceSettingsScreen> {
             ),
             child: Row(
               children: [
-                Icon(Icons.mic, color: ocTheme.primary, size: 20),
+                Icon(AppIcons.mic, color: ocTheme.primary, size: 20),
                 SizedBox(width: Spacing.md),
                 Expanded(
                   child: Text(
@@ -130,7 +117,6 @@ class _VoiceSettingsScreenState extends ConsumerState<VoiceSettingsScreen> {
             ),
           ),
           SizedBox(height: Spacing.lg),
-
           // Provider Selection
           _Section(
             title: 'Provider',
@@ -151,7 +137,6 @@ class _VoiceSettingsScreenState extends ConsumerState<VoiceSettingsScreen> {
             ],
           ),
           SizedBox(height: Spacing.md),
-
           // Model Selection
           _Section(
             title: 'Model',
@@ -166,7 +151,6 @@ class _VoiceSettingsScreenState extends ConsumerState<VoiceSettingsScreen> {
             ],
           ),
           SizedBox(height: Spacing.md),
-
           // API Key Input
           _Section(
             title: '${settings.provider.displayName} API Key',
@@ -210,11 +194,11 @@ class _VoiceSettingsScreenState extends ConsumerState<VoiceSettingsScreen> {
                           icon: Icon(
                             settings.provider == SttProvider.groq
                                 ? (_showGroqKey
-                                      ? Icons.visibility_off
-                                      : Icons.visibility)
+                                      ? AppIcons.visibilityOff
+                                      : AppIcons.visibility)
                                 : (_showOpenaiKey
-                                      ? Icons.visibility_off
-                                      : Icons.visibility),
+                                      ? AppIcons.visibilityOff
+                                      : AppIcons.visibility),
                             color: ocTheme.textMuted,
                             size: 20,
                           ),
@@ -234,7 +218,6 @@ class _VoiceSettingsScreenState extends ConsumerState<VoiceSettingsScreen> {
                       },
                     ),
                     SizedBox(height: Spacing.md),
-
                     // Action buttons
                     Row(
                       children: [
@@ -252,7 +235,7 @@ class _VoiceSettingsScreenState extends ConsumerState<VoiceSettingsScreen> {
                                       color: ocTheme.primary,
                                     ),
                                   )
-                                : Icon(Icons.check, size: 18),
+                                : Icon(AppIcons.check, size: 18),
                             label: Text(
                               _testingKey ? 'Testing...' : 'Test Key',
                             ),
@@ -274,7 +257,7 @@ class _VoiceSettingsScreenState extends ConsumerState<VoiceSettingsScreen> {
                               notifier.clearApiKey(SttProvider.openai);
                             }
                           },
-                          icon: Icon(Icons.delete_outline, size: 18),
+                          icon: Icon(AppIcons.delete, size: 18),
                           label: const Text('Clear'),
                           style: OutlinedButton.styleFrom(
                             foregroundColor: ocTheme.error,
@@ -287,7 +270,6 @@ class _VoiceSettingsScreenState extends ConsumerState<VoiceSettingsScreen> {
                         ),
                       ],
                     ),
-
                     // Test result message
                     if (_testResult != null) ...[
                       SizedBox(height: Spacing.md),
@@ -303,8 +285,8 @@ class _VoiceSettingsScreenState extends ConsumerState<VoiceSettingsScreen> {
                           children: [
                             Icon(
                               _testResult!.contains('valid')
-                                  ? Icons.check_circle
-                                  : Icons.error_outline,
+                                  ? AppIcons.checkCircle
+                                  : AppIcons.error,
                               color: _testResult!.contains('valid')
                                   ? ocTheme.success
                                   : ocTheme.error,
@@ -326,9 +308,7 @@ class _VoiceSettingsScreenState extends ConsumerState<VoiceSettingsScreen> {
                         ),
                       ),
                     ],
-
                     SizedBox(height: Spacing.md),
-
                     // Get key link
                     InkWell(
                       onTap: () => _openProviderDocs(settings.provider),
@@ -338,7 +318,7 @@ class _VoiceSettingsScreenState extends ConsumerState<VoiceSettingsScreen> {
                         child: Row(
                           children: [
                             Icon(
-                              Icons.open_in_new,
+                              AppIcons.openExternal,
                               color: ocTheme.primary,
                               size: 16,
                             ),
@@ -363,14 +343,13 @@ class _VoiceSettingsScreenState extends ConsumerState<VoiceSettingsScreen> {
             ],
           ),
           SizedBox(height: Spacing.md),
-
           // Configuration status
           _Section(
             title: 'Status',
             children: [
               ListTile(
                 leading: Icon(
-                  settings.isConfigured ? Icons.check_circle : Icons.warning,
+                  settings.isConfigured ? AppIcons.checkCircle : AppIcons.warning,
                   color: settings.isConfigured
                       ? ocTheme.success
                       : ocTheme.warning,
@@ -389,7 +368,6 @@ class _VoiceSettingsScreenState extends ConsumerState<VoiceSettingsScreen> {
             ],
           ),
           SizedBox(height: Spacing.md),
-
           // Cost comparison
           _Section(
             title: 'Cost Comparison',
@@ -421,13 +399,10 @@ class _VoiceSettingsScreenState extends ConsumerState<VoiceSettingsScreen> {
     );
   }
 }
-
 class _Section extends StatelessWidget {
   const _Section({required this.title, required this.children});
-
   final String title;
   final List<Widget> children;
-
   @override
   Widget build(BuildContext context) {
     final ocTheme = OpenCodeTheme.of(context);
@@ -457,7 +432,6 @@ class _Section extends StatelessWidget {
     );
   }
 }
-
 class _ProviderTile extends StatelessWidget {
   const _ProviderTile({
     required this.provider,
@@ -466,13 +440,11 @@ class _ProviderTile extends StatelessWidget {
     required this.onTap,
     this.badge,
   });
-
   final SttProvider provider;
   final bool isSelected;
   final String subtitle;
   final String? badge;
   final VoidCallback onTap;
-
   @override
   Widget build(BuildContext context) {
     final ocTheme = OpenCodeTheme.of(context);
@@ -557,18 +529,15 @@ class _ProviderTile extends StatelessWidget {
     );
   }
 }
-
 class _ModelTile extends StatelessWidget {
   const _ModelTile({
     required this.model,
     required this.isSelected,
     required this.onTap,
   });
-
   final SttModel model;
   final bool isSelected;
   final VoidCallback onTap;
-
   @override
   Widget build(BuildContext context) {
     final ocTheme = OpenCodeTheme.of(context);
@@ -579,7 +548,7 @@ class _ModelTile extends StatelessWidget {
         child: Row(
           children: [
             Icon(
-              isSelected ? Icons.radio_button_checked : Icons.radio_button_off,
+              isSelected ? AppIcons.radioChecked : AppIcons.radioUnchecked,
               color: isSelected ? ocTheme.primary : ocTheme.textMuted,
               size: 20,
             ),
@@ -637,7 +606,6 @@ class _ModelTile extends StatelessWidget {
     );
   }
 }
-
 class _CostRow extends StatelessWidget {
   const _CostRow({
     required this.provider,
@@ -645,12 +613,10 @@ class _CostRow extends StatelessWidget {
     required this.speed,
     required this.isHighlighted,
   });
-
   final String provider;
   final String cost;
   final String speed;
   final bool isHighlighted;
-
   @override
   Widget build(BuildContext context) {
     final ocTheme = OpenCodeTheme.of(context);

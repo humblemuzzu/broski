@@ -1,3 +1,4 @@
+
 import 'package:flutter/material.dart';
 import '../../theme/app_typography.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -8,16 +9,14 @@ import '../../providers/card_style_provider.dart';
 import '../../theme/design_tokens.dart';
 import '../../theme/opencode_theme.dart';
 import 'detail_sheet.dart';
-
+import 'package:broski/theme/app_icons.dart';
 /// An inline card showing the current todo list.
 /// Displayed in chat flow when todos are updated via TodoWrite.
 /// Tapping opens full todo list in a sheet.
 class CompactTodosCard extends ConsumerWidget {
   final List<Todo> todos;
   final VoidCallback? onTap;
-
   const CompactTodosCard({super.key, required this.todos, this.onTap});
-
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final theme = OpenCodeTheme.of(context);
@@ -26,12 +25,10 @@ class CompactTodosCard extends ConsumerWidget {
         .where((t) => t.status == TodoStatus.completed)
         .length;
     final displayTodos = todos.take(5).toList();
-
     // Determine colors based on card style settings
     final Color headerBg;
     final Color borderColor;
     final toolColor = theme.toolTodo;
-
     switch (cardStyle.headerStyle) {
       case CardHeaderStyle.solid:
         headerBg = theme.cardHeaderBg;
@@ -40,7 +37,6 @@ class CompactTodosCard extends ConsumerWidget {
       case CardHeaderStyle.minimal:
         headerBg = Colors.transparent;
     }
-
     switch (cardStyle.borderVisibility) {
       case CardBorderVisibility.subtle:
         borderColor = theme.cardBorderSubtle;
@@ -49,7 +45,6 @@ class CompactTodosCard extends ConsumerWidget {
       case CardBorderVisibility.accent:
         borderColor = toolColor.withValues(alpha: 0.5);
     }
-
     return GestureDetector(
       onTap: () {
         if (onTap != null) {
@@ -83,7 +78,7 @@ class CompactTodosCard extends ConsumerWidget {
                   Row(
                     children: [
                       Icon(
-                        Icons.checklist_rounded,
+                        AppIcons.checklist,
                         size: 16,
                         color: theme.toolTodo,
                       ),
@@ -117,7 +112,6 @@ class CompactTodosCard extends ConsumerWidget {
                 ],
               ),
             ),
-
             // Progress bar
             Padding(
               padding: EdgeInsets.fromLTRB(Spacing.md, Spacing.sm, Spacing.md, 0),
@@ -133,7 +127,6 @@ class CompactTodosCard extends ConsumerWidget {
                 ),
               ),
             ),
-
             // Todo items
             Padding(
               padding: Insets.cardH,
@@ -141,7 +134,6 @@ class CompactTodosCard extends ConsumerWidget {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   ...displayTodos.map((todo) => _buildTodoRow(todo, theme)),
-
                   // "And N more" if truncated
                   if (todos.length > 5)
                     Padding(
@@ -164,10 +156,8 @@ class CompactTodosCard extends ConsumerWidget {
       ),
     );
   }
-
   Widget _buildTodoRow(Todo todo, OpenCodeTheme theme) {
     final (icon, color) = _getStatusIconAndColor(todo.status, theme);
-
     return Padding(
       padding: Insets.chipV,
       child: Row(
@@ -194,29 +184,26 @@ class CompactTodosCard extends ConsumerWidget {
       ),
     );
   }
-
   (IconData, Color) _getStatusIconAndColor(
     TodoStatus status,
     OpenCodeTheme theme,
   ) {
     switch (status) {
       case TodoStatus.completed:
-        return (Icons.check_box, theme.success);
+        return (AppIcons.checkBox, theme.success);
       case TodoStatus.inProgress:
-        return (Icons.radio_button_checked, theme.info);
+        return (AppIcons.radioChecked, theme.info);
       case TodoStatus.cancelled:
-        return (Icons.disabled_by_default_outlined, theme.textMuted);
+        return (AppIcons.cancel, theme.textMuted);
       case TodoStatus.pending:
-        return (Icons.check_box_outline_blank, theme.textMuted);
+        return (AppIcons.checkBoxBlank, theme.textMuted);
     }
   }
-
   void _showDetailSheet(BuildContext context) {
     final theme = OpenCodeTheme.of(context);
     final completed = todos
         .where((t) => t.status == TodoStatus.completed)
         .length;
-
     DetailSheet.show(
       context: context,
       title: 'Todos',
@@ -233,18 +220,14 @@ class CompactTodosCard extends ConsumerWidget {
     );
   }
 }
-
 /// Detailed todo item for the sheet view
 class _TodoDetailItem extends StatelessWidget {
   final Todo todo;
-
   const _TodoDetailItem({required this.todo});
-
   @override
   Widget build(BuildContext context) {
     final theme = OpenCodeTheme.of(context);
     final (icon, color) = _getStatusIconAndColor(todo.status, theme);
-
     return Container(
       padding: Insets.listItem,
       decoration: BoxDecoration(
@@ -261,7 +244,6 @@ class _TodoDetailItem extends StatelessWidget {
             child: Icon(icon, size: 18, color: color),
           ),
           SizedBox(width: Spacing.md),
-
           // Content and priority
           Expanded(
             child: Column(
@@ -280,7 +262,6 @@ class _TodoDetailItem extends StatelessWidget {
                         : null,
                   ),
                 ),
-
                 // Priority badge (if high)
                 if (todo.priority == TodoPriority.high)
                   Padding(
@@ -311,20 +292,19 @@ class _TodoDetailItem extends StatelessWidget {
       ),
     );
   }
-
   (IconData, Color) _getStatusIconAndColor(
     TodoStatus status,
     OpenCodeTheme theme,
   ) {
     switch (status) {
       case TodoStatus.completed:
-        return (Icons.check_box, theme.success);
+        return (AppIcons.checkBox, theme.success);
       case TodoStatus.inProgress:
-        return (Icons.radio_button_checked, theme.info);
+        return (AppIcons.radioChecked, theme.info);
       case TodoStatus.cancelled:
-        return (Icons.disabled_by_default_outlined, theme.textMuted);
+        return (AppIcons.cancel, theme.textMuted);
       case TodoStatus.pending:
-        return (Icons.check_box_outline_blank, theme.textMuted);
+        return (AppIcons.checkBoxBlank, theme.textMuted);
     }
   }
 }

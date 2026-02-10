@@ -1,10 +1,11 @@
+
 import 'package:flutter/material.dart';
 import '../theme/app_typography.dart';
 
 import '../models/question.dart';
 import '../theme/design_tokens.dart';
 import '../theme/opencode_theme.dart';
-
+import 'package:broski/theme/app_icons.dart';
 class QuestionPromptSheet extends StatefulWidget {
   const QuestionPromptSheet({
     super.key,
@@ -12,24 +13,19 @@ class QuestionPromptSheet extends StatefulWidget {
     required this.onReply,
     required this.onReject,
   });
-
   final QuestionRequest request;
   final void Function(List<List<String>> answers) onReply;
   final VoidCallback onReject;
-
   @override
   State<QuestionPromptSheet> createState() => _QuestionPromptSheetState();
 }
-
 class _QuestionPromptSheetState extends State<QuestionPromptSheet> {
   late final List<List<String>> _answers;
   late final List<String> _custom;
   late int _currentPage;
   bool _submitted = false;
-
   int get _totalQuestions => widget.request.questions.length;
   bool get _isSingle => _totalQuestions == 1;
-
   @override
   void initState() {
     super.initState();
@@ -37,44 +33,37 @@ class _QuestionPromptSheetState extends State<QuestionPromptSheet> {
     _custom = List.generate(_totalQuestions, (_) => '');
     _currentPage = 0;
   }
-
   bool get _currentAnswered {
     final a = _answers[_currentPage];
     return a.any((s) => s.trim().isNotEmpty);
   }
-
   bool get _allAnswered {
     for (final a in _answers) {
       if (!a.any((s) => s.trim().isNotEmpty)) return false;
     }
     return true;
   }
-
   void _submit() {
     if (_submitted) return;
     setState(() => _submitted = true);
     widget.onReply(_answers);
   }
-
   void _dismiss() {
     if (_submitted) return;
     setState(() => _submitted = true);
     widget.onReject();
   }
-
   void _pickSingle(int qi, String value) {
     setState(() {
       _answers[qi]
         ..clear()
         ..add(value);
     });
-
     // Single question with single-select: auto-submit
     if (_isSingle && widget.request.questions.first.multiple != true) {
       _submit();
       return;
     }
-
     // Multi-question: auto-advance
     if (_currentPage < _totalQuestions - 1) {
       Future.delayed(const Duration(milliseconds: 200), () {
@@ -82,7 +71,6 @@ class _QuestionPromptSheetState extends State<QuestionPromptSheet> {
       });
     }
   }
-
   void _toggleMulti(int qi, String value) {
     setState(() {
       final existing = _answers[qi];
@@ -93,7 +81,6 @@ class _QuestionPromptSheetState extends State<QuestionPromptSheet> {
       }
     });
   }
-
   Future<void> _editCustom(int qi, {required bool multiple}) async {
     final theme = OpenCodeTheme.of(context);
     final controller = TextEditingController(text: _custom[qi]);
@@ -172,7 +159,6 @@ class _QuestionPromptSheetState extends State<QuestionPromptSheet> {
       },
     );
     if (result == null) return;
-
     setState(() {
       final prev = _custom[qi];
       _custom[qi] = result;
@@ -187,7 +173,6 @@ class _QuestionPromptSheetState extends State<QuestionPromptSheet> {
           ..add(result);
       }
     });
-
     // Single question auto-submit for custom answer too
     if (_isSingle && widget.request.questions.first.multiple != true) {
       if (_answers[0].any((s) => s.trim().isNotEmpty)) _submit();
@@ -199,12 +184,10 @@ class _QuestionPromptSheetState extends State<QuestionPromptSheet> {
       });
     }
   }
-
   @override
   Widget build(BuildContext context) {
     final theme = OpenCodeTheme.of(context);
     final question = widget.request.questions[_currentPage];
-
     return SafeArea(
       child: AnimatedContainer(
         duration: const Duration(milliseconds: 200),
@@ -232,7 +215,6 @@ class _QuestionPromptSheetState extends State<QuestionPromptSheet> {
       ),
     );
   }
-
   Widget _buildHeader(OpenCodeTheme theme) {
     return Padding(
       padding: const EdgeInsets.fromLTRB(20, 14, 12, 0),
@@ -246,7 +228,7 @@ class _QuestionPromptSheetState extends State<QuestionPromptSheet> {
               borderRadius: Radii.brMd,
             ),
             child: Icon(
-              Icons.help_outline_rounded,
+              AppIcons.help,
               size: 17,
               color: theme.primary,
             ),
@@ -275,7 +257,7 @@ class _QuestionPromptSheetState extends State<QuestionPromptSheet> {
           ),
           IconButton(
             onPressed: _submitted ? null : _dismiss,
-            icon: Icon(Icons.close_rounded, size: 20, color: theme.textMuted),
+            icon: Icon(AppIcons.close, size: 20, color: theme.textMuted),
             style: IconButton.styleFrom(
               backgroundColor: theme.bgRaised,
               shape: RoundedRectangleBorder(
@@ -289,7 +271,6 @@ class _QuestionPromptSheetState extends State<QuestionPromptSheet> {
       ),
     );
   }
-
   Widget _buildProgressDots(OpenCodeTheme theme) {
     return Padding(
       padding: const EdgeInsets.only(top: 12),
@@ -316,7 +297,6 @@ class _QuestionPromptSheetState extends State<QuestionPromptSheet> {
       ),
     );
   }
-
   Widget _buildQuestionBody(
     OpenCodeTheme theme,
     QuestionInfo question,
@@ -324,7 +304,6 @@ class _QuestionPromptSheetState extends State<QuestionPromptSheet> {
   ) {
     final opts = question.options;
     final isMultiple = question.multiple;
-
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       mainAxisSize: MainAxisSize.min,
@@ -386,12 +365,10 @@ class _QuestionPromptSheetState extends State<QuestionPromptSheet> {
       ],
     );
   }
-
   Widget _buildFooter(OpenCodeTheme theme) {
     final showBackNext = !_isSingle;
     final isLast = _currentPage == _totalQuestions - 1;
     final isFirst = _currentPage == 0;
-
     return Padding(
       padding: const EdgeInsets.fromLTRB(20, 8, 20, 16),
       child: Row(
@@ -432,7 +409,6 @@ class _QuestionPromptSheetState extends State<QuestionPromptSheet> {
     );
   }
 }
-
 // ---------------------------------------------------------------------------
 // Option tile - modern card-style option
 // ---------------------------------------------------------------------------
@@ -446,7 +422,6 @@ class _OptionTile extends StatelessWidget {
     this.isCustom = false,
     this.onTap,
   });
-
   final String label;
   final String description;
   final bool isSelected;
@@ -454,7 +429,6 @@ class _OptionTile extends StatelessWidget {
   final bool isCustom;
   final OpenCodeTheme theme;
   final VoidCallback? onTap;
-
   @override
   Widget build(BuildContext context) {
     return Padding(
@@ -499,13 +473,13 @@ class _OptionTile extends StatelessWidget {
                   ),
                   child: isSelected
                       ? Icon(
-                          Icons.check_rounded,
+                          AppIcons.check,
                           size: 14,
                           color: theme.bgSheet,
                         )
                       : isCustom
                       ? Icon(
-                          Icons.edit_rounded,
+                          AppIcons.edit,
                           size: 11,
                           color: theme.textMuted.withValues(alpha: 0.4),
                         )
@@ -554,7 +528,6 @@ class _OptionTile extends StatelessWidget {
     );
   }
 }
-
 // ---------------------------------------------------------------------------
 // Footer button
 // ---------------------------------------------------------------------------
@@ -565,12 +538,10 @@ class _FooterButton extends StatelessWidget {
     this.isPrimary = false,
     this.onTap,
   });
-
   final String label;
   final OpenCodeTheme theme;
   final bool isPrimary;
   final VoidCallback? onTap;
-
   @override
   Widget build(BuildContext context) {
     final enabled = onTap != null;

@@ -1,3 +1,4 @@
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../theme/app_typography.dart';
@@ -8,32 +9,27 @@ import '../models/skill.dart';
 import '../providers/selection_provider.dart';
 import '../providers/service_providers.dart';
 import '../theme/opencode_theme.dart';
-
+import 'package:broski/theme/app_icons.dart';
 class OpenCodePluginsScreen extends ConsumerStatefulWidget {
   const OpenCodePluginsScreen({super.key});
-
   @override
   ConsumerState<OpenCodePluginsScreen> createState() =>
       _OpenCodePluginsScreenState();
 }
-
 class _OpenCodePluginsScreenState extends ConsumerState<OpenCodePluginsScreen> {
   List<OpenCodePluginFile> _files = const [];
   bool _loading = true;
   String? _error;
-
   @override
   void initState() {
     super.initState();
     _load();
   }
-
   Future<void> _load() async {
     setState(() {
       _loading = true;
       _error = null;
     });
-
     final cwd = ref.read(selectionProvider).project?.path;
     try {
       final bridge = ref.read(bridgeServiceProvider);
@@ -51,7 +47,6 @@ class _OpenCodePluginsScreenState extends ConsumerState<OpenCodePluginsScreen> {
       });
     }
   }
-
   Future<void> _open(OpenCodePluginFile file) async {
     final cwd = ref.read(selectionProvider).project?.path;
     final bridge = ref.read(bridgeServiceProvider);
@@ -86,17 +81,14 @@ class _OpenCodePluginsScreenState extends ConsumerState<OpenCodePluginsScreen> {
       );
     }
   }
-
   Future<void> _create() async {
     final cwd = ref.read(selectionProvider).project?.path;
     final sources = <SkillSource>[
       if (cwd != null) SkillSource.project,
       SkillSource.user,
     ];
-
     final filenameController = TextEditingController(text: 'my-plugin.ts');
     SkillSource selectedSource = sources.first;
-
     final result = await showDialog<bool>(
       context: context,
       builder: (ctx) => StatefulBuilder(
@@ -149,12 +141,9 @@ class _OpenCodePluginsScreenState extends ConsumerState<OpenCodePluginsScreen> {
         ),
       ),
     );
-
     if (result != true || !mounted) return;
-
     final filename = filenameController.text.trim();
     if (filename.isEmpty) return;
-
     final template = '''export const MyPlugin = async (_ctx) => {
   return {
     // Add hook handlers here (see OpenCode docs: Plugins)
@@ -162,7 +151,6 @@ class _OpenCodePluginsScreenState extends ConsumerState<OpenCodePluginsScreen> {
   };
 };
 ''';
-
     final bridge = ref.read(bridgeServiceProvider);
     final ok = await bridge.ocSavePluginFile(
       name: filename,
@@ -178,7 +166,6 @@ class _OpenCodePluginsScreenState extends ConsumerState<OpenCodePluginsScreen> {
     }
     await _load();
   }
-
   Future<void> _delete(OpenCodePluginFile file) async {
     final cwd = ref.read(selectionProvider).project?.path;
     final confirmed = await showDialog<bool>(
@@ -200,7 +187,6 @@ class _OpenCodePluginsScreenState extends ConsumerState<OpenCodePluginsScreen> {
       ),
     );
     if (confirmed != true || !mounted) return;
-
     final bridge = ref.read(bridgeServiceProvider);
     final ok = await bridge.ocDeletePluginFile(
       name: file.name,
@@ -215,11 +201,9 @@ class _OpenCodePluginsScreenState extends ConsumerState<OpenCodePluginsScreen> {
     }
     await _load();
   }
-
   @override
   Widget build(BuildContext context) {
     final oc = OpenCodeTheme.of(context);
-
     final grouped = <SkillSource, List<OpenCodePluginFile>>{};
     for (final f in _files) {
       grouped.putIfAbsent(f.source, () => []).add(f);
@@ -227,7 +211,6 @@ class _OpenCodePluginsScreenState extends ConsumerState<OpenCodePluginsScreen> {
     final order = [SkillSource.project, SkillSource.user]
         .where(grouped.containsKey)
         .toList();
-
     return Scaffold(
       backgroundColor: oc.background,
       appBar: AppBar(
@@ -237,12 +220,12 @@ class _OpenCodePluginsScreenState extends ConsumerState<OpenCodePluginsScreen> {
         iconTheme: IconThemeData(color: oc.text),
         actions: [
           IconButton(
-            icon: const Icon(Icons.refresh_rounded),
+            icon: const Icon(AppIcons.refresh),
             onPressed: _load,
             tooltip: 'Refresh',
           ),
           IconButton(
-            icon: const Icon(Icons.add_rounded),
+            icon: const Icon(AppIcons.add),
             onPressed: _create,
             tooltip: 'Create plugin file',
           ),
@@ -264,7 +247,7 @@ class _OpenCodePluginsScreenState extends ConsumerState<OpenCodePluginsScreen> {
                 child: Column(
                   mainAxisAlignment: MainAxisAlignment.center,
                   children: [
-                    Icon(Icons.extension_rounded, color: oc.textMuted, size: 56),
+                    Icon(AppIcons.extension_, color: oc.textMuted, size: 56),
                     SizedBox(height: Spacing.md),
                     Text('No plugin files', style: TextStyle(color: oc.text)),
                     SizedBox(height: Spacing.sm),
@@ -276,7 +259,7 @@ class _OpenCodePluginsScreenState extends ConsumerState<OpenCodePluginsScreen> {
                     SizedBox(height: Spacing.lg),
                     ElevatedButton.icon(
                       onPressed: _create,
-                      icon: const Icon(Icons.add_rounded),
+                      icon: const Icon(AppIcons.add),
                       label: const Text('Create'),
                     ),
                   ],
@@ -341,38 +324,31 @@ class _OpenCodePluginsScreenState extends ConsumerState<OpenCodePluginsScreen> {
     );
   }
 }
-
 class _PluginEditorScreen extends StatefulWidget {
   const _PluginEditorScreen({
     required this.title,
     required this.initialContent,
     required this.onSave,
   });
-
   final String title;
   final String initialContent;
   final Future<bool> Function(String content) onSave;
-
   @override
   State<_PluginEditorScreen> createState() => _PluginEditorScreenState();
 }
-
 class _PluginEditorScreenState extends State<_PluginEditorScreen> {
   late final TextEditingController _controller;
   bool _saving = false;
-
   @override
   void initState() {
     super.initState();
     _controller = TextEditingController(text: widget.initialContent);
   }
-
   @override
   void dispose() {
     _controller.dispose();
     super.dispose();
   }
-
   Future<void> _save() async {
     final oc = OpenCodeTheme.of(context);
     setState(() => _saving = true);
@@ -390,7 +366,6 @@ class _PluginEditorScreenState extends State<_PluginEditorScreen> {
       if (mounted) setState(() => _saving = false);
     }
   }
-
   @override
   Widget build(BuildContext context) {
     final oc = OpenCodeTheme.of(context);
@@ -441,4 +416,3 @@ class _PluginEditorScreenState extends State<_PluginEditorScreen> {
     );
   }
 }
-

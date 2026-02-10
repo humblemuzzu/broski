@@ -1,3 +1,4 @@
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
@@ -17,18 +18,16 @@ import '../theme/opencode_theme.dart';
 import 'appearance_screen.dart';
 import 'background_screen.dart';
 import 'theme_selector_screen.dart';
-
+import 'package:broski/theme/app_icons.dart';
 /// Helper to get contrasting text color for a background
 Color _contrastColor(Color background) {
   // Calculate luminance and return white or black
   final luminance = background.computeLuminance();
   return luminance > 0.5 ? Colors.black : Colors.white;
 }
-
 /// Unified customization screen for all appearance and UX settings
 class CustomizationScreen extends ConsumerWidget {
   const CustomizationScreen({super.key});
-
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final theme = Theme.of(context);
@@ -41,7 +40,6 @@ class CustomizationScreen extends ConsumerWidget {
     final promptAccent = ref.watch(promptAccentProvider);
     final glowStyle = ref.watch(glowStyleProvider);
     final ocTheme = OpenCodeTheme.of(context);
-
     return Scaffold(
       backgroundColor: theme.scaffoldBackgroundColor,
       appBar: AppBar(
@@ -57,7 +55,7 @@ class CustomizationScreen extends ConsumerWidget {
         ),
         leading: IconButton(
           icon: Icon(
-            Icons.arrow_back_rounded,
+            AppIcons.back,
             color: theme.colorScheme.onSurface,
           ),
           onPressed: () => Navigator.pop(context),
@@ -75,7 +73,7 @@ class CustomizationScreen extends ConsumerWidget {
                 _NavigationTile(
                   title: 'Color Theme',
                   subtitle: currentThemeInfo?.name ?? 'OpenCode',
-                  icon: Icons.palette_rounded,
+                  icon: AppIcons.palette,
                   trailing: Row(
                     mainAxisSize: MainAxisSize.min,
                     children: [
@@ -96,7 +94,7 @@ class CustomizationScreen extends ConsumerWidget {
                       ),
                       SizedBox(width: Spacing.sm),
                       Icon(
-                        Icons.chevron_right_rounded,
+                        AppIcons.chevronRight,
                         size: 20,
                         color: theme.colorScheme.onSurface.withValues(
                           alpha: 0.5,
@@ -115,7 +113,7 @@ class CustomizationScreen extends ConsumerWidget {
                 _NavigationTile(
                   title: 'Tool Cards',
                   subtitle: 'Icons, colors, and card styling',
-                  icon: Icons.dashboard_customize_rounded,
+                  icon: AppIcons.dashboard,
                   onTap: () => Navigator.push(
                     context,
                     MaterialPageRoute(builder: (_) => const AppearanceScreen()),
@@ -125,7 +123,7 @@ class CustomizationScreen extends ConsumerWidget {
                 _NavigationTile(
                   title: 'Background',
                   subtitle: 'Wallpaper, shade, and per-screen settings',
-                  icon: Icons.wallpaper_rounded,
+                  icon: AppIcons.wallpaper,
                   onTap: () => Navigator.push(
                     context,
                     MaterialPageRoute(builder: (_) => const BackgroundScreen()),
@@ -134,9 +132,7 @@ class CustomizationScreen extends ConsumerWidget {
               ],
             ),
           ),
-
           const SizedBox(height: 28),
-
           // Input Bar Section
           _SectionHeader(title: 'Input Bar'),
           SizedBox(height: Spacing.md),
@@ -146,7 +142,7 @@ class CustomizationScreen extends ConsumerWidget {
                 _RadioTile(
                   title: 'ChatGPT Style',
                   subtitle: 'Rounded pill with send button',
-                  icon: Icons.chat_bubble_outline_rounded,
+                  icon: AppIcons.chatBubble,
                   isSelected: inputStyle == InputBarStyle.chatgpt,
                   onTap: () => ref
                       .read(inputStyleProvider.notifier)
@@ -156,7 +152,7 @@ class CustomizationScreen extends ConsumerWidget {
                 _RadioTile(
                   title: 'CLI Style',
                   subtitle: 'Terminal-like with agent selector',
-                  icon: Icons.terminal_rounded,
+                  icon: AppIcons.terminal,
                   isSelected: inputStyle == InputBarStyle.cli,
                   onTap: () => ref
                       .read(inputStyleProvider.notifier)
@@ -165,13 +161,10 @@ class CustomizationScreen extends ConsumerWidget {
               ],
             ),
           ),
-
           const SizedBox(height: 28),
-
           // Prompt Glow Section — applies to both input bar styles
           _SectionHeader(title: 'Prompt Glow'),
           SizedBox(height: Spacing.md),
-
           // Glow Style picker
           _SettingsCard(
             child: Column(
@@ -179,7 +172,7 @@ class CustomizationScreen extends ConsumerWidget {
                 _RadioTile(
                   title: 'No Glow',
                   subtitle: 'Clean, minimal input bar',
-                  icon: Icons.block_rounded,
+                  icon: AppIcons.block,
                   isSelected: glowStyle == GlowStyle.none,
                   onTap: () => ref
                       .read(glowStyleProvider.notifier)
@@ -189,7 +182,7 @@ class CustomizationScreen extends ConsumerWidget {
                 _RadioTile(
                   title: 'Left Only',
                   subtitle: 'Accent glow on the left edge',
-                  icon: Icons.border_left_rounded,
+                  icon: AppIcons.borderLeft,
                   isSelected: glowStyle == GlowStyle.leftOnly,
                   onTap: () => ref
                       .read(glowStyleProvider.notifier)
@@ -199,7 +192,7 @@ class CustomizationScreen extends ConsumerWidget {
                 _RadioTile(
                   title: 'Full Border',
                   subtitle: 'Glow along the entire visible border',
-                  icon: Icons.border_all_rounded,
+                  icon: AppIcons.borderAll,
                   isSelected: glowStyle == GlowStyle.fullBorder,
                   onTap: () => ref
                       .read(glowStyleProvider.notifier)
@@ -208,7 +201,6 @@ class CustomizationScreen extends ConsumerWidget {
               ],
             ),
           ),
-
           // Accent color picker (shown when glow is enabled)
           if (glowStyle != GlowStyle.none) ...[
             SizedBox(height: Spacing.lg),
@@ -221,7 +213,7 @@ class CustomizationScreen extends ConsumerWidget {
                     Row(
                       children: [
                         Icon(
-                          Icons.palette_rounded,
+                          AppIcons.palette,
                           color: theme.colorScheme.primary,
                           size: 22,
                         ),
@@ -292,7 +284,7 @@ class CustomizationScreen extends ConsumerWidget {
                             ),
                             child: isSelected
                                 ? Icon(
-                                    Icons.check_rounded,
+                                    AppIcons.check,
                                     color: _contrastColor(displayColor),
                                     size: 20,
                                   )
@@ -318,9 +310,7 @@ class CustomizationScreen extends ConsumerWidget {
               ),
             ),
           ],
-
           const SizedBox(height: 28),
-
           // Navigation Section
           _SectionHeader(title: 'Navigation Bar'),
           SizedBox(height: Spacing.md),
@@ -330,7 +320,7 @@ class CustomizationScreen extends ConsumerWidget {
                 _RadioTile(
                   title: 'Classic',
                   subtitle: 'Simple rounded bar with labels',
-                  icon: Icons.view_agenda_rounded,
+                  icon: AppIcons.viewAgenda,
                   isSelected: navBarStyle == NavBarStyle.classic,
                   onTap: () => ref
                       .read(navBarStyleProvider.notifier)
@@ -340,7 +330,7 @@ class CustomizationScreen extends ConsumerWidget {
                 _RadioTile(
                   title: 'Glassmorphic',
                   subtitle: 'Floating glass with blur effect',
-                  icon: Icons.blur_on_rounded,
+                  icon: AppIcons.blurOn,
                   isSelected: navBarStyle == NavBarStyle.glassmorphic,
                   onTap: () => ref
                       .read(navBarStyleProvider.notifier)
@@ -349,9 +339,7 @@ class CustomizationScreen extends ConsumerWidget {
               ],
             ),
           ),
-
           const SizedBox(height: 28),
-
           // Highlights Section
           _SectionHeader(title: 'Highlights'),
           SizedBox(height: Spacing.md),
@@ -364,7 +352,7 @@ class CustomizationScreen extends ConsumerWidget {
                   Row(
                     children: [
                       Icon(
-                        Icons.star_rounded,
+                        AppIcons.star,
                         color: theme.colorScheme.primary,
                         size: 22,
                       ),
@@ -438,7 +426,7 @@ class CustomizationScreen extends ConsumerWidget {
                           ),
                           child: isSelected
                               ? Icon(
-                                  Icons.check_rounded,
+                                  AppIcons.check,
                                   color: _contrastColor(displayColor),
                                   size: 20,
                                 )
@@ -461,9 +449,7 @@ class CustomizationScreen extends ConsumerWidget {
               ),
             ),
           ),
-
           const SizedBox(height: 28),
-
           // Notifications Section
           _SectionHeader(title: 'Notifications'),
           SizedBox(height: Spacing.md),
@@ -471,26 +457,22 @@ class CustomizationScreen extends ConsumerWidget {
             child: _ToggleTile(
               title: 'Push Notifications',
               subtitle: 'Alert when background sessions complete',
-              icon: Icons.notifications_rounded,
+              icon: AppIcons.notification,
               value: notificationsEnabled,
               onChanged: (v) =>
                   ref.read(notificationsEnabledProvider.notifier).setEnabled(v),
             ),
           ),
-
           const SizedBox(height: 100),
         ],
       ),
     );
   }
 }
-
 // Section header widget
 class _SectionHeader extends StatelessWidget {
   const _SectionHeader({required this.title});
-
   final String title;
-
   @override
   Widget build(BuildContext context) {
     return Text(
@@ -504,17 +486,13 @@ class _SectionHeader extends StatelessWidget {
     );
   }
 }
-
 // Settings card container
 class _SettingsCard extends StatelessWidget {
   const _SettingsCard({required this.child});
-
   final Widget child;
-
   @override
   Widget build(BuildContext context) {
     final ocTheme = OpenCodeTheme.of(context);
-
     return Container(
       decoration: BoxDecoration(
         color: ocTheme.backgroundPanel,
@@ -525,7 +503,6 @@ class _SettingsCard extends StatelessWidget {
     );
   }
 }
-
 // Navigation tile (opens another screen)
 class _NavigationTile extends StatelessWidget {
   const _NavigationTile({
@@ -535,17 +512,14 @@ class _NavigationTile extends StatelessWidget {
     required this.onTap,
     this.trailing,
   });
-
   final String title;
   final String subtitle;
   final IconData icon;
   final VoidCallback onTap;
   final Widget? trailing;
-
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-
     return InkWell(
       onTap: onTap,
       borderRadius: Radii.brLg,
@@ -580,7 +554,7 @@ class _NavigationTile extends StatelessWidget {
             ),
             trailing ??
                 Icon(
-                  Icons.chevron_right_rounded,
+                  AppIcons.chevronRight,
                   size: 20,
                   color: theme.colorScheme.onSurface.withValues(alpha: 0.5),
                 ),
@@ -590,7 +564,6 @@ class _NavigationTile extends StatelessWidget {
     );
   }
 }
-
 // Radio tile for single selection
 class _RadioTile extends StatelessWidget {
   const _RadioTile({
@@ -600,17 +573,14 @@ class _RadioTile extends StatelessWidget {
     required this.isSelected,
     required this.onTap,
   });
-
   final String title;
   final String subtitle;
   final IconData icon;
   final bool isSelected;
   final VoidCallback onTap;
-
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-
     return InkWell(
       onTap: onTap,
       borderRadius: Radii.brLg,
@@ -661,7 +631,7 @@ class _RadioTile extends StatelessWidget {
               ),
               child: isSelected
                   ? Icon(
-                      Icons.check,
+                      AppIcons.check,
                       size: 14,
                       color: theme.colorScheme.onPrimary,
                     )
@@ -673,7 +643,6 @@ class _RadioTile extends StatelessWidget {
     );
   }
 }
-
 // Toggle tile with switch
 class _ToggleTile extends StatelessWidget {
   const _ToggleTile({
@@ -683,17 +652,14 @@ class _ToggleTile extends StatelessWidget {
     required this.value,
     required this.onChanged,
   });
-
   final String title;
   final String subtitle;
   final IconData icon;
   final bool value;
   final ValueChanged<bool> onChanged;
-
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-
     return InkWell(
       onTap: () => onChanged(!value),
       borderRadius: Radii.brLg,
@@ -734,7 +700,6 @@ class _ToggleTile extends StatelessWidget {
     );
   }
 }
-
 // Divider
 class _Divider extends StatelessWidget {
   @override

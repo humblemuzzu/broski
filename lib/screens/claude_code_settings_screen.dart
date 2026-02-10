@@ -1,3 +1,4 @@
+
 import 'package:flutter/material.dart';
 import '../theme/app_typography.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -8,15 +9,13 @@ import '../providers/service_providers.dart';
 import '../theme/design_tokens.dart';
 import '../theme/opencode_theme.dart';
 import 'claude_code_sandbox_screen.dart';
-
+import 'package:broski/theme/app_icons.dart';
 class ClaudeCodeSettingsScreen extends ConsumerStatefulWidget {
   const ClaudeCodeSettingsScreen({super.key});
-
   @override
   ConsumerState<ClaudeCodeSettingsScreen> createState() =>
       _ClaudeCodeSettingsScreenState();
 }
-
 class _ClaudeCodeSettingsScreenState
     extends ConsumerState<ClaudeCodeSettingsScreen> {
   bool _loading = true;
@@ -27,7 +26,6 @@ class _ClaudeCodeSettingsScreenState
   // SDK v2.1.6: Search functionality in /config
   final _searchController = TextEditingController();
   String _searchQuery = '';
-
   static const _languages = <String>[
     'english',
     'japanese',
@@ -37,7 +35,6 @@ class _ClaudeCodeSettingsScreenState
     'chinese',
     'korean',
   ];
-
   @override
   void initState() {
     super.initState();
@@ -46,19 +43,16 @@ class _ClaudeCodeSettingsScreenState
     });
     _load();
   }
-
   @override
   void dispose() {
     _searchController.dispose();
     super.dispose();
   }
-
   /// Check if a setting matches the search query
   bool _matches(String label) {
     if (_searchQuery.isEmpty) return true;
     return label.toLowerCase().contains(_searchQuery);
   }
-
   /// Build a setting card with consistent styling
   Widget _buildSettingCard({
     required OpenCodeTheme oc,
@@ -90,13 +84,11 @@ class _ClaudeCodeSettingsScreenState
       ),
     );
   }
-
   Future<void> _load() async {
     setState(() {
       _loading = true;
       _error = null;
     });
-
     final selection = ref.read(selectionProvider);
     final cwd = selection.project?.path;
     if (cwd == null || cwd.isEmpty) {
@@ -106,7 +98,6 @@ class _ClaudeCodeSettingsScreenState
       });
       return;
     }
-
     try {
       final bridge = ref.read(bridgeServiceProvider);
       final cfg = await bridge.ccGetConfig(cwd: cwd);
@@ -137,17 +128,14 @@ class _ClaudeCodeSettingsScreenState
       });
     }
   }
-
   Future<void> _update(ClaudeCodeConfig next) async {
     final selection = ref.read(selectionProvider);
     final cwd = selection.project?.path;
     if (cwd == null || cwd.isEmpty) return;
-
     setState(() {
       _config = next;
       _error = null;
     });
-
     try {
       final bridge = ref.read(bridgeServiceProvider);
       final updated = await bridge.ccSetConfig(next, cwd: cwd);
@@ -158,7 +146,6 @@ class _ClaudeCodeSettingsScreenState
       setState(() => _error = e.toString());
     }
   }
-
   Future<void> _showAddToolDialog(
     ClaudeCodeConfig cfg, {
     required bool isAllowed,
@@ -184,7 +171,6 @@ class _ClaudeCodeSettingsScreenState
       'mcp__*',
     ];
     final oc = OpenCodeTheme.of(context);
-
     final result = await showDialog<String?>(
       context: context,
       builder: (ctx) => AlertDialog(
@@ -240,10 +226,8 @@ class _ClaudeCodeSettingsScreenState
         ],
       ),
     );
-
     controller.dispose();
     if (result == null || result.isEmpty) return;
-
     if (isAllowed) {
       if (!cfg.allowedTools.contains(result)) {
         final next = [...cfg.allowedTools, result];
@@ -256,7 +240,6 @@ class _ClaudeCodeSettingsScreenState
       }
     }
   }
-
   Future<String?> _showTextValueDialog({
     required String title,
     String? initialValue,
@@ -296,21 +279,18 @@ class _ClaudeCodeSettingsScreenState
     controller.dispose();
     return result;
   }
-
   @override
   Widget build(BuildContext context) {
     final oc = OpenCodeTheme.of(context);
     final selection = ref.watch(selectionProvider);
     final cwd = selection.project?.path;
     final hasProject = cwd != null && cwd.isNotEmpty;
-
     final cfg = _config;
     final languageValue = (cfg?.language ?? '').trim();
     final hasKnownLanguage = _languages.contains(languageValue);
     final dropdownLanguage = languageValue.isEmpty
         ? null
         : (hasKnownLanguage ? languageValue : 'custom');
-
     final release = (cfg?.releaseChannel ?? '').trim();
     final releaseValue = (release == 'stable' || release == 'latest')
         ? release
@@ -319,7 +299,6 @@ class _ClaudeCodeSettingsScreenState
     final systemPromptMode = systemPrompt.isEmpty
         ? 'none'
         : (systemPrompt.preset != null ? 'preset' : 'custom');
-
     return Scaffold(
       backgroundColor: oc.background,
       appBar: AppBar(
@@ -330,7 +309,7 @@ class _ClaudeCodeSettingsScreenState
           IconButton(
             tooltip: 'Refresh',
             onPressed: _loading ? null : _load,
-            icon: const Icon(Icons.refresh_rounded),
+            icon: const Icon(AppIcons.refresh),
           ),
         ],
       ),
@@ -375,13 +354,13 @@ class _ClaudeCodeSettingsScreenState
                       hintText: 'Search settings...',
                       hintStyle: TextStyle(color: oc.textMuted),
                       prefixIcon: Icon(
-                        Icons.search_rounded,
+                        AppIcons.search,
                         color: oc.textMuted,
                       ),
                       suffixIcon: _searchQuery.isNotEmpty
                           ? IconButton(
                               icon: Icon(
-                                Icons.clear_rounded,
+                                AppIcons.close,
                                 color: oc.textMuted,
                               ),
                               onPressed: () => _searchController.clear(),
@@ -571,7 +550,7 @@ class _ClaudeCodeSettingsScreenState
                                     : systemPrompt.append!,
                               ),
                               trailing: const Icon(
-                                Icons.edit_outlined,
+                                AppIcons.edit,
                                 size: 18,
                               ),
                               onTap: cfg == null
@@ -644,7 +623,7 @@ class _ClaudeCodeSettingsScreenState
                                         ),
                                       );
                                     },
-                              icon: const Icon(Icons.edit_rounded, size: 16),
+                              icon: const Icon(AppIcons.edit, size: 16),
                               label: const Text('Edit custom prompt'),
                             ),
                           ],
@@ -693,7 +672,7 @@ class _ClaudeCodeSettingsScreenState
                               ? 'No limit'
                               : '\$${cfg.maxBudgetUsd!.toStringAsFixed(2)} per turn',
                         ),
-                        trailing: const Icon(Icons.edit_outlined, size: 18),
+                        trailing: const Icon(AppIcons.edit, size: 18),
                         onTap: cfg == null
                             ? null
                             : () async {
@@ -755,7 +734,7 @@ class _ClaudeCodeSettingsScreenState
                               ? 'No limit'
                               : '${cfg.maxTurns} turns',
                         ),
-                        trailing: const Icon(Icons.edit_outlined, size: 18),
+                        trailing: const Icon(AppIcons.edit, size: 18),
                         onTap: cfg == null
                             ? null
                             : () async {
@@ -829,7 +808,7 @@ class _ClaudeCodeSettingsScreenState
                       child: ListTile(
                         contentPadding: EdgeInsets.zero,
                         leading: Icon(
-                          Icons.shield_outlined,
+                          AppIcons.security,
                           color: (cfg?.sandbox?.enabled ?? false)
                               ? oc.accent
                               : oc.textMuted,
@@ -846,7 +825,7 @@ class _ClaudeCodeSettingsScreenState
                           style: AppTypography.label(color: oc.textMuted),
                         ),
                         trailing: Icon(
-                          Icons.chevron_right,
+                          AppIcons.chevronRight,
                           color: oc.textMuted,
                         ),
                         onTap: () {
@@ -918,7 +897,7 @@ class _ClaudeCodeSettingsScreenState
                                     tool,
                                     style: const TextStyle(fontSize: 12),
                                   ),
-                                  deleteIcon: const Icon(Icons.close, size: 16),
+                                  deleteIcon: const Icon(AppIcons.close, size: 16),
                                   onDeleted: () {
                                     final next = List<String>.from(
                                       cfg.allowedTools,
@@ -933,7 +912,7 @@ class _ClaudeCodeSettingsScreenState
                             ),
                           SizedBox(height: Spacing.sm),
                           OutlinedButton.icon(
-                            icon: const Icon(Icons.add, size: 16),
+                            icon: const Icon(AppIcons.add, size: 16),
                             label: const Text('Add Tool'),
                             onPressed: cfg == null
                                 ? null
@@ -966,7 +945,7 @@ class _ClaudeCodeSettingsScreenState
                                     tool,
                                     style: const TextStyle(fontSize: 12),
                                   ),
-                                  deleteIcon: const Icon(Icons.close, size: 16),
+                                  deleteIcon: const Icon(AppIcons.close, size: 16),
                                   onDeleted: () {
                                     final next = List<String>.from(
                                       cfg.disallowedTools,
@@ -983,7 +962,7 @@ class _ClaudeCodeSettingsScreenState
                             ),
                           SizedBox(height: Spacing.sm),
                           OutlinedButton.icon(
-                            icon: const Icon(Icons.add, size: 16),
+                            icon: const Icon(AppIcons.add, size: 16),
                             label: const Text('Add Tool'),
                             onPressed: cfg == null
                                 ? null

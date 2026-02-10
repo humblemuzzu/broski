@@ -1,3 +1,4 @@
+
 import 'package:flutter/material.dart';
 import '../theme/app_typography.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -11,40 +12,33 @@ import '../providers/tool_settings_provider.dart';
 import '../services/storage_service.dart';
 import '../theme/design_tokens.dart';
 import '../theme/opencode_theme.dart';
-
+import 'package:broski/theme/app_icons.dart';
 /// Feature 17: Tool List Screen
 /// Shows available AI tools (bash, read, write, edit, glob, grep, etc.)
 class ToolsScreen extends ConsumerStatefulWidget {
   const ToolsScreen({super.key});
-
   @override
   ConsumerState<ToolsScreen> createState() => _ToolsScreenState();
 }
-
 class _ToolsScreenState extends ConsumerState<ToolsScreen> {
   List<ToolInfo>? _tools;
   List<FormatterInfo>? _formatters;
   bool _isLoading = true;
   String? _error;
-
   // Track expanded sections
   final Set<String> _expandedSections = {};
-
   @override
   void initState() {
     super.initState();
     _loadData();
   }
-
   Future<void> _loadData() async {
     setState(() {
       _isLoading = true;
       _error = null;
     });
-
     final storage = StorageService();
     final connection = ref.read(connectionProvider);
-
     // If offline, use cached data
     if (connection.isOfflineMode) {
       final cachedTools = await storage.getCachedTools();
@@ -60,16 +54,13 @@ class _ToolsScreenState extends ConsumerState<ToolsScreen> {
       }
       return;
     }
-
     try {
       final bridge = ref.read(bridgeServiceProvider);
       final selection = ref.read(selectionProvider);
-
       // Get tool IDs first (always available)
       final toolIds = await bridge.listToolIds(
         projectPath: selection.project?.path,
       );
-
       // Prefer model-specific tool schemas (better descriptions + inputs).
       var selectedModel = selection.model;
       if (selectedModel == null) {
@@ -81,7 +72,6 @@ class _ToolsScreenState extends ConsumerState<ToolsScreen> {
           selectedModel = parsed;
         }
       }
-
       List<ToolInfo> tools;
       if (selectedModel != null) {
         final detailed = await bridge.listTools(
@@ -111,17 +101,14 @@ class _ToolsScreenState extends ConsumerState<ToolsScreen> {
             )
             .toList();
       }
-
       // Feature 19: Load formatter status
       final formatters = await bridge.getFormatterStatus(
         projectPath: selection.project?.path,
       );
-
       // Cache for offline use
       if (tools.isNotEmpty) {
         await storage.cacheTools(tools);
       }
-
       if (mounted) {
         setState(() {
           _tools = tools;
@@ -148,7 +135,6 @@ class _ToolsScreenState extends ConsumerState<ToolsScreen> {
       }
     }
   }
-
   String _getToolDescription(String id) {
     switch (id.toLowerCase()) {
       case 'bash':
@@ -177,7 +163,6 @@ class _ToolsScreenState extends ConsumerState<ToolsScreen> {
         return 'AI tool';
     }
   }
-
   @override
   Widget build(BuildContext context) {
     final theme = OpenCodeTheme.of(context);
@@ -187,7 +172,7 @@ class _ToolsScreenState extends ConsumerState<ToolsScreen> {
         backgroundColor: theme.background,
         elevation: 0,
         leading: IconButton(
-          icon: Icon(Icons.arrow_back_rounded, color: theme.text),
+          icon: Icon(AppIcons.back, color: theme.text),
           onPressed: () => Navigator.pop(context),
         ),
         title: Text(
@@ -200,7 +185,7 @@ class _ToolsScreenState extends ConsumerState<ToolsScreen> {
         ),
         actions: [
           IconButton(
-            icon: Icon(Icons.refresh_rounded, color: theme.text),
+            icon: Icon(AppIcons.refresh, color: theme.text),
             onPressed: _loadData,
           ),
         ],
@@ -212,13 +197,12 @@ class _ToolsScreenState extends ConsumerState<ToolsScreen> {
           : _buildContent(theme),
     );
   }
-
   Widget _buildError(OpenCodeTheme theme) {
     return Center(
       child: Column(
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
-          Icon(Icons.error_outline, size: 48, color: theme.textMuted),
+          Icon(AppIcons.error, size: 48, color: theme.textMuted),
           SizedBox(height: Spacing.lg),
           Text(
             'Failed to load tools',
@@ -243,14 +227,13 @@ class _ToolsScreenState extends ConsumerState<ToolsScreen> {
       ),
     );
   }
-
   Widget _buildContent(OpenCodeTheme theme) {
     if (_tools == null || _tools!.isEmpty) {
       return Center(
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            Icon(Icons.build_outlined, size: 48, color: theme.textMuted),
+            Icon(AppIcons.build, size: 48, color: theme.textMuted),
             SizedBox(height: Spacing.lg),
             Text(
               'No tools available',
@@ -260,16 +243,13 @@ class _ToolsScreenState extends ConsumerState<ToolsScreen> {
         ),
       );
     }
-
     // Group tools by category
     final groupedTools = <String, List<ToolInfo>>{};
     for (final tool in _tools!) {
       final category = tool.category;
       groupedTools.putIfAbsent(category, () => []).add(tool);
     }
-
     final categories = groupedTools.keys.toList()..sort();
-
     return RefreshIndicator(
       onRefresh: _loadData,
       color: theme.primary,
@@ -278,7 +258,6 @@ class _ToolsScreenState extends ConsumerState<ToolsScreen> {
         children: [
           // Summary
           _ToolsSummary(totalTools: _tools!.length),
-
           // Tool categories as collapsible sections
           ...categories.map((category) {
             final tools = groupedTools[category]!;
@@ -303,7 +282,6 @@ class _ToolsScreenState extends ConsumerState<ToolsScreen> {
               ),
             );
           }),
-
           // Feature 19: Formatters section as collapsible
           if (_formatters != null && _formatters!.isNotEmpty) ...[
             SizedBox(height: Spacing.sm),
@@ -332,20 +310,16 @@ class _ToolsScreenState extends ConsumerState<ToolsScreen> {
     );
   }
 }
-
 // Tools summary card with enable/disable count
 class _ToolsSummary extends ConsumerWidget {
   const _ToolsSummary({required this.totalTools});
-
   final int totalTools;
-
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final theme = OpenCodeTheme.of(context);
     final toolSettings = ref.watch(toolSettingsProvider);
     final disabledCount = toolSettings.disabledTools.length;
     final enabledCount = totalTools - disabledCount;
-
     return Container(
       padding: Insets.card,
       margin: const EdgeInsets.only(bottom: 20),
@@ -363,7 +337,7 @@ class _ToolsSummary extends ConsumerWidget {
               color: theme.primary.withValues(alpha: 0.15),
               borderRadius: Radii.brMd,
             ),
-            child: Icon(Icons.build, color: theme.primary, size: 24),
+            child: Icon(AppIcons.build, color: theme.primary, size: 24),
           ),
           SizedBox(width: Spacing.lg),
           Expanded(
@@ -435,7 +409,6 @@ class _ToolsSummary extends ConsumerWidget {
     );
   }
 }
-
 /// Collapsible section with expand/collapse arrow
 class _CollapsibleSection extends StatelessWidget {
   const _CollapsibleSection({
@@ -445,17 +418,14 @@ class _CollapsibleSection extends StatelessWidget {
     required this.onToggle,
     required this.child,
   });
-
   final String title;
   final int itemCount;
   final bool isExpanded;
   final VoidCallback onToggle;
   final Widget child;
-
   @override
   Widget build(BuildContext context) {
     final theme = OpenCodeTheme.of(context);
-
     return Container(
       margin: Insets.bottomMd,
       decoration: BoxDecoration(
@@ -512,7 +482,7 @@ class _CollapsibleSection extends StatelessWidget {
                     turns: isExpanded ? 0.5 : 0,
                     duration: const Duration(milliseconds: 200),
                     child: Icon(
-                      Icons.keyboard_arrow_down_rounded,
+                      AppIcons.chevronDown,
                       color: theme.textMuted,
                       size: 20,
                     ),
@@ -538,13 +508,10 @@ class _CollapsibleSection extends StatelessWidget {
     );
   }
 }
-
 /// Compact chip for tool display - just icon + name, tap to toggle
 class _ToolChip extends ConsumerWidget {
   const _ToolChip({required this.tool});
-
   final ToolInfo tool;
-
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final theme = OpenCodeTheme.of(context);
@@ -557,7 +524,6 @@ class _ToolChip extends ConsumerWidget {
     final borderColor = isEnabled
         ? theme.primary.withValues(alpha: 0.3)
         : theme.borderSubtle;
-
     return InkWell(
       onTap: () {
         ref.read(toolSettingsProvider.notifier).toggleTool(tool.id);
@@ -586,7 +552,7 @@ class _ToolChip extends ConsumerWidget {
             if (!isEnabled) ...[
               const SizedBox(width: 6),
               Icon(
-                Icons.visibility_off_rounded,
+                AppIcons.visibilityOff,
                 color: theme.textMuted.withValues(alpha: 0.5),
                 size: 14,
               ),
@@ -596,42 +562,38 @@ class _ToolChip extends ConsumerWidget {
       ),
     );
   }
-
   IconData _getToolIcon(String id) {
     switch (id.toLowerCase()) {
       case 'bash':
-        return Icons.terminal;
+        return AppIcons.terminal;
       case 'read':
-        return Icons.file_open;
+        return AppIcons.fileText;
       case 'write':
-        return Icons.edit_document;
+        return AppIcons.edit;
       case 'edit':
-        return Icons.edit;
+        return AppIcons.edit;
       case 'glob':
-        return Icons.folder_copy;
+        return AppIcons.folderOff;
       case 'grep':
-        return Icons.search;
+        return AppIcons.search;
       case 'webfetch':
-        return Icons.language;
+        return AppIcons.globe;
       case 'task':
-        return Icons.account_tree;
+        return AppIcons.gitBranch;
       case 'todowrite':
       case 'todoread':
-        return Icons.checklist;
+        return AppIcons.checklist;
       case 'skill':
-        return Icons.school;
+        return AppIcons.school;
       default:
-        return Icons.build;
+        return AppIcons.build;
     }
   }
 }
-
 /// Compact chip for formatter display
 class _FormatterChip extends StatelessWidget {
   const _FormatterChip({required this.formatter});
-
   final FormatterInfo formatter;
-
   @override
   Widget build(BuildContext context) {
     final theme = OpenCodeTheme.of(context);
@@ -640,7 +602,6 @@ class _FormatterChip extends StatelessWidget {
       FormatterStatus.error => theme.error,
       FormatterStatus.inactive => theme.textMuted,
     };
-
     return Container(
       margin: Insets.bottomSm,
       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
@@ -651,7 +612,7 @@ class _FormatterChip extends StatelessWidget {
       ),
       child: Row(
         children: [
-          Icon(Icons.code_rounded, color: statusColor, size: 16),
+          Icon(AppIcons.code, color: statusColor, size: 16),
           SizedBox(width: Spacing.sm),
           Expanded(
             child: Column(

@@ -1,8 +1,9 @@
+
 import 'package:flutter/material.dart';
 import '../theme/app_typography.dart';
 import '../theme/design_tokens.dart';
 import '../theme/opencode_theme.dart';
-
+import 'package:broski/theme/app_icons.dart';
 /// Step indicator showing current progress in onboarding flow
 class OnboardingProgress extends StatelessWidget {
   const OnboardingProgress({
@@ -10,20 +11,16 @@ class OnboardingProgress extends StatelessWidget {
     required this.currentStep,
     required this.totalSteps,
   });
-
   final int currentStep;
   final int totalSteps;
-
   @override
   Widget build(BuildContext context) {
     final theme = OpenCodeTheme.of(context);
-
     return Row(
       mainAxisAlignment: MainAxisAlignment.center,
       children: List.generate(totalSteps, (index) {
         final isActive = index == currentStep;
         final isCompleted = index < currentStep;
-
         return AnimatedContainer(
           duration: const Duration(milliseconds: 300),
           curve: Curves.easeOutCubic,
@@ -39,7 +36,6 @@ class OnboardingProgress extends StatelessWidget {
     );
   }
 }
-
 /// Consistent scaffold for onboarding screens
 class OnboardingScaffold extends StatelessWidget {
   const OnboardingScaffold({
@@ -51,20 +47,17 @@ class OnboardingScaffold extends StatelessWidget {
     this.showProgress = true,
     this.bottomContent,
   });
-
   final Widget child;
   final int? currentStep;
   final int? totalSteps;
   final VoidCallback? onBack;
   final bool showProgress;
   final Widget? bottomContent;
-
   @override
   Widget build(BuildContext context) {
     final theme = OpenCodeTheme.of(context);
     final showProgressIndicator =
         showProgress && currentStep != null && totalSteps != null;
-
     return Scaffold(
       backgroundColor: theme.background,
       body: SafeArea(
@@ -79,7 +72,7 @@ class OnboardingScaffold extends StatelessWidget {
                     IconButton(
                       onPressed: onBack,
                       icon: Icon(
-                        Icons.arrow_back_ios_new_rounded,
+                        AppIcons.back,
                         color: theme.text,
                         size: 20,
                       ),
@@ -120,7 +113,6 @@ class OnboardingScaffold extends StatelessWidget {
     );
   }
 }
-
 /// Primary button for onboarding with loading state
 class OnboardingButton extends StatefulWidget {
   const OnboardingButton({
@@ -131,24 +123,19 @@ class OnboardingButton extends StatefulWidget {
     this.variant = OnboardingButtonVariant.primary,
     this.icon,
   });
-
   final String label;
   final VoidCallback? onPressed;
   final bool isLoading;
   final OnboardingButtonVariant variant;
   final IconData? icon;
-
   @override
   State<OnboardingButton> createState() => _OnboardingButtonState();
 }
-
 enum OnboardingButtonVariant { primary, secondary, ghost }
-
 class _OnboardingButtonState extends State<OnboardingButton>
     with SingleTickerProviderStateMixin {
   late AnimationController _controller;
   late Animation<double> _scaleAnimation;
-
   @override
   void initState() {
     super.initState();
@@ -161,17 +148,14 @@ class _OnboardingButtonState extends State<OnboardingButton>
       end: 0.98,
     ).animate(CurvedAnimation(parent: _controller, curve: Curves.easeInOut));
   }
-
   @override
   void dispose() {
     _controller.dispose();
     super.dispose();
   }
-
   @override
   Widget build(BuildContext context) {
     final theme = OpenCodeTheme.of(context);
-
     final (bgColor, textColor, borderColor) = switch (widget.variant) {
       OnboardingButtonVariant.primary => (
         theme.primary,
@@ -189,7 +173,6 @@ class _OnboardingButtonState extends State<OnboardingButton>
         Colors.transparent,
       ),
     };
-
     return GestureDetector(
       onTapDown: (_) => _controller.forward(),
       onTapUp: (_) {
@@ -251,7 +234,6 @@ class _OnboardingButtonState extends State<OnboardingButton>
     );
   }
 }
-
 /// Option card for selecting choices in onboarding
 class OnboardingOptionCard extends StatelessWidget {
   const OnboardingOptionCard({
@@ -263,19 +245,16 @@ class OnboardingOptionCard extends StatelessWidget {
     this.isRecommended = false,
     this.iconColor,
   });
-
   final IconData icon;
   final String title;
   final String subtitle;
   final VoidCallback onTap;
   final bool isRecommended;
   final Color? iconColor;
-
   @override
   Widget build(BuildContext context) {
     final theme = OpenCodeTheme.of(context);
     final effectiveIconColor = iconColor ?? theme.primary;
-
     return GestureDetector(
       onTap: onTap,
       child: AnimatedContainer(
@@ -347,14 +326,13 @@ class OnboardingOptionCard extends StatelessWidget {
               ),
             ),
             SizedBox(width: Spacing.sm),
-            Icon(Icons.chevron_right_rounded, color: theme.textMuted, size: 24),
+            Icon(AppIcons.chevronRight, color: theme.textMuted, size: 24),
           ],
         ),
       ),
     );
   }
 }
-
 /// Feature row for welcome screen highlights
 class OnboardingFeatureRow extends StatelessWidget {
   const OnboardingFeatureRow({
@@ -364,17 +342,14 @@ class OnboardingFeatureRow extends StatelessWidget {
     required this.subtitle,
     this.iconColor,
   });
-
   final IconData icon;
   final String title;
   final String subtitle;
   final Color? iconColor;
-
   @override
   Widget build(BuildContext context) {
     final theme = OpenCodeTheme.of(context);
     final effectiveIconColor = iconColor ?? theme.primary;
-
     return Container(
       padding: Insets.card,
       decoration: BoxDecoration(
@@ -419,27 +394,23 @@ class OnboardingFeatureRow extends StatelessWidget {
     );
   }
 }
-
 /// Info card for explanatory content
 class OnboardingInfoCard extends StatelessWidget {
   const OnboardingInfoCard({
     super.key,
     required this.title,
     required this.content,
-    this.icon = Icons.info_outline_rounded,
+    this.icon = AppIcons.info,
     this.color,
   });
-
   final String title;
   final String content;
   final IconData icon;
   final Color? color;
-
   @override
   Widget build(BuildContext context) {
     final theme = OpenCodeTheme.of(context);
     final effectiveColor = color ?? theme.info;
-
     return Container(
       padding: Insets.card,
       decoration: BoxDecoration(
@@ -481,7 +452,6 @@ class OnboardingInfoCard extends StatelessWidget {
     );
   }
 }
-
 /// Step indicator for numbered instructions
 class OnboardingStepItem extends StatelessWidget {
   const OnboardingStepItem({
@@ -491,16 +461,13 @@ class OnboardingStepItem extends StatelessWidget {
     this.subtitle,
     this.content,
   });
-
   final int stepNumber;
   final String title;
   final String? subtitle;
   final Widget? content;
-
   @override
   Widget build(BuildContext context) {
     final theme = OpenCodeTheme.of(context);
-
     return Row(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -554,7 +521,6 @@ class OnboardingStepItem extends StatelessWidget {
     );
   }
 }
-
 /// Command box for displaying terminal commands
 class OnboardingCommandBox extends StatelessWidget {
   const OnboardingCommandBox({
@@ -562,14 +528,11 @@ class OnboardingCommandBox extends StatelessWidget {
     required this.command,
     required this.onCopy,
   });
-
   final String command;
   final VoidCallback onCopy;
-
   @override
   Widget build(BuildContext context) {
     final theme = OpenCodeTheme.of(context);
-
     return Container(
       padding: Insets.cardMd,
       decoration: BoxDecoration(
@@ -579,7 +542,7 @@ class OnboardingCommandBox extends StatelessWidget {
       ),
       child: Row(
         children: [
-          Icon(Icons.terminal_rounded, color: theme.textMuted, size: 18),
+          Icon(AppIcons.terminal, color: theme.textMuted, size: 18),
           const SizedBox(width: 10),
           Expanded(
             child: Text(
@@ -595,7 +558,7 @@ class OnboardingCommandBox extends StatelessWidget {
                 color: theme.primary.withValues(alpha: 0.12),
                 borderRadius: Radii.brSm,
               ),
-              child: Icon(Icons.copy_rounded, color: theme.primary, size: 18),
+              child: Icon(AppIcons.copy, color: theme.primary, size: 18),
             ),
           ),
         ],

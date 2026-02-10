@@ -1,3 +1,4 @@
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
@@ -7,24 +8,21 @@ import '../providers/service_providers.dart';
 import '../providers/subscription_usage_provider.dart';
 import '../theme/design_tokens.dart';
 import '../theme/opencode_theme.dart';
-
+import 'package:broski/theme/app_icons.dart';
 /// Screen for displaying AI provider usage limits and credits.
 ///
 /// Shows the user's own AI usage (Claude, OpenAI) -- not Broski usage.
 /// Mobile-optimized layout with text above progress bars.
 class SubscriptionUsageScreen extends ConsumerStatefulWidget {
   const SubscriptionUsageScreen({super.key});
-
   @override
   ConsumerState<SubscriptionUsageScreen> createState() =>
       _SubscriptionUsageScreenState();
 }
-
 class _SubscriptionUsageScreenState
     extends ConsumerState<SubscriptionUsageScreen> {
   ClaudeCodeAccountInfo? _claudeAccountInfo;
   bool _isRefreshingAccountInfo = false;
-
   @override
   void initState() {
     super.initState();
@@ -33,32 +31,26 @@ class _SubscriptionUsageScreenState
       _refreshAll();
     });
   }
-
   Future<void> _refreshAll() async {
     await Future.wait([
       ref.read(subscriptionUsageProvider.notifier).refresh(),
       _refreshClaudeAccountInfo(),
     ]);
   }
-
   Future<void> _refreshClaudeAccountInfo() async {
     if (_isRefreshingAccountInfo) return;
-
     setState(() {
       _isRefreshingAccountInfo = true;
     });
-
     try {
       final bridge = ref.read(bridgeServiceProvider);
       final accountInfo = await bridge.ccGetAccountInfo();
       if (!mounted) return;
-
       final hasData =
           (accountInfo.email ?? '').trim().isNotEmpty ||
           (accountInfo.organization ?? '').trim().isNotEmpty ||
           (accountInfo.subscriptionType ?? '').trim().isNotEmpty ||
           (accountInfo.apiKeySource ?? '').trim().isNotEmpty;
-
       setState(() {
         _claudeAccountInfo = hasData ? accountInfo : null;
       });
@@ -75,12 +67,10 @@ class _SubscriptionUsageScreenState
       }
     }
   }
-
   @override
   Widget build(BuildContext context) {
     final state = ref.watch(subscriptionUsageProvider);
     final ocTheme = OpenCodeTheme.of(context);
-
     return Scaffold(
       backgroundColor: ocTheme.background,
       appBar: AppBar(
@@ -95,7 +85,7 @@ class _SubscriptionUsageScreenState
           ),
         ),
         leading: IconButton(
-          icon: Icon(Icons.arrow_back_rounded, color: ocTheme.text),
+          icon: Icon(AppIcons.back, color: ocTheme.text),
           onPressed: () => Navigator.pop(context),
         ),
         actions: [
@@ -113,7 +103,7 @@ class _SubscriptionUsageScreenState
             )
           else
             IconButton(
-              icon: Icon(Icons.refresh_rounded, color: ocTheme.text),
+              icon: Icon(AppIcons.refresh, color: ocTheme.text),
               onPressed: _refreshAll,
               tooltip: 'Refresh',
             ),
@@ -126,14 +116,11 @@ class _SubscriptionUsageScreenState
       ),
     );
   }
-
   Widget _buildBody(BuildContext context, SubscriptionUsageState state) {
     final ocTheme = OpenCodeTheme.of(context);
-
     if (state.isLoading && state.usage == null) {
       return _buildLoadingSkeleton(context);
     }
-
     if (state.error != null && state.usage == null) {
       return Center(
         child: Padding(
@@ -141,7 +128,7 @@ class _SubscriptionUsageScreenState
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
-              Icon(Icons.error_outline_rounded, size: 48, color: ocTheme.error),
+              Icon(AppIcons.error, size: 48, color: ocTheme.error),
               SizedBox(height: Spacing.lg),
               Text(
                 'Failed to load usage',
@@ -160,7 +147,7 @@ class _SubscriptionUsageScreenState
               SizedBox(height: Spacing.xxl),
               ElevatedButton.icon(
                 onPressed: _refreshAll,
-                icon: const Icon(Icons.refresh_rounded),
+                icon: const Icon(AppIcons.refresh),
                 label: const Text('Try Again'),
               ),
             ],
@@ -168,7 +155,6 @@ class _SubscriptionUsageScreenState
         ),
       );
     }
-
     final usage = state.usage;
     if (usage == null || usage.providers.isEmpty) {
       return Center(
@@ -178,7 +164,7 @@ class _SubscriptionUsageScreenState
             mainAxisSize: MainAxisSize.min,
             children: [
               Icon(
-                Icons.data_usage_rounded,
+                AppIcons.dataUsage,
                 size: 64,
                 color: ocTheme.primary.withValues(alpha: 0.5),
               ),
@@ -202,7 +188,6 @@ class _SubscriptionUsageScreenState
         ),
       );
     }
-
     return ListView(
       padding: Insets.listItemDense,
       children: [
@@ -217,7 +202,7 @@ class _SubscriptionUsageScreenState
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
               Icon(
-                Icons.access_time_rounded,
+                AppIcons.schedule,
                 size: 12,
                 color: ocTheme.textMuted.withValues(alpha: 0.6),
               ),
@@ -232,19 +217,16 @@ class _SubscriptionUsageScreenState
             ],
           ),
         ),
-
         // Provider cards
         for (final provider in usage.providers) ...[
           _ProviderCard(provider: provider),
           SizedBox(height: Spacing.lg),
         ],
-
         // Bottom padding
         const SizedBox(height: 40),
       ],
     );
   }
-
   Widget _buildLoadingSkeleton(BuildContext context) {
     return ListView(
       padding: Insets.listItemDense,
@@ -256,12 +238,9 @@ class _SubscriptionUsageScreenState
     );
   }
 }
-
 class _ClaudeAccountCard extends StatelessWidget {
   const _ClaudeAccountCard({required this.accountInfo});
-
   final ClaudeCodeAccountInfo accountInfo;
-
   @override
   Widget build(BuildContext context) {
     final ocTheme = OpenCodeTheme.of(context);
@@ -273,7 +252,6 @@ class _ClaudeAccountCard extends StatelessWidget {
       if ((accountInfo.apiKeySource ?? '').trim().isNotEmpty)
         'Key source: ${accountInfo.apiKeySource}',
     ];
-
     return Container(
       decoration: BoxDecoration(
         color: ocTheme.backgroundPanel,
@@ -292,7 +270,7 @@ class _ClaudeAccountCard extends StatelessWidget {
               borderRadius: Radii.brMd,
             ),
             child: Icon(
-              Icons.verified_user_rounded,
+              AppIcons.shieldCheck,
               color: ocTheme.primary,
               size: 20,
             ),
@@ -336,23 +314,18 @@ class _ClaudeAccountCard extends StatelessWidget {
     );
   }
 }
-
 /// Provider usage card with all details.
 class _ProviderCard extends StatelessWidget {
   const _ProviderCard({required this.provider});
-
   final ProviderUsage provider;
-
   @override
   Widget build(BuildContext context) {
     final ocTheme = OpenCodeTheme.of(context);
-
     // Use theme colors instead of hardcoded provider colors
     // Claude uses primary (blue), OpenAI uses info (cyan/teal)
     final providerColor = provider.providerId == 'claude'
         ? ocTheme.primary
         : ocTheme.info;
-
     return Container(
       decoration: BoxDecoration(
         color: ocTheme.backgroundPanel,
@@ -377,8 +350,8 @@ class _ProviderCard extends StatelessWidget {
                   ),
                   child: Icon(
                     provider.providerId == 'claude'
-                        ? Icons.auto_awesome_rounded
-                        : Icons.psychology_rounded,
+                        ? AppIcons.autoAwesome
+                        : AppIcons.psychology,
                     color: providerColor,
                     size: 22,
                   ),
@@ -444,7 +417,6 @@ class _ProviderCard extends StatelessWidget {
               ],
             ),
           ),
-
           // Error state
           if (provider.error != null) ...[
             Padding(
@@ -458,7 +430,7 @@ class _ProviderCard extends StatelessWidget {
                 child: Row(
                   children: [
                     Icon(
-                      Icons.error_outline_rounded,
+                      AppIcons.error,
                       size: 18,
                       color: ocTheme.error,
                     ),
@@ -474,7 +446,6 @@ class _ProviderCard extends StatelessWidget {
               ),
             ),
           ],
-
           // Usage windows
           if (provider.hasUsageData) ...[
             // Plan usage limits section
@@ -489,7 +460,6 @@ class _ProviderCard extends StatelessWidget {
                 color: providerColor,
               ),
             ],
-
             // Weekly limits section
             if (provider.weeklyWindow != null ||
                 provider.weeklyOpusWindow != null ||
@@ -517,11 +487,9 @@ class _ProviderCard extends StatelessWidget {
                   color: ocTheme.accent,
                 ),
             ],
-
             // Extra usage section (Claude)
             if (provider.extraUsage != null) ...[
               _SectionHeader(title: 'Extra Usage'),
-
               // Toggle row
               Padding(
                 padding: const EdgeInsets.fromLTRB(16, 0, 16, 12),
@@ -562,7 +530,6 @@ class _ProviderCard extends StatelessWidget {
                   ],
                 ),
               ),
-
               // Spent amount
               if (provider.extraUsage!.isEnabled) ...[
                 _UsageBarVertical(
@@ -573,7 +540,6 @@ class _ProviderCard extends StatelessWidget {
                   isMonetary: true,
                 ),
               ],
-
               // Monthly limit info
               Padding(
                 padding: const EdgeInsets.fromLTRB(16, 8, 16, 16),
@@ -586,7 +552,7 @@ class _ProviderCard extends StatelessWidget {
                   child: Row(
                     children: [
                       Icon(
-                        Icons.account_balance_wallet_outlined,
+                        AppIcons.wallet,
                         size: 20,
                         color: ocTheme.textMuted,
                       ),
@@ -640,7 +606,6 @@ class _ProviderCard extends StatelessWidget {
                 ),
               ),
             ],
-
             // Credits section (OpenAI)
             if (provider.credits != null) ...[
               _SectionHeader(title: 'Credits'),
@@ -662,7 +627,7 @@ class _ProviderCard extends StatelessWidget {
                           borderRadius: Radii.brMd,
                         ),
                         child: Icon(
-                          Icons.account_balance_wallet_rounded,
+                          AppIcons.wallet,
                           color: ocTheme.info,
                           size: 22,
                         ),
@@ -715,7 +680,6 @@ class _ProviderCard extends StatelessWidget {
               ),
             ],
           ],
-
           // Not configured state
           if (!provider.hasUsageData && provider.error == null) ...[
             Padding(
@@ -729,7 +693,7 @@ class _ProviderCard extends StatelessWidget {
                 child: Row(
                   children: [
                     Icon(
-                      Icons.info_outline_rounded,
+                      AppIcons.info,
                       color: ocTheme.textMuted,
                       size: 20,
                     ),
@@ -755,17 +719,13 @@ class _ProviderCard extends StatelessWidget {
     );
   }
 }
-
 /// Section header with title.
 class _SectionHeader extends StatelessWidget {
   const _SectionHeader({required this.title});
-
   final String title;
-
   @override
   Widget build(BuildContext context) {
     final ocTheme = OpenCodeTheme.of(context);
-
     return Padding(
       padding: const EdgeInsets.fromLTRB(16, 12, 16, 8),
       child: Text(
@@ -780,7 +740,6 @@ class _SectionHeader extends StatelessWidget {
     );
   }
 }
-
 /// Usage bar with vertical layout - text on top, bar below.
 class _UsageBarVertical extends StatelessWidget {
   const _UsageBarVertical({
@@ -790,18 +749,15 @@ class _UsageBarVertical extends StatelessWidget {
     required this.color,
     this.isMonetary = false,
   });
-
   final String label;
   final String? subtitle;
   final double usedPercent;
   final Color color;
   final bool isMonetary;
-
   @override
   Widget build(BuildContext context) {
     final ocTheme = OpenCodeTheme.of(context);
     final clampedPercent = usedPercent.clamp(0.0, 100.0);
-
     // Determine color based on usage level
     Color barColor = color;
     if (clampedPercent >= 90) {
@@ -809,7 +765,6 @@ class _UsageBarVertical extends StatelessWidget {
     } else if (clampedPercent >= 70) {
       barColor = ocTheme.warning;
     }
-
     return Padding(
       padding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
       child: Column(
@@ -857,9 +812,7 @@ class _UsageBarVertical extends StatelessWidget {
               ),
             ],
           ),
-
           SizedBox(height: Spacing.sm),
-
           // Progress bar
           Container(
             height: 6,
@@ -891,13 +844,11 @@ class _UsageBarVertical extends StatelessWidget {
     );
   }
 }
-
 /// Loading skeleton for provider card.
 class _SkeletonProviderCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final ocTheme = OpenCodeTheme.of(context);
-
     return Container(
       padding: Insets.card,
       decoration: BoxDecoration(
@@ -926,11 +877,9 @@ class _SkeletonProviderCard extends StatelessWidget {
             ],
           ),
           SizedBox(height: Spacing.xl),
-
           // Section header skeleton
           _SkeletonBox(width: 80, height: 12, borderRadius: 4),
           SizedBox(height: Spacing.md),
-
           // Bar skeleton
           Column(
             crossAxisAlignment: CrossAxisAlignment.start,
@@ -947,7 +896,6 @@ class _SkeletonProviderCard extends StatelessWidget {
             ],
           ),
           SizedBox(height: Spacing.lg),
-
           // Another bar skeleton
           Column(
             crossAxisAlignment: CrossAxisAlignment.start,
@@ -968,19 +916,15 @@ class _SkeletonProviderCard extends StatelessWidget {
     );
   }
 }
-
 /// Skeleton box for loading state.
 class _SkeletonBox extends StatelessWidget {
   const _SkeletonBox({this.width, this.height, this.borderRadius = 8});
-
   final double? width;
   final double? height;
   final double borderRadius;
-
   @override
   Widget build(BuildContext context) {
     final ocTheme = OpenCodeTheme.of(context);
-
     return Container(
       width: width,
       height: height,

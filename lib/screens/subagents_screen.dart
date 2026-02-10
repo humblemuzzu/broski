@@ -1,3 +1,4 @@
+
 import 'package:flutter/material.dart';
 import '../theme/app_typography.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -8,20 +9,17 @@ import '../providers/service_providers.dart';
 import '../theme/design_tokens.dart';
 import '../theme/opencode_theme.dart';
 import '../widgets/claude_code_help.dart';
-
+import 'package:broski/theme/app_icons.dart';
 /// Screen for managing Claude Code custom subagents.
 /// Subagents are separate agent instances that can be spawned to handle focused subtasks.
 class SubagentsScreen extends ConsumerStatefulWidget {
   const SubagentsScreen({super.key});
-
   @override
   ConsumerState<SubagentsScreen> createState() => _SubagentsScreenState();
 }
-
 class _SubagentsScreenState extends ConsumerState<SubagentsScreen> {
   List<Map<String, dynamic>> _filesystemAgents = [];
   bool _loadingFsAgents = false;
-
   @override
   void initState() {
     super.initState();
@@ -31,7 +29,6 @@ class _SubagentsScreenState extends ConsumerState<SubagentsScreen> {
       _loadFilesystemAgents();
     });
   }
-
   void _loadFilesystemAgents() async {
     setState(() => _loadingFsAgents = true);
     try {
@@ -54,13 +51,11 @@ class _SubagentsScreenState extends ConsumerState<SubagentsScreen> {
       if (mounted) setState(() => _loadingFsAgents = false);
     }
   }
-
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final oc = theme.extension<OpenCodeTheme>()!;
     final configAsync = ref.watch(ccConfigProvider);
-
     return Scaffold(
       backgroundColor: oc.background,
       appBar: AppBar(
@@ -70,7 +65,7 @@ class _SubagentsScreenState extends ConsumerState<SubagentsScreen> {
         iconTheme: IconThemeData(color: oc.text),
         actions: [
           IconButton(
-            icon: const Icon(Icons.help_outline_rounded),
+            icon: const Icon(AppIcons.help),
             tooltip: 'Help',
             onPressed: () => showClaudeCodeHelpSheet(
               context,
@@ -78,7 +73,7 @@ class _SubagentsScreenState extends ConsumerState<SubagentsScreen> {
             ),
           ),
           IconButton(
-            icon: const Icon(Icons.add),
+            icon: const Icon(AppIcons.add),
             tooltip: 'Add Subagent',
             onPressed: () => _showSubagentEditor(context, null),
           ),
@@ -93,7 +88,6 @@ class _SubagentsScreenState extends ConsumerState<SubagentsScreen> {
           final subagents = config.subagents;
           final hasFilesystem = _filesystemAgents.isNotEmpty;
           final hasConfig = subagents.isNotEmpty;
-
           // Empty state: only show when BOTH filesystem and config agents are empty
           if (!hasFilesystem && !hasConfig && !_loadingFsAgents) {
             return Center(
@@ -101,7 +95,7 @@ class _SubagentsScreenState extends ConsumerState<SubagentsScreen> {
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
                   Icon(
-                    Icons.smart_toy_outlined,
+                    AppIcons.agent,
                     size: 64,
                     color: oc.textMuted.withOpacity(0.7),
                   ),
@@ -122,7 +116,7 @@ class _SubagentsScreenState extends ConsumerState<SubagentsScreen> {
                   SizedBox(height: Spacing.xxl),
                   ElevatedButton.icon(
                     onPressed: () => _showSubagentEditor(context, null),
-                    icon: const Icon(Icons.add),
+                    icon: const Icon(AppIcons.add),
                     label: const Text('Add Subagent'),
                     style: ElevatedButton.styleFrom(
                       backgroundColor: oc.primary,
@@ -133,7 +127,6 @@ class _SubagentsScreenState extends ConsumerState<SubagentsScreen> {
               ),
             );
           }
-
           return ListView(
             padding: Insets.card,
             children: [
@@ -158,7 +151,7 @@ class _SubagentsScreenState extends ConsumerState<SubagentsScreen> {
                   child: Row(
                     children: [
                       Icon(
-                        Icons.folder_outlined,
+                        AppIcons.folder,
                         size: 14,
                         color: oc.textMuted,
                       ),
@@ -183,14 +176,12 @@ class _SubagentsScreenState extends ConsumerState<SubagentsScreen> {
                     memoryScope: agent['memory'] as String?,
                   ),
               ],
-
               // Divider between filesystem and config sections
               if (hasFilesystem && hasConfig)
                 Padding(
                   padding: Insets.cardV,
                   child: Divider(color: oc.border, height: 1),
                 ),
-
               // Config agents section header
               if (hasConfig) ...[
                 Padding(
@@ -198,7 +189,7 @@ class _SubagentsScreenState extends ConsumerState<SubagentsScreen> {
                   child: Row(
                     children: [
                       Icon(
-                        Icons.settings_outlined,
+                        AppIcons.settings,
                         size: 14,
                         color: oc.textMuted,
                       ),
@@ -233,7 +224,6 @@ class _SubagentsScreenState extends ConsumerState<SubagentsScreen> {
       ),
     );
   }
-
   Future<void> _showSubagentEditor(
     BuildContext context,
     ClaudeCodeSubagent? existing,
@@ -244,7 +234,6 @@ class _SubagentsScreenState extends ConsumerState<SubagentsScreen> {
         builder: (_) => _SubagentEditorScreen(existing: existing),
       ),
     );
-
     if (result != null) {
       final notifier = ref.read(ccConfigProvider.notifier);
       if (existing != null) {
@@ -254,12 +243,10 @@ class _SubagentsScreenState extends ConsumerState<SubagentsScreen> {
       }
     }
   }
-
   Future<void> _setActiveSubagent(String name, bool isCurrentlyActive) async {
     final notifier = ref.read(ccConfigProvider.notifier);
     await notifier.setActiveSubagent(isCurrentlyActive ? null : name);
   }
-
   Future<void> _deleteSubagent(String name) async {
     final confirmed = await showDialog<bool>(
       context: context,
@@ -279,20 +266,17 @@ class _SubagentsScreenState extends ConsumerState<SubagentsScreen> {
         ],
       ),
     );
-
     if (confirmed == true) {
       await ref.read(ccConfigProvider.notifier).deleteSubagent(name);
     }
   }
 }
-
 class _SubagentCard extends StatelessWidget {
   final ClaudeCodeSubagent subagent;
   final bool isActive;
   final VoidCallback onTap;
   final VoidCallback onSetActive;
   final VoidCallback onDelete;
-
   const _SubagentCard({
     required this.subagent,
     required this.isActive,
@@ -300,12 +284,10 @@ class _SubagentCard extends StatelessWidget {
     required this.onSetActive,
     required this.onDelete,
   });
-
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final oc = theme.extension<OpenCodeTheme>()!;
-
     return Card(
       color: oc.backgroundElement,
       margin: Insets.bottomMd,
@@ -326,7 +308,7 @@ class _SubagentCard extends StatelessWidget {
               Row(
                 children: [
                   Icon(
-                    Icons.smart_toy_outlined,
+                    AppIcons.agent,
                     color: isActive ? oc.primary : oc.textMuted,
                     size: 24,
                   ),
@@ -380,7 +362,7 @@ class _SubagentCard extends StatelessWidget {
                   ),
                   PopupMenuButton<String>(
                     icon: Icon(
-                      Icons.more_vert,
+                      AppIcons.moreVertical,
                       color: oc.textMuted.withOpacity(0.7),
                     ),
                     onSelected: (value) {
@@ -400,8 +382,8 @@ class _SubagentCard extends StatelessWidget {
                           children: [
                             Icon(
                               isActive
-                                  ? Icons.radio_button_checked
-                                  : Icons.radio_button_unchecked,
+                                  ? AppIcons.radioChecked
+                                  : AppIcons.radioUnchecked,
                               size: 20,
                             ),
                             SizedBox(width: Spacing.sm),
@@ -414,7 +396,7 @@ class _SubagentCard extends StatelessWidget {
                         child: Row(
                           children: [
                             Icon(
-                              Icons.delete_outline,
+                              AppIcons.delete,
                               size: 20,
                               color: oc.error,
                             ),
@@ -434,16 +416,16 @@ class _SubagentCard extends StatelessWidget {
                 runSpacing: 8,
                 children: [
                   _InfoChip(
-                    icon: Icons.memory,
+                    icon: AppIcons.memory,
                     label: subagent.model.displayName,
                   ),
                   if (subagent.tools != null && subagent.tools!.isNotEmpty)
                     _InfoChip(
-                      icon: Icons.build_outlined,
+                      icon: AppIcons.build,
                       label: '${subagent.tools!.length} tools',
                     )
                   else
-                    _InfoChip(icon: Icons.build_outlined, label: 'All tools'),
+                    _InfoChip(icon: AppIcons.build, label: 'All tools'),
                 ],
               ),
             ],
@@ -453,7 +435,6 @@ class _SubagentCard extends StatelessWidget {
     );
   }
 }
-
 /// Read-only card for filesystem-based agents (.claude/agents/).
 /// These are managed on the user's system, not from the app.
 class _FilesystemAgentCard extends StatelessWidget {
@@ -461,19 +442,16 @@ class _FilesystemAgentCard extends StatelessWidget {
   final String description;
   final String source;
   final String? memoryScope;
-
   const _FilesystemAgentCard({
     required this.name,
     required this.description,
     required this.source,
     this.memoryScope,
   });
-
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final oc = theme.extension<OpenCodeTheme>()!;
-
     return Card(
       color: oc.backgroundElement,
       margin: Insets.bottomMd,
@@ -485,7 +463,7 @@ class _FilesystemAgentCard extends StatelessWidget {
         padding: Insets.card,
         child: Row(
           children: [
-            Icon(Icons.description_outlined, color: oc.textMuted, size: 24),
+            Icon(AppIcons.description, color: oc.textMuted, size: 24),
             SizedBox(width: Spacing.md),
             Expanded(
               child: Column(
@@ -539,7 +517,7 @@ class _FilesystemAgentCard extends StatelessWidget {
                     const SizedBox(height: 6),
                     Row(
                       children: [
-                        Icon(Icons.memory_rounded, size: 12, color: oc.accent),
+                        Icon(AppIcons.memory, size: 12, color: oc.accent),
                         SizedBox(width: Spacing.xs),
                         Text(
                           'Memory: $memoryScope',
@@ -561,18 +539,14 @@ class _FilesystemAgentCard extends StatelessWidget {
     );
   }
 }
-
 class _InfoChip extends StatelessWidget {
   final IconData icon;
   final String label;
-
   const _InfoChip({required this.icon, required this.label});
-
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final oc = theme.extension<OpenCodeTheme>()!;
-
     return Container(
       padding: Insets.chip,
       decoration: BoxDecoration(
@@ -591,20 +565,15 @@ class _InfoChip extends StatelessWidget {
     );
   }
 }
-
 // =============================================================================
 // SUBAGENT EDITOR SCREEN
 // =============================================================================
-
 class _SubagentEditorScreen extends StatefulWidget {
   final ClaudeCodeSubagent? existing;
-
   const _SubagentEditorScreen({this.existing});
-
   @override
   State<_SubagentEditorScreen> createState() => _SubagentEditorScreenState();
 }
-
 class _SubagentEditorScreenState extends State<_SubagentEditorScreen> {
   late final TextEditingController _nameController;
   late final TextEditingController _descriptionController;
@@ -613,9 +582,7 @@ class _SubagentEditorScreenState extends State<_SubagentEditorScreen> {
   late ClaudeCodeSubagentModel _model;
   late ClaudeCodePermissionMode? _permissionMode;
   late final TextEditingController _disallowedToolsController;
-
   bool get isEditing => widget.existing != null;
-
   @override
   void initState() {
     super.initState();
@@ -634,7 +601,6 @@ class _SubagentEditorScreenState extends State<_SubagentEditorScreen> {
       text: existing?.disallowedTools?.join(', ') ?? '',
     );
   }
-
   @override
   void dispose() {
     _nameController.dispose();
@@ -644,12 +610,10 @@ class _SubagentEditorScreenState extends State<_SubagentEditorScreen> {
     _disallowedToolsController.dispose();
     super.dispose();
   }
-
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final oc = theme.extension<OpenCodeTheme>()!;
-
     return Scaffold(
       backgroundColor: oc.background,
       appBar: AppBar(
@@ -691,9 +655,7 @@ class _SubagentEditorScreenState extends State<_SubagentEditorScreen> {
                 ),
               ),
             ],
-
             SizedBox(height: Spacing.xxl),
-
             // Description field
             _buildLabel('Description', oc),
             SizedBox(height: Spacing.sm),
@@ -714,9 +676,7 @@ class _SubagentEditorScreenState extends State<_SubagentEditorScreen> {
                 fontSize: 12,
               ),
             ),
-
             SizedBox(height: Spacing.xxl),
-
             // Prompt field
             _buildLabel('System Prompt', oc),
             SizedBox(height: Spacing.sm),
@@ -738,9 +698,7 @@ class _SubagentEditorScreenState extends State<_SubagentEditorScreen> {
                 fontSize: 12,
               ),
             ),
-
             SizedBox(height: Spacing.xxl),
-
             // Model dropdown
             _buildLabel('Model', oc),
             SizedBox(height: Spacing.sm),
@@ -779,9 +737,7 @@ class _SubagentEditorScreenState extends State<_SubagentEditorScreen> {
                 fontSize: 12,
               ),
             ),
-
             SizedBox(height: Spacing.xxl),
-
             // Permission Mode dropdown (SDK v2.0.43)
             _buildLabel('Permission Mode (optional)', oc),
             SizedBox(height: Spacing.sm),
@@ -831,9 +787,7 @@ class _SubagentEditorScreenState extends State<_SubagentEditorScreen> {
                 fontSize: 12,
               ),
             ),
-
             SizedBox(height: Spacing.xxl),
-
             // Tools field
             _buildLabel('Allowed Tools (optional)', oc),
             SizedBox(height: Spacing.sm),
@@ -850,9 +804,7 @@ class _SubagentEditorScreenState extends State<_SubagentEditorScreen> {
                 fontSize: 12,
               ),
             ),
-
             SizedBox(height: Spacing.xxxl),
-
             // Disallowed Tools field (SDK v2.0.30)
             _buildLabel('Disallowed Tools (optional)', oc),
             SizedBox(height: Spacing.sm),
@@ -872,9 +824,7 @@ class _SubagentEditorScreenState extends State<_SubagentEditorScreen> {
                 fontSize: 12,
               ),
             ),
-
             SizedBox(height: Spacing.xxxl),
-
             // Common tool presets
             Text(
               'Tool Presets',
@@ -913,7 +863,6 @@ class _SubagentEditorScreenState extends State<_SubagentEditorScreen> {
       ),
     );
   }
-
   Widget _buildLabel(String text, OpenCodeTheme oc) {
     return Text(
       text,
@@ -924,7 +873,6 @@ class _SubagentEditorScreenState extends State<_SubagentEditorScreen> {
       ),
     );
   }
-
   InputDecoration _inputDecoration(String hint, OpenCodeTheme oc) {
     return InputDecoration(
       hintText: hint,
@@ -949,33 +897,28 @@ class _SubagentEditorScreenState extends State<_SubagentEditorScreen> {
       ),
     );
   }
-
   void _save() {
     final name = _nameController.text.trim();
     final description = _descriptionController.text.trim();
     final prompt = _promptController.text.trim();
-
     if (name.isEmpty) {
       ScaffoldMessenger.of(
         context,
       ).showSnackBar(const SnackBar(content: Text('Name is required')));
       return;
     }
-
     if (description.isEmpty) {
       ScaffoldMessenger.of(
         context,
       ).showSnackBar(const SnackBar(content: Text('Description is required')));
       return;
     }
-
     if (prompt.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('System prompt is required')),
       );
       return;
     }
-
     // Parse tools
     List<String>? tools;
     final toolsText = _toolsController.text.trim();
@@ -986,7 +929,6 @@ class _SubagentEditorScreenState extends State<_SubagentEditorScreen> {
           .where((t) => t.isNotEmpty)
           .toList();
     }
-
     // Parse disallowed tools
     List<String>? disallowedTools;
     final disallowedText = _disallowedToolsController.text.trim();
@@ -997,7 +939,6 @@ class _SubagentEditorScreenState extends State<_SubagentEditorScreen> {
           .where((t) => t.isNotEmpty)
           .toList();
     }
-
     final subagent = ClaudeCodeSubagent(
       name: name,
       description: description,
@@ -1007,22 +948,17 @@ class _SubagentEditorScreenState extends State<_SubagentEditorScreen> {
       permissionMode: _permissionMode,
       disallowedTools: disallowedTools,
     );
-
     Navigator.pop(context, subagent);
   }
 }
-
 class _PresetChip extends StatelessWidget {
   final String label;
   final VoidCallback onTap;
-
   const _PresetChip({required this.label, required this.onTap});
-
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final oc = theme.extension<OpenCodeTheme>()!;
-
     return ActionChip(
       label: Text(label),
       labelStyle: AppTypography.label(color: oc.textMuted),

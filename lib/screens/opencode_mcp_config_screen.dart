@@ -1,3 +1,4 @@
+
 import 'dart:convert';
 
 import 'package:flutter/material.dart';
@@ -9,15 +10,13 @@ import '../models/mcp.dart';
 import '../providers/selection_provider.dart';
 import '../providers/service_providers.dart';
 import '../theme/opencode_theme.dart';
-
+import 'package:broski/theme/app_icons.dart';
 class OpenCodeMcpConfigScreen extends ConsumerStatefulWidget {
   const OpenCodeMcpConfigScreen({super.key});
-
   @override
   ConsumerState<OpenCodeMcpConfigScreen> createState() =>
       _OpenCodeMcpConfigScreenState();
 }
-
 class _OpenCodeMcpConfigScreenState
     extends ConsumerState<OpenCodeMcpConfigScreen> {
   bool _loading = true;
@@ -25,15 +24,12 @@ class _OpenCodeMcpConfigScreenState
   String? _error;
   Map<String, dynamic> _config = const {};
   Map<String, McpServerStatus> _status = const {};
-
   @override
   void initState() {
     super.initState();
     _load();
   }
-
   String? get _projectPath => ref.read(selectionProvider).project?.path;
-
   Future<void> _load() async {
     setState(() {
       _loading = true;
@@ -57,13 +53,11 @@ class _OpenCodeMcpConfigScreenState
       });
     }
   }
-
   Map<String, dynamic> _mcp() {
     final m = _config['mcp'];
     if (m is Map) return m.cast<String, dynamic>();
     return {};
   }
-
   Future<void> _restart() async {
     final oc = OpenCodeTheme.of(context);
     try {
@@ -86,7 +80,6 @@ class _OpenCodeMcpConfigScreenState
       );
     }
   }
-
   Future<void> _refreshStatus() async {
     setState(() => _loadingStatus = true);
     try {
@@ -102,7 +95,6 @@ class _OpenCodeMcpConfigScreenState
       setState(() => _loadingStatus = false);
     }
   }
-
   Future<void> _toggleConnection(String name, bool connect) async {
     final oc = OpenCodeTheme.of(context);
     try {
@@ -136,7 +128,6 @@ class _OpenCodeMcpConfigScreenState
       );
     }
   }
-
   Future<void> _addServer() async {
     final nameController = TextEditingController();
     final name = await showDialog<String>(
@@ -162,7 +153,6 @@ class _OpenCodeMcpConfigScreenState
     );
     if (name == null || name.isEmpty) return;
     if (!mounted) return;
-
     final json = const JsonEncoder.withIndent('  ').convert({
       'type': 'local',
       'command': ['echo', 'TODO'],
@@ -176,7 +166,6 @@ class _OpenCodeMcpConfigScreenState
     );
     if (cfg == null) return;
     if (!mounted) return;
-
     final oc = OpenCodeTheme.of(context);
     try {
       final bridge = ref.read(bridgeServiceProvider);
@@ -206,15 +195,13 @@ class _OpenCodeMcpConfigScreenState
       );
     }
   }
-
   IconData _statusIcon(McpServerStatus? status) {
-    if (status == null) return Icons.cloud_outlined;
-    if (status.isConnected) return Icons.check_circle_outline_rounded;
-    if (status.isConnecting) return Icons.sync_rounded;
-    if (status.hasError) return Icons.error_outline_rounded;
-    return Icons.pause_circle_outline_rounded;
+    if (status == null) return AppIcons.cloud;
+    if (status.isConnected) return AppIcons.checkCircle;
+    if (status.isConnecting) return AppIcons.sync;
+    if (status.hasError) return AppIcons.error;
+    return AppIcons.pause;
   }
-
   Color _statusColor(OpenCodeTheme oc, McpServerStatus? status) {
     if (status == null) return oc.textMuted;
     if (status.isConnected) return oc.success;
@@ -222,13 +209,11 @@ class _OpenCodeMcpConfigScreenState
     if (status.hasError) return oc.error;
     return oc.warning;
   }
-
   @override
   Widget build(BuildContext context) {
     final oc = OpenCodeTheme.of(context);
     final mcp = _mcp();
     final names = mcp.keys.toList()..sort();
-
     return Scaffold(
       backgroundColor: oc.background,
       appBar: AppBar(
@@ -238,7 +223,7 @@ class _OpenCodeMcpConfigScreenState
         iconTheme: IconThemeData(color: oc.text),
         actions: [
           IconButton(
-            icon: const Icon(Icons.add_rounded),
+            icon: const Icon(AppIcons.add),
             tooltip: 'Add MCP server',
             onPressed: _addServer,
           ),
@@ -249,7 +234,7 @@ class _OpenCodeMcpConfigScreenState
                     height: 18,
                     child: CircularProgressIndicator(strokeWidth: 2),
                   )
-                : const Icon(Icons.refresh_rounded),
+                : const Icon(AppIcons.refresh),
             onPressed: _loadingStatus ? null : _load,
           ),
         ],
@@ -277,7 +262,7 @@ class _OpenCodeMcpConfigScreenState
                       ),
                       TextButton.icon(
                         onPressed: _restart,
-                        icon: const Icon(Icons.restart_alt_rounded, size: 18),
+                        icon: const Icon(AppIcons.restart, size: 18),
                         label: const Text('Restart'),
                       ),
                     ],
@@ -292,7 +277,7 @@ class _OpenCodeMcpConfigScreenState
                               mainAxisAlignment: MainAxisAlignment.center,
                               children: [
                                 Icon(
-                                  Icons.dns_rounded,
+                                  AppIcons.dns,
                                   color: oc.textMuted,
                                   size: 56,
                                 ),
@@ -318,7 +303,6 @@ class _OpenCodeMcpConfigScreenState
                             final name = names[idx];
                             final status = _status[name];
                             final isConnected = status?.isConnected ?? false;
-
                             return Card(
                               color: oc.backgroundElement,
                               margin: const EdgeInsets.only(bottom: 10),
@@ -364,36 +348,29 @@ class _OpenCodeMcpConfigScreenState
     );
   }
 }
-
 class _JsonObjectEditorScreen extends StatefulWidget {
   const _JsonObjectEditorScreen({
     required this.title,
     required this.initialJson,
   });
-
   final String title;
   final String initialJson;
-
   @override
   State<_JsonObjectEditorScreen> createState() =>
       _JsonObjectEditorScreenState();
 }
-
 class _JsonObjectEditorScreenState extends State<_JsonObjectEditorScreen> {
   late final TextEditingController _json;
-
   @override
   void initState() {
     super.initState();
     _json = TextEditingController(text: widget.initialJson);
   }
-
   @override
   void dispose() {
     _json.dispose();
     super.dispose();
   }
-
   void _done() {
     try {
       final decoded = jsonDecode(_json.text);
@@ -407,7 +384,6 @@ class _JsonObjectEditorScreenState extends State<_JsonObjectEditorScreen> {
       ).showSnackBar(SnackBar(content: Text('Invalid JSON: $e')));
     }
   }
-
   @override
   Widget build(BuildContext context) {
     final oc = OpenCodeTheme.of(context);

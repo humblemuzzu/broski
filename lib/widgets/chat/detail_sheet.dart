@@ -1,8 +1,9 @@
+
 import 'package:flutter/material.dart';
 
 import '../../theme/design_tokens.dart';
 import '../../theme/opencode_theme.dart';
-
+import 'package:broski/theme/app_icons.dart';
 /// A reusable detail sheet for displaying tool/card details.
 /// Opens at 50% height, draggable to 90%.
 ///
@@ -18,14 +19,12 @@ class DetailSheet extends StatelessWidget {
   final String title;
   final Widget child;
   final Widget? trailing;
-
   const DetailSheet({
     super.key,
     required this.title,
     required this.child,
     this.trailing,
   });
-
   /// Static method to show the sheet as a modal bottom sheet
   static Future<T?> show<T>({
     required BuildContext context,
@@ -58,11 +57,9 @@ class DetailSheet extends StatelessWidget {
       ),
     );
   }
-
   @override
   Widget build(BuildContext context) {
     final theme = OpenCodeTheme.of(context);
-
     return Container(
       decoration: BoxDecoration(
         color: theme.backgroundPanel,
@@ -83,7 +80,6 @@ class DetailSheet extends StatelessWidget {
               ),
             ),
           ),
-
           // Header
           Padding(
             padding: Insets.listItemDense,
@@ -100,25 +96,22 @@ class DetailSheet extends StatelessWidget {
                     fontWeight: FontWeight.w600,
                   ),
                 ),
-
                 // Close button (left-aligned, independent of title)
                 Align(
                   alignment: Alignment.centerLeft,
                   child: IconButton(
                     onPressed: () => Navigator.of(context).pop(),
-                    icon: Icon(Icons.close, color: theme.textMuted, size: 24),
+                    icon: Icon(AppIcons.close, color: theme.textMuted, size: 24),
                     padding: EdgeInsets.zero,
                     constraints: const BoxConstraints(),
                   ),
                 ),
-
                 // Trailing widget (right-aligned)
                 if (trailing != null)
                   Align(alignment: Alignment.centerRight, child: trailing!),
               ],
             ),
           ),
-
           // Content
           Flexible(child: child),
         ],
@@ -126,25 +119,21 @@ class DetailSheet extends StatelessWidget {
     );
   }
 }
-
 /// A section within DetailSheet with label and content box.
 /// Used to organize content into labeled sections.
 class DetailSection extends StatelessWidget {
   final String label;
   final Widget child;
   final EdgeInsets? padding;
-
   const DetailSection({
     super.key,
     required this.label,
     required this.child,
     this.padding,
   });
-
   @override
   Widget build(BuildContext context) {
     final theme = OpenCodeTheme.of(context);
-
     return Padding(
       padding: padding ?? Insets.card,
       child: Column(
@@ -163,7 +152,6 @@ class DetailSection extends StatelessWidget {
               ),
             ),
           ),
-
           // Content box
           Container(
             width: double.infinity,

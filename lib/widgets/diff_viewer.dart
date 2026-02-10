@@ -1,3 +1,4 @@
+
 import 'package:flutter/material.dart';
 import '../models/message.dart';
 import '../theme/app_typography.dart';
@@ -5,7 +6,7 @@ import '../theme/design_tokens.dart';
 import '../theme/opencode_theme.dart';
 import '../utils/diff_utils.dart';
 import 'diff_status_badge.dart';
-
+import 'package:broski/theme/app_icons.dart';
 class DiffViewer extends StatefulWidget {
   const DiffViewer({
     super.key,
@@ -14,32 +15,24 @@ class DiffViewer extends StatefulWidget {
     this.onUndo,
     this.onViewFull,
   });
-
   final DiffEntry diff;
-
   /// Message ID this diff belongs to (needed for undo)
   final String messageId;
-
   /// Callback for Feature 7: Undo changes (revert specific part when possible)
   final void Function(String messageId, String? partId)? onUndo;
-
   /// Open full-screen diff view
   final VoidCallback? onViewFull;
-
   @override
   State<DiffViewer> createState() => _DiffViewerState();
 }
-
 class _DiffViewerState extends State<DiffViewer> {
   bool _isExpanded = false;
-
   @override
   Widget build(BuildContext context) {
     final theme = OpenCodeTheme.of(context);
     final fileName = _getFileName(widget.diff.file);
     final additions = widget.diff.additions;
     final deletions = widget.diff.deletions;
-
     return InkWell(
       onTap: () => setState(() => _isExpanded = !_isExpanded),
       borderRadius: Radii.brLg,
@@ -63,7 +56,7 @@ class _DiffViewerState extends State<DiffViewer> {
                     color: theme.borderSubtle.withValues(alpha: 0.5),
                     borderRadius: Radii.brSm,
                   ),
-                  child: Icon(Icons.code, size: 16, color: theme.textMuted),
+                  child: Icon(AppIcons.code, size: 16, color: theme.textMuted),
                 ),
                 const SizedBox(width: 10),
                 Expanded(
@@ -112,18 +105,16 @@ class _DiffViewerState extends State<DiffViewer> {
                 ),
                 Icon(
                   _isExpanded
-                      ? Icons.keyboard_arrow_up
-                      : Icons.keyboard_arrow_down,
+                      ? AppIcons.chevronUp
+                      : AppIcons.chevronDown,
                   color: theme.textMuted.withValues(alpha: 0.6),
                   size: 20,
                 ),
               ],
             ),
-
             // Expanded diff content
             SizedBox(height: Spacing.md),
             _DiffPreview(diff: widget.diff, maxLines: _isExpanded ? 8 : 3),
-
             // Actions row (only when expanded)
             if (_isExpanded) ...[
               const SizedBox(height: 10),
@@ -134,7 +125,7 @@ class _DiffViewerState extends State<DiffViewer> {
                       onPressed: () =>
                           widget.onUndo!(widget.messageId, widget.diff.partId),
                       icon: Icon(
-                        Icons.undo_rounded,
+                        AppIcons.undo,
                         size: 13,
                         color: theme.warning,
                       ),
@@ -152,7 +143,7 @@ class _DiffViewerState extends State<DiffViewer> {
                   TextButton.icon(
                     onPressed: widget.onViewFull,
                     icon: Icon(
-                      Icons.open_in_full_rounded,
+                      AppIcons.expand,
                       size: 13,
                       color: theme.info,
                     ),
@@ -178,34 +169,27 @@ class _DiffViewerState extends State<DiffViewer> {
       ),
     );
   }
-
   String _getFileName(String path) {
     if (path.isEmpty) return 'file';
     final parts = path.split('/');
     return parts.last;
   }
 }
-
 class _DiffPreview extends StatefulWidget {
   const _DiffPreview({required this.diff, required this.maxLines});
-
   final DiffEntry diff;
   final int maxLines;
-
   @override
   State<_DiffPreview> createState() => _DiffPreviewState();
 }
-
 class _DiffPreviewState extends State<_DiffPreview> {
   String? _lastDiffText;
   List<DiffLine> _contentLines = const [];
-
   @override
   void initState() {
     super.initState();
     _recompute();
   }
-
   @override
   void didUpdateWidget(covariant _DiffPreview oldWidget) {
     super.didUpdateWidget(oldWidget);
@@ -215,7 +199,6 @@ class _DiffPreviewState extends State<_DiffPreview> {
       // No-op: we slice from cached lines in build().
     }
   }
-
   String _computeDiffText() {
     final diff = widget.diff;
     return (diff.diff != null && diff.diff!.trim().isNotEmpty)
@@ -226,12 +209,10 @@ class _DiffPreviewState extends State<_DiffPreview> {
             after: diff.after,
           );
   }
-
   void _recompute() {
     final diffText = _computeDiffText();
     if (diffText == _lastDiffText) return;
     _lastDiffText = diffText;
-
     final parsed = UnifiedDiff.parse(diffText);
     final contentLines = <DiffLine>[];
     for (final line in parsed) {
@@ -244,12 +225,10 @@ class _DiffPreviewState extends State<_DiffPreview> {
     }
     _contentLines = contentLines;
   }
-
   @override
   Widget build(BuildContext context) {
     final theme = OpenCodeTheme.of(context);
     final previewLines = _contentLines.take(widget.maxLines).toList();
-
     return Container(
       width: double.infinity,
       padding: Insets.cardXs,
@@ -271,12 +250,9 @@ class _DiffPreviewState extends State<_DiffPreview> {
     );
   }
 }
-
 class _PreviewRow extends StatelessWidget {
   const _PreviewRow({required this.line});
-
   final DiffLine line;
-
   @override
   Widget build(BuildContext context) {
     final theme = OpenCodeTheme.of(context);
@@ -295,7 +271,6 @@ class _PreviewRow extends StatelessWidget {
       DiffLineKind.removed => '-',
       _ => ' ',
     };
-
     return Container(
       width: double.infinity,
       margin: const EdgeInsets.only(bottom: 1),

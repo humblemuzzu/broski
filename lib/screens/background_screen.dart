@@ -1,3 +1,4 @@
+
 import 'dart:io';
 
 import 'package:flutter/material.dart';
@@ -8,18 +9,16 @@ import '../theme/design_tokens.dart';
 import '../providers/appearance_provider.dart';
 import '../theme/opencode_theme.dart';
 import '../widgets/chat/detail_sheet.dart';
-
+import 'package:broski/theme/app_icons.dart';
 /// Screen for configuring custom background wallpaper, shade, and per-screen toggles.
 ///
 /// Extracted from AppearanceScreen to separate background settings from tool card settings.
 class BackgroundScreen extends ConsumerWidget {
   const BackgroundScreen({super.key});
-
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final theme = Theme.of(context);
     final settings = ref.watch(appearanceProvider);
-
     return Scaffold(
       backgroundColor: theme.scaffoldBackgroundColor,
       appBar: AppBar(
@@ -35,7 +34,7 @@ class BackgroundScreen extends ConsumerWidget {
         ),
         leading: IconButton(
           icon: Icon(
-            Icons.arrow_back_rounded,
+            AppIcons.back,
             color: theme.colorScheme.onSurface,
           ),
           onPressed: () => Navigator.pop(context),
@@ -66,34 +65,26 @@ class BackgroundScreen extends ConsumerWidget {
           _SectionHeader(title: 'Wallpaper'),
           SizedBox(height: Spacing.md),
           _BackgroundSection(settings: settings),
-
           SizedBox(height: Spacing.xxxl),
-
           // Background Shade Picker
           _SectionHeader(title: 'Background Shade'),
           SizedBox(height: Spacing.md),
           const _BackgroundShadePreview(),
-
           SizedBox(height: Spacing.xxxl),
-
           // Per-screen background toggles
           _SectionHeader(title: 'Screen Selection'),
           SizedBox(height: Spacing.md),
           const _ScreenBackgroundToggles(),
-
           const SizedBox(height: 100),
         ],
       ),
     );
   }
 }
-
 // Section header widget
 class _SectionHeader extends StatelessWidget {
   const _SectionHeader({required this.title});
-
   final String title;
-
   @override
   Widget build(BuildContext context) {
     return Text(
@@ -107,17 +98,13 @@ class _SectionHeader extends StatelessWidget {
     );
   }
 }
-
 // Settings card container
 class _SettingsCard extends StatelessWidget {
   const _SettingsCard({required this.child});
-
   final Widget child;
-
   @override
   Widget build(BuildContext context) {
     final ocTheme = OpenCodeTheme.of(context);
-
     return Container(
       decoration: BoxDecoration(
         color: ocTheme.backgroundPanel,
@@ -128,7 +115,6 @@ class _SettingsCard extends StatelessWidget {
     );
   }
 }
-
 // Divider
 class _Divider extends StatelessWidget {
   @override
@@ -142,18 +128,14 @@ class _Divider extends StatelessWidget {
     );
   }
 }
-
 // Background section with custom image picker
 class _BackgroundSection extends ConsumerWidget {
   const _BackgroundSection({required this.settings});
-
   final AppearanceSettings settings;
-
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final ocTheme = OpenCodeTheme.of(context);
     final theme = Theme.of(context);
-
     return _SettingsCard(
       child: Column(
         children: [
@@ -185,7 +167,7 @@ class _BackgroundSection extends ConsumerWidget {
                     child: settings.hasCustomBackground
                         ? null
                         : Icon(
-                            Icons.add_photo_alternate_outlined,
+                            AppIcons.camera,
                             color: theme.colorScheme.onSurface.withValues(
                               alpha: 0.4,
                             ),
@@ -221,7 +203,7 @@ class _BackgroundSection extends ConsumerWidget {
                     ),
                   ),
                   Icon(
-                    Icons.chevron_right_rounded,
+                    AppIcons.chevronRight,
                     color: theme.colorScheme.onSurface.withValues(alpha: 0.4),
                     size: 20,
                   ),
@@ -229,7 +211,6 @@ class _BackgroundSection extends ConsumerWidget {
               ),
             ),
           ),
-
           // Only show opacity/blur sliders if custom background is set
           if (settings.hasCustomBackground) ...[
             _Divider(),
@@ -259,10 +240,8 @@ class _BackgroundSection extends ConsumerWidget {
       ),
     );
   }
-
   void _showBackgroundOptions(BuildContext context, WidgetRef ref) {
     final theme = Theme.of(context);
-
     DetailSheet.show(
       context: context,
       title: 'Background',
@@ -279,7 +258,7 @@ class _BackgroundSection extends ConsumerWidget {
                 borderRadius: Radii.brMd,
               ),
               child: Icon(
-                Icons.photo_library_rounded,
+                AppIcons.photoLibrary,
                 color: theme.colorScheme.primary,
               ),
             ),
@@ -297,7 +276,6 @@ class _BackgroundSection extends ConsumerWidget {
               }
             },
           ),
-
           // Remove background (only if one is set)
           if (settings.hasCustomBackground) ...[
             SizedBox(height: Spacing.sm),
@@ -309,7 +287,7 @@ class _BackgroundSection extends ConsumerWidget {
                   borderRadius: Radii.brMd,
                 ),
                 child: Icon(
-                  Icons.delete_outline_rounded,
+                  AppIcons.delete,
                   color: theme.colorScheme.error,
                 ),
               ),
@@ -321,14 +299,12 @@ class _BackgroundSection extends ConsumerWidget {
               },
             ),
           ],
-
           SizedBox(height: Spacing.lg),
         ],
       ),
     );
   }
 }
-
 // Slider with custom label formatting
 class _SliderTileWithLabel extends StatelessWidget {
   const _SliderTileWithLabel({
@@ -340,7 +316,6 @@ class _SliderTileWithLabel extends StatelessWidget {
     required this.valueLabel,
     required this.onChanged,
   });
-
   final String title;
   final double value;
   final double min;
@@ -348,11 +323,9 @@ class _SliderTileWithLabel extends StatelessWidget {
   final int divisions;
   final String valueLabel;
   final ValueChanged<double> onChanged;
-
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-
     return Padding(
       padding: Insets.card,
       child: Column(
@@ -402,17 +375,14 @@ class _SliderTileWithLabel extends StatelessWidget {
     );
   }
 }
-
 // Selectable background shade picker
 class _BackgroundShadePreview extends ConsumerWidget {
   const _BackgroundShadePreview();
-
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final ocTheme = OpenCodeTheme.of(context);
     final theme = Theme.of(context);
     final settings = ref.watch(appearanceProvider);
-
     final shades = [
       (BackgroundShade.none, 'Default', ocTheme.background, 'Theme default'),
       (BackgroundShade.deep, 'Deep', ocTheme.bgDeep, 'Deepest background'),
@@ -428,7 +398,6 @@ class _BackgroundShadePreview extends ConsumerWidget {
       ),
       (BackgroundShade.overlay, 'Overlay', ocTheme.bgOverlay, 'Modal overlays'),
     ];
-
     return Container(
       decoration: BoxDecoration(
         color: ocTheme.backgroundPanel,
@@ -443,7 +412,7 @@ class _BackgroundShadePreview extends ConsumerWidget {
           Row(
             children: [
               Icon(
-                Icons.palette_outlined,
+                AppIcons.palette,
                 size: 14,
                 color: theme.colorScheme.primary,
               ),
@@ -461,7 +430,6 @@ class _BackgroundShadePreview extends ConsumerWidget {
             ],
           ),
           SizedBox(height: Spacing.lg),
-
           // Shade swatches (selectable)
           ...shades.map((shade) {
             final isSelected = settings.selectedShade == shade.$1;
@@ -500,7 +468,7 @@ class _BackgroundShadePreview extends ConsumerWidget {
                         ),
                         child: shade.$1 == BackgroundShade.none
                             ? Icon(
-                                Icons.block,
+                                AppIcons.block,
                                 size: 16,
                                 color: theme.colorScheme.onSurface.withValues(
                                   alpha: 0.3,
@@ -539,7 +507,7 @@ class _BackgroundShadePreview extends ConsumerWidget {
                       // Selection indicator
                       if (isSelected)
                         Icon(
-                          Icons.check_circle,
+                          AppIcons.checkCircle,
                           color: theme.colorScheme.primary,
                           size: 20,
                         )
@@ -577,17 +545,14 @@ class _BackgroundShadePreview extends ConsumerWidget {
     );
   }
 }
-
 // Per-screen background toggle section
 class _ScreenBackgroundToggles extends ConsumerWidget {
   const _ScreenBackgroundToggles();
-
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final ocTheme = OpenCodeTheme.of(context);
     final theme = Theme.of(context);
     final settings = ref.watch(appearanceProvider);
-
     // Only show this section if there's a custom background or shade
     if (!settings.hasCustomBackground && !settings.hasCustomShade) {
       return Container(
@@ -600,7 +565,7 @@ class _ScreenBackgroundToggles extends ConsumerWidget {
         child: Row(
           children: [
             Icon(
-              Icons.info_outline_rounded,
+              AppIcons.info,
               size: 18,
               color: theme.colorScheme.onSurface.withValues(alpha: 0.5),
             ),
@@ -618,18 +583,15 @@ class _ScreenBackgroundToggles extends ConsumerWidget {
         ),
       );
     }
-
     final screens = [
-      (AppScreen.chat, Icons.chat_bubble_outline_rounded, 'Chat'),
-      (AppScreen.projects, Icons.grid_view_rounded, 'Projects'),
-      (AppScreen.browse, Icons.folder_outlined, 'Browse'),
-      (AppScreen.sessions, Icons.history_rounded, 'Sessions'),
-      (AppScreen.settings, Icons.tune_rounded, 'Settings'),
+      (AppScreen.chat, AppIcons.chatBubble, 'Chat'),
+      (AppScreen.projects, AppIcons.gridView, 'Projects'),
+      (AppScreen.browse, AppIcons.folder, 'Browse'),
+      (AppScreen.sessions, AppIcons.history, 'Sessions'),
+      (AppScreen.settings, AppIcons.tune, 'Settings'),
     ];
-
     // Check if all screens are enabled (empty means all enabled)
     final allEnabled = settings.enabledScreens.isEmpty;
-
     return Container(
       decoration: BoxDecoration(
         color: ocTheme.backgroundPanel,
@@ -644,7 +606,7 @@ class _ScreenBackgroundToggles extends ConsumerWidget {
           Row(
             children: [
               Icon(
-                Icons.apps_rounded,
+                AppIcons.dashboard,
                 size: 18,
                 color: theme.colorScheme.primary,
               ),
@@ -722,7 +684,6 @@ class _ScreenBackgroundToggles extends ConsumerWidget {
     );
   }
 }
-
 class _ScreenToggleChip extends StatelessWidget {
   const _ScreenToggleChip({
     required this.screenId,
@@ -731,18 +692,15 @@ class _ScreenToggleChip extends StatelessWidget {
     required this.isEnabled,
     required this.onTap,
   });
-
   final String screenId;
   final IconData icon;
   final String label;
   final bool isEnabled;
   final VoidCallback onTap;
-
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final ocTheme = OpenCodeTheme.of(context);
-
     return GestureDetector(
       onTap: onTap,
       child: AnimatedContainer(
@@ -783,7 +741,7 @@ class _ScreenToggleChip extends StatelessWidget {
             ),
             const SizedBox(width: 6),
             Icon(
-              isEnabled ? Icons.check_circle : Icons.circle_outlined,
+              isEnabled ? AppIcons.checkCircle : AppIcons.circleOutlined,
               size: 16,
               color: isEnabled
                   ? theme.colorScheme.primary

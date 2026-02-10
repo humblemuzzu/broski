@@ -1,3 +1,4 @@
+
 import 'dart:convert';
 import 'dart:typed_data';
 
@@ -9,7 +10,7 @@ import '../theme/design_tokens.dart';
 import '../models/file_content.dart';
 import '../providers/service_providers.dart';
 import '../theme/opencode_theme.dart';
-
+import 'package:broski/theme/app_icons.dart';
 class TextFileViewerScreen extends ConsumerStatefulWidget {
   const TextFileViewerScreen({
     super.key,
@@ -17,29 +18,24 @@ class TextFileViewerScreen extends ConsumerStatefulWidget {
     this.title,
     this.projectPath,
   });
-
   final String path;
   final String? title;
   final String? projectPath;
-
   @override
   ConsumerState<TextFileViewerScreen> createState() =>
       _TextFileViewerScreenState();
 }
-
 class _TextFileViewerScreenState extends ConsumerState<TextFileViewerScreen> {
   bool _loading = true;
   String? _error;
   String _content = '';
   FileContent? _fileContent;
   Uint8List? _binaryData;
-
   @override
   void initState() {
     super.initState();
     _load();
   }
-
   Future<void> _load() async {
     setState(() {
       _loading = true;
@@ -79,13 +75,11 @@ class _TextFileViewerScreenState extends ConsumerState<TextFileViewerScreen> {
       });
     }
   }
-
   String _formatBytes(int bytes) {
     if (bytes < 1024) return '$bytes B';
     if (bytes < 1024 * 1024) return '${(bytes / 1024).toStringAsFixed(1)} KB';
     return '${(bytes / (1024 * 1024)).toStringAsFixed(1)} MB';
   }
-
   Widget _buildBinaryView(OpenCodeTheme oc) {
     final file = _fileContent;
     if (file == null) {
@@ -96,9 +90,7 @@ class _TextFileViewerScreenState extends ConsumerState<TextFileViewerScreen> {
         ),
       );
     }
-
     final fileName = widget.path.split('/').last;
-
     // If we have decoded binary data and it's an image, show preview
     if (_binaryData != null && file.isImage) {
       return SingleChildScrollView(
@@ -114,7 +106,7 @@ class _TextFileViewerScreenState extends ConsumerState<TextFileViewerScreen> {
                 errorBuilder: (_, __, ___) => _buildBinaryPlaceholder(
                   oc,
                   fileName: fileName,
-                  icon: Icons.broken_image_rounded,
+                  icon: AppIcons.imageOff,
                   label: 'Failed to decode image',
                 ),
               ),
@@ -132,13 +124,12 @@ class _TextFileViewerScreenState extends ConsumerState<TextFileViewerScreen> {
         ),
       );
     }
-
     // Non-image binary or no decoded data
     return Center(
       child: _buildBinaryPlaceholder(
         oc,
         fileName: fileName,
-        icon: Icons.insert_drive_file_rounded,
+        icon: AppIcons.file,
         label: 'Binary file',
         subtitle: _binaryData != null
             ? _formatBytes(_binaryData!.length)
@@ -146,7 +137,6 @@ class _TextFileViewerScreenState extends ConsumerState<TextFileViewerScreen> {
       ),
     );
   }
-
   Widget _buildBinaryPlaceholder(
     OpenCodeTheme oc, {
     required String fileName,
@@ -191,13 +181,11 @@ class _TextFileViewerScreenState extends ConsumerState<TextFileViewerScreen> {
       ],
     );
   }
-
   @override
   Widget build(BuildContext context) {
     final oc = OpenCodeTheme.of(context);
     final title = widget.title ?? widget.path;
     final isBinary = _fileContent?.isBinary ?? false;
-
     return Scaffold(
       backgroundColor: oc.background,
       appBar: AppBar(
@@ -212,7 +200,7 @@ class _TextFileViewerScreenState extends ConsumerState<TextFileViewerScreen> {
           IconButton(
             tooltip: 'Refresh',
             onPressed: _loading ? null : _load,
-            icon: const Icon(Icons.refresh_rounded),
+            icon: const Icon(AppIcons.refresh),
           ),
         ],
       ),

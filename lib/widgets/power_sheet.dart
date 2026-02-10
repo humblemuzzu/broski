@@ -1,3 +1,4 @@
+
 import 'package:flutter/material.dart';
 import '../theme/app_typography.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -16,7 +17,7 @@ import '../theme/opencode_theme.dart';
 import 'chat/detail_sheet.dart';
 import 'permission_rules_sheet.dart';
 import 'project_tools_sheet.dart';
-
+import 'package:broski/theme/app_icons.dart';
 /// Unified Power Sheet for all AI backends (OpenCode, Claude Code, Codex).
 /// Opens from the left menu button in ChatGPT style or agent selector in CLI style.
 class PowerSheet extends ConsumerStatefulWidget {
@@ -45,40 +46,31 @@ class PowerSheet extends ConsumerStatefulWidget {
     this.codexCollabMode,
     this.onCodexCollabModeChanged,
   });
-
   final AgentType backend;
   final ProjectSummary project;
-
   // Attach actions
   final VoidCallback? onAttachFile;
   final VoidCallback? onTakePhoto;
-
   // Model selection
   final String? currentModel;
   final VoidCallback? onModelTap;
-
   // Thinking level / variants
   final String? currentVariant;
   final List<String> availableVariants;
   final void Function(String?)? onVariantChanged;
-
   // OpenCode specific
   final List<Agent> agents;
   final String? currentAgent;
   final void Function(String?)? onAgentChanged;
-
   // Claude Code specific
   final ClaudeCodePermissionMode? ccPermissionMode;
   final void Function(ClaudeCodePermissionMode)? onCCPermissionModeChanged;
-
   // Codex specific
   final CodexCollaborationMode? codexCollabMode;
   final void Function(CodexCollaborationMode)? onCodexCollabModeChanged;
-
   @override
   ConsumerState<PowerSheet> createState() => _PowerSheetState();
 }
-
 class _PowerSheetState extends ConsumerState<PowerSheet> {
   void _openProjectTools() {
     Navigator.pop(context);
@@ -91,17 +83,14 @@ class _PowerSheetState extends ConsumerState<PowerSheet> {
       );
     });
   }
-
   @override
   Widget build(BuildContext context) {
     final theme = OpenCodeTheme.of(context);
     final rulesState = ref.watch(permissionRulesProvider);
-
     // Filter agents to only show native agents (build and plan)
     final nativeAgents = widget.agents
         .where((a) => a.name == 'build' || a.name == 'plan')
         .toList();
-
     return DetailSheet(
       title: 'Power Menu',
       child: SingleChildScrollView(
@@ -119,7 +108,7 @@ class _PowerSheetState extends ConsumerState<PowerSheet> {
                 children: [
                   Expanded(
                     child: _QuickActionCard(
-                      icon: Icons.attach_file_rounded,
+                      icon: AppIcons.attach,
                       label: 'Attach File',
                       theme: theme,
                       onTap: () {
@@ -131,7 +120,7 @@ class _PowerSheetState extends ConsumerState<PowerSheet> {
                   const SizedBox(width: 10),
                   Expanded(
                     child: _QuickActionCard(
-                      icon: Icons.camera_alt_outlined,
+                      icon: AppIcons.camera,
                       label: 'Take Photo',
                       theme: theme,
                       onTap: () {
@@ -144,7 +133,6 @@ class _PowerSheetState extends ConsumerState<PowerSheet> {
               ),
             ),
             const SizedBox(height: 28),
-
             // ===== MODEL SECTION =====
             if (widget.onModelTap != null) ...[
               _SectionHeader(title: 'Model', theme: theme),
@@ -159,7 +147,6 @@ class _PowerSheetState extends ConsumerState<PowerSheet> {
               ),
               const SizedBox(height: 28),
             ],
-
             // ===== THINKING LEVEL SECTION =====
             if (widget.availableVariants.isNotEmpty) ...[
               _SectionHeader(title: _getThinkingLevelTitle(), theme: theme),
@@ -192,7 +179,6 @@ class _PowerSheetState extends ConsumerState<PowerSheet> {
               ),
               const SizedBox(height: 28),
             ],
-
             // ===== OPENCODE: AGENT SECTION =====
             // Only show native agents (build/plan) - custom agents are @-tagged
             if (widget.backend == AgentType.opencode &&
@@ -202,7 +188,6 @@ class _PowerSheetState extends ConsumerState<PowerSheet> {
               _buildOpenCodeAgents(theme, nativeAgents),
               const SizedBox(height: 28),
             ],
-
             // ===== CLAUDE CODE: PERMISSION MODE SECTION =====
             if (widget.backend == AgentType.claudeCode) ...[
               _SectionHeader(title: 'Permission Mode', theme: theme),
@@ -210,7 +195,6 @@ class _PowerSheetState extends ConsumerState<PowerSheet> {
               _buildClaudeCodePermissionModes(theme),
               const SizedBox(height: 28),
             ],
-
             // ===== CODEX: COLLABORATION MODE SECTION =====
             if (widget.backend == AgentType.codex) ...[
               _SectionHeader(title: 'Collaboration Mode', theme: theme),
@@ -218,7 +202,6 @@ class _PowerSheetState extends ConsumerState<PowerSheet> {
               _buildCodexCollabModes(theme),
               const SizedBox(height: 28),
             ],
-
             // ===== PERMISSIONS SECTION (all backends) =====
             _SectionHeader(
               title: 'Permissions',
@@ -263,7 +246,6 @@ class _PowerSheetState extends ConsumerState<PowerSheet> {
               _PermissionSummaryCard(backend: widget.backend, theme: theme),
               const SizedBox(height: 28),
             ],
-
             // ===== PROJECT TOOLS BUTTON =====
             _ProjectToolsButton(
               theme: theme,
@@ -276,7 +258,6 @@ class _PowerSheetState extends ConsumerState<PowerSheet> {
       ),
     );
   }
-
   String _getThinkingLevelTitle() {
     switch (widget.backend) {
       case AgentType.claudeCode:
@@ -287,10 +268,8 @@ class _PowerSheetState extends ConsumerState<PowerSheet> {
         return 'Thinking Level';
     }
   }
-
   String _formatVariantLabel(String v) {
     if (v.isEmpty) return 'Default';
-
     // Claude Code thinking levels (token budgets)
     if (widget.backend == AgentType.claudeCode) {
       switch (v.toLowerCase()) {
@@ -306,7 +285,6 @@ class _PowerSheetState extends ConsumerState<PowerSheet> {
           return v[0].toUpperCase() + v.substring(1);
       }
     }
-
     // Codex reasoning effort levels
     if (widget.backend == AgentType.codex) {
       switch (v.toLowerCase()) {
@@ -326,16 +304,13 @@ class _PowerSheetState extends ConsumerState<PowerSheet> {
           return v[0].toUpperCase() + v.substring(1);
       }
     }
-
     // OpenCode: Just capitalize
     return v[0].toUpperCase() + v.substring(1);
   }
-
   Widget _buildOpenCodeAgents(OpenCodeTheme theme, List<Agent> agents) {
     // Only show native agents (build/plan) passed to this method
     // Custom agents are accessed via @-mention in the chat input
     if (agents.isEmpty) return const SizedBox.shrink();
-
     return IntrinsicHeight(
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -360,7 +335,6 @@ class _PowerSheetState extends ConsumerState<PowerSheet> {
       ),
     );
   }
-
   Widget _buildClaudeCodePermissionModes(OpenCodeTheme theme) {
     return Column(
       children: ClaudeCodePermissionMode.values.map((mode) {
@@ -378,7 +352,6 @@ class _PowerSheetState extends ConsumerState<PowerSheet> {
       }).toList(),
     );
   }
-
   String _getPermissionModeDescription(ClaudeCodePermissionMode mode) {
     switch (mode) {
       case ClaudeCodePermissionMode.defaultMode:
@@ -395,7 +368,6 @@ class _PowerSheetState extends ConsumerState<PowerSheet> {
         return 'Never prompt; deny unapproved tools';
     }
   }
-
   Widget _buildCodexCollabModes(OpenCodeTheme theme) {
     final modes = CodexCollaborationMode.values;
     return SizedBox(
@@ -423,7 +395,6 @@ class _PowerSheetState extends ConsumerState<PowerSheet> {
       ),
     );
   }
-
   Widget _buildOpenCodePermissionPresets(
     OpenCodeTheme theme,
     PermissionRulesState rulesState,
@@ -433,7 +404,6 @@ class _PowerSheetState extends ConsumerState<PowerSheet> {
         .where((p) => p != PermissionPreset.custom)
         .take(3)
         .toList();
-
     return IntrinsicHeight(
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -458,22 +428,18 @@ class _PowerSheetState extends ConsumerState<PowerSheet> {
     );
   }
 }
-
 // ============================================================================
 // HELPER WIDGETS
 // ============================================================================
-
 class _SectionHeader extends StatelessWidget {
   const _SectionHeader({
     required this.title,
     required this.theme,
     this.trailing,
   });
-
   final String title;
   final OpenCodeTheme theme;
   final Widget? trailing;
-
   @override
   Widget build(BuildContext context) {
     return Row(
@@ -491,7 +457,6 @@ class _SectionHeader extends StatelessWidget {
     );
   }
 }
-
 class _QuickActionCard extends StatelessWidget {
   const _QuickActionCard({
     required this.icon,
@@ -499,12 +464,10 @@ class _QuickActionCard extends StatelessWidget {
     required this.theme,
     required this.onTap,
   });
-
   final IconData icon;
   final String label;
   final OpenCodeTheme theme;
   final VoidCallback onTap;
-
   @override
   Widget build(BuildContext context) {
     return InkWell(
@@ -535,18 +498,15 @@ class _QuickActionCard extends StatelessWidget {
     );
   }
 }
-
 class _ModelCard extends StatelessWidget {
   const _ModelCard({
     required this.model,
     required this.theme,
     required this.onTap,
   });
-
   final String? model;
   final OpenCodeTheme theme;
   final VoidCallback onTap;
-
   String _formatModel(String? m) {
     if (m == null || m.isEmpty) return 'Select Model';
     // Shorten common model names
@@ -562,7 +522,6 @@ class _ModelCard extends StatelessWidget {
     if (m.length > 25) return '${m.substring(0, 22)}...';
     return m;
   }
-
   @override
   Widget build(BuildContext context) {
     return InkWell(
@@ -587,14 +546,13 @@ class _ModelCard extends StatelessWidget {
                 ),
               ),
             ),
-            Icon(Icons.chevron_right_rounded, size: 20, color: theme.textMuted),
+            Icon(AppIcons.chevronRight, size: 20, color: theme.textMuted),
           ],
         ),
       ),
     );
   }
 }
-
 class _VariantChip extends StatelessWidget {
   const _VariantChip({
     required this.label,
@@ -602,12 +560,10 @@ class _VariantChip extends StatelessWidget {
     required this.theme,
     required this.onTap,
   });
-
   final String label;
   final bool isSelected;
   final OpenCodeTheme theme;
   final VoidCallback onTap;
-
   @override
   Widget build(BuildContext context) {
     return GestureDetector(
@@ -635,7 +591,6 @@ class _VariantChip extends StatelessWidget {
     );
   }
 }
-
 class _AgentCard extends StatelessWidget {
   const _AgentCard({
     required this.name,
@@ -644,13 +599,11 @@ class _AgentCard extends StatelessWidget {
     required this.theme,
     required this.onTap,
   });
-
   final String name;
   final String description;
   final bool isSelected;
   final OpenCodeTheme theme;
   final VoidCallback onTap;
-
   @override
   Widget build(BuildContext context) {
     return InkWell(
@@ -690,7 +643,6 @@ class _AgentCard extends StatelessWidget {
     );
   }
 }
-
 class _PermissionModeCard extends StatelessWidget {
   const _PermissionModeCard({
     required this.title,
@@ -699,13 +651,11 @@ class _PermissionModeCard extends StatelessWidget {
     required this.theme,
     required this.onTap,
   });
-
   final String title;
   final String description;
   final bool isSelected;
   final OpenCodeTheme theme;
   final VoidCallback onTap;
-
   @override
   Widget build(BuildContext context) {
     return Padding(
@@ -747,7 +697,7 @@ class _PermissionModeCard extends StatelessWidget {
                 ),
               ),
               if (isSelected)
-                Icon(Icons.check_rounded, size: 18, color: theme.primary),
+                Icon(AppIcons.check, size: 18, color: theme.primary),
             ],
           ),
         ),
@@ -755,7 +705,6 @@ class _PermissionModeCard extends StatelessWidget {
     );
   }
 }
-
 class _CollabModeCard extends StatelessWidget {
   const _CollabModeCard({
     required this.mode,
@@ -763,12 +712,10 @@ class _CollabModeCard extends StatelessWidget {
     required this.theme,
     required this.onTap,
   });
-
   final CodexCollaborationMode mode;
   final bool isSelected;
   final OpenCodeTheme theme;
   final VoidCallback onTap;
-
   @override
   Widget build(BuildContext context) {
     return InkWell(
@@ -803,7 +750,6 @@ class _CollabModeCard extends StatelessWidget {
     );
   }
 }
-
 class _PresetCard extends StatelessWidget {
   const _PresetCard({
     required this.name,
@@ -811,12 +757,10 @@ class _PresetCard extends StatelessWidget {
     required this.theme,
     required this.onTap,
   });
-
   final String name;
   final bool isSelected;
   final OpenCodeTheme theme;
   final VoidCallback onTap;
-
   @override
   Widget build(BuildContext context) {
     return InkWell(
@@ -848,18 +792,15 @@ class _PresetCard extends StatelessWidget {
     );
   }
 }
-
 class _ProjectToolsButton extends StatelessWidget {
   const _ProjectToolsButton({
     required this.theme,
     required this.backend,
     required this.onTap,
   });
-
   final OpenCodeTheme theme;
   final AgentType backend;
   final VoidCallback onTap;
-
   @override
   Widget build(BuildContext context) {
     return InkWell(
@@ -894,13 +835,12 @@ class _ProjectToolsButton extends StatelessWidget {
                 ],
               ),
             ),
-            Icon(Icons.chevron_right_rounded, size: 20, color: theme.textMuted),
+            Icon(AppIcons.chevronRight, size: 20, color: theme.textMuted),
           ],
         ),
       ),
     );
   }
-
   String _getToolsDescription() {
     switch (backend) {
       case AgentType.opencode:
@@ -912,37 +852,32 @@ class _ProjectToolsButton extends StatelessWidget {
     }
   }
 }
-
 /// A brief summary card shown in the Power Menu for Claude Code / Codex
 /// permissions. Tapping "Custom" opens the full sheet; this just shows
 /// the current active mode at a glance.
 class _PermissionSummaryCard extends ConsumerWidget {
   const _PermissionSummaryCard({required this.backend, required this.theme});
-
   final AgentType backend;
   final OpenCodeTheme theme;
-
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final String label;
     final String value;
     final IconData icon;
-
     if (backend == AgentType.claudeCode) {
       final config = ref.watch(ccConfigProvider).valueOrNull;
       final mode =
           config?.permissionMode ?? ClaudeCodePermissionMode.defaultMode;
       label = 'Mode';
       value = mode.displayName;
-      icon = Icons.shield_outlined;
+      icon = AppIcons.security;
     } else {
       // Codex
       final settings = ref.watch(codexSettingsProvider);
       label = 'Approval';
       value = _formatCodexPolicy(settings.approvalPolicy);
-      icon = Icons.verified_user_outlined;
+      icon = AppIcons.shieldCheck;
     }
-
     return Container(
       padding: Insets.cardSm,
       decoration: BoxDecoration(
@@ -971,12 +906,11 @@ class _PermissionSummaryCard extends ConsumerWidget {
             ),
           ),
           const Spacer(),
-          Icon(Icons.chevron_right_rounded, size: 18, color: theme.textMuted),
+          Icon(AppIcons.chevronRight, size: 18, color: theme.textMuted),
         ],
       ),
     );
   }
-
   String _formatCodexPolicy(CodexApprovalPolicy policy) {
     switch (policy) {
       case CodexApprovalPolicy.unlessTrusted:

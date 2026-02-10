@@ -1,8 +1,9 @@
+
 import 'package:flutter/material.dart';
 import '../theme/app_typography.dart';
 import '../theme/design_tokens.dart';
 import '../theme/opencode_theme.dart';
-
+import 'package:broski/theme/app_icons.dart';
 /// Widget for displaying truncated tool output with head-tail preservation.
 ///
 /// Handles two truncation patterns:
@@ -14,45 +15,36 @@ class TruncatedOutput extends StatelessWidget {
     required this.output,
     required this.onOpenFile,
   });
-
   final String output;
   final void Function(String path) onOpenFile;
-
   // OpenCode's file-based truncation pattern
   static final _fullOutputPathRe = RegExp(
     r'Full output saved to:\s*(.+)$',
     multiLine: true,
   );
-
   // Head-tail buffer truncation pattern (from bridge utils)
   static final _headTailOmittedRe = RegExp(
     r'\n?\.\.\. (\d+) lines \(([^)]+)\) omitted \.\.\.\n?',
   );
-
   @override
   Widget build(BuildContext context) {
     final theme = OpenCodeTheme.of(context);
-
     // Check for file-based truncation first
     final fileMatch = _fullOutputPathRe.firstMatch(output);
     if (fileMatch != null) {
       return _buildFileBasedTruncation(theme, fileMatch);
     }
-
     // Check for head-tail buffer truncation
     final headTailMatch = _headTailOmittedRe.firstMatch(output);
     if (headTailMatch != null) {
       return _buildHeadTailTruncation(theme, headTailMatch);
     }
-
     // No truncation detected, show as-is
     return _CodeBox(text: output);
   }
-
   Widget _buildFileBasedTruncation(OpenCodeTheme theme, RegExpMatch match) {
     final path = (match.group(1) ?? '').trim();
     final head = output.substring(0, match.start).trimRight();
-
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -60,7 +52,7 @@ class TruncatedOutput extends StatelessWidget {
         if (head.isNotEmpty) SizedBox(height: Spacing.sm),
         _TruncationCard(
           theme: theme,
-          icon: Icons.unfold_more_rounded,
+          icon: AppIcons.unfoldMore,
           message: path.isEmpty ? 'Full output saved to file' : path,
           buttonLabel: 'Open',
           onPressed: path.isEmpty ? null : () => onOpenFile(path),
@@ -68,22 +60,18 @@ class TruncatedOutput extends StatelessWidget {
       ],
     );
   }
-
   Widget _buildHeadTailTruncation(OpenCodeTheme theme, RegExpMatch match) {
     final omittedLines = match.group(1) ?? '0';
     final omittedSize = match.group(2) ?? '';
-
     // Split into head and tail parts
     final headPart = output.substring(0, match.start).trimRight();
     final tailPart = output.substring(match.end).trimLeft();
-
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         // Head section
         if (headPart.isNotEmpty) _CodeBox(text: headPart),
         if (headPart.isNotEmpty) SizedBox(height: Spacing.sm),
-
         // Omitted indicator
         Container(
           width: double.infinity,
@@ -96,7 +84,7 @@ class TruncatedOutput extends StatelessWidget {
           child: Row(
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
-              Icon(Icons.more_horiz_rounded, color: theme.warning, size: 16),
+              Icon(AppIcons.moreHorizontal, color: theme.warning, size: 16),
               SizedBox(width: Spacing.sm),
               Text(
                 '$omittedLines lines ($omittedSize) omitted',
@@ -107,11 +95,10 @@ class TruncatedOutput extends StatelessWidget {
                 ),
               ),
               SizedBox(width: Spacing.sm),
-              Icon(Icons.more_horiz_rounded, color: theme.warning, size: 16),
+              Icon(AppIcons.moreHorizontal, color: theme.warning, size: 16),
             ],
           ),
         ),
-
         // Tail section
         if (tailPart.isNotEmpty) SizedBox(height: Spacing.sm),
         if (tailPart.isNotEmpty) _CodeBox(text: tailPart),
@@ -119,7 +106,6 @@ class TruncatedOutput extends StatelessWidget {
     );
   }
 }
-
 /// Card showing truncation info with optional action button
 class _TruncationCard extends StatelessWidget {
   const _TruncationCard({
@@ -129,13 +115,11 @@ class _TruncationCard extends StatelessWidget {
     required this.buttonLabel,
     this.onPressed,
   });
-
   final OpenCodeTheme theme;
   final IconData icon;
   final String message;
   final String buttonLabel;
   final VoidCallback? onPressed;
-
   @override
   Widget build(BuildContext context) {
     return Container(
@@ -163,7 +147,7 @@ class _TruncationCard extends StatelessWidget {
           const SizedBox(width: 10),
           OutlinedButton.icon(
             onPressed: onPressed,
-            icon: const Icon(Icons.open_in_new_rounded, size: 16),
+            icon: const Icon(AppIcons.openExternal, size: 16),
             label: Text(buttonLabel),
             style: OutlinedButton.styleFrom(
               foregroundColor: theme.info,
@@ -176,12 +160,9 @@ class _TruncationCard extends StatelessWidget {
     );
   }
 }
-
 class _CodeBox extends StatelessWidget {
   const _CodeBox({required this.text});
-
   final String text;
-
   @override
   Widget build(BuildContext context) {
     final theme = OpenCodeTheme.of(context);

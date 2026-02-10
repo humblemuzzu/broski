@@ -1,3 +1,4 @@
+
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import '../theme/app_typography.dart';
@@ -12,28 +13,22 @@ import '../providers/onboarding_provider.dart'
     show onboardingProvider, kDevBypassOnboarding;
 import '../theme/design_tokens.dart';
 import '../theme/opencode_theme.dart';
-
+import 'package:broski/theme/app_icons.dart';
 class PaywallScreen extends ConsumerWidget {
   const PaywallScreen({super.key, this.showCloseButton = true});
-
   /// Whether to show the X close button (for Apple compliance).
   /// Set to false only during initial onboarding before any content is shown.
   final bool showCloseButton;
-
   void _handleDismiss(BuildContext context, WidgetRef ref) {
     HapticFeedback.lightImpact();
-
     final onboarding = ref.read(onboardingProvider);
     final sub = ref.read(appSubscriptionProvider);
-
     // Mark paywall as dismissed this session
     ref.read(paywallDismissedThisSessionProvider.notifier).state = true;
-
     // If we're in onboarding flow, complete it (user chose to skip payment)
     if (!onboarding.hasCompletedOnboarding) {
       ref.read(onboardingProvider.notifier).completeOnboarding();
     }
-
     // If user is NOT entitled, put them in offline mode so they land in MainShell
     // with the upgrade banner instead of going to the scanner
     if (!sub.entitled) {
@@ -41,19 +36,16 @@ class PaywallScreen extends ConsumerWidget {
         () => ref.read(connectionProvider.notifier).enterUnpaidPreviewMode(),
       );
     }
-
     // If this was pushed as a modal, pop it
     if (Navigator.of(context).canPop()) {
       Navigator.of(context).pop();
     }
   }
-
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final auth = ref.watch(appAuthProvider);
     final sub = ref.watch(appSubscriptionProvider);
     final theme = OpenCodeTheme.of(context);
-
     return Scaffold(
       backgroundColor: const Color(0xFF0A0A0A),
       body: SafeArea(
@@ -160,37 +152,37 @@ class PaywallScreen extends ConsumerWidget {
                                 const SizedBox(height: 40),
                                 // Feature list
                                 _FeatureItem(
-                                  icon: Icons.all_inclusive_rounded,
+                                  icon: AppIcons.allInclusive,
                                   label: 'Unlimited Sessions',
                                 ),
                                 SizedBox(height: Spacing.xxl),
                                 _FeatureItem(
-                                  icon: Icons.developer_board_rounded,
+                                  icon: AppIcons.developer,
                                   label: 'Multi-Provider Support',
                                 ),
                                 SizedBox(height: Spacing.xxl),
                                 _FeatureItem(
-                                  icon: Icons.bolt_rounded,
+                                  icon: AppIcons.bolt,
                                   label: 'Real-Time Sync',
                                 ),
                                 SizedBox(height: Spacing.xxl),
                                 _FeatureItem(
-                                  icon: Icons.terminal_rounded,
+                                  icon: AppIcons.terminal,
                                   label: 'Full Terminal Access',
                                 ),
                                 SizedBox(height: Spacing.xxl),
                                 _FeatureItem(
-                                  icon: Icons.mic_rounded,
+                                  icon: AppIcons.mic,
                                   label: 'Voice-to-Code Input',
                                 ),
                                 SizedBox(height: Spacing.xxl),
                                 _FeatureItem(
-                                  icon: Icons.notifications_active_rounded,
+                                  icon: AppIcons.notificationActive,
                                   label: 'Push Notifications & Alerts',
                                 ),
                                 SizedBox(height: Spacing.xxl),
                                 _FeatureItem(
-                                  icon: Icons.verified_user_outlined,
+                                  icon: AppIcons.shieldCheck,
                                   label: 'Advanced Local Security',
                                 ),
                               ],
@@ -349,7 +341,7 @@ class PaywallScreen extends ConsumerWidget {
                                           ),
                                           const SizedBox(width: 10),
                                           Icon(
-                                            Icons.arrow_forward_rounded,
+                                            AppIcons.forward,
                                             color: const Color(0xFF111111),
                                             size: 20,
                                           ),
@@ -539,7 +531,7 @@ class PaywallScreen extends ConsumerWidget {
                       shape: BoxShape.circle,
                     ),
                     child: Icon(
-                      Icons.close_rounded,
+                      AppIcons.close,
                       color: Colors.white.withValues(alpha: 0.8),
                       size: 22,
                     ),
@@ -552,13 +544,10 @@ class PaywallScreen extends ConsumerWidget {
     );
   }
 }
-
 class _FeatureItem extends StatelessWidget {
   const _FeatureItem({required this.icon, required this.label});
-
   final IconData icon;
   final String label;
-
   @override
   Widget build(BuildContext context) {
     return Row(

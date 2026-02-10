@@ -1,3 +1,4 @@
+
 import 'package:flutter/material.dart';
 import '../models/message.dart';
 import '../screens/diff_view_screen.dart';
@@ -5,7 +6,7 @@ import '../theme/app_typography.dart';
 import '../theme/design_tokens.dart';
 import '../theme/opencode_theme.dart';
 import '../utils/diff_utils.dart';
-
+import 'package:broski/theme/app_icons.dart';
 class PermissionPrompt extends StatefulWidget {
   const PermissionPrompt({
     super.key,
@@ -21,55 +22,46 @@ class PermissionPrompt extends StatefulWidget {
     this.approveWithExecpolicyLabel,
     this.onDenyWithMessage,
   });
-
   final PermissionRequest request;
   final VoidCallback onApprove;
   final VoidCallback onDeny;
   final VoidCallback onAlwaysAllow;
   final String approveOnceLabel;
   final String approveAlwaysLabel;
-
   /// Called when user approves for current session only (SDK feature)
   final VoidCallback? onApproveForSession;
   final String approveForSessionLabel;
-
   final VoidCallback? onApproveWithExecpolicy;
   final String? approveWithExecpolicyLabel;
-
   /// Called when user wants to deny with a feedback message
   final void Function(String message)? onDenyWithMessage;
-
   @override
   State<PermissionPrompt> createState() => _PermissionPromptState();
 }
-
 class _PermissionPromptState extends State<PermissionPrompt> {
   bool _showRejectFeedback = false;
   final _feedbackController = TextEditingController();
   final _feedbackFocusNode = FocusNode();
-
   @override
   void dispose() {
     _feedbackController.dispose();
     _feedbackFocusNode.dispose();
     super.dispose();
   }
-
   IconData _getPermissionIcon() {
     switch (widget.request.permission) {
       case 'edit':
-        return Icons.edit_note_rounded;
+        return AppIcons.edit;
       case 'bash':
-        return Icons.terminal_rounded;
+        return AppIcons.terminal;
       case 'read':
-        return Icons.visibility_rounded;
+        return AppIcons.visibility;
       case 'write':
-        return Icons.save_rounded;
+        return AppIcons.save;
       default:
-        return Icons.security_rounded;
+        return AppIcons.security;
     }
   }
-
   Color _getPermissionColor(OpenCodeTheme theme) {
     switch (widget.request.permission) {
       case 'edit':
@@ -84,14 +76,12 @@ class _PermissionPromptState extends State<PermissionPrompt> {
         return theme.accent;
     }
   }
-
   /// Check if this is a doom loop permission request
   bool get _isDoomLoop {
     return widget.request.permission == 'doom_loop' ||
         (widget.request.metadata['type'] as String?) == 'doom_loop' ||
         (widget.request.metadata['doomLoop'] == true);
   }
-
   void _handleRejectTap() {
     setState(() {
       _showRejectFeedback = true;
@@ -101,14 +91,12 @@ class _PermissionPromptState extends State<PermissionPrompt> {
       _feedbackFocusNode.requestFocus();
     });
   }
-
   void _handleCancelReject() {
     setState(() {
       _showRejectFeedback = false;
       _feedbackController.clear();
     });
   }
-
   void _handleConfirmReject() {
     final message = _feedbackController.text.trim();
     if (message.isNotEmpty && widget.onDenyWithMessage != null) {
@@ -117,7 +105,6 @@ class _PermissionPromptState extends State<PermissionPrompt> {
       widget.onDeny();
     }
   }
-
   @override
   Widget build(BuildContext context) {
     final theme = OpenCodeTheme.of(context);
@@ -126,9 +113,7 @@ class _PermissionPromptState extends State<PermissionPrompt> {
         widget.request.metadata['filePath'] as String? ??
         widget.request.metadata['filepath'] as String? ??
         widget.request.metadata['path'] as String?;
-
     final permissionColor = _getPermissionColor(theme);
-
     // Use DraggableScrollableSheet to handle large content that exceeds screen
     return DraggableScrollableSheet(
       initialChildSize: 0.5,
@@ -155,7 +140,6 @@ class _PermissionPromptState extends State<PermissionPrompt> {
                   ),
                 ),
               ),
-
               // Scrollable content area
               Expanded(
                 child: SingleChildScrollView(
@@ -190,7 +174,6 @@ class _PermissionPromptState extends State<PermissionPrompt> {
                         ],
                       ),
                       SizedBox(height: Spacing.md),
-
                       // Task 5: Doom loop custom text
                       if (_isDoomLoop) ...[
                         Container(
@@ -209,7 +192,7 @@ class _PermissionPromptState extends State<PermissionPrompt> {
                               Row(
                                 children: [
                                   Icon(
-                                    Icons.loop_rounded,
+                                    AppIcons.loop,
                                     color: theme.warning,
                                     size: 18,
                                   ),
@@ -239,7 +222,6 @@ class _PermissionPromptState extends State<PermissionPrompt> {
                         ),
                         SizedBox(height: Spacing.md),
                       ],
-
                       // Show patterns if available (SDK v1.1.1+)
                       if (widget.request.patterns.isNotEmpty) ...[
                         _PatternsSection(
@@ -259,7 +241,6 @@ class _PermissionPromptState extends State<PermissionPrompt> {
                         ),
                         SizedBox(height: Spacing.sm),
                       ],
-
                       // Legacy command display
                       if (widget.request.command != null) ...[
                         Container(
@@ -277,7 +258,6 @@ class _PermissionPromptState extends State<PermissionPrompt> {
                         ),
                         SizedBox(height: Spacing.md),
                       ],
-
                       // Show diff preview if available
                       if (diffText != null && diffText.trim().isNotEmpty) ...[
                         Text(
@@ -295,7 +275,6 @@ class _PermissionPromptState extends State<PermissionPrompt> {
                         ),
                         SizedBox(height: Spacing.md),
                       ],
-
                       // Show "always allow" preview if available (SDK v1.1.1+)
                       if (widget.request.always.isNotEmpty) ...[
                         _AlwaysAllowPreview(
@@ -308,10 +287,8 @@ class _PermissionPromptState extends State<PermissionPrompt> {
                   ),
                 ),
               ),
-
               // Divider before pinned buttons
               Divider(height: 1, color: theme.borderSubtle),
-
               // Pinned action buttons at bottom (always visible)
               Container(
                 padding: const EdgeInsets.fromLTRB(20, 16, 20, 20),
@@ -335,7 +312,6 @@ class _PermissionPromptState extends State<PermissionPrompt> {
                             : CrossFadeState.showFirst,
                         duration: const Duration(milliseconds: 200),
                       ),
-
                       // Action buttons (hidden when showing feedback)
                       if (!_showRejectFeedback)
                         Column(
@@ -385,7 +361,7 @@ class _PermissionPromptState extends State<PermissionPrompt> {
                                     child: OutlinedButton.icon(
                                       onPressed: widget.onApproveForSession,
                                       icon: const Icon(
-                                        Icons.timer_outlined,
+                                        AppIcons.timer,
                                         size: 16,
                                       ),
                                       label: Text(
@@ -421,7 +397,7 @@ class _PermissionPromptState extends State<PermissionPrompt> {
                               OutlinedButton.icon(
                                 onPressed: widget.onApproveWithExecpolicy,
                                 icon: const Icon(
-                                  Icons.auto_fix_high_rounded,
+                                  AppIcons.autoFix,
                                   size: 18,
                                 ),
                                 label: Text(
@@ -452,7 +428,6 @@ class _PermissionPromptState extends State<PermissionPrompt> {
     );
   }
 }
-
 /// Expandable rejection feedback section
 class _RejectFeedbackSection extends StatelessWidget {
   const _RejectFeedbackSection({
@@ -462,13 +437,11 @@ class _RejectFeedbackSection extends StatelessWidget {
     required this.onCancel,
     required this.onConfirm,
   });
-
   final TextEditingController controller;
   final FocusNode focusNode;
   final OpenCodeTheme theme;
   final VoidCallback onCancel;
   final VoidCallback onConfirm;
-
   @override
   Widget build(BuildContext context) {
     return Column(
@@ -542,7 +515,6 @@ class _RejectFeedbackSection extends StatelessWidget {
     );
   }
 }
-
 /// Shows the file patterns affected by this permission request
 class _PatternsSection extends StatelessWidget {
   const _PatternsSection({
@@ -550,11 +522,9 @@ class _PatternsSection extends StatelessWidget {
     required this.theme,
     this.label,
   });
-
   final List<String> patterns;
   final OpenCodeTheme theme;
   final String? label;
-
   @override
   Widget build(BuildContext context) {
     return Column(
@@ -594,14 +564,11 @@ class _PatternsSection extends StatelessWidget {
     );
   }
 }
-
 /// Shows what "Always Allow" will permit
 class _AlwaysAllowPreview extends StatelessWidget {
   const _AlwaysAllowPreview({required this.always, required this.theme});
-
   final List<String> always;
   final OpenCodeTheme theme;
-
   @override
   Widget build(BuildContext context) {
     return Container(
@@ -618,7 +585,7 @@ class _AlwaysAllowPreview extends StatelessWidget {
           Row(
             children: [
               Icon(
-                Icons.check_circle_outline_rounded,
+                AppIcons.checkCircle,
                 size: 14,
                 color: theme.success,
               ),
@@ -673,13 +640,10 @@ class _AlwaysAllowPreview extends StatelessWidget {
     );
   }
 }
-
 class _PermissionDiffPreview extends StatelessWidget {
   const _PermissionDiffPreview({required this.diffText, this.filePath});
-
   final String diffText;
   final String? filePath;
-
   @override
   Widget build(BuildContext context) {
     final theme = OpenCodeTheme.of(context);
@@ -694,9 +658,7 @@ class _PermissionDiffPreview extends StatelessWidget {
       preview.add(line);
       if (preview.length >= 10) break;
     }
-
     final (adds, dels) = _countAddsDels(parsed);
-
     return Container(
       width: double.infinity,
       padding: Insets.cardSm,
@@ -737,7 +699,7 @@ class _PermissionDiffPreview extends StatelessWidget {
                   ),
                 );
               },
-              icon: const Icon(Icons.open_in_full_rounded, size: 16),
+              icon: const Icon(AppIcons.expand, size: 16),
               label: const Text('View full'),
             ),
           ),
@@ -745,7 +707,6 @@ class _PermissionDiffPreview extends StatelessWidget {
       ),
     );
   }
-
   (int, int) _countAddsDels(List<DiffLine> lines) {
     var adds = 0;
     var dels = 0;
@@ -756,12 +717,9 @@ class _PermissionDiffPreview extends StatelessWidget {
     return (adds, dels);
   }
 }
-
 class _PreviewRow extends StatelessWidget {
   const _PreviewRow({required this.line});
-
   final DiffLine line;
-
   @override
   Widget build(BuildContext context) {
     final theme = OpenCodeTheme.of(context);
@@ -780,7 +738,6 @@ class _PreviewRow extends StatelessWidget {
       DiffLineKind.removed => '-',
       _ => ' ',
     };
-
     return Container(
       width: double.infinity,
       margin: const EdgeInsets.only(bottom: 2),

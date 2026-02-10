@@ -1,3 +1,4 @@
+
 import 'dart:async';
 import 'dart:convert';
 
@@ -86,13 +87,12 @@ import '../widgets/opencode_branding.dart';
 import '../widgets/provider_icon.dart';
 import '../providers/appearance_provider.dart';
 import 'diff_view_screen.dart';
-
+import 'package:broski/theme/app_icons.dart';
 // Utility function for color opacity (from expense_tracker)
 Color fade(Color color, double opacity) {
   final clamped = opacity.clamp(0.0, 1.0);
   return color.withValues(alpha: clamped);
 }
-
 class ChatScreen extends ConsumerStatefulWidget {
   /// Constructor for OpenCode sessions
   const ChatScreen({
@@ -110,7 +110,6 @@ class ChatScreen extends ConsumerStatefulWidget {
        cxDraftModel = null,
        isClaudeCode = false,
        isCodex = false;
-
   /// Named constructor for Claude Code sessions
   const ChatScreen.claudeCode({
     super.key,
@@ -133,7 +132,6 @@ class ChatScreen extends ConsumerStatefulWidget {
        cxDraftModel = null,
        isClaudeCode = true,
        isCodex = false;
-
   /// Named constructor for a new Claude Code chat (session ID assigned on first turn)
   const ChatScreen.claudeCodeDraft({
     super.key,
@@ -159,7 +157,6 @@ class ChatScreen extends ConsumerStatefulWidget {
        cxDraftModel = null,
        isClaudeCode = true,
        isCodex = false;
-
   /// Named constructor for Codex threads
   const ChatScreen.codex({
     super.key,
@@ -182,7 +179,6 @@ class ChatScreen extends ConsumerStatefulWidget {
        cxDraftModel = null,
        isClaudeCode = false,
        isCodex = true;
-
   /// Named constructor for a new Codex chat (thread ID assigned on first turn)
   const ChatScreen.codexDraft({
     super.key,
@@ -208,7 +204,6 @@ class ChatScreen extends ConsumerStatefulWidget {
        cxDraftModel = model,
        isClaudeCode = false,
        isCodex = true;
-
   final ProjectSummary project;
   final SessionSummary session;
   final ClaudeCodeSession? ccSession;
@@ -222,47 +217,39 @@ class ChatScreen extends ConsumerStatefulWidget {
   final bool isClaudeCode;
   final bool isCodex;
   final String? initialPrompt;
-
   bool get isOpenCode => !isClaudeCode && !isCodex;
-
   /// Get the effective session ID
   String get effectiveSessionId => isClaudeCode
       ? (ccSession?.id ?? '')
       : isCodex
       ? (cxThread?.id ?? '')
       : session.id;
-
   /// Get the effective project path
   String get effectivePath => isClaudeCode
       ? (ccSession?.cwd ?? ccDraftCwd ?? '')
       : isCodex
       ? (cxThread?.cwd ?? cxDraftCwd ?? '')
       : project.path;
-
   /// Get the effective title
   String get effectiveTitle => isClaudeCode
       ? (ccSession?.displayTitle ?? ccDraftTitle ?? 'Claude Code')
       : isCodex
       ? (cxThread?.displayTitle ?? cxDraftTitle ?? 'Codex')
       : session.title;
-
   /// Get project name from path
   String get projectName {
     final path = effectivePath;
     final parts = path.split('/').where((p) => p.isNotEmpty).toList();
     return parts.isEmpty ? 'Unknown' : parts.last;
   }
-
   @override
   ConsumerState<ChatScreen> createState() => _ChatScreenState();
 }
-
 class _ChatScreenState extends ConsumerState<ChatScreen>
     with SingleTickerProviderStateMixin {
   String _newClientMessageId() {
     return OpenCodeId.newMessageId();
   }
-
   final TextEditingController _controller = TextEditingController();
   final ScrollController _scrollController = ScrollController();
   final HapticsService _haptics = HapticsService();
@@ -271,7 +258,6 @@ class _ChatScreenState extends ConsumerState<ChatScreen>
   final Set<String> _answeredQuestionIds =
       {}; // Prevent re-showing answered questions
   String? _activeCxQuestionId; // Codex request_user_input
-
   // Auto-scroll state: tracks if user has intentionally scrolled up
   // When true, we don't auto-scroll (respect user's intent to view history)
   // When false (user is at/near bottom), we auto-scroll as new content arrives
@@ -279,66 +265,51 @@ class _ChatScreenState extends ConsumerState<ChatScreen>
   // Track previous message count to detect new content
   int _previousMessageCount = 0;
   int _previousContentLength = 0;
-
   // Sidebar state
   bool _sidebarOpen = false;
   SessionContext _sessionContext = SessionContext.empty();
   bool _loadingContext = false;
-
   // Feature 2: Slash Commands
   List<SlashCommand> _commands = [];
   bool _showCommandAutocomplete = false;
   String _commandFilter = '';
-
   // Feature 3: Agent Switching
   List<Agent> _agents = [];
   String? _selectedAgent;
   String? _ccResumeSessionAtMessageId;
-
   // Feature 10: VCS/Git info
   VcsInfo _vcsInfo = const VcsInfo();
-
   // Feature 21: File @ tagging
   final List<FileAttachment> _attachedFiles = [];
   bool _showFileAutocomplete = false;
-
   // Feature 22: Agent @ mentions
   bool _showAgentAutocomplete = false;
   String _agentQuery = '';
-
   // Claude Code: Custom tool @ insertion (type "@tool:")
   bool _showCustomToolAutocomplete = false;
   String _customToolQuery = '';
-
   // Focus node for input bar - needed to restore focus after autocomplete appears
   final FocusNode _inputFocusNode = FocusNode();
-
   // Message pagination state
   bool _loadingMoreMessages = false;
   bool _hasLoadedAllMessages = false;
-
   bool _resyncingAfterReconnect = false;
   bool _initialPromptSent = false;
-
   // FIX: Store listener subscriptions for proper cleanup
   ProviderSubscription<BridgeConnectionState>? _connectionSubscription;
   ProviderSubscription<ChatSessionState>? _chatSubscription;
   ProviderSubscription<AsyncValue<ClaudeCodeConfig>>? _ccConfigSubscription;
   // CC queue: listen for ccIsStreaming true→false to auto-send pending message
   ProviderSubscription<bool>? _ccQueueSubscription;
-
   @override
   void initState() {
     super.initState();
     final bridge = ref.read(bridgeServiceProvider);
-
     // Defer state modifications to after the first frame to avoid
     // "Tried to modify a provider while the widget tree was building" error
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (!mounted) return;
-
       final selection = ref.read(selectionProvider.notifier);
-
       // Keep power-feature screens consistent: always set a project context when
       // a chat opens (even for Claude/Codex draft/session routes).
       final initialProject = widget.isOpenCode
@@ -352,7 +323,6 @@ class _ChatScreenState extends ConsumerState<ChatScreen>
       if (widget.isOpenCode && widget.session.id.isNotEmpty) {
         selection.selectSession(widget.session);
       }
-
       // Set up view routing for all backends
       // This enables real-time cross-device session sync (external session watching)
       if (widget.isOpenCode) {
@@ -373,7 +343,6 @@ class _ChatScreenState extends ConsumerState<ChatScreen>
         }
       }
     });
-
     // FIX: Use listenManual for proper subscription lifecycle management
     _connectionSubscription = ref.listenManual(connectionProvider, (
       previous,
@@ -385,7 +354,6 @@ class _ChatScreenState extends ConsumerState<ChatScreen>
         // Re-assert view routing and re-sync session state after network flips.
         if (_resyncingAfterReconnect) return;
         _resyncingAfterReconnect = true;
-
         // Re-establish view routing for all backends (enables real-time sync)
         if (widget.isOpenCode) {
           bridge.setView(
@@ -404,7 +372,6 @@ class _ChatScreenState extends ConsumerState<ChatScreen>
             bridge.setView(sessionId: threadId, agent: 'codex');
           }
         }
-
         _hydrateSession().whenComplete(() {
           _resyncingAfterReconnect = false;
           if (widget.isOpenCode &&
@@ -417,7 +384,6 @@ class _ChatScreenState extends ConsumerState<ChatScreen>
         });
       }
     });
-
     // FIX: Use listenManual for proper subscription lifecycle management
     // Auto-scroll: Listen to chat state changes to trigger auto-scroll
     // when new content arrives (streaming text, tool calls, diffs, etc.)
@@ -425,7 +391,6 @@ class _ChatScreenState extends ConsumerState<ChatScreen>
       chatSessionProvider,
       _handleAutoScroll,
     );
-
     // Defer _hydrateSession to after first frame - it modifies provider state
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (!mounted) return;
@@ -440,10 +405,8 @@ class _ChatScreenState extends ConsumerState<ChatScreen>
     });
     _controller.addListener(_onTextChanged);
     _scrollController.addListener(_onScroll);
-
     // Load commands for both modes (different implementations)
     _loadCommandsAndAgents();
-
     if (widget.isOpenCode) {
       _loadVcsInfo();
     } else if (widget.isClaudeCode) {
@@ -452,7 +415,6 @@ class _ChatScreenState extends ConsumerState<ChatScreen>
       // Preload power feature data for @/menu UX.
       ref.read(ccCustomToolsProvider.notifier).load();
       ref.read(ccPluginsProvider.notifier).load(cwd: widget.effectivePath);
-
       // Keep subagents synced into the @agent autocomplete list.
       _ccConfigSubscription = ref.listenManual(ccConfigProvider, (
         previous,
@@ -474,7 +436,6 @@ class _ChatScreenState extends ConsumerState<ChatScreen>
           _agents = subagentAgents;
         });
       });
-
       // CC queue: auto-send pending message when turn completes
       _ccQueueSubscription = ref.listenManual(
         chatSessionProvider.select((s) => s.ccIsStreaming),
@@ -487,38 +448,31 @@ class _ChatScreenState extends ConsumerState<ChatScreen>
       );
     }
   }
-
   void _maybeSendInitialPrompt() {
     if (_initialPromptSent) return;
     final prompt = widget.initialPrompt?.trim() ?? '';
     if (prompt.isEmpty) return;
-
     final connection = ref.read(connectionProvider);
     if (!connection.isConnected) return;
-
     final chatState = ref.read(chatSessionProvider);
     // Avoid sending twice if we already have messages (e.g., opening an existing session).
     if (chatState.messages.isNotEmpty) {
       _initialPromptSent = true;
       return;
     }
-
     _initialPromptSent = true;
     _controller.text = prompt;
     _sendMessage(connection, chatState);
   }
-
   Future<void> _hydrateSession() async {
     final connection = ref.read(connectionProvider);
     final storage = ref.read(storageServiceProvider);
     final chat = ref.read(chatSessionProvider.notifier);
-
     // Reset pagination state
     setState(() {
       _loadingMoreMessages = false;
       _hasLoadedAllMessages = false;
     });
-
     // Claude Code mode - set up CC session in provider (session ID may be assigned on first turn)
     if (widget.isClaudeCode) {
       final cwd = widget.ccSession?.cwd ?? widget.ccDraftCwd ?? '';
@@ -528,7 +482,6 @@ class _ChatScreenState extends ConsumerState<ChatScreen>
         model: widget.ccSession?.model ?? widget.ccDraftModel,
         title: widget.ccSession?.displayTitle ?? widget.ccDraftTitle,
       );
-
       // If this is an existing Claude Code session, hydrate transcript
       final sessionId = widget.ccSession?.id;
       if (sessionId != null && sessionId.isNotEmpty) {
@@ -544,7 +497,6 @@ class _ChatScreenState extends ConsumerState<ChatScreen>
                 .read(bridgeServiceProvider)
                 .ccGetSessionMessages(sessionId, cwd: cwd);
             chat.hydrateClaudeCodeTranscript(items);
-
             // Cache CC messages for offline use
             final chatState = ref.read(chatSessionProvider);
             if (chatState.messages.isNotEmpty) {
@@ -564,12 +516,10 @@ class _ChatScreenState extends ConsumerState<ChatScreen>
           }
         }
       }
-
       _scrollToBottom(animate: false);
       setState(() => _hasLoadedAllMessages = true);
       return;
     }
-
     // Codex mode - set up thread in provider (thread ID may be assigned on first turn)
     if (widget.isCodex) {
       final cwd = widget.cxThread?.cwd ?? widget.cxDraftCwd ?? '';
@@ -579,7 +529,6 @@ class _ChatScreenState extends ConsumerState<ChatScreen>
         cwd: cwd,
         model: widget.cxThread?.modelProvider ?? widget.cxDraftModel,
       );
-
       if (threadId.isNotEmpty) {
         if (connection.isOfflineMode) {
           final cached = await storage.getCachedCodexMessages(threadId);
@@ -592,7 +541,6 @@ class _ChatScreenState extends ConsumerState<ChatScreen>
                 .read(bridgeServiceProvider)
                 .cxGetThreadMessages(threadId);
             chat.hydrateCodexTranscript(items);
-
             final chatState = ref.read(chatSessionProvider);
             if (chatState.messages.isNotEmpty) {
               await storage.cacheCodexThreadMessages(
@@ -608,15 +556,12 @@ class _ChatScreenState extends ConsumerState<ChatScreen>
           }
         }
       }
-
       _scrollToBottom(animate: false);
       setState(() => _hasLoadedAllMessages = true);
       return;
     }
-
     // OpenCode mode - set up OC session in provider
     chat.setSession(widget.session, projectPath: widget.project.path);
-
     // In offline mode, load from cache (all messages)
     if (connection.isOfflineMode) {
       final cachedMessages = await storage.getCachedMessages(widget.session.id);
@@ -628,7 +573,6 @@ class _ChatScreenState extends ConsumerState<ChatScreen>
       _scrollToBottom(animate: false);
       return;
     }
-
     final bridge = ref.read(bridgeServiceProvider);
     final messages = await bridge.getSessionMessages(
       widget.session.id,
@@ -636,23 +580,19 @@ class _ChatScreenState extends ConsumerState<ChatScreen>
       limit: 20, // Initial load: only fetch last 20 messages for speed
     );
     chat.hydrate(messages);
-
     // If we got fewer than 20 messages, we already have all of them
     if (messages.length < 20) {
       setState(() => _hasLoadedAllMessages = true);
     }
-
     _scrollToBottom(animate: false);
     // Load context after messages
     _loadSessionContext();
-
     // Cache messages for offline use
     final chatState = ref.read(chatSessionProvider);
     if (chatState.messages.isNotEmpty) {
       await storage.cacheSessionMessages(widget.session.id, chatState.messages);
     }
   }
-
   /// Convert ChatMessage to raw format for hydrate
   Map<String, dynamic> _messageToRaw(ChatMessage m) {
     return {
@@ -682,19 +622,16 @@ class _ChatScreenState extends ConsumerState<ChatScreen>
       ],
     };
   }
-
   // Feature 2 & 3: Load available commands and agents
   Future<void> _loadCommandsAndAgents() async {
     final bridge = ref.read(bridgeServiceProvider);
     final storage = ref.read(storageServiceProvider);
     final connection = ref.read(connectionProvider);
-
     // Claude Code mode - load CC commands
     if (widget.isClaudeCode) {
       await _loadClaudeCodeCommands();
       return;
     }
-
     // Codex mode - built-in commands (app-server features)
     // Full parity with Codex CLI slash commands
     if (widget.isCodex) {
@@ -782,7 +719,6 @@ class _ChatScreenState extends ConsumerState<ChatScreen>
       });
       return;
     }
-
     // OpenCode mode - offline support
     if (connection.isOfflineMode) {
       final cachedCommands = await storage.getCachedCommands();
@@ -795,13 +731,11 @@ class _ChatScreenState extends ConsumerState<ChatScreen>
       }
       return;
     }
-
     try {
       final commands = await bridge.listCommands(
         projectPath: widget.project.path,
       );
       final agents = await bridge.listAgents(projectPath: widget.project.path);
-
       // Cache for offline use
       if (commands.isNotEmpty) {
         await storage.cacheCommands(commands);
@@ -809,7 +743,6 @@ class _ChatScreenState extends ConsumerState<ChatScreen>
       if (agents.isNotEmpty) {
         await storage.cacheAgents(agents);
       }
-
       // Built-in OpenCode commands (matching TUI)
       final builtInCommands = [
         const SlashCommand(
@@ -913,14 +846,12 @@ class _ChatScreenState extends ConsumerState<ChatScreen>
           builtin: true,
         ),
       ];
-
       if (mounted) {
         setState(() {
           _commands = [...builtInCommands, ...commands];
           _agents = agents.isNotEmpty ? agents : kDefaultAgents;
         });
       }
-
       // Also load variants for thinking level support (SDK v1.1.23+)
       _loadOpenCodeVariants();
     } catch (e) {
@@ -932,7 +863,6 @@ class _ChatScreenState extends ConsumerState<ChatScreen>
       }
     }
   }
-
   /// Load available variants (thinking levels) for OpenCode models.
   Future<void> _loadOpenCodeVariants() async {
     if (!widget.isOpenCode) return;
@@ -948,16 +878,13 @@ class _ChatScreenState extends ConsumerState<ChatScreen>
       debugPrint('Failed to load OpenCode variants: $e');
     }
   }
-
   /// Load slash commands for Claude Code
   Future<void> _loadClaudeCodeCommands() async {
     final bridge = ref.read(bridgeServiceProvider);
     final cwd = widget.ccSession?.cwd ?? widget.ccDraftCwd;
-
     try {
       // Fetch custom commands from .claude/commands/ directories
       final ccCommands = await bridge.ccListCommands(cwd: cwd);
-
       // Built-in slash commands (from Claude Code init payload when available).
       // Fallback to a small default list when init is not available (e.g. draft screen).
       const builtInDescriptions = <String, String>{
@@ -986,12 +913,10 @@ class _ChatScreenState extends ConsumerState<ChatScreen>
             ),
           )
           .toList();
-
       // Convert CC commands to SlashCommand and merge
       final customCommands = ccCommands
           .map((c) => c.toSlashCommand(builtin: false))
           .toList();
-
       if (mounted) {
         setState(() {
           _commands = [...builtInCommands, ...customCommands];
@@ -1022,20 +947,16 @@ class _ChatScreenState extends ConsumerState<ChatScreen>
       }
     }
   }
-
   Future<void> _loadSessionContext() async {
     if (_loadingContext) return;
     setState(() => _loadingContext = true);
-
     final storage = ref.read(storageServiceProvider);
     final connection = ref.read(connectionProvider);
-
     // Claude Code mode - build context from stream state
     if (widget.isClaudeCode) {
       final chatState = ref.read(chatSessionProvider);
       final tokenUsage = chatState.ccTokenUsage;
       final ccConfig = ref.read(ccConfigProvider).valueOrNull;
-
       final context = SessionContext.fromClaudeCode(
         inputTokens: tokenUsage?.inputTokens ?? 0,
         outputTokens: tokenUsage?.outputTokens ?? 0,
@@ -1050,20 +971,17 @@ class _ChatScreenState extends ConsumerState<ChatScreen>
         // Only show what the SDK reports directly (usage/cost).
         modifiedFiles: const [],
       );
-
       // Cache CC context for offline
       final sessionId = chatState.ccSessionId ?? widget.ccSession?.id ?? '';
       if (sessionId.isNotEmpty) {
         await storage.cacheSessionContext(sessionId, context);
       }
-
       setState(() {
         _sessionContext = context;
         _loadingContext = false;
       });
       return;
     }
-
     // Codex mode - build context from stream token usage
     // Codex SDK provides TokenUsageBreakdown with:
     //   totalTokens, inputTokens, cachedInputTokens, outputTokens, reasoningOutputTokens
@@ -1073,7 +991,6 @@ class _ChatScreenState extends ConsumerState<ChatScreen>
     if (widget.isCodex) {
       final chatState = ref.read(chatSessionProvider);
       final tokenUsage = chatState.cxTokenUsage;
-
       final total = tokenUsage?.total;
       final last = tokenUsage?.last;
       final contextWindow = tokenUsage?.modelContextWindow ?? 200000;
@@ -1096,19 +1013,16 @@ class _ChatScreenState extends ConsumerState<ChatScreen>
         contextWindow: contextWindow,
         contextTokens: contextTokens,
       );
-
       final threadId = chatState.cxThreadId ?? widget.cxThread?.id ?? '';
       if (threadId.isNotEmpty) {
         await storage.cacheSessionContext(threadId, context);
       }
-
       setState(() {
         _sessionContext = context;
         _loadingContext = false;
       });
       return;
     }
-
     // OpenCode offline mode - use cached data
     if (connection.isOfflineMode) {
       final cachedContext = await storage.getCachedSessionContext(
@@ -1128,7 +1042,6 @@ class _ChatScreenState extends ConsumerState<ChatScreen>
       }
       return;
     }
-
     // OpenCode mode - fetch from bridge
     try {
       final bridge = ref.read(bridgeServiceProvider);
@@ -1143,15 +1056,12 @@ class _ChatScreenState extends ConsumerState<ChatScreen>
       );
       final contextData = await contextFuture;
       final todosData = await todosFuture;
-
       final context = SessionContext.fromJson(contextData);
-
       // Cache for offline use
       await storage.cacheSessionContext(widget.session.id, context);
       if (todosData.isNotEmpty) {
         await storage.cacheSessionTodos(widget.session.id, todosData);
       }
-
       if (mounted) {
         setState(() {
           _sessionContext = context;
@@ -1175,16 +1085,13 @@ class _ChatScreenState extends ConsumerState<ChatScreen>
       }
     }
   }
-
   void _closeSidebar() {
     setState(() => _sidebarOpen = false);
   }
-
   // Feature 10: Load VCS/Git info
   Future<void> _loadVcsInfo() async {
     final storage = ref.read(storageServiceProvider);
     final connection = ref.read(connectionProvider);
-
     // Offline mode - use cached VCS info
     if (connection.isOfflineMode) {
       final cachedVcs = await storage.getCachedSessionVcs(widget.session.id);
@@ -1194,14 +1101,12 @@ class _ChatScreenState extends ConsumerState<ChatScreen>
       }
       return;
     }
-
     try {
       final bridge = ref.read(bridgeServiceProvider);
       final vcsInfo = await bridge.getVcsInfo(projectPath: widget.project.path);
       if (mounted) {
         setState(() => _vcsInfo = vcsInfo);
         ref.read(chatSessionProvider.notifier).setVcsInfo(vcsInfo);
-
         // Cache for offline use
         if (vcsInfo.isAvailable) {
           await storage.cacheSessionVcs(widget.session.id, vcsInfo);
@@ -1216,14 +1121,12 @@ class _ChatScreenState extends ConsumerState<ChatScreen>
       }
     }
   }
-
   Future<void> _forkSession({String? messageId}) async {
     _haptics.mediumImpact();
     final theme = OpenCodeTheme.of(context);
     try {
       final bridge = ref.read(bridgeServiceProvider);
       final chatState = ref.read(chatSessionProvider);
-
       String? initialPrompt;
       if (messageId != null && messageId.isNotEmpty) {
         final idx = chatState.messages.indexWhere((m) => m.id == messageId);
@@ -1238,7 +1141,6 @@ class _ChatScreenState extends ConsumerState<ChatScreen>
           initialPrompt ??= chatState.messages[idx].text.trim();
         }
       }
-
       if (widget.isClaudeCode) {
         final sessionId = chatState.ccSessionId ?? widget.ccSession?.id;
         if (sessionId == null || sessionId.isEmpty) {
@@ -1250,14 +1152,12 @@ class _ChatScreenState extends ConsumerState<ChatScreen>
           );
           return;
         }
-
         final forkedCC = await bridge.ccForkSession(
           sessionId,
           messageId: messageId,
           cwd: chatState.ccCwd ?? widget.ccSession?.cwd,
         );
         if (!mounted) return;
-
         if (forkedCC == null) {
           ScaffoldMessenger.of(context).showSnackBar(
             SnackBar(
@@ -1267,7 +1167,6 @@ class _ChatScreenState extends ConsumerState<ChatScreen>
           );
           return;
         }
-
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             content: Text('Session forked: ${forkedCC.displayTitle}'),
@@ -1300,10 +1199,8 @@ class _ChatScreenState extends ConsumerState<ChatScreen>
           );
           return;
         }
-
         final forked = await bridge.cxThreadFork(threadId: threadId);
         if (!mounted) return;
-
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             content: Text('Thread forked: ${forked.preview}'),
@@ -1332,7 +1229,6 @@ class _ChatScreenState extends ConsumerState<ChatScreen>
           projectPath: widget.project.path,
         );
         if (!mounted) return;
-
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             content: Text('Session forked: ${forkedSession.title}'),
@@ -1366,7 +1262,6 @@ class _ChatScreenState extends ConsumerState<ChatScreen>
       );
     }
   }
-
   void _setClaudeResumeFromHere(String messageId) {
     if (messageId.isEmpty) return;
     _haptics.lightImpact();
@@ -1381,7 +1276,6 @@ class _ChatScreenState extends ConsumerState<ChatScreen>
       ),
     );
   }
-
   // Feature 7: Revert/Undo changes
   Future<void> _revertMessage(String messageId, {String? partId}) async {
     _haptics.mediumImpact();
@@ -1394,7 +1288,6 @@ class _ChatScreenState extends ConsumerState<ChatScreen>
         projectPath: widget.project.path,
       );
       if (!mounted) return;
-
       final theme = OpenCodeTheme.of(context);
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
@@ -1415,7 +1308,6 @@ class _ChatScreenState extends ConsumerState<ChatScreen>
       );
     }
   }
-
   void _openDiffView(DiffEntry diff, {String? messageId}) {
     Navigator.of(context).push(
       MaterialPageRoute(
@@ -1427,7 +1319,6 @@ class _ChatScreenState extends ConsumerState<ChatScreen>
       ),
     );
   }
-
   // Feature 7: Unrevert session (reserved for future use)
   // ignore: unused_element
   Future<void> _unrevertSession() async {
@@ -1438,7 +1329,6 @@ class _ChatScreenState extends ConsumerState<ChatScreen>
         projectPath: widget.project.path,
       );
       if (!mounted) return;
-
       final theme = OpenCodeTheme.of(context);
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
@@ -1458,7 +1348,6 @@ class _ChatScreenState extends ConsumerState<ChatScreen>
       );
     }
   }
-
   // Claude Code: Rewind files to the most recent checkpoint.
   // Uses the SDK's `rewindFiles(userMessageId)` which reverts ALL tracked files
   // to their state at that user message. Pops the checkpoint from the stack so
@@ -1466,7 +1355,6 @@ class _ChatScreenState extends ConsumerState<ChatScreen>
   Future<void> _ccRewindToCheckpoint() async {
     _haptics.mediumImpact();
     final theme = OpenCodeTheme.of(context);
-
     final ccChatState = ref.read(ccChatProvider);
     if (!ccChatState.canUndo) {
       ScaffoldMessenger.of(context).showSnackBar(
@@ -1477,17 +1365,13 @@ class _ChatScreenState extends ConsumerState<ChatScreen>
       );
       return;
     }
-
     final remaining = ccChatState.checkpoints.length - 1;
-
     try {
       final ccChat = ref.read(ccChatProvider.notifier);
       final success = await ccChat.rewindToCheckpoint(
         cwd: widget.effectivePath,
       );
-
       if (!mounted) return;
-
       if (success) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
@@ -1517,7 +1401,6 @@ class _ChatScreenState extends ConsumerState<ChatScreen>
       );
     }
   }
-
   // Feature 8: Share Session
   Future<void> _shareSession() async {
     _haptics.mediumImpact();
@@ -1528,7 +1411,6 @@ class _ChatScreenState extends ConsumerState<ChatScreen>
         projectPath: widget.project.path,
       );
       if (!mounted) return;
-
       final shareUrl = sharedSession.share?.url;
       if (shareUrl == null || shareUrl.isEmpty) {
         final theme = OpenCodeTheme.of(context);
@@ -1540,7 +1422,6 @@ class _ChatScreenState extends ConsumerState<ChatScreen>
         );
         return;
       }
-
       // Show share dialog
       _showShareDialog(shareUrl);
     } catch (e) {
@@ -1554,7 +1435,6 @@ class _ChatScreenState extends ConsumerState<ChatScreen>
       );
     }
   }
-
   void _showShareDialog(String url) {
     final theme = OpenCodeTheme.of(context);
     DetailSheet.show(
@@ -1598,7 +1478,7 @@ class _ChatScreenState extends ConsumerState<ChatScreen>
                         ),
                       );
                     },
-                    icon: Icon(Icons.copy, color: theme.textMuted, size: 20),
+                    icon: Icon(AppIcons.copy, color: theme.textMuted, size: 20),
                   ),
                 ],
               ),
@@ -1617,7 +1497,7 @@ class _ChatScreenState extends ConsumerState<ChatScreen>
                         );
                       }
                     },
-                    icon: const Icon(Icons.open_in_new, size: 18),
+                    icon: const Icon(AppIcons.openExternal, size: 18),
                     label: const Text('Open in Browser'),
                     style: OutlinedButton.styleFrom(
                       foregroundColor: theme.text,
@@ -1633,7 +1513,7 @@ class _ChatScreenState extends ConsumerState<ChatScreen>
                       Share.share(url, subject: 'Check out my coding session');
                       Navigator.pop(context);
                     },
-                    icon: const Icon(Icons.share, size: 18),
+                    icon: const Icon(AppIcons.share, size: 18),
                     label: const Text('Share'),
                     style: ElevatedButton.styleFrom(
                       backgroundColor: theme.primary,
@@ -1650,7 +1530,6 @@ class _ChatScreenState extends ConsumerState<ChatScreen>
       ),
     );
   }
-
   // Feature 8: Unshare Session
   Future<void> _unshareSession() async {
     try {
@@ -1660,7 +1539,6 @@ class _ChatScreenState extends ConsumerState<ChatScreen>
         projectPath: widget.project.path,
       );
       if (!mounted) return;
-
       final theme = OpenCodeTheme.of(context);
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
@@ -1679,7 +1557,6 @@ class _ChatScreenState extends ConsumerState<ChatScreen>
       );
     }
   }
-
   // Feature 9: Summarize/Compact Session
   Future<void> _compactSession() async {
     final theme = OpenCodeTheme.of(context);
@@ -1693,7 +1570,6 @@ class _ChatScreenState extends ConsumerState<ChatScreen>
       );
       return;
     }
-
     // Confirm compact
     final confirm = await showDialog<bool>(
       context: context,
@@ -1716,12 +1592,9 @@ class _ChatScreenState extends ConsumerState<ChatScreen>
         ],
       ),
     );
-
     if (confirm != true) return;
-
     _haptics.mediumImpact();
     ref.read(chatSessionProvider.notifier).setCompacting(true);
-
     try {
       final bridge = ref.read(bridgeServiceProvider);
       final success = await bridge.summarizeSession(
@@ -1730,9 +1603,7 @@ class _ChatScreenState extends ConsumerState<ChatScreen>
         modelID: selectedModel.modelID,
         projectPath: widget.project.path,
       );
-
       if (!mounted) return;
-
       if (success) {
         final theme = OpenCodeTheme.of(context);
         ScaffoldMessenger.of(context).showSnackBar(
@@ -1765,7 +1636,6 @@ class _ChatScreenState extends ConsumerState<ChatScreen>
       );
     }
   }
-
   // Feature 20: Initialize Project (Create AGENTS.md)
   Future<void> _initializeProject() async {
     final theme = OpenCodeTheme.of(context);
@@ -1779,7 +1649,6 @@ class _ChatScreenState extends ConsumerState<ChatScreen>
       );
       return;
     }
-
     // Confirm initialization
     final confirm = await showDialog<bool>(
       context: context,
@@ -1802,14 +1671,10 @@ class _ChatScreenState extends ConsumerState<ChatScreen>
         ],
       ),
     );
-
     if (confirm != true) return;
-
     _haptics.mediumImpact();
-
     if (!mounted) return;
     final messenger = ScaffoldMessenger.of(context);
-
     // Show a loading message
     messenger.showSnackBar(
       SnackBar(
@@ -1818,16 +1683,13 @@ class _ChatScreenState extends ConsumerState<ChatScreen>
         duration: const Duration(seconds: 2),
       ),
     );
-
     try {
       final bridge = ref.read(bridgeServiceProvider);
-
       // Get the latest message ID (used for init)
       final chatState = ref.read(chatSessionProvider);
       final messageId = chatState.messages.isNotEmpty
           ? chatState.messages.last.id
           : 'init';
-
       final success = await bridge.initSession(
         sessionId: widget.session.id,
         providerID: selectedModel.providerID,
@@ -1835,9 +1697,7 @@ class _ChatScreenState extends ConsumerState<ChatScreen>
         messageID: messageId,
         projectPath: widget.project.path,
       );
-
       if (!mounted) return;
-
       if (success) {
         final theme = OpenCodeTheme.of(context);
         ScaffoldMessenger.of(context).showSnackBar(
@@ -1866,7 +1726,6 @@ class _ChatScreenState extends ConsumerState<ChatScreen>
       );
     }
   }
-
   /// Dismiss keyboard if the input field is focused.
   /// Called on tap/drag in the chat area for smooth UX.
   void _dismissKeyboardIfFocused() {
@@ -1874,25 +1733,20 @@ class _ChatScreenState extends ConsumerState<ChatScreen>
       _inputFocusNode.unfocus();
     }
   }
-
   void _onTextChanged() {
     final text = _controller.text;
     final fileSearch = ref.read(fileSearchProvider.notifier);
-
     // CRITICAL: Capture focus state BEFORE any setState calls.
     // setState can cause focus loss on mobile during widget tree rebuilds.
     final hadFocus = _inputFocusNode.hasFocus;
-
     // Detect slash command autocomplete - ONLY when input starts fresh with /
     // Once there's a space after the command name, autocomplete closes
     // e.g., "/" or "/init" or "/rev" triggers autocomplete
     // but "/init " (with space) or "hello" does NOT
     final isSlashCommand =
         text.startsWith('/') && text.isNotEmpty && !text.contains(' ');
-
     // Detect @ mention - check for @something at cursor position
     final atMatch = RegExp(r'@(\S*)$').firstMatch(text);
-
     if (isSlashCommand) {
       final filter = text.substring(1).toLowerCase();
       if (!_showCommandAutocomplete || _commandFilter != filter) {
@@ -1908,7 +1762,6 @@ class _ChatScreenState extends ConsumerState<ChatScreen>
     } else if (atMatch != null) {
       final query = atMatch.group(1) ?? '';
       final lowerQuery = query.toLowerCase();
-
       // Claude Code: "@tool:" opens custom tools autocomplete
       if (widget.isClaudeCode && lowerQuery.startsWith('tool:')) {
         _showCommandAutocomplete = false;
@@ -1922,7 +1775,6 @@ class _ChatScreenState extends ConsumerState<ChatScreen>
         _setStateAndRestoreFocus(hadFocus);
         return;
       }
-
       // Check if this matches any agent name (prioritize agents over files)
       // Only show agent autocomplete if:
       // 1. Query is empty (just typed @) - show both options
@@ -1932,12 +1784,10 @@ class _ChatScreenState extends ConsumerState<ChatScreen>
             a.name.toLowerCase().startsWith(lowerQuery) ||
             (a.description?.toLowerCase().contains(lowerQuery) ?? false),
       );
-
       // If query is short and could be an agent, show agent autocomplete first
       // Once query is longer and doesn't match agents, fall back to file search
       final shouldShowAgents =
           query.isEmpty || (query.length <= 10 && matchesAgent);
-
       if (shouldShowAgents && _agents.isNotEmpty) {
         // Show agent autocomplete
         _showCommandAutocomplete = false;
@@ -1982,20 +1832,17 @@ class _ChatScreenState extends ConsumerState<ChatScreen>
       _setStateAndRestoreFocus(hadFocus);
     }
   }
-
   void _handleCustomToolSelection(ClaudeCodeCustomTool tool) {
     final text = _controller.text;
     final mcpName = tool.mcpToolName;
     final newText = text.replaceFirst(RegExp(r'@\S*$'), '$mcpName ');
     _controller.text = newText;
     _controller.selection = TextSelection.collapsed(offset: newText.length);
-
     setState(() {
       _showCustomToolAutocomplete = false;
       _customToolQuery = '';
     });
   }
-
   void _insertMemoryPromptTemplate(String scope) {
     final template = switch (scope) {
       'user' => 'When this is useful later, store it in user memory: ',
@@ -2015,7 +1862,6 @@ class _ChatScreenState extends ConsumerState<ChatScreen>
     );
     _inputFocusNode.requestFocus();
   }
-
   void _showMemoryScopePicker() {
     final theme = OpenCodeTheme.of(context);
     DetailSheet.show(
@@ -2026,7 +1872,7 @@ class _ChatScreenState extends ConsumerState<ChatScreen>
         mainAxisSize: MainAxisSize.min,
         children: [
           ListTile(
-            leading: Icon(Icons.person_outline_rounded, color: theme.info),
+            leading: Icon(AppIcons.person, color: theme.info),
             title: Text('User memory', style: TextStyle(color: theme.text)),
             subtitle: Text(
               'Persists across projects for your account.',
@@ -2038,7 +1884,7 @@ class _ChatScreenState extends ConsumerState<ChatScreen>
             },
           ),
           ListTile(
-            leading: Icon(Icons.work_outline_rounded, color: theme.accent),
+            leading: Icon(AppIcons.work, color: theme.accent),
             title: Text('Project memory', style: TextStyle(color: theme.text)),
             subtitle: Text(
               'Shared context for this project.',
@@ -2050,7 +1896,7 @@ class _ChatScreenState extends ConsumerState<ChatScreen>
             },
           ),
           ListTile(
-            leading: Icon(Icons.computer_rounded, color: theme.warning),
+            leading: Icon(AppIcons.computer, color: theme.warning),
             title: Text('Local memory', style: TextStyle(color: theme.text)),
             subtitle: Text(
               'Only for this machine/workspace.',
@@ -2065,7 +1911,6 @@ class _ChatScreenState extends ConsumerState<ChatScreen>
       ),
     );
   }
-
   /// Call setState and restore focus if it was previously focused.
   /// This is the KEY fix - we always restore focus after setState if the
   /// input had focus before the text change. This prevents focus loss
@@ -2092,23 +1937,19 @@ class _ChatScreenState extends ConsumerState<ChatScreen>
       });
     }
   }
-
   void _handleFileSelection(FileAttachment attachment) {
     // Add as file attachment (OpenCode + Claude Code)
     if (_attachedFiles.contains(attachment)) return;
-
     final text = _controller.text;
     final newText = text.replaceFirst(RegExp(r'@\S*$'), '');
     _controller.text = newText;
     _controller.selection = TextSelection.collapsed(offset: newText.length);
-
     setState(() {
       _attachedFiles.add(attachment);
       _showFileAutocomplete = false;
     });
     ref.read(fileSearchProvider.notifier).clear();
   }
-
   /// Handle @agent selection - replace @query with @agentname and set as selected agent
   void _handleAgentSelection(Agent agent) {
     final text = _controller.text;
@@ -2116,7 +1957,6 @@ class _ChatScreenState extends ConsumerState<ChatScreen>
     final newText = text.replaceFirst(RegExp(r'@\S*$'), '@${agent.name} ');
     _controller.text = newText;
     _controller.selection = TextSelection.collapsed(offset: newText.length);
-
     setState(() {
       _showAgentAutocomplete = false;
       _agentQuery = '';
@@ -2127,13 +1967,11 @@ class _ChatScreenState extends ConsumerState<ChatScreen>
       }
     });
   }
-
   void _removeAttachedFile(FileAttachment attachment) {
     setState(() {
       _attachedFiles.remove(attachment);
     });
   }
-
   void _showAttachmentOptions(BuildContext context) {
     final theme = OpenCodeTheme.of(context);
     DetailSheet.show(
@@ -2144,7 +1982,7 @@ class _ChatScreenState extends ConsumerState<ChatScreen>
         mainAxisSize: MainAxisSize.min,
         children: [
           ListTile(
-            leading: Icon(Icons.camera_alt_rounded, color: theme.primary),
+            leading: Icon(AppIcons.camera, color: theme.primary),
             title: Text('Take Photo', style: TextStyle(color: theme.text)),
             onTap: () {
               Navigator.pop(context);
@@ -2152,7 +1990,7 @@ class _ChatScreenState extends ConsumerState<ChatScreen>
             },
           ),
           ListTile(
-            leading: Icon(Icons.photo_library_rounded, color: theme.primary),
+            leading: Icon(AppIcons.photoLibrary, color: theme.primary),
             title: Text(
               'Choose from Gallery',
               style: TextStyle(color: theme.text),
@@ -2163,7 +2001,7 @@ class _ChatScreenState extends ConsumerState<ChatScreen>
             },
           ),
           ListTile(
-            leading: Icon(Icons.attach_file_rounded, color: theme.info),
+            leading: Icon(AppIcons.attach, color: theme.info),
             title: Text('Attach File (@)', style: TextStyle(color: theme.text)),
             subtitle: Text(
               'Type @ in the input to search files',
@@ -2175,7 +2013,6 @@ class _ChatScreenState extends ConsumerState<ChatScreen>
       ),
     );
   }
-
   void _showClaudeCodeToolsSheet() {
     final theme = OpenCodeTheme.of(context);
     DetailSheet.show(
@@ -2197,7 +2034,7 @@ class _ChatScreenState extends ConsumerState<ChatScreen>
               shape: BoxShape.circle,
             ),
             child: Icon(
-              Icons.help_outline_rounded,
+              AppIcons.help,
               color: theme.textMuted,
               size: 20,
             ),
@@ -2209,7 +2046,6 @@ class _ChatScreenState extends ConsumerState<ChatScreen>
           final chatState = ref.watch(chatSessionProvider);
           final init = chatState.ccInit;
           final configAsync = ref.watch(ccConfigProvider);
-
           final config =
               configAsync.valueOrNull ??
               ClaudeCodeConfig(
@@ -2218,17 +2054,14 @@ class _ChatScreenState extends ConsumerState<ChatScreen>
                 disallowedTools: const [],
                 model: init?.model,
               );
-
           final toolUniverse = <String>{
             ...config.allowedTools,
             ...config.disallowedTools,
             ...?init?.tools,
           }.toList()..sort();
-
           void updateConfig(ClaudeCodeConfig next) {
             ref.read(ccConfigProvider.notifier).updateConfig(next);
           }
-
           return Column(
             mainAxisSize: MainAxisSize.min,
             crossAxisAlignment: CrossAxisAlignment.start,
@@ -2259,9 +2092,7 @@ class _ChatScreenState extends ConsumerState<ChatScreen>
                         },
                       ),
                     ),
-
                     SizedBox(height: Spacing.md),
-
                     _buildSettingsRow(
                       theme,
                       'Sandbox',
@@ -2291,9 +2122,7 @@ class _ChatScreenState extends ConsumerState<ChatScreen>
                         activeColor: theme.accent,
                       ),
                     ),
-
                     SizedBox(height: Spacing.lg),
-
                     // System prompt
                     _buildSettingsRow(
                       theme,
@@ -2347,18 +2176,16 @@ class _ChatScreenState extends ConsumerState<ChatScreen>
                         },
                       ),
                     ),
-
                     SizedBox(height: Spacing.xl),
                     Divider(
                       color: theme.borderSubtle.withValues(alpha: 0.5),
                       height: 1,
                     ),
                     SizedBox(height: Spacing.xl),
-
                     // Subagent selector
                     _buildSettingsTile(
                       theme: theme,
-                      icon: Icons.account_tree_rounded,
+                      icon: AppIcons.gitBranch,
                       iconColor: theme.info,
                       title: 'Subagents',
                       subtitle: 'Delegate specialized tasks',
@@ -2390,7 +2217,7 @@ class _ChatScreenState extends ConsumerState<ChatScreen>
                           SizedBox(width: Spacing.xs),
                           _buildSettingsIconButton(
                             theme: theme,
-                            icon: Icons.chevron_right_rounded,
+                            icon: AppIcons.chevronRight,
                             onTap: () {
                               Navigator.pop(context);
                               Navigator.push(
@@ -2404,12 +2231,10 @@ class _ChatScreenState extends ConsumerState<ChatScreen>
                         ],
                       ),
                     ),
-
                     SizedBox(height: Spacing.md),
-
                     _buildSettingsTile(
                       theme: theme,
-                      icon: Icons.memory_rounded,
+                      icon: AppIcons.memory,
                       iconColor: theme.accent,
                       title: 'Memory',
                       subtitle: 'Scopes and prompt helpers',
@@ -2418,13 +2243,13 @@ class _ChatScreenState extends ConsumerState<ChatScreen>
                         children: [
                           _buildSettingsIconButton(
                             theme: theme,
-                            icon: Icons.add_comment_rounded,
+                            icon: AppIcons.rateReview,
                             onTap: _showMemoryScopePicker,
                           ),
                           SizedBox(width: Spacing.xs),
                           _buildSettingsIconButton(
                             theme: theme,
-                            icon: Icons.chevron_right_rounded,
+                            icon: AppIcons.chevronRight,
                             onTap: () {
                               Navigator.pop(context);
                               Navigator.push(
@@ -2439,13 +2264,11 @@ class _ChatScreenState extends ConsumerState<ChatScreen>
                         ],
                       ),
                     ),
-
                     SizedBox(height: Spacing.md),
-
                     // Custom Tools section
                     _buildSettingsTile(
                       theme: theme,
-                      icon: Icons.build_rounded,
+                      icon: AppIcons.build,
                       iconColor: theme.warning,
                       title: 'Custom Tools',
                       subtitle: 'mcp__broski-custom-tools__<name>',
@@ -2473,7 +2296,7 @@ class _ChatScreenState extends ConsumerState<ChatScreen>
                                   ),
                                 ),
                                 error: (_, __) => Icon(
-                                  Icons.error_outline,
+                                  AppIcons.error,
                                   size: 16,
                                   color: theme.error,
                                 ),
@@ -2483,7 +2306,7 @@ class _ChatScreenState extends ConsumerState<ChatScreen>
                           SizedBox(width: Spacing.sm),
                           _buildSettingsIconButton(
                             theme: theme,
-                            icon: Icons.chevron_right_rounded,
+                            icon: AppIcons.chevronRight,
                             onTap: () {
                               Navigator.pop(context);
                               Navigator.push(
@@ -2497,13 +2320,11 @@ class _ChatScreenState extends ConsumerState<ChatScreen>
                         ],
                       ),
                     ),
-
                     SizedBox(height: Spacing.md),
-
                     // Plugins section
                     _buildSettingsTile(
                       theme: theme,
-                      icon: Icons.extension_rounded,
+                      icon: AppIcons.extension_,
                       iconColor: theme.success,
                       title: 'Plugins',
                       subtitle: 'Commands, skills, hooks, MCP servers',
@@ -2533,7 +2354,7 @@ class _ChatScreenState extends ConsumerState<ChatScreen>
                                   ),
                                 ),
                                 error: (_, __) => Icon(
-                                  Icons.error_outline,
+                                  AppIcons.error,
                                   size: 16,
                                   color: theme.error,
                                 ),
@@ -2543,7 +2364,7 @@ class _ChatScreenState extends ConsumerState<ChatScreen>
                           SizedBox(width: Spacing.sm),
                           _buildSettingsIconButton(
                             theme: theme,
-                            icon: Icons.chevron_right_rounded,
+                            icon: AppIcons.chevronRight,
                             onTap: () {
                               Navigator.pop(context);
                               Navigator.push(
@@ -2557,19 +2378,17 @@ class _ChatScreenState extends ConsumerState<ChatScreen>
                         ],
                       ),
                     ),
-
                     SizedBox(height: Spacing.xl),
                     Divider(
                       color: theme.borderSubtle.withValues(alpha: 0.5),
                       height: 1,
                     ),
                     SizedBox(height: Spacing.lg),
-
                     // Tools list header
                     Row(
                       children: [
                         Icon(
-                          Icons.construction_rounded,
+                          AppIcons.construction,
                           size: 16,
                           color: theme.textMuted,
                         ),
@@ -2593,7 +2412,6 @@ class _ChatScreenState extends ConsumerState<ChatScreen>
                       ],
                     ),
                     SizedBox(height: Spacing.md),
-
                     // Tools list
                     ...toolUniverse.map((tool) {
                       final enabled = !config.disallowedTools.contains(tool);
@@ -2604,7 +2422,6 @@ class _ChatScreenState extends ConsumerState<ChatScreen>
                         onChanged: (v) {
                           final allowed = [...config.allowedTools];
                           final disallowed = [...config.disallowedTools];
-
                           if (v) {
                             disallowed.remove(tool);
                             if (!allowed.contains(tool)) {
@@ -2616,7 +2433,6 @@ class _ChatScreenState extends ConsumerState<ChatScreen>
                               disallowed.add(tool);
                             }
                           }
-
                           updateConfig(
                             config.copyWith(
                               allowedTools: allowed,
@@ -2635,7 +2451,6 @@ class _ChatScreenState extends ConsumerState<ChatScreen>
       ),
     );
   }
-
   // Helper widgets for the Claude Code tools sheet
   Widget _buildSettingsRow(OpenCodeTheme theme, String label, Widget child) {
     return Row(
@@ -2653,7 +2468,6 @@ class _ChatScreenState extends ConsumerState<ChatScreen>
       ],
     );
   }
-
   Widget _buildSettingsTile({
     required OpenCodeTheme theme,
     required IconData icon,
@@ -2707,7 +2521,6 @@ class _ChatScreenState extends ConsumerState<ChatScreen>
       ),
     );
   }
-
   Widget _buildStyledDropdown<T>({
     required OpenCodeTheme theme,
     required T? value,
@@ -2734,7 +2547,7 @@ class _ChatScreenState extends ConsumerState<ChatScreen>
                 )
               : null,
           icon: Icon(
-            Icons.keyboard_arrow_down_rounded,
+            AppIcons.chevronDown,
             size: 18,
             color: theme.textMuted,
           ),
@@ -2745,7 +2558,6 @@ class _ChatScreenState extends ConsumerState<ChatScreen>
       ),
     );
   }
-
   Widget _buildSettingsIconButton({
     required OpenCodeTheme theme,
     required IconData icon,
@@ -2763,7 +2575,6 @@ class _ChatScreenState extends ConsumerState<ChatScreen>
       ),
     );
   }
-
   Widget _buildCountBadge(OpenCodeTheme theme, int count) {
     final isActive = count > 0;
     return Container(
@@ -2784,7 +2595,6 @@ class _ChatScreenState extends ConsumerState<ChatScreen>
       ),
     );
   }
-
   Widget _buildToolToggleRow({
     required OpenCodeTheme theme,
     required String tool,
@@ -2820,7 +2630,6 @@ class _ChatScreenState extends ConsumerState<ChatScreen>
       ),
     );
   }
-
   Future<String?> _promptSystemPromptText() async {
     final theme = OpenCodeTheme.of(context);
     final controller = TextEditingController();
@@ -2871,7 +2680,6 @@ class _ChatScreenState extends ConsumerState<ChatScreen>
       ),
     );
   }
-
   void _showClaudeCodeCommandsSheet() {
     final theme = OpenCodeTheme.of(context);
     DetailSheet.show(
@@ -2884,16 +2692,13 @@ class _ChatScreenState extends ConsumerState<ChatScreen>
           final cwd = chatState.ccCwd;
           final builtins = chatState.ccInit?.slashCommands ?? const [];
           final customAsync = ref.watch(ccCommandsProvider(cwd));
-
           List<String> custom = const [];
           if (customAsync.hasValue) {
             custom = customAsync.value!
                 .map((c) => '/${c.name}')
                 .toList(growable: false);
           }
-
           final all = <String>{...builtins, ...custom}.toList()..sort();
-
           return Padding(
             padding: Insets.screenH,
             child: Column(
@@ -2914,7 +2719,7 @@ class _ChatScreenState extends ConsumerState<ChatScreen>
                       dense: true,
                       contentPadding: EdgeInsets.zero,
                       leading: Icon(
-                        Icons.chevron_right_rounded,
+                        AppIcons.chevronRight,
                         color: theme.textMuted,
                         size: 18,
                       ),
@@ -2942,7 +2747,6 @@ class _ChatScreenState extends ConsumerState<ChatScreen>
       ),
     );
   }
-
   void _showClaudeCodeSkillsSheet() {
     final theme = OpenCodeTheme.of(context);
     DetailSheet.show(
@@ -2953,7 +2757,6 @@ class _ChatScreenState extends ConsumerState<ChatScreen>
         builder: (context, ref, _) {
           final cwd = ref.watch(chatSessionProvider).ccCwd;
           final skillsAsync = ref.watch(ccSkillsProvider(cwd));
-
           return Padding(
             padding: Insets.screenH,
             child: skillsAsync.when(
@@ -3033,7 +2836,6 @@ class _ChatScreenState extends ConsumerState<ChatScreen>
       ),
     );
   }
-
   void _showClaudeCodeHooksSheet() {
     final theme = OpenCodeTheme.of(context);
     DetailSheet.show(
@@ -3044,7 +2846,6 @@ class _ChatScreenState extends ConsumerState<ChatScreen>
         builder: (context, ref, _) {
           final cwd = ref.watch(chatSessionProvider).ccCwd;
           final hooksAsync = ref.watch(ccHooksProvider(cwd));
-
           return Padding(
             padding: Insets.screenH,
             child: hooksAsync.when(
@@ -3102,7 +2903,6 @@ class _ChatScreenState extends ConsumerState<ChatScreen>
       ),
     );
   }
-
   void _showClaudeCodeMcpSheet() {
     final theme = OpenCodeTheme.of(context);
     DetailSheet.show(
@@ -3117,7 +2917,6 @@ class _ChatScreenState extends ConsumerState<ChatScreen>
               chatState.ccCwd ?? widget.ccSession?.cwd ?? widget.ccDraftCwd;
           final statusesAsync = ref.watch(ccMcpServerStatusProvider(cwd));
           final initServers = init?.mcpServers ?? const [];
-
           return Padding(
             padding: Insets.screenH,
             child: statusesAsync.when(
@@ -3132,12 +2931,12 @@ class _ChatScreenState extends ConsumerState<ChatScreen>
                             contentPadding: EdgeInsets.zero,
                             leading: Icon(
                               status.status == 'connected'
-                                  ? Icons.check_circle_rounded
+                                  ? AppIcons.checkCircle
                                   : status.status == 'needs-auth'
-                                  ? Icons.lock_outline_rounded
+                                  ? AppIcons.lock
                                   : status.status == 'pending'
-                                  ? Icons.pending_rounded
-                                  : Icons.error_outline_rounded,
+                                  ? AppIcons.pending
+                                  : AppIcons.error,
                               color: status.status == 'connected'
                                   ? theme.success
                                   : status.status == 'needs-auth'
@@ -3217,7 +3016,6 @@ class _ChatScreenState extends ConsumerState<ChatScreen>
       ),
     );
   }
-
   void _handleClaudeCodeMenuAction(String value) {
     switch (value) {
       case 'project_tools':
@@ -3246,7 +3044,6 @@ class _ChatScreenState extends ConsumerState<ChatScreen>
         break;
     }
   }
-
   void _handleCodexMenuAction(String value) {
     switch (value) {
       case 'project_tools':
@@ -3287,28 +3084,23 @@ class _ChatScreenState extends ConsumerState<ChatScreen>
         break;
     }
   }
-
   void _showCodexAppsSheet() {
     // Delegate to modular sheet
     CxAppsSheet.show(context);
   }
-
   void _showCodexRemoteSkillsSheet() {
     // Delegate to modular sheet
     CxRemoteSkillsSheet.show(context);
   }
-
   void _showCodexAgentsSheet() {
     final theme = OpenCodeTheme.of(context);
     final chatState = ref.read(chatSessionProvider);
     final cwd = chatState.cxCwd ?? widget.cxThread?.cwd ?? widget.cxDraftCwd;
     if (cwd == null || cwd.isEmpty) return;
-
     final controller = TextEditingController();
     bool loaded = false;
     bool exists = false;
     String? path;
-
     DetailSheet.show(
       context: context,
       title: 'Agents',
@@ -3325,15 +3117,12 @@ class _ChatScreenState extends ConsumerState<ChatScreen>
             controller.text = (res['content'] ?? '').toString();
             setSheetState(() {});
           }
-
           void insertTemplate() {
             controller.text =
                 '''
 # AGENTS.md
-
 <INSTRUCTIONS>
 Describe project-specific guidance for Codex here.
-
 - Goal:
 - Constraints:
 - Style:
@@ -3343,9 +3132,7 @@ Describe project-specific guidance for Codex here.
                     .trim();
             setSheetState(() {});
           }
-
           unawaited(load());
-
           return Padding(
             padding: EdgeInsets.only(
               bottom: MediaQuery.of(context).viewInsets.bottom,
@@ -3369,7 +3156,7 @@ Describe project-specific guidance for Codex here.
                     child: Row(
                       children: [
                         Icon(
-                          Icons.info_outline,
+                          AppIcons.info,
                           size: 16,
                           color: theme.textMuted,
                         ),
@@ -3455,13 +3242,11 @@ Describe project-specific guidance for Codex here.
       ),
     ).whenComplete(controller.dispose);
   }
-
   void _showCodexAuthSheet() {
     final theme = OpenCodeTheme.of(context);
     final apiKeyController = TextEditingController();
     String? loginId;
     String? authUrl;
-
     DetailSheet.show(
       context: context,
       title: 'Authentication',
@@ -3475,7 +3260,6 @@ Describe project-specific guidance for Codex here.
             authUrl = res['authUrl']?.toString();
             setSheetState(() {});
           }
-
           Future<void> cancelLogin() async {
             final id = loginId;
             if (id == null || id.isEmpty) return;
@@ -3486,7 +3270,6 @@ Describe project-specific guidance for Codex here.
               authUrl = null;
             });
           }
-
           return Padding(
             padding: EdgeInsets.only(
               bottom: MediaQuery.of(context).viewInsets.bottom,
@@ -3709,13 +3492,11 @@ Describe project-specific guidance for Codex here.
       ),
     ).whenComplete(apiKeyController.dispose);
   }
-
   void _showCodexFeedbackSheet() {
     final theme = OpenCodeTheme.of(context);
     final reasonController = TextEditingController();
     String classification = 'bug';
     bool includeLogs = false;
-
     DetailSheet.show(
       context: context,
       title: 'Feedback',
@@ -3835,7 +3616,6 @@ Describe project-specific guidance for Codex here.
       ),
     ).whenComplete(reasonController.dispose);
   }
-
   void _showCodexSettingsSheet() {
     final theme = OpenCodeTheme.of(context);
     DetailSheet.show(
@@ -3846,7 +3626,6 @@ Describe project-specific guidance for Codex here.
         builder: (context, ref, _) {
           final settings = ref.watch(codexSettingsProvider);
           final notifier = ref.read(codexSettingsProvider.notifier);
-
           Widget chipGroup<T>({
             required String label,
             required List<T> values,
@@ -3894,7 +3673,6 @@ Describe project-specific guidance for Codex here.
               ],
             );
           }
-
           return Padding(
             padding: Insets.screenH,
             child: Column(
@@ -4003,7 +3781,6 @@ Describe project-specific guidance for Codex here.
       ),
     );
   }
-
   void _showCodexSkillsSheet() {
     final theme = OpenCodeTheme.of(context);
     final chatState = ref.read(chatSessionProvider);
@@ -4023,7 +3800,6 @@ Describe project-specific guidance for Codex here.
       ),
     );
   }
-
   void _showCodexMcpSheet() {
     final theme = OpenCodeTheme.of(context);
     DetailSheet.show(
@@ -4035,7 +3811,6 @@ Describe project-specific guidance for Codex here.
         builder: (context, snapshot) {
           final loading = snapshot.connectionState == ConnectionState.waiting;
           final servers = snapshot.data ?? const <Map<String, dynamic>>[];
-
           return Padding(
             padding: Insets.screenH,
             child: loading
@@ -4072,7 +3847,6 @@ Describe project-specific guidance for Codex here.
                       final resources = (s['resources'] as List?)?.length ?? 0;
                       final templates =
                           (s['resourceTemplates'] as List?)?.length ?? 0;
-
                       return Column(
                         children: [
                           if (index > 0)
@@ -4082,7 +3856,7 @@ Describe project-specific guidance for Codex here.
                           ListTile(
                             contentPadding: EdgeInsets.zero,
                             leading: Icon(
-                              Icons.hub_rounded,
+                              AppIcons.hub,
                               color: theme.accent,
                               size: 18,
                             ),
@@ -4112,7 +3886,6 @@ Describe project-specific guidance for Codex here.
       ),
     );
   }
-
   void _showCodexRollbackSheet() {
     final theme = OpenCodeTheme.of(context);
     final chatState = ref.read(chatSessionProvider);
@@ -4126,12 +3899,10 @@ Describe project-specific guidance for Codex here.
       );
       return;
     }
-
     final turns = chatState.messages
         .where((m) => m.role == MessageRole.user)
         .length;
     final maxTurns = turns <= 0 ? 1 : turns;
-
     showModalBottomSheet(
       context: context,
       isScrollControlled: true,
@@ -4165,7 +3936,6 @@ Describe project-specific guidance for Codex here.
       },
     );
   }
-
   void _showCodexConfigSheet() {
     final theme = OpenCodeTheme.of(context);
     DetailSheet.show(
@@ -4178,7 +3948,6 @@ Describe project-specific guidance for Codex here.
           final loading = snapshot.connectionState == ConnectionState.waiting;
           final config = snapshot.data ?? const <String, dynamic>{};
           final configJson = const JsonEncoder.withIndent('  ').convert(config);
-
           return Padding(
             padding: Insets.screenH,
             child: loading
@@ -4205,13 +3974,11 @@ Describe project-specific guidance for Codex here.
       ),
     );
   }
-
   Future<void> _startCodexReview() async {
     final chatState = ref.read(chatSessionProvider);
     final cwd = chatState.cxCwd ?? widget.cxThread?.cwd ?? widget.cxDraftCwd;
     if (cwd == null || cwd.isEmpty) return;
     final settings = ref.read(codexSettingsProvider);
-
     final sandboxPolicy = switch (settings.sandboxMode) {
       CodexSandboxMode.readOnly => const <String, dynamic>{'type': 'readOnly'},
       CodexSandboxMode.dangerFullAccess => const <String, dynamic>{
@@ -4223,7 +3990,6 @@ Describe project-specific guidance for Codex here.
         'networkAccess': settings.networkAccessEnabled,
       },
     };
-
     final config = <String, dynamic>{
       'web_search': settings.webSearchMode.wireValue,
       'features.skills': settings.skillsEnabled,
@@ -4232,10 +3998,8 @@ Describe project-specific guidance for Codex here.
       if (settings.sandboxMode == CodexSandboxMode.workspaceWrite)
         'sandbox_workspace_write.network_access': settings.networkAccessEnabled,
     };
-
     ref.read(chatSessionProvider.notifier).appendUserMessage('/review');
     ref.read(chatSessionProvider.notifier).setCodexStreaming(true);
-
     await ref
         .read(bridgeServiceProvider)
         .cxStartReview(
@@ -4250,7 +4014,6 @@ Describe project-specific guidance for Codex here.
           config: config,
         );
   }
-
   /// Set Codex reasoning effort by wireValue string (e.g., 'high', 'xhigh')
   void _setCodexReasoningEffort(String? wireValue) {
     if (wireValue == null) return;
@@ -4260,12 +4023,10 @@ Describe project-specific guidance for Codex here.
     );
     ref.read(codexSettingsProvider.notifier).setReasoningEffort(effort);
   }
-
   void _showCodexModelSheet() {
     // Delegate to modular dynamic sheet (fetches from Codex model/list API)
     CxModelSheet.show(context);
   }
-
   void _showClaudeCodeModelSheet() {
     final theme = OpenCodeTheme.of(context);
     DetailSheet.show(
@@ -4290,7 +4051,6 @@ Describe project-specific guidance for Codex here.
                 disallowedTools: const [],
                 model: init?.model,
               );
-
           // null = default/recommended (SDK picks latest)
           final current = config.model ??
               chatState.ccModel ??
@@ -4301,14 +4061,12 @@ Describe project-specific guidance for Codex here.
           final currentBetas = <String>{...(config.betas ?? const <String>[])};
           final oneMillionBeta = 'context-1m-2025-08-07';
           final oneMillionEnabled = currentBetas.contains(oneMillionBeta);
-
           Future<void> setModel(String? model) async {
             await ref
                 .read(ccConfigProvider.notifier)
                 .setModel(model);
             ref.read(chatSessionProvider.notifier).setCCModel(model ?? '');
           }
-
           Future<void> setOneMillionContext(bool enabled) async {
             final nextBetas = <String>{...currentBetas};
             if (enabled) {
@@ -4320,7 +4078,6 @@ Describe project-specific guidance for Codex here.
                 .read(ccConfigProvider.notifier)
                 .updateConfig(config.copyWith(betas: nextBetas.toList()));
           }
-
           Widget modelTile(ClaudeCodeSupportedModel model) {
             final selected = current == model.value;
             return ListTile(
@@ -4328,8 +4085,8 @@ Describe project-specific guidance for Codex here.
               contentPadding: EdgeInsets.zero,
               leading: Icon(
                 selected
-                    ? Icons.radio_button_checked_rounded
-                    : Icons.radio_button_off_rounded,
+                    ? AppIcons.radioChecked
+                    : AppIcons.radioUnchecked,
                 size: 18,
                 color: selected ? theme.accent : theme.textMuted,
               ),
@@ -4373,7 +4130,6 @@ Describe project-specific guidance for Codex here.
               },
             );
           }
-
           return supportedModelsAsync.when(
             data: (models) {
               final fallback = const <ClaudeCodeSupportedModel>[
@@ -4397,7 +4153,6 @@ Describe project-specific guidance for Codex here.
               final supportsOneMillion = list.any(
                 (model) => model.supportsOneMillionContext,
               );
-
               return Padding(
                 padding: Insets.screenH,
                 child: Column(
@@ -4415,8 +4170,8 @@ Describe project-specific guidance for Codex here.
                       contentPadding: EdgeInsets.zero,
                       leading: Icon(
                         isDefaultModel
-                            ? Icons.radio_button_checked_rounded
-                            : Icons.radio_button_off_rounded,
+                            ? AppIcons.radioChecked
+                            : AppIcons.radioUnchecked,
                         size: 18,
                         color: isDefaultModel ? theme.accent : theme.textMuted,
                       ),
@@ -4491,12 +4246,10 @@ Describe project-specific guidance for Codex here.
       ),
     );
   }
-
   bool _modelSupportsImages(SelectedModel? model) {
     if (model == null) return true;
     final id = model.modelID.toLowerCase();
     final provider = model.providerID.toLowerCase();
-
     if (provider.contains('anthropic')) {
       return id.contains('claude-3') ||
           id.contains('claude-4') ||
@@ -4516,7 +4269,6 @@ Describe project-specific guidance for Codex here.
     }
     return true;
   }
-
   void _showImageNotSupportedWarning() {
     final model = ref.read(selectionProvider).model;
     if (!mounted) return;
@@ -4535,48 +4287,39 @@ Describe project-specific guidance for Codex here.
       ),
     );
   }
-
   Future<void> _pickImageFromGallery() async {
     final model = ref.read(selectionProvider).model;
     if (!_modelSupportsImages(model)) {
       _showImageNotSupportedWarning();
     }
-
     final imagePicker = ref.read(imagePickerServiceProvider);
     final attachment = await imagePicker.pickFromGallery();
     if (attachment != null) {
       setState(() => _attachedFiles.add(attachment));
     }
   }
-
   Future<void> _pickImageFromCamera() async {
     final model = ref.read(selectionProvider).model;
     if (!_modelSupportsImages(model)) {
       _showImageNotSupportedWarning();
     }
-
     final imagePicker = ref.read(imagePickerServiceProvider);
     final attachment = await imagePicker.pickFromCamera();
     if (attachment != null) {
       setState(() => _attachedFiles.add(attachment));
     }
   }
-
   void _onScroll() {
     if (!_scrollController.hasClients) return;
-
     final position = _scrollController.position;
-
     // Detect scroll to top - load more messages
     final isAtTop = position.pixels <= 100;
     if (isAtTop && !_loadingMoreMessages && !_hasLoadedAllMessages) {
       _loadMoreMessages();
     }
-
     // Detect scroll to bottom - show/hide scroll button
     // Use a threshold of 150px to determine "near bottom"
     final isNearBottom = _isNearBottom();
-
     // Track user scroll intent for auto-scroll feature
     // If user scrolls up (away from bottom), mark that they've scrolled up
     // If they scroll back to bottom, clear the flag
@@ -4587,7 +4330,6 @@ Describe project-specific guidance for Codex here.
       _userHasScrolledUp = true;
     }
   }
-
   /// Check if scroll position is near the bottom (within threshold)
   /// Used for auto-scroll decision making
   bool _isNearBottom() {
@@ -4596,31 +4338,25 @@ Describe project-specific guidance for Codex here.
     // Consider "near bottom" if within 150px of max scroll extent
     return position.pixels >= position.maxScrollExtent - 150;
   }
-
   // FIX: Removed _calculateContentLength - now using pre-computed contentLength from provider
   // This avoids O(n) iteration on every UI frame during streaming
-
   /// Handle auto-scroll when new content arrives
   /// Only scrolls if user hasn't intentionally scrolled up
   void _handleAutoScroll(ChatSessionState? previous, ChatSessionState next) {
     // Skip if user has scrolled up to view history
     if (_userHasScrolledUp) return;
-
     final messages = next.messages;
     final currentCount = messages.length;
     // FIX: Use pre-computed content length instead of recalculating every frame
     final currentLength = next.contentLength;
-
     // Detect if content has grown (new message or streaming content)
     final hasNewMessage = currentCount > _previousMessageCount;
     final hasNewContent = currentLength > _previousContentLength;
     final isStreaming = _hasStreamingMessage(messages);
     final hasRunningTools = _hasRunningTools(messages);
-
     // Update tracking variables
     _previousMessageCount = currentCount;
     _previousContentLength = currentLength;
-
     // Auto-scroll conditions:
     // 1. New message arrived
     // 2. Content grew (streaming text, new tool calls, etc.)
@@ -4631,7 +4367,6 @@ Describe project-specific guidance for Codex here.
       WidgetsBinding.instance.addPostFrameCallback((_) {
         if (!mounted) return;
         if (_userHasScrolledUp) return; // Double-check after frame
-
         // During streaming or tool execution, use jumpTo for smoother continuous scroll
         // After streaming completes, use animated scroll
         if (isStreaming || hasRunningTools) {
@@ -4642,37 +4377,29 @@ Describe project-specific guidance for Codex here.
       });
     }
   }
-
   Future<void> _loadMoreMessages() async {
     if (_loadingMoreMessages || _hasLoadedAllMessages) return;
-
     final connection = ref.read(connectionProvider);
     if (connection.isOfflineMode) {
       // In offline mode, we already loaded everything from cache
       setState(() => _hasLoadedAllMessages = true);
       return;
     }
-
     setState(() => _loadingMoreMessages = true);
-
     try {
       final bridge = ref.read(bridgeServiceProvider);
       final chat = ref.read(chatSessionProvider.notifier);
-
       // Fetch ALL messages (no limit) to get full history
       final allMessages = await bridge.getSessionMessages(
         widget.session.id,
         projectPath: widget.project.path,
         // No limit = get all messages
       );
-
       // Remember current scroll position to maintain it after adding messages
       final currentOffset = _scrollController.position.pixels;
       final currentMax = _scrollController.position.maxScrollExtent;
-
       // Hydrate with all messages
       chat.hydrate(allMessages);
-
       // After hydration, scroll to maintain relative position
       WidgetsBinding.instance.addPostFrameCallback((_) {
         if (_scrollController.hasClients) {
@@ -4681,7 +4408,6 @@ Describe project-specific guidance for Codex here.
           _scrollController.jumpTo(currentOffset + addedHeight);
         }
       });
-
       setState(() {
         _loadingMoreMessages = false;
         _hasLoadedAllMessages = true;
@@ -4690,11 +4416,9 @@ Describe project-specific guidance for Codex here.
       setState(() => _loadingMoreMessages = false);
     }
   }
-
   bool _hasStreamingMessage(List<ChatMessage> messages) {
     return messages.any((msg) => msg.isStreaming);
   }
-
   /// Check if any tools are currently running (for auto-scroll during tool execution)
   bool _hasRunningTools(List<ChatMessage> messages) {
     return messages.any(
@@ -4705,7 +4429,6 @@ Describe project-specific guidance for Codex here.
       ),
     );
   }
-
   // Feature 2: Get filtered commands based on current input
   List<SlashCommand> get _filteredCommands {
     if (_commandFilter.isEmpty) return _commands;
@@ -4713,13 +4436,11 @@ Describe project-specific guidance for Codex here.
         .where((cmd) => cmd.name.toLowerCase().contains(_commandFilter))
         .toList();
   }
-
   // Feature 2: Handle command selection from autocomplete
   void _selectCommand(SlashCommand command) async {
     final bridge = ref.read(bridgeServiceProvider);
     final chatState = ref.read(chatSessionProvider);
     final selectedModel = ref.read(selectionProvider).model;
-
     // Handle built-in commands
     if (command.builtin) {
       switch (command.name) {
@@ -4751,7 +4472,6 @@ Describe project-specific guidance for Codex here.
             }
           }
           break;
-
         case 'redo':
           try {
             await bridge.unrevertSession(
@@ -4771,7 +4491,6 @@ Describe project-specific guidance for Codex here.
             }
           }
           break;
-
         case 'compact':
         case 'summarize':
           if (selectedModel != null) {
@@ -4806,15 +4525,12 @@ Describe project-specific guidance for Codex here.
             }
           }
           break;
-
         case 'share':
           _shareSession();
           break;
-
         case 'unshare':
           _unshareSession();
           break;
-
         case 'new':
         case 'clear':
           if (mounted) {
@@ -4823,7 +4539,6 @@ Describe project-specific guidance for Codex here.
             ).push(MaterialPageRoute(builder: (_) => const SessionsScreen()));
           }
           break;
-
         case 'session':
         case 'resume':
         case 'continue':
@@ -4833,43 +4548,33 @@ Describe project-specific guidance for Codex here.
             ).push(MaterialPageRoute(builder: (_) => const SessionsScreen()));
           }
           break;
-
         case 'help':
           _showHelpDialog();
           break;
-
         case 'rename':
           _showRenameSessionDialog();
           break;
-
         case 'copy':
           _copyTranscriptToClipboard();
           break;
-
         case 'export':
           _exportTranscript();
           break;
-
         case 'timeline':
           _showTimelineDialog();
           break;
-
         case 'fork':
           _showForkDialog();
           break;
-
         case 'thinking':
           _toggleThinkingVisibility();
           break;
-
         case 'models':
           _showModelsDialog();
           break;
-
         case 'agents':
           _showAgentsDialog();
           break;
-
         default:
           _controller.text = '/${command.name} ';
           _controller.selection = TextSelection.fromPosition(
@@ -4877,14 +4582,12 @@ Describe project-specific guidance for Codex here.
           );
           break;
       }
-
       setState(() {
         _showCommandAutocomplete = false;
         _commandFilter = '';
       });
       return;
     }
-
     // Handle custom commands (insert text for user to edit)
     _controller.text = '/${command.name} ';
     _controller.selection = TextSelection.fromPosition(
@@ -4895,11 +4598,9 @@ Describe project-specific guidance for Codex here.
       _commandFilter = '';
     });
   }
-
   // ============================================================
   // Slash Command Implementations
   // ============================================================
-
   /// Show help dialog with all available commands
   void _showHelpDialog() {
     final theme = OpenCodeTheme.of(context);
@@ -4956,7 +4657,6 @@ Describe project-specific guidance for Codex here.
       ),
     );
   }
-
   Widget _buildCommandSection(
     String title,
     List<(String, String)> commands,
@@ -5010,12 +4710,10 @@ Describe project-specific guidance for Codex here.
       ],
     );
   }
-
   /// Show rename session dialog
   void _showRenameSessionDialog() {
     final theme = OpenCodeTheme.of(context);
     final controller = TextEditingController(text: widget.session.title);
-
     showDialog(
       context: context,
       builder: (context) => AlertDialog(
@@ -5040,7 +4738,6 @@ Describe project-specific guidance for Codex here.
             onPressed: () async {
               final newTitle = controller.text.trim();
               if (newTitle.isEmpty) return;
-
               Navigator.pop(context);
               try {
                 final bridge = ref.read(bridgeServiceProvider);
@@ -5068,7 +4765,6 @@ Describe project-specific guidance for Codex here.
       ),
     );
   }
-
   /// Copy transcript to clipboard
   void _copyTranscriptToClipboard() {
     final chatState = ref.read(chatSessionProvider);
@@ -5078,37 +4774,31 @@ Describe project-specific guidance for Codex here.
       ).showSnackBar(const SnackBar(content: Text('No messages to copy')));
       return;
     }
-
     final buffer = StringBuffer();
     buffer.writeln('# Session: ${widget.session.title}');
     buffer.writeln('Date: ${DateTime.now().toIso8601String()}');
     buffer.writeln('---\n');
-
     for (final msg in chatState.messages) {
       final role = msg.role == MessageRole.user ? 'You' : 'Assistant';
       buffer.writeln('## $role');
       buffer.writeln(msg.text);
       buffer.writeln();
     }
-
     Clipboard.setData(ClipboardData(text: buffer.toString()));
     ScaffoldMessenger.of(context).showSnackBar(
       const SnackBar(content: Text('Transcript copied to clipboard')),
     );
   }
-
   /// Export transcript (show options)
   void _exportTranscript() {
     final theme = OpenCodeTheme.of(context);
     final chatState = ref.read(chatSessionProvider);
-
     if (chatState.messages.isEmpty) {
       ScaffoldMessenger.of(
         context,
       ).showSnackBar(const SnackBar(content: Text('No messages to export')));
       return;
     }
-
     DetailSheet.show(
       context: context,
       title: 'Export Transcript',
@@ -5117,7 +4807,7 @@ Describe project-specific guidance for Codex here.
         mainAxisSize: MainAxisSize.min,
         children: [
           ListTile(
-            leading: Icon(Icons.copy, color: theme.primary),
+            leading: Icon(AppIcons.copy, color: theme.primary),
             title: Text(
               'Copy to Clipboard',
               style: TextStyle(color: theme.text),
@@ -5132,7 +4822,7 @@ Describe project-specific guidance for Codex here.
             },
           ),
           ListTile(
-            leading: Icon(Icons.share, color: theme.primary),
+            leading: Icon(AppIcons.share, color: theme.primary),
             title: Text('Share', style: TextStyle(color: theme.text)),
             subtitle: Text(
               'Share transcript via system share',
@@ -5144,7 +4834,7 @@ Describe project-specific guidance for Codex here.
             },
           ),
           ListTile(
-            leading: Icon(Icons.tune_rounded, color: theme.primary),
+            leading: Icon(AppIcons.tune, color: theme.primary),
             title: Text('Export options…', style: TextStyle(color: theme.text)),
             subtitle: Text(
               'Choose format, include tools, and more',
@@ -5167,39 +4857,33 @@ Describe project-specific guidance for Codex here.
       ),
     );
   }
-
   /// Share transcript via system share sheet
   void _shareTranscript() {
     final chatState = ref.read(chatSessionProvider);
     final buffer = StringBuffer();
     buffer.writeln('# Session: ${widget.session.title}');
     buffer.writeln('---\n');
-
     for (final msg in chatState.messages) {
       final role = msg.role == MessageRole.user ? 'You' : 'Assistant';
       buffer.writeln('## $role');
       buffer.writeln(msg.text);
       buffer.writeln();
     }
-
     Share.share(
       buffer.toString(),
       subject: 'Chat Session: ${widget.session.title}',
     );
   }
-
   /// Show timeline dialog to jump to a specific message
   void _showTimelineDialog() {
     final theme = OpenCodeTheme.of(context);
     final chatState = ref.read(chatSessionProvider);
-
     if (chatState.messages.isEmpty) {
       ScaffoldMessenger.of(
         context,
       ).showSnackBar(const SnackBar(content: Text('No messages in session')));
       return;
     }
-
     DetailSheet.show(
       context: context,
       title: 'Jump to Message',
@@ -5218,7 +4902,7 @@ Describe project-specific guidance for Codex here.
               backgroundColor: isUser ? theme.primary : theme.accent,
               radius: 16,
               child: Icon(
-                isUser ? Icons.person : Icons.smart_toy,
+                isUser ? AppIcons.person : AppIcons.agent,
                 size: 16,
                 color: theme.selectedListItemText,
               ),
@@ -5252,19 +4936,16 @@ Describe project-specific guidance for Codex here.
       ),
     );
   }
-
   /// Show fork dialog to create a branch from a specific message
   void _showForkDialog() {
     final theme = OpenCodeTheme.of(context);
     final chatState = ref.read(chatSessionProvider);
-
     if (chatState.messages.isEmpty) {
       ScaffoldMessenger.of(
         context,
       ).showSnackBar(const SnackBar(content: Text('No messages to fork from')));
       return;
     }
-
     DetailSheet.show(
       context: context,
       title: 'Fork Session',
@@ -5293,7 +4974,7 @@ Describe project-specific guidance for Codex here.
                   backgroundColor: isUser ? theme.primary : theme.accent,
                   radius: 16,
                   child: Icon(
-                    isUser ? Icons.person : Icons.smart_toy,
+                    isUser ? AppIcons.person : AppIcons.agent,
                     size: 16,
                     color: theme.selectedListItemText,
                   ),
@@ -5313,7 +4994,7 @@ Describe project-specific guidance for Codex here.
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
                 ),
-                trailing: Icon(Icons.fork_right, color: theme.primary),
+                trailing: Icon(AppIcons.forkRight, color: theme.primary),
                 onTap: () async {
                   Navigator.pop(context);
                   try {
@@ -5376,7 +5057,6 @@ Describe project-specific guidance for Codex here.
       ),
     );
   }
-
   /// Toggle thinking/reasoning visibility
   void _toggleThinkingVisibility() {
     // Toggle the state - for now we'll use a simple snackbar notification
@@ -5388,17 +5068,14 @@ Describe project-specific guidance for Codex here.
       ),
     );
   }
-
   /// Show models selection dialog
   void _showModelsDialog() {
     // Use existing model selector
     _showModelSelector(context);
   }
-
   /// Show agents selection dialog
   void _showAgentsDialog() {
     final theme = OpenCodeTheme.of(context);
-
     DetailSheet.show(
       context: context,
       title: 'Available Agents',
@@ -5424,7 +5101,7 @@ Describe project-specific guidance for Codex here.
                 leading: CircleAvatar(
                   backgroundColor: isSelected ? theme.primary : theme.bgDeep,
                   child: Icon(
-                    Icons.smart_toy,
+                    AppIcons.agent,
                     color: isSelected ? theme.selectedListItemText : theme.textMuted,
                     size: 20,
                   ),
@@ -5445,7 +5122,7 @@ Describe project-specific guidance for Codex here.
                       )
                     : null,
                 trailing: isSelected
-                    ? Icon(Icons.check_circle, color: theme.primary)
+                    ? Icon(AppIcons.checkCircle, color: theme.primary)
                     : null,
                 onTap: () {
                   setState(() => _selectedAgent = agent.name);
@@ -5461,7 +5138,6 @@ Describe project-specific guidance for Codex here.
       ),
     );
   }
-
   @override
   void dispose() {
     // FIX: Cancel listener subscriptions to prevent callbacks after dispose
@@ -5475,11 +5151,9 @@ Describe project-specific guidance for Codex here.
     _inputFocusNode.dispose();
     super.dispose();
   }
-
   @override
   Widget build(BuildContext context) {
     final theme = OpenCodeTheme.of(context);
-
     // PERF: Use select() to only rebuild when specific parts of state change.
     // The message list is the most expensive part, so we isolate it.
     final messages = ref.watch(chatSessionProvider.select((s) => s.messages));
@@ -5513,17 +5187,14 @@ Describe project-specific guidance for Codex here.
     // Watch these for rebuild triggers (values accessed via ref.read in callbacks)
     ref.watch(chatSessionProvider.select((s) => s.ccCwd));
     ref.watch(chatSessionProvider.select((s) => s.ccSessionId));
-
     final connection = ref.watch(connectionProvider);
     // Watch session revert state for revert banner (Task 2)
     final sessionRevert = ref.watch(
       chatSessionProvider.select((s) => s.session?.revert),
     );
-
     _maybeShowPermissionPromptFromList(permissions);
     _maybeShowQuestionPrompt(pendingQuestion);
     _maybeShowCodexQuestionPrompt(cxPendingUserInput);
-
     return Scaffold(
       backgroundColor: theme.background,
       // Use endDrawer for right-side sidebar that can be swiped from edge
@@ -5679,19 +5350,16 @@ Describe project-specific guidance for Codex here.
                                     ),
                                   );
                                 }
-
                                 // Adjust index for the loading indicator
                                 final messageIndex =
                                     (!_hasLoadedAllMessages &&
                                         messages.isNotEmpty)
                                     ? index - 1
                                     : index;
-
                                 if (messageIndex < 0 ||
                                     messageIndex >= messages.length) {
                                   return const SizedBox.shrink();
                                 }
-
                                 final message = messages[messageIndex];
                                 // PERF: ValueKey helps Flutter track widget identity across rebuilds
                                 return KeyedSubtree(
@@ -5709,7 +5377,6 @@ Describe project-specific guidance for Codex here.
               ],
             ),
           ),
-
           // Stop button when AI is processing - centered at bottom
           // Show for: streaming messages, CC/CX streaming states, or running tools
           if (_hasStreamingMessage(messages) ||
@@ -5722,7 +5389,6 @@ Describe project-specific guidance for Codex here.
               right: 0,
               child: Center(child: _buildStopButton(context)),
             ),
-
           // Slash command autocomplete popup (kept mounted to avoid focus loss)
           Positioned(
             left: 16,
@@ -5737,7 +5403,6 @@ Describe project-specific guidance for Codex here.
               ),
             ),
           ),
-
           // Claude Code: Custom tool autocomplete popup (type "@tool:")
           Positioned(
             left: 16,
@@ -5752,7 +5417,6 @@ Describe project-specific guidance for Codex here.
               ),
             ),
           ),
-
           // Agent @ mention autocomplete popup (kept mounted to avoid focus loss)
           Positioned(
             left: 16,
@@ -5769,7 +5433,6 @@ Describe project-specific guidance for Codex here.
               ),
             ),
           ),
-
           // Floating input bar at bottom (style based on settings)
           // When Codex is streaming, show a steer bar above the main input
           Positioned(
@@ -5829,7 +5492,6 @@ Describe project-specific guidance for Codex here.
               ],
             ),
           ),
-
           // Task 1: Retry status countdown banner
           if (sessionStatus.isRetry)
             Positioned(
@@ -5838,7 +5500,6 @@ Describe project-specific guidance for Codex here.
               top: MediaQuery.of(context).padding.top + 50,
               child: _RetryStatusBanner(status: sessionStatus),
             ),
-
           // Task 2: Revert state banner
           if (widget.isOpenCode && sessionRevert != null)
             Positioned(
@@ -5849,7 +5510,6 @@ Describe project-specific guidance for Codex here.
                   (sessionStatus.isRetry ? 90 : 50),
               child: _RevertStateBanner(onUndoRevert: _unrevertSession),
             ),
-
           // Floating header at top (glass pills)
           Positioned(
             left: 0,
@@ -5906,7 +5566,6 @@ Describe project-specific guidance for Codex here.
                   : null,
             ),
           ),
-
           // Subagent activity indicator (Claude Code only)
           if (widget.isClaudeCode)
             Positioned(
@@ -5922,7 +5581,6 @@ Describe project-specific guidance for Codex here.
       ),
     );
   }
-
   // PERF: Input bar version that takes individual params instead of full chatState
   // This allows using select() in the build method for better performance
   Widget _buildInputBarWithParams({
@@ -5952,12 +5610,10 @@ Describe project-specific guidance for Codex here.
         !connection.isOfflineMode &&
         !isBusy &&
         hasContent;
-
     // Get CC config for Claude Code mode
     final ccConfig = widget.isClaudeCode
         ? ref.watch(ccConfigProvider).valueOrNull
         : null;
-
     // Get custom prompt accent color and glow style
     final promptAccent = ref.watch(promptAccentProvider);
     final glowStyle = ref.watch(glowStyleProvider);
@@ -5965,14 +5621,12 @@ Describe project-specific guidance for Codex here.
     final customAccent = promptAccent == PromptAccentColor.themePrimary
         ? null
         : promptAccent.getColor(theme.primary);
-
     // Determine backend type for both input bar styles
     final backend = widget.isClaudeCode
         ? AgentType.claudeCode
         : widget.isCodex
         ? AgentType.codex
         : AgentType.opencode;
-
     // Build project for power sheet
     final powerProject = widget.isOpenCode
         ? widget.project
@@ -5981,7 +5635,6 @@ Describe project-specific guidance for Codex here.
             name: widget.projectName,
             path: widget.effectivePath,
           );
-
     Widget inputBar;
     if (inputStyle == InputBarStyle.cli) {
       inputBar = _CliStyleInputBar(
@@ -6013,7 +5666,7 @@ Describe project-specific guidance for Codex here.
         onFileSelect: _handleFileSelection,
         onAttachTap: () => _showAttachmentOptions(context),
         onTakePhoto: _pickImageFromCamera,
-        attachIcon: Icons.add_rounded,
+        attachIcon: AppIcons.add,
         // Claude Code specific
         ccPermissionMode: widget.isClaudeCode
             ? (ccConfig?.permissionMode ?? ccInit?.permissionMode)
@@ -6114,7 +5767,7 @@ Describe project-specific guidance for Codex here.
         onFileSelect: _handleFileSelection,
         onAttachTap: () => _showAttachmentOptions(context),
         onTakePhoto: _pickImageFromCamera,
-        attachIcon: Icons.add_rounded,
+        attachIcon: AppIcons.add,
         // Model selector
         currentModel: widget.isClaudeCode
             ? ref.watch(chatSessionProvider.select((s) => s.ccModel))
@@ -6204,14 +5857,11 @@ Describe project-specific guidance for Codex here.
         accentColor: customAccent,
       );
     }
-
     return inputBar;
   }
-
   /// Builds the appropriate compact card for a tool call
   Widget _buildToolCard(ToolCall tool, String messageId) {
     final toolName = tool.name.toLowerCase().replaceFirst('mcp_', '');
-
     // Edit/Patch tools -> CompactEditCard
     // Handle different backend tool names:
     // - OpenCode: 'edit', 'patch'
@@ -6229,7 +5879,6 @@ Describe project-specific guidance for Codex here.
             : (msgId, partId) => _revertMessage(msgId, partId: partId),
       );
     }
-
     // Write tool -> CompactWriteCard (new file creation with inline preview)
     if (toolName == 'write') {
       return CompactWriteCard(
@@ -6241,12 +5890,10 @@ Describe project-specific guidance for Codex here.
             : (msgId, partId) => _revertMessage(msgId, partId: partId),
       );
     }
-
     // Task/subtask/agent tool -> CompactAgentCard
     if (toolName == 'task' || toolName == 'subtask' || toolName == 'agent') {
       return CompactAgentCard(tool: tool, messageId: messageId);
     }
-
     // TodoWrite tool -> CompactTodosCard
     if (toolName == 'todowrite') {
       final todos = _extractTodosFromTool(tool);
@@ -6254,7 +5901,6 @@ Describe project-specific guidance for Codex here.
         return CompactTodosCard(todos: todos);
       }
     }
-
     // All other tools -> CompactToolCard
     return CompactToolCard(
       tool: tool,
@@ -6264,7 +5910,6 @@ Describe project-specific guidance for Codex here.
           : null,
     );
   }
-
   /// Task 3: Build a compaction divider marker
   Widget _buildCompactionDivider() {
     final theme = OpenCodeTheme.of(context);
@@ -6299,16 +5944,13 @@ Describe project-specific guidance for Codex here.
       ),
     );
   }
-
   // _buildSubtaskChip removed — using CompactAgentCard.fromNotification() instead
-
   /// Task 7: Build a muted retry indicator
   Widget _buildRetryIndicator(int attempt, String? errorMessage) {
     return RetryIndicator(
       retryInfo: RetryInfo(attempt: attempt, errorMessage: errorMessage),
     );
   }
-
   /// Extract todos from TodoWrite tool input
   List<Todo> _extractTodosFromTool(ToolCall tool) {
     try {
@@ -6322,12 +5964,10 @@ Describe project-specific guidance for Codex here.
       return [];
     }
   }
-
   /// Check if a tool can be undone (write operations)
   bool _canUndoTool(String toolName) {
     return toolName == 'write';
   }
-
   /// Check if a tool is an edit/patch tool (handles all backend naming conventions)
   /// - OpenCode: 'edit', 'patch'
   /// - Claude Code: 'str_replace_editor', 'edit'
@@ -6340,7 +5980,6 @@ Describe project-specific guidance for Codex here.
         toolName == 'str_replace' ||
         toolName == 'file_editor';
   }
-
   /// Whether an assistant message contains any file-modifying tool calls.
   bool _messageHasFileChanges(ChatMessage message) {
     return message.toolCalls.any((t) {
@@ -6348,7 +5987,6 @@ Describe project-specific guidance for Codex here.
       return _isFileModificationTool(name);
     });
   }
-
   /// Extract file paths from file-modifying tool calls in a message.
   /// Uses the same field-name heuristics as CompactEditCard._getFilePath().
   List<String> _extractChangedFilePaths(ChatMessage message) {
@@ -6378,7 +6016,6 @@ Describe project-specific guidance for Codex here.
     }
     return paths.toList();
   }
-
   /// Check if a tool is a file modification tool (edit, write, patch)
   /// These tools produce diffs that are shown inline in their compact cards
   bool _isFileModificationTool(String toolName) {
@@ -6387,7 +6024,6 @@ Describe project-specific guidance for Codex here.
         toolName == 'create' ||
         toolName == 'touch';
   }
-
   /// Check if a diff came from a file modification tool (to avoid duplicate display)
   /// For Claude Code and Codex, file tools and diffs represent the same changes,
   /// so we hide diffs when file modification tools are present.
@@ -6399,13 +6035,11 @@ Describe project-specific guidance for Codex here.
       return _isFileModificationTool(name);
     });
   }
-
   Widget _buildMessageGroup(ChatMessage message) {
     // Task 3: Compaction marker — render as centered divider instead of error bubble
     if (message.error == 'context_compacted') {
       return _buildCompactionDivider();
     }
-
     // PERF: RepaintBoundary isolates this message's painting from others.
     // Changes to one message don't trigger repaints of nearby messages.
     return RepaintBoundary(
@@ -6418,7 +6052,6 @@ Describe project-specific guidance for Codex here.
               padding: Insets.bottomSm,
               child: CompactThinkingCard(message: message),
             ),
-
           // Claude Code with ordered parts: Render in arrival order (text-tool-text interleaved)
           // OpenCode or no parts: Use fixed order (text first, then all tools)
           if (message.hasOrderedParts)
@@ -6437,7 +6070,6 @@ Describe project-specific guidance for Codex here.
                     : null,
                 onRollback: widget.isCodex ? _showCodexRollbackSheet : null,
               ),
-
             // Tool calls - using new compact card components
             for (final tool in message.toolCalls)
               Padding(
@@ -6445,7 +6077,6 @@ Describe project-specific guidance for Codex here.
                 child: _buildToolCard(tool, message.id),
               ),
           ],
-
           // Diffs - only show standalone diffs that aren't from edit tools
           // (edit tool diffs are now shown inline in CompactEditCard)
           for (final diff in message.diffs)
@@ -6463,14 +6094,12 @@ Describe project-specific guidance for Codex here.
                   onViewFull: () => _openDiffView(diff, messageId: message.id),
                 ),
               ),
-
           // Subtask notifications (background task completions)
           for (final subtask in message.subtaskNotifications)
             Padding(
               padding: Insets.topSm,
               child: CompactAgentCard.fromNotification(notification: subtask),
             ),
-
           // Claude Code: Turn-level undo bar after assistant messages with file changes.
           // Uses the SDK's rewindFiles(userMessageId) which reverts ALL files to a
           // checkpoint — no per-file undo exists in the SDK.
@@ -6488,19 +6117,16 @@ Describe project-specific guidance for Codex here.
                 );
               },
             ),
-
           SizedBox(height: Spacing.lg),
         ],
       ),
     );
   }
-
   /// Build widgets for ordered parts (Claude Code sequential rendering)
   /// Returns widgets in arrival order: text segments and tool calls interleaved
   List<Widget> _buildOrderedParts(ChatMessage message) {
     final widgets = <Widget>[];
     final toolsById = {for (final t in message.toolCalls) t.callId: t};
-
     for (final part in message.parts) {
       switch (part) {
         case TextPart(:final text, :final isStreaming):
@@ -6568,7 +6194,6 @@ Describe project-specific guidance for Codex here.
           );
       }
     }
-
     // Fallback: if no widgets were built from parts but message has content,
     // add the main text and tools (handles edge cases where parts are malformed)
     if (widgets.isEmpty) {
@@ -6596,10 +6221,8 @@ Describe project-specific guidance for Codex here.
         );
       }
     }
-
     return widgets;
   }
-
   Widget _buildStopButton(BuildContext context) {
     final theme = OpenCodeTheme.of(context);
     return Material(
@@ -6642,7 +6265,6 @@ Describe project-specific guidance for Codex here.
       ),
     );
   }
-
   // PERF: Menu action handler that takes messages list directly (used with select())
   void _handleMenuActionWithMessages(String value, List<ChatMessage> messages) {
     final theme = OpenCodeTheme.of(context);
@@ -6710,14 +6332,12 @@ Describe project-specific guidance for Codex here.
         break;
     }
   }
-
   void _showProjectToolsSheet() {
     final backend = widget.isClaudeCode
         ? AgentType.claudeCode
         : widget.isCodex
         ? AgentType.codex
         : AgentType.opencode;
-
     final project = backend == AgentType.opencode
         ? widget.project
         : ProjectSummary(
@@ -6725,13 +6345,11 @@ Describe project-specific guidance for Codex here.
             name: widget.projectName,
             path: widget.effectivePath,
           );
-
     // Ensure downstream power-feature screens resolve the correct cwd.
     ref.read(selectionProvider.notifier).selectProject(project);
     if (backend == AgentType.opencode && widget.session.id.isNotEmpty) {
       ref.read(selectionProvider.notifier).selectSession(widget.session);
     }
-
     showModalBottomSheet(
       context: context,
       isScrollControlled: true,
@@ -6739,7 +6357,6 @@ Describe project-specific guidance for Codex here.
       builder: (_) => ProjectToolsSheet(backend: backend, project: project),
     );
   }
-
   Future<void> _clearInstance() async {
     final theme = OpenCodeTheme.of(context);
     final confirm = await showDialog<bool>(
@@ -6765,16 +6382,12 @@ Describe project-specific guidance for Codex here.
         ],
       ),
     );
-
     if (confirm != true || !mounted) return;
-
     final bridge = ref.read(bridgeServiceProvider);
     final success = await bridge.disposeInstance(
       projectPath: widget.project.path,
     );
-
     if (!mounted) return;
-
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
         content: Text(
@@ -6784,7 +6397,6 @@ Describe project-specific guidance for Codex here.
       ),
     );
   }
-
   void _showStopConfirmation(BuildContext context) {
     final theme = OpenCodeTheme.of(context);
     _haptics.mediumImpact();
@@ -6813,13 +6425,11 @@ Describe project-specific guidance for Codex here.
       ),
     );
   }
-
   /// Stop AI generation for all backends
   /// Sends abort to bridge and clears local streaming states
   void _stopGeneration() {
     final bridge = ref.read(bridgeServiceProvider);
     final notifier = ref.read(chatSessionProvider.notifier);
-
     if (widget.isClaudeCode) {
       final chatState = ref.read(chatSessionProvider);
       final sid = chatState.ccSessionId;
@@ -6841,7 +6451,6 @@ Describe project-specific guidance for Codex here.
       notifier.markAllStreamingComplete();
     }
   }
-
   void _showModelSelector(BuildContext context) {
     final theme = OpenCodeTheme.of(context);
     DetailSheet.show(
@@ -6863,22 +6472,17 @@ Describe project-specific guidance for Codex here.
       ),
     );
   }
-
   /// Auto-send a pending CC message when the turn completes.
   /// Uses the same CC send flow as _sendMessage (config, model, sessionId, etc.)
   void _autoSendPendingCCMessage() {
     if (!widget.isClaudeCode || !mounted) return;
-
     final chat = ref.read(chatSessionProvider.notifier);
     final chatState = ref.read(chatSessionProvider);
     final pendingText = chatState.pendingCCMessage;
     final pendingAttachments = chatState.pendingCCAttachments;
-
     if (pendingText == null || pendingText.isEmpty) return;
-
     // Clear pending state first to prevent re-entry
     chat.clearPendingCCMessage();
-
     // Read all the same config values that _sendMessage reads for CC
     final bridge = ref.read(bridgeServiceProvider);
     final ccConfig = ref.read(ccConfigProvider).valueOrNull;
@@ -6891,10 +6495,8 @@ Describe project-specific guidance for Codex here.
         widget.ccSession?.model ??
         widget.ccDraftModel;
     final activeSubagent = ccConfig?.activeSubagent;
-
     final hasAttachments =
         pendingAttachments != null && pendingAttachments.isNotEmpty;
-
     // Build display message with file attachments
     String displayText = pendingText;
     if (hasAttachments) {
@@ -6912,10 +6514,8 @@ Describe project-specific guidance for Codex here.
         displayText = '$pendingText\n${attachmentLabels.join(' ')}';
       }
     }
-
     chat.appendUserMessage(displayText);
     chat.setCCStreaming(true);
-
     final ccVariant = ref.read(claudeCodeVariantProvider).selectedVariant;
     bridge.ccChat(
       sessionId: chatState.ccSessionId,
@@ -6935,11 +6535,9 @@ Describe project-specific guidance for Codex here.
       enableAgentTeams: ccConfig?.enableAgentTeams,
       fileAttachments: hasAttachments ? pendingAttachments : null,
     );
-
     _userHasScrolledUp = false;
     _scrollToBottom();
   }
-
   // PERF: Version that takes individual params, used with select()
   void _sendMessageWithParams(
     BridgeConnectionState connection,
@@ -6950,7 +6548,6 @@ Describe project-specific guidance for Codex here.
     final chatState = ref.read(chatSessionProvider);
     _sendMessage(connection, chatState);
   }
-
   void _sendMessage(
     BridgeConnectionState connection,
     ChatSessionState chatState,
@@ -6965,12 +6562,10 @@ Describe project-specific guidance for Codex here.
       );
       return;
     }
-
     final text = _controller.text.trim();
     final hasAttachments = _attachedFiles.isNotEmpty;
     if (text.isEmpty && !hasAttachments) return;
     if (!connection.isConnected) return;
-
     // Check for streaming state (different per agent)
     if (widget.isClaudeCode) {
       if (chatState.ccIsStreaming) {
@@ -6991,11 +6586,9 @@ Describe project-specific guidance for Codex here.
     }
     // OpenCode: no block — SDK's promptAsync() returns 204 immediately
     // and the server queues messages internally.
-
     final bridge = ref.read(bridgeServiceProvider);
     final chat = ref.read(chatSessionProvider.notifier);
     final selectedModel = ref.read(selectionProvider).model;
-
     // Parse @agent mention from message text
     // Pattern: @agentname followed by space or end of string
     // This extracts the agent to use for this message
@@ -7012,7 +6605,6 @@ Describe project-specific guidance for Codex here.
         messageAgent = matchedAgent.name;
       }
     }
-
     // OpenCode Plan Mode: Use plan agent when in plan mode (unless overridden)
     // SDK v1.1.18+: plan_enter/plan_exit tools toggle between "plan" and "build" agents
     if (widget.isOpenCode && messageAgent == null) {
@@ -7021,7 +6613,6 @@ Describe project-specific guidance for Codex here.
         messageAgent = 'plan';
       }
     }
-
     // Claude Code mode
     if (widget.isClaudeCode) {
       final ccConfig = ref.read(ccConfigProvider).valueOrNull;
@@ -7033,7 +6624,6 @@ Describe project-specific guidance for Codex here.
           widget.ccSession?.model ??
           widget.ccDraftModel;
       final activeSubagent = messageAgent ?? ccConfig?.activeSubagent;
-
       // Build display message with file attachments (same UX as OpenCode)
       String displayText = text;
       if (hasAttachments) {
@@ -7081,13 +6671,11 @@ Describe project-specific guidance for Codex here.
       _scrollToBottom();
       return;
     }
-
     // Codex mode
     if (widget.isCodex) {
       final cwd = chatState.cxCwd ?? widget.cxThread?.cwd ?? widget.cxDraftCwd;
       if (cwd == null || cwd.isEmpty) return;
       final codexSettings = ref.read(codexSettingsProvider);
-
       // Basic local slash commands (client-side) for Codex draft state
       if (text.startsWith('/model ')) {
         final nextModel = text.substring('/model '.length).trim();
@@ -7100,7 +6688,6 @@ Describe project-specific guidance for Codex here.
         }
         return;
       }
-
       if (text.startsWith('/approvals')) {
         final arg = text.replaceFirst('/approvals', '').trim().toLowerCase();
         final notifier = ref.read(codexSettingsProvider.notifier);
@@ -7125,7 +6712,6 @@ Describe project-specific guidance for Codex here.
         _scrollToBottom();
         return;
       }
-
       if (text.startsWith('/sandbox')) {
         final arg = text.replaceFirst('/sandbox', '').trim().toLowerCase();
         final notifier = ref.read(codexSettingsProvider.notifier);
@@ -7146,7 +6732,6 @@ Describe project-specific guidance for Codex here.
         _scrollToBottom();
         return;
       }
-
       if (text.startsWith('/effort')) {
         final arg = text.replaceFirst('/effort', '').trim().toLowerCase();
         final notifier = ref.read(codexSettingsProvider.notifier);
@@ -7165,7 +6750,6 @@ Describe project-specific guidance for Codex here.
         _scrollToBottom();
         return;
       }
-
       if (text.startsWith('/summary')) {
         final arg = text.replaceFirst('/summary', '').trim().toLowerCase();
         final notifier = ref.read(codexSettingsProvider.notifier);
@@ -7183,7 +6767,6 @@ Describe project-specific guidance for Codex here.
         _scrollToBottom();
         return;
       }
-
       if (text.startsWith('/websearch')) {
         final arg = text.replaceFirst('/websearch', '').trim().toLowerCase();
         final mode = switch (arg) {
@@ -7198,7 +6781,6 @@ Describe project-specific guidance for Codex here.
         _scrollToBottom();
         return;
       }
-
       if (text.startsWith('/skills')) {
         final arg = text.replaceFirst('/skills', '').trim().toLowerCase();
         final enabled = arg == 'on' || arg == 'true' || arg == '1';
@@ -7209,7 +6791,6 @@ Describe project-specific guidance for Codex here.
         _scrollToBottom();
         return;
       }
-
       if (text.startsWith('/personality')) {
         final arg = text.replaceFirst('/personality', '').trim().toLowerCase();
         final p = switch (arg) {
@@ -7226,7 +6807,6 @@ Describe project-specific guidance for Codex here.
         _scrollToBottom();
         return;
       }
-
       if (text.startsWith('/collab')) {
         final arg = text.replaceFirst('/collab', '').trim().toLowerCase();
         final mode = switch (arg) {
@@ -7242,7 +6822,6 @@ Describe project-specific guidance for Codex here.
         _scrollToBottom();
         return;
       }
-
       if (text.startsWith('/rename')) {
         final name = text.replaceFirst('/rename', '').trim();
         final threadId = chatState.cxThreadId;
@@ -7273,7 +6852,6 @@ Describe project-specific guidance for Codex here.
         _scrollToBottom();
         return;
       }
-
       if (text == '/fork') {
         final threadId = chatState.cxThreadId;
         chat.appendUserMessage(text);
@@ -7300,7 +6878,6 @@ Describe project-specific guidance for Codex here.
         _scrollToBottom();
         return;
       }
-
       if (text == '/apps') {
         chat.appendUserMessage(text);
         _showCodexAppsSheet();
@@ -7309,7 +6886,6 @@ Describe project-specific guidance for Codex here.
         _scrollToBottom();
         return;
       }
-
       if (text == '/remote-skills') {
         chat.appendUserMessage(text);
         _showCodexRemoteSkillsSheet();
@@ -7318,7 +6894,6 @@ Describe project-specific guidance for Codex here.
         _scrollToBottom();
         return;
       }
-
       if (text.startsWith('/review')) {
         _controller.clear();
         _userHasScrolledUp = false;
@@ -7326,7 +6901,6 @@ Describe project-specific guidance for Codex here.
         unawaited(_startCodexReview());
         return;
       }
-
       if (text.startsWith('/diff')) {
         chat.appendUserMessage(text);
         final diffs = ref.read(chatSessionProvider).sessionDiffs;
@@ -7345,7 +6919,6 @@ Describe project-specific guidance for Codex here.
         _scrollToBottom();
         return;
       }
-
       if (text.startsWith('/status')) {
         chat.appendUserMessage(text);
         final stateNow = ref.read(chatSessionProvider);
@@ -7379,7 +6952,6 @@ Describe project-specific guidance for Codex here.
         _scrollToBottom();
         return;
       }
-
       if (text.startsWith('/compact')) {
         chat.appendUserMessage(text);
         chat.setCodexStreaming(true);
@@ -7425,7 +6997,6 @@ Describe project-specific guidance for Codex here.
         _scrollToBottom();
         return;
       }
-
       if (text.startsWith('/undo')) {
         final threadId = chatState.cxThreadId;
         chat.appendUserMessage(text);
@@ -7455,7 +7026,6 @@ Describe project-specific guidance for Codex here.
         }
         return;
       }
-
       if (text.startsWith('/rollback')) {
         chat.appendUserMessage(text);
         WidgetsBinding.instance.addPostFrameCallback((_) {
@@ -7467,7 +7037,6 @@ Describe project-specific guidance for Codex here.
         _scrollToBottom();
         return;
       }
-
       if (text.startsWith('/agents')) {
         chat.appendUserMessage(text);
         WidgetsBinding.instance.addPostFrameCallback((_) {
@@ -7479,7 +7048,6 @@ Describe project-specific guidance for Codex here.
         _scrollToBottom();
         return;
       }
-
       // /init - Create AGENTS.md with template (like Claude Code's /init)
       if (text.startsWith('/init')) {
         chat.appendUserMessage(text);
@@ -7497,18 +7065,14 @@ Describe project-specific guidance for Codex here.
             } else {
               // Create with template
               const template = '''# AGENTS.md
-
 ## Project Overview
 Describe your project here.
-
 ## Build Commands
 - `flutter run` - Run the app
 - `flutter test` - Run tests
-
 ## Code Style
 - Follow existing patterns
 - Use meaningful variable names
-
 ## Constraints
 - Don't modify generated files
 - Always run tests before committing
@@ -7532,7 +7096,6 @@ Describe your project here.
         }();
         return;
       }
-
       // /mcp - List MCP server status
       if (text.startsWith('/mcp')) {
         chat.appendUserMessage(text);
@@ -7563,7 +7126,6 @@ Describe your project here.
         }();
         return;
       }
-
       // Build display message with file attachments (same UX as OpenCode)
       String displayText = text;
       if (hasAttachments) {
@@ -7581,10 +7143,8 @@ Describe your project here.
           displayText = '$text\n${attachmentLabels.join(' ')}';
         }
       }
-
       chat.appendUserMessage(displayText);
       chat.setCodexStreaming(true);
-
       final sandboxPolicy = switch (codexSettings.sandboxMode) {
         CodexSandboxMode.readOnly => const <String, dynamic>{
           'type': 'readOnly',
@@ -7598,7 +7158,6 @@ Describe your project here.
           'networkAccess': codexSettings.networkAccessEnabled,
         },
       };
-
       final config = <String, dynamic>{
         'web_search': codexSettings.webSearchMode.wireValue,
         'features.skills': codexSettings.skillsEnabled,
@@ -7608,7 +7167,6 @@ Describe your project here.
           'sandbox_workspace_write.network_access':
               codexSettings.networkAccessEnabled,
       };
-
       bridge.cxChat(
         threadId: chatState.cxThreadId,
         cwd: cwd,
@@ -7624,24 +7182,20 @@ Describe your project here.
         collaborationMode: codexSettings.collaborationMode.wireValue,
         personality: codexSettings.personality.wireValue,
       );
-
       _controller.clear();
       setState(() => _attachedFiles.clear());
       _userHasScrolledUp = false;
       _scrollToBottom();
       return;
     }
-
     // OpenCode mode
     // Feature 2: Check if this is a slash command (attachments not supported for commands)
     if (text.startsWith('/') && !hasAttachments) {
       final parts = text.substring(1).split(' ');
       final commandName = parts[0];
       final arguments = parts.length > 1 ? parts.sublist(1).join(' ') : '';
-
       // Show user's command in chat
       chat.appendUserMessage(text);
-
       // Execute the command
       bridge.executeCommand(
         sessionId: widget.session.id,
@@ -7675,11 +7229,9 @@ Describe your project here.
       }
       final clientMessageId = _newClientMessageId();
       chat.appendUserMessage(displayText, messageId: clientMessageId);
-
       // Get variant (thinking level) for OpenCode models
       final variantState = ref.read(openCodeVariantProvider);
       final variant = variantState.getVariant(selectedModel);
-
       bridge.sendChat(
         sessionId: widget.session.id,
         content: text,
@@ -7692,14 +7244,12 @@ Describe your project here.
         variant: variant,
       );
     }
-
     _controller.clear();
     setState(() => _attachedFiles.clear());
     // User sent a message - they want to see the response, so reset scroll intent
     _userHasScrolledUp = false;
     _scrollToBottom();
   }
-
   void _scrollToBottom({bool animate = true}) {
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (!_scrollController.hasClients) return;
@@ -7714,20 +7264,16 @@ Describe your project here.
       }
     });
   }
-
   // PERF: Separate method that takes just the permissions list, used with select()
   void _maybeShowPermissionPromptFromList(List<PermissionRequest> permissions) {
     if (permissions.isEmpty) {
       _activePermissionId = null;
       return;
     }
-
     final request = permissions.first;
     if (_activePermissionId == request.id) return;
-
     _activePermissionId = request.id;
     _haptics.mediumImpact();
-
     WidgetsBinding.instance.addPostFrameCallback((_) {
       final isCodex = widget.isCodex;
       final alwaysLabel = isCodex ? 'Session' : 'Always';
@@ -7774,7 +7320,6 @@ Describe your project here.
       ).whenComplete(() => _activePermissionId = null);
     });
   }
-
   void _maybeShowQuestionPrompt(QuestionRequest? request) {
     if (!widget.isOpenCode) return;
     if (request == null || request.id.isEmpty) {
@@ -7784,10 +7329,8 @@ Describe your project here.
     if (_activeQuestionId == request.id) return;
     // Skip questions we already answered (prevents re-show on rebuild race)
     if (_answeredQuestionIds.contains(request.id)) return;
-
     _activeQuestionId = request.id;
     _haptics.mediumImpact();
-
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (!mounted) return;
       showModalBottomSheet(
@@ -7816,7 +7359,6 @@ Describe your project here.
       ).whenComplete(() => _activeQuestionId = null);
     });
   }
-
   void _maybeShowCodexQuestionPrompt(CodexUserInputRequest? request) {
     if (!widget.isCodex) return;
     if (request == null || request.requestId.isEmpty) {
@@ -7824,10 +7366,8 @@ Describe your project here.
       return;
     }
     if (_activeCxQuestionId == request.requestId) return;
-
     _activeCxQuestionId = request.requestId;
     _haptics.mediumImpact();
-
     // Convert CodexUserInputRequest to QuestionRequest for the existing UI
     final convertedRequest = QuestionRequest(
       id: request.requestId,
@@ -7850,7 +7390,6 @@ Describe your project here.
           )
           .toList(),
     );
-
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (!mounted) return;
       showModalBottomSheet(
@@ -7877,7 +7416,6 @@ Describe your project here.
       ).whenComplete(() => _activeCxQuestionId = null);
     });
   }
-
   void _respondToPermission(
     PermissionRequest request,
     String response, {
@@ -7895,7 +7433,6 @@ Describe your project here.
       Navigator.pop(context);
       return;
     }
-
     final bridge = ref.read(bridgeServiceProvider);
     final chat = ref.read(chatSessionProvider.notifier);
     if (widget.isClaudeCode) {
@@ -7923,7 +7460,6 @@ Describe your project here.
     Navigator.pop(context);
   }
 }
-
 // Floating header - simplified and compact
 class _FloatingHeader extends StatelessWidget {
   const _FloatingHeader({
@@ -7948,7 +7484,6 @@ class _FloatingHeader extends StatelessWidget {
     this.isCodex = false,
     this.codexModel,
   });
-
   final String projectName;
   final bool isConnected;
   final SelectedModel? currentModel;
@@ -7971,13 +7506,11 @@ class _FloatingHeader extends StatelessWidget {
   // Codex support
   final bool isCodex;
   final String? codexModel;
-
   @override
   Widget build(BuildContext context) {
     final theme = OpenCodeTheme.of(context);
     final kMuted = theme.textMuted;
     final kOnBackground = theme.text;
-
     // Get current agent for display
     final primaryAgents = agents.where((a) => a.isPrimary).toList();
     final current = primaryAgents.isNotEmpty
@@ -7986,7 +7519,6 @@ class _FloatingHeader extends StatelessWidget {
             orElse: () => primaryAgents.first,
           )
         : null;
-
     return AnimatedContainer(
       duration: const Duration(milliseconds: 200),
       padding: EdgeInsets.fromLTRB(
@@ -8004,13 +7536,12 @@ class _FloatingHeader extends StatelessWidget {
             _GlassPill(
               onTap: onBack,
               child: Icon(
-                Icons.arrow_back_rounded,
+                AppIcons.back,
                 color: kOnBackground,
                 size: 22,
               ),
             ),
             SizedBox(width: Spacing.sm),
-
             // Combined: Project + Agent (main pill)
             Expanded(
               child: _GlassPill(
@@ -8054,7 +7585,7 @@ class _FloatingHeader extends StatelessWidget {
                           mainAxisSize: MainAxisSize.min,
                           children: [
                             Icon(
-                              Icons.terminal_rounded,
+                              AppIcons.terminal,
                               size: 10,
                               color: theme.accent,
                             ),
@@ -8101,7 +7632,7 @@ class _FloatingHeader extends StatelessWidget {
                         ),
                       ),
                       Icon(
-                        Icons.keyboard_arrow_down_rounded,
+                        AppIcons.chevronDown,
                         size: 16,
                         color: kMuted.withValues(alpha: 0.6),
                       ),
@@ -8110,9 +7641,7 @@ class _FloatingHeader extends StatelessWidget {
                 ),
               ),
             ),
-
             SizedBox(width: Spacing.sm),
-
             // Menu button (contains all secondary options)
             // For Claude Code: bottom sheet menu
             if (isClaudeCode && onMenu != null)
@@ -8129,7 +7658,7 @@ class _FloatingHeader extends StatelessWidget {
                     onMenu: onMenu!,
                   ),
                   child: Icon(
-                    Icons.more_horiz_rounded,
+                    AppIcons.moreHorizontal,
                     color: kOnBackground,
                     size: 18,
                   ),
@@ -8150,7 +7679,7 @@ class _FloatingHeader extends StatelessWidget {
                     onMenu: onMenu!,
                   ),
                   child: Icon(
-                    Icons.more_horiz_rounded,
+                    AppIcons.moreHorizontal,
                     color: kOnBackground,
                     size: 18,
                   ),
@@ -8176,7 +7705,7 @@ class _FloatingHeader extends StatelessWidget {
                     onOpenSidebar: onOpenSidebar,
                   ),
                   child: Icon(
-                    Icons.more_horiz_rounded,
+                    AppIcons.moreHorizontal,
                     color: kOnBackground,
                     size: 18,
                   ),
@@ -8187,7 +7716,6 @@ class _FloatingHeader extends StatelessWidget {
       ),
     );
   }
-
   void _showAgentPicker(BuildContext context) {
     // Show all non-hidden agents, primary first
     final visibleAgents = agents.where((a) => !a.hidden).toList()
@@ -8199,7 +7727,6 @@ class _FloatingHeader extends StatelessWidget {
         return a.name.compareTo(b.name);
       });
     final theme = OpenCodeTheme.of(context);
-
     DetailSheet.show(
       context: context,
       title: 'Select Agent',
@@ -8278,7 +7805,7 @@ class _FloatingHeader extends StatelessWidget {
                 ],
               ),
               trailing: agent.name == currentAgent
-                  ? Icon(Icons.check_rounded, color: theme.success, size: 20)
+                  ? Icon(AppIcons.check, color: theme.success, size: 20)
                   : null,
               onTap: () {
                 onAgentChanged?.call(agent.name);
@@ -8290,7 +7817,6 @@ class _FloatingHeader extends StatelessWidget {
       ),
     );
   }
-
   void _showSessionActionsSheet(
     BuildContext context, {
     required OpenCodeTheme theme,
@@ -8325,7 +7851,6 @@ class _FloatingHeader extends StatelessWidget {
       ),
     );
   }
-
   void _showClaudeCodeActionsSheet(
     BuildContext context, {
     required OpenCodeTheme theme,
@@ -8350,7 +7875,6 @@ class _FloatingHeader extends StatelessWidget {
       ),
     );
   }
-
   void _showCodexActionsSheet(
     BuildContext context, {
     required OpenCodeTheme theme,
@@ -8376,7 +7900,6 @@ class _FloatingHeader extends StatelessWidget {
     );
   }
 }
-
 /// Session actions content for DetailSheet
 class _SessionActionsContent extends StatelessWidget {
   const _SessionActionsContent({
@@ -8391,7 +7914,6 @@ class _SessionActionsContent extends StatelessWidget {
     required this.onAction,
     this.onOpenSidebar,
   });
-
   final OpenCodeTheme theme;
   final VcsInfo? vcsInfo;
   final bool isConnected;
@@ -8402,7 +7924,6 @@ class _SessionActionsContent extends StatelessWidget {
   final bool isCompacting;
   final void Function(String) onAction;
   final VoidCallback? onOpenSidebar;
-
   String _getModelName(SelectedModel? model) {
     if (model == null) return 'Auto';
     final parts = model.modelID.split('-');
@@ -8414,7 +7935,6 @@ class _SessionActionsContent extends StatelessWidget {
         ? model.modelID.substring(0, 8)
         : model.modelID;
   }
-
   @override
   Widget build(BuildContext context) {
     return Column(
@@ -8440,7 +7960,7 @@ class _SessionActionsContent extends StatelessWidget {
                     mainAxisSize: MainAxisSize.min,
                     children: [
                       Icon(
-                        Icons.call_split_rounded,
+                        AppIcons.callSplit,
                         size: 14,
                         color: theme.success,
                       ),
@@ -8458,7 +7978,6 @@ class _SessionActionsContent extends StatelessWidget {
                 ),
                 SizedBox(width: Spacing.sm),
               ],
-
               // Latency
               if (isConnected && rttMs != null) ...[
                 Container(
@@ -8473,7 +7992,7 @@ class _SessionActionsContent extends StatelessWidget {
                   child: Row(
                     mainAxisSize: MainAxisSize.min,
                     children: [
-                      Icon(Icons.speed_rounded, size: 14, color: theme.info),
+                      Icon(AppIcons.speed, size: 14, color: theme.info),
                       const SizedBox(width: 6),
                       Text(
                         '${rttMs}ms',
@@ -8488,9 +8007,7 @@ class _SessionActionsContent extends StatelessWidget {
                 ),
                 SizedBox(width: Spacing.sm),
               ],
-
               const Spacer(),
-
               // Model selector
               GestureDetector(
                 onTap: () {
@@ -8510,7 +8027,7 @@ class _SessionActionsContent extends StatelessWidget {
                     mainAxisSize: MainAxisSize.min,
                     children: [
                       Icon(
-                        Icons.auto_awesome_rounded,
+                        AppIcons.autoAwesome,
                         size: 14,
                         color: theme.primary,
                       ),
@@ -8525,7 +8042,7 @@ class _SessionActionsContent extends StatelessWidget {
                       ),
                       SizedBox(width: Spacing.xs),
                       Icon(
-                        Icons.chevron_right_rounded,
+                        AppIcons.chevronRight,
                         size: 16,
                         color: theme.primary,
                       ),
@@ -8536,7 +8053,6 @@ class _SessionActionsContent extends StatelessWidget {
             ],
           ),
         ),
-
         // Session actions
         Padding(
           padding: Insets.screenAll,
@@ -8555,16 +8071,14 @@ class _SessionActionsContent extends StatelessWidget {
               ),
               SizedBox(height: Spacing.md),
               _ActionRow(
-                icon: Icons.grid_view_rounded,
+                icon: AppIcons.gridView,
                 label: 'Project Tools',
                 subtitle: 'Skills, commands, agents, MCP, plugins',
                 theme: theme,
                 color: theme.accent,
                 onTap: () => onAction('project_tools'),
               ),
-
               SizedBox(height: Spacing.xl),
-
               // Session section
               Text(
                 'SESSION',
@@ -8579,7 +8093,7 @@ class _SessionActionsContent extends StatelessWidget {
               Row(
                 children: [
                   _ActionTile(
-                    icon: Icons.info_outline_rounded,
+                    icon: AppIcons.info,
                     label: 'Info',
                     theme: theme,
                     onTap: () {
@@ -8593,14 +8107,14 @@ class _SessionActionsContent extends StatelessWidget {
                   ),
                   const SizedBox(width: 10),
                   _ActionTile(
-                    icon: Icons.add_rounded,
+                    icon: AppIcons.add,
                     label: 'New',
                     theme: theme,
                     onTap: () => onAction('new_session'),
                   ),
                   const SizedBox(width: 10),
                   _ActionTile(
-                    icon: Icons.call_split_rounded,
+                    icon: AppIcons.callSplit,
                     label: 'Fork',
                     theme: theme,
                     onTap: () => onAction('fork'),
@@ -8608,8 +8122,8 @@ class _SessionActionsContent extends StatelessWidget {
                   const SizedBox(width: 10),
                   _ActionTile(
                     icon: isSessionShared
-                        ? Icons.link_off
-                        : Icons.share_rounded,
+                        ? AppIcons.unlink
+                        : AppIcons.share,
                     label: isSessionShared ? 'Unshare' : 'Share',
                     theme: theme,
                     onTap: () =>
@@ -8617,9 +8131,7 @@ class _SessionActionsContent extends StatelessWidget {
                   ),
                 ],
               ),
-
               SizedBox(height: Spacing.xl),
-
               // Tools section
               Text(
                 'TOOLS',
@@ -8632,7 +8144,7 @@ class _SessionActionsContent extends StatelessWidget {
               ),
               SizedBox(height: Spacing.md),
               _ActionRow(
-                icon: Icons.compress_rounded,
+                icon: AppIcons.compress,
                 label: isCompacting ? 'Compacting...' : 'Compact',
                 subtitle: 'Summarize context to free space',
                 theme: theme,
@@ -8641,16 +8153,14 @@ class _SessionActionsContent extends StatelessWidget {
               ),
               SizedBox(height: Spacing.sm),
               _ActionRow(
-                icon: Icons.auto_fix_high_rounded,
+                icon: AppIcons.autoFix,
                 label: 'Initialize Project',
                 subtitle: 'Create AGENTS.md for this project',
                 theme: theme,
                 color: theme.success,
                 onTap: () => onAction('init'),
               ),
-
               SizedBox(height: Spacing.xl),
-
               // Danger zone
               Text(
                 'DANGER ZONE',
@@ -8663,7 +8173,7 @@ class _SessionActionsContent extends StatelessWidget {
               ),
               SizedBox(height: Spacing.md),
               _ActionRow(
-                icon: Icons.undo_rounded,
+                icon: AppIcons.undo,
                 label: 'Undo Last Changes',
                 subtitle: 'Revert recent file modifications',
                 theme: theme,
@@ -8672,7 +8182,7 @@ class _SessionActionsContent extends StatelessWidget {
               ),
               SizedBox(height: Spacing.sm),
               _ActionRow(
-                icon: Icons.cleaning_services_outlined,
+                icon: AppIcons.cleaning,
                 label: 'Clear Instance',
                 subtitle: 'Reset project context completely',
                 theme: theme,
@@ -8686,7 +8196,6 @@ class _SessionActionsContent extends StatelessWidget {
     );
   }
 }
-
 /// Square action tile for grid layout
 class _ActionTile extends StatelessWidget {
   const _ActionTile({
@@ -8695,12 +8204,10 @@ class _ActionTile extends StatelessWidget {
     required this.theme,
     required this.onTap,
   });
-
   final IconData icon;
   final String label;
   final OpenCodeTheme theme;
   final VoidCallback onTap;
-
   @override
   Widget build(BuildContext context) {
     return Expanded(
@@ -8733,7 +8240,6 @@ class _ActionTile extends StatelessWidget {
     );
   }
 }
-
 /// Row action item for list layout
 class _ActionRow extends StatelessWidget {
   const _ActionRow({
@@ -8745,7 +8251,6 @@ class _ActionRow extends StatelessWidget {
     this.color,
     this.enabled = true,
   });
-
   final IconData icon;
   final String label;
   final String subtitle;
@@ -8753,11 +8258,9 @@ class _ActionRow extends StatelessWidget {
   final VoidCallback onTap;
   final Color? color;
   final bool enabled;
-
   @override
   Widget build(BuildContext context) {
     final effectiveColor = enabled ? (color ?? theme.text) : theme.textMuted;
-
     return GestureDetector(
       onTap: enabled ? onTap : null,
       child: Container(
@@ -8797,14 +8300,13 @@ class _ActionRow extends StatelessWidget {
                 ],
               ),
             ),
-            Icon(Icons.chevron_right_rounded, size: 20, color: theme.textMuted),
+            Icon(AppIcons.chevronRight, size: 20, color: theme.textMuted),
           ],
         ),
       ),
     );
   }
 }
-
 /// Claude Code actions content for DetailSheet
 class _ClaudeCodeActionsContent extends StatelessWidget {
   const _ClaudeCodeActionsContent({
@@ -8814,13 +8316,11 @@ class _ClaudeCodeActionsContent extends StatelessWidget {
     required this.ccModel,
     required this.onAction,
   });
-
   final OpenCodeTheme theme;
   final bool isConnected;
   final int? rttMs;
   final String? ccModel;
   final void Function(String) onAction;
-
   String _getModelName(String? model) {
     if (model == null || model.isEmpty) return 'Claude';
     final m = model.toLowerCase();
@@ -8829,7 +8329,6 @@ class _ClaudeCodeActionsContent extends StatelessWidget {
     if (m.contains('haiku')) return 'Haiku';
     return model.length > 12 ? '${model.substring(0, 12)}...' : model;
   }
-
   @override
   Widget build(BuildContext context) {
     return Column(
@@ -8854,7 +8353,7 @@ class _ClaudeCodeActionsContent extends StatelessWidget {
                   child: Row(
                     mainAxisSize: MainAxisSize.min,
                     children: [
-                      Icon(Icons.speed_rounded, size: 14, color: theme.info),
+                      Icon(AppIcons.speed, size: 14, color: theme.info),
                       const SizedBox(width: 6),
                       Text(
                         '${rttMs}ms',
@@ -8868,9 +8367,7 @@ class _ClaudeCodeActionsContent extends StatelessWidget {
                   ),
                 ),
               ],
-
               const Spacer(),
-
               // Model selector (onAction handles Navigator.pop)
               GestureDetector(
                 onTap: () => onAction('cc_model'),
@@ -8887,7 +8384,7 @@ class _ClaudeCodeActionsContent extends StatelessWidget {
                     mainAxisSize: MainAxisSize.min,
                     children: [
                       Icon(
-                        Icons.auto_awesome_rounded,
+                        AppIcons.autoAwesome,
                         size: 14,
                         color: theme.accent,
                       ),
@@ -8902,7 +8399,7 @@ class _ClaudeCodeActionsContent extends StatelessWidget {
                       ),
                       SizedBox(width: Spacing.xs),
                       Icon(
-                        Icons.chevron_right_rounded,
+                        AppIcons.chevronRight,
                         size: 16,
                         color: theme.accent,
                       ),
@@ -8913,7 +8410,6 @@ class _ClaudeCodeActionsContent extends StatelessWidget {
             ],
           ),
         ),
-
         // Actions
         Padding(
           padding: Insets.screenAll,
@@ -8932,7 +8428,7 @@ class _ClaudeCodeActionsContent extends StatelessWidget {
               ),
               SizedBox(height: Spacing.md),
               _ActionRow(
-                icon: Icons.grid_view_rounded,
+                icon: AppIcons.gridView,
                 label: 'Project Tools',
                 subtitle: 'Manage skills, commands, hooks, MCP, plugins',
                 theme: theme,
@@ -8943,37 +8439,35 @@ class _ClaudeCodeActionsContent extends StatelessWidget {
               Row(
                 children: [
                   _ActionTile(
-                    icon: Icons.tune_rounded,
+                    icon: AppIcons.tune,
                     label: 'Tools',
                     theme: theme,
                     onTap: () => onAction('cc_tools'),
                   ),
                   const SizedBox(width: 10),
                   _ActionTile(
-                    icon: Icons.bolt_rounded,
+                    icon: AppIcons.bolt,
                     label: 'Commands',
                     theme: theme,
                     onTap: () => onAction('cc_commands'),
                   ),
                   const SizedBox(width: 10),
                   _ActionTile(
-                    icon: Icons.auto_awesome_rounded,
+                    icon: AppIcons.autoAwesome,
                     label: 'Skills',
                     theme: theme,
                     onTap: () => onAction('cc_skills'),
                   ),
                   const SizedBox(width: 10),
                   _ActionTile(
-                    icon: Icons.link_rounded,
+                    icon: AppIcons.link,
                     label: 'Hooks',
                     theme: theme,
                     onTap: () => onAction('cc_hooks'),
                   ),
                 ],
               ),
-
               SizedBox(height: Spacing.xl),
-
               // Integration section
               Text(
                 'INTEGRATION',
@@ -8986,15 +8480,13 @@ class _ClaudeCodeActionsContent extends StatelessWidget {
               ),
               SizedBox(height: Spacing.md),
               _ActionRow(
-                icon: Icons.hub_rounded,
+                icon: AppIcons.hub,
                 label: 'MCP Servers',
                 subtitle: 'Configure Model Context Protocol servers',
                 theme: theme,
                 onTap: () => onAction('cc_mcp'),
               ),
-
               SizedBox(height: Spacing.xl),
-
               // Session section
               Text(
                 'SESSION',
@@ -9007,7 +8499,7 @@ class _ClaudeCodeActionsContent extends StatelessWidget {
               ),
               SizedBox(height: Spacing.md),
               _ActionRow(
-                icon: Icons.call_split_rounded,
+                icon: AppIcons.callSplit,
                 label: 'Fork Session',
                 subtitle: 'Create a new branch from current conversation',
                 theme: theme,
@@ -9020,7 +8512,6 @@ class _ClaudeCodeActionsContent extends StatelessWidget {
     );
   }
 }
-
 /// Codex actions content for DetailSheet
 class _CodexActionsContent extends StatelessWidget {
   const _CodexActionsContent({
@@ -9030,13 +8521,11 @@ class _CodexActionsContent extends StatelessWidget {
     required this.codexModel,
     required this.onAction,
   });
-
   final OpenCodeTheme theme;
   final bool isConnected;
   final int? rttMs;
   final String? codexModel;
   final void Function(String) onAction;
-
   String _getModelName(String? model) {
     if (model == null || model.isEmpty) return 'Default';
     final m = model.toLowerCase();
@@ -9045,7 +8534,6 @@ class _CodexActionsContent extends StatelessWidget {
     if (m.contains('gpt-4')) return 'GPT-4';
     return model.length > 12 ? '${model.substring(0, 12)}...' : model;
   }
-
   @override
   Widget build(BuildContext context) {
     return Column(
@@ -9070,7 +8558,7 @@ class _CodexActionsContent extends StatelessWidget {
                   child: Row(
                     mainAxisSize: MainAxisSize.min,
                     children: [
-                      Icon(Icons.speed_rounded, size: 14, color: theme.info),
+                      Icon(AppIcons.speed, size: 14, color: theme.info),
                       const SizedBox(width: 6),
                       Text(
                         '${rttMs}ms',
@@ -9084,9 +8572,7 @@ class _CodexActionsContent extends StatelessWidget {
                   ),
                 ),
               ],
-
               const Spacer(),
-
               // Model selector (onAction handles Navigator.pop)
               GestureDetector(
                 onTap: () => onAction('cx_model'),
@@ -9103,7 +8589,7 @@ class _CodexActionsContent extends StatelessWidget {
                     mainAxisSize: MainAxisSize.min,
                     children: [
                       Icon(
-                        Icons.auto_awesome_rounded,
+                        AppIcons.autoAwesome,
                         size: 14,
                         color: theme.primary,
                       ),
@@ -9118,7 +8604,7 @@ class _CodexActionsContent extends StatelessWidget {
                       ),
                       SizedBox(width: Spacing.xs),
                       Icon(
-                        Icons.chevron_right_rounded,
+                        AppIcons.chevronRight,
                         size: 16,
                         color: theme.primary,
                       ),
@@ -9129,7 +8615,6 @@ class _CodexActionsContent extends StatelessWidget {
             ],
           ),
         ),
-
         // Actions
         Padding(
           padding: Insets.screenAll,
@@ -9137,7 +8622,7 @@ class _CodexActionsContent extends StatelessWidget {
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               _ActionRow(
-                icon: Icons.grid_view_rounded,
+                icon: AppIcons.gridView,
                 label: 'Project Tools',
                 subtitle: 'Skills, agents, MCP, config',
                 theme: theme,
@@ -9145,7 +8630,6 @@ class _CodexActionsContent extends StatelessWidget {
                 onTap: () => onAction('project_tools'),
               ),
               SizedBox(height: Spacing.xl),
-
               // Configuration section
               Text(
                 'CONFIGURATION',
@@ -9160,44 +8644,42 @@ class _CodexActionsContent extends StatelessWidget {
               Row(
                 children: [
                   _ActionTile(
-                    icon: Icons.tune_rounded,
+                    icon: AppIcons.tune,
                     label: 'Settings',
                     theme: theme,
                     onTap: () => onAction('cx_settings'),
                   ),
                   const SizedBox(width: 10),
                   _ActionTile(
-                    icon: Icons.auto_awesome_rounded,
+                    icon: AppIcons.autoAwesome,
                     label: 'Skills',
                     theme: theme,
                     onTap: () => onAction('cx_skills'),
                   ),
                   const SizedBox(width: 10),
                   _ActionTile(
-                    icon: Icons.hub_rounded,
+                    icon: AppIcons.hub,
                     label: 'MCP',
                     theme: theme,
                     onTap: () => onAction('cx_mcp'),
                   ),
                   const SizedBox(width: 10),
                   _ActionTile(
-                    icon: Icons.verified_user_rounded,
+                    icon: AppIcons.shieldCheck,
                     label: 'Auth',
                     theme: theme,
                     onTap: () => onAction('cx_auth'),
                   ),
                   const SizedBox(width: 10),
                   _ActionTile(
-                    icon: Icons.extension_rounded,
+                    icon: AppIcons.extension_,
                     label: 'Apps',
                     theme: theme,
                     onTap: () => onAction('cx_apps'),
                   ),
                 ],
               ),
-
               SizedBox(height: Spacing.xl),
-
               // Project section
               Text(
                 'PROJECT',
@@ -9210,7 +8692,7 @@ class _CodexActionsContent extends StatelessWidget {
               ),
               SizedBox(height: Spacing.md),
               _ActionRow(
-                icon: Icons.description_outlined,
+                icon: AppIcons.description,
                 label: 'AGENTS.md',
                 subtitle: 'Edit project agent instructions',
                 theme: theme,
@@ -9218,15 +8700,13 @@ class _CodexActionsContent extends StatelessWidget {
               ),
               SizedBox(height: Spacing.sm),
               _ActionRow(
-                icon: Icons.toc_rounded,
+                icon: AppIcons.toc,
                 label: 'Config',
                 subtitle: 'View and edit Codex configuration',
                 theme: theme,
                 onTap: () => onAction('cx_config'),
               ),
-
               SizedBox(height: Spacing.xl),
-
               // Actions section
               Text(
                 'ACTIONS',
@@ -9242,7 +8722,7 @@ class _CodexActionsContent extends StatelessWidget {
                 children: [
                   Expanded(
                     child: _ActionRow(
-                      icon: Icons.rate_review_rounded,
+                      icon: AppIcons.rateReview,
                       label: 'Review',
                       subtitle: 'Review pending changes',
                       theme: theme,
@@ -9253,7 +8733,7 @@ class _CodexActionsContent extends StatelessWidget {
               ),
               SizedBox(height: Spacing.sm),
               _ActionRow(
-                icon: Icons.feedback_outlined,
+                icon: AppIcons.feedback,
                 label: 'Feedback',
                 subtitle: 'Send feedback to Codex team',
                 theme: theme,
@@ -9266,7 +8746,6 @@ class _CodexActionsContent extends StatelessWidget {
     );
   }
 }
-
 // Glass pill widget for header elements
 // FIX: Removed expensive BackdropFilter - uses simple semi-transparent background instead
 // BackdropFilter causes severe frame drops during scrolling as it rasterizes everything behind it
@@ -9277,18 +8756,15 @@ class _GlassPill extends StatelessWidget {
     this.compact = false,
     this.constraints,
   });
-
   final Widget child;
   final VoidCallback? onTap;
   final bool compact;
   final BoxConstraints? constraints;
-
   @override
   Widget build(BuildContext context) {
     final theme = OpenCodeTheme.of(context);
     final kCard = theme.backgroundPanel;
     final borderRadius = compact ? Radii.brLg : Radii.brXl;
-
     // FIX: Simple semi-transparent container instead of expensive BackdropFilter
     // The visual difference is minimal but performance improvement is significant
     return GestureDetector(
@@ -9313,7 +8789,6 @@ class _GlassPill extends StatelessWidget {
     );
   }
 }
-
 // Floating input bar with streaming mode support
 class _FloatingInputBar extends ConsumerWidget {
   const _FloatingInputBar({
@@ -9331,7 +8806,7 @@ class _FloatingInputBar extends ConsumerWidget {
     this.onFileSelect,
     this.onAttachTap,
     this.onTakePhoto,
-    this.attachIcon = Icons.add_rounded,
+    this.attachIcon = AppIcons.add,
     // Model selector
     this.currentModel,
     this.onModelTap,
@@ -9353,7 +8828,6 @@ class _FloatingInputBar extends ConsumerWidget {
     this.glowStyle = GlowStyle.none,
     this.accentColor,
   });
-
   final TextEditingController controller;
   final FocusNode focusNode;
   final VoidCallback onSend;
@@ -9389,7 +8863,6 @@ class _FloatingInputBar extends ConsumerWidget {
   // Glow style and accent color
   final GlowStyle glowStyle;
   final Color? accentColor;
-
   void _showPowerSheet(BuildContext context) {
     showModalBottomSheet(
       context: context,
@@ -9418,7 +8891,6 @@ class _FloatingInputBar extends ConsumerWidget {
       ),
     );
   }
-
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final theme = OpenCodeTheme.of(context);
@@ -9426,7 +8898,6 @@ class _FloatingInputBar extends ConsumerWidget {
     final kMuted = theme.textMuted;
     final kOnBackground = theme.text;
     final kBackground = theme.background;
-
     // During streaming, hide the input bar completely
     // (Stop button is shown separately)
     return AnimatedSlide(
@@ -9456,7 +8927,6 @@ class _FloatingInputBar extends ConsumerWidget {
                       ),
                     ),
                   ),
-
                 // Attached files chips row
                 if (onRemoveAttachment != null)
                   Visibility(
@@ -9470,7 +8940,6 @@ class _FloatingInputBar extends ConsumerWidget {
                       ),
                     ),
                   ),
-
                 // Main input container - ChatGPT-style unified card
                 Padding(
                   key: const ValueKey('floating-input-row'),
@@ -9565,7 +9034,7 @@ class _FloatingInputBar extends ConsumerWidget {
                                   child: Padding(
                                     padding: Insets.cardXs,
                                     child: Icon(
-                                      Icons.add_rounded,
+                                      AppIcons.add,
                                       color: kMuted,
                                       size: 22,
                                     ),
@@ -9602,7 +9071,7 @@ class _FloatingInputBar extends ConsumerWidget {
                                 child: Padding(
                                   padding: Insets.cardXs,
                                   child: Icon(
-                                    Icons.tune_rounded,
+                                    AppIcons.tune,
                                     color: kMuted,
                                     size: 20,
                                   ),
@@ -9623,7 +9092,7 @@ class _FloatingInputBar extends ConsumerWidget {
                                   ),
                                   child: Center(
                                     child: Icon(
-                                      Icons.arrow_upward_rounded,
+                                      AppIcons.arrowUp,
                                       color: canSend
                                           ? kBackground
                                           : fade(kMuted, 0.4),
@@ -9646,7 +9115,6 @@ class _FloatingInputBar extends ConsumerWidget {
       ),
     );
   }
-
   /// Builds the floating pill container with the appropriate glow style.
   Widget _buildFloatingContainer({
     required GlowStyle glowStyle,
@@ -9657,7 +9125,6 @@ class _FloatingInputBar extends ConsumerWidget {
   }) {
     Color fade(Color c, double a) => c.withValues(alpha: a);
     const radius = 24.0;
-
     switch (glowStyle) {
       case GlowStyle.none:
         // No glow — original plain pill
@@ -9669,7 +9136,6 @@ class _FloatingInputBar extends ConsumerWidget {
           ),
           child: child,
         );
-
       case GlowStyle.leftOnly:
         // Left-only glow strip inside the pill
         final color = accentColor ?? kMuted;
@@ -9705,7 +9171,6 @@ class _FloatingInputBar extends ConsumerWidget {
             ),
           ),
         );
-
       case GlowStyle.fullBorder:
         // Full pill glow — accent border all around
         final color = accentColor ?? kMuted;
@@ -9726,7 +9191,6 @@ class _FloatingInputBar extends ConsumerWidget {
     }
   }
 }
-
 /// CustomPainter that draws a glowing border around a fully rounded pill shape.
 class _PillGlowPainter extends CustomPainter {
   _PillGlowPainter({
@@ -9734,11 +9198,9 @@ class _PillGlowPainter extends CustomPainter {
     required this.radius,
     required this.strokeWidth,
   });
-
   final Color color;
   final double radius;
   final double strokeWidth;
-
   @override
   void paint(Canvas canvas, Size size) {
     final hw = strokeWidth / 2;
@@ -9751,7 +9213,6 @@ class _PillGlowPainter extends CustomPainter {
       ),
       Radius.circular(radius - hw),
     );
-
     // 1) Outer glow
     final glowPaint = Paint()
       ..color = color.withValues(alpha: 0.45)
@@ -9759,7 +9220,6 @@ class _PillGlowPainter extends CustomPainter {
       ..strokeWidth = strokeWidth + 8
       ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 8);
     canvas.drawRRect(rect, glowPaint);
-
     // 2) Solid accent line
     final solidPaint = Paint()
       ..color = color
@@ -9767,14 +9227,12 @@ class _PillGlowPainter extends CustomPainter {
       ..strokeWidth = strokeWidth;
     canvas.drawRRect(rect, solidPaint);
   }
-
   @override
   bool shouldRepaint(covariant _PillGlowPainter oldDelegate) =>
       oldDelegate.color != color ||
       oldDelegate.radius != radius ||
       oldDelegate.strokeWidth != strokeWidth;
 }
-
 // CLI-style input bar (OpenCode terminal aesthetic)
 class _CliStyleInputBar extends StatefulWidget {
   const _CliStyleInputBar({
@@ -9797,7 +9255,7 @@ class _CliStyleInputBar extends StatefulWidget {
     this.onFileSelect,
     this.onAttachTap,
     this.onTakePhoto,
-    this.attachIcon = Icons.add_rounded,
+    this.attachIcon = AppIcons.add,
     // Claude Code specific props
     this.ccPermissionMode,
     this.ccModel,
@@ -9818,7 +9276,6 @@ class _CliStyleInputBar extends StatefulWidget {
     this.availableVariants = const [],
     this.onVariantChanged,
   });
-
   final TextEditingController controller;
   final FocusNode focusNode;
   final VoidCallback onSend;
@@ -9858,11 +9315,9 @@ class _CliStyleInputBar extends StatefulWidget {
   final String? currentVariant;
   final List<String> availableVariants;
   final void Function(String?)? onVariantChanged;
-
   @override
   State<_CliStyleInputBar> createState() => _CliStyleInputBarState();
 }
-
 class _CliStyleInputBarState extends State<_CliStyleInputBar> {
   static const _placeholders = [
     'Fix a TODO in the codebase',
@@ -9876,11 +9331,9 @@ class _CliStyleInputBarState extends State<_CliStyleInputBar> {
     'Optimize database queries',
     'Add error handling to this function',
   ];
-
   int _placeholderIndex = 0;
   Timer?
   _placeholderTimer; // FIX: Use cancellable Timer instead of Future.doWhile
-
   @override
   void initState() {
     super.initState();
@@ -9893,13 +9346,11 @@ class _CliStyleInputBarState extends State<_CliStyleInputBar> {
       });
     });
   }
-
   @override
   void dispose() {
     _placeholderTimer?.cancel(); // FIX: Cancel timer to prevent memory leak
     super.dispose();
   }
-
   /// Cycle through variants/thinking levels
   void _cycleVariant() {
     if (widget.availableVariants.isEmpty) return;
@@ -9912,7 +9363,6 @@ class _CliStyleInputBarState extends State<_CliStyleInputBar> {
       widget.onVariantChanged?.call(widget.availableVariants[nextIndex]);
     }
   }
-
   /// Show the unified PowerSheet for all backends
   void _showPowerSheet(BuildContext context) {
     showModalBottomSheet(
@@ -9952,7 +9402,6 @@ class _CliStyleInputBarState extends State<_CliStyleInputBar> {
       ),
     );
   }
-
   /// Format thinking level display for CLI prompt bar
   String _formatThinkingLevelDisplay(String variant) {
     final backend = widget.backend;
@@ -9991,7 +9440,6 @@ class _CliStyleInputBarState extends State<_CliStyleInputBar> {
     if (variant.isEmpty) return 'Default';
     return variant[0].toUpperCase() + variant.substring(1);
   }
-
   String _getModelDisplayName(SelectedModel? model) {
     if (model == null) return 'Auto';
     // Try to extract clean model name
@@ -10003,7 +9451,6 @@ class _CliStyleInputBarState extends State<_CliStyleInputBar> {
     if (id.contains('gpt-3')) return 'GPT-3.5';
     return id;
   }
-
   String _getProviderName(SelectedModel? model) {
     if (model == null) return '';
     final provider = model.providerID.toLowerCase();
@@ -10013,7 +9460,6 @@ class _CliStyleInputBarState extends State<_CliStyleInputBar> {
     if (provider.contains('openrouter')) return 'OpenRouter';
     return model.providerID;
   }
-
   /// Get Claude Code model display name from model string
   String _getCCModelDisplayName(String? model) {
     if (model == null || model.isEmpty) return 'Auto';
@@ -10026,7 +9472,6 @@ class _CliStyleInputBarState extends State<_CliStyleInputBar> {
     final parts = model.split('/');
     return parts.last;
   }
-
   /// Get Codex model display name from model string
   String _getCodexModelDisplayName(String? model) {
     if (model == null || model.isEmpty) return 'gpt-5.2-codex';
@@ -10034,7 +9479,6 @@ class _CliStyleInputBarState extends State<_CliStyleInputBar> {
     if (model.length > 16) return '${model.substring(0, 14)}...';
     return model;
   }
-
   /// Get Codex collaboration mode display name
   String _getCodexCollabModeDisplay(CodexCollaborationMode? mode) {
     switch (mode) {
@@ -10046,7 +9490,6 @@ class _CliStyleInputBarState extends State<_CliStyleInputBar> {
         return 'Default';
     }
   }
-
   /// Get color for Codex collaboration mode
   Color _getCodexCollabModeColor(
     CodexCollaborationMode? mode,
@@ -10061,7 +9504,6 @@ class _CliStyleInputBarState extends State<_CliStyleInputBar> {
         return theme.primary;
     }
   }
-
   /// Get color for permission mode
   Color _getPermissionModeColor(
     ClaudeCodePermissionMode? mode,
@@ -10084,7 +9526,6 @@ class _CliStyleInputBarState extends State<_CliStyleInputBar> {
         return theme.primary;
     }
   }
-
   @override
   Widget build(BuildContext context) {
     final theme = OpenCodeTheme.of(context);
@@ -10101,7 +9542,6 @@ class _CliStyleInputBarState extends State<_CliStyleInputBar> {
     } else {
       agentColor = agent?.resolveColor(theme) ?? theme.primary;
     }
-
     // During streaming, hide the input bar
     return AnimatedSlide(
       duration: const Duration(milliseconds: 200),
@@ -10130,7 +9570,6 @@ class _CliStyleInputBarState extends State<_CliStyleInputBar> {
                       ),
                     ),
                   ),
-
                 // Main CLI input container with configurable glow style
                 _buildCliContainer(
                   theme: theme,
@@ -10153,7 +9592,6 @@ class _CliStyleInputBarState extends State<_CliStyleInputBar> {
                             ),
                           ),
                         ),
-
                       // Text input area
                       Container(
                         constraints: const BoxConstraints(
@@ -10199,7 +9637,6 @@ class _CliStyleInputBarState extends State<_CliStyleInputBar> {
                               : null,
                         ),
                       ),
-
                       // Bottom info rows - agent + actions on top, model below
                       Padding(
                         padding: EdgeInsets.fromLTRB(
@@ -10241,9 +9678,7 @@ class _CliStyleInputBarState extends State<_CliStyleInputBar> {
                                     ),
                                   ),
                                 ),
-
                                 const Spacer(),
-
                                 // Attachment button
                                 if (widget.onAttachTap != null)
                                   GestureDetector(
@@ -10257,7 +9692,6 @@ class _CliStyleInputBarState extends State<_CliStyleInputBar> {
                                       ),
                                     ),
                                   ),
-
                                 // Voice input button
                                 Consumer(
                                   builder: (context, ref, _) {
@@ -10286,7 +9720,6 @@ class _CliStyleInputBarState extends State<_CliStyleInputBar> {
                                     );
                                   },
                                 ),
-
                                 // Send button (minimal)
                                 GestureDetector(
                                   onTap: widget.canSend ? widget.onSend : null,
@@ -10303,7 +9736,7 @@ class _CliStyleInputBarState extends State<_CliStyleInputBar> {
                                     ),
                                     child: Center(
                                       child: Icon(
-                                        Icons.arrow_upward_rounded,
+                                        AppIcons.arrowUp,
                                         color: widget.canSend
                                             ? theme.background
                                             : theme.textMuted.withValues(
@@ -10316,9 +9749,7 @@ class _CliStyleInputBarState extends State<_CliStyleInputBar> {
                                 ),
                               ],
                             ),
-
                             const SizedBox(height: 6),
-
                             // ROW 2: Model + variant/thinking level
                             GestureDetector(
                               onTap: isClaudeCode
@@ -10374,7 +9805,6 @@ class _CliStyleInputBarState extends State<_CliStyleInputBar> {
                                       ),
                                     ],
                                   ],
-
                                   // Variant / thinking level (if applicable)
                                   if (isClaudeCode &&
                                       widget.currentVariant != null) ...[
@@ -10489,7 +9919,6 @@ class _CliStyleInputBarState extends State<_CliStyleInputBar> {
       ),
     );
   }
-
   /// Builds the CLI input container with the appropriate glow style.
   Widget _buildCliContainer({
     required OpenCodeTheme theme,
@@ -10505,7 +9934,6 @@ class _CliStyleInputBarState extends State<_CliStyleInputBar> {
         topRight: Radius.circular(radius),
       ),
     );
-
     switch (glowStyle) {
       case GlowStyle.none:
         // No glow — plain container
@@ -10515,7 +9943,6 @@ class _CliStyleInputBarState extends State<_CliStyleInputBar> {
           decoration: baseDecoration,
           child: child,
         );
-
       case GlowStyle.leftOnly:
         // Left-only glow strip (original design)
         return Container(
@@ -10547,7 +9974,6 @@ class _CliStyleInputBarState extends State<_CliStyleInputBar> {
             ),
           ),
         );
-
       case GlowStyle.fullBorder:
         // Full ∩-shaped glow border (left + top + right)
         return CustomPaint(
@@ -10565,7 +9991,6 @@ class _CliStyleInputBarState extends State<_CliStyleInputBar> {
         );
     }
   }
-
   Agent? _getCurrentAgent() {
     final primaryAgents = widget.agents.where((a) => a.isPrimary).toList();
     if (primaryAgents.isEmpty) return null;
@@ -10575,7 +10000,6 @@ class _CliStyleInputBarState extends State<_CliStyleInputBar> {
     );
   }
 }
-
 /// CustomPainter that draws a glowing ∩-shaped border (left + top + right)
 /// on the CLI input bar container.
 class _GlowBorderPainter extends CustomPainter {
@@ -10584,17 +10008,14 @@ class _GlowBorderPainter extends CustomPainter {
     required this.radius,
     required this.strokeWidth,
   });
-
   final Color color;
   final double radius;
   final double strokeWidth;
-
   @override
   void paint(Canvas canvas, Size size) {
     // Inset the path by half stroke width so the stroke sits on the container edge
     final hw = strokeWidth / 2;
     final r = radius - hw; // adjusted corner radius
-
     final path = Path()
       // Start at bottom-left edge
       ..moveTo(hw, size.height)
@@ -10608,7 +10029,6 @@ class _GlowBorderPainter extends CustomPainter {
       ..arcToPoint(Offset(size.width - hw, radius), radius: Radius.circular(r))
       // Down the right side to the bottom
       ..lineTo(size.width - hw, size.height);
-
     // 1) Draw the outer glow (blurred, wider stroke)
     final glowPaint = Paint()
       ..color = color.withValues(alpha: 0.45)
@@ -10616,7 +10036,6 @@ class _GlowBorderPainter extends CustomPainter {
       ..strokeWidth = strokeWidth + 8
       ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 8);
     canvas.drawPath(path, glowPaint);
-
     // 2) Draw the solid accent line on top
     final solidPaint = Paint()
       ..color = color
@@ -10625,14 +10044,12 @@ class _GlowBorderPainter extends CustomPainter {
       ..strokeCap = StrokeCap.butt;
     canvas.drawPath(path, solidPaint);
   }
-
   @override
   bool shouldRepaint(covariant _GlowBorderPainter oldDelegate) =>
       oldDelegate.color != color ||
       oldDelegate.radius != radius ||
       oldDelegate.strokeWidth != strokeWidth;
 }
-
 /// Content widget for agent and permission selection in DetailSheet
 class _AgentAndPermissionContent extends ConsumerStatefulWidget {
   const _AgentAndPermissionContent({
@@ -10641,24 +10058,20 @@ class _AgentAndPermissionContent extends ConsumerStatefulWidget {
     this.currentAgent,
     this.onAgentChanged,
   });
-
   final OpenCodeTheme theme;
   final List<Agent> agents;
   final String? currentAgent;
   final void Function(String?)? onAgentChanged;
-
   @override
   ConsumerState<_AgentAndPermissionContent> createState() =>
       _AgentAndPermissionContentState();
 }
-
 class _AgentAndPermissionContentState
     extends ConsumerState<_AgentAndPermissionContent> {
   @override
   Widget build(BuildContext context) {
     final rulesState = ref.watch(permissionRulesProvider);
     final selectedPreset = rulesState.preset;
-
     // Separate primary (Build/Plan) from secondary agents
     final primaryAgents = widget.agents
         .where((a) => a.name == 'build' || a.name == 'plan')
@@ -10666,7 +10079,6 @@ class _AgentAndPermissionContentState
     final secondaryAgents = widget.agents
         .where((a) => a.name != 'build' && a.name != 'plan')
         .toList();
-
     return Column(
       mainAxisSize: MainAxisSize.min,
       children: [
@@ -10682,7 +10094,7 @@ class _AgentAndPermissionContentState
                 Row(
                   children: [
                     Icon(
-                      Icons.smart_toy_outlined,
+                      AppIcons.agent,
                       color: widget.theme.textMuted,
                       size: 18,
                     ),
@@ -10699,7 +10111,6 @@ class _AgentAndPermissionContentState
                   ],
                 ),
                 SizedBox(height: Spacing.lg),
-
                 // Primary agents as prominent cards in a row
                 if (primaryAgents.isNotEmpty) ...[
                   Row(
@@ -10725,7 +10136,6 @@ class _AgentAndPermissionContentState
                   ),
                   SizedBox(height: Spacing.md),
                 ],
-
                 // Secondary agents as smaller list
                 if (secondaryAgents.isNotEmpty) ...[
                   Container(
@@ -10818,7 +10228,7 @@ class _AgentAndPermissionContentState
                                     ),
                                     if (isSelected)
                                       Icon(
-                                        Icons.check_rounded,
+                                        AppIcons.check,
                                         color: widget.theme.primary,
                                         size: 18,
                                       ),
@@ -10838,15 +10248,13 @@ class _AgentAndPermissionContentState
                     ),
                   ),
                 ],
-
                 SizedBox(height: Spacing.xxl),
               ],
-
               // Permission preset section
               Row(
                 children: [
                   Icon(
-                    Icons.shield_outlined,
+                    AppIcons.security,
                     color: widget.theme.textMuted,
                     size: 18,
                   ),
@@ -10883,7 +10291,7 @@ class _AgentAndPermissionContentState
                       mainAxisSize: MainAxisSize.min,
                       children: [
                         Icon(
-                          Icons.tune_rounded,
+                          AppIcons.tune,
                           size: 14,
                           color: widget.theme.primary,
                         ),
@@ -10902,7 +10310,6 @@ class _AgentAndPermissionContentState
                 ],
               ),
               const SizedBox(height: 14),
-
               // Permission presets as 2x2 grid
               GridView.count(
                 shrinkWrap: true,
@@ -10934,7 +10341,6 @@ class _AgentAndPermissionContentState
     );
   }
 }
-
 /// Card for primary agents (Build/Plan)
 class _AgentCard extends StatelessWidget {
   const _AgentCard({
@@ -10943,12 +10349,10 @@ class _AgentCard extends StatelessWidget {
     required this.theme,
     required this.onTap,
   });
-
   final Agent agent;
   final bool isSelected;
   final OpenCodeTheme theme;
   final VoidCallback onTap;
-
   @override
   Widget build(BuildContext context) {
     return GestureDetector(
@@ -11019,7 +10423,7 @@ class _AgentCard extends StatelessWidget {
             ),
             if (isSelected)
               Icon(
-                Icons.check_circle_rounded,
+                AppIcons.checkCircle,
                 color: agent.resolveColor(theme),
                 size: 20,
               ),
@@ -11029,7 +10433,6 @@ class _AgentCard extends StatelessWidget {
     );
   }
 }
-
 /// Compact permission preset card for grid
 class _PermissionPresetCard extends StatelessWidget {
   const _PermissionPresetCard({
@@ -11038,12 +10441,10 @@ class _PermissionPresetCard extends StatelessWidget {
     required this.theme,
     required this.onTap,
   });
-
   final PermissionPreset preset;
   final bool isSelected;
   final OpenCodeTheme theme;
   final VoidCallback onTap;
-
   @override
   Widget build(BuildContext context) {
     return GestureDetector(
@@ -11086,7 +10487,6 @@ class _PermissionPresetCard extends StatelessWidget {
     );
   }
 }
-
 /// Chip widget for variant/thinking level selection
 class _VariantChip extends StatelessWidget {
   const _VariantChip({
@@ -11095,12 +10495,10 @@ class _VariantChip extends StatelessWidget {
     required this.theme,
     required this.onTap,
   });
-
   final String label;
   final bool isSelected;
   final OpenCodeTheme theme;
   final VoidCallback onTap;
-
   @override
   Widget build(BuildContext context) {
     return GestureDetector(
@@ -11129,30 +10527,24 @@ class _VariantChip extends StatelessWidget {
     );
   }
 }
-
 // Model selector content for DetailSheet
 class _ModelSelectorContent extends ConsumerStatefulWidget {
   const _ModelSelectorContent({required this.onModelSelected});
-
   final void Function(String model) onModelSelected;
-
   @override
   ConsumerState<_ModelSelectorContent> createState() =>
       _ModelSelectorContentState();
 }
-
 class _ModelSelectorContentState extends ConsumerState<_ModelSelectorContent> {
   Map<String, dynamic>? _providersData;
   String? _currentModel;
   bool _loading = true;
   String? _error;
-
   @override
   void initState() {
     super.initState();
     _loadData();
   }
-
   Future<void> _loadData() async {
     try {
       final bridge = ref.read(bridgeServiceProvider);
@@ -11182,7 +10574,6 @@ class _ModelSelectorContentState extends ConsumerState<_ModelSelectorContent> {
       });
     }
   }
-
   Future<void> _selectModel(String providerId, String modelId) async {
     final model = '$providerId/$modelId';
     final bridge = ref.read(bridgeServiceProvider);
@@ -11192,20 +10583,17 @@ class _ModelSelectorContentState extends ConsumerState<_ModelSelectorContent> {
     });
     widget.onModelSelected(model);
   }
-
   @override
   Widget build(BuildContext context) {
     final theme = OpenCodeTheme.of(context);
     final kOnBackground = theme.text;
     final kMuted = theme.textMuted;
-
     if (_loading) {
       return const Padding(
         padding: Insets.xxxl,
         child: Center(child: CircularProgressIndicator()),
       );
     }
-
     if (_error != null) {
       return Padding(
         padding: Insets.screenAll,
@@ -11215,20 +10603,16 @@ class _ModelSelectorContentState extends ConsumerState<_ModelSelectorContent> {
         ),
       );
     }
-
     final rawProviders = _providersData?['providers'] as List<dynamic>? ?? [];
-
     // Sort providers: Anthropic first, then alphabetically
     final providers = List<dynamic>.from(rawProviders)
       ..sort((a, b) {
         final aId = (a as Map<String, dynamic>)['id'] as String? ?? '';
         final bId = (b as Map<String, dynamic>)['id'] as String? ?? '';
-
         // Priority order: anthropic first
         const priorityOrder = ['anthropic', 'openai', 'google'];
         final aPriority = priorityOrder.indexOf(aId.toLowerCase());
         final bPriority = priorityOrder.indexOf(bId.toLowerCase());
-
         // If both have priority, sort by priority order
         if (aPriority >= 0 && bPriority >= 0) {
           return aPriority.compareTo(bPriority);
@@ -11242,7 +10626,6 @@ class _ModelSelectorContentState extends ConsumerState<_ModelSelectorContent> {
         final bName = (b)['name'] as String? ?? bId;
         return aName.toLowerCase().compareTo(bName.toLowerCase());
       });
-
     return Column(
       mainAxisSize: MainAxisSize.min,
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -11275,16 +10658,13 @@ class _ModelSelectorContentState extends ConsumerState<_ModelSelectorContent> {
       ],
     );
   }
-
   Widget _buildProviderSection(Map<String, dynamic> provider) {
     final theme = OpenCodeTheme.of(context);
     final kOnBackground = theme.text;
     final kMuted = theme.textMuted;
-
     final id = provider['id'] as String? ?? 'provider';
     final name = provider['name'] as String? ?? id;
     final models = provider['models'] as Map<String, dynamic>? ?? {};
-
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -11309,8 +10689,8 @@ class _ModelSelectorContentState extends ConsumerState<_ModelSelectorContent> {
             dense: true,
             contentPadding: EdgeInsets.zero,
             leading: _currentModel == '$id/${entry.key}'
-                ? Icon(Icons.check_circle, color: theme.success)
-                : Icon(Icons.circle_outlined, color: theme.borderSubtle),
+                ? Icon(AppIcons.checkCircle, color: theme.success)
+                : Icon(AppIcons.circleOutlined, color: theme.borderSubtle),
             title: Text(
               entry.value['name'] as String? ?? entry.key,
               style: TextStyle(color: kOnBackground),
@@ -11325,14 +10705,11 @@ class _ModelSelectorContentState extends ConsumerState<_ModelSelectorContent> {
     );
   }
 }
-
 // Feature 2: Slash command autocomplete popup with grouping
 class _CommandAutocomplete extends StatelessWidget {
   const _CommandAutocomplete({required this.commands, required this.onSelect});
-
   final List<SlashCommand> commands;
   final void Function(SlashCommand) onSelect;
-
   @override
   Widget build(BuildContext context) {
     final theme = OpenCodeTheme.of(context);
@@ -11343,14 +10720,11 @@ class _CommandAutocomplete extends StatelessWidget {
     final kAccent = theme.primary;
     final kSuccess = theme.success;
     final kInfo = theme.info;
-
     if (commands.isEmpty) {
       return const SizedBox.shrink();
     }
-
     // Group commands by source (command / mcp / skill)
     final groups = CommandGroups.fromCommands(commands);
-
     return Container(
       constraints: const BoxConstraints(maxHeight: 280),
       decoration: BoxDecoration(
@@ -11375,7 +10749,7 @@ class _CommandAutocomplete extends StatelessWidget {
             if (groups.commands.isNotEmpty) ...[
               _buildSectionHeader(
                 'Commands',
-                Icons.terminal,
+                AppIcons.terminal,
                 kAccent,
                 kMuted,
                 groups.commands.length,
@@ -11396,7 +10770,7 @@ class _CommandAutocomplete extends StatelessWidget {
               if (groups.commands.isNotEmpty) SizedBox(height: Spacing.sm),
               _buildSectionHeader(
                 'Skills',
-                Icons.auto_awesome,
+                AppIcons.autoAwesome,
                 kInfo,
                 kMuted,
                 groups.skillCommands.length,
@@ -11418,7 +10792,7 @@ class _CommandAutocomplete extends StatelessWidget {
                 SizedBox(height: Spacing.sm),
               _buildSectionHeader(
                 'MCP',
-                Icons.extension,
+                AppIcons.extension_,
                 kSuccess,
                 kMuted,
                 groups.mcpCommands.length,
@@ -11439,7 +10813,6 @@ class _CommandAutocomplete extends StatelessWidget {
       ),
     );
   }
-
   Widget _buildSectionHeader(
     String title,
     IconData icon,
@@ -11474,7 +10847,6 @@ class _CommandAutocomplete extends StatelessWidget {
       ),
     );
   }
-
   Widget _buildCommandTile(
     SlashCommand command,
     Color textColor,
@@ -11499,10 +10871,10 @@ class _CommandAutocomplete extends StatelessWidget {
               ),
               child: Icon(
                 command.source == CommandSource.mcp
-                    ? Icons.extension
+                    ? AppIcons.extension_
                     : command.source == CommandSource.skill
-                        ? Icons.auto_awesome
-                        : Icons.terminal,
+                        ? AppIcons.autoAwesome
+                        : AppIcons.terminal,
                 size: 16,
                 color: accentColor,
               ),
@@ -11577,7 +10949,7 @@ class _CommandAutocomplete extends StatelessWidget {
                       if (command.subtask) ...[
                         SizedBox(width: Spacing.xs),
                         Icon(
-                          Icons.subdirectory_arrow_right,
+                          AppIcons.subdirectory,
                           size: 12,
                           color: mutedColor,
                         ),
@@ -11600,23 +10972,18 @@ class _CommandAutocomplete extends StatelessWidget {
     );
   }
 }
-
 class _CustomToolAutocomplete extends ConsumerWidget {
   const _CustomToolAutocomplete({required this.query, required this.onSelect});
-
   final String query;
   final void Function(ClaudeCodeCustomTool tool) onSelect;
-
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final theme = OpenCodeTheme.of(context);
     final toolsAsync = ref.watch(ccCustomToolsProvider);
-
     final kCard = theme.backgroundPanel;
     final kBorder = theme.borderSubtle;
     final kText = theme.text;
     final kMuted = theme.textMuted;
-
     return toolsAsync.when(
       loading: () => Container(
         padding: Insets.card,
@@ -11661,7 +11028,6 @@ class _CustomToolAutocomplete extends ConsumerWidget {
                         t.description.toLowerCase().contains(q),
                   )
                   .toList();
-
         if (filtered.isEmpty) {
           return Container(
             padding: Insets.card,
@@ -11673,7 +11039,6 @@ class _CustomToolAutocomplete extends ConsumerWidget {
             child: Text('No matching tools', style: TextStyle(color: kMuted)),
           );
         }
-
         return Container(
           constraints: const BoxConstraints(maxHeight: 280),
           decoration: BoxDecoration(
@@ -11712,7 +11077,7 @@ class _CustomToolAutocomplete extends ConsumerWidget {
                             borderRadius: Radii.brSm,
                           ),
                           child: Icon(
-                            Icons.build_rounded,
+                            AppIcons.build,
                             size: 16,
                             color: theme.warning,
                           ),
@@ -11741,7 +11106,7 @@ class _CustomToolAutocomplete extends ConsumerWidget {
                           ),
                         ),
                         Icon(
-                          Icons.chevron_right_rounded,
+                          AppIcons.chevronRight,
                           color: kMuted.withValues(alpha: 0.7),
                           size: 18,
                         ),
@@ -11757,27 +11122,21 @@ class _CustomToolAutocomplete extends ConsumerWidget {
     );
   }
 }
-
 // Task 1: Retry status countdown banner
 class _RetryStatusBanner extends StatefulWidget {
   const _RetryStatusBanner({required this.status});
-
   final SessionStatus status;
-
   @override
   State<_RetryStatusBanner> createState() => _RetryStatusBannerState();
 }
-
 class _RetryStatusBannerState extends State<_RetryStatusBanner> {
   Timer? _countdownTimer;
   int _remainingSeconds = 0;
-
   @override
   void initState() {
     super.initState();
     _startCountdown();
   }
-
   @override
   void didUpdateWidget(_RetryStatusBanner oldWidget) {
     super.didUpdateWidget(oldWidget);
@@ -11785,7 +11144,6 @@ class _RetryStatusBannerState extends State<_RetryStatusBanner> {
       _startCountdown();
     }
   }
-
   void _startCountdown() {
     _countdownTimer?.cancel();
     final nextTimestamp = widget.status.next;
@@ -11798,7 +11156,6 @@ class _RetryStatusBannerState extends State<_RetryStatusBanner> {
       _updateRemaining();
     });
   }
-
   void _updateRemaining() {
     final now = DateTime.now().millisecondsSinceEpoch;
     final next = widget.status.next ?? 0;
@@ -11812,19 +11169,16 @@ class _RetryStatusBannerState extends State<_RetryStatusBanner> {
       _countdownTimer?.cancel();
     }
   }
-
   @override
   void dispose() {
     _countdownTimer?.cancel();
     super.dispose();
   }
-
   @override
   Widget build(BuildContext context) {
     final theme = OpenCodeTheme.of(context);
     final attempt = widget.status.attempt ?? 0;
     final message = widget.status.message ?? 'Retrying...';
-
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
       decoration: BoxDecoration(
@@ -11834,7 +11188,7 @@ class _RetryStatusBannerState extends State<_RetryStatusBanner> {
       ),
       child: Row(
         children: [
-          Icon(Icons.refresh_rounded, color: theme.warning, size: 18),
+          Icon(AppIcons.refresh, color: theme.warning, size: 18),
           const SizedBox(width: 10),
           Expanded(
             child: Text(
@@ -11854,17 +11208,13 @@ class _RetryStatusBannerState extends State<_RetryStatusBanner> {
     );
   }
 }
-
 // Task 2: Revert state banner
 class _RevertStateBanner extends StatelessWidget {
   const _RevertStateBanner({required this.onUndoRevert});
-
   final VoidCallback onUndoRevert;
-
   @override
   Widget build(BuildContext context) {
     final theme = OpenCodeTheme.of(context);
-
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
       decoration: BoxDecoration(
@@ -11874,7 +11224,7 @@ class _RevertStateBanner extends StatelessWidget {
       ),
       child: Row(
         children: [
-          Icon(Icons.history_rounded, color: theme.info, size: 18),
+          Icon(AppIcons.history, color: theme.info, size: 18),
           const SizedBox(width: 10),
           Expanded(
             child: Text(
@@ -11904,7 +11254,6 @@ class _RevertStateBanner extends StatelessWidget {
     );
   }
 }
-
 /// Claude Code: Turn-level undo bar shown after assistant messages that
 /// modified files. The SDK only supports `rewindFiles(userMessageId)` which
 /// reverts ALL file changes back to a checkpoint — there is no per-file undo.
@@ -11915,13 +11264,10 @@ class _RevertStateBanner extends StatelessWidget {
 /// JetBrains Mono for paths, DetailSheet for the expanded file list.
 class _CCUndoTurnBar extends StatelessWidget {
   const _CCUndoTurnBar({required this.changedFiles, required this.onUndo});
-
   /// Paths of files changed in this turn (extracted from tool call inputs).
   final List<String> changedFiles;
-
   /// Called when the user taps undo. Should call rewindToCheckpoint().
   final VoidCallback onUndo;
-
   @override
   Widget build(BuildContext context) {
     final theme = OpenCodeTheme.of(context);
@@ -11929,7 +11275,6 @@ class _CCUndoTurnBar extends StatelessWidget {
     final label = fileCount == 1
         ? '1 file changed'
         : '$fileCount files changed';
-
     return GestureDetector(
       onTap: () => _showChangedFilesSheet(context),
       child: Container(
@@ -11942,7 +11287,7 @@ class _CCUndoTurnBar extends StatelessWidget {
         ),
         child: Row(
           children: [
-            Icon(Icons.history_rounded, color: theme.warning, size: 16),
+            Icon(AppIcons.history, color: theme.warning, size: 16),
             const SizedBox(width: 6),
             Text(
               label,
@@ -11966,7 +11311,7 @@ class _CCUndoTurnBar extends StatelessWidget {
               height: 28,
               child: OutlinedButton.icon(
                 onPressed: onUndo,
-                icon: Icon(Icons.undo_rounded, size: 14, color: theme.warning),
+                icon: Icon(AppIcons.undo, size: 14, color: theme.warning),
                 label: Text(
                   'Undo',
                   style: TextStyle(
@@ -11991,10 +11336,8 @@ class _CCUndoTurnBar extends StatelessWidget {
       ),
     );
   }
-
   void _showChangedFilesSheet(BuildContext context) {
     final theme = OpenCodeTheme.of(context);
-
     DetailSheet.show(
       context: context,
       title: 'Undo File Changes',
@@ -12016,7 +11359,7 @@ class _CCUndoTurnBar extends StatelessWidget {
                     child: Row(
                       children: [
                         Icon(
-                          Icons.description_outlined,
+                          AppIcons.description,
                           color: theme.textMuted,
                           size: 15,
                         ),
@@ -12034,7 +11377,6 @@ class _CCUndoTurnBar extends StatelessWidget {
               ],
             ),
           ),
-
           // Undo button (matches edit/write card undo style: OutlinedButton, warning color)
           Padding(
             padding: Insets.card,
@@ -12045,7 +11387,7 @@ class _CCUndoTurnBar extends StatelessWidget {
                   Navigator.of(context).pop();
                   onUndo();
                 },
-                icon: const Icon(Icons.undo, size: 18),
+                icon: const Icon(AppIcons.undo, size: 18),
                 label: const Text('Undo all changes from this turn'),
                 style: OutlinedButton.styleFrom(
                   foregroundColor: theme.warning,
@@ -12059,7 +11401,6 @@ class _CCUndoTurnBar extends StatelessWidget {
     );
   }
 }
-
 /// Compact indicator shown below the floating header when Claude Code
 /// subagents (Task tool calls) are actively running.
 class _SubagentActivityIndicator extends StatelessWidget {
@@ -12067,14 +11408,11 @@ class _SubagentActivityIndicator extends StatelessWidget {
     required this.messages,
     required this.isStreaming,
   });
-
   final List<ChatMessage> messages;
   final bool isStreaming;
-
   @override
   Widget build(BuildContext context) {
     if (!isStreaming) return const SizedBox.shrink();
-
     // Find running Task tool calls from the most recent assistant message
     final activeSubagentNames = <String>[];
     for (var i = messages.length - 1; i >= 0; i--) {
@@ -12096,12 +11434,9 @@ class _SubagentActivityIndicator extends StatelessWidget {
       // Only check the most recent assistant message
       break;
     }
-
     if (activeSubagentNames.isEmpty) return const SizedBox.shrink();
-
     final theme = OpenCodeTheme.of(context);
     final label = activeSubagentNames.join(', ');
-
     return Center(
       child: Container(
         padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
@@ -12135,25 +11470,20 @@ class _SubagentActivityIndicator extends StatelessWidget {
     );
   }
 }
-
 // Feature 13: Animated status indicator for session state
 class _StatusIndicator extends StatefulWidget {
   const _StatusIndicator({
     required this.isConnected,
     required this.sessionStatus,
   });
-
   final bool isConnected;
   final SessionStatus sessionStatus;
-
   @override
   State<_StatusIndicator> createState() => _StatusIndicatorState();
 }
-
 class _StatusIndicatorState extends State<_StatusIndicator>
     with SingleTickerProviderStateMixin {
   late AnimationController _controller;
-
   @override
   void initState() {
     super.initState();
@@ -12163,13 +11493,11 @@ class _StatusIndicatorState extends State<_StatusIndicator>
     );
     _updateAnimation();
   }
-
   @override
   void didUpdateWidget(_StatusIndicator oldWidget) {
     super.didUpdateWidget(oldWidget);
     _updateAnimation();
   }
-
   void _updateAnimation() {
     if (widget.sessionStatus.isBusy || widget.sessionStatus.isRetry) {
       _controller.repeat();
@@ -12178,18 +11506,15 @@ class _StatusIndicatorState extends State<_StatusIndicator>
       _controller.value = 0;
     }
   }
-
   @override
   void dispose() {
     _controller.dispose();
     super.dispose();
   }
-
   @override
   Widget build(BuildContext context) {
     final theme = OpenCodeTheme.of(context);
     final status = widget.sessionStatus;
-
     // Connection color
     Color baseColor;
     if (!widget.isConnected) {
@@ -12201,7 +11526,6 @@ class _StatusIndicatorState extends State<_StatusIndicator>
     } else {
       baseColor = theme.success; // Green - idle/connected
     }
-
     // Pulsing animation for busy/retry states
     if (status.isBusy || status.isRetry) {
       return AnimatedBuilder(
@@ -12227,7 +11551,6 @@ class _StatusIndicatorState extends State<_StatusIndicator>
         },
       );
     }
-
     // Static indicator for idle/disconnected
     return Container(
       width: 6,

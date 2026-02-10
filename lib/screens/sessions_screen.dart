@@ -1,3 +1,4 @@
+
 import 'dart:async';
 
 import 'package:flutter/material.dart';
@@ -30,34 +31,29 @@ import '../theme/opencode_theme.dart';
 import '../widgets/background_session_widgets.dart';
 import '../widgets/chat/detail_sheet.dart';
 import 'chat_screen.dart';
-
+import 'package:broski/theme/app_icons.dart';
 class SessionsScreen extends ConsumerStatefulWidget {
   const SessionsScreen({super.key});
-
   @override
   ConsumerState<SessionsScreen> createState() => _SessionsScreenState();
 }
-
 class _SessionsScreenState extends ConsumerState<SessionsScreen> {
   // Task 8: Session search
   final _searchController = TextEditingController();
   String _searchQuery = '';
   Timer? _searchDebounce;
-
   @override
   void dispose() {
     _searchController.dispose();
     _searchDebounce?.cancel();
     super.dispose();
   }
-
   void _onSearchChanged(String value) {
     _searchDebounce?.cancel();
     _searchDebounce = Timer(const Duration(milliseconds: 300), () {
       setState(() => _searchQuery = value.trim().toLowerCase());
     });
   }
-
   Future<void> _refresh() async {
     ref.read(sessionsRefreshTickProvider.notifier).state++;
     ref.invalidate(sessionsListProvider);
@@ -66,11 +62,9 @@ class _SessionsScreenState extends ConsumerState<SessionsScreen> {
     ref.read(globalSessionStatusProvider.notifier).fetchAllStatuses();
     await ref.read(sessionsListProvider.future);
   }
-
   void _showSessionsTitleFiltersSheet(BuildContext context) {
     final ocTheme = OpenCodeTheme.of(context);
     final controller = TextEditingController();
-
     DetailSheet.show(
       context: context,
       title: 'Title Filters',
@@ -83,7 +77,6 @@ class _SessionsScreenState extends ConsumerState<SessionsScreen> {
           final notifier = ref.read(
             sessionsTitleExcludeFiltersProvider(AgentType.opencode).notifier,
           );
-
           return Padding(
             padding: const EdgeInsets.fromLTRB(16, 8, 16, 16),
             child: Column(
@@ -183,15 +176,15 @@ class _SessionsScreenState extends ConsumerState<SessionsScreen> {
                           contentPadding: EdgeInsets.zero,
                           leading: Icon(
                             f.startsWith('/') && f.endsWith('/')
-                                ? Icons.code_rounded
-                                : Icons.text_fields_rounded,
+                                ? AppIcons.code
+                                : AppIcons.textFields,
                             color: ocTheme.textMuted,
                           ),
                           title: Text(f, style: TextStyle(color: ocTheme.text)),
                           trailing: IconButton(
                             onPressed: () => notifier.removeAt(index),
                             icon: Icon(
-                              Icons.delete_outline_rounded,
+                              AppIcons.delete,
                               color: ocTheme.error,
                             ),
                             tooltip: 'Remove',
@@ -207,7 +200,6 @@ class _SessionsScreenState extends ConsumerState<SessionsScreen> {
       ),
     ).whenComplete(controller.dispose);
   }
-
   @override
   void initState() {
     super.initState();
@@ -216,25 +208,21 @@ class _SessionsScreenState extends ConsumerState<SessionsScreen> {
       ref.read(globalSessionStatusProvider.notifier).fetchAllStatuses();
     });
   }
-
   @override
   Widget build(BuildContext context) {
     final agentType = ref.watch(agentTypeProvider);
-
     if (agentType == AgentType.claudeCode) {
       return _ClaudeCodeSessionsView(onRefresh: _refresh);
     }
     if (agentType == AgentType.codex) {
       return _CodexThreadsView(onRefresh: _refresh);
     }
-
     final connection = ref.watch(connectionProvider);
     final theme = Theme.of(context);
     final filterProjectPath = ref.watch(sessionsFilterProjectPathProvider);
     final projectsAsync = ref.watch(projectsForSessionsProvider);
     final sessionsAsync = ref.watch(sessionsListProvider);
     final sessionStatuses = ref.watch(globalSessionStatusProvider);
-
     return Scaffold(
       backgroundColor: Colors.transparent,
       body: SafeArea(
@@ -264,7 +252,6 @@ class _SessionsScreenState extends ConsumerState<SessionsScreen> {
                     final titleFilterCount = ref
                         .watch(sessionsTitleExcludeFiltersProvider(agentType))
                         .length;
-
                     return _ModernHeader(
                       connection: connection,
                       filterProjectPath: filterProjectPath,
@@ -316,7 +303,7 @@ class _SessionsScreenState extends ConsumerState<SessionsScreen> {
                         mainAxisAlignment: MainAxisAlignment.center,
                         children: [
                           Icon(
-                            Icons.error_outline_rounded,
+                            AppIcons.error,
                             color: theme.colorScheme.error,
                             size: 48,
                           ),
@@ -352,7 +339,6 @@ class _SessionsScreenState extends ConsumerState<SessionsScreen> {
                   if (sessions.isEmpty) {
                     return [SliverFillRemaining(child: _EmptyState())];
                   }
-
                   // Task 8: Apply search filter
                   final filteredSessions = _searchQuery.isEmpty
                       ? sessions
@@ -362,7 +348,6 @@ class _SessionsScreenState extends ConsumerState<SessionsScreen> {
                                   s.title.toLowerCase().contains(_searchQuery),
                             )
                             .toList();
-
                   if (filteredSessions.isEmpty && _searchQuery.isNotEmpty) {
                     return [
                       SliverFillRemaining(
@@ -380,39 +365,32 @@ class _SessionsScreenState extends ConsumerState<SessionsScreen> {
                       ),
                     ];
                   }
-
                   // Use grouped sessions for hierarchical display
                   final groupedSessions = ref.watch(groupedSessionsProvider);
                   final showBgTasks = ref.watch(showBackgroundTasksProvider);
                   final expandedSessions = ref.watch(expandedSessionsProvider);
-
                   // Get highlighted sessions
                   final highlights = ref.watch(highlightsProvider);
                   final highlightColor = highlights.color;
-
                   // Filter to only root sessions (background tasks are nested)
                   final rootSessions = filteredSessions
                       .where((s) => s.isRootSession)
                       .toList();
-
                   // Get highlighted sessions for the section
                   final highlightedSessions = rootSessions
                       .where((s) => highlights.isSessionHighlighted(s.id))
                       .toList();
-
                   // Predictive prefetching: preload messages for top 3 root sessions
                   // Fire-and-forget after frame is rendered
                   WidgetsBinding.instance.addPostFrameCallback((_) {
                     prefetchTopSessions(ref, rootSessions);
                   });
-
                   final projectsByPath = <String, ProjectSummary>{};
                   for (final p
                       in projectsAsync.valueOrNull ??
                           const <ProjectSummary>[]) {
                     projectsByPath[p.path] = p;
                   }
-
                   // Build items using grouped sessions (only for regular sessions)
                   // Task 8: Also filter grouped sessions by search query
                   final searchFilteredGrouped = _searchQuery.isEmpty
@@ -436,7 +414,6 @@ class _SessionsScreenState extends ConsumerState<SessionsScreen> {
                     showBackgroundTasks: showBgTasks,
                     expandedSessions: expandedSessions,
                   );
-
                   return [
                     // Highlighted Sessions Section
                     if (highlightedSessions.isNotEmpty)
@@ -476,7 +453,6 @@ class _SessionsScreenState extends ConsumerState<SessionsScreen> {
                               ),
                             );
                           }
-
                           if (item is _SessionListItem) {
                             final session = item.session;
                             final status = sessionStatuses[session.id];
@@ -489,7 +465,6 @@ class _SessionsScreenState extends ConsumerState<SessionsScreen> {
                               session.id,
                             );
                             final hasChildren = grouped.hasChildren;
-
                             return Padding(
                               padding: Insets.bottomMd,
                               child: _SessionCard(
@@ -521,7 +496,6 @@ class _SessionsScreenState extends ConsumerState<SessionsScreen> {
                               ),
                             );
                           }
-
                           if (item is _ChildSessionItem) {
                             final session = item.session;
                             final status = sessionStatuses[session.id];
@@ -538,7 +512,6 @@ class _SessionsScreenState extends ConsumerState<SessionsScreen> {
                               ),
                             );
                           }
-
                           return const SizedBox.shrink();
                         }, childCount: items.length),
                       ),
@@ -553,11 +526,9 @@ class _SessionsScreenState extends ConsumerState<SessionsScreen> {
       floatingActionButton: null,
     );
   }
-
   Future<void> _openSession(SessionSummary session) async {
     final chat = ref.read(chatSessionProvider.notifier);
     chat.setSession(session, projectPath: session.directory);
-
     final project = ProjectSummary(
       id: session.projectID,
       name: session.directory.split('/').where((item) => item.isNotEmpty).last,
@@ -565,7 +536,6 @@ class _SessionsScreenState extends ConsumerState<SessionsScreen> {
     );
     ref.read(selectionProvider.notifier).selectProject(project);
     ref.read(selectionProvider.notifier).selectSession(session);
-
     if (!mounted) return;
     await Navigator.push(
       context,
@@ -576,7 +546,6 @@ class _SessionsScreenState extends ConsumerState<SessionsScreen> {
     if (!mounted) return;
     ref.read(sessionsRefreshTickProvider.notifier).state++;
   }
-
   // Feature 4: Delete session
   Future<void> _deleteSession(SessionSummary session) async {
     final confirm = await showDialog<bool>(
@@ -602,17 +571,13 @@ class _SessionsScreenState extends ConsumerState<SessionsScreen> {
         ],
       ),
     );
-
     if (confirm != true) return;
-
     final bridge = ref.read(bridgeServiceProvider);
     final success = await bridge.deleteSession(
       session.id,
       projectPath: session.directory,
     );
-
     if (!mounted) return;
-
     final ocTheme = OpenCodeTheme.of(context);
     if (success) {
       ScaffoldMessenger.of(context).showSnackBar(
@@ -631,12 +596,10 @@ class _SessionsScreenState extends ConsumerState<SessionsScreen> {
       );
     }
   }
-
   // Toggle highlight for a session
   void _toggleHighlight(String sessionId) {
     ref.read(highlightsProvider.notifier).toggleSession(sessionId);
   }
-
   // Show options menu (highlight + rename + stop)
   Future<void> _showSessionOptions(SessionSummary session) async {
     final highlights = ref.read(highlightsProvider);
@@ -646,7 +609,6 @@ class _SessionsScreenState extends ConsumerState<SessionsScreen> {
     final sessionStatuses = ref.read(globalSessionStatusProvider);
     final status = sessionStatuses[session.id];
     final isRunning = status?.isBusy == true || status?.isRetry == true;
-
     await DetailSheet.show(
       context: context,
       title: session.title,
@@ -659,7 +621,7 @@ class _SessionsScreenState extends ConsumerState<SessionsScreen> {
           // Stop Session option (shown when running or always for stuck sessions)
           ListTile(
             leading: Icon(
-              Icons.stop_circle_outlined,
+              AppIcons.stop,
               color: isRunning ? ocTheme.error : ocTheme.textMuted,
             ),
             title: Text(
@@ -680,7 +642,7 @@ class _SessionsScreenState extends ConsumerState<SessionsScreen> {
           // Options
           ListTile(
             leading: Icon(
-              isHighlighted ? Icons.star_rounded : Icons.star_border_rounded,
+              isHighlighted ? AppIcons.star : AppIcons.starOutline,
               color: isHighlighted
                   ? highlightColor.forBrightness(
                       Theme.of(context).brightness,
@@ -698,7 +660,7 @@ class _SessionsScreenState extends ConsumerState<SessionsScreen> {
             },
           ),
           ListTile(
-            leading: Icon(Icons.edit_rounded, color: ocTheme.textMuted),
+            leading: Icon(AppIcons.edit, color: ocTheme.textMuted),
             title: Text('Rename', style: TextStyle(color: ocTheme.text)),
             onTap: () {
               Navigator.pop(context);
@@ -709,8 +671,8 @@ class _SessionsScreenState extends ConsumerState<SessionsScreen> {
           ListTile(
             leading: Icon(
               session.isArchived
-                  ? Icons.unarchive_outlined
-                  : Icons.archive_outlined,
+                  ? AppIcons.unarchive
+                  : AppIcons.archive,
               color: session.isArchived ? ocTheme.textMuted : ocTheme.error,
             ),
             title: Text(
@@ -727,7 +689,7 @@ class _SessionsScreenState extends ConsumerState<SessionsScreen> {
           // Share / Unshare
           ListTile(
             leading: Icon(
-              session.isShared ? Icons.link_off_rounded : Icons.share_rounded,
+              session.isShared ? AppIcons.unlink : AppIcons.share,
               color: ocTheme.textMuted,
             ),
             title: Text(
@@ -755,15 +717,12 @@ class _SessionsScreenState extends ConsumerState<SessionsScreen> {
       ),
     );
   }
-
   /// Stop/abort a session
   void _stopSession(SessionSummary session) {
     final bridge = ref.read(bridgeServiceProvider);
     final ocTheme = OpenCodeTheme.of(context);
-
     // Send abort to bridge (directory is the project path)
     bridge.abortSession(session.id, projectPath: session.directory);
-
     // Show confirmation
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
@@ -772,13 +731,11 @@ class _SessionsScreenState extends ConsumerState<SessionsScreen> {
         behavior: SnackBarBehavior.floating,
       ),
     );
-
     // Refresh session statuses after a short delay
     Future.delayed(const Duration(milliseconds: 500), () {
       ref.read(globalSessionStatusProvider.notifier).fetchAllStatuses();
     });
   }
-
   /// Archive or unarchive a session
   Future<void> _archiveSession(
     SessionSummary session, {
@@ -786,7 +743,6 @@ class _SessionsScreenState extends ConsumerState<SessionsScreen> {
   }) async {
     final bridge = ref.read(bridgeServiceProvider);
     final ocTheme = OpenCodeTheme.of(context);
-
     try {
       await bridge.updateSession(
         session.id,
@@ -794,10 +750,8 @@ class _SessionsScreenState extends ConsumerState<SessionsScreen> {
         projectPath: session.directory,
       );
       if (!mounted) return;
-
       // Refresh sessions list
       ref.invalidate(sessionsListProvider);
-
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: Text(archive ? 'Session archived' : 'Session unarchived'),
@@ -818,22 +772,18 @@ class _SessionsScreenState extends ConsumerState<SessionsScreen> {
       );
     }
   }
-
   /// Share a session and copy the URL to clipboard
   Future<void> _shareSession(SessionSummary session) async {
     final bridge = ref.read(bridgeServiceProvider);
     final ocTheme = OpenCodeTheme.of(context);
-
     try {
       final updated = await bridge.shareSession(
         session.id,
         projectPath: session.directory,
       );
       if (!mounted) return;
-
       // Refresh sessions list
       ref.invalidate(sessionsListProvider);
-
       final url = updated.share?.url ?? '';
       if (url.isNotEmpty) {
         await Clipboard.setData(ClipboardData(text: url));
@@ -857,12 +807,10 @@ class _SessionsScreenState extends ConsumerState<SessionsScreen> {
       );
     }
   }
-
   /// Unshare a session (remove public URL)
   Future<void> _unshareSession(SessionSummary session) async {
     final bridge = ref.read(bridgeServiceProvider);
     final ocTheme = OpenCodeTheme.of(context);
-
     final confirm = await showDialog<bool>(
       context: context,
       builder: (context) => AlertDialog(
@@ -884,14 +832,11 @@ class _SessionsScreenState extends ConsumerState<SessionsScreen> {
       ),
     );
     if (confirm != true) return;
-
     try {
       await bridge.unshareSession(session.id, projectPath: session.directory);
       if (!mounted) return;
-
       // Refresh sessions list
       ref.invalidate(sessionsListProvider);
-
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: const Text('Session unshared'),
@@ -910,11 +855,9 @@ class _SessionsScreenState extends ConsumerState<SessionsScreen> {
       );
     }
   }
-
   /// Show bottom sheet to create a new session with project/worktree selection
   void _showNewSessionSheet(BuildContext context) {
     final projectsAsync = ref.read(projectsForSessionsProvider);
-
     DetailSheet.show(
       context: context,
       title: 'New Session',
@@ -929,7 +872,6 @@ class _SessionsScreenState extends ConsumerState<SessionsScreen> {
       ),
     );
   }
-
   /// Create a new session for the given project and optional worktree
   Future<void> _createNewSession(
     ProjectSummary project,
@@ -940,17 +882,13 @@ class _SessionsScreenState extends ConsumerState<SessionsScreen> {
     final baseRules = ref.read(permissionRulesProvider).effectiveRuleset;
     final disabledTools = ref.read(toolSettingsProvider).disabledTools;
     final permissionRules = applyDisabledToolsToRuleset(baseRules, disabledTools);
-
     final projectPath = worktree?.directory ?? project.path;
-
     try {
       final session = await bridge.createSession(
         projectPath: projectPath,
         permission: permissionRules,
       );
-
       chat.setSession(session, projectPath: projectPath);
-
       if (!mounted) return;
       await Navigator.push(
         context,
@@ -978,11 +916,9 @@ class _SessionsScreenState extends ConsumerState<SessionsScreen> {
       );
     }
   }
-
   // Feature 5: Rename session
   Future<void> _showRenameDialog(SessionSummary session) async {
     final controller = TextEditingController(text: session.title);
-
     final newTitle = await showDialog<String>(
       context: context,
       builder: (context) => AlertDialog(
@@ -1009,11 +945,9 @@ class _SessionsScreenState extends ConsumerState<SessionsScreen> {
         ],
       ),
     );
-
     if (newTitle == null || newTitle.isEmpty || newTitle == session.title) {
       return;
     }
-
     final bridge = ref.read(bridgeServiceProvider);
     try {
       await bridge.updateSession(
@@ -1021,9 +955,7 @@ class _SessionsScreenState extends ConsumerState<SessionsScreen> {
         title: newTitle,
         projectPath: session.directory,
       );
-
       if (!mounted) return;
-
       final ocTheme = OpenCodeTheme.of(context);
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
@@ -1044,25 +976,20 @@ class _SessionsScreenState extends ConsumerState<SessionsScreen> {
     }
   }
 }
-
 sealed class _SessionRowItem {}
-
 final class _SessionListHeader extends _SessionRowItem {
   _SessionListHeader(this.title);
   final String title;
 }
-
 final class _SessionListItem extends _SessionRowItem {
   _SessionListItem(this.session);
   final SessionSummary session;
 }
-
 /// Child session item (background task nested under parent)
 final class _ChildSessionItem extends _SessionRowItem {
   _ChildSessionItem(this.session);
   final SessionSummary session;
 }
-
 /// Build list items with grouped sessions (parent + children)
 List<_SessionRowItem> _buildGroupedListItems({
   required List<SessionWithChildren> groupedSessions,
@@ -1077,7 +1004,6 @@ List<_SessionRowItem> _buildGroupedListItems({
     final parts = directory.split('/').where((p) => p.isNotEmpty).toList();
     return parts.isEmpty ? 'Global' : parts.last;
   }
-
   if (!grouped) {
     // No project grouping, just show all root sessions
     final items = <_SessionRowItem>[];
@@ -1094,13 +1020,11 @@ List<_SessionRowItem> _buildGroupedListItems({
     }
     return items;
   }
-
   // Group by directory (project)
   final groups = <String, List<SessionWithChildren>>{};
   for (final g in groupedSessions) {
     groups.putIfAbsent(g.session.directory, () => []).add(g);
   }
-
   final directories = groups.keys.toList()
     ..sort((a, b) {
       final aMax = groups[a]!
@@ -1111,7 +1035,6 @@ List<_SessionRowItem> _buildGroupedListItems({
           .fold<int>(0, (prev, v) => v > prev ? v : prev);
       return bMax.compareTo(aMax);
     });
-
   final items = <_SessionRowItem>[];
   for (final directory in directories) {
     items.add(_SessionListHeader(displayNameForDirectory(directory)));
@@ -1131,29 +1054,24 @@ List<_SessionRowItem> _buildGroupedListItems({
   }
   return items;
 }
-
 /// Content widget for creating a new session with project/worktree selection
 class _NewSessionContent extends ConsumerStatefulWidget {
   const _NewSessionContent({
     required this.projects,
     required this.onCreateSession,
   });
-
   final List<ProjectSummary> projects;
   final Future<void> Function(ProjectSummary project, Worktree? worktree)
   onCreateSession;
-
   @override
   ConsumerState<_NewSessionContent> createState() => _NewSessionContentState();
 }
-
 class _NewSessionContentState extends ConsumerState<_NewSessionContent> {
   ProjectSummary? _selectedProject;
   Worktree? _selectedWorktree;
   List<Worktree>? _worktrees;
   bool _loadingWorktrees = false;
   bool _creating = false;
-
   @override
   void initState() {
     super.initState();
@@ -1163,14 +1081,12 @@ class _NewSessionContentState extends ConsumerState<_NewSessionContent> {
       _loadWorktrees(_selectedProject!);
     }
   }
-
   Future<void> _loadWorktrees(ProjectSummary project) async {
     setState(() {
       _loadingWorktrees = true;
       _worktrees = null;
       _selectedWorktree = null;
     });
-
     try {
       final bridge = ref.read(bridgeServiceProvider);
       final worktrees = await bridge.listWorktrees(projectPath: project.path);
@@ -1189,7 +1105,6 @@ class _NewSessionContentState extends ConsumerState<_NewSessionContent> {
       }
     }
   }
-
   void _selectProject(ProjectSummary project) {
     setState(() {
       _selectedProject = project;
@@ -1197,10 +1112,8 @@ class _NewSessionContentState extends ConsumerState<_NewSessionContent> {
     });
     _loadWorktrees(project);
   }
-
   Future<void> _createSession() async {
     if (_selectedProject == null || _creating) return;
-
     setState(() => _creating = true);
     try {
       await widget.onCreateSession(_selectedProject!, _selectedWorktree);
@@ -1210,19 +1123,17 @@ class _NewSessionContentState extends ConsumerState<_NewSessionContent> {
       }
     }
   }
-
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final ocTheme = OpenCodeTheme.of(context);
-
     if (widget.projects.isEmpty) {
       return Center(
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           mainAxisSize: MainAxisSize.min,
           children: [
-            Icon(Icons.folder_off_rounded, color: ocTheme.textMuted, size: 48),
+            Icon(AppIcons.folderOff, color: ocTheme.textMuted, size: 48),
             SizedBox(height: Spacing.lg),
             Text(
               'No projects found',
@@ -1232,7 +1143,6 @@ class _NewSessionContentState extends ConsumerState<_NewSessionContent> {
         ),
       );
     }
-
     return Column(
       mainAxisSize: MainAxisSize.min,
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -1290,7 +1200,7 @@ class _NewSessionContentState extends ConsumerState<_NewSessionContent> {
                     child: Row(
                       children: [
                         Icon(
-                          Icons.info_outline_rounded,
+                          AppIcons.info,
                           color: ocTheme.textMuted,
                           size: 20,
                         ),
@@ -1371,22 +1281,18 @@ class _NewSessionContentState extends ConsumerState<_NewSessionContent> {
     );
   }
 }
-
 class _ProjectSelectionTile extends StatelessWidget {
   const _ProjectSelectionTile({
     required this.project,
     required this.isSelected,
     required this.onTap,
   });
-
   final ProjectSummary project;
   final bool isSelected;
   final VoidCallback onTap;
-
   @override
   Widget build(BuildContext context) {
     final ocTheme = OpenCodeTheme.of(context);
-
     return GestureDetector(
       onTap: onTap,
       child: Container(
@@ -1413,7 +1319,7 @@ class _ProjectSelectionTile extends StatelessWidget {
                 borderRadius: Radii.brSm,
               ),
               child: Icon(
-                Icons.folder_rounded,
+                AppIcons.folder,
                 color: isSelected ? ocTheme.primary : ocTheme.textMuted,
                 size: 20,
               ),
@@ -1443,7 +1349,7 @@ class _ProjectSelectionTile extends StatelessWidget {
             ),
             if (isSelected)
               Icon(
-                Icons.check_circle_rounded,
+                AppIcons.checkCircle,
                 color: ocTheme.primary,
                 size: 22,
               ),
@@ -1453,7 +1359,6 @@ class _ProjectSelectionTile extends StatelessWidget {
     );
   }
 }
-
 class _WorktreeSelectionTile extends StatelessWidget {
   const _WorktreeSelectionTile({
     required this.name,
@@ -1462,17 +1367,14 @@ class _WorktreeSelectionTile extends StatelessWidget {
     required this.isSelected,
     required this.onTap,
   });
-
   final String name;
   final String path;
   final bool isMain;
   final bool isSelected;
   final VoidCallback onTap;
-
   @override
   Widget build(BuildContext context) {
     final ocTheme = OpenCodeTheme.of(context);
-
     return GestureDetector(
       onTap: onTap,
       child: Container(
@@ -1491,7 +1393,7 @@ class _WorktreeSelectionTile extends StatelessWidget {
         child: Row(
           children: [
             Icon(
-              isMain ? Icons.home_rounded : Icons.account_tree_rounded,
+              isMain ? AppIcons.home : AppIcons.gitBranch,
               color: isSelected ? ocTheme.primary : ocTheme.textMuted,
               size: 20,
             ),
@@ -1519,7 +1421,7 @@ class _WorktreeSelectionTile extends StatelessWidget {
             ),
             if (isSelected)
               Icon(
-                Icons.check_circle_rounded,
+                AppIcons.checkCircle,
                 color: ocTheme.primary,
                 size: 20,
               ),
@@ -1529,7 +1431,6 @@ class _WorktreeSelectionTile extends StatelessWidget {
     );
   }
 }
-
 // Modern header
 class _ModernHeader extends StatelessWidget {
   const _ModernHeader({
@@ -1547,7 +1448,6 @@ class _ModernHeader extends StatelessWidget {
     this.searchController,
     this.onSearchChanged,
   });
-
   final BridgeConnectionState connection;
   final String? filterProjectPath;
   final AsyncValue<List<ProjectSummary>> projects;
@@ -1562,7 +1462,6 @@ class _ModernHeader extends StatelessWidget {
   // Task 8: Session search
   final TextEditingController? searchController;
   final ValueChanged<String>? onSearchChanged;
-
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
@@ -1571,7 +1470,6 @@ class _ModernHeader extends StatelessWidget {
       selectedPath: filterProjectPath,
       projects: projects,
     );
-
     return Padding(
       padding: const EdgeInsets.fromLTRB(20, 16, 20, 20),
       child: Column(
@@ -1592,12 +1490,12 @@ class _ModernHeader extends StatelessWidget {
               if (onNewSession != null)
                 IconButton(
                   onPressed: onNewSession,
-                  icon: Icon(Icons.add_rounded, color: ocTheme.textMuted),
+                  icon: Icon(AppIcons.add, color: ocTheme.textMuted),
                   tooltip: 'New session',
                 ),
               IconButton(
                 onPressed: onRefresh,
-                icon: Icon(Icons.refresh_rounded, color: ocTheme.textMuted),
+                icon: Icon(AppIcons.refresh, color: ocTheme.textMuted),
                 tooltip: 'Refresh',
               ),
               // Connection indicator
@@ -1678,14 +1576,14 @@ class _ModernHeader extends StatelessWidget {
                 hintText: 'Search sessions...',
                 hintStyle: TextStyle(color: ocTheme.textMuted, fontSize: 14),
                 prefixIcon: Icon(
-                  Icons.search_rounded,
+                  AppIcons.search,
                   color: ocTheme.textMuted,
                   size: 20,
                 ),
                 suffixIcon: searchController!.text.isNotEmpty
                     ? IconButton(
                         icon: Icon(
-                          Icons.close_rounded,
+                          AppIcons.close,
                           color: ocTheme.textMuted,
                           size: 18,
                         ),
@@ -1721,7 +1619,6 @@ class _ModernHeader extends StatelessWidget {
     );
   }
 }
-
 /// Chip button to toggle background tasks visibility
 class _BackgroundTasksChip extends StatelessWidget {
   const _BackgroundTasksChip({
@@ -1729,15 +1626,12 @@ class _BackgroundTasksChip extends StatelessWidget {
     required this.isExpanded,
     required this.onTap,
   });
-
   final int count;
   final bool isExpanded;
   final VoidCallback onTap;
-
   @override
   Widget build(BuildContext context) {
     final ocTheme = OpenCodeTheme.of(context);
-
     return InkWell(
       onTap: onTap,
       borderRadius: Radii.brFull,
@@ -1757,7 +1651,7 @@ class _BackgroundTasksChip extends StatelessWidget {
           mainAxisSize: MainAxisSize.min,
           children: [
             Icon(
-              Icons.account_tree_rounded,
+              AppIcons.gitBranch,
               size: 14,
               color: isExpanded ? ocTheme.info : ocTheme.textMuted,
             ),
@@ -1775,7 +1669,7 @@ class _BackgroundTasksChip extends StatelessWidget {
               turns: isExpanded ? 0.5 : 0,
               duration: const Duration(milliseconds: 200),
               child: Icon(
-                Icons.expand_more_rounded,
+                AppIcons.expandMore,
                 size: 16,
                 color: isExpanded ? ocTheme.info : ocTheme.textMuted,
               ),
@@ -1786,7 +1680,6 @@ class _BackgroundTasksChip extends StatelessWidget {
     );
   }
 }
-
 String _filterLabel({
   required String? selectedPath,
   required AsyncValue<List<ProjectSummary>> projects,
@@ -1801,17 +1694,13 @@ String _filterLabel({
   final parts = selectedPath.split('/').where((p) => p.isNotEmpty).toList();
   return parts.isEmpty ? 'Project' : parts.last;
 }
-
 class _FilterChipButton extends StatelessWidget {
   const _FilterChipButton({required this.label, required this.onTap});
-
   final String label;
   final VoidCallback onTap;
-
   @override
   Widget build(BuildContext context) {
     final ocTheme = OpenCodeTheme.of(context);
-
     return InkWell(
       onTap: onTap,
       borderRadius: Radii.brFull,
@@ -1825,7 +1714,7 @@ class _FilterChipButton extends StatelessWidget {
         child: Row(
           mainAxisSize: MainAxisSize.min,
           children: [
-            Icon(Icons.filter_list_rounded, size: 16, color: ocTheme.textMuted),
+            Icon(AppIcons.filter, size: 16, color: ocTheme.textMuted),
             SizedBox(width: Spacing.sm),
             Text(
               label,
@@ -1836,27 +1725,22 @@ class _FilterChipButton extends StatelessWidget {
               ),
             ),
             const SizedBox(width: 6),
-            Icon(Icons.expand_more_rounded, size: 18, color: ocTheme.textMuted),
+            Icon(AppIcons.expandMore, size: 18, color: ocTheme.textMuted),
           ],
         ),
       ),
     );
   }
 }
-
 class _TitleFiltersChip extends StatelessWidget {
   const _TitleFiltersChip({required this.count, required this.onTap});
-
   final int count;
   final VoidCallback onTap;
-
   @override
   Widget build(BuildContext context) {
     final ocTheme = OpenCodeTheme.of(context);
-
     final hasFilters = count > 0;
     final color = hasFilters ? ocTheme.warning : ocTheme.textMuted;
-
     return InkWell(
       onTap: onTap,
       borderRadius: Radii.brFull,
@@ -1875,7 +1759,7 @@ class _TitleFiltersChip extends StatelessWidget {
         child: Row(
           mainAxisSize: MainAxisSize.min,
           children: [
-            Icon(Icons.filter_alt_rounded, size: 14, color: color),
+            Icon(AppIcons.filter, size: 14, color: color),
             const SizedBox(width: 6),
             Text(
               hasFilters ? 'Hide $count' : 'Title filters',
@@ -1891,19 +1775,15 @@ class _TitleFiltersChip extends StatelessWidget {
     );
   }
 }
-
 /// Sort chip for switching between createdAt and updatedAt sorting
 class _SortChip extends StatelessWidget {
   const _SortChip({required this.sortBy, required this.onChanged});
-
   final String sortBy;
   final ValueChanged<String> onChanged;
-
   @override
   Widget build(BuildContext context) {
     final ocTheme = OpenCodeTheme.of(context);
     final isUpdatedAt = sortBy == 'updatedAt';
-
     return InkWell(
       onTap: () => onChanged(isUpdatedAt ? 'createdAt' : 'updatedAt'),
       borderRadius: Radii.brFull,
@@ -1917,7 +1797,7 @@ class _SortChip extends StatelessWidget {
         child: Row(
           mainAxisSize: MainAxisSize.min,
           children: [
-            Icon(Icons.sort_rounded, size: 14, color: ocTheme.textMuted),
+            Icon(AppIcons.sort, size: 14, color: ocTheme.textMuted),
             const SizedBox(width: 6),
             Text(
               isUpdatedAt ? 'Updated' : 'Created',
@@ -1933,7 +1813,6 @@ class _SortChip extends StatelessWidget {
     );
   }
 }
-
 void _showProjectFilter({
   required BuildContext context,
   required ThemeData theme,
@@ -2001,7 +1880,6 @@ void _showProjectFilter({
     ),
   );
 }
-
 // Modern filter tile widget
 class _FilterProjectTile extends StatelessWidget {
   const _FilterProjectTile({
@@ -2010,16 +1888,13 @@ class _FilterProjectTile extends StatelessWidget {
     required this.isSelected,
     required this.onTap,
   });
-
   final String name;
   final String? path;
   final bool isSelected;
   final VoidCallback onTap;
-
   @override
   Widget build(BuildContext context) {
     final ocTheme = OpenCodeTheme.of(context);
-
     return InkWell(
       onTap: onTap,
       borderRadius: Radii.brMd,
@@ -2058,13 +1933,12 @@ class _FilterProjectTile extends StatelessWidget {
               ),
             ),
             if (isSelected)
-              Icon(Icons.check_rounded, color: ocTheme.primary, size: 20),
+              Icon(AppIcons.check, color: ocTheme.primary, size: 20),
           ],
         ),
       ),
     );
   }
-
   String _shortenPath(String fullPath) {
     // Show only last 2-3 segments for cleaner look
     final parts = fullPath.split('/').where((p) => p.isNotEmpty).toList();
@@ -2072,7 +1946,6 @@ class _FilterProjectTile extends StatelessWidget {
     return '.../${parts.sublist(parts.length - 3).join('/')}';
   }
 }
-
 /// Section showing highlighted sessions at the top
 class _HighlightedSessionsSection extends StatelessWidget {
   const _HighlightedSessionsSection({
@@ -2084,7 +1957,6 @@ class _HighlightedSessionsSection extends StatelessWidget {
     this.onLongPress,
     this.onDelete,
   });
-
   final List<SessionSummary> sessions;
   final Map<String, SessionStatus> sessionStatuses;
   final HighlightColor highlightColor;
@@ -2092,7 +1964,6 @@ class _HighlightedSessionsSection extends StatelessWidget {
   final void Function(SessionSummary) onTap;
   final void Function(SessionSummary)? onLongPress;
   final void Function(SessionSummary)? onDelete;
-
   @override
   Widget build(BuildContext context) {
     final ocTheme = OpenCodeTheme.of(context);
@@ -2100,7 +1971,6 @@ class _HighlightedSessionsSection extends StatelessWidget {
       Theme.of(context).brightness,
       themePrimary: ocTheme.primary,
     );
-
     return Padding(
       padding: const EdgeInsets.fromLTRB(20, 0, 20, 16),
       child: Column(
@@ -2111,7 +1981,7 @@ class _HighlightedSessionsSection extends StatelessWidget {
             padding: const EdgeInsets.fromLTRB(4, 0, 4, 10),
             child: Row(
               children: [
-                Icon(Icons.star_rounded, size: 14, color: color),
+                Icon(AppIcons.star, size: 14, color: color),
                 const SizedBox(width: 6),
                 Text(
                   'HIGHLIGHTED',
@@ -2148,7 +2018,6 @@ class _HighlightedSessionsSection extends StatelessWidget {
     );
   }
 }
-
 /// Highlighted session card with clean minimal design and highlight accent
 class _HighlightedSessionCard extends StatelessWidget {
   const _HighlightedSessionCard({
@@ -2160,7 +2029,6 @@ class _HighlightedSessionCard extends StatelessWidget {
     this.onLongPress,
     this.onDelete,
   });
-
   final SessionSummary session;
   final SessionStatus? status;
   final HighlightColor highlightColor;
@@ -2168,18 +2036,14 @@ class _HighlightedSessionCard extends StatelessWidget {
   final VoidCallback? onLongPress;
   final VoidCallback? onDelete;
   final bool isOfflineMode;
-
   bool get isActive => status != null && (status!.isBusy || status!.isRetry);
-
   String _getProjectName() {
     return session.directory.split('/').where((item) => item.isNotEmpty).last;
   }
-
   String _formatDate(int timestamp) {
     final date = DateTime.fromMillisecondsSinceEpoch(timestamp * 1000);
     final now = DateTime.now();
     final diff = now.difference(date);
-
     if (diff.inMinutes < 1) {
       return 'Just now';
     } else if (diff.inMinutes < 60) {
@@ -2192,7 +2056,6 @@ class _HighlightedSessionCard extends StatelessWidget {
       return '${date.day}/${date.month}/${date.year}';
     }
   }
-
   /// Get last activity from session diffs
   String? _getLastActivity() {
     final diffs = session.summary?.diffs;
@@ -2201,7 +2064,6 @@ class _HighlightedSessionCard extends StatelessWidget {
     final fileName = lastDiff.file.split('/').last;
     return fileName;
   }
-
   @override
   Widget build(BuildContext context) {
     final ocTheme = OpenCodeTheme.of(context);
@@ -2218,7 +2080,6 @@ class _HighlightedSessionCard extends StatelessWidget {
         stats != null &&
         (stats.additions > 0 || stats.deletions > 0 || stats.files > 0);
     final lastActivity = _getLastActivity();
-
     Widget card = GestureDetector(
       onTap: onTap,
       onLongPress: onLongPress,
@@ -2253,7 +2114,7 @@ class _HighlightedSessionCard extends StatelessWidget {
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         // Star icon inline
-                        Icon(Icons.star_rounded, size: 16, color: color),
+                        Icon(AppIcons.star, size: 16, color: color),
                         SizedBox(width: Spacing.sm),
                         Expanded(
                           child: Text(
@@ -2378,7 +2239,6 @@ class _HighlightedSessionCard extends StatelessWidget {
         ),
       ),
     );
-
     // Swipe to delete
     if (onDelete != null) {
       card = Dismissible(
@@ -2392,7 +2252,7 @@ class _HighlightedSessionCard extends StatelessWidget {
             borderRadius: Radii.brMd,
           ),
           child: Icon(
-            Icons.delete_outline_rounded,
+            AppIcons.delete,
             color: ocTheme.selectedListItemText,
             size: 24,
           ),
@@ -2404,11 +2264,9 @@ class _HighlightedSessionCard extends StatelessWidget {
         child: card,
       );
     }
-
     return card;
   }
 }
-
 // Session card with clean, minimal modern design
 class _SessionCard extends StatelessWidget {
   const _SessionCard({
@@ -2423,39 +2281,29 @@ class _SessionCard extends StatelessWidget {
     this.onToggleExpand,
     this.activeChildCount = 0,
   });
-
   final SessionSummary session;
   final SessionStatus? status;
   final VoidCallback onTap;
   final VoidCallback? onDelete;
   final VoidCallback? onLongPress;
   final bool isOfflineMode;
-
   /// Number of background task children
   final int childCount;
-
   /// Whether children are expanded
   final bool isExpanded;
-
   /// Callback to toggle expand/collapse
   final VoidCallback? onToggleExpand;
-
   /// Number of active (busy/retry) child sessions
   final int activeChildCount;
-
   bool get isActive => status != null && (status!.isBusy || status!.isRetry);
-
   bool get hasChildren => childCount > 0;
-
   String _getProjectName() {
     return session.directory.split('/').where((item) => item.isNotEmpty).last;
   }
-
   String _formatDate(int timestamp) {
     final date = DateTime.fromMillisecondsSinceEpoch(timestamp * 1000);
     final now = DateTime.now();
     final diff = now.difference(date);
-
     if (diff.inMinutes < 1) {
       return 'Just now';
     } else if (diff.inMinutes < 60) {
@@ -2468,7 +2316,6 @@ class _SessionCard extends StatelessWidget {
       return '${date.day}/${date.month}/${date.year}';
     }
   }
-
   /// Get last activity from session diffs
   String? _getLastActivity() {
     final diffs = session.summary?.diffs;
@@ -2477,7 +2324,6 @@ class _SessionCard extends StatelessWidget {
     final fileName = lastDiff.file.split('/').last;
     return fileName;
   }
-
   @override
   Widget build(BuildContext context) {
     final ocTheme = OpenCodeTheme.of(context);
@@ -2486,12 +2332,10 @@ class _SessionCard extends StatelessWidget {
         stats != null &&
         (stats.additions > 0 || stats.deletions > 0 || stats.files > 0);
     final lastActivity = _getLastActivity();
-
     // Accent color for left bar
     final accentColor = isActive
         ? (status!.isRetry ? ocTheme.warning : ocTheme.info)
         : ocTheme.primary.withValues(alpha: 0.4);
-
     Widget card = GestureDetector(
       onTap: onTap,
       onLongPress: onLongPress,
@@ -2595,7 +2439,7 @@ class _SessionCard extends StatelessWidget {
                         if (session.isForkedSession) ...[
                           SizedBox(width: Spacing.sm),
                           Icon(
-                            Icons.fork_right,
+                            AppIcons.forkRight,
                             size: 12,
                             color: ocTheme.accent,
                           ),
@@ -2659,7 +2503,7 @@ class _SessionCard extends StatelessWidget {
                           mainAxisSize: MainAxisSize.min,
                           children: [
                             Icon(
-                              Icons.account_tree_rounded,
+                              AppIcons.gitBranch,
                               size: 12,
                               color: activeChildCount > 0
                                   ? ocTheme.info
@@ -2690,7 +2534,7 @@ class _SessionCard extends StatelessWidget {
                               turns: isExpanded ? 0.25 : 0,
                               duration: const Duration(milliseconds: 200),
                               child: Icon(
-                                Icons.chevron_right_rounded,
+                                AppIcons.chevronRight,
                                 color: activeChildCount > 0
                                     ? ocTheme.info
                                     : ocTheme.textMuted,
@@ -2709,7 +2553,6 @@ class _SessionCard extends StatelessWidget {
         ),
       ),
     );
-
     // Wrap with Dismissible for swipe-to-delete (only when online)
     if (onDelete != null) {
       card = Dismissible(
@@ -2723,7 +2566,7 @@ class _SessionCard extends StatelessWidget {
             borderRadius: Radii.brMd,
           ),
           child: Icon(
-            Icons.delete_outline_rounded,
+            AppIcons.delete,
             color: ocTheme.selectedListItemText,
             size: 24,
           ),
@@ -2735,11 +2578,9 @@ class _SessionCard extends StatelessWidget {
         child: card,
       );
     }
-
     return card;
   }
 }
-
 /// Small stat badge for session cards (additions, deletions, files)
 class _StatBadge extends StatelessWidget {
   const _StatBadge({
@@ -2747,15 +2588,12 @@ class _StatBadge extends StatelessWidget {
     required this.color,
     this.isFile = false,
   });
-
   final String text;
   final Color color;
   final bool isFile;
-
   @override
   Widget build(BuildContext context) {
     final ocTheme = OpenCodeTheme.of(context);
-
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 2),
       decoration: BoxDecoration(
@@ -2776,7 +2614,6 @@ class _StatBadge extends StatelessWidget {
     );
   }
 }
-
 /// Card for child (background task) sessions - clean compact design
 class _ChildSessionCard extends StatelessWidget {
   const _ChildSessionCard({
@@ -2785,19 +2622,15 @@ class _ChildSessionCard extends StatelessWidget {
     this.status,
     this.isOfflineMode = false,
   });
-
   final SessionSummary session;
   final SessionStatus? status;
   final VoidCallback onTap;
   final bool isOfflineMode;
-
   bool get isActive => status != null && (status!.isBusy || status!.isRetry);
-
   String _formatDate(int timestamp) {
     final date = DateTime.fromMillisecondsSinceEpoch(timestamp * 1000);
     final now = DateTime.now();
     final diff = now.difference(date);
-
     if (diff.inMinutes < 1) {
       return 'Just now';
     } else if (diff.inMinutes < 60) {
@@ -2810,18 +2643,15 @@ class _ChildSessionCard extends StatelessWidget {
       return '${date.day}/${date.month}/${date.year}';
     }
   }
-
   /// Extract agent name from title like "Description (@agent subagent)"
   String? _extractAgentName() {
     final match = RegExp(r'\(@(\w+) subagent\)$').firstMatch(session.title);
     return match?.group(1);
   }
-
   /// Get title without the agent suffix
   String _getCleanTitle() {
     return session.title.replaceAll(RegExp(r'\s*\(@\w+ subagent\)$'), '');
   }
-
   @override
   Widget build(BuildContext context) {
     final ocTheme = OpenCodeTheme.of(context);
@@ -2831,7 +2661,6 @@ class _ChildSessionCard extends StatelessWidget {
     final hasStats =
         stats != null &&
         (stats.additions > 0 || stats.deletions > 0 || stats.files > 0);
-
     return GestureDetector(
       onTap: onTap,
       child: Container(
@@ -2972,22 +2801,17 @@ class _ChildSessionCard extends StatelessWidget {
     );
   }
 }
-
 /// Pulsing dot indicator for active sessions
 class _PulsingDot extends StatefulWidget {
   const _PulsingDot({required this.color});
-
   final Color color;
-
   @override
   State<_PulsingDot> createState() => _PulsingDotState();
 }
-
 class _PulsingDotState extends State<_PulsingDot>
     with SingleTickerProviderStateMixin {
   late AnimationController _controller;
   late Animation<double> _animation;
-
   @override
   void initState() {
     super.initState();
@@ -3000,13 +2824,11 @@ class _PulsingDotState extends State<_PulsingDot>
       end: 1.0,
     ).animate(CurvedAnimation(parent: _controller, curve: Curves.easeInOut));
   }
-
   @override
   void dispose() {
     _controller.dispose();
     super.dispose();
   }
-
   @override
   Widget build(BuildContext context) {
     return AnimatedBuilder(
@@ -3031,13 +2853,11 @@ class _PulsingDotState extends State<_PulsingDot>
     );
   }
 }
-
 // Empty state
 class _EmptyState extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final ocTheme = OpenCodeTheme.of(context);
-
     return Center(
       child: Column(
         mainAxisAlignment: MainAxisAlignment.center,
@@ -3049,7 +2869,7 @@ class _EmptyState extends StatelessWidget {
               shape: BoxShape.circle,
             ),
             child: Icon(
-              Icons.history_rounded,
+              AppIcons.history,
               size: 48,
               color: ocTheme.primary,
             ),
@@ -3077,19 +2897,16 @@ class _EmptyState extends StatelessWidget {
     );
   }
 }
-
 /// Skeleton loading card that mimics the session card layout.
 /// Shows shimmer animation while data is loading.
 class _SkeletonSessionCard extends StatefulWidget {
   @override
   State<_SkeletonSessionCard> createState() => _SkeletonSessionCardState();
 }
-
 class _SkeletonSessionCardState extends State<_SkeletonSessionCard>
     with SingleTickerProviderStateMixin {
   late AnimationController _controller;
   late Animation<double> _animation;
-
   @override
   void initState() {
     super.initState();
@@ -3101,17 +2918,14 @@ class _SkeletonSessionCardState extends State<_SkeletonSessionCard>
       CurvedAnimation(parent: _controller, curve: Curves.easeInOutSine),
     );
   }
-
   @override
   void dispose() {
     _controller.dispose();
     super.dispose();
   }
-
   @override
   Widget build(BuildContext context) {
     final ocTheme = OpenCodeTheme.of(context);
-
     return AnimatedBuilder(
       animation: _animation,
       builder: (context, child) {
@@ -3172,17 +2986,14 @@ class _SkeletonSessionCardState extends State<_SkeletonSessionCard>
     );
   }
 }
-
 /// Delayed skeleton list: only shows skeleton after 100ms delay.
 /// Prevents flash when data loads quickly from cache.
 class _DelayedSkeletonList extends StatefulWidget {
   @override
   State<_DelayedSkeletonList> createState() => _DelayedSkeletonListState();
 }
-
 class _DelayedSkeletonListState extends State<_DelayedSkeletonList> {
   bool _showSkeleton = false;
-
   @override
   void initState() {
     super.initState();
@@ -3192,13 +3003,11 @@ class _DelayedSkeletonListState extends State<_DelayedSkeletonList> {
       }
     });
   }
-
   @override
   Widget build(BuildContext context) {
     if (!_showSkeleton) {
       return const SizedBox.shrink();
     }
-
     return Padding(
       padding: const EdgeInsets.fromLTRB(20, 0, 20, 100),
       child: Column(
@@ -3213,7 +3022,6 @@ class _DelayedSkeletonListState extends State<_DelayedSkeletonList> {
     );
   }
 }
-
 /// A shimmer box widget used for skeleton loading.
 class _SkeletonBox extends StatelessWidget {
   const _SkeletonBox({
@@ -3223,27 +3031,22 @@ class _SkeletonBox extends StatelessWidget {
     required this.shimmerValue,
     this.maxWidthFraction = 1.0,
   });
-
   final double width;
   final double height;
   final double borderRadius;
   final double shimmerValue;
   final double maxWidthFraction;
-
   @override
   Widget build(BuildContext context) {
     final ocTheme = OpenCodeTheme.of(context);
-
     // Shimmer gradient that moves
     final baseColor = ocTheme.borderSubtle;
     final highlightColor = ocTheme.textMuted.withValues(alpha: 0.15);
-
     return LayoutBuilder(
       builder: (context, constraints) {
         final actualWidth = width == double.infinity
             ? constraints.maxWidth * maxWidthFraction
             : width;
-
         return Container(
           width: actualWidth,
           height: height,
@@ -3261,31 +3064,23 @@ class _SkeletonBox extends StatelessWidget {
     );
   }
 }
-
 // ============================================================================
 // Claude Code Sessions View
 // ============================================================================
-
 class _CCActiveSessionsSection extends ConsumerWidget {
   const _CCActiveSessionsSection({this.onSessionTap});
-
   final void Function(ClaudeCodeSession session)? onSessionTap;
-
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final sessionStatuses = ref.watch(globalSessionStatusProvider);
     final sessionsAsync = ref.watch(ccSessionsProvider);
     final sessions = sessionsAsync.valueOrNull ?? const <ClaudeCodeSession>[];
-
     final activeSessions = sessions.where((session) {
       final status = sessionStatuses[session.id];
       return status != null && (status.isBusy || status.isRetry);
     }).toList();
-
     if (activeSessions.isEmpty) return const SizedBox.shrink();
-
     final ocTheme = OpenCodeTheme.of(context);
-
     return Container(
       margin: const EdgeInsets.fromLTRB(20, 0, 20, 16),
       padding: Insets.card,
@@ -3299,7 +3094,7 @@ class _CCActiveSessionsSection extends ConsumerWidget {
         children: [
           Row(
             children: [
-              Icon(Icons.play_circle_rounded, color: ocTheme.info, size: 20),
+              Icon(AppIcons.play, color: ocTheme.info, size: 20),
               SizedBox(width: Spacing.md),
               Expanded(
                 child: Column(
@@ -3419,7 +3214,7 @@ class _CCActiveSessionsSection extends ConsumerWidget {
                         ),
                       ),
                       Icon(
-                        Icons.chevron_right_rounded,
+                        AppIcons.chevronRight,
                         color: ocTheme.textMuted.withValues(alpha: 0.5),
                         size: 18,
                       ),
@@ -3434,30 +3229,22 @@ class _CCActiveSessionsSection extends ConsumerWidget {
     );
   }
 }
-
 class _ClaudeCodeSessionsView extends ConsumerStatefulWidget {
   const _ClaudeCodeSessionsView({required this.onRefresh});
-
   final Future<void> Function() onRefresh;
-
   @override
   ConsumerState<_ClaudeCodeSessionsView> createState() =>
       _ClaudeCodeSessionsViewState();
 }
-
 class _CodexThreadsView extends ConsumerStatefulWidget {
   const _CodexThreadsView({required this.onRefresh});
-
   final Future<void> Function() onRefresh;
-
   @override
   ConsumerState<_CodexThreadsView> createState() => _CodexThreadsViewState();
 }
-
 class _CodexThreadsViewState extends ConsumerState<_CodexThreadsView> {
   // Sort order: 'createdAt' (default) or 'updatedAt'
   String _sortBy = 'createdAt';
-
   @override
   void initState() {
     super.initState();
@@ -3466,14 +3253,12 @@ class _CodexThreadsViewState extends ConsumerState<_CodexThreadsView> {
       ref.read(codexThreadsProvider.notifier).load(cwd: cwd);
     });
   }
-
   Future<void> _refresh() async {
     final cwd = ref.read(codexThreadsFilterCwdProvider);
     await ref.read(codexThreadsProvider.notifier).refresh(cwd: cwd);
     ref.invalidate(codexProjectsForThreadsProvider);
     await widget.onRefresh();
   }
-
   void _openThread(CodexThread thread) {
     final cwd = thread.cwd;
     if (cwd.isNotEmpty) {
@@ -3490,11 +3275,9 @@ class _CodexThreadsViewState extends ConsumerState<_CodexThreadsView> {
       MaterialPageRoute(builder: (_) => ChatScreen.codex(cxThread: thread)),
     );
   }
-
   void _showTitleFiltersSheet(BuildContext context) {
     final ocTheme = OpenCodeTheme.of(context);
     final controller = TextEditingController();
-
     DetailSheet.show(
       context: context,
       title: 'Title Filters',
@@ -3509,7 +3292,6 @@ class _CodexThreadsViewState extends ConsumerState<_CodexThreadsView> {
           final notifier = ref.read(
             sessionsTitleExcludeFiltersProvider(AgentType.codex).notifier,
           );
-
           return Padding(
             padding: const EdgeInsets.fromLTRB(16, 8, 16, 16),
             child: Column(
@@ -3606,8 +3388,8 @@ class _CodexThreadsViewState extends ConsumerState<_CodexThreadsView> {
                               contentPadding: EdgeInsets.zero,
                               leading: Icon(
                                 f.startsWith('/') && f.endsWith('/')
-                                    ? Icons.code_rounded
-                                    : Icons.text_fields_rounded,
+                                    ? AppIcons.code
+                                    : AppIcons.textFields,
                                 color: ocTheme.textMuted,
                               ),
                               title: Text(
@@ -3617,7 +3399,7 @@ class _CodexThreadsViewState extends ConsumerState<_CodexThreadsView> {
                               trailing: IconButton(
                                 onPressed: () => notifier.removeAt(index),
                                 icon: Icon(
-                                  Icons.delete_outline_rounded,
+                                  AppIcons.delete,
                                   color: ocTheme.error,
                                 ),
                                 tooltip: 'Remove',
@@ -3633,12 +3415,10 @@ class _CodexThreadsViewState extends ConsumerState<_CodexThreadsView> {
       ),
     ).whenComplete(controller.dispose);
   }
-
   void _showThreadOptions(CodexThread thread) {
     final ocTheme = OpenCodeTheme.of(context);
     final highlights = ref.read(highlightsProvider);
     final isHighlighted = highlights.isSessionHighlighted(thread.id);
-
     DetailSheet.show(
       context: context,
       title: thread.displayTitle,
@@ -3650,7 +3430,7 @@ class _CodexThreadsViewState extends ConsumerState<_CodexThreadsView> {
         children: [
           // Stop Thread option
           ListTile(
-            leading: Icon(Icons.stop_circle_outlined, color: ocTheme.textMuted),
+            leading: Icon(AppIcons.stop, color: ocTheme.textMuted),
             title: Text('Stop Thread', style: TextStyle(color: ocTheme.text)),
             subtitle: Text(
               'Force stop if stuck',
@@ -3663,7 +3443,7 @@ class _CodexThreadsViewState extends ConsumerState<_CodexThreadsView> {
           ),
           ListTile(
             leading: Icon(
-              isHighlighted ? Icons.star_rounded : Icons.star_border_rounded,
+              isHighlighted ? AppIcons.star : AppIcons.starOutline,
               color: ocTheme.text,
             ),
             title: Text(
@@ -3676,7 +3456,7 @@ class _CodexThreadsViewState extends ConsumerState<_CodexThreadsView> {
             },
           ),
           ListTile(
-            leading: Icon(Icons.edit_outlined, color: ocTheme.text),
+            leading: Icon(AppIcons.edit, color: ocTheme.text),
             title: Text('Rename', style: TextStyle(color: ocTheme.text)),
             onTap: () {
               Navigator.pop(context);
@@ -3684,7 +3464,7 @@ class _CodexThreadsViewState extends ConsumerState<_CodexThreadsView> {
             },
           ),
           ListTile(
-            leading: Icon(Icons.fork_right_outlined, color: ocTheme.text),
+            leading: Icon(AppIcons.forkRight, color: ocTheme.text),
             title: Text('Fork', style: TextStyle(color: ocTheme.text)),
             subtitle: Text(
               'Create a copy of this thread',
@@ -3696,7 +3476,7 @@ class _CodexThreadsViewState extends ConsumerState<_CodexThreadsView> {
             },
           ),
           ListTile(
-            leading: Icon(Icons.archive_outlined, color: ocTheme.error),
+            leading: Icon(AppIcons.archive, color: ocTheme.error),
             title: Text('Archive', style: TextStyle(color: ocTheme.error)),
             onTap: () async {
               Navigator.pop(context);
@@ -3707,7 +3487,6 @@ class _CodexThreadsViewState extends ConsumerState<_CodexThreadsView> {
       ),
     );
   }
-
   void _renameThread(CodexThread thread) {
     final controller = TextEditingController(text: thread.threadName ?? '');
     showDialog(
@@ -3746,7 +3525,6 @@ class _CodexThreadsViewState extends ConsumerState<_CodexThreadsView> {
       ),
     );
   }
-
   void _forkThread(CodexThread thread) async {
     try {
       final forked = await ref.read(bridgeServiceProvider).cxThreadFork(
@@ -3766,15 +3544,12 @@ class _CodexThreadsViewState extends ConsumerState<_CodexThreadsView> {
       }
     }
   }
-
   /// Stop/abort a Codex thread
   void _stopThread(CodexThread thread) {
     final bridge = ref.read(bridgeServiceProvider);
     final ocTheme = OpenCodeTheme.of(context);
-
     // Send abort to bridge
     bridge.cxAbort(threadId: thread.id);
-
     // Show confirmation
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
@@ -3784,7 +3559,6 @@ class _CodexThreadsViewState extends ConsumerState<_CodexThreadsView> {
       ),
     );
   }
-
   Future<void> _archiveThread(CodexThread thread) async {
     final confirm = await showDialog<bool>(
       context: context,
@@ -3810,12 +3584,10 @@ class _CodexThreadsViewState extends ConsumerState<_CodexThreadsView> {
       ),
     );
     if (confirm != true) return;
-
     final ok = await ref
         .read(codexThreadsProvider.notifier)
         .archiveThread(thread.id);
     if (!mounted) return;
-
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
         content: Text(ok ? 'Thread archived' : 'Failed to archive thread'),
@@ -3825,7 +3597,6 @@ class _CodexThreadsViewState extends ConsumerState<_CodexThreadsView> {
       ),
     );
   }
-
   @override
   Widget build(BuildContext context) {
     final ocTheme = OpenCodeTheme.of(context);
@@ -3837,13 +3608,11 @@ class _CodexThreadsViewState extends ConsumerState<_CodexThreadsView> {
     final titleFilterCount = ref
         .watch(sessionsTitleExcludeFiltersProvider(AgentType.codex))
         .length;
-
     final filterLabel = filterCwd == null
         ? 'All projects'
         : (filterCwd.split('/').where((p) => p.isNotEmpty).toList().isEmpty
               ? filterCwd
               : filterCwd.split('/').where((p) => p.isNotEmpty).toList().last);
-
     return Scaffold(
       backgroundColor: Colors.transparent,
       body: SafeArea(
@@ -3875,7 +3644,7 @@ class _CodexThreadsViewState extends ConsumerState<_CodexThreadsView> {
                               mainAxisSize: MainAxisSize.min,
                               children: [
                                 Icon(
-                                  Icons.auto_awesome_rounded,
+                                  AppIcons.autoAwesome,
                                   size: 14,
                                   color: ocTheme.primary,
                                 ),
@@ -3955,7 +3724,7 @@ class _CodexThreadsViewState extends ConsumerState<_CodexThreadsView> {
                         mainAxisAlignment: MainAxisAlignment.center,
                         children: [
                           Icon(
-                            Icons.error_outline_rounded,
+                            AppIcons.error,
                             color: ocTheme.error,
                             size: 48,
                           ),
@@ -4006,18 +3775,15 @@ class _CodexThreadsViewState extends ConsumerState<_CodexThreadsView> {
                           }
                           return b.createdAt.compareTo(a.createdAt);
                         });
-
                   if (filtered.isEmpty) {
                     return [SliverFillRemaining(child: _CodexEmptyState())];
                   }
-
                   final highlightedThreads = filtered
                       .where((t) => highlights.isSessionHighlighted(t.id))
                       .toList();
                   final regularThreads = filtered
                       .where((t) => !highlights.isSessionHighlighted(t.id))
                       .toList();
-
                   return [
                     if (highlightedThreads.isNotEmpty)
                       SliverToBoxAdapter(
@@ -4059,7 +3825,6 @@ class _CodexThreadsViewState extends ConsumerState<_CodexThreadsView> {
     );
   }
 }
-
 /// Section showing highlighted Codex threads at the top
 class _CodexHighlightedThreadsSection extends StatelessWidget {
   const _CodexHighlightedThreadsSection({
@@ -4068,12 +3833,10 @@ class _CodexHighlightedThreadsSection extends StatelessWidget {
     required this.onTap,
     required this.onLongPress,
   });
-
   final List<CodexThread> threads;
   final HighlightColor highlightColor;
   final void Function(CodexThread) onTap;
   final void Function(CodexThread) onLongPress;
-
   @override
   Widget build(BuildContext context) {
     final ocTheme = OpenCodeTheme.of(context);
@@ -4081,7 +3844,6 @@ class _CodexHighlightedThreadsSection extends StatelessWidget {
       Theme.of(context).brightness,
       themePrimary: ocTheme.primary,
     );
-
     return Padding(
       padding: const EdgeInsets.fromLTRB(20, 0, 20, 16),
       child: Column(
@@ -4092,7 +3854,7 @@ class _CodexHighlightedThreadsSection extends StatelessWidget {
             padding: const EdgeInsets.fromLTRB(4, 0, 4, 10),
             child: Row(
               children: [
-                Icon(Icons.star_rounded, size: 14, color: color),
+                Icon(AppIcons.star, size: 14, color: color),
                 const SizedBox(width: 6),
                 Text(
                   'HIGHLIGHTED',
@@ -4123,7 +3885,6 @@ class _CodexHighlightedThreadsSection extends StatelessWidget {
     );
   }
 }
-
 /// Highlighted Codex thread card with accent styling
 /// Matches OpenCode's _HighlightedSessionCard design
 class _CodexHighlightedThreadCard extends ConsumerWidget {
@@ -4133,21 +3894,17 @@ class _CodexHighlightedThreadCard extends ConsumerWidget {
     required this.onTap,
     this.onLongPress,
   });
-
   final CodexThread thread;
   final HighlightColor highlightColor;
   final VoidCallback onTap;
   final VoidCallback? onLongPress;
-
   String _getProjectName() {
     final parts = thread.cwd.split('/').where((p) => p.isNotEmpty).toList();
     return parts.isEmpty ? 'Unknown' : parts.last;
   }
-
   String _formatDate(DateTime date) {
     final now = DateTime.now();
     final diff = now.difference(date);
-
     if (diff.inMinutes < 1) {
       return 'Just now';
     } else if (diff.inMinutes < 60) {
@@ -4160,14 +3917,12 @@ class _CodexHighlightedThreadCard extends ConsumerWidget {
       return '${date.day}/${date.month}/${date.year}';
     }
   }
-
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final ocTheme = OpenCodeTheme.of(context);
     final sessionStatuses = ref.watch(globalSessionStatusProvider);
     final status = sessionStatuses[thread.id];
     final isActive = status != null && (status.isBusy || status.isRetry);
-
     final color = highlightColor.forBrightness(
       Theme.of(context).brightness,
       themePrimary: ocTheme.primary,
@@ -4176,7 +3931,6 @@ class _CodexHighlightedThreadCard extends ConsumerWidget {
       Theme.of(context).brightness,
       themePrimary: ocTheme.primary,
     );
-
     return GestureDetector(
       onTap: onTap,
       onLongPress: onLongPress,
@@ -4211,7 +3965,7 @@ class _CodexHighlightedThreadCard extends ConsumerWidget {
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         // Star icon inline
-                        Icon(Icons.star_rounded, size: 16, color: color),
+                        Icon(AppIcons.star, size: 16, color: color),
                         SizedBox(width: Spacing.sm),
                         Expanded(
                           child: Text(
@@ -4273,7 +4027,7 @@ class _CodexHighlightedThreadCard extends ConsumerWidget {
                       children: [
                         // Codex icon
                         Icon(
-                          Icons.auto_awesome_rounded,
+                          AppIcons.autoAwesome,
                           size: 12,
                           color: ocTheme.primary,
                         ),
@@ -4340,7 +4094,6 @@ class _CodexHighlightedThreadCard extends ConsumerWidget {
     );
   }
 }
-
 /// Codex thread card
 /// Matches OpenCode's _SessionCard design
 class _CodexThreadCard extends ConsumerWidget {
@@ -4351,22 +4104,18 @@ class _CodexThreadCard extends ConsumerWidget {
     required this.onTap,
     this.onLongPress,
   });
-
   final CodexThread thread;
   final bool isHighlighted;
   final HighlightColor highlightColor;
   final VoidCallback onTap;
   final VoidCallback? onLongPress;
-
   String _getProjectName() {
     final parts = thread.cwd.split('/').where((p) => p.isNotEmpty).toList();
     return parts.isEmpty ? 'Unknown' : parts.last;
   }
-
   String _formatDate(DateTime date) {
     final now = DateTime.now();
     final diff = now.difference(date);
-
     if (diff.inMinutes < 1) {
       return 'Just now';
     } else if (diff.inMinutes < 60) {
@@ -4379,19 +4128,16 @@ class _CodexThreadCard extends ConsumerWidget {
       return '${date.day}/${date.month}/${date.year}';
     }
   }
-
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final ocTheme = OpenCodeTheme.of(context);
     final sessionStatuses = ref.watch(globalSessionStatusProvider);
     final status = sessionStatuses[thread.id];
     final isActive = status != null && (status.isBusy || status.isRetry);
-
     // Accent color for left bar
     final accentColor = isActive
         ? (status!.isRetry ? ocTheme.warning : ocTheme.info)
         : ocTheme.primary.withValues(alpha: 0.4);
-
     return GestureDetector(
       onTap: onTap,
       onLongPress: onLongPress,
@@ -4485,7 +4231,7 @@ class _CodexThreadCard extends ConsumerWidget {
                       children: [
                         // Codex icon
                         Icon(
-                          Icons.auto_awesome_rounded,
+                          AppIcons.autoAwesome,
                           size: 12,
                           color: ocTheme.primary,
                         ),
@@ -4552,12 +4298,10 @@ class _CodexThreadCard extends ConsumerWidget {
     );
   }
 }
-
 class _CodexEmptyState extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final ocTheme = OpenCodeTheme.of(context);
-
     return Center(
       child: Column(
         mainAxisAlignment: MainAxisAlignment.center,
@@ -4569,7 +4313,7 @@ class _CodexEmptyState extends StatelessWidget {
               shape: BoxShape.circle,
             ),
             child: Icon(
-              Icons.auto_awesome_rounded,
+              AppIcons.autoAwesome,
               size: 48,
               color: ocTheme.primary,
             ),
@@ -4597,7 +4341,6 @@ class _CodexEmptyState extends StatelessWidget {
     );
   }
 }
-
 class _ClaudeCodeSessionsViewState
     extends ConsumerState<_ClaudeCodeSessionsView> {
   @override
@@ -4609,18 +4352,15 @@ class _ClaudeCodeSessionsViewState
       ref.read(ccSessionsProvider.notifier).load(cwd: cwd);
     });
   }
-
   Future<void> _refresh() async {
     final cwd = ref.read(ccSessionsFilterCwdProvider);
     await ref.read(ccSessionsProvider.notifier).refresh(cwd: cwd);
     ref.invalidate(ccProjectsForSessionsProvider);
     await widget.onRefresh();
   }
-
   void _showTitleFiltersSheet(BuildContext context) {
     final ocTheme = OpenCodeTheme.of(context);
     final controller = TextEditingController();
-
     DetailSheet.show(
       context: context,
       title: 'Title Filters',
@@ -4635,7 +4375,6 @@ class _ClaudeCodeSessionsViewState
           final notifier = ref.read(
             sessionsTitleExcludeFiltersProvider(AgentType.claudeCode).notifier,
           );
-
           return Padding(
             padding: const EdgeInsets.fromLTRB(16, 8, 16, 16),
             child: Column(
@@ -4732,8 +4471,8 @@ class _ClaudeCodeSessionsViewState
                               contentPadding: EdgeInsets.zero,
                               leading: Icon(
                                 f.startsWith('/') && f.endsWith('/')
-                                    ? Icons.code_rounded
-                                    : Icons.text_fields_rounded,
+                                    ? AppIcons.code
+                                    : AppIcons.textFields,
                                 color: ocTheme.textMuted,
                               ),
                               title: Text(
@@ -4743,7 +4482,7 @@ class _ClaudeCodeSessionsViewState
                               trailing: IconButton(
                                 onPressed: () => notifier.removeAt(index),
                                 icon: Icon(
-                                  Icons.delete_outline_rounded,
+                                  AppIcons.delete,
                                   color: ocTheme.error,
                                 ),
                                 tooltip: 'Remove',
@@ -4759,7 +4498,6 @@ class _ClaudeCodeSessionsViewState
       ),
     ).whenComplete(controller.dispose);
   }
-
   Future<void> _deleteSession(ClaudeCodeSession session) async {
     final confirm = await showDialog<bool>(
       context: context,
@@ -4784,15 +4522,11 @@ class _ClaudeCodeSessionsViewState
         ],
       ),
     );
-
     if (confirm != true) return;
-
     final success = await ref
         .read(ccSessionsProvider.notifier)
         .deleteSession(session.id, cwd: session.cwd);
-
     if (!mounted) return;
-
     final ocTheme = OpenCodeTheme.of(context);
     if (success) {
       ScaffoldMessenger.of(context).showSnackBar(
@@ -4810,7 +4544,6 @@ class _ClaudeCodeSessionsViewState
       );
     }
   }
-
   void _openSession(ClaudeCodeSession session) {
     final cwd = session.cwd;
     if (cwd.isNotEmpty) {
@@ -4829,19 +4562,16 @@ class _ClaudeCodeSessionsViewState
       ),
     );
   }
-
   // Toggle highlight for a CC session
   void _toggleHighlight(String sessionId) {
     ref.read(highlightsProvider.notifier).toggleSession(sessionId);
   }
-
   // Show options menu (highlight + stop + delete)
   Future<void> _showSessionOptions(ClaudeCodeSession session) async {
     final highlights = ref.read(highlightsProvider);
     final isHighlighted = highlights.isSessionHighlighted(session.id);
     final ocTheme = OpenCodeTheme.of(context);
     final highlightColor = highlights.color;
-
     await DetailSheet.show(
       context: context,
       title: session.displayTitle,
@@ -4853,7 +4583,7 @@ class _ClaudeCodeSessionsViewState
         children: [
           // Rename option
           ListTile(
-            leading: Icon(Icons.edit_outlined, color: ocTheme.textMuted),
+            leading: Icon(AppIcons.edit, color: ocTheme.textMuted),
             title: Text('Rename', style: TextStyle(color: ocTheme.text)),
             subtitle: Text(
               'Set a custom session name',
@@ -4866,7 +4596,7 @@ class _ClaudeCodeSessionsViewState
           ),
           // Stop Session option
           ListTile(
-            leading: Icon(Icons.stop_circle_outlined, color: ocTheme.textMuted),
+            leading: Icon(AppIcons.stop, color: ocTheme.textMuted),
             title: Text('Stop Session', style: TextStyle(color: ocTheme.text)),
             subtitle: Text(
               'Force stop if stuck',
@@ -4880,7 +4610,7 @@ class _ClaudeCodeSessionsViewState
           // Options
           ListTile(
             leading: Icon(
-              isHighlighted ? Icons.star_rounded : Icons.star_border_rounded,
+              isHighlighted ? AppIcons.star : AppIcons.starOutline,
               color: isHighlighted
                   ? highlightColor.forBrightness(
                       Theme.of(context).brightness,
@@ -4898,7 +4628,7 @@ class _ClaudeCodeSessionsViewState
             },
           ),
           ListTile(
-            leading: Icon(Icons.delete_outline_rounded, color: ocTheme.error),
+            leading: Icon(AppIcons.delete, color: ocTheme.error),
             title: Text('Delete', style: TextStyle(color: ocTheme.error)),
             onTap: () {
               Navigator.pop(context);
@@ -4909,15 +4639,12 @@ class _ClaudeCodeSessionsViewState
       ),
     );
   }
-
   /// Stop/abort a Claude Code session
   void _stopCCSession(ClaudeCodeSession session) {
     final bridge = ref.read(bridgeServiceProvider);
     final ocTheme = OpenCodeTheme.of(context);
-
     // Send abort to bridge
     bridge.ccAbort(session.id);
-
     // Show confirmation
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
@@ -4927,7 +4654,6 @@ class _ClaudeCodeSessionsViewState
       ),
     );
   }
-
   /// Rename a Claude Code session
   Future<void> _renameCCSession(ClaudeCodeSession session) async {
     final ocTheme = OpenCodeTheme.of(context);
@@ -4965,9 +4691,7 @@ class _ClaudeCodeSessionsViewState
       ),
     );
     controller.dispose();
-
     if (name == null || name.isEmpty || !mounted) return;
-
     final bridge = ref.read(bridgeServiceProvider);
     final result = await bridge.ccRenameSession(
       session.id,
@@ -4975,7 +4699,6 @@ class _ClaudeCodeSessionsViewState
       cwd: session.cwd,
     );
     if (!mounted) return;
-
     if (result != null) {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
@@ -4996,7 +4719,6 @@ class _ClaudeCodeSessionsViewState
       );
     }
   }
-
   @override
   Widget build(BuildContext context) {
     final sessionsAsync = ref.watch(ccSessionsProvider);
@@ -5013,7 +4735,6 @@ class _ClaudeCodeSessionsViewState
       projects: projectsAsync,
     );
     final theme = Theme.of(context);
-
     return Scaffold(
       backgroundColor: Colors.transparent,
       body: SafeArea(
@@ -5050,7 +4771,7 @@ class _ClaudeCodeSessionsViewState
                           IconButton(
                             onPressed: _refresh,
                             icon: Icon(
-                              Icons.refresh_rounded,
+                              AppIcons.refresh,
                               color: ocTheme.textMuted,
                             ),
                             tooltip: 'Refresh',
@@ -5069,7 +4790,7 @@ class _ClaudeCodeSessionsViewState
                               mainAxisSize: MainAxisSize.min,
                               children: [
                                 Icon(
-                                  Icons.terminal_rounded,
+                                  AppIcons.terminal,
                                   size: 14,
                                   color: ocTheme.accent,
                                 ),
@@ -5142,7 +4863,7 @@ class _ClaudeCodeSessionsViewState
                         mainAxisAlignment: MainAxisAlignment.center,
                         children: [
                           Icon(
-                            Icons.error_outline_rounded,
+                            AppIcons.error,
                             color: ocTheme.error,
                             size: 48,
                           ),
@@ -5176,7 +4897,6 @@ class _ClaudeCodeSessionsViewState
                   if (sessions.isEmpty) {
                     return [SliverFillRemaining(child: _CCEmptyState())];
                   }
-
                   // Sort by updatedAt descending
                   final titleFilters = ref.watch(
                     sessionsTitleExcludeFiltersProvider(AgentType.claudeCode),
@@ -5193,7 +4913,6 @@ class _ClaudeCodeSessionsViewState
                           )
                           .toList()
                         ..sort((a, b) => b.updatedAt.compareTo(a.updatedAt));
-
                   // Separate highlighted and regular sessions
                   final highlightedSessions = sorted
                       .where((s) => highlights.isSessionHighlighted(s.id))
@@ -5201,7 +4920,6 @@ class _ClaudeCodeSessionsViewState
                   final regularSessions = sorted
                       .where((s) => !highlights.isSessionHighlighted(s.id))
                       .toList();
-
                   return [
                     // Highlighted Sessions Section
                     if (highlightedSessions.isNotEmpty)
@@ -5242,7 +4960,6 @@ class _ClaudeCodeSessionsViewState
     );
   }
 }
-
 /// Section showing highlighted Claude Code sessions at the top
 class _CCHighlightedSessionsSection extends StatelessWidget {
   const _CCHighlightedSessionsSection({
@@ -5252,13 +4969,11 @@ class _CCHighlightedSessionsSection extends StatelessWidget {
     required this.onLongPress,
     required this.onDelete,
   });
-
   final List<ClaudeCodeSession> sessions;
   final HighlightColor highlightColor;
   final void Function(ClaudeCodeSession) onTap;
   final void Function(ClaudeCodeSession) onLongPress;
   final void Function(ClaudeCodeSession) onDelete;
-
   @override
   Widget build(BuildContext context) {
     final ocTheme = OpenCodeTheme.of(context);
@@ -5266,7 +4981,6 @@ class _CCHighlightedSessionsSection extends StatelessWidget {
       Theme.of(context).brightness,
       themePrimary: ocTheme.primary,
     );
-
     return Padding(
       padding: const EdgeInsets.fromLTRB(20, 0, 20, 16),
       child: Column(
@@ -5277,7 +4991,7 @@ class _CCHighlightedSessionsSection extends StatelessWidget {
             padding: const EdgeInsets.fromLTRB(4, 0, 4, 10),
             child: Row(
               children: [
-                Icon(Icons.star_rounded, size: 14, color: color),
+                Icon(AppIcons.star, size: 14, color: color),
                 const SizedBox(width: 6),
                 Text(
                   'HIGHLIGHTED',
@@ -5309,7 +5023,6 @@ class _CCHighlightedSessionsSection extends StatelessWidget {
     );
   }
 }
-
 /// Highlighted Claude Code session card with accent styling
 /// Matches OpenCode's _HighlightedSessionCard design
 class _CCHighlightedSessionCard extends ConsumerWidget {
@@ -5320,23 +5033,19 @@ class _CCHighlightedSessionCard extends ConsumerWidget {
     required this.onLongPress,
     required this.onDelete,
   });
-
   final ClaudeCodeSession session;
   final HighlightColor highlightColor;
   final VoidCallback onTap;
   final VoidCallback onLongPress;
   final VoidCallback onDelete;
-
   String _getProjectName() {
     final parts = session.cwd.split('/').where((p) => p.isNotEmpty).toList();
     return parts.isEmpty ? 'Unknown' : parts.last;
   }
-
   String _formatDate(int timestamp) {
     final date = DateTime.fromMillisecondsSinceEpoch(timestamp);
     final now = DateTime.now();
     final diff = now.difference(date);
-
     if (diff.inMinutes < 1) {
       return 'Just now';
     } else if (diff.inMinutes < 60) {
@@ -5349,14 +5058,12 @@ class _CCHighlightedSessionCard extends ConsumerWidget {
       return '${date.day}/${date.month}/${date.year}';
     }
   }
-
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final ocTheme = OpenCodeTheme.of(context);
     final sessionStatuses = ref.watch(globalSessionStatusProvider);
     final status = sessionStatuses[session.id];
     final isActive = status != null && (status.isBusy || status.isRetry);
-
     final color = highlightColor.forBrightness(
       Theme.of(context).brightness,
       themePrimary: ocTheme.primary,
@@ -5365,7 +5072,6 @@ class _CCHighlightedSessionCard extends ConsumerWidget {
       Theme.of(context).brightness,
       themePrimary: ocTheme.primary,
     );
-
     Widget card = GestureDetector(
       onTap: onTap,
       onLongPress: onLongPress,
@@ -5400,7 +5106,7 @@ class _CCHighlightedSessionCard extends ConsumerWidget {
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         // Star icon inline
-                        Icon(Icons.star_rounded, size: 16, color: color),
+                        Icon(AppIcons.star, size: 16, color: color),
                         SizedBox(width: Spacing.sm),
                         Expanded(
                           child: Text(
@@ -5418,7 +5124,7 @@ class _CCHighlightedSessionCard extends ConsumerWidget {
                         if (session.isBackground) ...[
                           SizedBox(width: Spacing.xs),
                           Icon(
-                            Icons.cloud_outlined,
+                            AppIcons.cloud,
                             size: 14,
                             color: ocTheme.textMuted,
                           ),
@@ -5470,7 +5176,7 @@ class _CCHighlightedSessionCard extends ConsumerWidget {
                       children: [
                         // Claude Code icon
                         Icon(
-                          Icons.terminal_rounded,
+                          AppIcons.terminal,
                           size: 12,
                           color: ocTheme.accent,
                         ),
@@ -5527,7 +5233,6 @@ class _CCHighlightedSessionCard extends ConsumerWidget {
         ),
       ),
     );
-
     // Swipe to delete
     return Dismissible(
       key: Key(session.id),
@@ -5540,7 +5245,7 @@ class _CCHighlightedSessionCard extends ConsumerWidget {
           borderRadius: Radii.brMd,
         ),
         child: Icon(
-          Icons.delete_outline_rounded,
+          AppIcons.delete,
           color: ocTheme.selectedListItemText,
           size: 24,
         ),
@@ -5553,7 +5258,6 @@ class _CCHighlightedSessionCard extends ConsumerWidget {
     );
   }
 }
-
 /// Claude Code session card
 /// Matches OpenCode's _SessionCard design
 class _CCSessionCard extends ConsumerWidget {
@@ -5563,22 +5267,18 @@ class _CCSessionCard extends ConsumerWidget {
     required this.onDelete,
     this.onLongPress,
   });
-
   final ClaudeCodeSession session;
   final VoidCallback onTap;
   final VoidCallback onDelete;
   final VoidCallback? onLongPress;
-
   String _getProjectName() {
     final parts = session.cwd.split('/').where((p) => p.isNotEmpty).toList();
     return parts.isEmpty ? 'Unknown' : parts.last;
   }
-
   String _formatDate(int timestamp) {
     final date = DateTime.fromMillisecondsSinceEpoch(timestamp);
     final now = DateTime.now();
     final diff = now.difference(date);
-
     if (diff.inMinutes < 1) {
       return 'Just now';
     } else if (diff.inMinutes < 60) {
@@ -5591,19 +5291,16 @@ class _CCSessionCard extends ConsumerWidget {
       return '${date.day}/${date.month}/${date.year}';
     }
   }
-
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final ocTheme = OpenCodeTheme.of(context);
     final sessionStatuses = ref.watch(globalSessionStatusProvider);
     final status = sessionStatuses[session.id];
     final isActive = status != null && (status.isBusy || status.isRetry);
-
     // Accent color for left bar
     final accentColor = isActive
         ? (status!.isRetry ? ocTheme.warning : ocTheme.info)
         : ocTheme.accent.withValues(alpha: 0.4);
-
     Widget card = GestureDetector(
       onTap: onTap,
       onLongPress: onLongPress,
@@ -5653,7 +5350,7 @@ class _CCSessionCard extends ConsumerWidget {
                         if (session.isBackground) ...[
                           SizedBox(width: Spacing.xs),
                           Icon(
-                            Icons.cloud_outlined,
+                            AppIcons.cloud,
                             size: 14,
                             color: ocTheme.textMuted,
                           ),
@@ -5705,7 +5402,7 @@ class _CCSessionCard extends ConsumerWidget {
                       children: [
                         // Claude Code icon
                         Icon(
-                          Icons.terminal_rounded,
+                          AppIcons.terminal,
                           size: 12,
                           color: ocTheme.accent,
                         ),
@@ -5762,7 +5459,6 @@ class _CCSessionCard extends ConsumerWidget {
         ),
       ),
     );
-
     // Swipe to delete
     return Dismissible(
       key: Key(session.id),
@@ -5775,7 +5471,7 @@ class _CCSessionCard extends ConsumerWidget {
           borderRadius: Radii.brMd,
         ),
         child: Icon(
-          Icons.delete_outline_rounded,
+          AppIcons.delete,
           color: ocTheme.selectedListItemText,
           size: 24,
         ),
@@ -5788,13 +5484,11 @@ class _CCSessionCard extends ConsumerWidget {
     );
   }
 }
-
 /// Empty state for Claude Code sessions
 class _CCEmptyState extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final ocTheme = OpenCodeTheme.of(context);
-
     return Center(
       child: Column(
         mainAxisAlignment: MainAxisAlignment.center,
@@ -5806,7 +5500,7 @@ class _CCEmptyState extends StatelessWidget {
               shape: BoxShape.circle,
             ),
             child: Icon(
-              Icons.terminal_rounded,
+              AppIcons.terminal,
               size: 48,
               color: ocTheme.accent,
             ),
@@ -5834,25 +5528,19 @@ class _CCEmptyState extends StatelessWidget {
     );
   }
 }
-
 // ============================================================================
 // Claude Code Chat Screen
 // ============================================================================
-
 class CCChatScreen extends ConsumerStatefulWidget {
   const CCChatScreen({super.key, required this.session});
-
   final ClaudeCodeSession session;
-
   @override
   ConsumerState<CCChatScreen> createState() => _CCChatScreenState();
 }
-
 class _CCChatScreenState extends ConsumerState<CCChatScreen> {
   final TextEditingController _controller = TextEditingController();
   final ScrollController _scrollController = ScrollController();
   final FocusNode _focusNode = FocusNode();
-
   @override
   void initState() {
     super.initState();
@@ -5861,7 +5549,6 @@ class _CCChatScreenState extends ConsumerState<CCChatScreen> {
       ref.read(ccChatProvider.notifier).setSession(widget.session.id);
     });
   }
-
   @override
   void dispose() {
     _controller.dispose();
@@ -5869,11 +5556,9 @@ class _CCChatScreenState extends ConsumerState<CCChatScreen> {
     _focusNode.dispose();
     super.dispose();
   }
-
   void _sendMessage() {
     final text = _controller.text.trim();
     if (text.isEmpty) return;
-
     ref
         .read(ccChatProvider.notifier)
         .sendMessage(
@@ -5881,15 +5566,12 @@ class _CCChatScreenState extends ConsumerState<CCChatScreen> {
           prompt: text,
           cwd: widget.session.cwd,
         );
-
     _controller.clear();
     _scrollToBottom();
   }
-
   void _abort() {
     ref.read(ccChatProvider.notifier).abort();
   }
-
   void _scrollToBottom() {
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (_scrollController.hasClients) {
@@ -5901,7 +5583,6 @@ class _CCChatScreenState extends ConsumerState<CCChatScreen> {
       }
     });
   }
-
   String _getProjectName() {
     final parts = widget.session.cwd
         .split('/')
@@ -5909,22 +5590,19 @@ class _CCChatScreenState extends ConsumerState<CCChatScreen> {
         .toList();
     return parts.isEmpty ? 'Unknown' : parts.last;
   }
-
   @override
   Widget build(BuildContext context) {
     final ocTheme = OpenCodeTheme.of(context);
     final chatState = ref.watch(ccChatProvider);
-
     // Build display messages from stream messages
     final displayMessages = _buildDisplayMessages(chatState.messages);
-
     return Scaffold(
       backgroundColor: ocTheme.background,
       appBar: AppBar(
         backgroundColor: ocTheme.backgroundPanel,
         elevation: 0,
         leading: IconButton(
-          icon: Icon(Icons.arrow_back_rounded, color: ocTheme.text),
+          icon: Icon(AppIcons.back, color: ocTheme.text),
           onPressed: () => Navigator.pop(context),
         ),
         title: Column(
@@ -5958,7 +5636,7 @@ class _CCChatScreenState extends ConsumerState<CCChatScreen> {
             child: Row(
               mainAxisSize: MainAxisSize.min,
               children: [
-                Icon(Icons.terminal_rounded, size: 12, color: ocTheme.accent),
+                Icon(AppIcons.terminal, size: 12, color: ocTheme.accent),
                 SizedBox(width: Spacing.xs),
                 Text(
                   'CC',
@@ -6006,7 +5684,6 @@ class _CCChatScreenState extends ConsumerState<CCChatScreen> {
       ),
     );
   }
-
   /// Convert stream messages to display messages
   List<_CCDisplayMessage> _buildDisplayMessages(
     List<ClaudeCodeStreamMessage> messages,
@@ -6014,13 +5691,11 @@ class _CCChatScreenState extends ConsumerState<CCChatScreen> {
     final display = <_CCDisplayMessage>[];
     String assistantText = '';
     final toolCalls = <CCToolCall>[];
-
     for (final msg in messages) {
       if (msg is CCSessionCreated) {
         // Session started - could show a system message if needed
         continue;
       }
-
       if (msg is CCAssistantMessage) {
         // Complete assistant message
         if (assistantText.isNotEmpty || toolCalls.isNotEmpty) {
@@ -6036,20 +5711,16 @@ class _CCChatScreenState extends ConsumerState<CCChatScreen> {
         }
         assistantText = msg.content;
       }
-
       if (msg is CCAssistantMessageDelta) {
         // Streaming delta - accumulate
         assistantText += msg.content;
       }
-
       if (msg is CCToolCall) {
         toolCalls.add(msg);
       }
-
       if (msg is CCToolResult) {
         // Tool completed - could update tool call status
       }
-
       if (msg is CCTokenUsage) {
         // End of turn - finalize assistant message
         if (assistantText.isNotEmpty || toolCalls.isNotEmpty) {
@@ -6065,12 +5736,10 @@ class _CCChatScreenState extends ConsumerState<CCChatScreen> {
           toolCalls.clear();
         }
       }
-
       if (msg is CCError) {
         display.add(_CCDisplayMessage(role: 'error', text: msg.message));
       }
     }
-
     // Add any in-progress content
     if (assistantText.isNotEmpty || toolCalls.isNotEmpty) {
       display.add(
@@ -6081,18 +5750,15 @@ class _CCChatScreenState extends ConsumerState<CCChatScreen> {
         ),
       );
     }
-
     return display;
   }
 }
-
 /// Display message model for CC chat
 class _CCDisplayMessage {
   final String role; // 'user', 'assistant', 'error'
   final String text;
   final List<CCToolCall> toolCalls;
   final CCTokenUsage? tokenUsage;
-
   const _CCDisplayMessage({
     required this.role,
     this.text = '',
@@ -6100,18 +5766,14 @@ class _CCDisplayMessage {
     this.tokenUsage,
   });
 }
-
 /// Message bubble for CC chat
 class _CCMessageBubble extends StatelessWidget {
   const _CCMessageBubble({required this.message, this.isStreaming = false});
-
   final _CCDisplayMessage message;
   final bool isStreaming;
-
   @override
   Widget build(BuildContext context) {
     final ocTheme = OpenCodeTheme.of(context);
-
     if (message.role == 'error') {
       return Container(
         margin: Insets.bottomMd,
@@ -6123,7 +5785,7 @@ class _CCMessageBubble extends StatelessWidget {
         ),
         child: Row(
           children: [
-            Icon(Icons.error_outline, color: ocTheme.error, size: 20),
+            Icon(AppIcons.error, color: ocTheme.error, size: 20),
             SizedBox(width: Spacing.sm),
             Expanded(
               child: Text(
@@ -6135,9 +5797,7 @@ class _CCMessageBubble extends StatelessWidget {
         ),
       );
     }
-
     final isUser = message.role == 'user';
-
     return Container(
       margin: Insets.bottomMd,
       child: Column(
@@ -6204,18 +5864,14 @@ class _CCMessageBubble extends StatelessWidget {
     );
   }
 }
-
 /// Tool call card for CC chat
 class _CCToolCallCard extends StatelessWidget {
   const _CCToolCallCard({required this.tool});
-
   final CCToolCall tool;
-
   @override
   Widget build(BuildContext context) {
     final ocTheme = OpenCodeTheme.of(context);
     final isRunning = tool.status == 'running';
-
     return Container(
       margin: const EdgeInsets.only(bottom: 6),
       padding: Insets.cardXs,
@@ -6245,7 +5901,7 @@ class _CCToolCallCard extends StatelessWidget {
                         color: ocTheme.info,
                       ),
                     )
-                  : Icon(Icons.check_rounded, size: 14, color: ocTheme.success),
+                  : Icon(AppIcons.check, size: 14, color: ocTheme.success),
             ),
           ),
           const SizedBox(width: 10),
@@ -6277,7 +5933,6 @@ class _CCToolCallCard extends StatelessWidget {
       ),
     );
   }
-
   String _formatInput(dynamic input) {
     if (input == null) return '';
     if (input is String) return input;
@@ -6291,19 +5946,17 @@ class _CCToolCallCard extends StatelessWidget {
     return input.toString();
   }
 }
-
 /// Empty state for CC chat
 class _CCChatEmptyState extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final ocTheme = OpenCodeTheme.of(context);
-
     return Center(
       child: Column(
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
           Icon(
-            Icons.chat_bubble_outline_rounded,
+            AppIcons.chatBubble,
             size: 48,
             color: ocTheme.textMuted.withValues(alpha: 0.5),
           ),
@@ -6329,7 +5982,6 @@ class _CCChatEmptyState extends StatelessWidget {
     );
   }
 }
-
 /// Input bar for CC chat
 class _CCInputBar extends StatelessWidget {
   const _CCInputBar({
@@ -6339,18 +5991,15 @@ class _CCInputBar extends StatelessWidget {
     required this.onSend,
     required this.onAbort,
   });
-
   final TextEditingController controller;
   final FocusNode focusNode;
   final bool isStreaming;
   final VoidCallback onSend;
   final VoidCallback onAbort;
-
   @override
   Widget build(BuildContext context) {
     final ocTheme = OpenCodeTheme.of(context);
     final bottomPadding = MediaQuery.of(context).viewInsets.bottom;
-
     return Container(
       padding: EdgeInsets.fromLTRB(16, 12, 16, 12 + bottomPadding),
       decoration: BoxDecoration(
@@ -6403,7 +6052,7 @@ class _CCInputBar extends StatelessWidget {
                   shape: BoxShape.circle,
                 ),
                 child: Icon(
-                  isStreaming ? Icons.stop_rounded : Icons.arrow_upward_rounded,
+                  isStreaming ? AppIcons.stop : AppIcons.arrowUp,
                   color: ocTheme.selectedListItemText,
                   size: 22,
                 ),

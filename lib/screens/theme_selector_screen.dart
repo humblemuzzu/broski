@@ -1,3 +1,4 @@
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../theme/app_typography.dart';
@@ -6,34 +7,29 @@ import '../theme/design_tokens.dart';
 import '../providers/theme_provider.dart';
 import '../theme/opencode_theme.dart';
 import '../theme/themes/all_themes.dart';
-
+import 'package:broski/theme/app_icons.dart';
 /// Theme selector screen with live preview
 /// Layout: Top half shows component preview, bottom half shows theme list
 class ThemeSelectorScreen extends ConsumerStatefulWidget {
   const ThemeSelectorScreen({super.key});
-
   @override
   ConsumerState<ThemeSelectorScreen> createState() =>
       _ThemeSelectorScreenState();
 }
-
 class _ThemeSelectorScreenState extends ConsumerState<ThemeSelectorScreen> {
   late String _previewThemeId;
   final TextEditingController _searchController = TextEditingController();
   String _searchQuery = '';
-
   @override
   void initState() {
     super.initState();
     _previewThemeId = ref.read(themeProvider).themeId;
   }
-
   @override
   void dispose() {
     _searchController.dispose();
     super.dispose();
   }
-
   List<ThemeInfo> get filteredThemes {
     if (_searchQuery.isEmpty) return allThemes;
     final query = _searchQuery.toLowerCase();
@@ -43,7 +39,6 @@ class _ThemeSelectorScreenState extends ConsumerState<ThemeSelectorScreen> {
           (t.description?.toLowerCase().contains(query) ?? false);
     }).toList();
   }
-
   List<dynamic> _buildSectionedList(List<ThemeInfo> themes) {
     if (_searchQuery.isNotEmpty) return themes;
     final items = <dynamic>[];
@@ -59,29 +54,25 @@ class _ThemeSelectorScreenState extends ConsumerState<ThemeSelectorScreen> {
     }
     return items;
   }
-
   void _selectTheme(String themeId) {
     setState(() => _previewThemeId = themeId);
   }
-
   void _applyTheme() {
     ref.read(themeProvider.notifier).setTheme(_previewThemeId);
     Navigator.of(context).pop();
   }
-
   @override
   Widget build(BuildContext context) {
     final currentThemeId = ref.watch(themeProvider).themeId;
     final previewTheme = getThemeById(_previewThemeId) ?? opencodeDarkTheme;
     final previewInfo = getThemeInfoById(_previewThemeId);
-
     return Scaffold(
       backgroundColor: previewTheme.background,
       appBar: AppBar(
         backgroundColor: previewTheme.backgroundPanel,
         title: Text('Themes', style: TextStyle(color: previewTheme.text)),
         leading: IconButton(
-          icon: Icon(Icons.close, color: previewTheme.text),
+          icon: Icon(AppIcons.close, color: previewTheme.text),
           onPressed: () => Navigator.of(context).pop(),
         ),
         actions: [
@@ -126,7 +117,7 @@ class _ThemeSelectorScreenState extends ConsumerState<ThemeSelectorScreen> {
                       hintText: 'Search themes...',
                       hintStyle: TextStyle(color: previewTheme.textMuted),
                       prefixIcon: Icon(
-                        Icons.search,
+                        AppIcons.search,
                         color: previewTheme.textMuted,
                       ),
                       filled: true,
@@ -159,7 +150,6 @@ class _ThemeSelectorScreenState extends ConsumerState<ThemeSelectorScreen> {
                       final themeInfo = item as ThemeInfo;
                       final isSelected = themeInfo.id == _previewThemeId;
                       final isCurrent = themeInfo.id == currentThemeId;
-
                       return _ThemeListItem(
                         themeInfo: themeInfo,
                         isSelected: isSelected,
@@ -179,7 +169,6 @@ class _ThemeSelectorScreenState extends ConsumerState<ThemeSelectorScreen> {
     );
   }
 }
-
 /// Theme preview showing app components with the selected theme
 class _ThemePreview extends StatelessWidget {
   const _ThemePreview({
@@ -187,11 +176,9 @@ class _ThemePreview extends StatelessWidget {
     required this.themeName,
     this.themeDescription,
   });
-
   final OpenCodeTheme theme;
   final String themeName;
   final String? themeDescription;
-
   @override
   Widget build(BuildContext context) {
     return Container(
@@ -410,13 +397,10 @@ class _ThemePreview extends StatelessWidget {
     );
   }
 }
-
 class _PreviewCard extends StatelessWidget {
   const _PreviewCard({required this.theme, required this.child});
-
   final OpenCodeTheme theme;
   final Widget child;
-
   @override
   Widget build(BuildContext context) {
     return Container(
@@ -431,18 +415,15 @@ class _PreviewCard extends StatelessWidget {
     );
   }
 }
-
 class _StatusChip extends StatelessWidget {
   const _StatusChip({
     required this.label,
     required this.color,
     required this.theme,
   });
-
   final String label;
   final Color color;
   final OpenCodeTheme theme;
-
   @override
   Widget build(BuildContext context) {
     return Container(
@@ -473,16 +454,13 @@ class _StatusChip extends StatelessWidget {
     );
   }
 }
-
 class _SectionHeader extends StatelessWidget {
   const _SectionHeader({
     required this.label,
     required this.previewTheme,
   });
-
   final String label;
   final OpenCodeTheme previewTheme;
-
   @override
   Widget build(BuildContext context) {
     return Padding(
@@ -499,7 +477,6 @@ class _SectionHeader extends StatelessWidget {
     );
   }
 }
-
 /// Theme list item
 class _ThemeListItem extends StatelessWidget {
   const _ThemeListItem({
@@ -510,14 +487,12 @@ class _ThemeListItem extends StatelessWidget {
     required this.previewTheme,
     required this.onTap,
   });
-
   final ThemeInfo themeInfo;
   final bool isSelected;
   final bool isCurrent;
   final bool isDefault;
   final OpenCodeTheme previewTheme;
   final VoidCallback onTap;
-
   @override
   Widget build(BuildContext context) {
     return Padding(
@@ -623,7 +598,7 @@ class _ThemeListItem extends StatelessWidget {
                 if (isSelected) ...[
                   SizedBox(width: Spacing.sm),
                   Icon(
-                    Icons.check_circle,
+                    AppIcons.checkCircle,
                     color: previewTheme.primary,
                     size: 20,
                   ),
