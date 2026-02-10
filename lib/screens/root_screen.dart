@@ -2,7 +2,8 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:google_fonts/google_fonts.dart';
+import '../theme/app_typography.dart';
+import '../theme/design_tokens.dart';
 
 import '../providers/app_auth_provider.dart';
 import '../providers/app_subscription_provider.dart';
@@ -157,10 +158,10 @@ class _LoadingScreen extends StatelessWidget {
                 color: theme.primary,
               ),
             ),
-            const SizedBox(height: 16),
+            SizedBox(height: Spacing.lg),
             Text(
               'Loading...',
-              style: TextStyle(color: theme.textMuted, fontSize: 14),
+              style: AppTypography.labelLarge(color: theme.textMuted),
             ),
           ],
         ),
@@ -187,7 +188,7 @@ class _SubscriptionErrorScreen extends StatelessWidget {
       body: SafeArea(
         child: Center(
           child: Padding(
-            padding: const EdgeInsets.all(24),
+            padding: Insets.cardLg,
             child: Column(
               mainAxisAlignment: MainAxisAlignment.center,
               children: [
@@ -201,11 +202,11 @@ class _SubscriptionErrorScreen extends StatelessWidget {
                     fontWeight: FontWeight.w700,
                   ),
                 ),
-                const SizedBox(height: 8),
+                SizedBox(height: Spacing.sm),
                 Text(
                   message,
                   textAlign: TextAlign.center,
-                  style: TextStyle(color: theme.textMuted, fontSize: 12),
+                  style: AppTypography.label(color: theme.textMuted),
                   maxLines: 4,
                   overflow: TextOverflow.ellipsis,
                 ),
@@ -219,7 +220,7 @@ class _SubscriptionErrorScreen extends StatelessWidget {
                       foregroundColor: theme.selectedListItemText,
                       padding: const EdgeInsets.symmetric(vertical: 14),
                       shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(12),
+                        borderRadius: Radii.brMd,
                       ),
                     ),
                     child: const Text('Retry'),
@@ -249,7 +250,7 @@ class _ConnectingScreen extends ConsumerWidget {
       body: SafeArea(
         child: Center(
           child: Padding(
-            padding: const EdgeInsets.all(32),
+            padding: Insets.xxxl,
             child: Column(
               mainAxisAlignment: MainAxisAlignment.center,
               children: [
@@ -261,7 +262,7 @@ class _ConnectingScreen extends ConsumerWidget {
                     color: ocTheme.primary,
                   ),
                 ),
-                const SizedBox(height: 24),
+                SizedBox(height: Spacing.xxl),
                 Text(
                   'Connecting...',
                   style: TextStyle(
@@ -271,23 +272,19 @@ class _ConnectingScreen extends ConsumerWidget {
                   ),
                 ),
                 if (state.connection != null) ...[
-                  const SizedBox(height: 8),
+                  SizedBox(height: Spacing.sm),
                   Text(
                     '${state.connection!.localIP ?? ''}:${state.connection!.port}',
-                    style: TextStyle(
-                      fontSize: 14,
-                      color: ocTheme.textMuted,
-                      fontFamily: GoogleFonts.jetBrainsMono().fontFamily,
-                    ),
+                    style: AppTypography.codeLarge(color: ocTheme.textMuted),
                   ),
                 ],
                 if (state.error != null) ...[
-                  const SizedBox(height: 20),
+                  SizedBox(height: Spacing.xl),
                   Container(
-                    padding: const EdgeInsets.all(16),
+                    padding: Insets.card,
                     decoration: BoxDecoration(
                       color: ocTheme.error.withValues(alpha: 0.1),
-                      borderRadius: BorderRadius.circular(12),
+                      borderRadius: Radii.brMd,
                       border: Border.all(
                         color: ocTheme.error.withValues(alpha: 0.2),
                       ),
@@ -302,7 +299,7 @@ class _ConnectingScreen extends ConsumerWidget {
                     ),
                   ),
                 ],
-                const SizedBox(height: 32),
+                SizedBox(height: Spacing.xxxl),
                 GestureDetector(
                   onTap: () =>
                       ref.read(connectionProvider.notifier).clearConnection(),
@@ -470,7 +467,7 @@ class _DevSwipeWrapperState extends ConsumerState<_DevSwipeWrapper> {
                   ),
                   decoration: BoxDecoration(
                     color: ocTheme.error.withValues(alpha: 0.15),
-                    borderRadius: BorderRadius.circular(20),
+                    borderRadius: Radii.brXl,
                     border: Border.all(color: ocTheme.error.withValues(alpha: 0.3)),
                   ),
                   child: Row(
@@ -485,7 +482,7 @@ class _DevSwipeWrapperState extends ConsumerState<_DevSwipeWrapper> {
                           letterSpacing: 0.5,
                         ),
                       ),
-                      const SizedBox(width: 4),
+                      SizedBox(width: Spacing.xs),
                       Icon(Icons.skip_next_rounded, color: ocTheme.error, size: 16),
                     ],
                   ),

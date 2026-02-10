@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:google_fonts/google_fonts.dart';
+import '../theme/app_typography.dart';
+import '../theme/design_tokens.dart';
 
 import '../providers/selection_provider.dart';
 import '../providers/service_providers.dart';
@@ -128,7 +129,7 @@ class _CodexAgentsScreenState extends ConsumerState<CodexAgentsScreen> {
             : _error != null
             ? Center(
                 child: Padding(
-                  padding: const EdgeInsets.all(16),
+                  padding: Insets.card,
                   child: Text(
                     _error!,
                     style: TextStyle(color: oc.textMuted),
@@ -139,7 +140,7 @@ class _CodexAgentsScreenState extends ConsumerState<CodexAgentsScreen> {
             : !hasProject
             ? Center(
                 child: Padding(
-                  padding: const EdgeInsets.all(16),
+                  padding: Insets.card,
                   child: Text(
                     'Select a project to edit `AGENTS.md`.',
                     style: TextStyle(color: oc.textMuted),
@@ -148,7 +149,7 @@ class _CodexAgentsScreenState extends ConsumerState<CodexAgentsScreen> {
                 ),
               )
             : Padding(
-                padding: const EdgeInsets.all(16),
+                padding: Insets.card,
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.stretch,
                   children: [
@@ -157,7 +158,7 @@ class _CodexAgentsScreenState extends ConsumerState<CodexAgentsScreen> {
                         padding: const EdgeInsets.only(bottom: 10),
                         child: Text(
                           _path!,
-                          style: TextStyle(color: oc.textMuted, fontSize: 12),
+                          style: AppTypography.label(color: oc.textMuted),
                           overflow: TextOverflow.ellipsis,
                         ),
                       ),
@@ -167,18 +168,14 @@ class _CodexAgentsScreenState extends ConsumerState<CodexAgentsScreen> {
                         expands: true,
                         minLines: null,
                         maxLines: null,
-                        style: TextStyle(
-                          fontFamily: GoogleFonts.jetBrainsMono().fontFamily,
-                          fontSize: 13,
-                          color: oc.text,
-                        ),
+                        style: AppTypography.code(color: oc.text),
                         decoration: InputDecoration(
                           labelText: 'AGENTS.md',
                           alignLabelWithHint: true,
                           filled: true,
                           fillColor: oc.backgroundPanel,
                           border: OutlineInputBorder(
-                            borderRadius: BorderRadius.circular(12),
+                            borderRadius: Radii.brMd,
                           ),
                         ),
                       ),

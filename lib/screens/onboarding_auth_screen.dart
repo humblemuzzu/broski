@@ -5,7 +5,8 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:google_fonts/google_fonts.dart';
+import '../theme/app_typography.dart';
+import '../theme/design_tokens.dart';
 import 'package:url_launcher/url_launcher.dart';
 
 import '../providers/app_auth_provider.dart';
@@ -91,16 +92,14 @@ class _OnboardingAuthScreenState extends ConsumerState<OnboardingAuthScreen>
                   const SizedBox(width: 10),
                   Text(
                     'SYSTEM ONLINE',
-                    style: GoogleFonts.jetBrainsMono(
-                      fontSize: 13,
+                    style: AppTypography.code(color: Colors.white.withValues(alpha: 0.55)).copyWith(
                       fontWeight: FontWeight.w500,
-                      color: Colors.white.withValues(alpha: 0.55),
                       letterSpacing: 1.5,
                     ),
                   ),
                 ],
               ),
-              const SizedBox(height: 16),
+              SizedBox(height: Spacing.lg),
 
               // -- "Identify\nYourself." heading --
               Text.rich(
@@ -109,7 +108,7 @@ class _OnboardingAuthScreenState extends ConsumerState<OnboardingAuthScreen>
                     TextSpan(
                       text: 'Identify\n',
                       style: TextStyle(
-                        fontFamily: 'GeistSans',
+                        fontFamily: AppTypography.uiFontFamily,
                         fontSize: 44,
                         fontWeight: FontWeight.w800,
                         color: Colors.white,
@@ -120,7 +119,7 @@ class _OnboardingAuthScreenState extends ConsumerState<OnboardingAuthScreen>
                     TextSpan(
                       text: 'Yourself.',
                       style: TextStyle(
-                        fontFamily: 'GeistSans',
+                        fontFamily: AppTypography.uiFontFamily,
                         fontSize: 44,
                         fontWeight: FontWeight.w800,
                         color: const Color(0xFF555555),
@@ -148,10 +147,10 @@ class _OnboardingAuthScreenState extends ConsumerState<OnboardingAuthScreen>
               if (state.error != null) ...[
                 Container(
                   width: double.infinity,
-                  padding: const EdgeInsets.all(12),
+                  padding: Insets.cardSm,
                   decoration: BoxDecoration(
                     color: const Color(0xFFEF4444).withValues(alpha: 0.10),
-                    borderRadius: BorderRadius.circular(12),
+                    borderRadius: Radii.brMd,
                     border: Border.all(
                       color: const Color(0xFFEF4444).withValues(alpha: 0.20),
                     ),
@@ -164,7 +163,7 @@ class _OnboardingAuthScreenState extends ConsumerState<OnboardingAuthScreen>
                     ),
                   ),
                 ),
-                const SizedBox(height: 16),
+                SizedBox(height: Spacing.lg),
               ],
 
               // -- Continue with Apple button (iOS only) --
@@ -193,15 +192,13 @@ class _OnboardingAuthScreenState extends ConsumerState<OnboardingAuthScreen>
                   ref.read(appAuthProvider.notifier).signInWithGoogle();
                 },
               ),
-              const SizedBox(height: 20),
+              SizedBox(height: Spacing.xl),
 
               // -- Terms and Privacy Policy --
               Center(
                 child: Text.rich(
                   TextSpan(
-                    style: GoogleFonts.jetBrainsMono(
-                      fontSize: 11,
-                      color: Colors.white.withValues(alpha: 0.35),
+                    style: AppTypography.codeSmall(color: Colors.white.withValues(alpha: 0.35)).copyWith(
                       height: 1.5,
                     ),
                     children: [
@@ -212,9 +209,7 @@ class _OnboardingAuthScreenState extends ConsumerState<OnboardingAuthScreen>
                               _launchUrl('https://broskiapp.com/legal/terms'),
                           child: Text(
                             'Terms of Service',
-                            style: GoogleFonts.jetBrainsMono(
-                              fontSize: 11,
-                              color: Colors.white.withValues(alpha: 0.55),
+                            style: AppTypography.codeSmall(color: Colors.white.withValues(alpha: 0.55)).copyWith(
                               decoration: TextDecoration.underline,
                               decorationColor: Colors.white.withValues(
                                 alpha: 0.35,
@@ -230,9 +225,7 @@ class _OnboardingAuthScreenState extends ConsumerState<OnboardingAuthScreen>
                               _launchUrl('https://broskiapp.com/legal/privacy'),
                           child: Text(
                             'Privacy Policy',
-                            style: GoogleFonts.jetBrainsMono(
-                              fontSize: 11,
-                              color: Colors.white.withValues(alpha: 0.55),
+                            style: AppTypography.codeSmall(color: Colors.white.withValues(alpha: 0.55)).copyWith(
                               decoration: TextDecoration.underline,
                               decorationColor: Colors.white.withValues(
                                 alpha: 0.35,
@@ -249,7 +242,7 @@ class _OnboardingAuthScreenState extends ConsumerState<OnboardingAuthScreen>
               ),
               // DEV BYPASS: skip auth button (only in debug builds)
               if (kDebugMode && kDevBypassOnboarding) ...[
-                const SizedBox(height: 16),
+                SizedBox(height: Spacing.lg),
                 GestureDetector(
                   onTap: () {
                     HapticFeedback.lightImpact();
@@ -265,7 +258,7 @@ class _OnboardingAuthScreenState extends ConsumerState<OnboardingAuthScreen>
                   ),
                 ),
               ],
-              const SizedBox(height: 32),
+              SizedBox(height: Spacing.xxxl),
             ],
           ),
         ),
@@ -297,7 +290,7 @@ class _ScanBox extends StatelessWidget {
           Positioned.fill(
             child: Container(
               decoration: BoxDecoration(
-                borderRadius: BorderRadius.circular(16),
+                borderRadius: Radii.brLg,
                 border: Border.all(
                   color: Colors.white.withValues(alpha: 0.08),
                   width: 1,
@@ -305,7 +298,7 @@ class _ScanBox extends StatelessWidget {
                 color: Colors.white.withValues(alpha: 0.03),
               ),
               child: ClipRRect(
-                borderRadius: BorderRadius.circular(15),
+                borderRadius: Radii.brLg,
                 child: Stack(
                   fit: StackFit.expand,
                   children: [
@@ -419,20 +412,16 @@ class _ScanBox extends StatelessWidget {
               children: [
                 Text(
                   'ID: UNKNOWN',
-                  style: GoogleFonts.jetBrainsMono(
-                    fontSize: 12,
+                  style: AppTypography.codeSmall(color: Colors.white.withValues(alpha: 0.40)).copyWith(
                     fontWeight: FontWeight.w500,
-                    color: Colors.white.withValues(alpha: 0.40),
                     letterSpacing: 1.2,
                   ),
                 ),
-                const SizedBox(height: 4),
+                SizedBox(height: Spacing.xs),
                 Text(
                   'ACCESS: PENDING',
-                  style: GoogleFonts.jetBrainsMono(
-                    fontSize: 12,
+                  style: AppTypography.codeSmall(color: Colors.white.withValues(alpha: 0.40)).copyWith(
                     fontWeight: FontWeight.w500,
-                    color: Colors.white.withValues(alpha: 0.40),
                     letterSpacing: 1.2,
                   ),
                 ),
@@ -555,7 +544,7 @@ class _AuthButton extends StatelessWidget {
           color: outlined
               ? Colors.transparent
               : Colors.white.withValues(alpha: 0.08),
-          borderRadius: BorderRadius.circular(14),
+          borderRadius: Radii.brLg,
           border: Border.all(
             color: Colors.white.withValues(alpha: outlined ? 0.12 : 0.10),
             width: 1,
@@ -587,7 +576,7 @@ class _AuthButton extends StatelessWidget {
                         color: Colors.white.withValues(alpha: 0.8),
                         size: 22,
                       ),
-                    const SizedBox(width: 12),
+                    SizedBox(width: Spacing.md),
                     Text(
                       label,
                       style: TextStyle(

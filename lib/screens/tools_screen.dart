@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../theme/app_typography.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../models/tool.dart';
@@ -8,6 +9,7 @@ import '../providers/service_providers.dart';
 import '../providers/selection_provider.dart';
 import '../providers/tool_settings_provider.dart';
 import '../services/storage_service.dart';
+import '../theme/design_tokens.dart';
 import '../theme/opencode_theme.dart';
 
 /// Feature 17: Tool List Screen
@@ -217,18 +219,18 @@ class _ToolsScreenState extends ConsumerState<ToolsScreen> {
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
           Icon(Icons.error_outline, size: 48, color: theme.textMuted),
-          const SizedBox(height: 16),
+          SizedBox(height: Spacing.lg),
           Text(
             'Failed to load tools',
             style: TextStyle(color: theme.text, fontSize: 16),
           ),
-          const SizedBox(height: 8),
+          SizedBox(height: Spacing.sm),
           Text(
             _error!,
-            style: TextStyle(color: theme.textMuted, fontSize: 14),
+            style: AppTypography.labelLarge(color: theme.textMuted),
             textAlign: TextAlign.center,
           ),
-          const SizedBox(height: 24),
+          SizedBox(height: Spacing.xxl),
           ElevatedButton(
             onPressed: _loadData,
             style: ElevatedButton.styleFrom(
@@ -249,7 +251,7 @@ class _ToolsScreenState extends ConsumerState<ToolsScreen> {
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
             Icon(Icons.build_outlined, size: 48, color: theme.textMuted),
-            const SizedBox(height: 16),
+            SizedBox(height: Spacing.lg),
             Text(
               'No tools available',
               style: TextStyle(color: theme.textMuted, fontSize: 16),
@@ -272,7 +274,7 @@ class _ToolsScreenState extends ConsumerState<ToolsScreen> {
       onRefresh: _loadData,
       color: theme.primary,
       child: ListView(
-        padding: const EdgeInsets.all(16),
+        padding: Insets.card,
         children: [
           // Summary
           _ToolsSummary(totalTools: _tools!.length),
@@ -304,7 +306,7 @@ class _ToolsScreenState extends ConsumerState<ToolsScreen> {
 
           // Feature 19: Formatters section as collapsible
           if (_formatters != null && _formatters!.isNotEmpty) ...[
-            const SizedBox(height: 8),
+            SizedBox(height: Spacing.sm),
             _CollapsibleSection(
               title: 'Formatters',
               itemCount: _formatters!.length,
@@ -345,11 +347,11 @@ class _ToolsSummary extends ConsumerWidget {
     final enabledCount = totalTools - disabledCount;
 
     return Container(
-      padding: const EdgeInsets.all(16),
+      padding: Insets.card,
       margin: const EdgeInsets.only(bottom: 20),
       decoration: BoxDecoration(
         color: theme.backgroundPanel,
-        borderRadius: BorderRadius.circular(16),
+        borderRadius: Radii.brLg,
         border: Border.all(color: theme.borderSubtle),
       ),
       child: Row(
@@ -359,11 +361,11 @@ class _ToolsSummary extends ConsumerWidget {
             height: 48,
             decoration: BoxDecoration(
               color: theme.primary.withValues(alpha: 0.15),
-              borderRadius: BorderRadius.circular(12),
+              borderRadius: Radii.brMd,
             ),
             child: Icon(Icons.build, color: theme.primary, size: 24),
           ),
-          const SizedBox(width: 16),
+          SizedBox(width: Spacing.lg),
           Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
@@ -376,7 +378,7 @@ class _ToolsSummary extends ConsumerWidget {
                     fontWeight: FontWeight.w600,
                   ),
                 ),
-                const SizedBox(height: 4),
+                SizedBox(height: Spacing.xs),
                 Row(
                   children: [
                     Container(
@@ -386,15 +388,15 @@ class _ToolsSummary extends ConsumerWidget {
                       ),
                       decoration: BoxDecoration(
                         color: theme.success.withValues(alpha: 0.15),
-                        borderRadius: BorderRadius.circular(8),
+                        borderRadius: Radii.brSm,
                       ),
                       child: Text(
                         '$enabledCount enabled',
-                        style: TextStyle(color: theme.success, fontSize: 12),
+                        style: AppTypography.label(color: theme.success),
                       ),
                     ),
                     if (disabledCount > 0) ...[
-                      const SizedBox(width: 8),
+                      SizedBox(width: Spacing.sm),
                       Container(
                         padding: const EdgeInsets.symmetric(
                           horizontal: 8,
@@ -402,7 +404,7 @@ class _ToolsSummary extends ConsumerWidget {
                         ),
                         decoration: BoxDecoration(
                           color: theme.textMuted.withValues(alpha: 0.15),
-                          borderRadius: BorderRadius.circular(8),
+                          borderRadius: Radii.brSm,
                         ),
                         child: Text(
                           '$disabledCount disabled',
@@ -425,7 +427,7 @@ class _ToolsSummary extends ConsumerWidget {
               },
               child: Text(
                 'Enable All',
-                style: TextStyle(color: theme.primary, fontSize: 13),
+                style: AppTypography.bodySmall(color: theme.primary),
               ),
             ),
         ],
@@ -455,10 +457,10 @@ class _CollapsibleSection extends StatelessWidget {
     final theme = OpenCodeTheme.of(context);
 
     return Container(
-      margin: const EdgeInsets.only(bottom: 12),
+      margin: Insets.bottomMd,
       decoration: BoxDecoration(
         color: theme.backgroundPanel,
-        borderRadius: BorderRadius.circular(12),
+        borderRadius: Radii.brMd,
         border: Border.all(color: theme.borderSubtle),
       ),
       child: Column(
@@ -467,9 +469,9 @@ class _CollapsibleSection extends StatelessWidget {
           // Tappable header
           InkWell(
             onTap: onToggle,
-            borderRadius: const BorderRadius.vertical(top: Radius.circular(12)),
+            borderRadius: Radii.sheetTop,
             child: Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+              padding: Insets.input,
               child: Row(
                 children: [
                   Expanded(
@@ -484,7 +486,7 @@ class _CollapsibleSection extends StatelessWidget {
                             letterSpacing: 0.5,
                           ),
                         ),
-                        const SizedBox(width: 8),
+                        SizedBox(width: Spacing.sm),
                         Container(
                           padding: const EdgeInsets.symmetric(
                             horizontal: 6,
@@ -492,7 +494,7 @@ class _CollapsibleSection extends StatelessWidget {
                           ),
                           decoration: BoxDecoration(
                             color: theme.primary.withValues(alpha: 0.15),
-                            borderRadius: BorderRadius.circular(6),
+                            borderRadius: Radii.brSm,
                           ),
                           child: Text(
                             '$itemCount',
@@ -560,12 +562,12 @@ class _ToolChip extends ConsumerWidget {
       onTap: () {
         ref.read(toolSettingsProvider.notifier).toggleTool(tool.id);
       },
-      borderRadius: BorderRadius.circular(10),
+      borderRadius: Radii.brMd,
       child: Container(
         padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
         decoration: BoxDecoration(
           color: bgColor,
-          borderRadius: BorderRadius.circular(10),
+          borderRadius: Radii.brMd,
           border: Border.all(color: borderColor),
         ),
         child: Row(
@@ -640,17 +642,17 @@ class _FormatterChip extends StatelessWidget {
     };
 
     return Container(
-      margin: const EdgeInsets.only(bottom: 8),
+      margin: Insets.bottomSm,
       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
       decoration: BoxDecoration(
         color: statusColor.withValues(alpha: 0.08),
-        borderRadius: BorderRadius.circular(10),
+        borderRadius: Radii.brMd,
         border: Border.all(color: statusColor.withValues(alpha: 0.3)),
       ),
       child: Row(
         children: [
           Icon(Icons.code_rounded, color: statusColor, size: 16),
-          const SizedBox(width: 8),
+          SizedBox(width: Spacing.sm),
           Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
@@ -666,7 +668,7 @@ class _FormatterChip extends StatelessWidget {
                 if (formatter.language != null)
                   Text(
                     formatter.language!,
-                    style: TextStyle(color: theme.textMuted, fontSize: 11),
+                    style: AppTypography.caption(color: theme.textMuted),
                   ),
               ],
             ),
@@ -675,7 +677,7 @@ class _FormatterChip extends StatelessWidget {
             padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
             decoration: BoxDecoration(
               color: statusColor.withValues(alpha: 0.15),
-              borderRadius: BorderRadius.circular(8),
+              borderRadius: Radii.brSm,
             ),
             child: Text(
               switch (formatter.status) {

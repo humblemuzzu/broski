@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
-import 'package:google_fonts/google_fonts.dart';
+import '../theme/app_typography.dart';
+import '../theme/design_tokens.dart';
 
 import '../models/skill.dart';
 import '../theme/opencode_theme.dart';
@@ -214,7 +215,7 @@ class _MarkdownFileEditorScreenState extends State<MarkdownFileEditorScreen> {
                           child: Text(
                             widget.path!,
                             overflow: TextOverflow.ellipsis,
-                            style: TextStyle(color: oc.textMuted, fontSize: 12),
+                            style: AppTypography.label(color: oc.textMuted),
                           ),
                         ),
                     ],
@@ -229,7 +230,7 @@ class _MarkdownFileEditorScreenState extends State<MarkdownFileEditorScreen> {
                       filled: true,
                       fillColor: oc.backgroundPanel,
                       border: OutlineInputBorder(
-                        borderRadius: BorderRadius.circular(12),
+                        borderRadius: Radii.brMd,
                       ),
                     ),
                   ),
@@ -245,18 +246,14 @@ class _MarkdownFileEditorScreenState extends State<MarkdownFileEditorScreen> {
                   expands: true,
                   minLines: null,
                   maxLines: null,
-                  style: TextStyle(
-                    fontFamily: GoogleFonts.jetBrainsMono().fontFamily,
-                    fontSize: 13,
-                    color: oc.text,
-                  ),
+                  style: AppTypography.code(color: oc.text),
                   decoration: InputDecoration(
                     labelText: 'Content',
                     alignLabelWithHint: true,
                     filled: true,
                     fillColor: oc.backgroundPanel,
                     border: OutlineInputBorder(
-                      borderRadius: BorderRadius.circular(12),
+                      borderRadius: Radii.brMd,
                     ),
                   ),
                 ),

@@ -2,7 +2,8 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:google_fonts/google_fonts.dart';
+import '../theme/app_typography.dart';
+import '../theme/design_tokens.dart';
 
 import '../providers/onboarding_provider.dart'
     show onboardingProvider, kDevBypassOnboarding;
@@ -67,7 +68,7 @@ class _BridgeSetupScreenState extends ConsumerState<BridgeSetupScreen>
       backgroundColor: const Color(0xFF0A0A0A),
       body: SafeArea(
         child: Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+          padding: Insets.section,
           child: Column(
             children: [
               // ── Main dark card
@@ -75,7 +76,7 @@ class _BridgeSetupScreenState extends ConsumerState<BridgeSetupScreen>
                 child: Container(
                   decoration: BoxDecoration(
                     color: const Color(0xFF111111),
-                    borderRadius: BorderRadius.circular(24),
+                    borderRadius: Radii.brXxl,
                     border: Border.all(
                       color: Colors.white.withValues(alpha: 0.06),
                     ),
@@ -103,7 +104,7 @@ class _BridgeSetupScreenState extends ConsumerState<BridgeSetupScreen>
                               ),
                             ),
                           ),
-                          const SizedBox(height: 20),
+                          SizedBox(height: Spacing.xl),
                           FadeTransition(
                             opacity: entry,
                             child: _terminalCard(
@@ -114,7 +115,7 @@ class _BridgeSetupScreenState extends ConsumerState<BridgeSetupScreen>
                             ),
                           ),
 
-                          const SizedBox(height: 32),
+                          SizedBox(height: Spacing.xxxl),
 
                           // ── Step 2: Run
                           FadeTransition(
@@ -133,7 +134,7 @@ class _BridgeSetupScreenState extends ConsumerState<BridgeSetupScreen>
                               ),
                             ),
                           ),
-                          const SizedBox(height: 20),
+                          SizedBox(height: Spacing.xl),
                           // Option A: Wizard
                           FadeTransition(
                             opacity: entry,
@@ -146,7 +147,7 @@ class _BridgeSetupScreenState extends ConsumerState<BridgeSetupScreen>
                               command: _wizardCmd,
                             ),
                           ),
-                          const SizedBox(height: 12),
+                          SizedBox(height: Spacing.md),
                           // Option B: Daemon
                           FadeTransition(
                             opacity: entry,
@@ -160,7 +161,7 @@ class _BridgeSetupScreenState extends ConsumerState<BridgeSetupScreen>
                             ),
                           ),
 
-                          const SizedBox(height: 24),
+                          SizedBox(height: Spacing.xxl),
 
                           // ── Info hint
                           FadeTransition(
@@ -172,7 +173,7 @@ class _BridgeSetupScreenState extends ConsumerState<BridgeSetupScreen>
                               ),
                               decoration: BoxDecoration(
                                 color: Colors.white.withValues(alpha: 0.04),
-                                borderRadius: BorderRadius.circular(14),
+                                borderRadius: Radii.brLg,
                                 border: Border.all(
                                   color: Colors.white.withValues(alpha: 0.06),
                                 ),
@@ -184,7 +185,7 @@ class _BridgeSetupScreenState extends ConsumerState<BridgeSetupScreen>
                                     color: Colors.white.withValues(alpha: 0.3),
                                     size: 20,
                                   ),
-                                  const SizedBox(width: 12),
+                                  SizedBox(width: Spacing.md),
                                   Expanded(
                                     child: Text(
                                       'Ensure your Mac and iPhone are on the same Wi-Fi network for the lowest latency.',
@@ -208,7 +209,7 @@ class _BridgeSetupScreenState extends ConsumerState<BridgeSetupScreen>
                 ),
               ),
 
-              const SizedBox(height: 20),
+              SizedBox(height: Spacing.xl),
 
               // ── CTA button
               FadeTransition(
@@ -223,7 +224,7 @@ class _BridgeSetupScreenState extends ConsumerState<BridgeSetupScreen>
                     height: 58,
                     decoration: BoxDecoration(
                       color: Colors.white,
-                      borderRadius: BorderRadius.circular(32),
+                      borderRadius: Radii.brFull,
                     ),
                     child: const Center(
                       child: Text(
@@ -260,7 +261,7 @@ class _BridgeSetupScreenState extends ConsumerState<BridgeSetupScreen>
                   ),
                 ),
               ],
-              const SizedBox(height: 12),
+              SizedBox(height: Spacing.md),
             ],
           ),
         ),
@@ -320,7 +321,7 @@ class _BridgeSetupScreenState extends ConsumerState<BridgeSetupScreen>
     return Container(
       decoration: BoxDecoration(
         color: const Color(0xFF1A1A1A),
-        borderRadius: BorderRadius.circular(14),
+        borderRadius: Radii.brLg,
         border: Border.all(color: Colors.white.withValues(alpha: 0.08)),
       ),
       clipBehavior: Clip.antiAlias,
@@ -329,16 +330,16 @@ class _BridgeSetupScreenState extends ConsumerState<BridgeSetupScreen>
         children: [
           // Title bar
           Container(
-            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+            padding: Insets.section,
             decoration: BoxDecoration(
               color: Colors.white.withValues(alpha: 0.04),
             ),
             child: Row(
               children: [
                 _dot(const Color(0xFFFF5F57)),
-                const SizedBox(width: 8),
+                SizedBox(width: Spacing.sm),
                 _dot(const Color(0xFFFFBD2E)),
-                const SizedBox(width: 8),
+                SizedBox(width: Spacing.sm),
                 _dot(const Color(0xFF28C840)),
                 const Spacer(),
               ],
@@ -358,7 +359,7 @@ class _BridgeSetupScreenState extends ConsumerState<BridgeSetupScreen>
                       style: TextStyle(
                         color: Colors.white.withValues(alpha: 0.3),
                         fontSize: 14,
-                        fontFamily: GoogleFonts.jetBrainsMono().fontFamily,
+                        fontFamily: AppTypography.codeFontFamily,
                         fontWeight: FontWeight.w500,
                       ),
                     ),
@@ -379,7 +380,7 @@ class _BridgeSetupScreenState extends ConsumerState<BridgeSetupScreen>
                     ),
                   ],
                 ),
-                const SizedBox(height: 12),
+                SizedBox(height: Spacing.md),
                 // Command
                 Text.rich(
                   TextSpan(
@@ -389,7 +390,7 @@ class _BridgeSetupScreenState extends ConsumerState<BridgeSetupScreen>
                         style: TextStyle(
                           color: const Color(0xFF2ECB71),
                           fontSize: 15,
-                          fontFamily: GoogleFonts.jetBrainsMono().fontFamily,
+                          fontFamily: AppTypography.codeFontFamily,
                           fontWeight: FontWeight.w600,
                           height: 1.5,
                         ),
@@ -402,7 +403,7 @@ class _BridgeSetupScreenState extends ConsumerState<BridgeSetupScreen>
                               0xFF2ECB71,
                             ).withValues(alpha: 0.75),
                             fontSize: 15,
-                            fontFamily: GoogleFonts.jetBrainsMono().fontFamily,
+                            fontFamily: AppTypography.codeFontFamily,
                             fontWeight: FontWeight.w500,
                             height: 1.5,
                           ),
@@ -419,7 +420,7 @@ class _BridgeSetupScreenState extends ConsumerState<BridgeSetupScreen>
                     height: 18,
                     decoration: BoxDecoration(
                       color: Colors.white.withValues(alpha: 0.5),
-                      borderRadius: BorderRadius.circular(1),
+                      borderRadius: Radii.brXs,
                     ),
                   ),
                 ),
@@ -443,10 +444,10 @@ class _BridgeSetupScreenState extends ConsumerState<BridgeSetupScreen>
     final isCopied = _copiedIndex == index;
 
     return Container(
-      padding: const EdgeInsets.all(16),
+      padding: Insets.card,
       decoration: BoxDecoration(
         color: const Color(0xFF1A1A1A),
-        borderRadius: BorderRadius.circular(14),
+        borderRadius: Radii.brLg,
         border: Border.all(color: Colors.white.withValues(alpha: 0.08)),
       ),
       child: Column(
@@ -466,7 +467,7 @@ class _BridgeSetupScreenState extends ConsumerState<BridgeSetupScreen>
                         fontWeight: FontWeight.w600,
                       ),
                     ),
-                    const SizedBox(height: 4),
+                    SizedBox(height: Spacing.xs),
                     Text(
                       description,
                       style: TextStyle(
@@ -493,14 +494,14 @@ class _BridgeSetupScreenState extends ConsumerState<BridgeSetupScreen>
               ),
             ],
           ),
-          const SizedBox(height: 12),
+          SizedBox(height: Spacing.md),
           // Inline command pill
           Container(
             width: double.infinity,
             padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
             decoration: BoxDecoration(
               color: Colors.black.withValues(alpha: 0.4),
-              borderRadius: BorderRadius.circular(8),
+              borderRadius: Radii.brSm,
             ),
             child: Text.rich(
               TextSpan(
@@ -510,7 +511,7 @@ class _BridgeSetupScreenState extends ConsumerState<BridgeSetupScreen>
                     style: TextStyle(
                       color: Colors.white.withValues(alpha: 0.3),
                       fontSize: 14,
-                      fontFamily: GoogleFonts.jetBrainsMono().fontFamily,
+                      fontFamily: AppTypography.codeFontFamily,
                       fontWeight: FontWeight.w500,
                     ),
                   ),
@@ -519,7 +520,7 @@ class _BridgeSetupScreenState extends ConsumerState<BridgeSetupScreen>
                     style: TextStyle(
                       color: const Color(0xFF2ECB71),
                       fontSize: 14,
-                      fontFamily: GoogleFonts.jetBrainsMono().fontFamily,
+                      fontFamily: AppTypography.codeFontFamily,
                       fontWeight: FontWeight.w600,
                     ),
                   ),
@@ -529,7 +530,7 @@ class _BridgeSetupScreenState extends ConsumerState<BridgeSetupScreen>
                       style: TextStyle(
                         color: const Color(0xFF2ECB71).withValues(alpha: 0.75),
                         fontSize: 14,
-                        fontFamily: GoogleFonts.jetBrainsMono().fontFamily,
+                        fontFamily: AppTypography.codeFontFamily,
                         fontWeight: FontWeight.w500,
                       ),
                     ),

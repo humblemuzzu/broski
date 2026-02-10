@@ -19,6 +19,13 @@ import 'package:google_fonts/google_fonts.dart';
 /// ```
 abstract final class AppTypography {
   static const _fontFamily = 'GeistSans';
+  static const uiFontFamily = 'GeistSans';
+
+  /// Cached code font family name (JetBrains Mono via google_fonts).
+  /// Use this when you need just the fontFamily string inside a TextStyle
+  /// that has other properties you want to keep.
+  static String get codeFontFamily =>
+      GoogleFonts.jetBrainsMono().fontFamily ?? 'JetBrains Mono';
 
   // ── Display & Headings ──
 

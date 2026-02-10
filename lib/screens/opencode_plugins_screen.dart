@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:google_fonts/google_fonts.dart';
+import '../theme/app_typography.dart';
+import '../theme/design_tokens.dart';
 
 import '../models/opencode_plugin_file.dart';
 import '../models/skill.dart';
@@ -106,7 +107,7 @@ class _OpenCodePluginsScreenState extends ConsumerState<OpenCodePluginsScreen> {
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               const Text('Filename'),
-              const SizedBox(height: 8),
+              SizedBox(height: Spacing.sm),
               TextField(
                 controller: filenameController,
                 decoration: const InputDecoration(
@@ -114,9 +115,9 @@ class _OpenCodePluginsScreenState extends ConsumerState<OpenCodePluginsScreen> {
                 ),
                 autofocus: true,
               ),
-              const SizedBox(height: 16),
+              SizedBox(height: Spacing.lg),
               const Text('Location'),
-              const SizedBox(height: 8),
+              SizedBox(height: Spacing.sm),
               DropdownButton<SkillSource>(
                 value: selectedSource,
                 isExpanded: true,
@@ -252,27 +253,27 @@ class _OpenCodePluginsScreenState extends ConsumerState<OpenCodePluginsScreen> {
           : _error != null
           ? Center(
               child: Padding(
-                padding: const EdgeInsets.all(24),
+                padding: Insets.cardLg,
                 child: Text(_error!, style: TextStyle(color: oc.textMuted)),
               ),
             )
           : _files.isEmpty
           ? Center(
               child: Padding(
-                padding: const EdgeInsets.all(24),
+                padding: Insets.cardLg,
                 child: Column(
                   mainAxisAlignment: MainAxisAlignment.center,
                   children: [
                     Icon(Icons.extension_rounded, color: oc.textMuted, size: 56),
-                    const SizedBox(height: 12),
+                    SizedBox(height: Spacing.md),
                     Text('No plugin files', style: TextStyle(color: oc.text)),
-                    const SizedBox(height: 8),
+                    SizedBox(height: Spacing.sm),
                     Text(
                       'Create a plugin file to add OpenCode hooks.',
                       textAlign: TextAlign.center,
                       style: TextStyle(color: oc.textMuted),
                     ),
-                    const SizedBox(height: 16),
+                    SizedBox(height: Spacing.lg),
                     ElevatedButton.icon(
                       onPressed: _create,
                       icon: const Icon(Icons.add_rounded),
@@ -303,7 +304,7 @@ class _OpenCodePluginsScreenState extends ConsumerState<OpenCodePluginsScreen> {
                       color: oc.backgroundElement,
                       margin: const EdgeInsets.only(bottom: 10),
                       shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(12),
+                        borderRadius: Radii.brMd,
                         side: BorderSide(color: oc.border),
                       ),
                       child: ListTile(
@@ -319,7 +320,7 @@ class _OpenCodePluginsScreenState extends ConsumerState<OpenCodePluginsScreen> {
                           f.path,
                           maxLines: 1,
                           overflow: TextOverflow.ellipsis,
-                          style: TextStyle(color: oc.textMuted, fontSize: 12),
+                          style: AppTypography.label(color: oc.textMuted),
                         ),
                         trailing: PopupMenuButton<String>(
                           onSelected: (v) {
@@ -421,17 +422,17 @@ class _PluginEditorScreenState extends State<_PluginEditorScreen> {
         ],
       ),
       body: Padding(
-        padding: const EdgeInsets.all(16),
+        padding: Insets.card,
         child: TextField(
           controller: _controller,
           maxLines: null,
           expands: true,
-          style: TextStyle(fontFamily: GoogleFonts.jetBrainsMono().fontFamily, fontSize: 13),
+          style: AppTypography.code(),
           decoration: InputDecoration(
             filled: true,
             fillColor: oc.backgroundElement,
             border: OutlineInputBorder(
-              borderRadius: BorderRadius.circular(12),
+              borderRadius: Radii.brMd,
               borderSide: BorderSide(color: oc.border),
             ),
           ),

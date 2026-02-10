@@ -2,7 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_highlight/flutter_highlight.dart';
 import 'package:flutter_highlight/themes/atom-one-dark.dart';
-import 'package:google_fonts/google_fonts.dart';
+import '../../theme/app_typography.dart';
+import '../../theme/design_tokens.dart';
 
 import '../../theme/opencode_theme.dart';
 
@@ -28,15 +29,15 @@ class CodeFileViewer extends StatelessWidget {
       child: Column(
         children: [
           Container(
-            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+            padding: Insets.listItemDense,
             color: theme.backgroundPanel,
             child: Row(
               children: [
                 Icon(Icons.code, size: 16, color: theme.textMuted),
-                const SizedBox(width: 8),
+                SizedBox(width: Spacing.sm),
                 Text(
                   '${lines.length} lines',
-                  style: TextStyle(color: theme.textMuted, fontSize: 12),
+                  style: AppTypography.label(color: theme.textMuted),
                 ),
                 const Spacer(),
                 Container(
@@ -46,7 +47,7 @@ class CodeFileViewer extends StatelessWidget {
                   ),
                   decoration: BoxDecoration(
                     color: theme.primary.withValues(alpha: 0.15),
-                    borderRadius: BorderRadius.circular(4),
+                    borderRadius: Radii.brXs,
                   ),
                   child: Text(
                     language.toUpperCase(),
@@ -57,7 +58,7 @@ class CodeFileViewer extends StatelessWidget {
                     ),
                   ),
                 ),
-                const SizedBox(width: 8),
+                SizedBox(width: Spacing.sm),
                 IconButton(
                   icon: Icon(Icons.copy, size: 18, color: theme.textMuted),
                   onPressed: () {
@@ -73,14 +74,14 @@ class CodeFileViewer extends StatelessWidget {
                   },
                   tooltip: 'Copy',
                   constraints: const BoxConstraints(),
-                  padding: const EdgeInsets.all(8),
+                  padding: Insets.cardXs,
                 ),
               ],
             ),
           ),
           Expanded(
             child: SingleChildScrollView(
-              padding: const EdgeInsets.all(16),
+              padding: Insets.card,
               child: SingleChildScrollView(
                 scrollDirection: Axis.horizontal,
                 child: Row(
@@ -94,22 +95,19 @@ class CodeFileViewer extends StatelessWidget {
                           lines.length,
                           (index) => Text(
                             '${index + 1}',
-                            style: GoogleFonts.jetBrainsMono(
-                              fontSize: 13,
+                            style: AppTypography.code(color: theme.textMuted.withValues(alpha: 0.5)).copyWith(
                               height: 1.6,
-                              color: theme.textMuted.withValues(alpha: 0.5),
                             ),
                           ),
                         ),
                       ),
                     ),
-                    const SizedBox(width: 16),
+                    SizedBox(width: Spacing.lg),
                     HighlightView(
                       content,
                       language: language,
                       theme: atomOneDarkTheme,
-                      textStyle: GoogleFonts.jetBrainsMono(
-                        fontSize: 13,
+                      textStyle: AppTypography.code().copyWith(
                         height: 1.6,
                       ),
                       padding: EdgeInsets.zero,

@@ -2,6 +2,7 @@ import 'dart:ui';
 
 import 'package:flutter/material.dart';
 
+import '../theme/design_tokens.dart';
 import '../theme/opencode_theme.dart';
 
 /// Glassmorphic floating island navigation bar
@@ -23,7 +24,7 @@ class GlasmorphicNavBar extends StatelessWidget {
       margin: const EdgeInsets.fromLTRB(20, 0, 20, 16),
       decoration: BoxDecoration(
         color: ocTheme.backgroundPanel.withValues(alpha: 0.7),
-        borderRadius: BorderRadius.circular(24),
+        borderRadius: Radii.brXxl,
         border: Border.all(
           color: ocTheme.borderSubtle.withValues(alpha: 0.3),
           width: 1,
@@ -42,7 +43,7 @@ class GlasmorphicNavBar extends StatelessWidget {
         ],
       ),
       child: ClipRRect(
-        borderRadius: BorderRadius.circular(24),
+        borderRadius: Radii.brXxl,
         child: BackdropFilter(
           filter: ImageFilter.blur(sigmaX: 20, sigmaY: 20),
           child: Container(
@@ -158,7 +159,7 @@ class _GlassNavItemState extends State<_GlassNavItem>
                 Container(
                   decoration: widget.isSelected
                       ? BoxDecoration(
-                          borderRadius: BorderRadius.circular(12),
+                          borderRadius: Radii.brMd,
                           boxShadow: [
                             BoxShadow(
                               color: ocTheme.primary.withValues(alpha: 0.4),
@@ -199,7 +200,7 @@ class _GlassNavItemState extends State<_GlassNavItem>
                     height: 3,
                     decoration: BoxDecoration(
                       color: ocTheme.primary,
-                      borderRadius: BorderRadius.circular(2),
+                      borderRadius: Radii.brXs,
                       boxShadow: [
                         BoxShadow(
                           color: ocTheme.primary.withValues(alpha: 0.5),

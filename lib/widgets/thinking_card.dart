@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
-import 'package:google_fonts/google_fonts.dart';
-
 import '../models/message.dart';
+import '../theme/app_typography.dart';
 import '../theme/design_tokens.dart';
 import '../theme/opencode_theme.dart';
 
@@ -106,7 +105,7 @@ class _ThinkingCardState extends State<ThinkingCard>
                           ),
                         ),
                         if (durationMs != null && !isStreaming) ...[
-                          const SizedBox(width: 8),
+                          SizedBox(width: Spacing.sm),
                           Container(
                             padding: const EdgeInsets.symmetric(
                               horizontal: 6,
@@ -172,7 +171,7 @@ class _ThinkingCardState extends State<ThinkingCard>
       height: 28,
       decoration: BoxDecoration(
         color: thinkingColor.withValues(alpha: 0.12),
-        borderRadius: BorderRadius.circular(6),
+        borderRadius: Radii.brSm,
       ),
       child: Center(
         child: isStreaming
@@ -208,7 +207,7 @@ class _ThinkingCardState extends State<ThinkingCard>
           Container(
             width: double.infinity,
             constraints: const BoxConstraints(maxHeight: 300),
-            padding: const EdgeInsets.all(10),
+            padding: Insets.cardXs,
             decoration: BoxDecoration(
               color: theme.backgroundElement,
               borderRadius: Radii.brSm,
@@ -216,11 +215,8 @@ class _ThinkingCardState extends State<ThinkingCard>
             child: SingleChildScrollView(
               child: SelectableText(
                 reasoningText,
-                style: TextStyle(
-                  color: theme.textMuted,
-                  fontSize: 12,
+                style: AppTypography.codeSmall(color: theme.textMuted).copyWith(
                   height: 1.5,
-                  fontFamily: GoogleFonts.jetBrainsMono().fontFamily,
                 ),
               ),
             ),

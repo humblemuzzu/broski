@@ -2,7 +2,8 @@ import 'dart:convert';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:google_fonts/google_fonts.dart';
+import '../theme/app_typography.dart';
+import '../theme/design_tokens.dart';
 
 import '../models/skill.dart';
 import '../providers/selection_provider.dart';
@@ -297,30 +298,30 @@ class _HooksScreenState extends ConsumerState<HooksScreen>
           : _error != null
           ? Center(
               child: Padding(
-                padding: const EdgeInsets.all(24),
+                padding: Insets.cardLg,
                 child: Text(_error!, style: TextStyle(color: oc.textMuted)),
               ),
             )
           : rows.isEmpty
           ? Center(
               child: Padding(
-                padding: const EdgeInsets.all(24),
+                padding: Insets.cardLg,
                 child: Column(
                   mainAxisAlignment: MainAxisAlignment.center,
                   children: [
                     Icon(Icons.bolt_rounded, color: oc.textMuted, size: 56),
-                    const SizedBox(height: 12),
+                    SizedBox(height: Spacing.md),
                     Text(
                       'No hooks configured',
                       style: TextStyle(color: oc.text),
                     ),
-                    const SizedBox(height: 8),
+                    SizedBox(height: Spacing.sm),
                     Text(
                       'Add hooks to run scripts/commands on events like PreToolUse.',
                       textAlign: TextAlign.center,
                       style: TextStyle(color: oc.textMuted),
                     ),
-                    const SizedBox(height: 16),
+                    SizedBox(height: Spacing.lg),
                     ElevatedButton.icon(
                       onPressed: _addHook,
                       icon: const Icon(Icons.add_rounded),
@@ -341,7 +342,7 @@ class _HooksScreenState extends ConsumerState<HooksScreen>
                   color: oc.backgroundElement,
                   margin: const EdgeInsets.only(bottom: 10),
                   shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(12),
+                    borderRadius: Radii.brMd,
                     side: BorderSide(color: oc.border),
                   ),
                   child: ListTile(
@@ -488,11 +489,11 @@ class _HookEditorScreenState extends State<HookEditorScreen> {
         ],
       ),
       body: Padding(
-        padding: const EdgeInsets.all(16),
+        padding: Insets.card,
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Text('Event', style: TextStyle(color: oc.textMuted, fontSize: 12)),
+            Text('Event', style: AppTypography.label(color: oc.textMuted)),
             const SizedBox(height: 6),
             DropdownButtonFormField<String>(
               value: _selectedEvent,
@@ -500,7 +501,7 @@ class _HookEditorScreenState extends State<HookEditorScreen> {
                 filled: true,
                 fillColor: oc.backgroundElement,
                 border: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(8),
+                  borderRadius: Radii.brSm,
                   borderSide: BorderSide(color: oc.border),
                 ),
               ),
@@ -515,10 +516,10 @@ class _HookEditorScreenState extends State<HookEditorScreen> {
                 }
               },
             ),
-            const SizedBox(height: 16),
+            SizedBox(height: Spacing.lg),
             Text(
               'Matcher Entry JSON',
-              style: TextStyle(color: oc.textMuted, fontSize: 12),
+              style: AppTypography.label(color: oc.textMuted),
             ),
             const SizedBox(height: 6),
             Expanded(
@@ -526,12 +527,12 @@ class _HookEditorScreenState extends State<HookEditorScreen> {
                 controller: _json,
                 maxLines: null,
                 expands: true,
-                style: TextStyle(fontFamily: GoogleFonts.jetBrainsMono().fontFamily, fontSize: 13),
+                style: AppTypography.code(),
                 decoration: InputDecoration(
                   filled: true,
                   fillColor: oc.backgroundElement,
                   border: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(12),
+                    borderRadius: Radii.brMd,
                     borderSide: BorderSide(color: oc.border),
                   ),
                 ),

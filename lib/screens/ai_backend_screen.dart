@@ -4,6 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../models/agent_type.dart';
 import '../providers/agent_type_provider.dart';
 import '../providers/service_providers.dart';
+import '../theme/design_tokens.dart';
 import '../theme/opencode_theme.dart';
 
 /// Screen for selecting the AI backend (OpenCode vs Claude Code vs Codex)
@@ -38,14 +39,14 @@ class AIBackendScreen extends ConsumerWidget {
         ),
       ),
       body: ListView(
-        padding: const EdgeInsets.all(20),
+        padding: Insets.screenAll,
         children: [
           // Info text
           Container(
-            padding: const EdgeInsets.all(16),
+            padding: Insets.card,
             decoration: BoxDecoration(
               color: ocTheme.backgroundPanel,
-              borderRadius: BorderRadius.circular(12),
+              borderRadius: Radii.brMd,
               border: Border.all(color: ocTheme.borderSubtle),
             ),
             child: Row(
@@ -55,7 +56,7 @@ class AIBackendScreen extends ConsumerWidget {
                   color: theme.colorScheme.primary,
                   size: 20,
                 ),
-                const SizedBox(width: 12),
+                SizedBox(width: Spacing.md),
                 Expanded(
                   child: Text(
                     'Select which AI agent to use for coding tasks. Each backend has different capabilities and requirements.',
@@ -70,7 +71,7 @@ class AIBackendScreen extends ConsumerWidget {
             ),
           ),
 
-          const SizedBox(height: 24),
+          SizedBox(height: Spacing.xxl),
 
           // OpenCode Option
           _AgentCard(
@@ -88,7 +89,7 @@ class AIBackendScreen extends ConsumerWidget {
             onTap: () => _selectAgent(ref, AgentType.opencode),
           ),
 
-          const SizedBox(height: 16),
+          SizedBox(height: Spacing.lg),
 
           // Claude Code Option
           _AgentCard(
@@ -106,7 +107,7 @@ class AIBackendScreen extends ConsumerWidget {
             onTap: () => _selectAgent(ref, AgentType.claudeCode),
           ),
 
-          const SizedBox(height: 16),
+          SizedBox(height: Spacing.lg),
 
           // Codex Option
           _AgentCard(
@@ -124,14 +125,14 @@ class AIBackendScreen extends ConsumerWidget {
             onTap: () => _selectAgent(ref, AgentType.codex),
           ),
 
-          const SizedBox(height: 32),
+          SizedBox(height: Spacing.xxxl),
 
           // Current selection indicator
           Container(
-            padding: const EdgeInsets.all(16),
+            padding: Insets.card,
             decoration: BoxDecoration(
               color: theme.colorScheme.primary.withValues(alpha: 0.1),
-              borderRadius: BorderRadius.circular(12),
+              borderRadius: Radii.brMd,
               border: Border.all(
                 color: theme.colorScheme.primary.withValues(alpha: 0.3),
               ),
@@ -143,7 +144,7 @@ class AIBackendScreen extends ConsumerWidget {
                   color: theme.colorScheme.primary,
                   size: 20,
                 ),
-                const SizedBox(width: 12),
+                SizedBox(width: Spacing.md),
                 Text(
                   'Currently using: ',
                   style: TextStyle(
@@ -202,13 +203,13 @@ class _AgentCard extends StatelessWidget {
 
     return InkWell(
       onTap: onTap,
-      borderRadius: BorderRadius.circular(16),
+      borderRadius: Radii.brLg,
       child: AnimatedContainer(
         duration: const Duration(milliseconds: 200),
-        padding: const EdgeInsets.all(20),
+        padding: Insets.screenAll,
         decoration: BoxDecoration(
           color: ocTheme.backgroundPanel,
-          borderRadius: BorderRadius.circular(16),
+          borderRadius: Radii.brLg,
           border: Border.all(
             color: isSelected
                 ? theme.colorScheme.primary
@@ -224,12 +225,12 @@ class _AgentCard extends StatelessWidget {
               children: [
                 // Icon
                 Container(
-                  padding: const EdgeInsets.all(12),
+                  padding: Insets.cardSm,
                   decoration: BoxDecoration(
                     color: isSelected
                         ? theme.colorScheme.primary.withValues(alpha: 0.15)
                         : ocTheme.bgRaised,
-                    borderRadius: BorderRadius.circular(12),
+                    borderRadius: Radii.brMd,
                   ),
                   child: Icon(
                     icon,
@@ -239,7 +240,7 @@ class _AgentCard extends StatelessWidget {
                     size: 24,
                   ),
                 ),
-                const SizedBox(width: 16),
+                SizedBox(width: Spacing.lg),
                 // Title and subtitle
                 Expanded(
                   child: Column(
@@ -253,7 +254,7 @@ class _AgentCard extends StatelessWidget {
                           fontWeight: FontWeight.w700,
                         ),
                       ),
-                      const SizedBox(height: 4),
+                      SizedBox(height: Spacing.xs),
                       Text(
                         subtitle,
                         style: TextStyle(
@@ -293,12 +294,12 @@ class _AgentCard extends StatelessWidget {
               ],
             ),
 
-            const SizedBox(height: 16),
+            SizedBox(height: Spacing.lg),
 
             // Features list
             ...features.map(
               (feature) => Padding(
-                padding: const EdgeInsets.only(bottom: 8),
+                padding: Insets.bottomSm,
                 child: Row(
                   children: [
                     Icon(

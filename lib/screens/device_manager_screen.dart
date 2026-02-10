@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../models/device.dart';
 import '../providers/connection_provider.dart';
+import '../theme/design_tokens.dart';
 import '../theme/opencode_theme.dart';
 
 class DeviceManagerScreen extends ConsumerStatefulWidget {
@@ -110,17 +111,17 @@ class _DeviceManagerScreenState extends ConsumerState<DeviceManagerScreen> {
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
             Icon(Icons.error_outline, size: 48, color: ocTheme.error),
-            const SizedBox(height: 16),
+            SizedBox(height: Spacing.lg),
             Text(
               'Failed to load devices',
               style: TextStyle(color: ocTheme.text),
             ),
-            const SizedBox(height: 8),
+            SizedBox(height: Spacing.sm),
             Text(
               _error!,
               style: TextStyle(color: ocTheme.textMuted, fontSize: 12),
             ),
-            const SizedBox(height: 16),
+            SizedBox(height: Spacing.lg),
             ElevatedButton(onPressed: _loadDevices, child: const Text('Retry')),
           ],
         ),
@@ -133,7 +134,7 @@ class _DeviceManagerScreenState extends ConsumerState<DeviceManagerScreen> {
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
             Icon(Icons.devices, size: 48, color: ocTheme.textMuted),
-            const SizedBox(height: 16),
+            SizedBox(height: Spacing.lg),
             Text(
               'No devices connected',
               style: TextStyle(color: ocTheme.textMuted),
@@ -153,7 +154,7 @@ class _DeviceManagerScreenState extends ConsumerState<DeviceManagerScreen> {
     return RefreshIndicator(
       onRefresh: _loadDevices,
       child: ListView.builder(
-        padding: const EdgeInsets.all(16),
+        padding: Insets.card,
         itemCount: sortedDevices.length,
         itemBuilder: (context, index) {
           final device = sortedDevices[index];
@@ -217,15 +218,15 @@ class _DeviceCard extends StatelessWidget {
   Widget build(BuildContext context) {
     return Card(
       color: ocTheme.backgroundPanel,
-      margin: const EdgeInsets.only(bottom: 12),
+      margin: Insets.bottomMd,
       shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(12),
+        borderRadius: Radii.brMd,
         side: isThisDevice
             ? BorderSide(color: ocTheme.primary, width: 2)
             : BorderSide(color: ocTheme.border),
       ),
       child: Padding(
-        padding: const EdgeInsets.all(16),
+        padding: Insets.card,
         child: Row(
           children: [
             Container(
@@ -233,7 +234,7 @@ class _DeviceCard extends StatelessWidget {
               height: 48,
               decoration: BoxDecoration(
                 color: ocTheme.backgroundElement,
-                borderRadius: BorderRadius.circular(12),
+                borderRadius: Radii.brMd,
               ),
               child: Icon(
                 _getPlatformIcon(),
@@ -241,7 +242,7 @@ class _DeviceCard extends StatelessWidget {
                 size: 24,
               ),
             ),
-            const SizedBox(width: 16),
+            SizedBox(width: Spacing.lg),
             Expanded(
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
@@ -266,7 +267,7 @@ class _DeviceCard extends StatelessWidget {
                           ),
                           decoration: BoxDecoration(
                             color: ocTheme.primary.withValues(alpha: 0.2),
-                            borderRadius: BorderRadius.circular(4),
+                            borderRadius: Radii.brXs,
                           ),
                           child: Text(
                             'This Device',
@@ -279,7 +280,7 @@ class _DeviceCard extends StatelessWidget {
                         ),
                     ],
                   ),
-                  const SizedBox(height: 4),
+                  SizedBox(height: Spacing.xs),
                   Row(
                     children: [
                       Container(
@@ -299,7 +300,7 @@ class _DeviceCard extends StatelessWidget {
                         ),
                       ),
                       if (device.rttMs > 0) ...[
-                        const SizedBox(width: 8),
+                        SizedBox(width: Spacing.sm),
                         Text(
                           '${device.rttMs}ms',
                           style: TextStyle(
@@ -310,13 +311,13 @@ class _DeviceCard extends StatelessWidget {
                       ],
                     ],
                   ),
-                  const SizedBox(height: 2),
+                  SizedBox(height: Spacing.xxs),
                   Text(
                     'Connected ${device.connectedDurationText}',
                     style: TextStyle(color: ocTheme.textMuted, fontSize: 12),
                   ),
                   if (device.currentView != null) ...[
-                    const SizedBox(height: 4),
+                    SizedBox(height: Spacing.xs),
                     Text(
                       device.currentView!.sessionId != null
                           ? 'Viewing session'

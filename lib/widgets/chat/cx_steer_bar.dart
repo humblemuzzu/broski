@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../../theme/design_tokens.dart';
 
 /// A secondary input bar shown above the main prompt when the Codex agent is
 /// actively working. Lets the user "steer" (nudge) the agent mid-turn without
@@ -63,7 +64,7 @@ class _CxSteerBarState extends State<CxSteerBar> {
           Row(
             children: [
               Icon(Icons.bolt_rounded, size: 14, color: widget.primaryColor),
-              const SizedBox(width: 4),
+              SizedBox(width: Spacing.xs),
               Text(
                 'Agent is working — steer or abort',
                 style: TextStyle(
@@ -98,19 +99,19 @@ class _CxSteerBarState extends State<CxSteerBar> {
                       filled: true,
                       fillColor: widget.surfaceColor,
                       border: OutlineInputBorder(
-                        borderRadius: BorderRadius.circular(8),
+                        borderRadius: Radii.brSm,
                         borderSide: BorderSide(
                           color: widget.primaryColor.withValues(alpha: 0.3),
                         ),
                       ),
                       enabledBorder: OutlineInputBorder(
-                        borderRadius: BorderRadius.circular(8),
+                        borderRadius: Radii.brSm,
                         borderSide: BorderSide(
                           color: widget.primaryColor.withValues(alpha: 0.3),
                         ),
                       ),
                       focusedBorder: OutlineInputBorder(
-                        borderRadius: BorderRadius.circular(8),
+                        borderRadius: Radii.brSm,
                         borderSide: BorderSide(
                           color: widget.primaryColor,
                         ),
@@ -121,7 +122,7 @@ class _CxSteerBarState extends State<CxSteerBar> {
                   ),
                 ),
               ),
-              const SizedBox(width: 8),
+              SizedBox(width: Spacing.sm),
               SizedBox(
                 height: 36,
                 width: 36,

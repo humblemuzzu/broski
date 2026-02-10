@@ -1,5 +1,6 @@
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
+import '../theme/app_typography.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:url_launcher/url_launcher.dart';
@@ -9,6 +10,7 @@ import '../providers/app_subscription_provider.dart';
 import '../providers/connection_provider.dart';
 import '../providers/onboarding_provider.dart'
     show onboardingProvider, kDevBypassOnboarding;
+import '../theme/design_tokens.dart';
 import '../theme/opencode_theme.dart';
 
 class PaywallScreen extends ConsumerWidget {
@@ -58,7 +60,7 @@ class PaywallScreen extends ConsumerWidget {
         child: Stack(
           children: [
             Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+              padding: Insets.section,
               child: Column(
                 children: [
                   // Main card with background image
@@ -66,7 +68,7 @@ class PaywallScreen extends ConsumerWidget {
                     child: Container(
                       decoration: BoxDecoration(
                         color: const Color(0xFF111111),
-                        borderRadius: BorderRadius.circular(24),
+                        borderRadius: Radii.brXxl,
                         border: Border.all(
                           color: Colors.white.withValues(alpha: 0.06),
                           width: 1,
@@ -144,7 +146,7 @@ class PaywallScreen extends ConsumerWidget {
                                     ),
                                   ),
                                 ),
-                                const SizedBox(height: 12),
+                                SizedBox(height: Spacing.md),
                                 // Subtitle
                                 Text(
                                   'Ship from anywhere, 24/7.',
@@ -161,32 +163,32 @@ class PaywallScreen extends ConsumerWidget {
                                   icon: Icons.all_inclusive_rounded,
                                   label: 'Unlimited Sessions',
                                 ),
-                                const SizedBox(height: 24),
+                                SizedBox(height: Spacing.xxl),
                                 _FeatureItem(
                                   icon: Icons.developer_board_rounded,
                                   label: 'Multi-Provider Support',
                                 ),
-                                const SizedBox(height: 24),
+                                SizedBox(height: Spacing.xxl),
                                 _FeatureItem(
                                   icon: Icons.bolt_rounded,
                                   label: 'Real-Time Sync',
                                 ),
-                                const SizedBox(height: 24),
+                                SizedBox(height: Spacing.xxl),
                                 _FeatureItem(
                                   icon: Icons.terminal_rounded,
                                   label: 'Full Terminal Access',
                                 ),
-                                const SizedBox(height: 24),
+                                SizedBox(height: Spacing.xxl),
                                 _FeatureItem(
                                   icon: Icons.mic_rounded,
                                   label: 'Voice-to-Code Input',
                                 ),
-                                const SizedBox(height: 24),
+                                SizedBox(height: Spacing.xxl),
                                 _FeatureItem(
                                   icon: Icons.notifications_active_rounded,
                                   label: 'Push Notifications & Alerts',
                                 ),
-                                const SizedBox(height: 24),
+                                SizedBox(height: Spacing.xxl),
                                 _FeatureItem(
                                   icon: Icons.verified_user_outlined,
                                   label: 'Advanced Local Security',
@@ -198,10 +200,10 @@ class PaywallScreen extends ConsumerWidget {
                       ),
                     ),
                   ),
-                  const SizedBox(height: 20),
+                  SizedBox(height: Spacing.xl),
                   // Bottom pricing section
                   Padding(
-                    padding: const EdgeInsets.symmetric(horizontal: 12),
+                    padding: Insets.cardH,
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
@@ -221,7 +223,7 @@ class PaywallScreen extends ConsumerWidget {
                                     letterSpacing: 1.5,
                                   ),
                                 ),
-                                const SizedBox(height: 4),
+                                SizedBox(height: Spacing.xs),
                                 Row(
                                   crossAxisAlignment:
                                       CrossAxisAlignment.baseline,
@@ -259,7 +261,7 @@ class PaywallScreen extends ConsumerWidget {
                                 vertical: 8,
                               ),
                               decoration: BoxDecoration(
-                                borderRadius: BorderRadius.circular(20),
+                                borderRadius: Radii.brXl,
                                 border: Border.all(
                                   color: Colors.white.withValues(alpha: 0.15),
                                   width: 1,
@@ -276,15 +278,15 @@ class PaywallScreen extends ConsumerWidget {
                             ),
                           ],
                         ),
-                        const SizedBox(height: 20),
+                        SizedBox(height: Spacing.xl),
                         // Error message
                         if (sub.error != null) ...[
                           Text(
                             sub.error!,
-                            style: TextStyle(color: theme.error, fontSize: 13),
+                            style: AppTypography.bodySmall(color: theme.error),
                             textAlign: TextAlign.center,
                           ),
-                          const SizedBox(height: 8),
+                          SizedBox(height: Spacing.sm),
                         ],
                         // Subscribe button
                         GestureDetector(
@@ -298,7 +300,7 @@ class PaywallScreen extends ConsumerWidget {
                             height: 58,
                             decoration: BoxDecoration(
                               color: Colors.white,
-                              borderRadius: BorderRadius.circular(32),
+                              borderRadius: Radii.brFull,
                             ),
                             child: Center(
                               child: AnimatedSwitcher(
@@ -443,7 +445,7 @@ class PaywallScreen extends ConsumerWidget {
                           ],
                         ),
                         // Sign out + restore purchases links
-                        const SizedBox(height: 8),
+                        SizedBox(height: Spacing.sm),
                         Row(
                           mainAxisAlignment: MainAxisAlignment.center,
                           children: [
@@ -492,10 +494,10 @@ class PaywallScreen extends ConsumerWidget {
                             ),
                           ],
                         ),
-                        const SizedBox(height: 8),
+                        SizedBox(height: Spacing.sm),
                         // DEV BYPASS: skip paywall button (only in debug builds)
                         if (kDebugMode && kDevBypassOnboarding) ...[
-                          const SizedBox(height: 8),
+                          SizedBox(height: Spacing.sm),
                           Center(
                             child: GestureDetector(
                               onTap: () {
@@ -562,7 +564,7 @@ class _FeatureItem extends StatelessWidget {
     return Row(
       children: [
         Icon(icon, color: Colors.white.withValues(alpha: 0.7), size: 24),
-        const SizedBox(width: 16),
+        SizedBox(width: Spacing.lg),
         Text(
           label,
           style: TextStyle(

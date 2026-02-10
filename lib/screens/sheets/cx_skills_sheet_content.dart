@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
+import '../../theme/app_typography.dart';
 
 import '../../services/bridge_service.dart';
+import '../../theme/design_tokens.dart';
 import '../../theme/opencode_theme.dart';
 
 /// Content widget for the Codex Skills sheet.
@@ -83,13 +85,13 @@ class _CxSkillsSheetContentState extends State<CxSkillsSheetContent> {
     final theme = widget.theme;
 
     return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 16),
+      padding: Insets.screenH,
       child: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
           // Browse Remote button
           Padding(
-            padding: const EdgeInsets.only(bottom: 12),
+            padding: Insets.bottomMd,
             child: Align(
               alignment: Alignment.centerRight,
               child: TextButton.icon(
@@ -97,7 +99,7 @@ class _CxSkillsSheetContentState extends State<CxSkillsSheetContent> {
                 icon: Icon(Icons.explore_rounded, size: 16, color: theme.primary),
                 label: Text(
                   'Browse Remote',
-                  style: TextStyle(color: theme.primary, fontSize: 13),
+                  style: AppTypography.bodySmall(color: theme.primary),
                 ),
               ),
             ),
@@ -110,18 +112,18 @@ class _CxSkillsSheetContentState extends State<CxSkillsSheetContent> {
             )
           else if (_error != null)
             Padding(
-              padding: const EdgeInsets.symmetric(vertical: 16),
+              padding: Insets.screenV,
               child: Text(
                 'Failed to load skills: $_error',
-                style: TextStyle(color: theme.textMuted, fontSize: 12),
+                style: AppTypography.label(color: theme.textMuted),
               ),
             )
           else if (_data == null || _data!.isEmpty)
             Padding(
-              padding: const EdgeInsets.symmetric(vertical: 16),
+              padding: Insets.screenV,
               child: Text(
                 'No skills found for this project.',
-                style: TextStyle(color: theme.textMuted, fontSize: 13),
+                style: AppTypography.bodySmall(color: theme.textMuted),
               ),
             )
           else
@@ -135,7 +137,7 @@ class _CxSkillsSheetContentState extends State<CxSkillsSheetContent> {
                   .toList();
 
               return Padding(
-                padding: const EdgeInsets.only(bottom: 12),
+                padding: Insets.bottomMd,
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
@@ -148,7 +150,7 @@ class _CxSkillsSheetContentState extends State<CxSkillsSheetContent> {
                           fontWeight: FontWeight.w600,
                         ),
                       ),
-                    const SizedBox(height: 8),
+                    SizedBox(height: Spacing.sm),
                     for (final s in skills)
                       _buildSkillTile(s, theme),
                     for (final e in errors)
@@ -156,7 +158,7 @@ class _CxSkillsSheetContentState extends State<CxSkillsSheetContent> {
                         padding: const EdgeInsets.only(top: 6),
                         child: Text(
                           'Error: ${(e['message'] ?? '').toString()}',
-                          style: TextStyle(color: theme.error, fontSize: 12),
+                          style: AppTypography.label(color: theme.error),
                         ),
                       ),
                   ],
@@ -198,7 +200,7 @@ class _CxSkillsSheetContentState extends State<CxSkillsSheetContent> {
               description,
               maxLines: 2,
               overflow: TextOverflow.ellipsis,
-              style: TextStyle(color: theme.textMuted, fontSize: 12),
+              style: AppTypography.label(color: theme.textMuted),
             )
           : null,
       trailing: Row(
@@ -209,7 +211,7 @@ class _CxSkillsSheetContentState extends State<CxSkillsSheetContent> {
               padding: const EdgeInsets.only(right: 8),
               child: Text(
                 scope,
-                style: TextStyle(color: theme.textMuted, fontSize: 11),
+                style: AppTypography.caption(color: theme.textMuted),
               ),
             ),
           if (path.isNotEmpty)

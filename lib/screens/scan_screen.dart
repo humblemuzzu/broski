@@ -14,6 +14,7 @@ import '../providers/onboarding_provider.dart'
     show onboardingProvider, kDevBypassOnboarding;
 import '../widgets/chat/detail_sheet.dart';
 import '../widgets/onboarding_widgets.dart';
+import '../theme/design_tokens.dart';
 
 
 class ScanScreen extends ConsumerStatefulWidget {
@@ -116,7 +117,7 @@ class _ScanScreenState extends ConsumerState<ScanScreen>
             backgroundColor: Colors.white.withValues(alpha: 0.1),
             behavior: SnackBarBehavior.floating,
             shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(12),
+              borderRadius: Radii.brMd,
             ),
           ),
         );
@@ -130,7 +131,7 @@ class _ScanScreenState extends ConsumerState<ScanScreen>
             backgroundColor: Colors.red.withValues(alpha: 0.8),
             behavior: SnackBarBehavior.floating,
             shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(12),
+              borderRadius: Radii.brMd,
             ),
           ),
         );
@@ -234,7 +235,7 @@ class _ScanScreenState extends ConsumerState<ScanScreen>
                           onTap: _toggleFlash,
                           isActive: _flashOn,
                         ),
-                        const SizedBox(width: 16),
+                        SizedBox(width: Spacing.lg),
                         // Camera active indicator
                         Container(
                           padding: const EdgeInsets.symmetric(
@@ -243,7 +244,7 @@ class _ScanScreenState extends ConsumerState<ScanScreen>
                           ),
                           decoration: BoxDecoration(
                             color: Colors.white.withValues(alpha: 0.1),
-                            borderRadius: BorderRadius.circular(20),
+                            borderRadius: Radii.brXl,
                           ),
                           child: Text(
                             'CAMERA ACTIVE',
@@ -255,7 +256,7 @@ class _ScanScreenState extends ConsumerState<ScanScreen>
                             ),
                           ),
                         ),
-                        const SizedBox(width: 16),
+                        SizedBox(width: Spacing.lg),
                         // Close / back button
                         _ControlButton(
                           icon: Icons.close_rounded,
@@ -263,7 +264,7 @@ class _ScanScreenState extends ConsumerState<ScanScreen>
                         ),
                       ],
                     ),
-                    const SizedBox(height: 20),
+                    SizedBox(height: Spacing.xl),
                     // Gallery upload row
                     Row(
                       children: [
@@ -274,7 +275,7 @@ class _ScanScreenState extends ConsumerState<ScanScreen>
                               height: 50,
                               decoration: BoxDecoration(
                                 color: Colors.white.withValues(alpha: 0.08),
-                                borderRadius: BorderRadius.circular(14),
+                                borderRadius: Radii.brLg,
                                 border: Border.all(
                                   color: Colors.white.withValues(alpha: 0.1),
                                 ),
@@ -319,7 +320,7 @@ class _ScanScreenState extends ConsumerState<ScanScreen>
                             ),
                           ),
                         ),
-                        const SizedBox(width: 12),
+                        SizedBox(width: Spacing.md),
                         // Manual entry
                         GestureDetector(
                           onTap: () => _showManualEntry(context),
@@ -328,7 +329,7 @@ class _ScanScreenState extends ConsumerState<ScanScreen>
                             width: 50,
                             decoration: BoxDecoration(
                               color: Colors.white.withValues(alpha: 0.08),
-                              borderRadius: BorderRadius.circular(14),
+                              borderRadius: Radii.brLg,
                               border: Border.all(
                                 color: Colors.white.withValues(alpha: 0.1),
                               ),
@@ -430,7 +431,7 @@ class _ScanScreenState extends ConsumerState<ScanScreen>
                   ),
                   decoration: BoxDecoration(
                     color: const Color(0xFF2ECB71).withValues(alpha: 0.15),
-                    borderRadius: BorderRadius.circular(12),
+                    borderRadius: Radii.brMd,
                     border: Border.all(
                       color: const Color(0xFF2ECB71).withValues(alpha: 0.3),
                     ),
@@ -443,7 +444,7 @@ class _ScanScreenState extends ConsumerState<ScanScreen>
                         color: const Color(0xFF2ECB71),
                         size: 18,
                       ),
-                      const SizedBox(width: 8),
+                      SizedBox(width: Spacing.sm),
                       Text(
                         'Paste QR Code Data from Clipboard',
                         style: TextStyle(
@@ -457,7 +458,7 @@ class _ScanScreenState extends ConsumerState<ScanScreen>
                 ),
               ),
               if (parseError != null) ...[
-                const SizedBox(height: 8),
+                SizedBox(height: Spacing.sm),
                 Text(
                   parseError!,
                   style: TextStyle(
@@ -466,7 +467,7 @@ class _ScanScreenState extends ConsumerState<ScanScreen>
                   ),
                 ),
               ],
-              const SizedBox(height: 16),
+              SizedBox(height: Spacing.lg),
               // Divider with "or enter manually"
               Row(
                 children: [
@@ -477,7 +478,7 @@ class _ScanScreenState extends ConsumerState<ScanScreen>
                     ),
                   ),
                   Padding(
-                    padding: const EdgeInsets.symmetric(horizontal: 12),
+                    padding: Insets.cardH,
                     child: Text(
                       'or enter manually',
                       style: TextStyle(
@@ -494,28 +495,28 @@ class _ScanScreenState extends ConsumerState<ScanScreen>
                   ),
                 ],
               ),
-              const SizedBox(height: 16),
+              SizedBox(height: Spacing.lg),
               _buildTextField(
                 controller: hostController,
                 label: 'Host (IP or hostname)',
                 hint: '192.168.1.100 or hostname.ts.net',
                 keyboardType: TextInputType.url,
               ),
-              const SizedBox(height: 12),
+              SizedBox(height: Spacing.md),
               _buildTextField(
                 controller: portController,
                 label: 'Port',
                 hint: '18274',
                 keyboardType: TextInputType.number,
               ),
-              const SizedBox(height: 12),
+              SizedBox(height: Spacing.md),
               _buildTextField(
                 controller: tokenController,
                 label: 'Auth Token',
                 hint: 'Required for connection',
                 keyboardType: TextInputType.visiblePassword,
               ),
-              const SizedBox(height: 12),
+              SizedBox(height: Spacing.md),
               // TLS toggle
               GestureDetector(
                 onTap: () => setSheetState(() => useTls = !useTls),
@@ -526,7 +527,7 @@ class _ScanScreenState extends ConsumerState<ScanScreen>
                   ),
                   decoration: BoxDecoration(
                     color: Colors.white.withValues(alpha: 0.06),
-                    borderRadius: BorderRadius.circular(12),
+                    borderRadius: Radii.brMd,
                     border: Border.all(
                       color: Colors.white.withValues(alpha: 0.1),
                     ),
@@ -540,7 +541,7 @@ class _ScanScreenState extends ConsumerState<ScanScreen>
                             : Colors.white.withValues(alpha: 0.5),
                         size: 20,
                       ),
-                      const SizedBox(width: 12),
+                      SizedBox(width: Spacing.md),
                       Expanded(
                         child: Text(
                           'Use TLS (wss://)',
@@ -557,7 +558,7 @@ class _ScanScreenState extends ConsumerState<ScanScreen>
                           color: useTls
                               ? const Color(0xFF2ECB71)
                               : Colors.white.withValues(alpha: 0.1),
-                          borderRadius: BorderRadius.circular(13),
+                          borderRadius: Radii.brMd,
                         ),
                         child: AnimatedAlign(
                           duration: const Duration(milliseconds: 150),
@@ -579,7 +580,7 @@ class _ScanScreenState extends ConsumerState<ScanScreen>
                   ),
                 ),
               ),
-              const SizedBox(height: 16),
+              SizedBox(height: Spacing.lg),
               OnboardingButton(
                 label: 'Connect',
                 onPressed: () {
@@ -599,7 +600,7 @@ class _ScanScreenState extends ConsumerState<ScanScreen>
                   );
                 },
               ),
-              const SizedBox(height: 8),
+              SizedBox(height: Spacing.sm),
               Center(
                 child: Text(
                   'Run "broski show-token" in terminal to get the auth token',
@@ -638,11 +639,11 @@ class _ScanScreenState extends ConsumerState<ScanScreen>
             fontWeight: FontWeight.w500,
           ),
         ),
-        const SizedBox(height: 8),
+        SizedBox(height: Spacing.sm),
         Container(
           decoration: BoxDecoration(
             color: Colors.white.withValues(alpha: 0.06),
-            borderRadius: BorderRadius.circular(12),
+            borderRadius: Radii.brMd,
             border: Border.all(color: Colors.white.withValues(alpha: 0.1)),
           ),
           child: TextField(
@@ -752,7 +753,7 @@ class _ScanOverlay extends StatelessWidget {
                     ],
                     stops: const [0.0, 0.2, 0.5, 0.8, 1.0],
                   ),
-                  borderRadius: BorderRadius.circular(1),
+                  borderRadius: Radii.brXs,
                   boxShadow: [
                     BoxShadow(
                       color: const Color(0xFF2ECB71).withValues(alpha: 0.4),

@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:google_fonts/google_fonts.dart';
+import '../theme/app_typography.dart';
+import '../theme/design_tokens.dart';
 
 import '../providers/theme_provider.dart';
 import '../theme/opencode_theme.dart';
@@ -117,7 +118,7 @@ class _ThemeSelectorScreenState extends ConsumerState<ThemeSelectorScreen> {
               children: [
                 // Search bar
                 Padding(
-                  padding: const EdgeInsets.all(12),
+                  padding: Insets.cardSm,
                   child: TextField(
                     controller: _searchController,
                     style: TextStyle(color: previewTheme.text),
@@ -131,7 +132,7 @@ class _ThemeSelectorScreenState extends ConsumerState<ThemeSelectorScreen> {
                       filled: true,
                       fillColor: previewTheme.backgroundElement,
                       border: OutlineInputBorder(
-                        borderRadius: BorderRadius.circular(12),
+                        borderRadius: Radii.brMd,
                         borderSide: BorderSide.none,
                       ),
                       contentPadding: const EdgeInsets.symmetric(
@@ -145,7 +146,7 @@ class _ThemeSelectorScreenState extends ConsumerState<ThemeSelectorScreen> {
                 // Theme list with sections
                 Expanded(
                   child: ListView.builder(
-                    padding: const EdgeInsets.symmetric(horizontal: 12),
+                    padding: Insets.cardH,
                     itemCount: _buildSectionedList(filteredThemes).length,
                     itemBuilder: (context, index) {
                       final item = _buildSectionedList(filteredThemes)[index];
@@ -195,7 +196,7 @@ class _ThemePreview extends StatelessWidget {
   Widget build(BuildContext context) {
     return Container(
       color: theme.background,
-      padding: const EdgeInsets.all(16),
+      padding: Insets.card,
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -210,7 +211,7 @@ class _ThemePreview extends StatelessWidget {
                   shape: BoxShape.circle,
                 ),
               ),
-              const SizedBox(width: 8),
+              SizedBox(width: Spacing.sm),
               Text(
                 themeName,
                 style: TextStyle(
@@ -220,15 +221,15 @@ class _ThemePreview extends StatelessWidget {
                 ),
               ),
               if (themeDescription != null) ...[
-                const SizedBox(width: 8),
+                SizedBox(width: Spacing.sm),
                 Text(
                   '- $themeDescription',
-                  style: TextStyle(color: theme.textMuted, fontSize: 14),
+                  style: AppTypography.labelLarge(color: theme.textMuted),
                 ),
               ],
             ],
           ),
-          const SizedBox(height: 16),
+          SizedBox(height: Spacing.lg),
           // Sample components
           Expanded(
             child: SingleChildScrollView(
@@ -251,7 +252,7 @@ class _ThemePreview extends StatelessWidget {
                             ),
                             decoration: BoxDecoration(
                               color: theme.primary,
-                              borderRadius: BorderRadius.circular(16),
+                              borderRadius: Radii.brLg,
                             ),
                             child: Text(
                               'Hello! How are you?',
@@ -271,7 +272,7 @@ class _ThemePreview extends StatelessWidget {
                           ),
                           decoration: BoxDecoration(
                             color: theme.backgroundPanel,
-                            borderRadius: BorderRadius.circular(16),
+                            borderRadius: Radii.brLg,
                             border: Border.all(color: theme.borderSubtle),
                           ),
                           child: Column(
@@ -284,20 +285,16 @@ class _ThemePreview extends StatelessWidget {
                                   fontSize: 14,
                                 ),
                               ),
-                              const SizedBox(height: 8),
+                              SizedBox(height: Spacing.sm),
                               Container(
-                                padding: const EdgeInsets.all(10),
+                                padding: Insets.cardXs,
                                 decoration: BoxDecoration(
                                   color: theme.backgroundElement,
-                                  borderRadius: BorderRadius.circular(8),
+                                  borderRadius: Radii.brSm,
                                 ),
                                 child: Text(
                                   'const greeting = "Hello";',
-                                  style: TextStyle(
-                                    fontFamily: GoogleFonts.jetBrainsMono().fontFamily,
-                                    color: theme.syntaxString,
-                                    fontSize: 12,
-                                  ),
+                                  style: AppTypography.codeSmall(color: theme.syntaxString),
                                 ),
                               ),
                             ],
@@ -306,7 +303,7 @@ class _ThemePreview extends StatelessWidget {
                       ],
                     ),
                   ),
-                  const SizedBox(height: 12),
+                  SizedBox(height: Spacing.md),
                   // Status indicators
                   _PreviewCard(
                     theme: theme,
@@ -336,7 +333,7 @@ class _ThemePreview extends StatelessWidget {
                       ],
                     ),
                   ),
-                  const SizedBox(height: 12),
+                  SizedBox(height: Spacing.md),
                   // Diff preview
                   _PreviewCard(
                     theme: theme,
@@ -350,9 +347,9 @@ class _ThemePreview extends StatelessWidget {
                             fontSize: 12,
                           ),
                         ),
-                        const SizedBox(height: 8),
+                        SizedBox(height: Spacing.sm),
                         Container(
-                          padding: const EdgeInsets.all(8),
+                          padding: Insets.cardXs,
                           decoration: BoxDecoration(
                             color: theme.diffAddedBg,
                             borderRadius: const BorderRadius.vertical(
@@ -363,26 +360,20 @@ class _ThemePreview extends StatelessWidget {
                             children: [
                               Text(
                                 '+',
-                                style: TextStyle(
-                                  color: theme.diffAdded,
-                                  fontFamily: GoogleFonts.jetBrainsMono().fontFamily,
+                                style: AppTypography.codeSmall(color: theme.diffAdded).copyWith(
                                   fontWeight: FontWeight.bold,
                                 ),
                               ),
-                              const SizedBox(width: 8),
+                              SizedBox(width: Spacing.sm),
                               Text(
                                 'Added line',
-                                style: TextStyle(
-                                  color: theme.diffAdded,
-                                  fontFamily: GoogleFonts.jetBrainsMono().fontFamily,
-                                  fontSize: 12,
-                                ),
+                                style: AppTypography.codeSmall(color: theme.diffAdded),
                               ),
                             ],
                           ),
                         ),
                         Container(
-                          padding: const EdgeInsets.all(8),
+                          padding: Insets.cardXs,
                           decoration: BoxDecoration(
                             color: theme.diffRemovedBg,
                             borderRadius: const BorderRadius.vertical(
@@ -395,18 +386,14 @@ class _ThemePreview extends StatelessWidget {
                                 '-',
                                 style: TextStyle(
                                   color: theme.diffRemoved,
-                                  fontFamily: GoogleFonts.jetBrainsMono().fontFamily,
+                                  fontFamily: AppTypography.codeFontFamily,
                                   fontWeight: FontWeight.bold,
                                 ),
                               ),
-                              const SizedBox(width: 8),
+                              SizedBox(width: Spacing.sm),
                               Text(
                                 'Removed line',
-                                style: TextStyle(
-                                  color: theme.diffRemoved,
-                                  fontFamily: GoogleFonts.jetBrainsMono().fontFamily,
-                                  fontSize: 12,
-                                ),
+                                style: AppTypography.codeSmall(color: theme.diffRemoved),
                               ),
                             ],
                           ),
@@ -434,10 +421,10 @@ class _PreviewCard extends StatelessWidget {
   Widget build(BuildContext context) {
     return Container(
       width: double.infinity,
-      padding: const EdgeInsets.all(12),
+      padding: Insets.cardSm,
       decoration: BoxDecoration(
         color: theme.backgroundPanel,
-        borderRadius: BorderRadius.circular(12),
+        borderRadius: Radii.brMd,
         border: Border.all(color: theme.borderSubtle),
       ),
       child: child,
@@ -462,7 +449,7 @@ class _StatusChip extends StatelessWidget {
       padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
       decoration: BoxDecoration(
         color: color.withValues(alpha: 0.15),
-        borderRadius: BorderRadius.circular(6),
+        borderRadius: Radii.brSm,
       ),
       child: Row(
         mainAxisSize: MainAxisSize.min,
@@ -539,10 +526,10 @@ class _ThemeListItem extends StatelessWidget {
         color: isSelected
             ? previewTheme.primary.withValues(alpha: 0.15)
             : Colors.transparent,
-        borderRadius: BorderRadius.circular(10),
+        borderRadius: Radii.brMd,
         child: InkWell(
           onTap: onTap,
-          borderRadius: BorderRadius.circular(10),
+          borderRadius: Radii.brMd,
           child: Padding(
             padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
             child: Row(
@@ -578,7 +565,7 @@ class _ThemeListItem extends StatelessWidget {
                             ),
                           ),
                           if (isDefault) ...[
-                            const SizedBox(width: 8),
+                            SizedBox(width: Spacing.sm),
                             Container(
                               padding: const EdgeInsets.symmetric(
                                 horizontal: 6,
@@ -587,7 +574,7 @@ class _ThemeListItem extends StatelessWidget {
                               decoration: BoxDecoration(
                                 color:
                                     previewTheme.primary.withValues(alpha: 0.12),
-                                borderRadius: BorderRadius.circular(4),
+                                borderRadius: Radii.brXs,
                               ),
                               child: Text(
                                 'Default',
@@ -621,7 +608,7 @@ class _ThemeListItem extends StatelessWidget {
                     ),
                     decoration: BoxDecoration(
                       color: previewTheme.success.withValues(alpha: 0.15),
-                      borderRadius: BorderRadius.circular(4),
+                      borderRadius: Radii.brXs,
                     ),
                     child: Text(
                       'Current',
@@ -634,7 +621,7 @@ class _ThemeListItem extends StatelessWidget {
                   ),
                 // Selected checkmark
                 if (isSelected) ...[
-                  const SizedBox(width: 8),
+                  SizedBox(width: Spacing.sm),
                   Icon(
                     Icons.check_circle,
                     color: previewTheme.primary,

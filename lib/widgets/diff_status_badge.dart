@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart';
-import 'package:google_fonts/google_fonts.dart';
-
+import '../theme/app_typography.dart';
 import '../theme/design_tokens.dart';
 import '../theme/opencode_theme.dart';
 
@@ -33,10 +32,9 @@ class DiffStatusBadge extends StatelessWidget {
       ),
       child: Text(
         label,
-        style: GoogleFonts.jetBrainsMono(
+        style: AppTypography.codeSmall(color: color).copyWith(
           fontSize: 9,
           fontWeight: FontWeight.w700,
-          color: color,
         ),
       ),
     );

@@ -1,7 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:google_fonts/google_fonts.dart';
+import '../theme/app_typography.dart';
+import '../theme/design_tokens.dart';
 
 import '../models/claude_code.dart';
 import '../providers/claude_code_provider.dart';
@@ -107,7 +108,7 @@ class _PluginsScreenState extends ConsumerState<PluginsScreen> {
                 color: theme.colorScheme.onSurface.withValues(alpha: 0.7),
               ),
             ),
-            const SizedBox(height: 16),
+            SizedBox(height: Spacing.lg),
             TextField(
               controller: controller,
               decoration: const InputDecoration(
@@ -117,7 +118,7 @@ class _PluginsScreenState extends ConsumerState<PluginsScreen> {
               ),
               autofocus: true,
             ),
-            const SizedBox(height: 12),
+            SizedBox(height: Spacing.md),
             Text(
               'The plugin must have a .claude-plugin/plugin.json manifest.',
               style: theme.textTheme.bodySmall?.copyWith(
@@ -205,7 +206,7 @@ class _EmptyState extends StatelessWidget {
 
     return Center(
       child: Padding(
-        padding: const EdgeInsets.all(32),
+        padding: Insets.xxxl,
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
@@ -214,14 +215,14 @@ class _EmptyState extends StatelessWidget {
               size: 64,
               color: theme.colorScheme.primary.withValues(alpha: 0.5),
             ),
-            const SizedBox(height: 16),
+            SizedBox(height: Spacing.lg),
             Text(
               'No Plugins Found',
               style: theme.textTheme.titleLarge?.copyWith(
                 fontWeight: FontWeight.w600,
               ),
             ),
-            const SizedBox(height: 8),
+            SizedBox(height: Spacing.sm),
             Text(
               'Claude Code plugins provide slash commands,\nagents, skills, hooks, and MCP servers.',
               textAlign: TextAlign.center,
@@ -229,7 +230,7 @@ class _EmptyState extends StatelessWidget {
                 color: theme.colorScheme.onSurface.withValues(alpha: 0.7),
               ),
             ),
-            const SizedBox(height: 8),
+            SizedBox(height: Spacing.sm),
             Text(
               'Place plugins in ~/.claude/plugins/ or add a custom path.',
               textAlign: TextAlign.center,
@@ -237,7 +238,7 @@ class _EmptyState extends StatelessWidget {
                 color: theme.colorScheme.onSurface.withValues(alpha: 0.5),
               ),
             ),
-            const SizedBox(height: 24),
+            SizedBox(height: Spacing.xxl),
             ElevatedButton.icon(
               onPressed: onAddPlugin,
               icon: const Icon(Icons.add),
@@ -262,7 +263,7 @@ class _ErrorState extends StatelessWidget {
 
     return Center(
       child: Padding(
-        padding: const EdgeInsets.all(32),
+        padding: Insets.xxxl,
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
@@ -271,14 +272,14 @@ class _ErrorState extends StatelessWidget {
               size: 64,
               color: theme.colorScheme.error.withValues(alpha: 0.5),
             ),
-            const SizedBox(height: 16),
+            SizedBox(height: Spacing.lg),
             Text(
               'Failed to Load Plugins',
               style: theme.textTheme.titleLarge?.copyWith(
                 fontWeight: FontWeight.w600,
               ),
             ),
-            const SizedBox(height: 8),
+            SizedBox(height: Spacing.sm),
             Text(
               error,
               textAlign: TextAlign.center,
@@ -286,7 +287,7 @@ class _ErrorState extends StatelessWidget {
                 color: theme.colorScheme.onSurface.withValues(alpha: 0.7),
               ),
             ),
-            const SizedBox(height: 24),
+            SizedBox(height: Spacing.xxl),
             ElevatedButton.icon(
               onPressed: onRetry,
               icon: const Icon(Icons.refresh_rounded),
@@ -323,14 +324,14 @@ class _PluginsList extends StatelessWidget {
         .toList();
 
     return ListView(
-      padding: const EdgeInsets.all(16),
+      padding: Insets.card,
       children: [
         // Info header
         Container(
-          padding: const EdgeInsets.all(16),
+          padding: Insets.card,
           decoration: BoxDecoration(
             color: theme.colorScheme.primaryContainer.withValues(alpha: 0.3),
-            borderRadius: BorderRadius.circular(12),
+            borderRadius: Radii.brMd,
             border: Border.all(
               color: theme.colorScheme.primary.withValues(alpha: 0.2),
             ),
@@ -342,7 +343,7 @@ class _PluginsList extends StatelessWidget {
                 color: theme.colorScheme.primary,
                 size: 20,
               ),
-              const SizedBox(width: 12),
+              SizedBox(width: Spacing.md),
               Expanded(
                 child: Text(
                   'Plugins are loaded from ~/.claude/plugins/ and project .claude/plugins/',
@@ -354,7 +355,7 @@ class _PluginsList extends StatelessWidget {
             ],
           ),
         ),
-        const SizedBox(height: 24),
+        SizedBox(height: Spacing.xxl),
 
         // Enabled plugins section
         if (enabledPlugins.isNotEmpty) ...[
@@ -363,7 +364,7 @@ class _PluginsList extends StatelessWidget {
             count: enabledPlugins.length,
             color: theme.colorScheme.primary,
           ),
-          const SizedBox(height: 12),
+          SizedBox(height: Spacing.md),
           ...enabledPlugins.map(
             (plugin) => _PluginCard(
               plugin: plugin,
@@ -371,7 +372,7 @@ class _PluginsList extends StatelessWidget {
               onTap: () => onViewDetails(plugin),
             ),
           ),
-          const SizedBox(height: 24),
+          SizedBox(height: Spacing.xxl),
         ],
 
         // Disabled plugins section
@@ -381,7 +382,7 @@ class _PluginsList extends StatelessWidget {
             count: disabledPlugins.length,
             color: theme.colorScheme.onSurface.withValues(alpha: 0.5),
           ),
-          const SizedBox(height: 12),
+          SizedBox(height: Spacing.md),
           ...disabledPlugins.map(
             (plugin) => _PluginCard(
               plugin: plugin,
@@ -422,12 +423,12 @@ class _SectionHeader extends StatelessWidget {
             color: color,
           ),
         ),
-        const SizedBox(width: 8),
+        SizedBox(width: Spacing.sm),
         Container(
           padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
           decoration: BoxDecoration(
             color: color.withValues(alpha: 0.15),
-            borderRadius: BorderRadius.circular(12),
+            borderRadius: Radii.brMd,
           ),
           child: Text(
             '$count',
@@ -460,12 +461,12 @@ class _PluginCard extends StatelessWidget {
     final isEnabled = plugin.status == ClaudeCodePluginStatus.enabled;
 
     return Card(
-      margin: const EdgeInsets.only(bottom: 12),
+      margin: Insets.bottomMd,
       child: InkWell(
         onTap: onTap,
-        borderRadius: BorderRadius.circular(12),
+        borderRadius: Radii.brMd,
         child: Padding(
-          padding: const EdgeInsets.all(16),
+          padding: Insets.card,
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
@@ -483,7 +484,7 @@ class _PluginCard extends StatelessWidget {
                                       alpha: 0.5,
                                     ))
                               .withValues(alpha: 0.15),
-                      borderRadius: BorderRadius.circular(10),
+                      borderRadius: Radii.brMd,
                     ),
                     child: Icon(
                       Icons.extension_rounded,
@@ -493,7 +494,7 @@ class _PluginCard extends StatelessWidget {
                       size: 24,
                     ),
                   ),
-                  const SizedBox(width: 12),
+                  SizedBox(width: Spacing.md),
                   // Plugin info
                   Expanded(
                     child: Column(
@@ -506,7 +507,7 @@ class _PluginCard extends StatelessWidget {
                           ),
                         ),
                         if (manifest?.version != null) ...[
-                          const SizedBox(height: 2),
+                          SizedBox(height: Spacing.xxs),
                           Text(
                             'v${manifest!.version}',
                             style: theme.textTheme.bodySmall?.copyWith(
@@ -525,7 +526,7 @@ class _PluginCard extends StatelessWidget {
               ),
               if (manifest?.description != null &&
                   manifest!.description!.isNotEmpty) ...[
-                const SizedBox(height: 12),
+                SizedBox(height: Spacing.md),
                 Text(
                   manifest.description!,
                   style: theme.textTheme.bodyMedium?.copyWith(
@@ -535,7 +536,7 @@ class _PluginCard extends StatelessWidget {
                   overflow: TextOverflow.ellipsis,
                 ),
               ],
-              const SizedBox(height: 12),
+              SizedBox(height: Spacing.md),
               // Component badges
               Wrap(
                 spacing: 8,
@@ -587,10 +588,10 @@ class _ComponentBadge extends StatelessWidget {
     final theme = Theme.of(context);
 
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+      padding: Insets.chip,
       decoration: BoxDecoration(
         color: theme.colorScheme.surfaceContainerHighest,
-        borderRadius: BorderRadius.circular(6),
+        borderRadius: Radii.brSm,
       ),
       child: Row(
         mainAxisSize: MainAxisSize.min,
@@ -600,7 +601,7 @@ class _ComponentBadge extends StatelessWidget {
             size: 14,
             color: theme.colorScheme.onSurface.withValues(alpha: 0.6),
           ),
-          const SizedBox(width: 4),
+          SizedBox(width: Spacing.xs),
           Text(
             label,
             style: theme.textTheme.bodySmall?.copyWith(
@@ -628,7 +629,7 @@ class _PluginDetailsContent extends StatelessWidget {
     final manifest = plugin.manifest;
 
     return Padding(
-      padding: const EdgeInsets.all(20),
+      padding: Insets.screenAll,
       child: Column(
         mainAxisSize: MainAxisSize.min,
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -636,12 +637,12 @@ class _PluginDetailsContent extends StatelessWidget {
           // Version badge
           if (manifest?.version != null)
             Padding(
-              padding: const EdgeInsets.only(bottom: 16),
+              padding: const EdgeInsets.only(bottom: Spacing.lg),
               child: Container(
-                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                padding: Insets.chip,
                 decoration: BoxDecoration(
                   color: theme.colorScheme.primary.withValues(alpha: 0.15),
-                  borderRadius: BorderRadius.circular(6),
+                  borderRadius: Radii.brSm,
                 ),
                 child: Text(
                   'v${manifest!.version}',
@@ -662,7 +663,7 @@ class _PluginDetailsContent extends StatelessWidget {
                 style: theme.textTheme.bodyMedium,
               ),
             ),
-            const SizedBox(height: 20),
+            SizedBox(height: Spacing.xl),
           ],
 
           // Path
@@ -673,10 +674,7 @@ class _PluginDetailsContent extends StatelessWidget {
                 Expanded(
                   child: Text(
                     plugin.path,
-                    style: theme.textTheme.bodyMedium?.copyWith(
-                      fontFamily: GoogleFonts.jetBrainsMono().fontFamily,
-                      fontSize: 13,
-                    ),
+                    style: AppTypography.code(),
                   ),
                 ),
                 IconButton(
@@ -697,7 +695,7 @@ class _PluginDetailsContent extends StatelessWidget {
               ],
             ),
           ),
-          const SizedBox(height: 20),
+          SizedBox(height: Spacing.xl),
 
           // Author
           if (manifest?.authorName != null) ...[
@@ -708,7 +706,7 @@ class _PluginDetailsContent extends StatelessWidget {
                 style: theme.textTheme.bodyMedium,
               ),
             ),
-            const SizedBox(height: 20),
+            SizedBox(height: Spacing.xl),
           ],
 
           // Commands
@@ -728,7 +726,7 @@ class _PluginDetailsContent extends StatelessWidget {
                     .toList(),
               ),
             ),
-            const SizedBox(height: 20),
+            SizedBox(height: Spacing.xl),
           ],
 
           // Agents
@@ -748,7 +746,7 @@ class _PluginDetailsContent extends StatelessWidget {
                     .toList(),
               ),
             ),
-            const SizedBox(height: 20),
+            SizedBox(height: Spacing.xl),
           ],
 
           // Skills
@@ -768,7 +766,7 @@ class _PluginDetailsContent extends StatelessWidget {
                     .toList(),
               ),
             ),
-            const SizedBox(height: 20),
+            SizedBox(height: Spacing.xl),
           ],
 
           // Other components
@@ -793,7 +791,7 @@ class _PluginDetailsContent extends StatelessWidget {
                 ],
               ),
             ),
-            const SizedBox(height: 20),
+            SizedBox(height: Spacing.xl),
           ],
 
           // Remove button (only for custom paths)
@@ -841,7 +839,7 @@ class _DetailSection extends StatelessWidget {
             fontWeight: FontWeight.w600,
           ),
         ),
-        const SizedBox(height: 8),
+        SizedBox(height: Spacing.sm),
         child,
       ],
     );
@@ -862,7 +860,7 @@ class _ComponentChip extends StatelessWidget {
       padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
       decoration: BoxDecoration(
         color: theme.colorScheme.primaryContainer.withValues(alpha: 0.4),
-        borderRadius: BorderRadius.circular(8),
+        borderRadius: Radii.brSm,
         border: Border.all(
           color: theme.colorScheme.primary.withValues(alpha: 0.2),
         ),

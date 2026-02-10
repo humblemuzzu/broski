@@ -1,10 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:google_fonts/google_fonts.dart';
-
 import '../../models/card_style.dart';
 import '../../models/message.dart';
 import '../../providers/card_style_provider.dart';
+import '../../theme/app_typography.dart';
 import '../../theme/design_tokens.dart';
 import '../../theme/opencode_theme.dart';
 import 'detail_sheet.dart';
@@ -269,7 +268,7 @@ class CompactEditCard extends ConsumerWidget {
         margin: Insets.chipV,
         decoration: BoxDecoration(
           color: theme.bgRaised,
-          borderRadius: BorderRadius.circular(12),
+          borderRadius: Radii.brMd,
           border: Border.all(
             color: hasError
                 ? theme.error.withValues(alpha: 0.5)
@@ -315,10 +314,7 @@ class CompactEditCard extends ConsumerWidget {
                   Expanded(
                     child: Text(
                       _getFilePath(),
-                      style: GoogleFonts.jetBrainsMono(
-                        color: theme.text,
-                        fontSize: 12,
-                      ),
+                      style: AppTypography.codeSmall(color: theme.text),
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
                     ),
@@ -358,7 +354,7 @@ class CompactEditCard extends ConsumerWidget {
                       SizedBox(width: Spacing.xs),
                       Text(
                         '${previewLines.length - _maxPreviewLines} more lines',
-                        style: TextStyle(color: theme.textMuted, fontSize: 11),
+                        style: AppTypography.caption(color: theme.textMuted),
                       ),
                     ],
                   ),
@@ -400,7 +396,7 @@ class CompactEditCard extends ConsumerWidget {
             label: 'File',
             child: SelectableText(
               _getFilePath(),
-              style: GoogleFonts.jetBrainsMono(color: theme.text, fontSize: 12),
+              style: AppTypography.codeSmall(color: theme.text),
             ),
           ),
 
@@ -476,18 +472,13 @@ class _InlineDiffLine extends StatelessWidget {
           children: [
             TextSpan(
               text: '$prefix ',
-              style: GoogleFonts.jetBrainsMono(
-                color: color,
-                fontSize: 12,
+              style: AppTypography.codeSmall(color: color).copyWith(
                 fontWeight: FontWeight.w600,
               ),
             ),
             TextSpan(
               text: line.text.isEmpty ? ' ' : line.text,
-              style: GoogleFonts.jetBrainsMono(
-                color: color.withValues(alpha: 0.9),
-                fontSize: 12,
-              ),
+              style: AppTypography.codeSmall(color: color.withValues(alpha: 0.9)),
             ),
           ],
         ),
@@ -534,10 +525,7 @@ class _FullDiffContent extends StatelessWidget {
               color: theme.info.withValues(alpha: 0.1),
               child: Text(
                 line,
-                style: GoogleFonts.jetBrainsMono(
-                  color: theme.info,
-                  fontSize: 11,
-                ),
+                style: AppTypography.codeSmall(color: theme.info),
               ),
             ),
           );
@@ -573,10 +561,7 @@ class _FullDiffContent extends StatelessWidget {
               padding: Insets.chip,
               child: Text(
                 '  $line',
-                style: GoogleFonts.jetBrainsMono(
-                  color: theme.textMuted,
-                  fontSize: 12,
-                ),
+                style: AppTypography.codeSmall(color: theme.textMuted),
               ),
             ),
           );
@@ -623,7 +608,7 @@ class _FullDiffContent extends StatelessWidget {
     return Container(
       decoration: BoxDecoration(
         color: theme.backgroundElement,
-        borderRadius: BorderRadius.circular(8),
+        borderRadius: Radii.brSm,
         border: Border.all(color: theme.borderSubtle.withValues(alpha: 0.5)),
       ),
       clipBehavior: Clip.antiAlias,
@@ -652,15 +637,13 @@ class _FullDiffContent extends StatelessWidget {
           children: [
             TextSpan(
               text: '$prefix ',
-              style: GoogleFonts.jetBrainsMono(
-                color: color,
-                fontSize: 12,
+              style: AppTypography.codeSmall(color: color).copyWith(
                 fontWeight: FontWeight.bold,
               ),
             ),
             TextSpan(
               text: line.isEmpty ? ' ' : line,
-              style: GoogleFonts.jetBrainsMono(color: theme.text, fontSize: 12),
+              style: AppTypography.codeSmall(color: theme.text),
             ),
           ],
         ),

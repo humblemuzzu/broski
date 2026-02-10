@@ -83,7 +83,7 @@ class _LockOverlay extends StatelessWidget {
       child: SafeArea(
         child: Center(
           child: Padding(
-            padding: const EdgeInsets.all(32),
+            padding: Insets.xxxl,
             child: Column(
               mainAxisAlignment: MainAxisAlignment.center,
               children: [
@@ -117,7 +117,7 @@ class _LockOverlay extends StatelessWidget {
                     letterSpacing: -0.5,
                   ),
                 ),
-                const SizedBox(height: 12),
+                SizedBox(height: Spacing.md),
 
                 // Message
                 Text(
@@ -129,14 +129,14 @@ class _LockOverlay extends StatelessWidget {
                     height: 1.4,
                   ),
                 ),
-                const SizedBox(height: 32),
+                SizedBox(height: Spacing.xxxl),
 
                 // Subscribe button
                 _SubscribeButton(
                   priceText: priceText,
                   isLoading: isLoading,
                 ),
-                const SizedBox(height: 16),
+                SizedBox(height: Spacing.lg),
 
                 // Restore purchases link
                 const _RestorePurchasesLink(),
@@ -211,7 +211,7 @@ class _SubscribeButton extends ConsumerWidget {
                         letterSpacing: 0.2,
                       ),
                     ),
-                    const SizedBox(width: 8),
+                    SizedBox(width: Spacing.sm),
                     Icon(
                       Icons.arrow_forward_rounded,
                       color: ocTheme.selectedListItemText,
@@ -280,8 +280,8 @@ class SubscribeBanner extends ConsumerWidget {
       child: Builder(builder: (context) {
         final ocTheme = OpenCodeTheme.of(context);
         return Container(
-          margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-          padding: const EdgeInsets.all(16),
+          margin: Insets.section,
+          padding: Insets.card,
           decoration: BoxDecoration(
             color: ocTheme.backgroundPanel,
             borderRadius: Radii.brLg,
@@ -318,7 +318,7 @@ class SubscribeBanner extends ConsumerWidget {
                         fontWeight: FontWeight.w600,
                       ),
                     ),
-                    const SizedBox(height: 2),
+                    SizedBox(height: Spacing.xxs),
                     Text(
                       'Unlock all features • ${sub.monthlyPriceText ?? '\$20'}/mo',
                       style: TextStyle(

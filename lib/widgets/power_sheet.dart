@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../theme/app_typography.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../models/agent.dart';
@@ -10,6 +11,7 @@ import '../models/project.dart';
 import '../providers/claude_code_provider.dart';
 import '../providers/codex_settings_provider.dart';
 import '../providers/permission_rules_provider.dart';
+import '../theme/design_tokens.dart';
 import '../theme/opencode_theme.dart';
 import 'chat/detail_sheet.dart';
 import 'permission_rules_sheet.dart';
@@ -110,7 +112,7 @@ class _PowerSheetState extends ConsumerState<PowerSheet> {
           children: [
             // ===== ATTACH SECTION =====
             _SectionHeader(title: 'Attach', theme: theme),
-            const SizedBox(height: 12),
+            SizedBox(height: Spacing.md),
             IntrinsicHeight(
               child: Row(
                 crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -146,7 +148,7 @@ class _PowerSheetState extends ConsumerState<PowerSheet> {
             // ===== MODEL SECTION =====
             if (widget.onModelTap != null) ...[
               _SectionHeader(title: 'Model', theme: theme),
-              const SizedBox(height: 12),
+              SizedBox(height: Spacing.md),
               _ModelCard(
                 model: widget.currentModel,
                 theme: theme,
@@ -161,7 +163,7 @@ class _PowerSheetState extends ConsumerState<PowerSheet> {
             // ===== THINKING LEVEL SECTION =====
             if (widget.availableVariants.isNotEmpty) ...[
               _SectionHeader(title: _getThinkingLevelTitle(), theme: theme),
-              const SizedBox(height: 12),
+              SizedBox(height: Spacing.md),
               Wrap(
                 spacing: 8,
                 runSpacing: 8,
@@ -196,7 +198,7 @@ class _PowerSheetState extends ConsumerState<PowerSheet> {
             if (widget.backend == AgentType.opencode &&
                 nativeAgents.isNotEmpty) ...[
               _SectionHeader(title: 'Agent', theme: theme),
-              const SizedBox(height: 12),
+              SizedBox(height: Spacing.md),
               _buildOpenCodeAgents(theme, nativeAgents),
               const SizedBox(height: 28),
             ],
@@ -204,7 +206,7 @@ class _PowerSheetState extends ConsumerState<PowerSheet> {
             // ===== CLAUDE CODE: PERMISSION MODE SECTION =====
             if (widget.backend == AgentType.claudeCode) ...[
               _SectionHeader(title: 'Permission Mode', theme: theme),
-              const SizedBox(height: 12),
+              SizedBox(height: Spacing.md),
               _buildClaudeCodePermissionModes(theme),
               const SizedBox(height: 28),
             ],
@@ -212,7 +214,7 @@ class _PowerSheetState extends ConsumerState<PowerSheet> {
             // ===== CODEX: COLLABORATION MODE SECTION =====
             if (widget.backend == AgentType.codex) ...[
               _SectionHeader(title: 'Collaboration Mode', theme: theme),
-              const SizedBox(height: 12),
+              SizedBox(height: Spacing.md),
               _buildCodexCollabModes(theme),
               const SizedBox(height: 28),
             ],
@@ -253,7 +255,7 @@ class _PowerSheetState extends ConsumerState<PowerSheet> {
                 ),
               ),
             ),
-            const SizedBox(height: 12),
+            SizedBox(height: Spacing.md),
             if (widget.backend == AgentType.opencode) ...[
               _buildOpenCodePermissionPresets(theme, rulesState),
               const SizedBox(height: 28),
@@ -268,7 +270,7 @@ class _PowerSheetState extends ConsumerState<PowerSheet> {
               backend: widget.backend,
               onTap: _openProjectTools,
             ),
-            const SizedBox(height: 8),
+            SizedBox(height: Spacing.sm),
           ],
         ),
       ),
@@ -401,7 +403,7 @@ class _PowerSheetState extends ConsumerState<PowerSheet> {
       child: ListView.separated(
         scrollDirection: Axis.horizontal,
         itemCount: modes.length,
-        separatorBuilder: (_, __) => const SizedBox(width: 8),
+        separatorBuilder: (_, __) => SizedBox(width: Spacing.sm),
         itemBuilder: (context, index) {
           final mode = modes[index];
           final isSelected = widget.codexCollabMode == mode;
@@ -507,12 +509,12 @@ class _QuickActionCard extends StatelessWidget {
   Widget build(BuildContext context) {
     return InkWell(
       onTap: onTap,
-      borderRadius: BorderRadius.circular(12),
+      borderRadius: Radii.brMd,
       child: Container(
         padding: const EdgeInsets.symmetric(vertical: 14),
         decoration: BoxDecoration(
           color: theme.backgroundPanel,
-          borderRadius: BorderRadius.circular(12),
+          borderRadius: Radii.brMd,
           border: Border.all(color: theme.borderSubtle),
         ),
         child: Column(
@@ -565,12 +567,12 @@ class _ModelCard extends StatelessWidget {
   Widget build(BuildContext context) {
     return InkWell(
       onTap: onTap,
-      borderRadius: BorderRadius.circular(12),
+      borderRadius: Radii.brMd,
       child: Container(
-        padding: const EdgeInsets.all(14),
+        padding: Insets.cardMd,
         decoration: BoxDecoration(
           color: theme.backgroundPanel,
-          borderRadius: BorderRadius.circular(12),
+          borderRadius: Radii.brMd,
           border: Border.all(color: theme.borderSubtle),
         ),
         child: Row(
@@ -616,7 +618,7 @@ class _VariantChip extends StatelessWidget {
           color: isSelected
               ? theme.primary.withValues(alpha: 0.08)
               : theme.backgroundPanel,
-          borderRadius: BorderRadius.circular(20),
+          borderRadius: Radii.brXl,
           border: Border.all(
             color: isSelected ? theme.primary : theme.borderSubtle,
           ),
@@ -653,14 +655,14 @@ class _AgentCard extends StatelessWidget {
   Widget build(BuildContext context) {
     return InkWell(
       onTap: onTap,
-      borderRadius: BorderRadius.circular(12),
+      borderRadius: Radii.brMd,
       child: Container(
         padding: const EdgeInsets.symmetric(vertical: 16, horizontal: 14),
         decoration: BoxDecoration(
           color: isSelected
               ? theme.primary.withValues(alpha: 0.08)
               : theme.backgroundPanel,
-          borderRadius: BorderRadius.circular(12),
+          borderRadius: Radii.brMd,
           border: Border.all(
             color: isSelected ? theme.primary : theme.borderSubtle,
           ),
@@ -676,10 +678,10 @@ class _AgentCard extends StatelessWidget {
                 color: isSelected ? theme.primary : theme.text,
               ),
             ),
-            const SizedBox(height: 4),
+            SizedBox(height: Spacing.xs),
             Text(
               description,
-              style: TextStyle(fontSize: 11, color: theme.textMuted),
+              style: AppTypography.caption(color: theme.textMuted),
               textAlign: TextAlign.center,
             ),
           ],
@@ -707,17 +709,17 @@ class _PermissionModeCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Padding(
-      padding: const EdgeInsets.only(bottom: 8),
+      padding: Insets.bottomSm,
       child: InkWell(
         onTap: onTap,
-        borderRadius: BorderRadius.circular(12),
+        borderRadius: Radii.brMd,
         child: Container(
-          padding: const EdgeInsets.all(14),
+          padding: Insets.cardMd,
           decoration: BoxDecoration(
             color: isSelected
                 ? theme.primary.withValues(alpha: 0.08)
                 : theme.backgroundPanel,
-            borderRadius: BorderRadius.circular(12),
+            borderRadius: Radii.brMd,
             border: Border.all(
               color: isSelected ? theme.primary : theme.borderSubtle,
             ),
@@ -736,10 +738,10 @@ class _PermissionModeCard extends StatelessWidget {
                         color: isSelected ? theme.primary : theme.text,
                       ),
                     ),
-                    const SizedBox(height: 2),
+                    SizedBox(height: Spacing.xxs),
                     Text(
                       description,
-                      style: TextStyle(fontSize: 12, color: theme.textMuted),
+                      style: AppTypography.label(color: theme.textMuted),
                     ),
                   ],
                 ),
@@ -771,14 +773,14 @@ class _CollabModeCard extends StatelessWidget {
   Widget build(BuildContext context) {
     return InkWell(
       onTap: onTap,
-      borderRadius: BorderRadius.circular(12),
+      borderRadius: Radii.brMd,
       child: Container(
         padding: const EdgeInsets.symmetric(vertical: 16, horizontal: 12),
         decoration: BoxDecoration(
           color: isSelected
               ? theme.primary.withValues(alpha: 0.08)
               : theme.backgroundPanel,
-          borderRadius: BorderRadius.circular(12),
+          borderRadius: Radii.brMd,
           border: Border.all(
             color: isSelected ? theme.primary : theme.borderSubtle,
           ),
@@ -819,14 +821,14 @@ class _PresetCard extends StatelessWidget {
   Widget build(BuildContext context) {
     return InkWell(
       onTap: onTap,
-      borderRadius: BorderRadius.circular(20),
+      borderRadius: Radii.brXl,
       child: Container(
         padding: const EdgeInsets.symmetric(vertical: 10, horizontal: 14),
         decoration: BoxDecoration(
           color: isSelected
               ? theme.primary.withValues(alpha: 0.1)
               : theme.backgroundPanel,
-          borderRadius: BorderRadius.circular(20),
+          borderRadius: Radii.brXl,
           border: Border.all(
             color: isSelected ? theme.primary : theme.borderSubtle,
           ),
@@ -862,12 +864,12 @@ class _ProjectToolsButton extends StatelessWidget {
   Widget build(BuildContext context) {
     return InkWell(
       onTap: onTap,
-      borderRadius: BorderRadius.circular(12),
+      borderRadius: Radii.brMd,
       child: Container(
-        padding: const EdgeInsets.all(14),
+        padding: Insets.cardMd,
         decoration: BoxDecoration(
           color: theme.backgroundPanel,
-          borderRadius: BorderRadius.circular(12),
+          borderRadius: Radii.brMd,
           border: Border.all(color: theme.borderSubtle),
         ),
         child: Row(
@@ -884,10 +886,10 @@ class _ProjectToolsButton extends StatelessWidget {
                       color: theme.text,
                     ),
                   ),
-                  const SizedBox(height: 2),
+                  SizedBox(height: Spacing.xxs),
                   Text(
                     _getToolsDescription(),
-                    style: TextStyle(fontSize: 12, color: theme.textMuted),
+                    style: AppTypography.label(color: theme.textMuted),
                   ),
                 ],
               ),
@@ -942,10 +944,10 @@ class _PermissionSummaryCard extends ConsumerWidget {
     }
 
     return Container(
-      padding: const EdgeInsets.all(12),
+      padding: Insets.cardSm,
       decoration: BoxDecoration(
         color: theme.backgroundPanel,
-        borderRadius: BorderRadius.circular(12),
+        borderRadius: Radii.brMd,
         border: Border.all(color: theme.borderSubtle),
       ),
       child: Row(

@@ -7,6 +7,7 @@ import '../models/project.dart';
 import '../providers/connection_provider.dart';
 import '../providers/onboarding_provider.dart';
 import '../providers/service_providers.dart';
+import '../theme/design_tokens.dart';
 
 /// "System Linked" screen shown after successful QR scan connection.
 /// Displays connection stats and detected projects/sessions/agents.
@@ -207,7 +208,7 @@ class _SystemLinkedScreenState extends ConsumerState<SystemLinkedScreen>
                   ),
                 ),
               ),
-              const SizedBox(height: 32),
+              SizedBox(height: Spacing.xxxl),
               // Title
               FadeTransition(
                 opacity: entryAnim,
@@ -260,7 +261,7 @@ class _SystemLinkedScreenState extends ConsumerState<SystemLinkedScreen>
                   ),
                   decoration: BoxDecoration(
                     color: Colors.white.withValues(alpha: 0.04),
-                    borderRadius: BorderRadius.circular(16),
+                    borderRadius: Radii.brLg,
                     border: Border.all(
                       color: Colors.white.withValues(alpha: 0.08),
                     ),
@@ -315,7 +316,7 @@ class _SystemLinkedScreenState extends ConsumerState<SystemLinkedScreen>
                     height: 58,
                     decoration: BoxDecoration(
                       color: Colors.white,
-                      borderRadius: BorderRadius.circular(32),
+                      borderRadius: Radii.brFull,
                     ),
                     child: const Center(
                       child: Text(
@@ -331,7 +332,7 @@ class _SystemLinkedScreenState extends ConsumerState<SystemLinkedScreen>
                   ),
                 ),
               ),
-              const SizedBox(height: 32),
+              SizedBox(height: Spacing.xxxl),
             ],
           ),
         ),
@@ -349,7 +350,7 @@ class _SystemLinkedScreenState extends ConsumerState<SystemLinkedScreen>
 
   Widget _divider() {
     return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 12),
+      padding: Insets.cardV,
       child: Container(height: 1, color: Colors.white.withValues(alpha: 0.06)),
     );
   }

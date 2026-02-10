@@ -15,6 +15,7 @@ import '../providers/permission_rules_provider.dart';
 import '../providers/selection_provider.dart';
 import '../providers/service_providers.dart';
 import '../providers/tool_settings_provider.dart';
+import '../theme/design_tokens.dart';
 import '../theme/opencode_theme.dart';
 import '../widgets/chat/detail_sheet.dart';
 import '../widgets/connection_quality_indicator.dart';
@@ -242,7 +243,7 @@ class _ProjectsScreenState extends ConsumerState<ProjectsScreen> {
               'Creates a new sandbox worktree from the current branch.',
               style: TextStyle(color: ocTheme.textMuted, fontSize: 13),
             ),
-            const SizedBox(height: 12),
+            SizedBox(height: Spacing.md),
             TextField(
               controller: nameController,
               decoration: InputDecoration(
@@ -251,12 +252,12 @@ class _ProjectsScreenState extends ConsumerState<ProjectsScreen> {
                 filled: true,
                 fillColor: ocTheme.backgroundElement,
                 border: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(12),
+                  borderRadius: Radii.brMd,
                   borderSide: BorderSide(color: ocTheme.borderSubtle),
                 ),
               ),
             ),
-            const SizedBox(height: 12),
+            SizedBox(height: Spacing.md),
             TextField(
               controller: cmdController,
               decoration: InputDecoration(
@@ -265,12 +266,12 @@ class _ProjectsScreenState extends ConsumerState<ProjectsScreen> {
                 filled: true,
                 fillColor: ocTheme.backgroundElement,
                 border: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(12),
+                  borderRadius: Radii.brMd,
                   borderSide: BorderSide(color: ocTheme.borderSubtle),
                 ),
               ),
             ),
-            const SizedBox(height: 12),
+            SizedBox(height: Spacing.md),
             Row(
               children: [
                 Icon(
@@ -278,12 +279,12 @@ class _ProjectsScreenState extends ConsumerState<ProjectsScreen> {
                   size: 18,
                   color: ocTheme.textMuted,
                 ),
-                const SizedBox(width: 8),
+                SizedBox(width: Spacing.sm),
                 Text(
                   'Base branch:',
                   style: TextStyle(color: ocTheme.textMuted, fontSize: 13),
                 ),
-                const SizedBox(width: 8),
+                SizedBox(width: Spacing.sm),
                 Text(
                   currentBranch ?? '(unknown)',
                   style: TextStyle(
@@ -294,7 +295,7 @@ class _ProjectsScreenState extends ConsumerState<ProjectsScreen> {
                 ),
               ],
             ),
-            const SizedBox(height: 24),
+            SizedBox(height: Spacing.xxl),
             SizedBox(
               width: double.infinity,
               child: ElevatedButton(
@@ -313,7 +314,7 @@ class _ProjectsScreenState extends ConsumerState<ProjectsScreen> {
                   foregroundColor: ocTheme.background,
                   padding: const EdgeInsets.symmetric(vertical: 14),
                   shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(12),
+                    borderRadius: Radii.brMd,
                   ),
                 ),
                 child: const Text('Create'),
@@ -494,7 +495,7 @@ class _ProjectsScreenState extends ConsumerState<ProjectsScreen> {
                       color: ocTheme.error,
                       size: 48,
                     ),
-                    const SizedBox(height: 16),
+                    SizedBox(height: Spacing.lg),
                     Text(
                       'Failed to load projects',
                       style: TextStyle(
@@ -503,7 +504,7 @@ class _ProjectsScreenState extends ConsumerState<ProjectsScreen> {
                         fontWeight: FontWeight.w600,
                       ),
                     ),
-                    const SizedBox(height: 8),
+                    SizedBox(height: Spacing.sm),
                     Text(
                       '${snapshot.error}',
                       style: TextStyle(color: ocTheme.textMuted, fontSize: 14),
@@ -590,7 +591,7 @@ class _ProjectsScreenState extends ConsumerState<ProjectsScreen> {
                         delegate: SliverChildBuilderDelegate((context, index) {
                           final project = highlightedProjects[index];
                           return Padding(
-                            padding: const EdgeInsets.only(bottom: 8),
+                            padding: Insets.bottomSm,
                             child: _HighlightedProjectCard(
                               project: project,
                               highlightColor: highlights.color,
@@ -676,7 +677,7 @@ class _ProjectsScreenState extends ConsumerState<ProjectsScreen> {
                               size: 64,
                               color: ocTheme.textMuted.withValues(alpha: 0.5),
                             ),
-                            const SizedBox(height: 16),
+                            SizedBox(height: Spacing.lg),
                             Text(
                               'No projects found',
                               style: TextStyle(
@@ -685,7 +686,7 @@ class _ProjectsScreenState extends ConsumerState<ProjectsScreen> {
                                 fontWeight: FontWeight.w600,
                               ),
                             ),
-                            const SizedBox(height: 8),
+                            SizedBox(height: Spacing.sm),
                             Text(
                               'Open a repository to get started',
                               style: TextStyle(
@@ -890,10 +891,10 @@ class _ModernHeader extends StatelessWidget {
                   child: GestureDetector(
                     onTap: onAddProject,
                     child: Container(
-                      padding: const EdgeInsets.all(10),
+                      padding: Insets.cardXs,
                       decoration: BoxDecoration(
                         color: theme.colorScheme.surface,
-                        borderRadius: BorderRadius.circular(12),
+                        borderRadius: Radii.brMd,
                         border: Border.all(
                           color: theme.colorScheme.onSurface.withValues(
                             alpha: 0.15,
@@ -910,7 +911,7 @@ class _ModernHeader extends StatelessWidget {
                 ),
             ],
           ),
-          const SizedBox(height: 12),
+          SizedBox(height: Spacing.md),
           Text(
             'Select a repo to start vibe coding',
             style: TextStyle(
@@ -919,7 +920,7 @@ class _ModernHeader extends StatelessWidget {
               fontWeight: FontWeight.w500,
             ),
           ),
-          const SizedBox(height: 20),
+          SizedBox(height: Spacing.xl),
           // Connection quality indicator with signal bars
           const ConnectionQualityIndicator(),
         ],
@@ -942,10 +943,10 @@ class _OpenCodeWarning extends StatelessWidget {
 
     return Container(
       margin: const EdgeInsets.fromLTRB(20, 20, 20, 0),
-      padding: const EdgeInsets.all(16),
+      padding: Insets.card,
       decoration: BoxDecoration(
         color: theme.colorScheme.surface,
-        borderRadius: BorderRadius.circular(16),
+        borderRadius: Radii.brLg,
         border: Border.all(
           color: theme.colorScheme.error.withValues(alpha: 0.3),
         ),
@@ -956,10 +957,10 @@ class _OpenCodeWarning extends StatelessWidget {
           Row(
             children: [
               Container(
-                padding: const EdgeInsets.all(8),
+                padding: Insets.cardXs,
                 decoration: BoxDecoration(
                   color: ocTheme.error.withValues(alpha: 0.1),
-                  borderRadius: BorderRadius.circular(8),
+                  borderRadius: Radii.brSm,
                 ),
                 child: Icon(
                   Icons.warning_amber_rounded,
@@ -967,7 +968,7 @@ class _OpenCodeWarning extends StatelessWidget {
                   size: 20,
                 ),
               ),
-              const SizedBox(width: 12),
+              SizedBox(width: Spacing.md),
               Expanded(
                 child: Text(
                   'OpenCode Not Running',
@@ -980,12 +981,12 @@ class _OpenCodeWarning extends StatelessWidget {
               ),
             ],
           ),
-          const SizedBox(height: 12),
+          SizedBox(height: Spacing.md),
           Text(
             'Start OpenCode on your Mac or run `opencode serve` in terminal.',
             style: TextStyle(color: ocTheme.textMuted, fontSize: 14),
           ),
-          const SizedBox(height: 16),
+          SizedBox(height: Spacing.lg),
           Row(
             children: [
               Expanded(
@@ -994,9 +995,9 @@ class _OpenCodeWarning extends StatelessWidget {
                   style: ElevatedButton.styleFrom(
                     backgroundColor: ocTheme.primary,
                     foregroundColor: ocTheme.selectedListItemText,
-                    padding: const EdgeInsets.symmetric(vertical: 12),
+                    padding: Insets.cardV,
                     shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(10),
+                      borderRadius: Radii.brMd,
                     ),
                   ),
                   child: const Text(
@@ -1005,7 +1006,7 @@ class _OpenCodeWarning extends StatelessWidget {
                   ),
                 ),
               ),
-              const SizedBox(width: 12),
+              SizedBox(width: Spacing.md),
               OutlinedButton(
                 onPressed: onRefresh,
                 style: OutlinedButton.styleFrom(
@@ -1016,7 +1017,7 @@ class _OpenCodeWarning extends StatelessWidget {
                     horizontal: 20,
                   ),
                   shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(10),
+                    borderRadius: Radii.brMd,
                   ),
                 ),
                 child: const Text(
@@ -1059,13 +1060,13 @@ class _HighlightedProjectCard extends StatelessWidget {
       onTap: onTap,
       onLongPress: onLongPress,
       child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+        padding: Insets.input,
         decoration: BoxDecoration(
           color: highlightColor.backgroundFor(
             theme.brightness,
             themePrimary: ocTheme.primary,
           ),
-          borderRadius: BorderRadius.circular(12),
+          borderRadius: Radii.brMd,
           border: Border(
             left: BorderSide(color: color, width: 3),
             top: BorderSide(
@@ -1091,7 +1092,7 @@ class _HighlightedProjectCard extends StatelessWidget {
         child: Row(
           children: [
             Icon(Icons.star_rounded, color: color, size: 20),
-            const SizedBox(width: 12),
+            SizedBox(width: Spacing.md),
             Expanded(
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
@@ -1104,7 +1105,7 @@ class _HighlightedProjectCard extends StatelessWidget {
                       fontWeight: FontWeight.w600,
                     ),
                   ),
-                  const SizedBox(height: 2),
+                  SizedBox(height: Spacing.xxs),
                   Text(
                     '~/${project.path.split('/').last}',
                     style: TextStyle(color: ocTheme.textMuted, fontSize: 12),
@@ -1165,7 +1166,7 @@ class _ExpandableProjectItem extends StatelessWidget {
     final showExpander = onToggleExpand != null;
 
     return Padding(
-      padding: const EdgeInsets.only(bottom: 8),
+      padding: Insets.bottomSm,
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
@@ -1174,12 +1175,12 @@ class _ExpandableProjectItem extends StatelessWidget {
             onTap: onTap,
             onLongPress: onLongPress,
             child: Container(
-              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+              padding: Insets.input,
               decoration: BoxDecoration(
                 color: ocTheme.backgroundPanel,
                 borderRadius: isExpanded && hasWorktrees
-                    ? const BorderRadius.vertical(top: Radius.circular(12))
-                    : BorderRadius.circular(12),
+                    ? Radii.sheetTop
+                    : Radii.brMd,
                 border: Border.all(
                   color: ocTheme.borderSubtle.withValues(alpha: 0.5),
                   width: 1,
@@ -1192,7 +1193,7 @@ class _ExpandableProjectItem extends StatelessWidget {
                     color: ocTheme.textMuted,
                     size: 20,
                   ),
-                  const SizedBox(width: 12),
+                  SizedBox(width: Spacing.md),
                   Expanded(
                     child: Text(
                       project.name,
@@ -1255,7 +1256,7 @@ class _ExpandableProjectItem extends StatelessWidget {
                               ),
                       ),
                     ),
-                    const SizedBox(width: 4),
+                    SizedBox(width: Spacing.xs),
                   ],
                   Text(
                     'Open',
@@ -1371,16 +1372,16 @@ class _WorktreeListItem extends StatelessWidget {
       onLongPress: onLongPress,
       behavior: HitTestBehavior.opaque,
       child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+        padding: Insets.section,
         child: Row(
           children: [
-            const SizedBox(width: 8), // Indent
+            SizedBox(width: Spacing.sm), // Indent
             Icon(
               Icons.alt_route_rounded,
               color: ocTheme.primary.withValues(alpha: 0.7),
               size: 16,
             ),
-            const SizedBox(width: 12),
+            SizedBox(width: Spacing.md),
             Expanded(
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,

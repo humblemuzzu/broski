@@ -4,7 +4,8 @@ import 'dart:math' as math;
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:google_fonts/google_fonts.dart';
+import '../theme/app_typography.dart';
+import '../theme/design_tokens.dart';
 import 'package:url_launcher/url_launcher.dart';
 
 import '../providers/app_auth_provider.dart';
@@ -151,7 +152,7 @@ class _StepDots extends StatelessWidget {
             color: isActive || isCompleted
                 ? Colors.white
                 : Colors.white.withValues(alpha: 0.2),
-            borderRadius: BorderRadius.circular(4),
+            borderRadius: Radii.brXs,
           ),
         );
       }),
@@ -316,7 +317,7 @@ class _CodeFromCouchPageState extends State<_CodeFromCouchPage>
                           ],
                         ),
                       ),
-                      const SizedBox(height: 20),
+                      SizedBox(height: Spacing.xl),
                       Text(
                         'The first IDE designed for the\nhorizontal lifestyle.',
                         style: TextStyle(
@@ -330,7 +331,7 @@ class _CodeFromCouchPageState extends State<_CodeFromCouchPage>
                 ),
               ),
             ),
-            const SizedBox(height: 32),
+            SizedBox(height: Spacing.xxxl),
             // Get Started button
             Padding(
               padding: const EdgeInsets.fromLTRB(24, 0, 24, 24),
@@ -349,7 +350,7 @@ class _CodeFromCouchPageState extends State<_CodeFromCouchPage>
                     height: 58,
                     decoration: BoxDecoration(
                       color: Colors.white,
-                      borderRadius: BorderRadius.circular(29),
+                      borderRadius: Radii.brFull,
                     ),
                     child: const Row(
                       mainAxisAlignment: MainAxisAlignment.center,
@@ -363,7 +364,7 @@ class _CodeFromCouchPageState extends State<_CodeFromCouchPage>
                             letterSpacing: 0.2,
                           ),
                         ),
-                        SizedBox(width: 8),
+                        SizedBox(width: Spacing.sm),
                         Text(
                           '\u2192',
                           style: TextStyle(
@@ -653,16 +654,16 @@ class _ArchitectureDiagram extends StatelessWidget {
           padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
           decoration: BoxDecoration(
             color: Colors.white,
-            borderRadius: BorderRadius.circular(24),
+            borderRadius: Radii.brXxl,
           ),
-          child: const Text(
+          child: Text(
             'BROSKI BRIDGE',
             style: TextStyle(
               fontSize: 13,
               fontWeight: FontWeight.w700,
               color: Colors.black,
               letterSpacing: 1.0,
-              fontFamily: 'monospace',
+              fontFamily: AppTypography.codeFontFamily,
             ),
           ),
         ),
@@ -712,7 +713,7 @@ class _SystemCard extends StatelessWidget {
       height: height,
       decoration: BoxDecoration(
         color: Colors.white.withValues(alpha: bgAlpha),
-        borderRadius: BorderRadius.circular(14),
+        borderRadius: Radii.brLg,
         border: Border.all(
           color: Colors.white.withValues(alpha: borderAlpha),
           width: 1,
@@ -764,7 +765,7 @@ class _FixedDashLine extends StatelessWidget {
             height: dashHeight,
             decoration: BoxDecoration(
               color: Colors.white.withValues(alpha: 0.18),
-              borderRadius: BorderRadius.circular(1),
+              borderRadius: Radii.brXs,
             ),
           );
         } else {
@@ -877,7 +878,7 @@ class _UnifiedIntelligencePageState extends State<_UnifiedIntelligencePage>
                               height: 1.1,
                             ),
                           ),
-                          const SizedBox(height: 12),
+                          SizedBox(height: Spacing.md),
                           Text(
                             'Connect your preferred engines. We\norchestrate the rest.',
                             style: TextStyle(
@@ -926,10 +927,10 @@ class _UnifiedIntelligencePageState extends State<_UnifiedIntelligencePage>
                                   height: 44,
                                   decoration: BoxDecoration(
                                     color: Colors.white,
-                                    borderRadius: BorderRadius.circular(12),
+                                    borderRadius: Radii.brMd,
                                   ),
                                   child: Padding(
-                                    padding: const EdgeInsets.all(8),
+                                    padding: Insets.cardXs,
                                     child: Image.asset(
                                       'docs/assets/codex-icon.png',
                                       fit: BoxFit.contain,
@@ -942,7 +943,7 @@ class _UnifiedIntelligencePageState extends State<_UnifiedIntelligencePage>
                               // OpenCode card
                               _AgentCard(
                                 iconWidget: ClipRRect(
-                                  borderRadius: BorderRadius.circular(12),
+                                  borderRadius: Radii.brMd,
                                   child: Image.asset(
                                     'docs/assets/opencode-mark.png',
                                     width: 44,
@@ -956,7 +957,7 @@ class _UnifiedIntelligencePageState extends State<_UnifiedIntelligencePage>
                               // Claude Code card
                               _AgentCard(
                                 iconWidget: ClipRRect(
-                                  borderRadius: BorderRadius.circular(12),
+                                  borderRadius: Radii.brMd,
                                   child: Image.asset(
                                     'docs/assets/claude-code.png',
                                     width: 44,
@@ -991,7 +992,7 @@ class _UnifiedIntelligencePageState extends State<_UnifiedIntelligencePage>
                         height: 58,
                         decoration: BoxDecoration(
                           color: Colors.white,
-                          borderRadius: BorderRadius.circular(29),
+                          borderRadius: Radii.brFull,
                         ),
                         child: const Center(
                           child: Text(
@@ -1031,7 +1032,7 @@ class _AgentCard extends StatelessWidget {
       padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 18),
       decoration: BoxDecoration(
         color: const Color(0xFF0A0A0A),
-        borderRadius: BorderRadius.circular(20),
+        borderRadius: Radii.brXl,
         border: Border.all(
           color: Colors.white.withValues(alpha: 0.10),
           width: 1,
@@ -1045,16 +1046,16 @@ class _AgentCard extends StatelessWidget {
             height: 48,
             decoration: BoxDecoration(
               color: const Color(0xFF1A1A1A),
-              borderRadius: BorderRadius.circular(14),
+              borderRadius: Radii.brLg,
             ),
             child: Center(
               child: ClipRRect(
-                borderRadius: BorderRadius.circular(12),
+                borderRadius: Radii.brMd,
                 child: SizedBox(width: 44, height: 44, child: iconWidget),
               ),
             ),
           ),
-          const SizedBox(width: 16),
+          SizedBox(width: Spacing.lg),
           Expanded(
             child: Text(
               name,
@@ -1220,7 +1221,7 @@ class _SuperpowersPageState extends State<_SuperpowersPage>
                               ),
                               decoration: BoxDecoration(
                                 color: Colors.white.withValues(alpha: 0.08),
-                                borderRadius: BorderRadius.circular(20),
+                                borderRadius: Radii.brXl,
                                 border: Border.all(
                                   color: Colors.white.withValues(alpha: 0.06),
                                 ),
@@ -1230,7 +1231,7 @@ class _SuperpowersPageState extends State<_SuperpowersPage>
                                 children: [
                                   // Broski logo — zoomed in to show the B prominently
                                   ClipRRect(
-                                    borderRadius: BorderRadius.circular(8),
+                                    borderRadius: Radii.brSm,
                                     child: SizedBox(
                                       width: 32,
                                       height: 32,
@@ -1316,7 +1317,7 @@ class _SuperpowersPageState extends State<_SuperpowersPage>
                           letterSpacing: -0.3,
                         ),
                       ),
-                      const SizedBox(height: 8),
+                      SizedBox(height: Spacing.sm),
                       Text(
                         "Step away. We'll ping you when the\nagent fixes the bug.",
                         style: TextStyle(
@@ -1332,7 +1333,7 @@ class _SuperpowersPageState extends State<_SuperpowersPage>
               ),
               // ---- Divider ----
               Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 20),
+                padding: Insets.screenH,
                 child: Container(
                   width: double.infinity,
                   height: 0.5,
@@ -1418,7 +1419,7 @@ class _VoiceSectionState extends State<_VoiceSection>
               letterSpacing: -0.3,
             ),
           ),
-          const SizedBox(height: 8),
+          SizedBox(height: Spacing.sm),
           Text(
             "Skip the keyboard. Just speak and let\nyour agent turn words into code.",
             style: TextStyle(
@@ -1427,7 +1428,7 @@ class _VoiceSectionState extends State<_VoiceSection>
               height: 1.45,
             ),
           ),
-          const SizedBox(height: 24),
+          SizedBox(height: Spacing.xxl),
           // Next button
           GestureDetector(
             onTap: () {
@@ -1439,7 +1440,7 @@ class _VoiceSectionState extends State<_VoiceSection>
               height: 58,
               decoration: BoxDecoration(
                 color: Colors.white,
-                borderRadius: BorderRadius.circular(29),
+                borderRadius: Radii.brFull,
               ),
               child: const Center(
                 child: Text(
@@ -1454,7 +1455,7 @@ class _VoiceSectionState extends State<_VoiceSection>
               ),
             ),
           ),
-          const SizedBox(height: 32),
+          SizedBox(height: Spacing.xxxl),
         ],
       ),
     );
@@ -1599,7 +1600,7 @@ class _FeaturePageState extends State<_FeaturePage>
               totalPages: widget.totalPages,
             ),
           ),
-          const SizedBox(height: 24),
+          SizedBox(height: Spacing.xxl),
           // Mockup area
           Expanded(
             flex: 5,
@@ -1648,7 +1649,7 @@ class _FeaturePageState extends State<_FeaturePage>
                       height: 52,
                       decoration: BoxDecoration(
                         gradient: LinearGradient(colors: widget.iconGradient),
-                        borderRadius: BorderRadius.circular(16),
+                        borderRadius: Radii.brLg,
                         boxShadow: [
                           BoxShadow(
                             color: widget.iconGradient.first.withValues(
@@ -1661,7 +1662,7 @@ class _FeaturePageState extends State<_FeaturePage>
                       ),
                       child: Icon(widget.icon, color: Colors.white, size: 26),
                     ),
-                    const SizedBox(height: 16),
+                    SizedBox(height: Spacing.lg),
                     Text(
                       widget.title,
                       textAlign: TextAlign.center,
@@ -1767,7 +1768,7 @@ class _FullTerminalPageState extends State<_FullTerminalPage>
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              const SizedBox(height: 32),
+              SizedBox(height: Spacing.xxxl),
               // ── Title: "Full Terminal.\nNo Laptop\nRequired."
               FadeTransition(
                 opacity: CurvedAnimation(
@@ -1817,7 +1818,7 @@ class _FullTerminalPageState extends State<_FullTerminalPage>
                   ),
                 ),
               ),
-              const SizedBox(height: 24),
+              SizedBox(height: Spacing.xxl),
               // ── Terminal mockup card
               Expanded(
                 child: FadeTransition(
@@ -1844,7 +1845,7 @@ class _FullTerminalPageState extends State<_FullTerminalPage>
                   ),
                 ),
               ),
-              const SizedBox(height: 20),
+              SizedBox(height: Spacing.xl),
               // ── Subtitle
               FadeTransition(
                 opacity: CurvedAnimation(
@@ -1860,7 +1861,7 @@ class _FullTerminalPageState extends State<_FullTerminalPage>
                   ),
                 ),
               ),
-              const SizedBox(height: 20),
+              SizedBox(height: Spacing.xl),
               // ── "Continue" button
               FadeTransition(
                 opacity: CurvedAnimation(
@@ -1877,7 +1878,7 @@ class _FullTerminalPageState extends State<_FullTerminalPage>
                     height: 58,
                     decoration: BoxDecoration(
                       color: Colors.white,
-                      borderRadius: BorderRadius.circular(29),
+                      borderRadius: Radii.brFull,
                     ),
                     child: const Center(
                       child: Text(
@@ -1946,14 +1947,14 @@ class _TerminalWindowCardState extends State<_TerminalWindowCard>
       width: double.infinity,
       decoration: BoxDecoration(
         color: _termBg,
-        borderRadius: BorderRadius.circular(12),
+        borderRadius: Radii.brMd,
         border: Border.all(
           color: Colors.white.withValues(alpha: 0.07),
           width: 1,
         ),
       ),
       child: ClipRRect(
-        borderRadius: BorderRadius.circular(11),
+        borderRadius: Radii.brMd,
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
@@ -1975,7 +1976,7 @@ class _TerminalWindowCardState extends State<_TerminalWindowCard>
                       shape: BoxShape.circle,
                     ),
                   ),
-                  const SizedBox(width: 8),
+                  SizedBox(width: Spacing.sm),
                   Container(
                     width: 13,
                     height: 13,
@@ -1984,7 +1985,7 @@ class _TerminalWindowCardState extends State<_TerminalWindowCard>
                       shape: BoxShape.circle,
                     ),
                   ),
-                  const SizedBox(width: 8),
+                  SizedBox(width: Spacing.sm),
                   Container(
                     width: 13,
                     height: 13,
@@ -1998,7 +1999,7 @@ class _TerminalWindowCardState extends State<_TerminalWindowCard>
                     'zsh \u2014 80x24',
                     style: TextStyle(
                       fontSize: 12,
-                      fontFamily: 'monospace',
+                      fontFamily: AppTypography.codeFontFamily,
                       color: Colors.white.withValues(alpha: 0.5),
                     ),
                   ),
@@ -2062,27 +2063,27 @@ class _TerminalWindowCardState extends State<_TerminalWindowCard>
       child: Text.rich(
         TextSpan(
           children: [
-            const TextSpan(
+            TextSpan(
               text: '\u2192 ',
               style: TextStyle(
                 fontSize: 13,
-                fontFamily: 'monospace',
+                fontFamily: AppTypography.codeFontFamily,
                 color: _green,
               ),
             ),
             TextSpan(
               text: '$dir ',
-              style: const TextStyle(
+              style: TextStyle(
                 fontSize: 13,
-                fontFamily: 'monospace',
+                fontFamily: AppTypography.codeFontFamily,
                 color: _blue,
               ),
             ),
             TextSpan(
               text: cmd,
-              style: const TextStyle(
+              style: TextStyle(
                 fontSize: 13,
-                fontFamily: 'monospace',
+                fontFamily: AppTypography.codeFontFamily,
                 color: Colors.white,
                 fontWeight: FontWeight.w500,
               ),
@@ -2103,27 +2104,27 @@ class _TerminalWindowCardState extends State<_TerminalWindowCard>
           Text.rich(
             TextSpan(
               children: [
-                const TextSpan(
+                TextSpan(
                   text: '\u2192 ',
                   style: TextStyle(
                     fontSize: 13,
-                    fontFamily: 'monospace',
+                    fontFamily: AppTypography.codeFontFamily,
                     color: _green,
                   ),
                 ),
                 TextSpan(
                   text: '$dir ',
-                  style: const TextStyle(
+                  style: TextStyle(
                     fontSize: 13,
-                    fontFamily: 'monospace',
+                    fontFamily: AppTypography.codeFontFamily,
                     color: _blue,
                   ),
                 ),
                 TextSpan(
                   text: cmd,
-                  style: const TextStyle(
+                  style: TextStyle(
                     fontSize: 13,
-                    fontFamily: 'monospace',
+                    fontFamily: AppTypography.codeFontFamily,
                     color: Colors.white,
                     fontWeight: FontWeight.w500,
                   ),
@@ -2154,7 +2155,7 @@ class _TerminalWindowCardState extends State<_TerminalWindowCard>
         text,
         style: TextStyle(
           fontSize: 13,
-          fontFamily: 'monospace',
+          fontFamily: AppTypography.codeFontFamily,
           color: color ?? Colors.white.withValues(alpha: 0.88),
         ),
       ),
@@ -2177,7 +2178,7 @@ class _TerminalWindowCardState extends State<_TerminalWindowCard>
               text: prefix,
               style: TextStyle(
                 fontSize: 13,
-                fontFamily: 'monospace',
+                fontFamily: AppTypography.codeFontFamily,
                 color: prefixColor,
               ),
             ),
@@ -2185,7 +2186,7 @@ class _TerminalWindowCardState extends State<_TerminalWindowCard>
               text: body,
               style: TextStyle(
                 fontSize: 13,
-                fontFamily: 'monospace',
+                fontFamily: AppTypography.codeFontFamily,
                 color: bodyColor,
               ),
             ),
@@ -2204,9 +2205,9 @@ class _TerminalWindowCardState extends State<_TerminalWindowCard>
           children: [
             TextSpan(
               text: filename,
-              style: const TextStyle(
+              style: TextStyle(
                 fontSize: 13,
-                fontFamily: 'monospace',
+                fontFamily: AppTypography.codeFontFamily,
                 color: Colors.white,
                 fontWeight: FontWeight.w500,
               ),
@@ -2215,7 +2216,7 @@ class _TerminalWindowCardState extends State<_TerminalWindowCard>
               text: '  $size',
               style: TextStyle(
                 fontSize: 13,
-                fontFamily: 'monospace',
+                fontFamily: AppTypography.codeFontFamily,
                 color: Colors.white.withValues(alpha: 0.45),
               ),
             ),
@@ -2286,7 +2287,7 @@ class _SafetyNetPageState extends State<_SafetyNetPage>
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              const SizedBox(height: 32),
+              SizedBox(height: Spacing.xxxl),
               // ── Title: "Agent broke it?\nOne tap. Gone."
               FadeTransition(
                 opacity: CurvedAnimation(
@@ -2336,7 +2337,7 @@ class _SafetyNetPageState extends State<_SafetyNetPage>
                   ),
                 ),
               ),
-              const SizedBox(height: 20),
+              SizedBox(height: Spacing.xl),
               // ── Session History mockup card
               Expanded(
                 child: FadeTransition(
@@ -2363,7 +2364,7 @@ class _SafetyNetPageState extends State<_SafetyNetPage>
                   ),
                 ),
               ),
-              const SizedBox(height: 20),
+              SizedBox(height: Spacing.xl),
               // ── Subtitle
               FadeTransition(
                 opacity: CurvedAnimation(
@@ -2379,7 +2380,7 @@ class _SafetyNetPageState extends State<_SafetyNetPage>
                   ),
                 ),
               ),
-              const SizedBox(height: 20),
+              SizedBox(height: Spacing.xl),
               // ── "Get The Safety Net" button
               FadeTransition(
                 opacity: CurvedAnimation(
@@ -2396,7 +2397,7 @@ class _SafetyNetPageState extends State<_SafetyNetPage>
                     height: 58,
                     decoration: BoxDecoration(
                       color: Colors.white,
-                      borderRadius: BorderRadius.circular(29),
+                      borderRadius: Radii.brFull,
                     ),
                     child: const Center(
                       child: Text(
@@ -2475,7 +2476,7 @@ class _SessionHistoryCard extends StatelessWidget {
             padding: const EdgeInsets.fromLTRB(20, 22, 20, 22),
             decoration: BoxDecoration(
               color: const Color(0xFF161616),
-              borderRadius: BorderRadius.circular(16),
+              borderRadius: Radii.brLg,
               border: Border.all(
                 color: Colors.white.withValues(alpha: 0.08),
                 width: 1,
@@ -2505,7 +2506,7 @@ class _SessionHistoryCard extends StatelessWidget {
                       ),
                       decoration: BoxDecoration(
                         color: Colors.white.withValues(alpha: 0.1),
-                        borderRadius: BorderRadius.circular(8),
+                        borderRadius: Radii.brSm,
                       ),
                       child: Text(
                         'Now',
@@ -2546,11 +2547,11 @@ class _SessionHistoryCard extends StatelessWidget {
                     Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        const Text(
+                        Text(
                           'Modified auth.ts',
                           style: TextStyle(
                             fontSize: 14,
-                            fontFamily: 'monospace',
+                            fontFamily: AppTypography.codeFontFamily,
                             color: Color(0xFFFF6B6B),
                             fontWeight: FontWeight.w500,
                           ),
@@ -2587,11 +2588,11 @@ class _SessionHistoryCard extends StatelessWidget {
                     Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        const Text(
+                        Text(
                           'Rolled back to clean state',
                           style: TextStyle(
                             fontSize: 14,
-                            fontFamily: 'monospace',
+                            fontFamily: AppTypography.codeFontFamily,
                             color: Color(0xFF50FA7B),
                             fontWeight: FontWeight.w500,
                           ),
@@ -2608,14 +2609,14 @@ class _SessionHistoryCard extends StatelessWidget {
                     ),
                   ],
                 ),
-                const SizedBox(height: 24),
+                SizedBox(height: Spacing.xxl),
                 // ── "Undo Last Action" button
                 Container(
                   width: double.infinity,
                   height: 48,
                   decoration: BoxDecoration(
                     color: Colors.white.withValues(alpha: 0.1),
-                    borderRadius: BorderRadius.circular(12),
+                    borderRadius: Radii.brMd,
                     border: Border.all(
                       color: Colors.white.withValues(alpha: 0.06),
                     ),
@@ -2737,7 +2738,7 @@ class _ZeroTelemetryPageState extends State<_ZeroTelemetryPage>
                           height: 280,
                           fit: BoxFit.contain,
                         ),
-                        const SizedBox(height: 12),
+                        SizedBox(height: Spacing.md),
                         // "LOCALHOST:3000" pill
                         Container(
                           padding: const EdgeInsets.symmetric(
@@ -2746,7 +2747,7 @@ class _ZeroTelemetryPageState extends State<_ZeroTelemetryPage>
                           ),
                           decoration: BoxDecoration(
                             color: Colors.white.withValues(alpha: 0.07),
-                            borderRadius: BorderRadius.circular(20),
+                            borderRadius: Radii.brXl,
                             border: Border.all(
                               color: Colors.white.withValues(alpha: 0.08),
                             ),
@@ -2763,11 +2764,11 @@ class _ZeroTelemetryPageState extends State<_ZeroTelemetryPage>
                                 ),
                               ),
                               const SizedBox(width: 10),
-                              const Text(
+                              Text(
                                 'LOCALHOST:3000',
                                 style: TextStyle(
                                   fontSize: 14,
-                                  fontFamily: 'monospace',
+                                  fontFamily: AppTypography.codeFontFamily,
                                   fontWeight: FontWeight.w600,
                                   color: Colors.white,
                                   letterSpacing: 1.5,
@@ -2837,7 +2838,7 @@ class _ZeroTelemetryPageState extends State<_ZeroTelemetryPage>
                             'Your code, files, and terminal never leave\nyour machine. We just connect your\nphone to it.',
                       ),
                     ),
-                    const SizedBox(height: 24),
+                    SizedBox(height: Spacing.xxl),
                     // ── Feature row 2: No Training Data
                     FadeTransition(
                       opacity: CurvedAnimation(
@@ -2868,7 +2869,7 @@ class _ZeroTelemetryPageState extends State<_ZeroTelemetryPage>
                           height: 58,
                           decoration: BoxDecoration(
                             color: Colors.white,
-                            borderRadius: BorderRadius.circular(29),
+                            borderRadius: Radii.brFull,
                           ),
                           child: const Center(
                             child: Text(
@@ -2927,7 +2928,7 @@ class _FeatureRow extends StatelessWidget {
             color: Colors.white.withValues(alpha: 0.7),
           ),
         ),
-        const SizedBox(width: 16),
+        SizedBox(width: Spacing.lg),
         // Text
         Expanded(
           child: Column(
@@ -2941,7 +2942,7 @@ class _FeatureRow extends StatelessWidget {
                   color: Colors.white,
                 ),
               ),
-              const SizedBox(height: 4),
+              SizedBox(height: Spacing.xs),
               Text(
                 subtitle,
                 style: TextStyle(
@@ -3060,7 +3061,7 @@ class _GetStartedPageState extends State<_GetStartedPage>
                       letterSpacing: -0.5,
                     ),
                   ),
-                  const SizedBox(height: 12),
+                  SizedBox(height: Spacing.md),
                   Text(
                     'Broski connects to a lightweight bridge running on your development machine.',
                     textAlign: TextAlign.center,
@@ -3089,7 +3090,7 @@ class _GetStartedPageState extends State<_GetStartedPage>
                     label: 'Set up my Mac',
                     onPressed: widget.onSetupNeeded,
                   ),
-                  const SizedBox(height: 12),
+                  SizedBox(height: Spacing.md),
                   _SecondaryButton(
                     label: 'I already have the bridge running',
                     onPressed: widget.onAlreadySetup,
@@ -3119,7 +3120,7 @@ class _PhoneMockup extends StatelessWidget {
       constraints: const BoxConstraints(maxWidth: 320),
       decoration: BoxDecoration(
         color: const Color(0xFF1A1A1A),
-        borderRadius: BorderRadius.circular(36),
+        borderRadius: Radii.brFull,
         border: Border.all(
           color: Colors.white.withValues(alpha: 0.1),
           width: 1,
@@ -3132,7 +3133,7 @@ class _PhoneMockup extends StatelessWidget {
           ),
         ],
       ),
-      child: ClipRRect(borderRadius: BorderRadius.circular(35), child: child),
+      child: ClipRRect(borderRadius: Radii.brFull, child: child),
     );
   }
 }
@@ -3144,11 +3145,11 @@ class _ChatMockup extends StatelessWidget {
   Widget build(BuildContext context) {
     return Container(
       color: const Color(0xFF0D0D0D),
-      padding: const EdgeInsets.all(16),
+      padding: Insets.card,
       child: Column(
         children: [
           // Status bar area
-          const SizedBox(height: 20),
+          SizedBox(height: Spacing.xl),
           // Header
           Row(
             children: [
@@ -3157,11 +3158,11 @@ class _ChatMockup extends StatelessWidget {
                 height: 36,
                 decoration: BoxDecoration(
                   color: const Color(0xFF6366F1),
-                  borderRadius: BorderRadius.circular(10),
+                  borderRadius: Radii.brMd,
                 ),
                 child: const Icon(Icons.code, color: Colors.white, size: 18),
               ),
-              const SizedBox(width: 12),
+              SizedBox(width: Spacing.md),
               Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
@@ -3184,25 +3185,25 @@ class _ChatMockup extends StatelessWidget {
               ),
             ],
           ),
-          const SizedBox(height: 24),
+          SizedBox(height: Spacing.xxl),
           // Chat messages
           _MockChatBubble(
             text: 'Add dark mode support to the settings screen',
             isUser: true,
           ),
-          const SizedBox(height: 16),
+          SizedBox(height: Spacing.lg),
           _MockChatBubble(
             text:
                 "I'll add dark mode toggle to settings. First, let me check the current theme implementation...",
             isUser: false,
           ),
-          const SizedBox(height: 12),
+          SizedBox(height: Spacing.md),
           // Thinking indicator
           Container(
-            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+            padding: Insets.buttonSm,
             decoration: BoxDecoration(
               color: const Color(0xFF1E1E1E),
-              borderRadius: BorderRadius.circular(16),
+              borderRadius: Radii.brLg,
               border: Border.all(
                 color: const Color(0xFF6366F1).withValues(alpha: 0.3),
               ),
@@ -3232,10 +3233,10 @@ class _ChatMockup extends StatelessWidget {
           const Spacer(),
           // Input area
           Container(
-            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+            padding: Insets.input,
             decoration: BoxDecoration(
               color: const Color(0xFF1A1A1A),
-              borderRadius: BorderRadius.circular(24),
+              borderRadius: Radii.brXxl,
               border: Border.all(color: Colors.white.withValues(alpha: 0.1)),
             ),
             child: Row(
@@ -3245,7 +3246,7 @@ class _ChatMockup extends StatelessWidget {
                   color: Colors.white.withValues(alpha: 0.4),
                   size: 22,
                 ),
-                const SizedBox(width: 12),
+                SizedBox(width: Spacing.md),
                 Text(
                   'Message...',
                   style: TextStyle(
@@ -3259,7 +3260,7 @@ class _ChatMockup extends StatelessWidget {
                   height: 32,
                   decoration: BoxDecoration(
                     color: const Color(0xFF6366F1),
-                    borderRadius: BorderRadius.circular(10),
+                    borderRadius: Radii.brMd,
                   ),
                   child: const Icon(
                     Icons.arrow_upward_rounded,
@@ -3270,7 +3271,7 @@ class _ChatMockup extends StatelessWidget {
               ],
             ),
           ),
-          const SizedBox(height: 8),
+          SizedBox(height: Spacing.sm),
         ],
       ),
     );
@@ -3292,7 +3293,7 @@ class _MockChatBubble extends StatelessWidget {
         padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
         decoration: BoxDecoration(
           color: isUser ? const Color(0xFF6366F1) : const Color(0xFF1E1E1E),
-          borderRadius: BorderRadius.circular(18),
+          borderRadius: Radii.brXl,
         ),
         child: Text(
           text,
@@ -3314,10 +3315,10 @@ class _TerminalMockup extends StatelessWidget {
   Widget build(BuildContext context) {
     return Container(
       color: const Color(0xFF0D0D0D),
-      padding: const EdgeInsets.all(16),
+      padding: Insets.card,
       child: Column(
         children: [
-          const SizedBox(height: 20),
+          SizedBox(height: Spacing.xl),
           // Header
           Row(
             children: [
@@ -3328,7 +3329,7 @@ class _TerminalMockup extends StatelessWidget {
                 ),
                 decoration: BoxDecoration(
                   color: const Color(0xFFF59E0B).withValues(alpha: 0.15),
-                  borderRadius: BorderRadius.circular(8),
+                  borderRadius: Radii.brSm,
                   border: Border.all(
                     color: const Color(0xFFF59E0B).withValues(alpha: 0.3),
                   ),
@@ -3354,14 +3355,14 @@ class _TerminalMockup extends StatelessWidget {
               ),
             ],
           ),
-          const SizedBox(height: 24),
+          SizedBox(height: Spacing.xxl),
           // Command box
           Container(
             width: double.infinity,
-            padding: const EdgeInsets.all(16),
+            padding: Insets.card,
             decoration: BoxDecoration(
               color: const Color(0xFF1A1A1A),
-              borderRadius: BorderRadius.circular(12),
+              borderRadius: Radii.brMd,
               border: Border.all(color: Colors.white.withValues(alpha: 0.1)),
             ),
             child: Column(
@@ -3374,31 +3375,31 @@ class _TerminalMockup extends StatelessWidget {
                       color: Colors.white.withValues(alpha: 0.5),
                       size: 16,
                     ),
-                    const SizedBox(width: 8),
+                    SizedBox(width: Spacing.sm),
                     Text(
                       'bash',
                       style: TextStyle(
                         color: Colors.white.withValues(alpha: 0.5),
                         fontSize: 12,
-                        fontFamily: 'monospace',
+                        fontFamily: AppTypography.codeFontFamily,
                       ),
                     ),
                   ],
                 ),
-                const SizedBox(height: 12),
-                const Text(
+                SizedBox(height: Spacing.md),
+                Text(
                   'rm -rf node_modules && npm install',
                   style: TextStyle(
                     color: Color(0xFF10B981),
                     fontSize: 14,
-                    fontFamily: 'monospace',
+                    fontFamily: AppTypography.codeFontFamily,
                     fontWeight: FontWeight.w500,
                   ),
                 ),
               ],
             ),
           ),
-          const SizedBox(height: 16),
+          SizedBox(height: Spacing.lg),
           Text(
             'Claude Code wants to run this command',
             style: TextStyle(
@@ -3415,7 +3416,7 @@ class _TerminalMockup extends StatelessWidget {
                   padding: const EdgeInsets.symmetric(vertical: 14),
                   decoration: BoxDecoration(
                     color: const Color(0xFF1E1E1E),
-                    borderRadius: BorderRadius.circular(12),
+                    borderRadius: Radii.brMd,
                     border: Border.all(
                       color: Colors.white.withValues(alpha: 0.1),
                     ),
@@ -3432,7 +3433,7 @@ class _TerminalMockup extends StatelessWidget {
                   ),
                 ),
               ),
-              const SizedBox(width: 12),
+              SizedBox(width: Spacing.md),
               Expanded(
                 child: Container(
                   padding: const EdgeInsets.symmetric(vertical: 14),
@@ -3440,7 +3441,7 @@ class _TerminalMockup extends StatelessWidget {
                     gradient: const LinearGradient(
                       colors: [Color(0xFF10B981), Color(0xFF059669)],
                     ),
-                    borderRadius: BorderRadius.circular(12),
+                    borderRadius: Radii.brMd,
                   ),
                   child: const Center(
                     child: Text(
@@ -3456,7 +3457,7 @@ class _TerminalMockup extends StatelessWidget {
               ),
             ],
           ),
-          const SizedBox(height: 8),
+          SizedBox(height: Spacing.sm),
         ],
       ),
     );
@@ -3470,16 +3471,16 @@ class _DiffMockup extends StatelessWidget {
   Widget build(BuildContext context) {
     return Container(
       color: const Color(0xFF0D0D0D),
-      padding: const EdgeInsets.all(16),
+      padding: Insets.card,
       child: Column(
         children: [
-          const SizedBox(height: 20),
+          SizedBox(height: Spacing.xl),
           // File header
           Container(
             padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
             decoration: BoxDecoration(
               color: const Color(0xFF1A1A1A),
-              borderRadius: BorderRadius.circular(10),
+              borderRadius: Radii.brMd,
               border: Border.all(color: Colors.white.withValues(alpha: 0.1)),
             ),
             child: Row(
@@ -3490,13 +3491,13 @@ class _DiffMockup extends StatelessWidget {
                   size: 18,
                 ),
                 const SizedBox(width: 10),
-                const Expanded(
+                Expanded(
                   child: Text(
                     'lib/screens/settings_screen.dart',
                     style: TextStyle(
                       color: Colors.white,
                       fontSize: 13,
-                      fontFamily: 'monospace',
+                      fontFamily: AppTypography.codeFontFamily,
                     ),
                     overflow: TextOverflow.ellipsis,
                   ),
@@ -3508,7 +3509,7 @@ class _DiffMockup extends StatelessWidget {
                   ),
                   decoration: BoxDecoration(
                     color: const Color(0xFF10B981).withValues(alpha: 0.15),
-                    borderRadius: BorderRadius.circular(6),
+                    borderRadius: Radii.brSm,
                   ),
                   child: const Text(
                     '+24 -8',
@@ -3522,15 +3523,15 @@ class _DiffMockup extends StatelessWidget {
               ],
             ),
           ),
-          const SizedBox(height: 16),
+          SizedBox(height: Spacing.lg),
           // Diff lines
           Expanded(
             child: Container(
               width: double.infinity,
-              padding: const EdgeInsets.all(12),
+              padding: Insets.cardSm,
               decoration: BoxDecoration(
                 color: const Color(0xFF1A1A1A),
-                borderRadius: BorderRadius.circular(10),
+                borderRadius: Radii.brMd,
               ),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
@@ -3570,7 +3571,7 @@ class _DiffMockup extends StatelessWidget {
               ),
             ),
           ),
-          const SizedBox(height: 8),
+          SizedBox(height: Spacing.sm),
         ],
       ),
     );
@@ -3615,7 +3616,7 @@ class _DiffLine extends StatelessWidget {
       padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
       decoration: BoxDecoration(
         color: bgColor,
-        borderRadius: BorderRadius.circular(4),
+        borderRadius: Radii.brXs,
       ),
       child: Row(
         children: [
@@ -3626,7 +3627,7 @@ class _DiffLine extends StatelessWidget {
               style: TextStyle(
                 color: Colors.white.withValues(alpha: 0.3),
                 fontSize: 11,
-                fontFamily: 'monospace',
+                fontFamily: AppTypography.codeFontFamily,
               ),
             ),
           ),
@@ -3635,7 +3636,7 @@ class _DiffLine extends StatelessWidget {
             style: TextStyle(
               color: textColor,
               fontSize: 12,
-              fontFamily: 'monospace',
+              fontFamily: AppTypography.codeFontFamily,
               fontWeight: FontWeight.w600,
             ),
           ),
@@ -3646,7 +3647,7 @@ class _DiffLine extends StatelessWidget {
               style: TextStyle(
                 color: textColor,
                 fontSize: 12,
-                fontFamily: 'monospace',
+                fontFamily: AppTypography.codeFontFamily,
               ),
               overflow: TextOverflow.ellipsis,
             ),
@@ -3683,7 +3684,7 @@ class _ConnectionIllustration extends StatelessWidget {
                     const Color(0xFF10B981).withValues(alpha: 0.6),
                   ],
                 ),
-                borderRadius: BorderRadius.circular(2),
+                borderRadius: Radii.brXs,
               ),
             ),
           ),
@@ -3725,7 +3726,7 @@ class _ConnectionIllustration extends StatelessWidget {
               height: size,
               decoration: BoxDecoration(
                 color: const Color(0xFF1A1A1A),
-                borderRadius: BorderRadius.circular(20),
+                borderRadius: Radii.brXl,
                 border: Border.all(
                   color: Colors.white.withValues(alpha: 0.1),
                   width: 2,
@@ -3748,7 +3749,7 @@ class _ConnectionIllustration extends StatelessWidget {
                       gradient: const LinearGradient(
                         colors: [Color(0xFF6366F1), Color(0xFF8B5CF6)],
                       ),
-                      borderRadius: BorderRadius.circular(10),
+                      borderRadius: Radii.brMd,
                     ),
                     child: const Center(
                       child: Text(
@@ -3761,7 +3762,7 @@ class _ConnectionIllustration extends StatelessWidget {
                       ),
                     ),
                   ),
-                  const SizedBox(height: 8),
+                  SizedBox(height: Spacing.sm),
                   Text(
                     'iPhone',
                     style: TextStyle(
@@ -3781,7 +3782,7 @@ class _ConnectionIllustration extends StatelessWidget {
               height: size * 0.7,
               decoration: BoxDecoration(
                 color: const Color(0xFF1A1A1A),
-                borderRadius: BorderRadius.circular(12),
+                borderRadius: Radii.brMd,
                 border: Border.all(
                   color: Colors.white.withValues(alpha: 0.1),
                   width: 2,
@@ -3802,7 +3803,7 @@ class _ConnectionIllustration extends StatelessWidget {
                     color: Color(0xFF10B981),
                     size: 36,
                   ),
-                  const SizedBox(height: 8),
+                  SizedBox(height: Spacing.sm),
                   Text(
                     'Your Mac',
                     style: TextStyle(
@@ -3878,7 +3879,7 @@ class _PrimaryButtonState extends State<_PrimaryButton>
           height: 56,
           decoration: BoxDecoration(
             color: Colors.white,
-            borderRadius: BorderRadius.circular(16),
+            borderRadius: Radii.brLg,
             boxShadow: [
               BoxShadow(
                 color: Colors.white.withValues(alpha: 0.25),
@@ -3922,7 +3923,7 @@ class _SecondaryButton extends StatelessWidget {
         height: 56,
         decoration: BoxDecoration(
           color: Colors.transparent,
-          borderRadius: BorderRadius.circular(16),
+          borderRadius: Radii.brLg,
         ),
         child: Center(
           child: Text(
@@ -4019,16 +4020,14 @@ class _IdentifyYourselfPageState extends ConsumerState<_IdentifyYourselfPage>
                   const SizedBox(width: 10),
                   Text(
                     'SYSTEM ONLINE',
-                    style: GoogleFonts.jetBrainsMono(
-                      fontSize: 13,
+                    style: AppTypography.code(color: Colors.white.withValues(alpha: 0.55)).copyWith(
                       fontWeight: FontWeight.w500,
-                      color: Colors.white.withValues(alpha: 0.55),
                       letterSpacing: 1.5,
                     ),
                   ),
                 ],
               ),
-              const SizedBox(height: 16),
+              SizedBox(height: Spacing.lg),
 
               // -- "Identify\nYourself." heading --
               Text.rich(
@@ -4037,7 +4036,7 @@ class _IdentifyYourselfPageState extends ConsumerState<_IdentifyYourselfPage>
                     TextSpan(
                       text: 'Identify\n',
                       style: TextStyle(
-                        fontFamily: 'GeistSans',
+                        fontFamily: AppTypography.uiFontFamily,
                         fontSize: 44,
                         fontWeight: FontWeight.w800,
                         color: Colors.white,
@@ -4048,7 +4047,7 @@ class _IdentifyYourselfPageState extends ConsumerState<_IdentifyYourselfPage>
                     TextSpan(
                       text: 'Yourself.',
                       style: TextStyle(
-                        fontFamily: 'GeistSans',
+                        fontFamily: AppTypography.uiFontFamily,
                         fontSize: 44,
                         fontWeight: FontWeight.w800,
                         color: const Color(0xFF555555),
@@ -4076,10 +4075,10 @@ class _IdentifyYourselfPageState extends ConsumerState<_IdentifyYourselfPage>
               if (state.error != null) ...[
                 Container(
                   width: double.infinity,
-                  padding: const EdgeInsets.all(12),
+                  padding: Insets.cardSm,
                   decoration: BoxDecoration(
                     color: const Color(0xFFEF4444).withValues(alpha: 0.10),
-                    borderRadius: BorderRadius.circular(12),
+                    borderRadius: Radii.brMd,
                     border: Border.all(
                       color: const Color(0xFFEF4444).withValues(alpha: 0.20),
                     ),
@@ -4092,7 +4091,7 @@ class _IdentifyYourselfPageState extends ConsumerState<_IdentifyYourselfPage>
                     ),
                   ),
                 ),
-                const SizedBox(height: 16),
+                SizedBox(height: Spacing.lg),
               ],
 
               // -- Continue with Apple button (iOS only, on top) --
@@ -4121,15 +4120,13 @@ class _IdentifyYourselfPageState extends ConsumerState<_IdentifyYourselfPage>
                   ref.read(appAuthProvider.notifier).signInWithGoogle();
                 },
               ),
-              const SizedBox(height: 20),
+              SizedBox(height: Spacing.xl),
 
               // -- Terms and Privacy Policy --
               Center(
                 child: Text.rich(
                   TextSpan(
-                    style: GoogleFonts.jetBrainsMono(
-                      fontSize: 11,
-                      color: Colors.white.withValues(alpha: 0.35),
+                    style: AppTypography.codeSmall(color: Colors.white.withValues(alpha: 0.35)).copyWith(
                       height: 1.5,
                     ),
                     children: [
@@ -4140,9 +4137,7 @@ class _IdentifyYourselfPageState extends ConsumerState<_IdentifyYourselfPage>
                               _launchUrl('https://broskiapp.com/legal/terms'),
                           child: Text(
                             'Terms of Service',
-                            style: GoogleFonts.jetBrainsMono(
-                              fontSize: 11,
-                              color: Colors.white.withValues(alpha: 0.55),
+                            style: AppTypography.codeSmall(color: Colors.white.withValues(alpha: 0.55)).copyWith(
                               decoration: TextDecoration.underline,
                               decorationColor: Colors.white.withValues(
                                 alpha: 0.35,
@@ -4158,9 +4153,7 @@ class _IdentifyYourselfPageState extends ConsumerState<_IdentifyYourselfPage>
                               _launchUrl('https://broskiapp.com/legal/privacy'),
                           child: Text(
                             'Privacy Policy',
-                            style: GoogleFonts.jetBrainsMono(
-                              fontSize: 11,
-                              color: Colors.white.withValues(alpha: 0.55),
+                            style: AppTypography.codeSmall(color: Colors.white.withValues(alpha: 0.55)).copyWith(
                               decoration: TextDecoration.underline,
                               decorationColor: Colors.white.withValues(
                                 alpha: 0.35,
@@ -4175,7 +4168,7 @@ class _IdentifyYourselfPageState extends ConsumerState<_IdentifyYourselfPage>
                   textAlign: TextAlign.center,
                 ),
               ),
-              const SizedBox(height: 32),
+              SizedBox(height: Spacing.xxxl),
             ],
           ),
         ),
@@ -4210,7 +4203,7 @@ class _OnboardingScanBox extends StatelessWidget {
           Positioned.fill(
             child: Container(
               decoration: BoxDecoration(
-                borderRadius: BorderRadius.circular(16),
+                borderRadius: Radii.brLg,
                 border: Border.all(
                   color: Colors.white.withValues(alpha: 0.08),
                   width: 1,
@@ -4218,7 +4211,7 @@ class _OnboardingScanBox extends StatelessWidget {
                 color: Colors.white.withValues(alpha: 0.03),
               ),
               child: ClipRRect(
-                borderRadius: BorderRadius.circular(15),
+                borderRadius: Radii.brLg,
                 child: Stack(
                   fit: StackFit.expand,
                   children: [
@@ -4316,20 +4309,16 @@ class _OnboardingScanBox extends StatelessWidget {
               children: [
                 Text(
                   'ID: UNKNOWN',
-                  style: GoogleFonts.jetBrainsMono(
-                    fontSize: 12,
+                  style: AppTypography.codeSmall(color: Colors.white.withValues(alpha: 0.40)).copyWith(
                     fontWeight: FontWeight.w500,
-                    color: Colors.white.withValues(alpha: 0.40),
                     letterSpacing: 1.2,
                   ),
                 ),
-                const SizedBox(height: 4),
+                SizedBox(height: Spacing.xs),
                 Text(
                   'ACCESS: PENDING',
-                  style: GoogleFonts.jetBrainsMono(
-                    fontSize: 12,
+                  style: AppTypography.codeSmall(color: Colors.white.withValues(alpha: 0.40)).copyWith(
                     fontWeight: FontWeight.w500,
-                    color: Colors.white.withValues(alpha: 0.40),
                     letterSpacing: 1.2,
                   ),
                 ),
@@ -4452,7 +4441,7 @@ class _OnboardingAuthButton extends StatelessWidget {
           color: outlined
               ? Colors.transparent
               : Colors.white.withValues(alpha: 0.08),
-          borderRadius: BorderRadius.circular(14),
+          borderRadius: Radii.brLg,
           border: Border.all(
             color: Colors.white.withValues(alpha: outlined ? 0.12 : 0.10),
             width: 1,
@@ -4484,7 +4473,7 @@ class _OnboardingAuthButton extends StatelessWidget {
                         color: Colors.white.withValues(alpha: 0.8),
                         size: 22,
                       ),
-                    const SizedBox(width: 12),
+                    SizedBox(width: Spacing.md),
                     Text(
                       label,
                       style: TextStyle(

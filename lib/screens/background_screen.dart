@@ -2,7 +2,8 @@ import 'dart:io';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:google_fonts/google_fonts.dart';
+import '../theme/app_typography.dart';
+import '../theme/design_tokens.dart';
 
 import '../providers/appearance_provider.dart';
 import '../theme/opencode_theme.dart';
@@ -59,25 +60,25 @@ class BackgroundScreen extends ConsumerWidget {
         ],
       ),
       body: ListView(
-        padding: const EdgeInsets.all(20),
+        padding: Insets.screenAll,
         children: [
           // Custom Background Image Section
           _SectionHeader(title: 'Wallpaper'),
-          const SizedBox(height: 12),
+          SizedBox(height: Spacing.md),
           _BackgroundSection(settings: settings),
 
-          const SizedBox(height: 32),
+          SizedBox(height: Spacing.xxxl),
 
           // Background Shade Picker
           _SectionHeader(title: 'Background Shade'),
-          const SizedBox(height: 12),
+          SizedBox(height: Spacing.md),
           const _BackgroundShadePreview(),
 
-          const SizedBox(height: 32),
+          SizedBox(height: Spacing.xxxl),
 
           // Per-screen background toggles
           _SectionHeader(title: 'Screen Selection'),
-          const SizedBox(height: 12),
+          SizedBox(height: Spacing.md),
           const _ScreenBackgroundToggles(),
 
           const SizedBox(height: 100),
@@ -120,7 +121,7 @@ class _SettingsCard extends StatelessWidget {
     return Container(
       decoration: BoxDecoration(
         color: ocTheme.backgroundPanel,
-        borderRadius: BorderRadius.circular(16),
+        borderRadius: Radii.brLg,
         border: Border.all(color: ocTheme.borderSubtle),
       ),
       child: child,
@@ -159,9 +160,9 @@ class _BackgroundSection extends ConsumerWidget {
           // Custom background image preview/picker
           InkWell(
             onTap: () => _showBackgroundOptions(context, ref),
-            borderRadius: const BorderRadius.vertical(top: Radius.circular(16)),
+            borderRadius: Radii.sheetTop,
             child: Padding(
-              padding: const EdgeInsets.all(16),
+              padding: Insets.card,
               child: Row(
                 children: [
                   // Thumbnail or placeholder
@@ -170,7 +171,7 @@ class _BackgroundSection extends ConsumerWidget {
                     height: 100,
                     decoration: BoxDecoration(
                       color: ocTheme.bgRaised,
-                      borderRadius: BorderRadius.circular(8),
+                      borderRadius: Radii.brSm,
                       border: Border.all(color: ocTheme.borderSubtle),
                       image: settings.hasCustomBackground
                           ? DecorationImage(
@@ -191,7 +192,7 @@ class _BackgroundSection extends ConsumerWidget {
                             size: 24,
                           ),
                   ),
-                  const SizedBox(width: 16),
+                  SizedBox(width: Spacing.lg),
                   Expanded(
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
@@ -204,7 +205,7 @@ class _BackgroundSection extends ConsumerWidget {
                             fontWeight: FontWeight.w600,
                           ),
                         ),
-                        const SizedBox(height: 4),
+                        SizedBox(height: Spacing.xs),
                         Text(
                           settings.hasCustomBackground
                               ? 'Tap to change or remove'
@@ -272,10 +273,10 @@ class _BackgroundSection extends ConsumerWidget {
           // Choose from gallery
           ListTile(
             leading: Container(
-              padding: const EdgeInsets.all(10),
+              padding: Insets.cardXs,
               decoration: BoxDecoration(
                 color: theme.colorScheme.primary.withValues(alpha: 0.15),
-                borderRadius: BorderRadius.circular(12),
+                borderRadius: Radii.brMd,
               ),
               child: Icon(
                 Icons.photo_library_rounded,
@@ -299,13 +300,13 @@ class _BackgroundSection extends ConsumerWidget {
 
           // Remove background (only if one is set)
           if (settings.hasCustomBackground) ...[
-            const SizedBox(height: 8),
+            SizedBox(height: Spacing.sm),
             ListTile(
               leading: Container(
-                padding: const EdgeInsets.all(10),
+                padding: Insets.cardXs,
                 decoration: BoxDecoration(
                   color: theme.colorScheme.error.withValues(alpha: 0.15),
-                  borderRadius: BorderRadius.circular(12),
+                  borderRadius: Radii.brMd,
                 ),
                 child: Icon(
                   Icons.delete_outline_rounded,
@@ -321,7 +322,7 @@ class _BackgroundSection extends ConsumerWidget {
             ),
           ],
 
-          const SizedBox(height: 16),
+          SizedBox(height: Spacing.lg),
         ],
       ),
     );
@@ -353,7 +354,7 @@ class _SliderTileWithLabel extends StatelessWidget {
     final theme = Theme.of(context);
 
     return Padding(
-      padding: const EdgeInsets.all(16),
+      padding: Insets.card,
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -375,7 +376,7 @@ class _SliderTileWithLabel extends StatelessWidget {
                 ),
                 decoration: BoxDecoration(
                   color: theme.colorScheme.primary.withValues(alpha: 0.15),
-                  borderRadius: BorderRadius.circular(8),
+                  borderRadius: Radii.brSm,
                 ),
                 child: Text(
                   valueLabel,
@@ -388,7 +389,7 @@ class _SliderTileWithLabel extends StatelessWidget {
               ),
             ],
           ),
-          const SizedBox(height: 8),
+          SizedBox(height: Spacing.sm),
           Slider(
             value: value,
             min: min,
@@ -431,10 +432,10 @@ class _BackgroundShadePreview extends ConsumerWidget {
     return Container(
       decoration: BoxDecoration(
         color: ocTheme.backgroundPanel,
-        borderRadius: BorderRadius.circular(16),
+        borderRadius: Radii.brLg,
         border: Border.all(color: ocTheme.borderSubtle),
       ),
-      padding: const EdgeInsets.all(16),
+      padding: Insets.card,
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -459,25 +460,25 @@ class _BackgroundShadePreview extends ConsumerWidget {
               ),
             ],
           ),
-          const SizedBox(height: 16),
+          SizedBox(height: Spacing.lg),
 
           // Shade swatches (selectable)
           ...shades.map((shade) {
             final isSelected = settings.selectedShade == shade.$1;
             return Padding(
-              padding: const EdgeInsets.only(bottom: 8),
+              padding: Insets.bottomSm,
               child: InkWell(
                 onTap: () => ref
                     .read(appearanceProvider.notifier)
                     .setSelectedShade(shade.$1),
-                borderRadius: BorderRadius.circular(10),
+                borderRadius: Radii.brMd,
                 child: Container(
-                  padding: const EdgeInsets.all(10),
+                  padding: Insets.cardXs,
                   decoration: BoxDecoration(
                     color: isSelected
                         ? theme.colorScheme.primary.withValues(alpha: 0.1)
                         : Colors.transparent,
-                    borderRadius: BorderRadius.circular(10),
+                    borderRadius: Radii.brMd,
                     border: isSelected
                         ? Border.all(color: theme.colorScheme.primary, width: 2)
                         : null,
@@ -490,7 +491,7 @@ class _BackgroundShadePreview extends ConsumerWidget {
                         height: 32,
                         decoration: BoxDecoration(
                           color: shade.$3,
-                          borderRadius: BorderRadius.circular(6),
+                          borderRadius: Radii.brSm,
                           border: Border.all(
                             color: theme.colorScheme.onSurface.withValues(
                               alpha: 0.1,
@@ -507,7 +508,7 @@ class _BackgroundShadePreview extends ConsumerWidget {
                               )
                             : null,
                       ),
-                      const SizedBox(width: 12),
+                      SizedBox(width: Spacing.md),
                       // Label and description
                       Expanded(
                         child: Column(
@@ -551,16 +552,16 @@ class _BackgroundShadePreview extends ConsumerWidget {
                           ),
                           decoration: BoxDecoration(
                             color: ocTheme.bgRaised,
-                            borderRadius: BorderRadius.circular(6),
+                            borderRadius: Radii.brSm,
                           ),
                           child: Text(
                             '#${shade.$3.toARGB32().toRadixString(16).substring(2).toUpperCase()}',
-                            style: TextStyle(
+                            style: AppTypography.codeSmall(
                               color: theme.colorScheme.onSurface.withValues(
                                 alpha: 0.7,
                               ),
+                            ).copyWith(
                               fontSize: 10,
-                              fontFamily: GoogleFonts.jetBrainsMono().fontFamily,
                               fontWeight: FontWeight.w600,
                             ),
                           ),
@@ -592,10 +593,10 @@ class _ScreenBackgroundToggles extends ConsumerWidget {
       return Container(
         decoration: BoxDecoration(
           color: ocTheme.backgroundPanel,
-          borderRadius: BorderRadius.circular(16),
+          borderRadius: Radii.brLg,
           border: Border.all(color: ocTheme.borderSubtle),
         ),
-        padding: const EdgeInsets.all(16),
+        padding: Insets.card,
         child: Row(
           children: [
             Icon(
@@ -603,7 +604,7 @@ class _ScreenBackgroundToggles extends ConsumerWidget {
               size: 18,
               color: theme.colorScheme.onSurface.withValues(alpha: 0.5),
             ),
-            const SizedBox(width: 12),
+            SizedBox(width: Spacing.md),
             Expanded(
               child: Text(
                 'Select a background image or shade above to enable',
@@ -632,10 +633,10 @@ class _ScreenBackgroundToggles extends ConsumerWidget {
     return Container(
       decoration: BoxDecoration(
         color: ocTheme.backgroundPanel,
-        borderRadius: BorderRadius.circular(16),
+        borderRadius: Radii.brLg,
         border: Border.all(color: ocTheme.borderSubtle),
       ),
-      padding: const EdgeInsets.all(16),
+      padding: Insets.card,
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -647,7 +648,7 @@ class _ScreenBackgroundToggles extends ConsumerWidget {
                 size: 18,
                 color: theme.colorScheme.primary,
               ),
-              const SizedBox(width: 12),
+              SizedBox(width: Spacing.md),
               Expanded(
                 child: Text(
                   'Select screens to apply background',
@@ -680,7 +681,7 @@ class _ScreenBackgroundToggles extends ConsumerWidget {
                     color: allEnabled
                         ? theme.colorScheme.primary.withValues(alpha: 0.15)
                         : ocTheme.bgRaised,
-                    borderRadius: BorderRadius.circular(6),
+                    borderRadius: Radii.brSm,
                   ),
                   child: Text(
                     allEnabled ? 'All' : 'Custom',
@@ -696,7 +697,7 @@ class _ScreenBackgroundToggles extends ConsumerWidget {
               ),
             ],
           ),
-          const SizedBox(height: 16),
+          SizedBox(height: Spacing.lg),
           // Screen toggles
           Wrap(
             spacing: 8,
@@ -751,7 +752,7 @@ class _ScreenToggleChip extends StatelessWidget {
           color: isEnabled
               ? theme.colorScheme.primary.withValues(alpha: 0.15)
               : ocTheme.bgRaised,
-          borderRadius: BorderRadius.circular(10),
+          borderRadius: Radii.brMd,
           border: Border.all(
             color: isEnabled
                 ? theme.colorScheme.primary.withValues(alpha: 0.5)
@@ -769,7 +770,7 @@ class _ScreenToggleChip extends StatelessWidget {
                   ? theme.colorScheme.primary
                   : theme.colorScheme.onSurface.withValues(alpha: 0.5),
             ),
-            const SizedBox(width: 8),
+            SizedBox(width: Spacing.sm),
             Text(
               label,
               style: TextStyle(

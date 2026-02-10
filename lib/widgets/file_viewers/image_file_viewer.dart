@@ -1,6 +1,7 @@
 import 'dart:typed_data';
 
 import 'package:flutter/material.dart';
+import '../../theme/design_tokens.dart';
 import 'package:photo_view/photo_view.dart';
 
 import '../../theme/opencode_theme.dart';
@@ -41,7 +42,7 @@ class ImageFileViewer extends StatelessWidget {
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
               Icon(Icons.broken_image, size: 64, color: theme.error),
-              const SizedBox(height: 16),
+              SizedBox(height: Spacing.lg),
               Text(
                 'Failed to load image',
                 style: TextStyle(color: theme.textMuted),

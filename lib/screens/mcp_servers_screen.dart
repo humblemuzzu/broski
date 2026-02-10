@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../theme/app_typography.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../models/agent_type.dart';
@@ -8,6 +9,7 @@ import '../providers/connection_provider.dart';
 import '../providers/service_providers.dart';
 import '../providers/selection_provider.dart';
 import '../services/storage_service.dart';
+import '../theme/design_tokens.dart';
 import '../theme/opencode_theme.dart';
 import '../widgets/chat/detail_sheet.dart';
 import '../widgets/connection_indicator.dart';
@@ -290,7 +292,7 @@ class _McpServersScreenState extends ConsumerState<McpServersScreen>
             },
           ),
           Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 8),
+            padding: Insets.chipH,
             child: ConnectionIndicator(
               status: connection.status,
               agentAvailable: agentAvailable,
@@ -319,18 +321,18 @@ class _McpServersScreenState extends ConsumerState<McpServersScreen>
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
             Icon(Icons.error_outline, size: 48, color: theme.error),
-            const SizedBox(height: 16),
+            SizedBox(height: Spacing.lg),
             Text(
               'Failed to load MCP servers',
               style: TextStyle(color: theme.text, fontSize: 16),
             ),
-            const SizedBox(height: 8),
+            SizedBox(height: Spacing.sm),
             Text(
               _error!,
-              style: TextStyle(color: theme.textMuted, fontSize: 14),
+              style: AppTypography.labelLarge(color: theme.textMuted),
               textAlign: TextAlign.center,
             ),
-            const SizedBox(height: 20),
+            SizedBox(height: Spacing.xl),
             ElevatedButton(
               onPressed: _loadServers,
               style: ElevatedButton.styleFrom(
@@ -350,7 +352,7 @@ class _McpServersScreenState extends ConsumerState<McpServersScreen>
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
             Icon(Icons.extension_off, size: 64, color: theme.textMuted),
-            const SizedBox(height: 20),
+            SizedBox(height: Spacing.xl),
             Text(
               'No MCP Servers',
               style: TextStyle(
@@ -359,13 +361,13 @@ class _McpServersScreenState extends ConsumerState<McpServersScreen>
                 fontWeight: FontWeight.w600,
               ),
             ),
-            const SizedBox(height: 8),
+            SizedBox(height: Spacing.sm),
             Text(
               'Configure MCP servers in your\nOpenCode configuration file',
-              style: TextStyle(color: theme.textMuted, fontSize: 14),
+              style: AppTypography.labelLarge(color: theme.textMuted),
               textAlign: TextAlign.center,
             ),
-            const SizedBox(height: 24),
+            SizedBox(height: Spacing.xxl),
             OutlinedButton.icon(
               onPressed: _loadServers,
               icon: const Icon(Icons.refresh, size: 20),
@@ -397,7 +399,7 @@ class _McpServersScreenState extends ConsumerState<McpServersScreen>
       onRefresh: _loadServers,
       color: theme.primary,
       child: ListView.builder(
-        padding: const EdgeInsets.all(16),
+        padding: Insets.card,
         itemCount: serverList.length,
         itemBuilder: (context, index) {
           final entry = serverList[index];
@@ -424,18 +426,18 @@ class _McpServersScreenState extends ConsumerState<McpServersScreen>
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
             Icon(Icons.error_outline, size: 48, color: theme.error),
-            const SizedBox(height: 16),
+            SizedBox(height: Spacing.lg),
             Text(
               'Failed to load MCP resources',
               style: TextStyle(color: theme.text, fontSize: 16),
             ),
-            const SizedBox(height: 8),
+            SizedBox(height: Spacing.sm),
             Text(
               _resourcesError!,
-              style: TextStyle(color: theme.textMuted, fontSize: 14),
+              style: AppTypography.labelLarge(color: theme.textMuted),
               textAlign: TextAlign.center,
             ),
-            const SizedBox(height: 20),
+            SizedBox(height: Spacing.xl),
             ElevatedButton(
               onPressed: _loadResources,
               style: ElevatedButton.styleFrom(
@@ -455,7 +457,7 @@ class _McpServersScreenState extends ConsumerState<McpServersScreen>
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
             Icon(Icons.folder_off_outlined, size: 64, color: theme.textMuted),
-            const SizedBox(height: 20),
+            SizedBox(height: Spacing.xl),
             Text(
               'No MCP Resources',
               style: TextStyle(
@@ -464,13 +466,13 @@ class _McpServersScreenState extends ConsumerState<McpServersScreen>
                 fontWeight: FontWeight.w600,
               ),
             ),
-            const SizedBox(height: 8),
+            SizedBox(height: Spacing.sm),
             Text(
               'Resources will appear here when\nMCP servers provide them',
-              style: TextStyle(color: theme.textMuted, fontSize: 14),
+              style: AppTypography.labelLarge(color: theme.textMuted),
               textAlign: TextAlign.center,
             ),
-            const SizedBox(height: 24),
+            SizedBox(height: Spacing.xxl),
             OutlinedButton.icon(
               onPressed: _loadResources,
               icon: const Icon(Icons.refresh, size: 20),
@@ -500,7 +502,7 @@ class _McpServersScreenState extends ConsumerState<McpServersScreen>
       onRefresh: _loadResources,
       color: theme.primary,
       child: ListView.builder(
-        padding: const EdgeInsets.all(16),
+        padding: Insets.card,
         itemCount: resourcesByClient.length,
         itemBuilder: (context, index) {
           final clientEntry = resourcesByClient.entries.elementAt(index);
@@ -521,7 +523,7 @@ class _McpServersScreenState extends ConsumerState<McpServersScreen>
       title: resource.name,
       initialSize: 0.5,
       child: Padding(
-        padding: const EdgeInsets.all(20),
+        padding: Insets.screenAll,
         child: Column(
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.start,
@@ -529,10 +531,10 @@ class _McpServersScreenState extends ConsumerState<McpServersScreen>
             Row(
               children: [
                 Container(
-                  padding: const EdgeInsets.all(12),
+                  padding: Insets.cardSm,
                   decoration: BoxDecoration(
                     color: sheetTheme.primary.withValues(alpha: 0.15),
-                    borderRadius: BorderRadius.circular(12),
+                    borderRadius: Radii.brMd,
                   ),
                   child: Icon(
                     _getResourceIcon(resource.mimeType),
@@ -540,7 +542,7 @@ class _McpServersScreenState extends ConsumerState<McpServersScreen>
                     size: 24,
                   ),
                 ),
-                const SizedBox(width: 16),
+                SizedBox(width: Spacing.lg),
                 Expanded(
                   child: Text(
                     'from ${resource.client}',
@@ -549,7 +551,7 @@ class _McpServersScreenState extends ConsumerState<McpServersScreen>
                 ),
               ],
             ),
-            const SizedBox(height: 20),
+            SizedBox(height: Spacing.xl),
 
             // URI
             _DetailRow(label: 'URI', value: resource.uri),
@@ -561,7 +563,7 @@ class _McpServersScreenState extends ConsumerState<McpServersScreen>
             // Description
             if (resource.description != null &&
                 resource.description!.isNotEmpty) ...[
-              const SizedBox(height: 12),
+              SizedBox(height: Spacing.md),
               Text(
                 'Description',
                 style: TextStyle(
@@ -570,7 +572,7 @@ class _McpServersScreenState extends ConsumerState<McpServersScreen>
                   color: sheetTheme.textMuted,
                 ),
               ),
-              const SizedBox(height: 8),
+              SizedBox(height: Spacing.sm),
               Text(
                 resource.description!,
                 style: TextStyle(color: sheetTheme.text, fontSize: 14),
@@ -598,7 +600,7 @@ class _McpServersScreenState extends ConsumerState<McpServersScreen>
       title: name,
       initialSize: 0.5,
       child: Padding(
-        padding: const EdgeInsets.all(20),
+        padding: Insets.screenAll,
         child: Column(
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.start,
@@ -606,13 +608,13 @@ class _McpServersScreenState extends ConsumerState<McpServersScreen>
             Row(
               children: [
                 Container(
-                  padding: const EdgeInsets.all(12),
+                  padding: Insets.cardSm,
                   decoration: BoxDecoration(
                     color: _getStatusColor(
                       status.status,
                       sheetTheme,
                     ).withValues(alpha: 0.15),
-                    borderRadius: BorderRadius.circular(12),
+                    borderRadius: Radii.brMd,
                   ),
                   child: Icon(
                     Icons.extension,
@@ -620,7 +622,7 @@ class _McpServersScreenState extends ConsumerState<McpServersScreen>
                     size: 24,
                   ),
                 ),
-                const SizedBox(width: 16),
+                SizedBox(width: Spacing.lg),
                 Expanded(
                   child: Row(
                     children: [
@@ -645,7 +647,7 @@ class _McpServersScreenState extends ConsumerState<McpServersScreen>
                 ),
               ],
             ),
-            const SizedBox(height: 24),
+            SizedBox(height: Spacing.xxl),
 
             // Tools
             if (status.tools.isNotEmpty) ...[
@@ -657,7 +659,7 @@ class _McpServersScreenState extends ConsumerState<McpServersScreen>
                   color: sheetTheme.textMuted,
                 ),
               ),
-              const SizedBox(height: 8),
+              SizedBox(height: Spacing.sm),
               Wrap(
                 spacing: 8,
                 runSpacing: 8,
@@ -670,7 +672,7 @@ class _McpServersScreenState extends ConsumerState<McpServersScreen>
                     )
                     .toList(),
               ),
-              const SizedBox(height: 16),
+              SizedBox(height: Spacing.lg),
             ],
 
             // Resources
@@ -683,7 +685,7 @@ class _McpServersScreenState extends ConsumerState<McpServersScreen>
                   color: sheetTheme.textMuted,
                 ),
               ),
-              const SizedBox(height: 8),
+              SizedBox(height: Spacing.sm),
               Wrap(
                 spacing: 8,
                 runSpacing: 8,
@@ -696,16 +698,16 @@ class _McpServersScreenState extends ConsumerState<McpServersScreen>
                     )
                     .toList(),
               ),
-              const SizedBox(height: 16),
+              SizedBox(height: Spacing.lg),
             ],
 
             // Error message
             if (status.error != null && status.error!.isNotEmpty) ...[
               Container(
-                padding: const EdgeInsets.all(12),
+                padding: Insets.cardSm,
                 decoration: BoxDecoration(
                   color: sheetTheme.error.withValues(alpha: 0.1),
-                  borderRadius: BorderRadius.circular(12),
+                  borderRadius: Radii.brMd,
                   border: Border.all(
                     color: sheetTheme.error.withValues(alpha: 0.3),
                   ),
@@ -717,7 +719,7 @@ class _McpServersScreenState extends ConsumerState<McpServersScreen>
                       color: sheetTheme.error,
                       size: 20,
                     ),
-                    const SizedBox(width: 12),
+                    SizedBox(width: Spacing.md),
                     Expanded(
                       child: Text(
                         status.error!,
@@ -727,10 +729,10 @@ class _McpServersScreenState extends ConsumerState<McpServersScreen>
                   ],
                 ),
               ),
-              const SizedBox(height: 16),
+              SizedBox(height: Spacing.lg),
             ],
 
-            const SizedBox(height: 8),
+            SizedBox(height: Spacing.sm),
 
             // Action button
             SizedBox(
@@ -806,19 +808,19 @@ class _McpServerTile extends StatelessWidget {
   Widget build(BuildContext context) {
     final theme = OpenCodeTheme.of(context);
     return Container(
-      margin: const EdgeInsets.only(bottom: 12),
+      margin: Insets.bottomMd,
       decoration: BoxDecoration(
         color: theme.backgroundPanel,
-        borderRadius: BorderRadius.circular(16),
+        borderRadius: Radii.brLg,
         border: Border.all(color: theme.borderSubtle),
       ),
       child: Material(
         color: Colors.transparent,
         child: InkWell(
           onTap: onTap,
-          borderRadius: BorderRadius.circular(16),
+          borderRadius: Radii.brLg,
           child: Padding(
-            padding: const EdgeInsets.all(16),
+            padding: Insets.card,
             child: Row(
               children: [
                 // Server icon with status
@@ -830,7 +832,7 @@ class _McpServerTile extends StatelessWidget {
                       status.status,
                       theme,
                     ).withValues(alpha: 0.15),
-                    borderRadius: BorderRadius.circular(12),
+                    borderRadius: Radii.brMd,
                   ),
                   child: Stack(
                     children: [
@@ -860,7 +862,7 @@ class _McpServerTile extends StatelessWidget {
                     ],
                   ),
                 ),
-                const SizedBox(width: 16),
+                SizedBox(width: Spacing.lg),
                 // Name and info
                 Expanded(
                   child: Column(
@@ -874,7 +876,7 @@ class _McpServerTile extends StatelessWidget {
                           color: theme.text,
                         ),
                       ),
-                      const SizedBox(height: 4),
+                      SizedBox(height: Spacing.xs),
                       Row(
                         children: [
                           Text(
@@ -963,7 +965,7 @@ class _CapabilityChip extends StatelessWidget {
       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
       decoration: BoxDecoration(
         color: theme.primary.withValues(alpha: 0.1),
-        borderRadius: BorderRadius.circular(8),
+        borderRadius: Radii.brSm,
         border: Border.all(color: theme.primary.withValues(alpha: 0.3)),
       ),
       child: Row(
@@ -1001,10 +1003,10 @@ class _McpResourceGroup extends StatelessWidget {
   Widget build(BuildContext context) {
     final theme = OpenCodeTheme.of(context);
     return Container(
-      margin: const EdgeInsets.only(bottom: 16),
+      margin: const EdgeInsets.only(bottom: Spacing.lg),
       decoration: BoxDecoration(
         color: theme.backgroundPanel,
-        borderRadius: BorderRadius.circular(16),
+        borderRadius: Radii.brLg,
         border: Border.all(color: theme.borderSubtle),
       ),
       child: Column(
@@ -1012,11 +1014,11 @@ class _McpResourceGroup extends StatelessWidget {
         children: [
           // Header
           Padding(
-            padding: const EdgeInsets.all(16),
+            padding: Insets.card,
             child: Row(
               children: [
                 Icon(Icons.extension, color: theme.primary, size: 20),
-                const SizedBox(width: 8),
+                SizedBox(width: Spacing.sm),
                 Text(
                   clientName,
                   style: TextStyle(
@@ -1025,7 +1027,7 @@ class _McpResourceGroup extends StatelessWidget {
                     color: theme.text,
                   ),
                 ),
-                const SizedBox(width: 8),
+                SizedBox(width: Spacing.sm),
                 Container(
                   padding: const EdgeInsets.symmetric(
                     horizontal: 8,
@@ -1033,7 +1035,7 @@ class _McpResourceGroup extends StatelessWidget {
                   ),
                   decoration: BoxDecoration(
                     color: theme.primary.withValues(alpha: 0.1),
-                    borderRadius: BorderRadius.circular(10),
+                    borderRadius: Radii.brMd,
                   ),
                   child: Text(
                     '${resources.length}',
@@ -1086,11 +1088,11 @@ class _McpResourceTile extends StatelessWidget {
       child: InkWell(
         onTap: onTap,
         child: Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+          padding: Insets.section,
           child: Row(
             children: [
               Icon(_getIcon(), color: theme.textMuted, size: 20),
-              const SizedBox(width: 12),
+              SizedBox(width: Spacing.md),
               Expanded(
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
@@ -1107,7 +1109,7 @@ class _McpResourceTile extends StatelessWidget {
                         resource.description!.isNotEmpty)
                       Text(
                         resource.description!,
-                        style: TextStyle(fontSize: 12, color: theme.textMuted),
+                        style: AppTypography.label(color: theme.textMuted),
                         maxLines: 1,
                         overflow: TextOverflow.ellipsis,
                       ),
@@ -1134,7 +1136,7 @@ class _DetailRow extends StatelessWidget {
   Widget build(BuildContext context) {
     final theme = OpenCodeTheme.of(context);
     return Padding(
-      padding: const EdgeInsets.only(bottom: 8),
+      padding: Insets.bottomSm,
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -1152,7 +1154,7 @@ class _DetailRow extends StatelessWidget {
           Expanded(
             child: Text(
               value,
-              style: TextStyle(fontSize: 13, color: theme.text),
+              style: AppTypography.bodySmall(color: theme.text),
             ),
           ),
         ],

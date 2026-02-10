@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:google_fonts/google_fonts.dart';
+import '../theme/app_typography.dart';
+import '../theme/design_tokens.dart';
 
 import '../models/card_style.dart';
 import '../providers/appearance_provider.dart';
@@ -51,25 +52,25 @@ class AppearanceScreen extends ConsumerWidget {
         ],
       ),
       body: ListView(
-        padding: const EdgeInsets.all(20),
+        padding: Insets.screenAll,
         children: [
           // Live Preview Section
           _SectionHeader(title: 'Preview'),
-          const SizedBox(height: 12),
+          SizedBox(height: Spacing.md),
           _ToolPreviewCard(settings: settings),
 
-          const SizedBox(height: 32),
+          SizedBox(height: Spacing.xxxl),
 
           // Icon Pack Section
           _SectionHeader(title: 'Icon Style'),
-          const SizedBox(height: 12),
+          SizedBox(height: Spacing.md),
           _IconPackSelector(settings: settings),
 
-          const SizedBox(height: 32),
+          SizedBox(height: Spacing.xxxl),
 
           // Tool Colors Toggle
           _SectionHeader(title: 'Colors'),
-          const SizedBox(height: 12),
+          SizedBox(height: Spacing.md),
           _SettingsCard(
             child: Column(
               children: [
@@ -93,11 +94,11 @@ class AppearanceScreen extends ConsumerWidget {
             ),
           ),
 
-          const SizedBox(height: 32),
+          SizedBox(height: Spacing.xxxl),
 
           // Card Style Section
           _SectionHeader(title: 'Card Style'),
-          const SizedBox(height: 12),
+          SizedBox(height: Spacing.md),
           _SettingsCard(
             child: Column(
               children: [
@@ -123,18 +124,18 @@ class AppearanceScreen extends ConsumerWidget {
             ),
           ),
 
-          const SizedBox(height: 32),
+          SizedBox(height: Spacing.xxxl),
 
           // Card Header Section
           _SectionHeader(title: 'Card Headers'),
-          const SizedBox(height: 12),
+          SizedBox(height: Spacing.md),
           const _CardHeaderStyleSelector(),
 
-          const SizedBox(height: 32),
+          SizedBox(height: Spacing.xxxl),
 
           // Tool Color Reference
           _SectionHeader(title: 'Tool Color Reference'),
-          const SizedBox(height: 12),
+          SizedBox(height: Spacing.md),
           _ToolColorGrid(),
 
           const SizedBox(height: 100),
@@ -177,7 +178,7 @@ class _SettingsCard extends StatelessWidget {
     return Container(
       decoration: BoxDecoration(
         color: ocTheme.backgroundPanel,
-        borderRadius: BorderRadius.circular(16),
+        borderRadius: Radii.brLg,
         border: Border.all(color: ocTheme.borderSubtle),
       ),
       child: child,
@@ -205,10 +206,10 @@ class _ToolPreviewCard extends StatelessWidget {
     ];
 
     return Container(
-      padding: const EdgeInsets.all(16),
+      padding: Insets.card,
       decoration: BoxDecoration(
         color: ocTheme.background,
-        borderRadius: BorderRadius.circular(16),
+        borderRadius: Radii.brLg,
         border: Border.all(color: ocTheme.borderSubtle),
       ),
       child: Column(
@@ -233,11 +234,11 @@ class _ToolPreviewCard extends StatelessWidget {
               ),
             ],
           ),
-          const SizedBox(height: 12),
+          SizedBox(height: Spacing.md),
           // Preview cards
           ...previewTools.map(
             (tool) => Padding(
-              padding: const EdgeInsets.only(bottom: 8),
+              padding: Insets.bottomSm,
               child: _MiniToolCard(
                 toolName: tool.$1,
                 title: tool.$2,
@@ -353,7 +354,7 @@ class _IconPackSelector extends StatelessWidget {
     return Container(
       decoration: BoxDecoration(
         color: ocTheme.backgroundPanel,
-        borderRadius: BorderRadius.circular(16),
+        borderRadius: Radii.brLg,
         border: Border.all(color: ocTheme.borderSubtle),
       ),
       child: Column(
@@ -396,9 +397,9 @@ class _IconPackTile extends ConsumerWidget {
 
     return InkWell(
       onTap: () => ref.read(appearanceProvider.notifier).setIconPack(pack.id),
-      borderRadius: BorderRadius.circular(16),
+      borderRadius: Radii.brLg,
       child: Padding(
-        padding: const EdgeInsets.all(16),
+        padding: Insets.card,
         child: Row(
           children: [
             // Radio button
@@ -411,7 +412,7 @@ class _IconPackTile extends ConsumerWidget {
                 }
               },
             ),
-            const SizedBox(width: 8),
+            SizedBox(width: Spacing.sm),
             // Text info
             Expanded(
               child: Column(
@@ -425,7 +426,7 @@ class _IconPackTile extends ConsumerWidget {
                       fontWeight: FontWeight.w600,
                     ),
                   ),
-                  const SizedBox(height: 2),
+                  SizedBox(height: Spacing.xxs),
                   Text(
                     pack.description,
                     style: TextStyle(
@@ -480,7 +481,7 @@ class _ToggleTile extends StatelessWidget {
     return InkWell(
       onTap: () => onChanged(!value),
       child: Padding(
-        padding: const EdgeInsets.all(16),
+        padding: Insets.card,
         child: Row(
           children: [
             Expanded(
@@ -495,7 +496,7 @@ class _ToggleTile extends StatelessWidget {
                       fontWeight: FontWeight.w600,
                     ),
                   ),
-                  const SizedBox(height: 4),
+                  SizedBox(height: Spacing.xs),
                   Text(
                     subtitle,
                     style: TextStyle(
@@ -537,7 +538,7 @@ class _SliderTile extends StatelessWidget {
     final theme = Theme.of(context);
 
     return Padding(
-      padding: const EdgeInsets.all(16),
+      padding: Insets.card,
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -559,7 +560,7 @@ class _SliderTile extends StatelessWidget {
                 ),
                 decoration: BoxDecoration(
                   color: theme.colorScheme.primary.withValues(alpha: 0.15),
-                  borderRadius: BorderRadius.circular(8),
+                  borderRadius: Radii.brSm,
                 ),
                 child: Text(
                   '${value.toInt()}px',
@@ -572,7 +573,7 @@ class _SliderTile extends StatelessWidget {
               ),
             ],
           ),
-          const SizedBox(height: 8),
+          SizedBox(height: Spacing.sm),
           Slider(
             value: value,
             min: min,
@@ -621,7 +622,7 @@ class _ToolColorGrid extends StatelessWidget {
     return Container(
       decoration: BoxDecoration(
         color: ocTheme.backgroundPanel,
-        borderRadius: BorderRadius.circular(16),
+        borderRadius: Radii.brLg,
         border: Border.all(color: ocTheme.borderSubtle),
       ),
       child: Wrap(
@@ -633,7 +634,7 @@ class _ToolColorGrid extends StatelessWidget {
           return SizedBox(
             width: MediaQuery.of(context).size.width / 2 - 28,
             child: Padding(
-              padding: const EdgeInsets.all(12),
+              padding: Insets.cardSm,
               child: Row(
                 children: [
                   Container(
@@ -641,7 +642,7 @@ class _ToolColorGrid extends StatelessWidget {
                     height: 32,
                     decoration: BoxDecoration(
                       color: color.withValues(alpha: 0.15),
-                      borderRadius: BorderRadius.circular(8),
+                      borderRadius: Radii.brSm,
                     ),
                     child: Icon(
                       config.getIcon(ToolStyle.currentIconPack),
@@ -699,7 +700,7 @@ class _CardHeaderStyleSelector extends ConsumerWidget {
         children: [
           // Header Style Section
           Padding(
-            padding: const EdgeInsets.all(16),
+            padding: Insets.card,
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
@@ -710,7 +711,7 @@ class _CardHeaderStyleSelector extends ConsumerWidget {
                       size: 16,
                       color: theme.colorScheme.primary,
                     ),
-                    const SizedBox(width: 8),
+                    SizedBox(width: Spacing.sm),
                     Text(
                       'Header Style',
                       style: TextStyle(
@@ -721,7 +722,7 @@ class _CardHeaderStyleSelector extends ConsumerWidget {
                     ),
                   ],
                 ),
-                const SizedBox(height: 12),
+                SizedBox(height: Spacing.md),
                 // Header style options
                 Wrap(
                   spacing: 8,
@@ -744,7 +745,7 @@ class _CardHeaderStyleSelector extends ConsumerWidget {
           _Divider(),
           // Border Visibility Section
           Padding(
-            padding: const EdgeInsets.all(16),
+            padding: Insets.card,
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
@@ -755,7 +756,7 @@ class _CardHeaderStyleSelector extends ConsumerWidget {
                       size: 16,
                       color: theme.colorScheme.primary,
                     ),
-                    const SizedBox(width: 8),
+                    SizedBox(width: Spacing.sm),
                     Text(
                       'Border Style',
                       style: TextStyle(
@@ -766,7 +767,7 @@ class _CardHeaderStyleSelector extends ConsumerWidget {
                     ),
                   ],
                 ),
-                const SizedBox(height: 12),
+                SizedBox(height: Spacing.md),
                 // Border visibility options
                 Wrap(
                   spacing: 8,
@@ -789,7 +790,7 @@ class _CardHeaderStyleSelector extends ConsumerWidget {
           _Divider(),
           // Live Preview
           Padding(
-            padding: const EdgeInsets.all(16),
+            padding: Insets.card,
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
@@ -813,7 +814,7 @@ class _CardHeaderStyleSelector extends ConsumerWidget {
                     ),
                   ],
                 ),
-                const SizedBox(height: 12),
+                SizedBox(height: Spacing.md),
                 _CardStylePreview(cardStyle: cardStyle),
               ],
             ),
@@ -852,7 +853,7 @@ class _StyleOptionChip extends StatelessWidget {
           color: isSelected
               ? theme.colorScheme.primary.withValues(alpha: 0.15)
               : ocTheme.bgRaised,
-          borderRadius: BorderRadius.circular(10),
+          borderRadius: Radii.brMd,
           border: Border.all(
             color: isSelected
                 ? theme.colorScheme.primary
@@ -887,7 +888,7 @@ class _StyleOptionChip extends StatelessWidget {
                 ],
               ],
             ),
-            const SizedBox(height: 2),
+            SizedBox(height: Spacing.xxs),
             Text(
               description,
               style: TextStyle(
@@ -939,7 +940,7 @@ class _CardStylePreview extends StatelessWidget {
     return Container(
       decoration: BoxDecoration(
         color: ocTheme.bgRaised,
-        borderRadius: BorderRadius.circular(10),
+        borderRadius: Radii.brMd,
         border: Border.all(color: borderColor),
       ),
       clipBehavior: Clip.antiAlias,
@@ -958,7 +959,7 @@ class _CardStylePreview extends StatelessWidget {
             child: Row(
               children: [
                 Icon(Icons.edit_rounded, size: 14, color: toolColor),
-                const SizedBox(width: 8),
+                SizedBox(width: Spacing.sm),
                 Text(
                   'Edit',
                   style: TextStyle(
@@ -975,7 +976,7 @@ class _CardStylePreview extends StatelessWidget {
                   ),
                   decoration: BoxDecoration(
                     color: ocTheme.diffAdded.withValues(alpha: 0.15),
-                    borderRadius: BorderRadius.circular(4),
+                    borderRadius: Radii.brXs,
                   ),
                   child: Text(
                     '+5',
@@ -986,7 +987,7 @@ class _CardStylePreview extends StatelessWidget {
                     ),
                   ),
                 ),
-                const SizedBox(width: 4),
+                SizedBox(width: Spacing.xs),
                 Container(
                   padding: const EdgeInsets.symmetric(
                     horizontal: 6,
@@ -994,7 +995,7 @@ class _CardStylePreview extends StatelessWidget {
                   ),
                   decoration: BoxDecoration(
                     color: ocTheme.diffRemoved.withValues(alpha: 0.15),
-                    borderRadius: BorderRadius.circular(4),
+                    borderRadius: Radii.brXs,
                   ),
                   child: Text(
                     '-2',
@@ -1010,19 +1011,15 @@ class _CardStylePreview extends StatelessWidget {
           ),
           // Body
           Padding(
-            padding: const EdgeInsets.all(12),
+            padding: Insets.cardSm,
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
                   'lib/example.dart',
-                  style: TextStyle(
-                    color: theme.colorScheme.onSurface.withValues(alpha: 0.7),
-                    fontSize: 11,
-                    fontFamily: GoogleFonts.jetBrainsMono().fontFamily,
-                  ),
+                  style: AppTypography.codeSmall(color: theme.colorScheme.onSurface.withValues(alpha: 0.7)),
                 ),
-                const SizedBox(height: 8),
+                SizedBox(height: Spacing.sm),
                 // Diff preview lines
                 _DiffPreviewLine(
                   text: '- final old = "value";',
@@ -1066,12 +1063,12 @@ class _DiffPreviewLine extends StatelessWidget {
       padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
       decoration: BoxDecoration(
         color: color.withValues(alpha: 0.1),
-        borderRadius: BorderRadius.circular(4),
+        borderRadius: Radii.brXs,
         border: Border(left: BorderSide(color: color, width: 2)),
       ),
       child: Text(
         text,
-        style: TextStyle(color: color, fontSize: 10, fontFamily: GoogleFonts.jetBrainsMono().fontFamily),
+        style: AppTypography.codeSmall(color: color).copyWith(fontSize: 10),
       ),
     );
   }

@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
+import '../theme/app_typography.dart';
 
+import '../theme/design_tokens.dart';
 import '../theme/opencode_theme.dart';
 import 'chat/detail_sheet.dart';
 
@@ -90,9 +92,9 @@ class _RollbackSheetContentState extends State<_RollbackSheetContent> {
         children: [
           Text(
             'Drop the last $turns turn${turns == 1 ? '' : 's'} from this thread.',
-            style: TextStyle(color: theme.textMuted, fontSize: 13),
+            style: AppTypography.bodySmall(color: theme.textMuted),
           ),
-          const SizedBox(height: 16),
+          SizedBox(height: Spacing.lg),
           Row(
             children: [
               IconButton(
@@ -127,10 +129,10 @@ class _RollbackSheetContentState extends State<_RollbackSheetContent> {
           const SizedBox(height: 6),
           Text(
             'Max: $max',
-            style: TextStyle(color: theme.textMuted, fontSize: 12),
+            style: AppTypography.label(color: theme.textMuted),
             textAlign: TextAlign.right,
           ),
-          const SizedBox(height: 16),
+          SizedBox(height: Spacing.lg),
           Row(
             children: [
               Expanded(
@@ -143,7 +145,7 @@ class _RollbackSheetContentState extends State<_RollbackSheetContent> {
                   child: const Text('Cancel'),
                 ),
               ),
-              const SizedBox(width: 12),
+              SizedBox(width: Spacing.md),
               Expanded(
                 child: ElevatedButton(
                   onPressed: _working

@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../theme/app_typography.dart';
 
 import '../theme/design_tokens.dart';
 import '../theme/opencode_theme.dart';
@@ -222,7 +223,7 @@ class LabeledStatusIndicator extends StatelessWidget {
           showPulse: showPulse,
         ),
         SizedBox(width: spacing),
-        Text(label, style: style ?? TextStyle(fontSize: 13, color: theme.text)),
+        Text(label, style: style ?? AppTypography.bodySmall(color: theme.text)),
       ],
     );
   }

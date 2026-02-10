@@ -236,7 +236,7 @@ class _ExportSessionSheetContentState
               ),
             ),
           ),
-          const SizedBox(height: 12),
+          SizedBox(height: Spacing.md),
           Wrap(
             spacing: 10,
             runSpacing: 8,
@@ -258,7 +258,7 @@ class _ExportSessionSheetContentState
               ),
             ],
           ),
-          const SizedBox(height: 12),
+          SizedBox(height: Spacing.md),
           SwitchListTile(
             value: _includeThinking,
             onChanged: (v) => setState(() => _includeThinking = v),
@@ -298,7 +298,7 @@ class _ExportSessionSheetContentState
                   child: const Text('Cancel'),
                 ),
               ),
-              const SizedBox(width: 12),
+              SizedBox(width: Spacing.md),
               Expanded(
                 child: ElevatedButton.icon(
                   onPressed: () async {

@@ -3,7 +3,8 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:google_fonts/google_fonts.dart';
+import '../theme/app_typography.dart';
+import '../theme/design_tokens.dart';
 
 import '../models/agent_type.dart';
 
@@ -92,7 +93,7 @@ class _SessionsScreenState extends ConsumerState<SessionsScreen> {
                   "Hide sessions whose titles match any filter. Use `/regex/` for regex, otherwise it's a case-insensitive substring match.",
                   style: TextStyle(color: ocTheme.textMuted, fontSize: 13),
                 ),
-                const SizedBox(height: 12),
+                SizedBox(height: Spacing.md),
                 Row(
                   children: [
                     Expanded(
@@ -104,15 +105,15 @@ class _SessionsScreenState extends ConsumerState<SessionsScreen> {
                           filled: true,
                           fillColor: ocTheme.backgroundElement,
                           border: OutlineInputBorder(
-                            borderRadius: BorderRadius.circular(12),
+                            borderRadius: Radii.brMd,
                             borderSide: BorderSide(color: ocTheme.borderSubtle),
                           ),
                           enabledBorder: OutlineInputBorder(
-                            borderRadius: BorderRadius.circular(12),
+                            borderRadius: Radii.brMd,
                             borderSide: BorderSide(color: ocTheme.borderSubtle),
                           ),
                           focusedBorder: OutlineInputBorder(
-                            borderRadius: BorderRadius.circular(12),
+                            borderRadius: Radii.brMd,
                             borderSide: BorderSide(color: ocTheme.primary),
                           ),
                           contentPadding: const EdgeInsets.symmetric(
@@ -142,14 +143,14 @@ class _SessionsScreenState extends ConsumerState<SessionsScreen> {
                           vertical: 12,
                         ),
                         shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(12),
+                          borderRadius: Radii.brMd,
                         ),
                       ),
                       child: const Text('Add'),
                     ),
                   ],
                 ),
-                const SizedBox(height: 12),
+                SizedBox(height: Spacing.md),
                 if (filters.isNotEmpty)
                   Align(
                     alignment: Alignment.centerRight,
@@ -319,7 +320,7 @@ class _SessionsScreenState extends ConsumerState<SessionsScreen> {
                             color: theme.colorScheme.error,
                             size: 48,
                           ),
-                          const SizedBox(height: 16),
+                          SizedBox(height: Spacing.lg),
                           Text(
                             'Failed to load sessions',
                             style: TextStyle(
@@ -328,7 +329,7 @@ class _SessionsScreenState extends ConsumerState<SessionsScreen> {
                               fontWeight: FontWeight.w600,
                             ),
                           ),
-                          const SizedBox(height: 8),
+                          SizedBox(height: Spacing.sm),
                           Padding(
                             padding: const EdgeInsets.symmetric(horizontal: 24),
                             child: Text(
@@ -490,7 +491,7 @@ class _SessionsScreenState extends ConsumerState<SessionsScreen> {
                             final hasChildren = grouped.hasChildren;
 
                             return Padding(
-                              padding: const EdgeInsets.only(bottom: 12),
+                              padding: Insets.bottomMd,
                               child: _SessionCard(
                                 session: session,
                                 status: status,
@@ -1222,7 +1223,7 @@ class _NewSessionContentState extends ConsumerState<_NewSessionContent> {
           mainAxisSize: MainAxisSize.min,
           children: [
             Icon(Icons.folder_off_rounded, color: ocTheme.textMuted, size: 48),
-            const SizedBox(height: 16),
+            SizedBox(height: Spacing.lg),
             Text(
               'No projects found',
               style: TextStyle(color: ocTheme.textMuted, fontSize: 16),
@@ -1250,7 +1251,7 @@ class _NewSessionContentState extends ConsumerState<_NewSessionContent> {
                   fontWeight: FontWeight.w500,
                 ),
               ),
-              const SizedBox(height: 8),
+              SizedBox(height: Spacing.sm),
               ...widget.projects.map((project) {
                 final isSelected = _selectedProject?.id == project.id;
                 return _ProjectSelectionTile(
@@ -1261,7 +1262,7 @@ class _NewSessionContentState extends ConsumerState<_NewSessionContent> {
               }),
               // Worktrees section (if project selected)
               if (_selectedProject != null) ...[
-                const SizedBox(height: 20),
+                SizedBox(height: Spacing.xl),
                 Text(
                   'Select Worktree (Optional)',
                   style: TextStyle(
@@ -1270,20 +1271,20 @@ class _NewSessionContentState extends ConsumerState<_NewSessionContent> {
                     fontWeight: FontWeight.w500,
                   ),
                 ),
-                const SizedBox(height: 8),
+                SizedBox(height: Spacing.sm),
                 if (_loadingWorktrees)
                   const Center(
                     child: Padding(
-                      padding: EdgeInsets.all(20),
+                      padding: Insets.screenAll,
                       child: CircularProgressIndicator.adaptive(),
                     ),
                   )
                 else if (_worktrees == null || _worktrees!.isEmpty)
                   Container(
-                    padding: const EdgeInsets.all(16),
+                    padding: Insets.card,
                     decoration: BoxDecoration(
                       color: ocTheme.background,
-                      borderRadius: BorderRadius.circular(12),
+                      borderRadius: Radii.brMd,
                       border: Border.all(color: ocTheme.border),
                     ),
                     child: Row(
@@ -1293,7 +1294,7 @@ class _NewSessionContentState extends ConsumerState<_NewSessionContent> {
                           color: ocTheme.textMuted,
                           size: 20,
                         ),
-                        const SizedBox(width: 12),
+                        SizedBox(width: Spacing.md),
                         Expanded(
                           child: Text(
                             'No worktrees found. Session will use main project.',
@@ -1334,7 +1335,7 @@ class _NewSessionContentState extends ConsumerState<_NewSessionContent> {
         ),
         // Create button
         Padding(
-          padding: const EdgeInsets.all(16),
+          padding: Insets.card,
           child: SizedBox(
             width: double.infinity,
             child: ElevatedButton(
@@ -1345,9 +1346,9 @@ class _NewSessionContentState extends ConsumerState<_NewSessionContent> {
                 backgroundColor: theme.colorScheme.primary,
                 foregroundColor: theme.colorScheme.onPrimary,
                 disabledBackgroundColor: ocTheme.border,
-                padding: const EdgeInsets.symmetric(vertical: 16),
+                padding: Insets.screenV,
                 shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(12),
+                  borderRadius: Radii.brMd,
                 ),
               ),
               child: _creating
@@ -1389,13 +1390,13 @@ class _ProjectSelectionTile extends StatelessWidget {
     return GestureDetector(
       onTap: onTap,
       child: Container(
-        margin: const EdgeInsets.only(bottom: 8),
-        padding: const EdgeInsets.all(12),
+        margin: Insets.bottomSm,
+        padding: Insets.cardSm,
         decoration: BoxDecoration(
           color: isSelected
               ? ocTheme.primary.withValues(alpha: 0.1)
               : ocTheme.background,
-          borderRadius: BorderRadius.circular(12),
+          borderRadius: Radii.brMd,
           border: Border.all(
             color: isSelected ? ocTheme.primary : ocTheme.border,
             width: isSelected ? 2 : 1,
@@ -1404,12 +1405,12 @@ class _ProjectSelectionTile extends StatelessWidget {
         child: Row(
           children: [
             Container(
-              padding: const EdgeInsets.all(8),
+              padding: Insets.cardXs,
               decoration: BoxDecoration(
                 color: isSelected
                     ? ocTheme.primary.withValues(alpha: 0.2)
                     : ocTheme.border.withValues(alpha: 0.3),
-                borderRadius: BorderRadius.circular(8),
+                borderRadius: Radii.brSm,
               ),
               child: Icon(
                 Icons.folder_rounded,
@@ -1417,7 +1418,7 @@ class _ProjectSelectionTile extends StatelessWidget {
                 size: 20,
               ),
             ),
-            const SizedBox(width: 12),
+            SizedBox(width: Spacing.md),
             Expanded(
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
@@ -1430,7 +1431,7 @@ class _ProjectSelectionTile extends StatelessWidget {
                       fontWeight: FontWeight.w500,
                     ),
                   ),
-                  const SizedBox(height: 2),
+                  SizedBox(height: Spacing.xxs),
                   Text(
                     project.path,
                     style: TextStyle(color: ocTheme.textMuted, fontSize: 12),
@@ -1475,13 +1476,13 @@ class _WorktreeSelectionTile extends StatelessWidget {
     return GestureDetector(
       onTap: onTap,
       child: Container(
-        margin: const EdgeInsets.only(bottom: 8),
-        padding: const EdgeInsets.all(12),
+        margin: Insets.bottomSm,
+        padding: Insets.cardSm,
         decoration: BoxDecoration(
           color: isSelected
               ? ocTheme.primary.withValues(alpha: 0.1)
               : ocTheme.background,
-          borderRadius: BorderRadius.circular(12),
+          borderRadius: Radii.brMd,
           border: Border.all(
             color: isSelected ? ocTheme.primary : ocTheme.border,
             width: isSelected ? 2 : 1,
@@ -1494,7 +1495,7 @@ class _WorktreeSelectionTile extends StatelessWidget {
               color: isSelected ? ocTheme.primary : ocTheme.textMuted,
               size: 20,
             ),
-            const SizedBox(width: 12),
+            SizedBox(width: Spacing.md),
             Expanded(
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
@@ -1609,7 +1610,7 @@ class _ModernHeader extends StatelessWidget {
                   color: connection.isConnected
                       ? ocTheme.success.withValues(alpha: 0.15)
                       : ocTheme.error.withValues(alpha: 0.15),
-                  borderRadius: BorderRadius.circular(12),
+                  borderRadius: Radii.brMd,
                 ),
                 child: Row(
                   mainAxisSize: MainAxisSize.min,
@@ -1629,7 +1630,7 @@ class _ModernHeader extends StatelessWidget {
               ),
             ],
           ),
-          const SizedBox(height: 8),
+          SizedBox(height: Spacing.sm),
           Text(
             'Continue your AI coding sessions',
             style: TextStyle(
@@ -1651,12 +1652,12 @@ class _ModernHeader extends StatelessWidget {
                   onSelected: onFilterChanged,
                 ),
               ),
-              const SizedBox(width: 8),
+              SizedBox(width: Spacing.sm),
               _TitleFiltersChip(
                 count: titleFilterCount,
                 onTap: onTitleFiltersTap,
               ),
-              const SizedBox(width: 8),
+              SizedBox(width: Spacing.sm),
               // Background tasks toggle
               if (backgroundTaskCount > 0)
                 _BackgroundTasksChip(
@@ -1668,7 +1669,7 @@ class _ModernHeader extends StatelessWidget {
           ),
           // Task 8: Session search bar
           if (searchController != null) ...[
-            const SizedBox(height: 12),
+            SizedBox(height: Spacing.md),
             TextField(
               controller: searchController,
               onChanged: onSearchChanged,
@@ -1697,15 +1698,15 @@ class _ModernHeader extends StatelessWidget {
                 filled: true,
                 fillColor: ocTheme.backgroundElement,
                 border: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(12),
+                  borderRadius: Radii.brMd,
                   borderSide: BorderSide(color: ocTheme.borderSubtle),
                 ),
                 enabledBorder: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(12),
+                  borderRadius: Radii.brMd,
                   borderSide: BorderSide(color: ocTheme.borderSubtle),
                 ),
                 focusedBorder: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(12),
+                  borderRadius: Radii.brMd,
                   borderSide: BorderSide(color: ocTheme.primary),
                 ),
                 contentPadding: const EdgeInsets.symmetric(
@@ -1739,7 +1740,7 @@ class _BackgroundTasksChip extends StatelessWidget {
 
     return InkWell(
       onTap: onTap,
-      borderRadius: BorderRadius.circular(999),
+      borderRadius: Radii.brFull,
       child: AnimatedContainer(
         duration: const Duration(milliseconds: 200),
         padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
@@ -1747,7 +1748,7 @@ class _BackgroundTasksChip extends StatelessWidget {
           color: isExpanded
               ? ocTheme.info.withValues(alpha: 0.15)
               : ocTheme.backgroundPanel,
-          borderRadius: BorderRadius.circular(999),
+          borderRadius: Radii.brFull,
           border: Border.all(
             color: isExpanded ? ocTheme.info : ocTheme.borderSubtle,
           ),
@@ -1769,7 +1770,7 @@ class _BackgroundTasksChip extends StatelessWidget {
                 fontWeight: FontWeight.w600,
               ),
             ),
-            const SizedBox(width: 4),
+            SizedBox(width: Spacing.xs),
             AnimatedRotation(
               turns: isExpanded ? 0.5 : 0,
               duration: const Duration(milliseconds: 200),
@@ -1813,19 +1814,19 @@ class _FilterChipButton extends StatelessWidget {
 
     return InkWell(
       onTap: onTap,
-      borderRadius: BorderRadius.circular(999),
+      borderRadius: Radii.brFull,
       child: Container(
         padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
         decoration: BoxDecoration(
           color: ocTheme.backgroundPanel,
-          borderRadius: BorderRadius.circular(999),
+          borderRadius: Radii.brFull,
           border: Border.all(color: ocTheme.borderSubtle),
         ),
         child: Row(
           mainAxisSize: MainAxisSize.min,
           children: [
             Icon(Icons.filter_list_rounded, size: 16, color: ocTheme.textMuted),
-            const SizedBox(width: 8),
+            SizedBox(width: Spacing.sm),
             Text(
               label,
               style: TextStyle(
@@ -1858,7 +1859,7 @@ class _TitleFiltersChip extends StatelessWidget {
 
     return InkWell(
       onTap: onTap,
-      borderRadius: BorderRadius.circular(999),
+      borderRadius: Radii.brFull,
       child: AnimatedContainer(
         duration: const Duration(milliseconds: 200),
         padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
@@ -1866,7 +1867,7 @@ class _TitleFiltersChip extends StatelessWidget {
           color: hasFilters
               ? ocTheme.warning.withValues(alpha: 0.15)
               : ocTheme.backgroundPanel,
-          borderRadius: BorderRadius.circular(999),
+          borderRadius: Radii.brFull,
           border: Border.all(
             color: hasFilters ? ocTheme.warning : ocTheme.borderSubtle,
           ),
@@ -1905,12 +1906,12 @@ class _SortChip extends StatelessWidget {
 
     return InkWell(
       onTap: () => onChanged(isUpdatedAt ? 'createdAt' : 'updatedAt'),
-      borderRadius: BorderRadius.circular(999),
+      borderRadius: Radii.brFull,
       child: Container(
         padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
         decoration: BoxDecoration(
           color: ocTheme.backgroundPanel,
-          borderRadius: BorderRadius.circular(999),
+          borderRadius: Radii.brFull,
           border: Border.all(color: ocTheme.borderSubtle),
         ),
         child: Row(
@@ -2021,14 +2022,14 @@ class _FilterProjectTile extends StatelessWidget {
 
     return InkWell(
       onTap: onTap,
-      borderRadius: BorderRadius.circular(10),
+      borderRadius: Radii.brMd,
       child: Container(
         padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
         decoration: BoxDecoration(
           color: isSelected
               ? ocTheme.primary.withValues(alpha: 0.1)
               : Colors.transparent,
-          borderRadius: BorderRadius.circular(10),
+          borderRadius: Radii.brMd,
         ),
         child: Row(
           children: [
@@ -2045,7 +2046,7 @@ class _FilterProjectTile extends StatelessWidget {
                     ),
                   ),
                   if (path != null) ...[
-                    const SizedBox(height: 2),
+                    SizedBox(height: Spacing.xxs),
                     Text(
                       _shortenPath(path!),
                       style: TextStyle(color: ocTheme.textMuted, fontSize: 11),
@@ -2128,7 +2129,7 @@ class _HighlightedSessionsSection extends StatelessWidget {
           ...sessions.map((session) {
             final status = sessionStatuses[session.id];
             return Padding(
-              padding: const EdgeInsets.only(bottom: 12),
+              padding: Insets.bottomMd,
               child: _HighlightedSessionCard(
                 session: session,
                 status: status,
@@ -2224,7 +2225,7 @@ class _HighlightedSessionCard extends StatelessWidget {
       child: Container(
         decoration: BoxDecoration(
           color: bgColor,
-          borderRadius: BorderRadius.circular(10),
+          borderRadius: Radii.brMd,
         ),
         clipBehavior: Clip.antiAlias,
         child: Row(
@@ -2253,7 +2254,7 @@ class _HighlightedSessionCard extends StatelessWidget {
                       children: [
                         // Star icon inline
                         Icon(Icons.star_rounded, size: 16, color: color),
-                        const SizedBox(width: 8),
+                        SizedBox(width: Spacing.sm),
                         Expanded(
                           child: Text(
                             session.title,
@@ -2267,7 +2268,7 @@ class _HighlightedSessionCard extends StatelessWidget {
                             overflow: TextOverflow.ellipsis,
                           ),
                         ),
-                        const SizedBox(width: 12),
+                        SizedBox(width: Spacing.md),
                         // Status or time
                         if (isActive)
                           Row(
@@ -2388,7 +2389,7 @@ class _HighlightedSessionCard extends StatelessWidget {
           padding: const EdgeInsets.only(right: 20),
           decoration: BoxDecoration(
             color: ocTheme.error,
-            borderRadius: BorderRadius.circular(10),
+            borderRadius: Radii.brMd,
           ),
           child: Icon(
             Icons.delete_outline_rounded,
@@ -2497,7 +2498,7 @@ class _SessionCard extends StatelessWidget {
       child: Container(
         decoration: BoxDecoration(
           color: ocTheme.backgroundPanel,
-          borderRadius: BorderRadius.circular(10),
+          borderRadius: Radii.brMd,
         ),
         clipBehavior: Clip.antiAlias,
         child: Row(
@@ -2537,7 +2538,7 @@ class _SessionCard extends StatelessWidget {
                             overflow: TextOverflow.ellipsis,
                           ),
                         ),
-                        const SizedBox(width: 12),
+                        SizedBox(width: Spacing.md),
                         // Status or time
                         if (isActive)
                           Row(
@@ -2592,7 +2593,7 @@ class _SessionCard extends StatelessWidget {
                         ),
                         // Forked indicator
                         if (session.isForkedSession) ...[
-                          const SizedBox(width: 8),
+                          SizedBox(width: Spacing.sm),
                           Icon(
                             Icons.fork_right,
                             size: 12,
@@ -2684,7 +2685,7 @@ class _SessionCard extends StatelessWidget {
                                 ),
                               ),
                             ],
-                            const SizedBox(width: 4),
+                            SizedBox(width: Spacing.xs),
                             AnimatedRotation(
                               turns: isExpanded ? 0.25 : 0,
                               duration: const Duration(milliseconds: 200),
@@ -2719,7 +2720,7 @@ class _SessionCard extends StatelessWidget {
           padding: const EdgeInsets.only(right: 20),
           decoration: BoxDecoration(
             color: ocTheme.error,
-            borderRadius: BorderRadius.circular(10),
+            borderRadius: Radii.brMd,
           ),
           child: Icon(
             Icons.delete_outline_rounded,
@@ -2761,7 +2762,7 @@ class _StatBadge extends StatelessWidget {
         color: isFile
             ? ocTheme.backgroundElement.withValues(alpha: 0.6)
             : color.withValues(alpha: 0.12),
-        borderRadius: BorderRadius.circular(4),
+        borderRadius: Radii.brXs,
       ),
       child: Text(
         text,
@@ -2769,7 +2770,7 @@ class _StatBadge extends StatelessWidget {
           color: isFile ? ocTheme.textMuted : color,
           fontSize: 10,
           fontWeight: FontWeight.w600,
-          fontFamily: 'JetBrains Mono',
+          fontFamily: AppTypography.codeFontFamily,
         ),
       ),
     );
@@ -2836,7 +2837,7 @@ class _ChildSessionCard extends StatelessWidget {
       child: Container(
         decoration: BoxDecoration(
           color: ocTheme.backgroundElement.withValues(alpha: 0.4),
-          borderRadius: BorderRadius.circular(8),
+          borderRadius: Radii.brSm,
         ),
         clipBehavior: Clip.antiAlias,
         child: Row(
@@ -2893,7 +2894,7 @@ class _ChildSessionCard extends StatelessWidget {
                               ),
                             ],
                           ),
-                          const SizedBox(height: 4),
+                          SizedBox(height: Spacing.xs),
                           // Stats + time row
                           Row(
                             children: [
@@ -3042,7 +3043,7 @@ class _EmptyState extends StatelessWidget {
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
           Container(
-            padding: const EdgeInsets.all(24),
+            padding: Insets.cardLg,
             decoration: BoxDecoration(
               color: ocTheme.primary.withValues(alpha: 0.1),
               shape: BoxShape.circle,
@@ -3053,7 +3054,7 @@ class _EmptyState extends StatelessWidget {
               color: ocTheme.primary,
             ),
           ),
-          const SizedBox(height: 24),
+          SizedBox(height: Spacing.xxl),
           Text(
             'No sessions yet',
             style: TextStyle(
@@ -3062,7 +3063,7 @@ class _EmptyState extends StatelessWidget {
               fontWeight: FontWeight.w600,
             ),
           ),
-          const SizedBox(height: 8),
+          SizedBox(height: Spacing.sm),
           Padding(
             padding: const EdgeInsets.symmetric(horizontal: 40),
             child: Text(
@@ -3119,7 +3120,7 @@ class _SkeletonSessionCardState extends State<_SkeletonSessionCard>
           padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
           decoration: BoxDecoration(
             color: ocTheme.backgroundPanel,
-            borderRadius: BorderRadius.circular(14),
+            borderRadius: Radii.brLg,
             border: Border.all(color: ocTheme.borderSubtle),
           ),
           child: Row(
@@ -3131,7 +3132,7 @@ class _SkeletonSessionCardState extends State<_SkeletonSessionCard>
                 borderRadius: 12,
                 shimmerValue: _animation.value,
               ),
-              const SizedBox(width: 12),
+              SizedBox(width: Spacing.md),
               // Skeleton text lines
               Expanded(
                 child: Column(
@@ -3145,7 +3146,7 @@ class _SkeletonSessionCardState extends State<_SkeletonSessionCard>
                       shimmerValue: _animation.value,
                       maxWidthFraction: 0.7,
                     ),
-                    const SizedBox(height: 8),
+                    SizedBox(height: Spacing.sm),
                     _SkeletonBox(
                       width: double.infinity,
                       height: 12,
@@ -3156,7 +3157,7 @@ class _SkeletonSessionCardState extends State<_SkeletonSessionCard>
                   ],
                 ),
               ),
-              const SizedBox(width: 8),
+              SizedBox(width: Spacing.sm),
               // Skeleton chevron
               _SkeletonBox(
                 width: 20,
@@ -3204,7 +3205,7 @@ class _DelayedSkeletonListState extends State<_DelayedSkeletonList> {
         children: List.generate(
           6,
           (index) => Padding(
-            padding: const EdgeInsets.only(bottom: 12),
+            padding: Insets.bottomMd,
             child: _SkeletonSessionCard(),
           ),
         ),
@@ -3287,10 +3288,10 @@ class _CCActiveSessionsSection extends ConsumerWidget {
 
     return Container(
       margin: const EdgeInsets.fromLTRB(20, 0, 20, 16),
-      padding: const EdgeInsets.all(16),
+      padding: Insets.card,
       decoration: BoxDecoration(
         color: ocTheme.backgroundPanel,
-        borderRadius: BorderRadius.circular(16),
+        borderRadius: Radii.brLg,
         border: Border.all(color: ocTheme.info.withValues(alpha: 0.3)),
       ),
       child: Column(
@@ -3299,7 +3300,7 @@ class _CCActiveSessionsSection extends ConsumerWidget {
           Row(
             children: [
               Icon(Icons.play_circle_rounded, color: ocTheme.info, size: 20),
-              const SizedBox(width: 12),
+              SizedBox(width: Spacing.md),
               Expanded(
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
@@ -3321,7 +3322,7 @@ class _CCActiveSessionsSection extends ConsumerWidget {
               ),
             ],
           ),
-          const SizedBox(height: 12),
+          SizedBox(height: Spacing.md),
           ...activeSessions.map((session) {
             final status = sessionStatuses[session.id];
             final isRetry = status?.isRetry ?? false;
@@ -3332,16 +3333,16 @@ class _CCActiveSessionsSection extends ConsumerWidget {
                 .toList();
             final projectName = parts.isNotEmpty ? parts.last : null;
             return Padding(
-              padding: const EdgeInsets.only(bottom: 8),
+              padding: Insets.bottomSm,
               child: GestureDetector(
                 onTap: onSessionTap != null
                     ? () => onSessionTap!(session)
                     : null,
                 child: Container(
-                  padding: const EdgeInsets.all(12),
+                  padding: Insets.cardSm,
                   decoration: BoxDecoration(
                     color: ocTheme.backgroundElement,
-                    borderRadius: BorderRadius.circular(12),
+                    borderRadius: Radii.brMd,
                     border: Border.all(
                       color: statusColor.withValues(alpha: 0.3),
                     ),
@@ -3363,7 +3364,7 @@ class _CCActiveSessionsSection extends ConsumerWidget {
                           ],
                         ),
                       ),
-                      const SizedBox(width: 12),
+                      SizedBox(width: Spacing.md),
                       Expanded(
                         child: Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
@@ -3378,7 +3379,7 @@ class _CCActiveSessionsSection extends ConsumerWidget {
                               maxLines: 1,
                               overflow: TextOverflow.ellipsis,
                             ),
-                            const SizedBox(height: 2),
+                            SizedBox(height: Spacing.xxs),
                             Row(
                               children: [
                                 if (projectName != null)
@@ -3390,7 +3391,7 @@ class _CCActiveSessionsSection extends ConsumerWidget {
                                     ),
                                   ),
                                 if (isRetry) ...[
-                                  const SizedBox(width: 8),
+                                  SizedBox(width: Spacing.sm),
                                   Container(
                                     padding: const EdgeInsets.symmetric(
                                       horizontal: 6,
@@ -3400,7 +3401,7 @@ class _CCActiveSessionsSection extends ConsumerWidget {
                                       color: ocTheme.warning.withValues(
                                         alpha: 0.15,
                                       ),
-                                      borderRadius: BorderRadius.circular(4),
+                                      borderRadius: Radii.brXs,
                                     ),
                                     child: Text(
                                       'Retrying',
@@ -3518,7 +3519,7 @@ class _CodexThreadsViewState extends ConsumerState<_CodexThreadsView> {
                   "Hide threads whose titles match any filter. Use `/regex/` for regex, otherwise it's a case-insensitive substring match.",
                   style: TextStyle(color: ocTheme.textMuted, fontSize: 13),
                 ),
-                const SizedBox(height: 12),
+                SizedBox(height: Spacing.md),
                 Row(
                   children: [
                     Expanded(
@@ -3530,15 +3531,15 @@ class _CodexThreadsViewState extends ConsumerState<_CodexThreadsView> {
                           filled: true,
                           fillColor: ocTheme.backgroundElement,
                           border: OutlineInputBorder(
-                            borderRadius: BorderRadius.circular(12),
+                            borderRadius: Radii.brMd,
                             borderSide: BorderSide(color: ocTheme.borderSubtle),
                           ),
                           enabledBorder: OutlineInputBorder(
-                            borderRadius: BorderRadius.circular(12),
+                            borderRadius: Radii.brMd,
                             borderSide: BorderSide(color: ocTheme.borderSubtle),
                           ),
                           focusedBorder: OutlineInputBorder(
-                            borderRadius: BorderRadius.circular(12),
+                            borderRadius: Radii.brMd,
                             borderSide: BorderSide(color: ocTheme.primary),
                           ),
                           contentPadding: const EdgeInsets.symmetric(
@@ -3568,14 +3569,14 @@ class _CodexThreadsViewState extends ConsumerState<_CodexThreadsView> {
                           vertical: 12,
                         ),
                         shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(12),
+                          borderRadius: Radii.brMd,
                         ),
                       ),
                       child: const Text('Add'),
                     ),
                   ],
                 ),
-                const SizedBox(height: 12),
+                SizedBox(height: Spacing.md),
                 if (filters.isNotEmpty)
                   Align(
                     alignment: Alignment.centerRight,
@@ -3868,7 +3869,7 @@ class _CodexThreadsViewState extends ConsumerState<_CodexThreadsView> {
                             ),
                             decoration: BoxDecoration(
                               color: ocTheme.primary.withValues(alpha: 0.12),
-                              borderRadius: BorderRadius.circular(12),
+                              borderRadius: Radii.brMd,
                             ),
                             child: Row(
                               mainAxisSize: MainAxisSize.min,
@@ -3892,7 +3893,7 @@ class _CodexThreadsViewState extends ConsumerState<_CodexThreadsView> {
                           ),
                         ],
                       ),
-                      const SizedBox(height: 8),
+                      SizedBox(height: Spacing.sm),
                       Text(
                         'Codex threads from app-server',
                         style: TextStyle(
@@ -3925,12 +3926,12 @@ class _CodexThreadsViewState extends ConsumerState<_CodexThreadsView> {
                               },
                             ),
                           ),
-                          const SizedBox(width: 8),
+                          SizedBox(width: Spacing.sm),
                           _TitleFiltersChip(
                             count: titleFilterCount,
                             onTap: () => _showTitleFiltersSheet(context),
                           ),
-                          const SizedBox(width: 8),
+                          SizedBox(width: Spacing.sm),
                           _SortChip(
                             sortBy: _sortBy,
                             onChanged: (value) {
@@ -3958,7 +3959,7 @@ class _CodexThreadsViewState extends ConsumerState<_CodexThreadsView> {
                             color: ocTheme.error,
                             size: 48,
                           ),
-                          const SizedBox(height: 16),
+                          SizedBox(height: Spacing.lg),
                           Text(
                             'Failed to load threads',
                             style: TextStyle(
@@ -3967,7 +3968,7 @@ class _CodexThreadsViewState extends ConsumerState<_CodexThreadsView> {
                               fontWeight: FontWeight.w600,
                             ),
                           ),
-                          const SizedBox(height: 8),
+                          SizedBox(height: Spacing.sm),
                           Padding(
                             padding: const EdgeInsets.symmetric(horizontal: 24),
                             child: Text(
@@ -4036,7 +4037,7 @@ class _CodexThreadsViewState extends ConsumerState<_CodexThreadsView> {
                             t.id,
                           );
                           return Padding(
-                            padding: const EdgeInsets.only(bottom: 12),
+                            padding: Insets.bottomMd,
                             child: _CodexThreadCard(
                               thread: t,
                               isHighlighted: isHighlighted,
@@ -4108,7 +4109,7 @@ class _CodexHighlightedThreadsSection extends StatelessWidget {
           // Highlighted thread cards
           ...threads.map(
             (t) => Padding(
-              padding: const EdgeInsets.only(bottom: 12),
+              padding: Insets.bottomMd,
               child: _CodexHighlightedThreadCard(
                 thread: t,
                 highlightColor: highlightColor,
@@ -4182,7 +4183,7 @@ class _CodexHighlightedThreadCard extends ConsumerWidget {
       child: Container(
         decoration: BoxDecoration(
           color: bgColor,
-          borderRadius: BorderRadius.circular(10),
+          borderRadius: Radii.brMd,
         ),
         clipBehavior: Clip.antiAlias,
         child: Row(
@@ -4211,7 +4212,7 @@ class _CodexHighlightedThreadCard extends ConsumerWidget {
                       children: [
                         // Star icon inline
                         Icon(Icons.star_rounded, size: 16, color: color),
-                        const SizedBox(width: 8),
+                        SizedBox(width: Spacing.sm),
                         Expanded(
                           child: Text(
                             thread.displayTitle,
@@ -4225,7 +4226,7 @@ class _CodexHighlightedThreadCard extends ConsumerWidget {
                             overflow: TextOverflow.ellipsis,
                           ),
                         ),
-                        const SizedBox(width: 12),
+                        SizedBox(width: Spacing.md),
                         // Status or time
                         if (isActive)
                           Row(
@@ -4316,7 +4317,7 @@ class _CodexHighlightedThreadCard extends ConsumerWidget {
                             ),
                             decoration: BoxDecoration(
                               color: ocTheme.info.withValues(alpha: 0.12),
-                              borderRadius: BorderRadius.circular(4),
+                              borderRadius: Radii.brXs,
                             ),
                             child: Text(
                               thread.modelProvider!,
@@ -4397,7 +4398,7 @@ class _CodexThreadCard extends ConsumerWidget {
       child: Container(
         decoration: BoxDecoration(
           color: ocTheme.backgroundPanel,
-          borderRadius: BorderRadius.circular(10),
+          borderRadius: Radii.brMd,
         ),
         clipBehavior: Clip.antiAlias,
         child: Row(
@@ -4437,7 +4438,7 @@ class _CodexThreadCard extends ConsumerWidget {
                             overflow: TextOverflow.ellipsis,
                           ),
                         ),
-                        const SizedBox(width: 12),
+                        SizedBox(width: Spacing.md),
                         // Status or time
                         if (isActive)
                           Row(
@@ -4528,7 +4529,7 @@ class _CodexThreadCard extends ConsumerWidget {
                             ),
                             decoration: BoxDecoration(
                               color: ocTheme.info.withValues(alpha: 0.12),
-                              borderRadius: BorderRadius.circular(4),
+                              borderRadius: Radii.brXs,
                             ),
                             child: Text(
                               thread.modelProvider!,
@@ -4562,7 +4563,7 @@ class _CodexEmptyState extends StatelessWidget {
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
           Container(
-            padding: const EdgeInsets.all(24),
+            padding: Insets.cardLg,
             decoration: BoxDecoration(
               color: ocTheme.primary.withValues(alpha: 0.1),
               shape: BoxShape.circle,
@@ -4573,7 +4574,7 @@ class _CodexEmptyState extends StatelessWidget {
               color: ocTheme.primary,
             ),
           ),
-          const SizedBox(height: 24),
+          SizedBox(height: Spacing.xxl),
           Text(
             'No Codex threads',
             style: TextStyle(
@@ -4582,7 +4583,7 @@ class _CodexEmptyState extends StatelessWidget {
               fontWeight: FontWeight.w600,
             ),
           ),
-          const SizedBox(height: 8),
+          SizedBox(height: Spacing.sm),
           Padding(
             padding: const EdgeInsets.symmetric(horizontal: 40),
             child: Text(
@@ -4644,7 +4645,7 @@ class _ClaudeCodeSessionsViewState
                   "Hide sessions whose titles match any filter. Use `/regex/` for regex, otherwise it's a case-insensitive substring match.",
                   style: TextStyle(color: ocTheme.textMuted, fontSize: 13),
                 ),
-                const SizedBox(height: 12),
+                SizedBox(height: Spacing.md),
                 Row(
                   children: [
                     Expanded(
@@ -4656,15 +4657,15 @@ class _ClaudeCodeSessionsViewState
                           filled: true,
                           fillColor: ocTheme.backgroundElement,
                           border: OutlineInputBorder(
-                            borderRadius: BorderRadius.circular(12),
+                            borderRadius: Radii.brMd,
                             borderSide: BorderSide(color: ocTheme.borderSubtle),
                           ),
                           enabledBorder: OutlineInputBorder(
-                            borderRadius: BorderRadius.circular(12),
+                            borderRadius: Radii.brMd,
                             borderSide: BorderSide(color: ocTheme.borderSubtle),
                           ),
                           focusedBorder: OutlineInputBorder(
-                            borderRadius: BorderRadius.circular(12),
+                            borderRadius: Radii.brMd,
                             borderSide: BorderSide(color: ocTheme.primary),
                           ),
                           contentPadding: const EdgeInsets.symmetric(
@@ -4694,14 +4695,14 @@ class _ClaudeCodeSessionsViewState
                           vertical: 12,
                         ),
                         shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(12),
+                          borderRadius: Radii.brMd,
                         ),
                       ),
                       child: const Text('Add'),
                     ),
                   ],
                 ),
-                const SizedBox(height: 12),
+                SizedBox(height: Spacing.md),
                 if (filters.isNotEmpty)
                   Align(
                     alignment: Alignment.centerRight,
@@ -4946,7 +4947,7 @@ class _ClaudeCodeSessionsViewState
             filled: true,
             fillColor: ocTheme.backgroundElement,
             border: OutlineInputBorder(
-              borderRadius: BorderRadius.circular(8),
+              borderRadius: Radii.brSm,
               borderSide: BorderSide(color: ocTheme.border),
             ),
           ),
@@ -5062,7 +5063,7 @@ class _ClaudeCodeSessionsViewState
                             ),
                             decoration: BoxDecoration(
                               color: ocTheme.accent.withValues(alpha: 0.15),
-                              borderRadius: BorderRadius.circular(12),
+                              borderRadius: Radii.brMd,
                             ),
                             child: Row(
                               mainAxisSize: MainAxisSize.min,
@@ -5086,7 +5087,7 @@ class _ClaudeCodeSessionsViewState
                           ),
                         ],
                       ),
-                      const SizedBox(height: 8),
+                      SizedBox(height: Spacing.sm),
                       Text(
                         'Claude Code sessions from ~/.claude',
                         style: TextStyle(
@@ -5118,7 +5119,7 @@ class _ClaudeCodeSessionsViewState
                               },
                             ),
                           ),
-                          const SizedBox(width: 8),
+                          SizedBox(width: Spacing.sm),
                           _TitleFiltersChip(
                             count: titleFilterCount,
                             onTap: () => _showTitleFiltersSheet(context),
@@ -5145,7 +5146,7 @@ class _ClaudeCodeSessionsViewState
                             color: ocTheme.error,
                             size: 48,
                           ),
-                          const SizedBox(height: 16),
+                          SizedBox(height: Spacing.lg),
                           Text(
                             'Failed to load sessions',
                             style: TextStyle(
@@ -5154,7 +5155,7 @@ class _ClaudeCodeSessionsViewState
                               fontWeight: FontWeight.w600,
                             ),
                           ),
-                          const SizedBox(height: 8),
+                          SizedBox(height: Spacing.sm),
                           Padding(
                             padding: const EdgeInsets.symmetric(horizontal: 24),
                             child: Text(
@@ -5220,7 +5221,7 @@ class _ClaudeCodeSessionsViewState
                         delegate: SliverChildBuilderDelegate((context, index) {
                           final session = regularSessions[index];
                           return Padding(
-                            padding: const EdgeInsets.only(bottom: 12),
+                            padding: Insets.bottomMd,
                             child: _CCSessionCard(
                               session: session,
                               onTap: () => _openSession(session),
@@ -5293,7 +5294,7 @@ class _CCHighlightedSessionsSection extends StatelessWidget {
           // Highlighted session cards
           ...sessions.map((session) {
             return Padding(
-              padding: const EdgeInsets.only(bottom: 12),
+              padding: Insets.bottomMd,
               child: _CCHighlightedSessionCard(
                 session: session,
                 highlightColor: highlightColor,
@@ -5371,7 +5372,7 @@ class _CCHighlightedSessionCard extends ConsumerWidget {
       child: Container(
         decoration: BoxDecoration(
           color: bgColor,
-          borderRadius: BorderRadius.circular(10),
+          borderRadius: Radii.brMd,
         ),
         clipBehavior: Clip.antiAlias,
         child: Row(
@@ -5400,7 +5401,7 @@ class _CCHighlightedSessionCard extends ConsumerWidget {
                       children: [
                         // Star icon inline
                         Icon(Icons.star_rounded, size: 16, color: color),
-                        const SizedBox(width: 8),
+                        SizedBox(width: Spacing.sm),
                         Expanded(
                           child: Text(
                             session.displayTitle,
@@ -5415,14 +5416,14 @@ class _CCHighlightedSessionCard extends ConsumerWidget {
                           ),
                         ),
                         if (session.isBackground) ...[
-                          const SizedBox(width: 4),
+                          SizedBox(width: Spacing.xs),
                           Icon(
                             Icons.cloud_outlined,
                             size: 14,
                             color: ocTheme.textMuted,
                           ),
                         ],
-                        const SizedBox(width: 12),
+                        SizedBox(width: Spacing.md),
                         // Status or time
                         if (isActive)
                           Row(
@@ -5484,7 +5485,7 @@ class _CCHighlightedSessionCard extends ConsumerWidget {
                         ),
                         // Model badge if available
                         if (session.model != null) ...[
-                          const SizedBox(width: 8),
+                          SizedBox(width: Spacing.sm),
                           Container(
                             padding: const EdgeInsets.symmetric(
                               horizontal: 5,
@@ -5492,7 +5493,7 @@ class _CCHighlightedSessionCard extends ConsumerWidget {
                             ),
                             decoration: BoxDecoration(
                               color: ocTheme.info.withValues(alpha: 0.12),
-                              borderRadius: BorderRadius.circular(4),
+                              borderRadius: Radii.brXs,
                             ),
                             child: Text(
                               session.model!.split('/').last,
@@ -5536,7 +5537,7 @@ class _CCHighlightedSessionCard extends ConsumerWidget {
         padding: const EdgeInsets.only(right: 20),
         decoration: BoxDecoration(
           color: ocTheme.error,
-          borderRadius: BorderRadius.circular(10),
+          borderRadius: Radii.brMd,
         ),
         child: Icon(
           Icons.delete_outline_rounded,
@@ -5609,7 +5610,7 @@ class _CCSessionCard extends ConsumerWidget {
       child: Container(
         decoration: BoxDecoration(
           color: ocTheme.backgroundPanel,
-          borderRadius: BorderRadius.circular(10),
+          borderRadius: Radii.brMd,
         ),
         clipBehavior: Clip.antiAlias,
         child: Row(
@@ -5650,14 +5651,14 @@ class _CCSessionCard extends ConsumerWidget {
                           ),
                         ),
                         if (session.isBackground) ...[
-                          const SizedBox(width: 4),
+                          SizedBox(width: Spacing.xs),
                           Icon(
                             Icons.cloud_outlined,
                             size: 14,
                             color: ocTheme.textMuted,
                           ),
                         ],
-                        const SizedBox(width: 12),
+                        SizedBox(width: Spacing.md),
                         // Status or time
                         if (isActive)
                           Row(
@@ -5719,7 +5720,7 @@ class _CCSessionCard extends ConsumerWidget {
                         ),
                         // Model badge if available
                         if (session.model != null) ...[
-                          const SizedBox(width: 8),
+                          SizedBox(width: Spacing.sm),
                           Container(
                             padding: const EdgeInsets.symmetric(
                               horizontal: 5,
@@ -5727,7 +5728,7 @@ class _CCSessionCard extends ConsumerWidget {
                             ),
                             decoration: BoxDecoration(
                               color: ocTheme.info.withValues(alpha: 0.12),
-                              borderRadius: BorderRadius.circular(4),
+                              borderRadius: Radii.brXs,
                             ),
                             child: Text(
                               session.model!.split('/').last,
@@ -5771,7 +5772,7 @@ class _CCSessionCard extends ConsumerWidget {
         padding: const EdgeInsets.only(right: 20),
         decoration: BoxDecoration(
           color: ocTheme.error,
-          borderRadius: BorderRadius.circular(10),
+          borderRadius: Radii.brMd,
         ),
         child: Icon(
           Icons.delete_outline_rounded,
@@ -5799,7 +5800,7 @@ class _CCEmptyState extends StatelessWidget {
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
           Container(
-            padding: const EdgeInsets.all(24),
+            padding: Insets.cardLg,
             decoration: BoxDecoration(
               color: ocTheme.accent.withValues(alpha: 0.1),
               shape: BoxShape.circle,
@@ -5810,7 +5811,7 @@ class _CCEmptyState extends StatelessWidget {
               color: ocTheme.accent,
             ),
           ),
-          const SizedBox(height: 24),
+          SizedBox(height: Spacing.xxl),
           Text(
             'No Claude Code sessions',
             style: TextStyle(
@@ -5819,7 +5820,7 @@ class _CCEmptyState extends StatelessWidget {
               fontWeight: FontWeight.w600,
             ),
           ),
-          const SizedBox(height: 8),
+          SizedBox(height: Spacing.sm),
           Padding(
             padding: const EdgeInsets.symmetric(horizontal: 40),
             child: Text(
@@ -5949,16 +5950,16 @@ class _CCChatScreenState extends ConsumerState<CCChatScreen> {
           // Claude Code badge
           Container(
             margin: const EdgeInsets.only(right: 12),
-            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+            padding: Insets.chip,
             decoration: BoxDecoration(
               color: ocTheme.accent.withValues(alpha: 0.15),
-              borderRadius: BorderRadius.circular(8),
+              borderRadius: Radii.brSm,
             ),
             child: Row(
               mainAxisSize: MainAxisSize.min,
               children: [
                 Icon(Icons.terminal_rounded, size: 12, color: ocTheme.accent),
-                const SizedBox(width: 4),
+                SizedBox(width: Spacing.xs),
                 Text(
                   'CC',
                   style: TextStyle(
@@ -6113,17 +6114,17 @@ class _CCMessageBubble extends StatelessWidget {
 
     if (message.role == 'error') {
       return Container(
-        margin: const EdgeInsets.only(bottom: 12),
-        padding: const EdgeInsets.all(12),
+        margin: Insets.bottomMd,
+        padding: Insets.cardSm,
         decoration: BoxDecoration(
           color: ocTheme.error.withValues(alpha: 0.1),
-          borderRadius: BorderRadius.circular(12),
+          borderRadius: Radii.brMd,
           border: Border.all(color: ocTheme.error.withValues(alpha: 0.3)),
         ),
         child: Row(
           children: [
             Icon(Icons.error_outline, color: ocTheme.error, size: 20),
-            const SizedBox(width: 8),
+            SizedBox(width: Spacing.sm),
             Expanded(
               child: Text(
                 message.text,
@@ -6138,7 +6139,7 @@ class _CCMessageBubble extends StatelessWidget {
     final isUser = message.role == 'user';
 
     return Container(
-      margin: const EdgeInsets.only(bottom: 12),
+      margin: Insets.bottomMd,
       child: Column(
         crossAxisAlignment: isUser
             ? CrossAxisAlignment.end
@@ -6172,7 +6173,7 @@ class _CCMessageBubble extends StatelessWidget {
                     ),
                   ),
                   if (isStreaming) ...[
-                    const SizedBox(height: 4),
+                    SizedBox(height: Spacing.xs),
                     SizedBox(
                       width: 12,
                       height: 12,
@@ -6187,12 +6188,12 @@ class _CCMessageBubble extends StatelessWidget {
             ),
           // Tool calls
           if (message.toolCalls.isNotEmpty) ...[
-            const SizedBox(height: 8),
+            SizedBox(height: Spacing.sm),
             ...message.toolCalls.map((tool) => _CCToolCallCard(tool: tool)),
           ],
           // Token usage
           if (message.tokenUsage != null) ...[
-            const SizedBox(height: 4),
+            SizedBox(height: Spacing.xs),
             Text(
               '${message.tokenUsage!.inputTokens ?? 0} in · ${message.tokenUsage!.outputTokens ?? 0} out',
               style: TextStyle(color: ocTheme.textMuted, fontSize: 10),
@@ -6217,10 +6218,10 @@ class _CCToolCallCard extends StatelessWidget {
 
     return Container(
       margin: const EdgeInsets.only(bottom: 6),
-      padding: const EdgeInsets.all(10),
+      padding: Insets.cardXs,
       decoration: BoxDecoration(
         color: ocTheme.backgroundElement,
-        borderRadius: BorderRadius.circular(10),
+        borderRadius: Radii.brMd,
         border: Border.all(color: ocTheme.borderSubtle),
       ),
       child: Row(
@@ -6232,7 +6233,7 @@ class _CCToolCallCard extends StatelessWidget {
               color: isRunning
                   ? ocTheme.info.withValues(alpha: 0.15)
                   : ocTheme.success.withValues(alpha: 0.15),
-              borderRadius: BorderRadius.circular(6),
+              borderRadius: Radii.brSm,
             ),
             child: Center(
               child: isRunning
@@ -6261,14 +6262,10 @@ class _CCToolCallCard extends StatelessWidget {
                   ),
                 ),
                 if (tool.input != null) ...[
-                  const SizedBox(height: 2),
+                  SizedBox(height: Spacing.xxs),
                   Text(
                     _formatInput(tool.input),
-                    style: TextStyle(
-                      color: ocTheme.textMuted,
-                      fontSize: 11,
-                      fontFamily: GoogleFonts.jetBrainsMono().fontFamily,
-                    ),
+                    style: AppTypography.codeSmall(color: ocTheme.textMuted),
                     maxLines: 2,
                     overflow: TextOverflow.ellipsis,
                   ),
@@ -6310,7 +6307,7 @@ class _CCChatEmptyState extends StatelessWidget {
             size: 48,
             color: ocTheme.textMuted.withValues(alpha: 0.5),
           ),
-          const SizedBox(height: 16),
+          SizedBox(height: Spacing.lg),
           Text(
             'Start a conversation',
             style: TextStyle(
@@ -6319,7 +6316,7 @@ class _CCChatEmptyState extends StatelessWidget {
               fontWeight: FontWeight.w500,
             ),
           ),
-          const SizedBox(height: 4),
+          SizedBox(height: Spacing.xs),
           Text(
             'Send a message to begin',
             style: TextStyle(
@@ -6368,7 +6365,7 @@ class _CCInputBar extends StatelessWidget {
               child: Container(
                 decoration: BoxDecoration(
                   color: ocTheme.backgroundElement,
-                  borderRadius: BorderRadius.circular(24),
+                  borderRadius: Radii.brXxl,
                   border: Border.all(color: ocTheme.borderSubtle),
                 ),
                 child: TextField(
@@ -6394,7 +6391,7 @@ class _CCInputBar extends StatelessWidget {
                 ),
               ),
             ),
-            const SizedBox(width: 8),
+            SizedBox(width: Spacing.sm),
             // Send or Abort button
             GestureDetector(
               onTap: isStreaming ? onAbort : onSend,

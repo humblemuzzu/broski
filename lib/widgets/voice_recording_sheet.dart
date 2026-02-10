@@ -193,7 +193,7 @@ class _VoiceRecordingOverlayState extends ConsumerState<_VoiceRecordingOverlay>
       backgroundColor: Colors.transparent,
       body: Center(
         child: Padding(
-          padding: const EdgeInsets.all(24),
+          padding: Insets.cardLg,
           child: ScaleTransition(
             scale: _pulseAnimation,
             child: Container(
@@ -214,7 +214,7 @@ class _VoiceRecordingOverlayState extends ConsumerState<_VoiceRecordingOverlay>
                 ],
               ),
               child: Padding(
-                padding: const EdgeInsets.all(20),
+                padding: Insets.screenAll,
                 child: Column(
                   mainAxisSize: MainAxisSize.min,
                   children: [
@@ -246,7 +246,7 @@ class _VoiceRecordingOverlayState extends ConsumerState<_VoiceRecordingOverlay>
                       ],
                     ),
 
-                    const SizedBox(height: 32),
+                    SizedBox(height: Spacing.xxxl),
 
                     // Waveform visualization
                     if (hasError)
@@ -268,13 +268,13 @@ class _VoiceRecordingOverlayState extends ConsumerState<_VoiceRecordingOverlay>
                         color: ocTheme.primary,
                       ),
 
-                    const SizedBox(height: 32),
+                    SizedBox(height: Spacing.xxxl),
 
                     // Bottom row: Language indicator
                     Row(
                       children: [
                         Container(
-                          padding: const EdgeInsets.all(8),
+                          padding: Insets.cardXs,
                           decoration: BoxDecoration(
                             color: ocTheme.bgHover,
                             shape: BoxShape.circle,
@@ -289,7 +289,7 @@ class _VoiceRecordingOverlayState extends ConsumerState<_VoiceRecordingOverlay>
                             size: 18,
                           ),
                         ),
-                        const SizedBox(width: 12),
+                        SizedBox(width: Spacing.md),
                         Expanded(
                           child: Column(
                             crossAxisAlignment: CrossAxisAlignment.start,
@@ -435,7 +435,7 @@ class _AnimatedWaveform extends StatelessWidget {
               height: height,
               decoration: BoxDecoration(
                 color: color.withValues(alpha: isActive ? 1.0 : 0.3),
-                borderRadius: BorderRadius.circular(2),
+                borderRadius: Radii.brXs,
               ),
             ),
           );
@@ -459,7 +459,7 @@ class _ErrorDisplay extends StatelessWidget {
         Builder(builder: (context) {
         final ocTheme = OpenCodeTheme.of(context);
         return Container(
-          padding: const EdgeInsets.all(16),
+          padding: Insets.card,
           decoration: BoxDecoration(
             color: ocTheme.error.withValues(alpha: 0.1),
             borderRadius: Radii.brLg,
@@ -475,7 +475,7 @@ class _ErrorDisplay extends StatelessWidget {
                 color: ocTheme.error,
                 size: 32,
               ),
-              const SizedBox(height: 12),
+              SizedBox(height: Spacing.md),
               Text(
                 error,
                 textAlign: TextAlign.center,
@@ -484,7 +484,7 @@ class _ErrorDisplay extends StatelessWidget {
                   fontSize: 13,
                 ),
               ),
-              const SizedBox(height: 16),
+              SizedBox(height: Spacing.lg),
               GestureDetector(
                 onTap: onRetry,
                 child: Container(
@@ -504,7 +504,7 @@ class _ErrorDisplay extends StatelessWidget {
                         color: ocTheme.text,
                         size: 18,
                       ),
-                      const SizedBox(width: 8),
+                      SizedBox(width: Spacing.sm),
                       Text(
                         'Try Again',
                         style: TextStyle(

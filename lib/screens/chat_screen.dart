@@ -5,7 +5,8 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:google_fonts/google_fonts.dart';
+import '../theme/app_typography.dart';
+import '../theme/design_tokens.dart';
 import 'package:share_plus/share_plus.dart';
 import 'package:url_launcher/url_launcher.dart';
 
@@ -1561,28 +1562,28 @@ class _ChatScreenState extends ConsumerState<ChatScreen>
       title: 'Session Shared',
       initialSize: 0.35,
       child: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 16),
+        padding: Insets.screenH,
         child: Column(
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Text(
               'Anyone with this link can view your session:',
-              style: TextStyle(fontSize: 14, color: theme.textMuted),
+              style: AppTypography.labelLarge(color: theme.textMuted),
             ),
-            const SizedBox(height: 16),
+            SizedBox(height: Spacing.lg),
             Container(
-              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+              padding: Insets.chip,
               decoration: BoxDecoration(
                 color: theme.bgDeep,
-                borderRadius: BorderRadius.circular(4),
+                borderRadius: Radii.brXs,
               ),
               child: Row(
                 children: [
                   Expanded(
                     child: Text(
                       url,
-                      style: TextStyle(fontSize: 13, color: theme.info),
+                      style: AppTypography.bodySmall(color: theme.info),
                       overflow: TextOverflow.ellipsis,
                     ),
                   ),
@@ -1602,7 +1603,7 @@ class _ChatScreenState extends ConsumerState<ChatScreen>
                 ],
               ),
             ),
-            const SizedBox(height: 20),
+            SizedBox(height: Spacing.xl),
             Row(
               children: [
                 Expanded(
@@ -1625,7 +1626,7 @@ class _ChatScreenState extends ConsumerState<ChatScreen>
                     ),
                   ),
                 ),
-                const SizedBox(width: 12),
+                SizedBox(width: Spacing.md),
                 Expanded(
                   child: ElevatedButton.icon(
                     onPressed: () {
@@ -1643,7 +1644,7 @@ class _ChatScreenState extends ConsumerState<ChatScreen>
                 ),
               ],
             ),
-            const SizedBox(height: 12),
+            SizedBox(height: Spacing.md),
           ],
         ),
       ),
@@ -2029,7 +2030,7 @@ class _ChatScreenState extends ConsumerState<ChatScreen>
             title: Text('User memory', style: TextStyle(color: theme.text)),
             subtitle: Text(
               'Persists across projects for your account.',
-              style: TextStyle(color: theme.textMuted, fontSize: 12),
+              style: AppTypography.label(color: theme.textMuted),
             ),
             onTap: () {
               Navigator.pop(context);
@@ -2041,7 +2042,7 @@ class _ChatScreenState extends ConsumerState<ChatScreen>
             title: Text('Project memory', style: TextStyle(color: theme.text)),
             subtitle: Text(
               'Shared context for this project.',
-              style: TextStyle(color: theme.textMuted, fontSize: 12),
+              style: AppTypography.label(color: theme.textMuted),
             ),
             onTap: () {
               Navigator.pop(context);
@@ -2053,7 +2054,7 @@ class _ChatScreenState extends ConsumerState<ChatScreen>
             title: Text('Local memory', style: TextStyle(color: theme.text)),
             subtitle: Text(
               'Only for this machine/workspace.',
-              style: TextStyle(color: theme.textMuted, fontSize: 12),
+              style: AppTypography.label(color: theme.textMuted),
             ),
             onTap: () {
               Navigator.pop(context);
@@ -2166,7 +2167,7 @@ class _ChatScreenState extends ConsumerState<ChatScreen>
             title: Text('Attach File (@)', style: TextStyle(color: theme.text)),
             subtitle: Text(
               'Type @ in the input to search files',
-              style: TextStyle(color: theme.textMuted, fontSize: 12),
+              style: AppTypography.label(color: theme.textMuted),
             ),
             onTap: () => Navigator.pop(context),
           ),
@@ -2188,9 +2189,9 @@ class _ChatScreenState extends ConsumerState<ChatScreen>
             context,
             topic: ClaudeCodeHelpTopic.toolsOverview,
           ),
-          borderRadius: BorderRadius.circular(20),
+          borderRadius: Radii.brXl,
           child: Container(
-            padding: const EdgeInsets.all(8),
+            padding: Insets.cardXs,
             decoration: BoxDecoration(
               color: theme.textMuted.withValues(alpha: 0.1),
               shape: BoxShape.circle,
@@ -2259,7 +2260,7 @@ class _ChatScreenState extends ConsumerState<ChatScreen>
                       ),
                     ),
 
-                    const SizedBox(height: 12),
+                    SizedBox(height: Spacing.md),
 
                     _buildSettingsRow(
                       theme,
@@ -2291,7 +2292,7 @@ class _ChatScreenState extends ConsumerState<ChatScreen>
                       ),
                     ),
 
-                    const SizedBox(height: 16),
+                    SizedBox(height: Spacing.lg),
 
                     // System prompt
                     _buildSettingsRow(
@@ -2347,12 +2348,12 @@ class _ChatScreenState extends ConsumerState<ChatScreen>
                       ),
                     ),
 
-                    const SizedBox(height: 20),
+                    SizedBox(height: Spacing.xl),
                     Divider(
                       color: theme.borderSubtle.withValues(alpha: 0.5),
                       height: 1,
                     ),
-                    const SizedBox(height: 20),
+                    SizedBox(height: Spacing.xl),
 
                     // Subagent selector
                     _buildSettingsTile(
@@ -2386,7 +2387,7 @@ class _ChatScreenState extends ConsumerState<ChatScreen>
                                   .setActiveSubagent(value);
                             },
                           ),
-                          const SizedBox(width: 4),
+                          SizedBox(width: Spacing.xs),
                           _buildSettingsIconButton(
                             theme: theme,
                             icon: Icons.chevron_right_rounded,
@@ -2404,7 +2405,7 @@ class _ChatScreenState extends ConsumerState<ChatScreen>
                       ),
                     ),
 
-                    const SizedBox(height: 12),
+                    SizedBox(height: Spacing.md),
 
                     _buildSettingsTile(
                       theme: theme,
@@ -2420,7 +2421,7 @@ class _ChatScreenState extends ConsumerState<ChatScreen>
                             icon: Icons.add_comment_rounded,
                             onTap: _showMemoryScopePicker,
                           ),
-                          const SizedBox(width: 4),
+                          SizedBox(width: Spacing.xs),
                           _buildSettingsIconButton(
                             theme: theme,
                             icon: Icons.chevron_right_rounded,
@@ -2439,7 +2440,7 @@ class _ChatScreenState extends ConsumerState<ChatScreen>
                       ),
                     ),
 
-                    const SizedBox(height: 12),
+                    SizedBox(height: Spacing.md),
 
                     // Custom Tools section
                     _buildSettingsTile(
@@ -2479,7 +2480,7 @@ class _ChatScreenState extends ConsumerState<ChatScreen>
                               );
                             },
                           ),
-                          const SizedBox(width: 8),
+                          SizedBox(width: Spacing.sm),
                           _buildSettingsIconButton(
                             theme: theme,
                             icon: Icons.chevron_right_rounded,
@@ -2497,7 +2498,7 @@ class _ChatScreenState extends ConsumerState<ChatScreen>
                       ),
                     ),
 
-                    const SizedBox(height: 12),
+                    SizedBox(height: Spacing.md),
 
                     // Plugins section
                     _buildSettingsTile(
@@ -2539,7 +2540,7 @@ class _ChatScreenState extends ConsumerState<ChatScreen>
                               );
                             },
                           ),
-                          const SizedBox(width: 8),
+                          SizedBox(width: Spacing.sm),
                           _buildSettingsIconButton(
                             theme: theme,
                             icon: Icons.chevron_right_rounded,
@@ -2557,12 +2558,12 @@ class _ChatScreenState extends ConsumerState<ChatScreen>
                       ),
                     ),
 
-                    const SizedBox(height: 20),
+                    SizedBox(height: Spacing.xl),
                     Divider(
                       color: theme.borderSubtle.withValues(alpha: 0.5),
                       height: 1,
                     ),
-                    const SizedBox(height: 16),
+                    SizedBox(height: Spacing.lg),
 
                     // Tools list header
                     Row(
@@ -2572,7 +2573,7 @@ class _ChatScreenState extends ConsumerState<ChatScreen>
                           size: 16,
                           color: theme.textMuted,
                         ),
-                        const SizedBox(width: 8),
+                        SizedBox(width: Spacing.sm),
                         Text(
                           'Built-in Tools',
                           style: TextStyle(
@@ -2591,7 +2592,7 @@ class _ChatScreenState extends ConsumerState<ChatScreen>
                         ),
                       ],
                     ),
-                    const SizedBox(height: 12),
+                    SizedBox(height: Spacing.md),
 
                     // Tools list
                     ...toolUniverse.map((tool) {
@@ -2662,23 +2663,23 @@ class _ChatScreenState extends ConsumerState<ChatScreen>
     required Widget trailing,
   }) {
     return Container(
-      padding: const EdgeInsets.all(12),
+      padding: Insets.cardSm,
       decoration: BoxDecoration(
         color: theme.background.withValues(alpha: 0.5),
-        borderRadius: BorderRadius.circular(12),
+        borderRadius: Radii.brMd,
         border: Border.all(color: theme.borderSubtle.withValues(alpha: 0.3)),
       ),
       child: Row(
         children: [
           Container(
-            padding: const EdgeInsets.all(8),
+            padding: Insets.cardXs,
             decoration: BoxDecoration(
               color: iconColor.withValues(alpha: 0.12),
-              borderRadius: BorderRadius.circular(8),
+              borderRadius: Radii.brSm,
             ),
             child: Icon(icon, size: 18, color: iconColor),
           ),
-          const SizedBox(width: 12),
+          SizedBox(width: Spacing.md),
           Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
@@ -2691,10 +2692,10 @@ class _ChatScreenState extends ConsumerState<ChatScreen>
                     fontWeight: FontWeight.w600,
                   ),
                 ),
-                const SizedBox(height: 2),
+                SizedBox(height: Spacing.xxs),
                 Text(
                   subtitle,
-                  style: TextStyle(color: theme.textMuted, fontSize: 11),
+                  style: AppTypography.caption(color: theme.textMuted),
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
                 ),
@@ -2718,18 +2719,18 @@ class _ChatScreenState extends ConsumerState<ChatScreen>
       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
       decoration: BoxDecoration(
         color: theme.background.withValues(alpha: 0.5),
-        borderRadius: BorderRadius.circular(8),
+        borderRadius: Radii.brSm,
         border: Border.all(color: theme.borderSubtle.withValues(alpha: 0.3)),
       ),
       child: DropdownButtonHideUnderline(
         child: DropdownButton<T>(
           value: value,
           dropdownColor: theme.backgroundPanel,
-          style: TextStyle(color: theme.text, fontSize: 13),
+          style: AppTypography.bodySmall(color: theme.text),
           hint: hint != null
               ? Text(
                   hint,
-                  style: TextStyle(color: theme.textMuted, fontSize: 13),
+                  style: AppTypography.bodySmall(color: theme.textMuted),
                 )
               : null,
           icon: Icon(
@@ -2754,7 +2755,7 @@ class _ChatScreenState extends ConsumerState<ChatScreen>
       color: Colors.transparent,
       child: InkWell(
         onTap: onTap,
-        borderRadius: BorderRadius.circular(6),
+        borderRadius: Radii.brSm,
         child: Container(
           padding: const EdgeInsets.all(4),
           child: Icon(icon, size: 20, color: theme.textMuted),
@@ -2771,7 +2772,7 @@ class _ChatScreenState extends ConsumerState<ChatScreen>
         color: isActive
             ? theme.accent.withValues(alpha: 0.15)
             : theme.textMuted.withValues(alpha: 0.1),
-        borderRadius: BorderRadius.circular(6),
+        borderRadius: Radii.brSm,
       ),
       child: Text(
         '$count enabled',
@@ -2836,22 +2837,22 @@ class _ChatScreenState extends ConsumerState<ChatScreen>
           child: TextField(
             controller: controller,
             maxLines: 5,
-            style: TextStyle(color: theme.text, fontSize: 14),
+            style: AppTypography.labelLarge(color: theme.text),
             decoration: InputDecoration(
               hintText: 'Enter custom instructions for Claude...',
               hintStyle: TextStyle(color: theme.textMuted),
               filled: true,
               fillColor: theme.background,
               border: OutlineInputBorder(
-                borderRadius: BorderRadius.circular(8),
+                borderRadius: Radii.brSm,
                 borderSide: BorderSide(color: theme.borderSubtle),
               ),
               enabledBorder: OutlineInputBorder(
-                borderRadius: BorderRadius.circular(8),
+                borderRadius: Radii.brSm,
                 borderSide: BorderSide(color: theme.borderSubtle),
               ),
               focusedBorder: OutlineInputBorder(
-                borderRadius: BorderRadius.circular(8),
+                borderRadius: Radii.brSm,
                 borderSide: BorderSide(color: theme.primary),
               ),
             ),
@@ -2894,17 +2895,17 @@ class _ChatScreenState extends ConsumerState<ChatScreen>
           final all = <String>{...builtins, ...custom}.toList()..sort();
 
           return Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 16),
+            padding: Insets.screenH,
             child: Column(
               mainAxisSize: MainAxisSize.min,
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 if (all.isEmpty)
                   Padding(
-                    padding: const EdgeInsets.only(top: 8),
+                    padding: Insets.topSm,
                     child: Text(
                       'No commands found for this project.',
-                      style: TextStyle(color: theme.textMuted, fontSize: 13),
+                      style: AppTypography.bodySmall(color: theme.textMuted),
                     ),
                   )
                 else
@@ -2919,7 +2920,7 @@ class _ChatScreenState extends ConsumerState<ChatScreen>
                       ),
                       title: Text(
                         cmd,
-                        style: TextStyle(color: theme.text, fontSize: 13),
+                        style: AppTypography.bodySmall(color: theme.text),
                       ),
                       onTap: () {
                         final normalized = cmd.startsWith('/') ? cmd : '/$cmd';
@@ -2954,15 +2955,15 @@ class _ChatScreenState extends ConsumerState<ChatScreen>
           final skillsAsync = ref.watch(ccSkillsProvider(cwd));
 
           return Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 16),
+            padding: Insets.screenH,
             child: skillsAsync.when(
               data: (skills) {
                 if (skills.isEmpty) {
                   return Padding(
-                    padding: const EdgeInsets.only(top: 8),
+                    padding: Insets.topSm,
                     child: Text(
                       'No skills found.',
-                      style: TextStyle(color: theme.textMuted, fontSize: 13),
+                      style: AppTypography.bodySmall(color: theme.textMuted),
                     ),
                   );
                 }
@@ -2975,7 +2976,7 @@ class _ChatScreenState extends ConsumerState<ChatScreen>
                           contentPadding: EdgeInsets.zero,
                           title: Text(
                             s.name,
-                            style: TextStyle(color: theme.text, fontSize: 13),
+                            style: AppTypography.bodySmall(color: theme.text),
                           ),
                           subtitle: s.description == null
                               ? null
@@ -2996,7 +2997,7 @@ class _ChatScreenState extends ConsumerState<ChatScreen>
                                     color: theme.success.withValues(
                                       alpha: 0.15,
                                     ),
-                                    borderRadius: BorderRadius.circular(8),
+                                    borderRadius: Radii.brSm,
                                   ),
                                   child: Text(
                                     'Auto',
@@ -3020,10 +3021,10 @@ class _ChatScreenState extends ConsumerState<ChatScreen>
                 ),
               ),
               error: (e, _) => Padding(
-                padding: const EdgeInsets.only(top: 8),
+                padding: Insets.topSm,
                 child: Text(
                   '$e',
-                  style: TextStyle(color: theme.error, fontSize: 13),
+                  style: AppTypography.bodySmall(color: theme.error),
                 ),
               ),
             ),
@@ -3045,15 +3046,15 @@ class _ChatScreenState extends ConsumerState<ChatScreen>
           final hooksAsync = ref.watch(ccHooksProvider(cwd));
 
           return Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 16),
+            padding: Insets.screenH,
             child: hooksAsync.when(
               data: (hooks) {
                 if (hooks.isEmpty) {
                   return Padding(
-                    padding: const EdgeInsets.only(top: 8),
+                    padding: Insets.topSm,
                     child: Text(
                       'No hooks found.',
-                      style: TextStyle(color: theme.textMuted, fontSize: 13),
+                      style: AppTypography.bodySmall(color: theme.textMuted),
                     ),
                   );
                 }
@@ -3066,7 +3067,7 @@ class _ChatScreenState extends ConsumerState<ChatScreen>
                           contentPadding: EdgeInsets.zero,
                           title: Text(
                             h.event,
-                            style: TextStyle(color: theme.text, fontSize: 13),
+                            style: AppTypography.bodySmall(color: theme.text),
                           ),
                           subtitle: Text(
                             h.matcher == null
@@ -3089,10 +3090,10 @@ class _ChatScreenState extends ConsumerState<ChatScreen>
                 ),
               ),
               error: (e, _) => Padding(
-                padding: const EdgeInsets.only(top: 8),
+                padding: Insets.topSm,
                 child: Text(
                   '$e',
-                  style: TextStyle(color: theme.error, fontSize: 13),
+                  style: AppTypography.bodySmall(color: theme.error),
                 ),
               ),
             ),
@@ -3118,7 +3119,7 @@ class _ChatScreenState extends ConsumerState<ChatScreen>
           final initServers = init?.mcpServers ?? const [];
 
           return Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 16),
+            padding: Insets.screenH,
             child: statusesAsync.when(
               data: (statuses) {
                 if (statuses.isNotEmpty) {
@@ -3148,7 +3149,7 @@ class _ChatScreenState extends ConsumerState<ChatScreen>
                             ),
                             title: Text(
                               status.name,
-                              style: TextStyle(color: theme.text, fontSize: 13),
+                              style: AppTypography.bodySmall(color: theme.text),
                             ),
                             subtitle: Text(
                               status.serverName != null &&
@@ -3167,10 +3168,10 @@ class _ChatScreenState extends ConsumerState<ChatScreen>
                 }
                 if (initServers.isEmpty) {
                   return Padding(
-                    padding: const EdgeInsets.only(top: 8),
+                    padding: Insets.topSm,
                     child: Text(
                       'No MCP servers reported yet (start a turn to initialize).',
-                      style: TextStyle(color: theme.textMuted, fontSize: 13),
+                      style: AppTypography.bodySmall(color: theme.textMuted),
                     ),
                   );
                 }
@@ -3183,7 +3184,7 @@ class _ChatScreenState extends ConsumerState<ChatScreen>
                           contentPadding: EdgeInsets.zero,
                           title: Text(
                             s['name']?.toString() ?? 'server',
-                            style: TextStyle(color: theme.text, fontSize: 13),
+                            style: AppTypography.bodySmall(color: theme.text),
                           ),
                           subtitle: Text(
                             s['status']?.toString() ?? '',
@@ -3204,10 +3205,10 @@ class _ChatScreenState extends ConsumerState<ChatScreen>
                 ),
               ),
               error: (_, __) => Padding(
-                padding: const EdgeInsets.only(top: 8),
+                padding: Insets.topSm,
                 child: Text(
                   'Unable to load MCP server status.',
-                  style: TextStyle(color: theme.textMuted, fontSize: 13),
+                  style: AppTypography.bodySmall(color: theme.textMuted),
                 ),
               ),
             ),
@@ -3359,7 +3360,7 @@ Describe project-specific guidance for Codex here.
                     path ?? cwd,
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
-                    style: TextStyle(color: theme.textMuted, fontSize: 11),
+                    style: AppTypography.caption(color: theme.textMuted),
                   ),
                 ),
                 if (!exists)
@@ -3372,7 +3373,7 @@ Describe project-specific guidance for Codex here.
                           size: 16,
                           color: theme.textMuted,
                         ),
-                        const SizedBox(width: 8),
+                        SizedBox(width: Spacing.sm),
                         Expanded(
                           child: Text(
                             'No AGENTS.md found. Create one to guide Codex for this project.',
@@ -3390,7 +3391,7 @@ Describe project-specific guidance for Codex here.
                     ),
                   ),
                 Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: 16),
+                  padding: Insets.screenH,
                   child: SizedBox(
                     height: 300,
                     child: TextField(
@@ -3398,17 +3399,13 @@ Describe project-specific guidance for Codex here.
                       expands: true,
                       maxLines: null,
                       minLines: null,
-                      style: TextStyle(
-                        fontFamily: GoogleFonts.jetBrainsMono().fontFamily,
-                        fontSize: 12,
-                        color: theme.text,
-                      ),
+                      style: AppTypography.codeSmall(color: theme.text),
                       decoration: InputDecoration(
                         hintText: 'Project instructions for Codex…',
                         filled: true,
                         fillColor: theme.background,
                         border: OutlineInputBorder(
-                          borderRadius: BorderRadius.circular(12),
+                          borderRadius: Radii.brMd,
                           borderSide: BorderSide(
                             color: theme.borderSubtle.withValues(alpha: 0.35),
                           ),
@@ -3417,7 +3414,7 @@ Describe project-specific guidance for Codex here.
                     ),
                   ),
                 ),
-                const SizedBox(height: 12),
+                SizedBox(height: Spacing.md),
                 Padding(
                   padding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
                   child: Row(
@@ -3498,9 +3495,9 @@ Describe project-specific guidance for Codex here.
               mainAxisSize: MainAxisSize.min,
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                const SizedBox(height: 8),
+                SizedBox(height: Spacing.sm),
                 Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: 16),
+                  padding: Insets.screenH,
                   child: FutureBuilder<Map<String, dynamic>>(
                     future: ref.read(bridgeServiceProvider).cxAccountRead(),
                     builder: (context, snapshot) {
@@ -3508,7 +3505,7 @@ Describe project-specific guidance for Codex here.
                           snapshot.connectionState == ConnectionState.waiting;
                       if (loading) {
                         return const Padding(
-                          padding: EdgeInsets.symmetric(vertical: 16),
+                          padding: Insets.screenV,
                           child: Center(child: CircularProgressIndicator()),
                         );
                       }
@@ -3525,10 +3522,10 @@ Describe project-specific guidance for Codex here.
                       final requires =
                           snapshot.data?['requiresOpenaiAuth'] == true;
                       return Container(
-                        padding: const EdgeInsets.all(12),
+                        padding: Insets.cardSm,
                         decoration: BoxDecoration(
                           color: theme.background,
-                          borderRadius: BorderRadius.circular(12),
+                          borderRadius: Radii.brMd,
                           border: Border.all(
                             color: theme.borderSubtle.withValues(alpha: 0.25),
                           ),
@@ -3563,9 +3560,9 @@ Describe project-specific guidance for Codex here.
                     },
                   ),
                 ),
-                const SizedBox(height: 12),
+                SizedBox(height: Spacing.md),
                 Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: 16),
+                  padding: Insets.screenH,
                   child: FutureBuilder<Map<String, dynamic>>(
                     future: ref.read(bridgeServiceProvider).cxRateLimitsRead(),
                     builder: (context, snapshot) {
@@ -3580,7 +3577,7 @@ Describe project-specific guidance for Codex here.
                       final primary = limits['primary'];
                       if (primary is! Map) return const SizedBox.shrink();
                       return Padding(
-                        padding: const EdgeInsets.only(bottom: 12),
+                        padding: Insets.bottomMd,
                         child: Text(
                           'Rate limits: ${primary['usedPercent'] ?? 0}% used, resets at ${primary['resetsAt'] ?? ''}',
                           style: TextStyle(
@@ -3594,7 +3591,7 @@ Describe project-specific guidance for Codex here.
                 ),
                 const SizedBox(height: 6),
                 Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: 16),
+                  padding: Insets.screenH,
                   child: Row(
                     children: [
                       Expanded(
@@ -3617,9 +3614,9 @@ Describe project-specific guidance for Codex here.
                     ],
                   ),
                 ),
-                const SizedBox(height: 12),
+                SizedBox(height: Spacing.md),
                 Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: 16),
+                  padding: Insets.screenH,
                   child: TextField(
                     controller: apiKeyController,
                     obscureText: true,
@@ -3629,9 +3626,9 @@ Describe project-specific guidance for Codex here.
                     ),
                   ),
                 ),
-                const SizedBox(height: 8),
+                SizedBox(height: Spacing.sm),
                 Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: 16),
+                  padding: Insets.screenH,
                   child: Row(
                     children: [
                       Expanded(
@@ -3659,29 +3656,25 @@ Describe project-specific guidance for Codex here.
                   ),
                 ),
                 if (authUrl != null && authUrl!.isNotEmpty) ...[
-                  const SizedBox(height: 12),
+                  SizedBox(height: Spacing.md),
                   Padding(
-                    padding: const EdgeInsets.symmetric(horizontal: 16),
+                    padding: Insets.screenH,
                     child: Text(
                       'ChatGPT login URL (open on the host machine running Broski Bridge):',
-                      style: TextStyle(color: theme.textMuted, fontSize: 12),
+                      style: AppTypography.label(color: theme.textMuted),
                     ),
                   ),
                   const SizedBox(height: 6),
                   Padding(
-                    padding: const EdgeInsets.symmetric(horizontal: 16),
+                    padding: Insets.screenH,
                     child: SelectableText(
                       authUrl!,
-                      style: TextStyle(
-                        fontFamily: GoogleFonts.jetBrainsMono().fontFamily,
-                        color: theme.text,
-                        fontSize: 11,
-                      ),
+                      style: AppTypography.codeSmall(color: theme.text),
                     ),
                   ),
                   const SizedBox(height: 6),
                   Padding(
-                    padding: const EdgeInsets.symmetric(horizontal: 16),
+                    padding: Insets.screenH,
                     child: Row(
                       children: [
                         TextButton(
@@ -3695,7 +3688,7 @@ Describe project-specific guidance for Codex here.
                           },
                           child: const Text('Open'),
                         ),
-                        const SizedBox(width: 8),
+                        SizedBox(width: Spacing.sm),
                         TextButton(
                           onPressed: () async {
                             await Clipboard.setData(
@@ -3708,7 +3701,7 @@ Describe project-specific guidance for Codex here.
                     ),
                   ),
                 ],
-                const SizedBox(height: 16),
+                SizedBox(height: Spacing.lg),
               ],
             ),
           );
@@ -3737,9 +3730,9 @@ Describe project-specific guidance for Codex here.
               mainAxisSize: MainAxisSize.min,
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                const SizedBox(height: 8),
+                SizedBox(height: Spacing.sm),
                 Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: 16),
+                  padding: Insets.screenH,
                   child: DropdownButtonFormField<String>(
                     value: classification,
                     items: const [
@@ -3761,9 +3754,9 @@ Describe project-specific guidance for Codex here.
                     ),
                   ),
                 ),
-                const SizedBox(height: 8),
+                SizedBox(height: Spacing.sm),
                 Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: 16),
+                  padding: Insets.screenH,
                   child: TextField(
                     controller: reasonController,
                     maxLines: 3,
@@ -3772,9 +3765,9 @@ Describe project-specific guidance for Codex here.
                     ),
                   ),
                 ),
-                const SizedBox(height: 8),
+                SizedBox(height: Spacing.sm),
                 Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: 16),
+                  padding: Insets.screenH,
                   child: SwitchListTile(
                     value: includeLogs,
                     onChanged: (v) => setSheetState(() => includeLogs = v),
@@ -3790,12 +3783,12 @@ Describe project-specific guidance for Codex here.
                     ),
                     subtitle: Text(
                       'Attach Codex logs from the host machine',
-                      style: TextStyle(color: theme.textMuted, fontSize: 12),
+                      style: AppTypography.label(color: theme.textMuted),
                     ),
                     activeThumbColor: theme.primary,
                   ),
                 ),
-                const SizedBox(height: 12),
+                SizedBox(height: Spacing.md),
                 Padding(
                   padding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
                   child: Row(
@@ -3872,7 +3865,7 @@ Describe project-specific guidance for Codex here.
                     fontWeight: FontWeight.w600,
                   ),
                 ),
-                const SizedBox(height: 8),
+                SizedBox(height: Spacing.sm),
                 Wrap(
                   spacing: 8,
                   runSpacing: 8,
@@ -3890,7 +3883,7 @@ Describe project-specific guidance for Codex here.
                       selectedColor: theme.primary,
                       backgroundColor: theme.background,
                       shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(10),
+                        borderRadius: Radii.brMd,
                         side: BorderSide(
                           color: theme.borderSubtle.withValues(alpha: 0.3),
                         ),
@@ -3903,7 +3896,7 @@ Describe project-specific guidance for Codex here.
           }
 
           return Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 16),
+            padding: Insets.screenH,
             child: Column(
               mainAxisSize: MainAxisSize.min,
               crossAxisAlignment: CrossAxisAlignment.start,
@@ -3915,7 +3908,7 @@ Describe project-specific guidance for Codex here.
                   display: (v) => v.wireValue,
                   onSelected: notifier.setApprovalPolicy,
                 ),
-                const SizedBox(height: 16),
+                SizedBox(height: Spacing.lg),
                 chipGroup<CodexSandboxMode>(
                   label: 'Sandbox',
                   values: CodexSandboxMode.values,
@@ -3923,7 +3916,7 @@ Describe project-specific guidance for Codex here.
                   display: (v) => v.threadWireValue,
                   onSelected: notifier.setSandboxMode,
                 ),
-                const SizedBox(height: 12),
+                SizedBox(height: Spacing.md),
                 if (settings.sandboxMode == CodexSandboxMode.workspaceWrite)
                   SwitchListTile(
                     value: settings.networkAccessEnabled,
@@ -3940,11 +3933,11 @@ Describe project-specific guidance for Codex here.
                     ),
                     subtitle: Text(
                       'Allow network in Codex sandbox',
-                      style: TextStyle(color: theme.textMuted, fontSize: 12),
+                      style: AppTypography.label(color: theme.textMuted),
                     ),
                     activeColor: theme.primary,
                   ),
-                const SizedBox(height: 12),
+                SizedBox(height: Spacing.md),
                 chipGroup<CodexReasoningEffort>(
                   label: 'Reasoning effort',
                   values: CodexReasoningEffort.values,
@@ -3952,7 +3945,7 @@ Describe project-specific guidance for Codex here.
                   display: (v) => v.wireValue,
                   onSelected: notifier.setReasoningEffort,
                 ),
-                const SizedBox(height: 16),
+                SizedBox(height: Spacing.lg),
                 chipGroup<CodexReasoningSummary>(
                   label: 'Reasoning summary',
                   values: CodexReasoningSummary.values,
@@ -3960,7 +3953,7 @@ Describe project-specific guidance for Codex here.
                   display: (v) => v.wireValue,
                   onSelected: notifier.setReasoningSummary,
                 ),
-                const SizedBox(height: 12),
+                SizedBox(height: Spacing.md),
                 chipGroup<CodexWebSearchMode>(
                   label: 'Web search',
                   values: CodexWebSearchMode.values,
@@ -3983,11 +3976,11 @@ Describe project-specific guidance for Codex here.
                   ),
                   subtitle: Text(
                     'Allow Codex to discover skills from disk',
-                    style: TextStyle(color: theme.textMuted, fontSize: 12),
+                    style: AppTypography.label(color: theme.textMuted),
                   ),
                   activeColor: theme.primary,
                 ),
-                const SizedBox(height: 12),
+                SizedBox(height: Spacing.md),
                 chipGroup<CodexPersonality>(
                   label: 'Personality',
                   values: CodexPersonality.values,
@@ -3995,7 +3988,7 @@ Describe project-specific guidance for Codex here.
                   display: (v) => v.displayName,
                   onSelected: notifier.setPersonality,
                 ),
-                const SizedBox(height: 16),
+                SizedBox(height: Spacing.lg),
                 chipGroup<CodexCollaborationMode>(
                   label: 'Collaboration mode',
                   values: CodexCollaborationMode.values,
@@ -4044,7 +4037,7 @@ Describe project-specific guidance for Codex here.
           final servers = snapshot.data ?? const <Map<String, dynamic>>[];
 
           return Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 16),
+            padding: Insets.screenH,
             child: loading
                 ? const Padding(
                     padding: EdgeInsets.symmetric(vertical: 24),
@@ -4052,18 +4045,18 @@ Describe project-specific guidance for Codex here.
                   )
                 : snapshot.hasError
                 ? Padding(
-                    padding: const EdgeInsets.symmetric(vertical: 16),
+                    padding: Insets.screenV,
                     child: Text(
                       'Failed to load MCP servers: ${snapshot.error}',
-                      style: TextStyle(color: theme.textMuted, fontSize: 12),
+                      style: AppTypography.label(color: theme.textMuted),
                     ),
                   )
                 : servers.isEmpty
                 ? Padding(
-                    padding: const EdgeInsets.symmetric(vertical: 16),
+                    padding: Insets.screenV,
                     child: Text(
                       'No MCP servers configured.',
-                      style: TextStyle(color: theme.textMuted, fontSize: 13),
+                      style: AppTypography.bodySmall(color: theme.textMuted),
                     ),
                   )
                 : Column(
@@ -4187,7 +4180,7 @@ Describe project-specific guidance for Codex here.
           final configJson = const JsonEncoder.withIndent('  ').convert(config);
 
           return Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 16),
+            padding: Insets.screenH,
             child: loading
                 ? const Padding(
                     padding: EdgeInsets.symmetric(vertical: 24),
@@ -4195,20 +4188,16 @@ Describe project-specific guidance for Codex here.
                   )
                 : snapshot.hasError
                 ? Padding(
-                    padding: const EdgeInsets.symmetric(vertical: 16),
+                    padding: Insets.screenV,
                     child: Text(
                       'Failed to read config: ${snapshot.error}',
-                      style: TextStyle(color: theme.textMuted, fontSize: 12),
+                      style: AppTypography.label(color: theme.textMuted),
                     ),
                   )
                 : SingleChildScrollView(
                     child: SelectableText(
                       configJson,
-                      style: TextStyle(
-                        fontFamily: GoogleFonts.jetBrainsMono().fontFamily,
-                        color: theme.textMuted,
-                        fontSize: 11,
-                      ),
+                      style: AppTypography.codeSmall(color: theme.textMuted),
                     ),
                   ),
           );
@@ -4349,7 +4338,7 @@ Describe project-specific guidance for Codex here.
                   Expanded(
                     child: Text(
                       model.displayName,
-                      style: TextStyle(color: theme.text, fontSize: 13),
+                      style: AppTypography.bodySmall(color: theme.text),
                     ),
                   ),
                   if (model.supportsOneMillionContext)
@@ -4360,7 +4349,7 @@ Describe project-specific guidance for Codex here.
                       ),
                       decoration: BoxDecoration(
                         color: theme.accent.withValues(alpha: 0.14),
-                        borderRadius: BorderRadius.circular(999),
+                        borderRadius: Radii.brFull,
                       ),
                       child: Text(
                         '1M',
@@ -4375,7 +4364,7 @@ Describe project-specific guidance for Codex here.
               ),
               subtitle: Text(
                 model.value,
-                style: TextStyle(color: theme.textMuted, fontSize: 12),
+                style: AppTypography.label(color: theme.textMuted),
               ),
               onTap: () async {
                 await setModel(model.value);
@@ -4410,14 +4399,14 @@ Describe project-specific guidance for Codex here.
               );
 
               return Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 16),
+                padding: Insets.screenH,
                 child: Column(
                   mainAxisSize: MainAxisSize.min,
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(
                       'Select the model used for Claude Code turns.',
-                      style: TextStyle(color: theme.textMuted, fontSize: 13),
+                      style: AppTypography.bodySmall(color: theme.textMuted),
                     ),
                     const SizedBox(height: 14),
                     // Default (Recommended) — lets the SDK pick the latest model
@@ -4442,7 +4431,7 @@ Describe project-specific guidance for Codex here.
                       ),
                       subtitle: Text(
                         'Uses the latest recommended model',
-                        style: TextStyle(color: theme.textMuted, fontSize: 12),
+                        style: AppTypography.label(color: theme.textMuted),
                       ),
                       onTap: () async {
                         await setModel(null);
@@ -4456,7 +4445,7 @@ Describe project-specific guidance for Codex here.
                     ),
                     ...list.map(modelTile),
                     if (supportsOneMillion) ...[
-                      const SizedBox(height: 12),
+                      SizedBox(height: Spacing.md),
                       Divider(color: theme.borderSubtle.withValues(alpha: 0.3)),
                       SwitchListTile(
                         dense: true,
@@ -4491,10 +4480,10 @@ Describe project-specific guidance for Codex here.
               ),
             ),
             error: (_, __) => Padding(
-              padding: const EdgeInsets.only(top: 8),
+              padding: Insets.topSm,
               child: Text(
                 'Unable to load model list.',
-                style: TextStyle(color: theme.textMuted, fontSize: 13),
+                style: AppTypography.bodySmall(color: theme.textMuted),
               ),
             ),
           );
@@ -4921,7 +4910,7 @@ Describe project-specific guidance for Codex here.
       maxSize: 0.9,
       minSize: 0.5,
       child: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 16),
+        padding: Insets.screenH,
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
@@ -4961,7 +4950,7 @@ Describe project-specific guidance for Codex here.
                     .toList(),
                 theme,
               ),
-            const SizedBox(height: 20),
+            SizedBox(height: Spacing.xl),
           ],
         ),
       ),
@@ -4977,7 +4966,7 @@ Describe project-specific guidance for Codex here.
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Padding(
-          padding: const EdgeInsets.symmetric(vertical: 8),
+          padding: Insets.chipV,
           child: Text(
             title,
             style: TextStyle(
@@ -4989,7 +4978,7 @@ Describe project-specific guidance for Codex here.
         ),
         ...commands.map(
           (cmd) => Padding(
-            padding: const EdgeInsets.symmetric(vertical: 4),
+            padding: Insets.chipV,
             child: Row(
               children: [
                 Container(
@@ -4999,29 +4988,25 @@ Describe project-specific guidance for Codex here.
                   ),
                   decoration: BoxDecoration(
                     color: theme.bgDeep,
-                    borderRadius: BorderRadius.circular(4),
+                    borderRadius: Radii.brXs,
                   ),
                   child: Text(
                     cmd.$1,
-                    style: TextStyle(
-                      fontFamily: GoogleFonts.jetBrainsMono().fontFamily,
-                      fontSize: 13,
-                      color: theme.accent,
-                    ),
+                    style: AppTypography.code(color: theme.accent),
                   ),
                 ),
-                const SizedBox(width: 12),
+                SizedBox(width: Spacing.md),
                 Expanded(
                   child: Text(
                     cmd.$2,
-                    style: TextStyle(fontSize: 13, color: theme.textMuted),
+                    style: AppTypography.bodySmall(color: theme.textMuted),
                   ),
                 ),
               ],
             ),
           ),
         ),
-        const SizedBox(height: 8),
+        SizedBox(height: Spacing.sm),
       ],
     );
   }
@@ -5043,7 +5028,7 @@ Describe project-specific guidance for Codex here.
           decoration: InputDecoration(
             hintText: 'Enter new title',
             hintStyle: TextStyle(color: theme.textMuted),
-            border: OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
+            border: OutlineInputBorder(borderRadius: Radii.brSm),
           ),
         ),
         actions: [
@@ -5290,10 +5275,10 @@ Describe project-specific guidance for Codex here.
         mainAxisSize: MainAxisSize.min,
         children: [
           Padding(
-            padding: const EdgeInsets.only(bottom: 8),
+            padding: Insets.bottomSm,
             child: Text(
               'Select a message to fork from',
-              style: TextStyle(fontSize: 13, color: theme.textMuted),
+              style: AppTypography.bodySmall(color: theme.textMuted),
             ),
           ),
           ListView.builder(
@@ -5422,10 +5407,10 @@ Describe project-specific guidance for Codex here.
         mainAxisSize: MainAxisSize.min,
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const SizedBox(height: 8),
+          SizedBox(height: Spacing.sm),
           if (_agents.isEmpty)
             Padding(
-              padding: const EdgeInsets.all(16),
+              padding: Insets.card,
               child: Text(
                 'No agents available',
                 style: TextStyle(color: theme.textMuted),
@@ -5456,7 +5441,7 @@ Describe project-specific guidance for Codex here.
                 subtitle: agent.description != null
                     ? Text(
                         agent.description!,
-                        style: TextStyle(color: theme.textMuted, fontSize: 12),
+                        style: AppTypography.label(color: theme.textMuted),
                       )
                     : null,
                 trailing: isSelected
@@ -5471,7 +5456,7 @@ Describe project-specific guidance for Codex here.
                 },
               );
             }),
-          const SizedBox(height: 8),
+          SizedBox(height: Spacing.sm),
         ],
       ),
     );
@@ -6284,7 +6269,7 @@ Describe project-specific guidance for Codex here.
   Widget _buildCompactionDivider() {
     final theme = OpenCodeTheme.of(context);
     return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 16),
+      padding: Insets.screenV,
       child: Row(
         children: [
           Expanded(
@@ -6294,7 +6279,7 @@ Describe project-specific guidance for Codex here.
             ),
           ),
           Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 12),
+            padding: Insets.cardH,
             child: Text(
               'Context compacted',
               style: TextStyle(
@@ -6430,7 +6415,7 @@ Describe project-specific guidance for Codex here.
           // Reasoning/thinking content (shows model's thinking process)
           if (message.hasReasoning)
             Padding(
-              padding: const EdgeInsets.only(bottom: 8),
+              padding: Insets.bottomSm,
               child: CompactThinkingCard(message: message),
             ),
 
@@ -6456,7 +6441,7 @@ Describe project-specific guidance for Codex here.
             // Tool calls - using new compact card components
             for (final tool in message.toolCalls)
               Padding(
-                padding: const EdgeInsets.only(top: 8),
+                padding: Insets.topSm,
                 child: _buildToolCard(tool, message.id),
               ),
           ],
@@ -6466,7 +6451,7 @@ Describe project-specific guidance for Codex here.
           for (final diff in message.diffs)
             if (!_isDiffFromEditTool(diff, message.toolCalls))
               Padding(
-                padding: const EdgeInsets.only(top: 8),
+                padding: Insets.topSm,
                 child: DiffViewer(
                   diff: diff,
                   messageId: message.id,
@@ -6482,7 +6467,7 @@ Describe project-specific guidance for Codex here.
           // Subtask notifications (background task completions)
           for (final subtask in message.subtaskNotifications)
             Padding(
-              padding: const EdgeInsets.only(top: 8),
+              padding: Insets.topSm,
               child: CompactAgentCard.fromNotification(notification: subtask),
             ),
 
@@ -6504,7 +6489,7 @@ Describe project-specific guidance for Codex here.
               },
             ),
 
-          const SizedBox(height: 16),
+          SizedBox(height: Spacing.lg),
         ],
       ),
     );
@@ -6552,7 +6537,7 @@ Describe project-specific guidance for Codex here.
           if (tool != null) {
             widgets.add(
               Padding(
-                padding: const EdgeInsets.only(top: 8),
+                padding: Insets.topSm,
                 child: _buildToolCard(tool, message.id),
               ),
             );
@@ -6561,7 +6546,7 @@ Describe project-specific guidance for Codex here.
         case SubtaskPart(:final agentName, :final description):
           widgets.add(
             Padding(
-              padding: const EdgeInsets.only(top: 8),
+              padding: Insets.topSm,
               child: CompactAgentCard.fromNotification(
                 notification: SubtaskNotification(
                   id: 'subtask-${message.id}-${part.sequence}',
@@ -6577,7 +6562,7 @@ Describe project-specific guidance for Codex here.
         case RetryPart(:final attempt, :final errorMessage):
           widgets.add(
             Padding(
-              padding: const EdgeInsets.only(top: 8),
+              padding: Insets.topSm,
               child: _buildRetryIndicator(attempt, errorMessage),
             ),
           );
@@ -6605,7 +6590,7 @@ Describe project-specific guidance for Codex here.
       for (final tool in message.toolCalls) {
         widgets.add(
           Padding(
-            padding: const EdgeInsets.only(top: 8),
+            padding: Insets.topSm,
             child: _buildToolCard(tool, message.id),
           ),
         );
@@ -6619,16 +6604,16 @@ Describe project-specific guidance for Codex here.
     final theme = OpenCodeTheme.of(context);
     return Material(
       color: theme.backgroundPanel,
-      borderRadius: BorderRadius.circular(24),
+      borderRadius: Radii.brXxl,
       elevation: 8,
       shadowColor: theme.bgDeep.withValues(alpha: 0.4),
       child: InkWell(
         onTap: () => _showStopConfirmation(context),
-        borderRadius: BorderRadius.circular(24),
+        borderRadius: Radii.brXxl,
         child: Container(
           padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
           decoration: BoxDecoration(
-            borderRadius: BorderRadius.circular(24),
+            borderRadius: Radii.brXxl,
             border: Border.all(color: theme.error.withValues(alpha: 0.3)),
           ),
           child: Row(
@@ -8024,7 +8009,7 @@ class _FloatingHeader extends StatelessWidget {
                 size: 22,
               ),
             ),
-            const SizedBox(width: 8),
+            SizedBox(width: Spacing.sm),
 
             // Combined: Project + Agent (main pill)
             Expanded(
@@ -8040,7 +8025,7 @@ class _FloatingHeader extends StatelessWidget {
                       isConnected: isConnected,
                       sessionStatus: sessionStatus,
                     ),
-                    const SizedBox(width: 8),
+                    SizedBox(width: Spacing.sm),
                     // Project name (compact)
                     Flexible(
                       child: Text(
@@ -8063,7 +8048,7 @@ class _FloatingHeader extends StatelessWidget {
                         ),
                         decoration: BoxDecoration(
                           color: theme.accent.withValues(alpha: 0.2),
-                          borderRadius: BorderRadius.circular(6),
+                          borderRadius: Radii.brSm,
                         ),
                         child: Row(
                           mainAxisSize: MainAxisSize.min,
@@ -8106,7 +8091,7 @@ class _FloatingHeader extends StatelessWidget {
                           shape: BoxShape.circle,
                         ),
                       ),
-                      const SizedBox(width: 4),
+                      SizedBox(width: Spacing.xs),
                       Text(
                         current.displayName,
                         style: TextStyle(
@@ -8126,7 +8111,7 @@ class _FloatingHeader extends StatelessWidget {
               ),
             ),
 
-            const SizedBox(width: 8),
+            SizedBox(width: Spacing.sm),
 
             // Menu button (contains all secondary options)
             // For Claude Code: bottom sheet menu
@@ -8223,10 +8208,10 @@ class _FloatingHeader extends StatelessWidget {
         mainAxisSize: MainAxisSize.min,
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const SizedBox(height: 8),
+          SizedBox(height: Spacing.sm),
           for (final agent in visibleAgents)
             ListTile(
-              contentPadding: const EdgeInsets.symmetric(horizontal: 16),
+              contentPadding: Insets.screenH,
               leading: Container(
                 width: 10,
                 height: 10,
@@ -8258,7 +8243,7 @@ class _FloatingHeader extends StatelessWidget {
                       padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 1),
                       decoration: BoxDecoration(
                         color: theme.textMuted.withValues(alpha: 0.12),
-                        borderRadius: BorderRadius.circular(4),
+                        borderRadius: Radii.brXs,
                       ),
                       child: Text(
                         'sub',
@@ -8277,10 +8262,10 @@ class _FloatingHeader extends StatelessWidget {
                 children: [
                   Text(
                     agent.shortDescription,
-                    style: TextStyle(color: theme.textMuted, fontSize: 12),
+                    style: AppTypography.label(color: theme.textMuted),
                   ),
                   if (agent.model != null) ...[
-                    const SizedBox(height: 2),
+                    SizedBox(height: Spacing.xxs),
                     Text(
                       agent.model!.displayName,
                       style: TextStyle(
@@ -8300,7 +8285,7 @@ class _FloatingHeader extends StatelessWidget {
                 Navigator.pop(context);
               },
             ),
-          const SizedBox(height: 8),
+          SizedBox(height: Spacing.sm),
         ],
       ),
     );
@@ -8449,7 +8434,7 @@ class _SessionActionsContent extends StatelessWidget {
                   ),
                   decoration: BoxDecoration(
                     color: theme.success.withValues(alpha: 0.1),
-                    borderRadius: BorderRadius.circular(8),
+                    borderRadius: Radii.brSm,
                   ),
                   child: Row(
                     mainAxisSize: MainAxisSize.min,
@@ -8471,7 +8456,7 @@ class _SessionActionsContent extends StatelessWidget {
                     ],
                   ),
                 ),
-                const SizedBox(width: 8),
+                SizedBox(width: Spacing.sm),
               ],
 
               // Latency
@@ -8483,7 +8468,7 @@ class _SessionActionsContent extends StatelessWidget {
                   ),
                   decoration: BoxDecoration(
                     color: theme.info.withValues(alpha: 0.1),
-                    borderRadius: BorderRadius.circular(8),
+                    borderRadius: Radii.brSm,
                   ),
                   child: Row(
                     mainAxisSize: MainAxisSize.min,
@@ -8501,7 +8486,7 @@ class _SessionActionsContent extends StatelessWidget {
                     ],
                   ),
                 ),
-                const SizedBox(width: 8),
+                SizedBox(width: Spacing.sm),
               ],
 
               const Spacer(),
@@ -8519,7 +8504,7 @@ class _SessionActionsContent extends StatelessWidget {
                   ),
                   decoration: BoxDecoration(
                     color: theme.primary.withValues(alpha: 0.1),
-                    borderRadius: BorderRadius.circular(8),
+                    borderRadius: Radii.brSm,
                   ),
                   child: Row(
                     mainAxisSize: MainAxisSize.min,
@@ -8538,7 +8523,7 @@ class _SessionActionsContent extends StatelessWidget {
                           fontWeight: FontWeight.w600,
                         ),
                       ),
-                      const SizedBox(width: 4),
+                      SizedBox(width: Spacing.xs),
                       Icon(
                         Icons.chevron_right_rounded,
                         size: 16,
@@ -8554,7 +8539,7 @@ class _SessionActionsContent extends StatelessWidget {
 
         // Session actions
         Padding(
-          padding: const EdgeInsets.all(20),
+          padding: Insets.screenAll,
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
@@ -8568,7 +8553,7 @@ class _SessionActionsContent extends StatelessWidget {
                   letterSpacing: 0.5,
                 ),
               ),
-              const SizedBox(height: 12),
+              SizedBox(height: Spacing.md),
               _ActionRow(
                 icon: Icons.grid_view_rounded,
                 label: 'Project Tools',
@@ -8578,7 +8563,7 @@ class _SessionActionsContent extends StatelessWidget {
                 onTap: () => onAction('project_tools'),
               ),
 
-              const SizedBox(height: 20),
+              SizedBox(height: Spacing.xl),
 
               // Session section
               Text(
@@ -8590,7 +8575,7 @@ class _SessionActionsContent extends StatelessWidget {
                   letterSpacing: 0.5,
                 ),
               ),
-              const SizedBox(height: 12),
+              SizedBox(height: Spacing.md),
               Row(
                 children: [
                   _ActionTile(
@@ -8633,7 +8618,7 @@ class _SessionActionsContent extends StatelessWidget {
                 ],
               ),
 
-              const SizedBox(height: 20),
+              SizedBox(height: Spacing.xl),
 
               // Tools section
               Text(
@@ -8645,7 +8630,7 @@ class _SessionActionsContent extends StatelessWidget {
                   letterSpacing: 0.5,
                 ),
               ),
-              const SizedBox(height: 12),
+              SizedBox(height: Spacing.md),
               _ActionRow(
                 icon: Icons.compress_rounded,
                 label: isCompacting ? 'Compacting...' : 'Compact',
@@ -8654,7 +8639,7 @@ class _SessionActionsContent extends StatelessWidget {
                 enabled: !isCompacting,
                 onTap: () => onAction('compact'),
               ),
-              const SizedBox(height: 8),
+              SizedBox(height: Spacing.sm),
               _ActionRow(
                 icon: Icons.auto_fix_high_rounded,
                 label: 'Initialize Project',
@@ -8664,7 +8649,7 @@ class _SessionActionsContent extends StatelessWidget {
                 onTap: () => onAction('init'),
               ),
 
-              const SizedBox(height: 20),
+              SizedBox(height: Spacing.xl),
 
               // Danger zone
               Text(
@@ -8676,7 +8661,7 @@ class _SessionActionsContent extends StatelessWidget {
                   letterSpacing: 0.5,
                 ),
               ),
-              const SizedBox(height: 12),
+              SizedBox(height: Spacing.md),
               _ActionRow(
                 icon: Icons.undo_rounded,
                 label: 'Undo Last Changes',
@@ -8685,7 +8670,7 @@ class _SessionActionsContent extends StatelessWidget {
                 color: theme.warning,
                 onTap: () => onAction('undo'),
               ),
-              const SizedBox(height: 8),
+              SizedBox(height: Spacing.sm),
               _ActionRow(
                 icon: Icons.cleaning_services_outlined,
                 label: 'Clear Instance',
@@ -8725,7 +8710,7 @@ class _ActionTile extends StatelessWidget {
           padding: const EdgeInsets.symmetric(vertical: 14),
           decoration: BoxDecoration(
             color: theme.backgroundPanel,
-            borderRadius: BorderRadius.circular(12),
+            borderRadius: Radii.brMd,
             border: Border.all(color: theme.borderSubtle),
           ),
           child: Column(
@@ -8776,19 +8761,19 @@ class _ActionRow extends StatelessWidget {
     return GestureDetector(
       onTap: enabled ? onTap : null,
       child: Container(
-        padding: const EdgeInsets.all(14),
+        padding: Insets.cardMd,
         decoration: BoxDecoration(
           color: theme.backgroundPanel,
-          borderRadius: BorderRadius.circular(12),
+          borderRadius: Radii.brMd,
           border: Border.all(color: theme.borderSubtle),
         ),
         child: Row(
           children: [
             Container(
-              padding: const EdgeInsets.all(8),
+              padding: Insets.cardXs,
               decoration: BoxDecoration(
                 color: effectiveColor.withValues(alpha: 0.1),
-                borderRadius: BorderRadius.circular(8),
+                borderRadius: Radii.brSm,
               ),
               child: Icon(icon, size: 18, color: effectiveColor),
             ),
@@ -8807,7 +8792,7 @@ class _ActionRow extends StatelessWidget {
                   ),
                   Text(
                     subtitle,
-                    style: TextStyle(fontSize: 12, color: theme.textMuted),
+                    style: AppTypography.label(color: theme.textMuted),
                   ),
                 ],
               ),
@@ -8864,7 +8849,7 @@ class _ClaudeCodeActionsContent extends StatelessWidget {
                   ),
                   decoration: BoxDecoration(
                     color: theme.info.withValues(alpha: 0.1),
-                    borderRadius: BorderRadius.circular(8),
+                    borderRadius: Radii.brSm,
                   ),
                   child: Row(
                     mainAxisSize: MainAxisSize.min,
@@ -8896,7 +8881,7 @@ class _ClaudeCodeActionsContent extends StatelessWidget {
                   ),
                   decoration: BoxDecoration(
                     color: theme.accent.withValues(alpha: 0.1),
-                    borderRadius: BorderRadius.circular(8),
+                    borderRadius: Radii.brSm,
                   ),
                   child: Row(
                     mainAxisSize: MainAxisSize.min,
@@ -8915,7 +8900,7 @@ class _ClaudeCodeActionsContent extends StatelessWidget {
                           fontWeight: FontWeight.w600,
                         ),
                       ),
-                      const SizedBox(width: 4),
+                      SizedBox(width: Spacing.xs),
                       Icon(
                         Icons.chevron_right_rounded,
                         size: 16,
@@ -8931,7 +8916,7 @@ class _ClaudeCodeActionsContent extends StatelessWidget {
 
         // Actions
         Padding(
-          padding: const EdgeInsets.all(20),
+          padding: Insets.screenAll,
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
@@ -8945,7 +8930,7 @@ class _ClaudeCodeActionsContent extends StatelessWidget {
                   letterSpacing: 0.5,
                 ),
               ),
-              const SizedBox(height: 12),
+              SizedBox(height: Spacing.md),
               _ActionRow(
                 icon: Icons.grid_view_rounded,
                 label: 'Project Tools',
@@ -8954,7 +8939,7 @@ class _ClaudeCodeActionsContent extends StatelessWidget {
                 color: theme.accent,
                 onTap: () => onAction('project_tools'),
               ),
-              const SizedBox(height: 12),
+              SizedBox(height: Spacing.md),
               Row(
                 children: [
                   _ActionTile(
@@ -8987,7 +8972,7 @@ class _ClaudeCodeActionsContent extends StatelessWidget {
                 ],
               ),
 
-              const SizedBox(height: 20),
+              SizedBox(height: Spacing.xl),
 
               // Integration section
               Text(
@@ -8999,7 +8984,7 @@ class _ClaudeCodeActionsContent extends StatelessWidget {
                   letterSpacing: 0.5,
                 ),
               ),
-              const SizedBox(height: 12),
+              SizedBox(height: Spacing.md),
               _ActionRow(
                 icon: Icons.hub_rounded,
                 label: 'MCP Servers',
@@ -9008,7 +8993,7 @@ class _ClaudeCodeActionsContent extends StatelessWidget {
                 onTap: () => onAction('cc_mcp'),
               ),
 
-              const SizedBox(height: 20),
+              SizedBox(height: Spacing.xl),
 
               // Session section
               Text(
@@ -9020,7 +9005,7 @@ class _ClaudeCodeActionsContent extends StatelessWidget {
                   letterSpacing: 0.5,
                 ),
               ),
-              const SizedBox(height: 12),
+              SizedBox(height: Spacing.md),
               _ActionRow(
                 icon: Icons.call_split_rounded,
                 label: 'Fork Session',
@@ -9080,7 +9065,7 @@ class _CodexActionsContent extends StatelessWidget {
                   ),
                   decoration: BoxDecoration(
                     color: theme.info.withValues(alpha: 0.1),
-                    borderRadius: BorderRadius.circular(8),
+                    borderRadius: Radii.brSm,
                   ),
                   child: Row(
                     mainAxisSize: MainAxisSize.min,
@@ -9112,7 +9097,7 @@ class _CodexActionsContent extends StatelessWidget {
                   ),
                   decoration: BoxDecoration(
                     color: theme.primary.withValues(alpha: 0.1),
-                    borderRadius: BorderRadius.circular(8),
+                    borderRadius: Radii.brSm,
                   ),
                   child: Row(
                     mainAxisSize: MainAxisSize.min,
@@ -9131,7 +9116,7 @@ class _CodexActionsContent extends StatelessWidget {
                           fontWeight: FontWeight.w600,
                         ),
                       ),
-                      const SizedBox(width: 4),
+                      SizedBox(width: Spacing.xs),
                       Icon(
                         Icons.chevron_right_rounded,
                         size: 16,
@@ -9147,7 +9132,7 @@ class _CodexActionsContent extends StatelessWidget {
 
         // Actions
         Padding(
-          padding: const EdgeInsets.all(20),
+          padding: Insets.screenAll,
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
@@ -9159,7 +9144,7 @@ class _CodexActionsContent extends StatelessWidget {
                 color: theme.accent,
                 onTap: () => onAction('project_tools'),
               ),
-              const SizedBox(height: 20),
+              SizedBox(height: Spacing.xl),
 
               // Configuration section
               Text(
@@ -9171,7 +9156,7 @@ class _CodexActionsContent extends StatelessWidget {
                   letterSpacing: 0.5,
                 ),
               ),
-              const SizedBox(height: 12),
+              SizedBox(height: Spacing.md),
               Row(
                 children: [
                   _ActionTile(
@@ -9211,7 +9196,7 @@ class _CodexActionsContent extends StatelessWidget {
                 ],
               ),
 
-              const SizedBox(height: 20),
+              SizedBox(height: Spacing.xl),
 
               // Project section
               Text(
@@ -9223,7 +9208,7 @@ class _CodexActionsContent extends StatelessWidget {
                   letterSpacing: 0.5,
                 ),
               ),
-              const SizedBox(height: 12),
+              SizedBox(height: Spacing.md),
               _ActionRow(
                 icon: Icons.description_outlined,
                 label: 'AGENTS.md',
@@ -9231,7 +9216,7 @@ class _CodexActionsContent extends StatelessWidget {
                 theme: theme,
                 onTap: () => onAction('cx_agents'),
               ),
-              const SizedBox(height: 8),
+              SizedBox(height: Spacing.sm),
               _ActionRow(
                 icon: Icons.toc_rounded,
                 label: 'Config',
@@ -9240,7 +9225,7 @@ class _CodexActionsContent extends StatelessWidget {
                 onTap: () => onAction('cx_config'),
               ),
 
-              const SizedBox(height: 20),
+              SizedBox(height: Spacing.xl),
 
               // Actions section
               Text(
@@ -9252,7 +9237,7 @@ class _CodexActionsContent extends StatelessWidget {
                   letterSpacing: 0.5,
                 ),
               ),
-              const SizedBox(height: 12),
+              SizedBox(height: Spacing.md),
               Row(
                 children: [
                   Expanded(
@@ -9266,7 +9251,7 @@ class _CodexActionsContent extends StatelessWidget {
                   ),
                 ],
               ),
-              const SizedBox(height: 8),
+              SizedBox(height: Spacing.sm),
               _ActionRow(
                 icon: Icons.feedback_outlined,
                 label: 'Feedback',
@@ -9302,7 +9287,7 @@ class _GlassPill extends StatelessWidget {
   Widget build(BuildContext context) {
     final theme = OpenCodeTheme.of(context);
     final kCard = theme.backgroundPanel;
-    final borderRadius = BorderRadius.circular(compact ? 16 : 20);
+    final borderRadius = compact ? Radii.brLg : Radii.brXl;
 
     // FIX: Simple semi-transparent container instead of expensive BackdropFilter
     // The visual difference is minimal but performance improvement is significant
@@ -9311,7 +9296,7 @@ class _GlassPill extends StatelessWidget {
       child: Container(
         constraints: constraints,
         padding: compact
-            ? const EdgeInsets.all(6)
+            ? Insets.cardXs
             : const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
         decoration: BoxDecoration(
           // Slightly higher opacity to compensate for lack of blur
@@ -9553,7 +9538,7 @@ class _FloatingInputBar extends ConsumerWidget {
                                     vertical: 6,
                                   ),
                                   decoration: BoxDecoration(
-                                    borderRadius: BorderRadius.circular(18),
+                                    borderRadius: Radii.brXl,
                                     border: Border.all(
                                       color: fade(kMuted, 0.25),
                                     ),
@@ -9578,7 +9563,7 @@ class _FloatingInputBar extends ConsumerWidget {
                                 GestureDetector(
                                   onTap: onAttachTap,
                                   child: Padding(
-                                    padding: const EdgeInsets.all(6),
+                                    padding: Insets.cardXs,
                                     child: Icon(
                                       Icons.add_rounded,
                                       color: kMuted,
@@ -9586,11 +9571,11 @@ class _FloatingInputBar extends ConsumerWidget {
                                     ),
                                   ),
                                 ),
-                              const SizedBox(width: 4),
+                              SizedBox(width: Spacing.xs),
                               // Voice input button
                               VoiceInputButton(
                                 size: 20,
-                                padding: const EdgeInsets.all(6),
+                                padding: Insets.cardXs,
                                 onTranscription: (text) {
                                   if (text.isEmpty) return;
                                   final current = controller.text;
@@ -9610,12 +9595,12 @@ class _FloatingInputBar extends ConsumerWidget {
                                   );
                                 },
                               ),
-                              const SizedBox(width: 4),
+                              SizedBox(width: Spacing.xs),
                               // Tune / PowerSheet button
                               GestureDetector(
                                 onTap: () => _showPowerSheet(context),
                                 child: Padding(
-                                  padding: const EdgeInsets.all(6),
+                                  padding: Insets.cardXs,
                                   child: Icon(
                                     Icons.tune_rounded,
                                     color: kMuted,
@@ -9634,7 +9619,7 @@ class _FloatingInputBar extends ConsumerWidget {
                                     color: canSend
                                         ? kOnBackground
                                         : fade(kMuted, 0.08),
-                                    borderRadius: BorderRadius.circular(16),
+                                    borderRadius: Radii.brLg,
                                   ),
                                   child: Center(
                                     child: Icon(
@@ -10314,7 +10299,7 @@ class _CliStyleInputBarState extends State<_CliStyleInputBar> {
                                           : theme.textMuted.withValues(
                                               alpha: 0.15,
                                             ),
-                                      borderRadius: BorderRadius.circular(6),
+                                      borderRadius: Radii.brSm,
                                     ),
                                     child: Center(
                                       child: Icon(
@@ -10701,7 +10686,7 @@ class _AgentAndPermissionContentState
                       color: widget.theme.textMuted,
                       size: 18,
                     ),
-                    const SizedBox(width: 8),
+                    SizedBox(width: Spacing.sm),
                     Text(
                       'Agent',
                       style: TextStyle(
@@ -10713,7 +10698,7 @@ class _AgentAndPermissionContentState
                     ),
                   ],
                 ),
-                const SizedBox(height: 16),
+                SizedBox(height: Spacing.lg),
 
                 // Primary agents as prominent cards in a row
                 if (primaryAgents.isNotEmpty) ...[
@@ -10738,7 +10723,7 @@ class _AgentAndPermissionContentState
                       );
                     }).toList(),
                   ),
-                  const SizedBox(height: 12),
+                  SizedBox(height: Spacing.md),
                 ],
 
                 // Secondary agents as smaller list
@@ -10746,7 +10731,7 @@ class _AgentAndPermissionContentState
                   Container(
                     decoration: BoxDecoration(
                       color: widget.theme.backgroundPanel,
-                      borderRadius: BorderRadius.circular(12),
+                      borderRadius: Radii.brMd,
                       border: Border.all(color: widget.theme.borderSubtle),
                     ),
                     child: Column(
@@ -10785,7 +10770,7 @@ class _AgentAndPermissionContentState
                                         shape: BoxShape.circle,
                                       ),
                                     ),
-                                    const SizedBox(width: 12),
+                                    SizedBox(width: Spacing.md),
                                     Expanded(
                                       child: Column(
                                         crossAxisAlignment:
@@ -10854,7 +10839,7 @@ class _AgentAndPermissionContentState
                   ),
                 ],
 
-                const SizedBox(height: 24),
+                SizedBox(height: Spacing.xxl),
               ],
 
               // Permission preset section
@@ -10865,7 +10850,7 @@ class _AgentAndPermissionContentState
                     color: widget.theme.textMuted,
                     size: 18,
                   ),
-                  const SizedBox(width: 8),
+                  SizedBox(width: Spacing.sm),
                   Text(
                     'Permissions',
                     style: TextStyle(
@@ -10902,7 +10887,7 @@ class _AgentAndPermissionContentState
                           size: 14,
                           color: widget.theme.primary,
                         ),
-                        const SizedBox(width: 4),
+                        SizedBox(width: Spacing.xs),
                         Text(
                           'Custom',
                           style: TextStyle(
@@ -10969,12 +10954,12 @@ class _AgentCard extends StatelessWidget {
     return GestureDetector(
       onTap: onTap,
       child: Container(
-        padding: const EdgeInsets.all(14),
+        padding: Insets.cardMd,
         decoration: BoxDecoration(
           color: isSelected
               ? agent.resolveColor(theme).withValues(alpha: 0.12)
               : theme.backgroundPanel,
-          borderRadius: BorderRadius.circular(14),
+          borderRadius: Radii.brLg,
           border: Border.all(
             color: isSelected ? agent.resolveColor(theme) : theme.borderSubtle,
             width: isSelected ? 1.5 : 1,
@@ -11016,7 +11001,7 @@ class _AgentCard extends StatelessWidget {
                   ),
                   Text(
                     agent.shortDescription,
-                    style: TextStyle(color: theme.textMuted, fontSize: 11),
+                    style: AppTypography.caption(color: theme.textMuted),
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
                   ),
@@ -11069,7 +11054,7 @@ class _PermissionPresetCard extends StatelessWidget {
           color: isSelected
               ? theme.primary.withValues(alpha: 0.1)
               : theme.backgroundPanel,
-          borderRadius: BorderRadius.circular(12),
+          borderRadius: Radii.brMd,
           border: Border.all(
             color: isSelected ? theme.primary : theme.borderSubtle,
           ),
@@ -11088,7 +11073,7 @@ class _PermissionPresetCard extends StatelessWidget {
               maxLines: 1,
               overflow: TextOverflow.ellipsis,
             ),
-            const SizedBox(height: 2),
+            SizedBox(height: Spacing.xxs),
             Text(
               preset.description,
               style: TextStyle(color: theme.textMuted, fontSize: 10),
@@ -11126,7 +11111,7 @@ class _VariantChip extends StatelessWidget {
           color: isSelected
               ? theme.primary.withValues(alpha: 0.15)
               : theme.backgroundPanel,
-          borderRadius: BorderRadius.circular(20),
+          borderRadius: Radii.brXl,
           border: Border.all(
             color: isSelected ? theme.primary : theme.borderSubtle,
             width: isSelected ? 1.5 : 1,
@@ -11216,14 +11201,14 @@ class _ModelSelectorContentState extends ConsumerState<_ModelSelectorContent> {
 
     if (_loading) {
       return const Padding(
-        padding: EdgeInsets.all(32),
+        padding: Insets.xxxl,
         child: Center(child: CircularProgressIndicator()),
       );
     }
 
     if (_error != null) {
       return Padding(
-        padding: const EdgeInsets.all(20),
+        padding: Insets.screenAll,
         child: Text(
           'Failed to load models: $_error',
           style: TextStyle(color: kMuted),
@@ -11262,7 +11247,7 @@ class _ModelSelectorContentState extends ConsumerState<_ModelSelectorContent> {
       mainAxisSize: MainAxisSize.min,
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        const SizedBox(height: 8),
+        SizedBox(height: Spacing.sm),
         if (_currentModel != null)
           Padding(
             padding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
@@ -11273,7 +11258,7 @@ class _ModelSelectorContentState extends ConsumerState<_ModelSelectorContent> {
           ),
         if (providers.isEmpty)
           Padding(
-            padding: const EdgeInsets.all(16),
+            padding: Insets.card,
             child: Text(
               'No providers configured.',
               style: TextStyle(color: kMuted),
@@ -11282,10 +11267,10 @@ class _ModelSelectorContentState extends ConsumerState<_ModelSelectorContent> {
         else
           for (final provider in providers) ...[
             Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 16),
+              padding: Insets.screenH,
               child: _buildProviderSection(provider as Map<String, dynamic>),
             ),
-            const SizedBox(height: 16),
+            SizedBox(height: Spacing.lg),
           ],
       ],
     );
@@ -11307,7 +11292,7 @@ class _ModelSelectorContentState extends ConsumerState<_ModelSelectorContent> {
         Row(
           children: [
             ProviderIcon(providerId: id, size: 22),
-            const SizedBox(width: 8),
+            SizedBox(width: Spacing.sm),
             Text(
               name,
               style: TextStyle(
@@ -11318,7 +11303,7 @@ class _ModelSelectorContentState extends ConsumerState<_ModelSelectorContent> {
             ),
           ],
         ),
-        const SizedBox(height: 8),
+        SizedBox(height: Spacing.sm),
         for (final entry in models.entries)
           ListTile(
             dense: true,
@@ -11370,7 +11355,7 @@ class _CommandAutocomplete extends StatelessWidget {
       constraints: const BoxConstraints(maxHeight: 280),
       decoration: BoxDecoration(
         color: kCard,
-        borderRadius: BorderRadius.circular(16),
+        borderRadius: Radii.brLg,
         border: Border.all(color: kBorder),
         boxShadow: [
           BoxShadow(
@@ -11381,10 +11366,10 @@ class _CommandAutocomplete extends StatelessWidget {
         ],
       ),
       child: ClipRRect(
-        borderRadius: BorderRadius.circular(16),
+        borderRadius: Radii.brLg,
         child: ListView(
           shrinkWrap: true,
-          padding: const EdgeInsets.symmetric(vertical: 8),
+          padding: Insets.chipV,
           children: [
             // Commands section (built-in / source == 'command')
             if (groups.commands.isNotEmpty) ...[
@@ -11408,7 +11393,7 @@ class _CommandAutocomplete extends StatelessWidget {
             ],
             // Skills section
             if (groups.skillCommands.isNotEmpty) ...[
-              if (groups.commands.isNotEmpty) const SizedBox(height: 8),
+              if (groups.commands.isNotEmpty) SizedBox(height: Spacing.sm),
               _buildSectionHeader(
                 'Skills',
                 Icons.auto_awesome,
@@ -11430,7 +11415,7 @@ class _CommandAutocomplete extends StatelessWidget {
             // MCP commands section
             if (groups.mcpCommands.isNotEmpty) ...[
               if (groups.commands.isNotEmpty || groups.skillCommands.isNotEmpty)
-                const SizedBox(height: 8),
+                SizedBox(height: Spacing.sm),
               _buildSectionHeader(
                 'MCP',
                 Icons.extension,
@@ -11477,7 +11462,7 @@ class _CommandAutocomplete extends StatelessWidget {
               letterSpacing: 0.5,
             ),
           ),
-          const SizedBox(width: 4),
+          SizedBox(width: Spacing.xs),
           Text(
             '($count)',
             style: TextStyle(
@@ -11501,7 +11486,7 @@ class _CommandAutocomplete extends StatelessWidget {
     return InkWell(
       onTap: () => onSelect(command),
       child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+        padding: Insets.buttonSm,
         child: Row(
           children: [
             // Command icon
@@ -11510,7 +11495,7 @@ class _CommandAutocomplete extends StatelessWidget {
               height: 32,
               decoration: BoxDecoration(
                 color: accentColor.withValues(alpha: 0.15),
-                borderRadius: BorderRadius.circular(8),
+                borderRadius: Radii.brSm,
               ),
               child: Icon(
                 command.source == CommandSource.mcp
@@ -11522,7 +11507,7 @@ class _CommandAutocomplete extends StatelessWidget {
                 color: accentColor,
               ),
             ),
-            const SizedBox(width: 12),
+            SizedBox(width: Spacing.md),
             // Command name and description
             Expanded(
               child: Column(
@@ -11548,7 +11533,7 @@ class _CommandAutocomplete extends StatelessWidget {
                           ),
                           decoration: BoxDecoration(
                             color: agentColor.withValues(alpha: 0.15),
-                            borderRadius: BorderRadius.circular(4),
+                            borderRadius: Radii.brXs,
                           ),
                           child: Text(
                             '@${command.agent}',
@@ -11562,7 +11547,7 @@ class _CommandAutocomplete extends StatelessWidget {
                       ],
                       // Model badge
                       if (command.hasModel) ...[
-                        const SizedBox(width: 4),
+                        SizedBox(width: Spacing.xs),
                         Container(
                           padding: const EdgeInsets.symmetric(
                             horizontal: 5,
@@ -11570,7 +11555,7 @@ class _CommandAutocomplete extends StatelessWidget {
                           ),
                           decoration: BoxDecoration(
                             color: modelColor.withValues(alpha: 0.15),
-                            borderRadius: BorderRadius.circular(4),
+                            borderRadius: Radii.brXs,
                           ),
                           child: Text(
                             command.shortModelName ?? '',
@@ -11585,12 +11570,12 @@ class _CommandAutocomplete extends StatelessWidget {
                       // Source badge (MCP / SKILL)
                       if (command.source != null &&
                           command.source != CommandSource.command) ...[
-                        const SizedBox(width: 4),
+                        SizedBox(width: Spacing.xs),
                         CommandSourceBadge(source: command.source),
                       ],
                       // Subtask badge
                       if (command.subtask) ...[
-                        const SizedBox(width: 4),
+                        SizedBox(width: Spacing.xs),
                         Icon(
                           Icons.subdirectory_arrow_right,
                           size: 12,
@@ -11599,7 +11584,7 @@ class _CommandAutocomplete extends StatelessWidget {
                       ],
                     ],
                   ),
-                  const SizedBox(height: 2),
+                  SizedBox(height: Spacing.xxs),
                   Text(
                     command.shortDescription,
                     style: TextStyle(fontSize: 12, color: mutedColor),
@@ -11634,10 +11619,10 @@ class _CustomToolAutocomplete extends ConsumerWidget {
 
     return toolsAsync.when(
       loading: () => Container(
-        padding: const EdgeInsets.all(16),
+        padding: Insets.card,
         decoration: BoxDecoration(
           color: kCard,
-          borderRadius: BorderRadius.circular(16),
+          borderRadius: Radii.brLg,
           border: Border.all(color: kBorder),
         ),
         child: Row(
@@ -11653,10 +11638,10 @@ class _CustomToolAutocomplete extends ConsumerWidget {
         ),
       ),
       error: (e, _) => Container(
-        padding: const EdgeInsets.all(16),
+        padding: Insets.card,
         decoration: BoxDecoration(
           color: kCard,
-          borderRadius: BorderRadius.circular(16),
+          borderRadius: Radii.brLg,
           border: Border.all(color: kBorder),
         ),
         child: Text(
@@ -11679,10 +11664,10 @@ class _CustomToolAutocomplete extends ConsumerWidget {
 
         if (filtered.isEmpty) {
           return Container(
-            padding: const EdgeInsets.all(16),
+            padding: Insets.card,
             decoration: BoxDecoration(
               color: kCard,
-              borderRadius: BorderRadius.circular(16),
+              borderRadius: Radii.brLg,
               border: Border.all(color: kBorder),
             ),
             child: Text('No matching tools', style: TextStyle(color: kMuted)),
@@ -11693,7 +11678,7 @@ class _CustomToolAutocomplete extends ConsumerWidget {
           constraints: const BoxConstraints(maxHeight: 280),
           decoration: BoxDecoration(
             color: kCard,
-            borderRadius: BorderRadius.circular(16),
+            borderRadius: Radii.brLg,
             border: Border.all(color: kBorder),
             boxShadow: [
               BoxShadow(
@@ -11704,9 +11689,9 @@ class _CustomToolAutocomplete extends ConsumerWidget {
             ],
           ),
           child: ClipRRect(
-            borderRadius: BorderRadius.circular(16),
+            borderRadius: Radii.brLg,
             child: ListView.builder(
-              padding: const EdgeInsets.symmetric(vertical: 8),
+              padding: Insets.chipV,
               itemCount: filtered.length,
               itemBuilder: (context, index) {
                 final tool = filtered[index];
@@ -11724,7 +11709,7 @@ class _CustomToolAutocomplete extends ConsumerWidget {
                           height: 32,
                           decoration: BoxDecoration(
                             color: theme.warning.withValues(alpha: 0.15),
-                            borderRadius: BorderRadius.circular(8),
+                            borderRadius: Radii.brSm,
                           ),
                           child: Icon(
                             Icons.build_rounded,
@@ -11732,7 +11717,7 @@ class _CustomToolAutocomplete extends ConsumerWidget {
                             color: theme.warning,
                           ),
                         ),
-                        const SizedBox(width: 12),
+                        SizedBox(width: Spacing.md),
                         Expanded(
                           child: Column(
                             crossAxisAlignment: CrossAxisAlignment.start,
@@ -11745,7 +11730,7 @@ class _CustomToolAutocomplete extends ConsumerWidget {
                                   color: kText,
                                 ),
                               ),
-                              const SizedBox(height: 2),
+                              SizedBox(height: Spacing.xxs),
                               Text(
                                 tool.mcpToolName,
                                 style: TextStyle(fontSize: 11, color: kMuted),
@@ -11844,7 +11829,7 @@ class _RetryStatusBannerState extends State<_RetryStatusBanner> {
       padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
       decoration: BoxDecoration(
         color: theme.warning.withValues(alpha: 0.15),
-        borderRadius: BorderRadius.circular(12),
+        borderRadius: Radii.brMd,
         border: Border.all(color: theme.warning.withValues(alpha: 0.3)),
       ),
       child: Row(
@@ -11884,7 +11869,7 @@ class _RevertStateBanner extends StatelessWidget {
       padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
       decoration: BoxDecoration(
         color: theme.info.withValues(alpha: 0.15),
-        borderRadius: BorderRadius.circular(12),
+        borderRadius: Radii.brMd,
         border: Border.all(color: theme.info.withValues(alpha: 0.3)),
       ),
       child: Row(
@@ -11948,11 +11933,11 @@ class _CCUndoTurnBar extends StatelessWidget {
     return GestureDetector(
       onTap: () => _showChangedFilesSheet(context),
       child: Container(
-        margin: const EdgeInsets.symmetric(vertical: 4),
+        margin: Insets.chipV,
         padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
         decoration: BoxDecoration(
           color: theme.bgRaised,
-          borderRadius: BorderRadius.circular(12),
+          borderRadius: Radii.brMd,
           border: Border.all(color: theme.cardBorderSubtle),
         ),
         child: Row(
@@ -11967,16 +11952,16 @@ class _CCUndoTurnBar extends StatelessWidget {
                 fontWeight: FontWeight.w600,
               ),
             ),
-            const SizedBox(width: 8),
+            SizedBox(width: Spacing.sm),
             Expanded(
               child: Text(
                 changedFiles.map((p) => p.split('/').last).join(', '),
-                style: TextStyle(color: theme.textMuted, fontSize: 12),
+                style: AppTypography.label(color: theme.textMuted),
                 maxLines: 1,
                 overflow: TextOverflow.ellipsis,
               ),
             ),
-            const SizedBox(width: 8),
+            SizedBox(width: Spacing.sm),
             SizedBox(
               height: 28,
               child: OutlinedButton.icon(
@@ -11996,7 +11981,7 @@ class _CCUndoTurnBar extends StatelessWidget {
                   minimumSize: Size.zero,
                   tapTargetSize: MaterialTapTargetSize.shrinkWrap,
                   shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(8),
+                    borderRadius: Radii.brSm,
                   ),
                 ),
               ),
@@ -12035,15 +12020,11 @@ class _CCUndoTurnBar extends StatelessWidget {
                           color: theme.textMuted,
                           size: 15,
                         ),
-                        const SizedBox(width: 8),
+                        SizedBox(width: Spacing.sm),
                         Expanded(
                           child: Text(
                             path,
-                            style: TextStyle(
-                              fontFamily: GoogleFonts.jetBrainsMono().fontFamily,
-                              color: theme.text,
-                              fontSize: 12,
-                            ),
+                            style: AppTypography.codeSmall(color: theme.text),
                             overflow: TextOverflow.ellipsis,
                           ),
                         ),
@@ -12056,7 +12037,7 @@ class _CCUndoTurnBar extends StatelessWidget {
 
           // Undo button (matches edit/write card undo style: OutlinedButton, warning color)
           Padding(
-            padding: const EdgeInsets.all(16),
+            padding: Insets.card,
             child: SizedBox(
               width: double.infinity,
               child: OutlinedButton.icon(
@@ -12126,7 +12107,7 @@ class _SubagentActivityIndicator extends StatelessWidget {
         padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
         decoration: BoxDecoration(
           color: theme.info.withValues(alpha: 0.1),
-          borderRadius: BorderRadius.circular(10),
+          borderRadius: Radii.brMd,
           border: Border.all(color: theme.info.withValues(alpha: 0.2)),
         ),
         child: Row(
@@ -12144,7 +12125,7 @@ class _SubagentActivityIndicator extends StatelessWidget {
             Flexible(
               child: Text(
                 label,
-                style: TextStyle(color: theme.info, fontSize: 11),
+                style: AppTypography.caption(color: theme.info),
                 overflow: TextOverflow.ellipsis,
               ),
             ),

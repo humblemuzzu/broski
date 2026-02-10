@@ -1,7 +1,9 @@
 import 'package:flutter/material.dart';
+import '../theme/app_typography.dart';
 import 'package:flutter/services.dart';
 import 'package:xterm/xterm.dart';
 
+import '../theme/design_tokens.dart';
 import '../theme/opencode_theme.dart';
 
 class TerminalQuickToolbar extends StatelessWidget {
@@ -90,10 +92,10 @@ class _KeyButton extends StatelessWidget {
       padding: const EdgeInsets.only(right: 6),
       child: Material(
         color: ocTheme.background,
-        borderRadius: BorderRadius.circular(8),
+        borderRadius: Radii.brSm,
         child: InkWell(
           onTap: onTap,
-          borderRadius: BorderRadius.circular(8),
+          borderRadius: Radii.brSm,
           child: Padding(
             padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 7),
             child: icon != null
@@ -103,7 +105,7 @@ class _KeyButton extends StatelessWidget {
                     style: TextStyle(
                       color: ocTheme.textMuted,
                       fontSize: 12,
-                      fontFamily: 'JetBrains Mono',
+                      fontFamily: AppTypography.codeFontFamily,
                     ),
                   ),
           ),

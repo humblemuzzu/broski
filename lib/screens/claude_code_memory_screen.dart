@@ -1,9 +1,11 @@
 import 'package:flutter/material.dart';
+import '../theme/app_typography.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../models/claude_code.dart';
 import '../providers/selection_provider.dart';
 import '../providers/service_providers.dart';
+import '../theme/design_tokens.dart';
 import '../theme/opencode_theme.dart';
 
 /// Memory viewer for Claude Code.
@@ -129,10 +131,10 @@ class _ClaudeCodeMemoryScreenState
           Padding(
             padding: const EdgeInsets.fromLTRB(16, 8, 16, 0),
             child: Container(
-              padding: const EdgeInsets.all(12),
+              padding: Insets.cardSm,
               decoration: BoxDecoration(
                 color: theme.backgroundPanel,
-                borderRadius: BorderRadius.circular(12),
+                borderRadius: Radii.brMd,
                 border: Border.all(
                   color: theme.borderSubtle.withValues(alpha: 0.3),
                 ),
@@ -150,7 +152,7 @@ class _ClaudeCodeMemoryScreenState
                       'Claude automatically records and recalls memories as it works. '
                       'User memories are global, project memories are per-repo, '
                       'and local memories are machine-specific.',
-                      style: TextStyle(color: theme.textMuted, fontSize: 12),
+                      style: AppTypography.label(color: theme.textMuted),
                     ),
                   ),
                 ],
@@ -181,10 +183,10 @@ class _ClaudeCodeMemoryScreenState
                 : _error != null
                 ? Center(
                     child: Padding(
-                      padding: const EdgeInsets.all(24),
+                      padding: Insets.cardLg,
                       child: Text(
                         _error!,
-                        style: TextStyle(color: theme.error, fontSize: 13),
+                        style: AppTypography.bodySmall(color: theme.error),
                         textAlign: TextAlign.center,
                       ),
                     ),
@@ -199,7 +201,7 @@ class _ClaudeCodeMemoryScreenState
                           color: theme.textMuted,
                           size: 48,
                         ),
-                        const SizedBox(height: 12),
+                        SizedBox(height: Spacing.md),
                         Text(
                           _memories.isEmpty
                               ? 'No memories yet.\nClaude will create memories as you work together.'
@@ -214,7 +216,7 @@ class _ClaudeCodeMemoryScreenState
                     ),
                   )
                 : ListView.separated(
-                    padding: const EdgeInsets.all(16),
+                    padding: Insets.card,
                     itemCount: filtered.length,
                     separatorBuilder: (_, __) => const SizedBox(height: 10),
                     itemBuilder: (context, index) {
@@ -323,14 +325,14 @@ class _MemoryCardState extends State<_MemoryCard> {
     return Card(
       color: theme.backgroundPanel,
       shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(12),
+        borderRadius: Radii.brMd,
         side: BorderSide(color: theme.borderSubtle.withValues(alpha: 0.2)),
       ),
       child: InkWell(
-        borderRadius: BorderRadius.circular(12),
+        borderRadius: Radii.brMd,
         onTap: () => setState(() => _expanded = !_expanded),
         child: Padding(
-          padding: const EdgeInsets.all(12),
+          padding: Insets.cardSm,
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
@@ -346,7 +348,7 @@ class _MemoryCardState extends State<_MemoryCard> {
                     ),
                     decoration: BoxDecoration(
                       color: scopeColor.withValues(alpha: 0.15),
-                      borderRadius: BorderRadius.circular(999),
+                      borderRadius: Radii.brFull,
                     ),
                     child: Text(
                       entry.scope,
@@ -357,11 +359,11 @@ class _MemoryCardState extends State<_MemoryCard> {
                       ),
                     ),
                   ),
-                  const SizedBox(width: 8),
+                  SizedBox(width: Spacing.sm),
                   if (entry.createdAt != null)
                     Text(
                       entry.createdAt!,
-                      style: TextStyle(color: theme.textMuted, fontSize: 11),
+                      style: AppTypography.caption(color: theme.textMuted),
                     ),
                   const Spacer(),
                   Icon(
@@ -371,7 +373,7 @@ class _MemoryCardState extends State<_MemoryCard> {
                     color: theme.textMuted,
                     size: 20,
                   ),
-                  const SizedBox(width: 4),
+                  SizedBox(width: Spacing.xs),
                   GestureDetector(
                     onTap: widget.onDelete,
                     child: Icon(
@@ -382,7 +384,7 @@ class _MemoryCardState extends State<_MemoryCard> {
                   ),
                 ],
               ),
-              const SizedBox(height: 8),
+              SizedBox(height: Spacing.sm),
               // Content preview or full
               Text(
                 _expanded ? entry.content : preview,

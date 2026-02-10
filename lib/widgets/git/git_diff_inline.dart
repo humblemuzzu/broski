@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart';
-import 'package:google_fonts/google_fonts.dart';
-
+import '../../theme/app_typography.dart';
 import '../../theme/design_tokens.dart';
 import '../../widgets/chat/detail_sheet.dart';
 
@@ -28,16 +27,16 @@ class GitDiffInline extends StatelessWidget {
   Widget build(BuildContext context) {
     if (diff.trim().isEmpty) {
       return const Padding(
-        padding: EdgeInsets.all(16),
+        padding: Insets.card,
         child: Text('No diff output.'),
       );
     }
 
     return Padding(
-      padding: const EdgeInsets.all(12),
+      padding: Insets.cardSm,
       child: Container(
         width: double.infinity,
-        padding: const EdgeInsets.all(12),
+        padding: Insets.cardSm,
         decoration: BoxDecoration(
           color: Theme.of(
             context,
@@ -46,9 +45,7 @@ class GitDiffInline extends StatelessWidget {
         ),
         child: SelectableText(
           diff,
-          style: TextStyle(
-            fontFamily: GoogleFonts.jetBrainsMono().fontFamily,
-            fontSize: 12.5,
+          style: AppTypography.codeSmall().copyWith(
             height: 1.45,
           ),
         ),

@@ -12,6 +12,7 @@ import '../providers/nav_bar_style_provider.dart';
 import '../providers/prompt_accent_provider.dart';
 import '../providers/service_providers.dart';
 import '../providers/theme_provider.dart';
+import '../theme/design_tokens.dart';
 import '../theme/opencode_theme.dart';
 import 'appearance_screen.dart';
 import 'background_screen.dart';
@@ -63,11 +64,11 @@ class CustomizationScreen extends ConsumerWidget {
         ),
       ),
       body: ListView(
-        padding: const EdgeInsets.all(20),
+        padding: Insets.screenAll,
         children: [
           // Appearance Section
           _SectionHeader(title: 'Appearance'),
-          const SizedBox(height: 12),
+          SizedBox(height: Spacing.md),
           _SettingsCard(
             child: Column(
               children: [
@@ -93,7 +94,7 @@ class CustomizationScreen extends ConsumerWidget {
                           ),
                         ),
                       ),
-                      const SizedBox(width: 8),
+                      SizedBox(width: Spacing.sm),
                       Icon(
                         Icons.chevron_right_rounded,
                         size: 20,
@@ -138,7 +139,7 @@ class CustomizationScreen extends ConsumerWidget {
 
           // Input Bar Section
           _SectionHeader(title: 'Input Bar'),
-          const SizedBox(height: 12),
+          SizedBox(height: Spacing.md),
           _SettingsCard(
             child: Column(
               children: [
@@ -169,7 +170,7 @@ class CustomizationScreen extends ConsumerWidget {
 
           // Prompt Glow Section — applies to both input bar styles
           _SectionHeader(title: 'Prompt Glow'),
-          const SizedBox(height: 12),
+          SizedBox(height: Spacing.md),
 
           // Glow Style picker
           _SettingsCard(
@@ -210,10 +211,10 @@ class CustomizationScreen extends ConsumerWidget {
 
           // Accent color picker (shown when glow is enabled)
           if (glowStyle != GlowStyle.none) ...[
-            const SizedBox(height: 16),
+            SizedBox(height: Spacing.lg),
             _SettingsCard(
               child: Padding(
-                padding: const EdgeInsets.all(16),
+                padding: Insets.card,
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
@@ -224,7 +225,7 @@ class CustomizationScreen extends ConsumerWidget {
                           color: theme.colorScheme.primary,
                           size: 22,
                         ),
-                        const SizedBox(width: 12),
+                        SizedBox(width: Spacing.md),
                         Expanded(
                           child: Column(
                             crossAxisAlignment: CrossAxisAlignment.start,
@@ -237,7 +238,7 @@ class CustomizationScreen extends ConsumerWidget {
                                   fontWeight: FontWeight.w600,
                                 ),
                               ),
-                              const SizedBox(height: 4),
+                              SizedBox(height: Spacing.xs),
                               Text(
                                 'Color of the glow border',
                                 style: TextStyle(
@@ -252,7 +253,7 @@ class CustomizationScreen extends ConsumerWidget {
                         ),
                       ],
                     ),
-                    const SizedBox(height: 16),
+                    SizedBox(height: Spacing.lg),
                     // Color swatches
                     Wrap(
                       spacing: 10,
@@ -270,7 +271,7 @@ class CustomizationScreen extends ConsumerWidget {
                             height: 40,
                             decoration: BoxDecoration(
                               color: displayColor,
-                              borderRadius: BorderRadius.circular(10),
+                              borderRadius: Radii.brMd,
                               border: Border.all(
                                 color: isSelected
                                     ? theme.colorScheme.onSurface
@@ -300,7 +301,7 @@ class CustomizationScreen extends ConsumerWidget {
                         );
                       }).toList(),
                     ),
-                    const SizedBox(height: 12),
+                    SizedBox(height: Spacing.md),
                     // Selected color name
                     Text(
                       promptAccent.displayName,
@@ -322,7 +323,7 @@ class CustomizationScreen extends ConsumerWidget {
 
           // Navigation Section
           _SectionHeader(title: 'Navigation Bar'),
-          const SizedBox(height: 12),
+          SizedBox(height: Spacing.md),
           _SettingsCard(
             child: Column(
               children: [
@@ -353,10 +354,10 @@ class CustomizationScreen extends ConsumerWidget {
 
           // Highlights Section
           _SectionHeader(title: 'Highlights'),
-          const SizedBox(height: 12),
+          SizedBox(height: Spacing.md),
           _SettingsCard(
             child: Padding(
-              padding: const EdgeInsets.all(16),
+              padding: Insets.card,
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
@@ -367,7 +368,7 @@ class CustomizationScreen extends ConsumerWidget {
                         color: theme.colorScheme.primary,
                         size: 22,
                       ),
-                      const SizedBox(width: 12),
+                      SizedBox(width: Spacing.md),
                       Expanded(
                         child: Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
@@ -380,7 +381,7 @@ class CustomizationScreen extends ConsumerWidget {
                                 fontWeight: FontWeight.w600,
                               ),
                             ),
-                            const SizedBox(height: 4),
+                            SizedBox(height: Spacing.xs),
                             Text(
                               'Color for pinned sessions and projects',
                               style: TextStyle(
@@ -395,7 +396,7 @@ class CustomizationScreen extends ConsumerWidget {
                       ),
                     ],
                   ),
-                  const SizedBox(height: 16),
+                  SizedBox(height: Spacing.lg),
                   // Color swatches
                   Wrap(
                     spacing: 10,
@@ -416,7 +417,7 @@ class CustomizationScreen extends ConsumerWidget {
                           height: 40,
                           decoration: BoxDecoration(
                             color: displayColor,
-                            borderRadius: BorderRadius.circular(10),
+                            borderRadius: Radii.brMd,
                             border: Border.all(
                               color: isSelected
                                   ? theme.colorScheme.onSurface
@@ -446,7 +447,7 @@ class CustomizationScreen extends ConsumerWidget {
                       );
                     }).toList(),
                   ),
-                  const SizedBox(height: 12),
+                  SizedBox(height: Spacing.md),
                   // Selected color name
                   Text(
                     selectedHighlightColor.displayName,
@@ -465,7 +466,7 @@ class CustomizationScreen extends ConsumerWidget {
 
           // Notifications Section
           _SectionHeader(title: 'Notifications'),
-          const SizedBox(height: 12),
+          SizedBox(height: Spacing.md),
           _SettingsCard(
             child: _ToggleTile(
               title: 'Push Notifications',
@@ -517,7 +518,7 @@ class _SettingsCard extends StatelessWidget {
     return Container(
       decoration: BoxDecoration(
         color: ocTheme.backgroundPanel,
-        borderRadius: BorderRadius.circular(16),
+        borderRadius: Radii.brLg,
         border: Border.all(color: ocTheme.borderSubtle),
       ),
       child: child,
@@ -547,13 +548,13 @@ class _NavigationTile extends StatelessWidget {
 
     return InkWell(
       onTap: onTap,
-      borderRadius: BorderRadius.circular(16),
+      borderRadius: Radii.brLg,
       child: Padding(
-        padding: const EdgeInsets.all(16),
+        padding: Insets.card,
         child: Row(
           children: [
             Icon(icon, color: theme.colorScheme.primary, size: 22),
-            const SizedBox(width: 12),
+            SizedBox(width: Spacing.md),
             Expanded(
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
@@ -566,7 +567,7 @@ class _NavigationTile extends StatelessWidget {
                       fontWeight: FontWeight.w600,
                     ),
                   ),
-                  const SizedBox(height: 4),
+                  SizedBox(height: Spacing.xs),
                   Text(
                     subtitle,
                     style: TextStyle(
@@ -612,13 +613,13 @@ class _RadioTile extends StatelessWidget {
 
     return InkWell(
       onTap: onTap,
-      borderRadius: BorderRadius.circular(16),
+      borderRadius: Radii.brLg,
       child: Padding(
-        padding: const EdgeInsets.all(16),
+        padding: Insets.card,
         child: Row(
           children: [
             Icon(icon, color: theme.colorScheme.primary, size: 22),
-            const SizedBox(width: 12),
+            SizedBox(width: Spacing.md),
             Expanded(
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
@@ -631,7 +632,7 @@ class _RadioTile extends StatelessWidget {
                       fontWeight: FontWeight.w600,
                     ),
                   ),
-                  const SizedBox(height: 4),
+                  SizedBox(height: Spacing.xs),
                   Text(
                     subtitle,
                     style: TextStyle(
@@ -642,7 +643,7 @@ class _RadioTile extends StatelessWidget {
                 ],
               ),
             ),
-            const SizedBox(width: 8),
+            SizedBox(width: Spacing.sm),
             Container(
               width: 22,
               height: 22,
@@ -695,13 +696,13 @@ class _ToggleTile extends StatelessWidget {
 
     return InkWell(
       onTap: () => onChanged(!value),
-      borderRadius: BorderRadius.circular(16),
+      borderRadius: Radii.brLg,
       child: Padding(
-        padding: const EdgeInsets.all(16),
+        padding: Insets.card,
         child: Row(
           children: [
             Icon(icon, color: theme.colorScheme.primary, size: 22),
-            const SizedBox(width: 12),
+            SizedBox(width: Spacing.md),
             Expanded(
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
@@ -714,7 +715,7 @@ class _ToggleTile extends StatelessWidget {
                       fontWeight: FontWeight.w600,
                     ),
                   ),
-                  const SizedBox(height: 4),
+                  SizedBox(height: Spacing.xs),
                   Text(
                     subtitle,
                     style: TextStyle(
@@ -725,7 +726,7 @@ class _ToggleTile extends StatelessWidget {
                 ],
               ),
             ),
-            const SizedBox(width: 8),
+            SizedBox(width: Spacing.sm),
             Switch.adaptive(value: value, onChanged: onChanged),
           ],
         ),

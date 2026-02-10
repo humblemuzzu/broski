@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
-import 'package:google_fonts/google_fonts.dart';
+import '../../theme/app_typography.dart';
+import '../../theme/design_tokens.dart';
 
 import '../../theme/opencode_theme.dart';
 
@@ -24,15 +25,15 @@ class TextFileViewer extends StatelessWidget {
       child: Column(
         children: [
           Container(
-            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+            padding: Insets.listItemDense,
             color: theme.backgroundPanel,
             child: Row(
               children: [
                 Icon(Icons.description, size: 16, color: theme.textMuted),
-                const SizedBox(width: 8),
+                SizedBox(width: Spacing.sm),
                 Text(
                   '${lines.length} lines',
-                  style: TextStyle(color: theme.textMuted, fontSize: 12),
+                  style: AppTypography.label(color: theme.textMuted),
                 ),
                 const Spacer(),
                 IconButton(
@@ -50,27 +51,25 @@ class TextFileViewer extends StatelessWidget {
                   },
                   tooltip: 'Copy',
                   constraints: const BoxConstraints(),
-                  padding: const EdgeInsets.all(8),
+                  padding: Insets.cardXs,
                 ),
               ],
             ),
           ),
           Expanded(
             child: SingleChildScrollView(
-              padding: const EdgeInsets.all(16),
+              padding: Insets.card,
               child: Container(
                 width: double.infinity,
-                padding: const EdgeInsets.all(16),
+                padding: Insets.card,
                 decoration: BoxDecoration(
                   color: theme.backgroundPanel,
-                  borderRadius: BorderRadius.circular(12),
+                  borderRadius: Radii.brMd,
                   border: Border.all(color: theme.borderSubtle),
                 ),
                 child: SelectableText(
                   content,
-                  style: GoogleFonts.jetBrainsMono(
-                    fontSize: 13,
-                    color: theme.text,
+                  style: AppTypography.code(color: theme.text).copyWith(
                     height: 1.6,
                   ),
                 ),

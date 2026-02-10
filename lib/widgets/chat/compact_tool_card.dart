@@ -3,11 +3,10 @@ import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:flutter_markdown/flutter_markdown.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:google_fonts/google_fonts.dart';
-
 import '../../models/card_style.dart';
 import '../../models/message.dart';
 import '../../providers/card_style_provider.dart';
+import '../../theme/app_typography.dart';
 import '../../theme/design_tokens.dart';
 import '../../theme/opencode_theme.dart';
 import '../../theme/tool_style.dart';
@@ -175,14 +174,14 @@ class CompactToolCard extends ConsumerWidget {
           label: 'File',
           child: SelectableText(
             path,
-            style: GoogleFonts.jetBrainsMono(color: theme.text, fontSize: 12),
+            style: AppTypography.codeSmall(color: theme.text),
           ),
         ),
         DetailSection(
           label: 'Content',
           child: SelectableText(
             tool.output ?? 'Loading...',
-            style: GoogleFonts.jetBrainsMono(color: theme.text, fontSize: 12),
+            style: AppTypography.codeSmall(color: theme.text),
           ),
         ),
       ],
@@ -203,7 +202,7 @@ class CompactToolCard extends ConsumerWidget {
           label: 'File',
           child: SelectableText(
             path,
-            style: GoogleFonts.jetBrainsMono(color: theme.text, fontSize: 12),
+            style: AppTypography.codeSmall(color: theme.text),
           ),
         ),
         if (content.isNotEmpty)
@@ -211,7 +210,7 @@ class CompactToolCard extends ConsumerWidget {
             label: 'Content',
             child: SelectableText(
               content,
-              style: GoogleFonts.jetBrainsMono(color: theme.text, fontSize: 12),
+              style: AppTypography.codeSmall(color: theme.text),
             ),
           ),
         if (tool.output != null && tool.output!.isNotEmpty)
@@ -219,7 +218,7 @@ class CompactToolCard extends ConsumerWidget {
             label: 'Result',
             child: SelectableText(
               tool.output!,
-              style: GoogleFonts.jetBrainsMono(color: theme.text, fontSize: 12),
+              style: AppTypography.codeSmall(color: theme.text),
             ),
           ),
       ],
@@ -236,7 +235,7 @@ class CompactToolCard extends ConsumerWidget {
           label: 'Command',
           child: SelectableText(
             command,
-            style: GoogleFonts.jetBrainsMono(color: theme.text, fontSize: 12),
+            style: AppTypography.codeSmall(color: theme.text),
           ),
         ),
         DetailSection(
@@ -244,7 +243,7 @@ class CompactToolCard extends ConsumerWidget {
           child: SelectableText(
             tool.output ??
                 (tool.status == 'running' ? 'Running...' : 'No output'),
-            style: GoogleFonts.jetBrainsMono(color: theme.text, fontSize: 12),
+            style: AppTypography.codeSmall(color: theme.text),
           ),
         ),
         // Status indicator for errors
@@ -273,14 +272,14 @@ class CompactToolCard extends ConsumerWidget {
           label: 'Pattern',
           child: SelectableText(
             pattern,
-            style: GoogleFonts.jetBrainsMono(color: theme.text, fontSize: 12),
+            style: AppTypography.codeSmall(color: theme.text),
           ),
         ),
         DetailSection(
           label: 'Matches',
           child: SelectableText(
             tool.output ?? 'Searching...',
-            style: GoogleFonts.jetBrainsMono(color: theme.text, fontSize: 12),
+            style: AppTypography.codeSmall(color: theme.text),
           ),
         ),
       ],
@@ -298,7 +297,7 @@ class CompactToolCard extends ConsumerWidget {
           label: 'Pattern',
           child: SelectableText(
             pattern,
-            style: GoogleFonts.jetBrainsMono(color: theme.text, fontSize: 12),
+            style: AppTypography.codeSmall(color: theme.text),
           ),
         ),
         if (include != null)
@@ -306,14 +305,14 @@ class CompactToolCard extends ConsumerWidget {
             label: 'File Filter',
             child: SelectableText(
               include,
-              style: GoogleFonts.jetBrainsMono(color: theme.text, fontSize: 12),
+              style: AppTypography.codeSmall(color: theme.text),
             ),
           ),
         DetailSection(
           label: 'Results',
           child: SelectableText(
             tool.output ?? 'Searching...',
-            style: GoogleFonts.jetBrainsMono(color: theme.text, fontSize: 12),
+            style: AppTypography.codeSmall(color: theme.text),
           ),
         ),
       ],
@@ -331,7 +330,7 @@ class CompactToolCard extends ConsumerWidget {
           label: 'URL',
           child: SelectableText(
             url,
-            style: GoogleFonts.jetBrainsMono(color: theme.text, fontSize: 12),
+            style: AppTypography.codeSmall(color: theme.text),
           ),
         ),
         DetailSection(
@@ -367,23 +366,23 @@ class CompactToolCard extends ConsumerWidget {
   /// Build markdown style for content rendering
   MarkdownStyleSheet _buildMarkdownStyle(OpenCodeTheme theme) {
     return MarkdownStyleSheet(
-      p: TextStyle(fontFamily: 'GeistSans', fontSize: 14, color: theme.text, height: 1.5),
+      p: TextStyle(fontFamily: AppTypography.uiFontFamily, fontSize: 14, color: theme.text, height: 1.5),
       h1: TextStyle(
-        fontFamily: 'GeistSans',
+        fontFamily: AppTypography.uiFontFamily,
         fontSize: 18,
         fontWeight: FontWeight.w600,
         color: theme.text,
         height: 1.4,
       ),
       h2: TextStyle(
-        fontFamily: 'GeistSans',
+        fontFamily: AppTypography.uiFontFamily,
         fontSize: 16,
         fontWeight: FontWeight.w600,
         color: theme.text,
         height: 1.4,
       ),
       h3: TextStyle(
-        fontFamily: 'GeistSans',
+        fontFamily: AppTypography.uiFontFamily,
         fontSize: 15,
         fontWeight: FontWeight.w600,
         color: theme.text,
@@ -391,14 +390,12 @@ class CompactToolCard extends ConsumerWidget {
       ),
       strong: TextStyle(fontWeight: FontWeight.w600, color: theme.text),
       em: TextStyle(fontStyle: FontStyle.italic, color: theme.textMuted),
-      code: GoogleFonts.jetBrainsMono(
-        fontSize: 12,
-        color: theme.accent,
+      code: AppTypography.codeSmall(color: theme.accent).copyWith(
         backgroundColor: theme.backgroundElement,
       ),
       codeblockDecoration: BoxDecoration(
         color: theme.backgroundElement,
-        borderRadius: BorderRadius.circular(8),
+        borderRadius: Radii.brSm,
         border: Border.all(color: theme.borderSubtle),
       ),
       codeblockPadding: Insets.card,
@@ -423,14 +420,14 @@ class CompactToolCard extends ConsumerWidget {
             label: 'Input',
             child: SelectableText(
               const JsonEncoder.withIndent('  ').convert(tool.input),
-              style: GoogleFonts.jetBrainsMono(color: theme.text, fontSize: 12),
+              style: AppTypography.codeSmall(color: theme.text),
             ),
           ),
         DetailSection(
           label: 'Output',
           child: SelectableText(
             tool.output ?? 'No output',
-            style: GoogleFonts.jetBrainsMono(color: theme.text, fontSize: 12),
+            style: AppTypography.codeSmall(color: theme.text),
           ),
         ),
       ],
@@ -474,7 +471,7 @@ class CompactToolCard extends ConsumerWidget {
         margin: EdgeInsets.symmetric(vertical: Spacing.xxs),
         decoration: BoxDecoration(
           color: theme.bgRaised,
-          borderRadius: BorderRadius.circular(12),
+          borderRadius: Radii.brMd,
           border: Border.all(
             color: hasError ? theme.error.withValues(alpha: 0.5) : borderColor,
             width: 1,
@@ -485,7 +482,7 @@ class CompactToolCard extends ConsumerWidget {
           padding: EdgeInsets.symmetric(horizontal: Spacing.md, vertical: 10),
           decoration: BoxDecoration(
             color: headerBg,
-            borderRadius: BorderRadius.circular(11),
+            borderRadius: Radii.brMd,
           ),
           child: Row(
             children: [
@@ -508,7 +505,7 @@ class CompactToolCard extends ConsumerWidget {
               Expanded(
                 child: Text(
                   _getPreview(),
-                  style: TextStyle(color: theme.textMuted, fontSize: 12),
+                  style: AppTypography.label(color: theme.textMuted),
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
                 ),

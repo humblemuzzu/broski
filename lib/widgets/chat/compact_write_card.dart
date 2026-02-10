@@ -1,10 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:google_fonts/google_fonts.dart';
-
 import '../../models/card_style.dart';
 import '../../models/message.dart';
 import '../../providers/card_style_provider.dart';
+import '../../theme/app_typography.dart';
 import '../../theme/design_tokens.dart';
 import '../../theme/opencode_theme.dart';
 import 'detail_sheet.dart';
@@ -93,7 +92,7 @@ class CompactWriteCard extends ConsumerWidget {
         margin: Insets.chipV,
         decoration: BoxDecoration(
           color: theme.bgRaised,
-          borderRadius: BorderRadius.circular(12),
+          borderRadius: Radii.brMd,
           border: Border.all(
             color: hasError
                 ? theme.error.withValues(alpha: 0.5)
@@ -139,10 +138,7 @@ class CompactWriteCard extends ConsumerWidget {
                   Expanded(
                     child: Text(
                       _getFilePath(),
-                      style: GoogleFonts.jetBrainsMono(
-                        color: theme.text,
-                        fontSize: 12,
-                      ),
+                      style: AppTypography.codeSmall(color: theme.text),
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
                     ),
@@ -157,7 +153,7 @@ class CompactWriteCard extends ConsumerWidget {
                       ),
                       decoration: BoxDecoration(
                         color: theme.diffAdded.withValues(alpha: 0.15),
-                        borderRadius: BorderRadius.circular(4),
+                        borderRadius: Radii.brXs,
                       ),
                       child: Text(
                         '+$_totalLines',
@@ -208,7 +204,7 @@ class CompactWriteCard extends ConsumerWidget {
                       SizedBox(width: Spacing.xs),
                       Text(
                         '${previewLines.length - _maxPreviewLines} more lines',
-                        style: TextStyle(color: theme.textMuted, fontSize: 11),
+                        style: AppTypography.caption(color: theme.textMuted),
                       ),
                     ],
                   ),
@@ -250,7 +246,7 @@ class CompactWriteCard extends ConsumerWidget {
             label: 'File',
             child: SelectableText(
               _getFilePath(),
-              style: GoogleFonts.jetBrainsMono(color: theme.text, fontSize: 12),
+              style: AppTypography.codeSmall(color: theme.text),
             ),
           ),
 
@@ -267,7 +263,7 @@ class CompactWriteCard extends ConsumerWidget {
               label: 'Result',
               child: SelectableText(
                 tool.output!,
-                style: TextStyle(color: theme.text, fontSize: 13),
+                style: AppTypography.bodySmall(color: theme.text),
               ),
             ),
 
@@ -322,18 +318,13 @@ class _InlineContentLine extends StatelessWidget {
           children: [
             TextSpan(
               text: '+ ',
-              style: GoogleFonts.jetBrainsMono(
-                color: color,
-                fontSize: 12,
+              style: AppTypography.codeSmall(color: color).copyWith(
                 fontWeight: FontWeight.w600,
               ),
             ),
             TextSpan(
               text: text.isEmpty ? ' ' : text,
-              style: GoogleFonts.jetBrainsMono(
-                color: color.withValues(alpha: 0.9),
-                fontSize: 12,
-              ),
+              style: AppTypography.codeSmall(color: color.withValues(alpha: 0.9)),
             ),
           ],
         ),
@@ -366,7 +357,7 @@ class _FullContentView extends StatelessWidget {
     return Container(
       decoration: BoxDecoration(
         color: theme.backgroundElement,
-        borderRadius: BorderRadius.circular(8),
+        borderRadius: Radii.brSm,
         border: Border.all(color: theme.borderSubtle.withValues(alpha: 0.5)),
       ),
       clipBehavior: Clip.antiAlias,
@@ -386,18 +377,13 @@ class _FullContentView extends StatelessWidget {
                   children: [
                     TextSpan(
                       text: '+ ',
-                      style: GoogleFonts.jetBrainsMono(
-                        color: color,
-                        fontSize: 12,
+                      style: AppTypography.codeSmall(color: color).copyWith(
                         fontWeight: FontWeight.bold,
                       ),
                     ),
                     TextSpan(
                       text: line.isEmpty ? ' ' : line,
-                      style: GoogleFonts.jetBrainsMono(
-                        color: theme.text,
-                        fontSize: 12,
-                      ),
+                      style: AppTypography.codeSmall(color: theme.text),
                     ),
                   ],
                 ),

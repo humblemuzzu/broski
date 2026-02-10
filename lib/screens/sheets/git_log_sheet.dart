@@ -1,9 +1,10 @@
 import 'package:flutter/material.dart';
-import 'package:google_fonts/google_fonts.dart';
+import '../../theme/app_typography.dart';
 
 import '../../models/git.dart';
 import '../../widgets/chat/detail_sheet.dart';
 import '../../widgets/git/git_diff_inline.dart';
+import '../../theme/design_tokens.dart';
 
 class GitLogSheet extends StatelessWidget {
   const GitLogSheet({
@@ -40,8 +41,8 @@ class GitLogSheet extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     if (entries.isEmpty) {
-      return const Padding(
-        padding: EdgeInsets.all(16),
+      return Padding(
+        padding: Insets.card,
         child: Text('No commits yet.'),
       );
     }
@@ -54,7 +55,7 @@ class GitLogSheet extends StatelessWidget {
             dense: true,
             leading: Text(
               entry.shortHash,
-              style: TextStyle(fontFamily: GoogleFonts.jetBrainsMono().fontFamily, fontSize: 12),
+              style: AppTypography.codeSmall(),
             ),
             title: Text(
               entry.subject.isEmpty ? '(no subject)' : entry.subject,

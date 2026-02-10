@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../theme/app_typography.dart';
 
 import '../models/agent_type.dart';
 import '../models/project.dart';
@@ -20,6 +21,7 @@ import '../screens/subagents_screen.dart';
 import '../screens/custom_tools_screen.dart';
 import '../screens/plugins_screen.dart';
 import '../screens/tools_screen.dart';
+import '../theme/design_tokens.dart';
 import '../theme/opencode_theme.dart';
 import 'chat/detail_sheet.dart';
 
@@ -110,21 +112,21 @@ class _ProjectToolsContent extends StatelessWidget {
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
       child: InkWell(
         onTap: onTap,
-        borderRadius: BorderRadius.circular(14),
+        borderRadius: Radii.brLg,
         child: Container(
-          padding: const EdgeInsets.all(14),
+          padding: Insets.cardMd,
           decoration: BoxDecoration(
             color: theme.backgroundPanel,
-            borderRadius: BorderRadius.circular(14),
+            borderRadius: Radii.brLg,
             border: Border.all(color: theme.borderSubtle),
           ),
           child: Row(
             children: [
               Container(
-                padding: const EdgeInsets.all(8),
+                padding: Insets.cardXs,
                 decoration: BoxDecoration(
                   color: effectiveColor.withValues(alpha: 0.12),
-                  borderRadius: BorderRadius.circular(10),
+                  borderRadius: Radii.brMd,
                 ),
                 child: Icon(icon, size: 18, color: effectiveColor),
               ),
@@ -141,10 +143,10 @@ class _ProjectToolsContent extends StatelessWidget {
                         color: theme.text,
                       ),
                     ),
-                    const SizedBox(height: 2),
+                    SizedBox(height: Spacing.xxs),
                     Text(
                       subtitle,
-                      style: TextStyle(fontSize: 12, color: theme.textMuted),
+                      style: AppTypography.label(color: theme.textMuted),
                       maxLines: 2,
                       overflow: TextOverflow.ellipsis,
                     ),
@@ -177,7 +179,7 @@ class _ProjectToolsContent extends StatelessWidget {
           padding: const EdgeInsets.fromLTRB(16, 8, 16, 8),
           child: Text(
             projectPath.isEmpty ? 'No project path' : projectPath,
-            style: TextStyle(color: theme.textMuted, fontSize: 12),
+            style: AppTypography.label(color: theme.textMuted),
             maxLines: 2,
             overflow: TextOverflow.ellipsis,
           ),

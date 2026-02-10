@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../models/claude_code.dart';
 import '../providers/claude_code_provider.dart';
+import '../theme/design_tokens.dart';
 import '../theme/opencode_theme.dart';
 import 'custom_tool_editor_screen.dart';
 import '../widgets/claude_code_help.dart';
@@ -171,7 +172,7 @@ class _EmptyState extends StatelessWidget {
 
     return Center(
       child: Padding(
-        padding: const EdgeInsets.all(32),
+        padding: Insets.xxxl,
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
@@ -180,14 +181,14 @@ class _EmptyState extends StatelessWidget {
               size: 64,
               color: theme.colorScheme.primary.withValues(alpha: 0.5),
             ),
-            const SizedBox(height: 16),
+            SizedBox(height: Spacing.lg),
             Text(
               'No Custom Tools',
               style: theme.textTheme.titleLarge?.copyWith(
                 fontWeight: FontWeight.w600,
               ),
             ),
-            const SizedBox(height: 8),
+            SizedBox(height: Spacing.sm),
             Text(
               'Create custom tools that Claude Code can use.\nHTTP APIs, scripts, and more.',
               textAlign: TextAlign.center,
@@ -195,7 +196,7 @@ class _EmptyState extends StatelessWidget {
                 color: theme.colorScheme.onSurface.withValues(alpha: 0.7),
               ),
             ),
-            const SizedBox(height: 24),
+            SizedBox(height: Spacing.xxl),
             ElevatedButton.icon(
               onPressed: onCreateTool,
               icon: const Icon(Icons.add),
@@ -220,7 +221,7 @@ class _ErrorState extends StatelessWidget {
 
     return Center(
       child: Padding(
-        padding: const EdgeInsets.all(32),
+        padding: Insets.xxxl,
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
@@ -229,14 +230,14 @@ class _ErrorState extends StatelessWidget {
               size: 64,
               color: theme.colorScheme.error.withValues(alpha: 0.5),
             ),
-            const SizedBox(height: 16),
+            SizedBox(height: Spacing.lg),
             Text(
               'Failed to Load Tools',
               style: theme.textTheme.titleLarge?.copyWith(
                 fontWeight: FontWeight.w600,
               ),
             ),
-            const SizedBox(height: 8),
+            SizedBox(height: Spacing.sm),
             Text(
               error,
               textAlign: TextAlign.center,
@@ -244,7 +245,7 @@ class _ErrorState extends StatelessWidget {
                 color: theme.colorScheme.onSurface.withValues(alpha: 0.7),
               ),
             ),
-            const SizedBox(height: 24),
+            SizedBox(height: Spacing.xxl),
             ElevatedButton.icon(
               onPressed: onRetry,
               icon: const Icon(Icons.refresh_rounded),
@@ -275,19 +276,19 @@ class _ToolsList extends StatelessWidget {
     final theme = Theme.of(context);
 
     return ListView.builder(
-      padding: const EdgeInsets.all(16),
+      padding: Insets.card,
       itemCount: tools.length + 1, // +1 for header
       itemBuilder: (context, index) {
         if (index == 0) {
           return Padding(
-            padding: const EdgeInsets.only(bottom: 16),
+            padding: const EdgeInsets.only(bottom: Spacing.lg),
             child: Container(
-              padding: const EdgeInsets.all(16),
+              padding: Insets.card,
               decoration: BoxDecoration(
                 color: theme.colorScheme.primaryContainer.withValues(
                   alpha: 0.3,
                 ),
-                borderRadius: BorderRadius.circular(12),
+                borderRadius: Radii.brMd,
                 border: Border.all(
                   color: theme.colorScheme.primary.withValues(alpha: 0.2),
                 ),
@@ -299,7 +300,7 @@ class _ToolsList extends StatelessWidget {
                     color: theme.colorScheme.primary,
                     size: 20,
                   ),
-                  const SizedBox(width: 12),
+                  SizedBox(width: Spacing.md),
                   Expanded(
                     child: Text(
                       'Custom tools appear in Claude Code as mcp__broski-custom-tools__<name>',
@@ -344,12 +345,12 @@ class _ToolCard extends StatelessWidget {
     final theme = Theme.of(context);
 
     return Card(
-      margin: const EdgeInsets.only(bottom: 12),
+      margin: Insets.bottomMd,
       child: InkWell(
         onTap: onEdit,
-        borderRadius: BorderRadius.circular(12),
+        borderRadius: Radii.brMd,
         child: Padding(
-          padding: const EdgeInsets.all(16),
+          padding: Insets.card,
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
@@ -364,7 +365,7 @@ class _ToolCard extends StatelessWidget {
                         tool.handler,
                         theme,
                       ).withValues(alpha: 0.15),
-                      borderRadius: BorderRadius.circular(10),
+                      borderRadius: Radii.brMd,
                     ),
                     child: Icon(
                       _getHandlerIcon(tool.handler),
@@ -372,7 +373,7 @@ class _ToolCard extends StatelessWidget {
                       size: 22,
                     ),
                   ),
-                  const SizedBox(width: 12),
+                  SizedBox(width: Spacing.md),
                   // Tool info
                   Expanded(
                     child: Column(
@@ -384,7 +385,7 @@ class _ToolCard extends StatelessWidget {
                             fontWeight: FontWeight.w600,
                           ),
                         ),
-                        const SizedBox(height: 2),
+                        SizedBox(height: Spacing.xxs),
                         Text(
                           tool.handler.displayName,
                           style: theme.textTheme.bodySmall?.copyWith(
@@ -401,7 +402,7 @@ class _ToolCard extends StatelessWidget {
                 ],
               ),
               if (tool.description.isNotEmpty) ...[
-                const SizedBox(height: 12),
+                SizedBox(height: Spacing.md),
                 Text(
                   tool.description,
                   style: theme.textTheme.bodyMedium?.copyWith(
@@ -411,7 +412,7 @@ class _ToolCard extends StatelessWidget {
                   overflow: TextOverflow.ellipsis,
                 ),
               ],
-              const SizedBox(height: 12),
+              SizedBox(height: Spacing.md),
               // Parameters and actions row
               Row(
                 children: [
@@ -423,7 +424,7 @@ class _ToolCard extends StatelessWidget {
                     ),
                     decoration: BoxDecoration(
                       color: theme.colorScheme.surfaceContainerHighest,
-                      borderRadius: BorderRadius.circular(6),
+                      borderRadius: Radii.brSm,
                     ),
                     child: Text(
                       '${tool.parameters.length} parameter${tool.parameters.length != 1 ? 's' : ''}',

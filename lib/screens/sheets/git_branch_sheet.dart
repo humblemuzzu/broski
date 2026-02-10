@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../../models/git.dart';
 import '../../widgets/chat/detail_sheet.dart';
+import '../../theme/design_tokens.dart';
 
 class GitBranchSheet extends StatefulWidget {
   const GitBranchSheet({
@@ -65,7 +66,7 @@ class _GitBranchSheetState extends State<GitBranchSheet> {
     final local = widget.branches.where((b) => !b.isRemote).toList();
 
     return Padding(
-      padding: const EdgeInsets.all(12),
+      padding: Insets.cardSm,
       child: Column(
         children: [
           Row(
@@ -80,14 +81,14 @@ class _GitBranchSheetState extends State<GitBranchSheet> {
                   ),
                 ),
               ),
-              const SizedBox(width: 8),
+              SizedBox(width: Spacing.sm),
               FilledButton(
                 onPressed: _creating ? null : _create,
                 child: Text(_creating ? 'Creating…' : 'Create'),
               ),
             ],
           ),
-          const SizedBox(height: 12),
+          SizedBox(height: Spacing.md),
           ...local.map((branch) {
             return ListTile(
               dense: true,

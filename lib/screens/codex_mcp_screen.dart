@@ -2,7 +2,8 @@ import 'dart:convert';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:google_fonts/google_fonts.dart';
+import '../theme/app_typography.dart';
+import '../theme/design_tokens.dart';
 
 import '../providers/service_providers.dart';
 import '../theme/opencode_theme.dart';
@@ -275,7 +276,7 @@ class _CodexMcpScreenState extends ConsumerState<CodexMcpScreen>
           : _error != null
           ? Center(
               child: Padding(
-                padding: const EdgeInsets.all(24),
+                padding: Insets.cardLg,
                 child: Text(_error!, style: TextStyle(color: oc.textMuted)),
               ),
             )
@@ -290,29 +291,29 @@ class _CodexMcpScreenState extends ConsumerState<CodexMcpScreen>
                     children: [
                       Text(
                         'Edit MCP servers on your Mac. Broski does not modify Codex config from mobile.',
-                        style: TextStyle(color: oc.textMuted, fontSize: 12),
+                        style: AppTypography.label(color: oc.textMuted),
                       ),
-                      const SizedBox(height: 12),
+                      SizedBox(height: Spacing.md),
                       Container(
                         width: double.infinity,
-                        padding: const EdgeInsets.all(12),
+                        padding: Insets.cardSm,
                         decoration: BoxDecoration(
                           color: oc.backgroundElement,
-                          borderRadius: BorderRadius.circular(12),
+                          borderRadius: Radii.brMd,
                           border: Border.all(color: oc.border),
                         ),
                         child: Text(
                           const JsonEncoder.withIndent('  ').convert(servers),
                           style: TextStyle(
                             color: oc.text,
-                            fontFamily: 'Menlo',
+                            fontFamily: AppTypography.codeFontFamily,
                             fontSize: 12,
                             height: 1.2,
                           ),
                         ),
                       ),
                       if (names.isEmpty) ...[
-                        const SizedBox(height: 12),
+                        SizedBox(height: Spacing.md),
                         Text(
                           'No MCP servers configured in `mcp_servers`.',
                           style: TextStyle(color: oc.textMuted),
@@ -338,7 +339,7 @@ class _CodexMcpStatusList extends StatelessWidget {
     if (status.isEmpty) {
       return Center(
         child: Padding(
-          padding: const EdgeInsets.all(24),
+          padding: Insets.cardLg,
           child: Text(
             'No MCP status data',
             style: TextStyle(color: oc.textMuted),
@@ -358,7 +359,7 @@ class _CodexMcpStatusList extends StatelessWidget {
           color: oc.backgroundElement,
           margin: const EdgeInsets.only(bottom: 10),
           shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(12),
+            borderRadius: Radii.brMd,
             side: BorderSide(color: oc.border),
           ),
           child: ListTile(
@@ -441,17 +442,17 @@ class _CodexMcpServerEditorScreenState
         ],
       ),
       body: Padding(
-        padding: const EdgeInsets.all(16),
+        padding: Insets.card,
         child: TextField(
           controller: _json,
           maxLines: null,
           expands: true,
-          style: TextStyle(fontFamily: GoogleFonts.jetBrainsMono().fontFamily, fontSize: 13),
+          style: AppTypography.code(),
           decoration: InputDecoration(
             filled: true,
             fillColor: oc.backgroundElement,
             border: OutlineInputBorder(
-              borderRadius: BorderRadius.circular(12),
+              borderRadius: Radii.brMd,
               borderSide: BorderSide(color: oc.border),
             ),
           ),

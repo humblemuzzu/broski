@@ -4,6 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../models/codex_remote_skill.dart';
 import '../../providers/service_providers.dart';
 import '../../widgets/chat/detail_sheet.dart';
+import '../../theme/design_tokens.dart';
 
 /// Bottom sheet to browse and install skills from the Codex public skills marketplace.
 class CxRemoteSkillsSheet extends ConsumerStatefulWidget {
@@ -90,7 +91,7 @@ class _CxRemoteSkillsSheetState extends ConsumerState<CxRemoteSkillsSheet> {
           mainAxisSize: MainAxisSize.min,
           children: [
             Text('Error: $_error', style: TextStyle(color: theme.colorScheme.error)),
-            const SizedBox(height: 12),
+            SizedBox(height: Spacing.md),
             TextButton(onPressed: _load, child: const Text('Retry')),
           ],
         ),
@@ -105,7 +106,7 @@ class _CxRemoteSkillsSheetState extends ConsumerState<CxRemoteSkillsSheet> {
     return RefreshIndicator(
       onRefresh: _load,
       child: ListView.separated(
-        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+        padding: Insets.listItemDense,
         itemCount: skills.length,
         separatorBuilder: (_, __) => const Divider(height: 1),
         itemBuilder: (context, index) {

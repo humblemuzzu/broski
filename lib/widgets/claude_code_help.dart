@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
+import '../theme/app_typography.dart';
 
+import '../theme/design_tokens.dart';
 import '../theme/opencode_theme.dart';
 import 'chat/detail_sheet.dart';
 
@@ -30,7 +32,7 @@ void showClaudeCodeHelpSheet(
           theme,
           'Plugins: Claude Code plugins that add commands, skills, hooks, and MCP servers.',
         ),
-        const SizedBox(height: 8),
+        SizedBox(height: Spacing.sm),
         _p(theme, 'Quick access:'),
         _bullet(theme, 'Type `@tool:` to insert a custom tool name'),
         _bullet(theme, 'Type `/` to browse available slash commands'),
@@ -48,7 +50,7 @@ void showClaudeCodeHelpSheet(
           theme,
           'Select an active subagent from Chat → menu → Claude Code → Tools → Subagents',
         ),
-        const SizedBox(height: 8),
+        SizedBox(height: Spacing.sm),
         _p(
           theme,
           'Tip: use clear descriptions like “Use for frontend UI polish” so Claude routes tasks correctly.',
@@ -71,7 +73,7 @@ void showClaudeCodeHelpSheet(
           theme,
           'Tool names look like `mcp__broski-custom-tools__<ToolName>`',
         ),
-        const SizedBox(height: 8),
+        SizedBox(height: Spacing.sm),
         _p(
           theme,
           'Example prompt: “Use `mcp__broski-custom-tools__jiraSearch` to find relevant tickets.”',
@@ -102,7 +104,7 @@ void showClaudeCodeHelpSheet(
     child: Padding(
       padding: const EdgeInsets.fromLTRB(20, 8, 20, 20),
       child: DefaultTextStyle(
-        style: TextStyle(color: theme.text, fontSize: 14),
+        style: AppTypography.labelLarge(color: theme.text),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           mainAxisSize: MainAxisSize.min,
@@ -122,7 +124,7 @@ Widget _p(OpenCodeTheme theme, String text) {
 
 Widget _bullet(OpenCodeTheme theme, String text) {
   return Padding(
-    padding: const EdgeInsets.only(bottom: 8),
+    padding: Insets.bottomSm,
     child: Row(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [

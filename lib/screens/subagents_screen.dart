@@ -1,9 +1,11 @@
 import 'package:flutter/material.dart';
+import '../theme/app_typography.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../models/claude_code.dart';
 import '../providers/claude_code_provider.dart';
 import '../providers/service_providers.dart';
+import '../theme/design_tokens.dart';
 import '../theme/opencode_theme.dart';
 import '../widgets/claude_code_help.dart';
 
@@ -103,12 +105,12 @@ class _SubagentsScreenState extends ConsumerState<SubagentsScreen> {
                     size: 64,
                     color: oc.textMuted.withOpacity(0.7),
                   ),
-                  const SizedBox(height: 16),
+                  SizedBox(height: Spacing.lg),
                   Text(
                     'No subagents configured',
                     style: TextStyle(color: oc.textMuted, fontSize: 16),
                   ),
-                  const SizedBox(height: 8),
+                  SizedBox(height: Spacing.sm),
                   Text(
                     'Subagents can handle focused subtasks\nwith specialized instructions.',
                     textAlign: TextAlign.center,
@@ -117,7 +119,7 @@ class _SubagentsScreenState extends ConsumerState<SubagentsScreen> {
                       fontSize: 14,
                     ),
                   ),
-                  const SizedBox(height: 24),
+                  SizedBox(height: Spacing.xxl),
                   ElevatedButton.icon(
                     onPressed: () => _showSubagentEditor(context, null),
                     icon: const Icon(Icons.add),
@@ -133,12 +135,12 @@ class _SubagentsScreenState extends ConsumerState<SubagentsScreen> {
           }
 
           return ListView(
-            padding: const EdgeInsets.all(16),
+            padding: Insets.card,
             children: [
               // Filesystem agents section (read-only)
               if (_loadingFsAgents)
                 Padding(
-                  padding: const EdgeInsets.only(bottom: 16),
+                  padding: const EdgeInsets.only(bottom: Spacing.lg),
                   child: Center(
                     child: SizedBox(
                       width: 16,
@@ -152,7 +154,7 @@ class _SubagentsScreenState extends ConsumerState<SubagentsScreen> {
                 ),
               if (hasFilesystem) ...[
                 Padding(
-                  padding: const EdgeInsets.only(bottom: 8),
+                  padding: Insets.bottomSm,
                   child: Row(
                     children: [
                       Icon(
@@ -185,14 +187,14 @@ class _SubagentsScreenState extends ConsumerState<SubagentsScreen> {
               // Divider between filesystem and config sections
               if (hasFilesystem && hasConfig)
                 Padding(
-                  padding: const EdgeInsets.symmetric(vertical: 12),
+                  padding: Insets.cardV,
                   child: Divider(color: oc.border, height: 1),
                 ),
 
               // Config agents section header
               if (hasConfig) ...[
                 Padding(
-                  padding: const EdgeInsets.only(bottom: 8),
+                  padding: Insets.bottomSm,
                   child: Row(
                     children: [
                       Icon(
@@ -306,18 +308,18 @@ class _SubagentCard extends StatelessWidget {
 
     return Card(
       color: oc.backgroundElement,
-      margin: const EdgeInsets.only(bottom: 12),
+      margin: Insets.bottomMd,
       shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(12),
+        borderRadius: Radii.brMd,
         side: isActive
             ? BorderSide(color: oc.primary, width: 2)
             : BorderSide(color: oc.border),
       ),
       child: InkWell(
         onTap: onTap,
-        borderRadius: BorderRadius.circular(12),
+        borderRadius: Radii.brMd,
         child: Padding(
-          padding: const EdgeInsets.all(16),
+          padding: Insets.card,
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
@@ -328,7 +330,7 @@ class _SubagentCard extends StatelessWidget {
                     color: isActive ? oc.primary : oc.textMuted,
                     size: 24,
                   ),
-                  const SizedBox(width: 12),
+                  SizedBox(width: Spacing.md),
                   Expanded(
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
@@ -344,7 +346,7 @@ class _SubagentCard extends StatelessWidget {
                               ),
                             ),
                             if (isActive) ...[
-                              const SizedBox(width: 8),
+                              SizedBox(width: Spacing.sm),
                               Container(
                                 padding: const EdgeInsets.symmetric(
                                   horizontal: 8,
@@ -352,7 +354,7 @@ class _SubagentCard extends StatelessWidget {
                                 ),
                                 decoration: BoxDecoration(
                                   color: oc.primary.withOpacity(0.2),
-                                  borderRadius: BorderRadius.circular(4),
+                                  borderRadius: Radii.brXs,
                                 ),
                                 child: Text(
                                   'ACTIVE',
@@ -366,10 +368,10 @@ class _SubagentCard extends StatelessWidget {
                             ],
                           ],
                         ),
-                        const SizedBox(height: 4),
+                        SizedBox(height: Spacing.xs),
                         Text(
                           subagent.description,
-                          style: TextStyle(color: oc.textMuted, fontSize: 13),
+                          style: AppTypography.bodySmall(color: oc.textMuted),
                           maxLines: 2,
                           overflow: TextOverflow.ellipsis,
                         ),
@@ -402,7 +404,7 @@ class _SubagentCard extends StatelessWidget {
                                   : Icons.radio_button_unchecked,
                               size: 20,
                             ),
-                            const SizedBox(width: 8),
+                            SizedBox(width: Spacing.sm),
                             Text(isActive ? 'Deactivate' : 'Set Active'),
                           ],
                         ),
@@ -416,7 +418,7 @@ class _SubagentCard extends StatelessWidget {
                               size: 20,
                               color: oc.error,
                             ),
-                            const SizedBox(width: 8),
+                            SizedBox(width: Spacing.sm),
                             Text('Delete', style: TextStyle(color: oc.error)),
                           ],
                         ),
@@ -425,7 +427,7 @@ class _SubagentCard extends StatelessWidget {
                   ),
                 ],
               ),
-              const SizedBox(height: 12),
+              SizedBox(height: Spacing.md),
               // Model and tools info
               Wrap(
                 spacing: 8,
@@ -474,17 +476,17 @@ class _FilesystemAgentCard extends StatelessWidget {
 
     return Card(
       color: oc.backgroundElement,
-      margin: const EdgeInsets.only(bottom: 12),
+      margin: Insets.bottomMd,
       shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(12),
+        borderRadius: Radii.brMd,
         side: BorderSide(color: oc.border),
       ),
       child: Padding(
-        padding: const EdgeInsets.all(16),
+        padding: Insets.card,
         child: Row(
           children: [
             Icon(Icons.description_outlined, color: oc.textMuted, size: 24),
-            const SizedBox(width: 12),
+            SizedBox(width: Spacing.md),
             Expanded(
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
@@ -502,7 +504,7 @@ class _FilesystemAgentCard extends StatelessWidget {
                           overflow: TextOverflow.ellipsis,
                         ),
                       ),
-                      const SizedBox(width: 8),
+                      SizedBox(width: Spacing.sm),
                       Container(
                         padding: const EdgeInsets.symmetric(
                           horizontal: 6,
@@ -510,7 +512,7 @@ class _FilesystemAgentCard extends StatelessWidget {
                         ),
                         decoration: BoxDecoration(
                           color: oc.textMuted.withOpacity(0.15),
-                          borderRadius: BorderRadius.circular(4),
+                          borderRadius: Radii.brXs,
                         ),
                         child: Text(
                           source.toUpperCase(),
@@ -525,10 +527,10 @@ class _FilesystemAgentCard extends StatelessWidget {
                     ],
                   ),
                   if (description.isNotEmpty) ...[
-                    const SizedBox(height: 4),
+                    SizedBox(height: Spacing.xs),
                     Text(
                       description,
-                      style: TextStyle(color: oc.textMuted, fontSize: 13),
+                      style: AppTypography.bodySmall(color: oc.textMuted),
                       maxLines: 2,
                       overflow: TextOverflow.ellipsis,
                     ),
@@ -538,7 +540,7 @@ class _FilesystemAgentCard extends StatelessWidget {
                     Row(
                       children: [
                         Icon(Icons.memory_rounded, size: 12, color: oc.accent),
-                        const SizedBox(width: 4),
+                        SizedBox(width: Spacing.xs),
                         Text(
                           'Memory: $memoryScope',
                           style: TextStyle(
@@ -572,18 +574,18 @@ class _InfoChip extends StatelessWidget {
     final oc = theme.extension<OpenCodeTheme>()!;
 
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+      padding: Insets.chip,
       decoration: BoxDecoration(
         color: oc.background,
-        borderRadius: BorderRadius.circular(6),
+        borderRadius: Radii.brSm,
         border: Border.all(color: oc.border),
       ),
       child: Row(
         mainAxisSize: MainAxisSize.min,
         children: [
           Icon(icon, size: 14, color: oc.textMuted.withOpacity(0.7)),
-          const SizedBox(width: 4),
-          Text(label, style: TextStyle(color: oc.textMuted, fontSize: 12)),
+          SizedBox(width: Spacing.xs),
+          Text(label, style: AppTypography.label(color: oc.textMuted)),
         ],
       ),
     );
@@ -666,13 +668,13 @@ class _SubagentEditorScreenState extends State<_SubagentEditorScreen> {
         ],
       ),
       body: SingleChildScrollView(
-        padding: const EdgeInsets.all(16),
+        padding: Insets.card,
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             // Name field
             _buildLabel('Name', oc),
-            const SizedBox(height: 8),
+            SizedBox(height: Spacing.sm),
             TextField(
               controller: _nameController,
               enabled: !isEditing, // Can't change name when editing
@@ -680,7 +682,7 @@ class _SubagentEditorScreenState extends State<_SubagentEditorScreen> {
               style: TextStyle(color: oc.text),
             ),
             if (!isEditing) ...[
-              const SizedBox(height: 4),
+              SizedBox(height: Spacing.xs),
               Text(
                 'A unique identifier for this subagent (cannot be changed later)',
                 style: TextStyle(
@@ -690,11 +692,11 @@ class _SubagentEditorScreenState extends State<_SubagentEditorScreen> {
               ),
             ],
 
-            const SizedBox(height: 24),
+            SizedBox(height: Spacing.xxl),
 
             // Description field
             _buildLabel('Description', oc),
-            const SizedBox(height: 8),
+            SizedBox(height: Spacing.sm),
             TextField(
               controller: _descriptionController,
               decoration: _inputDecoration(
@@ -704,7 +706,7 @@ class _SubagentEditorScreenState extends State<_SubagentEditorScreen> {
               style: TextStyle(color: oc.text),
               maxLines: 2,
             ),
-            const SizedBox(height: 4),
+            SizedBox(height: Spacing.xs),
             Text(
               'Claude uses this to decide when to invoke the subagent',
               style: TextStyle(
@@ -713,11 +715,11 @@ class _SubagentEditorScreenState extends State<_SubagentEditorScreen> {
               ),
             ),
 
-            const SizedBox(height: 24),
+            SizedBox(height: Spacing.xxl),
 
             // Prompt field
             _buildLabel('System Prompt', oc),
-            const SizedBox(height: 8),
+            SizedBox(height: Spacing.sm),
             TextField(
               controller: _promptController,
               decoration: _inputDecoration(
@@ -728,7 +730,7 @@ class _SubagentEditorScreenState extends State<_SubagentEditorScreen> {
               maxLines: 6,
               minLines: 4,
             ),
-            const SizedBox(height: 4),
+            SizedBox(height: Spacing.xs),
             Text(
               'Defines the subagent\'s role, expertise, and behavior',
               style: TextStyle(
@@ -737,16 +739,16 @@ class _SubagentEditorScreenState extends State<_SubagentEditorScreen> {
               ),
             ),
 
-            const SizedBox(height: 24),
+            SizedBox(height: Spacing.xxl),
 
             // Model dropdown
             _buildLabel('Model', oc),
-            const SizedBox(height: 8),
+            SizedBox(height: Spacing.sm),
             Container(
-              padding: const EdgeInsets.symmetric(horizontal: 12),
+              padding: Insets.cardH,
               decoration: BoxDecoration(
                 color: oc.backgroundElement,
-                borderRadius: BorderRadius.circular(8),
+                borderRadius: Radii.brSm,
                 border: Border.all(color: oc.border),
               ),
               child: DropdownButtonHideUnderline(
@@ -769,7 +771,7 @@ class _SubagentEditorScreenState extends State<_SubagentEditorScreen> {
                 ),
               ),
             ),
-            const SizedBox(height: 4),
+            SizedBox(height: Spacing.xs),
             Text(
               'Inherit uses the main model; others override it',
               style: TextStyle(
@@ -778,16 +780,16 @@ class _SubagentEditorScreenState extends State<_SubagentEditorScreen> {
               ),
             ),
 
-            const SizedBox(height: 24),
+            SizedBox(height: Spacing.xxl),
 
             // Permission Mode dropdown (SDK v2.0.43)
             _buildLabel('Permission Mode (optional)', oc),
-            const SizedBox(height: 8),
+            SizedBox(height: Spacing.sm),
             Container(
-              padding: const EdgeInsets.symmetric(horizontal: 12),
+              padding: Insets.cardH,
               decoration: BoxDecoration(
                 color: oc.backgroundElement,
-                borderRadius: BorderRadius.circular(8),
+                borderRadius: Radii.brSm,
                 border: Border.all(color: oc.border),
               ),
               child: DropdownButtonHideUnderline(
@@ -821,7 +823,7 @@ class _SubagentEditorScreenState extends State<_SubagentEditorScreen> {
                 ),
               ),
             ),
-            const SizedBox(height: 4),
+            SizedBox(height: Spacing.xs),
             Text(
               'Override permission mode for this subagent only',
               style: TextStyle(
@@ -830,17 +832,17 @@ class _SubagentEditorScreenState extends State<_SubagentEditorScreen> {
               ),
             ),
 
-            const SizedBox(height: 24),
+            SizedBox(height: Spacing.xxl),
 
             // Tools field
             _buildLabel('Allowed Tools (optional)', oc),
-            const SizedBox(height: 8),
+            SizedBox(height: Spacing.sm),
             TextField(
               controller: _toolsController,
               decoration: _inputDecoration('e.g., Read, Grep, Glob', oc),
               style: TextStyle(color: oc.text),
             ),
-            const SizedBox(height: 4),
+            SizedBox(height: Spacing.xs),
             Text(
               'Comma-separated list of tool names. Leave empty to inherit all tools.',
               style: TextStyle(
@@ -849,11 +851,11 @@ class _SubagentEditorScreenState extends State<_SubagentEditorScreen> {
               ),
             ),
 
-            const SizedBox(height: 32),
+            SizedBox(height: Spacing.xxxl),
 
             // Disallowed Tools field (SDK v2.0.30)
             _buildLabel('Disallowed Tools (optional)', oc),
-            const SizedBox(height: 8),
+            SizedBox(height: Spacing.sm),
             TextField(
               controller: _disallowedToolsController,
               decoration: _inputDecoration(
@@ -862,7 +864,7 @@ class _SubagentEditorScreenState extends State<_SubagentEditorScreen> {
               ),
               style: TextStyle(color: oc.text),
             ),
-            const SizedBox(height: 4),
+            SizedBox(height: Spacing.xs),
             Text(
               'Tools this subagent cannot use. Supports wildcards like Bash(npm *)',
               style: TextStyle(
@@ -871,7 +873,7 @@ class _SubagentEditorScreenState extends State<_SubagentEditorScreen> {
               ),
             ),
 
-            const SizedBox(height: 32),
+            SizedBox(height: Spacing.xxxl),
 
             // Common tool presets
             Text(
@@ -882,7 +884,7 @@ class _SubagentEditorScreenState extends State<_SubagentEditorScreen> {
                 fontWeight: FontWeight.w600,
               ),
             ),
-            const SizedBox(height: 12),
+            SizedBox(height: Spacing.md),
             Wrap(
               spacing: 8,
               runSpacing: 8,
@@ -930,19 +932,19 @@ class _SubagentEditorScreenState extends State<_SubagentEditorScreen> {
       filled: true,
       fillColor: oc.backgroundElement,
       border: OutlineInputBorder(
-        borderRadius: BorderRadius.circular(8),
+        borderRadius: Radii.brSm,
         borderSide: BorderSide(color: oc.border),
       ),
       enabledBorder: OutlineInputBorder(
-        borderRadius: BorderRadius.circular(8),
+        borderRadius: Radii.brSm,
         borderSide: BorderSide(color: oc.border),
       ),
       focusedBorder: OutlineInputBorder(
-        borderRadius: BorderRadius.circular(8),
+        borderRadius: Radii.brSm,
         borderSide: BorderSide(color: oc.primary),
       ),
       disabledBorder: OutlineInputBorder(
-        borderRadius: BorderRadius.circular(8),
+        borderRadius: Radii.brSm,
         borderSide: BorderSide(color: oc.border.withOpacity(0.5)),
       ),
     );
@@ -1023,7 +1025,7 @@ class _PresetChip extends StatelessWidget {
 
     return ActionChip(
       label: Text(label),
-      labelStyle: TextStyle(color: oc.textMuted, fontSize: 12),
+      labelStyle: AppTypography.label(color: oc.textMuted),
       backgroundColor: oc.backgroundElement,
       side: BorderSide(color: oc.border),
       onPressed: onTap,

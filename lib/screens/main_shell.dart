@@ -17,6 +17,7 @@ import '../providers/nav_bar_style_provider.dart';
 import '../providers/sessions_provider.dart';
 import '../providers/service_providers.dart';
 import '../services/websocket_service.dart';
+import '../theme/design_tokens.dart';
 import '../theme/opencode_theme.dart';
 import '../widgets/app_background.dart';
 import '../widgets/glassmorphic_nav_bar.dart';
@@ -228,7 +229,7 @@ class _UpgradeBanner extends ConsumerWidget {
               padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
               decoration: BoxDecoration(
                 color: ocTheme.backgroundPanel,
-                borderRadius: BorderRadius.circular(20),
+                borderRadius: Radii.brXl,
                 border: Border.all(
                   color: ocTheme.warning.withValues(alpha: 0.3),
                 ),
@@ -241,7 +242,7 @@ class _UpgradeBanner extends ConsumerWidget {
                     color: ocTheme.warning,
                     size: 16,
                   ),
-                  const SizedBox(width: 8),
+                  SizedBox(width: Spacing.sm),
                   Text(
                     'Upgrade',
                     style: TextStyle(
@@ -250,7 +251,7 @@ class _UpgradeBanner extends ConsumerWidget {
                       fontWeight: FontWeight.w600,
                     ),
                   ),
-                  const SizedBox(width: 4),
+                  SizedBox(width: Spacing.xs),
                   Icon(
                     Icons.chevron_right_rounded,
                     color: ocTheme.textMuted,
@@ -277,13 +278,13 @@ class _UnpaidCenterCta extends ConsumerWidget {
       child: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
-          const SizedBox(height: 16),
+          SizedBox(height: Spacing.lg),
           Container(
             width: 64,
             height: 64,
             decoration: BoxDecoration(
               color: ocTheme.backgroundPanel.withValues(alpha: 0.65),
-              borderRadius: BorderRadius.circular(18),
+              borderRadius: Radii.brXl,
               border: Border.all(color: ocTheme.borderSubtle),
             ),
             child: Icon(
@@ -331,7 +332,7 @@ class _UnpaidCenterCta extends ConsumerWidget {
                 foregroundColor: ocTheme.selectedListItemText,
                 padding: const EdgeInsets.symmetric(vertical: 14),
                 shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(14),
+                  borderRadius: Radii.brLg,
                 ),
               ),
               child: const Text(
@@ -365,7 +366,7 @@ class _OfflineBanner extends StatelessWidget {
           padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
           decoration: BoxDecoration(
             color: ocTheme.backgroundPanel.withValues(alpha: 0.9),
-            borderRadius: BorderRadius.circular(20),
+            borderRadius: Radii.brXl,
             border: Border.all(color: ocTheme.textMuted.withValues(alpha: 0.2)),
           ),
           child: Row(
@@ -381,7 +382,7 @@ class _OfflineBanner extends StatelessWidget {
                   fontWeight: FontWeight.w500,
                 ),
               ),
-              const SizedBox(width: 8),
+              SizedBox(width: Spacing.sm),
               Icon(Icons.refresh_rounded, color: ocTheme.textMuted, size: 14),
             ],
           ),
@@ -413,13 +414,13 @@ class _ProtocolBanner extends StatelessWidget {
         padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
         decoration: BoxDecoration(
           color: ocTheme.warning.withValues(alpha: 0.14),
-          borderRadius: BorderRadius.circular(16),
+          borderRadius: Radii.brLg,
           border: Border.all(color: ocTheme.warning.withValues(alpha: 0.25)),
         ),
         child: Row(
           children: [
             Icon(Icons.warning_amber_rounded, color: ocTheme.warning, size: 16),
-            const SizedBox(width: 8),
+            SizedBox(width: Spacing.sm),
             Expanded(
               child: Text(
                 'Bridge protocol $bridgeVersion (app $appVersion). Some features may be unavailable until you update.',
@@ -465,7 +466,7 @@ class _ReconnectingBanner extends StatelessWidget {
         padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
         decoration: BoxDecoration(
           color: ocTheme.primary.withValues(alpha: 0.12),
-          borderRadius: BorderRadius.circular(16),
+          borderRadius: Radii.brLg,
           border: Border.all(color: ocTheme.primary.withValues(alpha: 0.25)),
         ),
         child: Row(
@@ -522,7 +523,7 @@ class _ModernBottomNav extends StatelessWidget {
       padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 6),
       decoration: BoxDecoration(
         color: ocTheme.backgroundPanel.withValues(alpha: 0.95),
-        borderRadius: BorderRadius.circular(20),
+        borderRadius: Radii.brXl,
         border: Border.all(
           color: ocTheme.borderSubtle.withValues(alpha: 0.15),
           width: 1,
@@ -590,7 +591,7 @@ class _NavItem extends StatelessWidget {
         onTap: onTap,
         behavior: HitTestBehavior.opaque,
         child: Container(
-          padding: const EdgeInsets.symmetric(vertical: 8),
+          padding: Insets.chipV,
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [

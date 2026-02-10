@@ -1,7 +1,8 @@
 import 'package:csv/csv.dart';
 import 'package:flutter/material.dart';
-import 'package:google_fonts/google_fonts.dart';
+import '../../theme/app_typography.dart';
 
+import '../../theme/design_tokens.dart';
 import '../../theme/opencode_theme.dart';
 
 class CsvFileViewer extends StatefulWidget {
@@ -43,7 +44,7 @@ class _CsvFileViewerState extends State<CsvFileViewer> {
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
             Icon(Icons.table_chart_outlined, size: 64, color: theme.textMuted),
-            const SizedBox(height: 16),
+            SizedBox(height: Spacing.lg),
             Text('Empty CSV file', style: TextStyle(color: theme.textMuted)),
           ],
         ),
@@ -60,15 +61,15 @@ class _CsvFileViewerState extends State<CsvFileViewer> {
       child: Column(
         children: [
           Container(
-            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+            padding: Insets.listItemDense,
             color: theme.backgroundPanel,
             child: Row(
               children: [
                 Icon(Icons.table_chart, size: 16, color: theme.textMuted),
-                const SizedBox(width: 8),
+                SizedBox(width: Spacing.sm),
                 Text(
                   '${_rows.length} rows × ${_rows.isNotEmpty ? _rows.first.length : 0} columns',
-                  style: TextStyle(color: theme.textMuted, fontSize: 12),
+                  style: AppTypography.label(color: theme.textMuted),
                 ),
                 const Spacer(),
                 Row(
@@ -76,9 +77,9 @@ class _CsvFileViewerState extends State<CsvFileViewer> {
                   children: [
                     Text(
                       'Header row',
-                      style: TextStyle(color: theme.textMuted, fontSize: 12),
+                      style: AppTypography.label(color: theme.textMuted),
                     ),
-                    const SizedBox(width: 8),
+                    SizedBox(width: Spacing.sm),
                     Switch(
                       value: _hasHeader,
                       onChanged: (value) => setState(() => _hasHeader = value),
@@ -107,7 +108,7 @@ class _CsvFileViewerState extends State<CsvFileViewer> {
                                 label: Text(
                                   cell.toString(),
                                   style: TextStyle(
-                                    fontFamily: 'GeistSans',
+                                    fontFamily: AppTypography.uiFontFamily,
                                     fontWeight: FontWeight.w600,
                                     color: theme.text,
                                     fontSize: 13,
@@ -122,7 +123,7 @@ class _CsvFileViewerState extends State<CsvFileViewer> {
                             label: Text(
                               'Column ${index + 1}',
                               style: TextStyle(
-                                fontFamily: 'GeistSans',
+                                fontFamily: AppTypography.uiFontFamily,
                                 fontWeight: FontWeight.w600,
                                 color: theme.text,
                                 fontSize: 13,
@@ -138,10 +139,7 @@ class _CsvFileViewerState extends State<CsvFileViewer> {
                                 (cell) => DataCell(
                                   Text(
                                     cell.toString(),
-                                    style: GoogleFonts.jetBrainsMono(
-                                      fontSize: 12,
-                                      color: theme.text,
-                                    ),
+                                    style: AppTypography.codeSmall(color: theme.text),
                                   ),
                                 ),
                               )

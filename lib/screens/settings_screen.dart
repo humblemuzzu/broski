@@ -13,6 +13,7 @@ import '../providers/onboarding_provider.dart';
 import '../providers/selection_provider.dart';
 import '../providers/service_providers.dart';
 import '../providers/theme_provider.dart';
+import '../theme/design_tokens.dart';
 import '../theme/opencode_theme.dart';
 import '../widgets/chat/detail_sheet.dart';
 import '../widgets/connection_quality_indicator.dart';
@@ -70,7 +71,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
       body: SafeArea(
         child: CustomScrollView(
           slivers: [
-            const SliverToBoxAdapter(child: SizedBox(height: 12)),
+            const SliverToBoxAdapter(child: SizedBox(height: Spacing.md)),
             SliverToBoxAdapter(
               child: Padding(
                 padding: const EdgeInsets.fromLTRB(20, 8, 20, 24),
@@ -89,22 +90,22 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
             const SliverToBoxAdapter(child: SubscribeBanner()),
 
             const SliverToBoxAdapter(child: _SectionDivider()),
-            const SliverToBoxAdapter(child: SizedBox(height: 24)),
+            const SliverToBoxAdapter(child: SizedBox(height: Spacing.xxl)),
 
             SliverToBoxAdapter(child: SectionHeader(title: 'Connection')),
-            const SliverToBoxAdapter(child: SizedBox(height: 12)),
+            const SliverToBoxAdapter(child: SizedBox(height: Spacing.md)),
 
             if (connection.connection != null && connection.isConnected) ...[
               SliverToBoxAdapter(
                 child: Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: 20),
+                  padding: Insets.screenH,
                   child: _ActiveConnectionCard(connection: connection),
                 ),
               ),
             ] else
               SliverToBoxAdapter(
                 child: Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: 20),
+                  padding: Insets.screenH,
                   child: _SettingsCard(
                     child: _SettingsTile(
                       title: 'No Connection',
@@ -121,12 +122,12 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                 ),
               ),
 
-            const SliverToBoxAdapter(child: SizedBox(height: 32)),
+            const SliverToBoxAdapter(child: SizedBox(height: Spacing.xxxl)),
             SliverToBoxAdapter(child: SectionHeader(title: 'AI')),
-            const SliverToBoxAdapter(child: SizedBox(height: 12)),
+            const SliverToBoxAdapter(child: SizedBox(height: Spacing.md)),
             SliverToBoxAdapter(
               child: Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 20),
+                padding: Insets.screenH,
                 child: _SettingsCard(
                   child: Column(
                     children: [
@@ -146,7 +147,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                                 color: theme.colorScheme.primary.withValues(
                                   alpha: 0.15,
                                 ),
-                                borderRadius: BorderRadius.circular(6),
+                                borderRadius: Radii.brSm,
                               ),
                               child: Text(
                                 switch (currentAgent) {
@@ -161,7 +162,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                                 ),
                               ),
                             ),
-                            const SizedBox(width: 8),
+                            SizedBox(width: Spacing.sm),
                             Icon(
                               Icons.chevron_right_rounded,
                               size: 20,
@@ -206,12 +207,12 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
               ),
             ),
 
-            const SliverToBoxAdapter(child: SizedBox(height: 32)),
+            const SliverToBoxAdapter(child: SizedBox(height: Spacing.xxxl)),
             SliverToBoxAdapter(child: SectionHeader(title: 'Project')),
-            const SliverToBoxAdapter(child: SizedBox(height: 12)),
+            const SliverToBoxAdapter(child: SizedBox(height: Spacing.md)),
             SliverToBoxAdapter(
               child: Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 20),
+                padding: Insets.screenH,
                 child: _SettingsCard(
                   child: Column(
                     children: [
@@ -291,12 +292,12 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
               ),
             ),
 
-            const SliverToBoxAdapter(child: SizedBox(height: 32)),
+            const SliverToBoxAdapter(child: SizedBox(height: Spacing.xxxl)),
             SliverToBoxAdapter(child: SectionHeader(title: 'Personalization')),
-            const SliverToBoxAdapter(child: SizedBox(height: 12)),
+            const SliverToBoxAdapter(child: SizedBox(height: Spacing.md)),
             SliverToBoxAdapter(
               child: Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 20),
+                padding: Insets.screenH,
                 child: _SettingsCard(
                   child: Column(
                     children: [
@@ -322,7 +323,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                                 ),
                               ),
                             ),
-                            const SizedBox(width: 8),
+                            SizedBox(width: Spacing.sm),
                             Icon(
                               Icons.chevron_right_rounded,
                               size: 20,
@@ -358,12 +359,12 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
             ),
 
             // ── Account ─────────────────────────────────────────
-            const SliverToBoxAdapter(child: SizedBox(height: 32)),
+            const SliverToBoxAdapter(child: SizedBox(height: Spacing.xxxl)),
             SliverToBoxAdapter(child: SectionHeader(title: 'Account')),
-            const SliverToBoxAdapter(child: SizedBox(height: 12)),
+            const SliverToBoxAdapter(child: SizedBox(height: Spacing.md)),
             SliverToBoxAdapter(
               child: Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 20),
+                padding: Insets.screenH,
                 child: _SettingsCard(
                   child: _SettingsTile(
                     title:
@@ -386,7 +387,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                               shape: BoxShape.circle,
                             ),
                           ),
-                        const SizedBox(width: 8),
+                        SizedBox(width: Spacing.sm),
                         Icon(
                           Icons.chevron_right_rounded,
                           size: 20,
@@ -406,12 +407,12 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
             ),
 
             // ── App ───────────────────────────────────────────────
-            const SliverToBoxAdapter(child: SizedBox(height: 32)),
+            const SliverToBoxAdapter(child: SizedBox(height: Spacing.xxxl)),
             SliverToBoxAdapter(child: SectionHeader(title: 'App')),
-            const SliverToBoxAdapter(child: SizedBox(height: 12)),
+            const SliverToBoxAdapter(child: SizedBox(height: Spacing.md)),
             SliverToBoxAdapter(
               child: Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 20),
+                padding: Insets.screenH,
                 child: _SettingsCard(
                   child: Column(
                     children: [
@@ -435,12 +436,12 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
             ),
 
             // ── Support ──────────────────────────────────────────
-            const SliverToBoxAdapter(child: SizedBox(height: 32)),
+            const SliverToBoxAdapter(child: SizedBox(height: Spacing.xxxl)),
             SliverToBoxAdapter(child: SectionHeader(title: 'Support')),
-            const SliverToBoxAdapter(child: SizedBox(height: 12)),
+            const SliverToBoxAdapter(child: SizedBox(height: Spacing.md)),
             SliverToBoxAdapter(
               child: Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 20),
+                padding: Insets.screenH,
                 child: _SettingsCard(
                   child: Column(
                     children: [
@@ -468,16 +469,16 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
             ),
 
             // ── Legal ────────────────────────────────────────────
-            const SliverToBoxAdapter(child: SizedBox(height: 24)),
+            const SliverToBoxAdapter(child: SizedBox(height: Spacing.xxl)),
             SliverToBoxAdapter(child: SectionHeader(title: 'Legal')),
             const SliverToBoxAdapter(child: SizedBox(height: 10)),
             SliverToBoxAdapter(
               child: Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 20),
+                padding: Insets.screenH,
                 child: _SettingsCard(
                   decoration: BoxDecoration(
                     color: theme.colorScheme.surface.withValues(alpha: 0.2),
-                    borderRadius: BorderRadius.circular(16),
+                    borderRadius: Radii.brLg,
                     border: Border.all(
                       color: ocTheme.borderSubtle.withValues(alpha: 0.3),
                     ),
@@ -509,11 +510,11 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
             ),
 
             // ── Version (bottom) ─────────────────────────────────
-            const SliverToBoxAdapter(child: SizedBox(height: 32)),
+            const SliverToBoxAdapter(child: SizedBox(height: Spacing.xxxl)),
             SliverToBoxAdapter(
               child: Center(
                 child: Padding(
-                  padding: const EdgeInsets.only(bottom: 8),
+                  padding: Insets.bottomSm,
                   child: Text(
                     'Broski v$appVersion',
                     style: TextStyle(
@@ -613,9 +614,9 @@ class _PowerFeaturesTile extends StatelessWidget {
 
     return InkWell(
       onTap: onToggle,
-      borderRadius: BorderRadius.circular(16),
+      borderRadius: Radii.brLg,
       child: Padding(
-        padding: const EdgeInsets.all(16),
+        padding: Insets.card,
         child: Row(
           children: [
             Icon(
@@ -623,7 +624,7 @@ class _PowerFeaturesTile extends StatelessWidget {
               color: theme.colorScheme.primary,
               size: 22,
             ),
-            const SizedBox(width: 12),
+            SizedBox(width: Spacing.md),
             Expanded(
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
@@ -638,7 +639,7 @@ class _PowerFeaturesTile extends StatelessWidget {
                           fontWeight: FontWeight.w600,
                         ),
                       ),
-                      const SizedBox(width: 8),
+                      SizedBox(width: Spacing.sm),
                       Container(
                         padding: const EdgeInsets.symmetric(
                           horizontal: 6,
@@ -648,7 +649,7 @@ class _PowerFeaturesTile extends StatelessWidget {
                           color: theme.colorScheme.primary.withValues(
                             alpha: 0.15,
                           ),
-                          borderRadius: BorderRadius.circular(6),
+                          borderRadius: Radii.brSm,
                         ),
                         child: Text(
                           '$featureCount',
@@ -988,11 +989,11 @@ class _PowerFeaturesExpandedCard extends StatelessWidget {
     final features = _getPowerFeatures(context, currentAgent);
 
     return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 20),
+      padding: Insets.screenH,
       child: Container(
         decoration: BoxDecoration(
           color: theme.colorScheme.surface.withValues(alpha: 0.4),
-          borderRadius: BorderRadius.circular(16),
+          borderRadius: Radii.brLg,
           border: Border.all(
             color: ocTheme.borderSubtle.withValues(alpha: 0.7),
           ),
@@ -1012,7 +1013,7 @@ class SectionHeader extends StatelessWidget {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 20),
+      padding: Insets.screenH,
       child: Text(
         title.toUpperCase(),
         style: TextStyle(
@@ -1033,7 +1034,7 @@ class _SectionDivider extends StatelessWidget {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     return Container(
-      margin: const EdgeInsets.symmetric(horizontal: 20),
+      margin: Insets.screenH,
       height: 1,
       decoration: BoxDecoration(
         gradient: LinearGradient(
@@ -1167,12 +1168,12 @@ class _ProjectPickerContentState extends ConsumerState<_ProjectPickerContent> {
         ),
         if (_loading)
           const Padding(
-            padding: EdgeInsets.all(32),
+            padding: Insets.xxxl,
             child: CircularProgressIndicator(),
           )
         else if (_error != null)
           Padding(
-            padding: const EdgeInsets.all(16),
+            padding: Insets.card,
             child: Text(
               _error!,
               textAlign: TextAlign.center,
@@ -1225,10 +1226,10 @@ class _ActiveConnectionCardState extends ConsumerState<_ActiveConnectionCard> {
       onTap: () => setState(() => _isExpanded = !_isExpanded),
       child: AnimatedContainer(
         duration: const Duration(milliseconds: 200),
-        padding: const EdgeInsets.all(20),
+        padding: Insets.screenAll,
         decoration: BoxDecoration(
           color: theme.colorScheme.surface.withValues(alpha: 0.5),
-          borderRadius: BorderRadius.circular(20),
+          borderRadius: Radii.brXl,
           border: Border.all(color: ocTheme.borderSubtle),
         ),
         child: Column(
@@ -1236,7 +1237,7 @@ class _ActiveConnectionCardState extends ConsumerState<_ActiveConnectionCard> {
             Row(
               children: [
                 Container(
-                  padding: const EdgeInsets.all(16),
+                  padding: Insets.card,
                   decoration: BoxDecoration(
                     color: theme.colorScheme.primary.withValues(alpha: 0.15),
                     shape: BoxShape.circle,
@@ -1247,7 +1248,7 @@ class _ActiveConnectionCardState extends ConsumerState<_ActiveConnectionCard> {
                     size: 28,
                   ),
                 ),
-                const SizedBox(width: 16),
+                SizedBox(width: Spacing.lg),
                 Expanded(
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
@@ -1260,7 +1261,7 @@ class _ActiveConnectionCardState extends ConsumerState<_ActiveConnectionCard> {
                           fontWeight: FontWeight.w700,
                         ),
                       ),
-                      const SizedBox(height: 4),
+                      SizedBox(height: Spacing.xs),
                       const ConnectionQualityIndicator(),
                     ],
                   ),
@@ -1279,13 +1280,13 @@ class _ActiveConnectionCardState extends ConsumerState<_ActiveConnectionCard> {
             if (_isExpanded &&
                 isConnected &&
                 connection.connection != null) ...[
-              const SizedBox(height: 20),
+              SizedBox(height: Spacing.xl),
               // Connection details
               Container(
-                padding: const EdgeInsets.all(16),
+                padding: Insets.card,
                 decoration: BoxDecoration(
                   color: ocTheme.backgroundElement,
-                  borderRadius: BorderRadius.circular(16),
+                  borderRadius: Radii.brLg,
                 ),
                 child: Column(
                   children: [
@@ -1316,14 +1317,14 @@ class _ActiveConnectionCardState extends ConsumerState<_ActiveConnectionCard> {
                     ),
                     if (connection.connection!.tailscaleIP != null ||
                         connection.rttMs != null) ...[
-                      const SizedBox(height: 16),
+                      SizedBox(height: Spacing.lg),
                       Divider(
                         height: 1,
                         color: theme.colorScheme.onSurface.withValues(
                           alpha: 0.1,
                         ),
                       ),
-                      const SizedBox(height: 16),
+                      SizedBox(height: Spacing.lg),
                       Row(
                         children: [
                           if (connection.connection!.tailscaleIP != null)
@@ -1358,7 +1359,7 @@ class _ActiveConnectionCardState extends ConsumerState<_ActiveConnectionCard> {
                 ),
               ),
               // Connection actions
-              const SizedBox(height: 12),
+              SizedBox(height: Spacing.md),
               Row(
                 children: [
                   Expanded(
@@ -1417,17 +1418,17 @@ class _ConnectionActionButton extends StatelessWidget {
     return GestureDetector(
       onTap: onTap,
       child: Container(
-        padding: const EdgeInsets.symmetric(vertical: 12),
+        padding: Insets.cardV,
         decoration: BoxDecoration(
           color: color.withValues(alpha: 0.1),
-          borderRadius: BorderRadius.circular(12),
+          borderRadius: Radii.brMd,
           border: Border.all(color: color.withValues(alpha: 0.2)),
         ),
         child: Row(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
             Icon(icon, size: 16, color: color),
-            const SizedBox(width: 8),
+            SizedBox(width: Spacing.sm),
             Text(
               label,
               style: TextStyle(
@@ -1461,7 +1462,7 @@ class _ConnectionStat extends StatelessWidget {
     return Column(
       children: [
         Icon(icon, color: theme.colorScheme.primary, size: 18),
-        const SizedBox(height: 8),
+        SizedBox(height: Spacing.sm),
         Text(
           label,
           style: TextStyle(
@@ -1471,7 +1472,7 @@ class _ConnectionStat extends StatelessWidget {
             letterSpacing: 0.5,
           ),
         ),
-        const SizedBox(height: 4),
+        SizedBox(height: Spacing.xs),
         Text(
           value,
           style: TextStyle(
@@ -1502,7 +1503,7 @@ class _SettingsCard extends StatelessWidget {
           decoration ??
           BoxDecoration(
             color: themeData.colorScheme.surface.withValues(alpha: 0.5),
-            borderRadius: BorderRadius.circular(16),
+            borderRadius: Radii.brLg,
             border: Border.all(color: ocTheme.borderSubtle),
           ),
       child: child,
@@ -1531,13 +1532,13 @@ class _SettingsTile extends StatelessWidget {
 
     return InkWell(
       onTap: onTap,
-      borderRadius: BorderRadius.circular(16),
+      borderRadius: Radii.brLg,
       child: Padding(
-        padding: const EdgeInsets.all(16),
+        padding: Insets.card,
         child: Row(
           children: [
             Icon(icon, color: theme.colorScheme.primary, size: 22),
-            const SizedBox(width: 12),
+            SizedBox(width: Spacing.md),
             Expanded(
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
@@ -1588,9 +1589,9 @@ class _LinkTile extends StatelessWidget {
     return InkWell(
       onTap: () =>
           launchUrl(Uri.parse(url), mode: LaunchMode.externalApplication),
-      borderRadius: BorderRadius.circular(16),
+      borderRadius: Radii.brLg,
       child: Padding(
-        padding: const EdgeInsets.all(16),
+        padding: Insets.card,
         child: Row(
           children: [
             Icon(
@@ -1598,7 +1599,7 @@ class _LinkTile extends StatelessWidget {
               color: theme.colorScheme.onSurface.withValues(alpha: 0.5),
               size: 22,
             ),
-            const SizedBox(width: 12),
+            SizedBox(width: Spacing.md),
             Expanded(
               child: Text(
                 title,

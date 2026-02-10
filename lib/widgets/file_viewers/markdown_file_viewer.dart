@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_markdown/flutter_markdown.dart';
-import 'package:google_fonts/google_fonts.dart';
+import '../../theme/app_typography.dart';
+import '../../theme/design_tokens.dart';
 import 'package:url_launcher/url_launcher.dart';
 
 import '../../theme/opencode_theme.dart';
@@ -30,87 +31,85 @@ class MarkdownFileViewer extends StatelessWidget {
             launchUrl(Uri.parse(href), mode: LaunchMode.externalApplication);
           }
         },
-        padding: const EdgeInsets.all(16),
+        padding: Insets.card,
       ),
     );
   }
 
   MarkdownStyleSheet _buildMarkdownStyle(OpenCodeTheme theme) {
     return MarkdownStyleSheet(
-      p: TextStyle(fontFamily: 'GeistSans', fontSize: 15, color: theme.text, height: 1.6),
+      p: TextStyle(fontFamily: AppTypography.uiFontFamily, fontSize: 15, color: theme.text, height: 1.6),
       h1: TextStyle(
-        fontFamily: 'GeistSans',
+        fontFamily: AppTypography.uiFontFamily,
         fontSize: 28,
         fontWeight: FontWeight.w700,
         color: theme.text,
         height: 1.3,
       ),
       h2: TextStyle(
-        fontFamily: 'GeistSans',
+        fontFamily: AppTypography.uiFontFamily,
         fontSize: 24,
         fontWeight: FontWeight.w600,
         color: theme.text,
         height: 1.3,
       ),
       h3: TextStyle(
-        fontFamily: 'GeistSans',
+        fontFamily: AppTypography.uiFontFamily,
         fontSize: 20,
         fontWeight: FontWeight.w600,
         color: theme.text,
         height: 1.4,
       ),
       h4: TextStyle(
-        fontFamily: 'GeistSans',
+        fontFamily: AppTypography.uiFontFamily,
         fontSize: 17,
         fontWeight: FontWeight.w600,
         color: theme.text,
         height: 1.4,
       ),
       h5: TextStyle(
-        fontFamily: 'GeistSans',
+        fontFamily: AppTypography.uiFontFamily,
         fontSize: 15,
         fontWeight: FontWeight.w600,
         color: theme.text,
         height: 1.4,
       ),
       h6: TextStyle(
-        fontFamily: 'GeistSans',
+        fontFamily: AppTypography.uiFontFamily,
         fontSize: 14,
         fontWeight: FontWeight.w600,
         color: theme.textMuted,
         height: 1.4,
       ),
-      code: GoogleFonts.jetBrainsMono(
-        fontSize: 13,
-        color: theme.primary,
+      code: AppTypography.code(color: theme.primary).copyWith(
         backgroundColor: theme.backgroundPanel,
       ),
       codeblockDecoration: BoxDecoration(
         color: theme.backgroundPanel,
-        borderRadius: BorderRadius.circular(8),
+        borderRadius: Radii.brSm,
         border: Border.all(color: theme.borderSubtle),
       ),
-      codeblockPadding: const EdgeInsets.all(12),
+      codeblockPadding: Insets.cardSm,
       blockquoteDecoration: BoxDecoration(
         border: Border(left: BorderSide(color: theme.primary, width: 3)),
       ),
       blockquotePadding: const EdgeInsets.only(left: 16, top: 8, bottom: 8),
       blockquote: TextStyle(
-        fontFamily: 'GeistSans',
+        fontFamily: AppTypography.uiFontFamily,
         fontSize: 15,
         color: theme.textMuted,
         fontStyle: FontStyle.italic,
         height: 1.6,
       ),
       a: TextStyle(color: theme.primary, decoration: TextDecoration.underline),
-      listBullet: TextStyle(fontFamily: 'GeistSans', fontSize: 15, color: theme.text),
+      listBullet: TextStyle(fontFamily: AppTypography.uiFontFamily, fontSize: 15, color: theme.text),
       tableHead: TextStyle(
-        fontFamily: 'GeistSans',
+        fontFamily: AppTypography.uiFontFamily,
         fontSize: 14,
         fontWeight: FontWeight.w600,
         color: theme.text,
       ),
-      tableBody: TextStyle(fontFamily: 'GeistSans', fontSize: 14, color: theme.text),
+      tableBody: TextStyle(fontFamily: AppTypography.uiFontFamily, fontSize: 14, color: theme.text),
       tableBorder: TableBorder.all(color: theme.borderSubtle, width: 1),
       tableHeadAlign: TextAlign.left,
       tableCellsPadding: const EdgeInsets.symmetric(

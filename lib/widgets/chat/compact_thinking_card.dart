@@ -1,10 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:google_fonts/google_fonts.dart';
-
 import '../../models/card_style.dart';
 import '../../models/message.dart';
 import '../../providers/card_style_provider.dart';
+import '../../theme/app_typography.dart';
 import '../../theme/design_tokens.dart';
 import '../../theme/opencode_theme.dart';
 import 'detail_sheet.dart';
@@ -47,7 +46,7 @@ class CompactThinkingCard extends ConsumerWidget {
                   SizedBox(width: 6),
                   Text(
                     'Completed in ${_formatDuration(message.reasoningDurationMs!)}',
-                    style: TextStyle(color: theme.textMuted, fontSize: 12),
+                    style: AppTypography.label(color: theme.textMuted),
                   ),
                 ],
               ),
@@ -60,7 +59,7 @@ class CompactThinkingCard extends ConsumerWidget {
               padding: Insets.card,
               decoration: BoxDecoration(
                 color: theme.backgroundElement,
-                borderRadius: BorderRadius.circular(8),
+                borderRadius: Radii.brSm,
                 border: Border.all(
                   color: theme.borderSubtle.withValues(alpha: 0.5),
                   width: 1,
@@ -70,9 +69,7 @@ class CompactThinkingCard extends ConsumerWidget {
                 reasoningText.isNotEmpty
                     ? reasoningText
                     : 'No thinking content',
-                style: GoogleFonts.jetBrainsMono(
-                  color: theme.text,
-                  fontSize: 12,
+                style: AppTypography.codeSmall(color: theme.text).copyWith(
                   height: 1.5,
                 ),
               ),
@@ -130,7 +127,7 @@ class CompactThinkingCard extends ConsumerWidget {
         margin: EdgeInsets.symmetric(vertical: Spacing.xxs),
         decoration: BoxDecoration(
           color: theme.bgRaised,
-          borderRadius: BorderRadius.circular(12),
+          borderRadius: Radii.brMd,
           border: Border.all(
             color: isStreaming
                 ? thinkingColor.withValues(alpha: 0.4)
@@ -143,7 +140,7 @@ class CompactThinkingCard extends ConsumerWidget {
           padding: EdgeInsets.symmetric(horizontal: Spacing.md, vertical: 10),
           decoration: BoxDecoration(
             color: headerBg,
-            borderRadius: BorderRadius.circular(11),
+            borderRadius: Radii.brMd,
           ),
           child: Row(
             children: [
@@ -181,7 +178,7 @@ class CompactThinkingCard extends ConsumerWidget {
                   ),
                   decoration: BoxDecoration(
                     color: thinkingColor.withValues(alpha: 0.12),
-                    borderRadius: BorderRadius.circular(4),
+                    borderRadius: Radii.brXs,
                   ),
                   child: Text(
                     _formatDuration(durationMs),
@@ -200,7 +197,7 @@ class CompactThinkingCard extends ConsumerWidget {
               Expanded(
                 child: Text(
                   preview,
-                  style: TextStyle(color: theme.textMuted, fontSize: 12),
+                  style: AppTypography.label(color: theme.textMuted),
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
                 ),

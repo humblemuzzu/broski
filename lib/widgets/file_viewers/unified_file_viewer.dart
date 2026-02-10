@@ -1,6 +1,7 @@
 import 'dart:typed_data';
 
 import 'package:flutter/material.dart';
+import '../../theme/design_tokens.dart';
 
 import '../../models/file_content.dart';
 import '../../theme/opencode_theme.dart';
@@ -91,7 +92,7 @@ class UnifiedFileViewer extends StatelessWidget {
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
           Icon(Icons.error_outline, size: 64, color: theme.textMuted),
-          const SizedBox(height: 16),
+          SizedBox(height: Spacing.lg),
           Text(message, style: TextStyle(color: theme.textMuted)),
         ],
       ),

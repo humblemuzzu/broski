@@ -3,7 +3,8 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter_markdown/flutter_markdown.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:google_fonts/google_fonts.dart';
+import '../theme/app_typography.dart';
+import '../theme/design_tokens.dart';
 
 import '../models/agent_type.dart';
 import '../models/skill.dart';
@@ -136,7 +137,7 @@ class _SkillsScreenState extends ConsumerState<SkillsScreen> {
         mainAxisSize: MainAxisSize.min,
         children: [
           Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+            padding: Insets.listItemDense,
             child: Text(
               widget.backend.displayName,
               style: TextStyle(
@@ -274,7 +275,7 @@ class _SkillsScreenState extends ConsumerState<SkillsScreen> {
           : _error != null
           ? Center(
               child: Padding(
-                padding: const EdgeInsets.all(24),
+                padding: Insets.cardLg,
                 child: Column(
                   mainAxisAlignment: MainAxisAlignment.center,
                   children: [
@@ -283,18 +284,18 @@ class _SkillsScreenState extends ConsumerState<SkillsScreen> {
                       color: oc.error,
                       size: 48,
                     ),
-                    const SizedBox(height: 12),
+                    SizedBox(height: Spacing.md),
                     Text(
                       'Failed to load skills',
                       style: TextStyle(color: oc.text, fontSize: 16),
                     ),
-                    const SizedBox(height: 8),
+                    SizedBox(height: Spacing.sm),
                     Text(
                       _error!,
                       textAlign: TextAlign.center,
-                      style: TextStyle(color: oc.textMuted, fontSize: 12),
+                      style: AppTypography.label(color: oc.textMuted),
                     ),
-                    const SizedBox(height: 16),
+                    SizedBox(height: Spacing.lg),
                     ElevatedButton.icon(
                       onPressed: _load,
                       icon: const Icon(Icons.refresh_rounded),
@@ -307,7 +308,7 @@ class _SkillsScreenState extends ConsumerState<SkillsScreen> {
           : _skills.isEmpty
           ? Center(
               child: Padding(
-                padding: const EdgeInsets.all(24),
+                padding: Insets.cardLg,
                 child: Column(
                   mainAxisAlignment: MainAxisAlignment.center,
                   children: [
@@ -316,15 +317,15 @@ class _SkillsScreenState extends ConsumerState<SkillsScreen> {
                       color: oc.textMuted,
                       size: 56,
                     ),
-                    const SizedBox(height: 12),
+                    SizedBox(height: Spacing.md),
                     Text('No skills found', style: TextStyle(color: oc.text)),
-                    const SizedBox(height: 8),
+                    SizedBox(height: Spacing.sm),
                     Text(
                       'Create a SKILL.md to teach the agent repeatable workflows.',
                       textAlign: TextAlign.center,
                       style: TextStyle(color: oc.textMuted),
                     ),
-                    const SizedBox(height: 16),
+                    SizedBox(height: Spacing.lg),
                     ElevatedButton.icon(
                       onPressed: _createSkill,
                       icon: const Icon(Icons.add_rounded),
@@ -338,7 +339,7 @@ class _SkillsScreenState extends ConsumerState<SkillsScreen> {
               padding: const EdgeInsets.fromLTRB(16, 8, 16, 16),
               children: [
                 _BackendHeader(backend: widget.backend),
-                const SizedBox(height: 12),
+                SizedBox(height: Spacing.md),
                 for (final source in orderedSources) ...[
                   _SectionHeader(title: source.displayName),
                   const SizedBox(height: 6),
@@ -348,7 +349,7 @@ class _SkillsScreenState extends ConsumerState<SkillsScreen> {
                       color: oc.backgroundElement,
                       margin: const EdgeInsets.only(bottom: 10),
                       shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(12),
+                        borderRadius: Radii.brMd,
                         side: BorderSide(color: oc.border),
                       ),
                       child: ListTile(
@@ -374,7 +375,7 @@ class _SkillsScreenState extends ConsumerState<SkillsScreen> {
                                 ),
                                 decoration: BoxDecoration(
                                   color: oc.primary.withValues(alpha: 0.15),
-                                  borderRadius: BorderRadius.circular(4),
+                                  borderRadius: Radii.brXs,
                                 ),
                                 child: Text(
                                   skill.extra!['agent'].toString(),
@@ -688,7 +689,7 @@ description: $description
         children: [
           if (_loadError != null)
             Padding(
-              padding: const EdgeInsets.all(12),
+              padding: Insets.cardSm,
               child: Text(_loadError!, style: TextStyle(color: oc.error)),
             ),
           if (_isCreate)
@@ -699,7 +700,7 @@ description: $description
                 children: [
                   Text(
                     'Name',
-                    style: TextStyle(color: oc.textMuted, fontSize: 12),
+                    style: AppTypography.label(color: oc.textMuted),
                   ),
                   const SizedBox(height: 6),
                   TextField(
@@ -712,7 +713,7 @@ description: $description
                   if (source != null)
                     Text(
                       'Location: ${source.displayName}${readOnly ? ' (read-only)' : ''}',
-                      style: TextStyle(color: oc.textMuted, fontSize: 12),
+                      style: AppTypography.label(color: oc.textMuted),
                     ),
                 ],
               ),
@@ -723,16 +724,16 @@ description: $description
               child: Row(
                 children: [
                   _Chip(label: widget.backend.displayName),
-                  const SizedBox(width: 8),
+                  SizedBox(width: Spacing.sm),
                   if (source != null) _Chip(label: source.displayName),
                   if (readOnly) ...[
-                    const SizedBox(width: 8),
+                    SizedBox(width: Spacing.sm),
                     _Chip(label: 'Read-only', tone: ChipTone.warn),
                   ],
                 ],
               ),
             ),
-          const SizedBox(height: 12),
+          SizedBox(height: Spacing.md),
           Expanded(
             child: TabBarView(
               controller: _tabs,
@@ -744,16 +745,13 @@ description: $description
                     maxLines: null,
                     expands: true,
                     readOnly: readOnly,
-                    style: TextStyle(
-                      fontFamily: GoogleFonts.jetBrainsMono().fontFamily,
-                      fontSize: 13,
-                    ),
+                    style: AppTypography.code(),
                     decoration: InputDecoration(
                       hintText: 'SKILL.md content',
                       filled: true,
                       fillColor: oc.backgroundElement,
                       border: OutlineInputBorder(
-                        borderRadius: BorderRadius.circular(12),
+                        borderRadius: Radii.brMd,
                         borderSide: BorderSide(color: oc.border),
                       ),
                     ),
@@ -772,9 +770,7 @@ description: $description
                       ),
                       h2: theme.textTheme.titleLarge?.copyWith(color: oc.text),
                       h3: theme.textTheme.titleMedium?.copyWith(color: oc.text),
-                      code: theme.textTheme.bodyMedium?.copyWith(
-                        fontFamily: GoogleFonts.jetBrainsMono().fontFamily,
-                        color: oc.text,
+                      code: AppTypography.code(color: oc.text).copyWith(
                         backgroundColor: oc.backgroundElement,
                       ),
                     ),
@@ -805,7 +801,7 @@ class _Chip extends StatelessWidget {
       padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
       decoration: BoxDecoration(
         color: color.withValues(alpha: 0.14),
-        borderRadius: BorderRadius.circular(999),
+        borderRadius: Radii.brFull,
         border: Border.all(color: color.withValues(alpha: 0.25)),
       ),
       child: Text(
@@ -829,10 +825,10 @@ class _BackendHeader extends StatelessWidget {
   Widget build(BuildContext context) {
     final oc = Theme.of(context).extension<OpenCodeTheme>()!;
     return Container(
-      padding: const EdgeInsets.all(14),
+      padding: Insets.cardMd,
       decoration: BoxDecoration(
         color: oc.backgroundPanel,
-        borderRadius: BorderRadius.circular(14),
+        borderRadius: Radii.brLg,
         border: Border.all(color: oc.borderSubtle),
       ),
       child: Row(

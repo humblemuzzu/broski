@@ -1,8 +1,8 @@
 import 'package:flutter/material.dart';
-import 'package:google_fonts/google_fonts.dart';
-
 import '../models/message.dart';
 import '../screens/diff_view_screen.dart';
+import '../theme/app_typography.dart';
+import '../theme/design_tokens.dart';
 import '../theme/opencode_theme.dart';
 import '../utils/diff_utils.dart';
 
@@ -139,7 +139,7 @@ class _PermissionPromptState extends State<PermissionPrompt> {
         return Container(
           decoration: BoxDecoration(
             color: theme.background,
-            borderRadius: const BorderRadius.vertical(top: Radius.circular(20)),
+            borderRadius: Radii.sheetTop,
           ),
           child: Column(
             children: [
@@ -151,7 +151,7 @@ class _PermissionPromptState extends State<PermissionPrompt> {
                   height: 4,
                   decoration: BoxDecoration(
                     color: theme.textMuted.withValues(alpha: 0.3),
-                    borderRadius: BorderRadius.circular(2),
+                    borderRadius: Radii.brXs,
                   ),
                 ),
               ),
@@ -168,10 +168,10 @@ class _PermissionPromptState extends State<PermissionPrompt> {
                       Row(
                         children: [
                           Container(
-                            padding: const EdgeInsets.all(8),
+                            padding: Insets.cardXs,
                             decoration: BoxDecoration(
                               color: permissionColor.withValues(alpha: 0.15),
-                              borderRadius: BorderRadius.circular(10),
+                              borderRadius: Radii.brMd,
                             ),
                             child: Icon(
                               _getPermissionIcon(),
@@ -179,7 +179,7 @@ class _PermissionPromptState extends State<PermissionPrompt> {
                               size: 20,
                             ),
                           ),
-                          const SizedBox(width: 12),
+                          SizedBox(width: Spacing.md),
                           Expanded(
                             child: Text(
                               widget.request.displayTitle,
@@ -189,16 +189,16 @@ class _PermissionPromptState extends State<PermissionPrompt> {
                           ),
                         ],
                       ),
-                      const SizedBox(height: 12),
+                      SizedBox(height: Spacing.md),
 
                       // Task 5: Doom loop custom text
                       if (_isDoomLoop) ...[
                         Container(
                           width: double.infinity,
-                          padding: const EdgeInsets.all(12),
+                          padding: Insets.cardSm,
                           decoration: BoxDecoration(
                             color: theme.warning.withValues(alpha: 0.1),
-                            borderRadius: BorderRadius.circular(10),
+                            borderRadius: Radii.brMd,
                             border: Border.all(
                               color: theme.warning.withValues(alpha: 0.3),
                             ),
@@ -213,7 +213,7 @@ class _PermissionPromptState extends State<PermissionPrompt> {
                                     color: theme.warning,
                                     size: 18,
                                   ),
-                                  const SizedBox(width: 8),
+                                  SizedBox(width: Spacing.sm),
                                   Text(
                                     'Repeated tool call detected',
                                     style: TextStyle(
@@ -224,7 +224,7 @@ class _PermissionPromptState extends State<PermissionPrompt> {
                                   ),
                                 ],
                               ),
-                              const SizedBox(height: 8),
+                              SizedBox(height: Spacing.sm),
                               Text(
                                 'The AI has called the same tool repeatedly with identical inputs. '
                                 'Allow it to continue or reject to break the loop.',
@@ -237,7 +237,7 @@ class _PermissionPromptState extends State<PermissionPrompt> {
                             ],
                           ),
                         ),
-                        const SizedBox(height: 12),
+                        SizedBox(height: Spacing.md),
                       ],
 
                       // Show patterns if available (SDK v1.1.1+)
@@ -249,7 +249,7 @@ class _PermissionPromptState extends State<PermissionPrompt> {
                               ? 'Files affected'
                               : null,
                         ),
-                        const SizedBox(height: 12),
+                        SizedBox(height: Spacing.md),
                       ] else if (widget.request.title.isNotEmpty &&
                           widget.request.title !=
                               widget.request.displayTitle) ...[
@@ -257,28 +257,25 @@ class _PermissionPromptState extends State<PermissionPrompt> {
                           widget.request.title,
                           style: Theme.of(context).textTheme.bodyMedium,
                         ),
-                        const SizedBox(height: 8),
+                        SizedBox(height: Spacing.sm),
                       ],
 
                       // Legacy command display
                       if (widget.request.command != null) ...[
                         Container(
                           width: double.infinity,
-                          padding: const EdgeInsets.all(12),
+                          padding: Insets.cardSm,
                           decoration: BoxDecoration(
                             color: theme.backgroundElement,
-                            borderRadius: BorderRadius.circular(10),
+                            borderRadius: Radii.brMd,
                             border: Border.all(color: theme.borderSubtle),
                           ),
                           child: Text(
                             widget.request.command!,
-                            style: GoogleFonts.jetBrainsMono(
-                              fontSize: 12,
-                              color: theme.text,
-                            ),
+                            style: AppTypography.codeSmall(color: theme.text),
                           ),
                         ),
-                        const SizedBox(height: 12),
+                        SizedBox(height: Spacing.md),
                       ],
 
                       // Show diff preview if available
@@ -296,7 +293,7 @@ class _PermissionPromptState extends State<PermissionPrompt> {
                           diffText: diffText,
                           filePath: filePath,
                         ),
-                        const SizedBox(height: 12),
+                        SizedBox(height: Spacing.md),
                       ],
 
                       // Show "always allow" preview if available (SDK v1.1.1+)
@@ -305,7 +302,7 @@ class _PermissionPromptState extends State<PermissionPrompt> {
                           always: widget.request.always,
                           theme: theme,
                         ),
-                        const SizedBox(height: 12),
+                        SizedBox(height: Spacing.md),
                       ],
                     ],
                   ),
@@ -485,27 +482,27 @@ class _RejectFeedbackSection extends StatelessWidget {
             fontWeight: FontWeight.w500,
           ),
         ),
-        const SizedBox(height: 8),
+        SizedBox(height: Spacing.sm),
         TextField(
           controller: controller,
           focusNode: focusNode,
           maxLines: 2,
-          style: TextStyle(color: theme.text, fontSize: 14),
+          style: AppTypography.labelLarge(color: theme.text),
           decoration: InputDecoration(
             hintText: 'e.g., "Use a different approach..." ',
-            hintStyle: TextStyle(color: theme.textMuted, fontSize: 14),
+            hintStyle: AppTypography.labelLarge(color: theme.textMuted),
             filled: true,
             fillColor: theme.backgroundElement,
             border: OutlineInputBorder(
-              borderRadius: BorderRadius.circular(10),
+              borderRadius: Radii.brMd,
               borderSide: BorderSide(color: theme.borderSubtle),
             ),
             enabledBorder: OutlineInputBorder(
-              borderRadius: BorderRadius.circular(10),
+              borderRadius: Radii.brMd,
               borderSide: BorderSide(color: theme.borderSubtle),
             ),
             focusedBorder: OutlineInputBorder(
-              borderRadius: BorderRadius.circular(10),
+              borderRadius: Radii.brMd,
               borderSide: BorderSide(color: theme.error),
             ),
             contentPadding: const EdgeInsets.symmetric(
@@ -514,7 +511,7 @@ class _RejectFeedbackSection extends StatelessWidget {
             ),
           ),
         ),
-        const SizedBox(height: 12),
+        SizedBox(height: Spacing.md),
         Row(
           children: [
             Expanded(
@@ -527,7 +524,7 @@ class _RejectFeedbackSection extends StatelessWidget {
                 child: const Text('Cancel'),
               ),
             ),
-            const SizedBox(width: 12),
+            SizedBox(width: Spacing.md),
             Expanded(
               child: ElevatedButton(
                 onPressed: onConfirm,
@@ -540,7 +537,7 @@ class _RejectFeedbackSection extends StatelessWidget {
             ),
           ],
         ),
-        const SizedBox(height: 8),
+        SizedBox(height: Spacing.sm),
       ],
     );
   }
@@ -583,15 +580,12 @@ class _PatternsSection extends StatelessWidget {
               padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
               decoration: BoxDecoration(
                 color: theme.backgroundElement,
-                borderRadius: BorderRadius.circular(8),
+                borderRadius: Radii.brSm,
                 border: Border.all(color: theme.borderSubtle),
               ),
               child: Text(
                 pattern,
-                style: GoogleFonts.jetBrainsMono(
-                  fontSize: 12,
-                  color: theme.text,
-                ),
+                style: AppTypography.codeSmall(color: theme.text),
               ),
             );
           }).toList(),
@@ -612,10 +606,10 @@ class _AlwaysAllowPreview extends StatelessWidget {
   Widget build(BuildContext context) {
     return Container(
       width: double.infinity,
-      padding: const EdgeInsets.all(12),
+      padding: Insets.cardSm,
       decoration: BoxDecoration(
         color: theme.success.withValues(alpha: 0.08),
-        borderRadius: BorderRadius.circular(10),
+        borderRadius: Radii.brMd,
         border: Border.all(color: theme.success.withValues(alpha: 0.3)),
       ),
       child: Column(
@@ -639,7 +633,7 @@ class _AlwaysAllowPreview extends StatelessWidget {
               ),
             ],
           ),
-          const SizedBox(height: 8),
+          SizedBox(height: Spacing.sm),
           ...always
               .take(5)
               .map(
@@ -649,15 +643,12 @@ class _AlwaysAllowPreview extends StatelessWidget {
                     children: [
                       Text(
                         '\u2022 ',
-                        style: TextStyle(color: theme.textMuted, fontSize: 12),
+                        style: AppTypography.label(color: theme.textMuted),
                       ),
                       Expanded(
                         child: Text(
                           pattern,
-                          style: GoogleFonts.jetBrainsMono(
-                            fontSize: 11,
-                            color: theme.text,
-                          ),
+                          style: AppTypography.codeSmall(color: theme.text),
                           overflow: TextOverflow.ellipsis,
                         ),
                       ),
@@ -708,10 +699,10 @@ class _PermissionDiffPreview extends StatelessWidget {
 
     return Container(
       width: double.infinity,
-      padding: const EdgeInsets.all(12),
+      padding: Insets.cardSm,
       decoration: BoxDecoration(
         color: theme.backgroundElement,
-        borderRadius: BorderRadius.circular(14),
+        borderRadius: Radii.brLg,
         border: Border.all(color: theme.borderSubtle),
       ),
       child: Column(
@@ -720,10 +711,7 @@ class _PermissionDiffPreview extends StatelessWidget {
           if (preview.isEmpty)
             Text(
               'No preview available',
-              style: GoogleFonts.jetBrainsMono(
-                fontSize: 12,
-                color: theme.textMuted,
-              ),
+              style: AppTypography.codeSmall(color: theme.textMuted),
             )
           else
             Column(
@@ -799,11 +787,11 @@ class _PreviewRow extends StatelessWidget {
       padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
       decoration: BoxDecoration(
         color: bg,
-        borderRadius: BorderRadius.circular(10),
+        borderRadius: Radii.brMd,
       ),
       child: Text(
         '$prefix ${line.text.isEmpty ? ' ' : line.text}',
-        style: GoogleFonts.jetBrainsMono(fontSize: 12, color: fg, height: 1.35),
+        style: AppTypography.codeSmall(color: fg).copyWith(height: 1.35),
       ),
     );
   }

@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../providers/stt_provider.dart';
 import '../screens/voice_settings_screen.dart';
+import '../theme/design_tokens.dart';
 import '../theme/opencode_theme.dart';
 import 'voice_recording_sheet.dart';
 
@@ -18,7 +19,7 @@ class VoiceInputButton extends ConsumerWidget {
     super.key,
     required this.onTranscription,
     this.size = 24,
-    this.padding = const EdgeInsets.all(8),
+    this.padding = Insets.cardXs,
   });
 
   /// Called when transcription completes successfully with the transcribed text.

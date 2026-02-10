@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
-import 'package:google_fonts/google_fonts.dart';
-
+import '../theme/app_typography.dart';
+import '../theme/design_tokens.dart';
 import '../theme/opencode_theme.dart';
 
 /// Widget for displaying truncated tool output with head-tail preservation.
@@ -57,7 +57,7 @@ class TruncatedOutput extends StatelessWidget {
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         if (head.isNotEmpty) _CodeBox(text: head),
-        if (head.isNotEmpty) const SizedBox(height: 8),
+        if (head.isNotEmpty) SizedBox(height: Spacing.sm),
         _TruncationCard(
           theme: theme,
           icon: Icons.unfold_more_rounded,
@@ -82,7 +82,7 @@ class TruncatedOutput extends StatelessWidget {
       children: [
         // Head section
         if (headPart.isNotEmpty) _CodeBox(text: headPart),
-        if (headPart.isNotEmpty) const SizedBox(height: 8),
+        if (headPart.isNotEmpty) SizedBox(height: Spacing.sm),
 
         // Omitted indicator
         Container(
@@ -90,14 +90,14 @@ class TruncatedOutput extends StatelessWidget {
           padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
           decoration: BoxDecoration(
             color: theme.warning.withValues(alpha: 0.08),
-            borderRadius: BorderRadius.circular(8),
+            borderRadius: Radii.brSm,
             border: Border.all(color: theme.warning.withValues(alpha: 0.3)),
           ),
           child: Row(
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
               Icon(Icons.more_horiz_rounded, color: theme.warning, size: 16),
-              const SizedBox(width: 8),
+              SizedBox(width: Spacing.sm),
               Text(
                 '$omittedLines lines ($omittedSize) omitted',
                 style: TextStyle(
@@ -106,14 +106,14 @@ class TruncatedOutput extends StatelessWidget {
                   fontWeight: FontWeight.w500,
                 ),
               ),
-              const SizedBox(width: 8),
+              SizedBox(width: Spacing.sm),
               Icon(Icons.more_horiz_rounded, color: theme.warning, size: 16),
             ],
           ),
         ),
 
         // Tail section
-        if (tailPart.isNotEmpty) const SizedBox(height: 8),
+        if (tailPart.isNotEmpty) SizedBox(height: Spacing.sm),
         if (tailPart.isNotEmpty) _CodeBox(text: tailPart),
       ],
     );
@@ -140,10 +140,10 @@ class _TruncationCard extends StatelessWidget {
   Widget build(BuildContext context) {
     return Container(
       width: double.infinity,
-      padding: const EdgeInsets.all(12),
+      padding: Insets.cardSm,
       decoration: BoxDecoration(
         color: theme.backgroundElement,
-        borderRadius: BorderRadius.circular(10),
+        borderRadius: Radii.brMd,
         border: Border.all(color: theme.borderSubtle),
       ),
       child: Row(
@@ -153,9 +153,7 @@ class _TruncationCard extends StatelessWidget {
           Expanded(
             child: Text(
               message,
-              style: GoogleFonts.jetBrainsMono(
-                fontSize: 11,
-                color: theme.text,
+              style: AppTypography.codeSmall(color: theme.text).copyWith(
                 height: 1.4,
               ),
               maxLines: 2,
@@ -189,17 +187,15 @@ class _CodeBox extends StatelessWidget {
     final theme = OpenCodeTheme.of(context);
     return Container(
       width: double.infinity,
-      padding: const EdgeInsets.all(12),
+      padding: Insets.cardSm,
       decoration: BoxDecoration(
         color: theme.backgroundElement,
-        borderRadius: BorderRadius.circular(10),
+        borderRadius: Radii.brMd,
         border: Border.all(color: theme.borderSubtle),
       ),
       child: Text(
         text,
-        style: GoogleFonts.jetBrainsMono(
-          fontSize: 11,
-          color: theme.text,
+        style: AppTypography.codeSmall(color: theme.text).copyWith(
           height: 1.5,
         ),
       ),

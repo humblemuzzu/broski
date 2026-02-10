@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../../theme/app_typography.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../models/card_style.dart';
@@ -60,7 +61,7 @@ class CompactTodosCard extends ConsumerWidget {
       child: Container(
         decoration: BoxDecoration(
           color: theme.bgRaised,
-          borderRadius: BorderRadius.circular(12),
+          borderRadius: Radii.brMd,
           border: Border.all(color: borderColor),
         ),
         clipBehavior: Clip.antiAlias,
@@ -102,7 +103,7 @@ class CompactTodosCard extends ConsumerWidget {
                     padding: Insets.chip,
                     decoration: BoxDecoration(
                       color: theme.info.withValues(alpha: 0.15),
-                      borderRadius: BorderRadius.circular(8),
+                      borderRadius: Radii.brSm,
                     ),
                     child: Text(
                       '$completed/${todos.length} done',
@@ -121,7 +122,7 @@ class CompactTodosCard extends ConsumerWidget {
             Padding(
               padding: EdgeInsets.fromLTRB(Spacing.md, Spacing.sm, Spacing.md, 0),
               child: ClipRRect(
-                borderRadius: BorderRadius.circular(2),
+                borderRadius: Radii.brNone,
                 child: LinearProgressIndicator(
                   value: todos.isEmpty ? 0 : completed / todos.length,
                   minHeight: 3,
@@ -221,7 +222,7 @@ class CompactTodosCard extends ConsumerWidget {
       title: 'Todos',
       trailing: Text(
         '$completed/${todos.length}',
-        style: TextStyle(color: theme.textMuted, fontSize: 14),
+        style: AppTypography.labelLarge(color: theme.textMuted),
       ),
       child: ListView.builder(
         shrinkWrap: true,
@@ -291,7 +292,7 @@ class _TodoDetailItem extends StatelessWidget {
                       ),
                       decoration: BoxDecoration(
                         color: theme.error.withValues(alpha: 0.15),
-                        borderRadius: BorderRadius.circular(4),
+                        borderRadius: Radii.brXs,
                       ),
                       child: Text(
                         'HIGH',

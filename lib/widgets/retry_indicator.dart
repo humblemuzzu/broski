@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../theme/app_typography.dart';
 
 import '../models/message.dart';
 import '../theme/design_tokens.dart';
@@ -28,7 +29,7 @@ class RetryIndicator extends StatelessWidget {
     final errorMessage = retryInfo!.errorMessage;
 
     return Container(
-      margin: const EdgeInsets.symmetric(vertical: 4),
+      margin: Insets.chipV,
       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
       decoration: BoxDecoration(
         color: theme.warning.withValues(alpha: 0.08),
@@ -49,7 +50,7 @@ class RetryIndicator extends StatelessWidget {
               color: theme.warning,
             ),
           ),
-          const SizedBox(width: 8),
+          SizedBox(width: Spacing.sm),
           Flexible(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
@@ -58,7 +59,7 @@ class RetryIndicator extends StatelessWidget {
                 Text(
                   'Retrying… (attempt $attempt)',
                   style: TextStyle(
-                    fontFamily: 'GeistSans',
+                    fontFamily: AppTypography.uiFontFamily,
                     fontSize: 12,
                     fontWeight: FontWeight.w600,
                     color: theme.warning,
@@ -70,7 +71,7 @@ class RetryIndicator extends StatelessWidget {
                     child: Text(
                       errorMessage,
                       style: TextStyle(
-                        fontFamily: 'GeistSans',
+                        fontFamily: AppTypography.uiFontFamily,
                         fontSize: 11,
                         color: theme.textMuted,
                       ),

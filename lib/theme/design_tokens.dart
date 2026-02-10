@@ -43,7 +43,7 @@ abstract final class Radii {
   static final brFull = BorderRadius.circular(full);
 
   // Bottom sheet top radius
-  static const sheetTop = BorderRadius.vertical(top: Radius.circular(24));
+  static const sheetTop = BorderRadius.vertical(top: Radius.circular(20));
 }
 
 /// Common [EdgeInsets] presets for layout consistency.
@@ -79,4 +79,15 @@ abstract final class Insets {
   // Input field content padding
   static const input = EdgeInsets.symmetric(horizontal: 16, vertical: 14);
   static const inputH = EdgeInsets.symmetric(horizontal: 12);
+
+  // Additional common patterns
+  static const cardLg = EdgeInsets.all(24);
+  static const cardMd = EdgeInsets.all(14);
+  static const screenAll = EdgeInsets.all(20);
+  static const xxxl = EdgeInsets.all(32);
+
+  // Directional
+  static const bottomSm = EdgeInsets.only(bottom: 8);
+  static const bottomMd = EdgeInsets.only(bottom: 12);
+  static const topSm = EdgeInsets.only(top: 8);
 }

@@ -1,8 +1,10 @@
 import 'package:flutter/material.dart';
+import '../../theme/app_typography.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../providers/chat_provider.dart';
 import '../../providers/codex_provider.dart';
+import '../../theme/design_tokens.dart';
 import '../../theme/opencode_theme.dart';
 import '../../widgets/chat/detail_sheet.dart';
 
@@ -34,25 +36,25 @@ class CxModelSheet extends ConsumerWidget {
       data: (models) {
         if (models.isEmpty) {
           return Padding(
-            padding: const EdgeInsets.all(16),
+            padding: Insets.card,
             child: Center(
               child: Text(
                 'No models available',
-                style: TextStyle(color: theme.textMuted, fontSize: 13),
+                style: AppTypography.bodySmall(color: theme.textMuted),
               ),
             ),
           );
         }
 
         return Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 16),
+          padding: Insets.screenH,
           child: Column(
             mainAxisSize: MainAxisSize.min,
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Text(
                 'Select the model used for Codex turns.',
-                style: TextStyle(color: theme.textMuted, fontSize: 13),
+                style: AppTypography.bodySmall(color: theme.textMuted),
               ),
               const SizedBox(height: 14),
               ...models.map((model) {
@@ -74,7 +76,7 @@ class CxModelSheet extends ConsumerWidget {
                       Flexible(
                         child: Text(
                           model.displayName,
-                          style: TextStyle(color: theme.text, fontSize: 13),
+                          style: AppTypography.bodySmall(color: theme.text),
                         ),
                       ),
                       if (model.isDefault) ...[
@@ -86,7 +88,7 @@ class CxModelSheet extends ConsumerWidget {
                           ),
                           decoration: BoxDecoration(
                             color: theme.primary.withValues(alpha: 0.15),
-                            borderRadius: BorderRadius.circular(4),
+                            borderRadius: Radii.brXs,
                           ),
                           child: Text(
                             'default',
@@ -104,7 +106,7 @@ class CxModelSheet extends ConsumerWidget {
                       ? Text(
                           model.description,
                           style:
-                              TextStyle(color: theme.textMuted, fontSize: 12),
+                              AppTypography.label(color: theme.textMuted),
                         )
                       : null,
                   onTap: () {
@@ -120,27 +122,27 @@ class CxModelSheet extends ConsumerWidget {
         );
       },
       loading: () => const Padding(
-        padding: EdgeInsets.all(32),
+        padding: Insets.xxxl,
         child: Center(child: CircularProgressIndicator()),
       ),
       error: (e, _) => Padding(
-        padding: const EdgeInsets.all(16),
+        padding: Insets.card,
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
             Icon(Icons.error_outline_rounded, color: theme.error, size: 32),
-            const SizedBox(height: 8),
+            SizedBox(height: Spacing.sm),
             Text(
               'Failed to load models',
-              style: TextStyle(color: theme.text, fontSize: 14),
+              style: AppTypography.labelLarge(color: theme.text),
             ),
-            const SizedBox(height: 4),
+            SizedBox(height: Spacing.xs),
             Text(
               e.toString(),
-              style: TextStyle(color: theme.textMuted, fontSize: 12),
+              style: AppTypography.label(color: theme.textMuted),
               textAlign: TextAlign.center,
             ),
-            const SizedBox(height: 12),
+            SizedBox(height: Spacing.md),
             TextButton(
               onPressed: () =>
                   ref.read(codexModelsProvider.notifier).refresh(),

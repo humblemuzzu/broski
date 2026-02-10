@@ -1,6 +1,7 @@
 import 'dart:convert';
 
 import 'package:flutter/material.dart';
+import '../theme/app_typography.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
@@ -13,6 +14,7 @@ import '../providers/agent_type_provider.dart';
 import '../providers/connection_provider.dart';
 import '../providers/service_providers.dart';
 import '../providers/selection_provider.dart';
+import '../theme/design_tokens.dart';
 import '../theme/opencode_theme.dart';
 import '../widgets/connection_indicator.dart';
 import '../widgets/file_viewers/file_viewers.dart';
@@ -395,7 +397,7 @@ class _BrowseScreenState extends ConsumerState<BrowseScreen>
             ),
             Text(
               language,
-              style: TextStyle(fontSize: 12, color: theme.textMuted),
+              style: AppTypography.label(color: theme.textMuted),
             ),
           ],
         ),
@@ -433,7 +435,7 @@ class _BrowseScreenState extends ConsumerState<BrowseScreen>
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
             Icon(Icons.error_outline, size: 64, color: theme.warning),
-            const SizedBox(height: 16),
+            SizedBox(height: Spacing.lg),
             Text(
               _fileTooLargeMessage!,
               style: TextStyle(color: theme.textMuted),
@@ -582,7 +584,7 @@ class _BrowseScreenState extends ConsumerState<BrowseScreen>
               ),
             // Connection indicator
             Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 8),
+              padding: Insets.chipH,
               child: ConnectionIndicator(
                 status: connection.status,
                 agentAvailable: agentAvailable,
@@ -614,12 +616,12 @@ class _BrowseScreenState extends ConsumerState<BrowseScreen>
       context: context,
       backgroundColor: theme.backgroundPanel,
       shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+        borderRadius: Radii.sheetTop,
       ),
       builder: (context) {
         final parts = _path.split('/').where((p) => p.isNotEmpty).toList();
         return Container(
-          padding: const EdgeInsets.all(20),
+          padding: Insets.screenAll,
           child: Column(
             mainAxisSize: MainAxisSize.min,
             crossAxisAlignment: CrossAxisAlignment.start,
@@ -632,7 +634,7 @@ class _BrowseScreenState extends ConsumerState<BrowseScreen>
                   color: theme.text,
                 ),
               ),
-              const SizedBox(height: 16),
+              SizedBox(height: Spacing.lg),
               Wrap(
                 children: [
                   _PathChip(
@@ -655,7 +657,7 @@ class _BrowseScreenState extends ConsumerState<BrowseScreen>
                   ],
                 ],
               ),
-              const SizedBox(height: 20),
+              SizedBox(height: Spacing.xl),
             ],
           ),
         );
@@ -727,7 +729,7 @@ class _BrowseScreenState extends ConsumerState<BrowseScreen>
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
           Icon(_getSearchTypeIcon(), size: 48, color: theme.textMuted),
-          const SizedBox(height: 16),
+          SizedBox(height: Spacing.lg),
           Text(
             _getSearchHint(),
             style: TextStyle(color: theme.textMuted, fontSize: 16),
@@ -745,7 +747,7 @@ class _BrowseScreenState extends ConsumerState<BrowseScreen>
     }
 
     return ListView.builder(
-      padding: const EdgeInsets.all(16),
+      padding: Insets.card,
       itemCount: _fileResults!.length,
       itemBuilder: (context, index) {
         final path = _fileResults![index];
@@ -770,7 +772,7 @@ class _BrowseScreenState extends ConsumerState<BrowseScreen>
     }
 
     return ListView.builder(
-      padding: const EdgeInsets.all(16),
+      padding: Insets.card,
       itemCount: _textResults!.length,
       itemBuilder: (context, index) {
         final result = _textResults![index];
@@ -793,7 +795,7 @@ class _BrowseScreenState extends ConsumerState<BrowseScreen>
     }
 
     return ListView.builder(
-      padding: const EdgeInsets.all(16),
+      padding: Insets.card,
       itemCount: _symbolResults!.length,
       itemBuilder: (context, index) {
         final result = _symbolResults![index];
@@ -823,7 +825,7 @@ class _BrowseScreenState extends ConsumerState<BrowseScreen>
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
                   Icon(Icons.error_outline, size: 48, color: theme.error),
-                  const SizedBox(height: 16),
+                  SizedBox(height: Spacing.lg),
                   Text(
                     'Failed to browse:\n${snapshot.error}',
                     textAlign: TextAlign.center,
@@ -841,7 +843,7 @@ class _BrowseScreenState extends ConsumerState<BrowseScreen>
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
                   Icon(Icons.folder_open, size: 48, color: theme.textMuted),
-                  const SizedBox(height: 16),
+                  SizedBox(height: Spacing.lg),
                   Text(
                     'Empty folder',
                     style: TextStyle(color: theme.textMuted),
@@ -864,7 +866,7 @@ class _BrowseScreenState extends ConsumerState<BrowseScreen>
           });
 
           return ListView.builder(
-            padding: const EdgeInsets.all(16),
+            padding: Insets.card,
             itemCount: items.length + (_path != '~' ? 1 : 0),
             itemBuilder: (context, index) {
               // Go up option
@@ -1028,10 +1030,10 @@ class _FileTile extends StatelessWidget {
     final theme = OpenCodeTheme.of(context);
     final themeData = Theme.of(context);
     return Container(
-      margin: const EdgeInsets.only(bottom: 8),
+      margin: Insets.bottomSm,
       decoration: BoxDecoration(
         color: themeData.colorScheme.surface.withValues(alpha: 0.5),
-        borderRadius: BorderRadius.circular(12),
+        borderRadius: Radii.brMd,
         border: Border.all(color: theme.borderSubtle),
       ),
       child: ListTile(
@@ -1041,7 +1043,7 @@ class _FileTile extends StatelessWidget {
           height: 40,
           decoration: BoxDecoration(
             color: iconColor.withValues(alpha: 0.15),
-            borderRadius: BorderRadius.circular(10),
+            borderRadius: Radii.brMd,
           ),
           child: Icon(icon, color: iconColor, size: 22),
         ),
@@ -1060,14 +1062,14 @@ class _FileTile extends StatelessWidget {
             ),
             // Feature 18: Show git status badge
             if (fileStatus != null) ...[
-              const SizedBox(width: 8),
+              SizedBox(width: Spacing.sm),
               _FileStatusBadge(status: fileStatus!),
             ],
           ],
         ),
         subtitle: Text(
           subtitle,
-          style: TextStyle(color: theme.textMuted, fontSize: 12),
+          style: AppTypography.label(color: theme.textMuted),
         ),
         trailing: Icon(Icons.chevron_right, color: theme.textMuted, size: 20),
       ),
@@ -1098,7 +1100,7 @@ class _FileStatusBadge extends StatelessWidget {
       padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
       decoration: BoxDecoration(
         color: color.withValues(alpha: 0.15),
-        borderRadius: BorderRadius.circular(4),
+        borderRadius: Radii.brXs,
       ),
       child: Text(
         label,
@@ -1106,7 +1108,7 @@ class _FileStatusBadge extends StatelessWidget {
           color: color,
           fontSize: 10,
           fontWeight: FontWeight.w700,
-          fontFamily: 'JetBrains Mono',
+          fontFamily: AppTypography.codeFontFamily,
         ),
       ),
     );
@@ -1130,7 +1132,7 @@ class _PathChip extends StatelessWidget {
         margin: const EdgeInsets.only(right: 4, bottom: 4),
         decoration: BoxDecoration(
           color: theme.primary.withValues(alpha: 0.15),
-          borderRadius: BorderRadius.circular(8),
+          borderRadius: Radii.brSm,
         ),
         child: Text(
           label,
@@ -1167,7 +1169,7 @@ class _SearchTypeItem extends StatelessWidget {
           color: isSelected ? theme.primary : theme.textMuted,
           size: 20,
         ),
-        const SizedBox(width: 12),
+        SizedBox(width: Spacing.md),
         Text(
           label,
           style: TextStyle(
@@ -1199,10 +1201,10 @@ class _FileResultTile extends StatelessWidget {
     final theme = OpenCodeTheme.of(context);
     final themeData = Theme.of(context);
     return Container(
-      margin: const EdgeInsets.only(bottom: 8),
+      margin: Insets.bottomSm,
       decoration: BoxDecoration(
         color: themeData.colorScheme.surface.withValues(alpha: 0.5),
-        borderRadius: BorderRadius.circular(12),
+        borderRadius: Radii.brMd,
         border: Border.all(color: theme.borderSubtle),
       ),
       child: ListTile(
@@ -1212,7 +1214,7 @@ class _FileResultTile extends StatelessWidget {
           height: 40,
           decoration: BoxDecoration(
             color: theme.primary.withValues(alpha: 0.15),
-            borderRadius: BorderRadius.circular(10),
+            borderRadius: Radii.brMd,
           ),
           child: Icon(Icons.description, color: theme.primary, size: 20),
         ),
@@ -1226,7 +1228,7 @@ class _FileResultTile extends StatelessWidget {
         ),
         subtitle: Text(
           path,
-          style: TextStyle(color: theme.textMuted, fontSize: 12),
+          style: AppTypography.label(color: theme.textMuted),
           maxLines: 1,
           overflow: TextOverflow.ellipsis,
         ),
@@ -1247,10 +1249,10 @@ class _TextResultTile extends StatelessWidget {
     final theme = OpenCodeTheme.of(context);
     final themeData = Theme.of(context);
     return Container(
-      margin: const EdgeInsets.only(bottom: 8),
+      margin: Insets.bottomSm,
       decoration: BoxDecoration(
         color: themeData.colorScheme.surface.withValues(alpha: 0.5),
-        borderRadius: BorderRadius.circular(12),
+        borderRadius: Radii.brMd,
         border: Border.all(color: theme.borderSubtle),
       ),
       child: ListTile(
@@ -1265,16 +1267,16 @@ class _TextResultTile extends StatelessWidget {
                 fontWeight: FontWeight.w500,
               ),
             ),
-            const SizedBox(width: 8),
+            SizedBox(width: Spacing.sm),
             Container(
               padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
               decoration: BoxDecoration(
                 color: theme.textMuted.withValues(alpha: 0.2),
-                borderRadius: BorderRadius.circular(4),
+                borderRadius: Radii.brXs,
               ),
               child: Text(
                 'L${result.lineNumber}',
-                style: TextStyle(color: theme.textMuted, fontSize: 11),
+                style: AppTypography.caption(color: theme.textMuted),
               ),
             ),
           ],
@@ -1286,7 +1288,7 @@ class _TextResultTile extends StatelessWidget {
             style: TextStyle(
               color: theme.textMuted,
               fontSize: 12,
-              fontFamily: 'JetBrains Mono',
+              fontFamily: AppTypography.codeFontFamily,
             ),
             maxLines: 2,
             overflow: TextOverflow.ellipsis,
@@ -1309,10 +1311,10 @@ class _SymbolResultTile extends StatelessWidget {
     final theme = OpenCodeTheme.of(context);
     final themeData = Theme.of(context);
     return Container(
-      margin: const EdgeInsets.only(bottom: 8),
+      margin: Insets.bottomSm,
       decoration: BoxDecoration(
         color: themeData.colorScheme.surface.withValues(alpha: 0.5),
-        borderRadius: BorderRadius.circular(12),
+        borderRadius: Radii.brMd,
         border: Border.all(color: theme.borderSubtle),
       ),
       child: ListTile(
@@ -1322,7 +1324,7 @@ class _SymbolResultTile extends StatelessWidget {
           height: 36,
           decoration: BoxDecoration(
             color: _getSymbolColor(result.kind, theme).withValues(alpha: 0.15),
-            borderRadius: BorderRadius.circular(8),
+            borderRadius: Radii.brSm,
           ),
           child: Center(
             child: Text(
@@ -1345,17 +1347,17 @@ class _SymbolResultTile extends StatelessWidget {
         ),
         subtitle: Text(
           '${result.filename}:${result.line}',
-          style: TextStyle(color: theme.textMuted, fontSize: 12),
+          style: AppTypography.label(color: theme.textMuted),
         ),
         trailing: Container(
-          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+          padding: Insets.chip,
           decoration: BoxDecoration(
             color: theme.textMuted.withValues(alpha: 0.2),
-            borderRadius: BorderRadius.circular(6),
+            borderRadius: Radii.brSm,
           ),
           child: Text(
             result.kind,
-            style: TextStyle(color: theme.textMuted, fontSize: 11),
+            style: AppTypography.caption(color: theme.textMuted),
           ),
         ),
       ),

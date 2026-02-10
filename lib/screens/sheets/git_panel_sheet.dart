@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:google_fonts/google_fonts.dart';
+import '../../theme/app_typography.dart';
 
 import '../../models/git.dart';
 import '../../providers/git_provider.dart';
@@ -154,7 +154,7 @@ class _GitPanelSheetState extends ConsumerState<GitPanelSheet> {
     return Container(
       decoration: BoxDecoration(
         color: theme.backgroundPanel,
-        borderRadius: const BorderRadius.vertical(top: Radius.circular(20)),
+        borderRadius: Radii.sheetTop,
       ),
       child: Column(
         children: [
@@ -166,14 +166,14 @@ class _GitPanelSheetState extends ConsumerState<GitPanelSheet> {
               height: 4,
               decoration: BoxDecoration(
                 color: theme.textMuted.withValues(alpha: 0.3),
-                borderRadius: BorderRadius.circular(2),
+                borderRadius: Radii.brXs,
               ),
             ),
           ),
 
           // Header
           Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+            padding: Insets.listItemDense,
             child: Stack(
               alignment: Alignment.center,
               children: [
@@ -264,10 +264,10 @@ class _GitPanelSheetState extends ConsumerState<GitPanelSheet> {
                 onTap: () => setState(() => _selectedTab = i),
                 child: AnimatedContainer(
                   duration: const Duration(milliseconds: 200),
-                  padding: const EdgeInsets.symmetric(vertical: 8),
+                  padding: Insets.chipV,
                   decoration: BoxDecoration(
                     color: selected ? theme.primary : Colors.transparent,
-                    borderRadius: BorderRadius.circular(9),
+                    borderRadius: Radii.brMd,
                   ),
                   child: Text(
                     labels[i],
@@ -331,15 +331,15 @@ class _GitPanelSheetState extends ConsumerState<GitPanelSheet> {
           loading: () => const LinearProgressIndicator(minHeight: 2),
           error: (error, _) => _buildErrorCard(theme, error),
         ),
-        const SizedBox(height: 12),
+        SizedBox(height: Spacing.md),
 
         // Primary action buttons
         _buildPrimaryActions(theme, statusAsync.hasValue),
-        const SizedBox(height: 2),
+        SizedBox(height: Spacing.xxs),
 
         // Secondary action buttons
         _buildSecondaryActions(theme, statusAsync.hasValue),
-        const SizedBox(height: 12),
+        SizedBox(height: Spacing.md),
 
         // File changes
         if (statusAsync.hasValue)
@@ -352,7 +352,7 @@ class _GitPanelSheetState extends ConsumerState<GitPanelSheet> {
   Widget _buildStatusCard(OpenCodeTheme theme, GitStatusResult status) {
     return Container(
       width: double.infinity,
-      padding: const EdgeInsets.all(12),
+      padding: Insets.cardSm,
       decoration: BoxDecoration(
         color: theme.backgroundElement,
         borderRadius: Radii.brMd,
@@ -399,16 +399,16 @@ class _GitPanelSheetState extends ConsumerState<GitPanelSheet> {
             ],
           ),
           if (status.upstream != null) ...[
-            const SizedBox(height: 4),
+            SizedBox(height: Spacing.xs),
             Text(
               status.upstream!,
-              style: TextStyle(color: theme.textMuted, fontSize: 12),
+              style: AppTypography.label(color: theme.textMuted),
             ),
           ],
           const SizedBox(height: 6),
           Text(
             '${status.staged.length} staged · ${status.unstaged.length} unstaged · ${status.untracked.length} untracked',
-            style: TextStyle(color: theme.textMuted, fontSize: 12),
+            style: AppTypography.label(color: theme.textMuted),
           ),
         ],
       ),
@@ -418,7 +418,7 @@ class _GitPanelSheetState extends ConsumerState<GitPanelSheet> {
   Widget _buildErrorCard(OpenCodeTheme theme, Object error) {
     return Container(
       width: double.infinity,
-      padding: const EdgeInsets.all(12),
+      padding: Insets.cardSm,
       decoration: BoxDecoration(
         color: theme.error.withValues(alpha: 0.1),
         borderRadius: Radii.brMd,
@@ -426,7 +426,7 @@ class _GitPanelSheetState extends ConsumerState<GitPanelSheet> {
       ),
       child: Text(
         'Git status failed: $error',
-        style: TextStyle(color: theme.error, fontSize: 13),
+        style: AppTypography.bodySmall(color: theme.error),
       ),
     );
   }
@@ -467,7 +467,7 @@ class _GitPanelSheetState extends ConsumerState<GitPanelSheet> {
             ),
           ),
         ),
-        const SizedBox(width: 8),
+        SizedBox(width: Spacing.sm),
         Expanded(
           child: OutlinedButton(
             onPressed: _busy || !hasStatus
@@ -479,7 +479,7 @@ class _GitPanelSheetState extends ConsumerState<GitPanelSheet> {
             child: const Text('Push ↑'),
           ),
         ),
-        const SizedBox(width: 8),
+        SizedBox(width: Spacing.sm),
         Expanded(
           child: OutlinedButton(
             onPressed: _busy || !hasStatus
@@ -559,7 +559,7 @@ class _GitPanelSheetState extends ConsumerState<GitPanelSheet> {
                     : () => _runAction(() => _notifier.unstage()),
                 style: TextButton.styleFrom(
                   textStyle: const TextStyle(fontSize: 12),
-                  padding: const EdgeInsets.symmetric(horizontal: 8),
+                  padding: Insets.chipH,
                   minimumSize: Size.zero,
                   tapTargetSize: MaterialTapTargetSize.shrinkWrap,
                 ),
@@ -591,7 +591,7 @@ class _GitPanelSheetState extends ConsumerState<GitPanelSheet> {
                     : () => _runAction(() => _notifier.stage()),
                 style: TextButton.styleFrom(
                   textStyle: const TextStyle(fontSize: 12),
-                  padding: const EdgeInsets.symmetric(horizontal: 8),
+                  padding: Insets.chipH,
                   minimumSize: Size.zero,
                   tapTargetSize: MaterialTapTargetSize.shrinkWrap,
                 ),
@@ -625,7 +625,7 @@ class _GitPanelSheetState extends ConsumerState<GitPanelSheet> {
                     : () => _runAction(() => _notifier.stage()),
                 style: TextButton.styleFrom(
                   textStyle: const TextStyle(fontSize: 12),
-                  padding: const EdgeInsets.symmetric(horizontal: 8),
+                  padding: Insets.chipH,
                   minimumSize: Size.zero,
                   tapTargetSize: MaterialTapTargetSize.shrinkWrap,
                 ),
@@ -656,11 +656,11 @@ class _GitPanelSheetState extends ConsumerState<GitPanelSheet> {
           // Clean state
           if (status.changedFileCount == 0)
             Padding(
-              padding: const EdgeInsets.all(16),
+              padding: Insets.card,
               child: Center(
                 child: Text(
                   'Working tree clean',
-                  style: TextStyle(color: theme.success, fontSize: 13),
+                  style: AppTypography.bodySmall(color: theme.success),
                 ),
               ),
             ),
@@ -718,7 +718,7 @@ class _GitPanelSheetState extends ConsumerState<GitPanelSheet> {
           data: (remote) => remote == null
               ? Text(
                   'No GitHub remote detected.',
-                  style: TextStyle(color: theme.textMuted, fontSize: 13),
+                  style: AppTypography.bodySmall(color: theme.textMuted),
                 )
               : Row(
                   children: [
@@ -732,7 +732,7 @@ class _GitPanelSheetState extends ConsumerState<GitPanelSheet> {
                       child: Text(
                         '${remote.host}/${remote.owner}/${remote.repo}',
                         style:
-                            TextStyle(color: theme.textMuted, fontSize: 13),
+                            AppTypography.bodySmall(color: theme.textMuted),
                         maxLines: 1,
                         overflow: TextOverflow.ellipsis,
                       ),
@@ -741,11 +741,11 @@ class _GitPanelSheetState extends ConsumerState<GitPanelSheet> {
                 ),
           loading: () => Text(
             'Detecting remote...',
-            style: TextStyle(color: theme.textMuted, fontSize: 13),
+            style: AppTypography.bodySmall(color: theme.textMuted),
           ),
           error: (error, _) => Text(
             'Remote error: $error',
-            style: TextStyle(color: theme.error, fontSize: 13),
+            style: AppTypography.bodySmall(color: theme.error),
           ),
         ),
         const SizedBox(height: 10),
@@ -755,11 +755,11 @@ class _GitPanelSheetState extends ConsumerState<GitPanelSheet> {
           children: [
             Text(
               'Filter:',
-              style: TextStyle(color: theme.textMuted, fontSize: 13),
+              style: AppTypography.bodySmall(color: theme.textMuted),
             ),
-            const SizedBox(width: 8),
+            SizedBox(width: Spacing.sm),
             Container(
-              padding: const EdgeInsets.symmetric(horizontal: 8),
+              padding: Insets.chipH,
               decoration: BoxDecoration(
                 border: Border.all(color: theme.borderSubtle),
                 borderRadius: Radii.brSm,
@@ -768,7 +768,7 @@ class _GitPanelSheetState extends ConsumerState<GitPanelSheet> {
                 value: _githubState,
                 underline: const SizedBox.shrink(),
                 isDense: true,
-                style: TextStyle(color: theme.text, fontSize: 13),
+                style: AppTypography.bodySmall(color: theme.text),
                 dropdownColor: theme.backgroundMenu,
                 items: GitHubItemState.values
                     .map(
@@ -801,11 +801,11 @@ class _GitPanelSheetState extends ConsumerState<GitPanelSheet> {
               '#${issue.number} ${issue.title}',
               maxLines: 1,
               overflow: TextOverflow.ellipsis,
-              style: TextStyle(color: theme.text, fontSize: 14),
+              style: AppTypography.labelLarge(color: theme.text),
             ),
             subtitle: Text(
               issue.author,
-              style: TextStyle(color: theme.textMuted, fontSize: 12),
+              style: AppTypography.label(color: theme.textMuted),
             ),
             trailing: IconButton(
               tooltip: 'Copy prompt',
@@ -829,11 +829,11 @@ class _GitPanelSheetState extends ConsumerState<GitPanelSheet> {
               '#${pr.number} ${pr.title}',
               maxLines: 1,
               overflow: TextOverflow.ellipsis,
-              style: TextStyle(color: theme.text, fontSize: 14),
+              style: AppTypography.labelLarge(color: theme.text),
             ),
             subtitle: Text(
               '${pr.headBranch} → ${pr.baseBranch}',
-              style: TextStyle(color: theme.textMuted, fontSize: 12),
+              style: AppTypography.label(color: theme.textMuted),
             ),
             trailing: IconButton(
               tooltip: 'Copy prompt',
@@ -865,15 +865,15 @@ class _GitPanelSheetState extends ConsumerState<GitPanelSheet> {
             fontSize: 14,
           ),
         ),
-        const SizedBox(height: 4),
+        SizedBox(height: Spacing.xs),
         asyncData.when(
           data: (items) {
             if (items.isEmpty) {
               return Padding(
-                padding: const EdgeInsets.symmetric(vertical: 8),
+                padding: Insets.chipV,
                 child: Text(
                   emptyLabel,
-                  style: TextStyle(color: theme.textMuted, fontSize: 13),
+                  style: AppTypography.bodySmall(color: theme.textMuted),
                 ),
               );
             }
@@ -882,12 +882,12 @@ class _GitPanelSheetState extends ConsumerState<GitPanelSheet> {
             );
           },
           loading: () => const Padding(
-            padding: EdgeInsets.symmetric(vertical: 8),
+            padding: Insets.chipV,
             child: LinearProgressIndicator(minHeight: 2),
           ),
           error: (error, _) => Text(
             'Load failed: $error',
-            style: TextStyle(color: theme.error, fontSize: 13),
+            style: AppTypography.bodySmall(color: theme.error),
           ),
         ),
       ],
@@ -945,7 +945,7 @@ class _GitPanelSheetState extends ConsumerState<GitPanelSheet> {
         Expanded(
           child: TextField(
             controller: _branchController,
-            style: TextStyle(color: theme.text, fontSize: 14),
+            style: AppTypography.labelLarge(color: theme.text),
             decoration: InputDecoration(
               hintText: 'New branch name',
               hintStyle: TextStyle(color: theme.textMuted),
@@ -971,7 +971,7 @@ class _GitPanelSheetState extends ConsumerState<GitPanelSheet> {
             ),
           ),
         ),
-        const SizedBox(width: 8),
+        SizedBox(width: Spacing.sm),
         FilledButton(
           onPressed: _creatingBranch
               ? null
@@ -1003,10 +1003,10 @@ class _GitPanelSheetState extends ConsumerState<GitPanelSheet> {
       data: (entries) {
         if (entries.isEmpty) {
           return Padding(
-            padding: const EdgeInsets.symmetric(vertical: 8),
+            padding: Insets.chipV,
             child: Text(
               'No commits yet.',
-              style: TextStyle(color: theme.textMuted, fontSize: 13),
+              style: AppTypography.bodySmall(color: theme.textMuted),
             ),
           );
         }
@@ -1021,23 +1021,19 @@ class _GitPanelSheetState extends ConsumerState<GitPanelSheet> {
                 dense: true,
                 leading: Text(
                   entry.shortHash,
-                  style: TextStyle(
-                    fontFamily: GoogleFonts.jetBrainsMono().fontFamily,
-                    fontSize: 12,
-                    color: theme.primary,
-                  ),
+                  style: AppTypography.codeSmall(color: theme.primary),
                 ),
                 title: Text(
                   entry.subject.isEmpty ? '(no subject)' : entry.subject,
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
-                  style: TextStyle(color: theme.text, fontSize: 13),
+                  style: AppTypography.bodySmall(color: theme.text),
                 ),
                 subtitle: Text(
                   '${entry.author} · ${_formatTimestamp(entry.timestamp)}',
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
-                  style: TextStyle(color: theme.textMuted, fontSize: 11),
+                  style: AppTypography.caption(color: theme.textMuted),
                 ),
                 onTap: () async {
                   try {
@@ -1063,12 +1059,12 @@ class _GitPanelSheetState extends ConsumerState<GitPanelSheet> {
         );
       },
       loading: () => const Padding(
-        padding: EdgeInsets.symmetric(vertical: 8),
+        padding: Insets.chipV,
         child: LinearProgressIndicator(minHeight: 2),
       ),
       error: (error, _) => Text(
         'Failed to load commits: $error',
-        style: TextStyle(color: theme.error, fontSize: 13),
+        style: AppTypography.bodySmall(color: theme.error),
       ),
     );
   }
@@ -1082,10 +1078,10 @@ class _GitPanelSheetState extends ConsumerState<GitPanelSheet> {
         final local = branches.where((b) => !b.isRemote).toList();
         if (local.isEmpty) {
           return Padding(
-            padding: const EdgeInsets.symmetric(vertical: 8),
+            padding: Insets.chipV,
             child: Text(
               'No local branches.',
-              style: TextStyle(color: theme.textMuted, fontSize: 13),
+              style: AppTypography.bodySmall(color: theme.textMuted),
             ),
           );
         }
@@ -1118,7 +1114,7 @@ class _GitPanelSheetState extends ConsumerState<GitPanelSheet> {
                     ? Text(
                         branch.tracking!,
                         style:
-                            TextStyle(color: theme.textMuted, fontSize: 11),
+                            AppTypography.caption(color: theme.textMuted),
                       )
                     : null,
                 onTap: branch.isCurrent
@@ -1131,12 +1127,12 @@ class _GitPanelSheetState extends ConsumerState<GitPanelSheet> {
         );
       },
       loading: () => const Padding(
-        padding: EdgeInsets.symmetric(vertical: 8),
+        padding: Insets.chipV,
         child: LinearProgressIndicator(minHeight: 2),
       ),
       error: (error, _) => Text(
         'Failed to load branches: $error',
-        style: TextStyle(color: theme.error, fontSize: 13),
+        style: AppTypography.bodySmall(color: theme.error),
       ),
     );
   }

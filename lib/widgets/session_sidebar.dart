@@ -1,10 +1,12 @@
 import 'package:flutter/material.dart';
+import '../theme/app_typography.dart';
 
 import '../models/claude_code.dart';
 import '../models/message.dart';
 import '../models/session_context.dart';
 import '../models/todo.dart';
 import '../models/vcs.dart';
+import '../theme/design_tokens.dart';
 import '../theme/opencode_theme.dart';
 import 'connection_quality_indicator.dart';
 import 'status_indicator.dart';
@@ -58,40 +60,40 @@ class SessionSidebar extends StatelessWidget {
             _buildHeader(context, theme),
             Expanded(
               child: ListView(
-                padding: const EdgeInsets.symmetric(horizontal: 16),
+                padding: Insets.screenH,
                 children: [
-                  const SizedBox(height: 8),
+                  SizedBox(height: Spacing.sm),
                   _buildContextSection(context, theme),
-                  const SizedBox(height: 20),
+                  SizedBox(height: Spacing.xl),
                   // Claude Code: Show session info + plan (CC has TodoWrite tool)
                   if (isClaudeCode) ...[
                     _buildClaudeCodeInfoSection(context, theme),
-                    const SizedBox(height: 20),
+                    SizedBox(height: Spacing.xl),
                     if ((ccInit?.mcpServers ?? const []).isNotEmpty) ...[
                       _buildClaudeCodeMcpSection(context, theme),
-                      const SizedBox(height: 20),
+                      SizedBox(height: Spacing.xl),
                     ],
                     if ((ccInit?.skills ?? const []).isNotEmpty) ...[
                       _buildClaudeCodeSkillsSection(context, theme),
-                      const SizedBox(height: 20),
+                      SizedBox(height: Spacing.xl),
                     ],
                     _buildPlanSection(context, theme),
-                    const SizedBox(height: 20),
+                    SizedBox(height: Spacing.xl),
                   ] else if (isCodex) ...[
                     // Codex: Plan (from turn/plan/updated) + changes, no LSP
                     _buildPlanSection(context, theme),
-                    const SizedBox(height: 20),
+                    SizedBox(height: Spacing.xl),
                   ] else ...[
                     // OpenCode: Plan + LSP
                     _buildPlanSection(context, theme),
-                    const SizedBox(height: 20),
+                    SizedBox(height: Spacing.xl),
                     _buildLspSection(context, theme),
-                    const SizedBox(height: 20),
+                    SizedBox(height: Spacing.xl),
                   ],
                   _buildChangesSection(context, theme),
-                  const SizedBox(height: 20),
+                  SizedBox(height: Spacing.xl),
                   _buildModifiedFilesSection(context, theme),
-                  const SizedBox(height: 24),
+                  SizedBox(height: Spacing.xxl),
                 ],
               ),
             ),
@@ -199,7 +201,7 @@ class SessionSidebar extends StatelessWidget {
           height: 6,
           decoration: BoxDecoration(
             color: theme.backgroundPanel,
-            borderRadius: BorderRadius.circular(3),
+            borderRadius: Radii.brXs,
           ),
           child: LayoutBuilder(
             builder: (context, constraints) {
@@ -214,7 +216,7 @@ class SessionSidebar extends StatelessWidget {
                           : usagePercent > 50
                           ? theme.warning
                           : theme.info,
-                      borderRadius: BorderRadius.circular(3),
+                      borderRadius: Radii.brXs,
                     ),
                   ),
                 ],
@@ -222,7 +224,7 @@ class SessionSidebar extends StatelessWidget {
             },
           ),
         ),
-        const SizedBox(height: 12),
+        SizedBox(height: Spacing.md),
 
         // Stats row - adapt to available data per backend
         Wrap(
@@ -264,10 +266,10 @@ class SessionSidebar extends StatelessWidget {
         if (ctx.tokens.input > 0 || ctx.tokens.output > 0) ...[
           const SizedBox(height: 10),
           Container(
-            padding: const EdgeInsets.all(10),
+            padding: Insets.cardXs,
             decoration: BoxDecoration(
               color: theme.background,
-              borderRadius: BorderRadius.circular(8),
+              borderRadius: Radii.brSm,
               border: Border.all(
                 color: theme.borderSubtle.withValues(alpha: 0.2),
               ),
@@ -328,19 +330,19 @@ class SessionSidebar extends StatelessWidget {
         icon: Icons.info_outline,
         children: [
           Container(
-            padding: const EdgeInsets.all(12),
+            padding: Insets.cardSm,
             decoration: BoxDecoration(
               color: theme.backgroundPanel,
-              borderRadius: BorderRadius.circular(8),
+              borderRadius: Radii.brSm,
               border: Border.all(color: theme.borderSubtle, width: 1),
             ),
             child: Row(
               children: [
                 Icon(Icons.hourglass_empty, color: theme.textMuted, size: 16),
-                const SizedBox(width: 8),
+                SizedBox(width: Spacing.sm),
                 Text(
                   'Waiting for session...',
-                  style: TextStyle(color: theme.textMuted, fontSize: 13),
+                  style: AppTypography.bodySmall(color: theme.textMuted),
                 ),
               ],
             ),
@@ -357,7 +359,7 @@ class SessionSidebar extends StatelessWidget {
         Container(
           decoration: BoxDecoration(
             color: theme.backgroundPanel,
-            borderRadius: BorderRadius.circular(10),
+            borderRadius: Radii.brMd,
             border: Border.all(color: theme.borderSubtle, width: 1),
           ),
           child: Column(
@@ -444,7 +446,7 @@ class SessionSidebar extends StatelessWidget {
             padding: const EdgeInsets.only(top: 6),
             child: Text(
               '+${servers.length - 12} more',
-              style: TextStyle(color: theme.textMuted, fontSize: 12),
+              style: AppTypography.label(color: theme.textMuted),
             ),
           ),
       ],
@@ -474,22 +476,22 @@ class SessionSidebar extends StatelessWidget {
                 ),
                 decoration: BoxDecoration(
                   color: theme.backgroundElement,
-                  borderRadius: BorderRadius.circular(999),
+                  borderRadius: Radii.brFull,
                   border: Border.all(color: theme.borderSubtle),
                 ),
                 child: Text(
                   s,
-                  style: TextStyle(color: theme.text, fontSize: 12),
+                  style: AppTypography.label(color: theme.text),
                 ),
               ),
           ],
         ),
         if (skills.length > 16)
           Padding(
-            padding: const EdgeInsets.only(top: 8),
+            padding: Insets.topSm,
             child: Text(
               '+${skills.length - 16} more',
-              style: TextStyle(color: theme.textMuted, fontSize: 12),
+              style: AppTypography.label(color: theme.textMuted),
             ),
           ),
       ],
@@ -504,19 +506,19 @@ class SessionSidebar extends StatelessWidget {
         icon: Icons.checklist_rounded,
         children: [
           Container(
-            padding: const EdgeInsets.all(12),
+            padding: Insets.cardSm,
             decoration: BoxDecoration(
               color: theme.backgroundPanel,
-              borderRadius: BorderRadius.circular(8),
+              borderRadius: Radii.brSm,
               border: Border.all(color: theme.borderSubtle, width: 1),
             ),
             child: Row(
               children: [
                 Icon(Icons.info_outline, color: theme.textMuted, size: 16),
-                const SizedBox(width: 8),
+                SizedBox(width: Spacing.sm),
                 Text(
                   'No active plan',
-                  style: TextStyle(color: theme.textMuted, fontSize: 13),
+                  style: AppTypography.bodySmall(color: theme.textMuted),
                 ),
               ],
             ),
@@ -547,7 +549,7 @@ class SessionSidebar extends StatelessWidget {
         Container(
           decoration: BoxDecoration(
             color: theme.backgroundPanel,
-            borderRadius: BorderRadius.circular(10),
+            borderRadius: Radii.brMd,
             border: Border.all(color: theme.borderSubtle, width: 1),
           ),
           child: Column(
@@ -574,19 +576,19 @@ class SessionSidebar extends StatelessWidget {
         icon: Icons.code,
         children: [
           Container(
-            padding: const EdgeInsets.all(12),
+            padding: Insets.cardSm,
             decoration: BoxDecoration(
               color: theme.backgroundPanel,
-              borderRadius: BorderRadius.circular(8),
+              borderRadius: Radii.brSm,
               border: Border.all(color: theme.borderSubtle, width: 1),
             ),
             child: Row(
               children: [
                 Icon(Icons.info_outline, color: theme.textMuted, size: 16),
-                const SizedBox(width: 8),
+                SizedBox(width: Spacing.sm),
                 Text(
                   'No LSP servers active',
-                  style: TextStyle(color: theme.textMuted, fontSize: 13),
+                  style: AppTypography.bodySmall(color: theme.textMuted),
                 ),
               ],
             ),
@@ -602,7 +604,7 @@ class SessionSidebar extends StatelessWidget {
       children: [
         for (final server in lspServers) ...[
           _LspServerItem(theme: theme, server: server),
-          if (server != lspServers.last) const SizedBox(height: 8),
+          if (server != lspServers.last) SizedBox(height: Spacing.sm),
         ],
       ],
     );
@@ -616,19 +618,19 @@ class SessionSidebar extends StatelessWidget {
         icon: Icons.difference_rounded,
         children: [
           Container(
-            padding: const EdgeInsets.all(12),
+            padding: Insets.cardSm,
             decoration: BoxDecoration(
               color: theme.backgroundPanel,
-              borderRadius: BorderRadius.circular(8),
+              borderRadius: Radii.brSm,
               border: Border.all(color: theme.borderSubtle, width: 1),
             ),
             child: Row(
               children: [
                 Icon(Icons.info_outline, color: theme.textMuted, size: 16),
-                const SizedBox(width: 8),
+                SizedBox(width: Spacing.sm),
                 Text(
                   'No diffs yet',
-                  style: TextStyle(color: theme.textMuted, fontSize: 13),
+                  style: AppTypography.bodySmall(color: theme.textMuted),
                 ),
               ],
             ),
@@ -675,7 +677,7 @@ class SessionSidebar extends StatelessWidget {
         Container(
           decoration: BoxDecoration(
             color: theme.backgroundPanel,
-            borderRadius: BorderRadius.circular(10),
+            borderRadius: Radii.brMd,
             border: Border.all(color: theme.borderSubtle, width: 1),
           ),
           child: Column(
@@ -706,10 +708,10 @@ class SessionSidebar extends StatelessWidget {
         icon: Icons.edit_document,
         children: [
           Container(
-            padding: const EdgeInsets.all(12),
+            padding: Insets.cardSm,
             decoration: BoxDecoration(
               color: theme.backgroundPanel,
-              borderRadius: BorderRadius.circular(8),
+              borderRadius: Radii.brSm,
               border: Border.all(color: theme.borderSubtle, width: 1),
             ),
             child: Row(
@@ -719,10 +721,10 @@ class SessionSidebar extends StatelessWidget {
                   color: theme.success,
                   size: 16,
                 ),
-                const SizedBox(width: 8),
+                SizedBox(width: Spacing.sm),
                 Text(
                   'No files modified yet',
-                  style: TextStyle(color: theme.textMuted, fontSize: 13),
+                  style: AppTypography.bodySmall(color: theme.textMuted),
                 ),
               ],
             ),
@@ -769,7 +771,7 @@ class SessionSidebar extends StatelessWidget {
         Container(
           decoration: BoxDecoration(
             color: theme.backgroundPanel,
-            borderRadius: BorderRadius.circular(10),
+            borderRadius: Radii.brMd,
             border: Border.all(color: theme.borderSubtle, width: 1),
           ),
           child: Column(
@@ -853,7 +855,7 @@ class _StatItem extends StatelessWidget {
       padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
       decoration: BoxDecoration(
         color: theme.backgroundPanel,
-        borderRadius: BorderRadius.circular(6),
+        borderRadius: Radii.brSm,
         border: Border.all(color: theme.borderSubtle, width: 1),
       ),
       child: Row(
@@ -870,10 +872,10 @@ class _StatItem extends StatelessWidget {
             ),
           ),
           if (sublabel != null) ...[
-            const SizedBox(width: 4),
+            SizedBox(width: Spacing.xs),
             Text(
               sublabel!,
-              style: TextStyle(fontSize: 12, color: theme.textMuted),
+              style: AppTypography.label(color: theme.textMuted),
             ),
           ],
         ],
@@ -907,7 +909,7 @@ class _InfoRow extends StatelessWidget {
           Expanded(
             child: Text(
               label,
-              style: TextStyle(fontSize: 13, color: theme.textMuted),
+              style: AppTypography.bodySmall(color: theme.textMuted),
             ),
           ),
           Text(
@@ -943,7 +945,7 @@ class _McpServerRow extends StatelessWidget {
         : theme.textMuted;
 
     return Padding(
-      padding: const EdgeInsets.only(bottom: 8),
+      padding: Insets.bottomSm,
       child: Row(
         children: [
           Container(
@@ -955,7 +957,7 @@ class _McpServerRow extends StatelessWidget {
           Expanded(
             child: Text(
               name.isEmpty ? 'server' : name,
-              style: TextStyle(color: theme.text, fontSize: 13),
+              style: AppTypography.bodySmall(color: theme.text),
               maxLines: 1,
               overflow: TextOverflow.ellipsis,
             ),
@@ -963,7 +965,7 @@ class _McpServerRow extends StatelessWidget {
           const SizedBox(width: 10),
           Text(
             status.isEmpty ? 'unknown' : status,
-            style: TextStyle(color: theme.textMuted, fontSize: 12),
+            style: AppTypography.label(color: theme.textMuted),
           ),
         ],
       ),
@@ -990,7 +992,7 @@ class _LspServerItem extends StatelessWidget {
       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
       decoration: BoxDecoration(
         color: theme.backgroundPanel,
-        borderRadius: BorderRadius.circular(8),
+        borderRadius: Radii.brSm,
         border: Border.all(color: theme.borderSubtle, width: 1),
       ),
       child: Row(
@@ -1014,10 +1016,10 @@ class _LspServerItem extends StatelessWidget {
                   ),
                 ),
                 if (server.shortRoot != null) ...[
-                  const SizedBox(height: 2),
+                  SizedBox(height: Spacing.xxs),
                   Text(
                     server.shortRoot!,
-                    style: TextStyle(fontSize: 11, color: theme.textMuted),
+                    style: AppTypography.caption(color: theme.textMuted),
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
                   ),
@@ -1049,12 +1051,12 @@ class _ModifiedFileItem extends StatelessWidget {
           Expanded(
             child: Text(
               file.shortPath,
-              style: TextStyle(fontSize: 13, color: theme.text),
+              style: AppTypography.bodySmall(color: theme.text),
               maxLines: 1,
               overflow: TextOverflow.ellipsis,
             ),
           ),
-          const SizedBox(width: 8),
+          SizedBox(width: Spacing.sm),
           Text(
             file.formattedAdditions,
             style: TextStyle(
@@ -1098,12 +1100,12 @@ class _DiffFileItem extends StatelessWidget {
             Expanded(
               child: Text(
                 _shortPath(diff.file),
-                style: TextStyle(fontSize: 13, color: theme.text),
+                style: AppTypography.bodySmall(color: theme.text),
                 maxLines: 1,
                 overflow: TextOverflow.ellipsis,
               ),
             ),
-            const SizedBox(width: 8),
+            SizedBox(width: Spacing.sm),
             Text(
               '+${diff.additions}',
               style: TextStyle(
@@ -1192,7 +1194,7 @@ class _TodoItem extends StatelessWidget {
                   maxLines: 3,
                   overflow: TextOverflow.ellipsis,
                 ),
-                const SizedBox(height: 4),
+                SizedBox(height: Spacing.xs),
                 Row(
                   children: [
                     // Priority indicator
@@ -1204,7 +1206,7 @@ class _TodoItem extends StatelessWidget {
                         ),
                         decoration: BoxDecoration(
                           color: priorityColor.withValues(alpha: 0.15),
-                          borderRadius: BorderRadius.circular(4),
+                          borderRadius: Radii.brXs,
                         ),
                         child: Text(
                           'HIGH',
@@ -1221,7 +1223,7 @@ class _TodoItem extends StatelessWidget {
                     // Status text
                     Text(
                       todo.status.displayName,
-                      style: TextStyle(fontSize: 11, color: theme.textMuted),
+                      style: AppTypography.caption(color: theme.textMuted),
                     ),
                   ],
                 ),
@@ -1274,14 +1276,14 @@ class _TokenRow extends StatelessWidget {
             height: 8,
             decoration: BoxDecoration(
               color: color.withValues(alpha: 0.7),
-              borderRadius: BorderRadius.circular(2),
+              borderRadius: Radii.brXs,
             ),
           ),
-          const SizedBox(width: 8),
+          SizedBox(width: Spacing.sm),
           Expanded(
             child: Text(
               label,
-              style: TextStyle(color: theme.textMuted, fontSize: 11),
+              style: AppTypography.caption(color: theme.textMuted),
             ),
           ),
           Text(

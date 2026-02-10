@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:google_fonts/google_fonts.dart';
+import '../theme/app_typography.dart';
+import '../theme/design_tokens.dart';
 
 import '../providers/connection_provider.dart';
 import '../providers/service_providers.dart';
@@ -48,7 +49,7 @@ class _ConnectionLostScreenState extends ConsumerState<ConnectionLostScreen> {
       backgroundColor: ocTheme.background,
       body: SafeArea(
         child: Padding(
-          padding: const EdgeInsets.all(24),
+          padding: Insets.cardLg,
           child: Column(
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
@@ -65,12 +66,12 @@ class _ConnectionLostScreenState extends ConsumerState<ConnectionLostScreen> {
               ] else ...[
                 Icon(Icons.wifi_off, size: 48, color: ocTheme.error),
               ],
-              const SizedBox(height: 16),
+              SizedBox(height: Spacing.lg),
               Text(
                 isReconnecting ? 'Reconnecting...' : 'Connection lost',
                 style: theme.textTheme.titleLarge,
               ),
-              const SizedBox(height: 8),
+              SizedBox(height: Spacing.sm),
               Text(
                 isReconnecting
                     ? 'Attempting to reconnect to your Mac. This happens automatically when the connection is restored.'
@@ -79,7 +80,7 @@ class _ConnectionLostScreenState extends ConsumerState<ConnectionLostScreen> {
                 textAlign: TextAlign.center,
               ),
               if (isReconnecting) ...[
-                const SizedBox(height: 8),
+                SizedBox(height: Spacing.sm),
                 Container(
                   padding: const EdgeInsets.symmetric(
                     horizontal: 12,
@@ -87,7 +88,7 @@ class _ConnectionLostScreenState extends ConsumerState<ConnectionLostScreen> {
                   ),
                   decoration: BoxDecoration(
                     color: ocTheme.primary.withValues(alpha: 0.1),
-                    borderRadius: BorderRadius.circular(16),
+                    borderRadius: Radii.brLg,
                   ),
                   child: Text(
                     'Auto-reconnecting with exponential backoff',
@@ -99,25 +100,21 @@ class _ConnectionLostScreenState extends ConsumerState<ConnectionLostScreen> {
                 ),
               ],
               if (connection.error != null && !isReconnecting) ...[
-                const SizedBox(height: 8),
+                SizedBox(height: Spacing.sm),
                 Container(
-                  padding: const EdgeInsets.all(8),
+                  padding: Insets.cardXs,
                   decoration: BoxDecoration(
                     color: ocTheme.error.withValues(alpha: 0.1),
-                    borderRadius: BorderRadius.circular(8),
+                    borderRadius: Radii.brSm,
                   ),
                   child: Text(
                     'Error: ${connection.error}',
-                    style: theme.textTheme.bodySmall?.copyWith(
-                      color: ocTheme.error,
-                      fontFamily: GoogleFonts.jetBrainsMono().fontFamily,
-                      fontSize: 11,
-                    ),
+                    style: AppTypography.codeSmall(color: ocTheme.error),
                     textAlign: TextAlign.center,
                   ),
                 ),
               ],
-              const SizedBox(height: 24),
+              SizedBox(height: Spacing.xxl),
               ElevatedButton(
                 onPressed: connection.connection == null || isReconnecting
                     ? null
@@ -128,16 +125,16 @@ class _ConnectionLostScreenState extends ConsumerState<ConnectionLostScreen> {
                   isReconnecting ? 'Reconnecting...' : 'Retry connection',
                 ),
               ),
-              const SizedBox(height: 12),
+              SizedBox(height: Spacing.md),
               OutlinedButton(
                 onPressed: () =>
                     ref.read(connectionProvider.notifier).clearConnection(),
                 child: const Text('Scan new QR'),
               ),
               // Browse Offline button - always visible for UI preview
-              const SizedBox(height: 24),
+              SizedBox(height: Spacing.xxl),
               Divider(color: ocTheme.borderSubtle),
-              const SizedBox(height: 16),
+              SizedBox(height: Spacing.lg),
               Text(
                 _hasCachedData
                     ? 'You can browse cached data offline'
@@ -147,7 +144,7 @@ class _ConnectionLostScreenState extends ConsumerState<ConnectionLostScreen> {
                 ),
                 textAlign: TextAlign.center,
               ),
-              const SizedBox(height: 12),
+              SizedBox(height: Spacing.md),
               SizedBox(
                 width: double.infinity,
                 child: ElevatedButton.icon(
@@ -170,7 +167,7 @@ class _ConnectionLostScreenState extends ConsumerState<ConnectionLostScreen> {
                     foregroundColor: ocTheme.selectedListItemText,
                     padding: const EdgeInsets.symmetric(vertical: 14),
                     shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(12),
+                      borderRadius: Radii.brMd,
                     ),
                   ),
                 ),

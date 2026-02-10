@@ -1,7 +1,5 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:google_fonts/google_fonts.dart';
-
 import '../models/agent_type.dart';
 import '../models/claude_code.dart';
 import '../models/codex.dart';
@@ -9,6 +7,7 @@ import '../models/permission_rule.dart';
 import '../providers/claude_code_provider.dart';
 import '../providers/codex_settings_provider.dart';
 import '../providers/permission_rules_provider.dart';
+import '../theme/app_typography.dart';
 import '../theme/design_tokens.dart';
 import '../theme/opencode_theme.dart';
 import 'chat/detail_sheet.dart';
@@ -198,7 +197,7 @@ class _ClaudeCodePermissionContentState
       context: context,
       backgroundColor: theme.backgroundPanel,
       shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(16)),
+        borderRadius: Radii.sheetTop,
       ),
       builder: (ctx) => _ToolPickerSheet(
         title: isAllowed ? 'Allow Tool' : 'Disallow Tool',
@@ -232,7 +231,7 @@ class _ClaudeCodePermissionContentState
         children: [
           // Backend indicator
           _BackendBadge(label: 'Claude Code', theme: theme),
-          const SizedBox(height: 16),
+          SizedBox(height: Spacing.lg),
 
           // ── PERMISSION MODE ──
           _SectionLabel(text: 'PERMISSION MODE', theme: theme),
@@ -248,14 +247,14 @@ class _ClaudeCodePermissionContentState
               },
             ),
           ),
-          const SizedBox(height: 20),
+          SizedBox(height: Spacing.xl),
 
           // ── ALLOWED TOOLS ──
           _SectionLabel(text: 'ALLOWED TOOLS', theme: theme),
-          const SizedBox(height: 4),
+          SizedBox(height: Spacing.xs),
           Text(
             'Tools the agent can use without asking',
-            style: TextStyle(color: theme.textMuted, fontSize: 11),
+            style: AppTypography.caption(color: theme.textMuted),
           ),
           const SizedBox(height: 10),
           _ToolChipList(
@@ -265,20 +264,20 @@ class _ClaudeCodePermissionContentState
             theme: theme,
             onRemove: (tool) => _removeToolFromList(_allowedTools, tool),
           ),
-          const SizedBox(height: 8),
+          SizedBox(height: Spacing.sm),
           _AddButton(
             label: 'Add Allowed Tool',
             theme: theme,
             onTap: () => _showAddToolDialog(isAllowed: true),
           ),
-          const SizedBox(height: 20),
+          SizedBox(height: Spacing.xl),
 
           // ── DISALLOWED TOOLS ──
           _SectionLabel(text: 'DISALLOWED TOOLS', theme: theme),
-          const SizedBox(height: 4),
+          SizedBox(height: Spacing.xs),
           Text(
             'Tools the agent cannot use at all',
-            style: TextStyle(color: theme.textMuted, fontSize: 11),
+            style: AppTypography.caption(color: theme.textMuted),
           ),
           const SizedBox(height: 10),
           _ToolChipList(
@@ -288,7 +287,7 @@ class _ClaudeCodePermissionContentState
             theme: theme,
             onRemove: (tool) => _removeToolFromList(_disallowedTools, tool),
           ),
-          const SizedBox(height: 8),
+          SizedBox(height: Spacing.sm),
           _AddButton(
             label: 'Add Disallowed Tool',
             theme: theme,
@@ -297,7 +296,7 @@ class _ClaudeCodePermissionContentState
 
           // ── SAVE ──
           if (_dirty) ...[
-            const SizedBox(height: 20),
+            SizedBox(height: Spacing.xl),
             _ApplyButton(label: 'Save Tool Lists', theme: theme, onTap: _save),
           ],
         ],
@@ -326,14 +325,14 @@ class _CodexPermissionContent extends ConsumerWidget {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           _BackendBadge(label: 'Codex', theme: theme),
-          const SizedBox(height: 16),
+          SizedBox(height: Spacing.lg),
 
           // ── APPROVAL POLICY ──
           _SectionLabel(text: 'APPROVAL POLICY', theme: theme),
-          const SizedBox(height: 4),
+          SizedBox(height: Spacing.xs),
           Text(
             'Controls when Codex asks for your approval',
-            style: TextStyle(color: theme.textMuted, fontSize: 11),
+            style: AppTypography.caption(color: theme.textMuted),
           ),
           const SizedBox(height: 10),
           ...CodexApprovalPolicy.values.map(
@@ -344,14 +343,14 @@ class _CodexPermissionContent extends ConsumerWidget {
               onTap: () => notifier.setApprovalPolicy(policy),
             ),
           ),
-          const SizedBox(height: 20),
+          SizedBox(height: Spacing.xl),
 
           // ── SANDBOX MODE ──
           _SectionLabel(text: 'SANDBOX MODE', theme: theme),
-          const SizedBox(height: 4),
+          SizedBox(height: Spacing.xs),
           Text(
             'Controls filesystem access for the agent',
-            style: TextStyle(color: theme.textMuted, fontSize: 11),
+            style: AppTypography.caption(color: theme.textMuted),
           ),
           const SizedBox(height: 10),
           ...CodexSandboxMode.values.map(
@@ -362,7 +361,7 @@ class _CodexPermissionContent extends ConsumerWidget {
               onTap: () => notifier.setSandboxMode(mode),
             ),
           ),
-          const SizedBox(height: 20),
+          SizedBox(height: Spacing.xl),
 
           // ── NETWORK ACCESS ──
           _SectionLabel(text: 'NETWORK ACCESS', theme: theme),
@@ -374,11 +373,11 @@ class _CodexPermissionContent extends ConsumerWidget {
             theme: theme,
             onChanged: (v) => notifier.setNetworkAccessEnabled(v),
           ),
-          const SizedBox(height: 20),
+          SizedBox(height: Spacing.xl),
 
           // ── INFO BOX ──
           Container(
-            padding: const EdgeInsets.all(12),
+            padding: Insets.cardSm,
             decoration: BoxDecoration(
               color: theme.info.withValues(alpha: 0.08),
               borderRadius: Radii.brSm,
@@ -491,7 +490,7 @@ class _OpenCodeRulesContentState extends State<_OpenCodeRulesContent> {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           _BackendBadge(label: 'OpenCode', theme: theme),
-          const SizedBox(height: 16),
+          SizedBox(height: Spacing.lg),
 
           // Quick presets section
           _SectionLabel(text: 'QUICK PRESETS', theme: theme),
@@ -515,7 +514,7 @@ class _OpenCodeRulesContentState extends State<_OpenCodeRulesContent> {
             ),
           ),
 
-          const SizedBox(height: 20),
+          SizedBox(height: Spacing.xl),
 
           // Rules section header
           Row(
@@ -524,7 +523,7 @@ class _OpenCodeRulesContentState extends State<_OpenCodeRulesContent> {
               const Spacer(),
               Text(
                 '${_rules.length} rule${_rules.length == 1 ? '' : 's'}',
-                style: TextStyle(color: theme.textMuted, fontSize: 11),
+                style: AppTypography.caption(color: theme.textMuted),
               ),
             ],
           ),
@@ -533,7 +532,7 @@ class _OpenCodeRulesContentState extends State<_OpenCodeRulesContent> {
 
           // Pattern hint
           Container(
-            padding: const EdgeInsets.all(10),
+            padding: Insets.cardXs,
             decoration: BoxDecoration(
               color: theme.info.withValues(alpha: 0.08),
               borderRadius: Radii.brSm,
@@ -546,7 +545,7 @@ class _OpenCodeRulesContentState extends State<_OpenCodeRulesContent> {
                   size: 14,
                   color: theme.info,
                 ),
-                const SizedBox(width: 8),
+                SizedBox(width: Spacing.sm),
                 Expanded(
                   child: Text(
                     'Patterns: *, src/*, *.dart, git *, npm *\n'
@@ -562,7 +561,7 @@ class _OpenCodeRulesContentState extends State<_OpenCodeRulesContent> {
             ),
           ),
 
-          const SizedBox(height: 12),
+          SizedBox(height: Spacing.md),
 
           // Rules list
           ...List.generate(_rules.length, (index) {
@@ -577,11 +576,11 @@ class _OpenCodeRulesContentState extends State<_OpenCodeRulesContent> {
 
           // Add rule button
           Padding(
-            padding: const EdgeInsets.only(top: 8),
+            padding: Insets.topSm,
             child: _AddButton(label: 'Add Rule', theme: theme, onTap: _addRule),
           ),
 
-          const SizedBox(height: 16),
+          SizedBox(height: Spacing.lg),
 
           // Apply button
           _ApplyButton(
@@ -615,14 +614,12 @@ class _BackendBadge extends StatelessWidget {
       padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
       decoration: BoxDecoration(
         color: theme.primary.withValues(alpha: 0.1),
-        borderRadius: BorderRadius.circular(6),
+        borderRadius: Radii.brSm,
         border: Border.all(color: theme.primary.withValues(alpha: 0.25)),
       ),
       child: Text(
         label,
-        style: GoogleFonts.jetBrainsMono(
-          fontSize: 11,
-          color: theme.primary,
+        style: AppTypography.codeSmall(color: theme.primary).copyWith(
           fontWeight: FontWeight.w600,
         ),
       ),
@@ -718,7 +715,7 @@ class _AddButton extends StatelessWidget {
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
             Icon(Icons.add_rounded, size: 18, color: theme.primary),
-            const SizedBox(width: 8),
+            SizedBox(width: Spacing.sm),
             Text(
               label,
               style: TextStyle(
@@ -778,9 +775,7 @@ class _ToolChipList extends StatelessWidget {
             children: [
               Text(
                 tool,
-                style: GoogleFonts.jetBrainsMono(
-                  fontSize: 12,
-                  color: color,
+                style: AppTypography.codeSmall(color: color).copyWith(
                   fontWeight: FontWeight.w500,
                 ),
               ),
@@ -820,7 +815,7 @@ class _ToggleRow extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Container(
-      padding: const EdgeInsets.all(14),
+      padding: Insets.cardMd,
       decoration: BoxDecoration(
         color: theme.backgroundPanel,
         borderRadius: Radii.brMd,
@@ -840,10 +835,10 @@ class _ToggleRow extends StatelessWidget {
                     color: theme.text,
                   ),
                 ),
-                const SizedBox(height: 2),
+                SizedBox(height: Spacing.xxs),
                 Text(
                   description,
-                  style: TextStyle(fontSize: 12, color: theme.textMuted),
+                  style: AppTypography.label(color: theme.textMuted),
                 ),
               ],
             ),
@@ -931,11 +926,11 @@ class _PermissionModeOption extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Padding(
-      padding: const EdgeInsets.only(bottom: 8),
+      padding: Insets.bottomSm,
       child: GestureDetector(
         onTap: onTap,
         child: Container(
-          padding: const EdgeInsets.all(14),
+          padding: Insets.cardMd,
           decoration: BoxDecoration(
             color: isSelected
                 ? theme.primary.withValues(alpha: 0.08)
@@ -948,14 +943,14 @@ class _PermissionModeOption extends StatelessWidget {
           child: Row(
             children: [
               Container(
-                padding: const EdgeInsets.all(8),
+                padding: Insets.cardXs,
                 decoration: BoxDecoration(
                   color: _iconColor.withValues(alpha: 0.15),
                   borderRadius: Radii.brSm,
                 ),
                 child: Icon(_icon, color: _iconColor, size: 18),
               ),
-              const SizedBox(width: 12),
+              SizedBox(width: Spacing.md),
               Expanded(
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
@@ -968,10 +963,10 @@ class _PermissionModeOption extends StatelessWidget {
                         color: isSelected ? theme.primary : theme.text,
                       ),
                     ),
-                    const SizedBox(height: 2),
+                    SizedBox(height: Spacing.xxs),
                     Text(
                       _description,
-                      style: TextStyle(fontSize: 12, color: theme.textMuted),
+                      style: AppTypography.label(color: theme.textMuted),
                     ),
                   ],
                 ),
@@ -1036,7 +1031,7 @@ class _ToolPickerSheetState extends State<_ToolPickerSheet> {
               color: widget.theme.text,
             ),
           ),
-          const SizedBox(height: 12),
+          SizedBox(height: Spacing.md),
           if (widget.availableTools.isNotEmpty) ...[
             Wrap(
               spacing: 8,
@@ -1056,16 +1051,13 @@ class _ToolPickerSheetState extends State<_ToolPickerSheet> {
                     ),
                     child: Text(
                       tool,
-                      style: GoogleFonts.jetBrainsMono(
-                        fontSize: 13,
-                        color: widget.theme.text,
-                      ),
+                      style: AppTypography.code(color: widget.theme.text),
                     ),
                   ),
                 );
               }).toList(),
             ),
-            const SizedBox(height: 16),
+            SizedBox(height: Spacing.lg),
             Text(
               'Or enter a custom tool name:',
               style: TextStyle(fontSize: 12, color: widget.theme.textMuted),
@@ -1075,17 +1067,14 @@ class _ToolPickerSheetState extends State<_ToolPickerSheet> {
               'Enter a custom tool name:',
               style: TextStyle(fontSize: 12, color: widget.theme.textMuted),
             ),
-          const SizedBox(height: 8),
+          SizedBox(height: Spacing.sm),
           Row(
             children: [
               Expanded(
                 child: TextField(
                   controller: _controller,
                   autofocus: widget.availableTools.isEmpty,
-                  style: GoogleFonts.jetBrainsMono(
-                    fontSize: 13,
-                    color: widget.theme.text,
-                  ),
+                  style: AppTypography.code(color: widget.theme.text),
                   decoration: InputDecoration(
                     isDense: true,
                     hintText: 'e.g. MyCustomTool',
@@ -1116,7 +1105,7 @@ class _ToolPickerSheetState extends State<_ToolPickerSheet> {
                   },
                 ),
               ),
-              const SizedBox(width: 8),
+              SizedBox(width: Spacing.sm),
               IconButton(
                 onPressed: () {
                   final val = _controller.text.trim();
@@ -1205,11 +1194,11 @@ class _CodexPolicyOption extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Padding(
-      padding: const EdgeInsets.only(bottom: 8),
+      padding: Insets.bottomSm,
       child: GestureDetector(
         onTap: onTap,
         child: Container(
-          padding: const EdgeInsets.all(14),
+          padding: Insets.cardMd,
           decoration: BoxDecoration(
             color: isSelected
                 ? theme.primary.withValues(alpha: 0.08)
@@ -1222,14 +1211,14 @@ class _CodexPolicyOption extends StatelessWidget {
           child: Row(
             children: [
               Container(
-                padding: const EdgeInsets.all(8),
+                padding: Insets.cardXs,
                 decoration: BoxDecoration(
                   color: _iconColor.withValues(alpha: 0.15),
                   borderRadius: Radii.brSm,
                 ),
                 child: Icon(_icon, color: _iconColor, size: 18),
               ),
-              const SizedBox(width: 12),
+              SizedBox(width: Spacing.md),
               Expanded(
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
@@ -1242,10 +1231,10 @@ class _CodexPolicyOption extends StatelessWidget {
                         color: isSelected ? theme.primary : theme.text,
                       ),
                     ),
-                    const SizedBox(height: 2),
+                    SizedBox(height: Spacing.xxs),
                     Text(
                       _description,
-                      style: TextStyle(fontSize: 12, color: theme.textMuted),
+                      style: AppTypography.label(color: theme.textMuted),
                     ),
                   ],
                 ),
@@ -1321,11 +1310,11 @@ class _CodexSandboxOption extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Padding(
-      padding: const EdgeInsets.only(bottom: 8),
+      padding: Insets.bottomSm,
       child: GestureDetector(
         onTap: onTap,
         child: Container(
-          padding: const EdgeInsets.all(14),
+          padding: Insets.cardMd,
           decoration: BoxDecoration(
             color: isSelected
                 ? theme.primary.withValues(alpha: 0.08)
@@ -1338,14 +1327,14 @@ class _CodexSandboxOption extends StatelessWidget {
           child: Row(
             children: [
               Container(
-                padding: const EdgeInsets.all(8),
+                padding: Insets.cardXs,
                 decoration: BoxDecoration(
                   color: _iconColor.withValues(alpha: 0.15),
                   borderRadius: Radii.brSm,
                 ),
                 child: Icon(_icon, color: _iconColor, size: 18),
               ),
-              const SizedBox(width: 12),
+              SizedBox(width: Spacing.md),
               Expanded(
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
@@ -1358,10 +1347,10 @@ class _CodexSandboxOption extends StatelessWidget {
                         color: isSelected ? theme.primary : theme.text,
                       ),
                     ),
-                    const SizedBox(height: 2),
+                    SizedBox(height: Spacing.xxs),
                     Text(
                       _description,
-                      style: TextStyle(fontSize: 12, color: theme.textMuted),
+                      style: AppTypography.label(color: theme.textMuted),
                     ),
                   ],
                 ),
@@ -1488,7 +1477,7 @@ class _RuleCard extends StatelessWidget {
             child: Row(
               children: [
                 Container(
-                  padding: const EdgeInsets.all(6),
+                  padding: Insets.cardXs,
                   decoration: BoxDecoration(
                     color: permColor.withValues(alpha: 0.15),
                     borderRadius: Radii.brSm,
@@ -1621,7 +1610,7 @@ class _StyledDropdown extends StatelessWidget {
             fontWeight: FontWeight.w500,
           ),
         ),
-        const SizedBox(height: 4),
+        SizedBox(height: Spacing.xs),
         Container(
           height: 40,
           padding: const EdgeInsets.symmetric(horizontal: 10),
@@ -1635,7 +1624,7 @@ class _StyledDropdown extends StatelessWidget {
             isExpanded: true,
             underline: const SizedBox.shrink(),
             dropdownColor: theme.backgroundPanel,
-            style: TextStyle(color: theme.text, fontSize: 13),
+            style: AppTypography.bodySmall(color: theme.text),
             icon: Icon(
               Icons.keyboard_arrow_down_rounded,
               color: theme.textMuted,
@@ -1680,12 +1669,12 @@ class _StyledTextField extends StatelessWidget {
             fontWeight: FontWeight.w500,
           ),
         ),
-        const SizedBox(height: 4),
+        SizedBox(height: Spacing.xs),
         SizedBox(
           height: 40,
           child: TextField(
             controller: TextEditingController(text: value),
-            style: GoogleFonts.jetBrainsMono(fontSize: 13, color: theme.text),
+            style: AppTypography.code(color: theme.text),
             decoration: InputDecoration(
               isDense: true,
               contentPadding: const EdgeInsets.symmetric(

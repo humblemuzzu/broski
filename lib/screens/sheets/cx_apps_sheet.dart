@@ -4,6 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../models/codex_app_info.dart';
 import '../../providers/service_providers.dart';
 import '../../widgets/chat/detail_sheet.dart';
+import '../../theme/design_tokens.dart';
 
 /// Bottom sheet to browse Codex apps/connectors marketplace.
 class CxAppsSheet extends ConsumerStatefulWidget {
@@ -69,7 +70,7 @@ class _CxAppsSheetState extends ConsumerState<CxAppsSheet> {
           mainAxisSize: MainAxisSize.min,
           children: [
             Text('Error: $_error', style: TextStyle(color: theme.colorScheme.error)),
-            const SizedBox(height: 12),
+            SizedBox(height: Spacing.md),
             TextButton(onPressed: _load, child: const Text('Retry')),
           ],
         ),
@@ -84,7 +85,7 @@ class _CxAppsSheetState extends ConsumerState<CxAppsSheet> {
     return RefreshIndicator(
       onRefresh: _load,
       child: ListView.separated(
-        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+        padding: Insets.listItemDense,
         itemCount: apps.length,
         separatorBuilder: (_, __) => const Divider(height: 1),
         itemBuilder: (context, index) {
@@ -93,7 +94,7 @@ class _CxAppsSheetState extends ConsumerState<CxAppsSheet> {
             dense: true,
             leading: app.logoUrl != null
                 ? ClipRRect(
-                    borderRadius: BorderRadius.circular(6),
+                    borderRadius: Radii.brSm,
                     child: Image.network(
                       app.logoUrl!,
                       width: 28,

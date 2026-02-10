@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import '../../theme/design_tokens.dart';
 import '../../theme/opencode_theme.dart';
 
 /// A reusable detail sheet for displaying tool/card details.
@@ -65,7 +66,7 @@ class DetailSheet extends StatelessWidget {
     return Container(
       decoration: BoxDecoration(
         color: theme.backgroundPanel,
-        borderRadius: const BorderRadius.vertical(top: Radius.circular(20)),
+        borderRadius: Radii.sheetTop,
       ),
       child: Column(
         mainAxisSize: MainAxisSize.min,
@@ -78,14 +79,14 @@ class DetailSheet extends StatelessWidget {
               height: 4,
               decoration: BoxDecoration(
                 color: theme.textMuted.withValues(alpha: 0.3),
-                borderRadius: BorderRadius.circular(2),
+                borderRadius: Radii.brXs,
               ),
             ),
           ),
 
           // Header
           Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+            padding: Insets.listItemDense,
             child: Stack(
               alignment: Alignment.center,
               children: [
@@ -145,13 +146,13 @@ class DetailSection extends StatelessWidget {
     final theme = OpenCodeTheme.of(context);
 
     return Padding(
-      padding: padding ?? const EdgeInsets.all(16),
+      padding: padding ?? Insets.card,
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           // Section label
           Padding(
-            padding: const EdgeInsets.only(bottom: 8),
+            padding: Insets.bottomSm,
             child: Text(
               label.toUpperCase(),
               style: TextStyle(
@@ -166,10 +167,10 @@ class DetailSection extends StatelessWidget {
           // Content box
           Container(
             width: double.infinity,
-            padding: const EdgeInsets.all(12),
+            padding: Insets.cardSm,
             decoration: BoxDecoration(
               color: theme.backgroundElement,
-              borderRadius: BorderRadius.circular(8),
+              borderRadius: Radii.brSm,
               border: Border.all(
                 color: theme.borderSubtle.withValues(alpha: 0.5),
                 width: 1,

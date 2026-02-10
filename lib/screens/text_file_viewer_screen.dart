@@ -3,7 +3,8 @@ import 'dart:typed_data';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:google_fonts/google_fonts.dart';
+import '../theme/app_typography.dart';
+import '../theme/design_tokens.dart';
 
 import '../models/file_content.dart';
 import '../providers/service_providers.dart';
@@ -101,12 +102,12 @@ class _TextFileViewerScreenState extends ConsumerState<TextFileViewerScreen> {
     // If we have decoded binary data and it's an image, show preview
     if (_binaryData != null && file.isImage) {
       return SingleChildScrollView(
-        padding: const EdgeInsets.all(16),
+        padding: Insets.card,
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.center,
           children: [
             ClipRRect(
-              borderRadius: BorderRadius.circular(8),
+              borderRadius: Radii.brSm,
               child: Image.memory(
                 _binaryData!,
                 fit: BoxFit.contain,
@@ -118,11 +119,11 @@ class _TextFileViewerScreenState extends ConsumerState<TextFileViewerScreen> {
                 ),
               ),
             ),
-            const SizedBox(height: 12),
+            SizedBox(height: Spacing.md),
             Text(
               '$fileName  ·  ${_formatBytes(_binaryData!.length)}',
               style: TextStyle(
-                fontFamily: 'GeistSans',
+                fontFamily: AppTypography.uiFontFamily,
                 fontSize: 12,
                 color: oc.textMuted,
               ),
@@ -161,30 +162,30 @@ class _TextFileViewerScreenState extends ConsumerState<TextFileViewerScreen> {
           height: 64,
           decoration: BoxDecoration(
             color: oc.borderSubtle.withValues(alpha: 0.3),
-            borderRadius: BorderRadius.circular(12),
+            borderRadius: Radii.brMd,
           ),
           child: Icon(icon, size: 32, color: oc.textMuted),
         ),
-        const SizedBox(height: 12),
+        SizedBox(height: Spacing.md),
         Text(
           label,
           style: TextStyle(
-            fontFamily: 'GeistSans',
+            fontFamily: AppTypography.uiFontFamily,
             fontSize: 14,
             fontWeight: FontWeight.w600,
             color: oc.text,
           ),
         ),
-        const SizedBox(height: 4),
+        SizedBox(height: Spacing.xs),
         Text(
           fileName,
-          style: TextStyle(fontFamily: 'GeistSans', fontSize: 12, color: oc.textMuted),
+          style: TextStyle(fontFamily: AppTypography.uiFontFamily, fontSize: 12, color: oc.textMuted),
         ),
         if (subtitle != null) ...[
-          const SizedBox(height: 2),
+          SizedBox(height: Spacing.xxs),
           Text(
             subtitle,
-            style: TextStyle(fontFamily: 'GeistSans', fontSize: 11, color: oc.textMuted),
+            style: TextStyle(fontFamily: AppTypography.uiFontFamily, fontSize: 11, color: oc.textMuted),
           ),
         ],
       ],
@@ -221,7 +222,7 @@ class _TextFileViewerScreenState extends ConsumerState<TextFileViewerScreen> {
             : _error != null
             ? Center(
                 child: Padding(
-                  padding: const EdgeInsets.all(16),
+                  padding: Insets.card,
                   child: Text(_error!, style: TextStyle(color: oc.textMuted)),
                 ),
               )
@@ -229,12 +230,10 @@ class _TextFileViewerScreenState extends ConsumerState<TextFileViewerScreen> {
             ? _buildBinaryView(oc)
             : Container(
                 width: double.infinity,
-                padding: const EdgeInsets.all(16),
+                padding: Insets.card,
                 child: SelectableText(
                   _content,
-                  style: GoogleFonts.jetBrainsMono(
-                    fontSize: 12,
-                    color: oc.text,
+                  style: AppTypography.codeSmall(color: oc.text).copyWith(
                     height: 1.5,
                   ),
                 ),

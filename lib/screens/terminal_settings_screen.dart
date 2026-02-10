@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../providers/terminal_settings_provider.dart';
+import '../theme/design_tokens.dart';
 import '../theme/opencode_theme.dart';
 
 class TerminalSettingsScreen extends ConsumerWidget {
@@ -22,20 +23,20 @@ class TerminalSettingsScreen extends ConsumerWidget {
         iconTheme: IconThemeData(color: ocTheme.text),
       ),
       body: ListView(
-        padding: const EdgeInsets.all(16),
+        padding: Insets.card,
         children: [
           // Performance info box
           Container(
-            padding: const EdgeInsets.all(14),
+            padding: Insets.cardMd,
             decoration: BoxDecoration(
               color: ocTheme.success.withValues(alpha: 0.1),
-              borderRadius: BorderRadius.circular(12),
+              borderRadius: Radii.brMd,
               border: Border.all(color: ocTheme.success.withValues(alpha: 0.3)),
             ),
             child: Row(
               children: [
                 Icon(Icons.bolt, color: ocTheme.success, size: 20),
-                const SizedBox(width: 12),
+                SizedBox(width: Spacing.md),
                 Expanded(
                   child: Text(
                     'Smart mode active - instant response for typing, auto-throttle for high output',
@@ -49,7 +50,7 @@ class TerminalSettingsScreen extends ConsumerWidget {
               ],
             ),
           ),
-          const SizedBox(height: 16),
+          SizedBox(height: Spacing.lg),
           _Section(
             title: 'Appearance',
             children: [
@@ -73,7 +74,7 @@ class TerminalSettingsScreen extends ConsumerWidget {
               ),
             ],
           ),
-          const SizedBox(height: 12),
+          SizedBox(height: Spacing.md),
           _Section(
             title: 'Toolbars',
             children: [
@@ -91,7 +92,7 @@ class TerminalSettingsScreen extends ConsumerWidget {
               ),
             ],
           ),
-          const SizedBox(height: 12),
+          SizedBox(height: Spacing.md),
           _Section(
             title: 'Input',
             children: [
@@ -140,7 +141,7 @@ class _Section extends StatelessWidget {
     return Container(
       decoration: BoxDecoration(
         color: ocTheme.backgroundPanel,
-        borderRadius: BorderRadius.circular(14),
+        borderRadius: Radii.brLg,
         border: Border.all(color: ocTheme.borderSubtle),
       ),
       child: Column(
@@ -230,10 +231,10 @@ class _SliderTile extends StatelessWidget {
                 child: Text(title, style: TextStyle(color: ocTheme.text)),
               ),
               Container(
-                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                padding: Insets.chip,
                 decoration: BoxDecoration(
                   color: ocTheme.primary.withValues(alpha: 0.15),
-                  borderRadius: BorderRadius.circular(6),
+                  borderRadius: Radii.brSm,
                 ),
                 child: Text(
                   label,
@@ -246,7 +247,7 @@ class _SliderTile extends StatelessWidget {
               ),
             ],
           ),
-          const SizedBox(height: 4),
+          SizedBox(height: Spacing.xs),
           SliderTheme(
             data: SliderTheme.of(context).copyWith(
               trackHeight: 4,

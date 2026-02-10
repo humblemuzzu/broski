@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
-import 'package:google_fonts/google_fonts.dart';
+import '../theme/app_typography.dart';
+import '../theme/design_tokens.dart';
 
 import '../models/message.dart';
 import '../theme/opencode_theme.dart';
@@ -93,7 +94,7 @@ class _DiffViewScreenState extends State<DiffViewScreen> {
                 overflow: TextOverflow.ellipsis,
               ),
             ),
-            const SizedBox(width: 12),
+            SizedBox(width: Spacing.md),
             // Inline stats
             if (widget.diff.additions > 0)
               Text(
@@ -153,12 +154,12 @@ class _DiffViewScreenState extends State<DiffViewScreen> {
           margin: const EdgeInsets.fromLTRB(12, 8, 12, 12),
           decoration: BoxDecoration(
             color: ocTheme.backgroundPanel,
-            borderRadius: BorderRadius.circular(12),
+            borderRadius: Radii.brMd,
             border: Border.all(color: ocTheme.borderSubtle),
           ),
           clipBehavior: Clip.antiAlias,
           child: ListView.builder(
-            padding: const EdgeInsets.symmetric(vertical: 8),
+            padding: Insets.chipV,
             itemCount: contentLines.length,
             itemBuilder: (context, index) {
               final line = contentLines[index];
@@ -235,9 +236,8 @@ class _DiffRow extends StatelessWidget {
         padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
         child: Text(
           line.text,
-          style: GoogleFonts.jetBrainsMono(
+          style: AppTypography.code(color: ocTheme.textMuted.withValues(alpha: 0.5)).copyWith(
             fontSize: fontSize - 2,
-            color: ocTheme.textMuted.withValues(alpha: 0.5),
             height: 1.4,
           ),
         ),
@@ -264,31 +264,28 @@ class _DiffRow extends StatelessWidget {
               child: Text(
                 line.newLine?.toString() ?? '',
                 textAlign: TextAlign.right,
-                style: GoogleFonts.jetBrainsMono(
+                style: AppTypography.code(color: ocTheme.textMuted.withValues(alpha: 0.4)).copyWith(
                   fontSize: fontSize - 2,
-                  color: ocTheme.textMuted.withValues(alpha: 0.4),
                   height: 1.6,
                 ),
               ),
             ),
-          if (showGutter) const SizedBox(width: 8),
+          if (showGutter) SizedBox(width: Spacing.sm),
           // Prefix (+/-/space)
           Text(
             prefix,
-            style: GoogleFonts.jetBrainsMono(
+            style: AppTypography.code(color: fg.withValues(alpha: 0.7)).copyWith(
               fontSize: fontSize,
-              color: fg.withValues(alpha: 0.7),
               height: 1.6,
             ),
           ),
-          const SizedBox(width: 4),
+          SizedBox(width: Spacing.xs),
           // Content
           Expanded(
             child: Text(
               line.text,
-              style: GoogleFonts.jetBrainsMono(
+              style: AppTypography.code(color: fg).copyWith(
                 fontSize: fontSize,
-                color: fg,
                 height: 1.6,
               ),
             ),

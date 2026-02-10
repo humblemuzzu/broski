@@ -1,11 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_markdown/flutter_markdown.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:google_fonts/google_fonts.dart';
-
 import '../../models/card_style.dart';
 import '../../models/message.dart';
 import '../../providers/card_style_provider.dart';
+import '../../theme/app_typography.dart';
 import '../../theme/design_tokens.dart';
 import '../../theme/opencode_theme.dart';
 import '../../theme/tool_style.dart';
@@ -174,7 +173,7 @@ class CompactAgentCard extends ConsumerWidget {
         margin: EdgeInsets.symmetric(vertical: Spacing.xxs),
         decoration: BoxDecoration(
           color: theme.bgRaised,
-          borderRadius: BorderRadius.circular(12),
+          borderRadius: Radii.brMd,
           border: Border.all(
             color: isRunning ? agentColor.withValues(alpha: 0.4) : borderColor,
             width: isRunning ? 1.5 : 1,
@@ -185,7 +184,7 @@ class CompactAgentCard extends ConsumerWidget {
           padding: EdgeInsets.symmetric(horizontal: Spacing.md, vertical: 10),
           decoration: BoxDecoration(
             color: headerBg,
-            borderRadius: BorderRadius.circular(11),
+            borderRadius: Radii.brMd,
           ),
           child: Row(
             children: [
@@ -214,7 +213,7 @@ class CompactAgentCard extends ConsumerWidget {
                   _description.isNotEmpty ? _description : _prompt,
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
-                  style: TextStyle(color: theme.textMuted, fontSize: 12),
+                  style: AppTypography.label(color: theme.textMuted),
                 ),
               ),
 
@@ -230,7 +229,7 @@ class CompactAgentCard extends ConsumerWidget {
                     ),
                     decoration: BoxDecoration(
                       color: agentColor.withValues(alpha: 0.15),
-                      borderRadius: BorderRadius.circular(8),
+                      borderRadius: Radii.brSm,
                     ),
                     child: Text(
                       '${_tool!.metadata['nestedToolCount']} tools',
@@ -289,7 +288,7 @@ class CompactAgentCard extends ConsumerWidget {
               label: 'Prompt',
               child: SelectableText(
                 _prompt,
-                style: TextStyle(color: theme.text, fontSize: 13),
+                style: AppTypography.bodySmall(color: theme.text),
               ),
             ),
 
@@ -404,10 +403,10 @@ class CompactAgentCard extends ConsumerWidget {
             SizedBox(height: 6),
             Container(
               width: double.infinity,
-              padding: EdgeInsets.all(10),
+              padding: Insets.cardXs,
               decoration: BoxDecoration(
                 color: theme.backgroundPanel,
-                borderRadius: BorderRadius.circular(10),
+                borderRadius: Radii.brMd,
                 border: Border.all(color: theme.borderSubtle, width: 1),
               ),
               child: SelectableText(
@@ -427,23 +426,23 @@ class CompactAgentCard extends ConsumerWidget {
   /// Build markdown style matching the main chat
   MarkdownStyleSheet _buildMarkdownStyle(OpenCodeTheme theme) {
     return MarkdownStyleSheet(
-      p: TextStyle(fontFamily: 'GeistSans', fontSize: 14, color: theme.text, height: 1.5),
+      p: TextStyle(fontFamily: AppTypography.uiFontFamily, fontSize: 14, color: theme.text, height: 1.5),
       h1: TextStyle(
-        fontFamily: 'GeistSans',
+        fontFamily: AppTypography.uiFontFamily,
         fontSize: 18,
         fontWeight: FontWeight.w600,
         color: theme.text,
         height: 1.4,
       ),
       h2: TextStyle(
-        fontFamily: 'GeistSans',
+        fontFamily: AppTypography.uiFontFamily,
         fontSize: 16,
         fontWeight: FontWeight.w600,
         color: theme.text,
         height: 1.4,
       ),
       h3: TextStyle(
-        fontFamily: 'GeistSans',
+        fontFamily: AppTypography.uiFontFamily,
         fontSize: 15,
         fontWeight: FontWeight.w600,
         color: theme.text,
@@ -451,14 +450,12 @@ class CompactAgentCard extends ConsumerWidget {
       ),
       strong: TextStyle(fontWeight: FontWeight.w600, color: theme.text),
       em: TextStyle(fontStyle: FontStyle.italic, color: theme.textMuted),
-      code: GoogleFonts.jetBrainsMono(
-        fontSize: 12,
-        color: theme.accent,
+      code: AppTypography.codeSmall(color: theme.accent).copyWith(
         backgroundColor: theme.backgroundElement,
       ),
       codeblockDecoration: BoxDecoration(
         color: theme.backgroundElement,
-        borderRadius: BorderRadius.circular(8),
+        borderRadius: Radii.brSm,
         border: Border.all(color: theme.borderSubtle),
       ),
       codeblockPadding: Insets.card,
@@ -542,7 +539,7 @@ class _NestedToolRow extends StatelessWidget {
               preview,
               maxLines: 1,
               overflow: TextOverflow.ellipsis,
-              style: TextStyle(color: theme.textMuted, fontSize: 11),
+              style: AppTypography.caption(color: theme.textMuted),
             ),
           ),
         ],

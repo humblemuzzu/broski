@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../../theme/app_typography.dart';
 
 import '../../theme/design_tokens.dart';
 import '../../theme/opencode_theme.dart';
@@ -94,7 +95,7 @@ class _GitCommitSheetState extends State<GitCommitSheet> {
       child: Container(
         decoration: BoxDecoration(
           color: theme.bgSheet,
-          borderRadius: const BorderRadius.vertical(top: Radius.circular(20)),
+          borderRadius: Radii.sheetTop,
         ),
         child: Column(
           mainAxisSize: MainAxisSize.min,
@@ -107,14 +108,14 @@ class _GitCommitSheetState extends State<GitCommitSheet> {
                 height: 4,
                 decoration: BoxDecoration(
                   color: theme.textMuted.withValues(alpha: 0.3),
-                  borderRadius: BorderRadius.circular(2),
+                  borderRadius: Radii.brXs,
                 ),
               ),
             ),
 
             // Header
             Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+              padding: Insets.listItemDense,
               child: Stack(
                 alignment: Alignment.center,
                 children: [
@@ -150,7 +151,7 @@ class _GitCommitSheetState extends State<GitCommitSheet> {
                     autofocus: true,
                     maxLines: 5,
                     minLines: 3,
-                    style: TextStyle(color: theme.text, fontSize: 14),
+                    style: AppTypography.labelLarge(color: theme.text),
                     decoration: InputDecoration(
                       hintText: 'Type commit message...',
                       hintStyle: TextStyle(color: theme.textMuted),
@@ -174,7 +175,7 @@ class _GitCommitSheetState extends State<GitCommitSheet> {
                       contentPadding: Insets.input,
                     ),
                   ),
-                  const SizedBox(height: 12),
+                  SizedBox(height: Spacing.md),
                   SizedBox(
                     width: double.infinity,
                     child: FilledButton(

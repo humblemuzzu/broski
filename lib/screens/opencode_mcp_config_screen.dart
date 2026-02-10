@@ -2,7 +2,8 @@ import 'dart:convert';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:google_fonts/google_fonts.dart';
+import '../theme/app_typography.dart';
+import '../theme/design_tokens.dart';
 
 import '../models/mcp.dart';
 import '../providers/selection_provider.dart';
@@ -258,7 +259,7 @@ class _OpenCodeMcpConfigScreenState
           : _error != null
           ? Center(
               child: Padding(
-                padding: const EdgeInsets.all(24),
+                padding: Insets.cardLg,
                 child: Text(_error!, style: TextStyle(color: oc.textMuted)),
               ),
             )
@@ -271,7 +272,7 @@ class _OpenCodeMcpConfigScreenState
                       Expanded(
                         child: Text(
                           'View and control MCP servers. Add new servers from mobile and manage connection status.',
-                          style: TextStyle(color: oc.textMuted, fontSize: 12),
+                          style: AppTypography.label(color: oc.textMuted),
                         ),
                       ),
                       TextButton.icon(
@@ -286,7 +287,7 @@ class _OpenCodeMcpConfigScreenState
                   child: names.isEmpty
                       ? Center(
                           child: Padding(
-                            padding: const EdgeInsets.all(24),
+                            padding: Insets.cardLg,
                             child: Column(
                               mainAxisAlignment: MainAxisAlignment.center,
                               children: [
@@ -295,12 +296,12 @@ class _OpenCodeMcpConfigScreenState
                                   color: oc.textMuted,
                                   size: 56,
                                 ),
-                                const SizedBox(height: 12),
+                                SizedBox(height: Spacing.md),
                                 Text(
                                   'No MCP servers configured',
                                   style: TextStyle(color: oc.text),
                                 ),
-                                const SizedBox(height: 8),
+                                SizedBox(height: Spacing.sm),
                                 Text(
                                   'Tap + to add your first MCP server.',
                                   textAlign: TextAlign.center,
@@ -322,7 +323,7 @@ class _OpenCodeMcpConfigScreenState
                               color: oc.backgroundElement,
                               margin: const EdgeInsets.only(bottom: 10),
                               shape: RoundedRectangleBorder(
-                                borderRadius: BorderRadius.circular(12),
+                                borderRadius: Radii.brMd,
                                 side: BorderSide(color: oc.border),
                               ),
                               child: ListTile(
@@ -428,17 +429,17 @@ class _JsonObjectEditorScreenState extends State<_JsonObjectEditorScreen> {
         ],
       ),
       body: Padding(
-        padding: const EdgeInsets.all(16),
+        padding: Insets.card,
         child: TextField(
           controller: _json,
           maxLines: null,
           expands: true,
-          style: TextStyle(fontFamily: GoogleFonts.jetBrainsMono().fontFamily, fontSize: 13),
+          style: AppTypography.code(),
           decoration: InputDecoration(
             filled: true,
             fillColor: oc.backgroundElement,
             border: OutlineInputBorder(
-              borderRadius: BorderRadius.circular(12),
+              borderRadius: Radii.brMd,
               borderSide: BorderSide(color: oc.border),
             ),
           ),

@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../models/session.dart';
 import '../providers/sessions_provider.dart';
+import '../theme/design_tokens.dart';
 import '../theme/opencode_theme.dart';
 
 // ============================================================
@@ -43,10 +44,10 @@ class ActiveSessionsSection extends ConsumerWidget {
 
     return Container(
       margin: const EdgeInsets.fromLTRB(20, 0, 20, 16),
-      padding: const EdgeInsets.all(16),
+      padding: Insets.card,
       decoration: BoxDecoration(
         color: ocTheme.backgroundPanel,
-        borderRadius: BorderRadius.circular(16),
+        borderRadius: Radii.brLg,
         border: Border.all(color: ocTheme.info.withValues(alpha: 0.3)),
       ),
       child: Column(
@@ -60,7 +61,7 @@ class ActiveSessionsSection extends ConsumerWidget {
                 color: ocTheme.info,
                 icon: Icons.play_circle_rounded,
               ),
-              const SizedBox(width: 12),
+              SizedBox(width: Spacing.md),
               Expanded(
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
@@ -82,12 +83,12 @@ class ActiveSessionsSection extends ConsumerWidget {
               ),
             ],
           ),
-          const SizedBox(height: 12),
+          SizedBox(height: Spacing.md),
           // Active sessions list
           ...activeSessions.map((session) {
             final status = sessionStatuses[session.id];
             return Padding(
-              padding: const EdgeInsets.only(bottom: 8),
+              padding: Insets.bottomSm,
               child: _ActiveSessionCard(
                 session: session,
                 status: status,
@@ -128,10 +129,10 @@ class _ActiveSessionCard extends StatelessWidget {
     return GestureDetector(
       onTap: onTap,
       child: Container(
-        padding: const EdgeInsets.all(12),
+        padding: Insets.cardSm,
         decoration: BoxDecoration(
           color: ocTheme.backgroundElement,
-          borderRadius: BorderRadius.circular(12),
+          borderRadius: Radii.brMd,
           border: Border.all(color: statusColor.withValues(alpha: 0.3)),
         ),
         child: Row(
@@ -152,7 +153,7 @@ class _ActiveSessionCard extends StatelessWidget {
                 ],
               ),
             ),
-            const SizedBox(width: 12),
+            SizedBox(width: Spacing.md),
             // Session info
             Expanded(
               child: Column(
@@ -168,7 +169,7 @@ class _ActiveSessionCard extends StatelessWidget {
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
                   ),
-                  const SizedBox(height: 2),
+                  SizedBox(height: Spacing.xxs),
                   Row(
                     children: [
                       Text(
@@ -179,7 +180,7 @@ class _ActiveSessionCard extends StatelessWidget {
                         ),
                       ),
                       if (isRetry) ...[
-                        const SizedBox(width: 8),
+                        SizedBox(width: Spacing.sm),
                         Container(
                           padding: const EdgeInsets.symmetric(
                             horizontal: 6,
@@ -187,7 +188,7 @@ class _ActiveSessionCard extends StatelessWidget {
                           ),
                           decoration: BoxDecoration(
                             color: ocTheme.warning.withValues(alpha: 0.15),
-                            borderRadius: BorderRadius.circular(4),
+                            borderRadius: Radii.brXs,
                           ),
                           child: Text(
                             'Retrying',
@@ -256,10 +257,10 @@ class FloatingActiveIndicator extends ConsumerWidget {
       child: GestureDetector(
         onTap: onTap,
         child: Container(
-          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+          padding: Insets.section,
           decoration: BoxDecoration(
             color: ocTheme.backgroundPanel,
-            borderRadius: BorderRadius.circular(16),
+            borderRadius: Radii.brLg,
             border: Border.all(color: ocTheme.info.withValues(alpha: 0.4)),
             boxShadow: [
               BoxShadow(
@@ -276,7 +277,7 @@ class FloatingActiveIndicator extends ConsumerWidget {
                 color: ocTheme.info,
                 icon: Icons.play_circle_rounded,
               ),
-              const SizedBox(width: 12),
+              SizedBox(width: Spacing.md),
               // Text
               Expanded(
                 child: Column(

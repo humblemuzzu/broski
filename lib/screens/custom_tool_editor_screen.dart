@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:google_fonts/google_fonts.dart';
+import '../theme/app_typography.dart';
+import '../theme/design_tokens.dart';
 
 import '../models/claude_code.dart';
 import '../providers/claude_code_provider.dart';
@@ -131,13 +132,13 @@ class _CustomToolEditorScreenState
         ],
       ),
       body: SingleChildScrollView(
-        padding: const EdgeInsets.all(16),
+        padding: Insets.card,
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             // Basic Info Section
             _SectionHeader(title: 'Basic Info'),
-            const SizedBox(height: 12),
+            SizedBox(height: Spacing.md),
             TextFormField(
               controller: _nameController,
               decoration: const InputDecoration(
@@ -147,7 +148,7 @@ class _CustomToolEditorScreenState
                     'Alphanumeric and underscores only. Will appear as mcp__broski-custom-tools__<name>',
               ),
             ),
-            const SizedBox(height: 16),
+            SizedBox(height: Spacing.lg),
             TextFormField(
               controller: _descriptionController,
               decoration: const InputDecoration(
@@ -156,7 +157,7 @@ class _CustomToolEditorScreenState
               ),
               maxLines: 2,
             ),
-            const SizedBox(height: 16),
+            SizedBox(height: Spacing.lg),
             SwitchListTile(
               title: const Text('Enabled'),
               subtitle: const Text('Tool is available for Claude to use'),
@@ -164,11 +165,11 @@ class _CustomToolEditorScreenState
               onChanged: (value) => setState(() => _enabled = value),
               contentPadding: EdgeInsets.zero,
             ),
-            const SizedBox(height: 24),
+            SizedBox(height: Spacing.xxl),
 
             // Handler Type Section
             _SectionHeader(title: 'Handler Type'),
-            const SizedBox(height: 12),
+            SizedBox(height: Spacing.md),
             SegmentedButton<CustomToolHandlerType>(
               segments:
                   const [
@@ -190,14 +191,14 @@ class _CustomToolEditorScreenState
                 setState(() => _handlerType = selected.first);
               },
             ),
-            const SizedBox(height: 8),
+            SizedBox(height: Spacing.sm),
             Text(
               _handlerType.description,
               style: theme.textTheme.bodySmall?.copyWith(
                 color: theme.colorScheme.onSurface.withValues(alpha: 0.6),
               ),
             ),
-            const SizedBox(height: 24),
+            SizedBox(height: Spacing.xxl),
 
             // Handler Config Section
             if (_handlerType == CustomToolHandlerType.http)
@@ -219,7 +220,7 @@ class _CustomToolEditorScreenState
             else
               const SizedBox.shrink(),
 
-            const SizedBox(height: 24),
+            SizedBox(height: Spacing.xxl),
 
             // Parameters Section
             _SectionHeader(
@@ -230,15 +231,15 @@ class _CustomToolEditorScreenState
                 tooltip: 'Add Parameter',
               ),
             ),
-            const SizedBox(height: 12),
+            SizedBox(height: Spacing.md),
             if (_parameters.isEmpty)
               Container(
-                padding: const EdgeInsets.all(16),
+                padding: Insets.card,
                 decoration: BoxDecoration(
                   color: theme.colorScheme.surfaceContainerHighest.withValues(
                     alpha: 0.5,
                   ),
-                  borderRadius: BorderRadius.circular(12),
+                  borderRadius: Radii.brMd,
                   border: Border.all(
                     color: theme.colorScheme.outline.withValues(alpha: 0.2),
                   ),
@@ -266,17 +267,17 @@ class _CustomToolEditorScreenState
 
             // Test Result
             if (_testResult != null) ...[
-              const SizedBox(height: 24),
+              SizedBox(height: Spacing.xxl),
               _SectionHeader(title: 'Test Result'),
-              const SizedBox(height: 12),
+              SizedBox(height: Spacing.md),
               Builder(builder: (context) {
               final ocTheme = OpenCodeTheme.of(context);
               final statusColor = _testSuccess ? ocTheme.success : ocTheme.error;
               return Container(
-                padding: const EdgeInsets.all(16),
+                padding: Insets.card,
                 decoration: BoxDecoration(
                   color: statusColor.withValues(alpha: 0.1),
-                  borderRadius: BorderRadius.circular(12),
+                  borderRadius: Radii.brMd,
                   border: Border.all(
                     color: statusColor.withValues(alpha: 0.3),
                   ),
@@ -293,7 +294,7 @@ class _CustomToolEditorScreenState
                           color: statusColor,
                           size: 20,
                         ),
-                        const SizedBox(width: 8),
+                        SizedBox(width: Spacing.sm),
                         Text(
                           _testSuccess ? 'Success' : 'Failed',
                           style: theme.textTheme.titleSmall?.copyWith(
@@ -303,12 +304,10 @@ class _CustomToolEditorScreenState
                         ),
                       ],
                     ),
-                    const SizedBox(height: 8),
+                    SizedBox(height: Spacing.sm),
                     Text(
                       _testResult!,
-                      style: theme.textTheme.bodySmall?.copyWith(
-                        fontFamily: GoogleFonts.jetBrainsMono().fontFamily,
-                      ),
+                      style: AppTypography.codeSmall(),
                     ),
                   ],
                 ),
@@ -531,7 +530,7 @@ class _CustomToolEditorScreenState
                     hintText: 'e.g., location',
                   ),
                 ),
-                const SizedBox(height: 16),
+                SizedBox(height: Spacing.lg),
                 TextField(
                   controller: descController,
                   decoration: const InputDecoration(
@@ -539,7 +538,7 @@ class _CustomToolEditorScreenState
                     hintText: 'What this parameter is for',
                   ),
                 ),
-                const SizedBox(height: 16),
+                SizedBox(height: Spacing.lg),
                 DropdownButtonFormField<CustomToolParameterType>(
                   value: type,
                   decoration: const InputDecoration(labelText: 'Type'),
@@ -555,7 +554,7 @@ class _CustomToolEditorScreenState
                     }
                   },
                 ),
-                const SizedBox(height: 16),
+                SizedBox(height: Spacing.lg),
                 SwitchListTile(
                   title: const Text('Required'),
                   value: required,
@@ -658,7 +657,7 @@ class _HttpConfigSection extends StatelessWidget {
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         _SectionHeader(title: 'HTTP Configuration'),
-        const SizedBox(height: 12),
+        SizedBox(height: Spacing.md),
         Row(
           children: [
             SizedBox(
@@ -676,7 +675,7 @@ class _HttpConfigSection extends StatelessWidget {
                 },
               ),
             ),
-            const SizedBox(width: 12),
+            SizedBox(width: Spacing.md),
             Expanded(
               child: TextFormField(
                 controller: urlController,
@@ -688,7 +687,7 @@ class _HttpConfigSection extends StatelessWidget {
             ),
           ],
         ),
-        const SizedBox(height: 16),
+        SizedBox(height: Spacing.lg),
         TextFormField(
           controller: headersController,
           decoration: const InputDecoration(
@@ -698,7 +697,7 @@ class _HttpConfigSection extends StatelessWidget {
           ),
           maxLines: 3,
         ),
-        const SizedBox(height: 16),
+        SizedBox(height: Spacing.lg),
         TextFormField(
           controller: bodyTemplateController,
           decoration: const InputDecoration(
@@ -732,7 +731,7 @@ class _ScriptConfigSection extends StatelessWidget {
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         _SectionHeader(title: 'Script Configuration'),
-        const SizedBox(height: 12),
+        SizedBox(height: Spacing.md),
         TextFormField(
           controller: commandController,
           decoration: const InputDecoration(
@@ -741,7 +740,7 @@ class _ScriptConfigSection extends StatelessWidget {
             helperText: 'Use {{paramName}} for parameter placeholders',
           ),
         ),
-        const SizedBox(height: 16),
+        SizedBox(height: Spacing.lg),
         TextFormField(
           controller: argsController,
           decoration: const InputDecoration(
@@ -749,7 +748,7 @@ class _ScriptConfigSection extends StatelessWidget {
             hintText: '--flag {{value}}',
           ),
         ),
-        const SizedBox(height: 16),
+        SizedBox(height: Spacing.lg),
         TextFormField(
           controller: cwdController,
           decoration: const InputDecoration(
@@ -757,7 +756,7 @@ class _ScriptConfigSection extends StatelessWidget {
             hintText: '/path/to/dir',
           ),
         ),
-        const SizedBox(height: 16),
+        SizedBox(height: Spacing.lg),
         TextFormField(
           controller: timeoutController,
           decoration: const InputDecoration(
@@ -787,14 +786,14 @@ class _ParameterCard extends StatelessWidget {
     final theme = Theme.of(context);
 
     return Card(
-      margin: const EdgeInsets.only(bottom: 8),
+      margin: Insets.bottomSm,
       child: ListTile(
         leading: Container(
           width: 36,
           height: 36,
           decoration: BoxDecoration(
             color: theme.colorScheme.primaryContainer.withValues(alpha: 0.5),
-            borderRadius: BorderRadius.circular(8),
+            borderRadius: Radii.brSm,
           ),
           child: Center(
             child: Text(
@@ -813,7 +812,7 @@ class _ParameterCard extends StatelessWidget {
               style: const TextStyle(fontWeight: FontWeight.w600),
             ),
             if (parameter.required) ...[
-              const SizedBox(width: 4),
+              SizedBox(width: Spacing.xs),
               Text(
                 '*',
                 style: TextStyle(

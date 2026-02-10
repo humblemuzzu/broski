@@ -1,8 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_markdown/flutter_markdown.dart';
-import 'package:google_fonts/google_fonts.dart';
-
 import '../models/message.dart';
+import '../theme/app_typography.dart';
 import '../theme/design_tokens.dart';
 import '../theme/opencode_theme.dart';
 import 'chat/detail_sheet.dart';
@@ -60,7 +59,7 @@ class MessageBubble extends StatelessWidget {
         constraints: const BoxConstraints(maxWidth: 340),
         decoration: BoxDecoration(
           color: theme.error.withValues(alpha: 0.1),
-          borderRadius: BorderRadius.circular(18),
+          borderRadius: Radii.brXl,
           border: Border.all(
             color: theme.error.withValues(alpha: 0.3),
             width: 1,
@@ -120,7 +119,7 @@ class MessageBubble extends StatelessWidget {
         child: Text(
           message.text,
           style: TextStyle(
-            fontFamily: 'GeistSans',
+            fontFamily: AppTypography.uiFontFamily,
             color: theme.text,
             fontSize: 15,
             height: 1.5,
@@ -153,7 +152,7 @@ class MessageBubble extends StatelessWidget {
               margin: EdgeInsets.only(top: Spacing.xs, right: Spacing.md),
               decoration: BoxDecoration(
                 color: theme.borderSubtle,
-                borderRadius: BorderRadius.circular(1),
+                borderRadius: Radii.brXs,
               ),
             ),
             // Message content - full width, no box
@@ -203,7 +202,7 @@ class MessageBubble extends StatelessWidget {
                       child: Text(
                         '...',
                         style: TextStyle(
-                          fontFamily: 'GeistSans',
+                          fontFamily: AppTypography.uiFontFamily,
                           fontSize: 15,
                           color: theme.textMuted,
                           height: 1.6,
@@ -220,7 +219,7 @@ class MessageBubble extends StatelessWidget {
                         ? Text(
                             message.text,
                             style: TextStyle(
-                              fontFamily: 'GeistSans',
+                              fontFamily: AppTypography.uiFontFamily,
                               fontSize: 15,
                               color: theme.text,
                               height: 1.6,
@@ -243,27 +242,27 @@ class MessageBubble extends StatelessWidget {
   MarkdownStyleSheet _buildMarkdownStyle(OpenCodeTheme theme) {
     return MarkdownStyleSheet(
       p: TextStyle(
-        fontFamily: 'GeistSans',
+        fontFamily: AppTypography.uiFontFamily,
         fontSize: 15,
         color: theme.markdownText,
         height: 1.6,
       ),
       h1: TextStyle(
-        fontFamily: 'GeistSans',
+        fontFamily: AppTypography.uiFontFamily,
         fontSize: 20,
         fontWeight: FontWeight.w600,
         color: theme.markdownHeading,
         height: 1.4,
       ),
       h2: TextStyle(
-        fontFamily: 'GeistSans',
+        fontFamily: AppTypography.uiFontFamily,
         fontSize: 18,
         fontWeight: FontWeight.w600,
         color: theme.markdownHeading,
         height: 1.4,
       ),
       h3: TextStyle(
-        fontFamily: 'GeistSans',
+        fontFamily: AppTypography.uiFontFamily,
         fontSize: 16,
         fontWeight: FontWeight.w600,
         color: theme.markdownHeading,
@@ -282,19 +281,17 @@ class MessageBubble extends StatelessWidget {
         color: theme.markdownStrong,
       ),
       em: TextStyle(fontStyle: FontStyle.italic, color: theme.markdownEmph),
-      code: GoogleFonts.jetBrainsMono(
-        fontSize: 14,
+      code: AppTypography.codeLarge(color: theme.markdownCode).copyWith(
         backgroundColor: theme.backgroundElement,
-        color: theme.markdownCode,
       ),
       codeblockPadding: Insets.card,
       codeblockDecoration: BoxDecoration(
         color: theme.backgroundElement,
-        borderRadius: BorderRadius.circular(12),
+        borderRadius: Radii.brMd,
         border: Border.all(color: theme.borderSubtle),
       ),
       listBullet: TextStyle(
-        fontFamily: 'GeistSans',
+        fontFamily: AppTypography.uiFontFamily,
         fontSize: 15,
         color: theme.markdownListItem,
       ),
@@ -335,7 +332,7 @@ class MessageBubble extends StatelessWidget {
               ),
               subtitle: Text(
                 'Create a new session branch from this point',
-                style: TextStyle(color: theme.textMuted, fontSize: 12),
+                style: AppTypography.label(color: theme.textMuted),
               ),
               onTap: () {
                 Navigator.pop(context);
@@ -356,7 +353,7 @@ class MessageBubble extends StatelessWidget {
               ),
               subtitle: Text(
                 'Continue the session from this message on next send',
-                style: TextStyle(color: theme.textMuted, fontSize: 12),
+                style: AppTypography.label(color: theme.textMuted),
               ),
               onTap: () {
                 Navigator.pop(context);
@@ -378,7 +375,7 @@ class MessageBubble extends StatelessWidget {
               ),
               subtitle: Text(
                 'Drop recent turns from this thread',
-                style: TextStyle(color: theme.textMuted, fontSize: 12),
+                style: AppTypography.label(color: theme.textMuted),
               ),
               onTap: () {
                 Navigator.pop(context);

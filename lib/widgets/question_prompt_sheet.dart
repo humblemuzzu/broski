@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
+import '../theme/app_typography.dart';
 
 import '../models/question.dart';
+import '../theme/design_tokens.dart';
 import '../theme/opencode_theme.dart';
 
 class QuestionPromptSheet extends StatefulWidget {
@@ -101,7 +103,7 @@ class _QuestionPromptSheetState extends State<QuestionPromptSheet> {
         return AlertDialog(
           backgroundColor: theme.bgSheet,
           shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(16),
+            borderRadius: Radii.brLg,
             side: BorderSide(color: theme.borderSubtle.withValues(alpha: 0.3)),
           ),
           title: Text(
@@ -116,7 +118,7 @@ class _QuestionPromptSheetState extends State<QuestionPromptSheet> {
             controller: controller,
             autofocus: true,
             maxLines: 3,
-            style: TextStyle(color: theme.text, fontSize: 14),
+            style: AppTypography.labelLarge(color: theme.text),
             decoration: InputDecoration(
               hintText: 'Type your answer...',
               hintStyle: TextStyle(
@@ -129,19 +131,19 @@ class _QuestionPromptSheetState extends State<QuestionPromptSheet> {
                 vertical: 12,
               ),
               border: OutlineInputBorder(
-                borderRadius: BorderRadius.circular(12),
+                borderRadius: Radii.brMd,
                 borderSide: BorderSide(
                   color: theme.borderSubtle.withValues(alpha: 0.3),
                 ),
               ),
               enabledBorder: OutlineInputBorder(
-                borderRadius: BorderRadius.circular(12),
+                borderRadius: Radii.brMd,
                 borderSide: BorderSide(
                   color: theme.borderSubtle.withValues(alpha: 0.3),
                 ),
               ),
               focusedBorder: OutlineInputBorder(
-                borderRadius: BorderRadius.circular(12),
+                borderRadius: Radii.brMd,
                 borderSide: BorderSide(color: theme.primary, width: 1.5),
               ),
             ),
@@ -151,7 +153,7 @@ class _QuestionPromptSheetState extends State<QuestionPromptSheet> {
               onPressed: () => Navigator.pop(ctx),
               child: Text(
                 'Cancel',
-                style: TextStyle(color: theme.textMuted, fontSize: 13),
+                style: AppTypography.bodySmall(color: theme.textMuted),
               ),
             ),
             TextButton(
@@ -208,7 +210,7 @@ class _QuestionPromptSheetState extends State<QuestionPromptSheet> {
         duration: const Duration(milliseconds: 200),
         decoration: BoxDecoration(
           color: theme.bgSheet,
-          borderRadius: const BorderRadius.vertical(top: Radius.circular(20)),
+          borderRadius: Radii.sheetTop,
           border: Border(
             top: BorderSide(color: theme.borderSubtle.withValues(alpha: 0.2)),
           ),
@@ -241,7 +243,7 @@ class _QuestionPromptSheetState extends State<QuestionPromptSheet> {
             height: 32,
             decoration: BoxDecoration(
               color: theme.primary.withValues(alpha: 0.12),
-              borderRadius: BorderRadius.circular(10),
+              borderRadius: Radii.brMd,
             ),
             child: Icon(
               Icons.help_outline_rounded,
@@ -266,7 +268,7 @@ class _QuestionPromptSheetState extends State<QuestionPromptSheet> {
                 if (!_isSingle)
                   Text(
                     '${_currentPage + 1} of $_totalQuestions',
-                    style: TextStyle(color: theme.textMuted, fontSize: 12),
+                    style: AppTypography.label(color: theme.textMuted),
                   ),
               ],
             ),
@@ -277,7 +279,7 @@ class _QuestionPromptSheetState extends State<QuestionPromptSheet> {
             style: IconButton.styleFrom(
               backgroundColor: theme.bgRaised,
               shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(10),
+                borderRadius: Radii.brMd,
               ),
               minimumSize: const Size(36, 36),
               maximumSize: const Size(36, 36),
@@ -307,7 +309,7 @@ class _QuestionPromptSheetState extends State<QuestionPromptSheet> {
                   : isDone
                   ? theme.primary.withValues(alpha: 0.4)
                   : theme.borderSubtle.withValues(alpha: 0.4),
-              borderRadius: BorderRadius.circular(3),
+              borderRadius: Radii.brXs,
             ),
           );
         }),
@@ -327,7 +329,7 @@ class _QuestionPromptSheetState extends State<QuestionPromptSheet> {
       crossAxisAlignment: CrossAxisAlignment.start,
       mainAxisSize: MainAxisSize.min,
       children: [
-        const SizedBox(height: 16),
+        SizedBox(height: Spacing.lg),
         // Question text
         Text(
           question.question,
@@ -456,12 +458,12 @@ class _OptionTile extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Padding(
-      padding: const EdgeInsets.only(bottom: 8),
+      padding: Insets.bottomSm,
       child: Material(
         color: Colors.transparent,
         child: InkWell(
           onTap: onTap,
-          borderRadius: BorderRadius.circular(12),
+          borderRadius: Radii.brMd,
           child: AnimatedContainer(
             duration: const Duration(milliseconds: 150),
             padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
@@ -469,7 +471,7 @@ class _OptionTile extends StatelessWidget {
               color: isSelected
                   ? theme.primary.withValues(alpha: 0.08)
                   : theme.bgRaised,
-              borderRadius: BorderRadius.circular(12),
+              borderRadius: Radii.brMd,
               border: Border.all(
                 color: isSelected
                     ? theme.primary.withValues(alpha: 0.5)
@@ -509,7 +511,7 @@ class _OptionTile extends StatelessWidget {
                         )
                       : null,
                 ),
-                const SizedBox(width: 12),
+                SizedBox(width: Spacing.md),
                 // Label + description
                 Expanded(
                   child: Column(
@@ -530,7 +532,7 @@ class _OptionTile extends StatelessWidget {
                         overflow: TextOverflow.ellipsis,
                       ),
                       if (description.isNotEmpty) ...[
-                        const SizedBox(height: 2),
+                        SizedBox(height: Spacing.xxs),
                         Text(
                           description,
                           style: TextStyle(
@@ -579,7 +581,7 @@ class _FooterButton extends StatelessWidget {
         padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
         decoration: BoxDecoration(
           color: isPrimary && enabled ? theme.primary : theme.bgRaised,
-          borderRadius: BorderRadius.circular(10),
+          borderRadius: Radii.brMd,
           border: Border.all(
             color: isPrimary && enabled
                 ? theme.primary

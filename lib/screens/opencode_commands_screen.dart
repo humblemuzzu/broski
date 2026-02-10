@@ -5,6 +5,7 @@ import '../models/opencode_markdown_file.dart';
 import '../models/skill.dart';
 import '../providers/selection_provider.dart';
 import '../providers/service_providers.dart';
+import '../theme/design_tokens.dart';
 import '../theme/opencode_theme.dart';
 import '../widgets/chat/detail_sheet.dart';
 import 'markdown_file_editor_screen.dart';
@@ -122,7 +123,7 @@ class _OpenCodeCommandsScreenState
         mainAxisSize: MainAxisSize.min,
         children: [
           Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+            padding: Insets.listItemDense,
             child: Text(
               'OpenCode custom command',
               style: TextStyle(
@@ -215,7 +216,7 @@ class _OpenCodeCommandsScreenState
             : _error != null
             ? Center(
                 child: Padding(
-                  padding: const EdgeInsets.all(16),
+                  padding: Insets.card,
                   child: Text(
                     _error!,
                     style: TextStyle(color: oc.textMuted),
@@ -230,7 +231,7 @@ class _OpenCodeCommandsScreenState
                   children: [
                     if (selection.project == null)
                       Padding(
-                        padding: const EdgeInsets.only(bottom: 12),
+                        padding: Insets.bottomMd,
                         child: Text(
                           'Select a project to manage project-level commands.',
                           style: TextStyle(color: oc.textMuted),

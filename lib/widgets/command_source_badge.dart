@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../theme/app_typography.dart';
 
 import '../models/command.dart';
 import '../theme/design_tokens.dart';
@@ -34,7 +35,7 @@ class CommandSourceBadge extends StatelessWidget {
       child: Text(
         label,
         style: TextStyle(
-          fontFamily: 'GeistSans',
+          fontFamily: AppTypography.uiFontFamily,
           fontSize: 9,
           fontWeight: FontWeight.w700,
           color: color,

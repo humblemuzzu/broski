@@ -1,9 +1,11 @@
 import 'package:flutter/material.dart';
+import '../theme/app_typography.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../models/claude_code.dart';
 import '../providers/selection_provider.dart';
 import '../providers/service_providers.dart';
+import '../theme/design_tokens.dart';
 import '../theme/opencode_theme.dart';
 import 'claude_code_sandbox_screen.dart';
 
@@ -64,15 +66,15 @@ class _ClaudeCodeSettingsScreenState
     required Widget child,
   }) {
     return Padding(
-      padding: const EdgeInsets.only(bottom: 12),
+      padding: Insets.bottomMd,
       child: Card(
         color: oc.backgroundPanel,
         shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(16),
+          borderRadius: Radii.brLg,
           side: BorderSide(color: oc.borderSubtle.withValues(alpha: 0.2)),
         ),
         child: Padding(
-          padding: const EdgeInsets.all(14),
+          padding: Insets.cardMd,
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
@@ -201,10 +203,10 @@ class _ClaudeCodeSettingsScreenState
                 ),
                 autofocus: true,
               ),
-              const SizedBox(height: 12),
+              SizedBox(height: Spacing.md),
               Text(
                 'Presets:',
-                style: TextStyle(color: oc.textMuted, fontSize: 12),
+                style: AppTypography.label(color: oc.textMuted),
               ),
               const SizedBox(height: 6),
               SizedBox(
@@ -338,7 +340,7 @@ class _ClaudeCodeSettingsScreenState
             : !hasProject
             ? Center(
                 child: Padding(
-                  padding: const EdgeInsets.all(16),
+                  padding: Insets.card,
                   child: Text(
                     'Select a project to edit Claude Code settings.',
                     style: TextStyle(color: oc.textMuted),
@@ -347,24 +349,24 @@ class _ClaudeCodeSettingsScreenState
                 ),
               )
             : ListView(
-                padding: const EdgeInsets.all(16),
+                padding: Insets.card,
                 children: [
                   if (_error != null) ...[
                     Container(
-                      padding: const EdgeInsets.all(12),
+                      padding: Insets.cardSm,
                       decoration: BoxDecoration(
                         color: oc.error.withValues(alpha: 0.12),
-                        borderRadius: BorderRadius.circular(12),
+                        borderRadius: Radii.brMd,
                         border: Border.all(
                           color: oc.error.withValues(alpha: 0.35),
                         ),
                       ),
                       child: Text(
                         _error!,
-                        style: TextStyle(color: oc.text, fontSize: 12),
+                        style: AppTypography.label(color: oc.text),
                       ),
                     ),
-                    const SizedBox(height: 12),
+                    SizedBox(height: Spacing.md),
                   ],
                   // SDK v2.1.6: Search functionality in /config
                   TextField(
@@ -388,7 +390,7 @@ class _ClaudeCodeSettingsScreenState
                       filled: true,
                       fillColor: oc.backgroundPanel,
                       border: OutlineInputBorder(
-                        borderRadius: BorderRadius.circular(12),
+                        borderRadius: Radii.brMd,
                         borderSide: BorderSide.none,
                       ),
                       contentPadding: const EdgeInsets.symmetric(
@@ -398,10 +400,10 @@ class _ClaudeCodeSettingsScreenState
                     ),
                     style: TextStyle(color: oc.text),
                   ),
-                  const SizedBox(height: 12),
+                  SizedBox(height: Spacing.md),
                   Text(
                     'Broski-managed settings (applied when sessions run through the bridge).',
-                    style: TextStyle(color: oc.textMuted, fontSize: 12),
+                    style: AppTypography.label(color: oc.textMuted),
                   ),
                   const SizedBox(height: 14),
                   // Permission Mode (SDK v2.0.43)
@@ -559,7 +561,7 @@ class _ClaudeCodeSettingsScreenState
                                   },
                           ),
                           if (systemPromptMode == 'preset') ...[
-                            const SizedBox(height: 8),
+                            SizedBox(height: Spacing.sm),
                             ListTile(
                               contentPadding: EdgeInsets.zero,
                               title: const Text('Additional instructions'),
@@ -602,7 +604,7 @@ class _ClaudeCodeSettingsScreenState
                             ),
                           ],
                           if (systemPromptMode == 'custom') ...[
-                            const SizedBox(height: 8),
+                            SizedBox(height: Spacing.sm),
                             Text(
                               (systemPrompt.text ?? '').trim().isEmpty
                                   ? 'No custom prompt configured.'
@@ -615,7 +617,7 @@ class _ClaudeCodeSettingsScreenState
                                 height: 1.4,
                               ),
                             ),
-                            const SizedBox(height: 8),
+                            SizedBox(height: Spacing.sm),
                             OutlinedButton.icon(
                               onPressed: cfg == null
                                   ? null
@@ -841,7 +843,7 @@ class _ClaudeCodeSettingsScreenState
                         ),
                         subtitle: Text(
                           'Configure sandbox mode, network, excluded commands.',
-                          style: TextStyle(color: oc.textMuted, fontSize: 12),
+                          style: AppTypography.label(color: oc.textMuted),
                         ),
                         trailing: Icon(
                           Icons.chevron_right,
@@ -872,7 +874,7 @@ class _ClaudeCodeSettingsScreenState
                               fontSize: 13,
                             ),
                           ),
-                          const SizedBox(height: 4),
+                          SizedBox(height: Spacing.xs),
                           Text(
                             [
                               if ((_accountInfo?.organization ?? '')
@@ -888,7 +890,7 @@ class _ClaudeCodeSettingsScreenState
                                   .isNotEmpty)
                                 'Key source: ${_accountInfo!.apiKeySource}',
                             ].join(' • '),
-                            style: TextStyle(color: oc.textMuted, fontSize: 12),
+                            style: AppTypography.label(color: oc.textMuted),
                           ),
                         ],
                       ),
@@ -903,9 +905,9 @@ class _ClaudeCodeSettingsScreenState
                         children: [
                           Text(
                             'Tools Claude is allowed to use. Supports wildcards like Bash(npm *)',
-                            style: TextStyle(color: oc.textMuted, fontSize: 12),
+                            style: AppTypography.label(color: oc.textMuted),
                           ),
-                          const SizedBox(height: 8),
+                          SizedBox(height: Spacing.sm),
                           if (cfg != null && cfg.allowedTools.isNotEmpty)
                             Wrap(
                               spacing: 6,
@@ -929,7 +931,7 @@ class _ClaudeCodeSettingsScreenState
                                 );
                               }).toList(),
                             ),
-                          const SizedBox(height: 8),
+                          SizedBox(height: Spacing.sm),
                           OutlinedButton.icon(
                             icon: const Icon(Icons.add, size: 16),
                             label: const Text('Add Tool'),
@@ -951,9 +953,9 @@ class _ClaudeCodeSettingsScreenState
                         children: [
                           Text(
                             'Tools Claude cannot use. Use Task(AgentName) to disable agents.',
-                            style: TextStyle(color: oc.textMuted, fontSize: 12),
+                            style: AppTypography.label(color: oc.textMuted),
                           ),
-                          const SizedBox(height: 8),
+                          SizedBox(height: Spacing.sm),
                           if (cfg != null && cfg.disallowedTools.isNotEmpty)
                             Wrap(
                               spacing: 6,
@@ -979,7 +981,7 @@ class _ClaudeCodeSettingsScreenState
                                 );
                               }).toList(),
                             ),
-                          const SizedBox(height: 8),
+                          SizedBox(height: Spacing.sm),
                           OutlinedButton.icon(
                             icon: const Icon(Icons.add, size: 16),
                             label: const Text('Add Tool'),
@@ -1165,7 +1167,7 @@ class _ClaudeCodeSettingsScreenState
                       !_matches('release channel update stable latest') &&
                       !_matches('gitignore ignore files respect'))
                     Padding(
-                      padding: const EdgeInsets.all(24),
+                      padding: Insets.cardLg,
                       child: Text(
                         'No settings match "$_searchQuery"',
                         style: TextStyle(color: oc.textMuted),

@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
-import 'package:google_fonts/google_fonts.dart';
-
+import '../theme/app_typography.dart';
+import '../theme/design_tokens.dart';
 import '../theme/opencode_theme.dart';
 
 /// Step indicator showing current progress in onboarding flow
@@ -32,7 +32,7 @@ class OnboardingProgress extends StatelessWidget {
           height: 8,
           decoration: BoxDecoration(
             color: isActive || isCompleted ? theme.primary : theme.borderSubtle,
-            borderRadius: BorderRadius.circular(4),
+            borderRadius: Radii.brXs,
           ),
         );
       }),
@@ -85,7 +85,7 @@ class OnboardingScaffold extends StatelessWidget {
                       ),
                       style: IconButton.styleFrom(
                         backgroundColor: theme.backgroundPanel,
-                        padding: const EdgeInsets.all(12),
+                        padding: Insets.cardSm,
                       ),
                     )
                   else
@@ -212,7 +212,7 @@ class _OnboardingButtonState extends State<OnboardingButton>
             color: widget.onPressed == null
                 ? bgColor.withValues(alpha: 0.5)
                 : bgColor,
-            borderRadius: BorderRadius.circular(14),
+            borderRadius: Radii.brLg,
             border: Border.all(color: borderColor),
           ),
           child: Center(
@@ -280,10 +280,10 @@ class OnboardingOptionCard extends StatelessWidget {
       onTap: onTap,
       child: AnimatedContainer(
         duration: const Duration(milliseconds: 200),
-        padding: const EdgeInsets.all(20),
+        padding: Insets.screenAll,
         decoration: BoxDecoration(
           color: theme.backgroundPanel,
-          borderRadius: BorderRadius.circular(16),
+          borderRadius: Radii.brLg,
           border: Border.all(
             color: isRecommended ? theme.primary : theme.borderSubtle,
             width: isRecommended ? 1.5 : 1,
@@ -296,11 +296,11 @@ class OnboardingOptionCard extends StatelessWidget {
               height: 52,
               decoration: BoxDecoration(
                 color: effectiveIconColor.withValues(alpha: 0.12),
-                borderRadius: BorderRadius.circular(14),
+                borderRadius: Radii.brLg,
               ),
               child: Icon(icon, color: effectiveIconColor, size: 26),
             ),
-            const SizedBox(width: 16),
+            SizedBox(width: Spacing.lg),
             Expanded(
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
@@ -325,7 +325,7 @@ class OnboardingOptionCard extends StatelessWidget {
                           ),
                           decoration: BoxDecoration(
                             color: theme.success.withValues(alpha: 0.12),
-                            borderRadius: BorderRadius.circular(6),
+                            borderRadius: Radii.brSm,
                           ),
                           child: Text(
                             'Recommended',
@@ -338,15 +338,15 @@ class OnboardingOptionCard extends StatelessWidget {
                         ),
                     ],
                   ),
-                  const SizedBox(height: 4),
+                  SizedBox(height: Spacing.xs),
                   Text(
                     subtitle,
-                    style: TextStyle(color: theme.textMuted, fontSize: 14),
+                    style: AppTypography.labelLarge(color: theme.textMuted),
                   ),
                 ],
               ),
             ),
-            const SizedBox(width: 8),
+            SizedBox(width: Spacing.sm),
             Icon(Icons.chevron_right_rounded, color: theme.textMuted, size: 24),
           ],
         ),
@@ -376,10 +376,10 @@ class OnboardingFeatureRow extends StatelessWidget {
     final effectiveIconColor = iconColor ?? theme.primary;
 
     return Container(
-      padding: const EdgeInsets.all(16),
+      padding: Insets.card,
       decoration: BoxDecoration(
         color: theme.backgroundPanel,
-        borderRadius: BorderRadius.circular(14),
+        borderRadius: Radii.brLg,
         border: Border.all(color: theme.borderSubtle),
       ),
       child: Row(
@@ -389,7 +389,7 @@ class OnboardingFeatureRow extends StatelessWidget {
             height: 44,
             decoration: BoxDecoration(
               color: effectiveIconColor.withValues(alpha: 0.12),
-              borderRadius: BorderRadius.circular(12),
+              borderRadius: Radii.brMd,
             ),
             child: Icon(icon, color: effectiveIconColor, size: 22),
           ),
@@ -406,10 +406,10 @@ class OnboardingFeatureRow extends StatelessWidget {
                     fontSize: 15,
                   ),
                 ),
-                const SizedBox(height: 2),
+                SizedBox(height: Spacing.xxs),
                 Text(
                   subtitle,
-                  style: TextStyle(color: theme.textMuted, fontSize: 13),
+                  style: AppTypography.bodySmall(color: theme.textMuted),
                 ),
               ],
             ),
@@ -441,17 +441,17 @@ class OnboardingInfoCard extends StatelessWidget {
     final effectiveColor = color ?? theme.info;
 
     return Container(
-      padding: const EdgeInsets.all(16),
+      padding: Insets.card,
       decoration: BoxDecoration(
         color: effectiveColor.withValues(alpha: 0.08),
-        borderRadius: BorderRadius.circular(14),
+        borderRadius: Radii.brLg,
         border: Border.all(color: effectiveColor.withValues(alpha: 0.2)),
       ),
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Icon(icon, color: effectiveColor, size: 20),
-          const SizedBox(width: 12),
+          SizedBox(width: Spacing.md),
           Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
@@ -464,7 +464,7 @@ class OnboardingInfoCard extends StatelessWidget {
                     fontSize: 14,
                   ),
                 ),
-                const SizedBox(height: 4),
+                SizedBox(height: Spacing.xs),
                 Text(
                   content,
                   style: TextStyle(
@@ -536,7 +536,7 @@ class OnboardingStepItem extends StatelessWidget {
                 ),
               ),
               if (subtitle != null) ...[
-                const SizedBox(height: 4),
+                SizedBox(height: Spacing.xs),
                 Text(
                   subtitle!,
                   style: TextStyle(
@@ -546,7 +546,7 @@ class OnboardingStepItem extends StatelessWidget {
                   ),
                 ),
               ],
-              if (content != null) ...[const SizedBox(height: 12), content!],
+              if (content != null) ...[SizedBox(height: Spacing.md), content!],
             ],
           ),
         ),
@@ -571,10 +571,10 @@ class OnboardingCommandBox extends StatelessWidget {
     final theme = OpenCodeTheme.of(context);
 
     return Container(
-      padding: const EdgeInsets.all(14),
+      padding: Insets.cardMd,
       decoration: BoxDecoration(
         color: theme.backgroundElement,
-        borderRadius: BorderRadius.circular(10),
+        borderRadius: Radii.brMd,
         border: Border.all(color: theme.border),
       ),
       child: Row(
@@ -584,20 +584,16 @@ class OnboardingCommandBox extends StatelessWidget {
           Expanded(
             child: Text(
               command,
-              style: TextStyle(
-                color: theme.text,
-                fontFamily: GoogleFonts.jetBrainsMono().fontFamily,
-                fontSize: 13,
-              ),
+              style: AppTypography.code(color: theme.text),
             ),
           ),
           GestureDetector(
             onTap: onCopy,
             child: Container(
-              padding: const EdgeInsets.all(8),
+              padding: Insets.cardXs,
               decoration: BoxDecoration(
                 color: theme.primary.withValues(alpha: 0.12),
-                borderRadius: BorderRadius.circular(8),
+                borderRadius: Radii.brSm,
               ),
               child: Icon(Icons.copy_rounded, color: theme.primary, size: 18),
             ),

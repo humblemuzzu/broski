@@ -3,7 +3,8 @@ import 'dart:convert';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:google_fonts/google_fonts.dart';
+import '../theme/app_typography.dart';
+import '../theme/design_tokens.dart';
 
 import '../providers/selection_provider.dart';
 import '../providers/service_providers.dart';
@@ -255,27 +256,27 @@ class _ClaudeCodeMcpScreenState extends ConsumerState<ClaudeCodeMcpScreen> {
           : _error != null
           ? Center(
               child: Padding(
-                padding: const EdgeInsets.all(24),
+                padding: Insets.cardLg,
                 child: Text(_error!, style: TextStyle(color: oc.textMuted)),
               ),
             )
           : names.isEmpty
           ? Center(
               child: Padding(
-                padding: const EdgeInsets.all(24),
+                padding: Insets.cardLg,
                 child: Column(
                   mainAxisAlignment: MainAxisAlignment.center,
                   children: [
                     Icon(Icons.dns_rounded, color: oc.textMuted, size: 56),
-                    const SizedBox(height: 12),
+                    SizedBox(height: Spacing.md),
                     Text('No MCP servers', style: TextStyle(color: oc.text)),
-                    const SizedBox(height: 8),
+                    SizedBox(height: Spacing.sm),
                     Text(
                       'Add servers to .mcp.json to enable MCP tools for Claude Code.',
                       textAlign: TextAlign.center,
                       style: TextStyle(color: oc.textMuted),
                     ),
-                    const SizedBox(height: 16),
+                    SizedBox(height: Spacing.lg),
                     ElevatedButton.icon(
                       onPressed: _addServer,
                       icon: const Icon(Icons.add_rounded),
@@ -297,7 +298,7 @@ class _ClaudeCodeMcpScreenState extends ConsumerState<ClaudeCodeMcpScreen> {
                   color: oc.backgroundElement,
                   margin: const EdgeInsets.only(bottom: 10),
                   shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(12),
+                    borderRadius: Radii.brMd,
                     side: BorderSide(color: oc.border),
                   ),
                   child: ListTile(
@@ -383,17 +384,17 @@ class _McpServerEditorScreenState extends State<_McpServerEditorScreen> {
         ],
       ),
       body: Padding(
-        padding: const EdgeInsets.all(16),
+        padding: Insets.card,
         child: TextField(
           controller: _json,
           maxLines: null,
           expands: true,
-          style: TextStyle(fontFamily: GoogleFonts.jetBrainsMono().fontFamily, fontSize: 13),
+          style: AppTypography.code(),
           decoration: InputDecoration(
             filled: true,
             fillColor: oc.backgroundElement,
             border: OutlineInputBorder(
-              borderRadius: BorderRadius.circular(12),
+              borderRadius: Radii.brMd,
               borderSide: BorderSide(color: oc.border),
             ),
           ),

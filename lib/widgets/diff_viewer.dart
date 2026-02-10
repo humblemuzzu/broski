@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
-import 'package:google_fonts/google_fonts.dart';
-
 import '../models/message.dart';
+import '../theme/app_typography.dart';
+import '../theme/design_tokens.dart';
 import '../theme/opencode_theme.dart';
 import '../utils/diff_utils.dart';
 import 'diff_status_badge.dart';
@@ -42,13 +42,13 @@ class _DiffViewerState extends State<DiffViewer> {
 
     return InkWell(
       onTap: () => setState(() => _isExpanded = !_isExpanded),
-      borderRadius: BorderRadius.circular(14),
+      borderRadius: Radii.brLg,
       child: Container(
-        margin: const EdgeInsets.only(top: 8),
-        padding: const EdgeInsets.all(14),
+        margin: Insets.topSm,
+        padding: Insets.cardMd,
         decoration: BoxDecoration(
           color: theme.backgroundPanel,
-          borderRadius: BorderRadius.circular(14),
+          borderRadius: Radii.brLg,
           border: Border.all(color: theme.borderSubtle, width: 1),
         ),
         child: Column(
@@ -58,10 +58,10 @@ class _DiffViewerState extends State<DiffViewer> {
             Row(
               children: [
                 Container(
-                  padding: const EdgeInsets.all(8),
+                  padding: Insets.cardXs,
                   decoration: BoxDecoration(
                     color: theme.borderSubtle.withValues(alpha: 0.5),
-                    borderRadius: BorderRadius.circular(8),
+                    borderRadius: Radii.brSm,
                   ),
                   child: Icon(Icons.code, size: 16, color: theme.textMuted),
                 ),
@@ -80,7 +80,7 @@ class _DiffViewerState extends State<DiffViewer> {
                           overflow: TextOverflow.ellipsis,
                         ),
                       ),
-                      const SizedBox(width: 8),
+                      SizedBox(width: Spacing.sm),
                       if (widget.diff.status != null &&
                           widget.diff.status!.isNotEmpty) ...[
                         DiffStatusBadge(status: widget.diff.status),
@@ -97,7 +97,7 @@ class _DiffViewerState extends State<DiffViewer> {
                           ),
                         ),
                       if (additions > 0 && deletions > 0)
-                        const SizedBox(width: 4),
+                        SizedBox(width: Spacing.xs),
                       if (deletions > 0)
                         Text(
                           '-$deletions',
@@ -121,7 +121,7 @@ class _DiffViewerState extends State<DiffViewer> {
             ),
 
             // Expanded diff content
-            const SizedBox(height: 12),
+            SizedBox(height: Spacing.md),
             _DiffPreview(diff: widget.diff, maxLines: _isExpanded ? 8 : 3),
 
             // Actions row (only when expanded)
@@ -140,10 +140,10 @@ class _DiffViewerState extends State<DiffViewer> {
                       ),
                       label: Text(
                         'Undo',
-                        style: TextStyle(fontSize: 12, color: theme.warning),
+                        style: AppTypography.label(color: theme.warning),
                       ),
                       style: TextButton.styleFrom(
-                        padding: const EdgeInsets.symmetric(horizontal: 8),
+                        padding: Insets.chipH,
                         minimumSize: Size.zero,
                         tapTargetSize: MaterialTapTargetSize.shrinkWrap,
                       ),
@@ -165,7 +165,7 @@ class _DiffViewerState extends State<DiffViewer> {
                       ),
                     ),
                     style: TextButton.styleFrom(
-                      padding: const EdgeInsets.symmetric(horizontal: 8),
+                      padding: Insets.chipH,
                       minimumSize: Size.zero,
                       tapTargetSize: MaterialTapTargetSize.shrinkWrap,
                     ),
@@ -252,19 +252,16 @@ class _DiffPreviewState extends State<_DiffPreview> {
 
     return Container(
       width: double.infinity,
-      padding: const EdgeInsets.all(10),
+      padding: Insets.cardXs,
       decoration: BoxDecoration(
         color: theme.backgroundElement,
-        borderRadius: BorderRadius.circular(10),
+        borderRadius: Radii.brMd,
         border: Border.all(color: theme.borderSubtle),
       ),
       child: previewLines.isEmpty
           ? Text(
               'No preview available',
-              style: GoogleFonts.jetBrainsMono(
-                fontSize: 11,
-                color: theme.textMuted.withValues(alpha: 0.6),
-              ),
+              style: AppTypography.codeSmall(color: theme.textMuted.withValues(alpha: 0.6)),
             )
           : Column(
               children: [
@@ -302,14 +299,14 @@ class _PreviewRow extends StatelessWidget {
     return Container(
       width: double.infinity,
       margin: const EdgeInsets.only(bottom: 1),
-      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+      padding: Insets.chip,
       decoration: BoxDecoration(
         color: bg,
-        borderRadius: BorderRadius.circular(6),
+        borderRadius: Radii.brSm,
       ),
       child: Text(
         '$prefix ${line.text.isEmpty ? ' ' : line.text}',
-        style: GoogleFonts.jetBrainsMono(fontSize: 11, color: fg, height: 1.4),
+        style: AppTypography.codeSmall(color: fg).copyWith(height: 1.4),
       ),
     );
   }

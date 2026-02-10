@@ -1,8 +1,10 @@
 import 'package:flutter/material.dart';
+import '../theme/app_typography.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../models/claude_code.dart';
 import '../providers/claude_code_provider.dart';
+import '../theme/design_tokens.dart';
 import '../theme/opencode_theme.dart';
 
 /// Dedicated Sandbox configuration screen for Claude Code.
@@ -87,7 +89,7 @@ class _ClaudeCodeSandboxScreenState
         actions: [
           if (_saving)
             const Padding(
-              padding: EdgeInsets.all(16),
+              padding: Insets.card,
               child: SizedBox(
                 width: 18,
                 height: 18,
@@ -97,14 +99,14 @@ class _ClaudeCodeSandboxScreenState
         ],
       ),
       body: ListView(
-        padding: const EdgeInsets.all(16),
+        padding: Insets.card,
         children: [
           // Info banner
           Container(
-            padding: const EdgeInsets.all(12),
+            padding: Insets.cardSm,
             decoration: BoxDecoration(
               color: theme.backgroundPanel,
-              borderRadius: BorderRadius.circular(12),
+              borderRadius: Radii.brMd,
               border: Border.all(
                 color: theme.borderSubtle.withValues(alpha: 0.3),
               ),
@@ -117,13 +119,13 @@ class _ClaudeCodeSandboxScreenState
                   child: Text(
                     'Sandbox wraps bash commands in a restricted environment. '
                     'File and network access restrictions are configured via permission rules, not sandbox settings.',
-                    style: TextStyle(color: theme.textMuted, fontSize: 12),
+                    style: AppTypography.label(color: theme.textMuted),
                   ),
                 ),
               ],
             ),
           ),
-          const SizedBox(height: 16),
+          SizedBox(height: Spacing.lg),
 
           // Enable sandbox
           _buildCard(
@@ -138,7 +140,7 @@ class _ClaudeCodeSandboxScreenState
               ),
               subtitle: Text(
                 'Run all bash commands in a sandboxed environment.',
-                style: TextStyle(color: theme.textMuted, fontSize: 12),
+                style: AppTypography.label(color: theme.textMuted),
               ),
               onChanged: (v) => _save(_with(enabled: v)),
             ),
@@ -157,7 +159,7 @@ class _ClaudeCodeSandboxScreenState
               ),
               subtitle: Text(
                 'Skip permission prompts for bash commands when sandbox is active.',
-                style: TextStyle(color: theme.textMuted, fontSize: 12),
+                style: AppTypography.label(color: theme.textMuted),
               ),
               onChanged: (v) => _save(_with(autoAllowBashIfSandboxed: v)),
             ),
@@ -177,7 +179,7 @@ class _ClaudeCodeSandboxScreenState
               subtitle: Text(
                 'Let Claude request running commands outside the sandbox '
                 '(falls back to permission system for approval).',
-                style: TextStyle(color: theme.textMuted, fontSize: 12),
+                style: AppTypography.label(color: theme.textMuted),
               ),
               onChanged: (v) => _save(_with(allowUnsandboxedCommands: v)),
             ),
@@ -196,7 +198,7 @@ class _ClaudeCodeSandboxScreenState
               ),
               subtitle: Text(
                 'Use a less restrictive sandbox when already inside a sandboxed environment (e.g. Docker).',
-                style: TextStyle(color: theme.textMuted, fontSize: 12),
+                style: AppTypography.label(color: theme.textMuted),
               ),
               onChanged: (v) => _save(_with(enableWeakerNestedSandbox: v)),
             ),
@@ -211,9 +213,9 @@ class _ClaudeCodeSandboxScreenState
               children: [
                 Text(
                   'Commands that always bypass the sandbox and run directly on the host.',
-                  style: TextStyle(color: theme.textMuted, fontSize: 12),
+                  style: AppTypography.label(color: theme.textMuted),
                 ),
-                const SizedBox(height: 8),
+                SizedBox(height: Spacing.sm),
                 _buildChipList(
                   theme: theme,
                   items: _sandbox.excludedCommands ?? [],
@@ -248,9 +250,9 @@ class _ClaudeCodeSandboxScreenState
               children: [
                 Text(
                   'Network controls for sandboxed commands.',
-                  style: TextStyle(color: theme.textMuted, fontSize: 12),
+                  style: AppTypography.label(color: theme.textMuted),
                 ),
-                const SizedBox(height: 8),
+                SizedBox(height: Spacing.sm),
                 // Local binding
                 SwitchListTile(
                   dense: true,
@@ -258,11 +260,11 @@ class _ClaudeCodeSandboxScreenState
                   value: _sandbox.network?.allowLocalBinding ?? false,
                   title: Text(
                     'Allow local binding',
-                    style: TextStyle(color: theme.text, fontSize: 13),
+                    style: AppTypography.bodySmall(color: theme.text),
                   ),
                   subtitle: Text(
                     'Allow processes to bind to local ports (e.g. dev servers).',
-                    style: TextStyle(color: theme.textMuted, fontSize: 11),
+                    style: AppTypography.caption(color: theme.textMuted),
                   ),
                   onChanged: (v) => _save(
                     _with(
@@ -284,11 +286,11 @@ class _ClaudeCodeSandboxScreenState
                   value: _sandbox.network?.allowAllUnixSockets ?? false,
                   title: Text(
                     'Allow all unix sockets',
-                    style: TextStyle(color: theme.text, fontSize: 13),
+                    style: AppTypography.bodySmall(color: theme.text),
                   ),
                   subtitle: Text(
                     'Allow access to all unix sockets. Use with caution — e.g. Docker socket grants host access.',
-                    style: TextStyle(color: theme.textMuted, fontSize: 11),
+                    style: AppTypography.caption(color: theme.textMuted),
                   ),
                   onChanged: (v) => _save(
                     _with(
@@ -317,15 +319,15 @@ class _ClaudeCodeSandboxScreenState
     required Widget child,
   }) {
     return Padding(
-      padding: const EdgeInsets.only(bottom: 12),
+      padding: Insets.bottomMd,
       child: Card(
         color: theme.backgroundPanel,
         shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(16),
+          borderRadius: Radii.brLg,
           side: BorderSide(color: theme.borderSubtle.withValues(alpha: 0.2)),
         ),
         child: Padding(
-          padding: const EdgeInsets.all(14),
+          padding: Insets.cardMd,
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
@@ -359,7 +361,7 @@ class _ClaudeCodeSandboxScreenState
           (item) => Chip(
             label: Text(
               item,
-              style: TextStyle(color: theme.text, fontSize: 12),
+              style: AppTypography.label(color: theme.text),
             ),
             backgroundColor: theme.backgroundPanel,
             side: BorderSide(color: theme.borderSubtle.withValues(alpha: 0.3)),
@@ -375,7 +377,7 @@ class _ClaudeCodeSandboxScreenState
           avatar: Icon(Icons.add_rounded, size: 16, color: theme.accent),
           label: Text(
             'Add',
-            style: TextStyle(color: theme.accent, fontSize: 12),
+            style: AppTypography.label(color: theme.accent),
           ),
           backgroundColor: theme.backgroundPanel,
           side: BorderSide(color: theme.accent.withValues(alpha: 0.3)),

@@ -9,6 +9,7 @@ import '../providers/selection_provider.dart';
 import '../providers/service_providers.dart';
 import '../providers/terminal_settings_provider.dart';
 import '../screens/terminal_settings_screen.dart';
+import '../theme/design_tokens.dart';
 import '../theme/opencode_theme.dart';
 import '../utils/input_batcher.dart' show SmartInputBatcher;
 import '../utils/terminal_output_throttler.dart' show SmartOutputThrottler;
@@ -228,7 +229,7 @@ class _TerminalViewScreenState extends ConsumerState<TerminalViewScreen> {
         title: Row(
           children: [
             Icon(Icons.terminal, size: 20, color: ocTheme.primary),
-            const SizedBox(width: 8),
+            SizedBox(width: Spacing.sm),
             Expanded(
               child: Text(
                 widget.title,
@@ -256,7 +257,7 @@ class _TerminalViewScreenState extends ConsumerState<TerminalViewScreen> {
                     ),
                     decoration: BoxDecoration(
                       color: color.withValues(alpha: 0.15),
-                      borderRadius: BorderRadius.circular(8),
+                      borderRadius: Radii.brSm,
                     ),
                     child: Row(
                       mainAxisSize: MainAxisSize.min,
@@ -316,7 +317,7 @@ class _TerminalViewScreenState extends ConsumerState<TerminalViewScreen> {
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
             CircularProgressIndicator(color: ocTheme.primary),
-            const SizedBox(height: 16),
+            SizedBox(height: Spacing.lg),
             Text(
               'Connecting to terminal...',
               style: TextStyle(color: ocTheme.textMuted),
@@ -332,7 +333,7 @@ class _TerminalViewScreenState extends ConsumerState<TerminalViewScreen> {
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
             Icon(Icons.error_outline, size: 48, color: ocTheme.error),
-            const SizedBox(height: 16),
+            SizedBox(height: Spacing.lg),
             Text(
               'Connection Failed',
               style: TextStyle(
@@ -341,7 +342,7 @@ class _TerminalViewScreenState extends ConsumerState<TerminalViewScreen> {
                 fontWeight: FontWeight.w600,
               ),
             ),
-            const SizedBox(height: 8),
+            SizedBox(height: Spacing.sm),
             Padding(
               padding: const EdgeInsets.symmetric(horizontal: 32),
               child: Text(
@@ -350,7 +351,7 @@ class _TerminalViewScreenState extends ConsumerState<TerminalViewScreen> {
                 textAlign: TextAlign.center,
               ),
             ),
-            const SizedBox(height: 24),
+            SizedBox(height: Spacing.xxl),
             ElevatedButton.icon(
               onPressed: _connectToPty,
               icon: const Icon(Icons.refresh, size: 18),
@@ -372,7 +373,7 @@ class _TerminalViewScreenState extends ConsumerState<TerminalViewScreen> {
         Expanded(
           child: Container(
             color: ocTheme.background,
-            padding: const EdgeInsets.all(8),
+            padding: Insets.cardXs,
             child: Stack(
               children: [
                 TerminalView(

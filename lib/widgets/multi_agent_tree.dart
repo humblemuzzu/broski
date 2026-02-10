@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import '../models/codex.dart';
+import '../theme/design_tokens.dart';
 import '../theme/opencode_theme.dart';
 
 /// Displays a tree visualization of multi-agent collaboration in Codex.
@@ -36,7 +37,7 @@ class MultiAgentTreeWidget extends StatelessWidget {
       padding: EdgeInsets.all(compact ? 8 : 12),
       decoration: BoxDecoration(
         color: ocTheme.bgRaised,
-        borderRadius: BorderRadius.circular(8),
+        borderRadius: Radii.brSm,
         border: Border.all(
           color: ocTheme.borderSubtle,
         ),
@@ -107,7 +108,7 @@ class MultiAgentTreeWidget extends StatelessWidget {
               margin: EdgeInsets.only(bottom: compact ? 4 : 6),
               decoration: BoxDecoration(
                 color: _getStatusColor(ocTheme, node.status).withValues(alpha: 0.1),
-                borderRadius: BorderRadius.circular(6),
+                borderRadius: Radii.brSm,
                 border: Border.all(
                   color: _getStatusColor(ocTheme, node.status).withValues(alpha: 0.5),
                 ),
@@ -155,7 +156,7 @@ class MultiAgentTreeWidget extends StatelessWidget {
                       ),
                       decoration: BoxDecoration(
                         color: ocTheme.warning.withValues(alpha: 0.2),
-                        borderRadius: BorderRadius.circular(4),
+                        borderRadius: Radii.brXs,
                       ),
                       child: Text(
                         'waiting ${node.waitingForThreadIds.length}',
@@ -246,10 +247,10 @@ class MultiAgentIndicator extends StatelessWidget {
     return GestureDetector(
       onTap: onTap,
       child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+        padding: Insets.chip,
         decoration: BoxDecoration(
           color: theme.colorScheme.primaryContainer.withValues(alpha: 0.3),
-          borderRadius: BorderRadius.circular(12),
+          borderRadius: Radii.brMd,
         ),
         child: Row(
           mainAxisSize: MainAxisSize.min,
@@ -259,7 +260,7 @@ class MultiAgentIndicator extends StatelessWidget {
               size: 12,
               color: theme.colorScheme.primary,
             ),
-            const SizedBox(width: 4),
+            SizedBox(width: Spacing.xs),
             if (running > 0)
               SizedBox(
                 width: 10,
@@ -271,7 +272,7 @@ class MultiAgentIndicator extends StatelessWidget {
               )
             else
               Icon(Icons.check, size: 12, color: OpenCodeTheme.of(context).success),
-            const SizedBox(width: 4),
+            SizedBox(width: Spacing.xs),
             Text(
               '$completed/$total',
               style: TextStyle(

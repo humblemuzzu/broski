@@ -4,6 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../models/agent_type.dart';
 import '../models/permission_rule.dart';
 import '../providers/permission_rules_provider.dart';
+import '../theme/design_tokens.dart';
 import '../theme/opencode_theme.dart';
 import '../widgets/permission_rules_sheet.dart';
 
@@ -32,11 +33,11 @@ class PermissionRulesScreen extends ConsumerWidget {
                     'Default session permissions for OpenCode.',
                     style: TextStyle(color: oc.textMuted),
                   ),
-                  const SizedBox(height: 16),
+                  SizedBox(height: Spacing.lg),
                   Card(
                     color: oc.backgroundPanel,
                     child: Padding(
-                      padding: const EdgeInsets.all(12),
+                      padding: Insets.cardSm,
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
@@ -47,14 +48,14 @@ class PermissionRulesScreen extends ConsumerWidget {
                               fontWeight: FontWeight.w600,
                             ),
                           ),
-                          const SizedBox(height: 8),
+                          SizedBox(height: Spacing.sm),
                           DropdownButtonFormField<PermissionPreset>(
                             value: state.preset,
                             decoration: InputDecoration(
                               filled: true,
                               fillColor: oc.background,
                               border: OutlineInputBorder(
-                                borderRadius: BorderRadius.circular(12),
+                                borderRadius: Radii.brMd,
                               ),
                             ),
                             items: PermissionPreset.values
@@ -92,7 +93,7 @@ class PermissionRulesScreen extends ConsumerWidget {
                             state.preset.description,
                             style: TextStyle(color: oc.textMuted),
                           ),
-                          const SizedBox(height: 12),
+                          SizedBox(height: Spacing.md),
                           Row(
                             children: [
                               FilledButton.icon(

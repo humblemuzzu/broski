@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../theme/app_typography.dart';
 
 import '../theme/design_tokens.dart';
 import '../theme/opencode_theme.dart';
@@ -42,7 +43,7 @@ class VariantBadge extends StatelessWidget {
       child: Text(
         variant!,
         style: TextStyle(
-          fontFamily: 'GeistSans',
+          fontFamily: AppTypography.uiFontFamily,
           fontSize: isSmall ? 10 : 11,
           fontWeight: FontWeight.w600,
           color: color,

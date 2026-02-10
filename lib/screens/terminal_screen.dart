@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../theme/app_typography.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../models/agent_type.dart';
@@ -7,6 +8,7 @@ import '../providers/connection_provider.dart';
 import '../providers/service_providers.dart';
 import '../providers/selection_provider.dart';
 import '../services/storage_service.dart';
+import '../theme/design_tokens.dart';
 import '../theme/opencode_theme.dart';
 import '../widgets/chat/detail_sheet.dart';
 import '../widgets/connection_indicator.dart';
@@ -228,15 +230,15 @@ class _TerminalScreenState extends ConsumerState<TerminalScreen> {
               filled: true,
               fillColor: dialogTheme.background,
               border: OutlineInputBorder(
-                borderRadius: BorderRadius.circular(12),
+                borderRadius: Radii.brMd,
                 borderSide: BorderSide(color: dialogTheme.borderSubtle),
               ),
               enabledBorder: OutlineInputBorder(
-                borderRadius: BorderRadius.circular(12),
+                borderRadius: Radii.brMd,
                 borderSide: BorderSide(color: dialogTheme.borderSubtle),
               ),
               focusedBorder: OutlineInputBorder(
-                borderRadius: BorderRadius.circular(12),
+                borderRadius: Radii.brMd,
                 borderSide: BorderSide(color: dialogTheme.primary),
               ),
             ),
@@ -307,7 +309,7 @@ class _TerminalScreenState extends ConsumerState<TerminalScreen> {
         ),
         actions: [
           Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 8),
+            padding: Insets.chipH,
             child: ConnectionIndicator(
               status: connection.status,
               agentAvailable: agentAvailable,
@@ -338,18 +340,18 @@ class _TerminalScreenState extends ConsumerState<TerminalScreen> {
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
             Icon(Icons.error_outline, size: 48, color: ocTheme.error),
-            const SizedBox(height: 16),
+            SizedBox(height: Spacing.lg),
             Text(
               'Failed to load terminals',
               style: TextStyle(color: ocTheme.text, fontSize: 16),
             ),
-            const SizedBox(height: 8),
+            SizedBox(height: Spacing.sm),
             Text(
               _error!,
               style: TextStyle(color: ocTheme.textMuted, fontSize: 14),
               textAlign: TextAlign.center,
             ),
-            const SizedBox(height: 20),
+            SizedBox(height: Spacing.xl),
             ElevatedButton(
               onPressed: _loadSessions,
               style: ElevatedButton.styleFrom(
@@ -369,7 +371,7 @@ class _TerminalScreenState extends ConsumerState<TerminalScreen> {
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
             Icon(Icons.terminal, size: 64, color: ocTheme.textMuted),
-            const SizedBox(height: 20),
+            SizedBox(height: Spacing.xl),
             Text(
               'No Terminals',
               style: TextStyle(
@@ -378,13 +380,13 @@ class _TerminalScreenState extends ConsumerState<TerminalScreen> {
                 fontWeight: FontWeight.w600,
               ),
             ),
-            const SizedBox(height: 8),
+            SizedBox(height: Spacing.sm),
             Text(
               'Create a terminal to run commands\non your remote machine',
               style: TextStyle(color: ocTheme.textMuted, fontSize: 14),
               textAlign: TextAlign.center,
             ),
-            const SizedBox(height: 24),
+            SizedBox(height: Spacing.xxl),
             ElevatedButton.icon(
               onPressed: _createSession,
               icon: const Icon(Icons.add, size: 20),
@@ -407,7 +409,7 @@ class _TerminalScreenState extends ConsumerState<TerminalScreen> {
       onRefresh: _loadSessions,
       color: ocTheme.primary,
       child: ListView.builder(
-        padding: const EdgeInsets.all(16),
+        padding: Insets.card,
         itemCount: _ptySessions.length,
         itemBuilder: (context, index) {
           final pty = _ptySessions[index];
@@ -467,7 +469,7 @@ class _TerminalScreenState extends ConsumerState<TerminalScreen> {
       title: title,
       initialSize: 0.4,
       child: Padding(
-        padding: const EdgeInsets.all(20),
+        padding: Insets.screenAll,
         child: Column(
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.start,
@@ -475,14 +477,14 @@ class _TerminalScreenState extends ConsumerState<TerminalScreen> {
             Row(
               children: [
                 Container(
-                  padding: const EdgeInsets.all(12),
+                  padding: Insets.cardSm,
                   decoration: BoxDecoration(
                     color: ocTheme.primary.withValues(alpha: 0.15),
-                    borderRadius: BorderRadius.circular(12),
+                    borderRadius: Radii.brMd,
                   ),
                   child: Icon(Icons.terminal, color: ocTheme.primary, size: 24),
                 ),
-                const SizedBox(width: 16),
+                SizedBox(width: Spacing.lg),
                 Row(
                   children: [
                     Container(
@@ -504,7 +506,7 @@ class _TerminalScreenState extends ConsumerState<TerminalScreen> {
                 ),
               ],
             ),
-            const SizedBox(height: 24),
+            SizedBox(height: Spacing.xxl),
             _DetailRow(label: 'ID', value: id),
             _DetailRow(
               label: 'Command',
@@ -515,10 +517,10 @@ class _TerminalScreenState extends ConsumerState<TerminalScreen> {
               value: cwd.isEmpty ? '-' : cwd,
             ),
             _DetailRow(label: 'PID', value: pid > 0 ? pid.toString() : '-'),
-            const SizedBox(height: 24),
+            SizedBox(height: Spacing.xxl),
             if (status == 'running')
               Padding(
-                padding: const EdgeInsets.only(bottom: 12),
+                padding: Insets.bottomMd,
                 child: SizedBox(
                   width: double.infinity,
                   child: ElevatedButton.icon(
@@ -553,7 +555,7 @@ class _TerminalScreenState extends ConsumerState<TerminalScreen> {
                     ),
                   ),
                 ),
-                const SizedBox(width: 12),
+                SizedBox(width: Spacing.md),
                 Expanded(
                   child: ElevatedButton.icon(
                     onPressed: () {
@@ -605,10 +607,10 @@ class _PtySessionTile extends StatelessWidget {
     final statusColor = isRunning ? ocTheme.success : ocTheme.textMuted;
 
     return Container(
-      margin: const EdgeInsets.only(bottom: 12),
+      margin: Insets.bottomMd,
       decoration: BoxDecoration(
         color: ocTheme.backgroundPanel,
-        borderRadius: BorderRadius.circular(16),
+        borderRadius: Radii.brLg,
         border: Border.all(color: ocTheme.borderSubtle),
       ),
       child: Material(
@@ -616,9 +618,9 @@ class _PtySessionTile extends StatelessWidget {
         child: InkWell(
           onTap: onTap,
           onLongPress: onLongPress,
-          borderRadius: BorderRadius.circular(16),
+          borderRadius: Radii.brLg,
           child: Padding(
-            padding: const EdgeInsets.all(16),
+            padding: Insets.card,
             child: Row(
               children: [
                 // Terminal icon with status
@@ -627,7 +629,7 @@ class _PtySessionTile extends StatelessWidget {
                   height: 48,
                   decoration: BoxDecoration(
                     color: statusColor.withValues(alpha: 0.15),
-                    borderRadius: BorderRadius.circular(12),
+                    borderRadius: Radii.brMd,
                   ),
                   child: Stack(
                     children: [
@@ -657,7 +659,7 @@ class _PtySessionTile extends StatelessWidget {
                     ],
                   ),
                 ),
-                const SizedBox(width: 16),
+                SizedBox(width: Spacing.lg),
                 // Title and info
                 Expanded(
                   child: Column(
@@ -671,7 +673,7 @@ class _PtySessionTile extends StatelessWidget {
                           color: ocTheme.text,
                         ),
                       ),
-                      const SizedBox(height: 4),
+                      SizedBox(height: Spacing.xs),
                       Text(
                         command.isNotEmpty
                             ? command
@@ -691,7 +693,7 @@ class _PtySessionTile extends StatelessWidget {
                   icon: Icon(Icons.more_vert, color: ocTheme.textMuted),
                   color: ocTheme.backgroundPanel,
                   shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(12),
+                    borderRadius: Radii.brMd,
                   ),
                   onSelected: (value) {
                     switch (value) {
@@ -711,7 +713,7 @@ class _PtySessionTile extends StatelessWidget {
                         child: Row(
                           children: [
                             Icon(Icons.edit, size: 20, color: menuTheme.text),
-                            const SizedBox(width: 12),
+                            SizedBox(width: Spacing.md),
                             const Text('Rename'),
                           ],
                         ),
@@ -725,7 +727,7 @@ class _PtySessionTile extends StatelessWidget {
                               size: 20,
                               color: menuTheme.error,
                             ),
-                            const SizedBox(width: 12),
+                            SizedBox(width: Spacing.md),
                             Text(
                               'Delete',
                               style: TextStyle(color: menuTheme.error),
@@ -755,7 +757,7 @@ class _DetailRow extends StatelessWidget {
   Widget build(BuildContext context) {
     final ocTheme = OpenCodeTheme.of(context);
     return Padding(
-      padding: const EdgeInsets.only(bottom: 12),
+      padding: Insets.bottomMd,
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -772,7 +774,7 @@ class _DetailRow extends StatelessWidget {
               style: TextStyle(
                 color: ocTheme.text,
                 fontSize: 14,
-                fontFamily: 'JetBrains Mono',
+                fontFamily: AppTypography.codeFontFamily,
               ),
             ),
           ),
@@ -818,14 +820,14 @@ class _CreatePtyDialogState extends State<_CreatePtyDialog> {
               hint: 'e.g., Dev Server',
               ocTheme: ocTheme,
             ),
-            const SizedBox(height: 16),
+            SizedBox(height: Spacing.lg),
             _buildTextField(
               controller: _commandController,
               label: 'Command (optional)',
               hint: 'e.g., npm run dev',
               ocTheme: ocTheme,
             ),
-            const SizedBox(height: 16),
+            SizedBox(height: Spacing.lg),
             _buildTextField(
               controller: _cwdController,
               label: 'Working Directory (optional)',
@@ -882,15 +884,15 @@ class _CreatePtyDialogState extends State<_CreatePtyDialog> {
         filled: true,
         fillColor: ocTheme.background,
         border: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(12),
+          borderRadius: Radii.brMd,
           borderSide: BorderSide(color: ocTheme.borderSubtle),
         ),
         enabledBorder: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(12),
+          borderRadius: Radii.brMd,
           borderSide: BorderSide(color: ocTheme.borderSubtle),
         ),
         focusedBorder: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(12),
+          borderRadius: Radii.brMd,
           borderSide: BorderSide(color: ocTheme.primary),
         ),
       ),

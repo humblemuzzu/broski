@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../models/connection_quality.dart';
 import '../providers/connection_provider.dart';
+import '../theme/design_tokens.dart';
 import '../theme/opencode_theme.dart';
 
 class ConnectionQualityIndicator extends ConsumerWidget {
@@ -35,10 +36,10 @@ class ConnectionQualityIndicator extends ConsumerWidget {
     }
 
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+      padding: Insets.chip,
       decoration: BoxDecoration(
         color: metrics.qualityColor.withValues(alpha: 0.1),
-        borderRadius: BorderRadius.circular(12),
+        borderRadius: Radii.brMd,
         border: Border.all(color: metrics.qualityColor.withValues(alpha: 0.3)),
       ),
       child: Row(
@@ -47,7 +48,7 @@ class ConnectionQualityIndicator extends ConsumerWidget {
           _SignalBars(bars: metrics.signalBars, color: metrics.qualityColor),
           const SizedBox(width: 6),
           Icon(metrics.typeIcon, size: 14, color: theme.textMuted),
-          const SizedBox(width: 4),
+          SizedBox(width: Spacing.xs),
           Text(
             '${metrics.rttMs}ms',
             style: TextStyle(
@@ -73,7 +74,7 @@ class ConnectionQualityIndicator extends ConsumerWidget {
           color: metrics.qualityColor,
           height: 12,
         ),
-        const SizedBox(width: 4),
+        SizedBox(width: Spacing.xs),
         Text(
           '${metrics.rttMs}ms',
           style: TextStyle(
@@ -88,17 +89,17 @@ class ConnectionQualityIndicator extends ConsumerWidget {
 
   Widget _buildDisconnectedIndicator(OpenCodeTheme theme) {
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+      padding: Insets.chip,
       decoration: BoxDecoration(
         color: theme.error.withValues(alpha: 0.1),
-        borderRadius: BorderRadius.circular(12),
+        borderRadius: Radii.brMd,
         border: Border.all(color: theme.error.withValues(alpha: 0.3)),
       ),
       child: Row(
         mainAxisSize: MainAxisSize.min,
         children: [
           Icon(Icons.signal_cellular_off, size: 14, color: theme.error),
-          const SizedBox(width: 4),
+          SizedBox(width: Spacing.xs),
           Text(
             'Disconnected',
             style: TextStyle(
@@ -140,7 +141,7 @@ class _SignalBars extends StatelessWidget {
             height: barHeights[index],
             decoration: BoxDecoration(
               color: isFilled ? color : color.withValues(alpha: 0.2),
-              borderRadius: BorderRadius.circular(1),
+              borderRadius: Radii.brXs,
             ),
           ),
         );
@@ -186,17 +187,17 @@ class ConnectionTypeBadge extends ConsumerWidget {
     }
 
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+      padding: Insets.chip,
       decoration: BoxDecoration(
         color: theme.backgroundPanel,
-        borderRadius: BorderRadius.circular(12),
+        borderRadius: Radii.brMd,
         border: Border.all(color: theme.border),
       ),
       child: Row(
         mainAxisSize: MainAxisSize.min,
         children: [
           Icon(icon, size: 12, color: theme.textMuted),
-          const SizedBox(width: 4),
+          SizedBox(width: Spacing.xs),
           Text(
             '$label • ${rttMs}ms',
             style: TextStyle(

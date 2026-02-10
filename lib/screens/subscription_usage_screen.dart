@@ -5,6 +5,7 @@ import '../models/claude_code.dart';
 import '../models/subscription_usage.dart';
 import '../providers/service_providers.dart';
 import '../providers/subscription_usage_provider.dart';
+import '../theme/design_tokens.dart';
 import '../theme/opencode_theme.dart';
 
 /// Screen for displaying AI provider usage limits and credits.
@@ -100,7 +101,7 @@ class _SubscriptionUsageScreenState
         actions: [
           if (state.isLoading || _isRefreshingAccountInfo)
             Padding(
-              padding: const EdgeInsets.all(16),
+              padding: Insets.card,
               child: SizedBox(
                 width: 20,
                 height: 20,
@@ -136,12 +137,12 @@ class _SubscriptionUsageScreenState
     if (state.error != null && state.usage == null) {
       return Center(
         child: Padding(
-          padding: const EdgeInsets.all(32),
+          padding: Insets.xxxl,
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
               Icon(Icons.error_outline_rounded, size: 48, color: ocTheme.error),
-              const SizedBox(height: 16),
+              SizedBox(height: Spacing.lg),
               Text(
                 'Failed to load usage',
                 style: TextStyle(
@@ -150,13 +151,13 @@ class _SubscriptionUsageScreenState
                   fontWeight: FontWeight.w600,
                 ),
               ),
-              const SizedBox(height: 8),
+              SizedBox(height: Spacing.sm),
               Text(
                 state.error!,
                 style: TextStyle(color: ocTheme.textMuted, fontSize: 14),
                 textAlign: TextAlign.center,
               ),
-              const SizedBox(height: 24),
+              SizedBox(height: Spacing.xxl),
               ElevatedButton.icon(
                 onPressed: _refreshAll,
                 icon: const Icon(Icons.refresh_rounded),
@@ -172,7 +173,7 @@ class _SubscriptionUsageScreenState
     if (usage == null || usage.providers.isEmpty) {
       return Center(
         child: Padding(
-          padding: const EdgeInsets.all(32),
+          padding: Insets.xxxl,
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
@@ -181,7 +182,7 @@ class _SubscriptionUsageScreenState
                 size: 64,
                 color: ocTheme.primary.withValues(alpha: 0.5),
               ),
-              const SizedBox(height: 16),
+              SizedBox(height: Spacing.lg),
               Text(
                 'No providers configured',
                 style: TextStyle(
@@ -190,7 +191,7 @@ class _SubscriptionUsageScreenState
                   fontWeight: FontWeight.w600,
                 ),
               ),
-              const SizedBox(height: 8),
+              SizedBox(height: Spacing.sm),
               Text(
                 'Run `claude login` or `codex` on your Mac to configure providers.',
                 style: TextStyle(color: ocTheme.textMuted, fontSize: 14),
@@ -203,15 +204,15 @@ class _SubscriptionUsageScreenState
     }
 
     return ListView(
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+      padding: Insets.listItemDense,
       children: [
         if (_claudeAccountInfo != null) ...[
           _ClaudeAccountCard(accountInfo: _claudeAccountInfo!),
-          const SizedBox(height: 12),
+          SizedBox(height: Spacing.md),
         ],
         // Last updated
         Padding(
-          padding: const EdgeInsets.only(bottom: 16),
+          padding: const EdgeInsets.only(bottom: Spacing.lg),
           child: Row(
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
@@ -220,7 +221,7 @@ class _SubscriptionUsageScreenState
                 size: 12,
                 color: ocTheme.textMuted.withValues(alpha: 0.6),
               ),
-              const SizedBox(width: 4),
+              SizedBox(width: Spacing.xs),
               Text(
                 'Last updated: ${usage.fetchedAgoString}',
                 style: TextStyle(
@@ -235,7 +236,7 @@ class _SubscriptionUsageScreenState
         // Provider cards
         for (final provider in usage.providers) ...[
           _ProviderCard(provider: provider),
-          const SizedBox(height: 16),
+          SizedBox(height: Spacing.lg),
         ],
 
         // Bottom padding
@@ -246,10 +247,10 @@ class _SubscriptionUsageScreenState
 
   Widget _buildLoadingSkeleton(BuildContext context) {
     return ListView(
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+      padding: Insets.listItemDense,
       children: [
         _SkeletonProviderCard(),
-        const SizedBox(height: 16),
+        SizedBox(height: Spacing.lg),
         _SkeletonProviderCard(),
       ],
     );
@@ -276,10 +277,10 @@ class _ClaudeAccountCard extends StatelessWidget {
     return Container(
       decoration: BoxDecoration(
         color: ocTheme.backgroundPanel,
-        borderRadius: BorderRadius.circular(16),
+        borderRadius: Radii.brLg,
         border: Border.all(color: ocTheme.borderSubtle),
       ),
-      padding: const EdgeInsets.all(14),
+      padding: Insets.cardMd,
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -288,7 +289,7 @@ class _ClaudeAccountCard extends StatelessWidget {
             height: 38,
             decoration: BoxDecoration(
               color: ocTheme.primary.withValues(alpha: 0.12),
-              borderRadius: BorderRadius.circular(10),
+              borderRadius: Radii.brMd,
             ),
             child: Icon(
               Icons.verified_user_rounded,
@@ -309,7 +310,7 @@ class _ClaudeAccountCard extends StatelessWidget {
                     fontWeight: FontWeight.w700,
                   ),
                 ),
-                const SizedBox(height: 4),
+                SizedBox(height: Spacing.xs),
                 Text(
                   (accountInfo.email ?? '').trim().isNotEmpty
                       ? accountInfo.email!
@@ -321,7 +322,7 @@ class _ClaudeAccountCard extends StatelessWidget {
                   ),
                 ),
                 if (details.isNotEmpty) ...[
-                  const SizedBox(height: 4),
+                  SizedBox(height: Spacing.xs),
                   Text(
                     details.join(' • '),
                     style: TextStyle(color: ocTheme.textMuted, fontSize: 11),
@@ -355,7 +356,7 @@ class _ProviderCard extends StatelessWidget {
     return Container(
       decoration: BoxDecoration(
         color: ocTheme.backgroundPanel,
-        borderRadius: BorderRadius.circular(16),
+        borderRadius: Radii.brLg,
         border: Border.all(color: ocTheme.borderSubtle),
       ),
       child: Column(
@@ -363,7 +364,7 @@ class _ProviderCard extends StatelessWidget {
         children: [
           // Header
           Padding(
-            padding: const EdgeInsets.all(16),
+            padding: Insets.card,
             child: Row(
               children: [
                 // Provider icon
@@ -372,7 +373,7 @@ class _ProviderCard extends StatelessWidget {
                   height: 40,
                   decoration: BoxDecoration(
                     color: providerColor.withValues(alpha: 0.12),
-                    borderRadius: BorderRadius.circular(10),
+                    borderRadius: Radii.brMd,
                   ),
                   child: Icon(
                     provider.providerId == 'claude'
@@ -382,7 +383,7 @@ class _ProviderCard extends StatelessWidget {
                     size: 22,
                   ),
                 ),
-                const SizedBox(width: 12),
+                SizedBox(width: Spacing.md),
                 // Provider name and plan
                 Expanded(
                   child: Column(
@@ -397,7 +398,7 @@ class _ProviderCard extends StatelessWidget {
                         ),
                       ),
                       if (provider.plan != null) ...[
-                        const SizedBox(height: 4),
+                        SizedBox(height: Spacing.xs),
                         Container(
                           padding: const EdgeInsets.symmetric(
                             horizontal: 8,
@@ -405,7 +406,7 @@ class _ProviderCard extends StatelessWidget {
                           ),
                           decoration: BoxDecoration(
                             color: providerColor.withValues(alpha: 0.12),
-                            borderRadius: BorderRadius.circular(4),
+                            borderRadius: Radii.brXs,
                           ),
                           child: Text(
                             provider.plan!,
@@ -428,7 +429,7 @@ class _ProviderCard extends StatelessWidget {
                   ),
                   decoration: BoxDecoration(
                     color: ocTheme.backgroundElement,
-                    borderRadius: BorderRadius.circular(6),
+                    borderRadius: Radii.brSm,
                   ),
                   child: Text(
                     provider.source.toUpperCase(),
@@ -449,10 +450,10 @@ class _ProviderCard extends StatelessWidget {
             Padding(
               padding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
               child: Container(
-                padding: const EdgeInsets.all(12),
+                padding: Insets.cardSm,
                 decoration: BoxDecoration(
                   color: ocTheme.error.withValues(alpha: 0.1),
-                  borderRadius: BorderRadius.circular(8),
+                  borderRadius: Radii.brSm,
                 ),
                 child: Row(
                   children: [
@@ -461,7 +462,7 @@ class _ProviderCard extends StatelessWidget {
                       size: 18,
                       color: ocTheme.error,
                     ),
-                    const SizedBox(width: 8),
+                    SizedBox(width: Spacing.sm),
                     Expanded(
                       child: Text(
                         provider.error!,
@@ -535,7 +536,7 @@ class _ProviderCard extends StatelessWidget {
                         ),
                       ),
                     ),
-                    const SizedBox(width: 12),
+                    SizedBox(width: Spacing.md),
                     Container(
                       padding: const EdgeInsets.symmetric(
                         horizontal: 10,
@@ -545,7 +546,7 @@ class _ProviderCard extends StatelessWidget {
                         color: provider.extraUsage!.isEnabled
                             ? ocTheme.success.withValues(alpha: 0.15)
                             : ocTheme.backgroundElement,
-                        borderRadius: BorderRadius.circular(12),
+                        borderRadius: Radii.brMd,
                       ),
                       child: Text(
                         provider.extraUsage!.isEnabled ? 'ON' : 'OFF',
@@ -577,10 +578,10 @@ class _ProviderCard extends StatelessWidget {
               Padding(
                 padding: const EdgeInsets.fromLTRB(16, 8, 16, 16),
                 child: Container(
-                  padding: const EdgeInsets.all(12),
+                  padding: Insets.cardSm,
                   decoration: BoxDecoration(
                     color: ocTheme.backgroundElement,
-                    borderRadius: BorderRadius.circular(10),
+                    borderRadius: Radii.brMd,
                   ),
                   child: Row(
                     children: [
@@ -646,10 +647,10 @@ class _ProviderCard extends StatelessWidget {
               Padding(
                 padding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
                 child: Container(
-                  padding: const EdgeInsets.all(14),
+                  padding: Insets.cardMd,
                   decoration: BoxDecoration(
                     color: ocTheme.backgroundElement,
-                    borderRadius: BorderRadius.circular(12),
+                    borderRadius: Radii.brMd,
                   ),
                   child: Row(
                     children: [
@@ -658,7 +659,7 @@ class _ProviderCard extends StatelessWidget {
                         height: 40,
                         decoration: BoxDecoration(
                           color: ocTheme.info.withValues(alpha: 0.12),
-                          borderRadius: BorderRadius.circular(10),
+                          borderRadius: Radii.brMd,
                         ),
                         child: Icon(
                           Icons.account_balance_wallet_rounded,
@@ -666,7 +667,7 @@ class _ProviderCard extends StatelessWidget {
                           size: 22,
                         ),
                       ),
-                      const SizedBox(width: 12),
+                      SizedBox(width: Spacing.md),
                       Expanded(
                         child: Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
@@ -697,7 +698,7 @@ class _ProviderCard extends StatelessWidget {
                           ),
                           decoration: BoxDecoration(
                             color: ocTheme.success.withValues(alpha: 0.15),
-                            borderRadius: BorderRadius.circular(8),
+                            borderRadius: Radii.brSm,
                           ),
                           child: Text(
                             'Unlimited',
@@ -720,10 +721,10 @@ class _ProviderCard extends StatelessWidget {
             Padding(
               padding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
               child: Container(
-                padding: const EdgeInsets.all(14),
+                padding: Insets.cardMd,
                 decoration: BoxDecoration(
                   color: ocTheme.backgroundElement,
-                  borderRadius: BorderRadius.circular(10),
+                  borderRadius: Radii.brMd,
                 ),
                 child: Row(
                   children: [
@@ -732,7 +733,7 @@ class _ProviderCard extends StatelessWidget {
                       color: ocTheme.textMuted,
                       size: 20,
                     ),
-                    const SizedBox(width: 12),
+                    SizedBox(width: Spacing.md),
                     Expanded(
                       child: Text(
                         provider.providerId == 'claude'
@@ -833,7 +834,7 @@ class _UsageBarVertical extends StatelessWidget {
                       ),
                     ),
                     if (subtitle != null) ...[
-                      const SizedBox(height: 2),
+                      SizedBox(height: Spacing.xxs),
                       Text(
                         subtitle!,
                         style: TextStyle(
@@ -845,7 +846,7 @@ class _UsageBarVertical extends StatelessWidget {
                   ],
                 ),
               ),
-              const SizedBox(width: 8),
+              SizedBox(width: Spacing.sm),
               Text(
                 '${clampedPercent.round()}%',
                 style: TextStyle(
@@ -857,14 +858,14 @@ class _UsageBarVertical extends StatelessWidget {
             ],
           ),
 
-          const SizedBox(height: 8),
+          SizedBox(height: Spacing.sm),
 
           // Progress bar
           Container(
             height: 6,
             decoration: BoxDecoration(
               color: ocTheme.backgroundElement,
-              borderRadius: BorderRadius.circular(3),
+              borderRadius: Radii.brXs,
             ),
             child: LayoutBuilder(
               builder: (context, constraints) {
@@ -877,7 +878,7 @@ class _UsageBarVertical extends StatelessWidget {
                       width: constraints.maxWidth * (clampedPercent / 100),
                       decoration: BoxDecoration(
                         color: barColor,
-                        borderRadius: BorderRadius.circular(3),
+                        borderRadius: Radii.brXs,
                       ),
                     ),
                   ],
@@ -898,10 +899,10 @@ class _SkeletonProviderCard extends StatelessWidget {
     final ocTheme = OpenCodeTheme.of(context);
 
     return Container(
-      padding: const EdgeInsets.all(16),
+      padding: Insets.card,
       decoration: BoxDecoration(
         color: ocTheme.backgroundPanel,
-        borderRadius: BorderRadius.circular(16),
+        borderRadius: Radii.brLg,
         border: Border.all(color: ocTheme.borderSubtle),
       ),
       child: Column(
@@ -911,7 +912,7 @@ class _SkeletonProviderCard extends StatelessWidget {
           Row(
             children: [
               _SkeletonBox(width: 40, height: 40, borderRadius: 10),
-              const SizedBox(width: 12),
+              SizedBox(width: Spacing.md),
               Expanded(
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
@@ -924,11 +925,11 @@ class _SkeletonProviderCard extends StatelessWidget {
               ),
             ],
           ),
-          const SizedBox(height: 20),
+          SizedBox(height: Spacing.xl),
 
           // Section header skeleton
           _SkeletonBox(width: 80, height: 12, borderRadius: 4),
-          const SizedBox(height: 12),
+          SizedBox(height: Spacing.md),
 
           // Bar skeleton
           Column(
@@ -941,11 +942,11 @@ class _SkeletonProviderCard extends StatelessWidget {
                   _SkeletonBox(width: 30, height: 14, borderRadius: 4),
                 ],
               ),
-              const SizedBox(height: 8),
+              SizedBox(height: Spacing.sm),
               _SkeletonBox(height: 6, borderRadius: 3),
             ],
           ),
-          const SizedBox(height: 16),
+          SizedBox(height: Spacing.lg),
 
           // Another bar skeleton
           Column(
@@ -958,7 +959,7 @@ class _SkeletonProviderCard extends StatelessWidget {
                   _SkeletonBox(width: 30, height: 14, borderRadius: 4),
                 ],
               ),
-              const SizedBox(height: 8),
+              SizedBox(height: Spacing.sm),
               _SkeletonBox(height: 6, borderRadius: 3),
             ],
           ),

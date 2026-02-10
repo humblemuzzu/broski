@@ -1,11 +1,13 @@
 import 'dart:convert';
 
 import 'package:flutter/material.dart';
+import '../theme/app_typography.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../models/agent.dart';
 import '../models/file_attachment.dart';
 import '../providers/file_search_provider.dart';
+import '../theme/design_tokens.dart';
 import '../theme/opencode_theme.dart';
 
 void showImagePreview(BuildContext context, FileAttachment attachment) {
@@ -19,7 +21,7 @@ void showImagePreview(BuildContext context, FileAttachment attachment) {
     barrierColor: const Color(0xDD000000),
     builder: (ctx) => Dialog(
       backgroundColor: Colors.transparent,
-      insetPadding: const EdgeInsets.all(16),
+      insetPadding: Insets.card,
       child: Stack(
         children: [
           Center(
@@ -27,7 +29,7 @@ void showImagePreview(BuildContext context, FileAttachment attachment) {
               minScale: 0.5,
               maxScale: 4.0,
               child: ClipRRect(
-                borderRadius: BorderRadius.circular(12),
+                borderRadius: Radii.brMd,
                 child: Image.memory(imageBytes, fit: BoxFit.contain),
               ),
             ),
@@ -55,11 +57,11 @@ void showImagePreview(BuildContext context, FileAttachment attachment) {
                 ),
                 decoration: BoxDecoration(
                   color: theme.backgroundPanel.withValues(alpha: 0.8),
-                  borderRadius: BorderRadius.circular(20),
+                  borderRadius: Radii.brXl,
                 ),
                 child: Text(
                   attachment.filename,
-                  style: TextStyle(color: theme.text, fontSize: 14),
+                  style: AppTypography.labelLarge(color: theme.text),
                 ),
               ),
             ),
@@ -94,7 +96,7 @@ class FileAutocomplete extends ConsumerWidget {
           padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
           decoration: BoxDecoration(
             color: theme.backgroundPanel,
-            borderRadius: BorderRadius.circular(8),
+            borderRadius: Radii.brSm,
             border: Border.all(color: theme.borderSubtle),
             boxShadow: [
               BoxShadow(
@@ -106,7 +108,7 @@ class FileAutocomplete extends ConsumerWidget {
           ),
           child: Text(
             state.query.isEmpty ? 'No files in project' : 'No matching files',
-            style: TextStyle(color: theme.textMuted, fontSize: 13),
+            style: AppTypography.bodySmall(color: theme.textMuted),
           ),
         ),
       );
@@ -118,7 +120,7 @@ class FileAutocomplete extends ConsumerWidget {
           padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
           decoration: BoxDecoration(
             color: theme.backgroundPanel,
-            borderRadius: BorderRadius.circular(8),
+            borderRadius: Radii.brSm,
             border: Border.all(color: theme.borderSubtle),
             boxShadow: [
               BoxShadow(
@@ -139,10 +141,10 @@ class FileAutocomplete extends ConsumerWidget {
                   color: theme.textMuted,
                 ),
               ),
-              const SizedBox(width: 8),
+              SizedBox(width: Spacing.sm),
               Text(
                 'Searching...',
-                style: TextStyle(color: theme.textMuted, fontSize: 13),
+                style: AppTypography.bodySmall(color: theme.textMuted),
               ),
             ],
           ),
@@ -157,7 +159,7 @@ class FileAutocomplete extends ConsumerWidget {
         constraints: const BoxConstraints(maxHeight: 240),
         decoration: BoxDecoration(
           color: theme.backgroundPanel,
-          borderRadius: BorderRadius.circular(8),
+          borderRadius: Radii.brSm,
           border: Border.all(color: theme.borderSubtle),
           boxShadow: [
             BoxShadow(
@@ -169,7 +171,7 @@ class FileAutocomplete extends ConsumerWidget {
         ),
         child: ListView.builder(
           shrinkWrap: true,
-          padding: const EdgeInsets.symmetric(vertical: 4),
+          padding: Insets.chipV,
           itemCount: state.results.length,
           itemBuilder: (context, index) {
             final path = state.results[index];
@@ -225,7 +227,7 @@ class _FileAutocompleteItem extends StatelessWidget {
               size: 16,
               color: isDirectory ? theme.warning : theme.info,
             ),
-            const SizedBox(width: 8),
+            SizedBox(width: Spacing.sm),
             Expanded(
               child: Row(
                 children: [
@@ -233,7 +235,7 @@ class _FileAutocompleteItem extends StatelessWidget {
                     Flexible(
                       child: Text(
                         directory,
-                        style: TextStyle(color: theme.textMuted, fontSize: 13),
+                        style: AppTypography.bodySmall(color: theme.textMuted),
                         overflow: TextOverflow.ellipsis,
                       ),
                     ),
@@ -323,7 +325,7 @@ class _AttachedFileChip extends StatelessWidget {
           color: isImage
               ? theme.primary.withValues(alpha: 0.15)
               : theme.info.withValues(alpha: 0.15),
-          borderRadius: BorderRadius.circular(6),
+          borderRadius: Radii.brSm,
           border: Border.all(
             color: isImage
                 ? theme.primary.withValues(alpha: 0.3)
@@ -335,7 +337,7 @@ class _AttachedFileChip extends StatelessWidget {
           children: [
             if (isImage && attachment.thumbnailBytes != null)
               ClipRRect(
-                borderRadius: BorderRadius.circular(4),
+                borderRadius: Radii.brXs,
                 child: Image.memory(
                   attachment.thumbnailBytes!,
                   width: 24,
@@ -375,7 +377,7 @@ class _AttachedFileChip extends StatelessWidget {
             const SizedBox(width: 2),
             InkWell(
               onTap: onRemove,
-              borderRadius: BorderRadius.circular(10),
+              borderRadius: Radii.brMd,
               child: Padding(
                 padding: const EdgeInsets.all(2),
                 child: Icon(
@@ -431,7 +433,7 @@ class AgentAutocomplete extends StatelessWidget {
           padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
           decoration: BoxDecoration(
             color: theme.backgroundPanel,
-            borderRadius: BorderRadius.circular(8),
+            borderRadius: Radii.brSm,
             border: Border.all(color: theme.borderSubtle),
             boxShadow: [
               BoxShadow(
@@ -443,7 +445,7 @@ class AgentAutocomplete extends StatelessWidget {
           ),
           child: Text(
             'No matching agents',
-            style: TextStyle(color: theme.textMuted, fontSize: 13),
+            style: AppTypography.bodySmall(color: theme.textMuted),
           ),
         ),
       );
@@ -461,7 +463,7 @@ class AgentAutocomplete extends StatelessWidget {
         constraints: const BoxConstraints(maxHeight: 280),
         decoration: BoxDecoration(
           color: theme.backgroundPanel,
-          borderRadius: BorderRadius.circular(12),
+          borderRadius: Radii.brMd,
           border: Border.all(color: theme.borderSubtle),
           boxShadow: [
             BoxShadow(
@@ -472,7 +474,7 @@ class AgentAutocomplete extends StatelessWidget {
           ],
         ),
         child: ClipRRect(
-          borderRadius: BorderRadius.circular(12),
+          borderRadius: Radii.brMd,
           child: ListView(
             shrinkWrap: true,
             padding: const EdgeInsets.symmetric(vertical: 6),
@@ -495,7 +497,7 @@ class AgentAutocomplete extends StatelessWidget {
               ],
               // Subagents section
               if (subAgents.isNotEmpty) ...[
-                if (primaryAgents.isNotEmpty) const SizedBox(height: 4),
+                if (primaryAgents.isNotEmpty) SizedBox(height: Spacing.xs),
                 _buildSectionHeader(
                   'Subagents',
                   Icons.smart_toy_outlined,
@@ -539,7 +541,7 @@ class AgentAutocomplete extends StatelessWidget {
               letterSpacing: 0.3,
             ),
           ),
-          const SizedBox(width: 4),
+          SizedBox(width: Spacing.xs),
           Text(
             '($count)',
             style: TextStyle(
@@ -576,7 +578,7 @@ class _AgentAutocompleteItem extends StatelessWidget {
               height: 28,
               decoration: BoxDecoration(
                 color: agentColor.withValues(alpha: 0.15),
-                borderRadius: BorderRadius.circular(6),
+                borderRadius: Radii.brSm,
               ),
               child: Icon(
                 agent.isPrimary
@@ -611,7 +613,7 @@ class _AgentAutocompleteItem extends StatelessWidget {
                         ),
                         decoration: BoxDecoration(
                           color: agentColor.withValues(alpha: 0.12),
-                          borderRadius: BorderRadius.circular(4),
+                          borderRadius: Radii.brXs,
                         ),
                         child: Text(
                           agent.mode.displayName,
@@ -626,10 +628,10 @@ class _AgentAutocompleteItem extends StatelessWidget {
                   ),
                   if (agent.description != null &&
                       agent.description!.isNotEmpty) ...[
-                    const SizedBox(height: 2),
+                    SizedBox(height: Spacing.xxs),
                     Text(
                       agent.shortDescription,
-                      style: TextStyle(fontSize: 12, color: theme.textMuted),
+                      style: AppTypography.label(color: theme.textMuted),
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
                     ),
