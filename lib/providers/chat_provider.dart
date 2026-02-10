@@ -510,7 +510,9 @@ class ChatSessionNotifier extends StateNotifier<ChatSessionState> {
       if (localMsg == null) continue;
       if (localMsg.sessionId != sessionId) continue;
       if (localMsg.role != MessageRole.user) continue;
-      if (!localId.startsWith('local-')) continue;
+      // Accept both local-xxx (no messageId supplied) and msg_xxx (client-
+      // generated OpenCode IDs) — any ID in _pendingLocalUserTextByMessageId
+      // is an optimistic local message awaiting reconciliation.
       if (_isTextMatch(entry.value, normalizedCandidate)) {
         matchId = localId; // keep last match (most recent insertion order)
       }
@@ -549,6 +551,7 @@ class ChatSessionNotifier extends StateNotifier<ChatSessionState> {
       _order.removeAt(localIndex);
     }
     _pendingLocalUserTextByMessageId.remove(localMessageId);
+    _localAuthoredUserMessageIds.remove(localMessageId);
 
     final existingServer = _messages[serverMessageId];
     if (existingServer == null) {
@@ -1261,6 +1264,14 @@ class ChatSessionNotifier extends StateNotifier<ChatSessionState> {
     _addMessage(message);
     if (messageId != null && messageId.isNotEmpty) {
       _localAuthoredUserMessageIds.add(messageId);
+      // Also register text for reconciliation: OpenCode SDK generates its own
+      // message ID (different from the client-generated one), so we need
+      // text-based matching to detect & replace this optimistic message when
+      // the server echo arrives with a different ID.
+      final normalized = _normalizeUserText(content);
+      if (normalized.isNotEmpty) {
+        _pendingLocalUserTextByMessageId[id] = normalized;
+      }
     } else {
       final normalized = _normalizeUserText(content);
       if (normalized.isNotEmpty) {

@@ -19,7 +19,7 @@ import 'sheets/cx_apps_sheet.dart';
 import 'sheets/cx_model_sheet.dart';
 import 'sheets/cx_remote_skills_sheet.dart';
 import '../widgets/chat/cc_queue_bar.dart';
-import '../widgets/chat/cx_steer_bar.dart';
+
 import 'sheets/cx_skills_sheet_content.dart';
 import '../models/command.dart';
 import '../models/file_attachment.dart';
@@ -3018,6 +3018,9 @@ class _ChatScreenState extends ConsumerState<ChatScreen>
   }
   void _handleClaudeCodeMenuAction(String value) {
     switch (value) {
+      case 'stop':
+        _stopGeneration();
+        break;
       case 'project_tools':
         _showProjectToolsSheet();
         break;
@@ -3046,6 +3049,9 @@ class _ChatScreenState extends ConsumerState<ChatScreen>
   }
   void _handleCodexMenuAction(String value) {
     switch (value) {
+      case 'stop':
+        _stopGeneration();
+        break;
       case 'project_tools':
         _showProjectToolsSheet();
         break;
@@ -5179,9 +5185,6 @@ Describe project-specific guidance for Codex here.
     final ccIsStreaming = ref.watch(
       chatSessionProvider.select((s) => s.ccIsStreaming),
     );
-    final cxIsStreaming = ref.watch(
-      chatSessionProvider.select((s) => s.cxIsStreaming),
-    );
     final ccInit = ref.watch(chatSessionProvider.select((s) => s.ccInit));
     final ccModel = ref.watch(chatSessionProvider.select((s) => s.ccModel));
     // Watch these for rebuild triggers (values accessed via ref.read in callbacks)
@@ -5377,18 +5380,8 @@ Describe project-specific guidance for Codex here.
               ],
             ),
           ),
-          // Stop button when AI is processing - centered at bottom
-          // Show for: streaming messages, CC/CX streaming states, or running tools
-          if (_hasStreamingMessage(messages) ||
-              (widget.isClaudeCode && ccIsStreaming) ||
-              (widget.isCodex && cxIsStreaming) ||
-              _hasRunningTools(messages))
-            Positioned(
-              bottom: 24,
-              left: 0,
-              right: 0,
-              child: Center(child: _buildStopButton(context)),
-            ),
+          // Stop agent is available via the action sheet menu (⋯ button)
+          // when streaming — no floating overlay needed.
           // Slash command autocomplete popup (kept mounted to avoid focus loss)
           Positioned(
             left: 16,
@@ -5443,22 +5436,6 @@ Describe project-specific guidance for Codex here.
             child: Column(
               mainAxisSize: MainAxisSize.min,
               children: [
-                if (widget.isCodex && cxIsStreaming)
-                  CxSteerBar(
-                    onSteer: (prompt) {
-                      final threadId = ref.read(chatSessionProvider).cxThreadId;
-                      if (threadId != null && threadId.isNotEmpty) {
-                        ref.read(bridgeServiceProvider).cxSteer(
-                          threadId: threadId,
-                          prompt: prompt,
-                        );
-                      }
-                    },
-                    primaryColor: OpenCodeTheme.of(context).primary,
-                    textColor: OpenCodeTheme.of(context).text,
-                    mutedColor: OpenCodeTheme.of(context).textMuted,
-                    surfaceColor: OpenCodeTheme.of(context).backgroundPanel,
-                  ),
                 // Claude Code: show queued message bar when a message is pending
                 if (widget.isClaudeCode && ccIsStreaming)
                   Consumer(
@@ -5593,16 +5570,14 @@ Describe project-specific guidance for Codex here.
     final inputStyle = ref.watch(inputStyleProvider);
     // Busy logic per agent:
     // - CC: busy only if streaming AND already has a queued message (allow 1 queue)
-    // - Codex: busy when streaming (has CxSteerBar for mid-turn)
+    // - Codex: never busy — if streaming, _sendMessage steers the agent mid-turn
     // - OpenCode: never busy — SDK's promptAsync() queues server-side
     final pendingCCMessage = widget.isClaudeCode
         ? ref.watch(chatSessionProvider.select((s) => s.pendingCCMessage))
         : null;
     final isBusy = widget.isClaudeCode
         ? (ccIsStreaming && pendingCCMessage != null)
-        : widget.isCodex
-            ? ref.watch(chatSessionProvider.select((s) => s.cxIsStreaming))
-            : false;
+        : false;
     final hasContent =
         _controller.text.trim().isNotEmpty || _attachedFiles.isNotEmpty;
     final canSend =
@@ -6223,52 +6198,14 @@ Describe project-specific guidance for Codex here.
     }
     return widgets;
   }
-  Widget _buildStopButton(BuildContext context) {
-    final theme = OpenCodeTheme.of(context);
-    return Material(
-      color: theme.backgroundPanel,
-      borderRadius: Radii.brXxl,
-      elevation: 8,
-      shadowColor: theme.bgDeep.withValues(alpha: 0.4),
-      child: InkWell(
-        onTap: () => _showStopConfirmation(context),
-        borderRadius: Radii.brXxl,
-        child: Container(
-          padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
-          decoration: BoxDecoration(
-            borderRadius: Radii.brXxl,
-            border: Border.all(color: theme.error.withValues(alpha: 0.3)),
-          ),
-          child: Row(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Container(
-                width: 8,
-                height: 8,
-                decoration: BoxDecoration(
-                  color: theme.error,
-                  shape: BoxShape.circle,
-                ),
-              ),
-              const SizedBox(width: 10),
-              Text(
-                'Stop generating',
-                style: TextStyle(
-                  color: theme.text,
-                  fontSize: 14,
-                  fontWeight: FontWeight.w500,
-                ),
-              ),
-            ],
-          ),
-        ),
-      ),
-    );
-  }
+
   // PERF: Menu action handler that takes messages list directly (used with select())
   void _handleMenuActionWithMessages(String value, List<ChatMessage> messages) {
     final theme = OpenCodeTheme.of(context);
     switch (value) {
+      case 'stop':
+        _stopGeneration();
+        break;
       case 'project_tools':
         _showProjectToolsSheet();
         break;
@@ -6394,34 +6331,6 @@ Describe project-specific guidance for Codex here.
           success ? 'Instance cleared' : 'Failed to clear instance',
         ),
         backgroundColor: theme.backgroundPanel,
-      ),
-    );
-  }
-  void _showStopConfirmation(BuildContext context) {
-    final theme = OpenCodeTheme.of(context);
-    _haptics.mediumImpact();
-    showDialog(
-      context: context,
-      builder: (context) => AlertDialog(
-        backgroundColor: theme.backgroundPanel,
-        title: Text('Stop Generation?', style: TextStyle(color: theme.text)),
-        content: Text(
-          'This will abort the current AI response.',
-          style: TextStyle(color: theme.textMuted),
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context),
-            child: const Text('Cancel'),
-          ),
-          TextButton(
-            onPressed: () {
-              _stopGeneration();
-              Navigator.pop(context);
-            },
-            child: Text('Stop', style: TextStyle(color: theme.error)),
-          ),
-        ],
       ),
     );
   }
@@ -6581,8 +6490,22 @@ Describe project-specific guidance for Codex here.
         return;
       }
     } else if (widget.isCodex) {
-      // Codex has its own CxSteerBar for mid-turn messages.
-      if (chatState.cxIsStreaming) return;
+      // Codex mid-turn: steer the agent instead of blocking.
+      // Uses the SDK turn/steer RPC to nudge the agent with the new message.
+      if (chatState.cxIsStreaming) {
+        final threadId = chatState.cxThreadId;
+        if (threadId != null && threadId.isNotEmpty) {
+          ref.read(bridgeServiceProvider).cxSteer(
+            threadId: threadId,
+            prompt: text,
+          );
+          // Show the steer message in chat so the user sees what they sent
+          ref.read(chatSessionProvider.notifier).appendUserMessage(text);
+          _controller.clear();
+          setState(() => _attachedFiles.clear());
+        }
+        return;
+      }
     }
     // OpenCode: no block — SDK's promptAsync() returns 204 immediately
     // and the server queues messages internally.
@@ -7655,6 +7578,7 @@ class _FloatingHeader extends StatelessWidget {
                     isConnected: isConnected,
                     rttMs: rttMs,
                     ccModel: ccModel,
+                    isStreaming: isStreaming,
                     onMenu: onMenu!,
                   ),
                   child: Icon(
@@ -7676,6 +7600,7 @@ class _FloatingHeader extends StatelessWidget {
                     isConnected: isConnected,
                     rttMs: rttMs,
                     codexModel: codexModel,
+                    isStreaming: isStreaming,
                     onMenu: onMenu!,
                   ),
                   child: Icon(
@@ -7701,6 +7626,7 @@ class _FloatingHeader extends StatelessWidget {
                     onModelTap: onModelTap,
                     isSessionShared: isSessionShared,
                     isCompacting: isCompacting,
+                    isStreaming: isStreaming,
                     onMenu: onMenu!,
                     onOpenSidebar: onOpenSidebar,
                   ),
@@ -7827,6 +7753,7 @@ class _FloatingHeader extends StatelessWidget {
     required VoidCallback? onModelTap,
     required bool isSessionShared,
     required bool isCompacting,
+    required bool isStreaming,
     required void Function(String) onMenu,
     VoidCallback? onOpenSidebar,
   }) {
@@ -7843,6 +7770,7 @@ class _FloatingHeader extends StatelessWidget {
         onModelTap: onModelTap,
         isSessionShared: isSessionShared,
         isCompacting: isCompacting,
+        isStreaming: isStreaming,
         onOpenSidebar: onOpenSidebar,
         onAction: (action) {
           Navigator.pop(context);
@@ -7857,6 +7785,7 @@ class _FloatingHeader extends StatelessWidget {
     required bool isConnected,
     required int? rttMs,
     required String? ccModel,
+    required bool isStreaming,
     required void Function(String) onMenu,
   }) {
     DetailSheet.show(
@@ -7868,6 +7797,7 @@ class _FloatingHeader extends StatelessWidget {
         isConnected: isConnected,
         rttMs: rttMs,
         ccModel: ccModel,
+        isStreaming: isStreaming,
         onAction: (action) {
           Navigator.pop(context);
           onMenu(action);
@@ -7881,6 +7811,7 @@ class _FloatingHeader extends StatelessWidget {
     required bool isConnected,
     required int? rttMs,
     required String? codexModel,
+    required bool isStreaming,
     required void Function(String) onMenu,
   }) {
     DetailSheet.show(
@@ -7892,6 +7823,7 @@ class _FloatingHeader extends StatelessWidget {
         isConnected: isConnected,
         rttMs: rttMs,
         codexModel: codexModel,
+        isStreaming: isStreaming,
         onAction: (action) {
           Navigator.pop(context);
           onMenu(action);
@@ -7911,6 +7843,7 @@ class _SessionActionsContent extends StatelessWidget {
     required this.onModelTap,
     required this.isSessionShared,
     required this.isCompacting,
+    required this.isStreaming,
     required this.onAction,
     this.onOpenSidebar,
   });
@@ -7922,6 +7855,7 @@ class _SessionActionsContent extends StatelessWidget {
   final VoidCallback? onModelTap;
   final bool isSessionShared;
   final bool isCompacting;
+  final bool isStreaming;
   final void Function(String) onAction;
   final VoidCallback? onOpenSidebar;
   String _getModelName(SelectedModel? model) {
@@ -8172,6 +8106,17 @@ class _SessionActionsContent extends StatelessWidget {
                 ),
               ),
               SizedBox(height: Spacing.md),
+              if (isStreaming) ...[
+                _ActionRow(
+                  icon: AppIcons.stop,
+                  label: 'Stop Agent',
+                  subtitle: 'Abort the current AI response',
+                  theme: theme,
+                  color: theme.error,
+                  onTap: () => onAction('stop'),
+                ),
+                SizedBox(height: Spacing.sm),
+              ],
               _ActionRow(
                 icon: AppIcons.undo,
                 label: 'Undo Last Changes',
@@ -8314,12 +8259,14 @@ class _ClaudeCodeActionsContent extends StatelessWidget {
     required this.isConnected,
     required this.rttMs,
     required this.ccModel,
+    required this.isStreaming,
     required this.onAction,
   });
   final OpenCodeTheme theme;
   final bool isConnected;
   final int? rttMs;
   final String? ccModel;
+  final bool isStreaming;
   final void Function(String) onAction;
   String _getModelName(String? model) {
     if (model == null || model.isEmpty) return 'Claude';
@@ -8505,6 +8452,27 @@ class _ClaudeCodeActionsContent extends StatelessWidget {
                 theme: theme,
                 onTap: () => onAction('cc_fork'),
               ),
+              if (isStreaming) ...[
+                SizedBox(height: Spacing.xl),
+                Text(
+                  'DANGER ZONE',
+                  style: TextStyle(
+                    fontSize: 11,
+                    fontWeight: FontWeight.w600,
+                    color: theme.error.withValues(alpha: 0.7),
+                    letterSpacing: 0.5,
+                  ),
+                ),
+                SizedBox(height: Spacing.md),
+                _ActionRow(
+                  icon: AppIcons.stop,
+                  label: 'Stop Agent',
+                  subtitle: 'Abort the current AI response',
+                  theme: theme,
+                  color: theme.error,
+                  onTap: () => onAction('stop'),
+                ),
+              ],
             ],
           ),
         ),
@@ -8519,12 +8487,14 @@ class _CodexActionsContent extends StatelessWidget {
     required this.isConnected,
     required this.rttMs,
     required this.codexModel,
+    required this.isStreaming,
     required this.onAction,
   });
   final OpenCodeTheme theme;
   final bool isConnected;
   final int? rttMs;
   final String? codexModel;
+  final bool isStreaming;
   final void Function(String) onAction;
   String _getModelName(String? model) {
     if (model == null || model.isEmpty) return 'Default';
@@ -8739,6 +8709,27 @@ class _CodexActionsContent extends StatelessWidget {
                 theme: theme,
                 onTap: () => onAction('cx_feedback'),
               ),
+              if (isStreaming) ...[
+                SizedBox(height: Spacing.xl),
+                Text(
+                  'DANGER ZONE',
+                  style: TextStyle(
+                    fontSize: 11,
+                    fontWeight: FontWeight.w600,
+                    color: theme.error.withValues(alpha: 0.7),
+                    letterSpacing: 0.5,
+                  ),
+                ),
+                SizedBox(height: Spacing.md),
+                _ActionRow(
+                  icon: AppIcons.stop,
+                  label: 'Stop Agent',
+                  subtitle: 'Abort the current AI response',
+                  theme: theme,
+                  color: theme.error,
+                  onTap: () => onAction('stop'),
+                ),
+              ],
             ],
           ),
         ),
