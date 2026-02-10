@@ -99,7 +99,7 @@ class _OnboardingAuthScreenState extends ConsumerState<OnboardingAuthScreen>
                     TextSpan(
                       text: 'Identify\n',
                       style: TextStyle(
-                        fontFamily: AppTypography.uiFontFamily,
+                        fontFamily: AppTypography.pixelFontFamily,
                         fontSize: 44,
                         fontWeight: FontWeight.w800,
                         color: Colors.white,
@@ -110,7 +110,7 @@ class _OnboardingAuthScreenState extends ConsumerState<OnboardingAuthScreen>
                     TextSpan(
                       text: 'Yourself.',
                       style: TextStyle(
-                        fontFamily: AppTypography.uiFontFamily,
+                        fontFamily: AppTypography.pixelFontFamily,
                         fontSize: 44,
                         fontWeight: FontWeight.w800,
                         color: const Color(0xFF555555),
@@ -145,6 +145,7 @@ class _OnboardingAuthScreenState extends ConsumerState<OnboardingAuthScreen>
                   child: Text(
                     state.error!,
                     style: const TextStyle(
+                      fontFamily: 'GeistSans',
                       color: Color(0xFFEF4444),
                       fontSize: 13,
                     ),
@@ -235,6 +236,7 @@ class _OnboardingAuthScreenState extends ConsumerState<OnboardingAuthScreen>
                   child: Text(
                     'Skip (dev) \u2192',
                     style: TextStyle(
+                      fontFamily: 'GeistSans',
                       color: Colors.red.withValues(alpha: 0.6),
                       fontSize: 13,
                       fontWeight: FontWeight.w600,
@@ -541,6 +543,7 @@ class _AuthButton extends StatelessWidget {
                     Text(
                       label,
                       style: TextStyle(
+                        fontFamily: 'GeistSans',
                         fontSize: 15,
                         fontWeight: FontWeight.w600,
                         color: Colors.white.withValues(alpha: 0.85),

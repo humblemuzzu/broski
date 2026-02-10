@@ -270,6 +270,7 @@ class _CodeFromCouchPageState extends State<_CodeFromCouchPage>
                             TextSpan(
                               text: 'CODE\nFROM THE\n',
                               style: TextStyle(
+                                fontFamily: 'GeistPixel',
                                 fontSize: 52,
                                 fontWeight: FontWeight.w900,
                                 color: Colors.white,
@@ -280,6 +281,7 @@ class _CodeFromCouchPageState extends State<_CodeFromCouchPage>
                             TextSpan(
                               text: 'COUCH.',
                               style: TextStyle(
+                                fontFamily: 'GeistPixel',
                                 fontSize: 52,
                                 fontWeight: FontWeight.w900,
                                 color: Color(0xFF555555),
@@ -294,6 +296,7 @@ class _CodeFromCouchPageState extends State<_CodeFromCouchPage>
                       Text(
                         'The first IDE designed for the\nhorizontal lifestyle.',
                         style: TextStyle(
+                          fontFamily: 'GeistSans',
                           fontSize: 18,
                           color: Colors.white.withValues(alpha: 0.55),
                           height: 1.5,
@@ -331,6 +334,7 @@ class _CodeFromCouchPageState extends State<_CodeFromCouchPage>
                         Text(
                           'Get Started',
                           style: TextStyle(
+                            fontFamily: 'GeistSans',
                             fontSize: 17,
                             fontWeight: FontWeight.w600,
                             color: Colors.black,
@@ -341,6 +345,7 @@ class _CodeFromCouchPageState extends State<_CodeFromCouchPage>
                         Text(
                           '\u2192',
                           style: TextStyle(
+                            fontFamily: 'GeistSans',
                             fontSize: 20,
                             fontWeight: FontWeight.w500,
                             color: Colors.black,
@@ -481,6 +486,7 @@ class _ArchitecturePageState extends State<_ArchitecturePage>
                           Text(
                             'Your Mac is the Engine.',
                             style: TextStyle(
+                              fontFamily: 'GeistPixel',
                               fontSize: isTablet ? 34 : 28,
                               fontWeight: FontWeight.w800,
                               color: Colors.white,
@@ -492,6 +498,7 @@ class _ArchitecturePageState extends State<_ArchitecturePage>
                           Text(
                             'The app acts as a remote interface. Your code, terminal, and git history stay secure on your local machine.',
                             style: TextStyle(
+                              fontFamily: 'GeistSans',
                               fontSize: isTablet ? 20 : 18,
                               color: Colors.white.withValues(alpha: 0.55),
                               height: 1.55,
@@ -680,6 +687,7 @@ class _SystemCard extends StatelessWidget {
           Text(
             label,
             style: TextStyle(
+              fontFamily: 'GeistMono',
               fontSize: isTablet ? 13 : 11,
               fontWeight: FontWeight.w600,
               color: Colors.white.withValues(alpha: labelAlpha),
@@ -806,6 +814,7 @@ class _UnifiedIntelligencePageState extends State<_UnifiedIntelligencePage>
                           const Text(
                             'Unified Intelligence.',
                             style: TextStyle(
+                              fontFamily: 'GeistPixel',
                               fontSize: 32,
                               fontWeight: FontWeight.w800,
                               color: Colors.white,
@@ -817,6 +826,7 @@ class _UnifiedIntelligencePageState extends State<_UnifiedIntelligencePage>
                           Text(
                             'Connect your preferred engines. We\norchestrate the rest.',
                             style: TextStyle(
+                              fontFamily: 'GeistSans',
                               fontSize: 17,
                               color: Colors.white.withValues(alpha: 0.50),
                               height: 1.5,
@@ -933,6 +943,7 @@ class _UnifiedIntelligencePageState extends State<_UnifiedIntelligencePage>
                           child: Text(
                             'Continue',
                             style: TextStyle(
+                              fontFamily: 'GeistSans',
                               fontSize: 17,
                               fontWeight: FontWeight.w600,
                               color: Colors.black,
@@ -992,6 +1003,7 @@ class _AgentCard extends StatelessWidget {
             child: Text(
               name,
               style: const TextStyle(
+                fontFamily: 'GeistSans',
                 fontSize: 18,
                 fontWeight: FontWeight.w600,
                 color: Colors.white,
@@ -1172,6 +1184,7 @@ class _SuperpowersPageState extends State<_SuperpowersPage>
                                             const Text(
                                               'BROSKI',
                                               style: TextStyle(
+                                                fontFamily: 'GeistSans',
                                                 fontSize: 11,
                                                 fontWeight: FontWeight.w700,
                                                 color: Colors.white,
@@ -1182,6 +1195,7 @@ class _SuperpowersPageState extends State<_SuperpowersPage>
                                             Text(
                                               '\u2022 NOW',
                                               style: TextStyle(
+                                                fontFamily: 'GeistSans',
                                                 fontSize: 11,
                                                 fontWeight: FontWeight.w500,
                                                 color: Colors.white.withValues(
@@ -1196,6 +1210,7 @@ class _SuperpowersPageState extends State<_SuperpowersPage>
                                         const Text(
                                           'Build Successful',
                                           style: TextStyle(
+                                            fontFamily: 'GeistSans',
                                             fontSize: 15,
                                             fontWeight: FontWeight.w600,
                                             color: Colors.white,
@@ -1205,6 +1220,7 @@ class _SuperpowersPageState extends State<_SuperpowersPage>
                                         Text(
                                           'Agent corrected 3 errors in auth.ts. Ready to deploy.',
                                           style: TextStyle(
+                                            fontFamily: 'GeistSans',
                                             fontSize: 14,
                                             color: Colors.white.withValues(
                                               alpha: 0.50,
@@ -1226,6 +1242,7 @@ class _SuperpowersPageState extends State<_SuperpowersPage>
                       const Text(
                         'Instant Alerts.',
                         style: TextStyle(
+                          fontFamily: 'GeistPixel',
                           fontSize: 30,
                           fontWeight: FontWeight.w800,
                           color: Colors.white,
@@ -1236,6 +1253,7 @@ class _SuperpowersPageState extends State<_SuperpowersPage>
                       Text(
                         "Step away. We'll ping you when the\nagent fixes the bug.",
                         style: TextStyle(
+                          fontFamily: 'GeistSans',
                           fontSize: 18,
                           color: Colors.white.withValues(alpha: 0.55),
                           height: 1.45,
@@ -1321,6 +1339,7 @@ class _VoiceSectionState extends State<_VoiceSection>
           const Text(
             'Voice to Code.',
             style: TextStyle(
+              fontFamily: 'GeistPixel',
               fontSize: 30,
               fontWeight: FontWeight.w800,
               color: Colors.white,
@@ -1331,6 +1350,7 @@ class _VoiceSectionState extends State<_VoiceSection>
           Text(
             "Skip the keyboard. Just speak and let\nyour agent turn words into code.",
             style: TextStyle(
+              fontFamily: 'GeistSans',
               fontSize: 18,
               color: Colors.white.withValues(alpha: 0.55),
               height: 1.45,
@@ -1354,6 +1374,7 @@ class _VoiceSectionState extends State<_VoiceSection>
                 child: Text(
                   'Next',
                   style: TextStyle(
+                    fontFamily: 'GeistSans',
                     fontSize: 17,
                     fontWeight: FontWeight.w600,
                     color: Colors.black,
@@ -1551,6 +1572,7 @@ class _FeaturePageState extends State<_FeaturePage>
                       widget.title,
                       textAlign: TextAlign.center,
                       style: TextStyle(
+                        fontFamily: 'GeistPixel',
                         fontSize: isTablet ? 28 : 24,
                         fontWeight: FontWeight.w700,
                         color: Colors.white,
@@ -1562,6 +1584,7 @@ class _FeaturePageState extends State<_FeaturePage>
                       widget.subtitle,
                       textAlign: TextAlign.center,
                       style: TextStyle(
+                        fontFamily: 'GeistSans',
                         fontSize: isTablet ? 16 : 15,
                         color: Colors.white.withValues(alpha: 0.6),
                         height: 1.5,
@@ -1670,6 +1693,7 @@ class _FullTerminalPageState extends State<_FullTerminalPage>
                         TextSpan(
                           text: 'Full Terminal.\n',
                           style: TextStyle(
+                            fontFamily: 'GeistPixel',
                             fontSize: 42,
                             fontWeight: FontWeight.w900,
                             color: Colors.white,
@@ -1680,6 +1704,7 @@ class _FullTerminalPageState extends State<_FullTerminalPage>
                         TextSpan(
                           text: 'No Laptop\nRequired.',
                           style: TextStyle(
+                            fontFamily: 'GeistPixel',
                             fontSize: 42,
                             fontWeight: FontWeight.w900,
                             color: Color(0xFF555555),
@@ -1729,6 +1754,7 @@ class _FullTerminalPageState extends State<_FullTerminalPage>
                 child: Text(
                   "SSH, PTY, full shell access. It's not a simulation.\nIt's your actual machine, in your pocket.",
                   style: TextStyle(
+                    fontFamily: 'GeistSans',
                     fontSize: 16,
                     color: Colors.white.withValues(alpha: 0.55),
                     height: 1.45,
@@ -1758,6 +1784,7 @@ class _FullTerminalPageState extends State<_FullTerminalPage>
                       child: Text(
                         'Continue',
                         style: TextStyle(
+                          fontFamily: 'GeistSans',
                           fontSize: 17,
                           fontWeight: FontWeight.w600,
                           color: Colors.black,
@@ -2167,6 +2194,7 @@ class _SafetyNetPageState extends State<_SafetyNetPage>
                         TextSpan(
                           text: 'Agent broke it?\n',
                           style: TextStyle(
+                            fontFamily: 'GeistPixel',
                             fontSize: 42,
                             fontWeight: FontWeight.w900,
                             color: Colors.white,
@@ -2177,6 +2205,7 @@ class _SafetyNetPageState extends State<_SafetyNetPage>
                         TextSpan(
                           text: 'One tap. Gone.',
                           style: TextStyle(
+                            fontFamily: 'GeistPixel',
                             fontSize: 42,
                             fontWeight: FontWeight.w900,
                             color: Color(0xFFFF6B6B),
@@ -2226,6 +2255,7 @@ class _SafetyNetPageState extends State<_SafetyNetPage>
                 child: Text(
                   'See what changed, undo what shouldn\'t have. Full history of every agent session at your fingertips.',
                   style: TextStyle(
+                    fontFamily: 'GeistSans',
                     fontSize: 16,
                     color: Colors.white.withValues(alpha: 0.55),
                     height: 1.45,
@@ -2255,6 +2285,7 @@ class _SafetyNetPageState extends State<_SafetyNetPage>
                       child: Text(
                         'Continue',
                         style: TextStyle(
+                          fontFamily: 'GeistSans',
                           fontSize: 17,
                           fontWeight: FontWeight.w600,
                           color: Colors.black,
@@ -2342,6 +2373,7 @@ class _SessionHistoryCard extends StatelessWidget {
                     const Text(
                       'Session History',
                       style: TextStyle(
+                        fontFamily: 'GeistSans',
                         fontSize: 18,
                         fontWeight: FontWeight.w700,
                         color: Colors.white,
@@ -2361,6 +2393,7 @@ class _SessionHistoryCard extends StatelessWidget {
                       child: Text(
                         'Now',
                         style: TextStyle(
+                          fontFamily: 'GeistSans',
                           fontSize: 13,
                           fontWeight: FontWeight.w500,
                           color: Colors.white.withValues(alpha: 0.6),
@@ -2410,6 +2443,7 @@ class _SessionHistoryCard extends StatelessWidget {
                         Text(
                           'Caused 2 errors',
                           style: TextStyle(
+                            fontFamily: 'GeistSans',
                             fontSize: 12,
                             color: Colors.white.withValues(alpha: 0.4),
                           ),
@@ -2451,6 +2485,7 @@ class _SessionHistoryCard extends StatelessWidget {
                         Text(
                           'Restored v2.4.1',
                           style: TextStyle(
+                            fontFamily: 'GeistSans',
                             fontSize: 12,
                             color: Colors.white.withValues(alpha: 0.4),
                           ),
@@ -2483,6 +2518,7 @@ class _SessionHistoryCard extends StatelessWidget {
                       Text(
                         'Undo Last Action',
                         style: TextStyle(
+                          fontFamily: 'GeistSans',
                           fontSize: 15,
                           fontWeight: FontWeight.w600,
                           color: Colors.white.withValues(alpha: 0.85),
@@ -2655,6 +2691,7 @@ class _ZeroTelemetryPageState extends State<_ZeroTelemetryPage>
                         child: const Text(
                           'Fully Private.',
                           style: TextStyle(
+                            fontFamily: 'GeistPixel',
                             fontSize: 38,
                             fontWeight: FontWeight.w900,
                             color: Colors.white,
@@ -2715,6 +2752,7 @@ class _ZeroTelemetryPageState extends State<_ZeroTelemetryPage>
                             child: Text(
                               'Let\'s Go',
                               style: TextStyle(
+                                fontFamily: 'GeistSans',
                                 fontSize: 17,
                                 fontWeight: FontWeight.w600,
                                 color: Colors.black,
@@ -2774,6 +2812,7 @@ class _FeatureRow extends StatelessWidget {
               Text(
                 title,
                 style: const TextStyle(
+                  fontFamily: 'GeistSans',
                   fontSize: 17,
                   fontWeight: FontWeight.w700,
                   color: Colors.white,
@@ -2783,6 +2822,7 @@ class _FeatureRow extends StatelessWidget {
               Text(
                 subtitle,
                 style: TextStyle(
+                  fontFamily: 'GeistSans',
                   fontSize: 15,
                   color: Colors.white.withValues(alpha: 0.5),
                   height: 1.4,
@@ -2880,6 +2920,7 @@ class _GetStartedPageState extends State<_GetStartedPage>
                     'Connect to your Mac',
                     textAlign: TextAlign.center,
                     style: TextStyle(
+                      fontFamily: 'GeistPixel',
                       fontSize: isTablet ? 32 : 28,
                       fontWeight: FontWeight.w700,
                       color: Colors.white,
@@ -2891,6 +2932,7 @@ class _GetStartedPageState extends State<_GetStartedPage>
                     'Broski connects to a lightweight bridge running on your development machine.',
                     textAlign: TextAlign.center,
                     style: TextStyle(
+                      fontFamily: 'GeistSans',
                       fontSize: isTablet ? 17 : 16,
                       color: Colors.white.withValues(alpha: 0.6),
                       height: 1.5,
@@ -2990,12 +3032,14 @@ class _ChatMockup extends StatelessWidget {
                     style: TextStyle(
                       color: Colors.white,
                       fontWeight: FontWeight.w600,
+                      fontFamily: 'GeistSans',
                       fontSize: 15,
                     ),
                   ),
                   Text(
                     'broski-app',
                     style: TextStyle(
+                      fontFamily: 'GeistSans',
                       color: Colors.white.withValues(alpha: 0.5),
                       fontSize: 12,
                     ),
@@ -3042,6 +3086,7 @@ class _ChatMockup extends StatelessWidget {
                 Text(
                   'Reading theme_provider.dart...',
                   style: TextStyle(
+                    fontFamily: 'GeistSans',
                     color: Colors.white.withValues(alpha: 0.6),
                     fontSize: 13,
                   ),
@@ -3069,6 +3114,7 @@ class _ChatMockup extends StatelessWidget {
                 Text(
                   'Message...',
                   style: TextStyle(
+                    fontFamily: 'GeistSans',
                     color: Colors.white.withValues(alpha: 0.3),
                     fontSize: 15,
                   ),
@@ -3114,6 +3160,7 @@ class _MockChatBubble extends StatelessWidget {
         child: Text(
           text,
           style: TextStyle(
+            fontFamily: 'GeistSans',
             color: isUser ? Colors.white : Colors.white.withValues(alpha: 0.9),
             fontSize: 14,
             height: 1.4,
@@ -3159,6 +3206,7 @@ class _TerminalMockup extends StatelessWidget {
                     const Text(
                       'Permission Required',
                       style: TextStyle(
+                        fontFamily: 'GeistSans',
                         color: Color(0xFFF59E0B),
                         fontWeight: FontWeight.w600,
                         fontSize: 13,
@@ -3217,6 +3265,7 @@ class _TerminalMockup extends StatelessWidget {
           Text(
             'Claude Code wants to run this command',
             style: TextStyle(
+              fontFamily: 'GeistSans',
               color: Colors.white.withValues(alpha: 0.6),
               fontSize: 14,
             ),
@@ -3241,6 +3290,7 @@ class _TerminalMockup extends StatelessWidget {
                       style: TextStyle(
                         color: Colors.white,
                         fontWeight: FontWeight.w600,
+                        fontFamily: 'GeistSans',
                         fontSize: 15,
                       ),
                     ),
@@ -3263,6 +3313,7 @@ class _TerminalMockup extends StatelessWidget {
                       style: TextStyle(
                         color: Colors.white,
                         fontWeight: FontWeight.w600,
+                        fontFamily: 'GeistSans',
                         fontSize: 15,
                       ),
                     ),
@@ -3326,6 +3377,7 @@ class _DiffMockup extends StatelessWidget {
                   child: const Text(
                     '+24 -8',
                     style: TextStyle(
+                      fontFamily: 'GeistSans',
                       color: Color(0xFF10B981),
                       fontSize: 11,
                       fontWeight: FontWeight.w600,
@@ -3560,6 +3612,7 @@ class _ConnectionIllustration extends StatelessWidget {
                         style: TextStyle(
                           color: Colors.white,
                           fontWeight: FontWeight.w700,
+                          fontFamily: 'GeistSans',
                           fontSize: 20,
                         ),
                       ),
@@ -3569,6 +3622,7 @@ class _ConnectionIllustration extends StatelessWidget {
                   Text(
                     'iPhone',
                     style: TextStyle(
+                      fontFamily: 'GeistSans',
                       color: Colors.white.withValues(alpha: 0.6),
                       fontSize: 11,
                     ),
@@ -3610,6 +3664,7 @@ class _ConnectionIllustration extends StatelessWidget {
                   Text(
                     'Your Mac',
                     style: TextStyle(
+                      fontFamily: 'GeistSans',
                       color: Colors.white.withValues(alpha: 0.6),
                       fontSize: 11,
                     ),
@@ -3688,6 +3743,7 @@ class _PrimaryButtonState extends State<_PrimaryButton>
               widget.label,
               style: const TextStyle(
                 color: Colors.black,
+                fontFamily: 'GeistSans',
                 fontSize: 17,
                 fontWeight: FontWeight.w600,
                 letterSpacing: 0.2,
@@ -3721,6 +3777,7 @@ class _SecondaryButton extends StatelessWidget {
           child: Text(
             label,
             style: TextStyle(
+              fontFamily: 'GeistSans',
               color: Colors.white.withValues(alpha: 0.6),
               fontSize: 15,
               fontWeight: FontWeight.w500,
@@ -3816,7 +3873,7 @@ class _IdentifyYourselfPageState extends ConsumerState<_IdentifyYourselfPage>
                     TextSpan(
                       text: 'Identify\n',
                       style: TextStyle(
-                        fontFamily: AppTypography.uiFontFamily,
+                        fontFamily: AppTypography.pixelFontFamily,
                         fontSize: 44,
                         fontWeight: FontWeight.w800,
                         color: Colors.white,
@@ -3827,7 +3884,7 @@ class _IdentifyYourselfPageState extends ConsumerState<_IdentifyYourselfPage>
                     TextSpan(
                       text: 'Yourself.',
                       style: TextStyle(
-                        fontFamily: AppTypography.uiFontFamily,
+                        fontFamily: AppTypography.pixelFontFamily,
                         fontSize: 44,
                         fontWeight: FontWeight.w800,
                         color: const Color(0xFF555555),
@@ -3862,6 +3919,7 @@ class _IdentifyYourselfPageState extends ConsumerState<_IdentifyYourselfPage>
                   child: Text(
                     state.error!,
                     style: const TextStyle(
+                      fontFamily: 'GeistSans',
                       color: Color(0xFFEF4444),
                       fontSize: 13,
                     ),
@@ -4227,6 +4285,7 @@ class _OnboardingAuthButton extends StatelessWidget {
                     Text(
                       label,
                       style: TextStyle(
+                        fontFamily: 'GeistSans',
                         fontSize: 15,
                         fontWeight: FontWeight.w600,
                         color: Colors.white.withValues(alpha: 0.85),

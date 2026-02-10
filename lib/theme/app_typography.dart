@@ -21,6 +21,15 @@ abstract final class AppTypography {
   static const _fontFamily = 'GeistSans';
   static const uiFontFamily = 'GeistSans';
 
+  /// Geist Mono — monospace variant from Vercel's Geist family.
+  /// Bundled as asset (fonts/GeistMono/). Use for code-styled UI labels.
+  static const monoFontFamily = 'GeistMono';
+
+  /// Geist Pixel (Square) — pixel/retro display font from Vercel's Geist family.
+  /// Bundled as asset (fonts/GeistPixel/). Use for hero headings in
+  /// onboarding and splash screens — the chunky pixel aesthetic.
+  static const pixelFontFamily = 'GeistPixel';
+
   /// Cached code font family name (JetBrains Mono via google_fonts).
   /// Use this when you need just the fontFamily string inside a TextStyle
   /// that has other properties you want to keep.
