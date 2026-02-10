@@ -33,6 +33,7 @@ import '../widgets/chat/detail_sheet.dart';
 import '../widgets/sessions/codex_active_threads_section.dart';
 import '../widgets/sessions/sessions_search_bar.dart';
 import 'chat_screen.dart';
+import 'pi_sessions_view.dart';
 import 'package:broski/theme/app_icons.dart';
 
 class SessionsScreen extends ConsumerStatefulWidget {
@@ -220,6 +221,9 @@ class _SessionsScreenState extends ConsumerState<SessionsScreen> {
     }
     if (agentType == AgentType.codex) {
       return _CodexThreadsView(onRefresh: _refresh);
+    }
+    if (agentType == AgentType.pi) {
+      return PiSessionsView(onRefresh: _refresh);
     }
     final connection = ref.watch(connectionProvider);
     final theme = Theme.of(context);

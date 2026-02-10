@@ -3805,6 +3805,8 @@ class BridgeService {
             },
           );
         }).toList();
+      case AgentType.pi:
+        return const [];
     }
   }
 
@@ -3828,6 +3830,8 @@ class BridgeService {
         );
       case AgentType.codex:
         return cxGetSkill(name: skill.name, source: skill.source, cwd: cwd);
+      case AgentType.pi:
+        return null;
     }
   }
 
@@ -3860,6 +3864,8 @@ class BridgeService {
           content: content,
           cwd: cwd,
         );
+      case AgentType.pi:
+        return false;
     }
   }
 
@@ -3876,6 +3882,8 @@ class BridgeService {
         return ccDeleteSkill(name: name, source: source, cwd: cwd);
       case AgentType.codex:
         return cxDeleteSkill(name: name, source: source, cwd: cwd);
+      case AgentType.pi:
+        return false;
     }
   }
 

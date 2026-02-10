@@ -80,6 +80,8 @@ class AgentTypeNotifier extends StateNotifier<AgentType> {
       best = AgentType.opencode;
     } else if (backends.codex.available) {
       best = AgentType.codex;
+    } else if (backends.pi.available) {
+      best = AgentType.pi;
     }
 
     final selected = best;
@@ -95,6 +97,7 @@ class AgentTypeNotifier extends StateNotifier<AgentType> {
   bool get isOpenCode => state == AgentType.opencode;
   bool get isClaudeCode => state == AgentType.claudeCode;
   bool get isCodex => state == AgentType.codex;
+  bool get isPi => state == AgentType.pi;
 }
 
 final agentsStatusProvider = FutureProvider<AgentsStatus?>((ref) async {

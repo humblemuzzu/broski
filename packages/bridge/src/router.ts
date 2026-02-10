@@ -2,6 +2,7 @@ import type { AgentType, AgentStatusInfo } from './types'
 import * as opencode from './connectors/opencode'
 import * as claudeCode from './connectors/claude-code'
 import { checkCodexAvailable } from './connectors/codex'
+import * as pi from './connectors/pi'
 
 export type QueryOptions = {
   agentType: AgentType
@@ -18,6 +19,7 @@ export async function getAgentStatus(): Promise<Record<AgentType, AgentStatusInf
   const opencodeAvailable = await opencode.checkAvailable()
   const claudeCodeAvailable = await claudeCode.checkClaudeCodeAvailable()
   const codexAvailable = await checkCodexAvailable()
+  const piStatus = await pi.isPiAvailable()
 
   return {
     opencode: {
@@ -31,6 +33,11 @@ export async function getAgentStatus(): Promise<Record<AgentType, AgentStatusInf
     codex: {
       available: codexAvailable,
       authMethod: codexAvailable ? 'cli' : 'none',
+    },
+    pi: {
+      available: piStatus.available,
+      authMethod: piStatus.authenticated ? 'configured' : 'none',
+      version: piStatus.version,
     },
   }
 }
@@ -79,6 +86,9 @@ export async function routeQuery(
         )
       }
 
+    case 'pi':
+      return onError(new Error('Pi routing is handled by the websocket server handler (pi_features)'))
+
     default:
       return onError(new Error(`Unknown agent: ${agentType}`))
   }
@@ -92,6 +102,9 @@ export async function abortQuery(agent: AgentType, sessionId: string): Promise<v
       return claudeCode.abortClaudeCode(sessionId)
     case 'codex':
       // Codex abort is implemented via turn/interrupt in the bridge server, not here.
+      return
+    case 'pi':
+      // Pi abort is handled by the websocket server handler (pi_features).
       return
     default:
       throw new Error(`Unknown agent: ${agent}`)

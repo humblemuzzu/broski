@@ -8,7 +8,7 @@ import '../providers/service_providers.dart';
 import '../theme/design_tokens.dart';
 import '../theme/opencode_theme.dart';
 
-/// Screen for selecting the AI backend (OpenCode, Claude Code, Codex).
+/// Screen for selecting the AI backend (OpenCode, Claude Code, Codex, Pi).
 class AIBackendScreen extends ConsumerWidget {
   const AIBackendScreen({super.key});
 
@@ -75,6 +75,13 @@ class AIBackendScreen extends ConsumerWidget {
             icon: const _BackendLogo(agentType: AgentType.codex),
             isSelected: currentAgent == AgentType.codex,
             onTap: () => _selectAgent(ref, AgentType.codex),
+          ),
+          SizedBox(height: Spacing.lg),
+          _BackendOptionCard(
+            title: 'Pi',
+            icon: const _BackendLogo(agentType: AgentType.pi),
+            isSelected: currentAgent == AgentType.pi,
+            onTap: () => _selectAgent(ref, AgentType.pi),
           ),
           SizedBox(height: Spacing.xl),
           Container(
@@ -250,6 +257,27 @@ class _BackendLogo extends StatelessWidget {
             width: 50,
             height: 50,
             fit: BoxFit.cover,
+          ),
+        );
+      case AgentType.pi:
+        return Container(
+          width: 50,
+          height: 50,
+          decoration: BoxDecoration(
+            color: const Color(0xFF7C3AED).withValues(alpha: 0.16),
+            borderRadius: Radii.brMd,
+            border: Border.all(
+              color: const Color(0xFF7C3AED).withValues(alpha: 0.35),
+            ),
+          ),
+          alignment: Alignment.center,
+          child: const Text(
+            'π',
+            style: TextStyle(
+              fontSize: 30,
+              fontWeight: FontWeight.w700,
+              color: Color(0xFF7C3AED),
+            ),
           ),
         );
     }

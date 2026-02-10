@@ -1,4 +1,3 @@
-
 import 'package:flutter/material.dart';
 import '../theme/app_typography.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -12,12 +11,14 @@ import '../models/project.dart';
 import '../providers/claude_code_provider.dart';
 import '../providers/codex_settings_provider.dart';
 import '../providers/permission_rules_provider.dart';
+import '../providers/pi_provider.dart';
 import '../theme/design_tokens.dart';
 import '../theme/opencode_theme.dart';
 import 'chat/detail_sheet.dart';
 import 'permission_rules_sheet.dart';
 import 'project_tools_sheet.dart';
 import 'package:broski/theme/app_icons.dart';
+
 /// Unified Power Sheet for all AI backends (OpenCode, Claude Code, Codex).
 /// Opens from the left menu button in ChatGPT style or agent selector in CLI style.
 class PowerSheet extends ConsumerStatefulWidget {
@@ -71,6 +72,7 @@ class PowerSheet extends ConsumerStatefulWidget {
   @override
   ConsumerState<PowerSheet> createState() => _PowerSheetState();
 }
+
 class _PowerSheetState extends ConsumerState<PowerSheet> {
   void _openProjectTools() {
     Navigator.pop(context);
@@ -83,6 +85,7 @@ class _PowerSheetState extends ConsumerState<PowerSheet> {
       );
     });
   }
+
   @override
   Widget build(BuildContext context) {
     final theme = OpenCodeTheme.of(context);
@@ -242,6 +245,9 @@ class _PowerSheetState extends ConsumerState<PowerSheet> {
             if (widget.backend == AgentType.opencode) ...[
               _buildOpenCodePermissionPresets(theme, rulesState),
               const SizedBox(height: 28),
+            ] else if (widget.backend == AgentType.pi) ...[
+              _PiPowerSummaryCard(theme: theme),
+              const SizedBox(height: 28),
             ] else ...[
               _PermissionSummaryCard(backend: widget.backend, theme: theme),
               const SizedBox(height: 28),
@@ -258,6 +264,7 @@ class _PowerSheetState extends ConsumerState<PowerSheet> {
       ),
     );
   }
+
   String _getThinkingLevelTitle() {
     switch (widget.backend) {
       case AgentType.claudeCode:
@@ -266,8 +273,11 @@ class _PowerSheetState extends ConsumerState<PowerSheet> {
         return 'Reasoning Effort';
       case AgentType.opencode:
         return 'Thinking Level';
+      case AgentType.pi:
+        return 'Thinking Level';
     }
   }
+
   String _formatVariantLabel(String v) {
     if (v.isEmpty) return 'Default';
     // Claude Code thinking levels (token budgets)
@@ -307,6 +317,7 @@ class _PowerSheetState extends ConsumerState<PowerSheet> {
     // OpenCode: Just capitalize
     return v[0].toUpperCase() + v.substring(1);
   }
+
   Widget _buildOpenCodeAgents(OpenCodeTheme theme, List<Agent> agents) {
     // Only show native agents (build/plan) passed to this method
     // Custom agents are accessed via @-mention in the chat input
@@ -335,6 +346,7 @@ class _PowerSheetState extends ConsumerState<PowerSheet> {
       ),
     );
   }
+
   Widget _buildClaudeCodePermissionModes(OpenCodeTheme theme) {
     return Column(
       children: ClaudeCodePermissionMode.values.map((mode) {
@@ -352,6 +364,7 @@ class _PowerSheetState extends ConsumerState<PowerSheet> {
       }).toList(),
     );
   }
+
   String _getPermissionModeDescription(ClaudeCodePermissionMode mode) {
     switch (mode) {
       case ClaudeCodePermissionMode.defaultMode:
@@ -368,6 +381,7 @@ class _PowerSheetState extends ConsumerState<PowerSheet> {
         return 'Never prompt; deny unapproved tools';
     }
   }
+
   Widget _buildCodexCollabModes(OpenCodeTheme theme) {
     final modes = CodexCollaborationMode.values;
     return SizedBox(
@@ -395,6 +409,7 @@ class _PowerSheetState extends ConsumerState<PowerSheet> {
       ),
     );
   }
+
   Widget _buildOpenCodePermissionPresets(
     OpenCodeTheme theme,
     PermissionRulesState rulesState,
@@ -428,6 +443,7 @@ class _PowerSheetState extends ConsumerState<PowerSheet> {
     );
   }
 }
+
 // ============================================================================
 // HELPER WIDGETS
 // ============================================================================
@@ -457,6 +473,7 @@ class _SectionHeader extends StatelessWidget {
     );
   }
 }
+
 class _QuickActionCard extends StatelessWidget {
   const _QuickActionCard({
     required this.icon,
@@ -498,6 +515,7 @@ class _QuickActionCard extends StatelessWidget {
     );
   }
 }
+
 class _ModelCard extends StatelessWidget {
   const _ModelCard({
     required this.model,
@@ -522,6 +540,7 @@ class _ModelCard extends StatelessWidget {
     if (m.length > 25) return '${m.substring(0, 22)}...';
     return m;
   }
+
   @override
   Widget build(BuildContext context) {
     return InkWell(
@@ -553,6 +572,7 @@ class _ModelCard extends StatelessWidget {
     );
   }
 }
+
 class _VariantChip extends StatelessWidget {
   const _VariantChip({
     required this.label,
@@ -591,6 +611,7 @@ class _VariantChip extends StatelessWidget {
     );
   }
 }
+
 class _AgentCard extends StatelessWidget {
   const _AgentCard({
     required this.name,
@@ -643,6 +664,7 @@ class _AgentCard extends StatelessWidget {
     );
   }
 }
+
 class _PermissionModeCard extends StatelessWidget {
   const _PermissionModeCard({
     required this.title,
@@ -705,6 +727,7 @@ class _PermissionModeCard extends StatelessWidget {
     );
   }
 }
+
 class _CollabModeCard extends StatelessWidget {
   const _CollabModeCard({
     required this.mode,
@@ -750,6 +773,7 @@ class _CollabModeCard extends StatelessWidget {
     );
   }
 }
+
 class _PresetCard extends StatelessWidget {
   const _PresetCard({
     required this.name,
@@ -792,6 +816,7 @@ class _PresetCard extends StatelessWidget {
     );
   }
 }
+
 class _ProjectToolsButton extends StatelessWidget {
   const _ProjectToolsButton({
     required this.theme,
@@ -841,6 +866,7 @@ class _ProjectToolsButton extends StatelessWidget {
       ),
     );
   }
+
   String _getToolsDescription() {
     switch (backend) {
       case AgentType.opencode:
@@ -849,9 +875,99 @@ class _ProjectToolsButton extends StatelessWidget {
         return 'Skills, Hooks, MCP, Plugins';
       case AgentType.codex:
         return 'Skills, Agents, MCP';
+      case AgentType.pi:
+        return 'Skills, Prompts, Sessions, Model Controls';
     }
   }
 }
+
+class _PiPowerSummaryCard extends ConsumerWidget {
+  const _PiPowerSummaryCard({required this.theme});
+
+  final OpenCodeTheme theme;
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final piStateAsync = ref.watch(piStateProvider(null));
+
+    return piStateAsync.when(
+      data: (state) {
+        final model = state.model;
+        return Container(
+          padding: Insets.cardSm,
+          decoration: BoxDecoration(
+            color: theme.backgroundPanel,
+            borderRadius: Radii.brMd,
+            border: Border.all(color: theme.borderSubtle),
+          ),
+          child: Row(
+            children: [
+              Icon(AppIcons.autoAwesome, color: theme.textMuted, size: 18),
+              const SizedBox(width: 10),
+              Expanded(
+                child: Text(
+                  model == null
+                      ? 'No model selected yet'
+                      : '${model.provider}/${model.id} • ${state.thinkingLevel.displayName}',
+                  style: TextStyle(
+                    fontSize: 13,
+                    color: theme.text,
+                    fontWeight: FontWeight.w600,
+                  ),
+                  overflow: TextOverflow.ellipsis,
+                ),
+              ),
+            ],
+          ),
+        );
+      },
+      loading: () => Container(
+        padding: Insets.cardSm,
+        decoration: BoxDecoration(
+          color: theme.backgroundPanel,
+          borderRadius: Radii.brMd,
+          border: Border.all(color: theme.borderSubtle),
+        ),
+        child: Row(
+          children: [
+            SizedBox(
+              width: 16,
+              height: 16,
+              child: CircularProgressIndicator(
+                strokeWidth: 2,
+                color: theme.textMuted,
+              ),
+            ),
+            const SizedBox(width: 10),
+            Text(
+              'Loading Pi state…',
+              style: AppTypography.label(color: theme.textMuted),
+            ),
+          ],
+        ),
+      ),
+      error: (_, __) => Container(
+        padding: Insets.cardSm,
+        decoration: BoxDecoration(
+          color: theme.backgroundPanel,
+          borderRadius: Radii.brMd,
+          border: Border.all(color: theme.borderSubtle),
+        ),
+        child: Row(
+          children: [
+            Icon(AppIcons.warning, color: theme.warning, size: 16),
+            const SizedBox(width: 10),
+            Text(
+              'Failed to load Pi state',
+              style: AppTypography.label(color: theme.textMuted),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
 /// A brief summary card shown in the Power Menu for Claude Code / Codex
 /// permissions. Tapping "Custom" opens the full sheet; this just shows
 /// the current active mode at a glance.
@@ -911,6 +1027,7 @@ class _PermissionSummaryCard extends ConsumerWidget {
       ),
     );
   }
+
   String _formatCodexPolicy(CodexApprovalPolicy policy) {
     switch (policy) {
       case CodexApprovalPolicy.unlessTrusted:

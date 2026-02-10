@@ -1,3 +1,5 @@
+import type { PiCommandPayload, PiForkMessagePayload, PiModelPayload, PiSessionInfo, PiStatePayload, PiStreamMessage } from './types/pi'
+
 export type PermissionResponse = 'once' | 'always' | 'reject' | 'execpolicy'
 
 // Session permission rules (OpenCode SDK v1.1.1+)
@@ -58,7 +60,7 @@ export type Agent = {
 }
 
 // Agent type for multi-agent support
-export type AgentType = 'opencode' | 'claude-code' | 'codex'
+export type AgentType = 'opencode' | 'claude-code' | 'codex' | 'pi'
 
 // Device information for multi-device support
 export type DeviceInfo = {
@@ -368,6 +370,39 @@ export type ClientMessage =
   | { type: 'cc_remove_plugin_path'; path: string }
   | { type: 'cc_get_plugin_config' }
   | { type: 'cc_reload_plugins'; cwd?: string }
+  // Pi Coding Agent
+  | { type: 'pi_chat'; prompt: string; projectPath?: string; fileAttachments?: FileAttachment[]; streamingBehavior?: 'steer' | 'followUp' }
+  | { type: 'pi_steer'; message: string; projectPath?: string }
+  | { type: 'pi_follow_up'; message: string; projectPath?: string }
+  | { type: 'pi_abort'; projectPath?: string }
+  | { type: 'pi_set_steering_mode'; mode: 'all' | 'one-at-a-time'; projectPath?: string }
+  | { type: 'pi_set_follow_up_mode'; mode: 'all' | 'one-at-a-time'; projectPath?: string }
+  | { type: 'pi_set_auto_retry'; enabled: boolean; projectPath?: string }
+  | { type: 'pi_abort_retry'; projectPath?: string }
+  | { type: 'pi_get_state'; projectPath?: string }
+  | { type: 'pi_list_models'; projectPath?: string }
+  | { type: 'pi_set_model'; provider: string; modelId: string; projectPath?: string }
+  | { type: 'pi_set_thinking_level'; level: string; projectPath?: string }
+  | { type: 'pi_cycle_thinking_level'; projectPath?: string }
+  | { type: 'pi_cycle_model'; projectPath?: string }
+  | { type: 'pi_list_sessions'; projectPath?: string }
+  | { type: 'pi_new_session'; projectPath?: string }
+  | { type: 'pi_switch_session'; sessionPath: string; projectPath?: string }
+  | { type: 'pi_delete_session'; sessionPath: string; projectPath?: string }
+  | { type: 'pi_get_session_stats'; projectPath?: string }
+  | { type: 'pi_get_messages'; projectPath?: string }
+  | { type: 'pi_set_session_name'; name: string; projectPath?: string }
+  | { type: 'pi_fork'; entryId: string; projectPath?: string }
+  | { type: 'pi_get_fork_messages'; projectPath?: string }
+  | { type: 'pi_navigate_tree'; targetId: string; summarize?: boolean; customInstructions?: string; replaceInstructions?: boolean; label?: string; projectPath?: string }
+  | { type: 'pi_list_commands'; projectPath?: string }
+  | { type: 'pi_compact'; customInstructions?: string; projectPath?: string }
+  | { type: 'pi_set_auto_compaction'; enabled: boolean; projectPath?: string }
+  | { type: 'pi_export_html'; outputPath?: string; projectPath?: string }
+  | { type: 'pi_get_settings'; projectPath?: string }
+  | { type: 'pi_set_settings'; settings: Record<string, any>; projectPath?: string }
+  | { type: 'pi_dispose_instance'; projectPath?: string }
+  | { type: 'pi_extension_ui_response'; id: string; value?: any; confirmed?: boolean; cancelled?: boolean; projectPath?: string }
   // Subscription Usage Tracking
   | { type: 'get_subscription_usage' }
   | { type: 'get_provider_usage'; providerId: 'claude' | 'openai' }
@@ -701,6 +736,38 @@ export type ServerMessage =
   | { type: 'cc_plugin_path_removed'; data: boolean; path: string; requestId?: string }
   | { type: 'cc_plugin_config'; data: ClaudeCodePluginConfig; requestId?: string }
   | { type: 'cc_plugins_reloaded'; data: ClaudeCodePlugin[]; requestId?: string }
+  // Pi Coding Agent
+  | { type: 'pi_chat_started'; data: boolean; requestId?: string }
+  | { type: 'pi_steered'; data: boolean; requestId?: string }
+  | { type: 'pi_followed_up'; data: boolean; requestId?: string }
+  | { type: 'pi_aborted'; data: boolean; requestId?: string }
+  | { type: 'pi_steering_mode_set'; data: { mode: 'all' | 'one-at-a-time' }; requestId?: string }
+  | { type: 'pi_follow_up_mode_set'; data: { mode: 'all' | 'one-at-a-time' }; requestId?: string }
+  | { type: 'pi_auto_retry_set'; data: boolean; requestId?: string }
+  | { type: 'pi_retry_aborted'; data: boolean; requestId?: string }
+  | { type: 'pi_state'; data: PiStatePayload; requestId?: string }
+  | { type: 'pi_models'; data: PiModelPayload[]; requestId?: string }
+  | { type: 'pi_model_set'; data: PiModelPayload | null; requestId?: string }
+  | { type: 'pi_thinking_level'; data: { level: string }; requestId?: string }
+  | { type: 'pi_sessions'; data: PiSessionInfo[]; requestId?: string }
+  | { type: 'pi_session_created'; data: boolean; requestId?: string }
+  | { type: 'pi_session_switched'; data: boolean; requestId?: string }
+  | { type: 'pi_session_deleted'; data: boolean; requestId?: string }
+  | { type: 'pi_session_stats'; data: any; requestId?: string }
+  | { type: 'pi_messages'; data: any[]; requestId?: string }
+  | { type: 'pi_session_name_set'; data: boolean; requestId?: string }
+  | { type: 'pi_fork_result'; data: { text: string; cancelled: boolean }; requestId?: string }
+  | { type: 'pi_fork_messages'; data: PiForkMessagePayload[]; requestId?: string }
+  | { type: 'pi_tree_navigated'; data: { editorText?: string; cancelled: boolean; aborted?: boolean }; requestId?: string }
+  | { type: 'pi_commands'; data: PiCommandPayload[]; requestId?: string }
+  | { type: 'pi_compacted'; data: any; requestId?: string }
+  | { type: 'pi_auto_compaction_set'; data: boolean; requestId?: string }
+  | { type: 'pi_export_result'; data: { path: string }; requestId?: string }
+  | { type: 'pi_settings'; data: Record<string, any>; requestId?: string }
+  | { type: 'pi_settings_updated'; data: boolean; requestId?: string }
+  | { type: 'pi_instance_disposed'; data: boolean; requestId?: string }
+  | { type: 'pi_extension_ui_responded'; data: boolean; requestId?: string }
+  | { type: 'pi_stream'; data: PiStreamMessage; sessionId: string }
   // Subscription Usage Tracking
   | { type: 'subscription_usage'; data: SubscriptionUsage; requestId?: string }
   | { type: 'provider_usage'; data: ProviderUsage; requestId?: string }
@@ -1550,3 +1617,12 @@ export type CodexPersonality = 'none' | 'friendly' | 'pragmatic'
 
 /** SDK ModeKind type */
 export type CodexModeKind = 'plan' | 'default'
+
+export type {
+  PiCommandPayload,
+  PiForkMessagePayload,
+  PiModelPayload,
+  PiSessionInfo,
+  PiStatePayload,
+  PiStreamMessage,
+} from './types/pi'

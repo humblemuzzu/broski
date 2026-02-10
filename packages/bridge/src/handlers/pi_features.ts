@@ -1,0 +1,419 @@
+import { resolve } from 'node:path'
+import type { ThinkingLevel } from '@mariozechner/pi-agent-core'
+import * as pi from '../connectors/pi'
+import type { FileAttachment, ServerMessage } from '../types'
+
+type Reply = (message: ServerMessage) => void
+
+type Broadcast = (message: ServerMessage) => void
+
+const streamUnsubscribers = new Map<string, () => void>()
+
+const normalizeCwd = (cwd?: string): string => resolve((cwd || '').trim() || process.cwd())
+
+const resolveOptionalCwd = (message: any): string | undefined => {
+  const projectPath = typeof message?.projectPath === 'string' ? message.projectPath : undefined
+  if (projectPath && projectPath.trim().length > 0) {
+    return normalizeCwd(projectPath)
+  }
+
+  const cwd = typeof message?.cwd === 'string' ? message.cwd : undefined
+  if (cwd && cwd.trim().length > 0) {
+    return normalizeCwd(cwd)
+  }
+
+  return undefined
+}
+
+const resolveCwd = (message: any): string => resolveOptionalCwd(message) ?? normalizeCwd()
+
+const parseThinkingLevel = (value: unknown): ThinkingLevel => {
+  const normalized = typeof value === 'string' ? value.trim().toLowerCase() : ''
+  switch (normalized) {
+    case 'off':
+    case 'minimal':
+    case 'low':
+    case 'medium':
+    case 'high':
+    case 'xhigh':
+      return normalized
+    default:
+      throw new Error(`Invalid Pi thinking level: ${String(value)}`)
+  }
+}
+
+const extractImages = (attachments: FileAttachment[] | undefined) => {
+  if (!attachments || attachments.length === 0) return undefined
+
+  const images = attachments
+    .filter((attachment) => attachment.mimeType?.startsWith('image/') && attachment.base64Data)
+    .map((attachment) => ({
+      type: 'image' as const,
+      data: attachment.base64Data!,
+      mimeType: attachment.mimeType!,
+    }))
+
+  return images.length > 0 ? images : undefined
+}
+
+const extractTaggedPaths = (attachments: FileAttachment[] | undefined): string[] => {
+  if (!attachments || attachments.length === 0) return []
+
+  return attachments
+    .filter((attachment) => !attachment.base64Data && typeof attachment.path === 'string')
+    .map((attachment) => attachment.path.trim())
+    .filter((path) => path.length > 0)
+}
+
+const composePromptWithTaggedPaths = (prompt: string, taggedPaths: string[]): string => {
+  if (taggedPaths.length === 0) return prompt
+
+  const tags = taggedPaths.map((path) => `@${path}`).join('\n')
+  if (prompt.includes(tags)) return prompt
+
+  return `${prompt}\n\nReferenced project paths:\n${tags}`
+}
+
+const parseQueueMode = (value: unknown): 'all' | 'one-at-a-time' => {
+  if (value === 'all' || value === 'one-at-a-time') {
+    return value
+  }
+  throw new Error(`Invalid Pi queue mode: ${String(value)}`)
+}
+
+async function ensureStreamBridge(cwd: string, broadcast: Broadcast): Promise<void> {
+  if (streamUnsubscribers.has(cwd)) return
+
+  const instance = await pi.getOrCreateInstance(cwd)
+  const unsubscribe = await pi.addEventListener(cwd, (event) => {
+    const streamMessage = pi.translateEvent(event)
+    if (!streamMessage) return
+
+    broadcast({
+      type: 'pi_stream',
+      data: streamMessage,
+      sessionId: instance.session.sessionId,
+    })
+  })
+
+  streamUnsubscribers.set(cwd, unsubscribe)
+}
+
+function removeStreamBridge(cwd: string): void {
+  const key = normalizeCwd(cwd)
+  const unsubscribe = streamUnsubscribers.get(key)
+  if (!unsubscribe) return
+
+  streamUnsubscribers.delete(key)
+  unsubscribe()
+}
+
+export async function handle(message: any, reply: Reply, broadcast: Broadcast): Promise<boolean> {
+  if (typeof message?.type !== 'string' || !message.type.startsWith('pi_')) {
+    return false
+  }
+
+  const optionalCwd = resolveOptionalCwd(message)
+  const cwd = optionalCwd ?? normalizeCwd()
+
+  switch (message.type) {
+    case 'pi_chat': {
+      await ensureStreamBridge(cwd, broadcast)
+      const instance = await pi.getOrCreateInstance(cwd)
+      const basePrompt = typeof message.prompt === 'string' ? message.prompt : ''
+      const attachments = message.fileAttachments as FileAttachment[] | undefined
+      const prompt = composePromptWithTaggedPaths(basePrompt, extractTaggedPaths(attachments))
+      const streamingBehavior =
+        message.streamingBehavior === 'steer' || message.streamingBehavior === 'followUp'
+          ? message.streamingBehavior
+          : undefined
+
+      void instance.session
+        .prompt(prompt, {
+          images: extractImages(attachments),
+          streamingBehavior,
+          source: 'rpc',
+        })
+        .catch((error) => {
+          broadcast({
+            type: 'pi_stream',
+            data: {
+              type: 'error',
+              message: error instanceof Error ? error.message : String(error),
+            },
+            sessionId: instance.session.sessionId,
+          })
+        })
+
+      reply({ type: 'pi_chat_started', data: true, requestId: message.requestId })
+      return true
+    }
+
+    case 'pi_steer': {
+      await ensureStreamBridge(cwd, broadcast)
+      const instance = await pi.getOrCreateInstance(cwd)
+      await instance.session.steer(String(message.message ?? ''))
+      reply({ type: 'pi_steered', data: true, requestId: message.requestId })
+      return true
+    }
+
+    case 'pi_follow_up': {
+      await ensureStreamBridge(cwd, broadcast)
+      const instance = await pi.getOrCreateInstance(cwd)
+      await instance.session.followUp(String(message.message ?? ''))
+      reply({ type: 'pi_followed_up', data: true, requestId: message.requestId })
+      return true
+    }
+
+    case 'pi_abort': {
+      const instance = await pi.getOrCreateInstance(cwd)
+      await instance.session.abort()
+      reply({ type: 'pi_aborted', data: true, requestId: message.requestId })
+      return true
+    }
+
+    case 'pi_set_steering_mode': {
+      const instance = await pi.getOrCreateInstance(cwd)
+      const mode = parseQueueMode(message.mode)
+      instance.session.setSteeringMode(mode)
+      reply({ type: 'pi_steering_mode_set', data: { mode: instance.session.steeringMode }, requestId: message.requestId })
+      return true
+    }
+
+    case 'pi_set_follow_up_mode': {
+      const instance = await pi.getOrCreateInstance(cwd)
+      const mode = parseQueueMode(message.mode)
+      instance.session.setFollowUpMode(mode)
+      reply({ type: 'pi_follow_up_mode_set', data: { mode: instance.session.followUpMode }, requestId: message.requestId })
+      return true
+    }
+
+    case 'pi_set_auto_retry': {
+      const instance = await pi.getOrCreateInstance(cwd)
+      instance.session.setAutoRetryEnabled(message.enabled === true)
+      reply({ type: 'pi_auto_retry_set', data: instance.session.autoRetryEnabled, requestId: message.requestId })
+      return true
+    }
+
+    case 'pi_abort_retry': {
+      const instance = await pi.getOrCreateInstance(cwd)
+      instance.session.abortRetry()
+      reply({ type: 'pi_retry_aborted', data: true, requestId: message.requestId })
+      return true
+    }
+
+    case 'pi_get_state': {
+      const instance = await pi.getOrCreateInstance(cwd)
+      reply({ type: 'pi_state', data: pi.mapStatePayload(instance), requestId: message.requestId })
+      return true
+    }
+
+    case 'pi_list_models': {
+      reply({ type: 'pi_models', data: pi.listAvailableModels(), requestId: message.requestId })
+      return true
+    }
+
+    case 'pi_set_model': {
+      const model = pi.getModelRegistry().find(String(message.provider ?? ''), String(message.modelId ?? ''))
+      if (!model) {
+        throw new Error(`Pi model not found: ${String(message.provider ?? '')}/${String(message.modelId ?? '')}`)
+      }
+
+      const instance = await pi.getOrCreateInstance(cwd)
+      await instance.session.setModel(model)
+      reply({ type: 'pi_model_set', data: pi.mapModel(model), requestId: message.requestId })
+      return true
+    }
+
+    case 'pi_set_thinking_level': {
+      const instance = await pi.getOrCreateInstance(cwd)
+      const level = parseThinkingLevel(message.level)
+      instance.session.setThinkingLevel(level)
+      reply({ type: 'pi_thinking_level', data: { level: instance.session.thinkingLevel }, requestId: message.requestId })
+      return true
+    }
+
+    case 'pi_cycle_thinking_level': {
+      const instance = await pi.getOrCreateInstance(cwd)
+      const level = instance.session.cycleThinkingLevel()
+      reply({ type: 'pi_thinking_level', data: { level: level ?? instance.session.thinkingLevel }, requestId: message.requestId })
+      return true
+    }
+
+    case 'pi_cycle_model': {
+      const instance = await pi.getOrCreateInstance(cwd)
+      const result = await instance.session.cycleModel()
+      reply({
+        type: 'pi_model_set',
+        data: result?.model ? pi.mapModel(result.model) : null,
+        requestId: message.requestId,
+      })
+      return true
+    }
+
+    case 'pi_list_sessions': {
+      const sessions = await pi.listSessions(optionalCwd)
+      reply({ type: 'pi_sessions', data: sessions, requestId: message.requestId })
+      return true
+    }
+
+    case 'pi_new_session': {
+      const instance = await pi.getOrCreateInstance(cwd)
+      const created = await instance.session.newSession()
+      reply({ type: 'pi_session_created', data: created, requestId: message.requestId })
+      return true
+    }
+
+    case 'pi_switch_session': {
+      const instance = await pi.getOrCreateInstance(cwd)
+      const switched = await instance.session.switchSession(String(message.sessionPath ?? ''))
+      reply({ type: 'pi_session_switched', data: switched, requestId: message.requestId })
+      return true
+    }
+
+    case 'pi_delete_session': {
+      const deleted = await pi.deleteSession(String(message.sessionPath ?? ''))
+      reply({ type: 'pi_session_deleted', data: deleted, requestId: message.requestId })
+      return true
+    }
+
+    case 'pi_get_session_stats': {
+      const instance = await pi.getOrCreateInstance(cwd)
+      reply({ type: 'pi_session_stats', data: instance.session.getSessionStats(), requestId: message.requestId })
+      return true
+    }
+
+    case 'pi_get_messages': {
+      const instance = await pi.getOrCreateInstance(cwd)
+      reply({
+        type: 'pi_messages',
+        data: instance.session.messages.map(pi.mapAgentMessage),
+        requestId: message.requestId,
+      })
+      return true
+    }
+
+    case 'pi_set_session_name': {
+      const instance = await pi.getOrCreateInstance(cwd)
+      instance.session.setSessionName(String(message.name ?? '').trim())
+      reply({ type: 'pi_session_name_set', data: true, requestId: message.requestId })
+      return true
+    }
+
+    case 'pi_fork': {
+      const instance = await pi.getOrCreateInstance(cwd)
+      const result = await instance.session.fork(String(message.entryId ?? ''))
+      reply({
+        type: 'pi_fork_result',
+        data: { text: result.selectedText, cancelled: result.cancelled },
+        requestId: message.requestId,
+      })
+      return true
+    }
+
+    case 'pi_get_fork_messages': {
+      const instance = await pi.getOrCreateInstance(cwd)
+      reply({
+        type: 'pi_fork_messages',
+        data: pi.mapForkMessages(instance),
+        requestId: message.requestId,
+      })
+      return true
+    }
+
+    case 'pi_navigate_tree': {
+      const instance = await pi.getOrCreateInstance(cwd)
+      const result = await instance.session.navigateTree(String(message.targetId ?? ''), {
+        summarize: message.summarize === true,
+        customInstructions: typeof message.customInstructions === 'string' ? message.customInstructions : undefined,
+        replaceInstructions: message.replaceInstructions === true,
+        label: typeof message.label === 'string' ? message.label : undefined,
+      })
+      reply({
+        type: 'pi_tree_navigated',
+        data: {
+          ...(typeof result.editorText === 'string' ? { editorText: result.editorText } : {}),
+          cancelled: result.cancelled,
+          ...(result.aborted ? { aborted: true } : {}),
+        },
+        requestId: message.requestId,
+      })
+      return true
+    }
+
+    case 'pi_list_commands': {
+      const instance = await pi.getOrCreateInstance(cwd)
+      reply({ type: 'pi_commands', data: pi.listCommands(instance), requestId: message.requestId })
+      return true
+    }
+
+    case 'pi_compact': {
+      const instance = await pi.getOrCreateInstance(cwd)
+      const result = await instance.session.compact(
+        typeof message.customInstructions === 'string' ? message.customInstructions : undefined,
+      )
+      reply({ type: 'pi_compacted', data: result, requestId: message.requestId })
+      return true
+    }
+
+    case 'pi_set_auto_compaction': {
+      const instance = await pi.getOrCreateInstance(cwd)
+      instance.session.setAutoCompactionEnabled(message.enabled === true)
+      reply({
+        type: 'pi_auto_compaction_set',
+        data: instance.session.autoCompactionEnabled,
+        requestId: message.requestId,
+      })
+      return true
+    }
+
+    case 'pi_export_html': {
+      const instance = await pi.getOrCreateInstance(cwd)
+      const outputPath = await instance.session.exportToHtml(
+        typeof message.outputPath === 'string' ? message.outputPath : undefined,
+      )
+      reply({ type: 'pi_export_result', data: { path: outputPath }, requestId: message.requestId })
+      return true
+    }
+
+    case 'pi_get_settings': {
+      const instance = await pi.getOrCreateInstance(cwd)
+      reply({ type: 'pi_settings', data: pi.getSettings(instance), requestId: message.requestId })
+      return true
+    }
+
+    case 'pi_set_settings': {
+      const instance = await pi.getOrCreateInstance(cwd)
+      await pi.applySettings(
+        instance,
+        (message.settings && typeof message.settings === 'object' ? message.settings : {}) as Record<string, unknown>,
+      )
+      reply({ type: 'pi_settings_updated', data: true, requestId: message.requestId })
+      return true
+    }
+
+    case 'pi_dispose_instance': {
+      removeStreamBridge(cwd)
+      pi.disposeInstance(cwd)
+      reply({ type: 'pi_instance_disposed', data: true, requestId: message.requestId })
+      return true
+    }
+
+    case 'pi_extension_ui_response': {
+      const handled = pi.respondToExtensionUi(cwd, {
+        id: String(message.id ?? ''),
+        ...(Object.prototype.hasOwnProperty.call(message, 'value') ? { value: message.value } : {}),
+        ...(Object.prototype.hasOwnProperty.call(message, 'confirmed')
+          ? { confirmed: message.confirmed === true }
+          : {}),
+        ...(message.cancelled === true ? { cancelled: true } : {}),
+      })
+
+      reply({ type: 'pi_extension_ui_responded', data: handled, requestId: message.requestId })
+      return true
+    }
+
+    default:
+      return false
+  }
+}
