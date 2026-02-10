@@ -9,6 +9,7 @@ import '../models/message.dart';
 import '../models/project.dart';
 import '../models/session.dart';
 import '../services/notification_service.dart';
+import '../utils/project_path_match.dart';
 import '../services/storage_service.dart';
 import 'connection_provider.dart';
 import 'service_providers.dart';
@@ -529,9 +530,9 @@ final sessionsListProvider = StreamProvider<List<SessionSummary>>((ref) async* {
   // STEP 1: Immediately yield cached data (instant perceived load)
   final cached = await storage.getCachedSessions();
   if (cached.isNotEmpty) {
-    final filtered = filterProjectPath != null
-        ? cached.where((s) => s.directory == filterProjectPath).toList()
-        : cached;
+    final filtered = cached
+        .where((s) => projectPathMatches(s.directory, filterProjectPath))
+        .toList();
     final titleFiltered = titleFilters.isEmpty
         ? filtered
         : filtered
@@ -564,12 +565,16 @@ final sessionsListProvider = StreamProvider<List<SessionSummary>>((ref) async* {
   // STEP 4: Fetch fresh data in background and yield when ready
   try {
     final bridge = ref.watch(bridgeServiceProvider);
-    final fresh = await bridge.listSessions(projectPath: filterProjectPath);
+    final freshAll = await bridge.listSessions(projectPath: null);
 
-    // Cache the sessions for offline use (only when fetching all)
-    if (filterProjectPath == null && fresh.isNotEmpty) {
-      await storage.cacheSessions(fresh);
+    // Cache the sessions for offline use
+    if (freshAll.isNotEmpty) {
+      await storage.cacheSessions(freshAll);
     }
+
+    final fresh = freshAll
+        .where((s) => projectPathMatches(s.directory, filterProjectPath))
+        .toList();
 
     yield titleFilters.isEmpty
         ? fresh

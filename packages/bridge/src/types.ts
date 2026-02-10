@@ -1007,6 +1007,8 @@ export type ClaudeCodeSession = {
   updatedAt: number
   messageCount?: number
   isBackground?: boolean
+  hasSubagentActivity?: boolean
+  subagentName?: string
 }
 
 // Claude Code Command (slash command)

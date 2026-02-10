@@ -1,4 +1,4 @@
-
+import 'package:broski/theme/app_icons.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
@@ -7,15 +7,17 @@ import '../providers/agent_type_provider.dart';
 import '../providers/service_providers.dart';
 import '../theme/design_tokens.dart';
 import '../theme/opencode_theme.dart';
-import 'package:broski/theme/app_icons.dart';
-/// Screen for selecting the AI backend (OpenCode vs Claude Code vs Codex)
+
+/// Screen for selecting the AI backend (OpenCode, Claude Code, Codex).
 class AIBackendScreen extends ConsumerWidget {
   const AIBackendScreen({super.key});
+
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final theme = Theme.of(context);
     final ocTheme = OpenCodeTheme.of(context);
     final currentAgent = ref.watch(agentTypeProvider);
+
     return Scaffold(
       backgroundColor: theme.scaffoldBackgroundColor,
       appBar: AppBar(
@@ -30,17 +32,13 @@ class AIBackendScreen extends ConsumerWidget {
           ),
         ),
         leading: IconButton(
-          icon: Icon(
-            AppIcons.back,
-            color: theme.colorScheme.onSurface,
-          ),
+          icon: Icon(AppIcons.back, color: theme.colorScheme.onSurface),
           onPressed: () => Navigator.pop(context),
         ),
       ),
       body: ListView(
         padding: Insets.screenAll,
         children: [
-          // Info text
           Container(
             padding: Insets.card,
             decoration: BoxDecoration(
@@ -48,77 +46,37 @@ class AIBackendScreen extends ConsumerWidget {
               borderRadius: Radii.brMd,
               border: Border.all(color: ocTheme.borderSubtle),
             ),
-            child: Row(
-              children: [
-                Icon(
-                  AppIcons.info,
-                  color: theme.colorScheme.primary,
-                  size: 20,
-                ),
-                SizedBox(width: Spacing.md),
-                Expanded(
-                  child: Text(
-                    'Select which AI agent to use for coding tasks. Each backend has different capabilities and requirements.',
-                    style: TextStyle(
-                      color: theme.colorScheme.onSurface.withValues(alpha: 0.7),
-                      fontSize: 13,
-                      height: 1.4,
-                    ),
-                  ),
-                ),
-              ],
+            child: Text(
+              'Choose your default AI backend. You can switch anytime.',
+              style: TextStyle(
+                color: theme.colorScheme.onSurface.withValues(alpha: 0.75),
+                fontSize: 13,
+                height: 1.35,
+              ),
             ),
           ),
-          SizedBox(height: Spacing.xxl),
-          // OpenCode Option
-          _AgentCard(
-            agentType: AgentType.opencode,
-            isSelected: currentAgent == AgentType.opencode,
-            icon: AppIcons.code,
+          SizedBox(height: Spacing.xl),
+          _BackendOptionCard(
             title: 'OpenCode',
-            subtitle: 'Open source AI coding agent',
-            features: const [
-              'Free and open source',
-              'Multiple model providers',
-              'Full SDK integration',
-              'Local-first design',
-            ],
+            icon: const _BackendLogo(agentType: AgentType.opencode),
+            isSelected: currentAgent == AgentType.opencode,
             onTap: () => _selectAgent(ref, AgentType.opencode),
           ),
           SizedBox(height: Spacing.lg),
-          // Claude Code Option
-          _AgentCard(
-            agentType: AgentType.claudeCode,
-            isSelected: currentAgent == AgentType.claudeCode,
-            icon: AppIcons.autoAwesome,
+          _BackendOptionCard(
             title: 'Claude Code',
-            subtitle: 'Anthropic Claude Code SDK',
-            features: const [
-              'Official Anthropic SDK',
-              'Claude 3.5/4 models',
-              'Requires API key',
-              'Advanced reasoning',
-            ],
+            icon: const _BackendLogo(agentType: AgentType.claudeCode),
+            isSelected: currentAgent == AgentType.claudeCode,
             onTap: () => _selectAgent(ref, AgentType.claudeCode),
           ),
           SizedBox(height: Spacing.lg),
-          // Codex Option
-          _AgentCard(
-            agentType: AgentType.codex,
-            isSelected: currentAgent == AgentType.codex,
-            icon: AppIcons.terminal,
+          _BackendOptionCard(
             title: 'Codex',
-            subtitle: 'OpenAI Codex app-server',
-            features: const [
-              'Codex CLI + app-server',
-              'Plans, diffs, approvals',
-              'MCP + web search (opt-in)',
-              'Runs locally on this machine',
-            ],
+            icon: const _BackendLogo(agentType: AgentType.codex),
+            isSelected: currentAgent == AgentType.codex,
             onTap: () => _selectAgent(ref, AgentType.codex),
           ),
-          SizedBox(height: Spacing.xxxl),
-          // Current selection indicator
+          SizedBox(height: Spacing.xl),
           Container(
             padding: Insets.card,
             decoration: BoxDecoration(
@@ -137,7 +95,7 @@ class AIBackendScreen extends ConsumerWidget {
                 ),
                 SizedBox(width: Spacing.md),
                 Text(
-                  'Currently using: ',
+                  'Current: ',
                   style: TextStyle(
                     color: theme.colorScheme.onSurface.withValues(alpha: 0.7),
                     fontSize: 14,
@@ -159,38 +117,38 @@ class AIBackendScreen extends ConsumerWidget {
       ),
     );
   }
+
   void _selectAgent(WidgetRef ref, AgentType type) {
     ref.read(agentTypeProvider.notifier).setAgentType(type);
     final bridge = ref.read(bridgeServiceProvider);
     bridge.setAgent(type);
   }
 }
-class _AgentCard extends StatelessWidget {
-  const _AgentCard({
-    required this.agentType,
-    required this.isSelected,
-    required this.icon,
+
+class _BackendOptionCard extends StatelessWidget {
+  const _BackendOptionCard({
     required this.title,
-    required this.subtitle,
-    required this.features,
+    required this.icon,
+    required this.isSelected,
     required this.onTap,
   });
-  final AgentType agentType;
-  final bool isSelected;
-  final IconData icon;
+
   final String title;
-  final String subtitle;
-  final List<String> features;
+  final Widget icon;
+  final bool isSelected;
   final VoidCallback onTap;
+
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final ocTheme = OpenCodeTheme.of(context);
+
     return InkWell(
       onTap: onTap,
       borderRadius: Radii.brLg,
       child: AnimatedContainer(
-        duration: const Duration(milliseconds: 200),
+        duration: const Duration(milliseconds: 180),
+        curve: Curves.easeOut,
         padding: Insets.screenAll,
         decoration: BoxDecoration(
           color: ocTheme.backgroundPanel,
@@ -199,116 +157,101 @@ class _AgentCard extends StatelessWidget {
             color: isSelected
                 ? theme.colorScheme.primary
                 : ocTheme.borderSubtle,
-            width: isSelected ? 2 : 1,
+            width: isSelected ? 1.8 : 1,
           ),
+          boxShadow: isSelected
+              ? [
+                  BoxShadow(
+                    color: theme.colorScheme.primary.withValues(alpha: 0.14),
+                    blurRadius: 16,
+                    spreadRadius: 1,
+                  ),
+                ]
+              : null,
         ),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
+        child: Row(
           children: [
-            // Header row
-            Row(
-              children: [
-                // Icon
-                Container(
-                  padding: Insets.cardSm,
-                  decoration: BoxDecoration(
-                    color: isSelected
-                        ? theme.colorScheme.primary.withValues(alpha: 0.15)
-                        : ocTheme.bgRaised,
-                    borderRadius: Radii.brMd,
-                  ),
-                  child: Icon(
-                    icon,
-                    color: isSelected
-                        ? theme.colorScheme.primary
-                        : theme.colorScheme.onSurface.withValues(alpha: 0.7),
-                    size: 24,
-                  ),
-                ),
-                SizedBox(width: Spacing.lg),
-                // Title and subtitle
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        title,
-                        style: TextStyle(
-                          color: theme.colorScheme.onSurface,
-                          fontSize: 17,
-                          fontWeight: FontWeight.w700,
-                        ),
-                      ),
-                      SizedBox(height: Spacing.xs),
-                      Text(
-                        subtitle,
-                        style: TextStyle(
-                          color: theme.colorScheme.onSurface.withValues(
-                            alpha: 0.6,
-                          ),
-                          fontSize: 13,
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-                // Selection indicator
-                Container(
-                  width: 24,
-                  height: 24,
-                  decoration: BoxDecoration(
-                    shape: BoxShape.circle,
-                    border: Border.all(
-                      color: isSelected
-                          ? theme.colorScheme.primary
-                          : theme.colorScheme.onSurface.withValues(alpha: 0.3),
-                      width: 2,
-                    ),
-                    color: isSelected
-                        ? theme.colorScheme.primary
-                        : Colors.transparent,
-                  ),
-                  child: isSelected
-                      ? Icon(
-                          AppIcons.check,
-                          size: 16,
-                          color: theme.colorScheme.onPrimary,
-                        )
-                      : null,
-                ),
-              ],
-            ),
-            SizedBox(height: Spacing.lg),
-            // Features list
-            ...features.map(
-              (feature) => Padding(
-                padding: Insets.bottomSm,
-                child: Row(
-                  children: [
-                    Icon(
-                      AppIcons.checkCircle,
-                      size: 16,
-                      color: isSelected
-                          ? theme.colorScheme.primary
-                          : theme.colorScheme.onSurface.withValues(alpha: 0.4),
-                    ),
-                    const SizedBox(width: 10),
-                    Text(
-                      feature,
-                      style: TextStyle(
-                        color: theme.colorScheme.onSurface.withValues(
-                          alpha: 0.7,
-                        ),
-                        fontSize: 13,
-                      ),
-                    ),
-                  ],
+            icon,
+            SizedBox(width: Spacing.lg),
+            Expanded(
+              child: Text(
+                title,
+                style: TextStyle(
+                  color: theme.colorScheme.onSurface,
+                  fontSize: 17,
+                  fontWeight: FontWeight.w700,
                 ),
               ),
+            ),
+            Container(
+              width: 24,
+              height: 24,
+              decoration: BoxDecoration(
+                shape: BoxShape.circle,
+                border: Border.all(
+                  color: isSelected
+                      ? theme.colorScheme.primary
+                      : theme.colorScheme.onSurface.withValues(alpha: 0.3),
+                  width: 2,
+                ),
+                color: isSelected
+                    ? theme.colorScheme.primary
+                    : Colors.transparent,
+              ),
+              child: isSelected
+                  ? Icon(
+                      AppIcons.check,
+                      size: 16,
+                      color: theme.colorScheme.onPrimary,
+                    )
+                  : null,
             ),
           ],
         ),
       ),
     );
+  }
+}
+
+class _BackendLogo extends StatelessWidget {
+  const _BackendLogo({required this.agentType});
+
+  final AgentType agentType;
+
+  @override
+  Widget build(BuildContext context) {
+    switch (agentType) {
+      case AgentType.codex:
+        return Container(
+          width: 50,
+          height: 50,
+          decoration: BoxDecoration(
+            color: Colors.white,
+            borderRadius: Radii.brMd,
+          ),
+          padding: Insets.cardXs,
+          child: Image.asset('docs/assets/codex-icon.png', fit: BoxFit.contain),
+        );
+      case AgentType.opencode:
+        return ClipRRect(
+          borderRadius: Radii.brMd,
+          child: Image.asset(
+            'docs/assets/opencode-mark.png',
+            width: 50,
+            height: 50,
+            fit: BoxFit.cover,
+          ),
+        );
+      case AgentType.claudeCode:
+        return ClipRRect(
+          borderRadius: Radii.brMd,
+          child: Image.asset(
+            'docs/assets/claude-code.png',
+            width: 50,
+            height: 50,
+            fit: BoxFit.cover,
+          ),
+        );
+    }
   }
 }

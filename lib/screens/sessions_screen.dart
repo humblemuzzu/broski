@@ -1,4 +1,3 @@
-
 import 'dart:async';
 
 import 'package:flutter/material.dart';
@@ -28,15 +27,20 @@ import '../providers/service_providers.dart';
 import '../providers/selection_provider.dart';
 import '../providers/tool_settings_provider.dart';
 import '../theme/opencode_theme.dart';
+import '../utils/project_path_match.dart';
 import '../widgets/background_session_widgets.dart';
 import '../widgets/chat/detail_sheet.dart';
+import '../widgets/sessions/codex_active_threads_section.dart';
+import '../widgets/sessions/sessions_search_bar.dart';
 import 'chat_screen.dart';
 import 'package:broski/theme/app_icons.dart';
+
 class SessionsScreen extends ConsumerStatefulWidget {
   const SessionsScreen({super.key});
   @override
   ConsumerState<SessionsScreen> createState() => _SessionsScreenState();
 }
+
 class _SessionsScreenState extends ConsumerState<SessionsScreen> {
   // Task 8: Session search
   final _searchController = TextEditingController();
@@ -48,12 +52,14 @@ class _SessionsScreenState extends ConsumerState<SessionsScreen> {
     _searchDebounce?.cancel();
     super.dispose();
   }
+
   void _onSearchChanged(String value) {
     _searchDebounce?.cancel();
     _searchDebounce = Timer(const Duration(milliseconds: 300), () {
       setState(() => _searchQuery = value.trim().toLowerCase());
     });
   }
+
   Future<void> _refresh() async {
     ref.read(sessionsRefreshTickProvider.notifier).state++;
     ref.invalidate(sessionsListProvider);
@@ -62,6 +68,7 @@ class _SessionsScreenState extends ConsumerState<SessionsScreen> {
     ref.read(globalSessionStatusProvider.notifier).fetchAllStatuses();
     await ref.read(sessionsListProvider.future);
   }
+
   void _showSessionsTitleFiltersSheet(BuildContext context) {
     final ocTheme = OpenCodeTheme.of(context);
     final controller = TextEditingController();
@@ -135,9 +142,7 @@ class _SessionsScreenState extends ConsumerState<SessionsScreen> {
                           horizontal: 16,
                           vertical: 12,
                         ),
-                        shape: RoundedRectangleBorder(
-                          borderRadius: Radii.brMd,
-                        ),
+                        shape: RoundedRectangleBorder(borderRadius: Radii.brMd),
                       ),
                       child: const Text('Add'),
                     ),
@@ -183,10 +188,7 @@ class _SessionsScreenState extends ConsumerState<SessionsScreen> {
                           title: Text(f, style: TextStyle(color: ocTheme.text)),
                           trailing: IconButton(
                             onPressed: () => notifier.removeAt(index),
-                            icon: Icon(
-                              AppIcons.delete,
-                              color: ocTheme.error,
-                            ),
+                            icon: Icon(AppIcons.delete, color: ocTheme.error),
                             tooltip: 'Remove',
                           ),
                         ),
@@ -200,6 +202,7 @@ class _SessionsScreenState extends ConsumerState<SessionsScreen> {
       ),
     ).whenComplete(controller.dispose);
   }
+
   @override
   void initState() {
     super.initState();
@@ -208,6 +211,7 @@ class _SessionsScreenState extends ConsumerState<SessionsScreen> {
       ref.read(globalSessionStatusProvider.notifier).fetchAllStatuses();
     });
   }
+
   @override
   Widget build(BuildContext context) {
     final agentType = ref.watch(agentTypeProvider);
@@ -526,6 +530,7 @@ class _SessionsScreenState extends ConsumerState<SessionsScreen> {
       floatingActionButton: null,
     );
   }
+
   Future<void> _openSession(SessionSummary session) async {
     final chat = ref.read(chatSessionProvider.notifier);
     chat.setSession(session, projectPath: session.directory);
@@ -546,6 +551,7 @@ class _SessionsScreenState extends ConsumerState<SessionsScreen> {
     if (!mounted) return;
     ref.read(sessionsRefreshTickProvider.notifier).state++;
   }
+
   // Feature 4: Delete session
   Future<void> _deleteSession(SessionSummary session) async {
     final confirm = await showDialog<bool>(
@@ -596,10 +602,12 @@ class _SessionsScreenState extends ConsumerState<SessionsScreen> {
       );
     }
   }
+
   // Toggle highlight for a session
   void _toggleHighlight(String sessionId) {
     ref.read(highlightsProvider.notifier).toggleSession(sessionId);
   }
+
   // Show options menu (highlight + rename + stop)
   Future<void> _showSessionOptions(SessionSummary session) async {
     final highlights = ref.read(highlightsProvider);
@@ -670,9 +678,7 @@ class _SessionsScreenState extends ConsumerState<SessionsScreen> {
           // Archive / Unarchive
           ListTile(
             leading: Icon(
-              session.isArchived
-                  ? AppIcons.unarchive
-                  : AppIcons.archive,
+              session.isArchived ? AppIcons.unarchive : AppIcons.archive,
               color: session.isArchived ? ocTheme.textMuted : ocTheme.error,
             ),
             title: Text(
@@ -717,6 +723,7 @@ class _SessionsScreenState extends ConsumerState<SessionsScreen> {
       ),
     );
   }
+
   /// Stop/abort a session
   void _stopSession(SessionSummary session) {
     final bridge = ref.read(bridgeServiceProvider);
@@ -736,6 +743,7 @@ class _SessionsScreenState extends ConsumerState<SessionsScreen> {
       ref.read(globalSessionStatusProvider.notifier).fetchAllStatuses();
     });
   }
+
   /// Archive or unarchive a session
   Future<void> _archiveSession(
     SessionSummary session, {
@@ -772,6 +780,7 @@ class _SessionsScreenState extends ConsumerState<SessionsScreen> {
       );
     }
   }
+
   /// Share a session and copy the URL to clipboard
   Future<void> _shareSession(SessionSummary session) async {
     final bridge = ref.read(bridgeServiceProvider);
@@ -807,6 +816,7 @@ class _SessionsScreenState extends ConsumerState<SessionsScreen> {
       );
     }
   }
+
   /// Unshare a session (remove public URL)
   Future<void> _unshareSession(SessionSummary session) async {
     final bridge = ref.read(bridgeServiceProvider);
@@ -855,6 +865,7 @@ class _SessionsScreenState extends ConsumerState<SessionsScreen> {
       );
     }
   }
+
   /// Show bottom sheet to create a new session with project/worktree selection
   void _showNewSessionSheet(BuildContext context) {
     final projectsAsync = ref.read(projectsForSessionsProvider);
@@ -872,6 +883,7 @@ class _SessionsScreenState extends ConsumerState<SessionsScreen> {
       ),
     );
   }
+
   /// Create a new session for the given project and optional worktree
   Future<void> _createNewSession(
     ProjectSummary project,
@@ -881,7 +893,10 @@ class _SessionsScreenState extends ConsumerState<SessionsScreen> {
     final chat = ref.read(chatSessionProvider.notifier);
     final baseRules = ref.read(permissionRulesProvider).effectiveRuleset;
     final disabledTools = ref.read(toolSettingsProvider).disabledTools;
-    final permissionRules = applyDisabledToolsToRuleset(baseRules, disabledTools);
+    final permissionRules = applyDisabledToolsToRuleset(
+      baseRules,
+      disabledTools,
+    );
     final projectPath = worktree?.directory ?? project.path;
     try {
       final session = await bridge.createSession(
@@ -916,6 +931,7 @@ class _SessionsScreenState extends ConsumerState<SessionsScreen> {
       );
     }
   }
+
   // Feature 5: Rename session
   Future<void> _showRenameDialog(SessionSummary session) async {
     final controller = TextEditingController(text: session.title);
@@ -976,20 +992,25 @@ class _SessionsScreenState extends ConsumerState<SessionsScreen> {
     }
   }
 }
+
 sealed class _SessionRowItem {}
+
 final class _SessionListHeader extends _SessionRowItem {
   _SessionListHeader(this.title);
   final String title;
 }
+
 final class _SessionListItem extends _SessionRowItem {
   _SessionListItem(this.session);
   final SessionSummary session;
 }
+
 /// Child session item (background task nested under parent)
 final class _ChildSessionItem extends _SessionRowItem {
   _ChildSessionItem(this.session);
   final SessionSummary session;
 }
+
 /// Build list items with grouped sessions (parent + children)
 List<_SessionRowItem> _buildGroupedListItems({
   required List<SessionWithChildren> groupedSessions,
@@ -1004,6 +1025,7 @@ List<_SessionRowItem> _buildGroupedListItems({
     final parts = directory.split('/').where((p) => p.isNotEmpty).toList();
     return parts.isEmpty ? 'Global' : parts.last;
   }
+
   if (!grouped) {
     // No project grouping, just show all root sessions
     final items = <_SessionRowItem>[];
@@ -1054,6 +1076,7 @@ List<_SessionRowItem> _buildGroupedListItems({
   }
   return items;
 }
+
 /// Content widget for creating a new session with project/worktree selection
 class _NewSessionContent extends ConsumerStatefulWidget {
   const _NewSessionContent({
@@ -1066,6 +1089,7 @@ class _NewSessionContent extends ConsumerStatefulWidget {
   @override
   ConsumerState<_NewSessionContent> createState() => _NewSessionContentState();
 }
+
 class _NewSessionContentState extends ConsumerState<_NewSessionContent> {
   ProjectSummary? _selectedProject;
   Worktree? _selectedWorktree;
@@ -1081,6 +1105,7 @@ class _NewSessionContentState extends ConsumerState<_NewSessionContent> {
       _loadWorktrees(_selectedProject!);
     }
   }
+
   Future<void> _loadWorktrees(ProjectSummary project) async {
     setState(() {
       _loadingWorktrees = true;
@@ -1105,6 +1130,7 @@ class _NewSessionContentState extends ConsumerState<_NewSessionContent> {
       }
     }
   }
+
   void _selectProject(ProjectSummary project) {
     setState(() {
       _selectedProject = project;
@@ -1112,6 +1138,7 @@ class _NewSessionContentState extends ConsumerState<_NewSessionContent> {
     });
     _loadWorktrees(project);
   }
+
   Future<void> _createSession() async {
     if (_selectedProject == null || _creating) return;
     setState(() => _creating = true);
@@ -1123,6 +1150,7 @@ class _NewSessionContentState extends ConsumerState<_NewSessionContent> {
       }
     }
   }
+
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
@@ -1199,11 +1227,7 @@ class _NewSessionContentState extends ConsumerState<_NewSessionContent> {
                     ),
                     child: Row(
                       children: [
-                        Icon(
-                          AppIcons.info,
-                          color: ocTheme.textMuted,
-                          size: 20,
-                        ),
+                        Icon(AppIcons.info, color: ocTheme.textMuted, size: 20),
                         SizedBox(width: Spacing.md),
                         Expanded(
                           child: Text(
@@ -1257,9 +1281,7 @@ class _NewSessionContentState extends ConsumerState<_NewSessionContent> {
                 foregroundColor: theme.colorScheme.onPrimary,
                 disabledBackgroundColor: ocTheme.border,
                 padding: Insets.screenV,
-                shape: RoundedRectangleBorder(
-                  borderRadius: Radii.brMd,
-                ),
+                shape: RoundedRectangleBorder(borderRadius: Radii.brMd),
               ),
               child: _creating
                   ? const SizedBox(
@@ -1281,6 +1303,7 @@ class _NewSessionContentState extends ConsumerState<_NewSessionContent> {
     );
   }
 }
+
 class _ProjectSelectionTile extends StatelessWidget {
   const _ProjectSelectionTile({
     required this.project,
@@ -1348,17 +1371,14 @@ class _ProjectSelectionTile extends StatelessWidget {
               ),
             ),
             if (isSelected)
-              Icon(
-                AppIcons.checkCircle,
-                color: ocTheme.primary,
-                size: 22,
-              ),
+              Icon(AppIcons.checkCircle, color: ocTheme.primary, size: 22),
           ],
         ),
       ),
     );
   }
 }
+
 class _WorktreeSelectionTile extends StatelessWidget {
   const _WorktreeSelectionTile({
     required this.name,
@@ -1420,17 +1440,14 @@ class _WorktreeSelectionTile extends StatelessWidget {
               ),
             ),
             if (isSelected)
-              Icon(
-                AppIcons.checkCircle,
-                color: ocTheme.primary,
-                size: 20,
-              ),
+              Icon(AppIcons.checkCircle, color: ocTheme.primary, size: 20),
           ],
         ),
       ),
     );
   }
 }
+
 // Modern header
 class _ModernHeader extends StatelessWidget {
   const _ModernHeader({
@@ -1566,52 +1583,11 @@ class _ModernHeader extends StatelessWidget {
             ],
           ),
           // Task 8: Session search bar
-          if (searchController != null) ...[
+          if (searchController != null && onSearchChanged != null) ...[
             SizedBox(height: Spacing.md),
-            TextField(
-              controller: searchController,
-              onChanged: onSearchChanged,
-              style: TextStyle(color: ocTheme.text, fontSize: 14),
-              decoration: InputDecoration(
-                hintText: 'Search sessions...',
-                hintStyle: TextStyle(color: ocTheme.textMuted, fontSize: 14),
-                prefixIcon: Icon(
-                  AppIcons.search,
-                  color: ocTheme.textMuted,
-                  size: 20,
-                ),
-                suffixIcon: searchController!.text.isNotEmpty
-                    ? IconButton(
-                        icon: Icon(
-                          AppIcons.close,
-                          color: ocTheme.textMuted,
-                          size: 18,
-                        ),
-                        onPressed: () {
-                          searchController!.clear();
-                          onSearchChanged?.call('');
-                        },
-                      )
-                    : null,
-                filled: true,
-                fillColor: ocTheme.backgroundElement,
-                border: OutlineInputBorder(
-                  borderRadius: Radii.brMd,
-                  borderSide: BorderSide(color: ocTheme.borderSubtle),
-                ),
-                enabledBorder: OutlineInputBorder(
-                  borderRadius: Radii.brMd,
-                  borderSide: BorderSide(color: ocTheme.borderSubtle),
-                ),
-                focusedBorder: OutlineInputBorder(
-                  borderRadius: Radii.brMd,
-                  borderSide: BorderSide(color: ocTheme.primary),
-                ),
-                contentPadding: const EdgeInsets.symmetric(
-                  horizontal: 12,
-                  vertical: 10,
-                ),
-              ),
+            SessionsSearchBar(
+              controller: searchController!,
+              onChanged: onSearchChanged!,
             ),
           ],
         ],
@@ -1619,6 +1595,7 @@ class _ModernHeader extends StatelessWidget {
     );
   }
 }
+
 /// Chip button to toggle background tasks visibility
 class _BackgroundTasksChip extends StatelessWidget {
   const _BackgroundTasksChip({
@@ -1680,6 +1657,7 @@ class _BackgroundTasksChip extends StatelessWidget {
     );
   }
 }
+
 String _filterLabel({
   required String? selectedPath,
   required AsyncValue<List<ProjectSummary>> projects,
@@ -1694,6 +1672,7 @@ String _filterLabel({
   final parts = selectedPath.split('/').where((p) => p.isNotEmpty).toList();
   return parts.isEmpty ? 'Project' : parts.last;
 }
+
 class _FilterChipButton extends StatelessWidget {
   const _FilterChipButton({required this.label, required this.onTap});
   final String label;
@@ -1732,6 +1711,7 @@ class _FilterChipButton extends StatelessWidget {
     );
   }
 }
+
 class _TitleFiltersChip extends StatelessWidget {
   const _TitleFiltersChip({required this.count, required this.onTap});
   final int count;
@@ -1775,6 +1755,7 @@ class _TitleFiltersChip extends StatelessWidget {
     );
   }
 }
+
 /// Sort chip for switching between createdAt and updatedAt sorting
 class _SortChip extends StatelessWidget {
   const _SortChip({required this.sortBy, required this.onChanged});
@@ -1813,6 +1794,7 @@ class _SortChip extends StatelessWidget {
     );
   }
 }
+
 void _showProjectFilter({
   required BuildContext context,
   required ThemeData theme,
@@ -1880,6 +1862,7 @@ void _showProjectFilter({
     ),
   );
 }
+
 // Modern filter tile widget
 class _FilterProjectTile extends StatelessWidget {
   const _FilterProjectTile({
@@ -1939,6 +1922,7 @@ class _FilterProjectTile extends StatelessWidget {
       ),
     );
   }
+
   String _shortenPath(String fullPath) {
     // Show only last 2-3 segments for cleaner look
     final parts = fullPath.split('/').where((p) => p.isNotEmpty).toList();
@@ -1946,6 +1930,7 @@ class _FilterProjectTile extends StatelessWidget {
     return '.../${parts.sublist(parts.length - 3).join('/')}';
   }
 }
+
 /// Section showing highlighted sessions at the top
 class _HighlightedSessionsSection extends StatelessWidget {
   const _HighlightedSessionsSection({
@@ -2018,6 +2003,7 @@ class _HighlightedSessionsSection extends StatelessWidget {
     );
   }
 }
+
 /// Highlighted session card with clean minimal design and highlight accent
 class _HighlightedSessionCard extends StatelessWidget {
   const _HighlightedSessionCard({
@@ -2040,6 +2026,7 @@ class _HighlightedSessionCard extends StatelessWidget {
   String _getProjectName() {
     return session.directory.split('/').where((item) => item.isNotEmpty).last;
   }
+
   String _formatDate(int timestamp) {
     final date = DateTime.fromMillisecondsSinceEpoch(timestamp * 1000);
     final now = DateTime.now();
@@ -2056,6 +2043,7 @@ class _HighlightedSessionCard extends StatelessWidget {
       return '${date.day}/${date.month}/${date.year}';
     }
   }
+
   /// Get last activity from session diffs
   String? _getLastActivity() {
     final diffs = session.summary?.diffs;
@@ -2064,6 +2052,7 @@ class _HighlightedSessionCard extends StatelessWidget {
     final fileName = lastDiff.file.split('/').last;
     return fileName;
   }
+
   @override
   Widget build(BuildContext context) {
     final ocTheme = OpenCodeTheme.of(context);
@@ -2084,10 +2073,7 @@ class _HighlightedSessionCard extends StatelessWidget {
       onTap: onTap,
       onLongPress: onLongPress,
       child: Container(
-        decoration: BoxDecoration(
-          color: bgColor,
-          borderRadius: Radii.brMd,
-        ),
+        decoration: BoxDecoration(color: bgColor, borderRadius: Radii.brMd),
         clipBehavior: Clip.antiAlias,
         child: Row(
           children: [
@@ -2267,6 +2253,7 @@ class _HighlightedSessionCard extends StatelessWidget {
     return card;
   }
 }
+
 // Session card with clean, minimal modern design
 class _SessionCard extends StatelessWidget {
   const _SessionCard({
@@ -2287,12 +2274,16 @@ class _SessionCard extends StatelessWidget {
   final VoidCallback? onDelete;
   final VoidCallback? onLongPress;
   final bool isOfflineMode;
+
   /// Number of background task children
   final int childCount;
+
   /// Whether children are expanded
   final bool isExpanded;
+
   /// Callback to toggle expand/collapse
   final VoidCallback? onToggleExpand;
+
   /// Number of active (busy/retry) child sessions
   final int activeChildCount;
   bool get isActive => status != null && (status!.isBusy || status!.isRetry);
@@ -2300,6 +2291,7 @@ class _SessionCard extends StatelessWidget {
   String _getProjectName() {
     return session.directory.split('/').where((item) => item.isNotEmpty).last;
   }
+
   String _formatDate(int timestamp) {
     final date = DateTime.fromMillisecondsSinceEpoch(timestamp * 1000);
     final now = DateTime.now();
@@ -2316,6 +2308,7 @@ class _SessionCard extends StatelessWidget {
       return '${date.day}/${date.month}/${date.year}';
     }
   }
+
   /// Get last activity from session diffs
   String? _getLastActivity() {
     final diffs = session.summary?.diffs;
@@ -2324,6 +2317,7 @@ class _SessionCard extends StatelessWidget {
     final fileName = lastDiff.file.split('/').last;
     return fileName;
   }
+
   @override
   Widget build(BuildContext context) {
     final ocTheme = OpenCodeTheme.of(context);
@@ -2581,6 +2575,7 @@ class _SessionCard extends StatelessWidget {
     return card;
   }
 }
+
 /// Small stat badge for session cards (additions, deletions, files)
 class _StatBadge extends StatelessWidget {
   const _StatBadge({
@@ -2614,6 +2609,7 @@ class _StatBadge extends StatelessWidget {
     );
   }
 }
+
 /// Card for child (background task) sessions - clean compact design
 class _ChildSessionCard extends StatelessWidget {
   const _ChildSessionCard({
@@ -2643,15 +2639,18 @@ class _ChildSessionCard extends StatelessWidget {
       return '${date.day}/${date.month}/${date.year}';
     }
   }
+
   /// Extract agent name from title like "Description (@agent subagent)"
   String? _extractAgentName() {
     final match = RegExp(r'\(@(\w+) subagent\)$').firstMatch(session.title);
     return match?.group(1);
   }
+
   /// Get title without the agent suffix
   String _getCleanTitle() {
     return session.title.replaceAll(RegExp(r'\s*\(@\w+ subagent\)$'), '');
   }
+
   @override
   Widget build(BuildContext context) {
     final ocTheme = OpenCodeTheme.of(context);
@@ -2801,6 +2800,7 @@ class _ChildSessionCard extends StatelessWidget {
     );
   }
 }
+
 /// Pulsing dot indicator for active sessions
 class _PulsingDot extends StatefulWidget {
   const _PulsingDot({required this.color});
@@ -2808,6 +2808,7 @@ class _PulsingDot extends StatefulWidget {
   @override
   State<_PulsingDot> createState() => _PulsingDotState();
 }
+
 class _PulsingDotState extends State<_PulsingDot>
     with SingleTickerProviderStateMixin {
   late AnimationController _controller;
@@ -2824,11 +2825,13 @@ class _PulsingDotState extends State<_PulsingDot>
       end: 1.0,
     ).animate(CurvedAnimation(parent: _controller, curve: Curves.easeInOut));
   }
+
   @override
   void dispose() {
     _controller.dispose();
     super.dispose();
   }
+
   @override
   Widget build(BuildContext context) {
     return AnimatedBuilder(
@@ -2853,6 +2856,7 @@ class _PulsingDotState extends State<_PulsingDot>
     );
   }
 }
+
 // Empty state
 class _EmptyState extends StatelessWidget {
   @override
@@ -2868,11 +2872,7 @@ class _EmptyState extends StatelessWidget {
               color: ocTheme.primary.withValues(alpha: 0.1),
               shape: BoxShape.circle,
             ),
-            child: Icon(
-              AppIcons.history,
-              size: 48,
-              color: ocTheme.primary,
-            ),
+            child: Icon(AppIcons.history, size: 48, color: ocTheme.primary),
           ),
           SizedBox(height: Spacing.xxl),
           Text(
@@ -2897,12 +2897,14 @@ class _EmptyState extends StatelessWidget {
     );
   }
 }
+
 /// Skeleton loading card that mimics the session card layout.
 /// Shows shimmer animation while data is loading.
 class _SkeletonSessionCard extends StatefulWidget {
   @override
   State<_SkeletonSessionCard> createState() => _SkeletonSessionCardState();
 }
+
 class _SkeletonSessionCardState extends State<_SkeletonSessionCard>
     with SingleTickerProviderStateMixin {
   late AnimationController _controller;
@@ -2918,11 +2920,13 @@ class _SkeletonSessionCardState extends State<_SkeletonSessionCard>
       CurvedAnimation(parent: _controller, curve: Curves.easeInOutSine),
     );
   }
+
   @override
   void dispose() {
     _controller.dispose();
     super.dispose();
   }
+
   @override
   Widget build(BuildContext context) {
     final ocTheme = OpenCodeTheme.of(context);
@@ -2986,12 +2990,14 @@ class _SkeletonSessionCardState extends State<_SkeletonSessionCard>
     );
   }
 }
+
 /// Delayed skeleton list: only shows skeleton after 100ms delay.
 /// Prevents flash when data loads quickly from cache.
 class _DelayedSkeletonList extends StatefulWidget {
   @override
   State<_DelayedSkeletonList> createState() => _DelayedSkeletonListState();
 }
+
 class _DelayedSkeletonListState extends State<_DelayedSkeletonList> {
   bool _showSkeleton = false;
   @override
@@ -3003,6 +3009,7 @@ class _DelayedSkeletonListState extends State<_DelayedSkeletonList> {
       }
     });
   }
+
   @override
   Widget build(BuildContext context) {
     if (!_showSkeleton) {
@@ -3013,15 +3020,14 @@ class _DelayedSkeletonListState extends State<_DelayedSkeletonList> {
       child: Column(
         children: List.generate(
           6,
-          (index) => Padding(
-            padding: Insets.bottomMd,
-            child: _SkeletonSessionCard(),
-          ),
+          (index) =>
+              Padding(padding: Insets.bottomMd, child: _SkeletonSessionCard()),
         ),
       ),
     );
   }
 }
+
 /// A shimmer box widget used for skeleton loading.
 class _SkeletonBox extends StatelessWidget {
   const _SkeletonBox({
@@ -3064,6 +3070,7 @@ class _SkeletonBox extends StatelessWidget {
     );
   }
 }
+
 // ============================================================================
 // Claude Code Sessions View
 // ============================================================================
@@ -3229,6 +3236,7 @@ class _CCActiveSessionsSection extends ConsumerWidget {
     );
   }
 }
+
 class _ClaudeCodeSessionsView extends ConsumerStatefulWidget {
   const _ClaudeCodeSessionsView({required this.onRefresh});
   final Future<void> Function() onRefresh;
@@ -3236,29 +3244,49 @@ class _ClaudeCodeSessionsView extends ConsumerStatefulWidget {
   ConsumerState<_ClaudeCodeSessionsView> createState() =>
       _ClaudeCodeSessionsViewState();
 }
+
 class _CodexThreadsView extends ConsumerStatefulWidget {
   const _CodexThreadsView({required this.onRefresh});
   final Future<void> Function() onRefresh;
   @override
   ConsumerState<_CodexThreadsView> createState() => _CodexThreadsViewState();
 }
+
 class _CodexThreadsViewState extends ConsumerState<_CodexThreadsView> {
   // Sort order: 'createdAt' (default) or 'updatedAt'
   String _sortBy = 'createdAt';
+  final _searchController = TextEditingController();
+  String _searchQuery = '';
+  Timer? _searchDebounce;
   @override
   void initState() {
     super.initState();
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      final cwd = ref.read(codexThreadsFilterCwdProvider);
-      ref.read(codexThreadsProvider.notifier).load(cwd: cwd);
+      ref.read(codexThreadsProvider.notifier).load();
     });
   }
+
+  @override
+  void dispose() {
+    _searchDebounce?.cancel();
+    _searchController.dispose();
+    super.dispose();
+  }
+
+  void _onSearchChanged(String value) {
+    _searchDebounce?.cancel();
+    _searchDebounce = Timer(const Duration(milliseconds: 250), () {
+      if (!mounted) return;
+      setState(() => _searchQuery = value.trim().toLowerCase());
+    });
+  }
+
   Future<void> _refresh() async {
-    final cwd = ref.read(codexThreadsFilterCwdProvider);
-    await ref.read(codexThreadsProvider.notifier).refresh(cwd: cwd);
+    await ref.read(codexThreadsProvider.notifier).refresh();
     ref.invalidate(codexProjectsForThreadsProvider);
     await widget.onRefresh();
   }
+
   void _openThread(CodexThread thread) {
     final cwd = thread.cwd;
     if (cwd.isNotEmpty) {
@@ -3275,6 +3303,7 @@ class _CodexThreadsViewState extends ConsumerState<_CodexThreadsView> {
       MaterialPageRoute(builder: (_) => ChatScreen.codex(cxThread: thread)),
     );
   }
+
   void _showTitleFiltersSheet(BuildContext context) {
     final ocTheme = OpenCodeTheme.of(context);
     final controller = TextEditingController();
@@ -3350,9 +3379,7 @@ class _CodexThreadsViewState extends ConsumerState<_CodexThreadsView> {
                           horizontal: 16,
                           vertical: 12,
                         ),
-                        shape: RoundedRectangleBorder(
-                          borderRadius: Radii.brMd,
-                        ),
+                        shape: RoundedRectangleBorder(borderRadius: Radii.brMd),
                       ),
                       child: const Text('Add'),
                     ),
@@ -3415,6 +3442,7 @@ class _CodexThreadsViewState extends ConsumerState<_CodexThreadsView> {
       ),
     ).whenComplete(controller.dispose);
   }
+
   void _showThreadOptions(CodexThread thread) {
     final ocTheme = OpenCodeTheme.of(context);
     final highlights = ref.read(highlightsProvider);
@@ -3487,6 +3515,7 @@ class _CodexThreadsViewState extends ConsumerState<_CodexThreadsView> {
       ),
     );
   }
+
   void _renameThread(CodexThread thread) {
     final controller = TextEditingController(text: thread.threadName ?? '');
     showDialog(
@@ -3499,23 +3528,25 @@ class _CodexThreadsViewState extends ConsumerState<_CodexThreadsView> {
           decoration: const InputDecoration(hintText: 'Thread name'),
         ),
         actions: [
-          TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('Cancel')),
+          TextButton(
+            onPressed: () => Navigator.pop(ctx),
+            child: const Text('Cancel'),
+          ),
           TextButton(
             onPressed: () async {
               final name = controller.text.trim();
               if (name.isEmpty) return;
               Navigator.pop(ctx);
               try {
-                await ref.read(bridgeServiceProvider).cxRenameThread(
-                  threadId: thread.id,
-                  name: name,
-                );
+                await ref
+                    .read(bridgeServiceProvider)
+                    .cxRenameThread(threadId: thread.id, name: name);
                 widget.onRefresh();
               } catch (e) {
                 if (mounted) {
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    SnackBar(content: Text('Rename failed: $e')),
-                  );
+                  ScaffoldMessenger.of(
+                    context,
+                  ).showSnackBar(SnackBar(content: Text('Rename failed: $e')));
                 }
               }
             },
@@ -3525,11 +3556,12 @@ class _CodexThreadsViewState extends ConsumerState<_CodexThreadsView> {
       ),
     );
   }
+
   void _forkThread(CodexThread thread) async {
     try {
-      final forked = await ref.read(bridgeServiceProvider).cxThreadFork(
-        threadId: thread.id,
-      );
+      final forked = await ref
+          .read(bridgeServiceProvider)
+          .cxThreadFork(threadId: thread.id);
       widget.onRefresh();
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
@@ -3538,12 +3570,13 @@ class _CodexThreadsViewState extends ConsumerState<_CodexThreadsView> {
       }
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Fork failed: $e')),
-        );
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text('Fork failed: $e')));
       }
     }
   }
+
   /// Stop/abort a Codex thread
   void _stopThread(CodexThread thread) {
     final bridge = ref.read(bridgeServiceProvider);
@@ -3559,6 +3592,7 @@ class _CodexThreadsViewState extends ConsumerState<_CodexThreadsView> {
       ),
     );
   }
+
   Future<void> _archiveThread(CodexThread thread) async {
     final confirm = await showDialog<bool>(
       context: context,
@@ -3597,6 +3631,7 @@ class _CodexThreadsViewState extends ConsumerState<_CodexThreadsView> {
       ),
     );
   }
+
   @override
   Widget build(BuildContext context) {
     final ocTheme = OpenCodeTheme.of(context);
@@ -3623,6 +3658,9 @@ class _CodexThreadsViewState extends ConsumerState<_CodexThreadsView> {
           child: CustomScrollView(
             physics: const AlwaysScrollableScrollPhysics(),
             slivers: [
+              SliverToBoxAdapter(
+                child: CodexActiveThreadsSection(onThreadTap: _openThread),
+              ),
               SliverToBoxAdapter(
                 child: Padding(
                   padding: const EdgeInsets.fromLTRB(20, 18, 20, 14),
@@ -3689,9 +3727,7 @@ class _CodexThreadsViewState extends ConsumerState<_CodexThreadsView> {
                                         )
                                         .state =
                                     path;
-                                ref
-                                    .read(codexThreadsProvider.notifier)
-                                    .load(cwd: path);
+                                ref.read(codexThreadsProvider.notifier).load();
                               },
                             ),
                           ),
@@ -3709,6 +3745,12 @@ class _CodexThreadsViewState extends ConsumerState<_CodexThreadsView> {
                           ),
                         ],
                       ),
+                      SizedBox(height: Spacing.md),
+                      SessionsSearchBar(
+                        controller: _searchController,
+                        onChanged: _onSearchChanged,
+                        hintText: 'Search Codex threads...',
+                      ),
                     ],
                   ),
                 ),
@@ -3723,11 +3765,7 @@ class _CodexThreadsViewState extends ConsumerState<_CodexThreadsView> {
                       child: Column(
                         mainAxisAlignment: MainAxisAlignment.center,
                         children: [
-                          Icon(
-                            AppIcons.error,
-                            color: ocTheme.error,
-                            size: 48,
-                          ),
+                          Icon(AppIcons.error, color: ocTheme.error, size: 48),
                           SizedBox(height: Spacing.lg),
                           Text(
                             'Failed to load threads',
@@ -3760,12 +3798,20 @@ class _CodexThreadsViewState extends ConsumerState<_CodexThreadsView> {
                   );
                   final filtered =
                       threads
+                          .where((t) => projectPathMatches(t.cwd, filterCwd))
                           .where(
                             (t) => titleFilters.isEmpty
                                 ? true
                                 : !sessionTitleMatchesExcludeFilters(
                                     t.displayTitle,
                                     titleFilters,
+                                  ),
+                          )
+                          .where(
+                            (t) => _searchQuery.isEmpty
+                                ? true
+                                : t.displayTitle.toLowerCase().contains(
+                                    _searchQuery,
                                   ),
                           )
                           .toList()
@@ -3776,6 +3822,21 @@ class _CodexThreadsViewState extends ConsumerState<_CodexThreadsView> {
                           return b.createdAt.compareTo(a.createdAt);
                         });
                   if (filtered.isEmpty) {
+                    if (_searchQuery.isNotEmpty) {
+                      return [
+                        SliverFillRemaining(
+                          child: Center(
+                            child: Text(
+                              'No threads matching "$_searchQuery"',
+                              style: TextStyle(
+                                color: ocTheme.textMuted,
+                                fontSize: 14,
+                              ),
+                            ),
+                          ),
+                        ),
+                      ];
+                    }
                     return [SliverFillRemaining(child: _CodexEmptyState())];
                   }
                   final highlightedThreads = filtered
@@ -3825,6 +3886,7 @@ class _CodexThreadsViewState extends ConsumerState<_CodexThreadsView> {
     );
   }
 }
+
 /// Section showing highlighted Codex threads at the top
 class _CodexHighlightedThreadsSection extends StatelessWidget {
   const _CodexHighlightedThreadsSection({
@@ -3885,6 +3947,7 @@ class _CodexHighlightedThreadsSection extends StatelessWidget {
     );
   }
 }
+
 /// Highlighted Codex thread card with accent styling
 /// Matches OpenCode's _HighlightedSessionCard design
 class _CodexHighlightedThreadCard extends ConsumerWidget {
@@ -3902,6 +3965,7 @@ class _CodexHighlightedThreadCard extends ConsumerWidget {
     final parts = thread.cwd.split('/').where((p) => p.isNotEmpty).toList();
     return parts.isEmpty ? 'Unknown' : parts.last;
   }
+
   String _formatDate(DateTime date) {
     final now = DateTime.now();
     final diff = now.difference(date);
@@ -3917,6 +3981,7 @@ class _CodexHighlightedThreadCard extends ConsumerWidget {
       return '${date.day}/${date.month}/${date.year}';
     }
   }
+
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final ocTheme = OpenCodeTheme.of(context);
@@ -3935,10 +4000,7 @@ class _CodexHighlightedThreadCard extends ConsumerWidget {
       onTap: onTap,
       onLongPress: onLongPress,
       child: Container(
-        decoration: BoxDecoration(
-          color: bgColor,
-          borderRadius: Radii.brMd,
-        ),
+        decoration: BoxDecoration(color: bgColor, borderRadius: Radii.brMd),
         clipBehavior: Clip.antiAlias,
         child: Row(
           children: [
@@ -4094,6 +4156,7 @@ class _CodexHighlightedThreadCard extends ConsumerWidget {
     );
   }
 }
+
 /// Codex thread card
 /// Matches OpenCode's _SessionCard design
 class _CodexThreadCard extends ConsumerWidget {
@@ -4113,6 +4176,7 @@ class _CodexThreadCard extends ConsumerWidget {
     final parts = thread.cwd.split('/').where((p) => p.isNotEmpty).toList();
     return parts.isEmpty ? 'Unknown' : parts.last;
   }
+
   String _formatDate(DateTime date) {
     final now = DateTime.now();
     final diff = now.difference(date);
@@ -4128,6 +4192,7 @@ class _CodexThreadCard extends ConsumerWidget {
       return '${date.day}/${date.month}/${date.year}';
     }
   }
+
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final ocTheme = OpenCodeTheme.of(context);
@@ -4298,6 +4363,7 @@ class _CodexThreadCard extends ConsumerWidget {
     );
   }
 }
+
 class _CodexEmptyState extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
@@ -4312,11 +4378,7 @@ class _CodexEmptyState extends StatelessWidget {
               color: ocTheme.primary.withValues(alpha: 0.1),
               shape: BoxShape.circle,
             ),
-            child: Icon(
-              AppIcons.autoAwesome,
-              size: 48,
-              color: ocTheme.primary,
-            ),
+            child: Icon(AppIcons.autoAwesome, size: 48, color: ocTheme.primary),
           ),
           SizedBox(height: Spacing.xxl),
           Text(
@@ -4341,23 +4403,42 @@ class _CodexEmptyState extends StatelessWidget {
     );
   }
 }
+
 class _ClaudeCodeSessionsViewState
     extends ConsumerState<_ClaudeCodeSessionsView> {
+  final _searchController = TextEditingController();
+  String _searchQuery = '';
+  Timer? _searchDebounce;
   @override
   void initState() {
     super.initState();
     // Load sessions on init
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      final cwd = ref.read(ccSessionsFilterCwdProvider);
-      ref.read(ccSessionsProvider.notifier).load(cwd: cwd);
+      ref.read(ccSessionsProvider.notifier).load();
     });
   }
+
+  @override
+  void dispose() {
+    _searchDebounce?.cancel();
+    _searchController.dispose();
+    super.dispose();
+  }
+
+  void _onSearchChanged(String value) {
+    _searchDebounce?.cancel();
+    _searchDebounce = Timer(const Duration(milliseconds: 250), () {
+      if (!mounted) return;
+      setState(() => _searchQuery = value.trim().toLowerCase());
+    });
+  }
+
   Future<void> _refresh() async {
-    final cwd = ref.read(ccSessionsFilterCwdProvider);
-    await ref.read(ccSessionsProvider.notifier).refresh(cwd: cwd);
+    await ref.read(ccSessionsProvider.notifier).refresh();
     ref.invalidate(ccProjectsForSessionsProvider);
     await widget.onRefresh();
   }
+
   void _showTitleFiltersSheet(BuildContext context) {
     final ocTheme = OpenCodeTheme.of(context);
     final controller = TextEditingController();
@@ -4433,9 +4514,7 @@ class _ClaudeCodeSessionsViewState
                           horizontal: 16,
                           vertical: 12,
                         ),
-                        shape: RoundedRectangleBorder(
-                          borderRadius: Radii.brMd,
-                        ),
+                        shape: RoundedRectangleBorder(borderRadius: Radii.brMd),
                       ),
                       child: const Text('Add'),
                     ),
@@ -4498,6 +4577,7 @@ class _ClaudeCodeSessionsViewState
       ),
     ).whenComplete(controller.dispose);
   }
+
   Future<void> _deleteSession(ClaudeCodeSession session) async {
     final confirm = await showDialog<bool>(
       context: context,
@@ -4544,6 +4624,7 @@ class _ClaudeCodeSessionsViewState
       );
     }
   }
+
   void _openSession(ClaudeCodeSession session) {
     final cwd = session.cwd;
     if (cwd.isNotEmpty) {
@@ -4562,10 +4643,12 @@ class _ClaudeCodeSessionsViewState
       ),
     );
   }
+
   // Toggle highlight for a CC session
   void _toggleHighlight(String sessionId) {
     ref.read(highlightsProvider.notifier).toggleSession(sessionId);
   }
+
   // Show options menu (highlight + stop + delete)
   Future<void> _showSessionOptions(ClaudeCodeSession session) async {
     final highlights = ref.read(highlightsProvider);
@@ -4639,6 +4722,7 @@ class _ClaudeCodeSessionsViewState
       ),
     );
   }
+
   /// Stop/abort a Claude Code session
   void _stopCCSession(ClaudeCodeSession session) {
     final bridge = ref.read(bridgeServiceProvider);
@@ -4654,6 +4738,7 @@ class _ClaudeCodeSessionsViewState
       ),
     );
   }
+
   /// Rename a Claude Code session
   Future<void> _renameCCSession(ClaudeCodeSession session) async {
     final ocTheme = OpenCodeTheme.of(context);
@@ -4719,6 +4804,7 @@ class _ClaudeCodeSessionsViewState
       );
     }
   }
+
   @override
   Widget build(BuildContext context) {
     final sessionsAsync = ref.watch(ccSessionsProvider);
@@ -4834,9 +4920,7 @@ class _ClaudeCodeSessionsViewState
                                         )
                                         .state =
                                     path;
-                                ref
-                                    .read(ccSessionsProvider.notifier)
-                                    .load(cwd: path);
+                                ref.read(ccSessionsProvider.notifier).load();
                               },
                             ),
                           ),
@@ -4846,6 +4930,12 @@ class _ClaudeCodeSessionsViewState
                             onTap: () => _showTitleFiltersSheet(context),
                           ),
                         ],
+                      ),
+                      SizedBox(height: Spacing.md),
+                      SessionsSearchBar(
+                        controller: _searchController,
+                        onChanged: _onSearchChanged,
+                        hintText: 'Search Claude Code sessions...',
                       ),
                     ],
                   ),
@@ -4862,11 +4952,7 @@ class _ClaudeCodeSessionsViewState
                       child: Column(
                         mainAxisAlignment: MainAxisAlignment.center,
                         children: [
-                          Icon(
-                            AppIcons.error,
-                            color: ocTheme.error,
-                            size: 48,
-                          ),
+                          Icon(AppIcons.error, color: ocTheme.error, size: 48),
                           SizedBox(height: Spacing.lg),
                           Text(
                             'Failed to load sessions',
@@ -4903,6 +4989,7 @@ class _ClaudeCodeSessionsViewState
                   );
                   final sorted =
                       sessions
+                          .where((s) => projectPathMatches(s.cwd, filterCwd))
                           .where(
                             (s) => titleFilters.isEmpty
                                 ? true
@@ -4911,8 +4998,33 @@ class _ClaudeCodeSessionsViewState
                                     titleFilters,
                                   ),
                           )
+                          .where(
+                            (s) => _searchQuery.isEmpty
+                                ? true
+                                : s.displayTitle.toLowerCase().contains(
+                                    _searchQuery,
+                                  ),
+                          )
                           .toList()
                         ..sort((a, b) => b.updatedAt.compareTo(a.updatedAt));
+                  if (sorted.isEmpty) {
+                    if (_searchQuery.isNotEmpty) {
+                      return [
+                        SliverFillRemaining(
+                          child: Center(
+                            child: Text(
+                              'No sessions matching "$_searchQuery"',
+                              style: TextStyle(
+                                color: ocTheme.textMuted,
+                                fontSize: 14,
+                              ),
+                            ),
+                          ),
+                        ),
+                      ];
+                    }
+                    return [SliverFillRemaining(child: _CCEmptyState())];
+                  }
                   // Separate highlighted and regular sessions
                   final highlightedSessions = sorted
                       .where((s) => highlights.isSessionHighlighted(s.id))
@@ -4960,6 +5072,7 @@ class _ClaudeCodeSessionsViewState
     );
   }
 }
+
 /// Section showing highlighted Claude Code sessions at the top
 class _CCHighlightedSessionsSection extends StatelessWidget {
   const _CCHighlightedSessionsSection({
@@ -5023,6 +5136,7 @@ class _CCHighlightedSessionsSection extends StatelessWidget {
     );
   }
 }
+
 /// Highlighted Claude Code session card with accent styling
 /// Matches OpenCode's _HighlightedSessionCard design
 class _CCHighlightedSessionCard extends ConsumerWidget {
@@ -5042,6 +5156,7 @@ class _CCHighlightedSessionCard extends ConsumerWidget {
     final parts = session.cwd.split('/').where((p) => p.isNotEmpty).toList();
     return parts.isEmpty ? 'Unknown' : parts.last;
   }
+
   String _formatDate(int timestamp) {
     final date = DateTime.fromMillisecondsSinceEpoch(timestamp);
     final now = DateTime.now();
@@ -5058,6 +5173,7 @@ class _CCHighlightedSessionCard extends ConsumerWidget {
       return '${date.day}/${date.month}/${date.year}';
     }
   }
+
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final ocTheme = OpenCodeTheme.of(context);
@@ -5076,10 +5192,7 @@ class _CCHighlightedSessionCard extends ConsumerWidget {
       onTap: onTap,
       onLongPress: onLongPress,
       child: Container(
-        decoration: BoxDecoration(
-          color: bgColor,
-          borderRadius: Radii.brMd,
-        ),
+        decoration: BoxDecoration(color: bgColor, borderRadius: Radii.brMd),
         clipBehavior: Clip.antiAlias,
         child: Row(
           children: [
@@ -5121,12 +5234,12 @@ class _CCHighlightedSessionCard extends ConsumerWidget {
                             overflow: TextOverflow.ellipsis,
                           ),
                         ),
-                        if (session.isBackground) ...[
+                        if (session.isSubagentSession) ...[
                           SizedBox(width: Spacing.xs),
                           Icon(
-                            AppIcons.cloud,
+                            AppIcons.gitBranch,
                             size: 14,
-                            color: ocTheme.textMuted,
+                            color: ocTheme.info,
                           ),
                         ],
                         SizedBox(width: Spacing.md),
@@ -5258,6 +5371,7 @@ class _CCHighlightedSessionCard extends ConsumerWidget {
     );
   }
 }
+
 /// Claude Code session card
 /// Matches OpenCode's _SessionCard design
 class _CCSessionCard extends ConsumerWidget {
@@ -5275,6 +5389,7 @@ class _CCSessionCard extends ConsumerWidget {
     final parts = session.cwd.split('/').where((p) => p.isNotEmpty).toList();
     return parts.isEmpty ? 'Unknown' : parts.last;
   }
+
   String _formatDate(int timestamp) {
     final date = DateTime.fromMillisecondsSinceEpoch(timestamp);
     final now = DateTime.now();
@@ -5291,6 +5406,7 @@ class _CCSessionCard extends ConsumerWidget {
       return '${date.day}/${date.month}/${date.year}';
     }
   }
+
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final ocTheme = OpenCodeTheme.of(context);
@@ -5347,12 +5463,12 @@ class _CCSessionCard extends ConsumerWidget {
                             overflow: TextOverflow.ellipsis,
                           ),
                         ),
-                        if (session.isBackground) ...[
+                        if (session.isSubagentSession) ...[
                           SizedBox(width: Spacing.xs),
                           Icon(
-                            AppIcons.cloud,
+                            AppIcons.gitBranch,
                             size: 14,
-                            color: ocTheme.textMuted,
+                            color: ocTheme.info,
                           ),
                         ],
                         SizedBox(width: Spacing.md),
@@ -5484,6 +5600,7 @@ class _CCSessionCard extends ConsumerWidget {
     );
   }
 }
+
 /// Empty state for Claude Code sessions
 class _CCEmptyState extends StatelessWidget {
   @override
@@ -5499,11 +5616,7 @@ class _CCEmptyState extends StatelessWidget {
               color: ocTheme.accent.withValues(alpha: 0.1),
               shape: BoxShape.circle,
             ),
-            child: Icon(
-              AppIcons.terminal,
-              size: 48,
-              color: ocTheme.accent,
-            ),
+            child: Icon(AppIcons.terminal, size: 48, color: ocTheme.accent),
           ),
           SizedBox(height: Spacing.xxl),
           Text(
@@ -5528,6 +5641,7 @@ class _CCEmptyState extends StatelessWidget {
     );
   }
 }
+
 // ============================================================================
 // Claude Code Chat Screen
 // ============================================================================
@@ -5537,6 +5651,7 @@ class CCChatScreen extends ConsumerStatefulWidget {
   @override
   ConsumerState<CCChatScreen> createState() => _CCChatScreenState();
 }
+
 class _CCChatScreenState extends ConsumerState<CCChatScreen> {
   final TextEditingController _controller = TextEditingController();
   final ScrollController _scrollController = ScrollController();
@@ -5549,6 +5664,7 @@ class _CCChatScreenState extends ConsumerState<CCChatScreen> {
       ref.read(ccChatProvider.notifier).setSession(widget.session.id);
     });
   }
+
   @override
   void dispose() {
     _controller.dispose();
@@ -5556,6 +5672,7 @@ class _CCChatScreenState extends ConsumerState<CCChatScreen> {
     _focusNode.dispose();
     super.dispose();
   }
+
   void _sendMessage() {
     final text = _controller.text.trim();
     if (text.isEmpty) return;
@@ -5569,9 +5686,11 @@ class _CCChatScreenState extends ConsumerState<CCChatScreen> {
     _controller.clear();
     _scrollToBottom();
   }
+
   void _abort() {
     ref.read(ccChatProvider.notifier).abort();
   }
+
   void _scrollToBottom() {
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (_scrollController.hasClients) {
@@ -5583,6 +5702,7 @@ class _CCChatScreenState extends ConsumerState<CCChatScreen> {
       }
     });
   }
+
   String _getProjectName() {
     final parts = widget.session.cwd
         .split('/')
@@ -5590,6 +5710,7 @@ class _CCChatScreenState extends ConsumerState<CCChatScreen> {
         .toList();
     return parts.isEmpty ? 'Unknown' : parts.last;
   }
+
   @override
   Widget build(BuildContext context) {
     final ocTheme = OpenCodeTheme.of(context);
@@ -5684,6 +5805,7 @@ class _CCChatScreenState extends ConsumerState<CCChatScreen> {
       ),
     );
   }
+
   /// Convert stream messages to display messages
   List<_CCDisplayMessage> _buildDisplayMessages(
     List<ClaudeCodeStreamMessage> messages,
@@ -5753,6 +5875,7 @@ class _CCChatScreenState extends ConsumerState<CCChatScreen> {
     return display;
   }
 }
+
 /// Display message model for CC chat
 class _CCDisplayMessage {
   final String role; // 'user', 'assistant', 'error'
@@ -5766,6 +5889,7 @@ class _CCDisplayMessage {
     this.tokenUsage,
   });
 }
+
 /// Message bubble for CC chat
 class _CCMessageBubble extends StatelessWidget {
   const _CCMessageBubble({required this.message, this.isStreaming = false});
@@ -5827,7 +5951,9 @@ class _CCMessageBubble extends StatelessWidget {
                   Text(
                     message.text,
                     style: TextStyle(
-                      color: isUser ? ocTheme.selectedListItemText : ocTheme.text,
+                      color: isUser
+                          ? ocTheme.selectedListItemText
+                          : ocTheme.text,
                       fontSize: 15,
                       height: 1.4,
                     ),
@@ -5864,6 +5990,7 @@ class _CCMessageBubble extends StatelessWidget {
     );
   }
 }
+
 /// Tool call card for CC chat
 class _CCToolCallCard extends StatelessWidget {
   const _CCToolCallCard({required this.tool});
@@ -5933,6 +6060,7 @@ class _CCToolCallCard extends StatelessWidget {
       ),
     );
   }
+
   String _formatInput(dynamic input) {
     if (input == null) return '';
     if (input is String) return input;
@@ -5946,6 +6074,7 @@ class _CCToolCallCard extends StatelessWidget {
     return input.toString();
   }
 }
+
 /// Empty state for CC chat
 class _CCChatEmptyState extends StatelessWidget {
   @override
@@ -5982,6 +6111,7 @@ class _CCChatEmptyState extends StatelessWidget {
     );
   }
 }
+
 /// Input bar for CC chat
 class _CCInputBar extends StatelessWidget {
   const _CCInputBar({

@@ -38,36 +38,36 @@ const opencodeLightTheme = OpenCodeTheme(
   secondary: Color(0xFF2563EB), // Blue - links, accents
   accent: Color(0xFF0D9488), // Teal - special highlights (no purple)
   error: Color(0xFFDC2626), // Red - refined, not too harsh
-  warning: Color(0xFFE8890C), // Amber-orange - warnings (distinct from primary)
+  warning: Color(0xFFCB7B05), // Amber-orange - warnings (distinct from primary, darker)
   success: Color(0xFF059669), // Green - success states
   info: Color(0xFF0891B2), // Cyan - info states
   // Text colors - high contrast but not harsh
   text: Color(0xFF1C1C1E), // Near-black, soft
-  textMuted: Color(0xFF6B7280), // Medium gray for secondary text
+  textMuted: Color(0xFF5B6370), // Medium gray - darkened for 5:1+ contrast
   selectedListItemText: Color(0xFFFFFFFF), // White on selected items
-  // Background colors - warm off-white, easy on eyes
-  background: Color(0xFFFAFAF9), // Warm off-white (not pure white)
-  backgroundPanel: Color(0xFFFFFFFF), // Pure white for cards
-  backgroundElement: Color(0xFFF5F5F4), // Slightly darker for inputs
+  // Background colors - gray bg so white cards FLOAT visibly above
+  background: Color(0xFFEDEDEC), // Warm gray — cards are clearly brighter
+  backgroundPanel: Color(0xFFFFFFFF), // Pure white for cards (floats above gray bg)
+  backgroundElement: Color(0xFFD5D5D4), // Input bar bg — clearly darker than screen (1.25:1)
   backgroundMenu: Color(0xFFFFFFFF), // White for menus
   // Extended background scale for light theme
-  bgDeep: Color(0xFFFFFFFF), // Pure white - deepest layer
-  bgRaised: Color(0xFFFAFAF9), // Off-white - raised content
-  bgSheet: Color(0xFFFFFFFF), // Sheet/modal background
-  bgHover: Color(0xFFF5F5F4), // Hover state
-  bgActive: Color(0xFFE5E5E5), // Active/pressed
+  bgDeep: Color(0xFFE5E5E4), // Deepest recessed layer
+  bgRaised: Color(0xFFFFFFFF), // Pure white - cards float above gray bg
+  bgSheet: Color(0xFFF5F5F4), // Sheet/modal background — slightly lighter than screen
+  bgHover: Color(0xFFE5E5E4), // Hover state — slightly darker than screen
+  bgActive: Color(0xFFDADAD9), // Active/pressed — clearly darker
   bgHighlight: Color(0xFFFEF3C7), // Amber highlight
-  bgOverlay: Color(0xFFFFFFFF), // Overlays
-  bgContrast: Color(0xFFE5E5E5), // High contrast
-  // Border colors - subtle grays
-  border: Color(0xFFD0D0D0), // Visible light gray
+  bgOverlay: Color(0xFFF5F5F4), // Overlays
+  bgContrast: Color(0xFFD5D5D4), // High contrast elements
+  // Border colors - darker grays for visibility on light backgrounds
+  border: Color(0xFFB8B8B8), // Clearly visible gray border
   borderActive: Color(0xFFD97706), // Amber when active
-  borderSubtle: Color(0xFFE0E0E0), // Subtle but visible
-  cardBorderSubtle: Color(0x4DF0F0F0), // 30% opacity for light mode
-  dividerSection: Color(0x1A6B7280), // 10% of textMuted
-  // Card header theming - light mode uses darker header than card body
-  cardHeaderBg: Color(0xFFF0F0EF), // Slightly darker warm gray
-  cardHeaderBorder: Color(0xFFE0E0E0), // Visible border
+  borderSubtle: Color(0xFFCCCCCC), // Subtle but definitely visible
+  cardBorderSubtle: Color(0x66B8B8B8), // 40% opacity, darker base
+  dividerSection: Color(0x266B7280), // 15% of textMuted
+  // Card header theming - light mode uses clearly darker header
+  cardHeaderBg: Color(0xFFDDDDDC), // Clearly distinct from white card body (1.36:1 step)
+  cardHeaderBorder: Color(0xFFCCCCCC), // Visible border
   cardHeaderText: Color(0xFF374151), // Dark gray text
   // Tool-specific colors for light theme (readable, professional)
   toolThinking: Color(0xFF2563EB), // Blue - cognitive
@@ -231,8 +231,8 @@ const tokyonightDarkTheme = OpenCodeTheme(
   borderSubtle: Color(0xFF545c7e),
   cardBorderSubtle: Color(0x66545c7e),
   dividerSection: Color(0x1F828bb8),
-  // Card header theming - blue-tinted step up
-  cardHeaderBg: Color(0xFF282a3f), // Blue-tinted, ~15% lighter
+  // Card header theming - blue-tinted step up (raised higher)
+  cardHeaderBg: Color(0xFF343650), // Raised from #282a3f for 1.4:1 step
   cardHeaderBorder: Color(0xFF4a5070), // Blue-gray border
   cardHeaderText: Color(0xFFa9b8d4), // Soft blue-white
   toolThinking: Color(0xFF82aaff), // Blue
@@ -292,7 +292,7 @@ const draculaDarkTheme = OpenCodeTheme(
   success: Color(0xFF50fa7b),
   info: Color(0xFF8BE9FD),
   text: Color(0xFFf8f8f2),
-  textMuted: Color(0xFF6272a4),
+  textMuted: Color(0xFF8292C4), // Brightened from #6272a4 for 4.6:1 contrast
   selectedListItemText: Color(0xFF282a36),
   background: Color(0xFF282a36),
   backgroundPanel: Color(0xFF21222c),
@@ -311,8 +311,8 @@ const draculaDarkTheme = OpenCodeTheme(
   borderSubtle: Color(0xFF191a21),
   cardBorderSubtle: Color(0x66191a21),
   dividerSection: Color(0x1F6272a4),
-  // Card header theming - purple-tinted step up
-  cardHeaderBg: Color(0xFF363949), // Subtle purple tint
+  // Card header theming - purple-tinted step up (raised higher)
+  cardHeaderBg: Color(0xFF464959), // Raised from #363949 for 1.6:1 step
   cardHeaderBorder: Color(0xFF505370), // Purple-gray border
   cardHeaderText: Color(0xFFc8c8d8), // Soft white
   toolThinking: Color(0xFF8be9fd), // Cyan
@@ -452,7 +452,7 @@ const nordDarkTheme = OpenCodeTheme(
   success: Color(0xFFA3BE8C),
   info: Color(0xFF88C0D0),
   text: Color(0xFFECEFF4),
-  textMuted: Color(0xFF8B95A7),
+  textMuted: Color(0xFF9BA5B7), // Brightened from #8B95A7 for 5:1 contrast
   selectedListItemText: Color(0xFF2E3440),
   background: Color(0xFF2E3440),
   backgroundPanel: Color(0xFF3B4252),
@@ -532,7 +532,7 @@ const gruvboxDarkTheme = OpenCodeTheme(
   success: Color(0xFFb8bb26),
   info: Color(0xFFfabd2f),
   text: Color(0xFFebdbb2),
-  textMuted: Color(0xFF928374),
+  textMuted: Color(0xFFA29384), // Brightened from #928374 for 4.9:1 contrast
   selectedListItemText: Color(0xFF282828),
   background: Color(0xFF282828),
   backgroundPanel: Color(0xFF3c3836),
@@ -551,8 +551,8 @@ const gruvboxDarkTheme = OpenCodeTheme(
   borderSubtle: Color(0xFF504945),
   cardBorderSubtle: Color(0x66504945),
   dividerSection: Color(0x1F928374),
-  // Card header theming - warm retro step
-  cardHeaderBg: Color(0xFF3c3836), // Gruvbox bg1
+  // Card header theming - warm retro step (raised higher)
+  cardHeaderBg: Color(0xFF4C4846), // Raised from #3c3836 for 1.6:1 step
   cardHeaderBorder: Color(0xFF5c5652), // Warm brown border
   cardHeaderText: Color(0xFFd5c4a1), // Gruvbox fg2
   toolThinking: Color(0xFF83a598), // Aqua
@@ -612,7 +612,7 @@ const auraDarkTheme = OpenCodeTheme(
   success: Color(0xFF61ffca),
   info: Color(0xFF82e0ff),
   text: Color(0xFFedecee),
-  textMuted: Color(0xFF6d6d6d),
+  textMuted: Color(0xFF7D7D7D), // Brightened from #6d6d6d for 4.7:1 contrast
   selectedListItemText: Color(0xFF0f0f0f),
   background: Color(0xFF0f0f0f),
   backgroundPanel: Color(0xFF15141b),
@@ -631,8 +631,8 @@ const auraDarkTheme = OpenCodeTheme(
   borderSubtle: Color(0xFF2d2d2d),
   cardBorderSubtle: Color(0x662d2d2d),
   dividerSection: Color(0x1F6d6d6d),
-  // Card header theming - vibrant contrast
-  cardHeaderBg: Color(0xFF1e1e28), // Darker purple tint
+  // Card header theming - vibrant contrast (raised higher)
+  cardHeaderBg: Color(0xFF2E2E38), // Raised from #1e1e28 for 1.4:1 step
   cardHeaderBorder: Color(0xFF404050), // Purple-gray border
   cardHeaderText: Color(0xFFd8d8dc), // Bright text
   toolThinking: Color(0xFF82e0ff), // Blue
@@ -692,7 +692,7 @@ const monokaiDarkTheme = OpenCodeTheme(
   success: Color(0xFFa6e22e),
   info: Color(0xFFfd971f),
   text: Color(0xFFf8f8f2),
-  textMuted: Color(0xFF75715e),
+  textMuted: Color(0xFF95917E), // Brightened from #75715e for 4.7:1 contrast
   selectedListItemText: Color(0xFF272822),
   background: Color(0xFF272822),
   backgroundPanel: Color(0xFF1e1f1c),
@@ -772,7 +772,7 @@ const flexokiDarkTheme = OpenCodeTheme(
   success: Color(0xFF879A39),
   info: Color(0xFF3AA99F),
   text: Color(0xFFCECDC3),
-  textMuted: Color(0xFF6F6E69),
+  textMuted: Color(0xFF7F7E79), // Brightened from #6F6E69 for 4.7:1 contrast
   selectedListItemText: Color(0xFF100F0F),
   background: Color(0xFF100F0F),
   backgroundPanel: Color(0xFF1C1B1A),
@@ -787,12 +787,12 @@ const flexokiDarkTheme = OpenCodeTheme(
   bgOverlay: Color(0xFF403E3C),
   bgContrast: Color(0xFF575653),
   border: Color(0xFF575653),
-  borderActive: Color(0xFF6F6E69),
+  borderActive: Color(0xFF7F7E79),
   borderSubtle: Color(0xFF403E3C),
   cardBorderSubtle: Color(0x66403E3C),
   dividerSection: Color(0x1F6F6E69),
-  // Card header theming - warm orange accent
-  cardHeaderBg: Color(0xFF282726), // Flexoki bg-2
+  // Card header theming - warm orange accent (raised higher)
+  cardHeaderBg: Color(0xFF383736), // Raised from #282726 for 1.6:1 step
   cardHeaderBorder: Color(0xFF4a4845), // Warm gray border
   cardHeaderText: Color(0xFFB7B5AC), // Flexoki tx-2
   toolThinking: Color(0xFF4385BE), // Blue
@@ -852,7 +852,7 @@ const oneDarkTheme = OpenCodeTheme(
   success: Color(0xFF98c379),
   info: Color(0xFF61afef),
   text: Color(0xFFabb2bf),
-  textMuted: Color(0xFF7a8290),
+  textMuted: Color(0xFF8E96A4), // Brightened from #7a8290 for 4.7:1 contrast
   selectedListItemText: Color(0xFF282c34),
   background: Color(0xFF282c34),
   backgroundPanel: Color(0xFF21252b),
@@ -874,12 +874,12 @@ const oneDarkTheme = OpenCodeTheme(
   // Card header theming - Atom inspired blue step
   cardHeaderBg: Color(0xFF3e4451), // One Dark gutter bg
   cardHeaderBorder: Color(0xFF555c68), // Blue-gray border
-  cardHeaderText: Color(0xFF98a0b0), // Soft text
+  cardHeaderText: Color(0xFFB0B8C8), // Brightened from #98a0b0 for 4.7:1 contrast
   toolThinking: Color(0xFF61afef), // Blue
   toolEdit: Color(0xFFd19a66), // Orange
   toolRead: Color(0xFF56b6c2), // Cyan
   toolWrite: Color(0xFF98c379), // Green
-  toolBash: Color(0xFF5c6370), // Gray
+  toolBash: Color(0xFF7C8490), // Brightened from #5c6370 for 3.2:1 contrast
   toolSearch: Color(0xFF61afef), // Blue
   toolTodo: Color(0xFFe5c07b), // Yellow
   toolSubtask: Color(0xFF56b6c2), // Teal
@@ -932,7 +932,7 @@ const solarizedDarkTheme = OpenCodeTheme(
   success: Color(0xFF859900),
   info: Color(0xFF268bd2),
   text: Color(0xFF839496),
-  textMuted: Color(0xFF6a8892),
+  textMuted: Color(0xFF7A98A2), // Brightened from #6a8892 for 4.9:1 contrast
   selectedListItemText: Color(0xFF002b36),
   background: Color(0xFF002b36),
   backgroundPanel: Color(0xFF073642),
@@ -951,21 +951,21 @@ const solarizedDarkTheme = OpenCodeTheme(
   borderSubtle: Color(0xFF073642),
   cardBorderSubtle: Color(0x66073642),
   dividerSection: Color(0x1F586e75),
-  // Card header theming - Solarized base tones
-  cardHeaderBg: Color(0xFF073642), // base02
+  // Card header theming - Solarized base tones (raised higher)
+  cardHeaderBg: Color(0xFF174652), // Raised from #073642 for 1.5:1 step
   cardHeaderBorder: Color(0xFF2a5058), // Teal-gray border
-  cardHeaderText: Color(0xFF93a1a1), // base1 text
+  cardHeaderText: Color(0xFFA8B6B6), // Brightened from #93a1a1 for 4.9:1 on header
   toolThinking: Color(0xFF268bd2), // Blue
   toolEdit: Color(0xFFcb4b16), // Orange
   toolRead: Color(0xFF2aa198), // Cyan
   toolWrite: Color(0xFF859900), // Green
-  toolBash: Color(0xFF586e75), // Gray
+  toolBash: Color(0xFF68808A), // Brightened from #586e75 for 3.1:1 contrast
   toolSearch: Color(0xFF268bd2), // Blue
   toolTodo: Color(0xFFb58900), // Yellow
   toolSubtask: Color(0xFF2aa198), // Teal
   diffAdded: Color(0xFF859900),
   diffRemoved: Color(0xFFdc322f),
-  diffContext: Color(0xFF586e75),
+  diffContext: Color(0xFF68808A),
   diffHunkHeader: Color(0xFF586e75),
   diffHighlightAdded: Color(0xFF859900),
   diffHighlightRemoved: Color(0xFFdc322f),
@@ -1031,8 +1031,8 @@ const githubDarkTheme = OpenCodeTheme(
   borderSubtle: Color(0xFF21262d),
   cardBorderSubtle: Color(0x6621262d),
   dividerSection: Color(0x1F8b949e),
-  // Card header theming - GitHub canvas
-  cardHeaderBg: Color(0xFF21262d), // canvas-subtle
+  // Card header theming - GitHub canvas (raised for visibility)
+  cardHeaderBg: Color(0xFF2D333B), // Raised from #21262d for 1.4:1 step
   cardHeaderBorder: Color(0xFF3d444d), // border-muted
   cardHeaderText: Color(0xFFadb5bd), // fg-muted
   toolThinking: Color(0xFF58a6ff), // Blue
@@ -1106,20 +1106,20 @@ const matrixDarkTheme = OpenCodeTheme(
   bgHighlight: Color(0xFF1a1a1a),
   bgOverlay: Color(0xFF222222),
   bgContrast: Color(0xFF2a2a2a),
-  border: Color(0xFF003300),
+  border: Color(0xFF0A4A0A), // Brightened from #003300 for 1.6:1 visibility
   borderActive: Color(0xFF2eff6a),
-  borderSubtle: Color(0xFF001a00),
-  cardBorderSubtle: Color(0x66001a00),
+  borderSubtle: Color(0xFF053005),
+  cardBorderSubtle: Color(0x66053005),
   dividerSection: Color(0x1F006600),
-  // Card header theming - green terminal glow
-  cardHeaderBg: Color(0xFF0a150a), // Dark green tint
+  // Card header theming - green terminal glow (raised higher)
+  cardHeaderBg: Color(0xFF1A2D1A), // Raised from #0a150a for 1.4:1 step
   cardHeaderBorder: Color(0xFF0a3a0a), // Green border
   cardHeaderText: Color(0xFF00cc00), // Matrix green
   toolThinking: Color(0xFF00ffff), // Cyan
   toolEdit: Color(0xFFffff00), // Yellow
   toolRead: Color(0xFF2eff6a), // Green
   toolWrite: Color(0xFF00ff00), // Bright green
-  toolBash: Color(0xFF006600), // Dark green
+  toolBash: Color(0xFF0A7A0A), // Brightened from #006600 for 3.2:1 contrast
   toolSearch: Color(0xFF00ffff), // Cyan
   toolTodo: Color(0xFFffff00), // Yellow
   toolSubtask: Color(0xFF2eff6a), // Green
@@ -1252,7 +1252,7 @@ const vesperDarkTheme = OpenCodeTheme(
   success: Color(0xFF99FFE4),
   info: Color(0xFF99D0FF),
   text: Color(0xFFffffff),
-  textMuted: Color(0xFF7B7B7B),
+  textMuted: Color(0xFF858585), // Brightened from #7B7B7B for 5:1 contrast
   selectedListItemText: Color(0xFF101010),
   background: Color(0xFF101010),
   backgroundPanel: Color(0xFF181818),
@@ -1271,8 +1271,8 @@ const vesperDarkTheme = OpenCodeTheme(
   borderSubtle: Color(0xFF232323),
   cardBorderSubtle: Color(0x66232323),
   dividerSection: Color(0x1F7B7B7B),
-  // Card header theming - warm minimal
-  cardHeaderBg: Color(0xFF1e1e1e), // Slightly lighter
+  // Card header theming - warm minimal (raised higher)
+  cardHeaderBg: Color(0xFF2E2E2E), // Raised from #1e1e1e for 1.4:1 step
   cardHeaderBorder: Color(0xFF3a3a3a), // Warm gray border
   cardHeaderText: Color(0xFFc8c8c8), // Soft white
   toolThinking: Color(0xFF99D0FF), // Blue
@@ -1351,8 +1351,8 @@ const rosepineDarkTheme = OpenCodeTheme(
   borderSubtle: Color(0xFF26233a),
   cardBorderSubtle: Color(0x6626233a),
   dividerSection: Color(0x1F908caa),
-  // Card header theming - elegant soft
-  cardHeaderBg: Color(0xFF26233a), // Rose Pine surface
+  // Card header theming - elegant soft (raised higher)
+  cardHeaderBg: Color(0xFF36334A), // Raised from #26233a for 1.5:1 step
   cardHeaderBorder: Color(0xFF44405a), // Muted purple border
   cardHeaderText: Color(0xFFc4c0d8), // Subtle text
   toolThinking: Color(0xFF9ccfd8), // Foam
@@ -1431,8 +1431,8 @@ const vercelDarkTheme = OpenCodeTheme(
   borderSubtle: Color(0xFF222222),
   cardBorderSubtle: Color(0x66222222),
   dividerSection: Color(0x1F888888),
-  // Card header theming - clean modern
-  cardHeaderBg: Color(0xFF1a1a1a), // Elevated surface
+  // Card header theming - clean modern (raised higher)
+  cardHeaderBg: Color(0xFF2A2A2A), // Raised from #1a1a1a for 1.4:1 step
   cardHeaderBorder: Color(0xFF3a3a3a), // Subtle border
   cardHeaderText: Color(0xFFa8a8a8), // Muted white
   toolThinking: Color(0xFF0070F3), // Blue
@@ -1492,7 +1492,7 @@ const cobalt2DarkTheme = OpenCodeTheme(
   success: Color(0xFF3ad900),
   info: Color(0xFF0088ff),
   text: Color(0xFFffffff),
-  textMuted: Color(0xFF5a8aaa),
+  textMuted: Color(0xFF72A2C2), // Brightened from #5a8aaa for 4.7:1 contrast
   selectedListItemText: Color(0xFF193549),
   background: Color(0xFF193549),
   backgroundPanel: Color(0xFF122738),
@@ -1511,21 +1511,21 @@ const cobalt2DarkTheme = OpenCodeTheme(
   borderSubtle: Color(0xFF1a3050),
   cardBorderSubtle: Color(0x660d3a58),
   dividerSection: Color(0x1F0d3a58),
-  // Card header theming - high contrast blue
-  cardHeaderBg: Color(0xFF1d3b53), // Cobalt highlight
+  // Card header theming - high contrast blue (raised higher)
+  cardHeaderBg: Color(0xFF2D4B63), // Raised from #1d3b53 for 1.4:1 step
   cardHeaderBorder: Color(0xFF2a5575), // Blue border
   cardHeaderText: Color(0xFFc8d8e8), // Light blue-white
   toolThinking: Color(0xFF0088ff), // Blue
   toolEdit: Color(0xFFff9d00), // Orange
   toolRead: Color(0xFF80ffbb), // Mint
   toolWrite: Color(0xFF3ad900), // Green
-  toolBash: Color(0xFF0d3a58), // Dark
+  toolBash: Color(0xFF5D8AA8), // Brightened from #0d3a58 for 3.4:1 contrast
   toolSearch: Color(0xFF0088ff), // Blue
   toolTodo: Color(0xFFffc600), // Yellow
   toolSubtask: Color(0xFF80ffbb), // Mint
   diffAdded: Color(0xFF3ad900),
   diffRemoved: Color(0xFFff628c),
-  diffContext: Color(0xFF0d3a58),
+  diffContext: Color(0xFF5D8AA8),
   diffHunkHeader: Color(0xFF0d3a58),
   diffHighlightAdded: Color(0xFF3ad900),
   diffHighlightRemoved: Color(0xFFff628c),
@@ -1572,7 +1572,7 @@ const nightowlDarkTheme = OpenCodeTheme(
   success: Color(0xFFc3e88d),
   info: Color(0xFF82AAFF),
   text: Color(0xFFd6deeb),
-  textMuted: Color(0xFF637777),
+  textMuted: Color(0xFF7B9090), // Brightened from #637777 for 4.7:1 contrast
   selectedListItemText: Color(0xFF011627),
   background: Color(0xFF011627),
   backgroundPanel: Color(0xFF0b2942),
@@ -1652,7 +1652,7 @@ const palenightDarkTheme = OpenCodeTheme(
   success: Color(0xFFc3e88d),
   info: Color(0xFF82aaff),
   text: Color(0xFFa6accd),
-  textMuted: Color(0xFF7c84a8),
+  textMuted: Color(0xFF8C94B8), // Brightened from #7c84a8 for 4.5:1 contrast
   selectedListItemText: Color(0xFF292d3e),
   background: Color(0xFF292d3e),
   backgroundPanel: Color(0xFF1b1e2b),
@@ -1674,12 +1674,12 @@ const palenightDarkTheme = OpenCodeTheme(
   // Card header theming - soft purple
   cardHeaderBg: Color(0xFF3b4158), // Palenight highlight
   cardHeaderBorder: Color(0xFF505575), // Purple-gray border
-  cardHeaderText: Color(0xFF9098b5), // Muted text
+  cardHeaderText: Color(0xFFA8B0CD), // Brightened from #9098b5 for 4.8:1 contrast
   toolThinking: Color(0xFF82aaff), // Blue
   toolEdit: Color(0xFFf78c6c), // Orange
   toolRead: Color(0xFF89ddff), // Cyan
   toolWrite: Color(0xFFc3e88d), // Green
-  toolBash: Color(0xFF676e95), // Gray
+  toolBash: Color(0xFF7F86AD), // Brightened from #676e95 for 3.2:1 contrast
   toolSearch: Color(0xFF82aaff), // Blue
   toolTodo: Color(0xFFffcb6b), // Yellow
   toolSubtask: Color(0xFF89ddff), // Cyan
@@ -1754,7 +1754,7 @@ const catppuccinFrappeDarkTheme = OpenCodeTheme(
   // Card header theming - muted pastel
   cardHeaderBg: Color(0xFF414559), // Frappe surface1
   cardHeaderBorder: Color(0xFF5a5e75), // Muted border
-  cardHeaderText: Color(0xFFa5adce), // Subtext0
+  cardHeaderText: Color(0xFFB5BDDE), // Brightened from #a5adce for 5.1:1 contrast
   toolThinking: Color(0xFF8da4e2), // Blue
   toolEdit: Color(0xFFef9f76), // Orange/Peach
   toolRead: Color(0xFF81c8be), // Teal
@@ -1892,7 +1892,7 @@ const materialDarkTheme = OpenCodeTheme(
   success: Color(0xFFc3e88d),
   info: Color(0xFFf78c6c),
   text: Color(0xFFeeffff),
-  textMuted: Color(0xFF6a8a94),
+  textMuted: Color(0xFF82A2AC), // Brightened from #6a8a94 for 4.8:1 contrast
   selectedListItemText: Color(0xFF263238),
   background: Color(0xFF263238),
   backgroundPanel: Color(0xFF1e272c),
@@ -1919,13 +1919,13 @@ const materialDarkTheme = OpenCodeTheme(
   toolEdit: Color(0xFFf78c6c), // Orange
   toolRead: Color(0xFF89ddff), // Cyan
   toolWrite: Color(0xFFc3e88d), // Green
-  toolBash: Color(0xFF546e7a), // Gray
+  toolBash: Color(0xFF6C8894), // Brightened from #546e7a for 3.2:1 contrast
   toolSearch: Color(0xFF82aaff), // Blue
   toolTodo: Color(0xFFffcb6b), // Yellow
   toolSubtask: Color(0xFF89ddff), // Cyan
   diffAdded: Color(0xFFc3e88d),
   diffRemoved: Color(0xFFf07178),
-  diffContext: Color(0xFF546e7a),
+  diffContext: Color(0xFF6C8894),
   diffHunkHeader: Color(0xFF89ddff),
   diffHighlightAdded: Color(0xFFc3e88d),
   diffHighlightRemoved: Color(0xFFf07178),
@@ -1972,7 +1972,7 @@ const everforestDarkTheme = OpenCodeTheme(
   success: Color(0xFFa7c080),
   info: Color(0xFF83c092),
   text: Color(0xFFd3c6aa),
-  textMuted: Color(0xFF7a8478),
+  textMuted: Color(0xFF96A494), // Brightened from #7a8478 for 4.8:1 contrast
   selectedListItemText: Color(0xFF2d353b),
   background: Color(0xFF2d353b),
   backgroundPanel: Color(0xFF333c43),
@@ -1994,7 +1994,7 @@ const everforestDarkTheme = OpenCodeTheme(
   // Card header theming - nature calm
   cardHeaderBg: Color(0xFF3d484d), // Everforest bg2
   cardHeaderBorder: Color(0xFF566560), // Green-gray border
-  cardHeaderText: Color(0xFFb0a890), // Warm muted text
+  cardHeaderText: Color(0xFFC8C0A8), // Brightened from #b0a890 for 4.7:1 contrast
   toolThinking: Color(0xFF7fbbb3), // Blue-green
   toolEdit: Color(0xFFe69875), // Orange
   toolRead: Color(0xFF7fbbb3), // Aqua
@@ -2052,7 +2052,7 @@ const kanagawaDarkTheme = OpenCodeTheme(
   success: Color(0xFF98BB6C),
   info: Color(0xFF76946A),
   text: Color(0xFFDCD7BA),
-  textMuted: Color(0xFF727169),
+  textMuted: Color(0xFF8A8979), // Brightened from #727169 for 4.5:1 contrast
   selectedListItemText: Color(0xFF1F1F28),
   background: Color(0xFF1F1F28),
   backgroundPanel: Color(0xFF2A2A37),
@@ -2132,7 +2132,7 @@ const zenburnDarkTheme = OpenCodeTheme(
   success: Color(0xFF7f9f7f),
   info: Color(0xFFdfaf8f),
   text: Color(0xFFdcdccc),
-  textMuted: Color(0xFF9f9f9f),
+  textMuted: Color(0xFFAFAFAF), // Brightened from #9f9f9f for 4.8:1 contrast
   selectedListItemText: Color(0xFF3f3f3f),
   background: Color(0xFF3f3f3f),
   backgroundPanel: Color(0xFF4f4f4f),
@@ -2154,7 +2154,7 @@ const zenburnDarkTheme = OpenCodeTheme(
   // Card header theming - low contrast
   cardHeaderBg: Color(0xFF5f5f5f), // Zenburn bg+1
   cardHeaderBorder: Color(0xFF707070), // Gray border
-  cardHeaderText: Color(0xFFc0c0b0), // Warm gray text
+  cardHeaderText: Color(0xFFE0E0D0), // Brightened from #c0c0b0 for 4.8:1 contrast
   toolThinking: Color(0xFF8cd0d3), // Cyan
   toolEdit: Color(0xFFdfaf8f), // Orange
   toolRead: Color(0xFF93e0e3), // Light cyan
@@ -2231,8 +2231,8 @@ const mercuryDarkTheme = OpenCodeTheme(
   borderSubtle: Color(0x14b4b7c8),
   cardBorderSubtle: Color(0x0Ab4b7c8),
   dividerSection: Color(0x1F9d9da8),
-  // Card header theming - clean purple
-  cardHeaderBg: Color(0xFF272735), // Mercury surface
+  // Card header theming - clean purple (raised higher)
+  cardHeaderBg: Color(0xFF353545), // Raised from #272735 for 1.4:1 step
   cardHeaderBorder: Color(0xFF3a3a4a), // Purple-gray border
   cardHeaderText: Color(0xFFc8c8d4), // Soft text
   toolThinking: Color(0xFF8da4f5), // Blue
@@ -2311,8 +2311,8 @@ const cursorDarkTheme = OpenCodeTheme(
   borderSubtle: Color(0xFF0f0f0f),
   cardBorderSubtle: Color(0x0Ae4e4e4),
   dividerSection: Color(0x1Fe4e4e4),
-  // Card header theming - Cursor inspired
-  cardHeaderBg: Color(0xFF262626), // Slightly elevated
+  // Card header theming - Cursor inspired (raised higher)
+  cardHeaderBg: Color(0xFF323232), // Raised from #262626 for 1.4:1 step
   cardHeaderBorder: Color(0xFF3a3a3a), // Subtle border
   cardHeaderText: Color(0xFFc0c0c0), // Muted white
   toolThinking: Color(0xFF81a1c1), // Blue
@@ -2372,7 +2372,7 @@ const ayuDarkTheme = OpenCodeTheme(
   success: Color(0xFF7FD962),
   info: Color(0xFF39BAE6),
   text: Color(0xFFBFBDB6),
-  textMuted: Color(0xFF6a7080),
+  textMuted: Color(0xFF7A8090), // Brightened from #6a7080 for 4.6:1 contrast
   selectedListItemText: Color(0xFF0B0E14),
   background: Color(0xFF0B0E14),
   backgroundPanel: Color(0xFF0F131A),
@@ -2391,15 +2391,15 @@ const ayuDarkTheme = OpenCodeTheme(
   borderSubtle: Color(0xFF11151C),
   cardBorderSubtle: Color(0x6611151C),
   dividerSection: Color(0x1F565B66),
-  // Card header theming - warm minimal
-  cardHeaderBg: Color(0xFF151920), // Ayu elevated
+  // Card header theming - warm minimal (raised higher)
+  cardHeaderBg: Color(0xFF252930), // Raised from #151920 for 1.4:1 step
   cardHeaderBorder: Color(0xFF2a3038), // Warm gray border
   cardHeaderText: Color(0xFF9098a5), // Muted text
   toolThinking: Color(0xFF59C2FF), // Blue
   toolEdit: Color(0xFFFFB454), // Orange
   toolRead: Color(0xFF39BAE6), // Cyan
   toolWrite: Color(0xFF7FD962), // Green
-  toolBash: Color(0xFF565B66), // Gray
+  toolBash: Color(0xFF6E7580), // Brightened from #565B66 for 3.3:1 contrast
   toolSearch: Color(0xFF59C2FF), // Blue
   toolTodo: Color(0xFFE6B673), // Yellow
   toolSubtask: Color(0xFF39BAE6), // Cyan
@@ -2471,8 +2471,8 @@ const orngDarkTheme = OpenCodeTheme(
   borderSubtle: Color(0xFF3c3c3c),
   cardBorderSubtle: Color(0x663c3c3c),
   dividerSection: Color(0x1F808080),
-  // Card header theming - bold orange accent
-  cardHeaderBg: Color(0xFF1a1a1a), // Slightly elevated
+  // Card header theming - bold orange accent (raised higher)
+  cardHeaderBg: Color(0xFF2A2A2A), // Raised from #1a1a1a for 1.4:1 step
   cardHeaderBorder: Color(0xFF403030), // Warm border
   cardHeaderText: Color(0xFFc0b0a0), // Warm muted text
   toolThinking: Color(0xFF56b6c2), // Cyan
@@ -2562,8 +2562,8 @@ const broskiDarkTheme = OpenCodeTheme(
   borderSubtle: Color(0xFF2E3644), // Subtle dividers
   cardBorderSubtle: Color(0x662E3644), // 40% of borderSubtle
   dividerSection: Color(0x1FA0A0A8), // 12% of textMuted
-  // Card header theming - premium navy/silver
-  cardHeaderBg: Color(0xFF283040), // Navy elevated step
+  // Card header theming - premium navy/silver (raised higher)
+  cardHeaderBg: Color(0xFF344050), // Raised from #283040 for 1.4:1 step
   cardHeaderBorder: Color(0xFF485060), // Navy-silver border
   cardHeaderText: Color(0xFFD0D0D4), // Platinum text
   // Tool colors - MUTED monochromatic with subtle differentiation
@@ -2647,9 +2647,9 @@ const lucentOrngDarkTheme = OpenCodeTheme(
   borderSubtle: Color(0xFF3c3c3c),
   cardBorderSubtle: Color(0x403c3c3c),
   dividerSection: Color(0x10808080),
-  // Card header theming - transparent orange
-  cardHeaderBg: Color(0x30ffffff), // Semi-transparent white
-  cardHeaderBorder: Color(0x40ffffff), // Visible border
+  // Card header theming - transparent orange (raised higher)
+  cardHeaderBg: Color(0x50ffffff), // Semi-transparent white (stronger for visibility)
+  cardHeaderBorder: Color(0x60ffffff), // Visible border
   cardHeaderText: Color(0xFFFFFFFF), // Pure white for visibility on transparent bg
   toolThinking: Color(0xFF56b6c2), // Cyan
   toolEdit: Color(0xFFEC5B2B), // Orange

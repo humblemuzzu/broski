@@ -69,6 +69,8 @@ class ClaudeCodeSession {
   final int updatedAt;
   final int? messageCount;
   final bool isBackground;
+  final bool hasSubagentActivity;
+  final String? subagentName;
 
   const ClaudeCodeSession({
     required this.id,
@@ -79,6 +81,8 @@ class ClaudeCodeSession {
     required this.updatedAt,
     this.messageCount,
     this.isBackground = false,
+    this.hasSubagentActivity = false,
+    this.subagentName,
   });
 
   factory ClaudeCodeSession.fromJson(Map<String, dynamic> json) {
@@ -91,6 +95,8 @@ class ClaudeCodeSession {
       updatedAt: json['updatedAt'] as int? ?? 0,
       messageCount: json['messageCount'] as int?,
       isBackground: json['isBackground'] as bool? ?? false,
+      hasSubagentActivity: json['hasSubagentActivity'] as bool? ?? false,
+      subagentName: json['subagentName'] as String?,
     );
   }
 
@@ -104,10 +110,14 @@ class ClaudeCodeSession {
       'updatedAt': updatedAt,
       if (messageCount != null) 'messageCount': messageCount,
       if (isBackground) 'isBackground': isBackground,
+      if (hasSubagentActivity) 'hasSubagentActivity': hasSubagentActivity,
+      if (subagentName != null) 'subagentName': subagentName,
     };
   }
 
   String get displayTitle => title ?? 'Session ${id.substring(0, 8)}';
+
+  bool get isSubagentSession => isBackground || hasSubagentActivity;
 
   DateTime get createdAtDateTime =>
       DateTime.fromMillisecondsSinceEpoch(createdAt);
@@ -853,27 +863,32 @@ class ClaudeCodeConfig {
       allowedTools: allowedTools ?? this.allowedTools,
       disallowedTools: disallowedTools ?? this.disallowedTools,
       model: clearModel ? null : (model ?? this.model),
-      systemPrompt:
-          clearSystemPrompt ? null : (systemPrompt ?? this.systemPrompt),
+      systemPrompt: clearSystemPrompt
+          ? null
+          : (systemPrompt ?? this.systemPrompt),
       maxTurns: clearMaxTurns ? null : (maxTurns ?? this.maxTurns),
-      maxBudgetUsd:
-          clearMaxBudgetUsd ? null : (maxBudgetUsd ?? this.maxBudgetUsd),
+      maxBudgetUsd: clearMaxBudgetUsd
+          ? null
+          : (maxBudgetUsd ?? this.maxBudgetUsd),
       betas: clearBetas ? null : (betas ?? this.betas),
       sandbox: clearSandbox ? null : (sandbox ?? this.sandbox),
-      outputFormat:
-          clearOutputFormat ? null : (outputFormat ?? this.outputFormat),
+      outputFormat: clearOutputFormat
+          ? null
+          : (outputFormat ?? this.outputFormat),
       enableAgentTeams: clearEnableAgentTeams
           ? null
           : (enableAgentTeams ?? this.enableAgentTeams),
       language: clearLanguage ? null : (language ?? this.language),
-      releaseChannel:
-          clearReleaseChannel ? null : (releaseChannel ?? this.releaseChannel),
+      releaseChannel: clearReleaseChannel
+          ? null
+          : (releaseChannel ?? this.releaseChannel),
       respectGitignore: clearRespectGitignore
           ? null
           : (respectGitignore ?? this.respectGitignore),
       subagents: subagents ?? this.subagents,
-      activeSubagent:
-          clearActiveSubagent ? null : (activeSubagent ?? this.activeSubagent),
+      activeSubagent: clearActiveSubagent
+          ? null
+          : (activeSubagent ?? this.activeSubagent),
     );
   }
 }

@@ -566,6 +566,9 @@ async function readSessionPreview(filePath: string, maxBytes: number = 200_000):
   model?: string
   title?: string
   slug?: string
+  isBackground?: boolean
+  hasSubagentActivity?: boolean
+  subagentName?: string
 }> {
   try {
     const preview = await Bun.file(filePath).slice(0, maxBytes).text()
@@ -575,6 +578,9 @@ async function readSessionPreview(filePath: string, maxBytes: number = 200_000):
     let model: string | undefined
     let title: string | undefined
     let slug: string | undefined
+    let isBackground = false
+    let hasSubagentActivity = false
+    let subagentName: string | undefined
 
     for (const line of lines) {
       const parsed = safeParseJsonLine(line) as ClaudeTranscriptLine | null
@@ -583,18 +589,46 @@ async function readSessionPreview(filePath: string, maxBytes: number = 200_000):
       if (!slug && typeof parsed.slug === 'string') slug = parsed.slug
       if (!model && typeof parsed.message?.model === 'string') model = parsed.message.model
 
+      const parentToolUseId = (parsed as any)?.parent_tool_use_id as string | undefined
+      if (parentToolUseId && parentToolUseId.length > 0) {
+        isBackground = true
+      }
+
+      const content = parsed.message?.content
+      if (Array.isArray(content)) {
+        for (const block of content) {
+          if (!block || typeof block !== 'object') continue
+          if ((block as any)?.type !== 'tool_use') continue
+          const toolName = (block as any)?.name as string | undefined
+          if (toolName !== 'Task') continue
+          const toolInput = (block as any)?.input as Record<string, unknown> | undefined
+          const rawSubagent = toolInput?.['subagent_type']
+          const taskSubagent = typeof rawSubagent === 'string'
+            ? rawSubagent.trim()
+            : ''
+          if (taskSubagent.length > 0) {
+            hasSubagentActivity = true
+            if (!subagentName) subagentName = taskSubagent
+          }
+        }
+      }
+
       if (!title && parsed.type === 'user' && parsed.message?.role === 'user' && parsed.isMeta !== true) {
         const maybeText = extractFirstTextContent(parsed.message?.content)
         if (maybeText && !isLikelyCommandEcho(maybeText)) {
           title = maybeText.trim().split('\n').find((l) => l.trim().length > 0)?.trim()
         }
       }
-
-      if (cwd && title && model) break
     }
 
     if (title && title.length > 80) title = `${title.slice(0, 77)}…`
-    return { cwd, model, title, slug }
+
+    const titleHint = (title || '').toLowerCase()
+    if (!isBackground) {
+      isBackground = titleHint.includes('subagent') || titleHint.includes('@agent') || titleHint.includes('background')
+    }
+
+    return { cwd, model, title, slug, isBackground, hasSubagentActivity, subagentName }
   } catch {
     return {}
   }
@@ -837,6 +871,9 @@ export async function listSessions(cwd?: string): Promise<ClaudeCodeSession[]> {
             model: preview.model,
             createdAt: fileStat.birthtime.getTime(),
             updatedAt: fileStat.mtime.getTime(),
+            isBackground: preview.isBackground,
+            hasSubagentActivity: preview.hasSubagentActivity,
+            subagentName: preview.subagentName,
           })
         }
       } catch {
@@ -866,6 +903,9 @@ export async function getSession(sessionId: string, cwd?: string): Promise<Claud
     model: preview.model,
     createdAt: fileStat?.birthtime?.getTime() ?? Date.now(),
     updatedAt: fileStat?.mtime?.getTime() ?? Date.now(),
+    isBackground: preview.isBackground,
+    hasSubagentActivity: preview.hasSubagentActivity,
+    subagentName: preview.subagentName,
   }
 }
 

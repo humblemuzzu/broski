@@ -1,4 +1,3 @@
-
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:url_launcher/url_launcher.dart';
@@ -46,11 +45,13 @@ import 'codex_agents_screen.dart';
 import 'scan_screen.dart';
 import 'voice_settings_screen.dart';
 import 'package:broski/theme/app_icons.dart';
+
 class SettingsScreen extends ConsumerStatefulWidget {
   const SettingsScreen({super.key});
   @override
   ConsumerState<SettingsScreen> createState() => _SettingsScreenState();
 }
+
 class _SettingsScreenState extends ConsumerState<SettingsScreen> {
   bool _powerFeaturesExpanded = false;
   @override
@@ -519,6 +520,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
       ),
     );
   }
+
   void _replayOnboarding(BuildContext context, WidgetRef ref) {
     showDialog(
       context: context,
@@ -544,6 +546,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
       ),
     );
   }
+
   void _showClearCacheDialog(BuildContext context, WidgetRef ref) {
     showDialog(
       context: context,
@@ -578,6 +581,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
     );
   }
 }
+
 class _PowerFeaturesTile extends StatelessWidget {
   const _PowerFeaturesTile({
     required this.currentAgent,
@@ -598,11 +602,7 @@ class _PowerFeaturesTile extends StatelessWidget {
         padding: Insets.card,
         child: Row(
           children: [
-            Icon(
-              AppIcons.bolt,
-              color: theme.colorScheme.primary,
-              size: 22,
-            ),
+            Icon(AppIcons.bolt, color: theme.colorScheme.primary, size: 22),
             SizedBox(width: Spacing.md),
             Expanded(
               child: Column(
@@ -666,6 +666,7 @@ class _PowerFeaturesTile extends StatelessWidget {
       ),
     );
   }
+
   int _getFeatureCount(AgentType agent) {
     switch (agent) {
       case AgentType.opencode:
@@ -677,6 +678,7 @@ class _PowerFeaturesTile extends StatelessWidget {
     }
   }
 }
+
 class _PowerFeaturesExpandedCard extends StatelessWidget {
   const _PowerFeaturesExpandedCard({required this.currentAgent});
   final AgentType currentAgent;
@@ -954,6 +956,7 @@ class _PowerFeaturesExpandedCard extends StatelessWidget {
         ];
     }
   }
+
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
@@ -974,6 +977,7 @@ class _PowerFeaturesExpandedCard extends StatelessWidget {
     );
   }
 }
+
 class SectionHeader extends StatelessWidget {
   const SectionHeader({super.key, required this.title});
   final String title;
@@ -994,6 +998,7 @@ class SectionHeader extends StatelessWidget {
     );
   }
 }
+
 class _SectionDivider extends StatelessWidget {
   const _SectionDivider();
   @override
@@ -1014,6 +1019,7 @@ class _SectionDivider extends StatelessWidget {
     );
   }
 }
+
 class _ProjectPickerContent extends ConsumerStatefulWidget {
   const _ProjectPickerContent({required this.onSelect});
   final void Function(ProjectSummary) onSelect;
@@ -1021,6 +1027,7 @@ class _ProjectPickerContent extends ConsumerStatefulWidget {
   ConsumerState<_ProjectPickerContent> createState() =>
       _ProjectPickerContentState();
 }
+
 class _ProjectPickerContentState extends ConsumerState<_ProjectPickerContent> {
   final TextEditingController _search = TextEditingController();
   List<ProjectSummary> _projects = const [];
@@ -1034,11 +1041,13 @@ class _ProjectPickerContentState extends ConsumerState<_ProjectPickerContent> {
     });
     _load();
   }
+
   @override
   void dispose() {
     _search.dispose();
     super.dispose();
   }
+
   Future<void> _load() async {
     setState(() {
       _loading = true;
@@ -1090,6 +1099,7 @@ class _ProjectPickerContentState extends ConsumerState<_ProjectPickerContent> {
       }
     }
   }
+
   List<ProjectSummary> get _filtered {
     final q = _search.text.trim().toLowerCase();
     if (q.isEmpty) return _projects;
@@ -1101,6 +1111,7 @@ class _ProjectPickerContentState extends ConsumerState<_ProjectPickerContent> {
         )
         .toList(growable: false);
   }
+
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
@@ -1153,6 +1164,7 @@ class _ProjectPickerContentState extends ConsumerState<_ProjectPickerContent> {
     );
   }
 }
+
 class _ActiveConnectionCard extends ConsumerStatefulWidget {
   const _ActiveConnectionCard({required this.connection});
   final BridgeConnectionState connection;
@@ -1160,6 +1172,7 @@ class _ActiveConnectionCard extends ConsumerStatefulWidget {
   ConsumerState<_ActiveConnectionCard> createState() =>
       _ActiveConnectionCardState();
 }
+
 class _ActiveConnectionCardState extends ConsumerState<_ActiveConnectionCard> {
   bool _isExpanded = false;
   @override
@@ -1200,7 +1213,7 @@ class _ActiveConnectionCardState extends ConsumerState<_ActiveConnectionCard> {
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       Text(
-                        'OpenCode Bridge',
+                        'Broski',
                         style: TextStyle(
                           color: theme.colorScheme.onSurface,
                           fontSize: 18,
@@ -1339,6 +1352,7 @@ class _ActiveConnectionCardState extends ConsumerState<_ActiveConnectionCard> {
     );
   }
 }
+
 /// Compact action button for connection card expanded section
 class _ConnectionActionButton extends StatelessWidget {
   const _ConnectionActionButton({
@@ -1385,6 +1399,7 @@ class _ConnectionActionButton extends StatelessWidget {
     );
   }
 }
+
 class _ConnectionStat extends StatelessWidget {
   const _ConnectionStat({
     required this.label,
@@ -1424,6 +1439,7 @@ class _ConnectionStat extends StatelessWidget {
     );
   }
 }
+
 class _SettingsCard extends StatelessWidget {
   const _SettingsCard({required this.child, this.decoration});
   final Widget child;
@@ -1444,6 +1460,7 @@ class _SettingsCard extends StatelessWidget {
     );
   }
 }
+
 class _SettingsTile extends StatelessWidget {
   const _SettingsTile({
     required this.title,
@@ -1504,6 +1521,7 @@ class _SettingsTile extends StatelessWidget {
     );
   }
 }
+
 class _LinkTile extends StatelessWidget {
   const _LinkTile({required this.title, required this.icon, required this.url});
   final String title;
@@ -1547,6 +1565,7 @@ class _LinkTile extends StatelessWidget {
     );
   }
 }
+
 class _Divider extends StatelessWidget {
   const _Divider();
   @override
