@@ -11,6 +11,7 @@ import * as codexFs from './connectors/codex-fs'
 import * as fileSearch from './file-search'
 import { CodexAppServerClient, checkCodexAvailable } from './connectors/codex'
 import { handleCodexFeature } from './handlers/codex_features'
+import { handleGitFeature } from './handlers/git'
 import { PtyManager } from './pty/manager'
 import { PtyRuntime } from './pty/runtime'
 import { headTailTruncate } from './utils'
@@ -5419,60 +5420,34 @@ export async function createBridgeServer(options: BridgeServerOptions): Promise<
           reply({ type: 'file_status', data: fileStatus })
           break
         }
-        case 'git_diff': {
-          const projectPath = safeString(message.projectPath).trim()
-          if (!projectPath) {
-            reply({ type: 'error', message: 'Missing projectPath' })
-            break
-          }
-          const secureCwd = await getSecurePath(projectPath)
-          if (!secureCwd) {
-            reply({ type: 'error', message: 'Access denied' })
-            break
-          }
-
-          const rawPath = safeString((message as any).path).trim()
-          const staged = Boolean((message as any).staged)
-
-          const isSafePathSpec = (p: string) => {
-            if (!p) return true
-            if (p.startsWith('-')) return false
-            if (p.includes('\u0000')) return false
-            // Disallow traversal and absolute paths.
-            if (p.startsWith('/') || p.startsWith('~')) return false
-            if (p.split(/[\\/]+/).includes('..')) return false
-            return true
-          }
-
-          if (rawPath && !isSafePathSpec(rawPath)) {
-            reply({ type: 'error', message: 'Invalid path' })
-            break
-          }
-
-          const args: string[] = ['diff']
-          if (staged) args.push('--staged')
-          args.push('--')
-          if (rawPath) args.push(rawPath)
-
-          const proc = Bun.spawn(['git', ...args], {
-            cwd: secureCwd,
-            stdout: 'pipe',
-            stderr: 'pipe',
+        case 'git_diff':
+        case 'git_status':
+        case 'git_log':
+        case 'git_branches':
+        case 'git_stage':
+        case 'git_unstage':
+        case 'git_revert_file':
+        case 'git_commit':
+        case 'git_push':
+        case 'git_pull':
+        case 'git_fetch':
+        case 'git_checkout':
+        case 'git_create_branch':
+        case 'git_stash':
+        case 'git_stash_pop':
+        case 'git_commit_diff':
+        case 'github_remote':
+        case 'github_issues':
+        case 'github_prs':
+        case 'github_pr_diff':
+        case 'github_pr_comments': {
+          const handled = await handleGitFeature(message, reply, {
+            getSecurePath,
+            safeString,
           })
-          const [stdout, stderr] = await Promise.all([
-            new Response(proc.stdout).text(),
-            new Response(proc.stderr).text(),
-          ])
-          const exitCode = await proc.exited
-          if (exitCode !== 0 && stderr.trim()) {
-            reply({ type: 'error', message: stderr.trim().slice(0, 5000) })
-            break
+          if (!handled) {
+            reply({ type: 'error', message: `Unhandled Git feature: ${message.type}` })
           }
-          reply({
-            type: 'git_diff',
-            data: { path: rawPath || undefined, diff: stdout, staged },
-            requestId: message.requestId,
-          })
           break
         }
         // Feature 19: Formatter Status

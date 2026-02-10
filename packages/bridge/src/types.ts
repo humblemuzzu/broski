@@ -182,6 +182,28 @@ export type ClientMessage =
   | { type: 'get_file_status'; projectPath?: string }
   // Feature 18b: Git diff (working tree / staged)
   | { type: 'git_diff'; projectPath: string; path?: string; staged?: boolean }
+  // Git foundation
+  | { type: 'git_status'; projectPath: string }
+  | { type: 'git_log'; projectPath: string; limit?: number }
+  | { type: 'git_branches'; projectPath: string }
+  | { type: 'git_stage'; projectPath: string; path?: string }
+  | { type: 'git_unstage'; projectPath: string; path?: string }
+  | { type: 'git_revert_file'; projectPath: string; path: string }
+  | { type: 'git_commit'; projectPath: string; message: string }
+  | { type: 'git_push'; projectPath: string; force?: boolean }
+  | { type: 'git_pull'; projectPath: string; rebase?: boolean }
+  | { type: 'git_fetch'; projectPath: string }
+  | { type: 'git_checkout'; projectPath: string; branch: string }
+  | { type: 'git_create_branch'; projectPath: string; name: string; startPoint?: string }
+  | { type: 'git_stash'; projectPath: string }
+  | { type: 'git_stash_pop'; projectPath: string }
+  | { type: 'git_commit_diff'; projectPath: string; hash: string }
+  // GitHub integration
+  | { type: 'github_remote'; projectPath: string }
+  | { type: 'github_issues'; projectPath: string; state?: 'open' | 'closed' | 'all' }
+  | { type: 'github_prs'; projectPath: string; state?: 'open' | 'closed' | 'all' }
+  | { type: 'github_pr_diff'; projectPath: string; prNumber: number }
+  | { type: 'github_pr_comments'; projectPath: string; prNumber: number }
   // Feature 19: Formatter Status
   | { type: 'get_formatter_status'; projectPath?: string }
   // Feature 20: Session Init
@@ -560,6 +582,28 @@ export type ServerMessage =
   // Feature 18: File Status (Git)
   | { type: 'file_status'; data: FileStatusInfo[]; requestId?: string }
   | { type: 'git_diff'; data: { path?: string; diff: string; staged?: boolean }; requestId?: string }
+  // Git foundation
+  | { type: 'git_status_result'; data: GitStatusResult; requestId?: string }
+  | { type: 'git_log_result'; data: GitLogEntry[]; requestId?: string }
+  | { type: 'git_branches_result'; data: GitBranch[]; requestId?: string }
+  | { type: 'git_staged'; data: { ok: boolean }; requestId?: string }
+  | { type: 'git_unstaged'; data: { ok: boolean }; requestId?: string }
+  | { type: 'git_reverted'; data: { ok: boolean }; requestId?: string }
+  | { type: 'git_committed'; data: { hash: string; subject: string }; requestId?: string }
+  | { type: 'git_pushed'; data: { ok: boolean }; requestId?: string }
+  | { type: 'git_pulled'; data: { ok: boolean }; requestId?: string }
+  | { type: 'git_fetched'; data: { ok: boolean }; requestId?: string }
+  | { type: 'git_checked_out'; data: { branch: string }; requestId?: string }
+  | { type: 'git_branch_created'; data: { name: string }; requestId?: string }
+  | { type: 'git_stashed'; data: { ok: boolean }; requestId?: string }
+  | { type: 'git_stash_popped'; data: { ok: boolean }; requestId?: string }
+  | { type: 'git_commit_diff_result'; data: string; requestId?: string }
+  // GitHub integration
+  | { type: 'github_remote_result'; data: GitHubRemote | null; requestId?: string }
+  | { type: 'github_issues_result'; data: GitHubIssue[]; requestId?: string }
+  | { type: 'github_prs_result'; data: GitHubPR[]; requestId?: string }
+  | { type: 'github_pr_diff_result'; data: string; requestId?: string }
+  | { type: 'github_pr_comments_result'; data: GitHubComment[]; requestId?: string }
   // Feature 19: Formatter Status
   | { type: 'formatter_status'; data: FormatterInfo[]; requestId?: string }
   // Feature 20: Session Init
@@ -808,6 +852,84 @@ export type FileStatusInfo = {
   added: number
   removed: number
   status: 'modified' | 'added' | 'deleted'
+}
+
+export type GitChangeStatus =
+  | 'modified'
+  | 'added'
+  | 'deleted'
+  | 'renamed'
+  | 'copied'
+
+export type GitFileChange = {
+  path: string
+  status: GitChangeStatus
+  oldPath?: string
+  additions?: number
+  deletions?: number
+}
+
+export type GitStatusResult = {
+  branch: string
+  upstream: string | null
+  ahead: number
+  behind: number
+  staged: GitFileChange[]
+  unstaged: GitFileChange[]
+  untracked: string[]
+}
+
+export type GitLogEntry = {
+  hash: string
+  shortHash: string
+  author: string
+  email: string
+  timestamp: number
+  subject: string
+}
+
+export type GitBranch = {
+  name: string
+  upstream: string | null
+  tracking: string | null
+  isCurrent: boolean
+  isRemote: boolean
+}
+
+export type GitHubRemote = {
+  owner: string
+  repo: string
+  host: string
+}
+
+export type GitHubIssue = {
+  number: number
+  title: string
+  state: string
+  author: string
+  createdAt: string
+  labels: string[]
+  body?: string
+}
+
+export type GitHubPR = {
+  number: number
+  title: string
+  state: string
+  author: string
+  headBranch: string
+  baseBranch: string
+  createdAt: string
+  isDraft: boolean
+  isMerged: boolean
+}
+
+export type GitHubComment = {
+  author: string
+  body: string
+  path?: string
+  line?: number
+  createdAt: string
 }
 
 // Feature 19: Formatter Info

@@ -23,6 +23,7 @@ import 'device_manager_screen.dart';
 import 'mcp_servers_screen.dart';
 
 import 'sheets/cx_apps_sheet.dart';
+import 'sheets/git_panel_sheet.dart';
 import 'subscription_usage_screen.dart';
 import 'subagents_screen.dart';
 import 'terminal_screen.dart';
@@ -258,6 +259,30 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                           ref
                               .read(selectionProvider.notifier)
                               .selectProject(picked);
+                        },
+                      ),
+                      _Divider(),
+                      _SettingsTile(
+                        title: 'Git & GitHub',
+                        subtitle: selection.project == null
+                            ? 'Select a project first'
+                            : 'Status, commits, branches, PRs, issues',
+                        icon: Icons.source_rounded,
+                        onTap: () async {
+                          final selected = selection.project;
+                          if (selected == null) {
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              const SnackBar(
+                                content: Text('Select a project first'),
+                              ),
+                            );
+                            return;
+                          }
+                          await GitPanelSheet.show(
+                            context: context,
+                            projectPath: selected.path,
+                            projectName: selected.name,
+                          );
                         },
                       ),
                     ],
