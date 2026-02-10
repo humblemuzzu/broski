@@ -432,24 +432,39 @@ class _GitPanelSheetState extends ConsumerState<GitPanelSheet> {
   }
 
   Widget _buildPrimaryActions(OpenCodeTheme theme, bool hasStatus) {
+    // Check if there are unstaged/untracked files but nothing staged
+    final status = hasStatus ? ref.read(gitStatusProvider(widget.projectPath)).value : null;
+    final hasUnstagedChanges = status != null &&
+        (status.unstaged.isNotEmpty || status.untracked.isNotEmpty);
+    final hasStagedChanges = status != null && status.staged.isNotEmpty;
+    final hasAnyChanges = hasUnstagedChanges || hasStagedChanges;
+
     return Row(
       children: [
         Expanded(
           flex: 2,
           child: FilledButton.icon(
-            onPressed: _busy || !hasStatus
+            onPressed: _busy || !hasStatus || !hasAnyChanges
                 ? null
                 : () async {
                     await GitCommitSheet.show(
                       context: context,
                       onCommit: (message) async {
+                        // Auto-stage everything if nothing is staged
+                        if (!hasStagedChanges && hasUnstagedChanges) {
+                          await _notifier.stage();
+                        }
                         await _notifier.commit(message);
                         _showInfo('Committed successfully');
                       },
                     );
                   },
             icon: const Icon(Icons.check_rounded, size: 18),
-            label: const Text('Commit'),
+            label: Text(
+              !hasStagedChanges && hasUnstagedChanges
+                  ? 'Stage All & Commit'
+                  : 'Commit',
+            ),
           ),
         ),
         const SizedBox(width: 8),
@@ -457,7 +472,10 @@ class _GitPanelSheetState extends ConsumerState<GitPanelSheet> {
           child: OutlinedButton(
             onPressed: _busy || !hasStatus
                 ? null
-                : () => _runAction(() => _notifier.push()),
+                : () => _runAction(() async {
+                      await _notifier.push();
+                      _showInfo('Pushed successfully');
+                    }),
             child: const Text('Push ↑'),
           ),
         ),
@@ -466,7 +484,10 @@ class _GitPanelSheetState extends ConsumerState<GitPanelSheet> {
           child: OutlinedButton(
             onPressed: _busy || !hasStatus
                 ? null
-                : () => _runAction(() => _notifier.pull()),
+                : () => _runAction(() async {
+                      await _notifier.pull();
+                      _showInfo('Pulled successfully');
+                    }),
             child: const Text('Pull ↓'),
           ),
         ),

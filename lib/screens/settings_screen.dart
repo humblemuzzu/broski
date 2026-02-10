@@ -818,6 +818,16 @@ class _PowerFeaturesExpandedCard extends StatelessWidget {
           ),
           _Divider(),
           _SettingsTile(
+            title: 'Terminal Sessions',
+            subtitle: 'PTY terminal sessions',
+            icon: Icons.terminal_rounded,
+            onTap: () => Navigator.push(
+              context,
+              MaterialPageRoute(builder: (_) => const TerminalScreen()),
+            ),
+          ),
+          _Divider(),
+          _SettingsTile(
             title: 'Settings',
             subtitle: 'Language, gitignore, channel',
             icon: Icons.tune_rounded,
@@ -916,6 +926,16 @@ class _PowerFeaturesExpandedCard extends StatelessWidget {
               MaterialPageRoute(
                 builder: (_) => const SubscriptionUsageScreen(),
               ),
+            ),
+          ),
+          _Divider(),
+          _SettingsTile(
+            title: 'Terminal Sessions',
+            subtitle: 'PTY terminal sessions',
+            icon: Icons.terminal_rounded,
+            onTap: () => Navigator.push(
+              context,
+              MaterialPageRoute(builder: (_) => const TerminalScreen()),
             ),
           ),
           _Divider(),

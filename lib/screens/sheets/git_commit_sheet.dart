@@ -63,6 +63,23 @@ class _GitCommitSheetState extends State<GitCommitSheet> {
       await widget.onCommit(msg);
       if (!mounted) return;
       Navigator.pop(context);
+    } catch (e) {
+      if (!mounted) return;
+      String errorMsg = e.toString();
+      // Make common git errors more user-friendly
+      if (errorMsg.contains('nothing to commit') ||
+          errorMsg.contains('no changes added') ||
+          errorMsg.contains('Changes not staged')) {
+        errorMsg =
+            'No files are staged for commit.\n\nGo back and tap files to stage them first, or use "Stage all".';
+      }
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(errorMsg),
+          duration: const Duration(seconds: 5),
+          backgroundColor: Colors.red.shade700,
+        ),
+      );
     } finally {
       if (mounted) setState(() => _saving = false);
     }
