@@ -326,6 +326,7 @@ export type ClientMessage =
   | { type: 'cx_get_skill'; name: string; scope: 'Repo' | 'User' | 'System' | 'Admin'; cwd?: string }
   | { type: 'cx_save_skill'; name: string; scope: 'Repo' | 'User'; content: string; cwd?: string }
   | { type: 'cx_delete_skill'; name: string; scope: 'Repo' | 'User'; cwd?: string }
+  | { type: 'cx_list_prompts'; cwd?: string }
   | { type: 'cx_config_read' }
   | { type: 'cx_config_value_write'; keyPath: string; value: any; mergeStrategy?: string }
   | { type: 'cx_mcp_status_list'; cursor?: string | null; limit?: number | null }
@@ -659,6 +660,7 @@ export type ServerMessage =
   | { type: 'cx_skill'; data: { name: string; path: string; scope: 'Repo' | 'User' | 'System' | 'Admin'; content: string }; requestId?: string }
   | { type: 'cx_skill_saved'; data: { ok: boolean; path?: string }; requestId?: string }
   | { type: 'cx_skill_deleted'; data: { ok: boolean }; requestId?: string }
+  | { type: 'cx_prompts'; data: CodexPrompt[]; requestId?: string }
   | { type: 'cx_config'; data: any; requestId?: string }
   | { type: 'cx_config_written'; data: any; requestId?: string }
   | { type: 'cx_mcp_status'; data: any; nextCursor?: string | null; requestId?: string }
@@ -1322,6 +1324,15 @@ export type ClaudeCodeTranscriptMessage = {
 // ============================================================================
 // CODEX (OpenAI Codex app-server) TYPES
 // ============================================================================
+
+export type CodexPrompt = {
+  name: string
+  description?: string
+  argumentHint?: string
+  content: string
+  path: string
+  source: 'project' | 'user'
+}
 
 export type CodexThread = {
   id: string

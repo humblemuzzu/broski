@@ -3291,6 +3291,24 @@ class BridgeService {
     return data['ok'] == true;
   }
 
+  Future<List<CodexPrompt>> cxListPrompts({String? cwd}) async {
+    final requestId = _generateRequestId();
+    _socket.send({
+      'type': 'cx_list_prompts',
+      'requestId': requestId,
+      if (cwd != null) 'cwd': cwd,
+    });
+    final response = await _waitFor(
+      'cx_prompts',
+      requestId: requestId,
+      timeoutSeconds: _codexTimeoutSeconds,
+    );
+    final data = response['data'] as List<dynamic>? ?? [];
+    return data
+        .map((item) => CodexPrompt.fromJson(item as Map<String, dynamic>))
+        .toList();
+  }
+
   Future<Map<String, dynamic>> cxReadConfig() async {
     final requestId = _generateRequestId();
     _socket.send({'type': 'cx_config_read', 'requestId': requestId});

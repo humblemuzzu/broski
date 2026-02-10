@@ -30,6 +30,22 @@ const CLAUDE_SETTINGS_FILE = join(homedir(), '.claude', 'settings.json')
 const BROSKI_DIR = join(homedir(), '.broski')
 const CC_CONFIG_FILE = join(BROSKI_DIR, 'claude-code-config.json')
 
+/**
+ * Classify a .claude/ subdirectory as 'project' or 'user' scope.
+ *
+ * The old check `dir.startsWith(homedir())` was wrong because *every* path on
+ * macOS/Linux starts with the home directory — even project paths.
+ *
+ * The correct logic: a directory is 'user' scoped if and only if it lives
+ * directly under `~/.claude/<feature>/` (the user-level config root).
+ * Everything else (including `<project>/.claude/<feature>/`) is 'project'.
+ */
+function classifySource(dir: string, feature: string): 'project' | 'user' {
+  const userDir = join(homedir(), '.claude', feature)
+  // Exact match or direct child — this IS the user-scope directory.
+  return dir === userDir ? 'user' : 'project'
+}
+
 type ActiveSession = {
   controller: AbortController
   cwd: string
@@ -1130,7 +1146,7 @@ export async function listSkills(cwd?: string): Promise<ClaudeCodeSkill[]> {
   searchDirs.push(join(homedir(), '.claude', 'skills'))
 
   for (const dir of searchDirs) {
-    const source: 'project' | 'user' = dir.startsWith(homedir()) ? 'user' : 'project'
+    const source = classifySource(dir, 'skills')
     try {
       const entries = await readdir(dir, { withFileTypes: true })
       for (const entry of entries) {
@@ -1265,13 +1281,37 @@ export async function listHooks(cwd?: string): Promise<ClaudeCodeHook[]> {
   }
 
   for (const dir of searchDirs) {
-    const source: 'project' | 'user' = dir.startsWith(homedir()) ? 'user' : 'project'
+    const source = classifySource(dir, 'hooks')
     try {
       const hooksJsonPath = join(dir, 'hooks.json')
       const content = await readFile(hooksJsonPath, 'utf-8')
       parseHooksJson(hooksJsonPath, source, content)
     } catch {
       continue
+    }
+  }
+
+  // Also read hooks from settings.json files.
+  // Claude Code CLI stores hooks in settings.json under the "hooks" key (the
+  // standard approach).  The standalone hooks.json file is an alternative that
+  // some projects and plugins use.  We read both so the Broski UI surfaces
+  // hooks regardless of which convention the project follows.
+  const settingsFiles: Array<{ path: string; source: 'project' | 'user' }> = []
+  if (cwd) {
+    settingsFiles.push({ path: join(cwd, '.claude', 'settings.json'), source: 'project' })
+  }
+  settingsFiles.push({ path: join(homedir(), '.claude', 'settings.json'), source: 'user' })
+
+  for (const { path: settingsPath, source } of settingsFiles) {
+    try {
+      const raw = await readFile(settingsPath, 'utf-8')
+      const parsed = JSON.parse(raw) as Record<string, unknown>
+      if (parsed.hooks && typeof parsed.hooks === 'object' && !Array.isArray(parsed.hooks)) {
+        // Wrap in the same shape as hooks.json so parseHooksJson can handle it.
+        parseHooksJson(settingsPath, source, JSON.stringify({ hooks: parsed.hooks }))
+      }
+    } catch {
+      // settings.json missing or unreadable — fine.
     }
   }
 
@@ -1344,7 +1384,7 @@ export async function listCommands(cwd?: string): Promise<ClaudeCodeCommand[]> {
   searchDirs.push(join(homedir(), '.claude', 'commands'))
 
   for (const dir of searchDirs) {
-    const source: 'project' | 'user' = dir.startsWith(homedir()) ? 'user' : 'project'
+    const source = classifySource(dir, 'commands')
     await scanCommandsRecursive(dir, dir, source, commands)
   }
 
@@ -1477,7 +1517,7 @@ export async function listAgents(cwd?: string): Promise<ClaudeCodeFilesystemAgen
   searchDirs.push(join(homedir(), '.claude', 'agents'))
 
   for (const dir of searchDirs) {
-    const source: 'project' | 'user' = dir.startsWith(homedir()) ? 'user' : 'project'
+    const source = classifySource(dir, 'agents')
     try {
       const entries = await readdir(dir, { withFileTypes: true })
       for (const entry of entries) {

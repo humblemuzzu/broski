@@ -1,3 +1,50 @@
+/// A custom prompt from `.codex/prompts/` (project) or `$CODEX_HOME/prompts/` (user).
+///
+/// These are Markdown files with optional YAML frontmatter (description, argument-hint).
+class CodexPrompt {
+  final String name;
+  final String? description;
+  final String? argumentHint;
+  final String content;
+  final String path;
+  final String source; // 'project' or 'user'
+
+  const CodexPrompt({
+    required this.name,
+    this.description,
+    this.argumentHint,
+    required this.content,
+    required this.path,
+    required this.source,
+  });
+
+  factory CodexPrompt.fromJson(Map<String, dynamic> json) {
+    return CodexPrompt(
+      name: json['name'] as String? ?? '',
+      description: json['description'] as String?,
+      argumentHint: json['argumentHint'] as String?,
+      content: json['content'] as String? ?? '',
+      path: json['path'] as String? ?? '',
+      source: json['source'] as String? ?? 'project',
+    );
+  }
+
+  Map<String, dynamic> toJson() => {
+    'name': name,
+    if (description != null) 'description': description,
+    if (argumentHint != null) 'argumentHint': argumentHint,
+    'content': content,
+    'path': path,
+    'source': source,
+  };
+
+  bool get isProject => source == 'project';
+
+  bool get isUser => source == 'user';
+
+  String get displayName => '/$name';
+}
+
 /// A model returned by the Codex `model/list` JSON-RPC endpoint.
 ///
 /// Mirrors the SDK `Model` type from `app-server-protocol/schema/typescript/v2/Model.ts`.
@@ -29,18 +76,19 @@ class CodexModel {
       id: json['id'] as String? ?? json['model'] as String? ?? '',
       model: json['model'] as String? ?? json['id'] as String? ?? '',
       upgrade: json['upgrade'] as String?,
-      displayName: json['displayName'] as String? ?? json['model'] as String? ?? '',
+      displayName:
+          json['displayName'] as String? ?? json['model'] as String? ?? '',
       description: json['description'] as String? ?? '',
       isDefault: json['isDefault'] as bool? ?? false,
       supportsPersonality: json['supportsPersonality'] as bool? ?? false,
-      supportedReasoningEfforts: (json['supportedReasoningEfforts'] as List<dynamic>?)
-              ?.map((e) {
-                if (e is Map<String, dynamic>) return e['effort'] as String? ?? '';
-                return e.toString();
-              })
-              .toList() ??
+      supportedReasoningEfforts:
+          (json['supportedReasoningEfforts'] as List<dynamic>?)?.map((e) {
+            if (e is Map<String, dynamic>) return e['effort'] as String? ?? '';
+            return e.toString();
+          }).toList() ??
           const [],
-      defaultReasoningEffort: json['defaultReasoningEffort'] as String? ?? 'medium',
+      defaultReasoningEffort:
+          json['defaultReasoningEffort'] as String? ?? 'medium',
     );
   }
 }
@@ -287,9 +335,7 @@ class CodexSettings {
       collaborationMode: CodexCollaborationMode.fromString(
         json['collaborationMode'] as String?,
       ),
-      personality: CodexPersonality.fromString(
-        json['personality'] as String?,
-      ),
+      personality: CodexPersonality.fromString(json['personality'] as String?),
     );
   }
 
@@ -366,12 +412,11 @@ class CodexThread {
   }
 
   /// Display title: prefer threadName, then preview, then truncated ID.
-  String get displayTitle =>
-      (threadName ?? '').trim().isNotEmpty
-          ? threadName!
-          : preview.trim().isNotEmpty
-              ? preview
-              : 'Thread ${id.substring(0, 8)}';
+  String get displayTitle => (threadName ?? '').trim().isNotEmpty
+      ? threadName!
+      : preview.trim().isNotEmpty
+      ? preview
+      : 'Thread ${id.substring(0, 8)}';
 
   DateTime get createdAtDateTime =>
       DateTime.fromMillisecondsSinceEpoch(createdAt * 1000);

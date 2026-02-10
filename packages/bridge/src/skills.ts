@@ -228,6 +228,77 @@ export async function listCodexRepoSkills(cwd?: string): Promise<SkillListEntry[
   return await listSkillsInRoot(root, 'project')
 }
 
+// ============================================================================
+// Codex Custom Prompts (.codex/prompts + $CODEX_HOME/prompts)
+// ============================================================================
+
+export type CodexPrompt = {
+  name: string
+  description?: string
+  argumentHint?: string
+  content: string
+  path: string
+  source: 'project' | 'user'
+}
+
+function parsePromptFrontmatter(content: string): { description?: string; argumentHint?: string } {
+  const frontmatterMatch = content.match(/^---\n([\s\S]*?)\n---/)
+  if (!frontmatterMatch) return {}
+  const fm = frontmatterMatch[1]
+  const descMatch = fm.match(/(?:^|\n)description:\s*"?(.+?)"?\s*$/m)
+  const hintMatch = fm.match(/(?:^|\n)argument-hint:\s*"?(.+?)"?\s*$/m)
+  return {
+    description: descMatch?.[1]?.trim() || undefined,
+    argumentHint: hintMatch?.[1]?.trim() || undefined,
+  }
+}
+
+/**
+ * List Codex custom prompts from .codex/prompts/ (project) and $CODEX_HOME/prompts/ (user).
+ * These are .md files with optional YAML frontmatter (description, argument-hint).
+ */
+export async function listCodexPrompts(cwd?: string): Promise<CodexPrompt[]> {
+  const prompts: CodexPrompt[] = []
+
+  const scanDir = async (dir: string, source: 'project' | 'user') => {
+    try {
+      const entries = await readdir(dir, { withFileTypes: true })
+      for (const entry of entries) {
+        if (!entry.isFile()) continue
+        if (!entry.name.endsWith('.md')) continue
+        if (entry.name.startsWith('.')) continue
+
+        const filePath = join(dir, entry.name)
+        const name = entry.name.replace(/\.md$/, '')
+
+        // Validate name
+        if (!name || name === '.' || name === '..') continue
+
+        try {
+          const content = await readFile(filePath, 'utf-8')
+          const { description, argumentHint } = parsePromptFrontmatter(content)
+          prompts.push({ name, description, argumentHint, content, path: filePath, source })
+        } catch {
+          prompts.push({ name, content: '', path: filePath, source })
+        }
+      }
+    } catch {
+      // Directory doesn't exist — fine
+    }
+  }
+
+  // Project-level prompts
+  if (cwd) {
+    await scanDir(join(cwd, '.codex', 'prompts'), 'project')
+  }
+
+  // User-level prompts ($CODEX_HOME/prompts)
+  await scanDir(join(codexHomeDir(), 'prompts'), 'user')
+
+  prompts.sort((a, b) => a.name.localeCompare(b.name))
+  return prompts
+}
+
 export async function readSkillFile(skillPath: string): Promise<string> {
   return await readFile(skillPath, 'utf-8')
 }
