@@ -4,6 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../providers/app_subscription_provider.dart';
 import '../screens/paywall_screen.dart';
+import '../theme/design_tokens.dart';
 import '../theme/opencode_theme.dart';
 
 /// Overlay widget that shows "Upgrade to Pro" for unpaid users.
@@ -179,7 +180,7 @@ class _SubscribeButton extends ConsumerWidget {
         height: 56,
         decoration: BoxDecoration(
           color: ocTheme.primary,
-          borderRadius: BorderRadius.circular(28),
+          borderRadius: Radii.brXxl,
           boxShadow: [
             BoxShadow(
               color: ocTheme.primary.withValues(alpha: 0.2),
@@ -283,7 +284,7 @@ class SubscribeBanner extends ConsumerWidget {
           padding: const EdgeInsets.all(16),
           decoration: BoxDecoration(
             color: ocTheme.backgroundPanel,
-            borderRadius: BorderRadius.circular(16),
+            borderRadius: Radii.brLg,
             border: Border.all(
               color: ocTheme.borderSubtle,
               width: 1,
@@ -296,7 +297,7 @@ class SubscribeBanner extends ConsumerWidget {
                 height: 44,
                 decoration: BoxDecoration(
                   color: ocTheme.bgHighlight,
-                  borderRadius: BorderRadius.circular(12),
+                  borderRadius: Radii.brMd,
                 ),
                 child: Icon(
                   Icons.workspace_premium_rounded,

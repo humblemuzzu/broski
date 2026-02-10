@@ -121,7 +121,8 @@ class _TextFileViewerScreenState extends ConsumerState<TextFileViewerScreen> {
             const SizedBox(height: 12),
             Text(
               '$fileName  ·  ${_formatBytes(_binaryData!.length)}',
-              style: GoogleFonts.inter(
+              style: TextStyle(
+                fontFamily: 'GeistSans',
                 fontSize: 12,
                 color: oc.textMuted,
               ),
@@ -167,7 +168,8 @@ class _TextFileViewerScreenState extends ConsumerState<TextFileViewerScreen> {
         const SizedBox(height: 12),
         Text(
           label,
-          style: GoogleFonts.inter(
+          style: TextStyle(
+            fontFamily: 'GeistSans',
             fontSize: 14,
             fontWeight: FontWeight.w600,
             color: oc.text,
@@ -176,13 +178,13 @@ class _TextFileViewerScreenState extends ConsumerState<TextFileViewerScreen> {
         const SizedBox(height: 4),
         Text(
           fileName,
-          style: GoogleFonts.inter(fontSize: 12, color: oc.textMuted),
+          style: TextStyle(fontFamily: 'GeistSans', fontSize: 12, color: oc.textMuted),
         ),
         if (subtitle != null) ...[
           const SizedBox(height: 2),
           Text(
             subtitle,
-            style: GoogleFonts.inter(fontSize: 11, color: oc.textMuted),
+            style: TextStyle(fontFamily: 'GeistSans', fontSize: 11, color: oc.textMuted),
           ),
         ],
       ],

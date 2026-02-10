@@ -2,6 +2,7 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:google_fonts/google_fonts.dart';
 
 import '../providers/onboarding_provider.dart'
     show onboardingProvider, kDevBypassOnboarding;
@@ -357,7 +358,7 @@ class _BridgeSetupScreenState extends ConsumerState<BridgeSetupScreen>
                       style: TextStyle(
                         color: Colors.white.withValues(alpha: 0.3),
                         fontSize: 14,
-                        fontFamily: 'monospace',
+                        fontFamily: GoogleFonts.jetBrainsMono().fontFamily,
                         fontWeight: FontWeight.w500,
                       ),
                     ),
@@ -385,10 +386,10 @@ class _BridgeSetupScreenState extends ConsumerState<BridgeSetupScreen>
                     children: [
                       TextSpan(
                         text: prefix,
-                        style: const TextStyle(
-                          color: Color(0xFF2ECB71),
+                        style: TextStyle(
+                          color: const Color(0xFF2ECB71),
                           fontSize: 15,
-                          fontFamily: 'monospace',
+                          fontFamily: GoogleFonts.jetBrainsMono().fontFamily,
                           fontWeight: FontWeight.w600,
                           height: 1.5,
                         ),
@@ -401,7 +402,7 @@ class _BridgeSetupScreenState extends ConsumerState<BridgeSetupScreen>
                               0xFF2ECB71,
                             ).withValues(alpha: 0.75),
                             fontSize: 15,
-                            fontFamily: 'monospace',
+                            fontFamily: GoogleFonts.jetBrainsMono().fontFamily,
                             fontWeight: FontWeight.w500,
                             height: 1.5,
                           ),
@@ -509,16 +510,16 @@ class _BridgeSetupScreenState extends ConsumerState<BridgeSetupScreen>
                     style: TextStyle(
                       color: Colors.white.withValues(alpha: 0.3),
                       fontSize: 14,
-                      fontFamily: 'monospace',
+                      fontFamily: GoogleFonts.jetBrainsMono().fontFamily,
                       fontWeight: FontWeight.w500,
                     ),
                   ),
                   TextSpan(
                     text: prefix,
-                    style: const TextStyle(
-                      color: Color(0xFF2ECB71),
+                    style: TextStyle(
+                      color: const Color(0xFF2ECB71),
                       fontSize: 14,
-                      fontFamily: 'monospace',
+                      fontFamily: GoogleFonts.jetBrainsMono().fontFamily,
                       fontWeight: FontWeight.w600,
                     ),
                   ),
@@ -528,7 +529,7 @@ class _BridgeSetupScreenState extends ConsumerState<BridgeSetupScreen>
                       style: TextStyle(
                         color: const Color(0xFF2ECB71).withValues(alpha: 0.75),
                         fontSize: 14,
-                        fontFamily: 'monospace',
+                        fontFamily: GoogleFonts.jetBrainsMono().fontFamily,
                         fontWeight: FontWeight.w500,
                       ),
                     ),

@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter_markdown/flutter_markdown.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:google_fonts/google_fonts.dart';
 
 import '../models/agent_type.dart';
 import '../models/skill.dart';
@@ -743,8 +744,8 @@ description: $description
                     maxLines: null,
                     expands: true,
                     readOnly: readOnly,
-                    style: const TextStyle(
-                      fontFamily: 'monospace',
+                    style: TextStyle(
+                      fontFamily: GoogleFonts.jetBrainsMono().fontFamily,
                       fontSize: 13,
                     ),
                     decoration: InputDecoration(
@@ -772,7 +773,7 @@ description: $description
                       h2: theme.textTheme.titleLarge?.copyWith(color: oc.text),
                       h3: theme.textTheme.titleMedium?.copyWith(color: oc.text),
                       code: theme.textTheme.bodyMedium?.copyWith(
-                        fontFamily: 'monospace',
+                        fontFamily: GoogleFonts.jetBrainsMono().fontFamily,
                         color: oc.text,
                         backgroundColor: oc.backgroundElement,
                       ),

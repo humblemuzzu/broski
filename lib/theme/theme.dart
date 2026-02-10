@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
-import 'package:google_fonts/google_fonts.dart';
 
+import 'design_tokens.dart';
 import 'opencode_theme.dart';
 import 'themes/all_themes.dart';
 
@@ -8,7 +8,10 @@ import 'themes/all_themes.dart';
 ///
 /// Uses OpenCodeTheme extension to provide semantic color tokens
 /// that match the OpenCode CLI design system.
+/// Typography: Geist Sans (bundled) for UI, JetBrains Mono for code.
 class BroskiTheme {
+  static const _fontFamily = 'GeistSans';
+
   /// Build a ThemeData from a specific OpenCodeTheme
   /// Use [isLight] to switch base theme (affects system UI colors)
   static ThemeData fromOpenCodeTheme(
@@ -17,53 +20,95 @@ class BroskiTheme {
   }) {
     final base = isLight ? ThemeData.light() : ThemeData.dark();
 
-    final textTheme = GoogleFonts.interTextTheme(base.textTheme).copyWith(
-      bodyLarge: GoogleFonts.inter(
+    final textTheme = base.textTheme.copyWith(
+      displayLarge: TextStyle(
+        fontFamily: _fontFamily,
+        fontSize: 32,
+        fontWeight: FontWeight.w700,
+        letterSpacing: -0.5,
+        color: ocTheme.text,
+      ),
+      headlineLarge: TextStyle(
+        fontFamily: _fontFamily,
+        fontSize: 28,
+        fontWeight: FontWeight.w700,
+        letterSpacing: -0.3,
+        color: ocTheme.text,
+      ),
+      headlineMedium: TextStyle(
+        fontFamily: _fontFamily,
+        fontSize: 22,
+        fontWeight: FontWeight.w600,
+        letterSpacing: -0.2,
+        color: ocTheme.text,
+      ),
+      headlineSmall: TextStyle(
+        fontFamily: _fontFamily,
+        fontSize: 18,
+        fontWeight: FontWeight.w600,
+        color: ocTheme.text,
+      ),
+      bodyLarge: TextStyle(
+        fontFamily: _fontFamily,
         fontSize: 16,
         color: ocTheme.text,
         height: 1.5,
       ),
-      bodyMedium: GoogleFonts.inter(
+      bodyMedium: TextStyle(
+        fontFamily: _fontFamily,
         fontSize: 15,
         color: ocTheme.text,
         height: 1.5,
       ),
-      bodySmall: GoogleFonts.inter(
+      bodySmall: TextStyle(
+        fontFamily: _fontFamily,
         fontSize: 13,
         color: ocTheme.textMuted,
         height: 1.4,
       ),
-      titleLarge: GoogleFonts.inter(
+      titleLarge: TextStyle(
+        fontFamily: _fontFamily,
         fontSize: 20,
         fontWeight: FontWeight.w600,
         color: ocTheme.text,
       ),
-      titleMedium: GoogleFonts.inter(
+      titleMedium: TextStyle(
+        fontFamily: _fontFamily,
         fontSize: 16,
         fontWeight: FontWeight.w600,
         color: ocTheme.text,
       ),
-      titleSmall: GoogleFonts.inter(
+      titleSmall: TextStyle(
+        fontFamily: _fontFamily,
         fontSize: 14,
         fontWeight: FontWeight.w600,
         color: ocTheme.text,
       ),
-      labelLarge: GoogleFonts.inter(
+      labelLarge: TextStyle(
+        fontFamily: _fontFamily,
         fontSize: 14,
         fontWeight: FontWeight.w600,
         color: ocTheme.text,
       ),
-      labelMedium: GoogleFonts.inter(
+      labelMedium: TextStyle(
+        fontFamily: _fontFamily,
         fontSize: 12,
         fontWeight: FontWeight.w500,
         color: ocTheme.textMuted,
       ),
-      labelSmall: GoogleFonts.inter(
+      labelSmall: TextStyle(
+        fontFamily: _fontFamily,
         fontSize: 11,
         fontWeight: FontWeight.w500,
         color: ocTheme.textMuted,
-        letterSpacing: 0.5,
+        letterSpacing: 0.3,
       ),
+    );
+
+    const buttonTextStyle = TextStyle(
+      fontFamily: _fontFamily,
+      fontSize: 14,
+      fontWeight: FontWeight.w600,
     );
 
     return base.copyWith(
@@ -112,7 +157,7 @@ class BroskiTheme {
         color: ocTheme.backgroundPanel,
         elevation: 0,
         shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(16),
+          borderRadius: Radii.brLg,
           side: BorderSide(color: ocTheme.borderSubtle, width: 1),
         ),
       ),
@@ -121,22 +166,19 @@ class BroskiTheme {
         filled: true,
         fillColor: ocTheme.backgroundPanel,
         border: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(14),
+          borderRadius: Radii.brMd,
           borderSide: BorderSide.none,
         ),
         enabledBorder: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(14),
+          borderRadius: Radii.brMd,
           borderSide: BorderSide(color: ocTheme.borderSubtle, width: 1),
         ),
         focusedBorder: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(14),
+          borderRadius: Radii.brMd,
           borderSide: BorderSide(color: ocTheme.primary, width: 1.5),
         ),
         hintStyle: TextStyle(color: ocTheme.textMuted),
-        contentPadding: const EdgeInsets.symmetric(
-          horizontal: 16,
-          vertical: 14,
-        ),
+        contentPadding: Insets.input,
       ),
 
       bottomNavigationBarTheme: BottomNavigationBarThemeData(
@@ -152,14 +194,11 @@ class BroskiTheme {
           backgroundColor: ocTheme.primary,
           foregroundColor: ocTheme.selectedListItemText,
           elevation: 0,
-          padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 14),
+          padding: Insets.button,
           shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(12),
+            borderRadius: Radii.brMd,
           ),
-          textStyle: GoogleFonts.inter(
-            fontSize: 14,
-            fontWeight: FontWeight.w600,
-          ),
+          textStyle: buttonTextStyle,
         ),
       ),
 
@@ -167,24 +206,18 @@ class BroskiTheme {
         style: OutlinedButton.styleFrom(
           foregroundColor: ocTheme.text,
           side: BorderSide(color: ocTheme.border),
-          padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 14),
+          padding: Insets.button,
           shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(12),
+            borderRadius: Radii.brMd,
           ),
-          textStyle: GoogleFonts.inter(
-            fontSize: 14,
-            fontWeight: FontWeight.w600,
-          ),
+          textStyle: buttonTextStyle,
         ),
       ),
 
       textButtonTheme: TextButtonThemeData(
         style: TextButton.styleFrom(
           foregroundColor: ocTheme.primary,
-          textStyle: GoogleFonts.inter(
-            fontSize: 14,
-            fontWeight: FontWeight.w600,
-          ),
+          textStyle: buttonTextStyle,
         ),
       ),
 
@@ -196,7 +229,7 @@ class BroskiTheme {
         tileColor: Colors.transparent,
         textColor: ocTheme.text,
         iconColor: ocTheme.textMuted,
-        contentPadding: const EdgeInsets.symmetric(horizontal: 16),
+        contentPadding: const EdgeInsets.symmetric(horizontal: Spacing.lg),
       ),
 
       dividerTheme: DividerThemeData(
@@ -208,7 +241,7 @@ class BroskiTheme {
       dialogTheme: DialogThemeData(
         backgroundColor: ocTheme.backgroundPanel,
         elevation: 0,
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+        shape: RoundedRectangleBorder(borderRadius: Radii.brXl),
         titleTextStyle: textTheme.titleMedium,
         contentTextStyle: textTheme.bodyMedium,
       ),
@@ -217,7 +250,7 @@ class BroskiTheme {
         backgroundColor: ocTheme.backgroundPanel,
         modalBackgroundColor: ocTheme.backgroundPanel,
         shape: const RoundedRectangleBorder(
-          borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+          borderRadius: Radii.sheetTop,
         ),
       ),
 
@@ -225,13 +258,13 @@ class BroskiTheme {
         backgroundColor: ocTheme.backgroundPanel,
         contentTextStyle: TextStyle(color: ocTheme.text),
         behavior: SnackBarBehavior.floating,
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+        shape: RoundedRectangleBorder(borderRadius: Radii.brMd),
       ),
 
       popupMenuTheme: PopupMenuThemeData(
         color: ocTheme.backgroundMenu,
         elevation: 8,
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+        shape: RoundedRectangleBorder(borderRadius: Radii.brLg),
         textStyle: textTheme.bodyMedium,
       ),
 
@@ -270,7 +303,7 @@ class BroskiTheme {
         }),
         checkColor: WidgetStateProperty.all(ocTheme.selectedListItemText),
         side: BorderSide(color: ocTheme.border, width: 1.5),
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(4)),
+        shape: RoundedRectangleBorder(borderRadius: Radii.brXs),
       ),
 
       radioTheme: RadioThemeData(
@@ -285,14 +318,14 @@ class BroskiTheme {
       tooltipTheme: TooltipThemeData(
         decoration: BoxDecoration(
           color: ocTheme.backgroundElement,
-          borderRadius: BorderRadius.circular(8),
+          borderRadius: Radii.brSm,
         ),
         textStyle: TextStyle(color: ocTheme.text, fontSize: 12),
       ),
 
       scrollbarTheme: ScrollbarThemeData(
         thumbColor: WidgetStateProperty.all(ocTheme.border),
-        radius: const Radius.circular(4),
+        radius: const Radius.circular(Radii.xs),
         thickness: WidgetStateProperty.all(4),
       ),
     );

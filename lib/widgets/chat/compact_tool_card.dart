@@ -8,6 +8,7 @@ import 'package:google_fonts/google_fonts.dart';
 import '../../models/card_style.dart';
 import '../../models/message.dart';
 import '../../providers/card_style_provider.dart';
+import '../../theme/design_tokens.dart';
 import '../../theme/opencode_theme.dart';
 import '../../theme/tool_style.dart';
 import 'detail_sheet.dart';
@@ -249,11 +250,11 @@ class CompactToolCard extends ConsumerWidget {
         // Status indicator for errors
         if (tool.status == 'error')
           Padding(
-            padding: const EdgeInsets.all(16),
+            padding: Insets.screen,
             child: Row(
               children: [
                 Icon(Icons.error_outline, color: theme.error, size: 16),
-                const SizedBox(width: 8),
+                SizedBox(width: Spacing.sm),
                 Text('Error', style: TextStyle(color: theme.error)),
               ],
             ),
@@ -346,7 +347,7 @@ class CompactToolCard extends ConsumerWidget {
                         color: theme.info,
                       ),
                     ),
-                    const SizedBox(width: 8),
+                    SizedBox(width: Spacing.sm),
                     Text(
                       'Fetching...',
                       style: TextStyle(color: theme.textMuted),
@@ -366,20 +367,23 @@ class CompactToolCard extends ConsumerWidget {
   /// Build markdown style for content rendering
   MarkdownStyleSheet _buildMarkdownStyle(OpenCodeTheme theme) {
     return MarkdownStyleSheet(
-      p: GoogleFonts.inter(fontSize: 14, color: theme.text, height: 1.5),
-      h1: GoogleFonts.inter(
+      p: TextStyle(fontFamily: 'GeistSans', fontSize: 14, color: theme.text, height: 1.5),
+      h1: TextStyle(
+        fontFamily: 'GeistSans',
         fontSize: 18,
         fontWeight: FontWeight.w600,
         color: theme.text,
         height: 1.4,
       ),
-      h2: GoogleFonts.inter(
+      h2: TextStyle(
+        fontFamily: 'GeistSans',
         fontSize: 16,
         fontWeight: FontWeight.w600,
         color: theme.text,
         height: 1.4,
       ),
-      h3: GoogleFonts.inter(
+      h3: TextStyle(
+        fontFamily: 'GeistSans',
         fontSize: 15,
         fontWeight: FontWeight.w600,
         color: theme.text,
@@ -397,16 +401,16 @@ class CompactToolCard extends ConsumerWidget {
         borderRadius: BorderRadius.circular(8),
         border: Border.all(color: theme.borderSubtle),
       ),
-      codeblockPadding: const EdgeInsets.all(12),
+      codeblockPadding: Insets.card,
       blockquoteDecoration: BoxDecoration(
         border: Border(left: BorderSide(color: theme.borderSubtle, width: 3)),
       ),
-      blockquotePadding: const EdgeInsets.only(left: 12),
+      blockquotePadding: EdgeInsets.only(left: Spacing.md),
       listBullet: TextStyle(color: theme.textMuted),
       tableHead: TextStyle(fontWeight: FontWeight.w600, color: theme.text),
       tableBody: TextStyle(color: theme.text),
       tableBorder: TableBorder.all(color: theme.borderSubtle, width: 1),
-      tableCellsPadding: const EdgeInsets.all(8),
+      tableCellsPadding: EdgeInsets.all(Spacing.sm),
     );
   }
 
@@ -467,7 +471,7 @@ class CompactToolCard extends ConsumerWidget {
     return GestureDetector(
       onTap: () => _showDetailSheet(context),
       child: Container(
-        margin: const EdgeInsets.symmetric(vertical: 2),
+        margin: EdgeInsets.symmetric(vertical: Spacing.xxs),
         decoration: BoxDecoration(
           color: theme.bgRaised,
           borderRadius: BorderRadius.circular(12),
@@ -478,7 +482,7 @@ class CompactToolCard extends ConsumerWidget {
         ),
         clipBehavior: Clip.antiAlias,
         child: Container(
-          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+          padding: EdgeInsets.symmetric(horizontal: Spacing.md, vertical: 10),
           decoration: BoxDecoration(
             color: headerBg,
             borderRadius: BorderRadius.circular(11),
@@ -487,7 +491,7 @@ class CompactToolCard extends ConsumerWidget {
             children: [
               // Icon with 6px spacing
               Icon(icon, size: 16, color: hasError ? theme.error : toolColor),
-              const SizedBox(width: 6),
+              SizedBox(width: 6),
 
               // Tool name (bold) - using cardHeaderText
               Text(
@@ -498,7 +502,7 @@ class CompactToolCard extends ConsumerWidget {
                   fontWeight: FontWeight.w600,
                 ),
               ),
-              const SizedBox(width: 8),
+              SizedBox(width: Spacing.sm),
 
               // Preview text (muted, truncated, flexible)
               Expanded(
@@ -509,7 +513,7 @@ class CompactToolCard extends ConsumerWidget {
                   overflow: TextOverflow.ellipsis,
                 ),
               ),
-              const SizedBox(width: 8),
+              SizedBox(width: Spacing.sm),
 
               // Arrow or spinner
               if (isRunning)

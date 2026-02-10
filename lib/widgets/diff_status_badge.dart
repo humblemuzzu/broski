@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 
+import '../theme/design_tokens.dart';
 import '../theme/opencode_theme.dart';
 
 /// A tiny badge showing file change status: A (added), M (modified), D (deleted).
@@ -27,7 +28,7 @@ class DiffStatusBadge extends StatelessWidget {
       padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 1),
       decoration: BoxDecoration(
         color: color.withValues(alpha: 0.18),
-        borderRadius: BorderRadius.circular(4),
+        borderRadius: Radii.brXs,
         border: Border.all(color: color.withValues(alpha: 0.35), width: 1),
       ),
       child: Text(

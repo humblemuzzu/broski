@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import '../theme/design_tokens.dart';
 import '../theme/opencode_theme.dart';
 
 /// Status types for the unified status indicator.
@@ -249,7 +250,7 @@ class StatusChip extends StatelessWidget {
       padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
       decoration: BoxDecoration(
         color: color.withValues(alpha: 0.1),
-        borderRadius: BorderRadius.circular(8),
+        borderRadius: Radii.brSm,
       ),
       child: Row(
         mainAxisSize: MainAxisSize.min,

@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:xterm/xterm.dart';
 
+import '../theme/design_tokens.dart';
 import '../theme/opencode_theme.dart';
 
 class TerminalSelectionOverlay extends StatelessWidget {
@@ -34,7 +35,7 @@ class TerminalSelectionOverlay extends StatelessWidget {
               child: DecoratedBox(
                 decoration: BoxDecoration(
                   color: ocTheme.backgroundPanel,
-                  borderRadius: BorderRadius.circular(14),
+                  borderRadius: Radii.brMd,
                   border: Border.all(color: ocTheme.borderSubtle),
                 ),
                 child: Padding(
@@ -101,7 +102,7 @@ class _ActionButton extends StatelessWidget {
           foregroundColor: ocTheme.text,
           backgroundColor: ocTheme.background,
           shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(10),
+            borderRadius: Radii.brSm,
           ),
         ),
         child: Text(label, style: const TextStyle(fontWeight: FontWeight.w600)),

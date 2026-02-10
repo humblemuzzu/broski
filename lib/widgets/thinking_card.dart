@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
+import 'package:google_fonts/google_fonts.dart';
 
 import '../models/message.dart';
+import '../theme/design_tokens.dart';
 import '../theme/opencode_theme.dart';
 
 /// A collapsible card that displays model reasoning/thinking content.
@@ -69,7 +71,7 @@ class _ThinkingCardState extends State<ThinkingCard>
       margin: const EdgeInsets.symmetric(vertical: 6),
       decoration: BoxDecoration(
         color: thinkingColor.withValues(alpha: 0.08),
-        borderRadius: BorderRadius.circular(10),
+        borderRadius: Radii.brSm,
         border: Border.all(
           color: isStreaming
               ? thinkingColor.withValues(alpha: 0.4)
@@ -83,7 +85,7 @@ class _ThinkingCardState extends State<ThinkingCard>
           // Header - always visible
           InkWell(
             onTap: _toggle,
-            borderRadius: BorderRadius.circular(10),
+            borderRadius: Radii.brSm,
             child: Padding(
               padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
               child: Row(
@@ -112,7 +114,7 @@ class _ThinkingCardState extends State<ThinkingCard>
                             ),
                             decoration: BoxDecoration(
                               color: thinkingColor.withValues(alpha: 0.12),
-                              borderRadius: BorderRadius.circular(4),
+                              borderRadius: Radii.brXs,
                             ),
                             child: Text(
                               _formatDuration(durationMs),
@@ -209,7 +211,7 @@ class _ThinkingCardState extends State<ThinkingCard>
             padding: const EdgeInsets.all(10),
             decoration: BoxDecoration(
               color: theme.backgroundElement,
-              borderRadius: BorderRadius.circular(8),
+              borderRadius: Radii.brSm,
             ),
             child: SingleChildScrollView(
               child: SelectableText(
@@ -218,7 +220,7 @@ class _ThinkingCardState extends State<ThinkingCard>
                   color: theme.textMuted,
                   fontSize: 12,
                   height: 1.5,
-                  fontFamily: 'monospace',
+                  fontFamily: GoogleFonts.jetBrainsMono().fontFamily,
                 ),
               ),
             ),
@@ -258,12 +260,12 @@ class ThinkingChip extends StatelessWidget {
 
     return InkWell(
       onTap: onTap,
-      borderRadius: BorderRadius.circular(8),
+      borderRadius: Radii.brSm,
       child: Container(
         padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
         decoration: BoxDecoration(
           color: thinkingColor.withValues(alpha: 0.08),
-          borderRadius: BorderRadius.circular(8),
+          borderRadius: Radii.brSm,
           border: Border.all(color: thinkingColor.withValues(alpha: 0.15)),
         ),
         child: Row(

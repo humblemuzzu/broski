@@ -5,6 +5,7 @@ import 'package:google_fonts/google_fonts.dart';
 import '../../models/card_style.dart';
 import '../../models/message.dart';
 import '../../providers/card_style_provider.dart';
+import '../../theme/design_tokens.dart';
 import '../../theme/opencode_theme.dart';
 import 'detail_sheet.dart';
 
@@ -265,7 +266,7 @@ class CompactEditCard extends ConsumerWidget {
     return GestureDetector(
       onTap: () => _showDetailSheet(context),
       child: Container(
-        margin: const EdgeInsets.symmetric(vertical: 4),
+        margin: Insets.chipV,
         decoration: BoxDecoration(
           color: theme.bgRaised,
           borderRadius: BorderRadius.circular(12),
@@ -284,7 +285,7 @@ class CompactEditCard extends ConsumerWidget {
           children: [
             // Header row: Edit + file path with distinct background
             Container(
-              padding: const EdgeInsets.fromLTRB(12, 10, 12, 8),
+              padding: EdgeInsets.fromLTRB(Spacing.md, 10, Spacing.md, Spacing.sm),
               decoration: BoxDecoration(
                 color: headerBg,
                 border: Border(
@@ -301,7 +302,7 @@ class CompactEditCard extends ConsumerWidget {
                     size: 16,
                     color: theme.toolEdit,
                   ),
-                  const SizedBox(width: 6),
+                  SizedBox(width: 6),
                   Text(
                     'Edit',
                     style: TextStyle(
@@ -310,7 +311,7 @@ class CompactEditCard extends ConsumerWidget {
                       fontWeight: FontWeight.w600,
                     ),
                   ),
-                  const SizedBox(width: 8),
+                  SizedBox(width: Spacing.sm),
                   Expanded(
                     child: Text(
                       _getFilePath(),
@@ -345,8 +346,8 @@ class CompactEditCard extends ConsumerWidget {
               if (hasMoreLines)
                 Container(
                   width: double.infinity,
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 12,
+                  padding: EdgeInsets.symmetric(
+                    horizontal: Spacing.md,
                     vertical: 6,
                   ),
                   color: theme.backgroundElement.withValues(alpha: 0.5),
@@ -354,7 +355,7 @@ class CompactEditCard extends ConsumerWidget {
                     mainAxisAlignment: MainAxisAlignment.center,
                     children: [
                       Icon(Icons.expand_more, size: 14, color: theme.textMuted),
-                      const SizedBox(width: 4),
+                      SizedBox(width: Spacing.xs),
                       Text(
                         '${previewLines.length - _maxPreviewLines} more lines',
                         style: TextStyle(color: theme.textMuted, fontSize: 11),
@@ -367,7 +368,7 @@ class CompactEditCard extends ConsumerWidget {
             // Running state placeholder
             if (isRunning)
               Padding(
-                padding: const EdgeInsets.fromLTRB(12, 0, 12, 10),
+                padding: EdgeInsets.fromLTRB(Spacing.md, 0, Spacing.md, 10),
                 child: Text(
                   'Applying changes...',
                   style: TextStyle(
@@ -417,7 +418,7 @@ class CompactEditCard extends ConsumerWidget {
           // Undo button if available
           if (canUndo)
             Padding(
-              padding: const EdgeInsets.all(16),
+              padding: Insets.screen,
               child: SizedBox(
                 width: double.infinity,
                 child: OutlinedButton.icon(
@@ -465,7 +466,7 @@ class _InlineDiffLine extends StatelessWidget {
 
     return Container(
       width: double.infinity,
-      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 3),
+      padding: EdgeInsets.symmetric(horizontal: Spacing.md, vertical: 3),
       decoration: BoxDecoration(
         color: color.withValues(alpha: 0.1),
         border: Border(left: BorderSide(color: color, width: 3)),
@@ -529,7 +530,7 @@ class _FullDiffContent extends StatelessWidget {
           diffLines.add(
             Container(
               width: double.infinity,
-              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+              padding: Insets.chip,
               color: theme.info.withValues(alpha: 0.1),
               child: Text(
                 line,
@@ -569,7 +570,7 @@ class _FullDiffContent extends StatelessWidget {
           diffLines.add(
             Container(
               width: double.infinity,
-              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+              padding: Insets.chip,
               child: Text(
                 '  $line',
                 style: GoogleFonts.jetBrainsMono(
@@ -641,7 +642,7 @@ class _FullDiffContent extends StatelessWidget {
   }) {
     return Container(
       width: double.infinity,
-      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+      padding: Insets.chip,
       decoration: BoxDecoration(
         color: color.withValues(alpha: 0.15),
         border: Border(left: BorderSide(color: color, width: 3)),

@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
-import '../../widgets/chat/detail_sheet.dart';
+import '../../theme/design_tokens.dart';
+import '../../theme/opencode_theme.dart';
 
 class GitCommitSheet extends StatefulWidget {
   const GitCommitSheet({
@@ -17,11 +18,19 @@ class GitCommitSheet extends StatefulWidget {
     String? initialMessage,
     required Future<void> Function(String message) onCommit,
   }) {
-    return DetailSheet.show<void>(
+    return showModalBottomSheet<void>(
       context: context,
-      title: 'Commit',
-      initialSize: 0.45,
-      child: GitCommitSheet(initialMessage: initialMessage, onCommit: onCommit),
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (ctx) => Padding(
+        padding: EdgeInsets.only(
+          bottom: MediaQuery.of(ctx).viewInsets.bottom,
+        ),
+        child: GitCommitSheet(
+          initialMessage: initialMessage,
+          onCommit: onCommit,
+        ),
+      ),
     );
   }
 
@@ -61,36 +70,123 @@ class _GitCommitSheetState extends State<GitCommitSheet> {
 
   @override
   Widget build(BuildContext context) {
-    return Padding(
-      padding: const EdgeInsets.all(16),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          TextField(
-            controller: _controller,
-            maxLines: 4,
-            minLines: 3,
-            decoration: const InputDecoration(
-              labelText: 'Commit message',
-              border: OutlineInputBorder(),
+    final theme = OpenCodeTheme.of(context);
+
+    return GestureDetector(
+      onTap: () => FocusScope.of(context).unfocus(),
+      child: Container(
+        decoration: BoxDecoration(
+          color: theme.bgSheet,
+          borderRadius: const BorderRadius.vertical(top: Radius.circular(20)),
+        ),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            // Drag handle
+            Padding(
+              padding: const EdgeInsets.only(top: 12, bottom: 8),
+              child: Container(
+                width: 40,
+                height: 4,
+                decoration: BoxDecoration(
+                  color: theme.textMuted.withValues(alpha: 0.3),
+                  borderRadius: BorderRadius.circular(2),
+                ),
+              ),
             ),
-          ),
-          const SizedBox(height: 12),
-          SizedBox(
-            width: double.infinity,
-            child: ElevatedButton.icon(
-              onPressed: _saving ? null : _commit,
-              icon: _saving
-                  ? const SizedBox(
-                      width: 14,
-                      height: 14,
-                      child: CircularProgressIndicator(strokeWidth: 2),
-                    )
-                  : const Icon(Icons.check_rounded),
-              label: Text(_saving ? 'Committing…' : 'Commit'),
+
+            // Header
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+              child: Stack(
+                alignment: Alignment.center,
+                children: [
+                  Text(
+                    'Commit',
+                    textAlign: TextAlign.center,
+                    style: TextStyle(
+                      color: theme.text,
+                      fontSize: 16,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                  Align(
+                    alignment: Alignment.centerRight,
+                    child: IconButton(
+                      onPressed: () => Navigator.of(context).pop(),
+                      icon: Icon(Icons.close, color: theme.textMuted, size: 24),
+                      padding: EdgeInsets.zero,
+                      constraints: const BoxConstraints(),
+                    ),
+                  ),
+                ],
+              ),
             ),
-          ),
-        ],
+
+            // Content
+            Padding(
+              padding: const EdgeInsets.fromLTRB(16, 8, 16, 16),
+              child: Column(
+                children: [
+                  TextField(
+                    controller: _controller,
+                    autofocus: true,
+                    maxLines: 5,
+                    minLines: 3,
+                    style: TextStyle(color: theme.text, fontSize: 14),
+                    decoration: InputDecoration(
+                      hintText: 'Type commit message...',
+                      hintStyle: TextStyle(color: theme.textMuted),
+                      filled: true,
+                      fillColor: theme.backgroundElement,
+                      border: OutlineInputBorder(
+                        borderRadius: Radii.brMd,
+                        borderSide: BorderSide.none,
+                      ),
+                      enabledBorder: OutlineInputBorder(
+                        borderRadius: Radii.brMd,
+                        borderSide: BorderSide(color: theme.borderSubtle),
+                      ),
+                      focusedBorder: OutlineInputBorder(
+                        borderRadius: Radii.brMd,
+                        borderSide: BorderSide(
+                          color: theme.primary,
+                          width: 1.5,
+                        ),
+                      ),
+                      contentPadding: Insets.input,
+                    ),
+                  ),
+                  const SizedBox(height: 12),
+                  SizedBox(
+                    width: double.infinity,
+                    child: FilledButton(
+                      onPressed: _saving ? null : _commit,
+                      style: FilledButton.styleFrom(
+                        backgroundColor: theme.primary,
+                        foregroundColor: theme.selectedListItemText,
+                        padding: const EdgeInsets.symmetric(vertical: 14),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: Radii.brMd,
+                        ),
+                      ),
+                      child: _saving
+                          ? SizedBox(
+                              width: 16,
+                              height: 16,
+                              child: CircularProgressIndicator(
+                                strokeWidth: 2,
+                                color: theme.selectedListItemText,
+                              ),
+                            )
+                          : const Text('Commit'),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
       ),
     );
   }

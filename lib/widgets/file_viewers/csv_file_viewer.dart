@@ -106,7 +106,8 @@ class _CsvFileViewerState extends State<CsvFileViewer> {
                               (cell) => DataColumn(
                                 label: Text(
                                   cell.toString(),
-                                  style: GoogleFonts.inter(
+                                  style: TextStyle(
+                                    fontFamily: 'GeistSans',
                                     fontWeight: FontWeight.w600,
                                     color: theme.text,
                                     fontSize: 13,
@@ -120,7 +121,8 @@ class _CsvFileViewerState extends State<CsvFileViewer> {
                           (index) => DataColumn(
                             label: Text(
                               'Column ${index + 1}',
-                              style: GoogleFonts.inter(
+                              style: TextStyle(
+                                fontFamily: 'GeistSans',
                                 fontWeight: FontWeight.w600,
                                 color: theme.text,
                                 fontSize: 13,

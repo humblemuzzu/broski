@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:google_fonts/google_fonts.dart';
 
 import '../models/opencode_plugin_file.dart';
 import '../models/skill.dart';
@@ -425,7 +426,7 @@ class _PluginEditorScreenState extends State<_PluginEditorScreen> {
           controller: _controller,
           maxLines: null,
           expands: true,
-          style: const TextStyle(fontFamily: 'monospace', fontSize: 13),
+          style: TextStyle(fontFamily: GoogleFonts.jetBrainsMono().fontFamily, fontSize: 13),
           decoration: InputDecoration(
             filled: true,
             fillColor: oc.backgroundElement,

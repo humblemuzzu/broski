@@ -6,6 +6,7 @@ import 'package:google_fonts/google_fonts.dart';
 import '../../models/card_style.dart';
 import '../../models/message.dart';
 import '../../providers/card_style_provider.dart';
+import '../../theme/design_tokens.dart';
 import '../../theme/opencode_theme.dart';
 import '../../theme/tool_style.dart';
 import 'detail_sheet.dart';
@@ -170,7 +171,7 @@ class CompactAgentCard extends ConsumerWidget {
     return GestureDetector(
       onTap: () => _showDetailSheet(context),
       child: Container(
-        margin: const EdgeInsets.symmetric(vertical: 2),
+        margin: EdgeInsets.symmetric(vertical: Spacing.xxs),
         decoration: BoxDecoration(
           color: theme.bgRaised,
           borderRadius: BorderRadius.circular(12),
@@ -181,7 +182,7 @@ class CompactAgentCard extends ConsumerWidget {
         ),
         clipBehavior: Clip.antiAlias,
         child: Container(
-          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+          padding: EdgeInsets.symmetric(horizontal: Spacing.md, vertical: 10),
           decoration: BoxDecoration(
             color: headerBg,
             borderRadius: BorderRadius.circular(11),
@@ -194,7 +195,7 @@ class CompactAgentCard extends ConsumerWidget {
                 size: 16,
                 color: isError ? theme.error : agentColor,
               ),
-              const SizedBox(width: 6),
+              SizedBox(width: 6),
 
               // Agent type name (bold)
               Text(
@@ -205,7 +206,7 @@ class CompactAgentCard extends ConsumerWidget {
                   fontWeight: FontWeight.w600,
                 ),
               ),
-              const SizedBox(width: 8),
+              SizedBox(width: Spacing.sm),
 
               // Description as preview (muted, truncated)
               Expanded(
@@ -242,7 +243,7 @@ class CompactAgentCard extends ConsumerWidget {
                   ),
                 ),
 
-              const SizedBox(width: 2),
+              SizedBox(width: Spacing.xxs),
 
               // Running spinner or chevron
               if (isRunning)
@@ -294,7 +295,7 @@ class CompactAgentCard extends ConsumerWidget {
 
           if (nestedTools.isNotEmpty)
             Padding(
-              padding: const EdgeInsets.only(bottom: 8),
+              padding: EdgeInsets.only(bottom: Spacing.sm),
               child: Align(
                 alignment: Alignment.centerRight,
                 child: TextButton.icon(
@@ -335,7 +336,7 @@ class CompactAgentCard extends ConsumerWidget {
                           color: theme.info,
                         ),
                       ),
-                      const SizedBox(width: 8),
+                      SizedBox(width: Spacing.sm),
                       Text(
                         'Running...',
                         style: TextStyle(color: theme.textMuted),
@@ -368,7 +369,7 @@ class CompactAgentCard extends ConsumerWidget {
           for (int i = 0; i < nestedTools.length; i++) ...[
             if (i > 0)
               Divider(color: theme.borderSubtle.withValues(alpha: 0.35)),
-            const SizedBox(height: 8),
+            SizedBox(height: Spacing.sm),
             Row(
               children: [
                 Icon(
@@ -379,7 +380,7 @@ class CompactAgentCard extends ConsumerWidget {
                   ),
                   size: 14,
                 ),
-                const SizedBox(width: 8),
+                SizedBox(width: Spacing.sm),
                 Expanded(
                   child: Text(
                     _capitalize(nestedTools[i]['name'] ?? 'tool'),
@@ -400,10 +401,10 @@ class CompactAgentCard extends ConsumerWidget {
                 ),
               ],
             ),
-            const SizedBox(height: 6),
+            SizedBox(height: 6),
             Container(
               width: double.infinity,
-              padding: const EdgeInsets.all(10),
+              padding: EdgeInsets.all(10),
               decoration: BoxDecoration(
                 color: theme.backgroundPanel,
                 borderRadius: BorderRadius.circular(10),
@@ -416,7 +417,7 @@ class CompactAgentCard extends ConsumerWidget {
                 style: TextStyle(color: theme.text, fontSize: 12, height: 1.4),
               ),
             ),
-            const SizedBox(height: 6),
+            SizedBox(height: 6),
           ],
         ],
       ),
@@ -426,20 +427,23 @@ class CompactAgentCard extends ConsumerWidget {
   /// Build markdown style matching the main chat
   MarkdownStyleSheet _buildMarkdownStyle(OpenCodeTheme theme) {
     return MarkdownStyleSheet(
-      p: GoogleFonts.inter(fontSize: 14, color: theme.text, height: 1.5),
-      h1: GoogleFonts.inter(
+      p: TextStyle(fontFamily: 'GeistSans', fontSize: 14, color: theme.text, height: 1.5),
+      h1: TextStyle(
+        fontFamily: 'GeistSans',
         fontSize: 18,
         fontWeight: FontWeight.w600,
         color: theme.text,
         height: 1.4,
       ),
-      h2: GoogleFonts.inter(
+      h2: TextStyle(
+        fontFamily: 'GeistSans',
         fontSize: 16,
         fontWeight: FontWeight.w600,
         color: theme.text,
         height: 1.4,
       ),
-      h3: GoogleFonts.inter(
+      h3: TextStyle(
+        fontFamily: 'GeistSans',
         fontSize: 15,
         fontWeight: FontWeight.w600,
         color: theme.text,
@@ -457,16 +461,16 @@ class CompactAgentCard extends ConsumerWidget {
         borderRadius: BorderRadius.circular(8),
         border: Border.all(color: theme.borderSubtle),
       ),
-      codeblockPadding: const EdgeInsets.all(12),
+      codeblockPadding: Insets.card,
       blockquoteDecoration: BoxDecoration(
         border: Border(left: BorderSide(color: theme.borderSubtle, width: 3)),
       ),
-      blockquotePadding: const EdgeInsets.only(left: 12),
+      blockquotePadding: EdgeInsets.only(left: Spacing.md),
       listBullet: TextStyle(color: theme.textMuted),
       tableHead: TextStyle(fontWeight: FontWeight.w600, color: theme.text),
       tableBody: TextStyle(color: theme.text),
       tableBorder: TableBorder.all(color: theme.borderSubtle, width: 1),
-      tableCellsPadding: const EdgeInsets.all(8),
+      tableCellsPadding: EdgeInsets.all(Spacing.sm),
     );
   }
 
@@ -515,7 +519,7 @@ class _NestedToolRow extends StatelessWidget {
     final theme = OpenCodeTheme.of(context);
 
     return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 4),
+      padding: Insets.chipV,
       child: Row(
         children: [
           Icon(
@@ -523,7 +527,7 @@ class _NestedToolRow extends StatelessWidget {
             size: 14,
             color: ToolStyle.getColor(context, toolName),
           ),
-          const SizedBox(width: 8),
+          SizedBox(width: Spacing.sm),
           Text(
             _capitalize(toolName),
             style: TextStyle(
@@ -532,7 +536,7 @@ class _NestedToolRow extends StatelessWidget {
               fontWeight: FontWeight.w500,
             ),
           ),
-          const SizedBox(width: 8),
+          SizedBox(width: Spacing.sm),
           Expanded(
             child: Text(
               preview,

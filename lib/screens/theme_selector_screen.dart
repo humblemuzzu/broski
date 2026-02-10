@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:google_fonts/google_fonts.dart';
 
 import '../providers/theme_provider.dart';
 import '../theme/opencode_theme.dart';
@@ -40,6 +41,22 @@ class _ThemeSelectorScreenState extends ConsumerState<ThemeSelectorScreen> {
           t.id.toLowerCase().contains(query) ||
           (t.description?.toLowerCase().contains(query) ?? false);
     }).toList();
+  }
+
+  List<dynamic> _buildSectionedList(List<ThemeInfo> themes) {
+    if (_searchQuery.isNotEmpty) return themes;
+    final items = <dynamic>[];
+    final broskiThemes = themes.take(broskiThemeCount).toList();
+    final communityThemes = themes.skip(broskiThemeCount).toList();
+    if (broskiThemes.isNotEmpty) {
+      items.add('BROSKI THEMES');
+      items.addAll(broskiThemes);
+    }
+    if (communityThemes.isNotEmpty) {
+      items.add('COMMUNITY THEMES');
+      items.addAll(communityThemes);
+    }
+    return items;
   }
 
   void _selectTheme(String themeId) {
@@ -125,13 +142,20 @@ class _ThemeSelectorScreenState extends ConsumerState<ThemeSelectorScreen> {
                     onChanged: (value) => setState(() => _searchQuery = value),
                   ),
                 ),
-                // Theme list
+                // Theme list with sections
                 Expanded(
                   child: ListView.builder(
                     padding: const EdgeInsets.symmetric(horizontal: 12),
-                    itemCount: filteredThemes.length,
+                    itemCount: _buildSectionedList(filteredThemes).length,
                     itemBuilder: (context, index) {
-                      final themeInfo = filteredThemes[index];
+                      final item = _buildSectionedList(filteredThemes)[index];
+                      if (item is String) {
+                        return _SectionHeader(
+                          label: item,
+                          previewTheme: previewTheme,
+                        );
+                      }
+                      final themeInfo = item as ThemeInfo;
                       final isSelected = themeInfo.id == _previewThemeId;
                       final isCurrent = themeInfo.id == currentThemeId;
 
@@ -139,6 +163,7 @@ class _ThemeSelectorScreenState extends ConsumerState<ThemeSelectorScreen> {
                         themeInfo: themeInfo,
                         isSelected: isSelected,
                         isCurrent: isCurrent,
+                        isDefault: themeInfo.id == defaultThemeId,
                         previewTheme: previewTheme,
                         onTap: () => _selectTheme(themeInfo.id),
                       );
@@ -269,7 +294,7 @@ class _ThemePreview extends StatelessWidget {
                                 child: Text(
                                   'const greeting = "Hello";',
                                   style: TextStyle(
-                                    fontFamily: 'monospace',
+                                    fontFamily: GoogleFonts.jetBrainsMono().fontFamily,
                                     color: theme.syntaxString,
                                     fontSize: 12,
                                   ),
@@ -340,7 +365,7 @@ class _ThemePreview extends StatelessWidget {
                                 '+',
                                 style: TextStyle(
                                   color: theme.diffAdded,
-                                  fontFamily: 'monospace',
+                                  fontFamily: GoogleFonts.jetBrainsMono().fontFamily,
                                   fontWeight: FontWeight.bold,
                                 ),
                               ),
@@ -349,7 +374,7 @@ class _ThemePreview extends StatelessWidget {
                                 'Added line',
                                 style: TextStyle(
                                   color: theme.diffAdded,
-                                  fontFamily: 'monospace',
+                                  fontFamily: GoogleFonts.jetBrainsMono().fontFamily,
                                   fontSize: 12,
                                 ),
                               ),
@@ -370,7 +395,7 @@ class _ThemePreview extends StatelessWidget {
                                 '-',
                                 style: TextStyle(
                                   color: theme.diffRemoved,
-                                  fontFamily: 'monospace',
+                                  fontFamily: GoogleFonts.jetBrainsMono().fontFamily,
                                   fontWeight: FontWeight.bold,
                                 ),
                               ),
@@ -379,7 +404,7 @@ class _ThemePreview extends StatelessWidget {
                                 'Removed line',
                                 style: TextStyle(
                                   color: theme.diffRemoved,
-                                  fontFamily: 'monospace',
+                                  fontFamily: GoogleFonts.jetBrainsMono().fontFamily,
                                   fontSize: 12,
                                 ),
                               ),
@@ -462,12 +487,39 @@ class _StatusChip extends StatelessWidget {
   }
 }
 
+class _SectionHeader extends StatelessWidget {
+  const _SectionHeader({
+    required this.label,
+    required this.previewTheme,
+  });
+
+  final String label;
+  final OpenCodeTheme previewTheme;
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.only(left: 14, top: 16, bottom: 8),
+      child: Text(
+        label,
+        style: TextStyle(
+          color: previewTheme.textMuted.withValues(alpha: 0.6),
+          fontSize: 11,
+          fontWeight: FontWeight.w700,
+          letterSpacing: 1.2,
+        ),
+      ),
+    );
+  }
+}
+
 /// Theme list item
 class _ThemeListItem extends StatelessWidget {
   const _ThemeListItem({
     required this.themeInfo,
     required this.isSelected,
     required this.isCurrent,
+    this.isDefault = false,
     required this.previewTheme,
     required this.onTap,
   });
@@ -475,6 +527,7 @@ class _ThemeListItem extends StatelessWidget {
   final ThemeInfo themeInfo;
   final bool isSelected;
   final bool isCurrent;
+  final bool isDefault;
   final OpenCodeTheme previewTheme;
   final VoidCallback onTap;
 
@@ -510,17 +563,43 @@ class _ThemeListItem extends StatelessWidget {
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Text(
-                        themeInfo.name,
-                        style: TextStyle(
-                          color: isSelected
-                              ? previewTheme.primary
-                              : previewTheme.text,
-                          fontSize: 15,
-                          fontWeight: isSelected
-                              ? FontWeight.w600
-                              : FontWeight.w500,
-                        ),
+                      Row(
+                        children: [
+                          Text(
+                            themeInfo.name,
+                            style: TextStyle(
+                              color: isSelected
+                                  ? previewTheme.primary
+                                  : previewTheme.text,
+                              fontSize: 15,
+                              fontWeight: isSelected
+                                  ? FontWeight.w600
+                                  : FontWeight.w500,
+                            ),
+                          ),
+                          if (isDefault) ...[
+                            const SizedBox(width: 8),
+                            Container(
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 6,
+                                vertical: 2,
+                              ),
+                              decoration: BoxDecoration(
+                                color:
+                                    previewTheme.primary.withValues(alpha: 0.12),
+                                borderRadius: BorderRadius.circular(4),
+                              ),
+                              child: Text(
+                                'Default',
+                                style: TextStyle(
+                                  color: previewTheme.primary,
+                                  fontSize: 9,
+                                  fontWeight: FontWeight.w600,
+                                ),
+                              ),
+                            ),
+                          ],
+                        ],
                       ),
                       if (themeInfo.description != null)
                         Text(

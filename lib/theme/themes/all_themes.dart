@@ -130,7 +130,7 @@ const opencodeDarkTheme = OpenCodeTheme(
   success: Color(0xFF7fd88f),
   info: Color(0xFF56b6c2),
   text: Color(0xFFeeeeee),
-  textMuted: Color(0xFF808080),
+  textMuted: Color(0xFF8C8C8C), // Bumped from #808080 for WCAG AA margin
   selectedListItemText: Color(0xFF0a0a0a),
   background: Color(0xFF0a0a0a),
   backgroundPanel: Color(0xFF141414),
@@ -2699,16 +2699,15 @@ const lucentOrngDarkTheme = OpenCodeTheme(
 // ═══════════════════════════════════════════════════════════════════════════════
 // ALL THEMES - Export List
 // ═══════════════════════════════════════════════════════════════════════════════
+
+/// Index where community themes start in [allThemes].
+const broskiThemeCount = 3;
+
 final allThemes = <ThemeInfo>[
-  ThemeInfo(
-    id: 'broski',
-    name: 'Broski',
-    theme: broskiDarkTheme,
-    description: 'Premium navy/silver',
-  ),
+  // ── Broski Themes ──────────────────────────────────────────────────────────
   ThemeInfo(
     id: 'opencode',
-    name: 'OpenCode',
+    name: 'OpenCode Dark',
     theme: opencodeDarkTheme,
     description: 'Warm peach, professional',
   ),
@@ -2719,6 +2718,13 @@ final allThemes = <ThemeInfo>[
     description: 'Clean, eye-friendly light',
     isLight: true,
   ),
+  ThemeInfo(
+    id: 'broski',
+    name: 'Broski',
+    theme: broskiDarkTheme,
+    description: 'Premium navy/silver',
+  ),
+  // ── Community Themes ───────────────────────────────────────────────────────
   ThemeInfo(
     id: 'tokyonight',
     name: 'Tokyo Night',
@@ -2913,4 +2919,4 @@ ThemeInfo? getThemeInfoById(String id) {
 }
 
 /// Default theme ID
-const defaultThemeId = 'broski';
+const defaultThemeId = 'opencode';

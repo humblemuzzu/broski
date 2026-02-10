@@ -4036,7 +4036,8 @@ class _IdentifyYourselfPageState extends ConsumerState<_IdentifyYourselfPage>
                   children: [
                     TextSpan(
                       text: 'Identify\n',
-                      style: GoogleFonts.inter(
+                      style: TextStyle(
+                        fontFamily: 'GeistSans',
                         fontSize: 44,
                         fontWeight: FontWeight.w800,
                         color: Colors.white,
@@ -4046,7 +4047,8 @@ class _IdentifyYourselfPageState extends ConsumerState<_IdentifyYourselfPage>
                     ),
                     TextSpan(
                       text: 'Yourself.',
-                      style: GoogleFonts.inter(
+                      style: TextStyle(
+                        fontFamily: 'GeistSans',
                         fontSize: 44,
                         fontWeight: FontWeight.w800,
                         color: const Color(0xFF555555),

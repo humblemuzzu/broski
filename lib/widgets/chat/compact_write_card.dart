@@ -5,6 +5,7 @@ import 'package:google_fonts/google_fonts.dart';
 import '../../models/card_style.dart';
 import '../../models/message.dart';
 import '../../providers/card_style_provider.dart';
+import '../../theme/design_tokens.dart';
 import '../../theme/opencode_theme.dart';
 import 'detail_sheet.dart';
 
@@ -89,7 +90,7 @@ class CompactWriteCard extends ConsumerWidget {
     return GestureDetector(
       onTap: () => _showDetailSheet(context),
       child: Container(
-        margin: const EdgeInsets.symmetric(vertical: 4),
+        margin: Insets.chipV,
         decoration: BoxDecoration(
           color: theme.bgRaised,
           borderRadius: BorderRadius.circular(12),
@@ -108,7 +109,7 @@ class CompactWriteCard extends ConsumerWidget {
           children: [
             // Header row: Write + file path + line count badge with distinct background
             Container(
-              padding: const EdgeInsets.fromLTRB(12, 10, 12, 8),
+              padding: EdgeInsets.fromLTRB(Spacing.md, 10, Spacing.md, Spacing.sm),
               decoration: BoxDecoration(
                 color: headerBg,
                 border: Border(
@@ -125,7 +126,7 @@ class CompactWriteCard extends ConsumerWidget {
                     size: 16,
                     color: theme.toolWrite,
                   ),
-                  const SizedBox(width: 6),
+                  SizedBox(width: 6),
                   Text(
                     'Write',
                     style: TextStyle(
@@ -134,7 +135,7 @@ class CompactWriteCard extends ConsumerWidget {
                       fontWeight: FontWeight.w600,
                     ),
                   ),
-                  const SizedBox(width: 8),
+                  SizedBox(width: Spacing.sm),
                   Expanded(
                     child: Text(
                       _getFilePath(),
@@ -148,9 +149,9 @@ class CompactWriteCard extends ConsumerWidget {
                   ),
                   // Line count badge (green for new file)
                   if (!isRunning && _totalLines > 0) ...[
-                    const SizedBox(width: 8),
+                    SizedBox(width: Spacing.sm),
                     Container(
-                      padding: const EdgeInsets.symmetric(
+                      padding: EdgeInsets.symmetric(
                         horizontal: 6,
                         vertical: 2,
                       ),
@@ -169,7 +170,7 @@ class CompactWriteCard extends ConsumerWidget {
                     ),
                   ],
                   if (isRunning) ...[
-                    const SizedBox(width: 8),
+                    SizedBox(width: Spacing.sm),
                     SizedBox(
                       width: 14,
                       height: 14,
@@ -179,7 +180,7 @@ class CompactWriteCard extends ConsumerWidget {
                       ),
                     ),
                   ] else if (hasError) ...[
-                    const SizedBox(width: 8),
+                    SizedBox(width: Spacing.sm),
                     Icon(Icons.error_outline, size: 16, color: theme.error),
                   ],
                 ],
@@ -195,8 +196,8 @@ class CompactWriteCard extends ConsumerWidget {
               if (hasMoreLines)
                 Container(
                   width: double.infinity,
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 12,
+                  padding: EdgeInsets.symmetric(
+                    horizontal: Spacing.md,
                     vertical: 6,
                   ),
                   color: theme.backgroundElement.withValues(alpha: 0.5),
@@ -204,7 +205,7 @@ class CompactWriteCard extends ConsumerWidget {
                     mainAxisAlignment: MainAxisAlignment.center,
                     children: [
                       Icon(Icons.expand_more, size: 14, color: theme.textMuted),
-                      const SizedBox(width: 4),
+                      SizedBox(width: Spacing.xs),
                       Text(
                         '${previewLines.length - _maxPreviewLines} more lines',
                         style: TextStyle(color: theme.textMuted, fontSize: 11),
@@ -217,7 +218,7 @@ class CompactWriteCard extends ConsumerWidget {
             // Running state placeholder
             if (isRunning)
               Padding(
-                padding: const EdgeInsets.fromLTRB(12, 0, 12, 10),
+                padding: EdgeInsets.fromLTRB(Spacing.md, 0, Spacing.md, 10),
                 child: Text(
                   'Writing file...',
                   style: TextStyle(
@@ -273,7 +274,7 @@ class CompactWriteCard extends ConsumerWidget {
           // Undo button if available
           if (canUndo)
             Padding(
-              padding: const EdgeInsets.all(16),
+              padding: Insets.screen,
               child: SizedBox(
                 width: double.infinity,
                 child: OutlinedButton.icon(
@@ -311,7 +312,7 @@ class _InlineContentLine extends StatelessWidget {
 
     return Container(
       width: double.infinity,
-      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 3),
+      padding: EdgeInsets.symmetric(horizontal: Spacing.md, vertical: 3),
       decoration: BoxDecoration(
         color: color.withValues(alpha: 0.1),
         border: Border(left: BorderSide(color: color, width: 3)),
@@ -375,7 +376,7 @@ class _FullContentView extends StatelessWidget {
           for (final line in lines)
             Container(
               width: double.infinity,
-              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+              padding: Insets.chip,
               decoration: BoxDecoration(
                 color: color.withValues(alpha: 0.15),
                 border: Border(left: BorderSide(color: color, width: 3)),

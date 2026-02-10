@@ -106,10 +106,10 @@ class MultiAgentTreeWidget extends StatelessWidget {
               ),
               margin: EdgeInsets.only(bottom: compact ? 4 : 6),
               decoration: BoxDecoration(
-                color: _getStatusColor(node.status).withOpacity(0.1),
+                color: _getStatusColor(ocTheme, node.status).withValues(alpha: 0.1),
                 borderRadius: BorderRadius.circular(6),
                 border: Border.all(
-                  color: _getStatusColor(node.status).withOpacity(0.5),
+                  color: _getStatusColor(ocTheme, node.status).withValues(alpha: 0.5),
                 ),
               ),
               child: Row(
@@ -178,22 +178,20 @@ class MultiAgentTreeWidget extends StatelessWidget {
     );
   }
 
-  Color _getStatusColor(CodexCollabAgentStatus status) {
-    // Note: These are called without context, so we can't use theme here.
-    // They're used for background tints via withOpacity, so semantic mapping:
+  Color _getStatusColor(OpenCodeTheme theme, CodexCollabAgentStatus status) {
     switch (status) {
       case CodexCollabAgentStatus.pendingInit:
-        return const Color(0xFF808080); // neutral gray
+        return theme.textMuted;
       case CodexCollabAgentStatus.running:
-        return const Color(0xFF5c9cf5); // info blue
+        return theme.info;
       case CodexCollabAgentStatus.completed:
-        return const Color(0xFF7fd88f); // success green
+        return theme.success;
       case CodexCollabAgentStatus.errored:
-        return const Color(0xFFe06c75); // error red
+        return theme.error;
       case CodexCollabAgentStatus.shutdown:
-        return const Color(0xFFf5a742); // warning orange
+        return theme.warning;
       case CodexCollabAgentStatus.notFound:
-        return const Color(0xFF808080); // neutral gray
+        return theme.textMuted;
     }
   }
 
@@ -250,7 +248,7 @@ class MultiAgentIndicator extends StatelessWidget {
       child: Container(
         padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
         decoration: BoxDecoration(
-          color: theme.colorScheme.primaryContainer.withOpacity(0.3),
+          color: theme.colorScheme.primaryContainer.withValues(alpha: 0.3),
           borderRadius: BorderRadius.circular(12),
         ),
         child: Row(

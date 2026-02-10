@@ -2,6 +2,7 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:google_fonts/google_fonts.dart';
 
 import '../providers/app_auth_provider.dart';
 import '../providers/app_subscription_provider.dart';
@@ -276,7 +277,7 @@ class _ConnectingScreen extends ConsumerWidget {
                     style: TextStyle(
                       fontSize: 14,
                       color: ocTheme.textMuted,
-                      fontFamily: 'monospace',
+                      fontFamily: GoogleFonts.jetBrainsMono().fontFamily,
                     ),
                   ),
                 ],

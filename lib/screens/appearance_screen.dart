@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:google_fonts/google_fonts.dart';
 
 import '../models/card_style.dart';
 import '../providers/appearance_provider.dart';
@@ -1018,7 +1019,7 @@ class _CardStylePreview extends StatelessWidget {
                   style: TextStyle(
                     color: theme.colorScheme.onSurface.withValues(alpha: 0.7),
                     fontSize: 11,
-                    fontFamily: 'monospace',
+                    fontFamily: GoogleFonts.jetBrainsMono().fontFamily,
                   ),
                 ),
                 const SizedBox(height: 8),
@@ -1070,7 +1071,7 @@ class _DiffPreviewLine extends StatelessWidget {
       ),
       child: Text(
         text,
-        style: TextStyle(color: color, fontSize: 10, fontFamily: 'monospace'),
+        style: TextStyle(color: color, fontSize: 10, fontFamily: GoogleFonts.jetBrainsMono().fontFamily),
       ),
     );
   }

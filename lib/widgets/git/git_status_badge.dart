@@ -1,35 +1,37 @@
 import 'package:flutter/material.dart';
 
 import '../../models/git.dart';
+import '../../theme/design_tokens.dart';
+import '../../theme/opencode_theme.dart';
 
 class GitStatusBadge extends StatelessWidget {
   const GitStatusBadge({super.key, required this.status});
 
   final GitChangeStatus status;
 
-  Color _color(BuildContext context) {
-    final scheme = Theme.of(context).colorScheme;
+  Color _color(OpenCodeTheme theme) {
     switch (status) {
       case GitChangeStatus.added:
-        return Colors.green.shade600;
+        return theme.success;
       case GitChangeStatus.deleted:
-        return scheme.error;
+        return theme.error;
       case GitChangeStatus.renamed:
       case GitChangeStatus.copied:
-        return Colors.blue.shade600;
+        return theme.info;
       case GitChangeStatus.modified:
-        return Colors.orange.shade700;
+        return theme.warning;
     }
   }
 
   @override
   Widget build(BuildContext context) {
-    final color = _color(context);
+    final theme = OpenCodeTheme.of(context);
+    final color = _color(theme);
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
       decoration: BoxDecoration(
         color: color.withValues(alpha: 0.15),
-        borderRadius: BorderRadius.circular(999),
+        borderRadius: Radii.brFull,
         border: Border.all(color: color.withValues(alpha: 0.45)),
       ),
       child: Text(

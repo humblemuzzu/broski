@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
-import 'package:google_fonts/google_fonts.dart';
 
 import '../models/message.dart';
+import '../theme/design_tokens.dart';
 import '../theme/opencode_theme.dart';
 
 /// An inline widget shown when the AI SDK is retrying an API call.
@@ -32,7 +32,7 @@ class RetryIndicator extends StatelessWidget {
       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
       decoration: BoxDecoration(
         color: theme.warning.withValues(alpha: 0.08),
-        borderRadius: BorderRadius.circular(8),
+        borderRadius: Radii.brSm,
         border: Border.all(
           color: theme.warning.withValues(alpha: 0.25),
           width: 1,
@@ -57,7 +57,8 @@ class RetryIndicator extends StatelessWidget {
               children: [
                 Text(
                   'Retrying… (attempt $attempt)',
-                  style: GoogleFonts.inter(
+                  style: TextStyle(
+                    fontFamily: 'GeistSans',
                     fontSize: 12,
                     fontWeight: FontWeight.w600,
                     color: theme.warning,
@@ -68,7 +69,8 @@ class RetryIndicator extends StatelessWidget {
                     padding: const EdgeInsets.only(top: 2),
                     child: Text(
                       errorMessage,
-                      style: GoogleFonts.inter(
+                      style: TextStyle(
+                        fontFamily: 'GeistSans',
                         fontSize: 11,
                         color: theme.textMuted,
                       ),

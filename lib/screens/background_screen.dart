@@ -2,6 +2,7 @@ import 'dart:io';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:google_fonts/google_fonts.dart';
 
 import '../providers/appearance_provider.dart';
 import '../theme/opencode_theme.dart';
@@ -559,7 +560,7 @@ class _BackgroundShadePreview extends ConsumerWidget {
                                 alpha: 0.7,
                               ),
                               fontSize: 10,
-                              fontFamily: 'monospace',
+                              fontFamily: GoogleFonts.jetBrainsMono().fontFamily,
                               fontWeight: FontWeight.w600,
                             ),
                           ),

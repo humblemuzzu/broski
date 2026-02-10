@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:google_fonts/google_fonts.dart';
 
 import '../providers/selection_provider.dart';
 import '../providers/service_providers.dart';
@@ -167,7 +168,7 @@ class _CodexAgentsScreenState extends ConsumerState<CodexAgentsScreen> {
                         minLines: null,
                         maxLines: null,
                         style: TextStyle(
-                          fontFamily: 'monospace',
+                          fontFamily: GoogleFonts.jetBrainsMono().fontFamily,
                           fontSize: 13,
                           color: oc.text,
                         ),

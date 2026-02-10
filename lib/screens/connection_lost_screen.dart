@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:google_fonts/google_fonts.dart';
 
 import '../providers/connection_provider.dart';
 import '../providers/service_providers.dart';
@@ -109,7 +110,7 @@ class _ConnectionLostScreenState extends ConsumerState<ConnectionLostScreen> {
                     'Error: ${connection.error}',
                     style: theme.textTheme.bodySmall?.copyWith(
                       color: ocTheme.error,
-                      fontFamily: 'monospace',
+                      fontFamily: GoogleFonts.jetBrainsMono().fontFamily,
                       fontSize: 11,
                     ),
                     textAlign: TextAlign.center,

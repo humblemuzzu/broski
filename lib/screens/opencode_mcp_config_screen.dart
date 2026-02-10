@@ -2,6 +2,7 @@ import 'dart:convert';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:google_fonts/google_fonts.dart';
 
 import '../models/mcp.dart';
 import '../providers/selection_provider.dart';
@@ -432,7 +433,7 @@ class _JsonObjectEditorScreenState extends State<_JsonObjectEditorScreen> {
           controller: _json,
           maxLines: null,
           expands: true,
-          style: const TextStyle(fontFamily: 'monospace', fontSize: 13),
+          style: TextStyle(fontFamily: GoogleFonts.jetBrainsMono().fontFamily, fontSize: 13),
           decoration: InputDecoration(
             filled: true,
             fillColor: oc.backgroundElement,

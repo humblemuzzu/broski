@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:google_fonts/google_fonts.dart';
 
 import '../models/agent_type.dart';
 
@@ -6266,7 +6267,7 @@ class _CCToolCallCard extends StatelessWidget {
                     style: TextStyle(
                       color: ocTheme.textMuted,
                       fontSize: 11,
-                      fontFamily: 'monospace',
+                      fontFamily: GoogleFonts.jetBrainsMono().fontFamily,
                     ),
                     maxLines: 2,
                     overflow: TextOverflow.ellipsis,

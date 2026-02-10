@@ -2,6 +2,7 @@ import 'dart:convert';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:google_fonts/google_fonts.dart';
 
 import '../providers/service_providers.dart';
 import '../theme/opencode_theme.dart';
@@ -445,7 +446,7 @@ class _CodexMcpServerEditorScreenState
           controller: _json,
           maxLines: null,
           expands: true,
-          style: const TextStyle(fontFamily: 'monospace', fontSize: 13),
+          style: TextStyle(fontFamily: GoogleFonts.jetBrainsMono().fontFamily, fontSize: 13),
           decoration: InputDecoration(
             filled: true,
             fillColor: oc.backgroundElement,

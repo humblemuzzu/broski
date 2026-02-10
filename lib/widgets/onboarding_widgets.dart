@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:google_fonts/google_fonts.dart';
 
 import '../theme/opencode_theme.dart';
 
@@ -585,7 +586,7 @@ class OnboardingCommandBox extends StatelessWidget {
               command,
               style: TextStyle(
                 color: theme.text,
-                fontFamily: 'monospace',
+                fontFamily: GoogleFonts.jetBrainsMono().fontFamily,
                 fontSize: 13,
               ),
             ),

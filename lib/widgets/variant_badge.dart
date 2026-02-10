@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
-import 'package:google_fonts/google_fonts.dart';
 
+import '../theme/design_tokens.dart';
 import '../theme/opencode_theme.dart';
 
 /// A small pill badge showing the AI thinking variant level (e.g., high, max, low).
@@ -36,12 +36,13 @@ class VariantBadge extends StatelessWidget {
       ),
       decoration: BoxDecoration(
         color: color.withValues(alpha: 0.14),
-        borderRadius: BorderRadius.circular(999),
+        borderRadius: Radii.brFull,
         border: Border.all(color: color.withValues(alpha: 0.3), width: 1),
       ),
       child: Text(
         variant!,
-        style: GoogleFonts.inter(
+        style: TextStyle(
+          fontFamily: 'GeistSans',
           fontSize: isSmall ? 10 : 11,
           fontWeight: FontWeight.w600,
           color: color,

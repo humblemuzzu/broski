@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:google_fonts/google_fonts.dart';
 
 import '../../models/git.dart';
 import '../../widgets/chat/detail_sheet.dart';
@@ -53,7 +54,7 @@ class GitLogSheet extends StatelessWidget {
             dense: true,
             leading: Text(
               entry.shortHash,
-              style: const TextStyle(fontFamily: 'monospace', fontSize: 12),
+              style: TextStyle(fontFamily: GoogleFonts.jetBrainsMono().fontFamily, fontSize: 12),
             ),
             title: Text(
               entry.subject.isEmpty ? '(no subject)' : entry.subject,

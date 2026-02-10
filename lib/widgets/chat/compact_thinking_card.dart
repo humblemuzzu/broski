@@ -5,6 +5,7 @@ import 'package:google_fonts/google_fonts.dart';
 import '../../models/card_style.dart';
 import '../../models/message.dart';
 import '../../providers/card_style_provider.dart';
+import '../../theme/design_tokens.dart';
 import '../../theme/opencode_theme.dart';
 import 'detail_sheet.dart';
 
@@ -34,7 +35,7 @@ class CompactThinkingCard extends ConsumerWidget {
       title: 'Thinking',
       initialSize: 0.6,
       child: Padding(
-        padding: const EdgeInsets.all(16),
+        padding: Insets.screen,
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
@@ -43,20 +44,20 @@ class CompactThinkingCard extends ConsumerWidget {
               Row(
                 children: [
                   Icon(Icons.timer_outlined, size: 14, color: theme.textMuted),
-                  const SizedBox(width: 6),
+                  SizedBox(width: 6),
                   Text(
                     'Completed in ${_formatDuration(message.reasoningDurationMs!)}',
                     style: TextStyle(color: theme.textMuted, fontSize: 12),
                   ),
                 ],
               ),
-              const SizedBox(height: 16),
+              SizedBox(height: Spacing.lg),
             ],
 
             // Thinking content box
             Container(
               width: double.infinity,
-              padding: const EdgeInsets.all(12),
+              padding: Insets.card,
               decoration: BoxDecoration(
                 color: theme.backgroundElement,
                 borderRadius: BorderRadius.circular(8),
@@ -126,7 +127,7 @@ class CompactThinkingCard extends ConsumerWidget {
     return GestureDetector(
       onTap: reasoningText.isNotEmpty ? () => _showDetailSheet(context) : null,
       child: Container(
-        margin: const EdgeInsets.symmetric(vertical: 2),
+        margin: EdgeInsets.symmetric(vertical: Spacing.xxs),
         decoration: BoxDecoration(
           color: theme.bgRaised,
           borderRadius: BorderRadius.circular(12),
@@ -139,7 +140,7 @@ class CompactThinkingCard extends ConsumerWidget {
         ),
         clipBehavior: Clip.antiAlias,
         child: Container(
-          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+          padding: EdgeInsets.symmetric(horizontal: Spacing.md, vertical: 10),
           decoration: BoxDecoration(
             color: headerBg,
             borderRadius: BorderRadius.circular(11),
@@ -158,7 +159,7 @@ class CompactThinkingCard extends ConsumerWidget {
                 )
               else
                 Icon(Icons.psychology_rounded, size: 16, color: thinkingColor),
-              const SizedBox(width: 6),
+              SizedBox(width: 6),
 
               // "Thinking" label
               Text(
@@ -172,7 +173,7 @@ class CompactThinkingCard extends ConsumerWidget {
 
               // Duration badge (when complete)
               if (durationMs != null && !isStreaming) ...[
-                const SizedBox(width: 8),
+                SizedBox(width: Spacing.sm),
                 Container(
                   padding: const EdgeInsets.symmetric(
                     horizontal: 6,
@@ -193,7 +194,7 @@ class CompactThinkingCard extends ConsumerWidget {
                 ),
               ],
 
-              const SizedBox(width: 8),
+              SizedBox(width: Spacing.sm),
 
               // Preview text (muted, truncated)
               Expanded(
@@ -207,7 +208,7 @@ class CompactThinkingCard extends ConsumerWidget {
 
               // Chevron (only if we have content to show)
               if (reasoningText.isNotEmpty && !isStreaming) ...[
-                const SizedBox(width: 8),
+                SizedBox(width: Spacing.sm),
                 Icon(
                   Icons.chevron_right,
                   size: 18,

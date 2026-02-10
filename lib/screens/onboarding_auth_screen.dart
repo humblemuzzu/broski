@@ -108,7 +108,8 @@ class _OnboardingAuthScreenState extends ConsumerState<OnboardingAuthScreen>
                   children: [
                     TextSpan(
                       text: 'Identify\n',
-                      style: GoogleFonts.inter(
+                      style: TextStyle(
+                        fontFamily: 'GeistSans',
                         fontSize: 44,
                         fontWeight: FontWeight.w800,
                         color: Colors.white,
@@ -118,7 +119,8 @@ class _OnboardingAuthScreenState extends ConsumerState<OnboardingAuthScreen>
                     ),
                     TextSpan(
                       text: 'Yourself.',
-                      style: GoogleFonts.inter(
+                      style: TextStyle(
+                        fontFamily: 'GeistSans',
                         fontSize: 44,
                         fontWeight: FontWeight.w800,
                         color: const Color(0xFF555555),

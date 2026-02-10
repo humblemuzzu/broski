@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:google_fonts/google_fonts.dart';
 
 import '../models/claude_code.dart';
 import '../providers/claude_code_provider.dart';
@@ -306,7 +307,7 @@ class _CustomToolEditorScreenState
                     Text(
                       _testResult!,
                       style: theme.textTheme.bodySmall?.copyWith(
-                        fontFamily: 'monospace',
+                        fontFamily: GoogleFonts.jetBrainsMono().fontFamily,
                       ),
                     ),
                   ],

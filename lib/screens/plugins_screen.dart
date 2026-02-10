@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:google_fonts/google_fonts.dart';
 
 import '../models/claude_code.dart';
 import '../providers/claude_code_provider.dart';
@@ -673,7 +674,7 @@ class _PluginDetailsContent extends StatelessWidget {
                   child: Text(
                     plugin.path,
                     style: theme.textTheme.bodyMedium?.copyWith(
-                      fontFamily: 'monospace',
+                      fontFamily: GoogleFonts.jetBrainsMono().fontFamily,
                       fontSize: 13,
                     ),
                   ),

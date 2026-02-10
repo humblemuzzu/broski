@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:share_plus/share_plus.dart';
 
 import '../models/message.dart';
+import '../theme/design_tokens.dart';
 import '../theme/opencode_theme.dart';
 import 'chat/detail_sheet.dart';
 
@@ -231,7 +232,7 @@ class _ExportSessionSheetContentState
               filled: true,
               fillColor: oc.backgroundElement,
               border: OutlineInputBorder(
-                borderRadius: BorderRadius.circular(12),
+                borderRadius: Radii.brMd,
               ),
             ),
           ),
@@ -339,14 +340,14 @@ class _FormatChip extends StatelessWidget {
     final oc = OpenCodeTheme.of(context);
     return InkWell(
       onTap: onTap,
-      borderRadius: BorderRadius.circular(999),
+      borderRadius: Radii.brFull,
       child: Container(
         padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
         decoration: BoxDecoration(
           color: selected
               ? oc.primary.withValues(alpha: 0.2)
               : oc.backgroundElement,
-          borderRadius: BorderRadius.circular(999),
+          borderRadius: Radii.brFull,
           border: Border.all(
             color: selected
                 ? oc.primary.withValues(alpha: 0.6)

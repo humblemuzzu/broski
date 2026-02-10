@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
-import 'package:google_fonts/google_fonts.dart';
 
 import '../models/command.dart';
+import '../theme/design_tokens.dart';
 import '../theme/opencode_theme.dart';
 
 /// A small pill badge showing the command source (command / mcp / skill).
@@ -28,12 +28,13 @@ class CommandSourceBadge extends StatelessWidget {
       padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
       decoration: BoxDecoration(
         color: color.withValues(alpha: 0.14),
-        borderRadius: BorderRadius.circular(999),
+        borderRadius: Radii.brFull,
         border: Border.all(color: color.withValues(alpha: 0.3), width: 1),
       ),
       child: Text(
         label,
-        style: GoogleFonts.inter(
+        style: TextStyle(
+          fontFamily: 'GeistSans',
           fontSize: 9,
           fontWeight: FontWeight.w700,
           color: color,

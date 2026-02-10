@@ -3,6 +3,7 @@ import 'package:flutter_markdown/flutter_markdown.dart';
 import 'package:google_fonts/google_fonts.dart';
 
 import '../models/message.dart';
+import '../theme/design_tokens.dart';
 import '../theme/opencode_theme.dart';
 import 'chat/detail_sheet.dart';
 import 'retry_indicator.dart';
@@ -54,8 +55,8 @@ class MessageBubble extends StatelessWidget {
     return Align(
       alignment: Alignment.centerLeft,
       child: Container(
-        margin: const EdgeInsets.symmetric(vertical: 8),
-        padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 16),
+        margin: EdgeInsets.symmetric(vertical: Spacing.sm),
+        padding: EdgeInsets.symmetric(horizontal: 18, vertical: Spacing.lg),
         constraints: const BoxConstraints(maxWidth: 340),
         decoration: BoxDecoration(
           color: theme.error.withValues(alpha: 0.1),
@@ -73,7 +74,7 @@ class MessageBubble extends StatelessWidget {
               mainAxisSize: MainAxisSize.min,
               children: [
                 Icon(Icons.error_outline, color: theme.error, size: 18),
-                const SizedBox(width: 8),
+                SizedBox(width: Spacing.sm),
                 Text(
                   message.error ?? 'Error',
                   style: TextStyle(
@@ -85,7 +86,7 @@ class MessageBubble extends StatelessWidget {
               ],
             ),
             if (message.text.isNotEmpty) ...[
-              const SizedBox(height: 8),
+              SizedBox(height: Spacing.sm),
               Text(
                 message.text,
                 style: TextStyle(color: theme.text, fontSize: 15, height: 1.5),
@@ -101,8 +102,8 @@ class MessageBubble extends StatelessWidget {
     return Align(
       alignment: Alignment.centerRight,
       child: Container(
-        margin: const EdgeInsets.only(left: 60, right: 0, top: 6, bottom: 6),
-        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+        margin: EdgeInsets.only(left: 60, right: 0, top: 6, bottom: 6),
+        padding: Insets.listItem,
         decoration: BoxDecoration(
           color: theme.primary.withValues(alpha: 0.15),
           borderRadius: const BorderRadius.only(
@@ -118,7 +119,8 @@ class MessageBubble extends StatelessWidget {
         ),
         child: Text(
           message.text,
-          style: GoogleFonts.inter(
+          style: TextStyle(
+            fontFamily: 'GeistSans',
             color: theme.text,
             fontSize: 15,
             height: 1.5,
@@ -140,7 +142,7 @@ class MessageBubble extends StatelessWidget {
           ? () => _showForkMenu(context, theme)
           : null,
       child: Container(
-        margin: const EdgeInsets.symmetric(vertical: 4),
+        margin: Insets.chipV,
         child: Row(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
@@ -148,7 +150,7 @@ class MessageBubble extends StatelessWidget {
             Container(
               width: 2,
               height: 20,
-              margin: const EdgeInsets.only(top: 4, right: 12),
+              margin: EdgeInsets.only(top: Spacing.xs, right: Spacing.md),
               decoration: BoxDecoration(
                 color: theme.borderSubtle,
                 borderRadius: BorderRadius.circular(1),
@@ -164,7 +166,7 @@ class MessageBubble extends StatelessWidget {
                     Align(
                       alignment: Alignment.centerRight,
                       child: Padding(
-                        padding: const EdgeInsets.only(bottom: 8),
+                        padding: EdgeInsets.only(bottom: Spacing.sm),
                         child: _buildStreamingCursor(theme),
                       ),
                     ),
@@ -174,14 +176,14 @@ class MessageBubble extends StatelessWidget {
                           message.variant!.isNotEmpty) ||
                       message.retryInfo != null)
                     Padding(
-                      padding: const EdgeInsets.only(bottom: 6),
+                      padding: EdgeInsets.only(bottom: 6),
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
                           if (message.variant != null &&
                               message.variant!.isNotEmpty)
                             Padding(
-                              padding: const EdgeInsets.only(bottom: 4),
+                              padding: EdgeInsets.only(bottom: Spacing.xs),
                               child: VariantBadge(variant: message.variant),
                             ),
                           if (message.retryInfo != null)
@@ -200,7 +202,8 @@ class MessageBubble extends StatelessWidget {
                       opacity: 0.5,
                       child: Text(
                         '...',
-                        style: GoogleFonts.inter(
+                        style: TextStyle(
+                          fontFamily: 'GeistSans',
                           fontSize: 15,
                           color: theme.textMuted,
                           height: 1.6,
@@ -216,7 +219,8 @@ class MessageBubble extends StatelessWidget {
                     message.isStreaming
                         ? Text(
                             message.text,
-                            style: GoogleFonts.inter(
+                            style: TextStyle(
+                              fontFamily: 'GeistSans',
                               fontSize: 15,
                               color: theme.text,
                               height: 1.6,
@@ -238,33 +242,37 @@ class MessageBubble extends StatelessWidget {
 
   MarkdownStyleSheet _buildMarkdownStyle(OpenCodeTheme theme) {
     return MarkdownStyleSheet(
-      p: GoogleFonts.inter(
+      p: TextStyle(
+        fontFamily: 'GeistSans',
         fontSize: 15,
         color: theme.markdownText,
         height: 1.6,
       ),
-      h1: GoogleFonts.inter(
+      h1: TextStyle(
+        fontFamily: 'GeistSans',
         fontSize: 20,
         fontWeight: FontWeight.w600,
         color: theme.markdownHeading,
         height: 1.4,
       ),
-      h2: GoogleFonts.inter(
+      h2: TextStyle(
+        fontFamily: 'GeistSans',
         fontSize: 18,
         fontWeight: FontWeight.w600,
         color: theme.markdownHeading,
         height: 1.4,
       ),
-      h3: GoogleFonts.inter(
+      h3: TextStyle(
+        fontFamily: 'GeistSans',
         fontSize: 16,
         fontWeight: FontWeight.w600,
         color: theme.markdownHeading,
         height: 1.4,
       ),
       // Section spacing - creates visual separation like Claude's app
-      h1Padding: const EdgeInsets.only(top: 24, bottom: 12),
-      h2Padding: const EdgeInsets.only(top: 20, bottom: 10),
-      h3Padding: const EdgeInsets.only(top: 16, bottom: 8),
+      h1Padding: EdgeInsets.only(top: Spacing.xxl, bottom: Spacing.md),
+      h2Padding: EdgeInsets.only(top: Spacing.xl, bottom: 10),
+      h3Padding: EdgeInsets.only(top: Spacing.lg, bottom: Spacing.sm),
       // Add subtle divider after headings using bottom border decoration
       horizontalRuleDecoration: BoxDecoration(
         border: Border(top: BorderSide(color: theme.dividerSection, width: 1)),
@@ -279,18 +287,19 @@ class MessageBubble extends StatelessWidget {
         backgroundColor: theme.backgroundElement,
         color: theme.markdownCode,
       ),
-      codeblockPadding: const EdgeInsets.all(12),
+      codeblockPadding: Insets.card,
       codeblockDecoration: BoxDecoration(
         color: theme.backgroundElement,
         borderRadius: BorderRadius.circular(12),
         border: Border.all(color: theme.borderSubtle),
       ),
-      listBullet: GoogleFonts.inter(
+      listBullet: TextStyle(
+        fontFamily: 'GeistSans',
         fontSize: 15,
         color: theme.markdownListItem,
       ),
       listIndent: 24,
-      blockquotePadding: const EdgeInsets.only(left: 16),
+      blockquotePadding: EdgeInsets.only(left: Spacing.lg),
       blockquoteDecoration: BoxDecoration(
         border: Border(
           left: BorderSide(color: theme.markdownBlockQuote, width: 3),
@@ -301,7 +310,7 @@ class MessageBubble extends StatelessWidget {
         decoration: TextDecoration.underline,
       ),
       // Block spacing between sections
-      blockSpacing: 16,
+      blockSpacing: Spacing.lg,
     );
   }
 

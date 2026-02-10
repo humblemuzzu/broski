@@ -9,6 +9,7 @@ import '../models/permission_rule.dart';
 import '../providers/claude_code_provider.dart';
 import '../providers/codex_settings_provider.dart';
 import '../providers/permission_rules_provider.dart';
+import '../theme/design_tokens.dart';
 import '../theme/opencode_theme.dart';
 import 'chat/detail_sheet.dart';
 
@@ -380,7 +381,7 @@ class _CodexPermissionContent extends ConsumerWidget {
             padding: const EdgeInsets.all(12),
             decoration: BoxDecoration(
               color: theme.info.withValues(alpha: 0.08),
-              borderRadius: BorderRadius.circular(10),
+              borderRadius: Radii.brSm,
               border: Border.all(color: theme.info.withValues(alpha: 0.2)),
             ),
             child: Row(
@@ -535,7 +536,7 @@ class _OpenCodeRulesContentState extends State<_OpenCodeRulesContent> {
             padding: const EdgeInsets.all(10),
             decoration: BoxDecoration(
               color: theme.info.withValues(alpha: 0.08),
-              borderRadius: BorderRadius.circular(8),
+              borderRadius: Radii.brSm,
               border: Border.all(color: theme.info.withValues(alpha: 0.2)),
             ),
             child: Row(
@@ -674,7 +675,7 @@ class _ApplyButton extends StatelessWidget {
           padding: const EdgeInsets.symmetric(vertical: 14),
           elevation: 0,
           shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(12),
+            borderRadius: Radii.brMd,
           ),
         ),
         child: Text(
@@ -710,7 +711,7 @@ class _AddButton extends StatelessWidget {
         padding: const EdgeInsets.symmetric(vertical: 14),
         decoration: BoxDecoration(
           color: theme.backgroundPanel,
-          borderRadius: BorderRadius.circular(12),
+          borderRadius: Radii.brMd,
           border: Border.all(color: theme.borderSubtle),
         ),
         child: Row(
@@ -769,7 +770,7 @@ class _ToolChipList extends StatelessWidget {
           padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
           decoration: BoxDecoration(
             color: color.withValues(alpha: 0.1),
-            borderRadius: BorderRadius.circular(8),
+            borderRadius: Radii.brSm,
             border: Border.all(color: color.withValues(alpha: 0.3)),
           ),
           child: Row(
@@ -822,7 +823,7 @@ class _ToggleRow extends StatelessWidget {
       padding: const EdgeInsets.all(14),
       decoration: BoxDecoration(
         color: theme.backgroundPanel,
-        borderRadius: BorderRadius.circular(12),
+        borderRadius: Radii.brMd,
         border: Border.all(color: theme.borderSubtle),
       ),
       child: Row(
@@ -939,7 +940,7 @@ class _PermissionModeOption extends StatelessWidget {
             color: isSelected
                 ? theme.primary.withValues(alpha: 0.08)
                 : theme.backgroundPanel,
-            borderRadius: BorderRadius.circular(12),
+            borderRadius: Radii.brMd,
             border: Border.all(
               color: isSelected ? theme.primary : theme.borderSubtle,
             ),
@@ -950,7 +951,7 @@ class _PermissionModeOption extends StatelessWidget {
                 padding: const EdgeInsets.all(8),
                 decoration: BoxDecoration(
                   color: _iconColor.withValues(alpha: 0.15),
-                  borderRadius: BorderRadius.circular(8),
+                  borderRadius: Radii.brSm,
                 ),
                 child: Icon(_icon, color: _iconColor, size: 18),
               ),
@@ -1050,7 +1051,7 @@ class _ToolPickerSheetState extends State<_ToolPickerSheet> {
                     ),
                     decoration: BoxDecoration(
                       color: widget.theme.backgroundPanel,
-                      borderRadius: BorderRadius.circular(8),
+                      borderRadius: Radii.brSm,
                       border: Border.all(color: widget.theme.borderSubtle),
                     ),
                     child: Text(
@@ -1098,15 +1099,15 @@ class _ToolPickerSheetState extends State<_ToolPickerSheet> {
                     filled: true,
                     fillColor: widget.theme.background,
                     border: OutlineInputBorder(
-                      borderRadius: BorderRadius.circular(8),
+                      borderRadius: Radii.brSm,
                       borderSide: BorderSide(color: widget.theme.borderSubtle),
                     ),
                     enabledBorder: OutlineInputBorder(
-                      borderRadius: BorderRadius.circular(8),
+                      borderRadius: Radii.brSm,
                       borderSide: BorderSide(color: widget.theme.borderSubtle),
                     ),
                     focusedBorder: OutlineInputBorder(
-                      borderRadius: BorderRadius.circular(8),
+                      borderRadius: Radii.brSm,
                       borderSide: BorderSide(color: widget.theme.primary),
                     ),
                   ),
@@ -1213,7 +1214,7 @@ class _CodexPolicyOption extends StatelessWidget {
             color: isSelected
                 ? theme.primary.withValues(alpha: 0.08)
                 : theme.backgroundPanel,
-            borderRadius: BorderRadius.circular(12),
+            borderRadius: Radii.brMd,
             border: Border.all(
               color: isSelected ? theme.primary : theme.borderSubtle,
             ),
@@ -1224,7 +1225,7 @@ class _CodexPolicyOption extends StatelessWidget {
                 padding: const EdgeInsets.all(8),
                 decoration: BoxDecoration(
                   color: _iconColor.withValues(alpha: 0.15),
-                  borderRadius: BorderRadius.circular(8),
+                  borderRadius: Radii.brSm,
                 ),
                 child: Icon(_icon, color: _iconColor, size: 18),
               ),
@@ -1329,7 +1330,7 @@ class _CodexSandboxOption extends StatelessWidget {
             color: isSelected
                 ? theme.primary.withValues(alpha: 0.08)
                 : theme.backgroundPanel,
-            borderRadius: BorderRadius.circular(12),
+            borderRadius: Radii.brMd,
             border: Border.all(
               color: isSelected ? theme.primary : theme.borderSubtle,
             ),
@@ -1340,7 +1341,7 @@ class _CodexSandboxOption extends StatelessWidget {
                 padding: const EdgeInsets.all(8),
                 decoration: BoxDecoration(
                   color: _iconColor.withValues(alpha: 0.15),
-                  borderRadius: BorderRadius.circular(8),
+                  borderRadius: Radii.brSm,
                 ),
                 child: Icon(_icon, color: _iconColor, size: 18),
               ),
@@ -1398,7 +1399,7 @@ class _PresetChip extends StatelessWidget {
         padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
         decoration: BoxDecoration(
           color: theme.backgroundPanel,
-          borderRadius: BorderRadius.circular(10),
+          borderRadius: Radii.brSm,
           border: Border.all(color: theme.borderSubtle),
         ),
         child: Text(
@@ -1476,7 +1477,7 @@ class _RuleCard extends StatelessWidget {
       margin: const EdgeInsets.only(bottom: 10),
       decoration: BoxDecoration(
         color: theme.backgroundPanel,
-        borderRadius: BorderRadius.circular(14),
+        borderRadius: Radii.brMd,
         border: Border.all(color: theme.borderSubtle),
       ),
       child: Column(
@@ -1490,7 +1491,7 @@ class _RuleCard extends StatelessWidget {
                   padding: const EdgeInsets.all(6),
                   decoration: BoxDecoration(
                     color: permColor.withValues(alpha: 0.15),
-                    borderRadius: BorderRadius.circular(8),
+                    borderRadius: Radii.brSm,
                   ),
                   child: Icon(_getPermissionIcon(), color: permColor, size: 16),
                 ),
@@ -1626,7 +1627,7 @@ class _StyledDropdown extends StatelessWidget {
           padding: const EdgeInsets.symmetric(horizontal: 10),
           decoration: BoxDecoration(
             color: theme.background,
-            borderRadius: BorderRadius.circular(8),
+            borderRadius: Radii.brSm,
             border: Border.all(color: theme.borderSubtle),
           ),
           child: DropdownButton<String>(
@@ -1694,15 +1695,15 @@ class _StyledTextField extends StatelessWidget {
               filled: true,
               fillColor: theme.background,
               border: OutlineInputBorder(
-                borderRadius: BorderRadius.circular(8),
+                borderRadius: Radii.brSm,
                 borderSide: BorderSide(color: theme.borderSubtle),
               ),
               enabledBorder: OutlineInputBorder(
-                borderRadius: BorderRadius.circular(8),
+                borderRadius: Radii.brSm,
                 borderSide: BorderSide(color: theme.borderSubtle),
               ),
               focusedBorder: OutlineInputBorder(
-                borderRadius: BorderRadius.circular(8),
+                borderRadius: Radii.brSm,
                 borderSide: BorderSide(color: theme.primary),
               ),
             ),

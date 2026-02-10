@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:google_fonts/google_fonts.dart';
 
 import '../models/skill.dart';
 import '../theme/opencode_theme.dart';
@@ -245,7 +246,7 @@ class _MarkdownFileEditorScreenState extends State<MarkdownFileEditorScreen> {
                   minLines: null,
                   maxLines: null,
                   style: TextStyle(
-                    fontFamily: 'monospace',
+                    fontFamily: GoogleFonts.jetBrainsMono().fontFamily,
                     fontSize: 13,
                     color: oc.text,
                   ),

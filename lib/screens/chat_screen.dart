@@ -5,6 +5,7 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:google_fonts/google_fonts.dart';
 import 'package:share_plus/share_plus.dart';
 import 'package:url_launcher/url_launcher.dart';
 
@@ -3398,7 +3399,7 @@ Describe project-specific guidance for Codex here.
                       maxLines: null,
                       minLines: null,
                       style: TextStyle(
-                        fontFamily: 'monospace',
+                        fontFamily: GoogleFonts.jetBrainsMono().fontFamily,
                         fontSize: 12,
                         color: theme.text,
                       ),
@@ -3672,7 +3673,7 @@ Describe project-specific guidance for Codex here.
                     child: SelectableText(
                       authUrl!,
                       style: TextStyle(
-                        fontFamily: 'monospace',
+                        fontFamily: GoogleFonts.jetBrainsMono().fontFamily,
                         color: theme.text,
                         fontSize: 11,
                       ),
@@ -4204,7 +4205,7 @@ Describe project-specific guidance for Codex here.
                     child: SelectableText(
                       configJson,
                       style: TextStyle(
-                        fontFamily: 'monospace',
+                        fontFamily: GoogleFonts.jetBrainsMono().fontFamily,
                         color: theme.textMuted,
                         fontSize: 11,
                       ),
@@ -5003,7 +5004,7 @@ Describe project-specific guidance for Codex here.
                   child: Text(
                     cmd.$1,
                     style: TextStyle(
-                      fontFamily: 'monospace',
+                      fontFamily: GoogleFonts.jetBrainsMono().fontFamily,
                       fontSize: 13,
                       color: theme.accent,
                     ),
@@ -12039,7 +12040,7 @@ class _CCUndoTurnBar extends StatelessWidget {
                           child: Text(
                             path,
                             style: TextStyle(
-                              fontFamily: 'monospace',
+                              fontFamily: GoogleFonts.jetBrainsMono().fontFamily,
                               color: theme.text,
                               fontSize: 12,
                             ),

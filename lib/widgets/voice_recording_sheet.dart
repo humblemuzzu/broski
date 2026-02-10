@@ -6,6 +6,7 @@ import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../providers/stt_provider.dart';
+import '../theme/design_tokens.dart';
 import '../theme/opencode_theme.dart';
 
 /// Shows a modern voice recording overlay and returns the transcribed text.
@@ -199,7 +200,7 @@ class _VoiceRecordingOverlayState extends ConsumerState<_VoiceRecordingOverlay>
               constraints: const BoxConstraints(maxWidth: 360),
               decoration: BoxDecoration(
                 color: ocTheme.backgroundPanel,
-                borderRadius: BorderRadius.circular(28),
+                borderRadius: Radii.brXxl,
                 border: Border.all(
                   color: ocTheme.borderSubtle,
                   width: 1,
@@ -461,7 +462,7 @@ class _ErrorDisplay extends StatelessWidget {
           padding: const EdgeInsets.all(16),
           decoration: BoxDecoration(
             color: ocTheme.error.withValues(alpha: 0.1),
-            borderRadius: BorderRadius.circular(16),
+            borderRadius: Radii.brLg,
             border: Border.all(
               color: ocTheme.error.withValues(alpha: 0.3),
               width: 1,
@@ -493,7 +494,7 @@ class _ErrorDisplay extends StatelessWidget {
                   ),
                   decoration: BoxDecoration(
                     color: ocTheme.bgHighlight,
-                    borderRadius: BorderRadius.circular(20),
+                    borderRadius: Radii.brXl,
                   ),
                   child: Row(
                     mainAxisSize: MainAxisSize.min,

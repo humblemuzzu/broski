@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
+import 'package:google_fonts/google_fonts.dart';
 
+import '../../theme/design_tokens.dart';
 import '../../widgets/chat/detail_sheet.dart';
 
 class GitDiffInline extends StatelessWidget {
@@ -40,12 +42,12 @@ class GitDiffInline extends StatelessWidget {
           color: Theme.of(
             context,
           ).colorScheme.surfaceContainerHighest.withValues(alpha: 0.35),
-          borderRadius: BorderRadius.circular(12),
+          borderRadius: Radii.brMd,
         ),
         child: SelectableText(
           diff,
-          style: const TextStyle(
-            fontFamily: 'monospace',
+          style: TextStyle(
+            fontFamily: GoogleFonts.jetBrainsMono().fontFamily,
             fontSize: 12.5,
             height: 1.45,
           ),
