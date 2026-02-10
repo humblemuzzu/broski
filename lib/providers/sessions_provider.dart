@@ -680,15 +680,64 @@ final projectsForSessionsProvider = StreamProvider<List<ProjectSummary>>((
     final bridge = ref.watch(bridgeServiceProvider);
     final fresh = await bridge.listProjects();
 
-    // Cache for offline use
     if (fresh.isNotEmpty) {
+      // Cache for offline use
       await storage.cacheProjects(fresh);
+      yield fresh;
+    } else if (cached.isEmpty) {
+      // Bridge returned empty and no cache – derive from cached sessions
+      final sessions = await storage.getCachedSessions();
+      final byPath = <String, ProjectSummary>{};
+      for (final s in sessions) {
+        final path = s.directory;
+        if (path.isEmpty) continue;
+        final parts = path.split('/').where((p) => p.isNotEmpty).toList();
+        final name = parts.isEmpty ? path : parts.last;
+        byPath[path] = ProjectSummary(id: path, name: name, path: path);
+      }
+      final derived = byPath.values.toList()
+        ..sort((a, b) => a.name.toLowerCase().compareTo(b.name.toLowerCase()));
+      yield derived;
     }
-
-    yield fresh;
+    // If fresh is empty but cache was non-empty, keep cached data (already yielded in step 1)
   } catch (e) {
     if (cached.isEmpty) {
       rethrow;
     }
   }
+});
+
+/// Derived project list for filter sheet — merges bridge-API projects with
+/// projects derived from the session cache. Guarantees the filter always has
+/// entries when sessions are visible: bridge projects cover "known projects"
+/// and session-derived projects cover "if sessions exist, projects exist".
+final ocFilterProjectsProvider = FutureProvider<List<ProjectSummary>>((
+  ref,
+) async {
+  // Re-derive whenever sessions refresh
+  ref.watch(sessionsRefreshTickProvider);
+  final storage = ref.watch(storageServiceProvider);
+
+  final byPath = <String, ProjectSummary>{};
+
+  // Source 1: Bridge API projects (may have better names)
+  final bridgeProjects = ref.watch(projectsForSessionsProvider);
+  for (final p in bridgeProjects.valueOrNull ?? <ProjectSummary>[]) {
+    byPath[p.path] = p;
+  }
+
+  // Source 2: Session cache (full unfiltered set — always stored by
+  // sessionsListProvider regardless of filter). This is the guaranteed source.
+  final allSessions = await storage.getCachedSessions();
+  for (final s in allSessions) {
+    final path = s.directory;
+    if (path.isEmpty) continue;
+    if (byPath.containsKey(path)) continue; // bridge name wins
+    final parts = path.split('/').where((p) => p.isNotEmpty).toList();
+    final name = parts.isEmpty ? path : parts.last;
+    byPath[path] = ProjectSummary(id: path, name: name, path: path);
+  }
+
+  return byPath.values.toList()
+    ..sort((a, b) => a.name.toLowerCase().compareTo(b.name.toLowerCase()));
 });

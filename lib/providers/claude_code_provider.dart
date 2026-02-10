@@ -12,7 +12,7 @@ import 'service_providers.dart';
 /// `null` means "all projects" for Claude Code sessions.
 final ccSessionsFilterCwdProvider = StateProvider<String?>((ref) => null);
 
-/// Project list for Claude Code sessions screen.
+/// Project list for Claude Code sessions screen (used by "New Session" sheet).
 /// Online: uses `cc_list_projects` (derived from ~/.claude/projects).
 /// Offline: derives projects from cached CC sessions.
 final ccProjectsForSessionsProvider = FutureProvider<List<ProjectSummary>>((
@@ -45,10 +45,32 @@ final ccProjectsForSessionsProvider = FutureProvider<List<ProjectSummary>>((
 
   try {
     final projects = await bridge.ccListProjects();
-    return projects;
+    if (projects.isNotEmpty) return projects;
+    return await fromCachedSessions();
   } catch (_) {
     return await fromCachedSessions();
   }
+});
+
+/// Derived project list for filter sheet — computed directly from loaded
+/// CC sessions. Guaranteed: if sessions show in the list, projects show in
+/// the filter. No separate API call, no timing issues.
+final ccFilterProjectsProvider = Provider<AsyncValue<List<ProjectSummary>>>((
+  ref,
+) {
+  final sessionsAsync = ref.watch(ccSessionsProvider);
+  return sessionsAsync.whenData((sessions) {
+    final byPath = <String, ProjectSummary>{};
+    for (final s in sessions) {
+      final path = s.cwd;
+      if (path.isEmpty) continue;
+      final parts = path.split('/').where((p) => p.isNotEmpty).toList();
+      final name = parts.isEmpty ? path : parts.last;
+      byPath[path] = ProjectSummary(id: path, name: name, path: path);
+    }
+    return byPath.values.toList()
+      ..sort((a, b) => a.name.toLowerCase().compareTo(b.name.toLowerCase()));
+  });
 });
 
 final ccSessionsProvider =

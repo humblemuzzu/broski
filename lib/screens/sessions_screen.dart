@@ -224,7 +224,7 @@ class _SessionsScreenState extends ConsumerState<SessionsScreen> {
     final connection = ref.watch(connectionProvider);
     final theme = Theme.of(context);
     final filterProjectPath = ref.watch(sessionsFilterProjectPathProvider);
-    final projectsAsync = ref.watch(projectsForSessionsProvider);
+    final projectsAsync = ref.watch(ocFilterProjectsProvider);
     final sessionsAsync = ref.watch(sessionsListProvider);
     final sessionStatuses = ref.watch(globalSessionStatusProvider);
     return Scaffold(
@@ -260,6 +260,7 @@ class _SessionsScreenState extends ConsumerState<SessionsScreen> {
                       connection: connection,
                       filterProjectPath: filterProjectPath,
                       projects: projectsAsync,
+                      projectsProvider: ocFilterProjectsProvider,
                       onFilterChanged: (path) {
                         ref
                                 .read(
@@ -1454,6 +1455,7 @@ class _ModernHeader extends StatelessWidget {
     required this.connection,
     required this.filterProjectPath,
     required this.projects,
+    required this.projectsProvider,
     required this.onFilterChanged,
     required this.onRefresh,
     this.onNewSession,
@@ -1468,6 +1470,7 @@ class _ModernHeader extends StatelessWidget {
   final BridgeConnectionState connection;
   final String? filterProjectPath;
   final AsyncValue<List<ProjectSummary>> projects;
+  final ProviderListenable<AsyncValue<List<ProjectSummary>>> projectsProvider;
   final ValueChanged<String?> onFilterChanged;
   final VoidCallback onRefresh;
   final VoidCallback? onNewSession;
@@ -1563,7 +1566,7 @@ class _ModernHeader extends StatelessWidget {
                   context: context,
                   theme: theme,
                   selectedPath: filterProjectPath,
-                  projects: projects,
+                  projectsProvider: projectsProvider,
                   onSelected: onFilterChanged,
                 ),
               ),
@@ -1799,7 +1802,8 @@ void _showProjectFilter({
   required BuildContext context,
   required ThemeData theme,
   required String? selectedPath,
-  required AsyncValue<List<ProjectSummary>> projects,
+  required ProviderListenable<AsyncValue<List<ProjectSummary>>>
+  projectsProvider,
   required ValueChanged<String?> onSelected,
 }) {
   final ocTheme = OpenCodeTheme.of(context);
@@ -1809,56 +1813,78 @@ void _showProjectFilter({
     initialSize: 0.5,
     minSize: 0.3,
     maxSize: 0.85,
-    child: ListView(
-      padding: const EdgeInsets.fromLTRB(16, 0, 16, 32),
-      children: [
-        // All projects option
-        _FilterProjectTile(
-          name: 'All projects',
-          path: null,
-          isSelected: selectedPath == null,
-          onTap: () {
-            onSelected(null);
-            Navigator.pop(context);
-          },
-        ),
-        Divider(height: 24, color: ocTheme.borderSubtle),
-        // Project list
-        projects.when(
-          loading: () => const Padding(
-            padding: EdgeInsets.symmetric(vertical: 32),
-            child: Center(child: CircularProgressIndicator(strokeWidth: 2)),
+    child: Consumer(
+      builder: (context, ref, _) {
+        final projects = ref.watch(projectsProvider);
+        return Padding(
+          padding: const EdgeInsets.fromLTRB(16, 0, 16, 32),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              // All projects option
+              _FilterProjectTile(
+                name: 'All projects',
+                path: null,
+                isSelected: selectedPath == null,
+                onTap: () {
+                  onSelected(null);
+                  Navigator.pop(context);
+                },
+              ),
+              Divider(height: 24, color: ocTheme.borderSubtle),
+              // Project list
+              projects.when(
+                loading: () => const Padding(
+                  padding: EdgeInsets.symmetric(vertical: 32),
+                  child: Center(
+                    child: CircularProgressIndicator(strokeWidth: 2),
+                  ),
+                ),
+                error: (error, _) => Padding(
+                  padding: const EdgeInsets.symmetric(vertical: 24),
+                  child: Text(
+                    'Failed to load projects',
+                    style: TextStyle(color: ocTheme.textMuted),
+                    textAlign: TextAlign.center,
+                  ),
+                ),
+                data: (items) {
+                  if (items.isEmpty) {
+                    return Padding(
+                      padding: const EdgeInsets.symmetric(vertical: 24),
+                      child: Text(
+                        'No projects found',
+                        style: TextStyle(color: ocTheme.textMuted),
+                        textAlign: TextAlign.center,
+                      ),
+                    );
+                  }
+                  final sorted = items.toList()
+                    ..sort(
+                      (a, b) =>
+                          a.name.toLowerCase().compareTo(b.name.toLowerCase()),
+                    );
+                  return Column(
+                    mainAxisSize: MainAxisSize.min,
+                    children: sorted.map((project) {
+                      final isSelected = selectedPath == project.path;
+                      return _FilterProjectTile(
+                        name: project.name,
+                        path: project.path,
+                        isSelected: isSelected,
+                        onTap: () {
+                          onSelected(project.path);
+                          Navigator.pop(context);
+                        },
+                      );
+                    }).toList(),
+                  );
+                },
+              ),
+            ],
           ),
-          error: (error, _) => Padding(
-            padding: const EdgeInsets.symmetric(vertical: 24),
-            child: Text(
-              'Failed to load projects',
-              style: TextStyle(color: ocTheme.textMuted),
-              textAlign: TextAlign.center,
-            ),
-          ),
-          data: (items) {
-            final sorted = items.toList()
-              ..sort(
-                (a, b) => a.name.toLowerCase().compareTo(b.name.toLowerCase()),
-              );
-            return Column(
-              children: sorted.map((project) {
-                final isSelected = selectedPath == project.path;
-                return _FilterProjectTile(
-                  name: project.name,
-                  path: project.path,
-                  isSelected: isSelected,
-                  onTap: () {
-                    onSelected(project.path);
-                    Navigator.pop(context);
-                  },
-                );
-              }).toList(),
-            );
-          },
-        ),
-      ],
+        );
+      },
     ),
   );
 }
@@ -3639,15 +3665,14 @@ class _CodexThreadsViewState extends ConsumerState<_CodexThreadsView> {
     final threadsAsync = ref.watch(codexThreadsProvider);
     final highlights = ref.watch(highlightsProvider);
     final filterCwd = ref.watch(codexThreadsFilterCwdProvider);
-    final projectsAsync = ref.watch(codexProjectsForThreadsProvider);
+    final codexFilterProjects = ref.watch(codexFilterProjectsProvider);
     final titleFilterCount = ref
         .watch(sessionsTitleExcludeFiltersProvider(AgentType.codex))
         .length;
-    final filterLabel = filterCwd == null
-        ? 'All projects'
-        : (filterCwd.split('/').where((p) => p.isNotEmpty).toList().isEmpty
-              ? filterCwd
-              : filterCwd.split('/').where((p) => p.isNotEmpty).toList().last);
+    final filterLabel = _filterLabel(
+      selectedPath: filterCwd,
+      projects: codexFilterProjects,
+    );
     return Scaffold(
       backgroundColor: Colors.transparent,
       body: SafeArea(
@@ -3718,7 +3743,7 @@ class _CodexThreadsViewState extends ConsumerState<_CodexThreadsView> {
                               context: context,
                               theme: theme,
                               selectedPath: filterCwd,
-                              projects: projectsAsync,
+                              projectsProvider: codexFilterProjectsProvider,
                               onSelected: (path) {
                                 ref
                                         .read(
@@ -4809,7 +4834,7 @@ class _ClaudeCodeSessionsViewState
   Widget build(BuildContext context) {
     final sessionsAsync = ref.watch(ccSessionsProvider);
     final filterCwd = ref.watch(ccSessionsFilterCwdProvider);
-    final projectsAsync = ref.watch(ccProjectsForSessionsProvider);
+    final ccFilterProjects = ref.watch(ccFilterProjectsProvider);
     final ocTheme = OpenCodeTheme.of(context);
     final highlights = ref.watch(highlightsProvider);
     final highlightColor = highlights.color;
@@ -4818,7 +4843,7 @@ class _ClaudeCodeSessionsViewState
         .length;
     final filterLabel = _filterLabel(
       selectedPath: filterCwd,
-      projects: projectsAsync,
+      projects: ccFilterProjects,
     );
     final theme = Theme.of(context);
     return Scaffold(
@@ -4912,7 +4937,7 @@ class _ClaudeCodeSessionsViewState
                               context: context,
                               theme: theme,
                               selectedPath: filterCwd,
-                              projects: projectsAsync,
+                              projectsProvider: ccFilterProjectsProvider,
                               onSelected: (path) {
                                 ref
                                         .read(

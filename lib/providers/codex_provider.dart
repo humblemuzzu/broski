@@ -10,7 +10,7 @@ import 'service_providers.dart';
 /// `null` means "all projects" for Codex threads.
 final codexThreadsFilterCwdProvider = StateProvider<String?>((ref) => null);
 
-/// Project list for Codex threads screen.
+/// Project list for Codex threads screen (used by "New Session" sheet).
 /// Online: uses `cx_list_projects`.
 /// Offline: uses cached projects, falls back to deriving from cached threads.
 final codexProjectsForThreadsProvider = FutureProvider<List<ProjectSummary>>((
@@ -18,7 +18,6 @@ final codexProjectsForThreadsProvider = FutureProvider<List<ProjectSummary>>((
 ) async {
   final bridge = ref.watch(bridgeServiceProvider);
   final storage = ref.watch(storageServiceProvider);
-  // Use ref.read() to avoid rebuilding provider on every connection state change
   final connection = ref.read(connectionProvider);
 
   Future<List<ProjectSummary>> fromCache() async {
@@ -49,11 +48,33 @@ final codexProjectsForThreadsProvider = FutureProvider<List<ProjectSummary>>((
     final projects = await bridge.cxListProjects();
     if (projects.isNotEmpty) {
       await storage.cacheCodexProjects(projects);
+      return projects;
     }
-    return projects;
+    return await fromCache();
   } catch (_) {
     return await fromCache();
   }
+});
+
+/// Derived project list for filter sheet — computed directly from loaded
+/// Codex threads. Guaranteed: if threads show in the list, projects show in
+/// the filter. No separate API call, no timing issues.
+final codexFilterProjectsProvider = Provider<AsyncValue<List<ProjectSummary>>>((
+  ref,
+) {
+  final threadsAsync = ref.watch(codexThreadsProvider);
+  return threadsAsync.whenData((threads) {
+    final byPath = <String, ProjectSummary>{};
+    for (final t in threads) {
+      final path = t.cwd;
+      if (path.isEmpty) continue;
+      final parts = path.split('/').where((p) => p.isNotEmpty).toList();
+      final name = parts.isEmpty ? path : parts.last;
+      byPath[path] = ProjectSummary(id: path, name: name, path: path);
+    }
+    return byPath.values.toList()
+      ..sort((a, b) => a.name.toLowerCase().compareTo(b.name.toLowerCase()));
+  });
 });
 
 final codexThreadsProvider =
@@ -174,8 +195,7 @@ final codexModelsProvider =
       return notifier;
     });
 
-class CodexModelsNotifier
-    extends StateNotifier<AsyncValue<List<CodexModel>>> {
+class CodexModelsNotifier extends StateNotifier<AsyncValue<List<CodexModel>>> {
   CodexModelsNotifier(this._bridge, this._storage, this._connection)
     : super(const AsyncValue.loading());
 
