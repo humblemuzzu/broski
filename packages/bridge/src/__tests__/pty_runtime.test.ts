@@ -125,6 +125,14 @@ describe('PtyRuntime', () => {
     expect(outputs.length).toBe(1)
     expect((outputs[0].message as any).data).toBe('hello')
 
+    const hugeBurst = 'x'.repeat(600 * 1024)
+    upstream.emitMessage(hugeBurst)
+    await Bun.sleep(40)
+    const truncationProtected = sentMessages
+      .filter((m) => m.message.type === 'pty_output' && (m.message as any).ptyId === 'p1')
+      .some((m) => String((m.message as any).data).includes('[broski] terminal output truncated'))
+    expect(truncationProtected).toBe(true)
+
     await runtime.handleMessage(wsA, { type: 'pty_input', ptyId: 'p1', data: 'ls\n' } as any, (m) => replies.push(m))
     expect(upstream.sent.includes('ls\n')).toBe(true)
 

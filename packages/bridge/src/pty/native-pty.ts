@@ -15,6 +15,7 @@ const SIGKILL = 9
 const EAGAIN = process.platform === 'darwin' ? 35 : 11
 const EWOULDBLOCK = process.platform === 'darwin' ? 35 : 11
 const EINTR = 4
+const READ_POLL_TIMEOUT_MS = 120
 
 type NativeLib = ReturnType<typeof dlopen>
 
@@ -34,6 +35,7 @@ const SYMBOLS = {
     ],
   },
   pty_resize: { returns: FFIType.int, args: [FFIType.int, FFIType.u16, FFIType.u16] },
+  pty_wait_readable: { returns: FFIType.int, args: [FFIType.int, FFIType.int] },
   pty_read: { returns: FFIType.int, args: [FFIType.int, FFIType.ptr, FFIType.int] },
   pty_write: { returns: FFIType.int, args: [FFIType.int, FFIType.ptr, FFIType.int] },
   pty_close: { returns: FFIType.int, args: [FFIType.int] },
@@ -294,6 +296,17 @@ export async function nativeUpdatePty(
   return { ...session }
 }
 
+async function waitForProcessExit(lib: NativeLib, pid: number, timeoutMs: number): Promise<number | null> {
+  const deadline = Date.now() + timeoutMs
+  for (;;) {
+    const result = lib.symbols.pty_waitpid(pid)
+    if (result >= 0) return result
+    if (result === -2) return null
+    if (Date.now() >= deadline) return null
+    await Bun.sleep(20)
+  }
+}
+
 export async function nativeDeletePty(id: string): Promise<boolean> {
   const session = sessions.get(id)
   if (!session) return true
@@ -307,8 +320,8 @@ export async function nativeDeletePty(id: string): Promise<boolean> {
       // ignore
     }
 
-    const termResult = lib.symbols.pty_waitpid(session.pid)
-    if (termResult >= 0) {
+    const termResult = await waitForProcessExit(lib, session.pid, 300)
+    if (termResult != null) {
       session.status = 'exited'
       session.exitCode = termResult
     } else {
@@ -317,9 +330,9 @@ export async function nativeDeletePty(id: string): Promise<boolean> {
       } catch {
         // ignore
       }
-      const killResult = lib.symbols.pty_waitpid(session.pid)
+      const killResult = await waitForProcessExit(lib, session.pid, 300)
       session.status = 'exited'
-      if (killResult >= 0) session.exitCode = killResult
+      if (killResult != null) session.exitCode = killResult
     }
   }
 
@@ -361,26 +374,46 @@ export function nativeConnectPty(id: string): NativePtyConnection | null {
 
   const poll = async () => {
     while (running) {
-      const n = lib.symbols.pty_read(session.masterFd, ptr(readBuffer), readBuffer.length)
-      if (n > 0) {
-        const text = readBuffer.subarray(0, n).toString('utf8')
-        onData?.(text)
+      const ready = lib.symbols.pty_wait_readable(session.masterFd, READ_POLL_TIMEOUT_MS)
+      if (ready === 0) {
+        await Bun.sleep(0)
         continue
       }
-
-      if (n === 0) {
+      if (ready < 0) {
+        const waitErr = lib.symbols.pty_errno()
+        if (waitErr === EINTR) {
+          await Bun.sleep(0)
+          continue
+        }
         break
       }
 
-      const err = lib.symbols.pty_errno()
-      if (err === EAGAIN || err === EWOULDBLOCK) {
-        await Bun.sleep(8)
-        continue
+      for (;;) {
+        const n = lib.symbols.pty_read(session.masterFd, ptr(readBuffer), readBuffer.length)
+        if (n > 0) {
+          const text = readBuffer.subarray(0, n).toString('utf8')
+          onData?.(text)
+          continue
+        }
+
+        if (n === 0) {
+          running = false
+          break
+        }
+
+        const err = lib.symbols.pty_errno()
+        if (err === EAGAIN || err === EWOULDBLOCK) {
+          break
+        }
+        if (err === EINTR) {
+          continue
+        }
+
+        running = false
+        break
       }
-      if (err === EINTR) {
-        continue
-      }
-      break
+
+      await Bun.sleep(0)
     }
 
     running = false

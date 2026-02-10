@@ -20,6 +20,7 @@
 #include <sys/ioctl.h>
 #include <sys/wait.h>
 #include <termios.h>
+#include <poll.h>
 #include <unistd.h>
 
 int pty_create(
@@ -106,6 +107,14 @@ int pty_resize(int master_fd, unsigned short rows, unsigned short cols) {
     ws.ws_row = rows;
     ws.ws_col = cols;
     return ioctl(master_fd, TIOCSWINSZ, &ws);
+}
+
+int pty_wait_readable(int fd, int timeout_ms) {
+    struct pollfd pfd;
+    memset(&pfd, 0, sizeof(pfd));
+    pfd.fd = fd;
+    pfd.events = POLLIN | POLLERR | POLLHUP;
+    return poll(&pfd, 1, timeout_ms);
 }
 
 int pty_read(int fd, void* buf, int len) {

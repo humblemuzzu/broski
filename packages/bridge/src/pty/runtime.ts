@@ -2,6 +2,7 @@ import type { ServerWebSocket } from 'bun'
 import type { ServerMessage } from '../types'
 import type { NativePtyConnection } from './native-pty'
 import { PtyManager } from './manager'
+import { consumePtyOutput, createPtyBufferState, pushPtyOutput, type PtyBufferState } from './output'
 import type { PtyClientMessage, PtyReply } from './types'
 
 type PtyHealth = {
@@ -10,8 +11,6 @@ type PtyHealth = {
   bytesIn: number
   bytesOut: number
 }
-
-type PtyBuffer = { buffer: string; timer: ReturnType<typeof setTimeout> | null }
 
 type RuntimeDeps = {
   ptyManager: PtyManager
@@ -30,7 +29,7 @@ export class PtyRuntime {
   private readonly nativeConnections = new Map<string, NativePtyConnection>()
   private readonly connecting = new Set<string>()
   private readonly ptyListeners = new Map<string, Set<ServerWebSocket<unknown>>>()
-  private readonly ptyOutputBuffers = new Map<string, PtyBuffer>()
+  private readonly ptyOutputBuffers = new Map<string, PtyBufferState>()
   private readonly ptyHealth = new Map<string, PtyHealth>()
   private readonly healthTimer: ReturnType<typeof setInterval>
 
@@ -40,9 +39,7 @@ export class PtyRuntime {
     this.log = deps.log
     this.resolveSecurePath = deps.resolveSecurePath
 
-    this.healthTimer = setInterval(() => {
-      this.broadcastHealthSnapshots()
-    }, 1000)
+    this.healthTimer = setInterval(() => this.broadcastHealthSnapshots(), 1000)
   }
 
   async stop(): Promise<void> {
@@ -188,8 +185,12 @@ export class PtyRuntime {
 
         const ptyWs = this.ptyConnections.get(message.ptyId)
         if (ptyWs && ptyWs.readyState === WebSocket.OPEN) {
-          ptyWs.send(data)
-          break
+          try {
+            ptyWs.send(data)
+            break
+          } catch {
+            this.ptyConnections.delete(message.ptyId)
+          }
         }
 
         const nativeConn = this.nativeConnections.get(message.ptyId)
@@ -234,10 +235,10 @@ export class PtyRuntime {
     return created
   }
 
-  private ensurePtyBuffer(ptyId: string): PtyBuffer {
+  private ensurePtyBuffer(ptyId: string): PtyBufferState {
     const existing = this.ptyOutputBuffers.get(ptyId)
     if (existing) return existing
-    const created: PtyBuffer = { buffer: '', timer: null }
+    const created: PtyBufferState = createPtyBufferState()
     this.ptyOutputBuffers.set(ptyId, created)
     return created
   }
@@ -263,15 +264,26 @@ export class PtyRuntime {
       return
     }
 
-    const data = state.buffer
-    state.buffer = ''
-    state.timer = null
+    const data = consumePtyOutput(state)
 
     const listeners = this.ptyListeners.get(ptyId)
     if (!listeners || listeners.size === 0) return
 
+    const deadClients: ServerWebSocket<unknown>[] = []
     for (const client of listeners) {
-      this.send(client, { type: 'pty_output', ptyId, data })
+      try {
+        this.send(client, { type: 'pty_output', ptyId, data })
+      } catch {
+        deadClients.push(client)
+      }
+    }
+
+    for (const client of deadClients) {
+      listeners.delete(client)
+    }
+
+    if (listeners.size === 0) {
+      this.closePtyIfNoListeners(ptyId)
     }
   }
 
@@ -323,17 +335,24 @@ export class PtyRuntime {
   }
 
   private queuePtyOutput(ptyId: string, data: string): void {
+    if (!data) return
+
+    const now = Date.now()
     const health = this.ensurePtyHealth(ptyId)
-    health.lastOutputTime = Date.now()
+    health.lastOutputTime = now
     health.bytesOut += data.length
 
     const buffer = this.ensurePtyBuffer(ptyId)
-    buffer.buffer += data
+    const queued = pushPtyOutput(buffer, data, now)
+
+    if (queued.didTruncate) {
+      this.log(`[PTY] Output truncated for ${ptyId} (backpressure protection)`)
+    }
 
     if (!buffer.timer) {
-      buffer.timer = setTimeout(() => this.flushPtyOutput(ptyId), 16)
+      buffer.timer = setTimeout(() => this.flushPtyOutput(ptyId), queued.flushDelayMs)
     }
-    if (buffer.buffer.length >= 256 * 1024) {
+    if (queued.shouldFlushNow) {
       this.flushPtyOutput(ptyId)
     }
   }
@@ -341,8 +360,18 @@ export class PtyRuntime {
   private emitPtyError(ptyId: string, error: string): void {
     const listeners = this.ptyListeners.get(ptyId)
     if (!listeners || listeners.size === 0) return
+
+    const deadClients: ServerWebSocket<unknown>[] = []
     for (const client of listeners) {
-      this.send(client, { type: 'pty_error', ptyId, error })
+      try {
+        this.send(client, { type: 'pty_error', ptyId, error })
+      } catch {
+        deadClients.push(client)
+      }
+    }
+
+    for (const client of deadClients) {
+      listeners.delete(client)
     }
   }
 
@@ -370,16 +399,24 @@ export class PtyRuntime {
       if (!listeners || listeners.size === 0) continue
 
       const isResponsive = now - health.lastOutputTime < 5000
+      const deadClients: ServerWebSocket<unknown>[] = []
       for (const client of listeners) {
-        this.send(client, {
-          type: 'pty_health',
-          ptyId,
-          lastInputTime: health.lastInputTime,
-          lastOutputTime: health.lastOutputTime,
-          bytesIn: health.bytesIn,
-          bytesOut: health.bytesOut,
-          isResponsive,
-        })
+        try {
+          this.send(client, {
+            type: 'pty_health',
+            ptyId,
+            lastInputTime: health.lastInputTime,
+            lastOutputTime: health.lastOutputTime,
+            bytesIn: health.bytesIn,
+            bytesOut: health.bytesOut,
+            isResponsive,
+          })
+        } catch {
+          deadClients.push(client)
+        }
+      }
+      for (const client of deadClients) {
+        listeners.delete(client)
       }
     }
   }
