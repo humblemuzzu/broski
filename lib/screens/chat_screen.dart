@@ -449,6 +449,10 @@ class _ChatScreenState extends ConsumerState<ChatScreen>
           bridge.setView(sessionId: sessionId, agent: 'pi');
         }
       }
+      // Set up Pi power menu callback so PowerSheet can trigger Pi actions
+      if (widget.isPi) {
+        piPowerMenuCallback = _handlePiMenuAction;
+      }
     });
     // FIX: Use listenManual for proper subscription lifecycle management
     _connectionSubscription = ref.listenManual(connectionProvider, (
@@ -1265,15 +1269,18 @@ class _ChatScreenState extends ConsumerState<ChatScreen>
         final chatState = ref.read(chatSessionProvider);
         final cwd = chatState.piCwd;
         final stats = await piBridge.getSessionStats(projectPath: cwd);
+        final ctxUsage = stats.contextUsage;
         final context = SessionContext.fromPi(
           inputTokens: stats.tokens.input,
           outputTokens: stats.tokens.output,
           cacheReadTokens: stats.tokens.cacheRead,
           cacheWriteTokens: stats.tokens.cacheWrite,
           totalCost: stats.cost,
-          // We'll get context window from the model if available
-          contextWindow: chatState.piModelData?.contextWindow ?? 200000,
-          contextTokens: stats.tokens.input + stats.tokens.cacheRead,
+          contextWindow:
+              ctxUsage?.contextWindow ??
+              chatState.piModelData?.contextWindow ??
+              200000,
+          actualContextTokens: ctxUsage?.tokens ?? 0,
         );
         if (mounted) {
           setState(() {
@@ -3505,27 +3512,31 @@ class _ChatScreenState extends ConsumerState<ChatScreen>
               for (final model in models) {
                 grouped.putIfAbsent(model.provider, () => []).add(model);
               }
-              return ListView(
-                shrinkWrap: true,
+              // Use Column (not ListView) — DetailSheet's SingleChildScrollView handles scrolling
+              return Padding(
                 padding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
-                children: [
-                  for (final entry in grouped.entries) ...[
-                    Padding(
-                      padding: const EdgeInsets.only(top: 12, bottom: 8),
-                      child: Text(
-                        entry.key.toUpperCase(),
-                        style: TextStyle(
-                          fontSize: 11,
-                          fontWeight: FontWeight.w600,
-                          color: theme.textMuted,
-                          letterSpacing: 0.5,
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    for (final entry in grouped.entries) ...[
+                      Padding(
+                        padding: const EdgeInsets.only(top: 12, bottom: 8),
+                        child: Text(
+                          entry.key.toUpperCase(),
+                          style: TextStyle(
+                            fontSize: 11,
+                            fontWeight: FontWeight.w600,
+                            color: theme.textMuted,
+                            letterSpacing: 0.5,
+                          ),
                         ),
                       ),
-                    ),
-                    for (final model in entry.value)
-                      _buildPiModelTile(model, currentModel, theme),
+                      for (final model in entry.value)
+                        _buildPiModelTile(model, currentModel, theme),
+                    ],
                   ],
-                ],
+                ),
               );
             },
           );
@@ -5860,6 +5871,10 @@ Describe project-specific guidance for Codex here.
     _ccConfigSubscription?.close();
     _ccQueueSubscription?.close();
     _piExtensionUiSub?.cancel();
+    // Clear Pi power menu callback
+    if (widget.isPi && piPowerMenuCallback == _handlePiMenuAction) {
+      piPowerMenuCallback = null;
+    }
     ref.read(bridgeServiceProvider).setView(projectPath: 'global');
     _controller.dispose();
     _scrollController.dispose();
@@ -9690,6 +9705,7 @@ class _PiActionsContent extends ConsumerWidget {
     final cwd = chatState.piCwd;
     final statsAsync = ref.watch(piSessionStatsProvider(cwd));
 
+    // Use Column — DetailSheet's SingleChildScrollView handles scrolling
     return Column(
       mainAxisSize: MainAxisSize.min,
       children: [
@@ -9772,12 +9788,19 @@ class _PiActionsContent extends ConsumerWidget {
         // Context & Cost summary
         statsAsync.when(
           data: (stats) {
-            final modelData = chatState.piModelData;
-            final contextWindow = modelData?.contextWindow ?? 200000;
-            final contextUsed = stats.tokens.input + stats.tokens.cacheRead;
-            final contextPct = contextWindow > 0
-                ? (contextUsed / contextWindow * 100).clamp(0.0, 100.0)
-                : 0.0;
+            // Use Pi's actual context estimation (from estimateContextTokens)
+            // not cumulative cache tokens which can be millions
+            final ctxUsage = stats.contextUsage;
+            final contextWindow =
+                ctxUsage?.contextWindow ??
+                chatState.piModelData?.contextWindow ??
+                200000;
+            final contextTokens = ctxUsage?.tokens ?? stats.tokens.input;
+            final contextPct =
+                ctxUsage?.percent ??
+                (contextWindow > 0
+                    ? (contextTokens / contextWindow * 100).clamp(0.0, 100.0)
+                    : 0.0);
             final costStr = stats.cost > 0
                 ? '\$${stats.cost.toStringAsFixed(4)}'
                 : 'Free';
@@ -9792,14 +9815,27 @@ class _PiActionsContent extends ConsumerWidget {
                 ),
                 child: Column(
                   children: [
-                    // Context bar
+                    // Context bar — actual window usage
                     Row(
                       children: [
                         Icon(AppIcons.memory, size: 13, color: theme.info),
                         const SizedBox(width: 6),
                         Text(
-                          '${_formatTokens(contextUsed)} / ${_formatTokens(contextWindow)}',
+                          '${_formatTokens(contextTokens)} / ${_formatTokens(contextWindow)}',
                           style: AppTypography.caption(color: theme.textMuted),
+                        ),
+                        const SizedBox(width: 6),
+                        Text(
+                          '${contextPct.toStringAsFixed(1)}%',
+                          style: TextStyle(
+                            fontSize: 10,
+                            fontWeight: FontWeight.w600,
+                            color: contextPct > 80
+                                ? theme.error
+                                : contextPct > 50
+                                ? theme.warning
+                                : theme.info,
+                          ),
                         ),
                         const Spacer(),
                         Container(
@@ -9826,7 +9862,7 @@ class _PiActionsContent extends ConsumerWidget {
                     ClipRRect(
                       borderRadius: Radii.brXs,
                       child: LinearProgressIndicator(
-                        value: contextPct / 100,
+                        value: (contextPct / 100).clamp(0.0, 1.0),
                         minHeight: 4,
                         color: contextPct > 80
                             ? theme.error
@@ -9837,6 +9873,7 @@ class _PiActionsContent extends ConsumerWidget {
                       ),
                     ),
                     const SizedBox(height: 6),
+                    // Token breakdown — In/Out on first line, Cache on second
                     Row(
                       children: [
                         Text(
@@ -9847,13 +9884,6 @@ class _PiActionsContent extends ConsumerWidget {
                           '  Out ${_formatTokens(stats.tokens.output)}',
                           style: AppTypography.caption(color: theme.textMuted),
                         ),
-                        if (stats.tokens.cacheRead > 0)
-                          Text(
-                            '  Cache ${_formatTokens(stats.tokens.cacheRead)}',
-                            style: AppTypography.caption(
-                              color: theme.textMuted,
-                            ),
-                          ),
                         const Spacer(),
                         Text(
                           '${stats.totalMessages} msgs',
@@ -9861,6 +9891,45 @@ class _PiActionsContent extends ConsumerWidget {
                         ),
                       ],
                     ),
+                    // Cache tokens shown separately (cumulative, not context)
+                    if (stats.tokens.cacheRead > 0 ||
+                        stats.tokens.cacheWrite > 0) ...[
+                      const SizedBox(height: 3),
+                      Row(
+                        children: [
+                          if (stats.tokens.cacheRead > 0)
+                            Text(
+                              'R ${_formatTokens(stats.tokens.cacheRead)}',
+                              style: AppTypography.caption(
+                                color: theme.info.withValues(alpha: 0.7),
+                              ),
+                            ),
+                          if (stats.tokens.cacheRead > 0 &&
+                              stats.tokens.cacheWrite > 0)
+                            Text(
+                              '  ',
+                              style: AppTypography.caption(
+                                color: theme.textMuted,
+                              ),
+                            ),
+                          if (stats.tokens.cacheWrite > 0)
+                            Text(
+                              'W ${_formatTokens(stats.tokens.cacheWrite)}',
+                              style: AppTypography.caption(
+                                color: theme.warning.withValues(alpha: 0.7),
+                              ),
+                            ),
+                          const Spacer(),
+                          Text(
+                            'cache (cumulative)',
+                            style: TextStyle(
+                              fontSize: 9,
+                              color: theme.textMuted.withValues(alpha: 0.5),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ],
                   ],
                 ),
               ),
@@ -10020,6 +10089,8 @@ class _PiActionsContent extends ConsumerWidget {
             ],
           ),
         ),
+        // Bottom padding for safe area
+        SizedBox(height: MediaQuery.of(context).padding.bottom + 16),
       ],
     );
   }
@@ -10148,26 +10219,33 @@ class _FloatingInputBar extends ConsumerWidget {
       context: context,
       backgroundColor: Colors.transparent,
       isScrollControlled: true,
-      builder: (context) => PowerSheet(
-        backend: backend,
-        project: project,
-        onAttachFile: onAttachTap,
-        onTakePhoto: onTakePhoto,
-        currentModel: currentModel,
-        onModelTap: onModelTap,
-        currentVariant: currentVariant,
-        availableVariants: availableVariants,
-        onVariantChanged: onVariantChanged,
-        // OpenCode
-        agents: agents,
-        currentAgent: currentAgent,
-        onAgentChanged: onAgentChanged,
-        // Claude Code
-        ccPermissionMode: ccPermissionMode,
-        onCCPermissionModeChanged: onCCPermissionModeChanged,
-        // Codex
-        codexCollabMode: codexCollabMode,
-        onCodexCollabModeChanged: onCodexCollabModeChanged,
+      builder: (context) => DraggableScrollableSheet(
+        initialChildSize: 0.55,
+        maxChildSize: 0.9,
+        minChildSize: 0.3,
+        expand: false,
+        builder: (context, scrollController) => PowerSheet(
+          backend: backend,
+          project: project,
+          onAttachFile: onAttachTap,
+          onTakePhoto: onTakePhoto,
+          currentModel: currentModel,
+          onModelTap: onModelTap,
+          currentVariant: currentVariant,
+          availableVariants: availableVariants,
+          onVariantChanged: onVariantChanged,
+          // OpenCode
+          agents: agents,
+          currentAgent: currentAgent,
+          onAgentChanged: onAgentChanged,
+          // Claude Code
+          ccPermissionMode: ccPermissionMode,
+          onCCPermissionModeChanged: onCCPermissionModeChanged,
+          // Codex
+          codexCollabMode: codexCollabMode,
+          onCodexCollabModeChanged: onCodexCollabModeChanged,
+          scrollController: scrollController,
+        ),
       ),
     );
   }
@@ -10658,36 +10736,43 @@ class _CliStyleInputBarState extends State<_CliStyleInputBar> {
       context: context,
       backgroundColor: Colors.transparent,
       isScrollControlled: true,
-      builder: (context) => PowerSheet(
-        backend: widget.backend,
-        project: widget.project,
-        onAttachFile: widget.onAttachTap,
-        onTakePhoto: widget.onTakePhoto,
-        // Model - depends on backend
-        currentModel: widget.backend == AgentType.claudeCode
-            ? widget.ccModel
-            : widget.backend == AgentType.codex
-            ? widget.codexModel
-            : widget.currentModel?.modelID,
-        onModelTap: widget.backend == AgentType.claudeCode
-            ? widget.onCCModelTap
-            : widget.backend == AgentType.codex
-            ? widget.onCodexModelTap
-            : widget.onModelTap,
-        // Thinking level / variants
-        currentVariant: widget.currentVariant,
-        availableVariants: widget.availableVariants,
-        onVariantChanged: widget.onVariantChanged,
-        // OpenCode agents
-        agents: widget.agents,
-        currentAgent: widget.currentAgent,
-        onAgentChanged: widget.onAgentChanged,
-        // Claude Code permission mode
-        ccPermissionMode: widget.ccPermissionMode,
-        onCCPermissionModeChanged: widget.onCCPermissionModeChanged,
-        // Codex collaboration mode
-        codexCollabMode: widget.codexCollabMode,
-        onCodexCollabModeChanged: widget.onCodexCollabModeChanged,
+      builder: (context) => DraggableScrollableSheet(
+        initialChildSize: 0.55,
+        maxChildSize: 0.9,
+        minChildSize: 0.3,
+        expand: false,
+        builder: (context, scrollController) => PowerSheet(
+          backend: widget.backend,
+          project: widget.project,
+          onAttachFile: widget.onAttachTap,
+          onTakePhoto: widget.onTakePhoto,
+          // Model - depends on backend
+          currentModel: widget.backend == AgentType.claudeCode
+              ? widget.ccModel
+              : widget.backend == AgentType.codex
+              ? widget.codexModel
+              : widget.currentModel?.modelID,
+          onModelTap: widget.backend == AgentType.claudeCode
+              ? widget.onCCModelTap
+              : widget.backend == AgentType.codex
+              ? widget.onCodexModelTap
+              : widget.onModelTap,
+          // Thinking level / variants
+          currentVariant: widget.currentVariant,
+          availableVariants: widget.availableVariants,
+          onVariantChanged: widget.onVariantChanged,
+          // OpenCode agents
+          agents: widget.agents,
+          currentAgent: widget.currentAgent,
+          onAgentChanged: widget.onAgentChanged,
+          // Claude Code permission mode
+          ccPermissionMode: widget.ccPermissionMode,
+          onCCPermissionModeChanged: widget.onCCPermissionModeChanged,
+          // Codex collaboration mode
+          codexCollabMode: widget.codexCollabMode,
+          onCodexCollabModeChanged: widget.onCodexCollabModeChanged,
+          scrollController: scrollController,
+        ),
       ),
     );
   }

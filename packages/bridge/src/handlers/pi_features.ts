@@ -279,7 +279,16 @@ export async function handle(message: any, reply: Reply, broadcast: Broadcast): 
 
     case 'pi_get_session_stats': {
       const instance = await pi.getOrCreateInstance(cwd)
-      reply({ type: 'pi_session_stats', data: instance.session.getSessionStats(), requestId: message.requestId })
+      const stats = instance.session.getSessionStats()
+      const contextUsage = instance.session.getContextUsage()
+      reply({
+        type: 'pi_session_stats',
+        data: {
+          ...stats,
+          contextUsage: contextUsage ?? null,
+        },
+        requestId: message.requestId,
+      })
       return true
     }
 

@@ -26,6 +26,8 @@ class PowerSheet extends ConsumerStatefulWidget {
     required this.backend,
     required this.project,
     super.key,
+    // Scroll controller from DraggableScrollableSheet
+    this.scrollController,
     // Attach actions
     this.onAttachFile,
     this.onTakePhoto,
@@ -49,6 +51,7 @@ class PowerSheet extends ConsumerStatefulWidget {
   });
   final AgentType backend;
   final ProjectSummary project;
+  final ScrollController? scrollController;
   // Attach actions
   final VoidCallback? onAttachFile;
   final VoidCallback? onTakePhoto;
@@ -97,6 +100,7 @@ class _PowerSheetState extends ConsumerState<PowerSheet> {
     return DetailSheet(
       title: 'Power Menu',
       child: SingleChildScrollView(
+        controller: widget.scrollController,
         padding: const EdgeInsets.fromLTRB(20, 8, 20, 24),
         child: Column(
           mainAxisSize: MainAxisSize.min,
@@ -247,6 +251,11 @@ class _PowerSheetState extends ConsumerState<PowerSheet> {
               const SizedBox(height: 28),
             ] else if (widget.backend == AgentType.pi) ...[
               _PiPowerSummaryCard(theme: theme),
+              const SizedBox(height: 28),
+              // ===== PI: QUICK ACTIONS =====
+              _SectionHeader(title: 'Quick Actions', theme: theme),
+              SizedBox(height: Spacing.md),
+              _PiQuickActionsGrid(theme: theme),
               const SizedBox(height: 28),
             ] else ...[
               _PermissionSummaryCard(backend: widget.backend, theme: theme),
@@ -1041,3 +1050,84 @@ class _PermissionSummaryCard extends ConsumerWidget {
     }
   }
 }
+
+/// Pi-specific quick actions grid in the Power Menu.
+/// Triggers actions via a global callback stored on the ChatScreen.
+class _PiQuickActionsGrid extends StatelessWidget {
+  const _PiQuickActionsGrid({required this.theme});
+  final OpenCodeTheme theme;
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        IntrinsicHeight(
+          child: Row(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              Expanded(
+                child: _QuickActionCard(
+                  icon: AppIcons.bolt,
+                  label: 'Skills',
+                  theme: theme,
+                  onTap: () {
+                    Navigator.pop(context);
+                    piPowerMenuCallback?.call('pi_skills');
+                  },
+                ),
+              ),
+              const SizedBox(width: 10),
+              Expanded(
+                child: _QuickActionCard(
+                  icon: AppIcons.callSplit,
+                  label: 'Sidebar',
+                  theme: theme,
+                  onTap: () {
+                    Navigator.pop(context);
+                    piPowerMenuCallback?.call('pi_sidebar');
+                  },
+                ),
+              ),
+            ],
+          ),
+        ),
+        const SizedBox(height: 10),
+        IntrinsicHeight(
+          child: Row(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              Expanded(
+                child: _QuickActionCard(
+                  icon: AppIcons.compress,
+                  label: 'Compact',
+                  theme: theme,
+                  onTap: () {
+                    Navigator.pop(context);
+                    piPowerMenuCallback?.call('pi_compact');
+                  },
+                ),
+              ),
+              const SizedBox(width: 10),
+              Expanded(
+                child: _QuickActionCard(
+                  icon: AppIcons.add,
+                  label: 'New Chat',
+                  theme: theme,
+                  onTap: () {
+                    Navigator.pop(context);
+                    piPowerMenuCallback?.call('pi_new_session');
+                  },
+                ),
+              ),
+            ],
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+/// Global callback for Pi power menu actions.
+/// Set by ChatScreen, used by _PiQuickActionsGrid.
+void Function(String)? piPowerMenuCallback;

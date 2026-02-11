@@ -356,6 +356,27 @@ class PiTokenUsage {
   }
 }
 
+/// Context usage from Pi's estimateContextTokens — actual tokens in the window.
+class PiContextUsage {
+  final int tokens;
+  final int contextWindow;
+  final double percent;
+
+  const PiContextUsage({
+    this.tokens = 0,
+    this.contextWindow = 200000,
+    this.percent = 0,
+  });
+
+  factory PiContextUsage.fromJson(Map<String, dynamic> json) {
+    return PiContextUsage(
+      tokens: json['tokens'] as int? ?? 0,
+      contextWindow: json['contextWindow'] as int? ?? 200000,
+      percent: (json['percent'] as num?)?.toDouble() ?? 0,
+    );
+  }
+}
+
 class PiSessionStats {
   final String? sessionFile;
   final String sessionId;
@@ -366,6 +387,7 @@ class PiSessionStats {
   final int totalMessages;
   final PiTokenUsage tokens;
   final double cost;
+  final PiContextUsage? contextUsage;
 
   const PiSessionStats({
     this.sessionFile,
@@ -377,9 +399,11 @@ class PiSessionStats {
     this.totalMessages = 0,
     this.tokens = const PiTokenUsage(),
     this.cost = 0,
+    this.contextUsage,
   });
 
   factory PiSessionStats.fromJson(Map<String, dynamic> json) {
+    final contextUsageJson = json['contextUsage'] as Map<String, dynamic>?;
     return PiSessionStats(
       sessionFile: json['sessionFile'] as String?,
       sessionId: json['sessionId'] as String? ?? '',
@@ -392,6 +416,9 @@ class PiSessionStats {
         json['tokens'] as Map<String, dynamic>? ?? const {},
       ),
       cost: (json['cost'] as num?)?.toDouble() ?? 0,
+      contextUsage: contextUsageJson != null
+          ? PiContextUsage.fromJson(contextUsageJson)
+          : null,
     );
   }
 

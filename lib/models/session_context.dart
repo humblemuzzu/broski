@@ -127,7 +127,10 @@ class SessionContext {
     int cacheReadTokens = 0,
     int cacheWriteTokens = 0,
     int contextWindow = 200000,
-    int contextTokens = 0,
+
+    /// Actual tokens in the context window from Pi's estimateContextTokens.
+    /// This is NOT the cumulative cache — it's what's actually occupying the window right now.
+    int actualContextTokens = 0,
     double totalCost = 0,
   }) {
     final total = inputTokens + outputTokens;
@@ -136,9 +139,12 @@ class SessionContext {
         input: inputTokens,
         output: outputTokens,
         total: total,
-        contextTokens: contextTokens > 0
-            ? contextTokens
-            : inputTokens + cacheReadTokens + cacheWriteTokens,
+        // Use actualContextTokens from Pi's getContextUsage() which estimates
+        // what's actually in the context window. Falls back to just inputTokens
+        // (a rough but sane approximation — NOT including cache which is cumulative).
+        contextTokens: actualContextTokens > 0
+            ? actualContextTokens
+            : inputTokens,
         contextWindow: contextWindow,
         cacheRead: cacheReadTokens > 0 ? cacheReadTokens : null,
         cacheWrite: cacheWriteTokens > 0 ? cacheWriteTokens : null,
