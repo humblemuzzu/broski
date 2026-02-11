@@ -491,14 +491,105 @@ class _OnboardingScanWrapper extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final connectionState = ref.watch(connectionProvider);
-    // Connection succeeded during onboarding — show System Linked screen
+
+    // Connection succeeded during onboarding — show System Linked screen.
+    // This is the only case where we fully replace the scanner.
     if (connectionState.isConnected) {
       return const SystemLinkedScreen();
     }
-    // Still connecting — show minimal connecting indicator overlay
-    if (connectionState.isConnecting) {
-      return const _ConnectingScreen();
-    }
-    return const ScanScreen();
+
+    // Use a Stack so the ScanScreen (and its camera) stays mounted at all
+    // times. Connecting/error states are overlaid on top. This prevents the
+    // MobileScannerController from being disposed and recreated on every
+    // connection-state change, which was causing the "frozen scanner" bug.
+    return Stack(
+      children: [
+        // Scanner always alive underneath
+        const ScanScreen(),
+
+        // Semi-transparent connecting overlay (doesn't destroy the camera)
+        if (connectionState.isConnecting)
+          const _ConnectingOverlay(),
+      ],
+    );
+  }
+}
+
+/// Semi-transparent overlay shown on top of the scanner while connecting.
+/// Unlike [_ConnectingScreen], this does NOT replace the scanner widget tree,
+/// so the camera stays alive and the user sees the connection progress on top
+/// of the live camera feed.
+class _ConnectingOverlay extends ConsumerWidget {
+  const _ConnectingOverlay();
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final state = ref.watch(connectionProvider);
+    return Container(
+      color: Colors.black.withValues(alpha: 0.85),
+      child: SafeArea(
+        child: Center(
+          child: Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 40),
+            child: Column(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                const SizedBox(
+                  width: 48,
+                  height: 48,
+                  child: CircularProgressIndicator(
+                    strokeWidth: 2.5,
+                    color: Color(0xFF2ECB71),
+                  ),
+                ),
+                const SizedBox(height: 28),
+                const Text(
+                  'Connecting to Bridge...',
+                  style: TextStyle(
+                    fontSize: 20,
+                    fontWeight: FontWeight.w600,
+                    color: Colors.white,
+                  ),
+                ),
+                if (state.connection != null) ...[
+                  const SizedBox(height: 8),
+                  Text(
+                    '${state.connection!.localIP ?? state.connection!.tailscaleIP ?? ''}:${state.connection!.port}',
+                    style: TextStyle(
+                      fontSize: 14,
+                      color: Colors.white.withValues(alpha: 0.5),
+                      fontFamily: 'GeistMono',
+                    ),
+                  ),
+                ],
+                if (state.error != null) ...[
+                  const SizedBox(height: 20),
+                  Container(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 16,
+                      vertical: 12,
+                    ),
+                    decoration: BoxDecoration(
+                      color: Colors.red.withValues(alpha: 0.15),
+                      borderRadius: BorderRadius.circular(12),
+                      border: Border.all(
+                        color: Colors.red.withValues(alpha: 0.3),
+                      ),
+                    ),
+                    child: Text(
+                      state.error!,
+                      textAlign: TextAlign.center,
+                      style: TextStyle(
+                        color: Colors.red.withValues(alpha: 0.9),
+                        fontSize: 13,
+                      ),
+                    ),
+                  ),
+                ],
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
   }
 }

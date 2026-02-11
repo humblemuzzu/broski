@@ -1,4 +1,7 @@
 
+import 'dart:async';
+import 'dart:io';
+
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -35,6 +38,42 @@ class _BridgeSetupScreenState extends ConsumerState<BridgeSetupScreen>
       vsync: this,
       duration: const Duration(milliseconds: 600),
     )..forward();
+
+    // Pre-prompt iOS Local Network permission by making a dummy request.
+    // iOS shows the "Allow app to find devices on local network?" dialog on
+    // the first local network access after a fresh install. By triggering it
+    // here (while the user is reading setup instructions), the permission is
+    // already granted by the time they scan the QR code and we attempt the
+    // real WebSocket connection. The request silently fails — we don't care
+    // about the result, only about triggering the OS dialog.
+    if (!kIsWeb) {
+      _prePromptLocalNetworkPermission();
+    }
+  }
+
+  /// Trigger iOS Local Network permission dialog early.
+  /// Makes a throwaway HTTP request to a non-routable local IP.
+  /// The connection will fail (expected), but iOS will show the
+  /// permission dialog if it hasn't been granted yet.
+  void _prePromptLocalNetworkPermission() {
+    Future.microtask(() async {
+      try {
+        final client = HttpClient();
+        client.connectionTimeout = const Duration(milliseconds: 500);
+        // 192.0.0.8 is an IANA dummy/documentation IP — guaranteed not to
+        // route, but the outbound attempt is enough to trigger the iOS
+        // Local Network permission prompt.
+        final request = await client.getUrl(
+          Uri.parse('http://192.0.0.8:18274/ping'),
+        );
+        await request.close().timeout(
+          const Duration(milliseconds: 500),
+          onTimeout: () => throw TimeoutException('expected'),
+        );
+      } catch (_) {
+        // Expected to fail — we only care about triggering the OS dialog.
+      }
+    });
   }
   @override
   void dispose() {

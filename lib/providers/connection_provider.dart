@@ -14,6 +14,7 @@ import '../services/network_monitor_service.dart';
 import '../services/storage_service.dart';
 import '../services/websocket_service.dart';
 import 'app_subscription_provider.dart';
+import 'onboarding_provider.dart';
 import 'service_providers.dart';
 
 /// Event emitted when connection state changes significantly.
@@ -277,6 +278,7 @@ class ConnectionNotifier extends StateNotifier<BridgeConnectionState>
   int _failureStreak = 0;
   bool _isConnecting = false;
   bool _licenseRetryAttempted = false; // Prevents infinite license sync loop
+  bool _onboardingRetryAttempted = false; // One retry for Local Network permission timeout
   final _random = Random();
 
   // Current reconnection policy (can be adjusted based on conditions)
@@ -446,6 +448,7 @@ class ConnectionNotifier extends StateNotifier<BridgeConnectionState>
         await _bridge.authSession(sessionToken: sessionToken);
         debugPrint('[Connection] auth_session SUCCESS');
         _licenseRetryAttempted = false; // Reset on successful auth
+        _onboardingRetryAttempted = false; // Reset on successful auth
       }
       _socket.endHandshake();
       debugPrint('[Connection] Handshake ended, queue flushed');
@@ -551,6 +554,37 @@ class ConnectionNotifier extends StateNotifier<BridgeConnectionState>
         errorMessage = 'Secure connection failed (certificate mismatch). Scan a new QR code.';
       } else {
         errorMessage = errString;
+      }
+
+      // During onboarding, if the first connection attempt timed out (likely
+      // because iOS showed the Local Network permission dialog), do ONE
+      // automatic retry after a short delay. The user probably tapped "Allow"
+      // while the timeout was firing. After this single retry, we stop — the
+      // onboarding guard in _scheduleSmartReconnect prevents further loops.
+      final isTimeout = lower.contains('timeout');
+      final onboarding = _ref.read(onboardingProvider);
+      if (isTimeout &&
+          !onboarding.hasCompletedOnboarding &&
+          _failureStreak == 1 &&
+          !_onboardingRetryAttempted) {
+        _onboardingRetryAttempted = true;
+        debugPrint(
+          '[Connection] Timeout during onboarding (first attempt) — '
+          'retrying once in 2s for Local Network permission',
+        );
+        state = state.copyWith(
+          status: ConnectionStatus.disconnected,
+          error: null,
+          lastEvent: ConnectionEvent.failed,
+          isReconnecting: true,
+        );
+        Future.delayed(const Duration(seconds: 2), () {
+          final conn = state.connection;
+          if (conn != null) {
+            connect(conn);
+          }
+        });
+        return;
       }
 
       state = state.copyWith(
@@ -755,10 +789,17 @@ class ConnectionNotifier extends StateNotifier<BridgeConnectionState>
   ) async {
     if (endpoints.isEmpty) return null;
 
+    // First connection attempt gets a generous timeout (10s) to allow for
+    // iOS Local Network permission dialog, which can block the socket for
+    // several seconds. Subsequent retries use a normal 3s timeout.
+    final connectTimeout = _reconnectAttempts == 0
+        ? const Duration(seconds: 10)
+        : const Duration(seconds: 3);
+
     Object? lastError;
 
     for (final ep in endpoints) {
-      debugPrint('[Connection] Trying ${ep.type.name}: ${ep.uri}');
+      debugPrint('[Connection] Trying ${ep.type.name}: ${ep.uri} (timeout: ${connectTimeout.inSeconds}s)');
 
       try {
         final shouldPin =
@@ -773,7 +814,7 @@ class ConnectionNotifier extends StateNotifier<BridgeConnectionState>
               pinnedCertSha256: shouldPin ? info.certSha256 : null,
             )
             .timeout(
-              const Duration(seconds: 3),
+              connectTimeout,
               onTimeout: () => throw TimeoutException('Connection timeout'),
             );
         debugPrint('[Connection] SUCCESS: Connected via ${ep.type.name}');
@@ -903,6 +944,7 @@ class ConnectionNotifier extends StateNotifier<BridgeConnectionState>
     _failureStreak = 0;
     _sentMessages.clear();
     _licenseRetryAttempted = false; // Reset for fresh start
+    _onboardingRetryAttempted = false; // Reset for fresh start
 
     // Clear connection state BEFORE disconnecting to prevent
     // _handleStatus from scheduling a reconnect
@@ -1141,6 +1183,20 @@ class ConnectionNotifier extends StateNotifier<BridgeConnectionState>
     if (state.isOfflineMode) return;
     final sub = _ref.read(appSubscriptionProvider);
     if (!sub.entitled) return;
+
+    // During onboarding, don't auto-reconnect. The user should just re-scan.
+    // The reconnect machinery is designed for post-onboarding scenarios where
+    // an established connection drops (WiFi loss, Mac sleep, app background).
+    // During onboarding, a failed connection is usually caused by iOS Local
+    // Network permission dialog, wrong network, or bridge not running yet.
+    final onboarding = _ref.read(onboardingProvider);
+    if (!onboarding.hasCompletedOnboarding) {
+      debugPrint(
+        '[Connection] Skipping auto-reconnect — onboarding not complete',
+      );
+      state = state.copyWith(isReconnecting: false);
+      return;
+    }
 
     // Select reconnection policy based on conditions
     _currentPolicy = _selectReconnectPolicy();

@@ -69,6 +69,96 @@ class GlobalSessionStatusNotifier
     if (type == 'sessions_active') {
       _handleSessionsActive(message['data'] as Map<String, dynamic>? ?? {});
     }
+
+    // CC: detect session idle from cc_stream — the bridge emits a 'result'
+    // event when the CC SDK completes, then sendSessionIdle. But if the
+    // session.idle SDK event is missed (reconnect, app backgrounded), the
+    // session stays stuck as "busy" forever. Listen to cc_stream as backup.
+    if (type == 'cc_stream') {
+      _handleCcStreamForCompletion(message);
+    }
+
+    // CX: detect turn completion — CX sessions are never added to
+    // fetchAllStatuses so they only get marked busy via sessions_active.
+    // Completion comes as notification turn/completed.
+    if (type == 'cx_stream') {
+      _handleCxStreamForCompletion(message);
+    }
+  }
+
+  /// Detect CC session state from cc_stream messages.
+  /// Marks busy on first streaming event. Completion is signaled by
+  /// 'token-usage' (the last event the bridge emits for a CC session
+  /// after the SDK yields a ResultMessage). The bridge also sends
+  /// session.idle via enqueueSdkEvent, but if that's missed (reconnect,
+  /// app backgrounded), the token-usage fallback ensures we clear state.
+  ///
+  /// CC SDK message flow (from docs): StreamEvent* → AssistantMessage →
+  ///   ResultMessage. Bridge translates ResultMessage → assistant-message
+  ///   (if text) + token-usage (always). Then calls sendSessionIdle().
+  void _handleCcStreamForCompletion(Map<String, dynamic> message) {
+    final data = message['data'] as Map<String, dynamic>? ?? {};
+    final eventType = data['type'] as String? ?? '';
+    final sessionId = message['sessionId'] as String? ??
+        data['sessionId'] as String? ?? '';
+    if (sessionId.isEmpty) return;
+
+    // Any content event means the session is active
+    if (eventType == 'assistant-message-delta' ||
+        eventType == 'thinking-delta' ||
+        eventType == 'tool-call' ||
+        eventType == 'tool-result') {
+      final current = state[sessionId];
+      if (current == null || current.isIdle) {
+        state = {...state, sessionId: const SessionStatus.busy()};
+      }
+    }
+
+    // 'token-usage' is the last cc_stream event the bridge emits.
+    // It comes from the CC SDK ResultMessage (success or error).
+    // The bridge will send session.idle via SDK event shortly after.
+    // We use token-usage as a safety net: if session.idle doesn't
+    // arrive within 5s, force the session to idle.
+    if (eventType == 'token-usage') {
+      if (kDebugMode) {
+        developer.log(
+          'CC session token-usage received (pending completion): $sessionId',
+          name: 'GlobalSessionStatus',
+        );
+      }
+      Future.delayed(const Duration(seconds: 5), () {
+        if (!mounted) return;
+        final current = state[sessionId];
+        if (current != null && (current.isBusy || current.isRetry)) {
+          if (kDebugMode) {
+            developer.log(
+              'CC session forced idle (session.idle not received): $sessionId',
+              name: 'GlobalSessionStatus',
+            );
+          }
+          state = {...state, sessionId: const SessionStatus.idle()};
+        }
+      });
+    }
+  }
+
+  /// Detect CX turn completion from cx_stream messages.
+  void _handleCxStreamForCompletion(Map<String, dynamic> message) {
+    final data = message['data'] as Map<String, dynamic>? ?? {};
+    final eventType = data['type'] as String? ?? '';
+    final threadId = message['threadId'] as String? ??
+        data['threadId'] as String? ?? '';
+    if (threadId.isEmpty) return;
+
+    // Mark CX session as busy when a turn starts
+    if (eventType == 'notification') {
+      final method = data['method'] as String? ?? '';
+      if (method == 'turn/started') {
+        state = {...state, threadId: const SessionStatus.busy()};
+      } else if (method == 'turn/completed') {
+        state = {...state, threadId: const SessionStatus.idle()};
+      }
+    }
   }
 
   /// Handle the sessions_active snapshot pushed by the bridge on (re)connect.

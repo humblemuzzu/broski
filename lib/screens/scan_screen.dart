@@ -13,6 +13,7 @@ import '../models/connection.dart';
 import '../providers/connection_provider.dart';
 import '../providers/onboarding_provider.dart'
     show onboardingProvider, kDevBypassOnboarding;
+import '../services/websocket_service.dart' show ConnectionStatus;
 import '../widgets/chat/detail_sheet.dart';
 import '../widgets/onboarding_widgets.dart';
 import '../theme/design_tokens.dart';
@@ -43,6 +44,23 @@ class _ScanScreenState extends ConsumerState<ScanScreen>
       vsync: this,
       duration: const Duration(milliseconds: 2000),
     )..repeat(reverse: true);
+
+    // Listen for connection failures and reset the scan flag so the user
+    // can re-scan without having to close and reopen the app.
+    // We use addPostFrameCallback to defer the listen call — ref.listen
+    // must not be called during initState (before the first build).
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+      ref.listenManual(connectionProvider, (previous, next) {
+        // Reset scan flag when connection attempt fails or disconnects
+        // after we initiated a scan (i.e., _handledScan was true).
+        if (_handledScan &&
+            next.status == ConnectionStatus.disconnected &&
+            previous?.status == ConnectionStatus.connecting) {
+          setState(() => _handledScan = false);
+        }
+      });
+    });
   }
   @override
   void dispose() {
@@ -127,6 +145,12 @@ class _ScanScreenState extends ConsumerState<ScanScreen>
     // If in onboarding flow, go back to bridge setup
     final onboarding = ref.read(onboardingProvider);
     if (!onboarding.hasCompletedOnboarding) {
+      // Cancel any in-flight connection attempt and clear saved connection
+      // state so we start fresh when the user comes back to scan again.
+      // Without this, an orphaned connection/reconnect state could cause the
+      // scanner to immediately show the connecting overlay on re-entry.
+      ref.read(connectionProvider.notifier).clearConnection();
+      _handledScan = false;
       ref.read(onboardingProvider.notifier).goBack();
     } else {
       // After onboarding complete, just pop the screen
