@@ -1035,6 +1035,19 @@ export async function createBridgeServer(options: BridgeServerOptions): Promise<
 	      log(`[CloudAuth] Refresh failed (${reason}): ${toErrorMessage(error)}`)
 	    }
 	  }
+  // Permission/approval timeout: 10 minutes.
+  // Users may background the app for extended periods; auto-rejecting after 2 minutes
+  // kills long-running sessions that need approval. 10 min gives enough time for
+  // app background → resume → approve flow, even on slow networks.
+  const PERMISSION_TIMEOUT_MS = 600_000 // 10 minutes
+
+  // Recent event buffer: keeps last N stream events per session for instant replay
+  // on reconnect. When the app disconnects and reconnects, the external tail syncs
+  // from disk, but there's a gap window. This buffer bridges that gap.
+  const SESSION_EVENT_BUFFER_SIZE = 100
+  const ccEventBuffers = new Map<string, Array<{ event: any; ts: number }>>()
+  const cxEventBuffers = new Map<string, Array<{ event: any; ts: number }>>()
+
   // Dedupe chat prompts (prevents resend storms on flaky networks).
   const recentChatMessageIds = new Map<string, number>() // key: `${sessionId}:${messageId}` -> tsMs
   const ptyManager = new PtyManager(opencode)
@@ -1505,6 +1518,8 @@ export async function createBridgeServer(options: BridgeServerOptions): Promise<
             const tid = safeString(params.turn?.id)
             if (threadId && tid && cxActiveTurns.get(threadId) === tid) {
               cxActiveTurns.delete(threadId)
+              // Clear event buffer — turn is done, no more streaming gap risk
+              cxEventBuffers.delete(threadId)
             }
           }
 
@@ -1709,7 +1724,7 @@ export async function createBridgeServer(options: BridgeServerOptions): Promise<
             const timer = setTimeout(() => {
               cxApprovalWaiters.delete(key)
               resolve({ response: 'reject' })
-            }, 120_000)
+            }, PERMISSION_TIMEOUT_MS)
             cxApprovalWaiters.set(key, { resolve, timer })
           })
 
@@ -1771,6 +1786,7 @@ export async function createBridgeServer(options: BridgeServerOptions): Promise<
           // Clean up all state
           cxThreadOwners.clear()
           cxActiveTurns.clear()
+          cxEventBuffers.clear()
           cxApprovalWaiters.forEach(w => {
             clearTimeout(w.timer)
             w.resolve({ response: 'reject' })
@@ -3327,6 +3343,9 @@ export async function createBridgeServer(options: BridgeServerOptions): Promise<
     owner?: ServerWebSocket<unknown> | null,
   ) => {
     const payload: ServerMessage = { type: 'cc_stream', data: streamMsg, sessionId }
+    // Always look up the CURRENT owner from the map, not a stale captured reference.
+    // This is critical: when the app disconnects and reconnects, the old `ws` is dead
+    // but `ccSessionOwners` gets updated to the new socket via `set_view`.
     const resolvedOwner = owner ?? ccSessionOwners.get(sessionId) ?? null
     const key = makeSessionKey('claude-code', sessionId)
     const watchers = key ? sessionWatchers.get(key) : null
@@ -3338,6 +3357,11 @@ export async function createBridgeServer(options: BridgeServerOptions): Promise<
     
     if (resolvedOwner) {
       send(resolvedOwner, payload)
+    } else {
+      // No owner connected — buffer the event for reconnect replay.
+      // The external tail will also sync from disk, but this buffer
+      // bridges the gap for events that haven't been flushed to JSONL yet.
+      bufferCcEvent(sessionId, streamMsg)
     }
     broadcastToSessionWatchers('claude-code', sessionId, payload, resolvedOwner)
   }
@@ -3359,8 +3383,63 @@ export async function createBridgeServer(options: BridgeServerOptions): Promise<
     
     if (resolvedOwner) {
       send(resolvedOwner, payload)
+    } else {
+      // No owner connected — buffer for reconnect replay
+      bufferCxEvent(threadId, streamMsg)
     }
     broadcastToSessionWatchers('codex', threadId, payload, resolvedOwner)
+  }
+
+  // ── Event buffer for reconnect replay ──────────────────────────────
+  // When a CC/CX session is streaming and the app disconnects, events go
+  // to a dead socket. The external tail will eventually sync from disk,
+  // but there's a gap. This ring buffer keeps the most recent events so
+  // on reconnect we can replay them immediately.
+  const bufferCcEvent = (sessionId: string, event: any) => {
+    let buf = ccEventBuffers.get(sessionId)
+    if (!buf) {
+      buf = []
+      ccEventBuffers.set(sessionId, buf)
+    }
+    buf.push({ event, ts: Date.now() })
+    if (buf.length > SESSION_EVENT_BUFFER_SIZE) {
+      buf.splice(0, buf.length - SESSION_EVENT_BUFFER_SIZE)
+    }
+  }
+
+  const bufferCxEvent = (threadId: string, event: any) => {
+    let buf = cxEventBuffers.get(threadId)
+    if (!buf) {
+      buf = []
+      cxEventBuffers.set(threadId, buf)
+    }
+    buf.push({ event, ts: Date.now() })
+    if (buf.length > SESSION_EVENT_BUFFER_SIZE) {
+      buf.splice(0, buf.length - SESSION_EVENT_BUFFER_SIZE)
+    }
+  }
+
+  const replayBufferedEvents = (ws: ServerWebSocket<unknown>, agent: 'claude-code' | 'codex', sessionId: string) => {
+    const bufferMap = agent === 'claude-code' ? ccEventBuffers : cxEventBuffers
+    const buf = bufferMap.get(sessionId)
+    if (!buf || buf.length === 0) return
+
+    // Only replay events from the last 60 seconds (stale events would confuse the UI)
+    const cutoff = Date.now() - 60_000
+    const recent = buf.filter(e => e.ts >= cutoff)
+    if (recent.length === 0) return
+
+    logInfo(`[RTS] Replaying ${recent.length} buffered events for ${agent}:${sessionId}`)
+    for (const { event } of recent) {
+      if (agent === 'claude-code') {
+        send(ws, { type: 'cc_stream', data: event, sessionId })
+      } else {
+        send(ws, { type: 'cx_stream', data: event, threadId: sessionId })
+      }
+    }
+
+    // Clear buffer after replay (external tail will take over)
+    bufferMap.delete(sessionId)
   }
 
   let eventCount = 0
@@ -4770,6 +4849,64 @@ export async function createBridgeServer(options: BridgeServerOptions): Promise<
         }
         logUser(`Device registered: ${message.deviceName} (${message.platform})`)
         void sendStatus(ws)
+
+        // ── Push active sessions on connect ─────────────────────────
+        // On (re)connect, immediately tell the app which sessions are
+        // actively running across all backends. This avoids the "stale
+        // session list" problem where users don't know what completed
+        // while the app was backgrounded.
+        void (async () => {
+          try {
+            const activeCC = claudeCode.listActiveSessions().map(s => ({
+              sessionId: s.sessionId,
+              cwd: s.cwd,
+              startedAt: s.startedAt,
+            }))
+
+            const activeCX = Array.from(cxActiveTurns.entries()).map(([threadId, turnId]) => ({
+              threadId,
+              turnId,
+              cwd: cxThreadCwds.get(threadId) ?? '',
+            }))
+
+            let activeOC: Array<{ sessionId: string; projectPath?: string }> = []
+            if (opencode) {
+              try {
+                const statuses = await opencode.getSessionStatus().catch(() => ({}))
+                activeOC = Object.entries(statuses)
+                  .filter(([, s]) => (s as any)?.type === 'busy' || (s as any)?.type === 'retry')
+                  .map(([id]) => ({
+                    sessionId: id,
+                    projectPath: ocSessionProjectPaths.get(id),
+                  }))
+              } catch {
+                // best-effort
+              }
+            }
+
+            // Also include sessions with pending permissions (across all backends)
+            const pendingCCPerms = Array.from(ccPermissionWaiters.keys()).map(key => {
+              const parts = key.split(':')
+              return { sessionId: parts[0], toolUseId: parts[1] }
+            })
+            const pendingCXPerms = Array.from(cxApprovalWaiters.keys())
+
+            send(ws, {
+              type: 'sessions_active',
+              data: {
+                claudeCode: activeCC,
+                codex: activeCX,
+                opencode: activeOC,
+                pendingPermissions: {
+                  claudeCode: pendingCCPerms,
+                  codex: pendingCXPerms,
+                },
+              },
+            } as any)
+          } catch (err) {
+            logError('[sessions_active] Failed to build active sessions snapshot:', err)
+          }
+        })()
         break
       }
       case 'list_devices': {
@@ -4839,6 +4976,46 @@ export async function createBridgeServer(options: BridgeServerOptions): Promise<
             ocSessionProjectPaths.set(nextSessionId, message.projectPath)
             if (DEBUG_RTS) {
               logDebug(`[RTS] set_view: Stored projectPath for OpenCode session ${nextSessionId}: ${message.projectPath}`)
+            }
+          }
+
+          // ── Re-bind ownership for active sessions on reconnect ───────
+          // When the app reconnects after backgrounding, the old socket is dead.
+          // If this session is still actively streaming (in the bridge process),
+          // re-bind the new socket as owner so live events flow to it immediately.
+          if (nextAgent === 'claude-code' && nextSessionId) {
+            const ccActiveList = claudeCode.listActiveSessions()
+            const isActive = ccActiveList.some(s => s.sessionId === nextSessionId)
+            if (isActive) {
+              const prevOwner = ccSessionOwners.get(nextSessionId)
+              // Re-bind if no owner or owner is a dead/different socket
+              if (!prevOwner || !sockets.has(prevOwner)) {
+                ccSessionOwners.set(nextSessionId, ws)
+                logInfo(`[RTS] set_view: Re-bound CC session ${nextSessionId} owner (was ${prevOwner ? 'stale' : 'absent'})`)
+              }
+              // Replay any buffered events from the disconnect gap
+              replayBufferedEvents(ws, 'claude-code', nextSessionId)
+            }
+          }
+          if (nextAgent === 'codex' && nextSessionId) {
+            const isActive = cxActiveTurns.has(nextSessionId)
+            if (isActive) {
+              const prevOwner = cxThreadOwners.get(nextSessionId)
+              if (!prevOwner || !sockets.has(prevOwner)) {
+                cxThreadOwners.set(nextSessionId, ws)
+                logInfo(`[RTS] set_view: Re-bound CX thread ${nextSessionId} owner (was ${prevOwner ? 'stale' : 'absent'})`)
+              }
+              replayBufferedEvents(ws, 'codex', nextSessionId)
+            }
+          }
+          if (nextAgent === 'opencode' && nextSessionId) {
+            const prevOwner = ocSessionOwners.get(nextSessionId)
+            if (!prevOwner || !sockets.has(prevOwner)) {
+              // Re-bind OC ownership so external tail stops (SDK stream delivers events)
+              ocSessionOwners.set(nextSessionId, ws)
+              if (DEBUG_RTS) {
+                logDebug(`[RTS] set_view: Re-bound OC session ${nextSessionId} owner`)
+              }
             }
           }
 
@@ -6733,10 +6910,17 @@ export async function createBridgeServer(options: BridgeServerOptions): Promise<
             ccSessionOwners.set(message.sessionId, ws)
           }
 
+          // Use dynamic owner lookup instead of captured `ws` to survive reconnects.
+          // When the app disconnects and reconnects, `ws` is dead but
+          // `ccSessionOwners.get(sessionId)` points to the new socket.
+          const getOwnerSocket = (sessionId: string): ServerWebSocket<unknown> | null =>
+            ccSessionOwners.get(sessionId) ?? null
+
           const sendSessionBusy = (sessionId: string) => {
             if (!sessionId || sentBusyStatus) return
             sentBusyStatus = true
-            send(ws, {
+            const target = getOwnerSocket(sessionId) ?? ws
+            send(target, {
               type: 'sdk_event',
               data: {
                 payload: {
@@ -6752,14 +6936,14 @@ export async function createBridgeServer(options: BridgeServerOptions): Promise<
 
           const sendSessionIdle = (sessionId: string) => {
             if (!sessionId) return
-            send(ws, {
-              type: 'sdk_event',
-              data: {
-                payload: {
-                  type: 'session.idle',
-                  properties: {
-                    sessionID: sessionId,
-                  },
+            // Broadcast idle to all watchers, not just the owner.
+            // On reconnect the owner may have changed; on disconnect the
+            // owner may be gone — enqueueSdkEvent handles both cases.
+            enqueueSdkEvent({
+              payload: {
+                type: 'session.idle',
+                properties: {
+                  sessionID: sessionId,
                 },
               },
             })
@@ -6840,15 +7024,19 @@ export async function createBridgeServer(options: BridgeServerOptions): Promise<
               })()
               if ((streamMsg as any)?.type === 'session-created' && typeof (streamMsg as any)?.sessionId === 'string') {
                 actualSessionId = (streamMsg as any).sessionId
+                // Set the CURRENT ws as owner (may be stale later, but set_view will update)
                 ccSessionOwners.set(actualSessionId, ws)
                 log(`[Claude Code] session created: ${actualSessionId}`)
                 sendSessionBusy(actualSessionId)
               }
 
               if (actualSessionId) {
-                emitCcStream(actualSessionId, streamMsgWithId, ws)
+                // Don't pass `ws` as owner — let emitCcStream do dynamic lookup
+                // via ccSessionOwners.get(). This survives WebSocket reconnects.
+                emitCcStream(actualSessionId, streamMsgWithId)
               } else {
-                send(ws, { type: 'cc_stream', data: streamMsgWithId, sessionId: 'unknown' })
+                const target = getOwnerSocket(actualSessionId || '') ?? ws
+                send(target, { type: 'cc_stream', data: streamMsgWithId, sessionId: 'unknown' })
               }
 
             },
@@ -6856,49 +7044,50 @@ export async function createBridgeServer(options: BridgeServerOptions): Promise<
               const sid = completedSessionId || actualSessionId || message.sessionId || ''
               log(`Claude Code session ${sid} completed`)
               sendSessionIdle(sid)
-              if (sid && ccSessionOwners.get(sid) === ws) {
-                ccSessionOwners.delete(sid)
-                syncExternalTailForKey(makeSessionKey('claude-code', sid))
-              }
+              // Clear ownership — any socket that was the owner
+              ccSessionOwners.delete(sid)
+              // Clear event buffer for this session (no longer streaming)
+              ccEventBuffers.delete(sid)
+              syncExternalTailForKey(makeSessionKey('claude-code', sid))
             },
             (error) => {
               log(`[Claude Code] error: ${error.message}`)
               const sid = actualSessionId || message.sessionId || ''
               if (sid) {
-                emitCcStream(sid, { type: 'error', message: error.message, code: 'cc_error' }, ws)
+                // Use dynamic lookup, not captured ws
+                emitCcStream(sid, { type: 'error', message: error.message, code: 'cc_error' })
               } else {
-                send(ws, {
+                const target = getOwnerSocket(sid) ?? ws
+                send(target, {
                   type: 'cc_stream',
                   data: { type: 'error', message: error.message, code: 'cc_error' },
                   sessionId: 'unknown',
                 })
               }
               sendSessionIdle(sid)
-              if (sid && ccSessionOwners.get(sid) === ws) {
-                ccSessionOwners.delete(sid)
-                syncExternalTailForKey(makeSessionKey('claude-code', sid))
-              }
+              ccSessionOwners.delete(sid)
+              ccEventBuffers.delete(sid)
+              syncExternalTailForKey(makeSessionKey('claude-code', sid))
             },
             async (req) => {
               const sid = req.sessionId || actualSessionId
               if (sid) actualSessionId = sid
-              if (sid) ccSessionOwners.set(sid, ws)
+              // Use dynamic lookup: if the app reconnected, the owner may be a new socket
+              const ownerWs = (sid ? ccSessionOwners.get(sid) : null) ?? ws
+              if (sid) ccSessionOwners.set(sid, ownerWs)
 
-              // Ask the requesting socket for approval (mobile UI shows prompt)
-              send(ws, {
-                type: 'cc_stream',
-                data: {
-                  type: 'permission-request',
-                  sessionId: sid,
-                  toolUseId: req.toolUseId,
-                  tool: req.tool,
-                  input: req.input,
-                  decisionReason: req.decisionReason,
-                  blockedPath: req.blockedPath,
-                  hasSuggestions: req.hasSuggestions,
-                },
+              // Ask the current owner socket for approval (mobile UI shows prompt).
+              // If the owner is disconnected, this will buffer via emitCcStream.
+              emitCcStream(sid ?? '', {
+                type: 'permission-request',
                 sessionId: sid,
-              })
+                toolUseId: req.toolUseId,
+                tool: req.tool,
+                input: req.input,
+                decisionReason: req.decisionReason,
+                blockedPath: req.blockedPath,
+                hasSuggestions: req.hasSuggestions,
+              } as any)
 
               // Wait for a response from the client
               const key = `${sid}:${req.toolUseId}`
@@ -6912,7 +7101,7 @@ export async function createBridgeServer(options: BridgeServerOptions): Promise<
                 const timer = setTimeout(() => {
                   ccPermissionWaiters.delete(key)
                   resolve('reject')
-                }, 120_000)
+                }, PERMISSION_TIMEOUT_MS)
                 ccPermissionWaiters.set(key, { resolve, timer })
               })
             },
@@ -7638,6 +7827,7 @@ export async function createBridgeServer(options: BridgeServerOptions): Promise<
         }
       }
       ccExternalTails.clear()
+      ccEventBuffers.clear()
       for (const t of cxExternalTails.values()) {
         try {
           t.stop()
@@ -7646,6 +7836,7 @@ export async function createBridgeServer(options: BridgeServerOptions): Promise<
         }
       }
       cxExternalTails.clear()
+      cxEventBuffers.clear()
       for (const w of ccFsWatchers.values()) {
         if (w.debounce) clearTimeout(w.debounce)
         try {

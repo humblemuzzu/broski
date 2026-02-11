@@ -52,11 +52,61 @@ class GlobalSessionStatusNotifier
   /// Tracks when sessions became busy and last tool used
   final Map<String, _SessionActivity> _sessionActivity = {};
 
+  StreamSubscription<Map<String, dynamic>>? _rawSubscription;
+
   void _init() {
     // Listen to SDK events for session.status, session.idle, and tool events
     // These come through bridgeService.sdkEvents stream
     final bridge = _ref.read(bridgeServiceProvider);
     _subscription = bridge.sdkEvents.listen(_handleSdkEvent);
+
+    // Listen to raw bridge messages for sessions_active (pushed on reconnect)
+    _rawSubscription = bridge.messages.listen(_handleRawMessage);
+  }
+
+  void _handleRawMessage(Map<String, dynamic> message) {
+    final type = message['type'] as String? ?? '';
+    if (type == 'sessions_active') {
+      _handleSessionsActive(message['data'] as Map<String, dynamic>? ?? {});
+    }
+  }
+
+  /// Handle the sessions_active snapshot pushed by the bridge on (re)connect.
+  /// Immediately updates the global status map so all session cards reflect
+  /// the correct state without requiring manual refresh.
+  void _handleSessionsActive(Map<String, dynamic> data) {
+    final updates = <String, SessionStatus>{};
+
+    // Claude Code active sessions
+    final ccActive = data['claudeCode'] as List<dynamic>? ?? [];
+    for (final item in ccActive) {
+      final sessionId = (item as Map<String, dynamic>?)?['sessionId'] as String? ?? '';
+      if (sessionId.isNotEmpty) {
+        updates[sessionId] = const SessionStatus.busy();
+      }
+    }
+
+    // Codex active threads
+    final cxActive = data['codex'] as List<dynamic>? ?? [];
+    for (final item in cxActive) {
+      final threadId = (item as Map<String, dynamic>?)?['threadId'] as String? ?? '';
+      if (threadId.isNotEmpty) {
+        updates[threadId] = const SessionStatus.busy();
+      }
+    }
+
+    // OpenCode active sessions
+    final ocActive = data['opencode'] as List<dynamic>? ?? [];
+    for (final item in ocActive) {
+      final sessionId = (item as Map<String, dynamic>?)?['sessionId'] as String? ?? '';
+      if (sessionId.isNotEmpty) {
+        updates[sessionId] = const SessionStatus.busy();
+      }
+    }
+
+    if (updates.isNotEmpty) {
+      state = {...state, ...updates};
+    }
   }
 
   void _handleSdkEvent(Map<String, dynamic> event) {
@@ -252,6 +302,7 @@ class GlobalSessionStatusNotifier
   @override
   void dispose() {
     _subscription?.cancel();
+    _rawSubscription?.cancel();
     super.dispose();
   }
 }
