@@ -20,7 +20,6 @@ import '../theme/opencode_theme.dart';
 import '../widgets/chat/detail_sheet.dart';
 import '../widgets/connection_quality_indicator.dart';
 import 'chat_screen.dart';
-import 'pi_chat_screen.dart';
 import 'package:broski/theme/app_icons.dart';
 
 class ProjectsScreen extends ConsumerStatefulWidget {
@@ -796,7 +795,7 @@ class _ProjectsScreenState extends ConsumerState<ProjectsScreen> {
       context,
       MaterialPageRoute(
         builder: (_) =>
-            PiChatScreen.draft(cwd: project.path, title: project.name),
+            ChatScreen.piDraft(cwd: project.path, title: project.name),
       ),
     );
   }

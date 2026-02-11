@@ -1,6 +1,7 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../models/pi.dart';
+import '../models/project.dart';
 import '../services/pi_bridge_service.dart';
 import 'connection_provider.dart';
 import 'service_providers.dart';
@@ -72,4 +73,28 @@ final piStreamMessagesProvider = StreamProvider.autoDispose<PiStreamMessage>((
 ) {
   final bridge = ref.watch(piBridgeServiceProvider);
   return bridge.streamMessages;
+});
+
+/// Filter CWD for Pi sessions list (null = show all).
+final piSessionsFilterCwdProvider = StateProvider<String?>((ref) => null);
+
+/// Unique projects derived from Pi sessions (for project filter chip).
+final piFilterProjectsProvider = FutureProvider<List<ProjectSummary>>((
+  ref,
+) async {
+  final sessions = ref.watch(piSessionsProvider(null)).valueOrNull ?? const [];
+  final byPath = <String, ProjectSummary>{};
+  for (final s in sessions) {
+    final path = s.cwd;
+    if (path.isEmpty || byPath.containsKey(path)) continue;
+    final parts = path.split('/').where((p) => p.isNotEmpty).toList();
+    byPath[path] = ProjectSummary(
+      id: path,
+      name: parts.isEmpty ? 'Project' : parts.last,
+      path: path,
+    );
+  }
+  final sorted = byPath.values.toList()
+    ..sort((a, b) => a.name.toLowerCase().compareTo(b.name.toLowerCase()));
+  return sorted;
 });

@@ -2,6 +2,10 @@ import 'package:flutter/material.dart';
 
 import '../../models/pi.dart';
 import '../../services/pi_bridge_service.dart';
+import '../../theme/app_icons.dart';
+import '../../theme/design_tokens.dart';
+import '../../theme/opencode_theme.dart';
+import '../../widgets/chat/detail_sheet.dart';
 
 Future<void> handlePiExtensionUiRequest({
   required BuildContext context,
@@ -35,15 +39,18 @@ Future<void> handlePiExtensionUiRequest({
   if (method == 'notify') {
     final message = request.raw['message'] as String?;
     if (message != null && context.mounted) {
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(SnackBar(content: Text(message)));
+      final theme = OpenCodeTheme.of(context);
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(message, style: TextStyle(color: theme.text)),
+          backgroundColor: theme.backgroundPanel,
+        ),
+      );
     }
     return;
   }
 
   if (method == 'setStatus' || method == 'setWidget') {
-    // Handled as informational metadata for now.
     return;
   }
 
@@ -53,20 +60,48 @@ Future<void> handlePiExtensionUiRequest({
         .map((item) => item.toString())
         .toList();
 
-    final value = await showDialog<String>(
+    if (!context.mounted) return;
+    String? value;
+    await DetailSheet.show(
       context: context,
-      builder: (context) {
-        return SimpleDialog(
-          title: Text(title),
-          children: [
-            for (final option in options)
-              SimpleDialogOption(
-                onPressed: () => Navigator.pop(context, option),
-                child: Text(option),
-              ),
-          ],
-        );
-      },
+      title: title,
+      initialSize: 0.4,
+      child: Builder(
+        builder: (sheetContext) {
+          final theme = OpenCodeTheme.of(sheetContext);
+          return ListView.separated(
+            shrinkWrap: true,
+            padding: const EdgeInsets.fromLTRB(16, 8, 16, 24),
+            itemCount: options.length,
+            separatorBuilder: (_, __) => const SizedBox(height: 4),
+            itemBuilder: (ctx, index) {
+              final option = options[index];
+              return ListTile(
+                dense: true,
+                shape: RoundedRectangleBorder(borderRadius: Radii.brMd),
+                tileColor: theme.backgroundElement,
+                leading: Icon(
+                  AppIcons.chevronRight,
+                  size: 16,
+                  color: theme.primary,
+                ),
+                title: Text(
+                  option,
+                  style: TextStyle(
+                    color: theme.text,
+                    fontSize: 14,
+                    fontWeight: FontWeight.w500,
+                  ),
+                ),
+                onTap: () {
+                  value = option;
+                  Navigator.pop(ctx);
+                },
+              );
+            },
+          );
+        },
+      ),
     );
 
     await bridge.respondToExtensionUi(
@@ -82,19 +117,24 @@ Future<void> handlePiExtensionUiRequest({
     final title = request.raw['title'] as String? ?? 'Confirm';
     final message = request.raw['message'] as String? ?? '';
 
+    if (!context.mounted) return;
+    final theme = OpenCodeTheme.of(context);
     final confirmed = await showDialog<bool>(
       context: context,
-      builder: (context) {
+      builder: (ctx) {
         return AlertDialog(
-          title: Text(title),
-          content: Text(message),
+          backgroundColor: theme.background,
+          shape: RoundedRectangleBorder(borderRadius: Radii.brLg),
+          title: Text(title, style: TextStyle(color: theme.text)),
+          content: Text(message, style: TextStyle(color: theme.textMuted)),
           actions: [
             TextButton(
-              onPressed: () => Navigator.pop(context, false),
-              child: const Text('Cancel'),
+              onPressed: () => Navigator.pop(ctx, false),
+              child: Text('Cancel', style: TextStyle(color: theme.textMuted)),
             ),
             FilledButton(
-              onPressed: () => Navigator.pop(context, true),
+              style: FilledButton.styleFrom(backgroundColor: theme.primary),
+              onPressed: () => Navigator.pop(ctx, true),
               child: const Text('Confirm'),
             ),
           ],
@@ -124,25 +164,68 @@ Future<void> handlePiExtensionUiRequest({
     final placeholder = request.raw['placeholder'] as String?;
     final prefill = request.raw['prefill'] as String?;
     final controller = TextEditingController(text: prefill ?? '');
+    final isEditor = method == 'editor';
 
+    if (!context.mounted) return;
+    final theme = OpenCodeTheme.of(context);
     final value = await showDialog<String>(
       context: context,
-      builder: (context) {
+      builder: (ctx) {
         return AlertDialog(
-          title: Text(title),
-          content: TextField(
-            controller: controller,
-            autofocus: true,
-            maxLines: method == 'editor' ? 10 : 1,
-            decoration: InputDecoration(hintText: placeholder),
+          backgroundColor: theme.background,
+          shape: RoundedRectangleBorder(borderRadius: Radii.brLg),
+          title: Row(
+            children: [
+              Icon(
+                isEditor ? AppIcons.edit : AppIcons.textFields,
+                size: 18,
+                color: theme.primary,
+              ),
+              const SizedBox(width: 8),
+              Expanded(
+                child: Text(title, style: TextStyle(color: theme.text)),
+              ),
+            ],
+          ),
+          content: SizedBox(
+            width: double.maxFinite,
+            child: TextField(
+              controller: controller,
+              autofocus: true,
+              maxLines: isEditor ? 10 : 1,
+              style: TextStyle(
+                color: theme.text,
+                fontSize: isEditor ? 13 : 14,
+                fontFamily: isEditor ? 'monospace' : null,
+              ),
+              decoration: InputDecoration(
+                hintText: placeholder,
+                hintStyle: TextStyle(color: theme.textMuted),
+                filled: true,
+                fillColor: theme.backgroundPanel,
+                border: OutlineInputBorder(
+                  borderRadius: Radii.brSm,
+                  borderSide: BorderSide(color: theme.borderSubtle),
+                ),
+                enabledBorder: OutlineInputBorder(
+                  borderRadius: Radii.brSm,
+                  borderSide: BorderSide(color: theme.borderSubtle),
+                ),
+                focusedBorder: OutlineInputBorder(
+                  borderRadius: Radii.brSm,
+                  borderSide: BorderSide(color: theme.primary),
+                ),
+              ),
+            ),
           ),
           actions: [
             TextButton(
-              onPressed: () => Navigator.pop(context),
-              child: const Text('Cancel'),
+              onPressed: () => Navigator.pop(ctx),
+              child: Text('Cancel', style: TextStyle(color: theme.textMuted)),
             ),
             FilledButton(
-              onPressed: () => Navigator.pop(context, controller.text),
+              style: FilledButton.styleFrom(backgroundColor: theme.primary),
+              onPressed: () => Navigator.pop(ctx, controller.text),
               child: const Text('Submit'),
             ),
           ],
@@ -161,6 +244,7 @@ Future<void> handlePiExtensionUiRequest({
     return;
   }
 
+  // Unknown method — cancel
   await bridge.respondToExtensionUi(
     id: requestId,
     projectPath: projectPath,

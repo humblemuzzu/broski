@@ -42,8 +42,7 @@ import 'opencode_agents_screen.dart';
 import 'opencode_commands_screen.dart';
 import 'permission_rules_screen.dart';
 import 'codex_agents_screen.dart';
-import 'pi_commands_screen.dart';
-import 'pi_sessions_view.dart';
+
 import 'scan_screen.dart';
 import 'voice_settings_screen.dart';
 import 'package:broski/theme/app_icons.dart';
@@ -971,25 +970,16 @@ class _PowerFeaturesExpandedCard extends StatelessWidget {
             ),
           ),
           _Divider(),
+
           _SettingsTile(
-            title: 'Pi Sessions',
-            subtitle: 'Browse and reopen Pi conversations',
-            icon: AppIcons.history,
-            onTap: () => Navigator.push(
-              context,
-              MaterialPageRoute(
-                builder: (_) => PiSessionsView(onRefresh: () async {}),
-              ),
-            ),
-          ),
-          _Divider(),
-          _SettingsTile(
-            title: 'Commands',
-            subtitle: 'Slash commands, prompts, and extension actions',
+            title: 'Skills',
+            subtitle: 'Commands, prompts, and extension actions',
             icon: AppIcons.autoFix,
             onTap: () => Navigator.push(
               context,
-              MaterialPageRoute(builder: (_) => const PiCommandsScreen()),
+              MaterialPageRoute(
+                builder: (_) => const SkillsScreen(backend: AgentType.pi),
+              ),
             ),
           ),
           _Divider(),

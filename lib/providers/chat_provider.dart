@@ -9,11 +9,14 @@ import '../models/claude_code.dart';
 import '../models/codex.dart';
 import '../models/file_attachment.dart';
 import '../models/message.dart';
+import '../models/pi.dart';
 import '../models/question.dart';
 import '../models/session.dart';
 import '../models/todo.dart';
 import '../models/vcs.dart';
 import '../services/bridge_service.dart';
+import '../services/pi_bridge_service.dart';
+import 'pi_provider.dart';
 import 'service_providers.dart';
 
 /// MCP OAuth pending state (SDK v1.1.23+)
@@ -70,6 +73,13 @@ class ChatSessionState {
     // and auto-send when the turn completes (ccIsStreaming → false).
     this.pendingCCMessage,
     this.pendingCCAttachments,
+    // Pi support
+    this.isPi = false,
+    this.piSessionId,
+    this.piCwd,
+    this.piModel,
+    this.piThinkingLevel,
+    this.piIsStreaming = false,
   });
 
   final SessionSummary? session;
@@ -124,18 +134,30 @@ class ChatSessionState {
   final String? pendingCCMessage;
   final List<FileAttachment>? pendingCCAttachments;
 
-  /// Get the effective session ID (works for both OC and CC)
+  // Pi support
+  final bool isPi;
+  final String? piSessionId;
+  final String? piCwd;
+  final String? piModel;
+  final PiThinkingLevel? piThinkingLevel;
+  final bool piIsStreaming;
+
+  /// Get the effective session ID (works for all backends)
   String? get effectiveSessionId => isClaudeCode
       ? ccSessionId
       : isCodex
       ? cxThreadId
+      : isPi
+      ? piSessionId
       : session?.id;
 
-  /// Get the effective project path (works for both OC and CC)
+  /// Get the effective project path (works for all backends)
   String? get effectivePath => isClaudeCode
       ? ccCwd
       : isCodex
       ? cxCwd
+      : isPi
+      ? piCwd
       : projectPath;
 
   ChatSessionState copyWith({
@@ -169,6 +191,12 @@ class ChatSessionState {
     McpOAuthPending? mcpOAuthPending,
     String? pendingCCMessage,
     List<FileAttachment>? pendingCCAttachments,
+    bool? isPi,
+    String? piSessionId,
+    String? piCwd,
+    String? piModel,
+    PiThinkingLevel? piThinkingLevel,
+    bool? piIsStreaming,
   }) {
     return ChatSessionState(
       session: session ?? this.session,
@@ -201,21 +229,36 @@ class ChatSessionState {
       mcpOAuthPending: mcpOAuthPending ?? this.mcpOAuthPending,
       pendingCCMessage: pendingCCMessage ?? this.pendingCCMessage,
       pendingCCAttachments: pendingCCAttachments ?? this.pendingCCAttachments,
+      isPi: isPi ?? this.isPi,
+      piSessionId: piSessionId ?? this.piSessionId,
+      piCwd: piCwd ?? this.piCwd,
+      piModel: piModel ?? this.piModel,
+      piThinkingLevel: piThinkingLevel ?? this.piThinkingLevel,
+      piIsStreaming: piIsStreaming ?? this.piIsStreaming,
     );
   }
 }
 
 class ChatSessionNotifier extends StateNotifier<ChatSessionState> {
-  ChatSessionNotifier(this._bridge) : super(const ChatSessionState()) {
+  ChatSessionNotifier(this._bridge, {PiBridgeService? piBridge})
+    : _piBridge = piBridge,
+      super(const ChatSessionState()) {
     _subscription = _bridge.sdkEvents.listen(_enqueueSdkEvent);
     _ccSubscription = _bridge.ccStreamMessages.listen(_handleCCStreamMessage);
     _cxSubscription = _bridge.codexStreamMessages.listen(
       _handleCodexStreamMessage,
     );
     _rawSubscription = _bridge.messages.listen(_handleRawBridgeMessage);
+    final piBridgeLocal = _piBridge;
+    if (piBridgeLocal != null) {
+      _piSubscription = piBridgeLocal.streamMessages.listen(
+        _handlePiStreamMessage,
+      );
+    }
   }
 
   final BridgeService _bridge;
+  final PiBridgeService? _piBridge;
   final Map<String, ChatMessage> _messages = {};
   final List<String> _order = [];
   final Map<String, MessageRole> _rolesByMessageId = {};
@@ -225,6 +268,7 @@ class ChatSessionNotifier extends StateNotifier<ChatSessionState> {
   StreamSubscription<ClaudeCodeStreamMessage>? _ccSubscription;
   StreamSubscription<CodexStreamMessage>? _cxSubscription;
   StreamSubscription<Map<String, dynamic>>? _rawSubscription;
+  StreamSubscription<PiStreamMessage>? _piSubscription;
 
   final Map<String, int> _lastCcFsNoticeAtMs = {};
 
@@ -792,6 +836,162 @@ class ChatSessionNotifier extends StateNotifier<ChatSessionState> {
     state = state.copyWith(cxModel: model);
   }
 
+  // ============================================================
+  // Pi Session Setup
+  // ============================================================
+
+  void setPiSession({
+    required String sessionId,
+    required String cwd,
+    String? model,
+    PiThinkingLevel? thinkingLevel,
+  }) {
+    _sessionVersion++;
+    _messages.clear();
+    _order.clear();
+    _rolesByMessageId.clear();
+    _pendingLocalUserTextByMessageId.clear();
+    _localAuthoredUserMessageIds.clear();
+    _pendingEvents.clear();
+    _pendingTextBuffers.clear();
+    _flushTimer?.cancel();
+    _flushTimer = null;
+    _textDebounceTimer?.cancel();
+    _textDebounceTimer = null;
+    _lspStatusFetched = false;
+    _resetCCState();
+    _resetCodexState();
+    _resetPiState();
+    state = ChatSessionState(
+      session: null,
+      projectPath: cwd,
+      messages: const [],
+      permissions: const [],
+      sessionDiffs: const [],
+      todos: const [],
+      isClaudeCode: false,
+      isCodex: false,
+      isPi: true,
+      piSessionId: sessionId.isEmpty ? null : sessionId,
+      piCwd: cwd,
+      piModel: model,
+      piThinkingLevel: thinkingLevel,
+      piIsStreaming: false,
+    );
+    if (sessionId.isNotEmpty) {
+      _bridge.setView(sessionId: sessionId, agent: 'pi');
+    }
+  }
+
+  void setPiModel(String? model) {
+    if (!state.isPi) return;
+    state = state.copyWith(piModel: model);
+  }
+
+  void setPiThinkingLevel(PiThinkingLevel? level) {
+    if (!state.isPi) return;
+    state = state.copyWith(piThinkingLevel: level);
+  }
+
+  void setPiStreaming(bool streaming) {
+    if (!state.isPi) return;
+    state = state.copyWith(piIsStreaming: streaming);
+  }
+
+  /// Hydrate Pi transcript from raw bridge messages
+  void hydratePiTranscript(List<Map<String, dynamic>> items) {
+    _suppressEmit = true;
+    _messages.clear();
+    _order.clear();
+    _rolesByMessageId.clear();
+    _pendingLocalUserTextByMessageId.clear();
+    _localAuthoredUserMessageIds.clear();
+
+    for (final item in items) {
+      final role = item['role'] as String? ?? 'system';
+      final timestamp = item['timestamp'] as int?;
+      final createdAt = timestamp != null
+          ? DateTime.fromMillisecondsSinceEpoch(timestamp)
+          : DateTime.now();
+
+      if (role == 'user') {
+        final text = item['content'] as String? ?? '';
+        final msg = ChatMessage(
+          id: 'pi-${_messages.length}',
+          sessionId: state.piSessionId ?? '',
+          role: MessageRole.user,
+          createdAt: createdAt,
+          text: text,
+        );
+        _messages[msg.id] = msg;
+        _order.add(msg.id);
+      } else if (role == 'assistant') {
+        final text = item['text'] as String? ?? '';
+        final thinking = item['thinking'] as String?;
+        final toolCalls = item['toolCalls'] as List<dynamic>?;
+
+        final parts = <ToolCall>[];
+        if (toolCalls != null) {
+          for (final tc in toolCalls) {
+            if (tc is Map<String, dynamic>) {
+              parts.add(
+                ToolCall(
+                  partId: tc['id'] as String? ?? '',
+                  callId: tc['id'] as String? ?? '',
+                  name: tc['name'] as String? ?? 'tool',
+                  status: 'completed',
+                  title: tc['name'] as String? ?? 'tool',
+                  input: (tc['arguments'] is Map<String, dynamic>)
+                      ? tc['arguments'] as Map<String, dynamic>
+                      : {},
+                ),
+              );
+            }
+          }
+        }
+
+        final reasoningParts = <ReasoningPart>[];
+        if (thinking != null && thinking.trim().isNotEmpty) {
+          reasoningParts.add(
+            ReasoningPart(
+              id: 'pi-thinking-${_messages.length}',
+              messageId: 'pi-${_messages.length}',
+              text: thinking,
+            ),
+          );
+        }
+
+        final msg = ChatMessage(
+          id: 'pi-${_messages.length}',
+          sessionId: state.piSessionId ?? '',
+          role: MessageRole.assistant,
+          createdAt: createdAt,
+          text: text,
+          toolCalls: parts,
+          reasoningParts: reasoningParts,
+        );
+        _messages[msg.id] = msg;
+        _order.add(msg.id);
+      } else if (role == 'toolResult') {
+        final toolName = item['toolName'] as String? ?? 'tool';
+        final content = item['content'] as String? ?? '';
+        final isError = item['isError'] as bool? ?? false;
+        final msg = ChatMessage(
+          id: 'pi-${_messages.length}',
+          sessionId: state.piSessionId ?? '',
+          role: MessageRole.system,
+          createdAt: createdAt,
+          text: '${isError ? '⚠️' : '✅'} $toolName: $content',
+        );
+        _messages[msg.id] = msg;
+        _order.add(msg.id);
+      }
+    }
+
+    _suppressEmit = false;
+    _emitMessages();
+  }
+
   void _resetCCState() {
     _ccCurrentAssistantMessageId = '';
     _ccAssistantTextBuffer.clear();
@@ -820,6 +1020,28 @@ class ChatSessionNotifier extends StateNotifier<ChatSessionState> {
     _cxOrderedParts.clear();
     _cxPartSequence = 0;
     _cxCurrentTextPartIndex = -1;
+  }
+
+  // Pi streaming state
+  String _piCurrentAssistantMessageId = '';
+  final StringBuffer _piAssistantTextBuffer = StringBuffer();
+  final StringBuffer _piThinkingBuffer = StringBuffer();
+  final Map<String, ToolCall> _piPendingToolCallsById = {};
+  Timer? _piUpdateTimer;
+  final List<MessagePart> _piOrderedParts = [];
+  int _piPartSequence = 0;
+  int _piCurrentTextPartIndex = -1;
+
+  void _resetPiState() {
+    _piCurrentAssistantMessageId = '';
+    _piAssistantTextBuffer.clear();
+    _piThinkingBuffer.clear();
+    _piPendingToolCallsById.clear();
+    _piUpdateTimer?.cancel();
+    _piUpdateTimer = null;
+    _piOrderedParts.clear();
+    _piPartSequence = 0;
+    _piCurrentTextPartIndex = -1;
   }
 
   void _scheduleCCAssistantUpdate({required bool isStreaming}) {
@@ -3868,16 +4090,272 @@ class ChatSessionNotifier extends StateNotifier<ChatSessionState> {
     state = state.copyWith(cxIsStreaming: isStreaming);
   }
 
+  // ============================================================
+  // Pi Stream Message Handling
+  // ============================================================
+
+  void _handlePiStreamMessage(PiStreamMessage message) {
+    if (!state.isPi) return;
+
+    // Filter by session ID if available
+    if (state.piSessionId != null &&
+        state.piSessionId!.isNotEmpty &&
+        (message.sessionId?.isNotEmpty ?? false) &&
+        message.sessionId != state.piSessionId) {
+      return;
+    }
+
+    switch (message.type) {
+      case 'agent-start':
+        state = state.copyWith(piIsStreaming: true);
+        break;
+
+      case 'text-delta':
+        final delta = message.textDelta;
+        if (delta != null && delta.isNotEmpty) {
+          _piAssistantTextBuffer.write(delta);
+          // Track as a TextPart in ordered parts
+          if (_piCurrentTextPartIndex >= 0 &&
+              _piCurrentTextPartIndex < _piOrderedParts.length) {
+            final existing =
+                _piOrderedParts[_piCurrentTextPartIndex] as TextPart;
+            _piOrderedParts[_piCurrentTextPartIndex] = existing.copyWith(
+              text: existing.text + delta,
+              isStreaming: true,
+            );
+          } else {
+            _piCurrentTextPartIndex = _piOrderedParts.length;
+            _piOrderedParts.add(
+              TextPart(
+                sequence: _piPartSequence++,
+                text: delta,
+                isStreaming: true,
+              ),
+            );
+          }
+          _piScheduleAssistantUpdate(isStreaming: true);
+        }
+        break;
+
+      case 'thinking-delta':
+        final delta = message.thinkingDelta;
+        if (delta != null && delta.isNotEmpty) {
+          _piThinkingBuffer.write(delta);
+          _piScheduleAssistantUpdate(isStreaming: true);
+        }
+        break;
+
+      case 'tool-exec-start':
+      case 'tool-call-start':
+        final toolCallId =
+            message.raw['toolCallId'] as String? ?? 'pi-tc-${_piPartSequence}';
+        final toolName = message.raw['toolName'] as String? ?? 'tool';
+        final args = message.raw['args'];
+        _piPendingToolCallsById[toolCallId] = ToolCall(
+          callId: toolCallId,
+          partId: toolCallId,
+          name: toolName,
+          title: toolName,
+          status: 'running',
+          input: args is Map<String, dynamic> ? args : {},
+        );
+        _piOrderedParts.add(
+          ToolPart(sequence: _piPartSequence++, callId: toolCallId),
+        );
+        // Reset text part index so next text-delta creates a new part
+        _piCurrentTextPartIndex = -1;
+        _piScheduleAssistantUpdate(isStreaming: true);
+        break;
+
+      case 'tool-exec-end':
+      case 'tool-call-args-done':
+        final toolCallId = message.raw['toolCallId'] as String? ?? '';
+        final result = message.raw['result'];
+        final isError = message.raw['isError'] as bool? ?? false;
+        final existing = _piPendingToolCallsById[toolCallId];
+        if (existing != null) {
+          _piPendingToolCallsById[toolCallId] = existing.copyWith(
+            status: isError ? 'failed' : 'completed',
+            output: result?.toString(),
+          );
+        }
+        _piScheduleAssistantUpdate(isStreaming: state.piIsStreaming);
+        break;
+
+      case 'tool-exec-update':
+        final toolCallId = message.raw['toolCallId'] as String? ?? '';
+        final partialResult = message.raw['partialResult'];
+        final existing = _piPendingToolCallsById[toolCallId];
+        if (existing != null) {
+          _piPendingToolCallsById[toolCallId] = existing.copyWith(
+            output: partialResult?.toString(),
+          );
+        }
+        _piScheduleAssistantUpdate(isStreaming: true);
+        break;
+
+      case 'message-done':
+        // Flush the current assistant message but keep streaming state
+        // (agent-end handles the final streaming=false transition)
+        _piFlushAssistantUpdate(isStreaming: state.piIsStreaming);
+        break;
+
+      case 'agent-end':
+        _piFlushAssistantUpdate(isStreaming: false);
+        _resetPiState();
+        state = state.copyWith(piIsStreaming: false);
+        break;
+
+      case 'compaction-start':
+        state = state.copyWith(isCompacting: true);
+        final msg = ChatMessage(
+          id: 'pi-compaction-start-${DateTime.now().microsecondsSinceEpoch}',
+          sessionId: state.piSessionId ?? '',
+          role: MessageRole.system,
+          createdAt: DateTime.now(),
+          text: 'Context compaction started',
+          error: 'context_compacting',
+        );
+        _addMessage(msg);
+        break;
+
+      case 'compaction-end':
+        state = state.copyWith(isCompacting: false);
+        final msg = ChatMessage(
+          id: 'pi-compaction-end-${DateTime.now().microsecondsSinceEpoch}',
+          sessionId: state.piSessionId ?? '',
+          role: MessageRole.system,
+          createdAt: DateTime.now(),
+          text: 'Context compacted',
+          error: 'context_compacted',
+        );
+        _addMessage(msg);
+        break;
+
+      case 'retry-start':
+        final msg = ChatMessage(
+          id: 'pi-retry-start-${DateTime.now().microsecondsSinceEpoch}',
+          sessionId: state.piSessionId ?? '',
+          role: MessageRole.system,
+          createdAt: DateTime.now(),
+          text: 'Retrying (attempt ${message.raw['attempt'] ?? '?'})...',
+        );
+        _addMessage(msg);
+        break;
+
+      case 'retry-end':
+        final success = message.raw['success'] as bool? ?? false;
+        final msg = ChatMessage(
+          id: 'pi-retry-end-${DateTime.now().microsecondsSinceEpoch}',
+          sessionId: state.piSessionId ?? '',
+          role: MessageRole.system,
+          createdAt: DateTime.now(),
+          text: success ? 'Retry succeeded' : 'Retry failed',
+        );
+        _addMessage(msg);
+        break;
+
+      case 'error':
+        state = state.copyWith(piIsStreaming: false);
+        _piFlushAssistantUpdate(isStreaming: false);
+        _resetPiState();
+        final errorMsg = ChatMessage(
+          id: 'pi-error-${DateTime.now().microsecondsSinceEpoch}',
+          sessionId: state.piSessionId ?? '',
+          role: MessageRole.system,
+          createdAt: DateTime.now(),
+          text: message.errorMessage ?? 'Unknown Pi error',
+          error: 'pi_error',
+        );
+        _addMessage(errorMsg);
+        break;
+
+      case 'extension-ui-request':
+        // Extension UI requests are handled at the screen level, not here
+        break;
+    }
+  }
+
+  void _piScheduleAssistantUpdate({required bool isStreaming}) {
+    if (!isStreaming && _piUpdateTimer != null) {
+      _piUpdateTimer!.cancel();
+      _piUpdateTimer = null;
+    }
+    if (_piUpdateTimer != null) return;
+    _piUpdateTimer = Timer(const Duration(milliseconds: 24), () {
+      _piUpdateTimer = null;
+      _updatePiAssistantMessage(isStreaming: isStreaming);
+    });
+  }
+
+  void _piFlushAssistantUpdate({required bool isStreaming}) {
+    _piUpdateTimer?.cancel();
+    _piUpdateTimer = null;
+    _updatePiAssistantMessage(isStreaming: isStreaming);
+  }
+
+  void _updatePiAssistantMessage({required bool isStreaming}) {
+    final msgId = _piCurrentAssistantMessageId.isNotEmpty
+        ? _piCurrentAssistantMessageId
+        : 'pi-assistant-${DateTime.now().microsecondsSinceEpoch}';
+    if (_piCurrentAssistantMessageId.isEmpty) {
+      _piCurrentAssistantMessageId = msgId;
+    }
+
+    final text = _piAssistantTextBuffer.toString();
+
+    final reasoningParts = <ReasoningPart>[];
+    if (_piThinkingBuffer.toString().trim().isNotEmpty) {
+      reasoningParts.add(
+        ReasoningPart(
+          id: 'pi-thinking',
+          messageId: msgId,
+          text: _piThinkingBuffer.toString(),
+          isStreaming: isStreaming,
+        ),
+      );
+    }
+
+    final orderedParts = <MessagePart>[];
+    for (int i = 0; i < _piOrderedParts.length; i++) {
+      final part = _piOrderedParts[i];
+      if (part is TextPart) {
+        final isLastTextPart = i == _piCurrentTextPartIndex;
+        orderedParts.add(
+          part.copyWith(isStreaming: isLastTextPart && isStreaming),
+        );
+      } else {
+        orderedParts.add(part);
+      }
+    }
+
+    final message = ChatMessage(
+      id: msgId,
+      sessionId: state.piSessionId ?? '',
+      role: MessageRole.assistant,
+      createdAt: DateTime.now(),
+      text: text,
+      toolCalls: List<ToolCall>.unmodifiable(_piPendingToolCallsById.values),
+      reasoningParts: reasoningParts,
+      parts: List<MessagePart>.unmodifiable(orderedParts),
+      isStreaming: isStreaming,
+    );
+
+    _updateMessage(msgId, message);
+  }
+
   @override
   void dispose() {
     _subscription?.cancel();
     _ccSubscription?.cancel();
     _cxSubscription?.cancel();
     _rawSubscription?.cancel();
+    _piSubscription?.cancel();
     _flushTimer?.cancel();
     _textDebounceTimer?.cancel();
     _ccUpdateTimer?.cancel();
     _cxUpdateTimer?.cancel();
+    _piUpdateTimer?.cancel();
     super.dispose();
   }
 }
@@ -3885,5 +4363,6 @@ class ChatSessionNotifier extends StateNotifier<ChatSessionState> {
 final chatSessionProvider =
     StateNotifierProvider<ChatSessionNotifier, ChatSessionState>((ref) {
       final bridge = ref.watch(bridgeServiceProvider);
-      return ChatSessionNotifier(bridge);
+      final piBridge = ref.watch(piBridgeServiceProvider);
+      return ChatSessionNotifier(bridge, piBridge: piBridge);
     });
