@@ -222,7 +222,7 @@ class PaywallScreen extends ConsumerWidget {
                                   textBaseline: TextBaseline.alphabetic,
                                   children: [
                                     Text(
-                                      sub.monthlyPriceText ?? '\$20',
+                                      sub.monthlyPriceText ?? '\$9.99',
                                       style: const TextStyle(
                                         color: Colors.white,
                                         fontSize: 42,
@@ -353,12 +353,15 @@ class PaywallScreen extends ConsumerWidget {
                         ),
                         const SizedBox(height: 14),
                         // Subscription disclosure + legal links (Apple 3.1.2)
-                        Text(
-                          'Auto-renews. Cancel anytime in Settings.',
-                          textAlign: TextAlign.center,
-                          style: TextStyle(
-                            color: Colors.white.withValues(alpha: 0.3),
-                            fontSize: 10,
+                        SizedBox(
+                          width: double.infinity,
+                          child: Text(
+                            'Auto-renews. Cancel anytime in Settings.',
+                            textAlign: TextAlign.center,
+                            style: TextStyle(
+                              color: Colors.white.withValues(alpha: 0.3),
+                              fontSize: 10,
+                            ),
                           ),
                         ),
                         const SizedBox(height: 6),

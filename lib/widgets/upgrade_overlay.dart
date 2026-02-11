@@ -49,7 +49,7 @@ class UpgradeOverlay extends ConsumerWidget {
         // Lock overlay
         _LockOverlay(
           message: message,
-          priceText: sub.monthlyPriceText ?? '\$20',
+          priceText: sub.monthlyPriceText ?? '\$9.99',
           isLoading: sub.isLoading,
         ),
       ],
@@ -294,7 +294,7 @@ class SubscribeBanner extends ConsumerWidget {
                     ),
                     SizedBox(height: Spacing.xxs),
                     Text(
-                      'Unlock all features • ${sub.monthlyPriceText ?? '\$20'}/mo',
+                      'Unlock all features • ${sub.monthlyPriceText ?? '\$9.99'}/mo',
                       style: TextStyle(
                         color: ocTheme.textMuted,
                         fontSize: 13,
