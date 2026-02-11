@@ -6278,39 +6278,25 @@ class _PiSessionsViewState extends ConsumerState<_PiSessionsView> {
     );
   }
 
-  void _openDraftCwd() async {
-    final controller = TextEditingController();
-    final cwd = await showDialog<String>(
+  void _showNewSessionSheet() {
+    DetailSheet.show(
       context: context,
-      builder: (context) => AlertDialog(
-        backgroundColor: Theme.of(context).colorScheme.surface,
-        title: const Text('Open Pi in directory'),
-        content: TextField(
-          controller: controller,
-          autofocus: true,
-          decoration: const InputDecoration(
-            hintText: '/absolute/path/to/project',
-          ),
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context),
-            child: const Text('Cancel'),
-          ),
-          FilledButton(
-            onPressed: () => Navigator.pop(context, controller.text.trim()),
-            child: const Text('Open'),
-          ),
-        ],
-      ),
-    );
-    controller.dispose();
-    final path = (cwd ?? '').trim();
-    if (path.isEmpty || !mounted) return;
-    Navigator.push(
-      context,
-      MaterialPageRoute(
-        builder: (_) => ChatScreen.piDraft(cwd: path, title: path),
+      title: 'New Pi Session',
+      initialSize: 0.6,
+      maxSize: 0.9,
+      child: _PiNewSessionContent(
+        onSelectProject: (path, name) {
+          Navigator.pop(context);
+          ref
+              .read(selectionProvider.notifier)
+              .selectProject(ProjectSummary(id: '', name: name, path: path));
+          Navigator.push(
+            context,
+            MaterialPageRoute(
+              builder: (_) => ChatScreen.piDraft(cwd: path, title: name),
+            ),
+          );
+        },
       ),
     );
   }
@@ -6579,7 +6565,7 @@ class _PiSessionsViewState extends ConsumerState<_PiSessionsView> {
                           ),
                           const Spacer(),
                           IconButton(
-                            onPressed: _openDraftCwd,
+                            onPressed: _showNewSessionSheet,
                             icon: Icon(AppIcons.add, color: ocTheme.text),
                             tooltip: 'New session',
                           ),
@@ -6901,6 +6887,229 @@ class _PiSessionCard extends StatelessWidget {
               ),
             ),
           ],
+        ),
+      ),
+    );
+  }
+}
+
+/// Project picker for creating a new Pi session.
+/// Shows system projects from the bridge + unique CWDs from existing Pi sessions.
+class _PiNewSessionContent extends ConsumerWidget {
+  const _PiNewSessionContent({required this.onSelectProject});
+
+  final void Function(String path, String name) onSelectProject;
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final ocTheme = OpenCodeTheme.of(context);
+    final bridgeProjectsAsync = ref.watch(projectsForSessionsProvider);
+    final piProjectsAsync = ref.watch(piFilterProjectsProvider);
+
+    // Merge bridge projects + Pi-specific CWDs (deduplicated by path)
+    final bridgeProjects = bridgeProjectsAsync.valueOrNull ?? const [];
+    final piProjects = piProjectsAsync.valueOrNull ?? const [];
+    final isLoading =
+        bridgeProjectsAsync.isLoading && piProjectsAsync.isLoading;
+
+    final byPath = <String, ProjectSummary>{};
+    for (final p in bridgeProjects) {
+      byPath[p.path] = p;
+    }
+    for (final p in piProjects) {
+      byPath.putIfAbsent(p.path, () => p);
+    }
+    final allProjects = byPath.values.toList()
+      ..sort((a, b) => a.name.toLowerCase().compareTo(b.name.toLowerCase()));
+
+    // Separate: projects that already have Pi sessions vs fresh projects
+    final piPaths = piProjects.map((p) => p.path).toSet();
+    final piActiveProjects = allProjects
+        .where((p) => piPaths.contains(p.path))
+        .toList();
+    final otherProjects = allProjects
+        .where((p) => !piPaths.contains(p.path))
+        .toList();
+
+    if (isLoading) {
+      return const Padding(
+        padding: EdgeInsets.all(32),
+        child: Center(child: CircularProgressIndicator()),
+      );
+    }
+
+    if (allProjects.isEmpty) {
+      return Padding(
+        padding: const EdgeInsets.all(32),
+        child: Center(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Icon(AppIcons.folderOff, color: ocTheme.textMuted, size: 48),
+              SizedBox(height: Spacing.lg),
+              Text(
+                'No projects found',
+                style: TextStyle(color: ocTheme.text, fontSize: 16),
+              ),
+              SizedBox(height: Spacing.sm),
+              Text(
+                'Open a project from the Projects tab first.',
+                style: TextStyle(color: ocTheme.textMuted, fontSize: 14),
+                textAlign: TextAlign.center,
+              ),
+            ],
+          ),
+        ),
+      );
+    }
+
+    return ListView(
+      shrinkWrap: true,
+      padding: const EdgeInsets.fromLTRB(16, 8, 16, 24),
+      children: [
+        // Pi-active projects first
+        if (piActiveProjects.isNotEmpty) ...[
+          Padding(
+            padding: const EdgeInsets.only(bottom: 10),
+            child: Text(
+              'PROJECTS WITH PI SESSIONS',
+              style: TextStyle(
+                fontSize: 11,
+                fontWeight: FontWeight.w600,
+                color: ocTheme.textMuted,
+                letterSpacing: 0.5,
+              ),
+            ),
+          ),
+          for (final project in piActiveProjects)
+            _PiProjectTile(
+              project: project,
+              hasExistingSessions: true,
+              onTap: () => onSelectProject(project.path, project.name),
+            ),
+          SizedBox(height: Spacing.xl),
+        ],
+        // Other projects
+        if (otherProjects.isNotEmpty) ...[
+          Padding(
+            padding: const EdgeInsets.only(bottom: 10),
+            child: Text(
+              'OTHER PROJECTS',
+              style: TextStyle(
+                fontSize: 11,
+                fontWeight: FontWeight.w600,
+                color: ocTheme.textMuted,
+                letterSpacing: 0.5,
+              ),
+            ),
+          ),
+          for (final project in otherProjects)
+            _PiProjectTile(
+              project: project,
+              hasExistingSessions: false,
+              onTap: () => onSelectProject(project.path, project.name),
+            ),
+        ],
+      ],
+    );
+  }
+}
+
+class _PiProjectTile extends StatelessWidget {
+  const _PiProjectTile({
+    required this.project,
+    required this.hasExistingSessions,
+    required this.onTap,
+  });
+
+  final ProjectSummary project;
+  final bool hasExistingSessions;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final ocTheme = OpenCodeTheme.of(context);
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 8),
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: Radii.brMd,
+        child: Container(
+          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+          decoration: BoxDecoration(
+            color: ocTheme.backgroundPanel,
+            borderRadius: Radii.brMd,
+            border: Border.all(
+              color: hasExistingSessions
+                  ? ocTheme.primary.withValues(alpha: 0.3)
+                  : ocTheme.borderSubtle,
+            ),
+          ),
+          child: Row(
+            children: [
+              Container(
+                width: 32,
+                height: 32,
+                decoration: BoxDecoration(
+                  color: hasExistingSessions
+                      ? ocTheme.primary.withValues(alpha: 0.12)
+                      : ocTheme.backgroundElement,
+                  borderRadius: Radii.brSm,
+                ),
+                child: Icon(
+                  AppIcons.folder,
+                  size: 16,
+                  color: hasExistingSessions
+                      ? ocTheme.primary
+                      : ocTheme.textMuted,
+                ),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      project.name,
+                      style: TextStyle(
+                        color: ocTheme.text,
+                        fontSize: 14,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                    const SizedBox(height: 2),
+                    Text(
+                      project.path,
+                      style: TextStyle(color: ocTheme.textMuted, fontSize: 12),
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                  ],
+                ),
+              ),
+              if (hasExistingSessions)
+                Container(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 6,
+                    vertical: 2,
+                  ),
+                  decoration: BoxDecoration(
+                    color: ocTheme.primary.withValues(alpha: 0.12),
+                    borderRadius: Radii.brXs,
+                  ),
+                  child: Text(
+                    'Active',
+                    style: TextStyle(
+                      color: ocTheme.primary,
+                      fontSize: 10,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                ),
+              const SizedBox(width: 4),
+              Icon(AppIcons.chevronRight, size: 18, color: ocTheme.textMuted),
+            ],
+          ),
         ),
       ),
     );

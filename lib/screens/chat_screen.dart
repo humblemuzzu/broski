@@ -694,9 +694,17 @@ class _ChatScreenState extends ConsumerState<ChatScreen>
     if (widget.isPi) {
       final cwd = widget.piSession?.cwd ?? widget.piDraftCwd ?? '';
       final sessionId = widget.piSession?.id ?? '';
+      final isDraft = widget.piSession == null;
       final piBridge = ref.read(piBridgeServiceProvider);
-      // Switch session if we have a path
-      if (widget.piSession?.path != null &&
+      // Draft mode: create a new session so we don't resume an existing one.
+      // Existing session: switch to the specific session by path.
+      if (isDraft && !connection.isOfflineMode) {
+        try {
+          await piBridge.newSession(projectPath: cwd);
+        } catch (_) {
+          // Best effort — first message will still create one
+        }
+      } else if (widget.piSession?.path != null &&
           (widget.piSession?.path.isNotEmpty ?? false)) {
         try {
           await piBridge.switchSession(
@@ -712,6 +720,7 @@ class _ChatScreenState extends ConsumerState<ChatScreen>
         cwd: cwd,
         model: widget.piSession?.name,
       );
+      // Existing session: hydrate transcript
       if (sessionId.isNotEmpty && !connection.isOfflineMode) {
         try {
           final items = await piBridge.getMessages(projectPath: cwd);
@@ -720,7 +729,7 @@ class _ChatScreenState extends ConsumerState<ChatScreen>
           // Best effort
         }
       }
-      // Fetch initial state to know model/thinking level
+      // Fetch state to sync model/thinking level and pick up session ID
       if (!connection.isOfflineMode) {
         try {
           final piState = await piBridge.getState(projectPath: cwd);
@@ -731,7 +740,7 @@ class _ChatScreenState extends ConsumerState<ChatScreen>
           );
           chat.setPiThinkingLevel(piState.thinkingLevel);
           if (piState.sessionId.isNotEmpty && sessionId.isEmpty) {
-            // Session was created or assigned by the bridge
+            // New session was created by newSession() — adopt its ID
             chat.setPiSession(
               sessionId: piState.sessionId,
               cwd: cwd,
@@ -740,11 +749,7 @@ class _ChatScreenState extends ConsumerState<ChatScreen>
                   : null,
               thinkingLevel: piState.thinkingLevel,
             );
-            // Re-hydrate since we now know the session
-            try {
-              final items = await piBridge.getMessages(projectPath: cwd);
-              chat.hydratePiTranscript(items);
-            } catch (_) {}
+            // Draft: don't hydrate — it's a fresh session with no messages
           }
         } catch (_) {
           // Best effort
