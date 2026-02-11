@@ -562,18 +562,21 @@ class _ChatScreenState extends ConsumerState<ChatScreen>
     // Pi: listen for extension UI requests from pi_stream
     if (widget.isPi) {
       final piBridge = ref.read(piBridgeServiceProvider);
-      _piExtensionUiSub = piBridge.streamMessages
-          .where((m) => m.type == 'extension-ui-request')
-          .listen((request) {
-            if (!mounted) return;
-            handlePiExtensionUiRequest(
-              context: context,
-              bridge: piBridge,
-              request: request,
-              projectPath: widget.piSession?.cwd ?? widget.piDraftCwd,
-              composerController: _controller,
-            );
-          });
+      _piExtensionUiSub = piBridge.streamMessages.listen((message) {
+        if (!mounted) return;
+        if (message.type == 'extension-ui-request') {
+          handlePiExtensionUiRequest(
+            context: context,
+            bridge: piBridge,
+            request: message,
+            projectPath: widget.piSession?.cwd ?? widget.piDraftCwd,
+            composerController: _controller,
+          );
+        } else if (message.type == 'agent-end') {
+          // Refresh context/usage after agent completes a turn
+          _loadSessionContext();
+        }
+      });
     }
   }
 
@@ -733,12 +736,6 @@ class _ChatScreenState extends ConsumerState<ChatScreen>
       if (!connection.isOfflineMode) {
         try {
           final piState = await piBridge.getState(projectPath: cwd);
-          chat.setPiModel(
-            piState.model != null
-                ? '${piState.model!.provider}/${piState.model!.id}'
-                : null,
-          );
-          chat.setPiThinkingLevel(piState.thinkingLevel);
           if (piState.sessionId.isNotEmpty && sessionId.isEmpty) {
             // New session was created by newSession() — adopt its ID
             chat.setPiSession(
@@ -751,12 +748,21 @@ class _ChatScreenState extends ConsumerState<ChatScreen>
             );
             // Draft: don't hydrate — it's a fresh session with no messages
           }
+          // Set model data after setPiSession to ensure it's not overwritten
+          chat.setPiModel(
+            piState.model != null
+                ? '${piState.model!.provider}/${piState.model!.id}'
+                : null,
+            modelData: piState.model,
+          );
+          chat.setPiThinkingLevel(piState.thinkingLevel);
         } catch (_) {
           // Best effort
         }
       }
       _scrollToBottom(animate: false);
       setState(() => _hasLoadedAllMessages = true);
+      _loadSessionContext();
       return;
     }
     // OpenCode mode - set up OC session in provider
@@ -1250,6 +1256,39 @@ class _ChatScreenState extends ConsumerState<ChatScreen>
         _sessionContext = context;
         _loadingContext = false;
       });
+      return;
+    }
+    // Pi mode - build context from session stats
+    if (widget.isPi) {
+      try {
+        final piBridge = ref.read(piBridgeServiceProvider);
+        final chatState = ref.read(chatSessionProvider);
+        final cwd = chatState.piCwd;
+        final stats = await piBridge.getSessionStats(projectPath: cwd);
+        final context = SessionContext.fromPi(
+          inputTokens: stats.tokens.input,
+          outputTokens: stats.tokens.output,
+          cacheReadTokens: stats.tokens.cacheRead,
+          cacheWriteTokens: stats.tokens.cacheWrite,
+          totalCost: stats.cost,
+          // We'll get context window from the model if available
+          contextWindow: chatState.piModelData?.contextWindow ?? 200000,
+          contextTokens: stats.tokens.input + stats.tokens.cacheRead,
+        );
+        if (mounted) {
+          setState(() {
+            _sessionContext = context;
+            _loadingContext = false;
+          });
+        }
+      } catch (_) {
+        if (mounted) {
+          setState(() {
+            _sessionContext = SessionContext.empty();
+            _loadingContext = false;
+          });
+        }
+      }
       return;
     }
     // OpenCode offline mode - use cached data
@@ -3367,6 +3406,64 @@ class _ChatScreenState extends ConsumerState<ChatScreen>
       case 'pi_sidebar':
         _showPiSidebarSheet();
         break;
+      case 'pi_compact':
+        _piCompact();
+        break;
+      case 'pi_new_session':
+        _piNewSession();
+        break;
+    }
+  }
+
+  Future<void> _piCompact() async {
+    final piBridge = ref.read(piBridgeServiceProvider);
+    final chatState = ref.read(chatSessionProvider);
+    try {
+      await piBridge.compact(projectPath: chatState.piCwd);
+      if (mounted) {
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(const SnackBar(content: Text('Context compacted')));
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text('Compact failed: $e')));
+      }
+    }
+  }
+
+  Future<void> _piNewSession() async {
+    final piBridge = ref.read(piBridgeServiceProvider);
+    final chatState = ref.read(chatSessionProvider);
+    final cwd = chatState.piCwd ?? '';
+    try {
+      await piBridge.newSession(projectPath: cwd);
+      // Fetch the new state to get new session ID
+      final piState = await piBridge.getState(projectPath: cwd);
+      ref
+          .read(chatSessionProvider.notifier)
+          .setPiSession(
+            sessionId: piState.sessionId,
+            cwd: cwd,
+            model: piState.model != null
+                ? '${piState.model!.provider}/${piState.model!.id}'
+                : null,
+            thinkingLevel: piState.thinkingLevel,
+          );
+      ref.invalidate(piSessionsProvider(null));
+      if (mounted) {
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(const SnackBar(content: Text('New session created')));
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text('Failed: $e')));
+      }
     }
   }
 
@@ -3483,7 +3580,8 @@ class _ChatScreenState extends ConsumerState<ChatScreen>
         ],
       ),
       subtitle: Text(
-        '${model.provider} • ${_formatContextWindow(model.contextWindow)}',
+        '${model.provider} • ${_formatContextWindow(model.contextWindow)}'
+        '${model.cost.input > 0 ? ' • \$${model.cost.input.toStringAsFixed(2)}/\$${model.cost.output.toStringAsFixed(2)} per MTok' : ''}',
         style: AppTypography.label(color: theme.textMuted),
       ),
       onTap: () async {
@@ -3496,7 +3594,9 @@ class _ChatScreenState extends ConsumerState<ChatScreen>
             modelId: model.id,
             projectPath: chatState.piCwd,
           );
-          ref.read(chatSessionProvider.notifier).setPiModel(model.modelRef);
+          ref
+              .read(chatSessionProvider.notifier)
+              .setPiModel(model.modelRef, modelData: model);
         } catch (e) {
           if (!mounted) return;
           ScaffoldMessenger.of(
@@ -9572,23 +9672,30 @@ class _PiActionsContent extends ConsumerWidget {
 
   String _getModelName(String? model) {
     if (model == null || model.isEmpty) return 'Default';
-    // Show just the model part (after provider/)
     final parts = model.split('/');
     final name = parts.length > 1 ? parts.last : model;
-    return name.length > 16 ? '${name.substring(0, 16)}...' : name;
+    return name.length > 20 ? '${name.substring(0, 20)}…' : name;
+  }
+
+  String _formatTokens(int count) {
+    if (count >= 1000000) return '${(count / 1000000).toStringAsFixed(1)}M';
+    if (count >= 1000) return '${(count / 1000).toStringAsFixed(1)}K';
+    return count.toString();
   }
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final chatState = ref.watch(chatSessionProvider);
     final thinkingLevel = chatState.piThinkingLevel ?? PiThinkingLevel.medium;
+    final cwd = chatState.piCwd;
+    final statsAsync = ref.watch(piSessionStatsProvider(cwd));
 
     return Column(
       mainAxisSize: MainAxisSize.min,
       children: [
         // Status bar (latency, model)
         Padding(
-          padding: const EdgeInsets.fromLTRB(20, 8, 20, 16),
+          padding: const EdgeInsets.fromLTRB(20, 8, 20, 12),
           child: Row(
             children: [
               // Latency
@@ -9662,6 +9769,106 @@ class _PiActionsContent extends ConsumerWidget {
             ],
           ),
         ),
+        // Context & Cost summary
+        statsAsync.when(
+          data: (stats) {
+            final modelData = chatState.piModelData;
+            final contextWindow = modelData?.contextWindow ?? 200000;
+            final contextUsed = stats.tokens.input + stats.tokens.cacheRead;
+            final contextPct = contextWindow > 0
+                ? (contextUsed / contextWindow * 100).clamp(0.0, 100.0)
+                : 0.0;
+            final costStr = stats.cost > 0
+                ? '\$${stats.cost.toStringAsFixed(4)}'
+                : 'Free';
+            return Padding(
+              padding: const EdgeInsets.fromLTRB(20, 0, 20, 12),
+              child: Container(
+                padding: const EdgeInsets.all(12),
+                decoration: BoxDecoration(
+                  color: theme.backgroundPanel,
+                  borderRadius: Radii.brMd,
+                  border: Border.all(color: theme.borderSubtle),
+                ),
+                child: Column(
+                  children: [
+                    // Context bar
+                    Row(
+                      children: [
+                        Icon(AppIcons.memory, size: 13, color: theme.info),
+                        const SizedBox(width: 6),
+                        Text(
+                          '${_formatTokens(contextUsed)} / ${_formatTokens(contextWindow)}',
+                          style: AppTypography.caption(color: theme.textMuted),
+                        ),
+                        const Spacer(),
+                        Container(
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 8,
+                            vertical: 3,
+                          ),
+                          decoration: BoxDecoration(
+                            color: theme.success.withValues(alpha: 0.1),
+                            borderRadius: Radii.brSm,
+                          ),
+                          child: Text(
+                            costStr,
+                            style: TextStyle(
+                              fontSize: 11,
+                              fontWeight: FontWeight.w600,
+                              color: theme.success,
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 6),
+                    ClipRRect(
+                      borderRadius: Radii.brXs,
+                      child: LinearProgressIndicator(
+                        value: contextPct / 100,
+                        minHeight: 4,
+                        color: contextPct > 80
+                            ? theme.error
+                            : contextPct > 50
+                            ? theme.warning
+                            : theme.info,
+                        backgroundColor: theme.backgroundElement,
+                      ),
+                    ),
+                    const SizedBox(height: 6),
+                    Row(
+                      children: [
+                        Text(
+                          'In ${_formatTokens(stats.tokens.input)}',
+                          style: AppTypography.caption(color: theme.textMuted),
+                        ),
+                        Text(
+                          '  Out ${_formatTokens(stats.tokens.output)}',
+                          style: AppTypography.caption(color: theme.textMuted),
+                        ),
+                        if (stats.tokens.cacheRead > 0)
+                          Text(
+                            '  Cache ${_formatTokens(stats.tokens.cacheRead)}',
+                            style: AppTypography.caption(
+                              color: theme.textMuted,
+                            ),
+                          ),
+                        const Spacer(),
+                        Text(
+                          '${stats.totalMessages} msgs',
+                          style: AppTypography.caption(color: theme.textMuted),
+                        ),
+                      ],
+                    ),
+                  ],
+                ),
+              ),
+            );
+          },
+          loading: () => const SizedBox.shrink(),
+          error: (_, __) => const SizedBox.shrink(),
+        ),
         // Actions
         Padding(
           padding: Insets.screenAll,
@@ -9689,7 +9896,6 @@ class _PiActionsContent extends ConsumerWidget {
                       child: GestureDetector(
                         onTap: () {
                           Navigator.pop(context);
-                          // Set thinking level directly
                           final piBridge = ref.read(piBridgeServiceProvider);
                           final cwd = chatState.piCwd;
                           piBridge
@@ -9734,9 +9940,9 @@ class _PiActionsContent extends ConsumerWidget {
                 ),
               ),
               SizedBox(height: Spacing.xl),
-              // Configuration section
+              // Quick Actions
               Text(
-                'CONFIGURATION',
+                'ACTIONS',
                 style: TextStyle(
                   fontSize: 11,
                   fontWeight: FontWeight.w600,
@@ -9767,6 +9973,27 @@ class _PiActionsContent extends ConsumerWidget {
                     theme: theme,
                     onTap: () => onAction('pi_sidebar'),
                   ),
+                ],
+              ),
+              SizedBox(height: Spacing.md),
+              Row(
+                children: [
+                  _ActionTile(
+                    icon: AppIcons.compress,
+                    label: 'Compact',
+                    theme: theme,
+                    onTap: () => onAction('pi_compact'),
+                  ),
+                  const SizedBox(width: 10),
+                  _ActionTile(
+                    icon: AppIcons.add,
+                    label: 'New Chat',
+                    theme: theme,
+                    onTap: () => onAction('pi_new_session'),
+                  ),
+                  const SizedBox(width: 10),
+                  // Spacer tile
+                  const Expanded(child: SizedBox()),
                 ],
               ),
               if (isStreaming) ...[

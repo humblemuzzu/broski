@@ -1,4 +1,3 @@
-
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../models/card_style.dart';
@@ -9,6 +8,7 @@ import '../../theme/design_tokens.dart';
 import '../../theme/opencode_theme.dart';
 import 'detail_sheet.dart';
 import 'package:broski/theme/app_icons.dart';
+
 /// A compact card for Edit/Patch operations with inline diff preview.
 /// Shows file path and a few lines of the actual diff directly on the card.
 /// Tapping opens full diff view in a detail sheet.
@@ -18,6 +18,7 @@ class CompactEditCard extends ConsumerWidget {
   final ToolCall tool;
   final String? messageId;
   final void Function(String messageId, String? partId)? onUndo;
+
   /// Max lines to show in inline preview
   static const int _maxPreviewLines = 5;
   const CompactEditCard({
@@ -26,6 +27,7 @@ class CompactEditCard extends ConsumerWidget {
     this.messageId,
     this.onUndo,
   });
+
   /// Get the file path from tool input
   /// Handles different backend naming conventions:
   /// - OpenCode: filePath
@@ -61,15 +63,18 @@ class CompactEditCard extends ConsumerWidget {
     }
     return 'Unknown';
   }
+
   /// Get old string content (before edit)
   /// Handles different backend data locations:
   /// - OpenCode: input.oldString
   /// - Claude Code: metadata.filediff.before, metadata.toolUseResult.oldString
   /// - str_replace_editor: input.old_str
+  /// - Pi: input.oldText
   String get _oldString {
     // Check input with all possible key variants
     final fromInput =
         tool.input['oldString'] as String? ??
+        tool.input['oldText'] as String? ??
         tool.input['old_str'] as String? ??
         tool.input['old_string'] as String? ??
         tool.input['old'] as String? ??
@@ -93,15 +98,18 @@ class CompactEditCard extends ConsumerWidget {
     }
     return '';
   }
+
   /// Get new string content (after edit)
   /// Handles different backend data locations:
   /// - OpenCode: input.newString
   /// - Claude Code: metadata.filediff.after, metadata.toolUseResult.newString
   /// - str_replace_editor: input.new_str
+  /// - Pi: input.newText
   String get _newString {
     // Check input with all possible key variants
     final fromInput =
         tool.input['newString'] as String? ??
+        tool.input['newText'] as String? ??
         tool.input['new_str'] as String? ??
         tool.input['new_string'] as String? ??
         tool.input['new'] as String? ??
@@ -125,6 +133,7 @@ class CompactEditCard extends ConsumerWidget {
     }
     return '';
   }
+
   /// Get unified diff text
   /// Handles different backend data locations:
   /// - Codex live: input.changes[0].diff or input.aggregatedOutput
@@ -156,6 +165,7 @@ class CompactEditCard extends ConsumerWidget {
     }
     return null;
   }
+
   /// Build preview diff lines (limited to _maxPreviewLines)
   /// Handles both oldString/newString format and unified diff format
   List<_DiffLine> _buildPreviewLines() {
@@ -180,6 +190,7 @@ class CompactEditCard extends ConsumerWidget {
     }
     return lines;
   }
+
   /// Parse unified diff format into diff lines
   List<_DiffLine> _parseUnifiedDiff(String diff) {
     final lines = <_DiffLine>[];
@@ -202,6 +213,7 @@ class CompactEditCard extends ConsumerWidget {
     }
     return lines;
   }
+
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final theme = OpenCodeTheme.of(context);
@@ -253,7 +265,12 @@ class CompactEditCard extends ConsumerWidget {
           children: [
             // Header row: Edit + file path with distinct background
             Container(
-              padding: EdgeInsets.fromLTRB(Spacing.md, 10, Spacing.md, Spacing.sm),
+              padding: EdgeInsets.fromLTRB(
+                Spacing.md,
+                10,
+                Spacing.md,
+                Spacing.sm,
+              ),
               decoration: BoxDecoration(
                 color: headerBg,
                 border: Border(
@@ -265,11 +282,7 @@ class CompactEditCard extends ConsumerWidget {
               ),
               child: Row(
                 children: [
-                  Icon(
-                    AppIcons.edit,
-                    size: 16,
-                    color: theme.toolEdit,
-                  ),
+                  Icon(AppIcons.edit, size: 16, color: theme.toolEdit),
                   SizedBox(width: 6),
                   Text(
                     'Edit',
@@ -317,7 +330,11 @@ class CompactEditCard extends ConsumerWidget {
                   child: Row(
                     mainAxisAlignment: MainAxisAlignment.center,
                     children: [
-                      Icon(AppIcons.expandMore, size: 14, color: theme.textMuted),
+                      Icon(
+                        AppIcons.expandMore,
+                        size: 14,
+                        color: theme.textMuted,
+                      ),
                       SizedBox(width: Spacing.xs),
                       Text(
                         '${previewLines.length - _maxPreviewLines} more lines',
@@ -345,6 +362,7 @@ class CompactEditCard extends ConsumerWidget {
       ),
     );
   }
+
   void _showDetailSheet(BuildContext context) {
     final theme = OpenCodeTheme.of(context);
     final canUndo =
@@ -400,12 +418,14 @@ class CompactEditCard extends ConsumerWidget {
     );
   }
 }
+
 /// Data class for a diff line
 class _DiffLine {
   final String text;
   final bool isAdded;
   const _DiffLine({required this.text, required this.isAdded});
 }
+
 /// Inline diff line for the card preview
 class _InlineDiffLine extends StatelessWidget {
   final _DiffLine line;
@@ -428,13 +448,15 @@ class _InlineDiffLine extends StatelessWidget {
           children: [
             TextSpan(
               text: '$prefix ',
-              style: AppTypography.codeSmall(color: color).copyWith(
-                fontWeight: FontWeight.w600,
-              ),
+              style: AppTypography.codeSmall(
+                color: color,
+              ).copyWith(fontWeight: FontWeight.w600),
             ),
             TextSpan(
               text: line.text.isEmpty ? ' ' : line.text,
-              style: AppTypography.codeSmall(color: color.withValues(alpha: 0.9)),
+              style: AppTypography.codeSmall(
+                color: color.withValues(alpha: 0.9),
+              ),
             ),
           ],
         ),
@@ -444,6 +466,7 @@ class _InlineDiffLine extends StatelessWidget {
     );
   }
 }
+
 /// Full diff content for the detail sheet
 class _FullDiffContent extends StatelessWidget {
   final String oldString;
@@ -567,6 +590,7 @@ class _FullDiffContent extends StatelessWidget {
       ),
     );
   }
+
   Widget _buildDiffLine({
     required String line,
     required String prefix,
@@ -585,9 +609,9 @@ class _FullDiffContent extends StatelessWidget {
           children: [
             TextSpan(
               text: '$prefix ',
-              style: AppTypography.codeSmall(color: color).copyWith(
-                fontWeight: FontWeight.bold,
-              ),
+              style: AppTypography.codeSmall(
+                color: color,
+              ).copyWith(fontWeight: FontWeight.bold),
             ),
             TextSpan(
               text: line.isEmpty ? ' ' : line,

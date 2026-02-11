@@ -544,22 +544,53 @@ export function translateEvent(event: AgentSessionEvent | PiBridgeSyntheticEvent
         args: event.args,
       }
 
-    case 'tool_execution_update':
+    case 'tool_execution_update': {
+      // Extract text from partial AgentToolResult.content array
+      const rawPartial = event.partialResult
+      let partialText: string | undefined
+      if (rawPartial && typeof rawPartial === 'object' && Array.isArray((rawPartial as any).content)) {
+        partialText = (rawPartial as any).content
+          .filter((c: any) => c && c.type === 'text')
+          .map((c: any) => c.text ?? '')
+          .join('\n')
+      } else if (typeof rawPartial === 'string') {
+        partialText = rawPartial
+      } else {
+        partialText = rawPartial != null ? JSON.stringify(rawPartial) : undefined
+      }
       return {
         type: 'tool-exec-update',
         toolCallId: event.toolCallId,
         toolName: event.toolName,
-        partialResult: event.partialResult,
+        partialResult: partialText,
       }
+    }
 
-    case 'tool_execution_end':
+    case 'tool_execution_end': {
+      // Extract text from AgentToolResult.content array
+      const rawResult = event.result
+      let resultText: string | undefined
+      let resultDetails: any = undefined
+      if (rawResult && typeof rawResult === 'object' && Array.isArray((rawResult as any).content)) {
+        resultText = (rawResult as any).content
+          .filter((c: any) => c && c.type === 'text')
+          .map((c: any) => c.text ?? '')
+          .join('\n')
+        resultDetails = (rawResult as any).details
+      } else if (typeof rawResult === 'string') {
+        resultText = rawResult
+      } else {
+        resultText = rawResult != null ? JSON.stringify(rawResult) : undefined
+      }
       return {
         type: 'tool-exec-end',
         toolCallId: event.toolCallId,
         toolName: event.toolName,
-        result: event.result,
+        result: resultText,
+        details: resultDetails,
         isError: event.isError,
       }
+    }
 
     case 'auto_compaction_start':
       return {

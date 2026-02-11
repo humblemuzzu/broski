@@ -78,6 +78,7 @@ class ChatSessionState {
     this.piSessionId,
     this.piCwd,
     this.piModel,
+    this.piModelData,
     this.piThinkingLevel,
     this.piIsStreaming = false,
   });
@@ -139,6 +140,7 @@ class ChatSessionState {
   final String? piSessionId;
   final String? piCwd;
   final String? piModel;
+  final PiModel? piModelData;
   final PiThinkingLevel? piThinkingLevel;
   final bool piIsStreaming;
 
@@ -195,6 +197,7 @@ class ChatSessionState {
     String? piSessionId,
     String? piCwd,
     String? piModel,
+    PiModel? piModelData,
     PiThinkingLevel? piThinkingLevel,
     bool? piIsStreaming,
   }) {
@@ -233,6 +236,7 @@ class ChatSessionState {
       piSessionId: piSessionId ?? this.piSessionId,
       piCwd: piCwd ?? this.piCwd,
       piModel: piModel ?? this.piModel,
+      piModelData: piModelData ?? this.piModelData,
       piThinkingLevel: piThinkingLevel ?? this.piThinkingLevel,
       piIsStreaming: piIsStreaming ?? this.piIsStreaming,
     );
@@ -883,9 +887,9 @@ class ChatSessionNotifier extends StateNotifier<ChatSessionState> {
     }
   }
 
-  void setPiModel(String? model) {
+  void setPiModel(String? model, {PiModel? modelData}) {
     if (!state.isPi) return;
-    state = state.copyWith(piModel: model);
+    state = state.copyWith(piModel: model, piModelData: modelData);
   }
 
   void setPiThinkingLevel(PiThinkingLevel? level) {
@@ -907,6 +911,9 @@ class ChatSessionNotifier extends StateNotifier<ChatSessionState> {
     _pendingLocalUserTextByMessageId.clear();
     _localAuthoredUserMessageIds.clear();
 
+    // Track the last assistant message ID so we can attach tool results to it
+    String? lastAssistantMsgId;
+
     for (final item in items) {
       final role = item['role'] as String? ?? 'system';
       final timestamp = item['timestamp'] as int?;
@@ -915,6 +922,7 @@ class ChatSessionNotifier extends StateNotifier<ChatSessionState> {
           : DateTime.now();
 
       if (role == 'user') {
+        lastAssistantMsgId = null;
         final text = item['content'] as String? ?? '';
         final msg = ChatMessage(
           id: 'pi-${_messages.length}',
@@ -930,14 +938,24 @@ class ChatSessionNotifier extends StateNotifier<ChatSessionState> {
         final thinking = item['thinking'] as String?;
         final toolCalls = item['toolCalls'] as List<dynamic>?;
 
-        final parts = <ToolCall>[];
+        final tools = <ToolCall>[];
+        final orderedParts = <MessagePart>[];
+        var partSeq = 0;
+
+        // Build interleaved text + tool parts
+        // If there's text before tool calls, add a TextPart
+        if (text.trim().isNotEmpty) {
+          orderedParts.add(TextPart(sequence: partSeq++, text: text));
+        }
+
         if (toolCalls != null) {
           for (final tc in toolCalls) {
             if (tc is Map<String, dynamic>) {
-              parts.add(
+              final callId = tc['id'] as String? ?? 'tc-$partSeq';
+              tools.add(
                 ToolCall(
-                  partId: tc['id'] as String? ?? '',
-                  callId: tc['id'] as String? ?? '',
+                  partId: callId,
+                  callId: callId,
                   name: tc['name'] as String? ?? 'tool',
                   status: 'completed',
                   title: tc['name'] as String? ?? 'tool',
@@ -946,46 +964,92 @@ class ChatSessionNotifier extends StateNotifier<ChatSessionState> {
                       : {},
                 ),
               );
+              orderedParts.add(ToolPart(sequence: partSeq++, callId: callId));
             }
           }
         }
 
         final reasoningParts = <ReasoningPart>[];
         if (thinking != null && thinking.trim().isNotEmpty) {
+          final msgId = 'pi-${_messages.length}';
           reasoningParts.add(
             ReasoningPart(
               id: 'pi-thinking-${_messages.length}',
-              messageId: 'pi-${_messages.length}',
+              messageId: msgId,
               text: thinking,
             ),
           );
         }
 
+        final msgId = 'pi-${_messages.length}';
+        lastAssistantMsgId = msgId;
         final msg = ChatMessage(
-          id: 'pi-${_messages.length}',
+          id: msgId,
           sessionId: state.piSessionId ?? '',
           role: MessageRole.assistant,
           createdAt: createdAt,
           text: text,
-          toolCalls: parts,
+          toolCalls: tools,
           reasoningParts: reasoningParts,
+          parts: orderedParts,
         );
         _messages[msg.id] = msg;
         _order.add(msg.id);
       } else if (role == 'toolResult') {
-        final toolName = item['toolName'] as String? ?? 'tool';
+        // Attach tool result to the matching tool call in the last assistant message
+        final toolCallId = item['toolCallId'] as String? ?? '';
         final content = item['content'] as String? ?? '';
         final isError = item['isError'] as bool? ?? false;
+        final details = item['details'];
+
+        if (lastAssistantMsgId != null &&
+            _messages.containsKey(lastAssistantMsgId)) {
+          final assistantMsg = _messages[lastAssistantMsgId]!;
+          final updatedTools = assistantMsg.toolCalls.map((tc) {
+            if (tc.callId == toolCallId ||
+                (toolCallId.isEmpty &&
+                    tc.name == (item['toolName'] as String? ?? ''))) {
+              // Build output from result content
+              String output = content;
+
+              // If details contain a diff (edit tool), attach it as metadata
+              Map<String, dynamic> metadata = tc.metadata;
+              if (details is Map<String, dynamic>) {
+                final diff = details['diff'] as String?;
+                if (diff != null && diff.isNotEmpty) {
+                  metadata = {...metadata, 'diff': diff};
+                }
+              }
+
+              return tc.copyWith(
+                status: isError ? 'failed' : 'completed',
+                output: output.isNotEmpty ? output : null,
+                metadata: metadata,
+              );
+            }
+            return tc;
+          }).toList();
+
+          _messages[lastAssistantMsgId!] = assistantMsg.copyWith(
+            toolCalls: updatedTools,
+          );
+        }
+        // Don't create a separate message for tool results —
+        // they are shown inline in the tool card
+      } else if (role == 'compactionSummary' || role == 'branchSummary') {
+        // Render as a compaction divider
         final msg = ChatMessage(
           id: 'pi-${_messages.length}',
           sessionId: state.piSessionId ?? '',
           role: MessageRole.system,
           createdAt: createdAt,
-          text: '${isError ? '⚠️' : '✅'} $toolName: $content',
+          text: item['content'] as String? ?? 'Context compacted',
+          error: role == 'compactionSummary' ? 'context_compacted' : null,
         );
         _messages[msg.id] = msg;
         _order.add(msg.id);
       }
+      // Skip bashExecution and custom roles — they don't need separate rendering
     }
 
     _suppressEmit = false;
@@ -4151,6 +4215,8 @@ class ChatSessionNotifier extends StateNotifier<ChatSessionState> {
             message.raw['toolCallId'] as String? ?? 'pi-tc-${_piPartSequence}';
         final toolName = message.raw['toolName'] as String? ?? 'tool';
         final args = message.raw['args'];
+        final alreadyTracked = _piPendingToolCallsById.containsKey(toolCallId);
+        // Create or update the tool call
         _piPendingToolCallsById[toolCallId] = ToolCall(
           callId: toolCallId,
           partId: toolCallId,
@@ -4159,24 +4225,51 @@ class ChatSessionNotifier extends StateNotifier<ChatSessionState> {
           status: 'running',
           input: args is Map<String, dynamic> ? args : {},
         );
-        _piOrderedParts.add(
-          ToolPart(sequence: _piPartSequence++, callId: toolCallId),
-        );
-        // Reset text part index so next text-delta creates a new part
-        _piCurrentTextPartIndex = -1;
+        // Only add a ToolPart if this is the first event for this tool call
+        // (tool-call-start fires first, tool-exec-start fires after args done)
+        if (!alreadyTracked) {
+          _piOrderedParts.add(
+            ToolPart(sequence: _piPartSequence++, callId: toolCallId),
+          );
+          // Reset text part index so next text-delta creates a new part
+          _piCurrentTextPartIndex = -1;
+        }
         _piScheduleAssistantUpdate(isStreaming: true);
         break;
 
-      case 'tool-exec-end':
       case 'tool-call-args-done':
-        final toolCallId = message.raw['toolCallId'] as String? ?? '';
+        // Args are finalized but tool hasn't executed yet — update args only
+        final argsToolCallId = message.raw['toolCallId'] as String? ?? '';
+        final argsData = message.raw['args'];
+        final argsExisting = _piPendingToolCallsById[argsToolCallId];
+        if (argsExisting != null && argsData is Map<String, dynamic>) {
+          _piPendingToolCallsById[argsToolCallId] = argsExisting.copyWith(
+            input: argsData,
+          );
+        }
+        _piScheduleAssistantUpdate(isStreaming: state.piIsStreaming);
+        break;
+
+      case 'tool-exec-end':
+        // Tool execution completed — set result and final status
+        final endToolCallId = message.raw['toolCallId'] as String? ?? '';
         final result = message.raw['result'];
         final isError = message.raw['isError'] as bool? ?? false;
-        final existing = _piPendingToolCallsById[toolCallId];
-        if (existing != null) {
-          _piPendingToolCallsById[toolCallId] = existing.copyWith(
+        final details = message.raw['details'];
+        final endExisting = _piPendingToolCallsById[endToolCallId];
+        if (endExisting != null) {
+          // Attach diff from details (edit tool) as metadata
+          Map<String, dynamic> metadata = endExisting.metadata;
+          if (details is Map<String, dynamic>) {
+            final diff = details['diff'] as String?;
+            if (diff != null && diff.isNotEmpty) {
+              metadata = {...metadata, 'diff': diff};
+            }
+          }
+          _piPendingToolCallsById[endToolCallId] = endExisting.copyWith(
             status: isError ? 'failed' : 'completed',
-            output: result?.toString(),
+            output: result is String ? result : result?.toString(),
+            metadata: metadata,
           );
         }
         _piScheduleAssistantUpdate(isStreaming: state.piIsStreaming);
