@@ -103,7 +103,11 @@ yarn.lock
 pnpm-lock.yaml
 
 # Reference codebases (not part of the app)
-# reference/
+# Keep reference/ scripts & config tracked, but ignore cloned repos (managed by sync-refs.sh)
+reference/
+reference/
+reference/
+reference/
 # docs/mvp/chats/
 # logs.md
 # critical-g-*.md
