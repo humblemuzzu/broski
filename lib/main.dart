@@ -1,6 +1,7 @@
 import 'dart:ui';
 
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import 'providers/theme_provider.dart';
@@ -12,6 +13,14 @@ import 'theme/theme.dart';
 void main() {
   // REQUIRED: must be called before any plugin or platform channel usage
   WidgetsFlutterBinding.ensureInitialized();
+
+  // Lock orientation to portrait only on all devices.
+  // iPad also gets portraitDown (upside-down) since users hold tablets both ways.
+  // This is the Flutter-side enforcement — Info.plist has the native-side lock.
+  SystemChrome.setPreferredOrientations([
+    DeviceOrientation.portraitUp,
+    DeviceOrientation.portraitDown,
+  ]);
 
   // Global error handlers — prevent unhandled exceptions from crashing the app
   FlutterError.onError = (details) {
@@ -56,6 +65,49 @@ void _prewarmCaches() {
 class BroskiApp extends ConsumerWidget {
   const BroskiApp({super.key});
 
+  /// Max content width on iPad/tablet. Content is centered within this width
+  /// with dark side margins. Wider than any iPhone (430pt max) so the phone
+  /// code path never triggers. Narrower than any iPad (744pt min) so the
+  /// tablet path always triggers on iPad.
+  static const double _kTabletMaxWidth = 600.0;
+
+  /// MaterialApp builder that adapts layout for iPad.
+  ///
+  /// iPhone (width ≤ 600pt): returns [child] UNMODIFIED.
+  ///   → Same widget tree, zero wrapper widgets, zero pixel difference.
+  ///
+  /// iPad (width > 600pt): centers content at 600pt with dark side margins.
+  ///   → Overrides MediaQuery.size.width so all descendants (Positioned,
+  ///     LayoutBuilder, MediaQuery.of, etc.) see phone-like dimensions.
+  ///   → Preserves padding, viewInsets, viewPadding, devicePixelRatio, etc.
+  ///   → Clips overflow so nothing bleeds into the side margins.
+  static Widget _tabletAwareBuilder(BuildContext context, Widget? child) {
+    if (child == null) return const SizedBox.shrink();
+
+    final mq = MediaQuery.of(context);
+
+    // ── iPhone / compact screens: ZERO changes ──
+    if (mq.size.width <= _kTabletMaxWidth) return child;
+
+    // ── iPad / wide screens: center content at phone-comfortable width ──
+    return ColoredBox(
+      color: Colors.black,
+      child: Center(
+        child: ClipRect(
+          child: SizedBox(
+            width: _kTabletMaxWidth,
+            child: MediaQuery(
+              data: mq.copyWith(
+                size: Size(_kTabletMaxWidth, mq.size.height),
+              ),
+              child: child,
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final themeState = ref.watch(themeProvider);
@@ -65,6 +117,7 @@ class BroskiApp extends ConsumerWidget {
       return MaterialApp(
         debugShowCheckedModeBanner: false,
         theme: BroskiTheme.black(),
+        builder: _tabletAwareBuilder,
         home: const Scaffold(body: Center(child: CircularProgressIndicator())),
       );
     }
@@ -75,6 +128,7 @@ class BroskiApp extends ConsumerWidget {
       theme: BroskiTheme.fromThemeId(themeState.themeId),
       darkTheme: BroskiTheme.fromThemeId(themeState.themeId),
       themeMode: ThemeMode.dark, // Always use dark mode
+      builder: _tabletAwareBuilder,
       home: const RootScreen(),
     );
   }
