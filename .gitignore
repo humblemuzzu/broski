@@ -103,12 +103,12 @@ yarn.lock
 pnpm-lock.yaml
 
 # Reference codebases (not part of the app)
-reference/
-docs/mvp/chats/
-logs.md
-critical-g-*.md
-optimization.md
-cursor-codex-cc-chat.md
+# reference/
+# docs/mvp/chats/
+# logs.md
+# critical-g-*.md
+# optimization.md
+#cursor-codex-cc-chat.md
 
 # Logs and temp files
 *.log
