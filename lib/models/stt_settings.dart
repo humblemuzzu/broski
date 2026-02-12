@@ -100,6 +100,13 @@ class SttModels {
     description: 'Cheaper, good accuracy',
   );
 
+  static const openaiGpt4oTranscribeDiarize = SttModel(
+    id: 'gpt-4o-transcribe-diarize',
+    displayName: 'GPT-4o Transcribe + Diarize',
+    provider: SttProvider.openai,
+    description: 'Speaker diarization, identifies who said what',
+  );
+
   /// All Groq models
   static const List<SttModel> groqModels = [
     groqWhisperLargeV3Turbo,
@@ -111,6 +118,7 @@ class SttModels {
     openaiWhisper1,
     openaiGpt4oTranscribe,
     openaiGpt4oMiniTranscribe,
+    openaiGpt4oTranscribeDiarize,
   ];
 
   /// Get models for a provider
