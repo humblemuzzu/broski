@@ -33,6 +33,8 @@ import '../widgets/chat/detail_sheet.dart';
 import '../widgets/sessions/codex_active_threads_section.dart';
 import '../widgets/sessions/sessions_search_bar.dart';
 import 'chat_screen.dart';
+import '../utils/responsive.dart';
+import '../widgets/adaptive_container.dart';
 import 'package:broski/theme/app_icons.dart';
 
 class SessionsScreen extends ConsumerStatefulWidget {
@@ -230,15 +232,17 @@ class _SessionsScreenState extends ConsumerState<SessionsScreen> {
     return Scaffold(
       backgroundColor: Colors.transparent,
       body: SafeArea(
-        child: RefreshIndicator(
-          onRefresh: _refresh,
-          color: theme.colorScheme.primary,
-          backgroundColor: theme.colorScheme.surface,
-          child: CustomScrollView(
-            physics: const AlwaysScrollableScrollPhysics(),
-            slivers: [
-              // Active Sessions Section (sticky at top) - shows running sessions
-              SliverToBoxAdapter(
+        child: AdaptiveContainer(
+          width: ContentWidth.standard,
+          child: RefreshIndicator(
+            onRefresh: _refresh,
+            color: theme.colorScheme.primary,
+            backgroundColor: theme.colorScheme.surface,
+            child: CustomScrollView(
+              physics: const AlwaysScrollableScrollPhysics(),
+              slivers: [
+                // Active Sessions Section (sticky at top) - shows running sessions
+                SliverToBoxAdapter(
                 child: ActiveSessionsSection(
                   onSessionTap: (session) => _openSession(session),
                 ),
@@ -525,6 +529,7 @@ class _SessionsScreenState extends ConsumerState<SessionsScreen> {
                 },
               ),
             ],
+          ),
           ),
         ),
       ),
@@ -3676,16 +3681,18 @@ class _CodexThreadsViewState extends ConsumerState<_CodexThreadsView> {
     return Scaffold(
       backgroundColor: Colors.transparent,
       body: SafeArea(
-        child: RefreshIndicator(
-          onRefresh: _refresh,
-          color: theme.colorScheme.primary,
-          backgroundColor: theme.colorScheme.surface,
-          child: CustomScrollView(
-            physics: const AlwaysScrollableScrollPhysics(),
-            slivers: [
-              SliverToBoxAdapter(
-                child: CodexActiveThreadsSection(onThreadTap: _openThread),
-              ),
+        child: AdaptiveContainer(
+          width: ContentWidth.standard,
+          child: RefreshIndicator(
+            onRefresh: _refresh,
+            color: theme.colorScheme.primary,
+            backgroundColor: theme.colorScheme.surface,
+            child: CustomScrollView(
+              physics: const AlwaysScrollableScrollPhysics(),
+              slivers: [
+                SliverToBoxAdapter(
+                  child: CodexActiveThreadsSection(onThreadTap: _openThread),
+                ),
               SliverToBoxAdapter(
                 child: Padding(
                   padding: const EdgeInsets.fromLTRB(20, 18, 20, 14),
@@ -3905,6 +3912,7 @@ class _CodexThreadsViewState extends ConsumerState<_CodexThreadsView> {
                 },
               ),
             ],
+          ),
           ),
         ),
       ),
@@ -4849,17 +4857,19 @@ class _ClaudeCodeSessionsViewState
     return Scaffold(
       backgroundColor: Colors.transparent,
       body: SafeArea(
-        child: RefreshIndicator(
-          onRefresh: _refresh,
-          color: theme.colorScheme.primary,
-          backgroundColor: theme.colorScheme.surface,
-          child: CustomScrollView(
-            physics: const AlwaysScrollableScrollPhysics(),
-            slivers: [
-              // Active sessions (busy/retry) - parity with OpenCode
-              SliverToBoxAdapter(
-                child: _CCActiveSessionsSection(onSessionTap: _openSession),
-              ),
+        child: AdaptiveContainer(
+          width: ContentWidth.standard,
+          child: RefreshIndicator(
+            onRefresh: _refresh,
+            color: theme.colorScheme.primary,
+            backgroundColor: theme.colorScheme.surface,
+            child: CustomScrollView(
+              physics: const AlwaysScrollableScrollPhysics(),
+              slivers: [
+                // Active sessions (busy/retry) - parity with OpenCode
+                SliverToBoxAdapter(
+                  child: _CCActiveSessionsSection(onSessionTap: _openSession),
+                ),
               // Header
               SliverToBoxAdapter(
                 child: Padding(
@@ -5091,6 +5101,7 @@ class _ClaudeCodeSessionsViewState
                 },
               ),
             ],
+          ),
           ),
         ),
       ),

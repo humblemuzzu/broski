@@ -11,6 +11,7 @@ import '../theme/design_tokens.dart';
 import 'package:url_launcher/url_launcher.dart';
 
 import '../providers/app_auth_provider.dart';
+import '../utils/responsive.dart';
 import 'package:broski/theme/app_icons.dart';
 import '../providers/onboarding_provider.dart'
     show onboardingProvider, kDevBypassOnboarding;
@@ -58,7 +59,9 @@ class _OnboardingAuthScreenState extends ConsumerState<OnboardingAuthScreen>
       backgroundColor: const Color(0xFF0A0A0A),
       body: SafeArea(
         child: Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 28),
+          padding: EdgeInsets.symmetric(
+            horizontal: Responsive.onboardingHPadding(context, 28),
+          ),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
@@ -126,7 +129,7 @@ class _OnboardingAuthScreenState extends ConsumerState<OnboardingAuthScreen>
               Center(
                 child: _ScanBox(
                   scanController: _scanController,
-                  boxWidth: math.min(screenWidth - 56, 320),
+                  boxWidth: math.min(screenWidth - 56, Responsive.isTablet(context) ? 400.0 : 320.0),
                 ),
               ),
               const Spacer(flex: 2),
@@ -153,30 +156,41 @@ class _OnboardingAuthScreenState extends ConsumerState<OnboardingAuthScreen>
                 ),
                 SizedBox(height: Spacing.lg),
               ],
-              // -- Continue with Apple button (iOS only) --
-              if (Platform.isIOS) ...[
-                _AuthButton(
-                  label: 'Continue with Apple',
-                  icon: AppIcons.apple,
-                  isLoading: state.isLoading,
-                  onPressed: () {
-                    HapticFeedback.lightImpact();
-                    ref.read(appAuthProvider.notifier).signInWithApple();
-                  },
+              // -- Auth buttons (constrained width on iPad) --
+              Center(
+                child: ConstrainedBox(
+                  constraints: BoxConstraints(
+                    maxWidth: Responsive.buttonMaxWidth(context),
+                  ),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                    children: [
+                      if (Platform.isIOS) ...[
+                        _AuthButton(
+                          label: 'Continue with Apple',
+                          icon: AppIcons.apple,
+                          isLoading: state.isLoading,
+                          onPressed: () {
+                            HapticFeedback.lightImpact();
+                            ref.read(appAuthProvider.notifier).signInWithApple();
+                          },
+                        ),
+                        const SizedBox(height: 14),
+                      ],
+                      _AuthButton(
+                        label: 'Continue with Google',
+                        icon: AppIcons.apple,
+                        iconAsset: 'docs/assets/google-logo.png',
+                        isLoading: state.isLoading,
+                        outlined: true,
+                        onPressed: () {
+                          HapticFeedback.lightImpact();
+                          ref.read(appAuthProvider.notifier).signInWithGoogle();
+                        },
+                      ),
+                    ],
+                  ),
                 ),
-                const SizedBox(height: 14),
-              ],
-              // -- Continue with Google button --
-              _AuthButton(
-                label: 'Continue with Google',
-                icon: AppIcons.apple,
-                iconAsset: 'docs/assets/google-logo.png',
-                isLoading: state.isLoading,
-                outlined: true,
-                onPressed: () {
-                  HapticFeedback.lightImpact();
-                  ref.read(appAuthProvider.notifier).signInWithGoogle();
-                },
               ),
               SizedBox(height: Spacing.xl),
               // -- Terms and Privacy Policy --

@@ -8,6 +8,8 @@ import '../theme/design_tokens.dart';
 
 import '../providers/service_providers.dart';
 import '../theme/opencode_theme.dart';
+import '../utils/responsive.dart';
+import '../widgets/adaptive_container.dart';
 import 'package:broski/theme/app_icons.dart';
 class CodexMcpScreen extends ConsumerStatefulWidget {
   const CodexMcpScreen({super.key});
@@ -257,7 +259,9 @@ class _CodexMcpScreenState extends ConsumerState<CodexMcpScreen>
           ],
         ),
       ),
-      body: _loading
+      body: AdaptiveContainer(
+        width: ContentWidth.standard,
+        child: _loading
           ? const Center(child: CircularProgressIndicator())
           : _error != null
           ? Center(
@@ -310,6 +314,7 @@ class _CodexMcpScreenState extends ConsumerState<CodexMcpScreen>
                 ),
               ],
             ),
+      ),
     );
   }
 }
@@ -416,7 +421,9 @@ class _CodexMcpServerEditorScreenState
           ),
         ],
       ),
-      body: Padding(
+      body: AdaptiveContainer(
+        width: ContentWidth.standard,
+        child: Padding(
         padding: Insets.card,
         child: TextField(
           controller: _json,
@@ -432,6 +439,7 @@ class _CodexMcpServerEditorScreenState
             ),
           ),
         ),
+      ),
       ),
     );
   }

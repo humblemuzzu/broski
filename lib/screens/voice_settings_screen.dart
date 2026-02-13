@@ -7,6 +7,8 @@ import '../models/stt_settings.dart';
 import '../providers/stt_provider.dart';
 import '../theme/design_tokens.dart';
 import '../theme/opencode_theme.dart';
+import '../utils/responsive.dart';
+import '../widgets/adaptive_container.dart';
 import 'package:broski/theme/app_icons.dart';
 class VoiceSettingsScreen extends ConsumerStatefulWidget {
   const VoiceSettingsScreen({super.key});
@@ -88,7 +90,9 @@ class _VoiceSettingsScreenState extends ConsumerState<VoiceSettingsScreen> {
         title: Text('Voice Input', style: TextStyle(color: ocTheme.text)),
         iconTheme: IconThemeData(color: ocTheme.text),
       ),
-      body: ListView(
+      body: AdaptiveContainer(
+        width: ContentWidth.standard,
+        child: ListView(
         padding: Insets.card,
         children: [
           // Info box
@@ -395,6 +399,7 @@ class _VoiceSettingsScreenState extends ConsumerState<VoiceSettingsScreen> {
             ],
           ),
         ],
+      ),
       ),
     );
   }

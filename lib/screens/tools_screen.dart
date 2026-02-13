@@ -12,6 +12,8 @@ import '../providers/tool_settings_provider.dart';
 import '../services/storage_service.dart';
 import '../theme/design_tokens.dart';
 import '../theme/opencode_theme.dart';
+import '../utils/responsive.dart';
+import '../widgets/adaptive_container.dart';
 import 'package:broski/theme/app_icons.dart';
 /// Feature 17: Tool List Screen
 /// Shows available AI tools (bash, read, write, edit, glob, grep, etc.)
@@ -190,11 +192,14 @@ class _ToolsScreenState extends ConsumerState<ToolsScreen> {
           ),
         ],
       ),
-      body: _isLoading
+      body: AdaptiveContainer(
+        width: ContentWidth.standard,
+        child: _isLoading
           ? Center(child: CircularProgressIndicator(color: theme.primary))
           : _error != null
           ? _buildError(theme)
           : _buildContent(theme),
+      ),
     );
   }
   Widget _buildError(OpenCodeTheme theme) {

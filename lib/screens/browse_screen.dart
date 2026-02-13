@@ -19,6 +19,8 @@ import '../theme/design_tokens.dart';
 import '../theme/opencode_theme.dart';
 import '../widgets/connection_indicator.dart';
 import '../widgets/file_viewers/file_viewers.dart';
+import '../utils/responsive.dart';
+import '../widgets/adaptive_container.dart';
 import 'package:broski/theme/app_icons.dart';
 class BrowseScreen extends ConsumerStatefulWidget {
   const BrowseScreen({super.key, this.initialPath});
@@ -550,9 +552,12 @@ class _BrowseScreenState extends ConsumerState<BrowseScreen>
             ),
           ],
         ),
-        body: _showSearch
-            ? _buildSearchResults(theme)
-            : _buildFileBrowser(theme),
+        body: AdaptiveContainer(
+          width: ContentWidth.wide,
+          child: _showSearch
+              ? _buildSearchResults(theme)
+              : _buildFileBrowser(theme),
+        ),
       ),
     );
   }

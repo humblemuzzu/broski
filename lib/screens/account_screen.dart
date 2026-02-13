@@ -10,6 +10,8 @@ import '../providers/service_providers.dart';
 import '../services/convex_service.dart';
 import '../theme/design_tokens.dart';
 import '../theme/opencode_theme.dart';
+import '../utils/responsive.dart';
+import '../widgets/adaptive_container.dart';
 import 'package:broski/theme/app_icons.dart';
 /// Dedicated account / personal-info screen.
 ///
@@ -45,7 +47,9 @@ class AccountScreen extends ConsumerWidget {
           onPressed: () => Navigator.pop(context),
         ),
       ),
-      body: ListView(
+      body: AdaptiveContainer(
+        width: ContentWidth.standard,
+        child: ListView(
         padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 8),
         children: [
           // ── Profile card ──────────────────────────────────────────
@@ -215,6 +219,7 @@ class AccountScreen extends ConsumerWidget {
           ),
           const SizedBox(height: 60),
         ],
+      ),
       ),
     );
   }

@@ -9,6 +9,7 @@ import '../providers/connection_provider.dart';
 import '../providers/onboarding_provider.dart';
 import '../providers/service_providers.dart';
 import '../theme/design_tokens.dart';
+import '../utils/responsive.dart';
 import 'package:broski/theme/app_icons.dart';
 /// "System Linked" screen shown after successful QR scan connection.
 /// Displays connection stats and detected projects/sessions/agents.
@@ -150,8 +151,10 @@ class _SystemLinkedScreenState extends ConsumerState<SystemLinkedScreen>
       backgroundColor: Colors.black,
       body: SafeArea(
         child: Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 32),
-          child: Column(
+          padding: EdgeInsets.symmetric(
+            horizontal: Responsive.onboardingHPadding(context, 32),
+          ),
+            child: Column(
             children: [
               const Spacer(flex: 2),
               // Green check circle

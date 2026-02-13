@@ -9,6 +9,8 @@ import '../providers/appearance_provider.dart';
 import '../providers/card_style_provider.dart';
 import '../theme/opencode_theme.dart';
 import '../theme/tool_style.dart';
+import '../utils/responsive.dart';
+import '../widgets/adaptive_container.dart';
 import 'package:broski/theme/app_icons.dart';
 class AppearanceScreen extends ConsumerWidget {
   const AppearanceScreen({super.key});
@@ -50,7 +52,9 @@ class AppearanceScreen extends ConsumerWidget {
           ),
         ],
       ),
-      body: ListView(
+      body: AdaptiveContainer(
+        width: ContentWidth.standard,
+        child: ListView(
         padding: Insets.screenAll,
         children: [
           // Live Preview Section
@@ -128,6 +132,7 @@ class AppearanceScreen extends ConsumerWidget {
           _ToolColorGrid(),
           const SizedBox(height: 100),
         ],
+      ),
       ),
     );
   }

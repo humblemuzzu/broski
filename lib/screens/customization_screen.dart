@@ -18,6 +18,8 @@ import '../theme/opencode_theme.dart';
 import 'appearance_screen.dart';
 import 'background_screen.dart';
 import 'theme_selector_screen.dart';
+import '../utils/responsive.dart';
+import '../widgets/adaptive_container.dart';
 import 'package:broski/theme/app_icons.dart';
 /// Helper to get contrasting text color for a background
 Color _contrastColor(Color background) {
@@ -61,7 +63,9 @@ class CustomizationScreen extends ConsumerWidget {
           onPressed: () => Navigator.pop(context),
         ),
       ),
-      body: ListView(
+      body: AdaptiveContainer(
+        width: ContentWidth.standard,
+        child: ListView(
         padding: Insets.screenAll,
         children: [
           // Appearance Section
@@ -465,6 +469,7 @@ class CustomizationScreen extends ConsumerWidget {
           ),
           const SizedBox(height: 100),
         ],
+      ),
       ),
     );
   }

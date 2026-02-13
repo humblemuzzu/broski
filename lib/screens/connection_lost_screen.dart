@@ -7,6 +7,7 @@ import '../theme/design_tokens.dart';
 import '../providers/connection_provider.dart';
 import '../providers/service_providers.dart';
 import '../theme/opencode_theme.dart';
+import '../utils/responsive.dart';
 import 'package:broski/theme/app_icons.dart';
 class ConnectionLostScreen extends ConsumerStatefulWidget {
   const ConnectionLostScreen({super.key});
@@ -43,8 +44,10 @@ class _ConnectionLostScreenState extends ConsumerState<ConnectionLostScreen> {
       backgroundColor: ocTheme.background,
       body: SafeArea(
         child: Padding(
-          padding: Insets.cardLg,
-          child: Column(
+          padding: Responsive.isTablet(context)
+              ? const EdgeInsets.all(60)
+              : Insets.cardLg,
+            child: Column(
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
               // Animated icon based on state

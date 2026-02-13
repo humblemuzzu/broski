@@ -8,6 +8,8 @@ import '../providers/service_providers.dart';
 import '../providers/subscription_usage_provider.dart';
 import '../theme/design_tokens.dart';
 import '../theme/opencode_theme.dart';
+import '../utils/responsive.dart';
+import '../widgets/adaptive_container.dart';
 import 'package:broski/theme/app_icons.dart';
 /// Screen for displaying AI provider usage limits and credits.
 ///
@@ -109,10 +111,13 @@ class _SubscriptionUsageScreenState
             ),
         ],
       ),
-      body: RefreshIndicator(
+      body: AdaptiveContainer(
+        width: ContentWidth.standard,
+        child: RefreshIndicator(
         onRefresh: _refreshAll,
         color: ocTheme.primary,
         child: _buildBody(context, state),
+      ),
       ),
     );
   }

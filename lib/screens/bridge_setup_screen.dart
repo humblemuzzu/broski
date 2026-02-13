@@ -10,6 +10,7 @@ import '../theme/app_typography.dart';
 import '../theme/design_tokens.dart';
 
 import 'package:broski/theme/app_icons.dart';
+import '../utils/responsive.dart';
 import '../providers/onboarding_provider.dart'
     show onboardingProvider, kDevBypassOnboarding;
 /// "Run the Bridge" screen shown after paywall during onboarding.
@@ -99,10 +100,12 @@ class _BridgeSetupScreenState extends ConsumerState<BridgeSetupScreen>
       backgroundColor: const Color(0xFF0A0A0A),
       body: SafeArea(
         child: Padding(
-          padding: Insets.section,
-          child: Column(
-            children: [
-              // ── Main dark card
+          padding: Responsive.isTablet(context)
+              ? const EdgeInsets.symmetric(horizontal: 80, vertical: 24)
+              : Insets.section,
+            child: Column(
+              children: [
+                // ── Main dark card
               Expanded(
                 child: Container(
                   decoration: BoxDecoration(

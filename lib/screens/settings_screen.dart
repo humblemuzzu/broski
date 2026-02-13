@@ -44,6 +44,8 @@ import 'permission_rules_screen.dart';
 import 'codex_agents_screen.dart';
 import 'scan_screen.dart';
 import 'voice_settings_screen.dart';
+import '../utils/responsive.dart';
+import '../widgets/adaptive_container.dart';
 import 'package:broski/theme/app_icons.dart';
 
 class SettingsScreen extends ConsumerStatefulWidget {
@@ -67,8 +69,10 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
     return Scaffold(
       backgroundColor: Colors.transparent,
       body: SafeArea(
-        child: CustomScrollView(
-          slivers: [
+        child: AdaptiveContainer(
+          width: ContentWidth.standard,
+          child: CustomScrollView(
+            slivers: [
             const SliverToBoxAdapter(child: SizedBox(height: Spacing.md)),
             SliverToBoxAdapter(
               child: Padding(
@@ -516,6 +520,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
             ),
             const SliverToBoxAdapter(child: SizedBox(height: 40)),
           ],
+          ),
         ),
       ),
     );

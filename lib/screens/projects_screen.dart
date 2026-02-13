@@ -21,6 +21,8 @@ import '../theme/opencode_theme.dart';
 import '../widgets/chat/detail_sheet.dart';
 import '../widgets/connection_quality_indicator.dart';
 import 'chat_screen.dart';
+import '../utils/responsive.dart';
+import '../widgets/adaptive_container.dart';
 import 'package:broski/theme/app_icons.dart';
 class ProjectsScreen extends ConsumerStatefulWidget {
   const ProjectsScreen({super.key});
@@ -441,7 +443,9 @@ class _ProjectsScreenState extends ConsumerState<ProjectsScreen> {
     return Scaffold(
       backgroundColor: Colors.transparent,
       body: SafeArea(
-        child: FutureBuilder<List<ProjectSummary>>(
+        child: AdaptiveContainer(
+          width: ContentWidth.standard,
+          child: FutureBuilder<List<ProjectSummary>>(
           future: _projectsFuture,
           builder: (context, snapshot) {
             if (snapshot.connectionState == ConnectionState.waiting) {
@@ -658,6 +662,7 @@ class _ProjectsScreenState extends ConsumerState<ProjectsScreen> {
               ),
             );
           },
+        ),
         ),
       ),
     );

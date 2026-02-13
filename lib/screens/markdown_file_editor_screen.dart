@@ -6,6 +6,8 @@ import '../theme/design_tokens.dart';
 
 import '../models/skill.dart';
 import '../theme/opencode_theme.dart';
+import '../utils/responsive.dart';
+import '../widgets/adaptive_container.dart';
 import 'package:broski/theme/app_icons.dart';
 class MarkdownFileEditorScreen extends StatefulWidget {
   const MarkdownFileEditorScreen({
@@ -178,7 +180,9 @@ class _MarkdownFileEditorScreenState extends State<MarkdownFileEditorScreen> {
             ),
         ],
       ),
-      body: SafeArea(
+      body: AdaptiveContainer(
+        width: ContentWidth.standard,
+        child: SafeArea(
         child: Column(
           children: [
             Padding(
@@ -247,6 +251,7 @@ class _MarkdownFileEditorScreenState extends State<MarkdownFileEditorScreen> {
             ),
           ],
         ),
+      ),
       ),
     );
   }

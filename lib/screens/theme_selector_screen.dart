@@ -7,6 +7,8 @@ import '../theme/design_tokens.dart';
 import '../providers/theme_provider.dart';
 import '../theme/opencode_theme.dart';
 import '../theme/themes/all_themes.dart';
+import '../utils/responsive.dart';
+import '../widgets/adaptive_container.dart';
 import 'package:broski/theme/app_icons.dart';
 /// Theme selector screen with live preview
 /// Layout: Top half shows component preview, bottom half shows theme list
@@ -89,7 +91,9 @@ class _ThemeSelectorScreenState extends ConsumerState<ThemeSelectorScreen> {
             ),
         ],
       ),
-      body: Column(
+      body: AdaptiveContainer(
+        width: ContentWidth.standard,
+        child: Column(
         children: [
           // Top half: Preview
           Expanded(
@@ -165,6 +169,7 @@ class _ThemeSelectorScreenState extends ConsumerState<ThemeSelectorScreen> {
             ),
           ),
         ],
+      ),
       ),
     );
   }

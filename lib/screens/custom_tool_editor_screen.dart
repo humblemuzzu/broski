@@ -7,6 +7,8 @@ import '../theme/design_tokens.dart';
 import '../models/claude_code.dart';
 import '../providers/claude_code_provider.dart';
 import '../theme/opencode_theme.dart';
+import '../utils/responsive.dart';
+import '../widgets/adaptive_container.dart';
 import 'package:broski/theme/app_icons.dart';
 class CustomToolEditorScreen extends ConsumerStatefulWidget {
   final ClaudeCodeCustomTool? tool;
@@ -119,7 +121,9 @@ class _CustomToolEditorScreenState
           ),
         ],
       ),
-      body: SingleChildScrollView(
+      body: AdaptiveContainer(
+        width: ContentWidth.standard,
+        child: SingleChildScrollView(
         padding: Insets.card,
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
@@ -300,6 +304,7 @@ class _CustomToolEditorScreenState
             const SizedBox(height: 100),
           ],
         ),
+      ),
       ),
     );
   }

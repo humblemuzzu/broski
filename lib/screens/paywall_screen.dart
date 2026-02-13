@@ -13,6 +13,7 @@ import '../providers/onboarding_provider.dart'
     show onboardingProvider, kDevBypassOnboarding;
 import '../theme/design_tokens.dart';
 import '../theme/opencode_theme.dart';
+import '../utils/responsive.dart';
 import 'package:broski/theme/app_icons.dart';
 class PaywallScreen extends ConsumerWidget {
   const PaywallScreen({super.key, this.showCloseButton = true});
@@ -50,9 +51,11 @@ class PaywallScreen extends ConsumerWidget {
       backgroundColor: const Color(0xFF0A0A0A),
       body: SafeArea(
         child: Stack(
-          children: [
-            Padding(
-              padding: Insets.section,
+            children: [
+              Padding(
+                padding: Responsive.isTablet(context)
+                    ? const EdgeInsets.symmetric(horizontal: 80, vertical: 24)
+                    : Insets.section,
               child: Column(
                 children: [
                   // Main card with background image
@@ -281,7 +284,12 @@ class PaywallScreen extends ConsumerWidget {
                           SizedBox(height: Spacing.sm),
                         ],
                         // Subscribe button
-                        GestureDetector(
+                        Center(
+                        child: ConstrainedBox(
+                        constraints: BoxConstraints(
+                          maxWidth: Responsive.buttonMaxWidth(context),
+                        ),
+                        child: GestureDetector(
                           onTap: sub.isLoading
                               ? null
                               : () => ref
@@ -350,6 +358,8 @@ class PaywallScreen extends ConsumerWidget {
                               ),
                             ),
                           ),
+                        ),
+                        ),
                         ),
                         const SizedBox(height: 14),
                         // Subscription disclosure + legal links (Apple 3.1.2)
@@ -542,7 +552,7 @@ class PaywallScreen extends ConsumerWidget {
                 ),
               ),
           ],
-        ),
+          ),
       ),
     );
   }

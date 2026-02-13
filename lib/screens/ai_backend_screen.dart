@@ -1,3 +1,5 @@
+import '../utils/responsive.dart';
+import '../widgets/adaptive_container.dart';
 import 'package:broski/theme/app_icons.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -36,7 +38,9 @@ class AIBackendScreen extends ConsumerWidget {
           onPressed: () => Navigator.pop(context),
         ),
       ),
-      body: ListView(
+      body: AdaptiveContainer(
+        width: ContentWidth.standard,
+        child: ListView(
         padding: Insets.screenAll,
         children: [
           Container(
@@ -114,6 +118,7 @@ class AIBackendScreen extends ConsumerWidget {
           ),
           const SizedBox(height: 100),
         ],
+      ),
       ),
     );
   }

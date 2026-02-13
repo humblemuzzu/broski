@@ -8,6 +8,8 @@ import '../providers/selection_provider.dart';
 import '../providers/service_providers.dart';
 import '../theme/design_tokens.dart';
 import '../theme/opencode_theme.dart';
+import '../utils/responsive.dart';
+import '../widgets/adaptive_container.dart';
 import 'package:broski/theme/app_icons.dart';
 /// Memory viewer for Claude Code.
 /// Shows actual memory entries from ~/.claude/memory/ (user),
@@ -114,7 +116,9 @@ class _ClaudeCodeMemoryScreenState
           ),
         ],
       ),
-      body: Column(
+      body: AdaptiveContainer(
+        width: ContentWidth.standard,
+        child: Column(
         children: [
           // Info banner
           Padding(
@@ -217,6 +221,7 @@ class _ClaudeCodeMemoryScreenState
                   ),
           ),
         ],
+      ),
       ),
     );
   }

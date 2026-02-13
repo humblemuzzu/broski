@@ -7,6 +7,8 @@ import '../models/claude_code.dart';
 import '../providers/claude_code_provider.dart';
 import '../theme/design_tokens.dart';
 import '../theme/opencode_theme.dart';
+import '../utils/responsive.dart';
+import '../widgets/adaptive_container.dart';
 import 'package:broski/theme/app_icons.dart';
 /// Dedicated Sandbox configuration screen for Claude Code.
 /// Surfaces all fields from SDK SandboxSettings + NetworkSandboxSettings.
@@ -90,7 +92,9 @@ class _ClaudeCodeSandboxScreenState
             ),
         ],
       ),
-      body: ListView(
+      body: AdaptiveContainer(
+        width: ContentWidth.standard,
+        child: ListView(
         padding: Insets.card,
         children: [
           // Info banner
@@ -295,6 +299,7 @@ class _ClaudeCodeSandboxScreenState
           ),
           const SizedBox(height: 80),
         ],
+      ),
       ),
     );
   }

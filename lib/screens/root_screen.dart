@@ -11,6 +11,7 @@ import '../providers/app_subscription_provider.dart';
 import '../providers/connection_provider.dart';
 import '../providers/onboarding_provider.dart';
 import '../theme/opencode_theme.dart';
+import '../utils/responsive.dart';
 import 'bridge_setup_screen.dart';
 import 'connection_lost_screen.dart';
 import 'main_shell.dart';
@@ -225,22 +226,24 @@ class _ConnectingScreen extends ConsumerWidget {
       backgroundColor: ocTheme.background,
       body: SafeArea(
         child: Center(
-          child: Padding(
-            padding: Insets.xxxl,
-            child: Column(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                SizedBox(
-                  width: 48,
-                  height: 48,
-                  child: CircularProgressIndicator(
-                    strokeWidth: 2.5,
-                    color: ocTheme.primary,
+            child: Padding(
+              padding: Responsive.isTablet(context)
+                  ? const EdgeInsets.all(60)
+                  : Insets.xxxl,
+              child: Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  SizedBox(
+                    width: 48,
+                    height: 48,
+                    child: CircularProgressIndicator(
+                      strokeWidth: 2.5,
+                      color: ocTheme.primary,
+                    ),
                   ),
-                ),
-                SizedBox(height: Spacing.xxl),
-                Text(
-                  'Connecting...',
+                  SizedBox(height: Spacing.xxl),
+                  Text(
+                    'Connecting...',
                   style: TextStyle(
                     fontSize: 20,
                     fontWeight: FontWeight.w600,

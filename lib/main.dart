@@ -65,47 +65,15 @@ void _prewarmCaches() {
 class BroskiApp extends ConsumerWidget {
   const BroskiApp({super.key});
 
-  /// Max content width on iPad/tablet. Content is centered within this width
-  /// with dark side margins. Wider than any iPhone (430pt max) so the phone
-  /// code path never triggers. Narrower than any iPad (744pt min) so the
-  /// tablet path always triggers on iPad.
-  static const double _kTabletMaxWidth = 600.0;
-
-  /// MaterialApp builder that adapts layout for iPad.
+  /// MaterialApp builder — iPad layout is now handled per-screen by
+  /// [AdaptiveContainer] and [Responsive] utilities. This builder is a
+  /// simple pass-through on both iPhone and iPad.
   ///
-  /// iPhone (width ≤ 600pt): returns [child] UNMODIFIED.
-  ///   → Same widget tree, zero wrapper widgets, zero pixel difference.
-  ///
-  /// iPad (width > 600pt): centers content at 600pt with dark side margins.
-  ///   → Overrides MediaQuery.size.width so all descendants (Positioned,
-  ///     LayoutBuilder, MediaQuery.of, etc.) see phone-like dimensions.
-  ///   → Preserves padding, viewInsets, viewPadding, devicePixelRatio, etc.
-  ///   → Clips overflow so nothing bleeds into the side margins.
+  /// iPhone: no change (was already a no-op).
+  /// iPad: no longer constrains to 600pt — each screen owns its own layout.
   static Widget _tabletAwareBuilder(BuildContext context, Widget? child) {
     if (child == null) return const SizedBox.shrink();
-
-    final mq = MediaQuery.of(context);
-
-    // ── iPhone / compact screens: ZERO changes ──
-    if (mq.size.width <= _kTabletMaxWidth) return child;
-
-    // ── iPad / wide screens: center content at phone-comfortable width ──
-    return ColoredBox(
-      color: Colors.black,
-      child: Center(
-        child: ClipRect(
-          child: SizedBox(
-            width: _kTabletMaxWidth,
-            child: MediaQuery(
-              data: mq.copyWith(
-                size: Size(_kTabletMaxWidth, mq.size.height),
-              ),
-              child: child,
-            ),
-          ),
-        ),
-      ),
-    );
+    return child;
   }
 
   @override

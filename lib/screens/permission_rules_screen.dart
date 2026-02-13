@@ -8,6 +8,8 @@ import '../providers/permission_rules_provider.dart';
 import '../theme/design_tokens.dart';
 import '../theme/opencode_theme.dart';
 import '../widgets/permission_rules_sheet.dart';
+import '../utils/responsive.dart';
+import '../widgets/adaptive_container.dart';
 import 'package:broski/theme/app_icons.dart';
 class PermissionRulesScreen extends ConsumerWidget {
   const PermissionRulesScreen({super.key});
@@ -22,7 +24,9 @@ class PermissionRulesScreen extends ConsumerWidget {
         foregroundColor: oc.text,
         title: Text('Permission Rules', style: TextStyle(color: oc.text)),
       ),
-      body: SafeArea(
+      body: AdaptiveContainer(
+        width: ContentWidth.standard,
+        child: SafeArea(
         child: !state.loaded
             ? const Center(child: CircularProgressIndicator())
             : ListView(
@@ -117,6 +121,7 @@ class PermissionRulesScreen extends ConsumerWidget {
                   ),
                 ],
               ),
+      ),
       ),
     );
   }

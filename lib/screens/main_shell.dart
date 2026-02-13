@@ -21,6 +21,8 @@ import '../services/websocket_service.dart';
 import '../theme/design_tokens.dart';
 import '../theme/opencode_theme.dart';
 import '../widgets/app_background.dart';
+import '../utils/responsive.dart';
+import '../widgets/adaptive_container.dart';
 import '../widgets/glassmorphic_nav_bar.dart';
 import 'package:broski/theme/app_icons.dart';
 class MainShell extends ConsumerStatefulWidget {
@@ -107,11 +109,14 @@ class _MainShellState extends ConsumerState<MainShell> {
           // - Tabs 0-2: center CTA (competitor-style empty state)
           // - Settings tab: subtle top banner
           if (!sub.entitled && _index != 3)
-            const Positioned.fill(
+            Positioned.fill(
               child: SafeArea(
-                child: Align(
-                  alignment: Alignment.center,
-                  child: _UnpaidCenterCta(),
+                child: AdaptiveContainer(
+                  width: ContentWidth.narrow,
+                  child: const Align(
+                    alignment: Alignment.center,
+                    child: _UnpaidCenterCta(),
+                  ),
                 ),
               ),
             ),
@@ -487,8 +492,9 @@ class _ModernBottomNav extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final ocTheme = OpenCodeTheme.of(context);
+    final tabletMargin = Responsive.navBarHorizontalMargin(context);
     return Container(
-      margin: const EdgeInsets.fromLTRB(16, 0, 16, 16),
+      margin: EdgeInsets.fromLTRB(16 + tabletMargin, 0, 16 + tabletMargin, 16),
       padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 6),
       decoration: BoxDecoration(
         color: ocTheme.backgroundPanel.withValues(alpha: 0.95),

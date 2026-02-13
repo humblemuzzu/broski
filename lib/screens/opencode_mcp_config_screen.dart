@@ -10,6 +10,8 @@ import '../models/mcp.dart';
 import '../providers/selection_provider.dart';
 import '../providers/service_providers.dart';
 import '../theme/opencode_theme.dart';
+import '../utils/responsive.dart';
+import '../widgets/adaptive_container.dart';
 import 'package:broski/theme/app_icons.dart';
 class OpenCodeMcpConfigScreen extends ConsumerStatefulWidget {
   const OpenCodeMcpConfigScreen({super.key});
@@ -239,7 +241,9 @@ class _OpenCodeMcpConfigScreenState
           ),
         ],
       ),
-      body: _loading
+      body: AdaptiveContainer(
+        width: ContentWidth.standard,
+        child: _loading
           ? const Center(child: CircularProgressIndicator())
           : _error != null
           ? Center(
@@ -345,6 +349,7 @@ class _OpenCodeMcpConfigScreenState
                 ),
               ],
             ),
+      ),
     );
   }
 }
@@ -404,7 +409,9 @@ class _JsonObjectEditorScreenState extends State<_JsonObjectEditorScreen> {
           ),
         ],
       ),
-      body: Padding(
+      body: AdaptiveContainer(
+        width: ContentWidth.standard,
+        child: Padding(
         padding: Insets.card,
         child: TextField(
           controller: _json,
@@ -420,6 +427,7 @@ class _JsonObjectEditorScreenState extends State<_JsonObjectEditorScreen> {
             ),
           ),
         ),
+      ),
       ),
     );
   }

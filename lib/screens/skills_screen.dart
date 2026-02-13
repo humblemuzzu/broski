@@ -13,6 +13,8 @@ import '../providers/selection_provider.dart';
 import '../providers/service_providers.dart';
 import '../theme/opencode_theme.dart';
 import '../widgets/chat/detail_sheet.dart';
+import '../utils/responsive.dart';
+import '../widgets/adaptive_container.dart';
 import 'package:broski/theme/app_icons.dart';
 class SkillsScreen extends ConsumerStatefulWidget {
   const SkillsScreen({required this.backend, super.key});
@@ -245,7 +247,9 @@ class _SkillsScreenState extends ConsumerState<SkillsScreen> {
           ),
         ],
       ),
-      body: _isLoading
+      body: AdaptiveContainer(
+        width: ContentWidth.standard,
+        child: _isLoading
           ? const Center(child: CircularProgressIndicator())
           : _error != null
           ? Center(
@@ -395,6 +399,7 @@ class _SkillsScreenState extends ConsumerState<SkillsScreen> {
                 ],
               ],
             ),
+      ),
     );
   }
 }
@@ -638,7 +643,9 @@ description: $description
           ],
         ),
       ),
-      body: Column(
+      body: AdaptiveContainer(
+        width: ContentWidth.standard,
+        child: Column(
         children: [
           if (_loadError != null)
             Padding(
@@ -733,6 +740,7 @@ description: $description
             ),
           ),
         ],
+      ),
       ),
     );
   }

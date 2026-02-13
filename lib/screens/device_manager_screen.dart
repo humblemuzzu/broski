@@ -6,6 +6,8 @@ import '../models/device.dart';
 import '../providers/connection_provider.dart';
 import '../theme/design_tokens.dart';
 import '../theme/opencode_theme.dart';
+import '../utils/responsive.dart';
+import '../widgets/adaptive_container.dart';
 import 'package:broski/theme/app_icons.dart';
 class DeviceManagerScreen extends ConsumerStatefulWidget {
   const DeviceManagerScreen({super.key});
@@ -84,7 +86,10 @@ class _DeviceManagerScreenState extends ConsumerState<DeviceManagerScreen> {
           IconButton(icon: const Icon(AppIcons.refresh), onPressed: _loadDevices),
         ],
       ),
-      body: _buildBody(theme, ocTheme, thisDeviceId),
+      body: AdaptiveContainer(
+        width: ContentWidth.standard,
+        child: _buildBody(theme, ocTheme, thisDeviceId),
+      ),
     );
   }
   Widget _buildBody(

@@ -5,6 +5,8 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../providers/terminal_settings_provider.dart';
 import '../theme/design_tokens.dart';
 import '../theme/opencode_theme.dart';
+import '../utils/responsive.dart';
+import '../widgets/adaptive_container.dart';
 import 'package:broski/theme/app_icons.dart';
 class TerminalSettingsScreen extends ConsumerWidget {
   const TerminalSettingsScreen({super.key});
@@ -21,7 +23,9 @@ class TerminalSettingsScreen extends ConsumerWidget {
         title: Text('Terminal Settings', style: TextStyle(color: ocTheme.text)),
         iconTheme: IconThemeData(color: ocTheme.text),
       ),
-      body: ListView(
+      body: AdaptiveContainer(
+        width: ContentWidth.standard,
+        child: ListView(
         padding: Insets.card,
         children: [
           // Performance info box
@@ -116,6 +120,7 @@ class TerminalSettingsScreen extends ConsumerWidget {
             ],
           ),
         ],
+      ),
       ),
     );
   }

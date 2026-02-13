@@ -10,6 +10,8 @@ import '../theme/design_tokens.dart';
 import '../providers/selection_provider.dart';
 import '../providers/service_providers.dart';
 import '../theme/opencode_theme.dart';
+import '../utils/responsive.dart';
+import '../widgets/adaptive_container.dart';
 import 'package:broski/theme/app_icons.dart';
 class ClaudeCodeMcpScreen extends ConsumerStatefulWidget {
   const ClaudeCodeMcpScreen({super.key});
@@ -235,7 +237,9 @@ class _ClaudeCodeMcpScreenState extends ConsumerState<ClaudeCodeMcpScreen> {
           ),
         ],
       ),
-      body: _loading
+      body: AdaptiveContainer(
+        width: ContentWidth.standard,
+        child: _loading
           ? const Center(child: CircularProgressIndicator())
           : _error != null
           ? Center(
@@ -306,6 +310,7 @@ class _ClaudeCodeMcpScreenState extends ConsumerState<ClaudeCodeMcpScreen> {
                 );
               },
             ),
+      ),
     );
   }
 }
@@ -359,7 +364,9 @@ class _McpServerEditorScreenState extends State<_McpServerEditorScreen> {
           ),
         ],
       ),
-      body: Padding(
+      body: AdaptiveContainer(
+        width: ContentWidth.standard,
+        child: Padding(
         padding: Insets.card,
         child: TextField(
           controller: _json,
@@ -375,6 +382,7 @@ class _McpServerEditorScreenState extends State<_McpServerEditorScreen> {
             ),
           ),
         ),
+      ),
       ),
     );
   }

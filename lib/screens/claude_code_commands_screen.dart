@@ -10,6 +10,8 @@ import '../theme/design_tokens.dart';
 import '../theme/opencode_theme.dart';
 import '../widgets/chat/detail_sheet.dart';
 import 'markdown_file_editor_screen.dart';
+import '../utils/responsive.dart';
+import '../widgets/adaptive_container.dart';
 import 'package:broski/theme/app_icons.dart';
 class ClaudeCodeCommandsScreen extends ConsumerStatefulWidget {
   const ClaudeCodeCommandsScreen({super.key});
@@ -209,7 +211,9 @@ class _ClaudeCodeCommandsScreenState
           ),
         ],
       ),
-      body: SafeArea(
+      body: AdaptiveContainer(
+        width: ContentWidth.standard,
+        child: SafeArea(
         child: _isLoading
             ? const Center(child: CircularProgressIndicator())
             : _error != null
@@ -292,6 +296,7 @@ class _ClaudeCodeCommandsScreenState
                   ],
                 ),
               ),
+      ),
       ),
     );
   }

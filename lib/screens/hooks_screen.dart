@@ -10,6 +10,8 @@ import '../models/skill.dart';
 import '../providers/selection_provider.dart';
 import '../providers/service_providers.dart';
 import '../theme/opencode_theme.dart';
+import '../utils/responsive.dart';
+import '../widgets/adaptive_container.dart';
 import 'package:broski/theme/app_icons.dart';
 class HooksScreen extends ConsumerStatefulWidget {
   const HooksScreen({super.key});
@@ -270,7 +272,9 @@ class _HooksScreenState extends ConsumerState<HooksScreen>
           ],
         ),
       ),
-      body: _loading
+      body: AdaptiveContainer(
+        width: ContentWidth.standard,
+        child: _loading
           ? const Center(child: CircularProgressIndicator())
           : _error != null
           ? Center(
@@ -351,6 +355,7 @@ class _HooksScreenState extends ConsumerState<HooksScreen>
                 );
               },
             ),
+      ),
     );
   }
 }
@@ -452,7 +457,9 @@ class _HookEditorScreenState extends State<HookEditorScreen> {
           ),
         ],
       ),
-      body: Padding(
+      body: AdaptiveContainer(
+        width: ContentWidth.standard,
+        child: Padding(
         padding: Insets.card,
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
@@ -504,6 +511,7 @@ class _HookEditorScreenState extends State<HookEditorScreen> {
             ),
           ],
         ),
+      ),
       ),
     );
   }

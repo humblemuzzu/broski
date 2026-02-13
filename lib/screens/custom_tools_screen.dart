@@ -8,6 +8,8 @@ import '../theme/design_tokens.dart';
 import '../theme/opencode_theme.dart';
 import 'custom_tool_editor_screen.dart';
 import '../widgets/claude_code_help.dart';
+import '../utils/responsive.dart';
+import '../widgets/adaptive_container.dart';
 import 'package:broski/theme/app_icons.dart';
 class CustomToolsScreen extends ConsumerStatefulWidget {
   const CustomToolsScreen({super.key});
@@ -52,7 +54,9 @@ class _CustomToolsScreenState extends ConsumerState<CustomToolsScreen> {
         onPressed: () => _createNewTool(context),
         child: const Icon(AppIcons.add),
       ),
-      body: toolsAsync.when(
+      body: AdaptiveContainer(
+        width: ContentWidth.standard,
+        child: toolsAsync.when(
         data: (tools) => tools.isEmpty
             ? _EmptyState(onCreateTool: () => _createNewTool(context))
             : _ToolsList(
@@ -66,6 +70,7 @@ class _CustomToolsScreenState extends ConsumerState<CustomToolsScreen> {
           error: error.toString(),
           onRetry: () => ref.read(ccCustomToolsProvider.notifier).load(),
         ),
+      ),
       ),
     );
   }

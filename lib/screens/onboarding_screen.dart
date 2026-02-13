@@ -10,6 +10,7 @@ import '../theme/design_tokens.dart';
 import 'package:url_launcher/url_launcher.dart';
 
 import '../providers/app_auth_provider.dart';
+import '../utils/responsive.dart';
 import 'package:broski/theme/app_icons.dart';
 import '../providers/onboarding_provider.dart'
     show onboardingProvider, kDevBypassOnboarding;
@@ -240,7 +241,9 @@ class _CodeFromCouchPageState extends State<_CodeFromCouchPage>
             ),
             // Headline text
             Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 32),
+              padding: EdgeInsets.symmetric(
+                horizontal: Responsive.onboardingHPadding(context, 32),
+              ),
               child: FadeTransition(
                 opacity: CurvedAnimation(
                   parent: _controller,
@@ -310,20 +313,28 @@ class _CodeFromCouchPageState extends State<_CodeFromCouchPage>
             SizedBox(height: Spacing.xxxl),
             // Get Started button
             Padding(
-              padding: const EdgeInsets.fromLTRB(24, 0, 24, 24),
-              child: FadeTransition(
-                opacity: CurvedAnimation(
-                  parent: _controller,
-                  curve: const Interval(0.5, 1.0, curve: Curves.easeOut),
-                ),
-                child: GestureDetector(
-                  onTap: () {
-                    HapticFeedback.lightImpact();
-                    widget.onContinue();
-                  },
-                  child: Container(
-                    width: double.infinity,
-                    height: 58,
+              padding: EdgeInsets.fromLTRB(
+                Responsive.onboardingHPadding(context, 24), 0,
+                Responsive.onboardingHPadding(context, 24), 24,
+              ),
+              child: Center(
+                child: ConstrainedBox(
+                  constraints: BoxConstraints(
+                    maxWidth: Responsive.buttonMaxWidth(context),
+                  ),
+                  child: FadeTransition(
+                    opacity: CurvedAnimation(
+                      parent: _controller,
+                      curve: const Interval(0.5, 1.0, curve: Curves.easeOut),
+                    ),
+                    child: GestureDetector(
+                      onTap: () {
+                        HapticFeedback.lightImpact();
+                        widget.onContinue();
+                      },
+                      child: Container(
+                        width: double.infinity,
+                        height: 58,
                     decoration: BoxDecoration(
                       color: Colors.white,
                       borderRadius: Radii.brFull,
@@ -355,6 +366,8 @@ class _CodeFromCouchPageState extends State<_CodeFromCouchPage>
                     ),
                   ),
                 ),
+              ),
+              ),
               ),
             ),
           ],

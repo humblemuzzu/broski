@@ -9,6 +9,8 @@ import '../models/skill.dart';
 import '../providers/selection_provider.dart';
 import '../providers/service_providers.dart';
 import '../theme/opencode_theme.dart';
+import '../utils/responsive.dart';
+import '../widgets/adaptive_container.dart';
 import 'package:broski/theme/app_icons.dart';
 class OpenCodePluginsScreen extends ConsumerStatefulWidget {
   const OpenCodePluginsScreen({super.key});
@@ -231,7 +233,9 @@ class _OpenCodePluginsScreenState extends ConsumerState<OpenCodePluginsScreen> {
           ),
         ],
       ),
-      body: _loading
+      body: AdaptiveContainer(
+        width: ContentWidth.standard,
+        child: _loading
           ? const Center(child: CircularProgressIndicator())
           : _error != null
           ? Center(
@@ -321,6 +325,7 @@ class _OpenCodePluginsScreenState extends ConsumerState<OpenCodePluginsScreen> {
                 ],
               ],
             ),
+      ),
     );
   }
 }
@@ -396,7 +401,9 @@ class _PluginEditorScreenState extends State<_PluginEditorScreen> {
             ),
         ],
       ),
-      body: Padding(
+      body: AdaptiveContainer(
+        width: ContentWidth.standard,
+        child: Padding(
         padding: Insets.card,
         child: TextField(
           controller: _controller,
@@ -412,6 +419,7 @@ class _PluginEditorScreenState extends State<_PluginEditorScreen> {
             ),
           ),
         ),
+      ),
       ),
     );
   }

@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 
 import '../../theme/design_tokens.dart';
 import '../../theme/opencode_theme.dart';
+import '../../utils/responsive.dart';
 import 'package:broski/theme/app_icons.dart';
 /// A reusable detail sheet for displaying tool/card details.
 /// Opens at 50% height, draggable to 90%.
@@ -39,6 +40,7 @@ class DetailSheet extends StatelessWidget {
       context: context,
       isScrollControlled: true,
       backgroundColor: Colors.transparent,
+      constraints: Responsive.sheetConstraints(context),
       builder: (context) => DraggableScrollableSheet(
         initialChildSize: initialSize,
         maxChildSize: maxSize,

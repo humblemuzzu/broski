@@ -9,6 +9,8 @@ import '../providers/service_providers.dart';
 import '../theme/design_tokens.dart';
 import '../theme/opencode_theme.dart';
 import '../widgets/claude_code_help.dart';
+import '../utils/responsive.dart';
+import '../widgets/adaptive_container.dart';
 import 'package:broski/theme/app_icons.dart';
 /// Screen for managing Claude Code custom subagents.
 /// Subagents are separate agent instances that can be spawned to handle focused subtasks.
@@ -79,7 +81,9 @@ class _SubagentsScreenState extends ConsumerState<SubagentsScreen> {
           ),
         ],
       ),
-      body: configAsync.when(
+      body: AdaptiveContainer(
+        width: ContentWidth.standard,
+        child: configAsync.when(
         loading: () => const Center(child: CircularProgressIndicator()),
         error: (e, _) => Center(
           child: Text('Error: $e', style: TextStyle(color: oc.error)),
@@ -221,6 +225,7 @@ class _SubagentsScreenState extends ConsumerState<SubagentsScreen> {
             ],
           );
         },
+      ),
       ),
     );
   }
@@ -631,7 +636,9 @@ class _SubagentEditorScreenState extends State<_SubagentEditorScreen> {
           ),
         ],
       ),
-      body: SingleChildScrollView(
+      body: AdaptiveContainer(
+        width: ContentWidth.standard,
+        child: SingleChildScrollView(
         padding: Insets.card,
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
@@ -860,6 +867,7 @@ class _SubagentEditorScreenState extends State<_SubagentEditorScreen> {
             ),
           ],
         ),
+      ),
       ),
     );
   }

@@ -14,6 +14,8 @@ import '../theme/opencode_theme.dart';
 import '../widgets/chat/detail_sheet.dart';
 import '../widgets/connection_indicator.dart';
 import 'terminal_view_screen.dart';
+import '../utils/responsive.dart';
+import '../widgets/adaptive_container.dart';
 import 'package:broski/theme/app_icons.dart';
 /// PTY Terminal Sessions Screen
 ///
@@ -298,7 +300,10 @@ class _TerminalScreenState extends ConsumerState<TerminalScreen> {
           ),
         ],
       ),
-      body: _buildBody(ocTheme),
+      body: AdaptiveContainer(
+        width: ContentWidth.standard,
+        child: _buildBody(ocTheme),
+      ),
       floatingActionButton: FloatingActionButton(
         onPressed: _createSession,
         backgroundColor: ocTheme.primary,

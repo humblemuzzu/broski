@@ -5,6 +5,7 @@ import 'package:flutter/material.dart';
 
 import '../theme/design_tokens.dart';
 import '../theme/opencode_theme.dart';
+import '../utils/responsive.dart';
 import 'package:broski/theme/app_icons.dart';
 /// Glassmorphic floating island navigation bar
 class GlasmorphicNavBar extends StatelessWidget {
@@ -18,8 +19,9 @@ class GlasmorphicNavBar extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final ocTheme = OpenCodeTheme.of(context);
+    final tabletMargin = Responsive.navBarHorizontalMargin(context);
     return Container(
-      margin: const EdgeInsets.fromLTRB(20, 0, 20, 16),
+      margin: EdgeInsets.fromLTRB(20 + tabletMargin, 0, 20 + tabletMargin, 16),
       decoration: BoxDecoration(
         color: ocTheme.backgroundPanel.withValues(alpha: 0.7),
         borderRadius: Radii.brXxl,

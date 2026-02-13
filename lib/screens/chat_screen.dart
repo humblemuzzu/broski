@@ -87,6 +87,8 @@ import '../widgets/opencode_branding.dart';
 import '../widgets/provider_icon.dart';
 import '../providers/appearance_provider.dart';
 import 'diff_view_screen.dart';
+import '../utils/responsive.dart';
+import '../widgets/adaptive_container.dart';
 import 'package:broski/theme/app_icons.dart';
 // Utility function for color opacity (from expense_tracker)
 Color fade(Color color, double opacity) {
@@ -5232,10 +5234,12 @@ Describe project-specific guidance for Codex here.
           // Custom background from appearance settings
           const AppBackground(screenId: AppScreen.chat),
           SafeArea(
-            child: Column(
-              children: [
-                // Chat messages with smooth auto-hiding scrollbar
-                Expanded(
+            child: AdaptiveContainer(
+              width: ContentWidth.wide,
+              child: Column(
+                children: [
+                  // Chat messages with smooth auto-hiding scrollbar
+                  Expanded(
                   // GestureDetector for tap-to-unfocus with smooth behavior
                   // Handles: tap anywhere, tap-and-drag, long press - all dismiss keyboard
                   child: GestureDetector(
@@ -5378,6 +5382,7 @@ Describe project-specific guidance for Codex here.
                   ),
                 ),
               ],
+            ),
             ),
           ),
           // Stop agent is available via the action sheet menu (⋯ button)

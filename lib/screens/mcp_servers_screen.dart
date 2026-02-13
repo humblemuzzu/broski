@@ -15,6 +15,8 @@ import '../theme/opencode_theme.dart';
 import '../widgets/chat/detail_sheet.dart';
 import '../widgets/connection_indicator.dart';
 import 'opencode_mcp_config_screen.dart';
+import '../utils/responsive.dart';
+import '../widgets/adaptive_container.dart';
 import 'package:broski/theme/app_icons.dart';
 /// MCP (Model Context Protocol) Servers Management Screen
 ///
@@ -281,9 +283,12 @@ class _McpServersScreenState extends ConsumerState<McpServersScreen>
           ),
         ],
       ),
-      body: TabBarView(
+      body: AdaptiveContainer(
+        width: ContentWidth.standard,
+        child: TabBarView(
         controller: _tabController,
         children: [_buildServersTab(theme), _buildResourcesTab(theme)],
+      ),
       ),
     );
   }

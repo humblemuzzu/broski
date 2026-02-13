@@ -7,6 +7,8 @@ import '../theme/design_tokens.dart';
 import '../models/message.dart';
 import '../theme/opencode_theme.dart';
 import '../utils/diff_utils.dart';
+import '../utils/responsive.dart';
+import '../widgets/adaptive_container.dart';
 import 'package:broski/theme/app_icons.dart';
 class DiffViewScreen extends StatefulWidget {
   const DiffViewScreen({
@@ -131,7 +133,9 @@ class _DiffViewScreenState extends State<DiffViewScreen> {
             ),
         ],
       ),
-      body: GestureDetector(
+      body: AdaptiveContainer(
+        width: ContentWidth.standard,
+        child: GestureDetector(
         onScaleStart: (_) => _scaleStartFont = _fontSize,
         onScaleUpdate: (details) {
           if (details.pointerCount < 2) return;
@@ -160,6 +164,7 @@ class _DiffViewScreenState extends State<DiffViewScreen> {
             },
           ),
         ),
+      ),
       ),
     );
   }
