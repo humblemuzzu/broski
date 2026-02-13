@@ -13,6 +13,7 @@ import 'markdown_file_editor_screen.dart';
 import '../utils/responsive.dart';
 import '../widgets/adaptive_container.dart';
 import 'package:broski/theme/app_icons.dart';
+import '../utils/error_utils.dart';
 class OpenCodeCommandsScreen extends ConsumerStatefulWidget {
   const OpenCodeCommandsScreen({super.key});
   @override
@@ -48,7 +49,7 @@ class _OpenCodeCommandsScreenState
     } catch (e) {
       if (!mounted) return;
       setState(() {
-        _error = e.toString();
+        _error = humanizeError(e);
         _isLoading = false;
       });
     }
@@ -96,7 +97,7 @@ class _OpenCodeCommandsScreenState
       if (!mounted) return;
       ScaffoldMessenger.of(
         context,
-      ).showSnackBar(SnackBar(content: Text('Failed to load command: $e')));
+      ).showSnackBar(SnackBar(content: Text('Failed to load command: ${humanizeError(e)}')));
     }
   }
   Future<void> _create() async {

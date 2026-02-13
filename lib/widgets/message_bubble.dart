@@ -5,6 +5,7 @@ import '../models/message.dart';
 import '../theme/app_typography.dart';
 import '../theme/design_tokens.dart';
 import '../theme/opencode_theme.dart';
+import '../utils/error_utils.dart';
 import 'chat/detail_sheet.dart';
 import 'retry_indicator.dart';
 import 'variant_badge.dart';
@@ -28,6 +29,10 @@ class MessageBubble extends StatelessWidget {
     final isUser = message.role == MessageRole.user;
     final isSystem = message.role == MessageRole.system;
     final isError = message.error != null;
+    // Informational system events (e.g. context_compacted) get neutral styling
+    if (isError && isInfoCode(message.error)) {
+      return _buildInfoMessage(context, theme);
+    }
     // Error messages get red styling
     if (isError) {
       return _buildErrorMessage(context, theme);
@@ -43,7 +48,45 @@ class MessageBubble extends StatelessWidget {
     // AI messages - left aligned, subtle styling with markdown support
     return _buildAssistantMessage(context, theme);
   }
+  Widget _buildInfoMessage(BuildContext context, OpenCodeTheme theme) {
+    final label = humanErrorLabel(message.error);
+    return Align(
+      alignment: Alignment.centerLeft,
+      child: Container(
+        margin: EdgeInsets.symmetric(vertical: Spacing.sm),
+        padding: EdgeInsets.symmetric(horizontal: 18, vertical: Spacing.lg),
+        constraints: const BoxConstraints(maxWidth: 340),
+        decoration: BoxDecoration(
+          color: theme.info.withValues(alpha: 0.08),
+          borderRadius: Radii.brXl,
+          border: Border.all(
+            color: theme.info.withValues(alpha: 0.2),
+            width: 1,
+          ),
+        ),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(AppIcons.info, color: theme.info, size: 18),
+            SizedBox(width: Spacing.sm),
+            Flexible(
+              child: Text(
+                message.text.isNotEmpty ? message.text : label,
+                style: TextStyle(
+                  color: theme.textMuted,
+                  fontSize: 14,
+                  height: 1.4,
+                ),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
   Widget _buildErrorMessage(BuildContext context, OpenCodeTheme theme) {
+    final label = humanErrorLabel(message.error);
     return Align(
       alignment: Alignment.centerLeft,
       child: Container(
@@ -67,12 +110,14 @@ class MessageBubble extends StatelessWidget {
               children: [
                 Icon(AppIcons.error, color: theme.error, size: 18),
                 SizedBox(width: Spacing.sm),
-                Text(
-                  message.error ?? 'Error',
-                  style: TextStyle(
-                    color: theme.error,
-                    fontWeight: FontWeight.w600,
-                    fontSize: 14,
+                Flexible(
+                  child: Text(
+                    label,
+                    style: TextStyle(
+                      color: theme.error,
+                      fontWeight: FontWeight.w600,
+                      fontSize: 14,
+                    ),
                   ),
                 ),
               ],

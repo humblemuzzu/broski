@@ -11,6 +11,7 @@ import '../theme/opencode_theme.dart';
 import '../utils/responsive.dart';
 import '../widgets/adaptive_container.dart';
 import 'package:broski/theme/app_icons.dart';
+import '../utils/error_utils.dart';
 /// Memory viewer for Claude Code.
 /// Shows actual memory entries from ~/.claude/memory/ (user),
 /// .claude/memory/ (project), and ~/.claude/memory-local/ (local).
@@ -51,7 +52,7 @@ class _ClaudeCodeMemoryScreenState
     } catch (e) {
       if (!mounted) return;
       setState(() {
-        _error = '$e';
+        _error = humanizeError(e);
         _loading = false;
       });
     }
@@ -88,7 +89,7 @@ class _ClaudeCodeMemoryScreenState
       if (mounted) {
         ScaffoldMessenger.of(
           context,
-        ).showSnackBar(SnackBar(content: Text('Failed to delete: $e')));
+        ).showSnackBar(SnackBar(content: Text('Failed to delete: ${humanizeError(e)}')));
       }
     }
   }

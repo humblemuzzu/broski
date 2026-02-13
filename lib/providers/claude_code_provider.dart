@@ -6,6 +6,7 @@ import '../models/claude_code.dart';
 import '../models/project.dart';
 import '../services/bridge_service.dart';
 import '../services/storage_service.dart';
+import '../utils/error_utils.dart';
 import 'connection_provider.dart';
 import 'service_providers.dart';
 
@@ -679,7 +680,7 @@ class CCCustomToolsNotifier
     try {
       return await _bridge.ccTestCustomTool(tool, testArgs);
     } catch (e) {
-      return CustomToolTestResult(success: false, error: e.toString());
+      return CustomToolTestResult(success: false, error: humanizeError(e));
     }
   }
 

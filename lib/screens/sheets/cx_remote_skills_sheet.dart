@@ -7,6 +7,7 @@ import '../../providers/service_providers.dart';
 import '../../widgets/chat/detail_sheet.dart';
 import '../../theme/design_tokens.dart';
 import 'package:broski/theme/app_icons.dart';
+import '../../utils/error_utils.dart';
 /// Bottom sheet to browse and install skills from the Codex public skills marketplace.
 class CxRemoteSkillsSheet extends ConsumerStatefulWidget {
   const CxRemoteSkillsSheet({super.key});
@@ -48,7 +49,7 @@ class _CxRemoteSkillsSheetState extends ConsumerState<CxRemoteSkillsSheet> {
     } catch (e) {
       if (!mounted) return;
       setState(() {
-        _error = e.toString();
+        _error = humanizeError(e);
         _loading = false;
       });
     }
@@ -65,7 +66,7 @@ class _CxRemoteSkillsSheetState extends ConsumerState<CxRemoteSkillsSheet> {
     } catch (e) {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Failed to install: $e')),
+        SnackBar(content: Text('Failed to install: ${humanizeError(e)}')),
       );
     } finally {
       if (mounted) setState(() => _installing.remove(skill.id));

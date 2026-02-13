@@ -9,6 +9,7 @@ import '../theme/opencode_theme.dart';
 import '../utils/responsive.dart';
 import '../widgets/adaptive_container.dart';
 import 'package:broski/theme/app_icons.dart';
+import '../utils/error_utils.dart';
 class MarkdownFileEditorScreen extends StatefulWidget {
   const MarkdownFileEditorScreen({
     super.key,
@@ -94,7 +95,7 @@ class _MarkdownFileEditorScreenState extends State<MarkdownFileEditorScreen> {
     } catch (e) {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Save failed: $e')),
+        SnackBar(content: Text('Save failed: ${humanizeError(e)}')),
       );
     } finally {
       if (mounted) setState(() => _saving = false);
@@ -136,7 +137,7 @@ class _MarkdownFileEditorScreenState extends State<MarkdownFileEditorScreen> {
     } catch (e) {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Delete failed: $e')),
+        SnackBar(content: Text('Delete failed: ${humanizeError(e)}')),
       );
     } finally {
       if (mounted) setState(() => _saving = false);

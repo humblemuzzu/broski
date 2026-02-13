@@ -16,6 +16,7 @@ import '../widgets/chat/detail_sheet.dart';
 import '../utils/responsive.dart';
 import '../widgets/adaptive_container.dart';
 import 'package:broski/theme/app_icons.dart';
+import '../utils/error_utils.dart';
 class SkillsScreen extends ConsumerStatefulWidget {
   const SkillsScreen({required this.backend, super.key});
   final AgentType backend;
@@ -79,7 +80,7 @@ class _SkillsScreenState extends ConsumerState<SkillsScreen> {
     } catch (e) {
       if (!mounted) return;
       setState(() {
-        _error = e.toString();
+        _error = humanizeError(e);
         _isLoading = false;
       });
     }
@@ -107,7 +108,7 @@ class _SkillsScreenState extends ConsumerState<SkillsScreen> {
       if (!mounted) return;
       ScaffoldMessenger.of(
         context,
-      ).showSnackBar(SnackBar(content: Text('Failed to load skill: $e')));
+      ).showSnackBar(SnackBar(content: Text('Failed to load skill: ${humanizeError(e)}')));
     }
   }
   Future<void> _createSkill() async {
@@ -207,7 +208,7 @@ class _SkillsScreenState extends ConsumerState<SkillsScreen> {
       if (!mounted) return;
       ScaffoldMessenger.of(
         context,
-      ).showSnackBar(SnackBar(content: Text('Failed to delete skill: $e')));
+      ).showSnackBar(SnackBar(content: Text('Failed to delete skill: ${humanizeError(e)}')));
     }
   }
   @override
@@ -481,7 +482,7 @@ description: $description
       setState(() => _content.text = loaded.content ?? '');
     } catch (e) {
       if (!mounted) return;
-      setState(() => _loadError = e.toString());
+      setState(() => _loadError = humanizeError(e));
     }
   }
   Future<void> _save() async {
@@ -582,7 +583,7 @@ description: $description
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          content: Text('Failed to save: $e'),
+          content: Text('Failed to save: ${humanizeError(e)}'),
           backgroundColor: theme.error,
         ),
       );

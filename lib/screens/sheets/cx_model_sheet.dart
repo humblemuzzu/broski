@@ -9,6 +9,7 @@ import '../../theme/design_tokens.dart';
 import '../../theme/opencode_theme.dart';
 import '../../widgets/chat/detail_sheet.dart';
 import 'package:broski/theme/app_icons.dart';
+import '../../utils/error_utils.dart';
 /// Bottom sheet that shows available Codex models via a cache-first provider.
 ///
 /// First open with no cache: brief loading spinner, then list.
@@ -135,7 +136,7 @@ class CxModelSheet extends ConsumerWidget {
             ),
             SizedBox(height: Spacing.xs),
             Text(
-              e.toString(),
+              humanizeError(e),
               style: AppTypography.label(color: theme.textMuted),
               textAlign: TextAlign.center,
             ),

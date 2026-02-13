@@ -22,6 +22,7 @@ import '../widgets/file_viewers/file_viewers.dart';
 import '../utils/responsive.dart';
 import '../widgets/adaptive_container.dart';
 import 'package:broski/theme/app_icons.dart';
+import '../utils/error_utils.dart';
 class BrowseScreen extends ConsumerStatefulWidget {
   const BrowseScreen({super.key, this.initialPath});
   final String? initialPath;
@@ -212,7 +213,7 @@ class _BrowseScreenState extends ConsumerState<BrowseScreen>
         });
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text('Failed to load file: $e'),
+            content: Text('Failed to load file: ${humanizeError(e)}'),
             backgroundColor: theme.error,
           ),
         );
@@ -307,7 +308,7 @@ class _BrowseScreenState extends ConsumerState<BrowseScreen>
         setState(() => _isSearching = false);
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text('Search failed: $e'),
+            content: Text('Search failed: ${humanizeError(e)}'),
             backgroundColor: theme.error,
           ),
         );
@@ -770,7 +771,7 @@ class _BrowseScreenState extends ConsumerState<BrowseScreen>
                   Icon(AppIcons.error, size: 48, color: theme.error),
                   SizedBox(height: Spacing.lg),
                   Text(
-                    'Failed to browse:\n${snapshot.error}',
+                    'Failed to browse:\n${humanizeError(snapshot.error ?? "Unknown error")}',
                     textAlign: TextAlign.center,
                     style: TextStyle(color: theme.textMuted),
                   ),

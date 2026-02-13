@@ -17,6 +17,7 @@ import 'terminal_view_screen.dart';
 import '../utils/responsive.dart';
 import '../widgets/adaptive_container.dart';
 import 'package:broski/theme/app_icons.dart';
+import '../utils/error_utils.dart';
 /// PTY Terminal Sessions Screen
 ///
 /// Manages PTY terminal sessions - allows creating, viewing, and managing
@@ -83,7 +84,7 @@ class _TerminalScreenState extends ConsumerState<TerminalScreen> {
           });
         } else {
           setState(() {
-            _error = e.toString();
+            _error = humanizeError(e);
             _isLoading = false;
           });
         }
@@ -120,7 +121,7 @@ class _TerminalScreenState extends ConsumerState<TerminalScreen> {
         final ocTheme = OpenCodeTheme.of(context);
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text('Failed to create terminal: $e'),
+            content: Text('Failed to create terminal: ${humanizeError(e)}'),
             backgroundColor: ocTheme.error,
           ),
         );
@@ -186,7 +187,7 @@ class _TerminalScreenState extends ConsumerState<TerminalScreen> {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text('Failed to delete terminal: $e'),
+            content: Text('Failed to delete terminal: ${humanizeError(e)}'),
             backgroundColor: ocTheme.error,
           ),
         );
@@ -259,7 +260,7 @@ class _TerminalScreenState extends ConsumerState<TerminalScreen> {
         final ocTheme = OpenCodeTheme.of(context);
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text('Failed to rename terminal: $e'),
+            content: Text('Failed to rename terminal: ${humanizeError(e)}'),
             backgroundColor: ocTheme.error,
           ),
         );

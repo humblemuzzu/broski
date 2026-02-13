@@ -13,6 +13,7 @@ import '../theme/opencode_theme.dart';
 import '../utils/responsive.dart';
 import '../widgets/adaptive_container.dart';
 import 'package:broski/theme/app_icons.dart';
+import '../utils/error_utils.dart';
 /// Dedicated account / personal-info screen.
 ///
 /// Contains: profile header, manage subscription, restore purchases,
@@ -440,7 +441,7 @@ class _MachinesSectionState extends ConsumerState<_MachinesSection> {
       if (mounted) {
         setState(() {
           _loading = false;
-          _error = e.toString();
+          _error = humanizeError(e);
         });
       }
     }
@@ -480,7 +481,7 @@ class _MachinesSectionState extends ConsumerState<_MachinesSection> {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text('Failed to remove device: $e'),
+            content: Text('Failed to remove device: ${humanizeError(e)}'),
             backgroundColor: OpenCodeTheme.of(context).error,
           ),
         );
@@ -735,7 +736,7 @@ class _DeleteAccountDialogState extends ConsumerState<_DeleteAccountDialog> {
       if (mounted) {
         setState(() {
           _isDeleting = false;
-          _error = e.toString();
+          _error = humanizeError(e);
         });
       }
     }

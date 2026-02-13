@@ -13,6 +13,7 @@ import '../theme/opencode_theme.dart';
 import '../utils/responsive.dart';
 import '../widgets/adaptive_container.dart';
 import 'package:broski/theme/app_icons.dart';
+import '../utils/error_utils.dart';
 class OpenCodeMcpConfigScreen extends ConsumerStatefulWidget {
   const OpenCodeMcpConfigScreen({super.key});
   @override
@@ -50,7 +51,7 @@ class _OpenCodeMcpConfigScreenState
     } catch (e) {
       if (!mounted) return;
       setState(() {
-        _error = e.toString();
+        _error = humanizeError(e);
         _loading = false;
       });
     }
@@ -76,7 +77,7 @@ class _OpenCodeMcpConfigScreenState
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          content: Text('Restart failed: $e'),
+          content: Text('Restart failed: ${humanizeError(e)}'),
           backgroundColor: oc.error,
         ),
       );
@@ -123,7 +124,7 @@ class _OpenCodeMcpConfigScreenState
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: Text(
-            connect ? 'Connect failed: $e' : 'Disconnect failed: $e',
+            connect ? 'Connect failed: ${humanizeError(e)}' : 'Disconnect failed: ${humanizeError(e)}',
           ),
           backgroundColor: oc.error,
         ),
@@ -191,7 +192,7 @@ class _OpenCodeMcpConfigScreenState
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          content: Text('Failed to add server: $e'),
+          content: Text('Failed to add server: ${humanizeError(e)}'),
           backgroundColor: oc.error,
         ),
       );
@@ -386,7 +387,7 @@ class _JsonObjectEditorScreenState extends State<_JsonObjectEditorScreen> {
     } catch (e) {
       ScaffoldMessenger.of(
         context,
-      ).showSnackBar(SnackBar(content: Text('Invalid JSON: $e')));
+      ).showSnackBar(SnackBar(content: Text('Invalid JSON: ${humanizeError(e)}')));
     }
   }
   @override

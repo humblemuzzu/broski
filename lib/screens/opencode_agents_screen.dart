@@ -13,6 +13,7 @@ import 'markdown_file_editor_screen.dart';
 import '../utils/responsive.dart';
 import '../widgets/adaptive_container.dart';
 import 'package:broski/theme/app_icons.dart';
+import '../utils/error_utils.dart';
 class OpenCodeAgentsScreen extends ConsumerStatefulWidget {
   const OpenCodeAgentsScreen({super.key});
   @override
@@ -47,7 +48,7 @@ class _OpenCodeAgentsScreenState extends ConsumerState<OpenCodeAgentsScreen> {
     } catch (e) {
       if (!mounted) return;
       setState(() {
-        _error = e.toString();
+        _error = humanizeError(e);
         _isLoading = false;
       });
     }
@@ -95,7 +96,7 @@ class _OpenCodeAgentsScreenState extends ConsumerState<OpenCodeAgentsScreen> {
       if (!mounted) return;
       ScaffoldMessenger.of(
         context,
-      ).showSnackBar(SnackBar(content: Text('Failed to load agent: $e')));
+      ).showSnackBar(SnackBar(content: Text('Failed to load agent: ${humanizeError(e)}')));
     }
   }
   Future<void> _create() async {

@@ -87,6 +87,7 @@ import '../widgets/opencode_branding.dart';
 import '../widgets/provider_icon.dart';
 import '../providers/appearance_provider.dart';
 import 'diff_view_screen.dart';
+import '../utils/error_utils.dart';
 import '../utils/responsive.dart';
 import '../widgets/adaptive_container.dart';
 import 'package:broski/theme/app_icons.dart';
@@ -1258,7 +1259,7 @@ class _ChatScreenState extends ConsumerState<ChatScreen>
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          content: Text('Failed to fork session: $e'),
+          content: Text('Failed to fork session: ${humanizeError(e)}'),
           backgroundColor: theme.error,
         ),
       );
@@ -1304,7 +1305,7 @@ class _ChatScreenState extends ConsumerState<ChatScreen>
       final theme = OpenCodeTheme.of(context);
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          content: Text('Failed to revert: $e'),
+          content: Text('Failed to revert: ${humanizeError(e)}'),
           backgroundColor: theme.error,
         ),
       );
@@ -1344,7 +1345,7 @@ class _ChatScreenState extends ConsumerState<ChatScreen>
       final theme = OpenCodeTheme.of(context);
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          content: Text('Failed to undo revert: $e'),
+          content: Text('Failed to undo revert: ${humanizeError(e)}'),
           backgroundColor: theme.error,
         ),
       );
@@ -1397,7 +1398,7 @@ class _ChatScreenState extends ConsumerState<ChatScreen>
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          content: Text('Failed to revert: $e'),
+          content: Text('Failed to revert: ${humanizeError(e)}'),
           backgroundColor: theme.error,
         ),
       );
@@ -1431,7 +1432,7 @@ class _ChatScreenState extends ConsumerState<ChatScreen>
       final theme = OpenCodeTheme.of(context);
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          content: Text('Failed to share session: $e'),
+          content: Text('Failed to share session: ${humanizeError(e)}'),
           backgroundColor: theme.error,
         ),
       );
@@ -1553,7 +1554,7 @@ class _ChatScreenState extends ConsumerState<ChatScreen>
       final theme = OpenCodeTheme.of(context);
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          content: Text('Failed to unshare: $e'),
+          content: Text('Failed to unshare: ${humanizeError(e)}'),
           backgroundColor: theme.error,
         ),
       );
@@ -1632,7 +1633,7 @@ class _ChatScreenState extends ConsumerState<ChatScreen>
       final theme = OpenCodeTheme.of(context);
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          content: Text('Failed to compact: $e'),
+          content: Text('Failed to compact: ${humanizeError(e)}'),
           backgroundColor: theme.error,
         ),
       );
@@ -1722,7 +1723,7 @@ class _ChatScreenState extends ConsumerState<ChatScreen>
       final theme = OpenCodeTheme.of(context);
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          content: Text('Failed to initialize: $e'),
+          content: Text('Failed to initialize: ${humanizeError(e)}'),
           backgroundColor: theme.error,
         ),
       );
@@ -2828,7 +2829,7 @@ class _ChatScreenState extends ConsumerState<ChatScreen>
               error: (e, _) => Padding(
                 padding: Insets.topSm,
                 child: Text(
-                  '$e',
+                  humanizeError(e),
                   style: AppTypography.bodySmall(color: theme.error),
                 ),
               ),
@@ -2895,7 +2896,7 @@ class _ChatScreenState extends ConsumerState<ChatScreen>
               error: (e, _) => Padding(
                 padding: Insets.topSm,
                 child: Text(
-                  '$e',
+                  humanizeError(e),
                   style: AppTypography.bodySmall(color: theme.error),
                 ),
               ),
@@ -3302,7 +3303,7 @@ Describe project-specific guidance for Codex here.
                       }
                       if (snapshot.hasError) {
                         return Text(
-                          'Failed to read account: ${snapshot.error}',
+                          'Failed to read account: ${humanizeError(snapshot.error ?? "Unknown error")}',
                           style: TextStyle(
                             color: theme.textMuted,
                             fontSize: 12,
@@ -3830,7 +3831,7 @@ Describe project-specific guidance for Codex here.
                 ? Padding(
                     padding: Insets.screenV,
                     child: Text(
-                      'Failed to load MCP servers: ${snapshot.error}',
+                      'Failed to load MCP servers: ${humanizeError(snapshot.error ?? "Unknown error")}',
                       style: AppTypography.label(color: theme.textMuted),
                     ),
                   )
@@ -3967,7 +3968,7 @@ Describe project-specific guidance for Codex here.
                 ? Padding(
                     padding: Insets.screenV,
                     child: Text(
-                      'Failed to read config: ${snapshot.error}',
+                      'Failed to read config: ${humanizeError(snapshot.error ?? "Unknown error")}',
                       style: AppTypography.label(color: theme.textMuted),
                     ),
                   )
@@ -4469,7 +4470,7 @@ Describe project-specific guidance for Codex here.
               if (mounted) {
                 ScaffoldMessenger.of(
                   context,
-                ).showSnackBar(SnackBar(content: Text('Failed to undo: $e')));
+                ).showSnackBar(SnackBar(content: Text('Failed to undo: ${humanizeError(e)}')));
               }
             }
           } else {
@@ -4495,7 +4496,7 @@ Describe project-specific guidance for Codex here.
             if (mounted) {
               ScaffoldMessenger.of(
                 context,
-              ).showSnackBar(SnackBar(content: Text('Failed to redo: $e')));
+              ).showSnackBar(SnackBar(content: Text('Failed to redo: ${humanizeError(e)}')));
             }
           }
           break;
@@ -4521,7 +4522,7 @@ Describe project-specific guidance for Codex here.
             } catch (e) {
               if (mounted) {
                 ScaffoldMessenger.of(context).showSnackBar(
-                  SnackBar(content: Text('Failed to compact: $e')),
+                  SnackBar(content: Text('Failed to compact: ${humanizeError(e)}')),
                 );
               }
             }
@@ -4762,7 +4763,7 @@ Describe project-specific guidance for Codex here.
               } catch (e) {
                 if (mounted) {
                   ScaffoldMessenger.of(context).showSnackBar(
-                    SnackBar(content: Text('Failed to rename: $e')),
+                    SnackBar(content: Text('Failed to rename: ${humanizeError(e)}')),
                   );
                 }
               }
@@ -5053,7 +5054,7 @@ Describe project-specific guidance for Codex here.
                   } catch (e) {
                     if (mounted) {
                       ScaffoldMessenger.of(context).showSnackBar(
-                        SnackBar(content: Text('Failed to fork: $e')),
+                        SnackBar(content: Text('Failed to fork: ${humanizeError(e)}')),
                       );
                     }
                   }
@@ -6770,7 +6771,7 @@ Describe project-specific guidance for Codex here.
               }
             } catch (e) {
               if (mounted) {
-                chat.appendLocalAssistantMessage('Rename failed: $e');
+                chat.appendLocalAssistantMessage('Rename failed: ${humanizeError(e)}');
               }
             }
           }();
@@ -6796,7 +6797,7 @@ Describe project-specific guidance for Codex here.
               }
             } catch (e) {
               if (mounted) {
-                chat.appendLocalAssistantMessage('Fork failed: $e');
+                chat.appendLocalAssistantMessage('Fork failed: ${humanizeError(e)}');
               }
             }
           }();
@@ -6948,7 +6949,7 @@ Describe project-specific guidance for Codex here.
                 );
               }
             } catch (e) {
-              chat.appendLocalAssistantMessage('Undo failed: $e');
+              chat.appendLocalAssistantMessage('Undo failed: ${humanizeError(e)}');
             }
           }();
         }
@@ -7019,7 +7020,7 @@ Describe your project here.
               }
             }
           } catch (e) {
-            chat.appendLocalAssistantMessage('Error: $e');
+            chat.appendLocalAssistantMessage(humanizeError(e));
           }
         }();
         return;
@@ -7049,7 +7050,7 @@ Describe your project here.
               chat.appendLocalAssistantMessage(buf.toString().trim());
             }
           } catch (e) {
-            chat.appendLocalAssistantMessage('Error listing MCP servers: $e');
+            chat.appendLocalAssistantMessage('Failed to list MCP servers: ${humanizeError(e)}');
           }
         }();
         return;
@@ -10565,7 +10566,7 @@ class _ModelSelectorContentState extends ConsumerState<_ModelSelectorContent> {
     } catch (e) {
       if (!mounted) return;
       setState(() {
-        _error = e.toString();
+        _error = humanizeError(e);
         _loading = false;
       });
     }
@@ -11008,7 +11009,7 @@ class _CustomToolAutocomplete extends ConsumerWidget {
           border: Border.all(color: kBorder),
         ),
         child: Text(
-          'Failed to load tools: $e',
+          'Failed to load tools: ${humanizeError(e)}',
           style: TextStyle(color: theme.error),
         ),
       ),

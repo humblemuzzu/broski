@@ -36,6 +36,7 @@ import 'chat_screen.dart';
 import '../utils/responsive.dart';
 import '../widgets/adaptive_container.dart';
 import 'package:broski/theme/app_icons.dart';
+import '../utils/error_utils.dart';
 
 class SessionsScreen extends ConsumerStatefulWidget {
   const SessionsScreen({super.key});
@@ -329,7 +330,7 @@ class _SessionsScreenState extends ConsumerState<SessionsScreen> {
                           Padding(
                             padding: const EdgeInsets.symmetric(horizontal: 24),
                             child: Text(
-                              '$error',
+                              humanizeError(error),
                               style: TextStyle(
                                 color: theme.colorScheme.onSurface.withValues(
                                   alpha: 0.6,
@@ -931,7 +932,7 @@ class _SessionsScreenState extends ConsumerState<SessionsScreen> {
       final ocTheme = OpenCodeTheme.of(context);
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          content: Text('Failed to create session: $e'),
+          content: Text('Failed to create session: ${humanizeError(e)}'),
           backgroundColor: ocTheme.error,
         ),
       );
@@ -3577,7 +3578,7 @@ class _CodexThreadsViewState extends ConsumerState<_CodexThreadsView> {
                 if (mounted) {
                   ScaffoldMessenger.of(
                     context,
-                  ).showSnackBar(SnackBar(content: Text('Rename failed: $e')));
+                  ).showSnackBar(SnackBar(content: Text('Rename failed: ${humanizeError(e)}')));
                 }
               }
             },
@@ -3603,7 +3604,7 @@ class _CodexThreadsViewState extends ConsumerState<_CodexThreadsView> {
       if (mounted) {
         ScaffoldMessenger.of(
           context,
-        ).showSnackBar(SnackBar(content: Text('Fork failed: $e')));
+        ).showSnackBar(SnackBar(content: Text('Fork failed: ${humanizeError(e)}')));
       }
     }
   }
@@ -3811,7 +3812,7 @@ class _CodexThreadsViewState extends ConsumerState<_CodexThreadsView> {
                           Padding(
                             padding: const EdgeInsets.symmetric(horizontal: 24),
                             child: Text(
-                              '$error',
+                              humanizeError(error),
                               style: TextStyle(
                                 color: ocTheme.textMuted,
                                 fontSize: 14,
@@ -5001,7 +5002,7 @@ class _ClaudeCodeSessionsViewState
                           Padding(
                             padding: const EdgeInsets.symmetric(horizontal: 24),
                             child: Text(
-                              '$error',
+                              humanizeError(error),
                               style: TextStyle(
                                 color: ocTheme.textMuted,
                                 fontSize: 14,

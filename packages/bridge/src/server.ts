@@ -1766,7 +1766,7 @@ export async function createBridgeServer(options: BridgeServerOptions): Promise<
               threadId,
               data: { 
                 type: 'error', 
-                message: `Codex app-server crashed (exit code: ${code})`,
+                message: 'Codex agent stopped unexpectedly. It will restart automatically on your next message.',
                 code: 'app_server_crashed',
               },
             })
@@ -6951,7 +6951,7 @@ export async function createBridgeServer(options: BridgeServerOptions): Promise<
 
           const available = await claudeCode.checkClaudeCodeAvailable()
           if (!available) {
-            const err = 'Claude Code auth not configured (set ANTHROPIC_API_KEY or run `claude login`).'
+            const err = 'Claude Code is not signed in. Run "claude login" in your terminal on the Mac, or set ANTHROPIC_API_KEY.'
             log(`[Claude Code] ${err}`)
             const sid = actualSessionId || message.sessionId || ''
             if (sid) {
@@ -7890,16 +7890,31 @@ function toErrorMessage(error: unknown): string {
 
 function toPublicErrorMessage(error: unknown): string {
   // Avoid leaking system details (paths, stack traces) to clients.
-  if (typeof error === 'string') {
-    if (error.length > 120) return 'Request failed'
-    if (error.includes('/') || error.includes('\\')) return 'Request failed'
-    return error
+  // We check for actual filesystem paths (starting with / or drive letters),
+  // NOT any string containing a slash (which would kill URLs, CLI commands, etc.).
+  const containsFilesystemPath = (s: string): boolean => {
+    // Unix absolute paths: /home/, /Users/, /tmp/, /var/, /etc/, /opt/, /root/
+    if (/(?:^|\s)\/(?:home|Users|tmp|var|etc|opt|root|private|nix)\//i.test(s)) return true
+    // Windows paths: C:\, D:\, etc.
+    if (/[A-Z]:\\/i.test(s)) return true
+    // Stack traces: "at Object.<anonymous> (/path" or "file://"
+    if (/\bat\s+\S+\s+\(\//.test(s)) return true
+    if (/file:\/\//.test(s)) return true
+    return false
   }
-  if (error instanceof Error) {
-    const msg = error.message || 'Request failed'
-    if (msg.length > 120) return 'Request failed'
-    if (msg.includes('/') || msg.includes('\\')) return 'Request failed'
+
+  const sanitize = (msg: string): string => {
+    if (!msg || msg.length === 0) return 'Request failed'
+    // Very long messages likely contain stack traces or verbose internal details
+    if (msg.length > 300) return 'Request failed'
+    // Check for filesystem paths (but allow normal slashes in messages)
+    if (containsFilesystemPath(msg)) return 'Request failed'
+    // Truncate moderately long messages but still show them
+    if (msg.length > 200) return msg.slice(0, 197) + '...'
     return msg
   }
+
+  if (typeof error === 'string') return sanitize(error)
+  if (error instanceof Error) return sanitize(error.message || 'Request failed')
   return 'Request failed'
 }

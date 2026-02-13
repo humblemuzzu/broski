@@ -18,6 +18,7 @@ import '../widgets/chat/detail_sheet.dart';
 import '../widgets/onboarding_widgets.dart';
 import '../theme/design_tokens.dart';
 import 'package:broski/theme/app_icons.dart';
+import '../utils/error_utils.dart';
 class ScanScreen extends ConsumerStatefulWidget {
   const ScanScreen({super.key});
   @override
@@ -130,7 +131,7 @@ class _ScanScreenState extends ConsumerState<ScanScreen>
         setState(() => _processingImage = false);
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text('Failed to process image: $e'),
+            content: Text('Failed to process image: ${humanizeError(e)}'),
             backgroundColor: Colors.red.withValues(alpha: 0.8),
             behavior: SnackBarBehavior.floating,
             shape: RoundedRectangleBorder(

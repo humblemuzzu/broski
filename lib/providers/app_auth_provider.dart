@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../models/app_user.dart';
 import '../services/auth_service.dart';
 import '../services/convex_service.dart';
+import '../utils/error_utils.dart';
 import 'service_providers.dart';
 
 class AppAuthState {
@@ -50,7 +51,7 @@ class AppAuthNotifier extends StateNotifier<AppAuthState> {
       state = AppAuthState(user: me, isLoading: false);
     } catch (e) {
       await _auth.clearCachedSession();
-      state = AppAuthState(isLoading: false, error: e.toString());
+      state = AppAuthState(isLoading: false, error: humanizeError(e));
     }
   }
 
@@ -61,7 +62,7 @@ class AppAuthNotifier extends StateNotifier<AppAuthState> {
       final session = await _auth.signInWithGoogle();
       state = AppAuthState(user: session.user, isLoading: false);
     } catch (e) {
-      state = AppAuthState(isLoading: false, error: e.toString());
+      state = AppAuthState(isLoading: false, error: humanizeError(e));
     }
   }
 
@@ -72,7 +73,7 @@ class AppAuthNotifier extends StateNotifier<AppAuthState> {
       final session = await _auth.signInWithApple();
       state = AppAuthState(user: session.user, isLoading: false);
     } catch (e) {
-      state = AppAuthState(isLoading: false, error: e.toString());
+      state = AppAuthState(isLoading: false, error: humanizeError(e));
     }
   }
 
@@ -89,7 +90,7 @@ class AppAuthNotifier extends StateNotifier<AppAuthState> {
       await _auth.deleteAccount(reason: reason, feedback: feedback);
       state = const AppAuthState(isLoading: false);
     } catch (e) {
-      state = AppAuthState(isLoading: false, error: e.toString());
+      state = AppAuthState(isLoading: false, error: humanizeError(e));
       rethrow; // Let the UI handle this
     }
   }

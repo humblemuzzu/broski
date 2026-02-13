@@ -17,6 +17,7 @@ import '../utils/terminal_output_throttler.dart' show SmartOutputThrottler;
 import '../widgets/terminal_quick_toolbar.dart';
 import '../widgets/terminal_selection_overlay.dart';
 import 'package:broski/theme/app_icons.dart';
+import '../utils/error_utils.dart';
 class TerminalViewScreen extends ConsumerStatefulWidget {
   const TerminalViewScreen({
     super.key,
@@ -123,7 +124,7 @@ class _TerminalViewScreenState extends ConsumerState<TerminalViewScreen> {
       if (mounted) {
         setState(() {
           _isConnecting = false;
-          _error = e.toString();
+          _error = humanizeError(e);
         });
       }
     }

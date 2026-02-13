@@ -18,6 +18,7 @@ import 'opencode_mcp_config_screen.dart';
 import '../utils/responsive.dart';
 import '../widgets/adaptive_container.dart';
 import 'package:broski/theme/app_icons.dart';
+import '../utils/error_utils.dart';
 /// MCP (Model Context Protocol) Servers Management Screen
 ///
 /// Allows users to view, connect, and disconnect MCP servers that provide
@@ -105,7 +106,7 @@ class _McpServersScreenState extends ConsumerState<McpServersScreen>
           });
         } else {
           setState(() {
-            _error = e.toString();
+            _error = humanizeError(e);
             _isLoading = false;
           });
         }
@@ -143,7 +144,7 @@ class _McpServersScreenState extends ConsumerState<McpServersScreen>
     } catch (e) {
       if (mounted) {
         setState(() {
-          _resourcesError = e.toString();
+          _resourcesError = humanizeError(e);
           _isLoadingResources = false;
         });
       }
@@ -179,7 +180,7 @@ class _McpServersScreenState extends ConsumerState<McpServersScreen>
       if (mounted) {
         final theme = OpenCodeTheme.of(context);
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Error: $e'), backgroundColor: theme.error),
+          SnackBar(content: Text(humanizeError(e)), backgroundColor: theme.error),
         );
       }
     }
@@ -214,7 +215,7 @@ class _McpServersScreenState extends ConsumerState<McpServersScreen>
       if (mounted) {
         final theme = OpenCodeTheme.of(context);
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Error: $e'), backgroundColor: theme.error),
+          SnackBar(content: Text(humanizeError(e)), backgroundColor: theme.error),
         );
       }
     }

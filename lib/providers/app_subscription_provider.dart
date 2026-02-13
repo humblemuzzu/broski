@@ -6,6 +6,7 @@ import '../config/app_config.dart';
 import '../services/convex_service.dart';
 import '../services/purchase_service.dart';
 import '../services/storage_service.dart';
+import '../utils/error_utils.dart';
 import 'app_auth_provider.dart';
 import 'service_providers.dart';
 
@@ -82,7 +83,7 @@ class AppSubscriptionNotifier extends StateNotifier<AppSubscriptionState> {
 
       await _syncToConvex(info, entitled: entitled);
     } catch (e) {
-      state = state.copyWith(isLoading: false, error: e.toString());
+      state = state.copyWith(isLoading: false, error: humanizeError(e));
     }
   }
 
@@ -100,7 +101,7 @@ class AppSubscriptionNotifier extends StateNotifier<AppSubscriptionState> {
     } on PlatformException catch (e) {
       state = state.copyWith(isLoading: false, error: e.message ?? e.code);
     } catch (e) {
-      state = state.copyWith(isLoading: false, error: e.toString());
+      state = state.copyWith(isLoading: false, error: humanizeError(e));
     }
   }
 
@@ -116,7 +117,7 @@ class AppSubscriptionNotifier extends StateNotifier<AppSubscriptionState> {
       );
       await _syncToConvex(info, entitled: entitled);
     } catch (e) {
-      state = state.copyWith(isLoading: false, error: e.toString());
+      state = state.copyWith(isLoading: false, error: humanizeError(e));
     }
   }
 

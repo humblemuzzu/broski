@@ -5,6 +5,7 @@ import 'package:http/http.dart' as http;
 import 'package:http_parser/http_parser.dart';
 
 import '../models/stt_settings.dart';
+import '../utils/error_utils.dart';
 
 /// Service for Speech-to-Text transcription using Groq or OpenAI APIs.
 class SttService {
@@ -97,7 +98,7 @@ class SttService {
     } on TimeoutException {
       return TranscriptionResult.failure('Request timed out. Try again.');
     } catch (e) {
-      return TranscriptionResult.failure('Failed: ${e.toString()}');
+      return TranscriptionResult.failure('Transcription failed: ${humanizeError(e)}');
     }
   }
 

@@ -12,6 +12,7 @@ import '../widgets/claude_code_help.dart';
 import '../utils/responsive.dart';
 import '../widgets/adaptive_container.dart';
 import 'package:broski/theme/app_icons.dart';
+import '../utils/error_utils.dart';
 /// Screen for managing Claude Code custom subagents.
 /// Subagents are separate agent instances that can be spawned to handle focused subtasks.
 class SubagentsScreen extends ConsumerStatefulWidget {
@@ -86,7 +87,7 @@ class _SubagentsScreenState extends ConsumerState<SubagentsScreen> {
         child: configAsync.when(
         loading: () => const Center(child: CircularProgressIndicator()),
         error: (e, _) => Center(
-          child: Text('Error: $e', style: TextStyle(color: oc.error)),
+          child: Text(humanizeError(e), style: TextStyle(color: oc.error)),
         ),
         data: (config) {
           final subagents = config.subagents;

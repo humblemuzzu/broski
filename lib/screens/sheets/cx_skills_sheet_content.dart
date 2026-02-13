@@ -6,6 +6,7 @@ import '../../services/bridge_service.dart';
 import '../../theme/design_tokens.dart';
 import '../../theme/opencode_theme.dart';
 import 'package:broski/theme/app_icons.dart';
+import '../../utils/error_utils.dart';
 /// Content widget for the Codex Skills sheet.
 ///
 /// Shows per-skill enable/disable toggles and a "Browse Remote" button at top.
@@ -50,7 +51,7 @@ class _CxSkillsSheetContentState extends State<CxSkillsSheetContent> {
     } catch (e) {
       if (!mounted) return;
       setState(() {
-        _error = e.toString();
+        _error = humanizeError(e);
         _loading = false;
       });
     }
@@ -67,7 +68,7 @@ class _CxSkillsSheetContentState extends State<CxSkillsSheetContent> {
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Toggle failed: $e')),
+          SnackBar(content: Text('Toggle failed: ${humanizeError(e)}')),
         );
       }
     } finally {

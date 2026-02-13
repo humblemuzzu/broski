@@ -10,6 +10,7 @@ import '../theme/opencode_theme.dart';
 import '../utils/responsive.dart';
 import '../widgets/adaptive_container.dart';
 import 'package:broski/theme/app_icons.dart';
+import '../utils/error_utils.dart';
 class CodexAgentsScreen extends ConsumerStatefulWidget {
   const CodexAgentsScreen({super.key});
   @override
@@ -58,7 +59,7 @@ class _CodexAgentsScreenState extends ConsumerState<CodexAgentsScreen> {
     } catch (e) {
       if (!mounted) return;
       setState(() {
-        _error = e.toString();
+        _error = humanizeError(e);
         _loading = false;
       });
     }
@@ -86,7 +87,7 @@ class _CodexAgentsScreenState extends ConsumerState<CodexAgentsScreen> {
       if (!mounted) return;
       ScaffoldMessenger.of(
         context,
-      ).showSnackBar(SnackBar(content: Text('Save failed: $e')));
+      ).showSnackBar(SnackBar(content: Text('Save failed: ${humanizeError(e)}')));
     } finally {
       if (mounted) setState(() => _saving = false);
     }

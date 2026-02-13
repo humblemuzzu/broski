@@ -1,6 +1,7 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../models/subscription_usage.dart';
+import '../utils/error_utils.dart';
 import 'service_providers.dart';
 
 /// State for subscription usage tracking.
@@ -53,7 +54,7 @@ class SubscriptionUsageNotifier extends StateNotifier<SubscriptionUsageState> {
 
       state = SubscriptionUsageState(usage: usage, isLoading: false);
     } catch (e) {
-      state = state.copyWith(isLoading: false, error: e.toString());
+      state = state.copyWith(isLoading: false, error: humanizeError(e));
     }
   }
 
@@ -98,7 +99,7 @@ class SubscriptionUsageNotifier extends StateNotifier<SubscriptionUsageState> {
         );
       }
     } catch (e) {
-      state = state.copyWith(isLoading: false, error: e.toString());
+      state = state.copyWith(isLoading: false, error: humanizeError(e));
     }
   }
 

@@ -11,6 +11,7 @@ import '../theme/opencode_theme.dart';
 import '../utils/responsive.dart';
 import '../widgets/adaptive_container.dart';
 import 'package:broski/theme/app_icons.dart';
+import '../utils/error_utils.dart';
 class CodexMcpScreen extends ConsumerStatefulWidget {
   const CodexMcpScreen({super.key});
   @override
@@ -54,7 +55,7 @@ class _CodexMcpScreenState extends ConsumerState<CodexMcpScreen>
     } catch (e) {
       if (!mounted) return;
       setState(() {
-        _error = e.toString();
+        _error = humanizeError(e);
         _loading = false;
       });
     }
@@ -91,7 +92,7 @@ class _CodexMcpScreenState extends ConsumerState<CodexMcpScreen>
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          content: Text('Failed to save: $e'),
+          content: Text('Failed to save: ${humanizeError(e)}'),
           backgroundColor: oc.error,
         ),
       );
@@ -115,7 +116,7 @@ class _CodexMcpScreenState extends ConsumerState<CodexMcpScreen>
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          content: Text('Failed to reload: $e'),
+          content: Text('Failed to reload: ${humanizeError(e)}'),
           backgroundColor: oc.error,
         ),
       );
@@ -398,7 +399,7 @@ class _CodexMcpServerEditorScreenState
     } catch (e) {
       ScaffoldMessenger.of(
         context,
-      ).showSnackBar(SnackBar(content: Text('Invalid JSON: $e')));
+      ).showSnackBar(SnackBar(content: Text('Invalid JSON: ${humanizeError(e)}')));
     }
   }
   @override

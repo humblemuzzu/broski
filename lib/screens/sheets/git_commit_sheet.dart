@@ -5,6 +5,7 @@ import '../../theme/app_typography.dart';
 import '../../theme/design_tokens.dart';
 import '../../theme/opencode_theme.dart';
 import 'package:broski/theme/app_icons.dart';
+import '../../utils/error_utils.dart';
 class GitCommitSheet extends StatefulWidget {
   const GitCommitSheet({
     super.key,
@@ -59,7 +60,7 @@ class _GitCommitSheetState extends State<GitCommitSheet> {
       Navigator.pop(context);
     } catch (e) {
       if (!mounted) return;
-      String errorMsg = e.toString();
+      String errorMsg = humanizeError(e);
       // Make common git errors more user-friendly
       if (errorMsg.contains('nothing to commit') ||
           errorMsg.contains('no changes added') ||

@@ -24,6 +24,7 @@ import 'chat_screen.dart';
 import '../utils/responsive.dart';
 import '../widgets/adaptive_container.dart';
 import 'package:broski/theme/app_icons.dart';
+import '../utils/error_utils.dart';
 class ProjectsScreen extends ConsumerStatefulWidget {
   const ProjectsScreen({super.key});
   @override
@@ -187,7 +188,7 @@ class _ProjectsScreenState extends ConsumerState<ProjectsScreen> {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          content: Text('Failed to create session: $e'),
+          content: Text('Failed to create session: ${humanizeError(e)}'),
           backgroundColor: Theme.of(context).colorScheme.error,
         ),
       );
@@ -332,7 +333,7 @@ class _ProjectsScreenState extends ConsumerState<ProjectsScreen> {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          content: Text('Failed to create worktree: $e'),
+          content: Text('Failed to create worktree: ${humanizeError(e)}'),
           backgroundColor: Theme.of(context).colorScheme.error,
         ),
       );
@@ -377,7 +378,7 @@ class _ProjectsScreenState extends ConsumerState<ProjectsScreen> {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          content: Text('Failed to delete worktree: $e'),
+          content: Text('Failed to delete worktree: ${humanizeError(e)}'),
           backgroundColor: Theme.of(context).colorScheme.error,
         ),
       );

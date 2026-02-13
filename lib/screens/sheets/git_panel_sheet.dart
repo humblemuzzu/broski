@@ -13,6 +13,7 @@ import '../../widgets/git/git_diff_inline.dart';
 import '../../widgets/git/git_file_tile.dart';
 import 'git_commit_sheet.dart';
 import 'package:broski/theme/app_icons.dart';
+import '../../utils/error_utils.dart';
 class GitPanelSheet extends ConsumerStatefulWidget {
   const GitPanelSheet({
     super.key,
@@ -67,7 +68,7 @@ class _GitPanelSheetState extends ConsumerState<GitPanelSheet> {
     if (!mounted) return;
     ScaffoldMessenger.of(
       context,
-    ).showSnackBar(SnackBar(content: Text('Error: $error')));
+    ).showSnackBar(SnackBar(content: Text(humanizeError(error))));
   }
   void _showInfo(String message) {
     if (!mounted) return;
@@ -396,7 +397,7 @@ class _GitPanelSheetState extends ConsumerState<GitPanelSheet> {
         border: Border.all(color: theme.error.withValues(alpha: 0.3)),
       ),
       child: Text(
-        'Git status failed: $error',
+        humanizeError(error),
         style: AppTypography.bodySmall(color: theme.error),
       ),
     );
@@ -704,7 +705,7 @@ class _GitPanelSheetState extends ConsumerState<GitPanelSheet> {
             style: AppTypography.bodySmall(color: theme.textMuted),
           ),
           error: (error, _) => Text(
-            'Remote error: $error',
+            'Remote error: ${humanizeError(error)}',
             style: AppTypography.bodySmall(color: theme.error),
           ),
         ),
@@ -842,7 +843,7 @@ class _GitPanelSheetState extends ConsumerState<GitPanelSheet> {
             child: LinearProgressIndicator(minHeight: 2),
           ),
           error: (error, _) => Text(
-            'Load failed: $error',
+            'Load failed: ${humanizeError(error)}',
             style: AppTypography.bodySmall(color: theme.error),
           ),
         ),
@@ -1013,7 +1014,7 @@ class _GitPanelSheetState extends ConsumerState<GitPanelSheet> {
         child: LinearProgressIndicator(minHeight: 2),
       ),
       error: (error, _) => Text(
-        'Failed to load commits: $error',
+        'Failed to load commits: ${humanizeError(error)}',
         style: AppTypography.bodySmall(color: theme.error),
       ),
     );
@@ -1080,7 +1081,7 @@ class _GitPanelSheetState extends ConsumerState<GitPanelSheet> {
         child: LinearProgressIndicator(minHeight: 2),
       ),
       error: (error, _) => Text(
-        'Failed to load branches: $error',
+        'Failed to load branches: ${humanizeError(error)}',
         style: AppTypography.bodySmall(color: theme.error),
       ),
     );

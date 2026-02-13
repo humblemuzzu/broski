@@ -7,6 +7,7 @@ import '../../providers/service_providers.dart';
 import '../../widgets/chat/detail_sheet.dart';
 import '../../theme/design_tokens.dart';
 import 'package:broski/theme/app_icons.dart';
+import '../../utils/error_utils.dart';
 /// Bottom sheet to browse Codex apps/connectors marketplace.
 class CxAppsSheet extends ConsumerStatefulWidget {
   const CxAppsSheet({super.key});
@@ -46,7 +47,7 @@ class _CxAppsSheetState extends ConsumerState<CxAppsSheet> {
     } catch (e) {
       if (!mounted) return;
       setState(() {
-        _error = e.toString();
+        _error = humanizeError(e);
         _loading = false;
       });
     }
