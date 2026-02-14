@@ -46,21 +46,33 @@ class Responsive {
   // ── Content sizing ──
 
   /// Max content width for the given [type].
-  /// iPhone → `double.infinity` (no constraint). iPad → preset width.
+  /// iPhone → `double.infinity` (no constraint).
+  /// iPad → proportional to screen width so content scales with device size.
+  ///
+  /// Examples (portrait):
+  ///   iPad mini (744pt):   standard ≈ 660, wide ≈ 700
+  ///   iPad Air  (820pt):   standard ≈ 700, wide ≈ 750
+  ///   iPad Pro 11" (834pt): standard ≈ 710, wide ≈ 760
+  ///   iPad Pro 13" (1024pt): standard ≈ 880, wide ≈ 940
   static double maxWidth(
     BuildContext context, [
     ContentWidth type = ContentWidth.standard,
   ]) {
     if (!isTablet(context)) return double.infinity;
+    final w = MediaQuery.sizeOf(context).width;
     switch (type) {
       case ContentWidth.narrow:
-        return 500;
+        // Auth, dialogs — intentionally focused / centered
+        return (w * 0.58).clamp(480.0, 620.0);
       case ContentWidth.medium:
-        return 600;
+        // Onboarding, forms
+        return (w * 0.68).clamp(540.0, 720.0);
       case ContentWidth.standard:
-        return 700;
+        // Settings, lists, sessions, projects — main content
+        return (w * 0.86).clamp(660.0, 980.0);
       case ContentWidth.wide:
-        return 800;
+        // Chat, browse — maximize usable space
+        return (w * 0.92).clamp(700.0, 1100.0);
       case ContentWidth.unlimited:
         return double.infinity;
     }
@@ -83,12 +95,14 @@ class Responsive {
 
   // ── Navigation ──
 
-  /// Horizontal margin that centers a nav bar at ~600pt on iPad.
+  /// Horizontal margin that centers a nav bar on iPad.
+  /// Target width is ~68% of screen (capped at 720pt).
   /// iPhone: returns zero (nav bar uses its own existing margins).
   static double navBarHorizontalMargin(BuildContext context) {
     if (!isTablet(context)) return 0;
     final screenWidth = MediaQuery.sizeOf(context).width;
-    return ((screenWidth - 600) / 2).clamp(40.0, double.infinity);
+    final targetWidth = (screenWidth * 0.68).clamp(540.0, 720.0);
+    return ((screenWidth - targetWidth) / 2).clamp(20.0, double.infinity);
   }
 
   /// Horizontal padding inside list items / cards on iPad.
@@ -99,9 +113,12 @@ class Responsive {
   }
 
   /// Bottom sheet max width on iPad. Keeps sheets from stretching edge-to-edge.
+  /// Scales with screen width (≈78% of screen, capped at 880pt).
   static BoxConstraints? sheetConstraints(BuildContext context) {
     if (!isTablet(context)) return null;
-    return const BoxConstraints(maxWidth: 700);
+    final w = MediaQuery.sizeOf(context).width;
+    final sheetMax = (w * 0.78).clamp(600.0, 880.0);
+    return BoxConstraints(maxWidth: sheetMax);
   }
 
   /// Onboarding visual scale factor.
