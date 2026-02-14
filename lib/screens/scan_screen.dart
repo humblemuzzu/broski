@@ -60,6 +60,25 @@ class _ScanScreenState extends ConsumerState<ScanScreen>
             previous?.status == ConnectionStatus.connecting) {
           setState(() => _handledScan = false);
         }
+
+        // Show error feedback when a connection attempt fails (covers both
+        // QR-scan and manual-entry flows).
+        if (next.status == ConnectionStatus.disconnected &&
+            previous?.status == ConnectionStatus.connecting &&
+            next.error != null &&
+            next.error!.isNotEmpty) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text(next.error!),
+              backgroundColor: Colors.red.withValues(alpha: 0.85),
+              behavior: SnackBarBehavior.floating,
+              duration: const Duration(seconds: 4),
+              shape: RoundedRectangleBorder(
+                borderRadius: Radii.brMd,
+              ),
+            ),
+          );
+        }
       });
     });
   }

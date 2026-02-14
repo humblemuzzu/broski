@@ -187,15 +187,25 @@ class WebSocketService {
       _channel = WebSocketChannel.connect(uri, protocols: protocols);
     } else {
       HttpClient? client;
-      if (uri.scheme == 'wss' && pinnedCertSha256 != null) {
-        final normalizedPinned = pinnedCertSha256.replaceAll('=', '');
-        client = HttpClient()
-          ..badCertificateCallback =
-              (X509Certificate cert, String host, int port) {
-                final digest = sha256.convert(cert.der).bytes;
-                final fp = base64Url.encode(digest).replaceAll('=', '');
-                return fp == normalizedPinned;
-              };
+      if (uri.scheme == 'wss') {
+        if (pinnedCertSha256 != null) {
+          // QR code flow: pin to the exact certificate fingerprint
+          final normalizedPinned = pinnedCertSha256.replaceAll('=', '');
+          client = HttpClient()
+            ..badCertificateCallback =
+                (X509Certificate cert, String host, int port) {
+                  final digest = sha256.convert(cert.der).bytes;
+                  final fp = base64Url.encode(digest).replaceAll('=', '');
+                  return fp == normalizedPinned;
+                };
+        } else {
+          // Manual entry flow: no cert fingerprint available, accept
+          // self-signed certificates. The user explicitly chose this host
+          // and TLS still provides encryption; auth token handles identity.
+          client = HttpClient()
+            ..badCertificateCallback =
+                (X509Certificate cert, String host, int port) => true;
+        }
       }
 
       final headers = <String, dynamic>{};
