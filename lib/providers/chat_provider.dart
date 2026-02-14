@@ -1633,6 +1633,56 @@ class ChatSessionNotifier extends StateNotifier<ChatSessionState> {
 
     if (partType == 'step-start' || partType == 'step-finish') {
       final current = _messages[messageId] ?? message;
+      if (partType == 'step-finish') {
+        // Extract per-step token usage and attach to the most recent
+        // task/subtask tool call so CompactAgentCard can display it.
+        final cost = (part['cost'] as num?)?.toDouble() ?? 0;
+        final tokens = part['tokens'] as Map<String, dynamic>? ?? const {};
+        final tokensInput = tokens['input'] as int? ?? 0;
+        final tokensOutput = tokens['output'] as int? ?? 0;
+        final tokensReasoning = tokens['reasoning'] as int? ?? 0;
+        final tokensTotal = tokens['total'] as int? ?? 0;
+        final cache = tokens['cache'] as Map<String, dynamic>? ?? const {};
+        final cacheRead = cache['read'] as int? ?? 0;
+        final cacheWrite = cache['write'] as int? ?? 0;
+
+        if (tokensTotal > 0 || cost > 0) {
+          // Find the last task/subtask tool call in this message
+          final tools = current.toolCalls;
+          final taskIdx = tools.lastIndexWhere(
+            (t) => t.name == 'Task' || t.name == 'task' ||
+                    t.name == 'subtask' || t.name == 'Subtask',
+          );
+          if (taskIdx >= 0) {
+            final tool = tools[taskIdx];
+            final updatedMeta = {
+              ...tool.metadata,
+              'stepTokens': {
+                'input': tokensInput,
+                'output': tokensOutput,
+                'reasoning': tokensReasoning,
+                'total': tokensTotal,
+                'cacheRead': cacheRead,
+                'cacheWrite': cacheWrite,
+              },
+              'stepCost': cost,
+            };
+            final updatedTool = tool.copyWith(metadata: updatedMeta);
+            final updatedTools = [
+              for (int i = 0; i < tools.length; i++)
+                i == taskIdx ? updatedTool : tools[i],
+            ];
+            _updateMessage(
+              messageId,
+              current.copyWith(
+                toolCalls: updatedTools,
+                isStreaming: false,
+              ),
+            );
+            return;
+          }
+        }
+      }
       _updateMessage(
         messageId,
         current.copyWith(isStreaming: partType == 'step-start'),

@@ -528,6 +528,44 @@ void prefetchTopSessions(WidgetRef ref, List<SessionSummary> sessions) {
 /// `null` means "all projects" (aggregate view).
 final sessionsFilterProjectPathProvider = StateProvider<String?>((ref) => null);
 
+/// Server-side search query for sessions.
+/// Updated by the search bar with debouncing.
+final sessionsSearchQueryProvider = StateProvider<String>((ref) => '');
+
+/// Per-project session display limit.
+/// Default: show 5 sessions per project group, "Load more" expands.
+const int kSessionsPerProjectDefault = 5;
+
+/// Tracks which project directories have been expanded to show all sessions.
+final sessionsProjectExpandedProvider =
+    StateNotifierProvider<_ProjectExpandedNotifier, Set<String>>((ref) {
+  return _ProjectExpandedNotifier();
+});
+
+class _ProjectExpandedNotifier extends StateNotifier<Set<String>> {
+  _ProjectExpandedNotifier() : super({});
+
+  void expand(String directory) {
+    state = {...state, directory};
+  }
+
+  void collapse(String directory) {
+    state = {...state}..remove(directory);
+  }
+
+  void toggle(String directory) {
+    if (state.contains(directory)) {
+      collapse(directory);
+    } else {
+      expand(directory);
+    }
+  }
+
+  bool isExpanded(String directory) => state.contains(directory);
+
+  void reset() => state = {};
+}
+
 // ============================================================
 // Sessions Title Filters (hide sessions by title)
 // ============================================================
@@ -659,31 +697,39 @@ final sessionsRefreshTickProvider = StateProvider<int>((ref) => 0);
 /// Stale-while-revalidate pattern: yields cached data immediately, then fresh data.
 /// This provides instant perceived speed while still fetching fresh data.
 /// TTL optimization: Skip network if cache is < 30s old (prevents unnecessary fetches).
+/// Supports server-side search via [sessionsSearchQueryProvider].
 final sessionsListProvider = StreamProvider<List<SessionSummary>>((ref) async* {
   ref.watch(sessionsRefreshTickProvider);
   final filterProjectPath = ref.watch(sessionsFilterProjectPathProvider);
   final titleFilters = ref.watch(
     sessionsTitleExcludeFiltersProvider(AgentType.opencode),
   );
+  final searchQuery = ref.watch(sessionsSearchQueryProvider).trim();
   final connection = ref.watch(connectionProvider);
   final storage = ref.watch(storageServiceProvider);
+
+  List<SessionSummary> applyFilters(List<SessionSummary> sessions) {
+    var result = sessions
+        .where((s) => projectPathMatches(s.directory, filterProjectPath));
+    if (titleFilters.isNotEmpty) {
+      result = result.where(
+        (s) => !sessionTitleMatchesExcludeFilters(s.title, titleFilters),
+      );
+    }
+    // Client-side search fallback (for cached data before server response)
+    if (searchQuery.isNotEmpty) {
+      final q = searchQuery.toLowerCase();
+      result = result.where((s) => s.title.toLowerCase().contains(q));
+    }
+    return result.toList();
+  }
 
   // STEP 1: Immediately yield cached data (instant perceived load)
   final cached = await storage.getCachedSessions();
   if (cached.isNotEmpty) {
-    final filtered = cached
-        .where((s) => projectPathMatches(s.directory, filterProjectPath))
-        .toList();
-    final titleFiltered = titleFilters.isEmpty
-        ? filtered
-        : filtered
-              .where(
-                (s) =>
-                    !sessionTitleMatchesExcludeFilters(s.title, titleFilters),
-              )
-              .toList();
-    if (titleFiltered.isNotEmpty) {
-      yield titleFiltered;
+    final filtered = applyFilters(cached);
+    if (filtered.isNotEmpty) {
+      yield filtered;
     }
   }
 
@@ -697,34 +743,35 @@ final sessionsListProvider = StreamProvider<List<SessionSummary>>((ref) async* {
   }
 
   // STEP 3: TTL check - skip network if cache is fresh (< 30s old)
-  // This prevents unnecessary network calls on rapid navigation
-  if (cached.isNotEmpty && storage.isSessionsCacheFresh()) {
-    // Cache is fresh, no need to fetch - we already yielded cached data
+  // BUT if searching, always fetch (server has better search than client)
+  if (searchQuery.isEmpty && cached.isNotEmpty && storage.isSessionsCacheFresh()) {
+    // Cache is fresh and no search, no need to fetch - we already yielded cached data
     return;
   }
 
   // STEP 4: Fetch fresh data in background and yield when ready
   try {
     final bridge = ref.watch(bridgeServiceProvider);
-    final freshAll = await bridge.listSessions(projectPath: null);
+    final freshAll = await bridge.listSessions(
+      projectPath: null,
+      search: searchQuery.isNotEmpty ? searchQuery : null,
+    );
 
-    // Cache the sessions for offline use
-    if (freshAll.isNotEmpty) {
+    // Cache the sessions for offline use (only full fetches, not search results)
+    if (searchQuery.isEmpty && freshAll.isNotEmpty) {
       await storage.cacheSessions(freshAll);
     }
 
-    final fresh = freshAll
-        .where((s) => projectPathMatches(s.directory, filterProjectPath))
-        .toList();
+    // Apply project filter + title filters (search already applied server-side)
+    var fresh = freshAll
+        .where((s) => projectPathMatches(s.directory, filterProjectPath));
+    if (titleFilters.isNotEmpty) {
+      fresh = fresh.where(
+        (s) => !sessionTitleMatchesExcludeFilters(s.title, titleFilters),
+      );
+    }
 
-    yield titleFilters.isEmpty
-        ? fresh
-        : fresh
-              .where(
-                (s) =>
-                    !sessionTitleMatchesExcludeFilters(s.title, titleFilters),
-              )
-              .toList();
+    yield fresh.toList();
   } catch (e) {
     // If fresh fetch fails but we already yielded cached data, that's fine
     // Only rethrow if we have no data to show

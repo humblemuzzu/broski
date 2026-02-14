@@ -45,9 +45,8 @@ class SessionsScreen extends ConsumerStatefulWidget {
 }
 
 class _SessionsScreenState extends ConsumerState<SessionsScreen> {
-  // Task 8: Session search
+  // Task 8: Session search (server-side via sessionsSearchQueryProvider)
   final _searchController = TextEditingController();
-  String _searchQuery = '';
   Timer? _searchDebounce;
   @override
   void dispose() {
@@ -59,7 +58,8 @@ class _SessionsScreenState extends ConsumerState<SessionsScreen> {
   void _onSearchChanged(String value) {
     _searchDebounce?.cancel();
     _searchDebounce = Timer(const Duration(milliseconds: 300), () {
-      setState(() => _searchQuery = value.trim().toLowerCase());
+      // Update the provider for server-side search
+      ref.read(sessionsSearchQueryProvider.notifier).state = value.trim();
     });
   }
 
@@ -346,44 +346,41 @@ class _SessionsScreenState extends ConsumerState<SessionsScreen> {
                   ),
                 ],
                 data: (sessions) {
+                  final searchQuery = ref.watch(sessionsSearchQueryProvider);
                   if (sessions.isEmpty) {
-                    return [SliverFillRemaining(child: _EmptyState())];
-                  }
-                  // Task 8: Apply search filter
-                  final filteredSessions = _searchQuery.isEmpty
-                      ? sessions
-                      : sessions
-                            .where(
-                              (s) =>
-                                  s.title.toLowerCase().contains(_searchQuery),
-                            )
-                            .toList();
-                  if (filteredSessions.isEmpty && _searchQuery.isNotEmpty) {
-                    return [
-                      SliverFillRemaining(
-                        child: Center(
-                          child: Text(
-                            'No sessions matching "$_searchQuery"',
-                            style: TextStyle(
-                              color: Theme.of(
-                                context,
-                              ).colorScheme.onSurface.withValues(alpha: 0.6),
-                              fontSize: 14,
+                    if (searchQuery.isNotEmpty) {
+                      return [
+                        SliverFillRemaining(
+                          child: Center(
+                            child: Text(
+                              'No sessions matching "$searchQuery"',
+                              style: TextStyle(
+                                color: Theme.of(context)
+                                    .colorScheme
+                                    .onSurface
+                                    .withValues(alpha: 0.6),
+                                fontSize: 14,
+                              ),
                             ),
                           ),
                         ),
-                      ),
-                    ];
+                      ];
+                    }
+                    return [SliverFillRemaining(child: _EmptyState())];
                   }
-                  // Use grouped sessions for hierarchical display
+                  // Sessions are already filtered server-side (search) and
+                  // by project/title in the provider. No client-side search
+                  // filtering needed here.
                   final groupedSessions = ref.watch(groupedSessionsProvider);
                   final showBgTasks = ref.watch(showBackgroundTasksProvider);
                   final expandedSessions = ref.watch(expandedSessionsProvider);
+                  final expandedProjects =
+                      ref.watch(sessionsProjectExpandedProvider);
                   // Get highlighted sessions
                   final highlights = ref.watch(highlightsProvider);
                   final highlightColor = highlights.color;
                   // Filter to only root sessions (background tasks are nested)
-                  final rootSessions = filteredSessions
+                  final rootSessions = sessions
                       .where((s) => s.isRootSession)
                       .toList();
                   // Get highlighted sessions for the section
@@ -401,18 +398,8 @@ class _SessionsScreenState extends ConsumerState<SessionsScreen> {
                           const <ProjectSummary>[]) {
                     projectsByPath[p.path] = p;
                   }
-                  // Build items using grouped sessions (only for regular sessions)
-                  // Task 8: Also filter grouped sessions by search query
-                  final searchFilteredGrouped = _searchQuery.isEmpty
-                      ? groupedSessions
-                      : groupedSessions
-                            .where(
-                              (g) => g.session.title.toLowerCase().contains(
-                                _searchQuery,
-                              ),
-                            )
-                            .toList();
-                  final regularGrouped = searchFilteredGrouped
+                  // Build items — grouped sessions minus highlighted ones
+                  final regularGrouped = groupedSessions
                       .where(
                         (g) => !highlights.isSessionHighlighted(g.session.id),
                       )
@@ -423,6 +410,7 @@ class _SessionsScreenState extends ConsumerState<SessionsScreen> {
                     grouped: filterProjectPath == null,
                     showBackgroundTasks: showBgTasks,
                     expandedSessions: expandedSessions,
+                    expandedProjects: expandedProjects,
                   );
                   return [
                     // Highlighted Sessions Section
@@ -520,6 +508,16 @@ class _SessionsScreenState extends ConsumerState<SessionsScreen> {
                                 isOfflineMode: connection.isOfflineMode,
                                 onTap: () => _openSession(session),
                               ),
+                            );
+                          }
+                          if (item is _LoadMoreItem) {
+                            return _LoadMoreButton(
+                              remainingCount: item.remainingCount,
+                              onTap: () {
+                                ref
+                                    .read(sessionsProjectExpandedProvider.notifier)
+                                    .expand(item.directory);
+                              },
                             );
                           }
                           return const SizedBox.shrink();
@@ -1018,13 +1016,24 @@ final class _ChildSessionItem extends _SessionRowItem {
   final SessionSummary session;
 }
 
-/// Build list items with grouped sessions (parent + children)
+/// "Load more" button for a project group
+final class _LoadMoreItem extends _SessionRowItem {
+  _LoadMoreItem({required this.directory, required this.remainingCount});
+  final String directory;
+  final int remainingCount;
+}
+
+/// Build list items with grouped sessions (parent + children).
+/// When [grouped] is true, sessions are grouped by project directory with
+/// a per-project limit of [kSessionsPerProjectDefault]. Projects in
+/// [expandedProjects] show all their sessions; others get a "Load more" button.
 List<_SessionRowItem> _buildGroupedListItems({
   required List<SessionWithChildren> groupedSessions,
   required Map<String, ProjectSummary> projectsByPath,
   required bool grouped,
   required bool showBackgroundTasks,
   required Set<String> expandedSessions,
+  Set<String> expandedProjects = const {},
 }) {
   String displayNameForDirectory(String directory) {
     final project = projectsByPath[directory];
@@ -1033,19 +1042,25 @@ List<_SessionRowItem> _buildGroupedListItems({
     return parts.isEmpty ? 'Global' : parts.last;
   }
 
+  void addSessionWithChildren(
+    List<_SessionRowItem> items,
+    SessionWithChildren g,
+  ) {
+    items.add(_SessionListItem(g.session));
+    if (showBackgroundTasks &&
+        g.hasChildren &&
+        expandedSessions.contains(g.session.id)) {
+      for (final child in g.children) {
+        items.add(_ChildSessionItem(child));
+      }
+    }
+  }
+
   if (!grouped) {
-    // No project grouping, just show all root sessions
+    // No project grouping — still apply the global limit
     final items = <_SessionRowItem>[];
     for (final g in groupedSessions) {
-      items.add(_SessionListItem(g.session));
-      // Add children if expanded
-      if (showBackgroundTasks &&
-          g.hasChildren &&
-          expandedSessions.contains(g.session.id)) {
-        for (final child in g.children) {
-          items.add(_ChildSessionItem(child));
-        }
-      }
+      addSessionWithChildren(items, g);
     }
     return items;
   }
@@ -1069,16 +1084,21 @@ List<_SessionRowItem> _buildGroupedListItems({
     items.add(_SessionListHeader(displayNameForDirectory(directory)));
     final group = groups[directory]!
       ..sort((a, b) => b.session.time.updated - a.session.time.updated);
-    for (final g in group) {
-      items.add(_SessionListItem(g.session));
-      // Add children if expanded
-      if (showBackgroundTasks &&
-          g.hasChildren &&
-          expandedSessions.contains(g.session.id)) {
-        for (final child in g.children) {
-          items.add(_ChildSessionItem(child));
-        }
-      }
+    final isProjectExpanded = expandedProjects.contains(directory);
+    final limit = isProjectExpanded
+        ? group.length
+        : kSessionsPerProjectDefault;
+    final visible = group.take(limit);
+    for (final g in visible) {
+      addSessionWithChildren(items, g);
+    }
+    // "Load more" button if there are hidden sessions
+    final remaining = group.length - limit;
+    if (remaining > 0) {
+      items.add(_LoadMoreItem(
+        directory: directory,
+        remainingCount: remaining,
+      ));
     }
   }
   return items;
@@ -2885,6 +2905,57 @@ class _PulsingDotState extends State<_PulsingDot>
           ),
         );
       },
+    );
+  }
+}
+
+/// "Load more" button shown when a project group is truncated.
+class _LoadMoreButton extends StatelessWidget {
+  const _LoadMoreButton({
+    required this.remainingCount,
+    required this.onTap,
+  });
+  final int remainingCount;
+  final VoidCallback onTap;
+  @override
+  Widget build(BuildContext context) {
+    final ocTheme = OpenCodeTheme.of(context);
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 12),
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: Radii.brMd,
+        child: Container(
+          padding: const EdgeInsets.symmetric(vertical: 10, horizontal: 14),
+          decoration: BoxDecoration(
+            color: ocTheme.backgroundElement.withValues(alpha: 0.5),
+            borderRadius: Radii.brMd,
+            border: Border.all(
+              color: ocTheme.borderSubtle,
+              width: 1,
+            ),
+          ),
+          child: Row(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Icon(
+                AppIcons.expandMore,
+                size: 16,
+                color: ocTheme.primary,
+              ),
+              const SizedBox(width: 6),
+              Text(
+                'Show $remainingCount more session${remainingCount == 1 ? '' : 's'}',
+                style: TextStyle(
+                  color: ocTheme.primary,
+                  fontSize: 13,
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
     );
   }
 }

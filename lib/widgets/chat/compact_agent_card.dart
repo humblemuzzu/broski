@@ -246,6 +246,17 @@ class CompactAgentCard extends ConsumerWidget {
       ),
     );
   }
+  /// Extract step-level token usage from tool metadata (populated by chat_provider).
+  Map<String, dynamic>? get _stepTokens {
+    final meta = _tool?.metadata;
+    if (meta == null) return null;
+    return meta['stepTokens'] as Map<String, dynamic>?;
+  }
+
+  double get _stepCost {
+    return (_tool?.metadata['stepCost'] as num?)?.toDouble() ?? 0;
+  }
+
   void _showDetailSheet(BuildContext context) {
     final theme = OpenCodeTheme.of(context);
     final isRunning = _status == 'running';
@@ -253,12 +264,17 @@ class CompactAgentCard extends ConsumerWidget {
     final nestedTools = _isNotification
         ? <Map<String, String>>[]
         : _parseNestedToolCalls();
+    final tokens = _stepTokens;
+    final cost = _stepCost;
     DetailSheet.show(
       context: context,
       title: _capitalize(_agentType),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
+          // Token usage section (from associated StepFinishPart)
+          if (tokens != null || cost > 0)
+            _TokenUsageSection(tokens: tokens, cost: cost),
           // Prompt section
           if (_prompt.isNotEmpty)
             DetailSection(
@@ -514,5 +530,127 @@ class _NestedToolRow extends StatelessWidget {
   String _capitalize(String s) {
     if (s.isEmpty) return s;
     return s[0].toUpperCase() + s.substring(1);
+  }
+}
+
+/// Compact token usage display for the subagent detail sheet.
+class _TokenUsageSection extends StatelessWidget {
+  const _TokenUsageSection({this.tokens, this.cost = 0});
+  final Map<String, dynamic>? tokens;
+  final double cost;
+
+  String _formatTokens(int count) {
+    if (count >= 1000000) return '${(count / 1000000).toStringAsFixed(1)}M';
+    if (count >= 1000) return '${(count / 1000).toStringAsFixed(1)}k';
+    return count.toString();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = OpenCodeTheme.of(context);
+    final input = tokens?['input'] as int? ?? 0;
+    final output = tokens?['output'] as int? ?? 0;
+    final reasoning = tokens?['reasoning'] as int? ?? 0;
+    final total = tokens?['total'] as int? ?? 0;
+    final cacheRead = tokens?['cacheRead'] as int? ?? 0;
+    final cacheWrite = tokens?['cacheWrite'] as int? ?? 0;
+
+    return Padding(
+      padding: EdgeInsets.only(bottom: Spacing.md),
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+        decoration: BoxDecoration(
+          color: theme.backgroundElement.withValues(alpha: 0.5),
+          borderRadius: Radii.brMd,
+          border: Border.all(color: theme.borderSubtle),
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              children: [
+                Icon(AppIcons.dataUsage, size: 14, color: theme.textMuted),
+                const SizedBox(width: 6),
+                Text(
+                  'Token Usage',
+                  style: TextStyle(
+                    color: theme.textMuted,
+                    fontSize: 11,
+                    fontWeight: FontWeight.w700,
+                    letterSpacing: 0.3,
+                  ),
+                ),
+                const Spacer(),
+                if (cost > 0)
+                  Text(
+                    '\$${cost.toStringAsFixed(4)}',
+                    style: TextStyle(
+                      color: theme.warning,
+                      fontSize: 12,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+              ],
+            ),
+            const SizedBox(height: 8),
+            Wrap(
+              spacing: 12,
+              runSpacing: 4,
+              children: [
+                if (total > 0)
+                  _TokenChip(label: 'Total', value: _formatTokens(total), color: theme.text),
+                if (input > 0)
+                  _TokenChip(label: 'In', value: _formatTokens(input), color: theme.info),
+                if (output > 0)
+                  _TokenChip(label: 'Out', value: _formatTokens(output), color: theme.success),
+                if (reasoning > 0)
+                  _TokenChip(label: 'Think', value: _formatTokens(reasoning), color: theme.accent),
+                if (cacheRead > 0)
+                  _TokenChip(label: 'Cache↓', value: _formatTokens(cacheRead), color: theme.textMuted),
+                if (cacheWrite > 0)
+                  _TokenChip(label: 'Cache↑', value: _formatTokens(cacheWrite), color: theme.textMuted),
+              ],
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _TokenChip extends StatelessWidget {
+  const _TokenChip({
+    required this.label,
+    required this.value,
+    required this.color,
+  });
+  final String label;
+  final String value;
+  final Color color;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = OpenCodeTheme.of(context);
+    return Row(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Text(
+          '$label ',
+          style: TextStyle(
+            color: theme.textMuted,
+            fontSize: 11,
+            fontWeight: FontWeight.w500,
+          ),
+        ),
+        Text(
+          value,
+          style: TextStyle(
+            color: color,
+            fontSize: 12,
+            fontWeight: FontWeight.w600,
+          ),
+        ),
+      ],
+    );
   }
 }
