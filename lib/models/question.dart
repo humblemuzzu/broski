@@ -14,15 +14,20 @@ class QuestionOption {
 
 class QuestionInfo {
   final String question;
-  final String header; // max 12 chars in OpenCode
+  final String header; // max 30 chars in OpenCode
   final List<QuestionOption> options;
   final bool multiple;
+
+  /// Whether the user may type a custom answer (default: true).
+  /// When false, only the provided options are allowed.
+  final bool custom;
 
   const QuestionInfo({
     required this.question,
     required this.header,
     required this.options,
     required this.multiple,
+    this.custom = true,
   });
 
   factory QuestionInfo.fromJson(Map<String, dynamic> json) {
@@ -37,6 +42,7 @@ class QuestionInfo {
       header: json['header'] as String? ?? '',
       options: options,
       multiple: json['multiple'] == true,
+      custom: json['custom'] as bool? ?? true,
     );
   }
 }

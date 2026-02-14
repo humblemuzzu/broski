@@ -343,22 +343,23 @@ class _QuestionPromptSheetState extends State<QuestionPromptSheet> {
                           }
                         },
                 ),
-              // Custom answer option
-              _OptionTile(
-                label: _custom[qi].trim().isEmpty
-                    ? 'Type your own answer'
-                    : _custom[qi],
-                description: '',
-                isSelected:
-                    _custom[qi].trim().isNotEmpty &&
-                    _answers[qi].contains(_custom[qi]),
-                isMultiple: isMultiple,
-                isCustom: true,
-                theme: theme,
-                onTap: _submitted
-                    ? null
-                    : () => _editCustom(qi, multiple: isMultiple),
-              ),
+              // Custom answer option — only shown when question.custom != false
+              if (question.custom)
+                _OptionTile(
+                  label: _custom[qi].trim().isEmpty
+                      ? 'Type your own answer'
+                      : _custom[qi],
+                  description: '',
+                  isSelected:
+                      _custom[qi].trim().isNotEmpty &&
+                      _answers[qi].contains(_custom[qi]),
+                  isMultiple: isMultiple,
+                  isCustom: true,
+                  theme: theme,
+                  onTap: _submitted
+                      ? null
+                      : () => _editCustom(qi, multiple: isMultiple),
+                ),
             ],
           ),
         ),

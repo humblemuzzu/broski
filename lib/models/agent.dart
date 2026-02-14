@@ -64,6 +64,8 @@ class Agent {
   final String? variant;
   final String? prompt;
   final int? steps;
+  final List<Map<String, dynamic>>? permission;
+  final Map<String, dynamic>? options;
 
   const Agent({
     required this.name,
@@ -78,6 +80,8 @@ class Agent {
     this.variant,
     this.prompt,
     this.steps,
+    this.permission,
+    this.options,
   });
 
   factory Agent.fromJson(Map<String, dynamic> json) {
@@ -95,6 +99,10 @@ class Agent {
       variant: json['variant'] as String?,
       prompt: json['prompt'] as String?,
       steps: json['steps'] as int?,
+      permission: (json['permission'] as List<dynamic>?)
+          ?.map((p) => p as Map<String, dynamic>)
+          .toList(),
+      options: json['options'] as Map<String, dynamic>?,
     );
   }
 
@@ -113,6 +121,8 @@ class Agent {
       if (variant != null) 'variant': variant,
       if (prompt != null) 'prompt': prompt,
       if (steps != null) 'steps': steps,
+      if (permission != null) 'permission': permission,
+      if (options != null) 'options': options,
     };
   }
 
@@ -220,6 +230,8 @@ class Agent {
     String? variant,
     String? prompt,
     int? steps,
+    List<Map<String, dynamic>>? permission,
+    Map<String, dynamic>? options,
   }) {
     return Agent(
       name: name ?? this.name,
@@ -234,6 +246,8 @@ class Agent {
       variant: variant ?? this.variant,
       prompt: prompt ?? this.prompt,
       steps: steps ?? this.steps,
+      permission: permission ?? this.permission,
+      options: options ?? this.options,
     );
   }
 }

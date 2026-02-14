@@ -118,6 +118,7 @@ abstract final class AppIcons {
   static const smartToy = LucideIcons.bot;
   static const agent = LucideIcons.bot;
   static const psychology = LucideIcons.brain;
+  static const brain = LucideIcons.brain;
   static const autoAwesome = LucideIcons.sparkles;
   static const autoFix = LucideIcons.wand2;
   static const lightbulb = LucideIcons.lightbulb;

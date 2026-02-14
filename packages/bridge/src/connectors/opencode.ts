@@ -492,9 +492,8 @@ export class OpenCodeConnector {
 
   async startEventStream(onEvent: (event: GlobalEvent) => void): Promise<AbortController> {
     const controller = new AbortController()
-    // v2 SDK: first arg is parameters, second arg is options
+    // v2 SDK: global.event() takes only options (no parameters arg)
     const { stream } = await this.client.global.event(
-      {},
       { signal: controller.signal, responseStyle: 'data' },
     )
 
@@ -632,7 +631,8 @@ export class OpenCodeConnector {
       tokens: {
         input: inputTokens,
         output: outputTokens,
-        total: inputTokens + outputTokens,
+        // Prefer SDK's total (includes reasoning/cache) over manual sum
+        total: lastTokens?.total ?? (inputTokens + outputTokens),
         contextTokens,
         contextWindow,
         reasoning: reasoningTokens || undefined,
@@ -792,6 +792,25 @@ export class OpenCodeConnector {
   }
 
   // Feature 6: Session Fork
+  async shellCommand(
+    sessionId: string,
+    command: string,
+    directory?: string,
+    agent?: string,
+    model?: { providerID: string; modelID: string },
+  ) {
+    return this.client.session.shell(
+      {
+        sessionID: sessionId,
+        directory,
+        command,
+        ...(agent ? { agent } : {}),
+        ...(model ? { model } : {}),
+      },
+      { responseStyle: 'data' },
+    )
+  }
+
   async forkSession(sessionId: string, messageId?: string, directory?: string): Promise<SessionSummary> {
     // v2 SDK: first arg is parameters, second arg is options
     // Note: v2 SDK uses sessionID (capital ID), not id
@@ -949,11 +968,12 @@ export class OpenCodeConnector {
   async searchFilesAndDirs(query: string, directory?: string, limit: number = 20): Promise<string[]> {
     try {
       // v2 SDK: first arg is parameters, second arg is options
+      // Pass limit to SDK server-side for efficiency
       const result = await this.client.find.files(
-        { query, dirs: 'true', directory },
+        { query, dirs: 'true', directory, limit },
         { responseStyle: 'data' },
       )
-      return (result ?? []).slice(0, limit)
+      return result ?? []
     } catch {
       return []
     }
@@ -1240,6 +1260,46 @@ export class OpenCodeConnector {
     }
   }
 
+  // Feature 15c: MCP OAuth Authentication
+  async mcpAuthStart(name: string, directory?: string): Promise<{ authorizationUrl: string } | null> {
+    try {
+      const result = await this.client.mcp.auth.start(
+        { name, directory },
+        { responseStyle: 'data' },
+      )
+      return result ?? null
+    } catch (error) {
+      console.error('[mcpAuthStart] Error:', error)
+      return null
+    }
+  }
+
+  async mcpAuthCallback(name: string, code: string, directory?: string): Promise<boolean> {
+    try {
+      const result = await this.client.mcp.auth.callback(
+        { name, directory, code },
+        { responseStyle: 'data' },
+      )
+      // result is McpStatus on success
+      return result != null
+    } catch (error) {
+      console.error('[mcpAuthCallback] Error:', error)
+      return false
+    }
+  }
+
+  async mcpAuthRemove(name: string, directory?: string): Promise<boolean> {
+    try {
+      const result = await this.client.mcp.auth.remove(
+        { name, directory },
+        { responseStyle: 'data' },
+      )
+      return result != null
+    } catch {
+      return false
+    }
+  }
+
   // Feature 15b: MCP Resources (SDK v1.1.1+ experimental)
   async getMcpResources(directory?: string): Promise<Record<string, McpResource>> {
     try {
@@ -1421,8 +1481,7 @@ export class OpenCodeConnector {
       )
       return {
         all: (result?.all ?? []).map((p: any) => {
-          // Map SDK model shape to our ModelInfo type
-          // SDK model: { id, name, limit: { context, output }, cost: { input, output, cache: { read, write } } }
+          // Map SDK ProviderListResponses model shape to our enriched ModelInfo
           const rawModels = p.models ?? {}
           const mappedModels: Record<string, any> = {}
           for (const [modelId, model] of Object.entries(rawModels)) {
@@ -1430,11 +1489,22 @@ export class OpenCodeConnector {
             mappedModels[modelId] = {
               id: m.id ?? modelId,
               name: m.name ?? modelId,
+              family: m.family ?? undefined,
               contextWindow: m.limit?.context ?? undefined,
+              outputLimit: m.limit?.output ?? undefined,
+              reasoning: m.reasoning ?? undefined,
+              attachment: m.attachment ?? undefined,
+              toolCall: m.tool_call ?? undefined,
+              modalities: m.modalities ?? undefined,
+              status: m.status ?? undefined,
+              experimental: m.experimental ?? undefined,
               pricing: m.cost ? {
                 input: m.cost.input ?? 0,
                 output: m.cost.output ?? 0,
+                cacheRead: m.cost.cache_read ?? undefined,
+                cacheWrite: m.cost.cache_write ?? undefined,
               } : undefined,
+              variants: m.variants ?? undefined,
             }
           }
           return {
@@ -1577,16 +1647,15 @@ export class OpenCodeConnector {
   async getFormatterStatus(directory?: string): Promise<FormatterInfo[]> {
     try {
       // v2 SDK: first arg is parameters, second arg is options
+      // SDK FormatterStatus shape: { name: string; extensions: string[]; enabled: boolean }
       const result = await this.client.formatter.status(
         { directory },
         { responseStyle: 'data' },
       )
       return (result ?? []).map((f: any) => ({
-        id: f.id ?? '',
-        name: f.name ?? f.id ?? '',
-        language: f.language,
-        status: f.status ?? 'inactive',
-        error: f.error,
+        name: f.name ?? '',
+        extensions: Array.isArray(f.extensions) ? f.extensions : [],
+        enabled: f.enabled === true,
       }))
     } catch (error) {
       console.error('[getFormatterStatus] Error:', error)
@@ -1612,6 +1681,143 @@ export class OpenCodeConnector {
       return true
     } catch {
       return false
+    }
+  }
+
+  // Provider credential management
+  async authSet(providerId: string, auth: Record<string, unknown>): Promise<boolean> {
+    try {
+      const result = await this.client.auth.set(
+        { providerID: providerId, auth: auth as any },
+        { responseStyle: 'data' },
+      )
+      return result === true
+    } catch {
+      return false
+    }
+  }
+
+  async authRemove(providerId: string): Promise<boolean> {
+    try {
+      const result = await this.client.auth.remove(
+        { providerID: providerId },
+        { responseStyle: 'data' },
+      )
+      return result === true
+    } catch {
+      return false
+    }
+  }
+
+  // Global config
+  async getGlobalConfig(): Promise<Record<string, unknown>> {
+    try {
+      const result = await this.client.global.config.get(
+        { responseStyle: 'data' },
+      )
+      return (result as any) ?? {}
+    } catch {
+      return {}
+    }
+  }
+
+  async updateGlobalConfig(config: Record<string, unknown>): Promise<Record<string, unknown>> {
+    try {
+      const result = await this.client.global.config.update(
+        { config: config as any },
+        { responseStyle: 'data' },
+      )
+      return (result as any) ?? {}
+    } catch {
+      return {}
+    }
+  }
+
+  // Project management
+  async getCurrentProject(directory?: string): Promise<Record<string, unknown> | null> {
+    try {
+      const result = await this.client.project.current(
+        { directory },
+        { responseStyle: 'data' },
+      )
+      return result ? (result as any) : null
+    } catch {
+      return null
+    }
+  }
+
+  async updateProject(
+    projectId: string,
+    updates: { name?: string; icon?: Record<string, unknown> },
+    directory?: string,
+  ): Promise<Record<string, unknown>> {
+    try {
+      const result = await this.client.project.update(
+        {
+          projectID: projectId,
+          directory,
+          ...(updates.name ? { name: updates.name } : {}),
+          ...(updates.icon ? { icon: updates.icon as any } : {}),
+        },
+        { responseStyle: 'data' },
+      )
+      return (result as any) ?? {}
+    } catch {
+      return {}
+    }
+  }
+
+  // Message part editing
+  async deletePart(
+    sessionId: string,
+    messageId: string,
+    partId: string,
+    directory?: string,
+  ): Promise<boolean> {
+    try {
+      const result = await this.client.part.delete(
+        { sessionID: sessionId, messageID: messageId, partID: partId, directory },
+        { responseStyle: 'data' },
+      )
+      return result === true
+    } catch {
+      return false
+    }
+  }
+
+  async updatePart(
+    sessionId: string,
+    messageId: string,
+    partId: string,
+    part: Record<string, unknown>,
+    directory?: string,
+  ): Promise<Record<string, unknown> | null> {
+    try {
+      const result = await this.client.part.update(
+        { sessionID: sessionId, messageID: messageId, partID: partId, directory, part: part as any },
+        { responseStyle: 'data' },
+      )
+      return (result as any) ?? null
+    } catch {
+      return null
+    }
+  }
+
+  // SDK skills endpoint (in addition to filesystem scanning)
+  async listSdkSkills(directory?: string): Promise<Array<{ name: string; description: string; location: string; content: string }>> {
+    try {
+      const result = await this.client.app.skills(
+        { directory },
+        { responseStyle: 'data' },
+      )
+      return (result ?? []).map((s: any) => ({
+        name: s.name ?? '',
+        description: s.description ?? '',
+        location: s.location ?? '',
+        content: s.content ?? '',
+      }))
+    } catch {
+      return []
     }
   }
 

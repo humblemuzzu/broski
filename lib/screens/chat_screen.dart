@@ -5932,6 +5932,209 @@ Describe project-specific guidance for Codex here.
       retryInfo: RetryInfo(attempt: attempt, errorMessage: errorMessage),
     );
   }
+
+  /// SDK v1.2.1: Context overflow error with action buttons
+  Widget _buildContextOverflowError(ChatMessage message) {
+    final theme = OpenCodeTheme.of(context);
+    return Padding(
+      padding: Insets.screenV,
+      child: Container(
+        padding: const EdgeInsets.all(12),
+        decoration: BoxDecoration(
+          color: theme.warning.withValues(alpha: 0.1),
+          borderRadius: BorderRadius.circular(8),
+          border: Border.all(
+            color: theme.warning.withValues(alpha: 0.3),
+          ),
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              '⚠️ ${message.text}',
+              style: TextStyle(
+                color: theme.warning,
+                fontSize: 13,
+                fontWeight: FontWeight.w600,
+              ),
+            ),
+            const SizedBox(height: 8),
+            Row(
+              children: [
+                TextButton.icon(
+                  onPressed: () {
+                    // Trigger /compact via the existing slash command flow
+                    final bridge = ref.read(bridgeServiceProvider);
+                    final chatState = ref.read(chatSessionProvider);
+                    final sessionId = chatState.session?.id;
+                    if (sessionId != null) {
+                      bridge.executeCommand(
+                        sessionId: sessionId,
+                        command: 'compact',
+                        arguments: '',
+                        projectPath: chatState.projectPath,
+                      );
+                    }
+                  },
+                  icon: Icon(
+                    Icons.compress,
+                    size: 16,
+                    color: theme.accent,
+                  ),
+                  label: Text(
+                    'Compact',
+                    style: TextStyle(color: theme.accent, fontSize: 12),
+                  ),
+                ),
+              ],
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  /// SDK v1.2.1: Agent indicator pill badge (like VariantBadge)
+  Widget _buildAgentPill(String agentName) {
+    final theme = OpenCodeTheme.of(context);
+    return Align(
+      alignment: Alignment.centerLeft,
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+        decoration: BoxDecoration(
+          color: theme.accent.withValues(alpha: 0.12),
+          borderRadius: BorderRadius.circular(10),
+        ),
+        child: Text(
+          '🤖 $agentName',
+          style: TextStyle(
+            color: theme.accent,
+            fontSize: 11,
+            fontWeight: FontWeight.w600,
+          ),
+        ),
+      ),
+    );
+  }
+
+  /// SDK v1.2.1: Enhanced compaction divider with auto/manual
+  Widget _buildCompactionDividerEnhanced(bool auto) {
+    final theme = OpenCodeTheme.of(context);
+    final label = auto ? 'Context compacted (auto)' : 'Context compacted';
+    return Padding(
+      padding: Insets.screenV,
+      child: Row(
+        children: [
+          Expanded(
+            child: Divider(
+              color: theme.textMuted.withValues(alpha: 0.3),
+              thickness: 1,
+            ),
+          ),
+          Padding(
+            padding: Insets.cardH,
+            child: Text(
+              label,
+              style: TextStyle(
+                color: theme.textMuted,
+                fontSize: 12,
+                fontWeight: FontWeight.w500,
+              ),
+            ),
+          ),
+          Expanded(
+            child: Divider(
+              color: theme.textMuted.withValues(alpha: 0.3),
+              thickness: 1,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  /// SDK v1.2.1: Patch card — compact file list (like CompactEditCard style)
+  Widget _buildPatchCard(List<String> files) {
+    final theme = OpenCodeTheme.of(context);
+    return Container(
+      padding: const EdgeInsets.all(8),
+      decoration: BoxDecoration(
+        color: theme.bgRaised,
+        borderRadius: BorderRadius.circular(8),
+        border: Border.all(color: theme.borderSubtle),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            '📝 Patched ${files.length} file${files.length != 1 ? 's' : ''}',
+            style: TextStyle(
+              color: theme.text,
+              fontSize: 12,
+              fontWeight: FontWeight.w600,
+            ),
+          ),
+          const SizedBox(height: 4),
+          for (final file in files)
+            Padding(
+              padding: const EdgeInsets.only(top: 1),
+              child: Text(
+                file,
+                style: TextStyle(
+                  color: theme.textMuted,
+                  fontSize: 11,
+                  fontFamily: 'monospace',
+                ),
+                overflow: TextOverflow.ellipsis,
+              ),
+            ),
+        ],
+      ),
+    );
+  }
+
+  /// SDK v1.2.1: Step finish thin divider with token/cost info
+  Widget _buildStepFinishDivider(String reason, int tokensTotal, double cost) {
+    final theme = OpenCodeTheme.of(context);
+    final tokenStr = tokensTotal > 0
+        ? '${(tokensTotal / 1000).toStringAsFixed(1)}K tokens'
+        : '';
+    final costStr =
+        cost > 0 ? '\$${cost.toStringAsFixed(3)}' : '';
+    final parts = [reason, tokenStr, costStr]
+        .where((s) => s.isNotEmpty)
+        .join(' · ');
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 4),
+      child: Row(
+        children: [
+          Expanded(
+            child: Divider(
+              color: theme.textMuted.withValues(alpha: 0.2),
+              thickness: 0.5,
+            ),
+          ),
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 8),
+            child: Text(
+              parts,
+              style: TextStyle(
+                color: theme.textMuted.withValues(alpha: 0.6),
+                fontSize: 10,
+              ),
+            ),
+          ),
+          Expanded(
+            child: Divider(
+              color: theme.textMuted.withValues(alpha: 0.2),
+              thickness: 0.5,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
   /// Extract todos from TodoWrite tool input
   List<Todo> _extractTodosFromTool(ToolCall tool) {
     try {
@@ -6020,6 +6223,10 @@ Describe project-specific guidance for Codex here.
     // Task 3: Compaction marker — render as centered divider instead of error bubble
     if (message.error == 'context_compacted') {
       return _buildCompactionDivider();
+    }
+    // SDK v1.2.1: Context overflow — show with action buttons
+    if (message.error == 'ContextOverflowError') {
+      return _buildContextOverflowError(message);
     }
     // PERF: RepaintBoundary isolates this message's painting from others.
     // Changes to one message don't trigger repaints of nearby messages.
@@ -6173,6 +6380,39 @@ Describe project-specific guidance for Codex here.
               child: _buildRetryIndicator(attempt, errorMessage),
             ),
           );
+        // SDK v1.2.1: Agent indicator — small tinted pill badge
+        case AgentIndicatorPart(:final agentName):
+          widgets.add(
+            Padding(
+              padding: Insets.topSm,
+              child: _buildAgentPill(agentName),
+            ),
+          );
+        // SDK v1.2.1: Compaction divider with auto/manual indicator
+        case CompactionIndicatorPart(:final auto):
+          widgets.add(_buildCompactionDividerEnhanced(auto));
+        // SDK v1.2.1: Patch — compact file list
+        case PatchIndicatorPart(:final files):
+          widgets.add(
+            Padding(
+              padding: Insets.topSm,
+              child: _buildPatchCard(files),
+            ),
+          );
+        // SDK v1.2.1: Step finish — thin token divider
+        case StepFinishIndicatorPart(
+              :final reason,
+              :final tokensTotal,
+              :final cost,
+            ):
+          widgets.add(
+            _buildStepFinishDivider(reason, tokensTotal, cost),
+          );
+        // Not rendered visually — internal plumbing data
+        case SnapshotPart():
+          break;
+        case StepStartIndicatorPart():
+          break;
       }
     }
     // Fallback: if no widgets were built from parts but message has content,
@@ -10655,6 +10895,58 @@ class _ModelSelectorContentState extends ConsumerState<_ModelSelectorContent> {
       ],
     );
   }
+  List<Widget> _modelCapabilityIcons(
+    Map<String, dynamic> model,
+    OpenCodeTheme theme,
+  ) {
+    final icons = <Widget>[];
+    const s = 13.0;
+    final c = theme.textMuted.withValues(alpha: 0.7);
+    if (model['reasoning'] == true) {
+      icons.add(Tooltip(
+          message: 'Reasoning', child: Icon(AppIcons.brain, size: s, color: c)));
+    }
+    if (model['attachment'] == true) {
+      icons.add(Tooltip(
+          message: 'Images',
+          child: Icon(AppIcons.image, size: s, color: c)));
+    }
+    // Check modalities for PDF/audio
+    final mods = model['modalities'];
+    if (mods is Map) {
+      final input = mods['input'];
+      if (input is List) {
+        if (input.contains('pdf')) {
+          icons.add(Tooltip(
+              message: 'PDF',
+              child: Icon(AppIcons.description, size: s, color: c)));
+        }
+        if (input.contains('audio')) {
+          icons.add(Tooltip(
+              message: 'Audio',
+              child: Icon(AppIcons.mic, size: s, color: c)));
+        }
+      }
+    }
+    final status = model['status'] as String?;
+    if (status == 'deprecated') {
+      icons.add(Tooltip(
+          message: 'Deprecated',
+          child: Icon(AppIcons.warning, size: s, color: theme.warning)));
+    } else if (status == 'beta') {
+      icons.add(Tooltip(
+          message: 'Beta',
+          child: Icon(AppIcons.science, size: s, color: theme.info)));
+    }
+    // Space between icons
+    final spaced = <Widget>[];
+    for (var i = 0; i < icons.length; i++) {
+      spaced.add(icons[i]);
+      if (i < icons.length - 1) spaced.add(const SizedBox(width: 3));
+    }
+    return spaced;
+  }
+
   Widget _buildProviderSection(Map<String, dynamic> provider) {
     final theme = OpenCodeTheme.of(context);
     final kOnBackground = theme.text;
@@ -10688,9 +10980,18 @@ class _ModelSelectorContentState extends ConsumerState<_ModelSelectorContent> {
             leading: _currentModel == '$id/${entry.key}'
                 ? Icon(AppIcons.checkCircle, color: theme.success)
                 : Icon(AppIcons.circleOutlined, color: theme.borderSubtle),
-            title: Text(
-              entry.value['name'] as String? ?? entry.key,
-              style: TextStyle(color: kOnBackground),
+            title: Row(
+              children: [
+                Flexible(
+                  child: Text(
+                    entry.value['name'] as String? ?? entry.key,
+                    style: TextStyle(color: kOnBackground),
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                ),
+                const SizedBox(width: 6),
+                ..._modelCapabilityIcons(entry.value, theme),
+              ],
             ),
             subtitle: Text(
               entry.key,

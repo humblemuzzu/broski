@@ -12,8 +12,9 @@ export type PermissionRule = {
 export type PermissionRuleset = Array<PermissionRule>
 
 // Todo item from OpenCode SDK
+// Note: SDK v1.2.1 removed `id` field. Bridge no longer sends it.
+// Flutter generates a local id from content.hashCode for widget keys.
 export type Todo = {
-  id: string
   content: string
   status: 'pending' | 'in_progress' | 'completed' | 'cancelled'
   priority: 'high' | 'medium' | 'low'
@@ -165,6 +166,24 @@ export type ClientMessage =
   | { type: 'connect_mcp'; name: string; projectPath?: string }
   | { type: 'disconnect_mcp'; name: string; projectPath?: string }
   | { type: 'get_mcp_resources'; projectPath?: string }
+  // MCP OAuth Authentication
+  | { type: 'mcp_auth_start'; name: string; projectPath?: string }
+  | { type: 'mcp_auth_callback'; name: string; code: string; projectPath?: string }
+  | { type: 'mcp_auth_remove'; name: string; projectPath?: string }
+  // Provider credential management
+  | { type: 'auth_set'; providerId: string; auth: Record<string, unknown>; projectPath?: string }
+  | { type: 'auth_remove'; providerId: string; projectPath?: string }
+  // Global config
+  | { type: 'get_global_config' }
+  | { type: 'set_global_config'; config: Record<string, unknown> }
+  // Project management
+  | { type: 'get_current_project'; projectPath?: string }
+  | { type: 'update_project'; projectId: string; name?: string; icon?: Record<string, unknown>; projectPath?: string }
+  // Message part editing
+  | { type: 'delete_part'; sessionId: string; messageId: string; partId: string; projectPath?: string }
+  | { type: 'update_part'; sessionId: string; messageId: string; partId: string; part: Record<string, unknown>; projectPath?: string }
+  // SDK skills endpoint
+  | { type: 'oc_list_sdk_skills'; projectPath?: string }
   // Feature 23: Git Worktrees (SDK v1.1.1+ experimental)
   | { type: 'list_worktrees'; projectPath?: string }
   | { type: 'create_worktree'; name?: string; startCommand?: string; projectPath?: string }
@@ -567,6 +586,23 @@ export type ServerMessage =
   | { type: 'mcp_connected'; data: boolean; name: string; requestId?: string }
   | { type: 'mcp_disconnected'; data: boolean; name: string; requestId?: string }
   | { type: 'mcp_resources'; data: Record<string, McpResource>; requestId?: string }
+  // MCP OAuth
+  | { type: 'mcp_auth_started'; data: { authorizationUrl: string } | null; name: string; requestId?: string }
+  | { type: 'mcp_auth_completed'; data: boolean; name: string; requestId?: string }
+  | { type: 'mcp_auth_removed'; data: boolean; name: string; requestId?: string }
+  // Provider credentials
+  | { type: 'auth_set_result'; data: boolean; providerId: string; requestId?: string }
+  | { type: 'auth_removed_result'; data: boolean; providerId: string; requestId?: string }
+  // Global config
+  | { type: 'global_config'; data: Record<string, unknown>; requestId?: string }
+  // Project management
+  | { type: 'current_project'; data: Record<string, unknown> | null; requestId?: string }
+  | { type: 'project_updated'; data: Record<string, unknown>; requestId?: string }
+  // Message part editing
+  | { type: 'part_deleted'; data: boolean; requestId?: string }
+  | { type: 'part_updated'; data: Record<string, unknown>; requestId?: string }
+  // SDK skills
+  | { type: 'oc_sdk_skills'; data: Array<{ name: string; description: string; location: string; content: string }>; requestId?: string }
   // Feature 23: Git Worktrees
   | { type: 'worktrees'; data: Worktree[]; requestId?: string }
   | { type: 'worktree_created'; data: Worktree; requestId?: string }
@@ -820,11 +856,25 @@ export type ProviderDetails = {
 export type ModelInfo = {
   id: string
   name: string
+  family?: string
   contextWindow?: number
+  outputLimit?: number
+  reasoning?: boolean
+  attachment?: boolean
+  toolCall?: boolean
+  modalities?: {
+    input: string[]
+    output: string[]
+  }
+  status?: 'alpha' | 'beta' | 'deprecated' | 'active'
+  experimental?: boolean
   pricing?: {
     input: number
     output: number
+    cacheRead?: number
+    cacheWrite?: number
   }
+  variants?: Record<string, Record<string, unknown>>
 }
 
 export type ProviderAuthMethod = {
@@ -934,13 +984,11 @@ export type GitHubComment = {
   createdAt: string
 }
 
-// Feature 19: Formatter Info
+// Feature 19: Formatter Info (matches SDK FormatterStatus shape)
 export type FormatterInfo = {
-  id: string
   name: string
-  language?: string
-  status: 'active' | 'inactive' | 'error'
-  error?: string
+  extensions: string[]
+  enabled: boolean
 }
 
 // NEW: Agent Status for multi-agent support

@@ -98,6 +98,90 @@ class _OpenCodeMcpConfigScreenState
       setState(() => _loadingStatus = false);
     }
   }
+  Future<void> _startMcpAuth(String name) async {
+    final oc = OpenCodeTheme.of(context);
+    try {
+      final bridge = ref.read(bridgeServiceProvider);
+      final result = await bridge.mcpAuthStart(name, projectPath: _projectPath);
+      if (!mounted) return;
+      if (result == null || result['authorizationUrl'] == null) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Failed to start auth for "$name"'),
+            backgroundColor: oc.error,
+          ),
+        );
+        return;
+      }
+      final url = result['authorizationUrl'] as String;
+      // Show dialog with URL and code input
+      final code = await showDialog<String>(
+        context: context,
+        builder: (ctx) {
+          final codeCtrl = TextEditingController();
+          return AlertDialog(
+            title: Text('Authenticate "$name"'),
+            content: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                const Text('Open this URL in your browser:'),
+                const SizedBox(height: 8),
+                SelectableText(
+                  url,
+                  style: TextStyle(
+                    fontSize: 12,
+                    color: oc.primary,
+                  ),
+                ),
+                const SizedBox(height: 16),
+                const Text('Then paste the authorization code:'),
+                const SizedBox(height: 8),
+                TextField(
+                  controller: codeCtrl,
+                  decoration: const InputDecoration(
+                    hintText: 'Authorization code',
+                    border: OutlineInputBorder(),
+                  ),
+                  autofocus: true,
+                ),
+              ],
+            ),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.pop(ctx),
+                child: const Text('Cancel'),
+              ),
+              ElevatedButton(
+                onPressed: () => Navigator.pop(ctx, codeCtrl.text.trim()),
+                child: const Text('Submit'),
+              ),
+            ],
+          );
+        },
+      );
+      if (code == null || code.isEmpty) return;
+      if (!mounted) return;
+      final ok = await bridge.mcpAuthCallback(name, code, projectPath: _projectPath);
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(ok ? 'Authenticated "$name"' : 'Auth failed for "$name"'),
+          backgroundColor: ok ? oc.success : oc.error,
+        ),
+      );
+      await _refreshStatus();
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Auth failed: ${humanizeError(e)}'),
+          backgroundColor: oc.error,
+        ),
+      );
+    }
+  }
+
   Future<void> _toggleConnection(String name, bool connect) async {
     final oc = OpenCodeTheme.of(context);
     try {
@@ -198,6 +282,28 @@ class _OpenCodeMcpConfigScreenState
       );
     }
   }
+  Widget _mcpTrailingButton(
+    String name,
+    McpServerStatus? status,
+    bool isConnected,
+    OpenCodeTheme oc,
+  ) {
+    // Show "Authenticate" for servers needing auth
+    if (status?.status == McpConnectionStatus.needsAuth ||
+        status?.status == McpConnectionStatus.needsClientRegistration) {
+      return TextButton(
+        onPressed: () => _startMcpAuth(name),
+        child: Text('Authenticate', style: TextStyle(color: oc.warning)),
+      );
+    }
+    return TextButton(
+      onPressed: status?.isConnecting == true
+          ? null
+          : () => _toggleConnection(name, !isConnected),
+      child: Text(isConnected ? 'Disconnect' : 'Connect'),
+    );
+  }
+
   IconData _statusIcon(McpServerStatus? status) {
     if (status == null) return AppIcons.cloud;
     if (status.isConnected) return AppIcons.checkCircle;
@@ -332,16 +438,11 @@ class _OpenCodeMcpConfigScreenState
                                       'Configured in OpenCode config',
                                   style: TextStyle(color: oc.textMuted),
                                 ),
-                                trailing: TextButton(
-                                  onPressed: status?.isConnecting == true
-                                      ? null
-                                      : () => _toggleConnection(
-                                          name,
-                                          !isConnected,
-                                        ),
-                                  child: Text(
-                                    isConnected ? 'Disconnect' : 'Connect',
-                                  ),
+                                trailing: _mcpTrailingButton(
+                                  name,
+                                  status,
+                                  isConnected,
+                                  oc,
                                 ),
                               ),
                             );

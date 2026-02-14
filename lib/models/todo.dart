@@ -76,9 +76,11 @@ class Todo {
   });
 
   factory Todo.fromJson(Map<String, dynamic> json) {
+    final content = json['content'] as String? ?? '';
     return Todo(
-      id: json['id'] as String? ?? '',
-      content: json['content'] as String? ?? '',
+      // SDK v1.2.1 removed `id` — auto-generate from content hash for widget keys
+      id: json['id'] as String? ?? content.hashCode.toString(),
+      content: content,
       status: TodoStatus.fromString(json['status'] as String? ?? 'pending'),
       priority: TodoPriority.fromString(
         json['priority'] as String? ?? 'medium',

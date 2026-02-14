@@ -132,47 +132,31 @@ class FileStatusInfo {
   }
 }
 
-// Feature 19: Formatter Status
-/// Status of a formatter
-enum FormatterStatus { active, inactive, error }
-
+// Feature 19: Formatter Status (matches SDK FormatterStatus shape)
 /// Information about a code formatter
 class FormatterInfo {
-  final String id;
   final String name;
-  final String? language;
-  final FormatterStatus status;
-  final String? error;
+  final List<String> extensions;
+  final bool enabled;
 
   const FormatterInfo({
-    required this.id,
     required this.name,
-    this.language,
-    required this.status,
-    this.error,
+    this.extensions = const [],
+    required this.enabled,
   });
 
   factory FormatterInfo.fromJson(Map<String, dynamic> json) {
     return FormatterInfo(
-      id: json['id'] as String? ?? '',
-      name: json['name'] as String? ?? json['id'] as String? ?? '',
-      language: json['language'] as String?,
-      status: _parseStatus(json['status'] as String? ?? 'inactive'),
-      error: json['error'] as String?,
+      name: json['name'] as String? ?? '',
+      extensions: (json['extensions'] as List<dynamic>?)
+              ?.map((e) => e.toString())
+              .toList() ??
+          const [],
+      enabled: json['enabled'] as bool? ?? false,
     );
   }
 
-  static FormatterStatus _parseStatus(String s) {
-    switch (s.toLowerCase()) {
-      case 'active':
-        return FormatterStatus.active;
-      case 'error':
-        return FormatterStatus.error;
-      default:
-        return FormatterStatus.inactive;
-    }
-  }
-
-  bool get isActive => status == FormatterStatus.active;
-  bool get hasError => status == FormatterStatus.error;
+  /// Display string for supported extensions
+  String get extensionDisplay =>
+      extensions.isEmpty ? 'No extensions' : extensions.join(', ');
 }

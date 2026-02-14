@@ -4498,4 +4498,217 @@ class BridgeService {
       return message;
     });
   }
+
+  // ==================================================================
+  // MCP OAuth Authentication
+  // ==================================================================
+
+  Future<Map<String, dynamic>?> mcpAuthStart(
+    String name, {
+    String? projectPath,
+  }) async {
+    final requestId = _generateRequestId();
+    _socket.send({
+      'type': 'mcp_auth_start',
+      'name': name,
+      'requestId': requestId,
+      if (projectPath != null) 'projectPath': projectPath,
+    });
+    final response = await _waitFor('mcp_auth_started', requestId: requestId);
+    final data = response['data'];
+    if (data is Map<String, dynamic>) return data;
+    return null;
+  }
+
+  Future<bool> mcpAuthCallback(
+    String name,
+    String code, {
+    String? projectPath,
+  }) async {
+    final requestId = _generateRequestId();
+    _socket.send({
+      'type': 'mcp_auth_callback',
+      'name': name,
+      'code': code,
+      'requestId': requestId,
+      if (projectPath != null) 'projectPath': projectPath,
+    });
+    final response = await _waitFor(
+      'mcp_auth_completed',
+      requestId: requestId,
+    );
+    return response['data'] as bool? ?? false;
+  }
+
+  Future<bool> mcpAuthRemove(String name, {String? projectPath}) async {
+    final requestId = _generateRequestId();
+    _socket.send({
+      'type': 'mcp_auth_remove',
+      'name': name,
+      'requestId': requestId,
+      if (projectPath != null) 'projectPath': projectPath,
+    });
+    final response = await _waitFor('mcp_auth_removed', requestId: requestId);
+    return response['data'] as bool? ?? false;
+  }
+
+  // ==================================================================
+  // Provider Credential Management
+  // ==================================================================
+
+  Future<bool> authSet(
+    String providerId,
+    Map<String, dynamic> auth, {
+    String? projectPath,
+  }) async {
+    final requestId = _generateRequestId();
+    _socket.send({
+      'type': 'auth_set',
+      'providerId': providerId,
+      'auth': auth,
+      'requestId': requestId,
+      if (projectPath != null) 'projectPath': projectPath,
+    });
+    final response = await _waitFor('auth_set_result', requestId: requestId);
+    return response['data'] as bool? ?? false;
+  }
+
+  Future<bool> authRemove(String providerId, {String? projectPath}) async {
+    final requestId = _generateRequestId();
+    _socket.send({
+      'type': 'auth_remove',
+      'providerId': providerId,
+      'requestId': requestId,
+      if (projectPath != null) 'projectPath': projectPath,
+    });
+    final response = await _waitFor(
+      'auth_removed_result',
+      requestId: requestId,
+    );
+    return response['data'] as bool? ?? false;
+  }
+
+  // ==================================================================
+  // Global Config
+  // ==================================================================
+
+  Future<Map<String, dynamic>> getGlobalConfig() async {
+    final requestId = _generateRequestId();
+    _socket.send({'type': 'get_global_config', 'requestId': requestId});
+    final response = await _waitFor('global_config', requestId: requestId);
+    return response['data'] as Map<String, dynamic>? ?? {};
+  }
+
+  Future<Map<String, dynamic>> setGlobalConfig(
+    Map<String, dynamic> config,
+  ) async {
+    final requestId = _generateRequestId();
+    _socket.send({
+      'type': 'set_global_config',
+      'config': config,
+      'requestId': requestId,
+    });
+    final response = await _waitFor('global_config', requestId: requestId);
+    return response['data'] as Map<String, dynamic>? ?? {};
+  }
+
+  // ==================================================================
+  // Project Management
+  // ==================================================================
+
+  Future<Map<String, dynamic>?> getCurrentProject({
+    String? projectPath,
+  }) async {
+    final requestId = _generateRequestId();
+    _socket.send({
+      'type': 'get_current_project',
+      'requestId': requestId,
+      if (projectPath != null) 'projectPath': projectPath,
+    });
+    final response = await _waitFor('current_project', requestId: requestId);
+    return response['data'] as Map<String, dynamic>?;
+  }
+
+  Future<Map<String, dynamic>> updateProject({
+    required String projectId,
+    String? name,
+    Map<String, dynamic>? icon,
+    String? projectPath,
+  }) async {
+    final requestId = _generateRequestId();
+    _socket.send({
+      'type': 'update_project',
+      'projectId': projectId,
+      'requestId': requestId,
+      if (name != null) 'name': name,
+      if (icon != null) 'icon': icon,
+      if (projectPath != null) 'projectPath': projectPath,
+    });
+    final response = await _waitFor('project_updated', requestId: requestId);
+    return response['data'] as Map<String, dynamic>? ?? {};
+  }
+
+  // ==================================================================
+  // Message Part Editing
+  // ==================================================================
+
+  Future<bool> deletePart({
+    required String sessionId,
+    required String messageId,
+    required String partId,
+    String? projectPath,
+  }) async {
+    final requestId = _generateRequestId();
+    _socket.send({
+      'type': 'delete_part',
+      'sessionId': sessionId,
+      'messageId': messageId,
+      'partId': partId,
+      'requestId': requestId,
+      if (projectPath != null) 'projectPath': projectPath,
+    });
+    final response = await _waitFor('part_deleted', requestId: requestId);
+    return response['data'] as bool? ?? false;
+  }
+
+  Future<Map<String, dynamic>?> updatePart({
+    required String sessionId,
+    required String messageId,
+    required String partId,
+    required Map<String, dynamic> part,
+    String? projectPath,
+  }) async {
+    final requestId = _generateRequestId();
+    _socket.send({
+      'type': 'update_part',
+      'sessionId': sessionId,
+      'messageId': messageId,
+      'partId': partId,
+      'part': part,
+      'requestId': requestId,
+      if (projectPath != null) 'projectPath': projectPath,
+    });
+    final response = await _waitFor('part_updated', requestId: requestId);
+    final data = response['data'];
+    if (data is Map<String, dynamic>) return data;
+    return null;
+  }
+
+  // ==================================================================
+  // SDK Skills Endpoint (supplements filesystem scanning)
+  // ==================================================================
+
+  Future<List<Map<String, dynamic>>> listSdkSkills({
+    String? projectPath,
+  }) async {
+    final requestId = _generateRequestId();
+    _socket.send({
+      'type': 'oc_list_sdk_skills',
+      'requestId': requestId,
+      if (projectPath != null) 'projectPath': projectPath,
+    });
+    final response = await _waitFor('oc_sdk_skills', requestId: requestId);
+    final data = response['data'] as List<dynamic>? ?? [];
+    return data.whereType<Map<String, dynamic>>().toList();
+  }
 }

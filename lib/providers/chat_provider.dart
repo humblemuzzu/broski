@@ -1390,6 +1390,9 @@ class ChatSessionNotifier extends StateNotifier<ChatSessionState> {
       case 'message.part.updated':
         _handleMessagePartUpdated(payload);
         break;
+      case 'message.part.delta':
+        _handleMessagePartDelta(payload);
+        break;
       case 'message.removed':
         _handleMessageRemoved(payload);
         break;
@@ -1500,6 +1503,9 @@ class ChatSessionNotifier extends StateNotifier<ChatSessionState> {
         info['time']?['created'] as int? ??
         DateTime.now().millisecondsSinceEpoch;
     final variant = info['variant'] as String?;
+    // SDK v1.2.1: inline error on assistant messages
+    final msgError = info['error'] as Map<String, dynamic>?;
+    final msgErrorName = msgError?['name'] as String?;
 
     _rolesByMessageId[messageId] = role;
 
@@ -1513,13 +1519,17 @@ class ChatSessionNotifier extends StateNotifier<ChatSessionState> {
           createdAt: DateTime.fromMillisecondsSinceEpoch(created),
           text: '',
           variant: variant,
+          error: msgErrorName,
         ),
       );
       return;
     }
 
     if (existing.role != role) {
-      final updated = _copyWithRole(existing, role).copyWith(variant: variant);
+      final updated = _copyWithRole(existing, role).copyWith(
+        variant: variant,
+        error: msgErrorName,
+      );
       _updateMessage(messageId, updated);
 
       // If parts arrived before message.updated, we may already have the user text.
@@ -1556,8 +1566,16 @@ class ChatSessionNotifier extends StateNotifier<ChatSessionState> {
       }
     }
 
+    // Update variant, error from assistant message info
+    ChatMessage? updated;
     if (variant != null && variant != existing.variant) {
-      _updateMessage(messageId, existing.copyWith(variant: variant));
+      updated = (updated ?? existing).copyWith(variant: variant);
+    }
+    if (msgErrorName != null && msgErrorName != existing.error) {
+      updated = (updated ?? existing).copyWith(error: msgErrorName);
+    }
+    if (updated != null) {
+      _updateMessage(messageId, updated);
     }
   }
 
@@ -1678,6 +1696,28 @@ class ChatSessionNotifier extends StateNotifier<ChatSessionState> {
           ),
         );
       }
+      return;
+    }
+
+    // SDK v1.2.1: Compaction part — show as system message with divider
+    if (partType == 'compaction') {
+      final current = _messages[messageId] ?? message;
+      _updateMessage(
+        messageId,
+        current.copyWith(error: 'context_compacted'),
+      );
+      return;
+    }
+
+    // SDK v1.2.1: Patch part — just log for now; rendering handled by ordered parts
+    if (partType == 'patch') {
+      // Patch parts are handled in the ordered parts rendering path.
+      // No additional processing needed for the legacy (non-ordered) path.
+      return;
+    }
+
+    // SDK v1.2.1: Snapshot — internal data, skip rendering
+    if (partType == 'snapshot') {
       return;
     }
 
@@ -1929,6 +1969,39 @@ class ChatSessionNotifier extends StateNotifier<ChatSessionState> {
         _emitMessages();
       }
     }
+  }
+
+  /// Handle message.part.delta — incremental text append (SDK v1.2.1)
+  /// Much more efficient than full message.part.updated for streaming text.
+  void _handleMessagePartDelta(Map<String, dynamic> payload) {
+    final properties =
+        payload['properties'] as Map<String, dynamic>? ?? const {};
+    final sessionId = properties['sessionID'] as String? ??
+        properties['sessionId'] as String? ??
+        '';
+    if (state.session?.id != sessionId) return;
+
+    final messageId = properties['messageID'] as String? ??
+        properties['messageId'] as String? ??
+        '';
+    final field = properties['field'] as String? ?? '';
+    final delta = properties['delta'] as String? ?? '';
+    if (messageId.isEmpty || delta.isEmpty) return;
+
+    // Only handle text field deltas (the common case for streaming)
+    if (field != 'text') return;
+
+    final existing = _messages[messageId];
+    if (existing == null) return;
+
+    // Append delta to existing text
+    _updateMessage(
+      messageId,
+      existing.copyWith(
+        text: existing.text + delta,
+        isStreaming: true,
+      ),
+    );
   }
 
   void _handleMessagePartRemoved(Map<String, dynamic> payload) {
@@ -2308,7 +2381,23 @@ class ChatSessionNotifier extends StateNotifier<ChatSessionState> {
     final error = properties['error'] as Map<String, dynamic>? ?? const {};
     final errorName = error['name'] as String? ?? 'Error';
     final errorData = error['data'] as Map<String, dynamic>? ?? const {};
-    final errorMessage = errorData['message'] as String? ?? 'Unknown error';
+    final rawMessage = errorData['message'] as String? ?? 'Unknown error';
+
+    // Map SDK error names to user-friendly messages
+    final String errorMessage;
+    switch (errorName) {
+      case 'ContextOverflowError':
+        errorMessage = 'Context window full. Try compacting or starting a new session.';
+      case 'StructuredOutputError':
+        final retries = errorData['retries'] as int? ?? 0;
+        errorMessage = 'Output validation failed after $retries retries';
+      case 'MessageOutputLengthError':
+        errorMessage = 'Response too long — output was truncated';
+      case 'MessageAbortedError':
+        errorMessage = rawMessage;
+      default:
+        errorMessage = rawMessage;
+    }
 
     if (kDebugMode) {
       developer.log(

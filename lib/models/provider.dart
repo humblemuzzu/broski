@@ -70,30 +70,64 @@ class ProviderDetails {
   int get modelCount => models.length;
 }
 
-/// Information about a specific AI model
+/// Information about a specific AI model (enriched from SDK ProviderList)
 class ModelInfo {
   final String id;
   final String name;
+  final String? family;
   final int? contextWindow;
+  final int? outputLimit;
+  final bool reasoning;
+  final bool attachment;
+  final bool toolCall;
+  final ModelModalities? modalities;
+  final String? status; // 'alpha' | 'beta' | 'deprecated' | 'active'
+  final bool experimental;
   final double? inputPricing;
   final double? outputPricing;
+  final double? cacheReadPricing;
+  final double? cacheWritePricing;
+  final Map<String, dynamic>? variants;
 
   const ModelInfo({
     required this.id,
     required this.name,
+    this.family,
     this.contextWindow,
+    this.outputLimit,
+    this.reasoning = false,
+    this.attachment = false,
+    this.toolCall = false,
+    this.modalities,
+    this.status,
+    this.experimental = false,
     this.inputPricing,
     this.outputPricing,
+    this.cacheReadPricing,
+    this.cacheWritePricing,
+    this.variants,
   });
 
   factory ModelInfo.fromJson(String id, Map<String, dynamic> json) {
     final pricing = json['pricing'] as Map<String, dynamic>?;
+    final mods = json['modalities'] as Map<String, dynamic>?;
     return ModelInfo(
       id: id,
       name: json['name'] as String? ?? id,
+      family: json['family'] as String?,
       contextWindow: json['contextWindow'] as int?,
-      inputPricing: pricing?['input'] as double?,
-      outputPricing: pricing?['output'] as double?,
+      outputLimit: json['outputLimit'] as int?,
+      reasoning: json['reasoning'] as bool? ?? false,
+      attachment: json['attachment'] as bool? ?? false,
+      toolCall: json['toolCall'] as bool? ?? false,
+      modalities: mods != null ? ModelModalities.fromJson(mods) : null,
+      status: json['status'] as String?,
+      experimental: json['experimental'] as bool? ?? false,
+      inputPricing: (pricing?['input'] as num?)?.toDouble(),
+      outputPricing: (pricing?['output'] as num?)?.toDouble(),
+      cacheReadPricing: (pricing?['cacheRead'] as num?)?.toDouble(),
+      cacheWritePricing: (pricing?['cacheWrite'] as num?)?.toDouble(),
+      variants: json['variants'] as Map<String, dynamic>?,
     );
   }
 
@@ -106,6 +140,36 @@ class ModelInfo {
       return '${(contextWindow! / 1000).toStringAsFixed(0)}K';
     }
     return contextWindow.toString();
+  }
+
+  bool get supportsImages =>
+      modalities?.input.contains('image') == true || attachment;
+  bool get supportsPdf => modalities?.input.contains('pdf') == true;
+  bool get supportsAudio => modalities?.input.contains('audio') == true;
+  bool get isDeprecated => status == 'deprecated';
+  bool get isBeta => status == 'beta';
+  bool get isAlpha => status == 'alpha';
+  bool get hasVariants => variants != null && variants!.isNotEmpty;
+}
+
+/// Input/output modalities for a model
+class ModelModalities {
+  final List<String> input;
+  final List<String> output;
+
+  const ModelModalities({this.input = const [], this.output = const []});
+
+  factory ModelModalities.fromJson(Map<String, dynamic> json) {
+    return ModelModalities(
+      input: (json['input'] as List<dynamic>?)
+              ?.map((e) => e.toString())
+              .toList() ??
+          const [],
+      output: (json['output'] as List<dynamic>?)
+              ?.map((e) => e.toString())
+              .toList() ??
+          const [],
+    );
   }
 }
 

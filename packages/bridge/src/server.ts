@@ -746,6 +746,7 @@ const BATCH_THRESHOLDS = {
 }
 
 const MESSAGE_PRIORITIES: Record<string, 'immediate' | 'high' | 'normal' | 'low'> = {
+  // Immediate — user-blocking interactions
   'permission.updated': 'immediate',
   'permission.asked': 'immediate',
   'permission.replied': 'immediate',
@@ -753,19 +754,38 @@ const MESSAGE_PRIORITIES: Record<string, 'immediate' | 'high' | 'normal' | 'low'
   'question.replied': 'immediate',
   'question.rejected': 'immediate',
   'session.error': 'immediate',
+  'message.part.delta': 'immediate',
+  // High — visible state changes
   'session.idle': 'high',
+  'session.status': 'high',
   'message.part.updated': 'high',
   'message.part.removed': 'high',
   'message.removed': 'high',
+  'command.executed': 'high',
+  // Normal — list/state updates
   'message.updated': 'normal',
   'session.diff': 'normal',
   'todo.updated': 'normal',
   'session.compacted': 'normal',
   'session.created': 'normal',
   'session.deleted': 'normal',
+  'pty.created': 'normal',
+  'pty.updated': 'normal',
+  'pty.exited': 'normal',
+  'pty.deleted': 'normal',
+  'worktree.ready': 'normal',
+  'worktree.failed': 'normal',
+  'mcp.tools.changed': 'normal',
+  'file.edited': 'normal',
+  'project.updated': 'normal',
+  'vcs.branch.updated': 'normal',
+  // Low — background / infrequent
   'session.updated': 'low',
   'file.watcher.updated': 'low',
   'lsp.updated': 'low',
+  'installation.updated': 'low',
+  'installation.update-available': 'low',
+  'mcp.browser.open.failed': 'low',
 }
 
 export async function createBridgeServer(options: BridgeServerOptions): Promise<BridgeServer> {
@@ -2009,7 +2029,7 @@ export async function createBridgeServer(options: BridgeServerOptions): Promise<
                 // Only emit events AFTER initial sync
                 if (initialSyncDone) {
                   hadChanges = true
-                  // Emit part update with delta if possible
+                  // Compute delta: if text was appended (not replaced), extract the new portion
                   const delta = prevText && part.text.startsWith(prevText) 
                     ? part.text.slice(prevText.length) 
                     : undefined
@@ -2018,20 +2038,37 @@ export async function createBridgeServer(options: BridgeServerOptions): Promise<
                     logDebug(`[RTS] OC External: Text part ${partId} updated, delta=${delta?.length ?? 'full'}`)
                   }
                   
-                  enqueueSdkEvent({
-                    directory: projectPath,
-                    payload: {
-                      type: 'message.part.updated',
-                      properties: {
-                        part: {
-                          ...part,
+                  if (delta) {
+                    // Lightweight delta event — Flutter appends text incrementally (SDK v1.2.1)
+                    enqueueSdkEvent({
+                      directory: projectPath,
+                      payload: {
+                        type: 'message.part.delta',
+                        properties: {
                           sessionID: sessionId,
                           messageID: msgId,
+                          partID: partId,
+                          field: 'text',
+                          delta,
                         },
-                        delta,
                       },
-                    },
-                  })
+                    })
+                  } else {
+                    // Full replacement — text was edited, not appended
+                    enqueueSdkEvent({
+                      directory: projectPath,
+                      payload: {
+                        type: 'message.part.updated',
+                        properties: {
+                          part: {
+                            ...part,
+                            sessionID: sessionId,
+                            messageID: msgId,
+                          },
+                        },
+                      },
+                    })
+                  }
                 }
               }
             }
@@ -5300,6 +5337,18 @@ export async function createBridgeServer(options: BridgeServerOptions): Promise<
           reply({ type: 'session_forked', data: session })
           break
         }
+        case 'oc_session_shell': {
+          const oc = requireOpenCode()
+          const result = await oc.shellCommand(
+            message.sessionId,
+            message.command,
+            message.projectPath,
+            message.agent,
+            message.model,
+          )
+          reply({ type: 'oc_session_shell_result', data: result })
+          break
+        }
         case 'session_children': {
           const oc = requireOpenCode()
           const sessions = await oc.listSessionChildren(
@@ -5493,6 +5542,99 @@ export async function createBridgeServer(options: BridgeServerOptions): Promise<
           const oc = requireOpenCode()
           const resources = await oc.getMcpResources(message.projectPath)
           reply({ type: 'mcp_resources', data: resources })
+          break
+        }
+        // MCP OAuth Authentication
+        case 'mcp_auth_start': {
+          const oc = requireOpenCode()
+          const result = await oc.mcpAuthStart(message.name, message.projectPath)
+          reply({ type: 'mcp_auth_started', data: result, name: message.name })
+          break
+        }
+        case 'mcp_auth_callback': {
+          const oc = requireOpenCode()
+          const ok = await oc.mcpAuthCallback(message.name, (message as any).code, message.projectPath)
+          reply({ type: 'mcp_auth_completed', data: ok, name: message.name })
+          break
+        }
+        case 'mcp_auth_remove': {
+          const oc = requireOpenCode()
+          const ok = await oc.mcpAuthRemove(message.name, message.projectPath)
+          reply({ type: 'mcp_auth_removed', data: ok, name: message.name })
+          break
+        }
+        // Provider credential management
+        case 'auth_set': {
+          const oc = requireOpenCode()
+          const ok = await oc.authSet((message as any).providerId, (message as any).auth)
+          reply({ type: 'auth_set_result', data: ok, providerId: (message as any).providerId })
+          break
+        }
+        case 'auth_remove': {
+          const oc = requireOpenCode()
+          const ok = await oc.authRemove((message as any).providerId)
+          reply({ type: 'auth_removed_result', data: ok, providerId: (message as any).providerId })
+          break
+        }
+        // Global config
+        case 'get_global_config': {
+          const oc = requireOpenCode()
+          const config = await oc.getGlobalConfig()
+          reply({ type: 'global_config', data: config })
+          break
+        }
+        case 'set_global_config': {
+          const oc = requireOpenCode()
+          const config = await oc.updateGlobalConfig((message as any).config ?? {})
+          reply({ type: 'global_config', data: config })
+          break
+        }
+        // Project management
+        case 'get_current_project': {
+          const oc = requireOpenCode()
+          const project = await oc.getCurrentProject(message.projectPath)
+          reply({ type: 'current_project', data: project })
+          break
+        }
+        case 'update_project': {
+          const oc = requireOpenCode()
+          const project = await oc.updateProject(
+            (message as any).projectId,
+            { name: (message as any).name, icon: (message as any).icon },
+            message.projectPath,
+          )
+          reply({ type: 'project_updated', data: project })
+          break
+        }
+        // Message part editing
+        case 'delete_part': {
+          const oc = requireOpenCode()
+          const ok = await oc.deletePart(
+            (message as any).sessionId,
+            (message as any).messageId,
+            (message as any).partId,
+            message.projectPath,
+          )
+          reply({ type: 'part_deleted', data: ok })
+          break
+        }
+        case 'update_part': {
+          const oc = requireOpenCode()
+          const result = await oc.updatePart(
+            (message as any).sessionId,
+            (message as any).messageId,
+            (message as any).partId,
+            (message as any).part ?? {},
+            message.projectPath,
+          )
+          reply({ type: 'part_updated', data: result ?? {} })
+          break
+        }
+        // SDK skills endpoint
+        case 'oc_list_sdk_skills': {
+          const oc = requireOpenCode()
+          const skills = await oc.listSdkSkills(message.projectPath)
+          reply({ type: 'oc_sdk_skills', data: skills })
           break
         }
         // Feature 23: Git Worktrees (SDK v1.1.1+ experimental)

@@ -596,18 +596,14 @@ class _ToolChip extends ConsumerWidget {
     }
   }
 }
-/// Compact chip for formatter display
+/// Compact chip for formatter display (SDK shape: name/extensions/enabled)
 class _FormatterChip extends StatelessWidget {
   const _FormatterChip({required this.formatter});
   final FormatterInfo formatter;
   @override
   Widget build(BuildContext context) {
     final theme = OpenCodeTheme.of(context);
-    final statusColor = switch (formatter.status) {
-      FormatterStatus.active => theme.success,
-      FormatterStatus.error => theme.error,
-      FormatterStatus.inactive => theme.textMuted,
-    };
+    final statusColor = formatter.enabled ? theme.success : theme.textMuted;
     return Container(
       margin: Insets.bottomSm,
       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
@@ -632,9 +628,9 @@ class _FormatterChip extends StatelessWidget {
                     fontWeight: FontWeight.w600,
                   ),
                 ),
-                if (formatter.language != null)
+                if (formatter.extensions.isNotEmpty)
                   Text(
-                    formatter.language!,
+                    formatter.extensionDisplay,
                     style: AppTypography.caption(color: theme.textMuted),
                   ),
               ],
@@ -647,11 +643,7 @@ class _FormatterChip extends StatelessWidget {
               borderRadius: Radii.brSm,
             ),
             child: Text(
-              switch (formatter.status) {
-                FormatterStatus.active => 'Active',
-                FormatterStatus.error => 'Error',
-                FormatterStatus.inactive => 'Off',
-              },
+              formatter.enabled ? 'Enabled' : 'Disabled',
               style: TextStyle(
                 color: statusColor,
                 fontSize: 10,

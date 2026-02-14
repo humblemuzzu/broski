@@ -59,6 +59,88 @@ class RetryPart extends MessagePart {
   final String? errorMessage;
 }
 
+/// Active agent indicator — SDK v1.2.1 AgentPart
+/// Renders as a small tinted pill badge inline (like VariantBadge).
+class AgentIndicatorPart extends MessagePart {
+  const AgentIndicatorPart({
+    required super.sequence,
+    required this.agentName,
+    this.source,
+  });
+
+  final String agentName;
+  final String? source;
+}
+
+/// Context compacted indicator — SDK v1.2.1 CompactionPart
+/// Renders as a centered divider with "Context compacted (auto/manual)".
+class CompactionIndicatorPart extends MessagePart {
+  const CompactionIndicatorPart({
+    required super.sequence,
+    this.auto = false,
+  });
+
+  final bool auto;
+}
+
+/// Files patched indicator — SDK v1.2.1 PatchPart
+/// Renders as a compact file list card (like CompactEditCard).
+class PatchIndicatorPart extends MessagePart {
+  const PatchIndicatorPart({
+    required super.sequence,
+    required this.files,
+    this.hash,
+  });
+
+  final List<String> files;
+  final String? hash;
+}
+
+/// Agentic step boundary — SDK v1.2.1 StepFinishPart
+/// Renders as a thin divider with token/cost info.
+class StepFinishIndicatorPart extends MessagePart {
+  const StepFinishIndicatorPart({
+    required super.sequence,
+    required this.reason,
+    this.cost = 0,
+    this.tokensInput = 0,
+    this.tokensOutput = 0,
+    this.tokensReasoning = 0,
+    this.tokensTotal = 0,
+    this.cacheRead = 0,
+    this.cacheWrite = 0,
+  });
+
+  final String reason;
+  final double cost;
+  final int tokensInput;
+  final int tokensOutput;
+  final int tokensReasoning;
+  final int tokensTotal;
+  final int cacheRead;
+  final int cacheWrite;
+}
+
+/// Snapshot part — not rendered visually. Internal data for rollback/revert.
+class SnapshotPart extends MessagePart {
+  const SnapshotPart({
+    required super.sequence,
+    required this.snapshot,
+  });
+
+  final String snapshot;
+}
+
+/// Step start part — not rendered visually. Marks step boundary.
+class StepStartIndicatorPart extends MessagePart {
+  const StepStartIndicatorPart({
+    required super.sequence,
+    this.snapshot,
+  });
+
+  final String? snapshot;
+}
+
 class RetryInfo {
   const RetryInfo({required this.attempt, this.errorMessage});
 
