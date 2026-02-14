@@ -2725,6 +2725,8 @@ class ChatSessionNotifier extends StateNotifier<ChatSessionState> {
           if (message.decisionReason != null) 'reason': message.decisionReason,
           if (message.blockedPath != null) 'blockedPath': message.blockedPath,
           'hasSuggestions': message.hasSuggestions,
+          if (message.description != null) 'description': message.description,
+          if (message.agentId != null) 'agentId': message.agentId,
         },
       );
       state = state.copyWith(permissions: [request, ...state.permissions]);
@@ -2971,6 +2973,163 @@ class ChatSessionNotifier extends StateNotifier<ChatSessionState> {
         error: message.code,
       );
       _addMessage(errorMsg);
+      return;
+    }
+
+    // ── SDK 0.2.42: Task notifications (agent teams) ──
+    if (message is CCTaskNotification) {
+      final statusIcon = message.isCompleted ? '✅' : message.isFailed ? '❌' : '⏳';
+      final taskMsg = ChatMessage(
+        id: 'cc-task-${message.taskId}-${DateTime.now().microsecondsSinceEpoch}',
+        sessionId: state.ccSessionId ?? '',
+        role: MessageRole.system,
+        createdAt: DateTime.now(),
+        text: '$statusIcon Task: ${message.summary}',
+        variant: 'task-notification:${message.status}',
+      );
+      _addMessage(taskMsg);
+      return;
+    }
+
+    // ── SDK 0.2.42: Tool use summary ──
+    if (message is CCToolUseSummary) {
+      final summaryMsg = ChatMessage(
+        id: 'cc-summary-${DateTime.now().microsecondsSinceEpoch}',
+        sessionId: state.ccSessionId ?? '',
+        role: MessageRole.system,
+        createdAt: DateTime.now(),
+        text: message.summary,
+        variant: 'tool-use-summary',
+      );
+      _addMessage(summaryMsg);
+      return;
+    }
+
+    // ── SDK 0.2.42: Files persisted ──
+    if (message is CCFilesPersisted) {
+      if (message.files.isEmpty && message.failed.isEmpty) return;
+      final names = message.files.map((f) => f['filename'] ?? '').where((f) => f.isNotEmpty).toList();
+      final text = names.isNotEmpty
+          ? '💾 Saved ${names.length} file${names.length > 1 ? 's' : ''}: ${names.join(', ')}'
+          : '💾 Files persisted';
+      final persistMsg = ChatMessage(
+        id: 'cc-files-${DateTime.now().microsecondsSinceEpoch}',
+        sessionId: state.ccSessionId ?? '',
+        role: MessageRole.system,
+        createdAt: DateTime.now(),
+        text: text,
+        variant: 'files-persisted',
+      );
+      _addMessage(persistMsg);
+      return;
+    }
+
+    // ── SDK 0.2.42: Status update (compacting indicator) ──
+    if (message is CCStatusUpdate) {
+      if (message.isCompacting) {
+        final compactMsg = ChatMessage(
+          id: 'cc-compacting-${DateTime.now().microsecondsSinceEpoch}',
+          sessionId: state.ccSessionId ?? '',
+          role: MessageRole.system,
+          createdAt: DateTime.now(),
+          text: '🔄 Compacting conversation...',
+          variant: 'status-compacting',
+        );
+        _addMessage(compactMsg);
+      }
+      return;
+    }
+
+    // ── SDK 0.2.42: Hook lifecycle events ──
+    if (message is CCHookStarted) {
+      final hookMsg = ChatMessage(
+        id: 'cc-hook-${message.hookId}',
+        sessionId: state.ccSessionId ?? '',
+        role: MessageRole.system,
+        createdAt: DateTime.now(),
+        text: '⚡ Hook: ${message.hookName} (${message.hookEvent})',
+        variant: 'hook:running',
+      );
+      _addMessage(hookMsg);
+      return;
+    }
+
+    if (message is CCHookResponse) {
+      // Update the hook-started message with the final result
+      final hookMsgId = 'cc-hook-${message.hookId}';
+      final existingIdx = state.messages.lastIndexWhere(
+        (m) => m.id == hookMsgId,
+      );
+      if (existingIdx >= 0) {
+        final existing = state.messages[existingIdx];
+        final statusIcon = message.isSuccess ? '✅' : message.isError ? '❌' : '⏹';
+        _updateMessage(
+          existing.id,
+          existing.copyWith(
+            text: '$statusIcon Hook: ${message.hookName} (${message.outcome})',
+            variant: 'hook:${message.outcome}',
+          ),
+        );
+      }
+      return;
+    }
+
+    // ── SDK 0.2.42: Auth status (non-error) ──
+    if (message is CCAuthStatus) {
+      if (message.isAuthenticating) {
+        final authMsg = ChatMessage(
+          id: 'cc-auth-${DateTime.now().microsecondsSinceEpoch}',
+          sessionId: state.ccSessionId ?? '',
+          role: MessageRole.system,
+          createdAt: DateTime.now(),
+          text: '🔑 Authenticating...',
+          variant: 'auth-status',
+        );
+        _addMessage(authMsg);
+      }
+      return;
+    }
+
+    // ── SDK 0.2.42: Assistant-level error classification ──
+    if (message is CCAssistantError) {
+      String errorText;
+      switch (message.errorType) {
+        case 'authentication_failed':
+          errorText = '🔒 Authentication failed — check your API key';
+          break;
+        case 'billing_error':
+          errorText = '💳 Billing error — check your account';
+          break;
+        case 'rate_limit':
+          errorText = '⏱ Rate limited — please wait a moment';
+          break;
+        case 'max_output_tokens':
+          errorText = '📏 Response truncated — max output tokens reached';
+          break;
+        case 'server_error':
+          errorText = '🔥 Server error — please retry';
+          break;
+        case 'invalid_request':
+          errorText = '⚠️ Invalid request';
+          break;
+        default:
+          errorText = '⚠️ Error: ${message.errorType}';
+      }
+      final errorMsg = ChatMessage(
+        id: 'cc-assistant-error-${DateTime.now().microsecondsSinceEpoch}',
+        sessionId: state.ccSessionId ?? '',
+        role: MessageRole.system,
+        createdAt: DateTime.now(),
+        text: errorText,
+        variant: 'assistant-error:${message.errorType}',
+      );
+      _addMessage(errorMsg);
+      return;
+    }
+
+    // ── SDK 0.2.42: Result complete with stop reason ──
+    if (message is CCResultComplete) {
+      state = state.copyWith(ccIsStreaming: false);
       return;
     }
   }

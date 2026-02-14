@@ -2771,11 +2771,17 @@ class BridgeService {
     double? maxBudgetUsd,
     List<String>? betas,
     String? variant,
+    ClaudeCodeThinkingOption? thinking,
+    ClaudeCodeEffort? effort,
+    String? agent,
     String? activeSubagent,
     String? resumeSessionAt,
     ClaudeCodeOutputFormat? outputFormat,
     ClaudeCodeSandboxSettings? sandbox,
     bool? enableAgentTeams,
+    bool? persistSession,
+    String? fallbackModel,
+    List<String>? additionalDirectories,
     List<FileAttachment>? fileAttachments,
   }) {
     final guardKey = 'cc_chat:${sessionId ?? 'new'}:${prompt.hashCode}';
@@ -2797,12 +2803,19 @@ class BridgeService {
       if (maxBudgetUsd != null) 'maxBudgetUsd': maxBudgetUsd,
       if (betas != null && betas.isNotEmpty) 'betas': betas,
       if (variant != null && variant.isNotEmpty) 'variant': variant,
+      if (thinking != null) 'thinking': thinking.toJson(),
+      if (effort != null) 'effort': effort.wireValue,
+      if (agent != null) 'agent': agent,
       if (activeSubagent != null) 'activeSubagent': activeSubagent,
       if (resumeSessionAt != null && resumeSessionAt.isNotEmpty)
         'resumeSessionAt': resumeSessionAt,
       if (outputFormat != null) 'outputFormat': outputFormat.toJson(),
       if (sandbox != null) 'sandbox': sandbox.toJson(),
       if (enableAgentTeams != null) 'enableAgentTeams': enableAgentTeams,
+      if (persistSession != null) 'persistSession': persistSession,
+      if (fallbackModel != null) 'fallbackModel': fallbackModel,
+      if (additionalDirectories != null && additionalDirectories.isNotEmpty)
+        'additionalDirectories': additionalDirectories,
       if (fileAttachments != null)
         'fileAttachments': fileAttachments.map((a) => a.toJson()).toList(),
     });
@@ -2810,6 +2823,77 @@ class BridgeService {
 
   void ccAbort(String sessionId) {
     _socket.send({'type': 'cc_abort', 'sessionId': sessionId});
+  }
+
+  /// Stop a running background task (agent teams).
+  void ccStopTask({required String sessionId, required String taskId}) {
+    _socket.send({
+      'type': 'cc_stop_task',
+      'sessionId': sessionId,
+      'taskId': taskId,
+    });
+  }
+
+  /// Reconnect a disconnected MCP server mid-session.
+  void ccReconnectMcpServer({
+    required String sessionId,
+    required String serverName,
+  }) {
+    _socket.send({
+      'type': 'cc_reconnect_mcp_server',
+      'sessionId': sessionId,
+      'serverName': serverName,
+    });
+  }
+
+  /// Enable or disable an MCP server mid-session.
+  void ccToggleMcpServer({
+    required String sessionId,
+    required String serverName,
+    required bool enabled,
+  }) {
+    _socket.send({
+      'type': 'cc_toggle_mcp_server',
+      'sessionId': sessionId,
+      'serverName': serverName,
+      'enabled': enabled,
+    });
+  }
+
+  /// B1: Change permission mode mid-session.
+  void ccSetPermissionMode({
+    required String sessionId,
+    required String mode,
+  }) {
+    _socket.send({
+      'type': 'cc_set_permission_mode',
+      'sessionId': sessionId,
+      'mode': mode,
+    });
+  }
+
+  /// B2: Change model mid-session.
+  void ccSetModel({
+    required String sessionId,
+    String? model,
+  }) {
+    _socket.send({
+      'type': 'cc_set_model',
+      'sessionId': sessionId,
+      if (model != null) 'model': model,
+    });
+  }
+
+  /// B7: Dynamically set MCP servers mid-session.
+  void ccSetMcpServers({
+    required String sessionId,
+    required Map<String, dynamic> servers,
+  }) {
+    _socket.send({
+      'type': 'cc_set_mcp_servers',
+      'sessionId': sessionId,
+      'servers': servers,
+    });
   }
 
   void ccRespondToPermission({

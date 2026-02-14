@@ -7141,12 +7141,18 @@ export async function createBridgeServer(options: BridgeServerOptions): Promise<
               maxBudgetUsd: message.maxBudgetUsd ?? cfg.maxBudgetUsd,
               betas: message.betas ?? cfg.betas,
               variant: message.variant,
+              thinking: message.thinking ?? cfg.thinking,
+              effort: message.effort ?? cfg.effort,
+              agent: message.agent,
               systemPrompt: message.systemPrompt ?? cfg.systemPrompt,
               resumeSessionAt: message.resumeSessionAt,
               outputFormat: message.outputFormat ?? cfg.outputFormat,
               sandbox: message.sandbox ?? cfg.sandbox,
               enableAgentTeams: message.enableAgentTeams ?? cfg.enableAgentTeams,
               activeSubagent: message.activeSubagent,
+              persistSession: message.persistSession,
+              fallbackModel: message.fallbackModel,
+              additionalDirectories: message.additionalDirectories,
             },
             (streamMsg) => {
               const streamMsgWithId = (() => {
@@ -7158,7 +7164,15 @@ export async function createBridgeServer(options: BridgeServerOptions): Promise<
                   t === 'tool-call' ||
                   t === 'tool-result' ||
                   t === 'subagent-invocation' ||
-                  t === 'token-usage'
+                  t === 'token-usage' ||
+                  t === 'task-notification' ||
+                  t === 'tool-use-summary' ||
+                  t === 'files-persisted' ||
+                  t === 'hook-started' ||
+                  t === 'hook-progress' ||
+                  t === 'hook-response' ||
+                  t === 'assistant-error' ||
+                  t === 'result-complete'
                 ) {
                   return { ...(streamMsg as any), messageId: ccMessageId }
                 }
@@ -7229,6 +7243,8 @@ export async function createBridgeServer(options: BridgeServerOptions): Promise<
                 decisionReason: req.decisionReason,
                 blockedPath: req.blockedPath,
                 hasSuggestions: req.hasSuggestions,
+                description: req.description,
+                agentId: req.agentId,
               } as any)
 
               // Wait for a response from the client
@@ -7252,6 +7268,45 @@ export async function createBridgeServer(options: BridgeServerOptions): Promise<
         }
         case 'cc_abort': {
           await claudeCode.abortClaudeCode(message.sessionId)
+          break
+        }
+        case 'cc_stop_task': {
+          const ok = await claudeCode.stopTask(message.sessionId, message.taskId)
+          reply({ type: 'cc_task_stopped', data: { ok, taskId: message.taskId } })
+          break
+        }
+        case 'cc_reconnect_mcp_server': {
+          const ok = await claudeCode.reconnectMcpServer(message.sessionId, message.serverName)
+          reply({ type: 'cc_mcp_server_reconnected', data: { ok, serverName: message.serverName } })
+          break
+        }
+        case 'cc_toggle_mcp_server': {
+          const ok = await claudeCode.toggleMcpServer(message.sessionId, message.serverName, message.enabled)
+          reply({ type: 'cc_mcp_server_toggled', data: { ok, serverName: message.serverName, enabled: message.enabled } })
+          break
+        }
+        // B1: change permission mode mid-session
+        case 'cc_set_permission_mode': {
+          const ok = await claudeCode.setPermissionMode(message.sessionId, message.mode)
+          reply({ type: 'cc_permission_mode_set', data: { ok, mode: message.mode } })
+          break
+        }
+        // B2: change model mid-session
+        case 'cc_set_model': {
+          const ok = await claudeCode.setModel(message.sessionId, message.model)
+          reply({ type: 'cc_model_set', data: { ok, model: message.model } })
+          break
+        }
+        // B3: get full initialization result
+        case 'cc_initialization_result': {
+          const result = await claudeCode.getInitializationResult(message.sessionId)
+          reply({ type: 'cc_initialization_result', data: result })
+          break
+        }
+        // B7: dynamically set MCP servers mid-session
+        case 'cc_set_mcp_servers': {
+          const result = await claudeCode.setMcpServers(message.sessionId, message.servers as Record<string, unknown>)
+          reply({ type: 'cc_mcp_servers_set', data: result })
           break
         }
         case 'cc_permission_response': {
@@ -7745,7 +7800,7 @@ export async function createBridgeServer(options: BridgeServerOptions): Promise<
         }
         // Claude Code File Checkpointing (Undo/Revert)
         case 'cc_rewind_checkpoint': {
-          const success = await claudeCode.rewindToCheckpoint(
+          const result = await claudeCode.rewindToCheckpoint(
             message.sessionId,
             message.checkpointUuid,
             message.cwd,
@@ -7753,9 +7808,12 @@ export async function createBridgeServer(options: BridgeServerOptions): Promise<
           reply({
             type: 'cc_checkpoint_rewound',
             data: {
-              success,
+              success: result.success,
               sessionId: message.sessionId,
               checkpointUuid: message.checkpointUuid,
+              ...(result.filesChanged ? { filesChanged: result.filesChanged } : {}),
+              ...(typeof result.insertions === 'number' ? { insertions: result.insertions } : {}),
+              ...(typeof result.deletions === 'number' ? { deletions: result.deletions } : {}),
             },
           })
           break

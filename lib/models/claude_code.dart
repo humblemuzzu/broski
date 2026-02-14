@@ -345,7 +345,78 @@ class ClaudeCodeOutputFormat {
   }
 }
 
+// ── SDK 0.2.42: Thinking Option ──────────────────────────────────────────
+sealed class ClaudeCodeThinkingOption {
+  const ClaudeCodeThinkingOption();
+
+  factory ClaudeCodeThinkingOption.fromJson(Map<String, dynamic> json) {
+    final type = json['type'] as String? ?? 'adaptive';
+    switch (type) {
+      case 'enabled':
+        return ClaudeCodeThinkingEnabled(
+          budgetTokens: (json['budgetTokens'] as num?)?.toInt() ?? 16384,
+        );
+      case 'disabled':
+        return const ClaudeCodeThinkingDisabled();
+      case 'adaptive':
+      default:
+        return const ClaudeCodeThinkingAdaptive();
+    }
+  }
+
+  Map<String, dynamic> toJson();
+  String get displayName;
+}
+
+class ClaudeCodeThinkingAdaptive extends ClaudeCodeThinkingOption {
+  const ClaudeCodeThinkingAdaptive();
+  @override
+  Map<String, dynamic> toJson() => {'type': 'adaptive'};
+  @override
+  String get displayName => 'Adaptive';
+}
+
+class ClaudeCodeThinkingEnabled extends ClaudeCodeThinkingOption {
+  final int budgetTokens;
+  const ClaudeCodeThinkingEnabled({required this.budgetTokens});
+  @override
+  Map<String, dynamic> toJson() =>
+      {'type': 'enabled', 'budgetTokens': budgetTokens};
+  @override
+  String get displayName => 'Fixed ($budgetTokens)';
+}
+
+class ClaudeCodeThinkingDisabled extends ClaudeCodeThinkingOption {
+  const ClaudeCodeThinkingDisabled();
+  @override
+  Map<String, dynamic> toJson() => {'type': 'disabled'};
+  @override
+  String get displayName => 'Disabled';
+}
+
+// ── SDK 0.2.42: Effort Level ─────────────────────────────────────────────
+enum ClaudeCodeEffort {
+  low('low', 'Low'),
+  medium('medium', 'Medium'),
+  high('high', 'High'),
+  max('max', 'Max');
+
+  final String wireValue;
+  final String displayName;
+  const ClaudeCodeEffort(this.wireValue, this.displayName);
+
+  static ClaudeCodeEffort? fromWireValue(String? value) {
+    if (value == null) return null;
+    return ClaudeCodeEffort.values.cast<ClaudeCodeEffort?>().firstWhere(
+      (e) => e!.wireValue == value,
+      orElse: () => null,
+    );
+  }
+}
+
 class ClaudeCodeSandboxNetworkConfig {
+  final List<String>? allowedDomains;
+  final bool? allowManagedDomainsOnly;
   final List<String>? allowUnixSockets;
   final bool? allowAllUnixSockets;
   final bool? allowLocalBinding;
@@ -353,6 +424,8 @@ class ClaudeCodeSandboxNetworkConfig {
   final int? socksProxyPort;
 
   const ClaudeCodeSandboxNetworkConfig({
+    this.allowedDomains,
+    this.allowManagedDomainsOnly,
     this.allowUnixSockets,
     this.allowAllUnixSockets,
     this.allowLocalBinding,
@@ -362,6 +435,10 @@ class ClaudeCodeSandboxNetworkConfig {
 
   factory ClaudeCodeSandboxNetworkConfig.fromJson(Map<String, dynamic> json) {
     return ClaudeCodeSandboxNetworkConfig(
+      allowedDomains: (json['allowedDomains'] as List<dynamic>?)
+          ?.map((e) => '$e')
+          .toList(),
+      allowManagedDomainsOnly: json['allowManagedDomainsOnly'] as bool?,
       allowUnixSockets: (json['allowUnixSockets'] as List<dynamic>?)
           ?.map((e) => '$e')
           .toList(),
@@ -374,6 +451,9 @@ class ClaudeCodeSandboxNetworkConfig {
 
   Map<String, dynamic> toJson() {
     return {
+      if (allowedDomains != null) 'allowedDomains': allowedDomains,
+      if (allowManagedDomainsOnly != null)
+        'allowManagedDomainsOnly': allowManagedDomainsOnly,
       if (allowUnixSockets != null) 'allowUnixSockets': allowUnixSockets,
       if (allowAllUnixSockets != null)
         'allowAllUnixSockets': allowAllUnixSockets,
@@ -392,6 +472,7 @@ class ClaudeCodeSandboxSettings {
   final Map<String, List<String>>? ignoreViolations;
   final bool? enableWeakerNestedSandbox;
   final List<String>? excludedCommands;
+  final Map<String, dynamic>? ripgrep;
 
   const ClaudeCodeSandboxSettings({
     this.enabled,
@@ -401,6 +482,7 @@ class ClaudeCodeSandboxSettings {
     this.ignoreViolations,
     this.enableWeakerNestedSandbox,
     this.excludedCommands,
+    this.ripgrep,
   });
 
   factory ClaudeCodeSandboxSettings.fromJson(Map<String, dynamic> json) {
@@ -434,6 +516,9 @@ class ClaudeCodeSandboxSettings {
       excludedCommands: (json['excludedCommands'] as List<dynamic>?)
           ?.map((e) => '$e')
           .toList(),
+      ripgrep: json['ripgrep'] is Map
+          ? (json['ripgrep'] as Map).cast<String, dynamic>()
+          : null,
     );
   }
 
@@ -449,6 +534,7 @@ class ClaudeCodeSandboxSettings {
       if (enableWeakerNestedSandbox != null)
         'enableWeakerNestedSandbox': enableWeakerNestedSandbox,
       if (excludedCommands != null) 'excludedCommands': excludedCommands,
+      if (ripgrep != null) 'ripgrep': ripgrep,
     };
   }
 }
@@ -555,15 +641,23 @@ class ClaudeCodeAccountInfo {
 
 class ClaudeCodeMcpServerStatus {
   final String name;
-  final String status;
+  final String status; // connected | failed | needs-auth | pending | disabled
   final String? serverName;
   final String? serverVersion;
+  final String? error;
+  final Map<String, dynamic>? config;
+  final String? scope;
+  final List<ClaudeCodeMcpTool>? tools;
 
   const ClaudeCodeMcpServerStatus({
     required this.name,
     required this.status,
     this.serverName,
     this.serverVersion,
+    this.error,
+    this.config,
+    this.scope,
+    this.tools,
   });
 
   factory ClaudeCodeMcpServerStatus.fromJson(Map<String, dynamic> json) {
@@ -571,13 +665,28 @@ class ClaudeCodeMcpServerStatus {
     final info = infoRaw is Map<String, dynamic>
         ? infoRaw
         : infoRaw is Map
-        ? infoRaw.cast<String, dynamic>()
-        : null;
+            ? infoRaw.cast<String, dynamic>()
+            : null;
+    final rawTools = json['tools'] as List<dynamic>?;
     return ClaudeCodeMcpServerStatus(
       name: json['name'] as String? ?? '',
       status: json['status'] as String? ?? '',
       serverName: info?['name'] as String?,
       serverVersion: info?['version'] as String?,
+      error: json['error'] as String?,
+      config: json['config'] is Map<String, dynamic>
+          ? json['config'] as Map<String, dynamic>
+          : json['config'] is Map
+              ? (json['config'] as Map).cast<String, dynamic>()
+              : null,
+      scope: json['scope'] as String?,
+      tools: rawTools
+          ?.map(
+            (t) => ClaudeCodeMcpTool.fromJson(
+              t is Map<String, dynamic> ? t : (t as Map).cast<String, dynamic>(),
+            ),
+          )
+          .toList(),
     );
   }
 
@@ -590,8 +699,68 @@ class ClaudeCodeMcpServerStatus {
           if (serverName != null) 'name': serverName,
           if (serverVersion != null) 'version': serverVersion,
         },
+      if (error != null) 'error': error,
+      if (config != null) 'config': config,
+      if (scope != null) 'scope': scope,
+      if (tools != null) 'tools': tools!.map((t) => t.toJson()).toList(),
     };
   }
+
+  bool get isDisabled => status == 'disabled';
+  bool get isConnected => status == 'connected';
+  bool get isFailed => status == 'failed';
+}
+
+class ClaudeCodeMcpToolAnnotations {
+  final bool? readOnly;
+  final bool? destructive;
+  final bool? openWorld;
+
+  const ClaudeCodeMcpToolAnnotations({this.readOnly, this.destructive, this.openWorld});
+
+  factory ClaudeCodeMcpToolAnnotations.fromJson(Map<String, dynamic> json) {
+    return ClaudeCodeMcpToolAnnotations(
+      readOnly: json['readOnly'] as bool?,
+      destructive: json['destructive'] as bool?,
+      openWorld: json['openWorld'] as bool?,
+    );
+  }
+
+  Map<String, dynamic> toJson() => {
+    if (readOnly != null) 'readOnly': readOnly,
+    if (destructive != null) 'destructive': destructive,
+    if (openWorld != null) 'openWorld': openWorld,
+  };
+}
+
+class ClaudeCodeMcpTool {
+  final String name;
+  final String? description;
+  final ClaudeCodeMcpToolAnnotations? annotations;
+
+  const ClaudeCodeMcpTool({required this.name, this.description, this.annotations});
+
+  factory ClaudeCodeMcpTool.fromJson(Map<String, dynamic> json) {
+    final rawAnn = json['annotations'];
+    return ClaudeCodeMcpTool(
+      name: json['name'] as String? ?? '',
+      description: json['description'] as String?,
+      annotations: rawAnn is Map<String, dynamic>
+          ? ClaudeCodeMcpToolAnnotations.fromJson(rawAnn)
+          : rawAnn is Map
+              ? ClaudeCodeMcpToolAnnotations.fromJson(rawAnn.cast<String, dynamic>())
+              : null,
+    );
+  }
+
+  Map<String, dynamic> toJson() => {
+    'name': name,
+    if (description != null) 'description': description,
+    if (annotations != null) 'annotations': annotations!.toJson(),
+  };
+
+  bool get isDestructive => annotations?.destructive == true;
+  bool get isReadOnly => annotations?.readOnly == true;
 }
 
 /// Model for SDK subagent/custom agent definition.
@@ -650,6 +819,9 @@ class ClaudeCodeSubagent {
   final ClaudeCodeSubagentModel model;
   final ClaudeCodePermissionMode? permissionMode;
   final List<String>? disallowedTools;
+  final List<String>? skills;
+  final int? maxTurns;
+  final List<dynamic>? mcpServers;
 
   const ClaudeCodeSubagent({
     required this.name,
@@ -659,6 +831,9 @@ class ClaudeCodeSubagent {
     this.model = ClaudeCodeSubagentModel.inherit,
     this.permissionMode,
     this.disallowedTools,
+    this.skills,
+    this.maxTurns,
+    this.mcpServers,
   });
 
   factory ClaudeCodeSubagent.fromJson(Map<String, dynamic> json) {
@@ -675,6 +850,9 @@ class ClaudeCodeSubagent {
           : null,
       disallowedTools: (json['disallowedTools'] as List<dynamic>?)
           ?.cast<String>(),
+      skills: (json['skills'] as List<dynamic>?)?.cast<String>(),
+      maxTurns: (json['maxTurns'] as num?)?.toInt(),
+      mcpServers: json['mcpServers'] as List<dynamic>?,
     );
   }
 
@@ -688,6 +866,9 @@ class ClaudeCodeSubagent {
       if (permissionMode != null) 'permissionMode': permissionMode!.wireValue,
       if (disallowedTools != null && disallowedTools!.isNotEmpty)
         'disallowedTools': disallowedTools,
+      if (skills != null && skills!.isNotEmpty) 'skills': skills,
+      if (maxTurns != null) 'maxTurns': maxTurns,
+      if (mcpServers != null && mcpServers!.isNotEmpty) 'mcpServers': mcpServers,
     };
   }
 
@@ -699,6 +880,9 @@ class ClaudeCodeSubagent {
     ClaudeCodeSubagentModel? model,
     ClaudeCodePermissionMode? permissionMode,
     List<String>? disallowedTools,
+    List<String>? skills,
+    int? maxTurns,
+    List<dynamic>? mcpServers,
   }) {
     return ClaudeCodeSubagent(
       name: name ?? this.name,
@@ -708,6 +892,9 @@ class ClaudeCodeSubagent {
       model: model ?? this.model,
       permissionMode: permissionMode ?? this.permissionMode,
       disallowedTools: disallowedTools ?? this.disallowedTools,
+      skills: skills ?? this.skills,
+      maxTurns: maxTurns ?? this.maxTurns,
+      mcpServers: mcpServers ?? this.mcpServers,
     );
   }
 }
@@ -724,6 +911,8 @@ class ClaudeCodeConfig {
   final ClaudeCodeSandboxSettings? sandbox;
   final ClaudeCodeOutputFormat? outputFormat;
   final bool? enableAgentTeams;
+  final ClaudeCodeThinkingOption? thinking;
+  final ClaudeCodeEffort? effort;
   final String? language;
   final String? releaseChannel; // 'stable' | 'latest'
   final bool? respectGitignore;
@@ -742,6 +931,8 @@ class ClaudeCodeConfig {
     this.sandbox,
     this.outputFormat,
     this.enableAgentTeams,
+    this.thinking,
+    this.effort,
     this.language,
     this.releaseChannel,
     this.respectGitignore,
@@ -785,6 +976,16 @@ class ClaudeCodeConfig {
             )
           : null,
       enableAgentTeams: json['enableAgentTeams'] as bool?,
+      thinking: json['thinking'] is Map<String, dynamic>
+          ? ClaudeCodeThinkingOption.fromJson(
+              json['thinking'] as Map<String, dynamic>,
+            )
+          : json['thinking'] is Map
+              ? ClaudeCodeThinkingOption.fromJson(
+                  (json['thinking'] as Map).cast<String, dynamic>(),
+                )
+              : null,
+      effort: ClaudeCodeEffort.fromWireValue(json['effort'] as String?),
       language: json['language'] as String?,
       releaseChannel: json['releaseChannel'] as String?,
       respectGitignore: json['respectGitignore'] as bool?,
@@ -812,6 +1013,8 @@ class ClaudeCodeConfig {
       if (sandbox != null) 'sandbox': sandbox!.toJson(),
       if (outputFormat != null) 'outputFormat': outputFormat!.toJson(),
       if (enableAgentTeams != null) 'enableAgentTeams': enableAgentTeams,
+      if (thinking != null) 'thinking': thinking!.toJson(),
+      if (effort != null) 'effort': effort!.wireValue,
       if (language != null) 'language': language,
       if (releaseChannel != null) 'releaseChannel': releaseChannel,
       if (respectGitignore != null) 'respectGitignore': respectGitignore,
@@ -848,6 +1051,10 @@ class ClaudeCodeConfig {
     bool clearOutputFormat = false,
     bool? enableAgentTeams,
     bool clearEnableAgentTeams = false,
+    ClaudeCodeThinkingOption? thinking,
+    bool clearThinking = false,
+    ClaudeCodeEffort? effort,
+    bool clearEffort = false,
     String? language,
     bool clearLanguage = false,
     String? releaseChannel,
@@ -878,6 +1085,8 @@ class ClaudeCodeConfig {
       enableAgentTeams: clearEnableAgentTeams
           ? null
           : (enableAgentTeams ?? this.enableAgentTeams),
+      thinking: clearThinking ? null : (thinking ?? this.thinking),
+      effort: clearEffort ? null : (effort ?? this.effort),
       language: clearLanguage ? null : (language ?? this.language),
       releaseChannel: clearReleaseChannel
           ? null
@@ -929,6 +1138,26 @@ sealed class ClaudeCodeStreamMessage {
         return CCTokenUsage.fromJson(json);
       case 'error':
         return CCError.fromJson(json);
+      case 'task-notification':
+        return CCTaskNotification.fromJson(json);
+      case 'tool-use-summary':
+        return CCToolUseSummary.fromJson(json);
+      case 'files-persisted':
+        return CCFilesPersisted.fromJson(json);
+      case 'status-update':
+        return CCStatusUpdate.fromJson(json);
+      case 'hook-started':
+        return CCHookStarted.fromJson(json);
+      case 'hook-progress':
+        return CCHookProgress.fromJson(json);
+      case 'hook-response':
+        return CCHookResponse.fromJson(json);
+      case 'auth-status':
+        return CCAuthStatus.fromJson(json);
+      case 'assistant-error':
+        return CCAssistantError.fromJson(json);
+      case 'result-complete':
+        return CCResultComplete.fromJson(json);
       default:
         return CCUnknown(type ?? 'unknown', json);
     }
@@ -970,6 +1199,12 @@ class CCSessionInit extends ClaudeCodeStreamMessage {
   final ClaudeCodeAccountInfo? accountInfo;
   final String? apiKeySource;
   final String? claudeCodeVersion;
+  /// Active beta features (SDK 0.2.42+).
+  final List<String> betas;
+  /// Output style (e.g. 'concise', 'verbose').
+  final String? outputStyle;
+  /// Agent definitions (subagents) available in this session (SDK 0.2.42+).
+  final List<Map<String, dynamic>> agents;
 
   const CCSessionInit({
     required this.sessionId,
@@ -984,6 +1219,9 @@ class CCSessionInit extends ClaudeCodeStreamMessage {
     this.accountInfo,
     this.apiKeySource,
     this.claudeCodeVersion,
+    this.betas = const [],
+    this.outputStyle,
+    this.agents = const [],
     super.parentToolUseId,
   });
 
@@ -1032,6 +1270,13 @@ class CCSessionInit extends ClaudeCodeStreamMessage {
           : null,
       apiKeySource: json['apiKeySource'] as String?,
       claudeCodeVersion: json['claudeCodeVersion'] as String?,
+      betas: (json['betas'] as List<dynamic>?)?.cast<String>() ?? const [],
+      outputStyle: json['outputStyle'] as String?,
+      agents:
+          (json['agents'] as List<dynamic>?)
+              ?.whereType<Map<String, dynamic>>()
+              .toList() ??
+          const [],
       parentToolUseId: json['parentToolUseId'] as String?,
     );
   }
@@ -1045,6 +1290,8 @@ class CCPermissionRequest extends ClaudeCodeStreamMessage {
   final String? decisionReason;
   final String? blockedPath;
   final bool hasSuggestions;
+  final String? description;
+  final String? agentId;
 
   const CCPermissionRequest({
     required this.sessionId,
@@ -1054,6 +1301,8 @@ class CCPermissionRequest extends ClaudeCodeStreamMessage {
     this.decisionReason,
     this.blockedPath,
     required this.hasSuggestions,
+    this.description,
+    this.agentId,
     super.parentToolUseId,
   });
 
@@ -1068,6 +1317,8 @@ class CCPermissionRequest extends ClaudeCodeStreamMessage {
       decisionReason: json['decisionReason'] as String?,
       blockedPath: json['blockedPath'] as String?,
       hasSuggestions: json['hasSuggestions'] as bool? ?? false,
+      description: json['description'] as String?,
+      agentId: json['agentId'] as String?,
       parentToolUseId: json['parentToolUseId'] as String?,
     );
   }
@@ -1279,6 +1530,7 @@ class CCModelUsage {
   final int webSearchRequests;
   final double costUsd;
   final int contextWindow;
+  final int? maxOutputTokens;
 
   const CCModelUsage({
     required this.inputTokens,
@@ -1288,6 +1540,7 @@ class CCModelUsage {
     required this.webSearchRequests,
     required this.costUsd,
     required this.contextWindow,
+    this.maxOutputTokens,
   });
 
   factory CCModelUsage.fromJson(Map<String, dynamic> json) {
@@ -1301,6 +1554,7 @@ class CCModelUsage {
       webSearchRequests: (json['webSearchRequests'] as num?)?.toInt() ?? 0,
       costUsd: (json['costUSD'] as num?)?.toDouble() ?? 0.0,
       contextWindow: (json['contextWindow'] as num?)?.toInt() ?? 0,
+      maxOutputTokens: (json['maxOutputTokens'] as num?)?.toInt(),
     );
   }
 }
@@ -1397,6 +1651,264 @@ class CCError extends ClaudeCodeStreamMessage {
     return CCError(
       message: json['message'] as String? ?? 'Unknown error',
       code: json['code'] as String?,
+      parentToolUseId: json['parentToolUseId'] as String?,
+    );
+  }
+}
+
+// ── SDK 0.2.42: Task notification (agent teams) ─────────────────────────
+class CCTaskNotification extends ClaudeCodeStreamMessage {
+  final String taskId;
+  final String status; // completed | failed | stopped
+  final String summary;
+  final String? outputFile;
+
+  const CCTaskNotification({
+    required this.taskId,
+    required this.status,
+    required this.summary,
+    this.outputFile,
+    super.parentToolUseId,
+  });
+
+  factory CCTaskNotification.fromJson(Map<String, dynamic> json) {
+    return CCTaskNotification(
+      taskId: json['taskId'] as String? ?? '',
+      status: json['status'] as String? ?? 'completed',
+      summary: json['summary'] as String? ?? '',
+      outputFile: json['outputFile'] as String?,
+      parentToolUseId: json['parentToolUseId'] as String?,
+    );
+  }
+
+  bool get isRunning => status != 'completed' && status != 'failed' && status != 'stopped';
+  bool get isCompleted => status == 'completed';
+  bool get isFailed => status == 'failed';
+}
+
+// ── SDK 0.2.42: Tool use summary ────────────────────────────────────────
+class CCToolUseSummary extends ClaudeCodeStreamMessage {
+  final String summary;
+  final List<String> precedingToolUseIds;
+
+  const CCToolUseSummary({
+    required this.summary,
+    required this.precedingToolUseIds,
+    super.parentToolUseId,
+  });
+
+  factory CCToolUseSummary.fromJson(Map<String, dynamic> json) {
+    return CCToolUseSummary(
+      summary: json['summary'] as String? ?? '',
+      precedingToolUseIds:
+          (json['precedingToolUseIds'] as List<dynamic>?)?.cast<String>() ??
+              const [],
+      parentToolUseId: json['parentToolUseId'] as String?,
+    );
+  }
+}
+
+// ── SDK 0.2.42: Files persisted ─────────────────────────────────────────
+class CCFilesPersisted extends ClaudeCodeStreamMessage {
+  final List<Map<String, String>> files;
+  final List<Map<String, String>> failed;
+
+  const CCFilesPersisted({
+    required this.files,
+    required this.failed,
+    super.parentToolUseId,
+  });
+
+  factory CCFilesPersisted.fromJson(Map<String, dynamic> json) {
+    return CCFilesPersisted(
+      files: (json['files'] as List<dynamic>?)
+              ?.map(
+                (f) => {
+                  'filename': (f as Map)['filename']?.toString() ?? '',
+                  'fileId': f['fileId']?.toString() ?? '',
+                },
+              )
+              .toList() ??
+          const [],
+      failed: (json['failed'] as List<dynamic>?)
+              ?.map(
+                (f) => {
+                  'filename': (f as Map)['filename']?.toString() ?? '',
+                  'error': f['error']?.toString() ?? '',
+                },
+              )
+              .toList() ??
+          const [],
+      parentToolUseId: json['parentToolUseId'] as String?,
+    );
+  }
+}
+
+// ── SDK 0.2.42: Status update (compacting / permission mode) ────────────
+class CCStatusUpdate extends ClaudeCodeStreamMessage {
+  final String? status; // 'compacting' | null
+  final String? permissionMode;
+
+  const CCStatusUpdate({this.status, this.permissionMode, super.parentToolUseId});
+
+  factory CCStatusUpdate.fromJson(Map<String, dynamic> json) {
+    return CCStatusUpdate(
+      status: json['status'] as String?,
+      permissionMode: json['permissionMode'] as String?,
+      parentToolUseId: json['parentToolUseId'] as String?,
+    );
+  }
+
+  bool get isCompacting => status == 'compacting';
+}
+
+// ── SDK 0.2.42: Hook lifecycle events ───────────────────────────────────
+class CCHookStarted extends ClaudeCodeStreamMessage {
+  final String hookId;
+  final String hookName;
+  final String hookEvent;
+
+  const CCHookStarted({
+    required this.hookId,
+    required this.hookName,
+    required this.hookEvent,
+    super.parentToolUseId,
+  });
+
+  factory CCHookStarted.fromJson(Map<String, dynamic> json) {
+    return CCHookStarted(
+      hookId: json['hookId'] as String? ?? '',
+      hookName: json['hookName'] as String? ?? '',
+      hookEvent: json['hookEvent'] as String? ?? '',
+      parentToolUseId: json['parentToolUseId'] as String?,
+    );
+  }
+}
+
+class CCHookProgress extends ClaudeCodeStreamMessage {
+  final String hookId;
+  final String hookName;
+  final String hookEvent;
+  final String output;
+
+  const CCHookProgress({
+    required this.hookId,
+    required this.hookName,
+    required this.hookEvent,
+    required this.output,
+    super.parentToolUseId,
+  });
+
+  factory CCHookProgress.fromJson(Map<String, dynamic> json) {
+    return CCHookProgress(
+      hookId: json['hookId'] as String? ?? '',
+      hookName: json['hookName'] as String? ?? '',
+      hookEvent: json['hookEvent'] as String? ?? '',
+      output: json['output'] as String? ?? '',
+      parentToolUseId: json['parentToolUseId'] as String?,
+    );
+  }
+}
+
+class CCHookResponse extends ClaudeCodeStreamMessage {
+  final String hookId;
+  final String hookName;
+  final String hookEvent;
+  final String output;
+  final String outcome; // success | error | cancelled
+  final int? exitCode;
+
+  const CCHookResponse({
+    required this.hookId,
+    required this.hookName,
+    required this.hookEvent,
+    required this.output,
+    required this.outcome,
+    this.exitCode,
+    super.parentToolUseId,
+  });
+
+  factory CCHookResponse.fromJson(Map<String, dynamic> json) {
+    return CCHookResponse(
+      hookId: json['hookId'] as String? ?? '',
+      hookName: json['hookName'] as String? ?? '',
+      hookEvent: json['hookEvent'] as String? ?? '',
+      output: json['output'] as String? ?? '',
+      outcome: json['outcome'] as String? ?? 'success',
+      exitCode: (json['exitCode'] as num?)?.toInt(),
+      parentToolUseId: json['parentToolUseId'] as String?,
+    );
+  }
+
+  bool get isSuccess => outcome == 'success';
+  bool get isError => outcome == 'error';
+}
+
+// ── SDK 0.2.42: Auth status ─────────────────────────────────────────────
+class CCAuthStatus extends ClaudeCodeStreamMessage {
+  final bool isAuthenticating;
+  final List<String> output;
+  final String? error;
+
+  const CCAuthStatus({
+    required this.isAuthenticating,
+    required this.output,
+    this.error,
+    super.parentToolUseId,
+  });
+
+  factory CCAuthStatus.fromJson(Map<String, dynamic> json) {
+    return CCAuthStatus(
+      isAuthenticating: json['isAuthenticating'] as bool? ?? false,
+      output: (json['output'] as List<dynamic>?)?.cast<String>() ?? const [],
+      error: json['error'] as String?,
+      parentToolUseId: json['parentToolUseId'] as String?,
+    );
+  }
+}
+
+// ── SDK 0.2.42: Assistant-level error classification ────────────────────
+class CCAssistantError extends ClaudeCodeStreamMessage {
+  /// Error type: authentication_failed | billing_error | rate_limit |
+  /// invalid_request | server_error | unknown | max_output_tokens
+  final String errorType;
+
+  const CCAssistantError({required this.errorType, super.parentToolUseId});
+
+  factory CCAssistantError.fromJson(Map<String, dynamic> json) {
+    return CCAssistantError(
+      errorType: json['errorType'] as String? ?? 'unknown',
+      parentToolUseId: json['parentToolUseId'] as String?,
+    );
+  }
+
+  bool get isAuthError => errorType == 'authentication_failed';
+  bool get isBillingError => errorType == 'billing_error';
+  bool get isRateLimit => errorType == 'rate_limit';
+  bool get isMaxOutputTokens => errorType == 'max_output_tokens';
+}
+
+// ── SDK 0.2.42: Result complete with stop reason ────────────────────────
+class CCResultComplete extends ClaudeCodeStreamMessage {
+  final String? stopReason;
+  final int? numTurns;
+  final int? durationMs;
+  final int? durationApiMs;
+
+  const CCResultComplete({
+    this.stopReason,
+    this.numTurns,
+    this.durationMs,
+    this.durationApiMs,
+    super.parentToolUseId,
+  });
+
+  factory CCResultComplete.fromJson(Map<String, dynamic> json) {
+    return CCResultComplete(
+      stopReason: json['stopReason'] as String?,
+      numTurns: (json['numTurns'] as num?)?.toInt(),
+      durationMs: (json['durationMs'] as num?)?.toInt(),
+      durationApiMs: (json['durationApiMs'] as num?)?.toInt(),
       parentToolUseId: json['parentToolUseId'] as String?,
     );
   }

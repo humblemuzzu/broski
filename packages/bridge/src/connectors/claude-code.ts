@@ -22,6 +22,8 @@ import type {
   ClaudeCodeSupportedModel,
   ClaudeCodeAccountInfo,
   ClaudeCodeMcpServerStatus,
+  ClaudeCodeThinkingOption,
+  ClaudeCodeEffort,
   FileAttachment,
 } from '../types'
 
@@ -266,15 +268,21 @@ export type ClaudeCodeQueryOptions = {
   maxTurns?: number
   maxBudgetUsd?: number
   betas?: ClaudeCodeBeta[]
-  variant?: string  // Named thinking level (low/medium/high/max) - maps to maxThinkingTokens
+  variant?: string  // Named thinking level (low/medium/high/max) - maps to maxThinkingTokens (DEPRECATED)
+  thinking?: ClaudeCodeThinkingOption  // New structured thinking option (SDK 0.2.42+)
+  effort?: ClaudeCodeEffort            // Effort level (SDK 0.2.42+)
+  agent?: string                        // Top-level agent name (SDK 0.2.42+)
   systemPrompt?: string | { type: 'preset'; preset: string; append?: string } | null
   resumeSessionAt?: string
   outputFormat?: ClaudeCodeOutputFormat
   sandbox?: ClaudeCodeSandboxSettings
   enableAgentTeams?: boolean
   enableFileCheckpointing?: boolean
+  persistSession?: boolean
   agents?: Record<string, ClaudeCodeSubagent>  // Custom subagent definitions
   activeSubagent?: string  // Name of the subagent to use for this query (prepends prompt hint)
+  fallbackModel?: string                // B5: fallback model on primary failure
+  additionalDirectories?: string[]      // B6: extra directories agent can access
 }
 
 /**
@@ -1760,8 +1768,8 @@ export async function setConfig(config: Partial<ClaudeCodeConfig>, cwd?: string)
  * Convert an array of ClaudeCodeSubagent to SDK's agents Record format.
  * The SDK expects agents as Record<name, { description, prompt, tools?, model? }>
  */
-function convertSubagentsToRecord(subagents: ClaudeCodeSubagent[]): Record<string, { description: string; prompt: string; tools?: string[]; model?: string; permissionMode?: string; disallowedTools?: string[] }> {
-  const record: Record<string, { description: string; prompt: string; tools?: string[]; model?: string; permissionMode?: string; disallowedTools?: string[] }> = {}
+function convertSubagentsToRecord(subagents: ClaudeCodeSubagent[]): Record<string, { description: string; prompt: string; tools?: string[]; model?: string; permissionMode?: string; disallowedTools?: string[]; skills?: string[]; maxTurns?: number }> {
+  const record: Record<string, { description: string; prompt: string; tools?: string[]; model?: string; permissionMode?: string; disallowedTools?: string[]; skills?: string[]; maxTurns?: number }> = {}
   for (const agent of subagents) {
     record[agent.name] = {
       description: agent.description,
@@ -1770,6 +1778,9 @@ function convertSubagentsToRecord(subagents: ClaudeCodeSubagent[]): Record<strin
       ...(agent.model && agent.model !== 'inherit' && { model: agent.model }),
       ...(agent.permissionMode && { permissionMode: agent.permissionMode }),
       ...(agent.disallowedTools?.length && { disallowedTools: agent.disallowedTools }),
+      ...(agent.skills?.length && { skills: agent.skills }),
+      ...(typeof agent.maxTurns === 'number' && agent.maxTurns > 0 && { maxTurns: agent.maxTurns }),
+      ...(agent.mcpServers?.length && { mcpServers: agent.mcpServers }),
     }
   }
   return record
@@ -1812,7 +1823,7 @@ function normalizeMcpServerStatuses(statuses: unknown): ClaudeCodeMcpServerStatu
       const name = String((item as any).name ?? '').trim()
       const status = String((item as any).status ?? '').trim()
       if (!name) return null
-      if (status !== 'connected' && status !== 'failed' && status !== 'needs-auth' && status !== 'pending') {
+      if (status !== 'connected' && status !== 'failed' && status !== 'needs-auth' && status !== 'pending' && status !== 'disabled') {
         return null
       }
       const info = (item as any).serverInfo
@@ -1822,10 +1833,34 @@ function normalizeMcpServerStatuses(statuses: unknown): ClaudeCodeMcpServerStatu
             version: String((info as any).version ?? '').trim(),
           }
         : undefined
+      const errorMsg = typeof (item as any).error === 'string' ? (item as any).error : undefined
+      const scope = typeof (item as any).scope === 'string' ? (item as any).scope : undefined
+      const rawTools = Array.isArray((item as any).tools) ? (item as any).tools : undefined
+      const tools = rawTools?.map((t: any) => {
+        const entry: { name: string; description?: string; annotations?: { readOnly?: boolean; destructive?: boolean; openWorld?: boolean } } = {
+          name: String(t?.name ?? ''),
+        }
+        if (typeof t?.description === 'string') entry.description = t.description
+        if (t?.annotations && typeof t.annotations === 'object') {
+          const ann: any = {}
+          if (typeof t.annotations.readOnly === 'boolean') ann.readOnly = t.annotations.readOnly
+          if (typeof t.annotations.destructive === 'boolean') ann.destructive = t.annotations.destructive
+          if (typeof t.annotations.openWorld === 'boolean') ann.openWorld = t.annotations.openWorld
+          if (Object.keys(ann).length > 0) entry.annotations = ann
+        }
+        return entry
+      }).filter((t: any) => t.name) ?? undefined
+      // Forward server config (B12: URLs, transport type)
+      const rawConfig = (item as any).config
+      const config = rawConfig && typeof rawConfig === 'object' ? rawConfig : undefined
       return {
         name,
         status,
         ...(serverInfo && serverInfo.name && serverInfo.version ? { serverInfo } : {}),
+        ...(errorMsg ? { error: errorMsg } : {}),
+        ...(config ? { config } : {}),
+        ...(scope ? { scope } : {}),
+        ...(tools && tools.length > 0 ? { tools } : {}),
       } as ClaudeCodeMcpServerStatus
     })
     .filter((item): item is ClaudeCodeMcpServerStatus => item != null)
@@ -1833,7 +1868,7 @@ function normalizeMcpServerStatuses(statuses: unknown): ClaudeCodeMcpServerStatu
 
 function normalizeModelUsage(
   modelUsage: unknown,
-): Record<string, { inputTokens: number; outputTokens: number; cacheReadInputTokens: number; cacheCreationInputTokens: number; webSearchRequests: number; costUSD: number; contextWindow: number }> | undefined {
+): Record<string, { inputTokens: number; outputTokens: number; cacheReadInputTokens: number; cacheCreationInputTokens: number; webSearchRequests: number; costUSD: number; contextWindow: number; maxOutputTokens: number }> | undefined {
   if (!modelUsage || typeof modelUsage !== 'object') return undefined
   const entries = Object.entries(modelUsage as Record<string, unknown>)
   if (entries.length === 0) return undefined
@@ -1850,10 +1885,11 @@ function normalizeModelUsage(
         webSearchRequests: Number(raw.webSearchRequests ?? 0) || 0,
         costUSD: Number(raw.costUSD ?? 0) || 0,
         contextWindow: Number(raw.contextWindow ?? 0) || 0,
+        maxOutputTokens: Number(raw.maxOutputTokens ?? 0) || 0,
       }
       return [modelName, normalized] as const
     })
-    .filter((item): item is readonly [string, { inputTokens: number; outputTokens: number; cacheReadInputTokens: number; cacheCreationInputTokens: number; webSearchRequests: number; costUSD: number; contextWindow: number }] => item != null)
+    .filter((item): item is readonly [string, { inputTokens: number; outputTokens: number; cacheReadInputTokens: number; cacheCreationInputTokens: number; webSearchRequests: number; costUSD: number; contextWindow: number; maxOutputTokens: number }] => item != null)
 
   if (normalizedEntries.length === 0) return undefined
   return Object.fromEntries(normalizedEntries)
@@ -2009,6 +2045,8 @@ export async function queryClaudeCode(
     decisionReason?: string
     blockedPath?: string
     hasSuggestions?: boolean
+    description?: string
+    agentId?: string
   }) => Promise<PermissionResponse>,
 ): Promise<void> {
   let sessionId: string | null = options.sessionId || null
@@ -2029,6 +2067,10 @@ export async function queryClaudeCode(
     const outputFormat = options.outputFormat ?? currentConfig.outputFormat
     const enableAgentTeams = options.enableAgentTeams ?? currentConfig.enableAgentTeams ?? false
 
+    const thinking = options.thinking ?? currentConfig.thinking
+    const effort = options.effort ?? currentConfig.effort
+    const persistSession = options.persistSession
+
     const sdkOptions: any = {
       cwd: options.cwd,
       model: options.model || currentConfig.model || 'sonnet',
@@ -2040,12 +2082,22 @@ export async function queryClaudeCode(
       abortController: controller,
       settingSources: ['project', 'local', 'user'],
       // File checkpointing: enable tracking of file changes for undo/rewind support
-      // Note: The env option was removed as it causes the SDK to hang.
-      // enableFileCheckpointing alone should be sufficient for undo support.
       ...(enableCheckpointing && {
         enableFileCheckpointing: true,
         extraArgs: { 'replay-user-messages': null }, // Required to get user message UUIDs
       }),
+      // SDK 0.2.42: structured thinking option (replaces maxThinkingTokens)
+      ...(thinking ? { thinking } : {}),
+      // SDK 0.2.42: effort level
+      ...(effort ? { effort } : {}),
+      // SDK 0.2.42: top-level agent selection
+      ...(options.agent ? { agent: options.agent } : {}),
+      // SDK 0.2.42: session persistence control
+      ...(typeof persistSession === 'boolean' ? { persistSession } : {}),
+      // B5: fallback model
+      ...(options.fallbackModel ? { fallbackModel: options.fallbackModel } : {}),
+      // B6: additional directories
+      ...(options.additionalDirectories?.length ? { additionalDirectories: options.additionalDirectories } : {}),
     }
 
     if (Array.isArray(betas) && betas.length > 0) {
@@ -2127,12 +2179,20 @@ export async function queryClaudeCode(
         toolName: string,
         input: Record<string, unknown>,
         ctx: {
+          signal: AbortSignal
           toolUseID: string
           suggestions?: unknown[]
           blockedPath?: string
           decisionReason?: string
+          description?: string
+          agentID?: string
         },
       ) => {
+        // Compliance: honour abort signal — if session was aborted while
+        // waiting for permission, reject immediately.
+        if (ctx.signal?.aborted) {
+          return { behavior: 'deny', message: 'Session aborted', toolUseID: ctx.toolUseID }
+        }
         const sid = sessionId ?? options.sessionId ?? ''
         const response = await onPermissionRequest({
           sessionId: sid,
@@ -2142,6 +2202,8 @@ export async function queryClaudeCode(
           decisionReason: ctx.decisionReason,
           blockedPath: ctx.blockedPath,
           hasSuggestions: Array.isArray(ctx.suggestions) && ctx.suggestions.length > 0,
+          description: ctx.description,
+          agentId: ctx.agentID,
         })
 
         if (response === 'reject') {
@@ -2164,15 +2226,36 @@ export async function queryClaudeCode(
       }
     }
 
-    // If activeSubagent is specified, prepend an explicit invocation hint to the prompt
-    // Per SDK docs: "To guarantee Claude uses a specific subagent, mention it by name in your prompt"
+    // If activeSubagent is specified and no top-level `agent` was set,
+    // use the SDK 0.2.42 `agent` option for proper subagent routing.
+    // Falls back to prompt hint for agents not in the `agents` option.
     let finalPrompt = prompt
-    if (options.activeSubagent) {
+    if (options.activeSubagent && !sdkOptions.agent) {
       const agentName = options.activeSubagent
-      // Check if this agent exists in the configured agents
-      const agents = sdkOptions.agents || {}
-      if (agents[agentName]) {
+      const configuredAgents = sdkOptions.agents || {}
+      if (configuredAgents[agentName]) {
+        // SDK 0.2.42: use proper `agent` option
+        sdkOptions.agent = agentName
+      } else {
+        // Fallback: prompt hint for filesystem-based agents
         finalPrompt = `Use the ${agentName} agent to handle this request.\n\n${prompt}`
+      }
+    }
+
+    // Compliance: if no structured `thinking` was set, convert legacy
+    // variant/maxThinkingTokens to the proper `thinking` option on sdkOptions
+    // BEFORE creating the query. setMaxThinkingTokens() is deprecated.
+    if (!sdkOptions.thinking) {
+      let thinkingTokens = options.maxThinkingTokens
+      if (thinkingTokens === undefined && options.variant) {
+        thinkingTokens = variantToThinkingTokens(options.variant)
+      }
+      if (thinkingTokens !== undefined && thinkingTokens !== null) {
+        if (thinkingTokens === 0) {
+          sdkOptions.thinking = { type: 'disabled' }
+        } else {
+          sdkOptions.thinking = { type: 'enabled', budgetTokens: thinkingTokens }
+        }
       }
     }
 
@@ -2230,26 +2313,19 @@ export async function queryClaudeCode(
           tools: Array.isArray(message.tools) ? message.tools : [],
           slashCommands: Array.isArray(message.slash_commands) ? message.slash_commands : [],
           skills: Array.isArray(message.skills) ? message.skills : [],
+          agents: Array.isArray(message.agents) ? message.agents : [],
           mcpServers: capabilities?.mcpStatuses ?? initMcpServers,
           plugins: Array.isArray(message.plugins) ? message.plugins : [],
           apiKeySource: message.apiKeySource,
           claudeCodeVersion: message.claude_code_version,
+          // B15: forward active betas and output style
+          ...(Array.isArray(message.betas) && message.betas.length > 0 ? { betas: message.betas } : {}),
+          ...(message.output_style ? { outputStyle: message.output_style } : {}),
           supportedModels: capabilities?.supportedModels,
           accountInfo: capabilities?.accountInfo,
         })
 
-        // Set thinking tokens: prefer explicit maxThinkingTokens, fallback to variant mapping
-        let thinkingTokens = options.maxThinkingTokens
-        if (thinkingTokens === undefined && options.variant) {
-          thinkingTokens = variantToThinkingTokens(options.variant)
-        }
-        if (thinkingTokens !== undefined && typeof (q as any).setMaxThinkingTokens === 'function') {
-          try {
-            await (q as any).setMaxThinkingTokens(thinkingTokens)
-          } catch {
-            // ignore (control requests may not be enabled depending on transport mode)
-          }
-        }
+        // (Legacy thinking fallback was moved before query() call — see below)
       }
 
       if (message?.type === 'system' && message?.subtype === 'compact_boundary') {
@@ -2328,6 +2404,14 @@ export async function queryClaudeCode(
           input: { elapsedSeconds: message.elapsed_time_seconds },
           toolUseId: message.tool_use_id,
           status: 'running',
+        })
+      }
+
+      // B9: SDKAssistantMessage.error — surface authentication/billing/rate errors
+      if (message?.type === 'assistant' && message?.error) {
+        emit({
+          type: 'assistant-error',
+          errorType: String(message.error),
         })
       }
 
@@ -2416,12 +2500,103 @@ export async function queryClaudeCode(
             ...(modelUsage ? { modelUsage } : {}),
           })
         }
+        // B10: emit result-complete with stop_reason, num_turns, durations
+        emit({
+          type: 'result-complete',
+          stopReason: message.stop_reason ?? null,
+          numTurns: typeof message.num_turns === 'number' ? message.num_turns : undefined,
+          durationMs: typeof message.duration_ms === 'number' ? message.duration_ms : undefined,
+          durationApiMs: typeof message.duration_api_ms === 'number' ? message.duration_api_ms : undefined,
+        })
       }
 
-      // Auth status events can be surfaced as an error (UI should guide user)
-      if (message?.type === 'auth_status' && message?.error) {
-        onError(new Error(String(message.error)))
-        return
+      // SDK 0.2.42: Task notification (agent teams background tasks)
+      if (message?.type === 'system' && message?.subtype === 'task_notification') {
+        emit({
+          type: 'task-notification',
+          taskId: message.task_id,
+          status: message.status,
+          summary: message.summary,
+          outputFile: message.output_file,
+        })
+      }
+
+      // SDK 0.2.42: Tool use summary (aggregated tool calls)
+      if (message?.type === 'tool_use_summary') {
+        emit({
+          type: 'tool-use-summary',
+          summary: message.summary,
+          precedingToolUseIds: Array.isArray(message.preceding_tool_use_ids) ? message.preceding_tool_use_ids : [],
+        })
+      }
+
+      // SDK 0.2.42: Files persisted events
+      if (message?.type === 'system' && message?.subtype === 'files_persisted') {
+        emit({
+          type: 'files-persisted',
+          files: Array.isArray(message.files) ? message.files.map((f: any) => ({
+            filename: String(f?.filename ?? ''),
+            fileId: String(f?.file_id ?? ''),
+          })) : [],
+          failed: Array.isArray(message.failed) ? message.failed.map((f: any) => ({
+            filename: String(f?.filename ?? ''),
+            error: String(f?.error ?? ''),
+          })) : [],
+        })
+      }
+
+      // SDK 0.2.42: Status updates (compacting, permission mode changes)
+      if (message?.type === 'system' && message?.subtype === 'status') {
+        emit({
+          type: 'status-update',
+          status: message.status ?? null,
+          ...(message.permissionMode ? { permissionMode: message.permissionMode } : {}),
+        })
+      }
+
+      // SDK 0.2.42: Hook lifecycle events
+      if (message?.type === 'system' && message?.subtype === 'hook_started') {
+        emit({
+          type: 'hook-started',
+          hookId: message.hook_id,
+          hookName: message.hook_name,
+          hookEvent: message.hook_event,
+        })
+      }
+      if (message?.type === 'system' && message?.subtype === 'hook_progress') {
+        emit({
+          type: 'hook-progress',
+          hookId: message.hook_id,
+          hookName: message.hook_name,
+          hookEvent: message.hook_event,
+          output: message.output || message.stdout || '',
+        })
+      }
+      if (message?.type === 'system' && message?.subtype === 'hook_response') {
+        emit({
+          type: 'hook-response',
+          hookId: message.hook_id,
+          hookName: message.hook_name,
+          hookEvent: message.hook_event,
+          output: message.output || message.stdout || '',
+          outcome: message.outcome ?? 'success',
+          exitCode: message.exit_code,
+        })
+      }
+
+      // Auth status events: surface errors to UI, forward non-error auth progress
+      if (message?.type === 'auth_status') {
+        if (message?.error) {
+          onError(new Error(String(message.error)))
+          return
+        }
+        // Forward non-error auth status for login progress visibility
+        emit({
+          type: 'auth-status',
+          isAuthenticating: message.isAuthenticating ?? false,
+          output: Array.isArray(message.output) ? message.output : [],
+          ...(message.error ? { error: String(message.error) } : {}),
+        })
       }
     }
 
@@ -2477,7 +2652,7 @@ export async function rewindToCheckpoint(
   sessionId: string,
   checkpointUuid: string,
   cwd: string,
-): Promise<boolean> {
+): Promise<{ success: boolean; filesChanged?: string[]; insertions?: number; deletions?: number }> {
   try {
     // Resume the session with an empty prompt to get access to rewindFiles
     const resumeOptions: any = {
@@ -2485,28 +2660,164 @@ export async function rewindToCheckpoint(
       resume: sessionId,
       enableFileCheckpointing: true,
       extraArgs: { 'replay-user-messages': null },
-      env: { CLAUDE_CODE_ENABLE_SDK_FILE_CHECKPOINTING: '1' },
     }
 
     const q = query({ prompt: '', options: resumeOptions })
 
-    // Call rewindFiles on the resumed query
-    if (typeof (q as any).rewindFiles === 'function') {
-      await (q as any).rewindFiles(checkpointUuid)
+    // Call rewindFiles on the resumed query — SDK 0.2.42 returns RewindFilesResult
+    if (typeof q.rewindFiles === 'function') {
+      const result = await q.rewindFiles(checkpointUuid)
       
       // Consume the stream to complete the operation
-      for await (const _message of q as any) {
+      for await (const _message of q) {
         // Just drain the stream
       }
       
-      return true
+      if (result && !result.canRewind) {
+        console.error('Cannot rewind:', result.error)
+        return { success: false }
+      }
+
+      return {
+        success: true,
+        filesChanged: result?.filesChanged,
+        insertions: result?.insertions,
+        deletions: result?.deletions,
+      }
     } else {
       console.error('rewindFiles is not available on the query object')
-      return false
+      return { success: false }
     }
   } catch (error) {
     console.error('Failed to rewind to checkpoint:', error)
+    return { success: false }
+  }
+}
+
+/**
+ * Stop a running background task (agent teams).
+ * Requires an active session with the given sessionId.
+ */
+export async function stopTask(sessionId: string, taskId: string): Promise<boolean> {
+  const session = activeSessions.get(sessionId)
+  if (!session?.query) return false
+  try {
+    const q = session.query as any
+    if (typeof q.stopTask === 'function') {
+      await q.stopTask(taskId)
+      return true
+    }
     return false
+  } catch {
+    return false
+  }
+}
+
+/**
+ * Reconnect an MCP server by name on an active session.
+ */
+export async function reconnectMcpServer(sessionId: string, serverName: string): Promise<boolean> {
+  const session = activeSessions.get(sessionId)
+  if (!session?.query) return false
+  try {
+    const q = session.query as any
+    if (typeof q.reconnectMcpServer === 'function') {
+      await q.reconnectMcpServer(serverName)
+      return true
+    }
+    return false
+  } catch {
+    return false
+  }
+}
+
+/**
+ * Enable or disable an MCP server by name on an active session.
+ */
+export async function toggleMcpServer(sessionId: string, serverName: string, enabled: boolean): Promise<boolean> {
+  const session = activeSessions.get(sessionId)
+  if (!session?.query) return false
+  try {
+    const q = session.query as any
+    if (typeof q.toggleMcpServer === 'function') {
+      await q.toggleMcpServer(serverName, enabled)
+      return true
+    }
+    return false
+  } catch {
+    return false
+  }
+}
+
+/**
+ * B1: Change permission mode mid-session via Query.setPermissionMode().
+ */
+export async function setPermissionMode(sessionId: string, mode: string): Promise<boolean> {
+  const session = activeSessions.get(sessionId)
+  if (!session?.query) return false
+  try {
+    const q = session.query as any
+    if (typeof q.setPermissionMode === 'function') {
+      await q.setPermissionMode(mode)
+      return true
+    }
+    return false
+  } catch {
+    return false
+  }
+}
+
+/**
+ * B2: Change model mid-session via Query.setModel().
+ */
+export async function setModel(sessionId: string, model?: string): Promise<boolean> {
+  const session = activeSessions.get(sessionId)
+  if (!session?.query) return false
+  try {
+    const q = session.query as any
+    if (typeof q.setModel === 'function') {
+      await q.setModel(model)
+      return true
+    }
+    return false
+  } catch {
+    return false
+  }
+}
+
+/**
+ * B3: Get full initialization result (richer than session-init message).
+ * Returns commands, models, account info, output styles.
+ */
+export async function getInitializationResult(sessionId: string): Promise<Record<string, unknown> | null> {
+  const session = activeSessions.get(sessionId)
+  if (!session?.query) return null
+  try {
+    const q = session.query as any
+    if (typeof q.initializationResult === 'function') {
+      return await q.initializationResult()
+    }
+    return null
+  } catch {
+    return null
+  }
+}
+
+/**
+ * B7: Dynamically set MCP servers mid-session via Query.setMcpServers().
+ * Returns { added, removed, errors }.
+ */
+export async function setMcpServers(sessionId: string, servers: Record<string, unknown>): Promise<{ added: string[]; removed: string[]; errors: Record<string, string> } | null> {
+  const session = activeSessions.get(sessionId)
+  if (!session?.query) return null
+  try {
+    const q = session.query as any
+    if (typeof q.setMcpServers === 'function') {
+      return await q.setMcpServers(servers)
+    }
+    return null
+  } catch {
+    return null
   }
 }
 

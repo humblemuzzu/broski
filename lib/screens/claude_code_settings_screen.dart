@@ -282,6 +282,162 @@ class _ClaudeCodeSettingsScreenState
     controller.dispose();
     return result;
   }
+  // ── Thinking Mode radio tiles ──────────────────────────────────────────
+  List<Widget> _buildThinkingModeRadios(ClaudeCodeConfig? cfg, OpenCodeTheme oc) {
+    if (cfg == null) return [];
+    final current = cfg.thinking;
+    // Determine which radio is selected
+    final String selected;
+    if (current == null) {
+      selected = 'default'; // No thinking config = use SDK default
+    } else if (current is ClaudeCodeThinkingAdaptive) {
+      selected = 'adaptive';
+    } else if (current is ClaudeCodeThinkingEnabled) {
+      selected = 'enabled';
+    } else {
+      selected = 'disabled';
+    }
+
+    return [
+      RadioListTile<String>(
+        contentPadding: EdgeInsets.zero,
+        dense: true,
+        title: const Text('Default'),
+        subtitle: Text(
+          'Use SDK default (adaptive on Opus 4.6+)',
+          style: AppTypography.label(color: oc.textMuted),
+        ),
+        value: 'default',
+        groupValue: selected,
+        onChanged: (_) => _update(cfg.copyWith(clearThinking: true)),
+      ),
+      RadioListTile<String>(
+        contentPadding: EdgeInsets.zero,
+        dense: true,
+        title: const Text('Adaptive'),
+        subtitle: Text(
+          'Claude decides when and how much to think',
+          style: AppTypography.label(color: oc.textMuted),
+        ),
+        value: 'adaptive',
+        groupValue: selected,
+        onChanged: (_) => _update(
+          cfg.copyWith(thinking: const ClaudeCodeThinkingAdaptive()),
+        ),
+      ),
+      RadioListTile<String>(
+        contentPadding: EdgeInsets.zero,
+        dense: true,
+        title: const Text('Enabled (fixed budget)'),
+        subtitle: Text(
+          current is ClaudeCodeThinkingEnabled
+              ? '${current.budgetTokens} tokens'
+              : 'Set a fixed thinking token budget',
+          style: AppTypography.label(color: oc.textMuted),
+        ),
+        value: 'enabled',
+        groupValue: selected,
+        onChanged: (_) async {
+          // Show dialog for budget tokens
+          final currentBudget =
+              current is ClaudeCodeThinkingEnabled ? current.budgetTokens : 16384;
+          final controller =
+              TextEditingController(text: currentBudget.toString());
+          final result = await showDialog<int?>(
+            context: context,
+            builder: (ctx) => AlertDialog(
+              title: const Text('Thinking budget (tokens)'),
+              content: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  TextField(
+                    controller: controller,
+                    keyboardType: TextInputType.number,
+                    autofocus: true,
+                    decoration: const InputDecoration(
+                      hintText: 'e.g. 16384',
+                      labelText: 'Max thinking tokens',
+                    ),
+                  ),
+                  SizedBox(height: Spacing.sm),
+                  Text(
+                    'Common values: 4096 (quick), 16384 (balanced), 65536 (deep)',
+                    style: AppTypography.label(color: oc.textMuted),
+                  ),
+                ],
+              ),
+              actions: [
+                TextButton(
+                  onPressed: () => Navigator.pop(ctx, null),
+                  child: const Text('Cancel'),
+                ),
+                TextButton(
+                  onPressed: () {
+                    final parsed = int.tryParse(controller.text.trim());
+                    Navigator.pop(ctx, parsed ?? 16384);
+                  },
+                  child: const Text('Save'),
+                ),
+              ],
+            ),
+          );
+          controller.dispose();
+          if (result == null) return;
+          await _update(
+            cfg.copyWith(
+              thinking: ClaudeCodeThinkingEnabled(budgetTokens: result),
+            ),
+          );
+        },
+      ),
+      RadioListTile<String>(
+        contentPadding: EdgeInsets.zero,
+        dense: true,
+        title: const Text('Disabled'),
+        subtitle: Text(
+          'No extended thinking',
+          style: AppTypography.label(color: oc.textMuted),
+        ),
+        value: 'disabled',
+        groupValue: selected,
+        onChanged: (_) => _update(
+          cfg.copyWith(thinking: const ClaudeCodeThinkingDisabled()),
+        ),
+      ),
+    ];
+  }
+
+  // ── Effort chip helper ────────────────────────────────────────────────
+  Widget _effortChip(
+    ClaudeCodeConfig? cfg,
+    OpenCodeTheme oc,
+    ClaudeCodeEffort? value,
+    String label,
+  ) {
+    final isSelected = cfg?.effort == value;
+    return ChoiceChip(
+      label: Text(label),
+      selected: isSelected,
+      onSelected: cfg == null
+          ? null
+          : (_) async {
+              if (value == null) {
+                await _update(cfg.copyWith(clearEffort: true));
+              } else {
+                await _update(cfg.copyWith(effort: value));
+              }
+            },
+      selectedColor: oc.accent.withValues(alpha: 0.2),
+      labelStyle: TextStyle(
+        color: isSelected ? oc.accent : oc.text,
+        fontWeight: isSelected ? FontWeight.w600 : FontWeight.normal,
+        fontSize: 13,
+      ),
+      visualDensity: VisualDensity.compact,
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final oc = OpenCodeTheme.of(context);
@@ -632,6 +788,49 @@ class _ClaudeCodeSettingsScreenState
                               label: const Text('Edit custom prompt'),
                             ),
                           ],
+                        ],
+                      ),
+                    ),
+                  // Thinking Mode (SDK 0.2.42+)
+                  if (_matches('thinking mode adaptive enabled disabled reasoning'))
+                    _buildSettingCard(
+                      oc: oc,
+                      title: 'Thinking Mode',
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            'Controls Claude\'s reasoning behavior. Adaptive lets Claude decide; Enabled sets a fixed token budget; Disabled turns off extended thinking.',
+                            style: AppTypography.label(color: oc.textMuted),
+                          ),
+                          SizedBox(height: Spacing.sm),
+                          ..._buildThinkingModeRadios(cfg, oc),
+                        ],
+                      ),
+                    ),
+                  // Effort Level (SDK 0.2.42+)
+                  if (_matches('effort level low medium high max reasoning depth'))
+                    _buildSettingCard(
+                      oc: oc,
+                      title: 'Effort',
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            'Controls how much effort Claude puts into responses. Works with adaptive thinking to guide reasoning depth.',
+                            style: AppTypography.label(color: oc.textMuted),
+                          ),
+                          SizedBox(height: Spacing.sm),
+                          Wrap(
+                            spacing: 8,
+                            runSpacing: 8,
+                            children: [
+                              _effortChip(cfg, oc, null, 'Default'),
+                              ...ClaudeCodeEffort.values.map(
+                                (e) => _effortChip(cfg, oc, e, e.displayName),
+                              ),
+                            ],
+                          ),
                         ],
                       ),
                     ),
@@ -1139,6 +1338,8 @@ class _ClaudeCodeSettingsScreenState
                       !_matches(
                         'system prompt append preset custom instructions',
                       ) &&
+                      !_matches('thinking mode adaptive enabled disabled reasoning') &&
+                      !_matches('effort level low medium high max reasoning depth') &&
                       !_matches('1m context beta') &&
                       !_matches('budget max budget usd') &&
                       !_matches('turn max turns') &&

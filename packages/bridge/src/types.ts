@@ -272,6 +272,9 @@ export type ClientMessage =
       maxBudgetUsd?: number
       betas?: ClaudeCodeBeta[]
       variant?: string
+      thinking?: ClaudeCodeThinkingOption
+      effort?: ClaudeCodeEffort
+      agent?: string
       systemPrompt?: ClaudeCodeSystemPrompt
       activeSubagent?: string
       fileAttachments?: FileAttachment[]
@@ -279,8 +282,24 @@ export type ClientMessage =
       outputFormat?: ClaudeCodeOutputFormat
       sandbox?: ClaudeCodeSandboxSettings
       enableAgentTeams?: boolean
+      persistSession?: boolean
+      // B5: fallback model for auto-retry on primary model failure
+      fallbackModel?: string
+      // B6: additional directories agent can access beyond cwd
+      additionalDirectories?: string[]
     }
   | { type: 'cc_abort'; sessionId: string }
+  | { type: 'cc_stop_task'; sessionId: string; taskId: string }
+  | { type: 'cc_reconnect_mcp_server'; sessionId: string; serverName: string }
+  | { type: 'cc_toggle_mcp_server'; sessionId: string; serverName: string; enabled: boolean }
+  // B1: change permission mode mid-session
+  | { type: 'cc_set_permission_mode'; sessionId: string; mode: ClaudeCodePermissionMode }
+  // B2: change model mid-session
+  | { type: 'cc_set_model'; sessionId: string; model?: string }
+  // B7: dynamically set MCP servers mid-session
+  | { type: 'cc_set_mcp_servers'; sessionId: string; servers: Record<string, unknown> }
+  // B3: get full initialization result (richer than session-init)
+  | { type: 'cc_initialization_result'; sessionId: string }
   | { type: 'cc_permission_response'; sessionId: string; toolUseId: string; response: PermissionResponse }
   | { type: 'cc_list_skills'; cwd?: string }
   | { type: 'cc_get_skill'; name: string; source: 'project' | 'user' | 'plugin'; cwd?: string; path?: string }
@@ -677,7 +696,10 @@ export type ServerMessage =
   | { type: 'cc_supported_models'; data: ClaudeCodeSupportedModel[]; requestId?: string }
   | { type: 'cc_account_info'; data: ClaudeCodeAccountInfo; requestId?: string }
   | { type: 'cc_mcp_server_status'; data: ClaudeCodeMcpServerStatus[]; requestId?: string }
-  | { type: 'cc_checkpoint_rewound'; data: { success: boolean; sessionId: string; checkpointUuid: string }; requestId?: string }
+  | { type: 'cc_checkpoint_rewound'; data: { success: boolean; sessionId: string; checkpointUuid: string; filesChanged?: string[]; insertions?: number; deletions?: number }; requestId?: string }
+  | { type: 'cc_task_stopped'; data: { ok: boolean; taskId: string }; requestId?: string }
+  | { type: 'cc_mcp_server_reconnected'; data: { ok: boolean; serverName: string }; requestId?: string }
+  | { type: 'cc_mcp_server_toggled'; data: { ok: boolean; serverName: string; enabled: boolean }; requestId?: string }
   | { type: 'cc_fs_changed'; data: { kind: 'skills' | 'plugins' | 'hooks' | 'commands' | 'mcp'; dir: string; cwd?: string; file?: string }; requestId?: string }
   | { type: 'cc_stream'; data: ClaudeCodeStreamMessage; sessionId: string }
   // Codex (OpenAI Codex app-server)
@@ -1092,6 +1114,8 @@ export type ClaudeCodeOutputFormat = {
 }
 
 export type ClaudeCodeSandboxNetworkConfig = {
+  allowedDomains?: string[]
+  allowManagedDomainsOnly?: boolean
   allowUnixSockets?: string[]
   allowAllUnixSockets?: boolean
   allowLocalBinding?: boolean
@@ -1107,6 +1131,7 @@ export type ClaudeCodeSandboxSettings = {
   ignoreViolations?: Record<string, string[]>
   enableWeakerNestedSandbox?: boolean
   excludedCommands?: string[]
+  ripgrep?: { command: string; args?: string[] }
 }
 
 // Claude Code Filesystem Agent (discovered from .claude/agents/*.md)
@@ -1139,6 +1164,9 @@ export type ClaudeCodeSubagent = {
   model?: 'sonnet' | 'opus' | 'haiku' | 'inherit'  // Model override
   permissionMode?: ClaudeCodePermissionMode
   disallowedTools?: string[]
+  skills?: string[]              // Skills to preload
+  maxTurns?: number              // Max agentic turns
+  mcpServers?: Array<string | Record<string, unknown>>  // Per-subagent MCP servers (B14)
 }
 
 // Claude Code Custom Tool Parameter
@@ -1237,6 +1265,15 @@ export type ClaudeCodePluginConfig = {
   customPaths: string[]           // Additional plugin paths to scan
 }
 
+// Claude Code Thinking Option (SDK 0.2.42+)
+export type ClaudeCodeThinkingOption =
+  | { type: 'adaptive' }
+  | { type: 'enabled'; budgetTokens: number }
+  | { type: 'disabled' }
+
+// Claude Code Effort Level (SDK 0.2.42+)
+export type ClaudeCodeEffort = 'low' | 'medium' | 'high' | 'max'
+
 // Claude Code Configuration
 export type ClaudeCodeConfig = {
   permissionMode: ClaudeCodePermissionMode
@@ -1250,6 +1287,8 @@ export type ClaudeCodeConfig = {
   sandbox?: ClaudeCodeSandboxSettings
   outputFormat?: ClaudeCodeOutputFormat
   enableAgentTeams?: boolean
+  thinking?: ClaudeCodeThinkingOption
+  effort?: ClaudeCodeEffort
   // Project/user settings (persisted in Claude Code settings.json)
   language?: string
   releaseChannel?: 'stable' | 'latest'
@@ -1272,13 +1311,23 @@ export type ClaudeCodeAccountInfo = {
   apiKeySource?: string
 }
 
+export type ClaudeCodeMcpToolAnnotations = {
+  readOnly?: boolean
+  destructive?: boolean
+  openWorld?: boolean
+}
+
 export type ClaudeCodeMcpServerStatus = {
   name: string
-  status: 'connected' | 'failed' | 'needs-auth' | 'pending'
+  status: 'connected' | 'failed' | 'needs-auth' | 'pending' | 'disabled'
   serverInfo?: {
     name: string
     version: string
   }
+  error?: string
+  config?: Record<string, unknown>
+  scope?: string
+  tools?: Array<{ name: string; description?: string; annotations?: ClaudeCodeMcpToolAnnotations }>
 }
 
 export type ClaudeCodeModelUsage = {
@@ -1289,6 +1338,7 @@ export type ClaudeCodeModelUsage = {
   webSearchRequests: number
   costUSD: number
   contextWindow: number
+  maxOutputTokens: number
 }
 
 // Claude Code Message (for streaming)
@@ -1302,10 +1352,13 @@ export type ClaudeCodeStreamMessage =
       tools: string[]
       slashCommands: string[]
       skills: string[]
+      agents: string[]
       mcpServers: Array<{ name: string; status: string }>
       plugins: Array<{ name: string; path: string }>
       apiKeySource?: string
       claudeCodeVersion?: string
+      betas?: string[]
+      outputStyle?: string
       supportedModels?: ClaudeCodeSupportedModel[]
       accountInfo?: ClaudeCodeAccountInfo
       parentToolUseId?: string
@@ -1316,7 +1369,7 @@ export type ClaudeCodeStreamMessage =
       preTokens: number
       parentToolUseId?: string
     }
-  | { type: 'permission-request'; sessionId: string; toolUseId: string; tool: string; input: Record<string, unknown>; decisionReason?: string; blockedPath?: string; hasSuggestions?: boolean; parentToolUseId?: string }
+  | { type: 'permission-request'; sessionId: string; toolUseId: string; tool: string; input: Record<string, unknown>; decisionReason?: string; blockedPath?: string; hasSuggestions?: boolean; description?: string; agentId?: string; parentToolUseId?: string }
   | { type: 'checkpoint-created'; sessionId: string; checkpointUuid: string; timestamp: number; parentToolUseId?: string }
   | { type: 'assistant-message'; content: string; messageId?: string; parentToolUseId?: string }
   | { type: 'assistant-message-delta'; content: string; messageId?: string; parentToolUseId?: string }
@@ -1340,7 +1393,19 @@ export type ClaudeCodeStreamMessage =
       messageId?: string
       parentToolUseId?: string
     }
+  // B9: assistant-level error classification (authentication_failed, billing_error, rate_limit, etc.)
+  | { type: 'assistant-error'; errorType: string; messageId?: string; parentToolUseId?: string }
+  // B10: stop reason from result message (why the session ended)
+  | { type: 'result-complete'; stopReason?: string | null; numTurns?: number; durationMs?: number; durationApiMs?: number; parentToolUseId?: string }
   | { type: 'error'; message: string; code?: string; parentToolUseId?: string }
+  | { type: 'task-notification'; taskId: string; status: 'completed' | 'failed' | 'stopped'; summary: string; outputFile?: string; parentToolUseId?: string }
+  | { type: 'tool-use-summary'; summary: string; precedingToolUseIds: string[]; parentToolUseId?: string }
+  | { type: 'files-persisted'; files: Array<{ filename: string; fileId: string }>; failed: Array<{ filename: string; error: string }>; parentToolUseId?: string }
+  | { type: 'status-update'; status: 'compacting' | null; permissionMode?: string; parentToolUseId?: string }
+  | { type: 'hook-started'; hookId: string; hookName: string; hookEvent: string; parentToolUseId?: string }
+  | { type: 'hook-progress'; hookId: string; hookName: string; hookEvent: string; output: string; parentToolUseId?: string }
+  | { type: 'hook-response'; hookId: string; hookName: string; hookEvent: string; output: string; outcome: 'success' | 'error' | 'cancelled'; exitCode?: number; parentToolUseId?: string }
+  | { type: 'auth-status'; isAuthenticating: boolean; output: string[]; error?: string; parentToolUseId?: string }
 
 export type ClaudeCodeTranscriptToolCall = {
   toolUseId: string
